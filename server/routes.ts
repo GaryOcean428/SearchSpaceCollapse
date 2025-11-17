@@ -5,7 +5,8 @@ import { generateBitcoinAddress, verifyBrainWallet } from "./crypto";
 import { scorePhrase } from "./qig-scoring";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase } from "./bip39-words";
-import { testPhraseRequestSchema, batchTestRequestSchema, addAddressRequestSchema, generateRandomPhrasesRequestSchema, type Candidate, type TargetAddress } from "@shared/schema";
+import { searchCoordinator } from "./search-coordinator";
+import { testPhraseRequestSchema, batchTestRequestSchema, addAddressRequestSchema, generateRandomPhrasesRequestSchema, createSearchJobRequestSchema, type Candidate, type TargetAddress, type SearchJob } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -219,6 +220,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Search Jobs API
+  app.post("/api/search-jobs", async (req, res) => {
+    try {
+      const validation = createSearchJobRequestSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({
+          error: validation.error.errors[0].message,
+        });
+      }
+
+      const { strategy, params } = validation.data;
+      const job: SearchJob = {
+        id: randomUUID(),
+        strategy,
+        status: "pending",
+        params,
+        progress: {
+          tested: 0,
+          highPhiCount: 0,
+          lastBatchIndex: 0,
+        },
+        stats: {
+          startTime: undefined,
+          endTime: undefined,
+          rate: 0,
+        },
+        logs: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await storage.addSearchJob(job);
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/search-jobs", async (req, res) => {
+    try {
+      const jobs = await storage.getSearchJobs();
+      res.json(jobs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/search-jobs/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const job = await storage.getSearchJob(id);
+      
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/search-jobs/:id/stop", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await searchCoordinator.stopJob(id);
+      
+      const job = await storage.getSearchJob(id);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      res.json(job);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/search-jobs/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteSearchJob(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Start the background search coordinator
+  searchCoordinator.start();
 
   const httpServer = createServer(app);
 
