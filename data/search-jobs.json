@@ -1,0 +1,949 @@
+[
+  {
+    "id": "e2672ba9-1af7-45e0-bd65-61fbb660dea7",
+    "strategy": "bip39-continuous",
+    "status": "running",
+    "params": {
+      "minHighPhi": 2,
+      "wordLength": 12
+    },
+    "progress": {
+      "tested": 1830,
+      "highPhiCount": 0,
+      "lastBatchIndex": 0
+    },
+    "stats": {
+      "startTime": "2025-11-17T12:09:41.524Z",
+      "rate": 79.8
+    },
+    "logs": [
+      {
+        "message": "Search started",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:41.524Z"
+      },
+      {
+        "message": "Continuous generation (12 words): running until 2+ high-Φ candidates found",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:41.525Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:41.596Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:41.711Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:41.827Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:41.944Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.053Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.164Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.273Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.382Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.498Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.616Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.725Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.835Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:42.946Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.054Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.181Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.305Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.414Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.523Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.635Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.750Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.861Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:43.973Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.082Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.195Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.305Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.415Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.526Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.635Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.751Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.884Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:44.997Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.109Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.220Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.330Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.443Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.553Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.662Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.771Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:45.916Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.047Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.159Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.271Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.384Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.498Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.616Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.728Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.842Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:47.958Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.072Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.185Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.304Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.424Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.543Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.698Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.816Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:48.932Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.048Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.160Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.273Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.390Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.515Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.626Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.746Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.867Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:49.987Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.098Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.210Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.322Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.438Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.638Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.753Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.871Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:50.990Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.103Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.214Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.329Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.445Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.559Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.693Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.826Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:51.940Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.060Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.171Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.282Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.397Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.511Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.625Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.754Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.867Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:52.991Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.105Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.222Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.339Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.450Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.568Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.680Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.793Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:53.938Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.084Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.209Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.325Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.443Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.558Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.684Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.821Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:54.933Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.085Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.221Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.333Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.448Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.561Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.674Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.789Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:55.903Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.031Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.144Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.276Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.407Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.531Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.643Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.756Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.871Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:56.987Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.098Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.215Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.331Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.443Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.555Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.708Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.832Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:57.953Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.082Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.206Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.321Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.469Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.582Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.717Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.828Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:58.951Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.062Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.173Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.292Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.410Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.613Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.727Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.865Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:09:59.987Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:00.101Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:00.214Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:00.381Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:00.500Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:00.632Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:00.768Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:00.886Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.054Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.180Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.299Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.412Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.526Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.638Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.759Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.872Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:01.991Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.108Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.239Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.349Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.476Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.599Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.722Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.837Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:02.949Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.084Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.225Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.336Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.452Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.565Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.695Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.814Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:03.940Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:04.071Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:04.207Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:04.347Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-17T12:10:04.464Z"
+      }
+    ],
+    "createdAt": "2025-11-17T12:09:41.376Z",
+    "updatedAt": "2025-11-17T12:10:04.464Z"
+  }
+]
