@@ -76,12 +76,13 @@ export const searchJobLogSchema = z.object({
 
 export const searchJobSchema = z.object({
   id: z.string(),
-  strategy: z.enum(["custom", "known", "batch", "bip39-random"]),
+  strategy: z.enum(["custom", "known", "batch", "bip39-random", "bip39-continuous"]),
   status: z.enum(["pending", "running", "completed", "stopped", "failed"]),
   params: z.object({
     customPhrase: z.string().optional(),
     batchPhrases: z.array(z.string()).optional(),
     bip39Count: z.number().optional(),
+    minHighPhi: z.number().optional(),
   }),
   progress: z.object({
     tested: z.number(),
@@ -99,11 +100,12 @@ export const searchJobSchema = z.object({
 });
 
 export const createSearchJobRequestSchema = z.object({
-  strategy: z.enum(["custom", "known", "batch", "bip39-random"]),
+  strategy: z.enum(["custom", "known", "batch", "bip39-random", "bip39-continuous"]),
   params: z.object({
     customPhrase: z.string().optional(),
     batchPhrases: z.array(z.string()).optional(),
     bip39Count: z.number().optional(),
+    minHighPhi: z.number().optional(),
   }),
 });
 

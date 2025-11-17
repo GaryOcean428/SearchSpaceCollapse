@@ -13,14 +13,15 @@ import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, C
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, TargetAddress, SearchJob } from "@shared/schema";
 
-type SearchStrategy = "custom" | "known" | "batch" | "bip39-random";
+type SearchStrategy = "custom" | "known" | "batch" | "bip39-random" | "bip39-continuous";
 
 export default function RecoveryPage() {
   const { toast } = useToast();
-  const [strategy, setStrategy] = useState<SearchStrategy>("known");
+  const [strategy, setStrategy] = useState<SearchStrategy>("bip39-continuous");
   const [customPhrase, setCustomPhrase] = useState("");
   const [batchPhrases, setBatchPhrases] = useState("");
   const [bip39Count, setBip39Count] = useState(100);
+  const [minHighPhi, setMinHighPhi] = useState(2);
   const [newAddress, setNewAddress] = useState("");
   const [newAddressLabel, setNewAddressLabel] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -215,6 +216,16 @@ export default function RecoveryPage() {
         return;
       }
       params.bip39Count = bip39Count;
+    } else if (strategy === "bip39-continuous") {
+      if (minHighPhi < 1 || minHighPhi > 100) {
+        toast({
+          title: "Invalid target",
+          description: "Target must be between 1 and 100",
+          variant: "destructive",
+        });
+        return;
+      }
+      params.minHighPhi = minHighPhi;
     }
 
     createJobMutation.mutate({ strategy, params });
@@ -403,9 +414,10 @@ export default function RecoveryPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="bip39-continuous">BIP-39 Continuous (Until Target Reached)</SelectItem>
+                  <SelectItem value="bip39-random">BIP-39 Random (Fixed Count)</SelectItem>
+                  <SelectItem value="known">Known 12-Word Phrases</SelectItem>
                   <SelectItem value="custom">Test Your Own Phrase</SelectItem>
-                  <SelectItem value="known">Known 12-Word Phrases (Bitcoin/Crypto/Mac Culture)</SelectItem>
-                  <SelectItem value="bip39-random">BIP-39 Random Generation</SelectItem>
                   <SelectItem value="batch">Batch Test Multiple Phrases</SelectItem>
                 </SelectContent>
               </Select>
@@ -449,6 +461,26 @@ export default function RecoveryPage() {
               </div>
             )}
 
+            {strategy === "bip39-continuous" && (
+              <div>
+                <Label htmlFor="minHighPhi" className="text-base">Run Until This Many High-Φ Candidates Found:</Label>
+                <Input
+                  id="minHighPhi"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={minHighPhi}
+                  onChange={(e) => setMinHighPhi(parseInt(e.target.value) || 2)}
+                  className="mt-2"
+                  disabled={!!activeJob}
+                  data-testid="input-min-high-phi"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  QIG-informed continuous generation runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
+                </p>
+              </div>
+            )}
+
             {strategy === "bip39-random" && (
               <div>
                 <Label htmlFor="bip39Count" className="text-base">Number of Random Phrases to Generate:</Label>
@@ -464,7 +496,7 @@ export default function RecoveryPage() {
                   data-testid="input-bip39-count"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Generate 1-100 random BIP-39 compliant phrases
+                  Generate 1-100 QIG-informed BIP-39 phrases (fixed count)
                 </p>
               </div>
             )}
@@ -472,7 +504,7 @@ export default function RecoveryPage() {
             {strategy === "known" && (
               <div className="p-4 bg-muted/50 rounded-md">
                 <p className="text-sm text-muted-foreground">
-                  This will test {">"}40 contextually relevant phrases including Bitcoin whitepaper quotes, 2009 financial crisis references, cypherpunk philosophy, and Mac aesthetic principles.
+                  This will test 45 contextually relevant BIP-39 phrases with Bitcoin/crypto, cypherpunk, and Mac aesthetic themes.
                 </p>
               </div>
             )}

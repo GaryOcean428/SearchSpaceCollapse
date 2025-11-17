@@ -74,10 +74,16 @@ class SearchCoordinator {
     if (job.status === "pending") {
       await storage.updateSearchJob(jobId, { 
         status: "running",
-        stats: { startTime: new Date().toISOString() }
+        stats: { startTime: new Date().toISOString(), rate: 0 }
       });
       await storage.appendJobLog(jobId, { message: "Search started", type: "info" });
       job = await storage.getSearchJob(jobId) as SearchJob;
+    }
+
+    // Continuous mode for BIP-39
+    if (job.strategy === "bip39-continuous") {
+      await this.executeContinuousJob(jobId);
+      return;
     }
 
     const phrases = await this.getPhrasesForStrategy(job);
@@ -115,9 +121,10 @@ class SearchCoordinator {
       });
 
       if (results.matchFound) {
+        const finalJob = await storage.getSearchJob(jobId) as SearchJob;
         await storage.updateSearchJob(jobId, {
           status: "completed",
-          stats: { endTime: new Date().toISOString() },
+          stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
         });
         await storage.appendJobLog(jobId, { 
           message: `🎉 MATCH FOUND! ${results.matchedPhrase}`, 
@@ -129,11 +136,89 @@ class SearchCoordinator {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
+    const finalJob = await storage.getSearchJob(jobId) as SearchJob;
     await storage.updateSearchJob(jobId, {
       status: "completed",
-      stats: { endTime: new Date().toISOString() },
+      stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
     });
     await storage.appendJobLog(jobId, { message: "Search completed", type: "info" });
+  }
+
+  private async executeContinuousJob(jobId: string) {
+    const BATCH_SIZE = 10;
+    let job = await storage.getSearchJob(jobId) as SearchJob;
+    const minHighPhi = job.params.minHighPhi || 2;
+
+    await storage.appendJobLog(jobId, { 
+      message: `Continuous generation: running until ${minHighPhi}+ high-Φ candidates found`, 
+      type: "info" 
+    });
+
+    while (true) {
+      // Reload job state to check for stop signals
+      job = await storage.getSearchJob(jobId) as SearchJob;
+      if (!job || job.status === "stopped") {
+        await storage.appendJobLog(jobId, { message: "Search stopped by user", type: "info" });
+        return;
+      }
+
+      // Generate fresh batch of phrases
+      const batch: string[] = [];
+      for (let i = 0; i < BATCH_SIZE; i++) {
+        batch.push(generateRandomBIP39Phrase());
+      }
+
+      const results = await this.processBatch(batch, jobId);
+
+      // Reload job again for fresh state before updating
+      job = await storage.getSearchJob(jobId) as SearchJob;
+      const newTested = job.progress.tested + batch.length;
+      const newHighPhi = job.progress.highPhiCount + results.highPhiCandidates;
+      const elapsed = Date.now() - new Date(job.stats.startTime!).getTime();
+      const rate = Math.round((newTested / (elapsed / 1000)) * 10) / 10;
+
+      await storage.updateSearchJob(jobId, {
+        progress: {
+          tested: newTested,
+          highPhiCount: newHighPhi,
+          lastBatchIndex: 0, // Not applicable for continuous
+        },
+        stats: { rate },
+      });
+      await storage.appendJobLog(jobId, { 
+        message: `Batch complete: ${batch.length} phrases tested, ${results.highPhiCandidates} high-Φ (total: ${newHighPhi})`, 
+        type: "info" 
+      });
+
+      if (results.matchFound) {
+        const finalJob = await storage.getSearchJob(jobId) as SearchJob;
+        await storage.updateSearchJob(jobId, {
+          status: "completed",
+          stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
+        });
+        await storage.appendJobLog(jobId, { 
+          message: `🎉 MATCH FOUND! ${results.matchedPhrase}`, 
+          type: "success" 
+        });
+        return;
+      }
+
+      // Check if we've found enough high-Φ candidates
+      if (newHighPhi >= minHighPhi) {
+        const finalJob = await storage.getSearchJob(jobId) as SearchJob;
+        await storage.updateSearchJob(jobId, {
+          status: "completed",
+          stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
+        });
+        await storage.appendJobLog(jobId, { 
+          message: `✓ Target reached: ${newHighPhi} high-Φ candidates found`, 
+          type: "success" 
+        });
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
   }
 
   private async getPhrasesForStrategy(job: SearchJob): Promise<string[]> {
@@ -154,6 +239,10 @@ class SearchCoordinator {
           phrases.push(generateRandomBIP39Phrase());
         }
         return phrases;
+
+      case "bip39-continuous":
+        // Continuous mode handles phrase generation internally
+        return [];
 
       default:
         return [];
@@ -211,7 +300,7 @@ class SearchCoordinator {
     if (job && (job.status === "pending" || job.status === "running")) {
       await storage.updateSearchJob(jobId, {
         status: "stopped",
-        stats: { endTime: new Date().toISOString() },
+        stats: { endTime: new Date().toISOString(), rate: job.stats.rate },
       });
     }
   }
