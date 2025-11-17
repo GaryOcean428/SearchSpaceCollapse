@@ -1,37 +1,28 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { type Candidate } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getCandidates(): Promise<Candidate[]>;
+  addCandidate(candidate: Candidate): Promise<void>;
+  clearCandidates(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private candidates: Candidate[] = [];
 
-  constructor() {
-    this.users = new Map();
+  async getCandidates(): Promise<Candidate[]> {
+    return [...this.candidates].sort((a, b) => b.score - a.score);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async addCandidate(candidate: Candidate): Promise<void> {
+    this.candidates.push(candidate);
+    this.candidates.sort((a, b) => b.score - a.score);
+    if (this.candidates.length > 100) {
+      this.candidates = this.candidates.slice(0, 100);
+    }
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async clearCandidates(): Promise<void> {
+    this.candidates = [];
   }
 }
 
