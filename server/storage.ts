@@ -18,6 +18,7 @@ export interface IStorage {
   getSearchJob(id: string): Promise<SearchJob | null>;
   addSearchJob(job: SearchJob): Promise<void>;
   updateSearchJob(id: string, updates: Partial<SearchJob>): Promise<void>;
+  appendJobLog(id: string, log: { message: string; type: "info" | "success" | "error" }): Promise<void>;
   deleteSearchJob(id: string): Promise<void>;
 }
 
@@ -107,7 +108,27 @@ export class MemStorage implements IStorage {
   async updateSearchJob(id: string, updates: Partial<SearchJob>): Promise<void> {
     const index = this.searchJobs.findIndex(j => j.id === id);
     if (index !== -1) {
-      this.searchJobs[index] = { ...this.searchJobs[index], ...updates, updatedAt: new Date().toISOString() };
+      const current = this.searchJobs[index];
+      this.searchJobs[index] = {
+        ...current,
+        ...updates,
+        progress: updates.progress ? { ...current.progress, ...updates.progress } : current.progress,
+        stats: updates.stats ? { ...current.stats, ...updates.stats } : current.stats,
+        logs: updates.logs || current.logs,
+        updatedAt: new Date().toISOString(),
+      };
+      this.saveJobs();
+    }
+  }
+
+  async appendJobLog(id: string, log: { message: string; type: "info" | "success" | "error" }): Promise<void> {
+    const index = this.searchJobs.findIndex(j => j.id === id);
+    if (index !== -1) {
+      this.searchJobs[index].logs.push({
+        ...log,
+        timestamp: new Date().toISOString(),
+      });
+      this.searchJobs[index].updatedAt = new Date().toISOString();
       this.saveJobs();
     }
   }

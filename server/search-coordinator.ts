@@ -40,79 +40,88 @@ class SearchCoordinator {
     }
 
     const jobs = await storage.getSearchJobs();
-    const pendingJob = jobs.find(j => j.status === "pending" || j.status === "running");
+    
+    // Prefer currently running job, then first pending job
+    let jobToProcess = jobs.find(j => j.status === "running");
+    if (!jobToProcess) {
+      jobToProcess = jobs.find(j => j.status === "pending");
+    }
 
-    if (!pendingJob) {
+    if (!jobToProcess) {
       return;
     }
 
-    this.currentJobId = pendingJob.id;
+    this.currentJobId = jobToProcess.id;
 
     try {
-      await this.executeJob(pendingJob);
+      await this.executeJob(jobToProcess.id);
     } catch (error: any) {
-      console.error(`[SearchCoordinator] Job ${pendingJob.id} failed:`, error);
-      await this.updateJob(pendingJob.id, {
-        status: "failed",
-        logs: [...pendingJob.logs, this.createLog(`Job failed: ${error.message}`, "error")],
-      });
+      console.error(`[SearchCoordinator] Job ${jobToProcess.id} failed:`, error);
+      await storage.appendJobLog(jobToProcess.id, { message: `Job failed: ${error.message}`, type: "error" });
+      await storage.updateSearchJob(jobToProcess.id, { status: "failed" });
     } finally {
       this.currentJobId = null;
     }
   }
 
-  private async executeJob(job: SearchJob) {
-    if (job.status === "stopped") {
+  private async executeJob(jobId: string) {
+    // Always reload fresh job state
+    let job = await storage.getSearchJob(jobId);
+    if (!job || job.status === "stopped") {
       return;
     }
 
     if (job.status === "pending") {
-      await this.updateJob(job.id, {
+      await storage.updateSearchJob(jobId, { 
         status: "running",
-        stats: { ...job.stats, startTime: new Date().toISOString() },
-        logs: [...job.logs, this.createLog("Search started", "info")],
+        stats: { startTime: new Date().toISOString() }
       });
-      job = await storage.getSearchJob(job.id) as SearchJob;
+      await storage.appendJobLog(jobId, { message: "Search started", type: "info" });
+      job = await storage.getSearchJob(jobId) as SearchJob;
     }
 
     const phrases = await this.getPhrasesForStrategy(job);
     const BATCH_SIZE = 10;
-    const startIndex = job.progress.lastBatchIndex;
 
-    for (let i = startIndex; i < phrases.length; i += BATCH_SIZE) {
-      const currentJob = await storage.getSearchJob(job.id);
-      if (!currentJob || currentJob.status === "stopped") {
-        await this.updateJob(job.id, {
-          logs: [...(currentJob?.logs || []), this.createLog("Search stopped by user", "info")],
-        });
+    for (let i = job.progress.lastBatchIndex; i < phrases.length; i += BATCH_SIZE) {
+      // Reload job state to check for stop signals
+      job = await storage.getSearchJob(jobId) as SearchJob;
+      if (!job || job.status === "stopped") {
+        await storage.appendJobLog(jobId, { message: "Search stopped by user", type: "info" });
         return;
       }
 
       const batch = phrases.slice(i, i + BATCH_SIZE);
-      const results = await this.processBatch(batch, job.id);
+      const results = await this.processBatch(batch, jobId);
 
+      // Reload job again for fresh state before updating
+      job = await storage.getSearchJob(jobId) as SearchJob;
       const newTested = job.progress.tested + batch.length;
       const newHighPhi = job.progress.highPhiCount + results.highPhiCandidates;
       const elapsed = Date.now() - new Date(job.stats.startTime!).getTime();
       const rate = Math.round((newTested / (elapsed / 1000)) * 10) / 10;
 
-      await this.updateJob(job.id, {
+      await storage.updateSearchJob(jobId, {
         progress: {
           tested: newTested,
           highPhiCount: newHighPhi,
           lastBatchIndex: i + BATCH_SIZE,
         },
-        stats: { ...job.stats, rate },
-        logs: [...job.logs, this.createLog(`Batch complete: ${batch.length} phrases tested, ${results.highPhiCandidates} high-Φ`, "info")],
+        stats: { rate },
+      });
+      await storage.appendJobLog(jobId, { 
+        message: `Batch complete: ${batch.length} phrases tested, ${results.highPhiCandidates} high-Φ`, 
+        type: "info" 
       });
 
-      job = await storage.getSearchJob(job.id) as SearchJob;
-
       if (results.matchFound) {
-        await this.updateJob(job.id, {
+        await storage.updateSearchJob(jobId, {
           status: "completed",
-          stats: { ...job.stats, endTime: new Date().toISOString() },
-          logs: [...job.logs, this.createLog(`🎉 MATCH FOUND! ${results.matchedPhrase}`, "success")],
+          stats: { endTime: new Date().toISOString() },
+        });
+        await storage.appendJobLog(jobId, { 
+          message: `🎉 MATCH FOUND! ${results.matchedPhrase}`, 
+          type: "success" 
         });
         return;
       }
@@ -120,11 +129,11 @@ class SearchCoordinator {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    await this.updateJob(job.id, {
+    await storage.updateSearchJob(jobId, {
       status: "completed",
-      stats: { ...job.stats, endTime: new Date().toISOString() },
-      logs: [...job.logs, this.createLog("Search completed", "info")],
+      stats: { endTime: new Date().toISOString() },
     });
+    await storage.appendJobLog(jobId, { message: "Search completed", type: "info" });
   }
 
   private async getPhrasesForStrategy(job: SearchJob): Promise<string[]> {
@@ -197,24 +206,12 @@ class SearchCoordinator {
     };
   }
 
-  private async updateJob(id: string, updates: Partial<SearchJob>) {
-    await storage.updateSearchJob(id, { ...updates, updatedAt: new Date().toISOString() });
-  }
-
-  private createLog(message: string, type: "info" | "success" | "error"): SearchJobLog {
-    return {
-      message,
-      type,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
   async stopJob(jobId: string) {
     const job = await storage.getSearchJob(jobId);
     if (job && (job.status === "pending" || job.status === "running")) {
-      await this.updateJob(jobId, {
+      await storage.updateSearchJob(jobId, {
         status: "stopped",
-        stats: { ...job.stats, endTime: new Date().toISOString() },
+        stats: { endTime: new Date().toISOString() },
       });
     }
   }
