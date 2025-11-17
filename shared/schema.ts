@@ -52,6 +52,22 @@ export const verificationResultSchema = z.object({
   error: z.string().optional(),
 });
 
+export const targetAddressSchema = z.object({
+  id: z.string(),
+  address: z.string(),
+  label: z.string().optional(),
+  addedAt: z.string(),
+});
+
+export const addAddressRequestSchema = z.object({
+  address: z.string().min(26).max(35),
+  label: z.string().optional(),
+});
+
+export const generateRandomPhrasesRequestSchema = z.object({
+  count: z.number().min(1).max(100),
+});
+
 export type Phrase = z.infer<typeof phraseSchema>;
 export type QIGScore = z.infer<typeof qigScoreSchema>;
 export type Candidate = z.infer<typeof candidateSchema>;
@@ -59,3 +75,6 @@ export type SearchStats = z.infer<typeof searchStatsSchema>;
 export type TestPhraseRequest = z.infer<typeof testPhraseRequestSchema>;
 export type BatchTestRequest = z.infer<typeof batchTestRequestSchema>;
 export type VerificationResult = z.infer<typeof verificationResultSchema>;
+export type TargetAddress = z.infer<typeof targetAddressSchema>;
+export type AddAddressRequest = z.infer<typeof addAddressRequestSchema>;
+export type GenerateRandomPhrasesRequest = z.infer<typeof generateRandomPhrasesRequestSchema>;
