@@ -177,5 +177,87 @@
     ],
     "createdAt": "2025-11-17T11:27:15.700Z",
     "updatedAt": "2025-11-17T11:27:17.973Z"
+  },
+  {
+    "id": "8930c7db-96e0-4d13-a59a-a1adc8ba6192",
+    "strategy": "bip39-random",
+    "status": "completed",
+    "params": {
+      "bip39Count": 100
+    },
+    "progress": {
+      "tested": 100,
+      "highPhiCount": 0,
+      "lastBatchIndex": 100
+    },
+    "stats": {
+      "startTime": "2025-11-17T11:37:52.797Z",
+      "endTime": "2025-11-17T11:37:54.074Z",
+      "rate": 85.1
+    },
+    "logs": [
+      {
+        "message": "Search started",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:52.797Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:52.943Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.058Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.177Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.290Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.403Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.511Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.622Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.744Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.856Z"
+      },
+      {
+        "message": "Batch complete: 10 phrases tested, 0 high-Φ",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:53.973Z"
+      },
+      {
+        "message": "Search completed",
+        "type": "info",
+        "timestamp": "2025-11-17T11:37:54.074Z"
+      }
+    ],
+    "createdAt": "2025-11-17T11:37:51.953Z",
+    "updatedAt": "2025-11-17T11:37:54.074Z"
   }
 ]
