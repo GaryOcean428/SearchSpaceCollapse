@@ -83,6 +83,7 @@ export const searchJobSchema = z.object({
     batchPhrases: z.array(z.string()).optional(),
     bip39Count: z.number().optional(),
     minHighPhi: z.number().optional(),
+    wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
   }),
   progress: z.object({
     tested: z.number(),
@@ -106,6 +107,7 @@ export const createSearchJobRequestSchema = z.object({
     batchPhrases: z.array(z.string()).optional(),
     bip39Count: z.number().optional(),
     minHighPhi: z.number().optional(),
+    wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
   }),
 });
 

@@ -148,9 +148,10 @@ class SearchCoordinator {
     const BATCH_SIZE = 10;
     let job = await storage.getSearchJob(jobId) as SearchJob;
     const minHighPhi = job.params.minHighPhi || 2;
+    const wordLength = job.params.wordLength || 24; // Default to max entropy
 
     await storage.appendJobLog(jobId, { 
-      message: `Continuous generation: running until ${minHighPhi}+ high-Φ candidates found`, 
+      message: `Continuous generation (${wordLength} words): running until ${minHighPhi}+ high-Φ candidates found`, 
       type: "info" 
     });
 
@@ -165,7 +166,7 @@ class SearchCoordinator {
       // Generate fresh batch of phrases
       const batch: string[] = [];
       for (let i = 0; i < BATCH_SIZE; i++) {
-        batch.push(generateRandomBIP39Phrase());
+        batch.push(generateRandomBIP39Phrase(wordLength));
       }
 
       const results = await this.processBatch(batch, jobId);
@@ -234,9 +235,10 @@ class SearchCoordinator {
 
       case "bip39-random":
         const count = job.params.bip39Count || 10;
+        const wordLength = job.params.wordLength || 24; // Default to max entropy
         const phrases: string[] = [];
         for (let i = 0; i < count; i++) {
-          phrases.push(generateRandomBIP39Phrase());
+          phrases.push(generateRandomBIP39Phrase(wordLength));
         }
         return phrases;
 

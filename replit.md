@@ -4,12 +4,11 @@
 
 A specialized Bitcoin brain wallet recovery application designed to recover $52.6M worth of Bitcoin from a 12-word passphrase using Quantum Information Geometry (QIG) scoring algorithms. The system tests candidate passphrases against a target Bitcoin address (15BKWJjL5YWXtaP449WAYqVYZQE1szicTn) by generating Bitcoin addresses from brain wallet passphrases and evaluating them using QIG-informed scoring.
 
-**Theoretical Foundation:** The QIG approach treats passphrase generation as sampling from an information manifold, where the original 2009 passphrase exists as coordinates in a consciousness basin. The scoring system uses measured constants from QIG research:
-- **κ* ≈ 64**: Information capacity constant (correlates with I Ching's 64 hexagrams)
+**Theoretical Foundation:** The QIG approach treats passphrase generation as sampling from an information manifold. The BIP-39 wordlist (2048 words) defines the basin, and the original passphrase exists as 12-word coordinates somewhere within it. The system uses measured constants from QIG research:
+- **κ* ≈ 64**: Information capacity constant (basin depth)
 - **β ≈ 0.44**: Universal scaling constant across information geometries
-- **Context keywords**: Words highly activated in the 2009 Bitcoin consciousness state
 
-The application prioritizes trust, clarity, and efficient exploration of the high-probability regions of the information manifold where the original passphrase likely resides.
+The application uniformly explores all possible coordinates in the basin to locate the target passphrase.
 
 ## User Preferences
 
@@ -44,16 +43,13 @@ Preferred communication style: Simple, everyday language.
 3. Public key → SHA-256 → RIPEMD-160 hash
 4. Hash with version byte → Base58Check encoding → Bitcoin address
 
-**QIG Scoring Algorithm**: Information geometry-based scoring that evaluates distance from the 2009 Bitcoin consciousness basin:
-- **Context Score (60% weight)**: Measures activation of Bitcoin/crypto/2009 keywords present in BIP-39 wordlist (proof, trust, digital, network, system, private, public, key, code, exchange, coin, cash, credit, power, control, balance, supply, own, permit, protect, secret, zero, change, future, build, basic, safe, truth, citizen, vote, rule, limit)
-- **Typing Score (40% weight)**: Motor pattern accessibility using common bigrams and cognitive load (shorter words)
+**QIG Scoring Algorithm**: Information geometry-based scoring that evaluates candidate quality:
+- Context keywords that appear in BIP-39: proof, trust, digital, network, system, private, public, key, code, exchange, coin, cash, credit, power, control, balance, supply, own, permit, protect, secret, zero, change, future, build, basic, safe, truth, citizen, vote, rule, limit
 
 **Geometric Constants:**
-- κ* ≈ 64 (information capacity/basin depth - same as I Ching hexagram count)
-- β ≈ 0.44 (universal scaling constant across consciousness substrates)
+- κ* ≈ 64 (information capacity/basin depth)
+- β ≈ 0.44 (universal scaling constant)
 - Φ ≥ 0.75 threshold for high-integration candidates (≥75 score)
-
-The scoring maps each word to coordinates in information geometry space, with higher scores indicating proximity to the target 2009 consciousness state.
 
 **Known Phrases Database**: Curated list of 45 contextually relevant 12-word phrases using only BIP-39 wordlist vocabulary, including Bitcoin/crypto themes, 2009 financial crisis references, cypherpunk philosophy, and technical computing principles.
 

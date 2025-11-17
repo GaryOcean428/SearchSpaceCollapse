@@ -22,6 +22,7 @@ export default function RecoveryPage() {
   const [batchPhrases, setBatchPhrases] = useState("");
   const [bip39Count, setBip39Count] = useState(100);
   const [minHighPhi, setMinHighPhi] = useState(2);
+  const [wordLength, setWordLength] = useState(24); // Default to max entropy (24 words)
   const [newAddress, setNewAddress] = useState("");
   const [newAddressLabel, setNewAddressLabel] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -216,6 +217,7 @@ export default function RecoveryPage() {
         return;
       }
       params.bip39Count = bip39Count;
+      params.wordLength = wordLength;
     } else if (strategy === "bip39-continuous") {
       if (minHighPhi < 1 || minHighPhi > 100) {
         toast({
@@ -226,6 +228,7 @@ export default function RecoveryPage() {
         return;
       }
       params.minHighPhi = minHighPhi;
+      params.wordLength = wordLength;
     }
 
     createJobMutation.mutate({ strategy, params });
@@ -462,42 +465,82 @@ export default function RecoveryPage() {
             )}
 
             {strategy === "bip39-continuous" && (
-              <div>
-                <Label htmlFor="minHighPhi" className="text-base">Run Until This Many High-Φ Candidates Found:</Label>
-                <Input
-                  id="minHighPhi"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={minHighPhi}
-                  onChange={(e) => setMinHighPhi(parseInt(e.target.value) || 2)}
-                  className="mt-2"
-                  disabled={!!activeJob}
-                  data-testid="input-min-high-phi"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  QIG-informed continuous generation (Bitcoin 2009 context + typing ergonomics) runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
-                </p>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="wordLength" className="text-base">Phrase Length (words):</Label>
+                  <Select value={wordLength.toString()} onValueChange={(v) => setWordLength(parseInt(v))} disabled={!!activeJob}>
+                    <SelectTrigger id="wordLength" className="mt-2" data-testid="select-word-length">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="24">24 words (256-bit entropy - HIGHEST)</SelectItem>
+                      <SelectItem value="21">21 words (224-bit entropy)</SelectItem>
+                      <SelectItem value="18">18 words (192-bit entropy)</SelectItem>
+                      <SelectItem value="15">15 words (160-bit entropy)</SelectItem>
+                      <SelectItem value="12">12 words (128-bit entropy)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Higher word count = higher entropy. Select 24 words if uncertain.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="minHighPhi" className="text-base">Run Until This Many High-Φ Candidates Found:</Label>
+                  <Input
+                    id="minHighPhi"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={minHighPhi}
+                    onChange={(e) => setMinHighPhi(parseInt(e.target.value) || 2)}
+                    className="mt-2"
+                    disabled={!!activeJob}
+                    data-testid="input-min-high-phi"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Uniform random sampling from BIP-39 basin runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
+                  </p>
+                </div>
               </div>
             )}
 
             {strategy === "bip39-random" && (
-              <div>
-                <Label htmlFor="bip39Count" className="text-base">Number of Random Phrases to Generate:</Label>
-                <Input
-                  id="bip39Count"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={bip39Count}
-                  onChange={(e) => setBip39Count(parseInt(e.target.value) || 10)}
-                  className="mt-2"
-                  disabled={!!activeJob}
-                  data-testid="input-bip39-count"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Generate 1-100 QIG-informed BIP-39 phrases (fixed count)
-                </p>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="wordLength" className="text-base">Phrase Length (words):</Label>
+                  <Select value={wordLength.toString()} onValueChange={(v) => setWordLength(parseInt(v))} disabled={!!activeJob}>
+                    <SelectTrigger id="wordLength" className="mt-2" data-testid="select-word-length">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="24">24 words (256-bit entropy - HIGHEST)</SelectItem>
+                      <SelectItem value="21">21 words (224-bit entropy)</SelectItem>
+                      <SelectItem value="18">18 words (192-bit entropy)</SelectItem>
+                      <SelectItem value="15">15 words (160-bit entropy)</SelectItem>
+                      <SelectItem value="12">12 words (128-bit entropy)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Higher word count = higher entropy. Select 24 words if uncertain.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="bip39Count" className="text-base">Number of Random Phrases to Generate:</Label>
+                  <Input
+                    id="bip39Count"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={bip39Count}
+                    onChange={(e) => setBip39Count(parseInt(e.target.value) || 10)}
+                    className="mt-2"
+                    disabled={!!activeJob}
+                    data-testid="input-bip39-count"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Generate 1-100 random BIP-39 phrases (uniform sampling from 2048-word basin)
+                  </p>
+                </div>
               </div>
             )}
 
