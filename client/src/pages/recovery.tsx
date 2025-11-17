@@ -476,7 +476,7 @@ export default function RecoveryPage() {
                   data-testid="input-min-high-phi"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  QIG-informed continuous generation runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
+                  QIG-informed continuous generation (Bitcoin 2009 context + typing ergonomics) runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
                 </p>
               </div>
             )}

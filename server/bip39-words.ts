@@ -20,27 +20,18 @@ const CONTEXT_KEYWORDS_2009 = [
   'private', 'public', 'key', 'secure', 'code', 'cyber', 'global', 'exchange'
 ];
 
-const ELEGANCE_KEYWORDS = [
-  'simple', 'elegant', 'clean', 'pure', 'clear', 'bright', 'smooth', 'gentle',
-  'harmony', 'balance', 'grace', 'beauty', 'classic', 'minimal', 'perfect'
-];
-
 const COMMON_TYPING_BIGRAMS = ['th', 'he', 'in', 'er', 'an', 're', 'on', 'at', 'en', 'nd'];
 
 function scoreWord(word: string): number {
   let score = 50; // base score
   
-  // Context scoring (Bitcoin/crypto 2009 era)
+  // Context scoring (Bitcoin/crypto 2009 era) - heavily weighted
   const contextMatch = CONTEXT_KEYWORDS_2009.some(kw => word.includes(kw) || kw.includes(word));
-  if (contextMatch) score += 20;
-  
-  // Elegance scoring (Mac aesthetic)
-  const eleganceMatch = ELEGANCE_KEYWORDS.some(kw => word.includes(kw) || kw.includes(word));
-  if (eleganceMatch) score += 15;
+  if (contextMatch) score += 30;
   
   // Typing ergonomics
   const bigramCount = COMMON_TYPING_BIGRAMS.filter(bg => word.includes(bg)).length;
-  score += Math.min(bigramCount * 3, 15);
+  score += Math.min(bigramCount * 4, 20);
   
   // Prefer shorter words (easier to remember/type)
   if (word.length <= 5) score += 5;

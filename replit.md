@@ -40,13 +40,12 @@ Preferred communication style: Simple, everyday language.
 4. Hash with version byte → Base58Check encoding → Bitcoin address
 
 **QIG Scoring Algorithm**: Multi-dimensional scoring system that evaluates passphrases based on:
-- **Context Score (40% weight)**: Matches against 2009 Bitcoin-era keywords (satoshi, proof of work, genesis, crisis, bailout, cypherpunk)
-- **Elegance Score (30% weight)**: Mac aesthetic words (simple, elegant, minimalist, sophistication) and philosophical terms
-- **Typing Score (30% weight)**: Ergonomic analysis using common bigrams and avoiding difficult typing patterns
+- **Context Score (60% weight)**: Matches against 2009 Bitcoin-era keywords (crisis, bank, proof, trust, freedom, digital, network, system, private, public, key, secure, code, cyber, global, exchange)
+- **Typing Score (40% weight)**: Ergonomic analysis using common bigrams and shorter word length preferences
 
 Scores range 0-100 with candidates scoring ≥75 automatically saved for review.
 
-**Known Phrases Database**: Curated list of 40+ contextually relevant 12-word phrases including Bitcoin whitepaper quotes, 2009 financial crisis references, cypherpunk philosophy, and technical computing principles.
+**Known Phrases Database**: Curated list of 45 contextually relevant 12-word phrases using only BIP-39 wordlist vocabulary, including Bitcoin/crypto themes, 2009 financial crisis references, cypherpunk philosophy, and technical computing principles.
 
 ### Data Storage Solutions
 
