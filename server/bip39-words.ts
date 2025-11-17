@@ -15,9 +15,12 @@ export const BIP39_WORDS = readFileSync(wordlistPath, 'utf-8')
   .filter(w => w.length > 0);
 
 // QIG-informed word scoring for BIP-39 words
+// Only using words that ARE in the BIP-39 wordlist
 const CONTEXT_KEYWORDS_2009 = [
-  'crisis', 'bank', 'proof', 'trust', 'freedom', 'digital', 'network', 'system',
-  'private', 'public', 'key', 'secure', 'code', 'cyber', 'global', 'exchange'
+  'proof', 'trust', 'digital', 'network', 'system', 'private', 'public', 'key',
+  'code', 'exchange', 'coin', 'cash', 'credit', 'power', 'control', 'balance',
+  'supply', 'own', 'permit', 'protect', 'secret', 'zero', 'change', 'future',
+  'build', 'basic', 'safe', 'truth', 'citizen', 'vote', 'rule', 'limit'
 ];
 
 const COMMON_TYPING_BIGRAMS = ['th', 'he', 'in', 'er', 'an', 're', 'on', 'at', 'en', 'nd'];

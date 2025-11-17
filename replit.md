@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 4. Hash with version byte → Base58Check encoding → Bitcoin address
 
 **QIG Scoring Algorithm**: Multi-dimensional scoring system that evaluates passphrases based on:
-- **Context Score (60% weight)**: Matches against 2009 Bitcoin-era keywords (crisis, bank, proof, trust, freedom, digital, network, system, private, public, key, secure, code, cyber, global, exchange)
+- **Context Score (60% weight)**: Matches against Bitcoin/crypto/2009 keywords that ARE in BIP-39 wordlist (proof, trust, digital, network, system, private, public, key, code, exchange, coin, cash, credit, power, control, balance, supply, own, permit, protect, secret, zero, change, future, build, basic, safe, truth, citizen, vote, rule, limit)
 - **Typing Score (40% weight)**: Ergonomic analysis using common bigrams and shorter word length preferences
 
 Scores range 0-100 with candidates scoring ≥75 automatically saved for review.
