@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { randomInt } from 'crypto';
 
 // ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -13,11 +14,11 @@ export const BIP39_WORDS = readFileSync(wordlistPath, 'utf-8')
   .map(w => w.trim())
   .filter(w => w.length > 0);
 
-// Generate a random 12-word BIP-39 phrase
+// Generate a random 12-word BIP-39 phrase using cryptographically secure randomness
 export function generateRandomBIP39Phrase(): string {
   const words: string[] = [];
   for (let i = 0; i < 12; i++) {
-    const randomIndex = Math.floor(Math.random() * BIP39_WORDS.length);
+    const randomIndex = randomInt(0, BIP39_WORDS.length);
     words.push(BIP39_WORDS[randomIndex]);
   }
   return words.join(' ');

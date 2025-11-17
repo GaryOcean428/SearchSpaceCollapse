@@ -184,6 +184,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/target-addresses/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      
+      // Prevent deletion of the default address
+      if (id === "default") {
+        return res.status(403).json({ error: "Cannot delete the default address" });
+      }
+      
       await storage.removeTargetAddress(id);
       res.json({ success: true });
     } catch (error: any) {

@@ -9,21 +9,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, Clock, Shield, Copy, Download } from "lucide-react";
+import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, Clock, Shield, Copy, Download, Plus, X, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Candidate, SearchStats, VerificationResult } from "@shared/schema";
+import type { Candidate, SearchStats, VerificationResult, TargetAddress } from "@shared/schema";
 
-const TARGET_ADDRESS = "15BKWJjL5YWXtaP449WAYqVYZQE1szicTn";
-const TARGET_BALANCE = "550.00171133 BTC";
-const TARGET_VALUE = "$52.6M";
-
-type SearchStrategy = "custom" | "known" | "batch";
+type SearchStrategy = "custom" | "known" | "batch" | "bip39-random";
 
 export default function RecoveryPage() {
   const { toast } = useToast();
   const [strategy, setStrategy] = useState<SearchStrategy>("custom");
   const [customPhrase, setCustomPhrase] = useState("");
   const [batchPhrases, setBatchPhrases] = useState("");
+  const [bip39Count, setBip39Count] = useState(10);
+  const [newAddress, setNewAddress] = useState("");
+  const [newAddressLabel, setNewAddressLabel] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [stats, setStats] = useState<SearchStats>({
     tested: 0,
@@ -101,6 +100,54 @@ export default function RecoveryPage() {
   const { data: storedCandidates } = useQuery<Candidate[]>({
     queryKey: ["/api/candidates"],
     refetchInterval: isSearching ? 3000 : false,
+  });
+
+  const { data: targetAddresses, isLoading: isLoadingAddresses } = useQuery<TargetAddress[]>({
+    queryKey: ["/api/target-addresses"],
+  });
+
+  const addAddressMutation = useMutation({
+    mutationFn: async (data: { address: string; label?: string }) => {
+      const res = await apiRequest("POST", "/api/target-addresses", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/target-addresses"] });
+      setNewAddress("");
+      setNewAddressLabel("");
+      toast({
+        title: "Address added",
+        description: "Target address added successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeAddressMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/target-addresses/${id}`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/target-addresses"] });
+      toast({
+        title: "Address removed",
+        description: "Target address removed successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   useEffect(() => {
@@ -225,6 +272,11 @@ export default function RecoveryPage() {
         addLog(`Error: ${invalidPhrases.length} phrases do not have exactly 12 words`, "error");
         return;
       }
+    } else if (strategy === "bip39-random") {
+      if (bip39Count < 1 || bip39Count > 100) {
+        addLog("Error: Count must be between 1 and 100", "error");
+        return;
+      }
     }
 
     setStats({
@@ -269,6 +321,25 @@ export default function RecoveryPage() {
           .split("\n")
           .map((p) => p.trim())
           .filter((p) => p.length > 0);
+        
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < phrases.length; i += BATCH_SIZE) {
+          if (!shouldContinueSearchRef.current) {
+            addLog("Search stopped", "info");
+            break;
+          }
+          
+          const batch = phrases.slice(i, i + BATCH_SIZE);
+          await batchTestMutation.mutateAsync(batch);
+          
+          if (i + BATCH_SIZE < phrases.length && shouldContinueSearchRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      } else if (strategy === "bip39-random") {
+        const randomRes = await apiRequest("POST", "/api/generate-random-phrases", { count: bip39Count });
+        const randomData = await randomRes.json();
+        const phrases = randomData.phrases;
         
         const BATCH_SIZE = 10;
         for (let i = 0; i < phrases.length; i += BATCH_SIZE) {
@@ -358,30 +429,75 @@ export default function RecoveryPage() {
         <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/5 to-chart-1/5 p-6 mb-8">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-lg bg-primary/10">
-              <AlertCircle className="w-6 h-6 text-primary" />
+              <Target className="w-6 h-6 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                Target: {TARGET_VALUE} Recovery
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-sm">
-                <div>
-                  <span className="text-muted-foreground">Address:</span>
-                  <div className="font-medium break-all">{TARGET_ADDRESS}</div>
+              <h3 className="text-lg font-semibold mb-4">Target Addresses</h3>
+              
+              {isLoadingAddresses ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-12 w-full" />
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Balance:</span>
-                  <div className="font-medium">{TARGET_BALANCE}</div>
+              ) : (
+                <div className="space-y-3">
+                  {targetAddresses && targetAddresses.length > 0 ? (
+                    targetAddresses.map((addr) => (
+                      <Card key={addr.id} className="p-3 bg-background/50" data-testid={`address-${addr.id}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            {addr.label && (
+                              <div className="text-sm font-medium mb-1">{addr.label}</div>
+                            )}
+                            <div className="font-mono text-xs break-all text-muted-foreground">{addr.address}</div>
+                          </div>
+                          {addr.id !== "default" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeAddressMutation.mutate(addr.id)}
+                              data-testid={`button-remove-${addr.id}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </Card>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No target addresses configured</p>
+                  )}
+                  
+                  <div className="pt-3 border-t space-y-2">
+                    <Label className="text-sm font-medium">Add New Target Address</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newAddress}
+                        onChange={(e) => setNewAddress(e.target.value)}
+                        placeholder="Bitcoin address (26-35 chars)"
+                        className="font-mono text-sm"
+                        data-testid="input-new-address"
+                      />
+                      <Input
+                        value={newAddressLabel}
+                        onChange={(e) => setNewAddressLabel(e.target.value)}
+                        placeholder="Label (optional)"
+                        className="text-sm"
+                        data-testid="input-new-label"
+                      />
+                      <Button
+                        onClick={() => addAddressMutation.mutate({ address: newAddress, label: newAddressLabel })}
+                        disabled={!newAddress || newAddress.length < 26 || addAddressMutation.isPending}
+                        size="sm"
+                        className="gap-2 shrink-0"
+                        data-testid="button-add-address"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Constraint:</span>
-                  <div className="font-medium">12 words exactly</div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Era:</span>
-                  <div className="font-medium">February 2009, Mac OS X Snow Leopard</div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </Card>
@@ -421,6 +537,7 @@ export default function RecoveryPage() {
                 <SelectContent>
                   <SelectItem value="custom">Test Your Own Phrase</SelectItem>
                   <SelectItem value="known">Known 12-Word Phrases (Bitcoin/Crypto/Mac Culture)</SelectItem>
+                  <SelectItem value="bip39-random">BIP-39 Random Generation</SelectItem>
                   <SelectItem value="batch">Batch Test Multiple Phrases</SelectItem>
                 </SelectContent>
               </Select>
@@ -445,6 +562,25 @@ export default function RecoveryPage() {
                     {wordCount}/12 words
                   </Badge>
                 </div>
+              </div>
+            )}
+
+            {strategy === "bip39-random" && (
+              <div>
+                <Label htmlFor="bip39Count" className="text-base">Number of Random Phrases to Generate:</Label>
+                <Input
+                  id="bip39Count"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={bip39Count}
+                  onChange={(e) => setBip39Count(parseInt(e.target.value) || 10)}
+                  className="mt-2 font-mono"
+                  data-testid="input-bip39-count"
+                />
+                <p className="text-sm text-muted-foreground mt-2">
+                  Generate {bip39Count} random 12-word phrases from the official BIP-39 wordlist (2048 words)
+                </p>
               </div>
             )}
 
