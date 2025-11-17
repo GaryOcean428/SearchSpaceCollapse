@@ -68,6 +68,45 @@ export const generateRandomPhrasesRequestSchema = z.object({
   count: z.number().min(1).max(100),
 });
 
+export const searchJobLogSchema = z.object({
+  message: z.string(),
+  type: z.enum(["info", "success", "error"]),
+  timestamp: z.string(),
+});
+
+export const searchJobSchema = z.object({
+  id: z.string(),
+  strategy: z.enum(["custom", "known", "batch", "bip39-random"]),
+  status: z.enum(["pending", "running", "completed", "stopped", "failed"]),
+  params: z.object({
+    customPhrase: z.string().optional(),
+    batchPhrases: z.array(z.string()).optional(),
+    bip39Count: z.number().optional(),
+  }),
+  progress: z.object({
+    tested: z.number(),
+    highPhiCount: z.number(),
+    lastBatchIndex: z.number(),
+  }),
+  stats: z.object({
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
+    rate: z.number(),
+  }),
+  logs: z.array(searchJobLogSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const createSearchJobRequestSchema = z.object({
+  strategy: z.enum(["custom", "known", "batch", "bip39-random"]),
+  params: z.object({
+    customPhrase: z.string().optional(),
+    batchPhrases: z.array(z.string()).optional(),
+    bip39Count: z.number().optional(),
+  }),
+});
+
 export type Phrase = z.infer<typeof phraseSchema>;
 export type QIGScore = z.infer<typeof qigScoreSchema>;
 export type Candidate = z.infer<typeof candidateSchema>;
@@ -78,3 +117,6 @@ export type VerificationResult = z.infer<typeof verificationResultSchema>;
 export type TargetAddress = z.infer<typeof targetAddressSchema>;
 export type AddAddressRequest = z.infer<typeof addAddressRequestSchema>;
 export type GenerateRandomPhrasesRequest = z.infer<typeof generateRandomPhrasesRequestSchema>;
+export type SearchJob = z.infer<typeof searchJobSchema>;
+export type SearchJobLog = z.infer<typeof searchJobLogSchema>;
+export type CreateSearchJobRequest = z.infer<typeof createSearchJobRequestSchema>;
