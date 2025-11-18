@@ -5,12 +5,17 @@ import { scorePhrase } from "./qig-scoring";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase } from "./bip39-words";
 import { generateFragmentVariations } from "./fragment-variations";
+import { generateLocalSearchVariations } from "./local-search";
+import { DiscoveryTracker } from "./discovery-tracker";
 import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
 
 class SearchCoordinator {
   private isRunning = false;
   private currentJobId: string | null = null;
   private intervalId: NodeJS.Timeout | null = null;
+  private discoveryTrackers = new Map<string, DiscoveryTracker>();
+  private modeExplorationBatches = new Map<string, number>(); // Track batches in exploration mode
+  private modeInvestigationBatches = new Map<string, number>(); // Track batches in investigation mode
 
   async start() {
     if (this.isRunning) {
@@ -155,6 +160,22 @@ class SearchCoordinator {
     const validLengths = [12, 15, 18, 21, 24];
     const generationMode = job.params.generationMode || "bip39"; // Default to BIP-39
 
+    // Initialize discovery tracker for this job
+    if (!this.discoveryTrackers.has(jobId)) {
+      this.discoveryTrackers.set(jobId, new DiscoveryTracker());
+      this.modeExplorationBatches.set(jobId, 0);
+      this.modeInvestigationBatches.set(jobId, 0);
+    }
+    const tracker = this.discoveryTrackers.get(jobId)!;
+
+    // Initialize search mode if not set
+    if (!job.progress.searchMode) {
+      await storage.updateSearchJob(jobId, {
+        progress: { ...job.progress, searchMode: "exploration" }
+      });
+      job = await storage.getSearchJob(jobId) as SearchJob;
+    }
+
     const lengthDesc = allLengths 
       ? "all lengths (12-24 words)" 
       : `${wordLength} words`;
@@ -166,7 +187,7 @@ class SearchCoordinator {
       : `BIP-39 passphrases (${lengthDesc})`;
     
     await storage.appendJobLog(jobId, { 
-      message: `Continuous generation (${modeDesc}): running until ${minHighPhi}+ high-Φ candidates found`, 
+      message: `Continuous generation (${modeDesc}): running until ${minHighPhi}+ high-Φ candidates found. Adaptive mode switching enabled.`, 
       type: "info" 
     });
 
@@ -194,31 +215,70 @@ class SearchCoordinator {
         return;
       }
 
-      // Generate fresh batch of phrases/keys
+      // Determine current search mode (exploration vs investigation)
+      const currentMode = job.progress.searchMode || "exploration";
+      const recommendedMode = tracker.getRecommendedMode();
+      
+      // Switch mode if recommendation differs and we have enough data
+      let actualMode = currentMode;
+      if (recommendedMode !== currentMode && tracker.getAllRates().batchCount >= 10) {
+        actualMode = recommendedMode;
+        await storage.updateSearchJob(jobId, {
+          progress: { ...job.progress, searchMode: actualMode }
+        });
+        await storage.appendJobLog(jobId, { 
+          message: `🔄 Mode switch: ${currentMode} → ${actualMode}`, 
+          type: "info" 
+        });
+      }
+
+      // Generate batch based on current mode
       const batch: Array<{ value: string; type: "bip39" | "master-key" }> = [];
-      for (let i = 0; i < BATCH_SIZE; i++) {
-        if (generationMode === "both") {
-          // Alternate between BIP-39 and master keys
-          if (i % 2 === 0) {
-            const length = allLengths ? validLengths[i % validLengths.length] : wordLength;
-            batch.push({ value: generateRandomBIP39Phrase(length), type: "bip39" });
-          } else {
+      
+      if (actualMode === "investigation" && job.progress.investigationTarget && generationMode !== "master-key") {
+        // Investigation mode: generate variations around high-Φ target
+        const targetPhrase = job.progress.investigationTarget;
+        const variations = generateLocalSearchVariations(targetPhrase, BATCH_SIZE * 2);
+        
+        for (let i = 0; i < Math.min(BATCH_SIZE, variations.length); i++) {
+          batch.push({ value: variations[i], type: "bip39" });
+        }
+        
+        // Track investigation batches
+        this.modeInvestigationBatches.set(jobId, (this.modeInvestigationBatches.get(jobId) || 0) + 1);
+      } else {
+        // Exploration mode: pure random sampling
+        for (let i = 0; i < BATCH_SIZE; i++) {
+          if (generationMode === "both") {
+            // Alternate between BIP-39 and master keys
+            if (i % 2 === 0) {
+              const length = allLengths ? validLengths[i % validLengths.length] : wordLength;
+              batch.push({ value: generateRandomBIP39Phrase(length), type: "bip39" });
+            } else {
+              batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
+            }
+          } else if (generationMode === "master-key") {
             batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
-          }
-        } else if (generationMode === "master-key") {
-          batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
-        } else {
-          // BIP-39 mode
-          if (allLengths) {
-            const length = validLengths[i % validLengths.length];
-            batch.push({ value: generateRandomBIP39Phrase(length), type: "bip39" });
           } else {
-            batch.push({ value: generateRandomBIP39Phrase(wordLength), type: "bip39" });
+            // BIP-39 mode
+            if (allLengths) {
+              const length = validLengths[i % validLengths.length];
+              batch.push({ value: generateRandomBIP39Phrase(length), type: "bip39" });
+            } else {
+              batch.push({ value: generateRandomBIP39Phrase(wordLength), type: "bip39" });
+            }
           }
         }
+        
+        // Track exploration batches
+        this.modeExplorationBatches.set(jobId, (this.modeExplorationBatches.get(jobId) || 0) + 1);
       }
 
       const results = await this.processBatchWithTypes(batch, jobId);
+
+      // Record batch results in discovery tracker
+      tracker.recordBatch(results.highPhiCandidates);
+      const rates = tracker.getAllRates();
 
       // Reload job again for fresh state before updating
       job = await storage.getSearchJob(jobId) as SearchJob;
@@ -227,17 +287,41 @@ class SearchCoordinator {
       const elapsed = Date.now() - new Date(job.stats.startTime!).getTime();
       const rate = Math.round((newTested / (elapsed / 1000)) * 10) / 10;
 
+      // Update investigation target if we found new high-Φ candidate
+      let investigationTarget = job.progress.investigationTarget;
+      let lastHighPhiStep = job.progress.lastHighPhiStep;
+      if (results.highPhiCandidates > 0 && results.highestCandidate) {
+        investigationTarget = results.highestCandidate;
+        lastHighPhiStep = newTested;
+      }
+
+      // Calculate exploration ratio
+      const totalBatches = (this.modeExplorationBatches.get(jobId) || 0) + (this.modeInvestigationBatches.get(jobId) || 0);
+      const explorationRatio = totalBatches > 0 
+        ? Math.round(((this.modeExplorationBatches.get(jobId) || 0) / totalBatches) * 100) / 100 
+        : 1.0;
+
       await storage.updateSearchJob(jobId, {
         progress: {
           ...job.progress,
           tested: newTested,
           highPhiCount: newHighPhi,
           lastBatchIndex: 0, // Not applicable for continuous
+          investigationTarget,
+          lastHighPhiStep,
         },
-        stats: { rate },
+        stats: { 
+          rate,
+          discoveryRateFast: rates.fast,
+          discoveryRateMedium: rates.medium,
+          discoveryRateSlow: rates.slow,
+          explorationRatio,
+        },
       });
+
+      const modeLabel = actualMode === "investigation" ? "🔍" : "🌐";
       await storage.appendJobLog(jobId, { 
-        message: `Batch complete: ${batch.length} phrases tested, ${results.highPhiCandidates} high-Φ (total: ${newHighPhi})`, 
+        message: `${modeLabel} Batch complete (${actualMode}): ${batch.length} tested, ${results.highPhiCandidates} high-Φ (total: ${newHighPhi})`, 
         type: "info" 
       });
 
@@ -360,8 +444,12 @@ class SearchCoordinator {
     highPhiCandidates: number;
     matchFound: boolean;
     matchedPhrase?: string;
+    highestCandidate?: string;
+    highestScore?: number;
   }> {
     let highPhiCount = 0;
+    let highestScore = 0;
+    let highestCandidate: string | undefined;
     const targetAddresses = await storage.getTargetAddresses();
 
     for (const item of items) {
@@ -401,12 +489,21 @@ class SearchCoordinator {
           highPhiCandidates: highPhiCount,
           matchFound: true,
           matchedPhrase: item.value,
+          highestCandidate,
+          highestScore,
         };
       }
 
       // Only score and save BIP-39 phrases with high QIG scores
       if (item.type === "bip39") {
         const qigScore = scorePhrase(item.value);
+        
+        // Track highest scoring candidate in this batch
+        if (qigScore.totalScore > highestScore) {
+          highestScore = qigScore.totalScore;
+          highestCandidate = item.value;
+        }
+        
         if (qigScore.totalScore >= 75) {
           const candidate: Candidate = {
             id: randomUUID(),
@@ -426,6 +523,8 @@ class SearchCoordinator {
     return {
       highPhiCandidates: highPhiCount,
       matchFound: false,
+      highestCandidate: highPhiCount > 0 ? highestCandidate : undefined,
+      highestScore: highPhiCount > 0 ? highestScore : undefined,
     };
   }
 

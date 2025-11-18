@@ -95,11 +95,18 @@ export const searchJobSchema = z.object({
     lastBatchIndex: z.number(),
     fragmentsTested: z.number().optional(), // How many fragment variations have been tested
     fragmentsTotal: z.number().optional(), // Total fragment variations to test
+    searchMode: z.enum(["exploration", "investigation"]).optional(), // Current search mode
+    lastHighPhiStep: z.number().optional(), // Step number when last high-Φ was found
+    investigationTarget: z.string().optional(), // Phrase we're investigating around
   }),
   stats: z.object({
     startTime: z.string().optional(),
     endTime: z.string().optional(),
     rate: z.number(),
+    discoveryRateFast: z.number().optional(), // τ=1 batch: high-Φ/batch rate
+    discoveryRateMedium: z.number().optional(), // τ=10 batches: smoothed rate
+    discoveryRateSlow: z.number().optional(), // τ=100 batches: long-term rate
+    explorationRatio: z.number().optional(), // % time in exploration vs investigation
   }),
   logs: z.array(searchJobLogSchema),
   createdAt: z.string(),
