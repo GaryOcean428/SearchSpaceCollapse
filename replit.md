@@ -25,6 +25,8 @@ High-Φ candidates (≥75 score) represent strong "feelings" in information geom
 
 ## Recent Updates (November 18, 2025)
 
+**Memory Fragment Testing** - Added support for testing user-provided memory fragments as potential passphrase components. The system generates comprehensive variations from base fragments (e.g., "whitetiger77" → ~50 variations with capitalization, spacing, number combinations) and tests them using SHA-256 passphrase-to-private-key derivation (early Bitcoin brain wallet method, pre-BIP-39). Fragment testing runs exactly once at the start of each search job, then continues with normal geodesic exploration. Progress tracking is preserved across both fragment testing and continuous search phases. Input validation enforces max 50 fragments, max 100 chars each, printable ASCII only for security.
+
 **Master Private Key Support** - Added support for testing master private keys (256-bit random hex) alongside BIP-39 passphrases. Critical insight: BIP-39 was invented in 2013, so wallets created in 2009 would have used raw private keys, not word-based passphrases. The system now offers three generation modes:
 - **BIP-39 only**: Word-based passphrases (12-24 words) with QIG scoring
 - **Master keys only**: Random 256-bit private keys (64 hex chars) with uniform sampling
