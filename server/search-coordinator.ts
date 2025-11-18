@@ -149,9 +149,15 @@ class SearchCoordinator {
     let job = await storage.getSearchJob(jobId) as SearchJob;
     const minHighPhi = job.params.minHighPhi || 2;
     const wordLength = job.params.wordLength || 24; // Default to max entropy
+    const allLengths = wordLength === 0; // 0 = all lengths
+    const validLengths = [12, 15, 18, 21, 24];
 
+    const lengthDesc = allLengths 
+      ? "all lengths (12-24 words)" 
+      : `${wordLength} words`;
+    
     await storage.appendJobLog(jobId, { 
-      message: `Continuous generation (${wordLength} words): running until ${minHighPhi}+ high-Φ candidates found`, 
+      message: `Continuous generation (${lengthDesc}): running until ${minHighPhi}+ high-Φ candidates found`, 
       type: "info" 
     });
 
@@ -166,7 +172,13 @@ class SearchCoordinator {
       // Generate fresh batch of phrases
       const batch: string[] = [];
       for (let i = 0; i < BATCH_SIZE; i++) {
-        batch.push(generateRandomBIP39Phrase(wordLength));
+        if (allLengths) {
+          // Cycle through all valid lengths
+          const length = validLengths[i % validLengths.length];
+          batch.push(generateRandomBIP39Phrase(length));
+        } else {
+          batch.push(generateRandomBIP39Phrase(wordLength));
+        }
       }
 
       const results = await this.processBatch(batch, jobId);
@@ -236,9 +248,17 @@ class SearchCoordinator {
       case "bip39-random":
         const count = job.params.bip39Count || 10;
         const wordLength = job.params.wordLength || 24; // Default to max entropy
+        const allLengths = wordLength === 0; // 0 = all lengths
+        const validLengths = [12, 15, 18, 21, 24];
         const phrases: string[] = [];
         for (let i = 0; i < count; i++) {
-          phrases.push(generateRandomBIP39Phrase(wordLength));
+          if (allLengths) {
+            // Cycle through all valid lengths
+            const length = validLengths[i % validLengths.length];
+            phrases.push(generateRandomBIP39Phrase(length));
+          } else {
+            phrases.push(generateRandomBIP39Phrase(wordLength));
+          }
         }
         return phrases;
 

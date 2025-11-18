@@ -22,7 +22,7 @@ export default function RecoveryPage() {
   const [batchPhrases, setBatchPhrases] = useState("");
   const [bip39Count, setBip39Count] = useState(100);
   const [minHighPhi, setMinHighPhi] = useState(2);
-  const [wordLength, setWordLength] = useState(24); // Default to max entropy (24 words)
+  const [wordLength, setWordLength] = useState(0); // Default to all lengths
   const [newAddress, setNewAddress] = useState("");
   const [newAddressLabel, setNewAddressLabel] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -473,15 +473,16 @@ export default function RecoveryPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="24">24 words (256-bit entropy - HIGHEST)</SelectItem>
-                      <SelectItem value="21">21 words (224-bit entropy)</SelectItem>
-                      <SelectItem value="18">18 words (192-bit entropy)</SelectItem>
-                      <SelectItem value="15">15 words (160-bit entropy)</SelectItem>
-                      <SelectItem value="12">12 words (128-bit entropy)</SelectItem>
+                      <SelectItem value="0">All lengths (12-24 words) - RECOMMENDED</SelectItem>
+                      <SelectItem value="24">24 words only (256-bit entropy)</SelectItem>
+                      <SelectItem value="21">21 words only (224-bit entropy)</SelectItem>
+                      <SelectItem value="18">18 words only (192-bit entropy)</SelectItem>
+                      <SelectItem value="15">15 words only (160-bit entropy)</SelectItem>
+                      <SelectItem value="12">12 words only (128-bit entropy)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Higher word count = higher entropy (deeper basin coordinates). Select 24 words if uncertain.
+                    "All lengths" tests every valid BIP-39 length (12/15/18/21/24 words) simultaneously. Select this if uncertain about original phrase length.
                   </p>
                 </div>
                 <div>
@@ -513,15 +514,16 @@ export default function RecoveryPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="24">24 words (256-bit entropy - HIGHEST)</SelectItem>
-                      <SelectItem value="21">21 words (224-bit entropy)</SelectItem>
-                      <SelectItem value="18">18 words (192-bit entropy)</SelectItem>
-                      <SelectItem value="15">15 words (160-bit entropy)</SelectItem>
-                      <SelectItem value="12">12 words (128-bit entropy)</SelectItem>
+                      <SelectItem value="0">All lengths (12-24 words) - RECOMMENDED</SelectItem>
+                      <SelectItem value="24">24 words only (256-bit entropy)</SelectItem>
+                      <SelectItem value="21">21 words only (224-bit entropy)</SelectItem>
+                      <SelectItem value="18">18 words only (192-bit entropy)</SelectItem>
+                      <SelectItem value="15">15 words only (160-bit entropy)</SelectItem>
+                      <SelectItem value="12">12 words only (128-bit entropy)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Higher word count = higher entropy (deeper basin coordinates). Select 24 words if uncertain.
+                    "All lengths" tests every valid BIP-39 length (12/15/18/21/24 words) simultaneously. Select this if uncertain about original phrase length.
                   </p>
                 </div>
                 <div>
