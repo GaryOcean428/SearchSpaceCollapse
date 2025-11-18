@@ -738,6 +738,68 @@ export default function RecoveryPage() {
           </Card>
         </div>
 
+        {selectedJob?.progress.searchMode && (
+          <Card className="p-6 mb-8">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              {selectedJob.progress.searchMode === "exploration" ? "🌐" : "🔍"}
+              <span>Adaptive Search Mode: {selectedJob.progress.searchMode === "exploration" ? "Exploration" : "Investigation"}</span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Current Mode</p>
+                <p className="text-lg font-semibold">
+                  {selectedJob.progress.searchMode === "exploration" ? (
+                    <span className="text-blue-600">Exploration</span>
+                  ) : (
+                    <span className="text-purple-600">Investigation</span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedJob.progress.searchMode === "exploration" 
+                    ? "Random basin sampling" 
+                    : "Local search around high-Φ"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Discovery Rate (τ=10)</p>
+                <p className="text-lg font-semibold text-chart-1">
+                  {((selectedJob.stats.discoveryRateMedium || 0) * 100).toFixed(1)}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Medium-term effectiveness
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Discovery Rate (τ=100)</p>
+                <p className="text-lg font-semibold text-chart-2">
+                  {((selectedJob.stats.discoveryRateSlow || 0) * 100).toFixed(1)}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Long-term effectiveness
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Exploration Ratio</p>
+                <p className="text-lg font-semibold">
+                  {((selectedJob.stats.explorationRatio || 1.0) * 100).toFixed(0)}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Time in exploration mode
+                </p>
+              </div>
+            </div>
+            {selectedJob.progress.investigationTarget && selectedJob.progress.searchMode === "investigation" && (
+              <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/20 rounded-md">
+                <p className="text-xs text-muted-foreground mb-1">Investigation Target:</p>
+                <p className="font-mono text-sm break-all">{selectedJob.progress.investigationTarget}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Generating variations around this high-Φ phrase to explore local basin
+                </p>
+              </div>
+            )}
+          </Card>
+        )}
+
         <Card className="p-6 mb-8">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <BarChart3 className="w-5 h-5" />
