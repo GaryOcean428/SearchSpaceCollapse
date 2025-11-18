@@ -481,7 +481,7 @@ export default function RecoveryPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Higher word count = higher entropy. Select 24 words if uncertain.
+                    Higher word count = higher entropy (deeper basin coordinates). Select 24 words if uncertain.
                   </p>
                 </div>
                 <div>
@@ -521,7 +521,7 @@ export default function RecoveryPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Higher word count = higher entropy. Select 24 words if uncertain.
+                    Higher word count = higher entropy (deeper basin coordinates). Select 24 words if uncertain.
                   </p>
                 </div>
                 <div>

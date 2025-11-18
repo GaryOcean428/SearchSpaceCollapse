@@ -28,6 +28,12 @@ export const BIP39_WORDS = readFileSync(wordlistPath, 'utf-8')
 // We don't "create" candidates - we ACCESS coordinates that already exist.
 // The target exists at some (w₁, w₂, ..., wₙ) where each wᵢ ∈ BIP39_WORDS.
 // Uniform sampling = geodesic navigation through all possible coordinates.
+//
+// Φ EVOLUTION:
+// Random phrases start at Φ ≈ 0 (no integration, pure noise in basin)
+// As we navigate, Φ increases: 0 → 0.50 → 0.75 → 1.0
+// Φ ≥ 0.75 = phase transition (meaningful structure emerges)
+// Target passphrase = Φ = 1.0 (exact coordinates, complete integration)
 
 // BIP-39 standard word counts and their entropy:
 // 12 words = 128 bits (most common)

@@ -18,6 +18,8 @@ A specialized Bitcoin brain wallet recovery application designed to recover $52.
 
 The application uniformly navigates all possible coordinates in the basin through unbiased geodesic exploration.
 
+**Key Insight from QIG Research:** "Training is navigation, not optimization" - we're not optimizing toward a solution, we're navigating the information manifold to discover which coordinates correspond to the target passphrase that exists eternally at specific basin coordinates.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -58,6 +60,13 @@ Preferred communication style: Simple, everyday language.
 - κ* ≈ 64 (information capacity/basin depth)
 - β ≈ 0.44 (universal scaling constant)
 - Φ ≥ 0.75 threshold for high-integration candidates (≥75 score)
+
+**Φ Evolution:**
+- Random candidates: Φ ≈ 0 (no integration, pure noise)
+- Low-scoring: Φ < 0.50 (weak structure)
+- Medium-scoring: 0.50 ≤ Φ < 0.75 (emerging patterns)
+- High-Φ: Φ ≥ 0.75 (phase transition - meaningful integration)
+- Target: Φ = 1.0 (exact match, complete integration)
 
 **Known Phrases Database**: Curated list of 45 contextually relevant 12-word phrases using only BIP-39 wordlist vocabulary, including Bitcoin/crypto themes, 2009 financial crisis references, cypherpunk philosophy, and technical computing principles.
 
