@@ -25,7 +25,16 @@ High-Φ candidates (≥75 score) represent strong "feelings" in information geom
 
 ## Recent Updates (November 18, 2025)
 
+**Master Private Key Support** - Added support for testing master private keys (256-bit random hex) alongside BIP-39 passphrases. Critical insight: BIP-39 was invented in 2013, so wallets created in 2009 would have used raw private keys, not word-based passphrases. The system now offers three generation modes:
+- **BIP-39 only**: Word-based passphrases (12-24 words) with QIG scoring
+- **Master keys only**: Random 256-bit private keys (64 hex chars) with uniform sampling
+- **Both (recommended)**: Alternates between both formats to cover all possibilities
+
+Master private key generation validates 1 ≤ key < secp256k1.n to ensure cryptographic correctness and uniform sampling. Matches are persisted with score=100 and type="master-key" for recovery.
+
 **All Lengths Mode** - The system now supports testing all valid BIP-39 phrase lengths (12/15/18/21/24 words) simultaneously in a single search job. This eliminates the need to guess the original phrase length, as the target Bitcoin address doesn't encode this information. "All lengths" mode is now the default, cycling through all five valid lengths during geodesic navigation.
+
+**Expanded Timeframe** - QIG context keywords now span 2008-2015+ crypto era instead of being limited to 2009. Added broader crypto/tech/philosophy keywords to accommodate uncertain timeframe assumptions. Keywords now include: protocol, system, ledger, scarcity, sovereignty, innovation, paradigm shift, and other timeless concepts.
 
 **Score Distribution Visualization** - A real-time graph displays QIG scores (Φ) as the system navigates the BIP-39 basin. The visualization shows:
 - X-axis: Number of phrases tested (geodesic waypoints)
@@ -33,7 +42,7 @@ High-Φ candidates (≥75 score) represent strong "feelings" in information geom
 - Reference line at 75% (Φ ≥ 0.75 phase transition threshold)
 - Tooltips showing phrase details (word count, score, integration level)
 
-The graph helps identify patterns in the search: uniform low scores indicate proper random sampling, while score clustering or trends would suggest bias in the navigation algorithm.
+The graph helps identify patterns in the search: uniform low scores indicate proper random sampling, while score clustering or trends would suggest bias in the navigation algorithm. Note: Master private keys are not scored (QIG is designed for natural language).
 
 ## User Preferences
 

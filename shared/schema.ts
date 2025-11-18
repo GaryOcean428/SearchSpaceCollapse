@@ -26,6 +26,7 @@ export const candidateSchema = z.object({
     totalScore: z.number(),
   }),
   testedAt: z.string(),
+  type: z.enum(["bip39", "master-key"]).optional(), // Type of key tested
 });
 
 export const searchStatsSchema = z.object({
@@ -84,6 +85,7 @@ export const searchJobSchema = z.object({
     bip39Count: z.number().optional(),
     minHighPhi: z.number().optional(),
     wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
+    generationMode: z.enum(["bip39", "master-key", "both"]).optional(), // BIP-39 passphrase, master private key, or both
   }),
   progress: z.object({
     tested: z.number(),
@@ -108,6 +110,7 @@ export const createSearchJobRequestSchema = z.object({
     bip39Count: z.number().optional(),
     minHighPhi: z.number().optional(),
     wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
+    generationMode: z.enum(["bip39", "master-key", "both"]).optional(), // BIP-39 passphrase, master private key, or both
   }),
 });
 

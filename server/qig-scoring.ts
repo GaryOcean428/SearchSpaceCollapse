@@ -5,13 +5,20 @@ export interface QIGScore {
   totalScore: number;
 }
 
-const CONTEXT_KEYWORDS_2009 = [
+const CONTEXT_KEYWORDS = [
   "bitcoin", "satoshi", "nakamoto", "proof", "work", "chain", "block", "peer",
   "cash", "electronic", "transaction", "digital", "crypto", "hash", "mining",
   "double", "spending", "trust", "decentralized", "network", "node", "consensus",
   "chancellor", "brink", "bailout", "banks", "crisis", "currency", "money",
   "freedom", "privacy", "cypherpunk", "encryption", "signature", "key", "address",
   "genesis", "timestamp", "merkle", "difficulty", "reward", "halving", "wallet",
+  "code", "algorithm", "protocol", "system", "secure", "verify", "exchange",
+  "ledger", "immutable", "transparent", "permissionless", "borderless", "sound",
+  "scarcity", "supply", "limited", "deflation", "inflation", "fiat", "central",
+  "government", "sovereign", "individual", "autonomy", "control", "power", "future",
+  "technology", "innovation", "revolution", "paradigm", "shift", "change", "new",
+  "world", "global", "internet", "web", "online", "virtual", "cyberspace", "space",
+  "time", "truth", "value", "asset", "property", "wealth", "store", "transfer",
 ];
 
 const MAC_AESTHETIC_WORDS = [
@@ -59,17 +66,21 @@ function calculateContextScore(words: string[]): number {
   let matches = 0;
 
   for (const word of words) {
-    if (CONTEXT_KEYWORDS_2009.includes(word)) {
+    if (CONTEXT_KEYWORDS.includes(word)) {
       matches++;
       score += 10;
     }
   }
 
-  const yearMatch = words.some(w => 
-    w.includes("2009") || w.includes("2008") || 
-    w.includes("january") || w.includes("february")
+  const earlyYearMatch = words.some(w => 
+    w.includes("2009") || w.includes("2008") || w.includes("2010") || w.includes("2011")
   );
-  if (yearMatch) score += 15;
+  if (earlyYearMatch) score += 10;
+
+  const cryptoYearMatch = words.some(w => 
+    w.includes("2012") || w.includes("2013") || w.includes("2014") || w.includes("2015")
+  );
+  if (cryptoYearMatch) score += 10;
 
   const cryptoPhrase = words.some(w => 
     w.includes("encrypt") || w.includes("decrypt") || w.includes("signature")

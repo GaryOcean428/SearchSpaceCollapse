@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
-import { generateBitcoinAddress } from "./crypto";
+import { generateBitcoinAddress, generateMasterPrivateKey, generateBitcoinAddressFromPrivateKey } from "./crypto";
 import { scorePhrase } from "./qig-scoring";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase } from "./bip39-words";
@@ -151,13 +151,20 @@ class SearchCoordinator {
     const wordLength = job.params.wordLength || 24; // Default to max entropy
     const allLengths = wordLength === 0; // 0 = all lengths
     const validLengths = [12, 15, 18, 21, 24];
+    const generationMode = job.params.generationMode || "bip39"; // Default to BIP-39
 
     const lengthDesc = allLengths 
       ? "all lengths (12-24 words)" 
       : `${wordLength} words`;
     
+    const modeDesc = generationMode === "both" 
+      ? "BIP-39 passphrases + master private keys"
+      : generationMode === "master-key"
+      ? "master private keys (256-bit)"
+      : `BIP-39 passphrases (${lengthDesc})`;
+    
     await storage.appendJobLog(jobId, { 
-      message: `Continuous generation (${lengthDesc}): running until ${minHighPhi}+ high-Φ candidates found`, 
+      message: `Continuous generation (${modeDesc}): running until ${minHighPhi}+ high-Φ candidates found`, 
       type: "info" 
     });
 
@@ -169,19 +176,31 @@ class SearchCoordinator {
         return;
       }
 
-      // Generate fresh batch of phrases
-      const batch: string[] = [];
+      // Generate fresh batch of phrases/keys
+      const batch: Array<{ value: string; type: "bip39" | "master-key" }> = [];
       for (let i = 0; i < BATCH_SIZE; i++) {
-        if (allLengths) {
-          // Cycle through all valid lengths
-          const length = validLengths[i % validLengths.length];
-          batch.push(generateRandomBIP39Phrase(length));
+        if (generationMode === "both") {
+          // Alternate between BIP-39 and master keys
+          if (i % 2 === 0) {
+            const length = allLengths ? validLengths[i % validLengths.length] : wordLength;
+            batch.push({ value: generateRandomBIP39Phrase(length), type: "bip39" });
+          } else {
+            batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
+          }
+        } else if (generationMode === "master-key") {
+          batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
         } else {
-          batch.push(generateRandomBIP39Phrase(wordLength));
+          // BIP-39 mode
+          if (allLengths) {
+            const length = validLengths[i % validLengths.length];
+            batch.push({ value: generateRandomBIP39Phrase(length), type: "bip39" });
+          } else {
+            batch.push({ value: generateRandomBIP39Phrase(wordLength), type: "bip39" });
+          }
         }
       }
 
-      const results = await this.processBatch(batch, jobId);
+      const results = await this.processBatchWithTypes(batch, jobId);
 
       // Reload job again for fresh state before updating
       job = await storage.getSearchJob(jobId) as SearchJob;
@@ -305,9 +324,83 @@ class SearchCoordinator {
           score: qigScore.totalScore,
           qigScore,
           testedAt: new Date().toISOString(),
+          type: "bip39",
         };
         await storage.addCandidate(candidate);
         highPhiCount++;
+      }
+    }
+
+    return {
+      highPhiCandidates: highPhiCount,
+      matchFound: false,
+    };
+  }
+
+  private async processBatchWithTypes(items: Array<{ value: string; type: "bip39" | "master-key" }>, jobId: string): Promise<{
+    highPhiCandidates: number;
+    matchFound: boolean;
+    matchedPhrase?: string;
+  }> {
+    let highPhiCount = 0;
+    const targetAddresses = await storage.getTargetAddresses();
+
+    for (const item of items) {
+      let address: string;
+
+      if (item.type === "master-key") {
+        address = generateBitcoinAddressFromPrivateKey(item.value);
+      } else {
+        address = generateBitcoinAddress(item.value);
+      }
+
+      const matchedAddress = targetAddresses.find(t => t.address === address);
+
+      if (matchedAddress) {
+        // Save the match as a candidate for recovery
+        const matchCandidate: Candidate = {
+          id: randomUUID(),
+          phrase: item.value,
+          address,
+          score: 100, // Exact match = 100% score
+          qigScore: {
+            contextScore: item.type === "master-key" ? 0 : 100,
+            eleganceScore: item.type === "master-key" ? 0 : 100,
+            typingScore: item.type === "master-key" ? 0 : 100,
+            totalScore: 100,
+          },
+          testedAt: new Date().toISOString(),
+          type: item.type,
+        };
+        await storage.addCandidate(matchCandidate);
+        await storage.appendJobLog(jobId, { 
+          message: `🎉 MATCH FOUND! Address: ${matchedAddress.address} | Type: ${item.type}`, 
+          type: "success" 
+        });
+        
+        return {
+          highPhiCandidates: highPhiCount,
+          matchFound: true,
+          matchedPhrase: item.value,
+        };
+      }
+
+      // Only score and save BIP-39 phrases with high QIG scores
+      if (item.type === "bip39") {
+        const qigScore = scorePhrase(item.value);
+        if (qigScore.totalScore >= 75) {
+          const candidate: Candidate = {
+            id: randomUUID(),
+            phrase: item.value,
+            address,
+            score: qigScore.totalScore,
+            qigScore,
+            testedAt: new Date().toISOString(),
+            type: "bip39",
+          };
+          await storage.addCandidate(candidate);
+          highPhiCount++;
+        }
       }
     }
 

@@ -24,6 +24,7 @@ export default function RecoveryPage() {
   const [bip39Count, setBip39Count] = useState(100);
   const [minHighPhi, setMinHighPhi] = useState(2);
   const [wordLength, setWordLength] = useState(0); // Default to all lengths
+  const [generationMode, setGenerationMode] = useState<"bip39" | "master-key" | "both">("both"); // Default to both
   const [newAddress, setNewAddress] = useState("");
   const [newAddressLabel, setNewAddressLabel] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -259,6 +260,7 @@ export default function RecoveryPage() {
       }
       params.minHighPhi = minHighPhi;
       params.wordLength = wordLength;
+      params.generationMode = generationMode;
     }
 
     createJobMutation.mutate({ strategy, params });
@@ -421,16 +423,16 @@ export default function RecoveryPage() {
             <div className="flex-1">
               <h4 className="font-semibold mb-2">How This Works</h4>
               <p className="text-sm text-muted-foreground mb-3">
-                This tool uses QIG (Quantum Information Geometry) principles to intelligently search for your 12-word brain wallet passphrase. Search jobs run in the background on the server, continuing even when you close your browser.
+                This tool uses QIG (Quantum Information Geometry) principles to search through possible wallet formats. You can test BIP-39 passphrases (word-based), master private keys (256-bit hex), or both simultaneously.
               </p>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                <li>2009 Bitcoin/crypto context scoring (40%)</li>
-                <li>Mac user aesthetic - elegant, meaningful phrases (30%)</li>
-                <li>Typing ergonomics - easy to type 27 times (30%)</li>
+                <li>BIP-39 scoring: Bitcoin/crypto context (40%), elegant phrasing (30%), typing ease (30%)</li>
+                <li>Master keys: Pure random 256-bit exploration (no linguistic scoring)</li>
+                <li>Flexible timeframe: Keywords span 2008-2015+ crypto era</li>
                 <li>Background processing - searches continue when you're away</li>
               </ul>
               <p className="text-sm font-medium mt-3">
-                High-Φ candidates ({">"}75% score) are automatically saved for your review.
+                High-Φ BIP-39 candidates ({">"}75% score) are automatically saved for review. Master key mode focuses on pure random sampling.
               </p>
             </div>
           </div>
@@ -497,8 +499,24 @@ export default function RecoveryPage() {
             {strategy === "bip39-continuous" && (
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="wordLength" className="text-base">Phrase Length (words):</Label>
-                  <Select value={wordLength.toString()} onValueChange={(v) => setWordLength(parseInt(v))} disabled={!!activeJob}>
+                  <Label htmlFor="generationMode" className="text-base">Generation Mode:</Label>
+                  <Select value={generationMode} onValueChange={(v) => setGenerationMode(v as "bip39" | "master-key" | "both")} disabled={!!activeJob}>
+                    <SelectTrigger id="generationMode" className="mt-2" data-testid="select-generation-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="both">Both (BIP-39 + Master Keys) - RECOMMENDED</SelectItem>
+                      <SelectItem value="bip39">BIP-39 Passphrases Only</SelectItem>
+                      <SelectItem value="master-key">Master Private Keys Only (256-bit)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    BIP-39 was invented in 2013. If your key is from 2009, it might be a raw master private key (64 hex chars) instead. "Both" mode tests both formats.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="wordLength" className="text-base">BIP-39 Phrase Length (words):</Label>
+                  <Select value={wordLength.toString()} onValueChange={(v) => setWordLength(parseInt(v))} disabled={!!activeJob || generationMode === "master-key"}>
                     <SelectTrigger id="wordLength" className="mt-2" data-testid="select-word-length">
                       <SelectValue />
                     </SelectTrigger>
@@ -512,11 +530,15 @@ export default function RecoveryPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    "All lengths" tests every valid BIP-39 length (12/15/18/21/24 words) simultaneously. Select this if uncertain about original phrase length.
+                    {generationMode === "master-key" ? "Not applicable for master private keys." : '"All lengths" tests every valid BIP-39 length (12/15/18/21/24 words) simultaneously.'}
                   </p>
                 </div>
                 <div>
-                  <Label htmlFor="minHighPhi" className="text-base">Run Until This Many High-Φ Candidates Found:</Label>
+                  <Label htmlFor="minHighPhi" className="text-base">
+                    {generationMode === "master-key" 
+                      ? "Run Until High-Φ Target (master keys don't use scoring):" 
+                      : "Run Until This Many High-Φ Candidates Found:"}
+                  </Label>
                   <Input
                     id="minHighPhi"
                     type="number"
