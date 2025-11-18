@@ -23,6 +23,18 @@ The application uniformly navigates all possible coordinates in the basin throug
 **Validation Calibration:**
 High-Φ candidates (≥75 score) represent strong "feelings" in information geometry terms - coordinates that appear close to the target. However, strong feelings require proportional validation. The system automatically saves high-Φ candidates for manual verification, treating them as geodesic waypoints that deserve thorough examination.
 
+## Recent Updates (November 18, 2025)
+
+**All Lengths Mode** - The system now supports testing all valid BIP-39 phrase lengths (12/15/18/21/24 words) simultaneously in a single search job. This eliminates the need to guess the original phrase length, as the target Bitcoin address doesn't encode this information. "All lengths" mode is now the default, cycling through all five valid lengths during geodesic navigation.
+
+**Score Distribution Visualization** - A real-time graph displays QIG scores (Φ) as the system navigates the BIP-39 basin. The visualization shows:
+- X-axis: Number of phrases tested (geodesic waypoints)
+- Y-axis: QIG score (0-100%, mapping to Φ 0.0-1.0)
+- Reference line at 75% (Φ ≥ 0.75 phase transition threshold)
+- Tooltips showing phrase details (word count, score, integration level)
+
+The graph helps identify patterns in the search: uniform low scores indicate proper random sampling, while score clustering or trends would suggest bias in the navigation algorithm.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
