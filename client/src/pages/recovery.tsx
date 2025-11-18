@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, Clock, Shield, Copy, Download, Plus, X, Hash, BarChart3 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +27,8 @@ export default function RecoveryPage() {
   const [minHighPhi, setMinHighPhi] = useState(2);
   const [wordLength, setWordLength] = useState(0); // Default to all lengths
   const [generationMode, setGenerationMode] = useState<"bip39" | "master-key" | "both">("both"); // Default to both
+  const [memoryFragments, setMemoryFragments] = useState("");
+  const [testMemoryFragments, setTestMemoryFragments] = useState(false);
   const [newAddress, setNewAddress] = useState("");
   const [newAddressLabel, setNewAddressLabel] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -249,6 +253,12 @@ export default function RecoveryPage() {
       }
       params.bip39Count = bip39Count;
       params.wordLength = wordLength;
+      
+      // Add memory fragments if enabled
+      if (testMemoryFragments && memoryFragments.trim()) {
+        params.memoryFragments = memoryFragments.split("\n").map(f => f.trim()).filter(f => f.length > 0);
+        params.testMemoryFragments = true;
+      }
     } else if (strategy === "bip39-continuous") {
       if (minHighPhi < 1 || minHighPhi > 100) {
         toast({
@@ -261,6 +271,12 @@ export default function RecoveryPage() {
       params.minHighPhi = minHighPhi;
       params.wordLength = wordLength;
       params.generationMode = generationMode;
+      
+      // Add memory fragments if enabled
+      if (testMemoryFragments && memoryFragments.trim()) {
+        params.memoryFragments = memoryFragments.split("\n").map(f => f.trim()).filter(f => f.length > 0);
+        params.testMemoryFragments = true;
+      }
     }
 
     createJobMutation.mutate({ strategy, params });
@@ -603,6 +619,69 @@ export default function RecoveryPage() {
                 <p className="text-sm text-muted-foreground">
                   This will test 45 contextually relevant BIP-39 phrases with Bitcoin/crypto, cypherpunk, and Mac aesthetic themes.
                 </p>
+              </div>
+            )}
+
+            {(strategy === "bip39-continuous" || strategy === "bip39-random") && (
+              <div className="mt-6 border-t pt-6">
+                <Accordion type="single" collapsible className="border rounded-md">
+                  <AccordionItem value="memory-fragments" className="border-none">
+                    <AccordionTrigger className="px-4 py-3 hover-elevate">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4" />
+                        <span className="font-semibold">🧠 Memory Fragment Testing (Optional)</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4 space-y-4">
+                      <div className="p-3 bg-muted/50 rounded-md text-sm space-y-2">
+                        <p className="text-muted-foreground">
+                          If you remember ANY words, phrases, or patterns that might have been used, enter them here. 
+                          The system will test hundreds of variations (capitalization, spacing, numbers, combinations) before starting random exploration.
+                        </p>
+                        <p className="text-muted-foreground font-medium">
+                          Examples: "whitetiger77", "garyocean", "white tiger", personal names, dates, usernames
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          ⚠️ Fragments are stored locally in your browser only. They are never sent to any server except for testing against your target address.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="testMemoryFragments"
+                          checked={testMemoryFragments}
+                          onCheckedChange={(checked) => setTestMemoryFragments(checked as boolean)}
+                          disabled={!!activeJob}
+                          data-testid="checkbox-test-memory-fragments"
+                        />
+                        <Label htmlFor="testMemoryFragments" className="text-base cursor-pointer">
+                          Enable memory fragment testing (recommended if you have any clues)
+                        </Label>
+                      </div>
+
+                      {testMemoryFragments && (
+                        <div>
+                          <Label htmlFor="memoryFragments" className="text-base">
+                            Memory Fragments (one per line):
+                          </Label>
+                          <Textarea
+                            id="memoryFragments"
+                            value={memoryFragments}
+                            onChange={(e) => setMemoryFragments(e.target.value)}
+                            placeholder="whitetiger77&#10;garyocean&#10;white tiger&#10;yourname&#10;significant dates..."
+                            className="mt-2 font-mono text-sm"
+                            rows={6}
+                            disabled={!!activeJob}
+                            data-testid="input-memory-fragments"
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {memoryFragments.split("\n").filter(f => f.trim()).length} base fragments → ~{memoryFragments.split("\n").filter(f => f.trim()).length * 50} variations will be tested
+                          </p>
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             )}
 

@@ -4,6 +4,7 @@ import { generateBitcoinAddress, generateMasterPrivateKey, generateBitcoinAddres
 import { scorePhrase } from "./qig-scoring";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase } from "./bip39-words";
+import { generateFragmentVariations } from "./fragment-variations";
 import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
 
 class SearchCoordinator {
@@ -109,6 +110,7 @@ class SearchCoordinator {
 
       await storage.updateSearchJob(jobId, {
         progress: {
+          ...job.progress,
           tested: newTested,
           highPhiCount: newHighPhi,
           lastBatchIndex: i + BATCH_SIZE,
@@ -168,6 +170,22 @@ class SearchCoordinator {
       type: "info" 
     });
 
+    // Test memory fragments first if provided (only once per job)
+    const shouldTestFragments = job.params.testMemoryFragments && 
+      job.params.memoryFragments && 
+      job.params.memoryFragments.length > 0 &&
+      (!job.progress.fragmentsTotal || job.progress.fragmentsTested === undefined || job.progress.fragmentsTested < job.progress.fragmentsTotal);
+    
+    if (shouldTestFragments) {
+      await this.testMemoryFragments(jobId, job.params.memoryFragments!);
+      
+      // Reload job state after fragment testing
+      job = await storage.getSearchJob(jobId) as SearchJob;
+      if (!job || job.status === "stopped" || job.status === "completed") {
+        return;
+      }
+    }
+
     while (true) {
       // Reload job state to check for stop signals
       job = await storage.getSearchJob(jobId) as SearchJob;
@@ -211,6 +229,7 @@ class SearchCoordinator {
 
       await storage.updateSearchJob(jobId, {
         progress: {
+          ...job.progress,
           tested: newTested,
           highPhiCount: newHighPhi,
           lastBatchIndex: 0, // Not applicable for continuous
@@ -408,6 +427,116 @@ class SearchCoordinator {
       highPhiCandidates: highPhiCount,
       matchFound: false,
     };
+  }
+
+  private async testMemoryFragments(jobId: string, baseFragments: string[]) {
+    await storage.appendJobLog(jobId, { 
+      message: `🧠 Testing memory fragments: ${baseFragments.length} base phrases provided`, 
+      type: "info" 
+    });
+
+    // Generate all variations
+    const variations = generateFragmentVariations(baseFragments);
+    const totalVariations = variations.length;
+    
+    await storage.appendJobLog(jobId, { 
+      message: `Generated ${totalVariations} variations from memory fragments`, 
+      type: "info" 
+    });
+
+    // Initialize fragment progress tracking (preserve existing progress)
+    const job = await storage.getSearchJob(jobId) as SearchJob;
+    await storage.updateSearchJob(jobId, {
+      progress: {
+        ...job.progress,
+        fragmentsTested: 0,
+        fragmentsTotal: totalVariations,
+      }
+    });
+
+    const BATCH_SIZE = 50; // Test fragments in larger batches
+    const targetAddresses = await storage.getTargetAddresses();
+
+    for (let i = 0; i < variations.length; i += BATCH_SIZE) {
+      // Check for stop signal
+      const job = await storage.getSearchJob(jobId);
+      if (!job || job.status === "stopped") {
+        await storage.appendJobLog(jobId, { message: "Fragment testing stopped by user", type: "info" });
+        return;
+      }
+
+      const batch = variations.slice(i, i + BATCH_SIZE);
+      
+      for (const variation of batch) {
+        // Test as passphrase-derived private key (early Bitcoin brain wallet method)
+        const address = generateBitcoinAddress(variation.value);
+        
+        const matchedAddress = targetAddresses.find(t => t.address === address);
+        
+        if (matchedAddress) {
+          // MATCH FOUND!
+          const matchCandidate: Candidate = {
+            id: randomUUID(),
+            phrase: variation.value,
+            address,
+            score: 100,
+            qigScore: {
+              contextScore: 100,
+              eleganceScore: 100,
+              typingScore: 100,
+              totalScore: 100,
+            },
+            testedAt: new Date().toISOString(),
+            type: "bip39",
+          };
+          await storage.addCandidate(matchCandidate);
+          
+          await storage.updateSearchJob(jobId, {
+            status: "completed",
+            stats: { endTime: new Date().toISOString(), rate: 0 },
+          });
+          
+          await storage.appendJobLog(jobId, { 
+            message: `🎉 MATCH FOUND IN MEMORY FRAGMENTS! "${variation.value}" (${variation.description})`, 
+            type: "success" 
+          });
+          return;
+        }
+      }
+
+      // Update progress (preserve existing progress)
+      const fragmentsTested = Math.min(i + BATCH_SIZE, totalVariations);
+      const currentJob = await storage.getSearchJob(jobId) as SearchJob;
+      await storage.updateSearchJob(jobId, {
+        progress: {
+          ...currentJob.progress,
+          fragmentsTested,
+          fragmentsTotal: totalVariations,
+        }
+      });
+
+      await storage.appendJobLog(jobId, { 
+        message: `Fragment testing progress: ${fragmentsTested}/${totalVariations} variations tested`, 
+        type: "info" 
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    // Mark fragment testing as complete (preserve existing progress)
+    const finalJob = await storage.getSearchJob(jobId) as SearchJob;
+    await storage.updateSearchJob(jobId, {
+      progress: {
+        ...finalJob.progress,
+        fragmentsTested: totalVariations,
+        fragmentsTotal: totalVariations,
+      }
+    });
+    
+    await storage.appendJobLog(jobId, { 
+      message: `✓ Memory fragment testing complete: ${totalVariations} variations tested, no match found. Continuing with random exploration...`, 
+      type: "info" 
+    });
   }
 
   async stopJob(jobId: string) {

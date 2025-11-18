@@ -40,6 +40,29 @@ export function generateMasterPrivateKey(): string {
   return privateKey.toString("hex");
 }
 
+/**
+ * Derive a private key from a passphrase using SHA-256
+ * This is how early Bitcoin brain wallets worked - simply hashing a memorable phrase
+ */
+export function derivePrivateKeyFromPassphrase(passphrase: string): string {
+  const privateKeyHash = createHash("sha256").update(passphrase, "utf8").digest();
+  return privateKeyHash.toString("hex");
+}
+
+/**
+ * Generate Bitcoin address from a passphrase by first deriving the private key
+ * This is the same as generateBitcoinAddress but makes the derivation explicit
+ */
+export function generateBitcoinAddressFromPassphrase(passphrase: string): {
+  address: string;
+  privateKey: string;
+} {
+  const privateKey = derivePrivateKeyFromPassphrase(passphrase);
+  const address = generateBitcoinAddressFromPrivateKey(privateKey);
+  
+  return { address, privateKey };
+}
+
 export function generateBitcoinAddressFromPrivateKey(privateKeyHex: string): string {
   const privateKeyBuffer = Buffer.from(privateKeyHex, "hex");
   

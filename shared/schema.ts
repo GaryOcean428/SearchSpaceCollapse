@@ -86,11 +86,15 @@ export const searchJobSchema = z.object({
     minHighPhi: z.number().optional(),
     wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
     generationMode: z.enum(["bip39", "master-key", "both"]).optional(), // BIP-39 passphrase, master private key, or both
+    memoryFragments: z.array(z.string()).optional(), // Base phrases to generate variations from
+    testMemoryFragments: z.boolean().optional(), // Whether to prioritize memory fragment testing
   }),
   progress: z.object({
     tested: z.number(),
     highPhiCount: z.number(),
     lastBatchIndex: z.number(),
+    fragmentsTested: z.number().optional(), // How many fragment variations have been tested
+    fragmentsTotal: z.number().optional(), // Total fragment variations to test
   }),
   stats: z.object({
     startTime: z.string().optional(),
@@ -111,6 +115,12 @@ export const createSearchJobRequestSchema = z.object({
     minHighPhi: z.number().optional(),
     wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
     generationMode: z.enum(["bip39", "master-key", "both"]).optional(), // BIP-39 passphrase, master private key, or both
+    memoryFragments: z.array(
+      z.string()
+        .max(100, "Fragment too long (max 100 characters)")
+        .regex(/^[\x20-\x7E]+$/, "Fragment contains invalid characters")
+    ).max(50, "Too many fragments (max 50)").optional(), // Base phrases to generate variations from
+    testMemoryFragments: z.boolean().optional(), // Whether to prioritize memory fragment testing
   }),
 });
 
