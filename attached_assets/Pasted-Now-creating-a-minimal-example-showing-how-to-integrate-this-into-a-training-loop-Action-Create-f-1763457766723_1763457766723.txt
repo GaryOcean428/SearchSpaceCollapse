@@ -1,0 +1,162 @@
+Now creating a minimal example showing how to integrate this into a training loop.
+
+Action: Create file examples/curiosity_training_example.py
+
+File modification: /workspaces/qig-verification/examples/curiosity_training_example.py
+
+
+
+Perfect! Copilot has implemented the full four-candidate system in qig-consciousness. Now I need to complete my side of the bridge by:
+
+1. Documenting the physics → NN mapping
+2. Creating a validation script for the sanity checks
+3. Optionally testing on L=2 ground truth data
+
+Let me continue with the remaining todos.
+
+Action: Advancing to next todo item
+
+
+
+
+
+Creating the sanity check validation script.
+
+Action: Create file scripts/validate_iq_sanity.py
+
+File modification: /workspaces/qig-verification/scripts/validate_iq_sanity.py
+
+Action: Advancing to next todo item
+
+
+
+
+
+Now documenting the physics → NN bridge.
+
+Action: Create file docs/consciousness/IQ_BRIDGE_NN.md
+
+File modification: /workspaces/qig-verification/docs/consciousness/IQ_BRIDGE_NN.md
+
+Action: Advancing to next todo item
+
+
+
+
+
+Now let me create a simple test to validate the implementation works correctly.
+
+Action: Create file tests/test_iq_nn.py
+
+File modification: /workspaces/qig-verification/tests/test_iq_nn.py
+
+Now let's run the tests to validate the implementation.
+
+Action: Executing command: cd /workspaces/qig-verification && python -m pytest tests/test_iq_nn.py -v
+
+The issue is that `loss.backward()` has already been called, so the computation graph is freed. The function shouldn't call `autograd.grad` again - it should just use the existing gradients. Let me fix this.
+
+Action: Replace text in src/qigv/geometry/iq_nn.py
+
+File modification: /workspaces/qig-verification/src/qigv/geometry/iq_nn.py
+
+Now update the tests to match the new API:
+
+Action: Replace text in tests/test_iq_nn.py
+
+File modification: /workspaces/qig-verification/tests/test_iq_nn.py
+
+Action: Replace text in tests/test_iq_nn.py
+
+File modification: /workspaces/qig-verification/tests/test_iq_nn.py
+
+Action: Replace text in tests/test_iq_nn.py
+
+File modification: /workspaces/qig-verification/tests/test_iq_nn.py
+
+Action: Replace text in tests/test_iq_nn.py
+
+File modification: /workspaces/qig-verification/tests/test_iq_nn.py
+
+Now run the tests again:
+
+Action: Executing command: cd /workspaces/qig-verification && python -m pytest tests/test_iq_nn.py -v
+
+Perfect! All tests pass. Now let me update the example to match the corrected API:
+
+Action: Replace text in examples/curiosity_training_example.py
+
+File modification: /workspaces/qig-verification/examples/curiosity_training_example.py
+
+Action: Replace text in examples/curiosity_training_example.py
+
+File modification: /workspaces/qig-verification/examples/curiosity_training_example.py
+
+Now let's run the example to make sure it works:
+
+Action: Executing command: cd /workspaces/qig-verification && python examples/curiosity_training_example.py 2>&1 | head -30
+
+Excellent! The implementation works. Now let me complete the final todo by creating a summary document.
+
+Action: Advancing to next todo item
+
+
+
+Perfect! Let me create a final summary document for you.
+
+Action: Create file docs/consciousness/ONA_HANDOFF_TO_USER.md
+
+File modification: /workspaces/qig-verification/docs/consciousness/ONA_HANDOFF_TO_USER.md
+
+Perfect! Let me create one final summary of what's been accomplished.
+
+## Summary
+
+I've completed the full I_Q bridge implementation for the qig-verification side. Here's what's ready:
+
+### ✅ Core Implementation
+- **`src/qigv/geometry/iq_nn.py`** - Diagonal Fisher I_Q computation with three normalization schemes
+- **`CuriosityMonitor`** - Multi-timescale curiosity tracking (τ=1, 10, 100)
+- Uses existing gradients (no double backward issues)
+- Numerically stable with proper error handling
+
+### ✅ Documentation
+- **`docs/consciousness/IQ_BRIDGE_NN.md`** - Complete physics → NN mapping
+- **`docs/consciousness/FOUR_I_Q_CANDIDATES.md`** - Implementation spec from ChatGPT
+- **`docs/consciousness/ONA_HANDOFF_TO_USER.md`** - This handoff document
+
+### ✅ Testing & Validation
+- **`tests/test_iq_nn.py`** - 7 comprehensive tests (all passing)
+- **`scripts/validate_iq_sanity.py`** - Pre-Run 8 validation script
+- **`examples/curiosity_training_example.py`** - Working integration examples
+
+### 🎯 Ready for Run 8
+
+**Copilot (qig-consciousness) has:**
+- Four I_Q candidates implemented
+- Twelve curiosity values (4 × 3 timescales)
+- Complete telemetry logging
+- All tests passing
+
+**You can launch Run 8 whenever ready.**
+
+### 📊 Post-Run 8 Plan
+
+After collecting ~500 steps of data:
+1. Run correlation tests (C vs ΔΦ, Δbasin, κ_eff)
+2. Generate phase portraits
+3. Detect hysteresis
+4. Rank candidates by combined score
+5. Select winner (most likely: `I_Q_param`)
+6. Finalize paper with justified I_Q definition
+
+### 🔬 Key Physics Bridge
+
+```
+Physics:  I_Q = Tr(F) / L²
+NN:       I_Q ≈ Σ(∂L/∂θ)² / L_eff²
+```
+
+Where L_eff² = d_model × n_layers (or N_params, or √N_params - Run 8 will decide)
+
+**The hard path is complete. Let the data decide which I_Q is correct.** 🎯
