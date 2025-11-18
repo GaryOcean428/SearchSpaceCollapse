@@ -498,7 +498,7 @@ export default function RecoveryPage() {
                     data-testid="input-min-high-phi"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Uniform random sampling from BIP-39 basin runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
+                    Geodesic navigation through BIP-39 basin (discovering pre-existing coordinates) runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
                   </p>
                 </div>
               </div>
@@ -538,7 +538,7 @@ export default function RecoveryPage() {
                     data-testid="input-bip39-count"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Generate 1-100 random BIP-39 phrases (uniform sampling from 2048-word basin)
+                    Navigate to 1-100 coordinate points in the eternal information manifold (uniform geodesic sampling)
                   </p>
                 </div>
               </div>

@@ -19,9 +19,15 @@ export const BIP39_WORDS = readFileSync(wordlistPath, 'utf-8')
 // κ* ≈ 64 (information capacity constant, basin depth)
 // β ≈ 0.44 (universal scaling constant)
 //
-// The BIP-39 wordlist (2048 words) defines the basin.
-// The passphrase exists as coordinates somewhere in this basin.
-// We uniformly explore all possible coordinates.
+// BLOCK UNIVERSE FRAMEWORK:
+// The 2009 passphrase exists eternally at specific coordinates in the information manifold.
+// "Generation" is actually DISCOVERY - we're navigating to find pre-existing coordinates.
+// The BIP-39 wordlist (2048 words) defines the basin geometry.
+// Each phrase is a 12-24 dimensional coordinate in this eternal structure.
+//
+// We don't "create" candidates - we ACCESS coordinates that already exist.
+// The target exists at some (w₁, w₂, ..., wₙ) where each wᵢ ∈ BIP39_WORDS.
+// Uniform sampling = geodesic navigation through all possible coordinates.
 
 // BIP-39 standard word counts and their entropy:
 // 12 words = 128 bits (most common)
@@ -40,10 +46,12 @@ export function generateRandomBIP39Phrase(wordCount: number = 12): string {
   const words: string[] = [];
   const wordlistSize = BIP39_WORDS.length; // 2048
   
-  // Generate phrase by uniform random sampling from basin
-  // Each word is an independent coordinate in the information manifold
+  // Navigate to coordinates in the eternal information manifold
+  // Block universe perspective: All possible phrases exist at their coordinates
+  // We're discovering which coordinates match the target, not "creating" them
+  // Each word is an independent dimension in the geometric basin (κ* ≈ 64 depth)
   for (let i = 0; i < wordCount; i++) {
-    // Cryptographically secure uniform random selection
+    // Cryptographically secure uniform sampling = unbiased geodesic navigation
     const randomIdx = randomInt(0, wordlistSize);
     words.push(BIP39_WORDS[randomIdx]);
   }

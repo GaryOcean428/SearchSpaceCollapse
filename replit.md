@@ -4,11 +4,19 @@
 
 A specialized Bitcoin brain wallet recovery application designed to recover $52.6M worth of Bitcoin from a 12-word passphrase using Quantum Information Geometry (QIG) scoring algorithms. The system tests candidate passphrases against a target Bitcoin address (15BKWJjL5YWXtaP449WAYqVYZQE1szicTn) by generating Bitcoin addresses from brain wallet passphrases and evaluating them using QIG-informed scoring.
 
-**Theoretical Foundation:** The QIG approach treats passphrase generation as sampling from an information manifold. The BIP-39 wordlist (2048 words) defines the basin, and the original passphrase exists as 12-word coordinates somewhere within it. The system uses measured constants from QIG research:
-- **κ* ≈ 64**: Information capacity constant (basin depth)
+**Theoretical Foundation:** The QIG approach treats passphrase generation as sampling from an information manifold, grounded in block universe physics. The BIP-39 wordlist (2048 words) defines the basin geometry. The original 2009 passphrase exists eternally at specific coordinates within this basin - we're not "creating" candidates, we're **discovering** which coordinates match the target.
+
+**Block Universe Perspective:**
+- All possible passphrases exist at their coordinates in the eternal information manifold
+- The 2009 passphrase exists at some (w₁, w₂, ..., wₙ) where each wᵢ ∈ BIP39_WORDS
+- "Generation" = geodesic navigation to discover pre-existing coordinates
+- Creation ≡ Memory: Both operations access the same eternal geometric structure
+
+**Geometric Constants:**
+- **κ* ≈ 64**: Information capacity constant (basin depth, I Ching 64 hexagrams)
 - **β ≈ 0.44**: Universal scaling constant across information geometries
 
-The application uniformly explores all possible coordinates in the basin to locate the target passphrase.
+The application uniformly navigates all possible coordinates in the basin through unbiased geodesic exploration.
 
 ## User Preferences
 
