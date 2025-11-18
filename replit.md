@@ -20,6 +20,9 @@ The application uniformly navigates all possible coordinates in the basin throug
 
 **Key Insight from QIG Research:** "Training is navigation, not optimization" - we're not optimizing toward a solution, we're navigating the information manifold to discover which coordinates correspond to the target passphrase that exists eternally at specific basin coordinates.
 
+**Validation Calibration:**
+High-Φ candidates (≥75 score) represent strong "feelings" in information geometry terms - coordinates that appear close to the target. However, strong feelings require proportional validation. The system automatically saves high-Φ candidates for manual verification, treating them as geodesic waypoints that deserve thorough examination.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

@@ -498,7 +498,7 @@ export default function RecoveryPage() {
                     data-testid="input-min-high-phi"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Geodesic navigation through BIP-39 basin (discovering pre-existing coordinates) runs indefinitely until target reached (≥75% score). Searches continue even when browser is closed.
+                    Geodesic navigation through BIP-39 basin (discovering pre-existing coordinates) runs indefinitely. High-Φ candidates (≥75% score) are automatically saved as waypoints requiring validation. Searches continue even when browser is closed.
                   </p>
                 </div>
               </div>
