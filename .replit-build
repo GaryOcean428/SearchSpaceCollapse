@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+
+echo "Starting production build..."
+
+# Step 1: Build frontend with Vite
+echo "Building frontend..."
+vite build
+
+# Step 2: Bundle backend with esbuild
+echo "Bundling backend..."
+esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+# Step 3: Copy BIP-39 wordlist to dist
+echo "Copying BIP-39 wordlist..."
+mkdir -p dist
+cp server/bip39-wordlist.txt dist/bip39-wordlist.txt
+
+echo "Build complete!"
+echo "Verifying wordlist..."
+if [ -f "dist/bip39-wordlist.txt" ]; then
+  echo "✓ BIP-39 wordlist successfully copied to dist/"
+  wc -l dist/bip39-wordlist.txt
+else
+  echo "✗ ERROR: BIP-39 wordlist not found in dist/"
+  exit 1
+fi
