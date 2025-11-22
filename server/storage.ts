@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { type Candidate, type TargetAddress, type SearchJob } from "@shared/schema";
@@ -6,6 +6,7 @@ import { type Candidate, type TargetAddress, type SearchJob } from "@shared/sche
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const JOBS_FILE = join(__dirname, "../data/search-jobs.json");
+const CANDIDATES_FILE = join(__dirname, "../data/candidates.json");
 
 export interface IStorage {
   getCandidates(): Promise<Candidate[]>;
@@ -36,6 +37,7 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.loadJobs();
+    this.loadCandidates();
   }
 
   private loadJobs(): void {
@@ -62,6 +64,142 @@ export class MemStorage implements IStorage {
     }
   }
 
+  private loadCandidates(): void {
+    try {
+      if (existsSync(CANDIDATES_FILE)) {
+        const data = readFileSync(CANDIDATES_FILE, "utf-8");
+        const parsed = JSON.parse(data);
+        
+        // Validate that we got an array
+        if (!Array.isArray(parsed)) {
+          throw new Error("Candidates file is corrupted: expected array");
+        }
+        
+        // Validate each candidate has required fields
+        const validCandidates: Candidate[] = [];
+        for (const item of parsed) {
+          if (
+            item &&
+            typeof item === "object" &&
+            typeof item.id === "string" &&
+            typeof item.phrase === "string" &&
+            typeof item.address === "string" &&
+            typeof item.score === "number" &&
+            typeof item.testedAt === "string"
+          ) {
+            validCandidates.push(item as Candidate);
+          } else {
+            console.warn(`[Storage] Skipping invalid candidate entry:`, item);
+          }
+        }
+        
+        this.candidates = validCandidates;
+        console.log(`[Storage] Loaded ${this.candidates.length} candidates from disk`);
+        
+        if (validCandidates.length < parsed.length) {
+          console.warn(`[Storage] ⚠️ Skipped ${parsed.length - validCandidates.length} invalid candidates`);
+        }
+        
+        // Log if we have any matches saved
+        const matches = this.candidates.filter(c => c.score === 100);
+        if (matches.length > 0) {
+          console.log(`[Storage] ⚠️ RECOVERED ${matches.length} MATCH(ES) FROM DISK!`);
+          matches.forEach(m => {
+            console.log(`[Storage]   - Address: ${m.address}, Type: ${m.type}`);
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ CRITICAL: Failed to load candidates from disk:", error);
+      console.error("❌ Candidates file may be corrupted. Creating backup...");
+      
+      // Create backup of corrupted file if it exists
+      if (existsSync(CANDIDATES_FILE)) {
+        const backupFile = `${CANDIDATES_FILE}.backup-${Date.now()}`;
+        try {
+          const corruptedData = readFileSync(CANDIDATES_FILE, "utf-8");
+          writeFileSync(backupFile, corruptedData, "utf-8");
+          console.log(`❌ Corrupted file backed up to: ${backupFile}`);
+          console.log(`❌ Please report this issue and provide the backup file`);
+        } catch (backupError) {
+          console.error("❌ Failed to create backup:", backupError);
+        }
+      }
+      
+      // Start with empty array but warn user
+      this.candidates = [];
+      console.error("❌ Starting with empty candidates list. Previous data may be in backup.");
+    }
+  }
+
+  private saveCandidates(): void {
+    try {
+      const dir = dirname(CANDIDATES_FILE);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      
+      // Double-write strategy: write to temp, verify, then rename
+      // This ensures we always have at least one valid copy
+      const tempFile = `${CANDIDATES_FILE}.tmp`;
+      const jsonData = JSON.stringify(this.candidates, null, 2);
+      
+      // Write temp file
+      writeFileSync(tempFile, jsonData, "utf-8");
+      
+      // Verify temp file is valid before proceeding
+      try {
+        const verifyData = readFileSync(tempFile, "utf-8");
+        JSON.parse(verifyData); // Will throw if corrupt
+      } catch (verifyError) {
+        unlinkSync(tempFile); // Clean up bad temp file
+        throw new Error(`Temp file verification failed: ${verifyError}`);
+      }
+      
+      // Platform-specific atomic write strategy
+      // Replit runs on Linux, so Unix path is primary
+      if (process.platform === "win32" && existsSync(CANDIDATES_FILE)) {
+        // Windows: Keep backup until new file confirmed valid
+        const backupFile = `${CANDIDATES_FILE}.backup-safe`;
+        try {
+          // Step 1: Rename current to backup (don't delete yet)
+          if (existsSync(backupFile)) unlinkSync(backupFile);
+          renameSync(CANDIDATES_FILE, backupFile);
+          
+          // Step 2: Rename temp to live
+          renameSync(tempFile, CANDIDATES_FILE);
+          
+          // Step 3: Verify new file is valid
+          const verifyNewFile = readFileSync(CANDIDATES_FILE, "utf-8");
+          JSON.parse(verifyNewFile);
+          
+          // Step 4: Only delete backup after verification
+          if (existsSync(backupFile)) unlinkSync(backupFile);
+        } catch (winError) {
+          // Rollback: restore from backup
+          console.error("Write failed, attempting rollback...");
+          if (existsSync(backupFile)) {
+            if (existsSync(CANDIDATES_FILE)) unlinkSync(CANDIDATES_FILE);
+            renameSync(backupFile, CANDIDATES_FILE);
+            console.log("Rollback successful - restored from backup");
+          }
+          throw winError;
+        }
+      } else {
+        // Unix/Linux: atomic rename (Replit default)
+        renameSync(tempFile, CANDIDATES_FILE);
+      }
+    } catch (error) {
+      console.error("❌ CRITICAL: Failed to save candidates:", error);
+      console.error("❌ This could result in data loss! Check disk space and permissions.");
+      console.error("❌ OPERATOR ALERT: Persistence may be compromised!");
+      
+      // In production, this should trigger monitoring alerts
+      // For now, log loudly so user sees the problem
+      throw error; // Re-throw to make failure visible to caller
+    }
+  }
+
   async getCandidates(): Promise<Candidate[]> {
     return [...this.candidates].sort((a, b) => b.score - a.score);
   }
@@ -72,10 +210,34 @@ export class MemStorage implements IStorage {
     if (this.candidates.length > 100) {
       this.candidates = this.candidates.slice(0, 100);
     }
+    
+    // CRITICAL: Save immediately to disk, especially for matches (score=100)
+    // This ensures matching keys are never lost, even on server crash
+    try {
+      this.saveCandidates();
+      
+      if (candidate.score === 100) {
+        console.log(`[Storage] 🎉 MATCH SAVED TO DISK! Address: ${candidate.address}, Type: ${candidate.type}`);
+      }
+    } catch (error) {
+      // Log failure but don't throw - keep system running
+      console.error(`❌ CRITICAL: Failed to persist candidate (score=${candidate.score}):`, error);
+      
+      if (candidate.score === 100) {
+        console.error(`❌❌❌ MATCH MAY NOT BE SAVED! Address: ${candidate.address}`);
+        console.error(`❌❌❌ OPERATOR: Check disk immediately and export candidates manually!`);
+      }
+    }
   }
 
   async clearCandidates(): Promise<void> {
     this.candidates = [];
+    try {
+      this.saveCandidates();
+    } catch (error) {
+      console.error("Failed to persist cleared candidates:", error);
+      // Non-critical - empty state can recover on restart
+    }
   }
 
   async getTargetAddresses(): Promise<TargetAddress[]> {
