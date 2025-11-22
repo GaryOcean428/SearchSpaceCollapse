@@ -1,180 +1,85 @@
 # QIG Brain Wallet Recovery Tool
 
 ## Overview
+The QIG Brain Wallet Recovery Tool is a specialized Bitcoin brain wallet recovery application designed to recover Bitcoin from a 12-word passphrase using Quantum Information Geometry (QIG) scoring algorithms. The system tests candidate passphrases against a target Bitcoin address by generating Bitcoin addresses from brain wallet passphrases and evaluating them using QIG-informed scoring.
 
-A specialized Bitcoin brain wallet recovery application designed to recover $52.6M worth of Bitcoin from a 12-word passphrase using Quantum Information Geometry (QIG) scoring algorithms. The system tests candidate passphrases against a target Bitcoin address (15BKWJjL5YWXtaP449WAYqVYZQE1szicTn) by generating Bitcoin addresses from brain wallet passphrases and evaluating them using QIG-informed scoring.
+The project is built on the theoretical foundation that passphrase generation is a process of sampling from an information manifold, grounded in block universe physics. The BIP-39 wordlist defines the geometry of this "basin," and the goal is to discover the pre-existing coordinates of the original 2009 passphrase. This approach considers all possible passphrases as existing at their coordinates in an eternal information manifold.
 
-**Theoretical Foundation:** The QIG approach treats passphrase generation as sampling from an information manifold, grounded in block universe physics. The BIP-39 wordlist (2048 words) defines the basin geometry. The original 2009 passphrase exists eternally at specific coordinates within this basin - we're not "creating" candidates, we're **discovering** which coordinates match the target.
+Key capabilities include:
+- Testing user-provided memory fragments and variations.
+- Supporting master private keys (256-bit random hex) alongside BIP-39 passphrases to cover early Bitcoin wallet methods.
+- Testing all valid BIP-39 phrase lengths (12/15/18/21/24 words) simultaneously.
+- Utilizing QIG context keywords spanning the 2008-2015+ crypto era for broader search applicability.
+- Providing a real-time visualization of QIG scores (Φ) to monitor search progress and identify patterns.
 
-**Block Universe Perspective:**
-- All possible passphrases exist at their coordinates in the eternal information manifold
-- The 2009 passphrase exists at some (w₁, w₂, ..., wₙ) where each wᵢ ∈ BIP39_WORDS
-- "Generation" = geodesic navigation to discover pre-existing coordinates
-- Creation ≡ Memory: Both operations access the same eternal geometric structure
-
-**Geometric Constants:**
-- **κ* ≈ 64**: Information capacity constant (basin depth, I Ching 64 hexagrams)
-- **β ≈ 0.44**: Universal scaling constant across information geometries
-
-The application uniformly navigates all possible coordinates in the basin through unbiased geodesic exploration.
-
-**Key Insight from QIG Research:** "Training is navigation, not optimization" - we're not optimizing toward a solution, we're navigating the information manifold to discover which coordinates correspond to the target passphrase that exists eternally at specific basin coordinates.
-
-**Validation Calibration:**
-High-Φ candidates (≥75 score) represent strong "feelings" in information geometry terms - coordinates that appear close to the target. However, strong feelings require proportional validation. The system automatically saves high-Φ candidates for manual verification, treating them as geodesic waypoints that deserve thorough examination.
-
-## Recent Updates (November 18, 2025)
-
-**Memory Fragment Testing** - Added support for testing user-provided memory fragments as potential passphrase components. The system generates comprehensive variations from base fragments (e.g., "whitetiger77" → ~50 variations with capitalization, spacing, number combinations) and tests them using SHA-256 passphrase-to-private-key derivation (early Bitcoin brain wallet method, pre-BIP-39). Fragment testing runs exactly once at the start of each search job, then continues with normal geodesic exploration. Progress tracking is preserved across both fragment testing and continuous search phases. Input validation enforces max 50 fragments, max 100 chars each, printable ASCII only for security.
-
-**Master Private Key Support** - Added support for testing master private keys (256-bit random hex) alongside BIP-39 passphrases. Critical insight: BIP-39 was invented in 2013, so wallets created in 2009 would have used raw private keys, not word-based passphrases. The system now offers three generation modes:
-- **BIP-39 only**: Word-based passphrases (12-24 words) with QIG scoring
-- **Master keys only**: Random 256-bit private keys (64 hex chars) with uniform sampling
-- **Both (recommended)**: Alternates between both formats to cover all possibilities
-
-Master private key generation validates 1 ≤ key < secp256k1.n to ensure cryptographic correctness and uniform sampling. Matches are persisted with score=100 and type="master-key" for recovery.
-
-**All Lengths Mode** - The system now supports testing all valid BIP-39 phrase lengths (12/15/18/21/24 words) simultaneously in a single search job. This eliminates the need to guess the original phrase length, as the target Bitcoin address doesn't encode this information. "All lengths" mode is now the default, cycling through all five valid lengths during geodesic navigation.
-
-**Expanded Timeframe** - QIG context keywords now span 2008-2015+ crypto era instead of being limited to 2009. Added broader crypto/tech/philosophy keywords to accommodate uncertain timeframe assumptions. Keywords now include: protocol, system, ledger, scarcity, sovereignty, innovation, paradigm shift, and other timeless concepts.
-
-**Score Distribution Visualization** - A real-time graph displays QIG scores (Φ) as the system navigates the BIP-39 basin. The visualization shows:
-- X-axis: Number of phrases tested (geodesic waypoints)
-- Y-axis: QIG score (0-100%, mapping to Φ 0.0-1.0)
-- Reference line at 75% (Φ ≥ 0.75 phase transition threshold)
-- Tooltips showing phrase details (word count, score, integration level)
-
-The graph helps identify patterns in the search: uniform low scores indicate proper random sampling, while score clustering or trends would suggest bias in the navigation algorithm. Note: Master private keys are not scored (QIG is designed for natural language).
+The system emphasizes "training as navigation, not optimization," aiming to navigate the information manifold to discover existing passphrase coordinates rather than optimizing towards a solution. High-scoring candidates (Φ ≥ 0.75) are automatically saved for manual verification, treated as significant waypoints in the geodesic exploration.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
 ### Frontend Architecture
-
-**Framework**: React with TypeScript, built using Vite as the build tool and development server.
-
-**UI Framework**: shadcn/ui component library with Radix UI primitives, styled using Tailwind CSS. The design system follows a "new-york" style variant with custom technical elements inspired by Fluent Design patterns for data-heavy enterprise applications.
-
-**State Management**: TanStack Query (React Query) for server state management with custom query client configuration. Local state managed via React hooks with refs for performance-critical search operations.
-
-**Routing**: wouter for lightweight client-side routing.
-
-**Design Philosophy**: Trust through precision with information hierarchy prioritized over aesthetics. Progressive disclosure of complex technical details with real-time feedback and no black boxes. Typography uses Inter/SF Pro for interface text and JetBrains Mono/Fira Code for monospace data (addresses, passphrases).
+The frontend is built with React and TypeScript, using Vite for development and bundling. It leverages the shadcn/ui component library, based on Radix UI primitives and styled with Tailwind CSS, following a "new-york" style variant inspired by Fluent Design. State management is handled by TanStack Query for server state and React hooks for local state, with wouter providing lightweight client-side routing. The design prioritizes information hierarchy, real-time feedback, and progressive disclosure of technical details, using Inter/SF Pro for interface text and JetBrains Mono/Fira Code for monospace data.
 
 ### Backend Architecture
+The backend is an Express.js server running on Node.js with TypeScript. It includes a custom brain wallet implementation that uses the native Node.js crypto module for SHA-256 hashing, the elliptic library for secp256k1 operations, and bs58check for Bitcoin address encoding. The core brain wallet process converts a passphrase to a private key via SHA-256, derives a public key, hashes it, and then Base58Check encodes it into a Bitcoin address.
 
-**Framework**: Express.js server running on Node.js with TypeScript.
+The QIG scoring algorithm evaluates candidate quality based on information geometry, utilizing context keywords found in the BIP-39 wordlist and empirically validated geometric constants:
+- **κ* ≈ 64**: Fixed point of running coupling, representing information capacity.
+- **β ≈ 0.44**: Running coupling β-function at emergence scale, indicating maximum scale-dependence.
+- **Φ ≥ 0.75**: Phase transition threshold for high-integration candidates, signifying meaningful integration.
 
-**Cryptographic Engine**: Custom brain wallet implementation using:
-- Native Node.js crypto module for SHA-256 hashing
-- elliptic library for secp256k1 elliptic curve operations
-- bs58check for Bitcoin address encoding
-
-**Brain Wallet Process**:
-1. Passphrase → SHA-256 hash → private key
-2. Private key → secp256k1 public key derivation
-3. Public key → SHA-256 → RIPEMD-160 hash
-4. Hash with version byte → Base58Check encoding → Bitcoin address
-
-**QIG Scoring Algorithm**: Information geometry-based scoring that evaluates candidate quality:
-- Context keywords that appear in BIP-39: proof, trust, digital, network, system, private, public, key, code, exchange, coin, cash, credit, power, control, balance, supply, own, permit, protect, secret, zero, change, future, build, basic, safe, truth, citizen, vote, rule, limit
-
-**Geometric Constants:**
-- κ* ≈ 64 (information capacity/basin depth)
-- β ≈ 0.44 (universal scaling constant)
-- Φ ≥ 0.75 threshold for high-integration candidates (≥75 score)
-
-**Φ Evolution:**
-- Random candidates: Φ ≈ 0 (no integration, pure noise)
-- Low-scoring: Φ < 0.50 (weak structure)
-- Medium-scoring: 0.50 ≤ Φ < 0.75 (emerging patterns)
-- High-Φ: Φ ≥ 0.75 (phase transition - meaningful integration)
-- Target: Φ = 1.0 (exact match, complete integration)
-
-**Known Phrases Database**: Curated list of 45 contextually relevant 12-word phrases using only BIP-39 wordlist vocabulary, including Bitcoin/crypto themes, 2009 financial crisis references, cypherpunk philosophy, and technical computing principles.
+The system also includes a curated database of 45 contextually relevant 12-word phrases for comparative analysis.
 
 ### Data Storage Solutions
-
-**Current Implementation**: In-memory storage using a custom MemStorage class that maintains a sorted list of top 100 candidates by QIG score.
-
-**Schema Design**: TypeScript schemas defined using Zod for runtime validation:
-- Candidate: phrase, address, QIG scores breakdown, timestamp
-- SearchStats: tested count, rate, high-Φ count, runtime, search status
-- Verification results and batch test requests
-
-**Database Configuration**: Drizzle ORM configured for PostgreSQL with schema file (`shared/schema.ts`) and migrations directory. Database setup prepared but not actively used in current in-memory implementation - allows for future persistence layer addition without architecture changes.
+Currently, the system uses in-memory storage via a custom `MemStorage` class to maintain a sorted list of the top 100 candidates by QIG score. Data schemas are defined using Zod for runtime validation, covering candidates, search statistics, and verification results. While Drizzle ORM is configured for PostgreSQL with a defined schema and migrations, it is not actively used for persistence in the current in-memory implementation.
 
 ### API Architecture
-
-**RESTful Endpoints**:
-- `GET /api/verify-crypto` - Verifies cryptographic library functionality
-- `POST /api/test-phrase` - Tests single 12-word phrase, returns address and QIG score
-- `POST /api/batch-test` - Tests multiple phrases in batch (implied from schema)
-- Candidate retrieval endpoints (implied from storage interface)
-
-**Request Validation**: Zod schemas enforce 12-word constraint on all phrase testing endpoints.
-
-**Response Format**: JSON with consistent error handling and status codes.
+The API provides RESTful endpoints for cryptographic verification, single-phrase testing, and implied batch testing. Request validation is enforced using Zod schemas, and responses are delivered in JSON format with consistent error handling.
 
 ### Development & Build System
-
-**Development Mode**: Vite dev server with HMR, Replit-specific plugins (cartographer, dev banner, runtime error overlay).
-
-**Production Build**: 
-- Frontend: Vite builds to `dist/public`
-- Backend: esbuild bundles server to `dist` with ESM format
-- Separate build commands maintain monorepo structure
-
-**Path Aliases**: TypeScript path mapping for clean imports:
-- `@/*` → client source files
-- `@shared/*` → shared schemas and types
-- `@assets/*` → attached assets directory
-
-**Code Organization**: Clear separation between client, server, and shared code with TypeScript strict mode enabled throughout.
+Development utilizes a Vite dev server with HMR and Replit-specific plugins. The production build process involves Vite for the frontend (to `dist/public`) and esbuild for the backend (to `dist`), maintaining a monorepo structure. TypeScript path aliases (`@/*`, `@shared/*`, `@assets/*`) facilitate clean imports, and strict TypeScript mode is enabled across the client, server, and shared codebases.
 
 ## External Dependencies
 
 ### Cryptographic Libraries
-- **elliptic** (v6.5.4+): Secp256k1 elliptic curve cryptography for Bitcoin key generation
-- **bs58check** (v4.0.0+): Base58Check encoding for Bitcoin addresses
-- **crypto-js** (v4.2.0+): Additional cryptographic utilities (SHA-256 hashing)
-- Native Node.js `crypto` module for core hashing operations
+- **elliptic**: For secp256k1 elliptic curve operations.
+- **bs58check**: For Base58Check encoding of Bitcoin addresses.
+- **crypto-js**: For additional cryptographic utilities, specifically SHA-256 hashing.
+- Native Node.js `crypto` module: For core hashing operations.
 
 ### UI Component Libraries
-- **Radix UI**: Complete suite of unstyled, accessible UI primitives (@radix-ui/react-*)
-- **shadcn/ui**: Pre-styled component layer built on Radix UI
-- **Tailwind CSS**: Utility-first CSS framework with custom design tokens
-- **lucide-react**: Icon library for UI elements
-- **class-variance-authority**: Type-safe variant management for components
+- **Radix UI**: Unstyled, accessible UI primitives.
+- **shadcn/ui**: Pre-styled component layer built on Radix UI.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **lucide-react**: Icon library.
+- **class-variance-authority**: Type-safe variant management.
 
 ### State & Data Management
-- **@tanstack/react-query** (v5.60.5+): Server state management and caching
-- **react-hook-form**: Form state management with validation
-- **@hookform/resolvers**: Form validation resolvers for Zod schemas
-- **zod**: Runtime type validation and schema definition
+- **@tanstack/react-query**: Server state management and caching.
+- **react-hook-form**: Form state management with validation.
+- **@hookform/resolvers**: Form validation resolvers for Zod schemas.
+- **zod**: Runtime type validation and schema definition.
 
 ### Database & ORM
-- **drizzle-orm** (v0.39.1+): TypeScript ORM for type-safe database queries
-- **drizzle-kit**: Database migration tooling
-- **@neondatabase/serverless** (v0.10.4+): Serverless PostgreSQL driver
-- **connect-pg-simple**: PostgreSQL session store (configured but not actively used)
+- **drizzle-orm**: TypeScript ORM.
+- **drizzle-kit**: Database migration tooling.
+- **@neondatabase/serverless**: Serverless PostgreSQL driver.
+- **connect-pg-simple**: PostgreSQL session store (configured).
 
 ### Build & Development Tools
-- **Vite**: Frontend build tool and dev server
-- **esbuild**: Fast JavaScript bundler for backend
-- **TypeScript**: Type safety across entire stack
-- **tsx**: TypeScript execution for development server
-- **@replit/vite-plugin-***: Replit-specific development enhancements
+- **Vite**: Frontend build tool and dev server.
+- **esbuild**: Fast JavaScript bundler for backend.
+- **TypeScript**: For type safety.
+- **tsx**: TypeScript execution for development server.
+- **@replit/vite-plugin-***: Replit-specific development enhancements.
 
 ### Utility Libraries
-- **date-fns** (v3.6.0+): Date manipulation and formatting
-- **clsx** / **tailwind-merge**: Conditional CSS class name merging
-- **cmdk**: Command palette component
-- **wouter**: Lightweight routing library
+- **date-fns**: Date manipulation and formatting.
+- **clsx** / **tailwind-merge**: Conditional CSS class name merging.
+- **cmdk**: Command palette component.
+- **wouter**: Lightweight routing library.
 
 ### Fonts
-- **Google Fonts**: Inter (interface), JetBrains Mono (monospace data)
-- Configured via HTML link tags for optimal loading
+- **Google Fonts**: Inter (interface), JetBrains Mono (monospace data).
