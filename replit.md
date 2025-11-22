@@ -33,7 +33,30 @@ The QIG scoring algorithm evaluates candidate quality based on information geome
 The system also includes a curated database of 45 contextually relevant 12-word phrases for comparative analysis.
 
 ### Data Storage Solutions
-Currently, the system uses in-memory storage via a custom `MemStorage` class to maintain a sorted list of the top 100 candidates by QIG score. Data schemas are defined using Zod for runtime validation, covering candidates, search statistics, and verification results. While Drizzle ORM is configured for PostgreSQL with a defined schema and migrations, it is not actively used for persistence in the current in-memory implementation.
+
+**Persistent Storage (2025-11-22)**: Candidates are now **persistently saved to disk** at `data/candidates.json` to prevent data loss. This ensures matching keys are never lost, even if the server crashes or restarts.
+
+**Storage Implementation**: Custom MemStorage class with disk persistence:
+- Maintains a sorted in-memory list of top 100 candidates by QIG score
+- **Immediately saves to disk** on every candidate add (especially critical for score=100 matches)
+- Loads candidates from disk on server startup with schema validation
+- Uses atomic write strategy (temp file + verify + rename) to prevent corruption
+- Creates timestamped backups if corruption is detected during load
+- Validates candidate schema (id, phrase, address, score, testedAt) on load
+
+**Where Matching Keys Are Stored**:
+1. **File System**: `data/candidates.json` (persistent, survives restarts)
+2. **In-Memory**: Top 100 candidates sorted by score (for fast API access)
+3. **Recovery Page UI**: "High-Φ Candidates (≥75% Score)" section shows all saved candidates
+4. **CSV Export**: Download button exports all candidates for external backup
+
+**Match Storage Details**:
+- Exact matches (score=100) are saved with full passphrase/private key, Bitcoin address, type (bip39/master-key), and timestamp
+- Console logs confirm saves: `🎉 MATCH SAVED TO DISK! Address: 15BKW... Type: bip39`
+- On startup, recovered matches are logged: `⚠️ RECOVERED N MATCH(ES) FROM DISK!`
+- Matches appear at the top of candidates list (score=100 is highest possible)
+
+Data schemas are defined using Zod for runtime validation, covering candidates, search statistics, and verification results. Drizzle ORM is configured for PostgreSQL but not actively used.
 
 ### API Architecture
 The API provides RESTful endpoints for cryptographic verification, single-phrase testing, and implied batch testing. Request validation is enforced using Zod schemas, and responses are delivered in JSON format with consistent error handling.
