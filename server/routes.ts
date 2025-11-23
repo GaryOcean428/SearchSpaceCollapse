@@ -11,8 +11,10 @@ import { randomUUID } from "crypto";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Replit Auth: Only setup auth if DATABASE_URL is available
-  const authEnabled = !!process.env.DATABASE_URL;
+  // Replit Auth: Only setup auth if database connection is available
+  // Import db dynamically to check if it was successfully initialized
+  const { db } = await import("./db");
+  const authEnabled = !!db;
   
   if (authEnabled) {
     await setupAuth(app);
