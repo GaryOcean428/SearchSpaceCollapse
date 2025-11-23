@@ -8,8 +8,50 @@ import { generateRandomBIP39Phrase } from "./bip39-words";
 import { searchCoordinator } from "./search-coordinator";
 import { testPhraseRequestSchema, batchTestRequestSchema, addAddressRequestSchema, generateRandomPhrasesRequestSchema, createSearchJobRequestSchema, type Candidate, type TargetAddress, type SearchJob } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Replit Auth: Only setup auth if DATABASE_URL is available
+  const authEnabled = !!process.env.DATABASE_URL;
+  
+  if (authEnabled) {
+    await setupAuth(app);
+    console.log("[Auth] Replit Auth enabled");
+    
+    // Replit Auth: Auth routes
+    app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const user = await storage.getUser(userId);
+        res.json(user);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ message: "Failed to fetch user" });
+      }
+    });
+  } else {
+    console.log("[Auth] Replit Auth disabled (no DATABASE_URL) - recovery tool accessible without login");
+    
+    // Auth endpoints return 503 when database is not available
+    app.get('/api/auth/user', (req, res) => {
+      res.status(503).json({ 
+        message: "Authentication unavailable - database not provisioned. Please provision a PostgreSQL database to enable Replit Auth." 
+      });
+    });
+    
+    app.get('/api/login', (req, res) => {
+      res.status(503).json({ 
+        message: "Authentication unavailable - database not provisioned. Please provision a PostgreSQL database to enable Replit Auth." 
+      });
+    });
+    
+    app.get('/api/logout', (req, res) => {
+      res.status(503).json({ 
+        message: "Authentication unavailable - database not provisioned." 
+      });
+    });
+  }
+
   app.get("/api/verify-crypto", (req, res) => {
     try {
       const result = verifyBrainWallet();

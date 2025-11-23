@@ -1,7 +1,10 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { type Candidate, type TargetAddress, type SearchJob } from "@shared/schema";
+import { type Candidate, type TargetAddress, type SearchJob, type User, type UpsertUser } from "@shared/schema";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,6 +24,9 @@ export interface IStorage {
   updateSearchJob(id: string, updates: Partial<SearchJob>): Promise<void>;
   appendJobLog(id: string, log: { message: string; type: "info" | "success" | "error" }): Promise<void>;
   deleteSearchJob(id: string): Promise<void>;
+  // Replit Auth: User operations (IMPORTANT) these user operations are mandatory for Replit Auth.
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
 }
 
 export class MemStorage implements IStorage {
@@ -298,6 +304,33 @@ export class MemStorage implements IStorage {
   async deleteSearchJob(id: string): Promise<void> {
     this.searchJobs = this.searchJobs.filter(j => j.id !== id);
     this.saveJobs();
+  }
+
+  // Replit Auth: User operations (IMPORTANT) these user operations are mandatory for Replit Auth.
+  async getUser(id: string): Promise<User | undefined> {
+    if (!db) {
+      throw new Error("Database not available - please provision a database to use Replit Auth");
+    }
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    if (!db) {
+      throw new Error("Database not available - please provision a database to use Replit Auth");
+    }
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 }
 
