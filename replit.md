@@ -17,6 +17,24 @@ The system emphasizes "training as navigation, not optimization," aiming to navi
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### Replit Auth Integration (2025-11-23)
+Added Replit Auth for user authentication with the following features:
+- **Login Options**: Google, GitHub, X, Apple, and email/password via Replit's OIDC provider
+- **Environment-Aware**: Works in both development (HTTP) and production (HTTPS) with dynamic protocol detection
+- **Optional Database**: App runs without authentication if DATABASE_URL is not set, keeping recovery tool accessible
+- **Session Management**: PostgreSQL-backed sessions with automatic token refresh
+- **Protected Routes**: `/api/auth/user` endpoint protected by authentication middleware
+- **User Interface**: Landing page for logged-out users, Home page for authenticated users
+- **Recovery Access**: Brain wallet recovery tool accessible at `/recovery` regardless of authentication status
+
+**Required Environment Variables** (for authentication):
+- `DATABASE_URL`: PostgreSQL connection string (auto-provisioned by Replit)
+- `SESSION_SECRET`: Secret for session encryption (auto-managed)
+- `REPL_ID`: Replit application ID (auto-provided)
+- `ISSUER_URL`: OIDC issuer URL (defaults to https://replit.com/oidc)
+
 ## System Architecture
 
 ### Frontend Architecture
