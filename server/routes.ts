@@ -11,6 +11,11 @@ import { randomUUID } from "crypto";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Handle favicon.ico requests - redirect to favicon.png
+  app.get("/favicon.ico", (req, res) => {
+    res.redirect(301, "/favicon.png");
+  });
+
   // Replit Auth: Only setup auth if database connection is available
   // Import db dynamically to check if it was successfully initialized
   const { db } = await import("./db");
