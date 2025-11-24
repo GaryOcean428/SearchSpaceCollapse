@@ -1517,6 +1517,112 @@ router.post("/workflows/:id/start-search", async (req: Request, res: Response) =
   }
 });
 
+/**
+ * GET /api/observer/workflows/:id/search-progress
+ * Get real-time progress for a constrained-search workflow
+ * 
+ * Returns combined data from workflow progress and active search job.
+ */
+router.get("/workflows/:id/search-progress", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Get workflow
+    const workflow = await observerStorage.getRecoveryWorkflow(id);
+    if (!workflow) {
+      return res.status(404).json({
+        error: "Workflow not found",
+        message: `No workflow with ID '${id}' exists.`,
+      });
+    }
+    
+    // Validate it's a constrained_search workflow
+    if (workflow.vector !== 'constrained_search') {
+      return res.status(400).json({
+        error: "Invalid workflow vector",
+        message: `This endpoint only supports constrained_search workflows. This workflow is '${workflow.vector}'.`,
+      });
+    }
+    
+    // Get search progress from workflow
+    const progress = workflow.progress as any;
+    const searchProgress = progress?.constrainedSearchProgress;
+    
+    if (!searchProgress?.searchJobId) {
+      return res.json({
+        message: "No search started yet",
+        workflow: {
+          id: workflow.id,
+          status: workflow.status,
+          address: workflow.address,
+        },
+        searchJob: null,
+        progress: null,
+      });
+    }
+    
+    // Get search job details
+    const { storage } = await import("./storage");
+    const searchJob = await storage.getSearchJob(searchProgress.searchJobId);
+    
+    if (!searchJob) {
+      return res.status(404).json({
+        error: "Search job not found",
+        message: `Search job ${searchProgress.searchJobId} not found in storage.`,
+      });
+    }
+    
+    // Get priority data for constraints
+    const priority = await observerStorage.getRecoveryPriority(workflow.address);
+    const entities = await observerStorage.getEntitiesByAddress(workflow.address);
+    const artifacts = await observerStorage.getArtifactsByAddress(workflow.address);
+    
+    // Return comprehensive progress data
+    res.json({
+      message: "Search progress retrieved",
+      workflow: {
+        id: workflow.id,
+        status: workflow.status,
+        address: workflow.address,
+        vector: workflow.vector,
+        startedAt: workflow.startedAt,
+      },
+      searchJob: {
+        id: searchJob.id,
+        status: searchJob.status,
+        strategy: searchJob.strategy,
+        progress: {
+          tested: searchJob.progress.tested,
+          highPhiCount: searchJob.progress.highPhiCount,
+          searchMode: searchJob.progress.searchMode,
+          lastHighPhiStep: searchJob.progress.lastHighPhiStep,
+        },
+        stats: searchJob.stats,
+      },
+      progress: {
+        phrasesTested: searchProgress.phrasesTested || 0,
+        phrasesGenerated: searchProgress.phrasesGenerated || 0,
+        highPhiCount: searchProgress.highPhiCount || 0,
+        matchFound: searchProgress.matchFound || false,
+        searchStatus: searchProgress.searchStatus || 'running',
+      },
+      constraints: {
+        kappaRecovery: priority?.kappaRecovery ?? 0,
+        phiConstraints: priority?.phiConstraints ?? 0,
+        hCreation: priority?.hCreation ?? 0,
+        entities: entities.length,
+        artifacts: artifacts.length,
+      },
+    });
+  } catch (error: any) {
+    console.error("[ObserverAPI] Search progress error:", error);
+    res.status(500).json({ 
+      error: "Failed to get search progress",
+      message: error.message,
+    });
+  }
+});
+
 // ============================================================================
 // SYSTEM STATUS
 // ============================================================================
