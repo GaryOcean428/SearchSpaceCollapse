@@ -15,7 +15,7 @@ import {
   type RecoveryPriority,
   type RecoveryWorkflow
 } from "@shared/schema";
-import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, sql } from "drizzle-orm";
 
 export interface IObserverStorage {
   // Block operations
@@ -43,8 +43,24 @@ export interface IObserverStorage {
   
   // Entity operations
   saveEntity(entity: Omit<Entity, "createdAt" | "updatedAt">): Promise<Entity>;
+  updateEntity(id: string, updates: Partial<Entity>): Promise<void>;
   getEntity(id: string): Promise<Entity | null>;
   getEntities(type?: string): Promise<Entity[]>;
+  searchEntities(filters?: {
+    name?: string;
+    bitcoinTalkUsername?: string;
+    githubUsername?: string;
+    email?: string;
+    alias?: string;
+    type?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Entity[]>;
+  findEntityByIdentity(identity: {
+    bitcoinTalkUsername?: string;
+    githubUsername?: string;
+    email?: string;
+  }): Promise<Entity | null>;
   
   // Artifact operations
   saveArtifact(artifact: Omit<Artifact, "createdAt">): Promise<Artifact>;
@@ -264,6 +280,114 @@ export class ObserverStorage implements IObserverStorage {
       return await db.select().from(entities).where(eq(entities.type, type));
     }
     return await db.select().from(entities);
+  }
+
+  async updateEntity(id: string, updates: Partial<Entity>): Promise<void> {
+    if (!db) throw new Error("Database not initialized");
+    await db.update(entities)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(entities.id, id));
+  }
+
+  async searchEntities(filters?: {
+    name?: string;
+    bitcoinTalkUsername?: string;
+    githubUsername?: string;
+    email?: string;
+    alias?: string;
+    type?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Entity[]> {
+    if (!db) throw new Error("Database not initialized");
+    
+    const conditions = [];
+    
+    if (filters?.name) {
+      // Case-insensitive name search
+      conditions.push(sql`LOWER(${entities.name}) LIKE LOWER(${'%' + filters.name + '%'})`);
+    }
+    
+    if (filters?.bitcoinTalkUsername) {
+      conditions.push(eq(entities.bitcoinTalkUsername, filters.bitcoinTalkUsername));
+    }
+    
+    if (filters?.githubUsername) {
+      conditions.push(eq(entities.githubUsername, filters.githubUsername));
+    }
+    
+    if (filters?.email) {
+      // Search in emailAddresses array
+      conditions.push(sql`${filters.email} = ANY(${entities.emailAddresses})`);
+    }
+    
+    if (filters?.alias) {
+      // Search in aliases array
+      conditions.push(sql`${filters.alias} = ANY(${entities.aliases})`);
+    }
+    
+    if (filters?.type) {
+      conditions.push(eq(entities.type, filters.type));
+    }
+    
+    let query = db.select().from(entities);
+    
+    if (conditions.length > 0) {
+      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
+      const whereClause = conditions.length === 1 
+        ? conditions[0] 
+        : and(...conditions);
+      query = query.where(whereClause) as any;
+    }
+    
+    if (filters?.limit !== undefined) {
+      query = query.limit(filters.limit) as any;
+    }
+    
+    if (filters?.offset !== undefined) {
+      query = query.offset(filters.offset) as any;
+    }
+    
+    return await query;
+  }
+
+  async findEntityByIdentity(identity: {
+    bitcoinTalkUsername?: string;
+    githubUsername?: string;
+    email?: string;
+  }): Promise<Entity | null> {
+    if (!db) throw new Error("Database not initialized");
+    
+    const conditions = [];
+    
+    if (identity.bitcoinTalkUsername) {
+      conditions.push(eq(entities.bitcoinTalkUsername, identity.bitcoinTalkUsername));
+    }
+    
+    if (identity.githubUsername) {
+      conditions.push(eq(entities.githubUsername, identity.githubUsername));
+    }
+    
+    if (identity.email) {
+      // Search in emailAddresses array
+      conditions.push(sql`${identity.email} = ANY(${entities.emailAddresses})`);
+    }
+    
+    if (conditions.length === 0) {
+      return null;
+    }
+    
+    // Use OR logic to find entity matching any identity
+    // CRITICAL: or() requires at least 2 conditions, so handle single condition case
+    const whereClause = conditions.length === 1 
+      ? conditions[0] 
+      : or(...conditions);
+    
+    const [entity] = await db.select().from(entities)
+      .where(whereClause)
+      .limit(1);
+    
+    return entity || null;
   }
 
   async saveArtifact(artifact: Omit<Artifact, "createdAt">): Promise<Artifact> {

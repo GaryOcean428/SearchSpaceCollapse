@@ -251,6 +251,397 @@ router.get("/addresses/:address", async (req: Request, res: Response) => {
 });
 
 // ============================================================================
+// ERA MANIFOLD: Entities and Artifacts
+// ============================================================================
+
+/**
+ * POST /api/observer/entities
+ * Create or update an entity (person, organization, miner, developer)
+ * Implements entity resolution: If entity with same identity exists, update it instead of creating duplicate
+ */
+router.post("/entities", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(1).max(255),
+      type: z.enum(['person', 'organization', 'miner', 'developer']),
+      aliases: z.array(z.string()).optional(),
+      knownAddresses: z.array(z.string()).optional(),
+      bitcoinTalkUsername: z.string().max(100).optional(),
+      githubUsername: z.string().max(100).optional(),
+      emailAddresses: z.array(z.string()).optional(),
+      firstActivityDate: z.coerce.date().optional(),
+      lastActivityDate: z.coerce.date().optional(),
+      isDeceased: z.boolean().optional(),
+      estateContact: z.string().max(500).optional(),
+      metadata: z.record(z.any()).optional(),
+    });
+    
+    let entityData;
+    try {
+      entityData = schema.parse(req.body);
+    } catch (zodError: any) {
+      return res.status(400).json({ 
+        error: "Invalid entity data",
+        details: zodError.errors || zodError.message,
+      });
+    }
+    
+    // ENTITY RESOLUTION: Check if entity already exists with same identity
+    // Check all provided identity fields (usernames and ALL emails)
+    let existingEntity = null;
+    
+    // First try username-based matching
+    if (entityData.bitcoinTalkUsername || entityData.githubUsername) {
+      existingEntity = await observerStorage.findEntityByIdentity({
+        bitcoinTalkUsername: entityData.bitcoinTalkUsername,
+        githubUsername: entityData.githubUsername,
+      });
+    }
+    
+    // If no match yet, try email-based matching (check ALL emails)
+    if (!existingEntity && entityData.emailAddresses && entityData.emailAddresses.length > 0) {
+      for (const email of entityData.emailAddresses) {
+        existingEntity = await observerStorage.findEntityByIdentity({ email });
+        if (existingEntity) break; // Found a match, stop searching
+      }
+    }
+    
+    if (existingEntity) {
+      // UPDATE existing entity: Merge new data with existing
+      const updates: Partial<any> = {};
+      
+      // Update name if provided and different
+      if (entityData.name && entityData.name !== existingEntity.name) {
+        updates.name = entityData.name;
+      }
+      
+      // Merge aliases (deduplicate)
+      if (entityData.aliases) {
+        const mergedAliases = Array.from(new Set([
+          ...(existingEntity.aliases || []),
+          ...entityData.aliases
+        ]));
+        updates.aliases = mergedAliases;
+      }
+      
+      // Merge knownAddresses (deduplicate)
+      if (entityData.knownAddresses) {
+        const mergedAddresses = Array.from(new Set([
+          ...(existingEntity.knownAddresses || []),
+          ...entityData.knownAddresses
+        ]));
+        updates.knownAddresses = mergedAddresses;
+      }
+      
+      // Merge emailAddresses (deduplicate)
+      if (entityData.emailAddresses) {
+        const mergedEmails = Array.from(new Set([
+          ...(existingEntity.emailAddresses || []),
+          ...entityData.emailAddresses
+        ]));
+        updates.emailAddresses = mergedEmails;
+      }
+      
+      // Update usernames if not already set
+      if (entityData.bitcoinTalkUsername && !existingEntity.bitcoinTalkUsername) {
+        updates.bitcoinTalkUsername = entityData.bitcoinTalkUsername;
+      }
+      
+      if (entityData.githubUsername && !existingEntity.githubUsername) {
+        updates.githubUsername = entityData.githubUsername;
+      }
+      
+      // Update temporal data (use earliest firstActivityDate, latest lastActivityDate)
+      if (entityData.firstActivityDate) {
+        updates.firstActivityDate = existingEntity.firstActivityDate
+          ? (entityData.firstActivityDate < existingEntity.firstActivityDate ? entityData.firstActivityDate : existingEntity.firstActivityDate)
+          : entityData.firstActivityDate;
+      }
+      
+      if (entityData.lastActivityDate) {
+        updates.lastActivityDate = existingEntity.lastActivityDate
+          ? (entityData.lastActivityDate > existingEntity.lastActivityDate ? entityData.lastActivityDate : existingEntity.lastActivityDate)
+          : entityData.lastActivityDate;
+      }
+      
+      // Update estate information
+      if (entityData.isDeceased !== undefined) {
+        updates.isDeceased = entityData.isDeceased;
+      }
+      
+      if (entityData.estateContact) {
+        updates.estateContact = entityData.estateContact;
+      }
+      
+      // Merge metadata
+      if (entityData.metadata) {
+        updates.metadata = {
+          ...(existingEntity.metadata as any || {}),
+          ...entityData.metadata,
+        };
+      }
+      
+      // Perform update
+      await observerStorage.updateEntity(existingEntity.id, updates);
+      
+      // Fetch updated entity
+      const updatedEntity = await observerStorage.getEntity(existingEntity.id);
+      
+      return res.status(200).json({
+        entity: updatedEntity,
+        message: `Entity '${updatedEntity?.name}' updated successfully (matched by identity)`,
+        action: 'updated',
+      });
+    }
+    
+    // CREATE new entity: No matching identity found
+    const savedEntity = await observerStorage.saveEntity({
+      id: undefined as any, // Let database generate UUID
+      name: entityData.name,
+      type: entityData.type,
+      aliases: entityData.aliases || null,
+      knownAddresses: entityData.knownAddresses || null,
+      bitcoinTalkUsername: entityData.bitcoinTalkUsername || null,
+      githubUsername: entityData.githubUsername || null,
+      emailAddresses: entityData.emailAddresses || null,
+      firstActivityDate: entityData.firstActivityDate || null,
+      lastActivityDate: entityData.lastActivityDate || null,
+      isDeceased: entityData.isDeceased || false,
+      estateContact: entityData.estateContact || null,
+      metadata: entityData.metadata || null,
+    });
+    
+    res.status(201).json({
+      entity: savedEntity,
+      message: `Entity '${savedEntity.name}' created successfully`,
+      action: 'created',
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/entities
+ * Query entities with advanced search and filtering
+ * Supports: name search, type filter, username/email/alias lookup
+ */
+router.get("/entities", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      name: z.string().optional(),
+      type: z.enum(['person', 'organization', 'miner', 'developer']).optional(),
+      bitcoinTalkUsername: z.string().optional(),
+      githubUsername: z.string().optional(),
+      email: z.string().optional(),
+      alias: z.string().optional(),
+      limit: z.coerce.number().min(1).max(1000).default(100),
+      offset: z.coerce.number().min(0).default(0),
+    });
+    
+    let filters;
+    try {
+      filters = schema.parse(req.query);
+    } catch (zodError: any) {
+      return res.status(400).json({ 
+        error: "Invalid query parameters",
+        details: zodError.errors || zodError.message,
+      });
+    }
+    
+    // Query entities from database using advanced search
+    const entities = await observerStorage.searchEntities({
+      name: filters.name,
+      type: filters.type,
+      bitcoinTalkUsername: filters.bitcoinTalkUsername,
+      githubUsername: filters.githubUsername,
+      email: filters.email,
+      alias: filters.alias,
+      limit: filters.limit,
+      offset: filters.offset,
+    });
+    
+    res.json({
+      entities,
+      total: entities.length,
+      filters,
+      message: entities.length === 0 
+        ? "No entities found. Create entities via POST /api/observer/entities or adjust your search filters."
+        : `Found ${entities.length} entit${entities.length === 1 ? 'y' : 'ies'}`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/entities/:id
+ * Get a specific entity by ID
+ */
+router.get("/entities/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const entity = await observerStorage.getEntity(id);
+    
+    if (!entity) {
+      return res.status(404).json({ 
+        error: "Entity not found",
+        message: `No entity with ID '${id}' exists in the database.`,
+      });
+    }
+    
+    res.json({
+      entity,
+      message: "Entity retrieved successfully",
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/observer/artifacts
+ * Ingest a historical artifact (forum post, mailing list entry, code commit)
+ * Validates source and entity existence. Attempts entity auto-linking via author lookup.
+ */
+router.post("/artifacts", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      type: z.enum(['forum_post', 'mailing_list', 'code_commit', 'news']),
+      source: z.enum(['bitcointalk', 'cryptography_ml', 'github', 'sourceforge', 'bitcoin_ml', 'other']),
+      title: z.string().max(500).optional(),
+      content: z.string().optional(),
+      author: z.string().max(255).optional(),
+      timestamp: z.coerce.date().optional(),
+      entityId: z.string().optional(),
+      relatedAddresses: z.array(z.string()).optional(),
+      url: z.string().max(1000).optional(),
+      metadata: z.record(z.any()).optional(),
+    });
+    
+    let artifactData;
+    try {
+      artifactData = schema.parse(req.body);
+    } catch (zodError: any) {
+      return res.status(400).json({ 
+        error: "Invalid artifact data",
+        details: zodError.errors || zodError.message,
+      });
+    }
+    
+    // VALIDATION: If entityId provided, verify entity exists
+    if (artifactData.entityId) {
+      const entity = await observerStorage.getEntity(artifactData.entityId);
+      if (!entity) {
+        return res.status(400).json({ 
+          error: "Entity not found",
+          message: `No entity with ID '${artifactData.entityId}' exists. Create the entity first via POST /api/observer/entities.`,
+        });
+      }
+    }
+    
+    // ENTITY AUTO-LINKING: If no entityId but author provided, try to find entity
+    let linkedEntityId = artifactData.entityId;
+    let autoLinked = false;
+    
+    if (!linkedEntityId && artifactData.author) {
+      // Try to find entity based on source-specific username
+      const identity: any = {};
+      
+      if (artifactData.source === 'bitcointalk') {
+        identity.bitcoinTalkUsername = artifactData.author;
+      } else if (artifactData.source === 'github' || artifactData.source === 'sourceforge') {
+        identity.githubUsername = artifactData.author;
+      }
+      
+      if (Object.keys(identity).length > 0) {
+        const matchedEntity = await observerStorage.findEntityByIdentity(identity);
+        if (matchedEntity) {
+          linkedEntityId = matchedEntity.id;
+          autoLinked = true;
+        }
+      }
+    }
+    
+    // Save artifact to database
+    const savedArtifact = await observerStorage.saveArtifact({
+      id: undefined as any, // Let database generate UUID
+      type: artifactData.type,
+      source: artifactData.source,
+      title: artifactData.title || null,
+      content: artifactData.content || null,
+      author: artifactData.author || null,
+      timestamp: artifactData.timestamp || null,
+      entityId: linkedEntityId || null,
+      relatedAddresses: artifactData.relatedAddresses || null,
+      url: artifactData.url || null,
+      metadata: artifactData.metadata || null,
+    });
+    
+    res.status(201).json({
+      artifact: savedArtifact,
+      message: `Artifact '${savedArtifact.type}' from '${savedArtifact.source}' ingested successfully${autoLinked ? ' (auto-linked to entity)' : ''}`,
+      autoLinked,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/artifacts
+ * Query artifacts (optionally filter by entityId or source)
+ */
+router.get("/artifacts", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      entityId: z.string().optional(),
+      source: z.string().optional(),
+      type: z.enum(['forum_post', 'mailing_list', 'code_commit', 'news']).optional(),
+      limit: z.coerce.number().min(1).max(1000).default(100),
+      offset: z.coerce.number().min(0).default(0),
+    });
+    
+    let filters;
+    try {
+      filters = schema.parse(req.query);
+    } catch (zodError: any) {
+      return res.status(400).json({ 
+        error: "Invalid query parameters",
+        details: zodError.errors || zodError.message,
+      });
+    }
+    
+    // Query artifacts from database
+    const artifacts = await observerStorage.getArtifacts({
+      entityId: filters.entityId,
+      source: filters.source,
+    });
+    
+    // Apply type filter in-memory (can be moved to SQL)
+    let filteredArtifacts = artifacts;
+    if (filters.type) {
+      filteredArtifacts = filteredArtifacts.filter(a => a.type === filters.type);
+    }
+    
+    // Apply pagination
+    const paginatedArtifacts = filteredArtifacts.slice(filters.offset, filters.offset + filters.limit);
+    
+    res.json({
+      artifacts: paginatedArtifacts,
+      total: filteredArtifacts.length,
+      filters,
+      message: paginatedArtifacts.length === 0 
+        ? "No artifacts found. Ingest artifacts via POST /api/observer/artifacts."
+        : `Found ${paginatedArtifacts.length} artifact${paginatedArtifacts.length === 1 ? '' : 's'}`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
 // RECOVERY PRIORITIES (κ_recovery)
 // ============================================================================
 
