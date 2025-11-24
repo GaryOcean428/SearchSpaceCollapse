@@ -1,7 +1,9 @@
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { generateBitcoinAddress, generateMasterPrivateKey, generateBitcoinAddressFromPrivateKey } from "./crypto";
-import { scorePhrase } from "./qig-scoring";
+import { scorePhraseQIG, validatePurity } from "./qig-pure-v2.js";
+import { BasinVelocityMonitor } from "./basin-velocity-monitor.js";
+import { ResonanceDetector } from "./resonance-detector.js";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase } from "./bip39-words";
 import { generateLocalSearchVariations } from "./local-search";
@@ -15,12 +17,27 @@ class SearchCoordinator {
   private discoveryTrackers = new Map<string, DiscoveryTracker>();
   private modeExplorationBatches = new Map<string, number>(); // Track batches in exploration mode
   private modeInvestigationBatches = new Map<string, number>(); // Track batches in investigation mode
+  
+  // Pure QIG monitors (measurements only, no optimization)
+  private velocityMonitors = new Map<string, BasinVelocityMonitor>();
+  private resonanceDetectors = new Map<string, ResonanceDetector>();
 
   async start() {
     if (this.isRunning) {
       console.log("[SearchCoordinator] Already running");
       return;
     }
+    
+    // VALIDATE PURITY: Ensure QIG implementation follows pure principles
+    const purityCheck = validatePurity();
+    if (!purityCheck.isPure) {
+      console.error("[SearchCoordinator] ⚠️  PURITY VIOLATION DETECTED:");
+      for (const violation of purityCheck.violations) {
+        console.error(`  ❌ ${violation}`);
+      }
+      throw new Error("QIG implementation is impure. Cannot start search coordinator.");
+    }
+    console.log("[SearchCoordinator] ✅ QIG purity validated");
 
     this.isRunning = true;
     console.log("[SearchCoordinator] Starting background worker");
@@ -388,7 +405,7 @@ class SearchCoordinator {
       }
 
       const address = generateBitcoinAddress(phrase);
-      const qigScore = scorePhrase(phrase);
+      const pureScore = scorePhraseQIG(phrase);
       const matchedAddress = targetAddresses.find(t => t.address === address);
 
       if (matchedAddress) {
@@ -399,13 +416,20 @@ class SearchCoordinator {
         };
       }
 
-      if (qigScore.totalScore >= 75) {
+      // PURE QIG: Quality is emergent (Φ + κ proximity + curvature)
+      // High quality (≥0.75) indicates meaningful geometric integration
+      if (pureScore.quality >= 0.75) {
         const candidate: Candidate = {
           id: randomUUID(),
           phrase,
           address,
-          score: qigScore.totalScore,
-          qigScore,
+          score: pureScore.quality * 100, // Convert to 0-100 scale for consistency
+          qigScore: {
+            contextScore: 0,
+            eleganceScore: 0,
+            typingScore: 0,
+            totalScore: pureScore.quality * 100
+          },
           testedAt: new Date().toISOString(),
           type: "bip39",
         };
@@ -475,28 +499,54 @@ class SearchCoordinator {
         };
       }
 
-      // Only score and save BIP-39 phrases with high QIG scores
+      // Only score and save BIP-39 phrases with high QIG scores (PURE MEASUREMENT)
       if (item.type === "bip39") {
-        const qigScore = scorePhrase(item.value);
+        const pureScore = scorePhraseQIG(item.value);
+        const qualityPercent = pureScore.quality * 100;
+        
+        // Initialize monitors for this job if not exists
+        if (!this.velocityMonitors.has(jobId)) {
+          this.velocityMonitors.set(jobId, new BasinVelocityMonitor());
+          this.resonanceDetectors.set(jobId, new ResonanceDetector());
+        }
+        
+        // PURE MEASUREMENT: Track basin velocity (no optimization)
+        const velocity = this.velocityMonitors.get(jobId)!.update(item.value, Date.now());
+        
+        // PURE MEASUREMENT: Check resonance proximity (no optimization toward κ*)
+        const resonance = this.resonanceDetectors.get(jobId)!.checkResonance(pureScore.kappa);
         
         // Track highest scoring candidate in this batch
-        if (qigScore.totalScore > highestScore) {
-          highestScore = qigScore.totalScore;
+        if (qualityPercent > highestScore) {
+          highestScore = qualityPercent;
           highestCandidate = item.value;
         }
         
-        if (qigScore.totalScore >= 75) {
+        // PURE QIG: Quality ≥0.75 indicates phase transition (meaningful integration)
+        // This is a MEASUREMENT threshold, not an optimization target
+        if (pureScore.quality >= 0.75) {
           const candidate: Candidate = {
             id: randomUUID(),
             phrase: item.value,
             address,
-            score: qigScore.totalScore,
-            qigScore,
+            score: qualityPercent,
+            qigScore: {
+              contextScore: Math.round(pureScore.phi * 100),
+              eleganceScore: Math.round((1 - Math.abs(pureScore.kappa - 64) / 64) * 100),
+              typingScore: Math.round(Math.exp(-pureScore.ricciScalar) * 100),
+              totalScore: qualityPercent,
+            },
             testedAt: new Date().toISOString(),
             type: "bip39",
           };
           await storage.addCandidate(candidate);
           highPhiCount++;
+          
+          // Log pure QIG metrics for high-quality candidates
+          await storage.appendJobLog(jobId, {
+            message: `📊 High-Φ found | Φ=${pureScore.phi.toFixed(3)} κ=${pureScore.kappa.toFixed(1)} quality=${qualityPercent.toFixed(1)}% | velocity=${velocity.isSafe ? '✓' : '⚠️'} resonance=${resonance.inResonance ? '⚡' : '-'}`,
+            type: "info"
+          });
         }
       }
     }

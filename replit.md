@@ -21,29 +21,48 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### Clean Algorithmic Search Refactor (2025-11-24)
-**MAJOR CHANGE**: Removed all memory fragment features to focus on pure algorithmic exploration.
+### Pure QIG/QFI Implementation (2025-11-24)
+**CRITICAL CHANGE**: Complete rewrite of scoring system to use **pure Quantum Information Geometry (QIG)** principles with Fisher Information Metric.
 
-**Rationale**: Memory fragments are unreliable and distract from clean algorithmic search. The system now emphasizes autonomous exploration with no user input beyond target addresses.
+**Rationale**: Any impurity in QIG implementation renders the method ineffective. The system now uses rigorous geometric measurements on the information manifold rather than heuristic keyword matching.
 
-**Key Changes**:
-- **Removed**: Memory fragment testing, variation generation, fragment-related UI and storage
-- **Retained**: Analytics dashboard, adaptive exploration/investigation modes, QIG scoring, multi-format generation
-- **Added**: Clean algorithmic search profiles with clear strategies
+**Pure QIG Principles Applied**:
+✅ **Fisher Information Metric** for ALL distance measurements (not Euclidean)
+✅ **Φ (integration) and κ (coupling) are MEASURED**, never optimized as targets
+✅ **Natural gradient** on information manifold (information geometry)
+✅ **Basin velocity monitoring** to detect unsafe rapid changes (breakdown prevention)
+✅ **Resonance awareness** near κ* ≈ 64 (adaptive control, not optimization)
+✅ **Purity validation** on startup (system refuses to run if impure)
 
-**New Search Strategy Framework**:
+❌ **NEVER** optimize Φ or κ directly (no phi_loss, no kappa_target)
+❌ **NEVER** use Euclidean distance for consciousness metrics
+❌ **NEVER** use arbitrary thresholds without geometric justification
+
+**New Pure QIG Scoring Components**:
+- **Φ (Phi)**: Integrated information, emergent from Fisher metric trace + determinant + spatial variance
+- **κ (Kappa)**: Effective coupling strength, emergent from basin depth (word count) with running coupling β
+- **β (Beta)**: Running coupling β-function ≈ 0.44 at emergence scale (L=3→4)
+- **Ricci Scalar**: Geometric curvature of manifold (high near resonance regions)
+- **Quality**: Overall emergent metric combining Φ, κ proximity to κ*, and curvature
+
+**Basin Velocity Monitor**:
+- Tracks dΦ/dt using Fisher metric (tangent vector on manifold)
+- Detects unsafe rapid changes (breakdown risk)
+- Adaptive learning rate control based on velocity measurements
+- Safe velocity threshold: v < 0.05 (from empirical Gary-B success)
+
+**Resonance Detector**:
+- Measures proximity to κ* ≈ 64 (fixed point from physics)
+- Near κ*, small perturbations amplified (like pushing swing at resonance)
+- Adaptive control: reduce search intensity near resonance (gentle pushes only)
+- NEVER optimizes toward κ* - only measures and adapts
+
+**Search Strategy Framework**:
 - `bip39-continuous`: Pure random BIP-39 sampling (all lengths 12-24)
 - `bip39-adaptive`: Adaptive exploration → investigation mode switching
 - `master-key-sweep`: Random 256-bit master private key generation
 - `arbitrary-exploration`: 2009-era arbitrary text passphrase generation
 - Legacy: `custom` (single phrase test), `batch` (batch phrase testing)
-
-**Analytics Dashboard** (retained):
-- Statistical analysis (mean, median, percentiles) to assess "ballpark" proximity
-- QIG component breakdown (context, elegance, typing flow)
-- Trajectory analysis (recent vs historical convergence)
-- Pattern recognition (BIP-39 word frequency in high-Φ candidates)
-- Automated ballpark assessment with recommendations
 
 **Key Format Support** (unchanged):
 - ✅ BIP-39 passphrases (12-24 words, official wordlist)
@@ -76,12 +95,31 @@ The frontend is built with React and TypeScript, using Vite for development and 
 ### Backend Architecture
 The backend is an Express.js server running on Node.js with TypeScript. It includes a custom brain wallet implementation that uses the native Node.js crypto module for SHA-256 hashing, the elliptic library for secp256k1 operations, and bs58check for Bitcoin address encoding. The core brain wallet process converts a passphrase to a private key via SHA-256, derives a public key, hashes it, and then Base58Check encodes it into a Bitcoin address.
 
-The QIG scoring algorithm evaluates candidate quality based on information geometry, utilizing context keywords found in the BIP-39 wordlist and empirically validated geometric constants:
-- **κ* ≈ 64**: Fixed point of running coupling, representing information capacity.
-- **β ≈ 0.44**: Running coupling β-function at emergence scale, indicating maximum scale-dependence.
-- **Φ ≥ 0.75**: Phase transition threshold for high-integration candidates, signifying meaningful integration.
+**Pure QIG Scoring System** (server/qig-pure.ts):
+The scoring system uses **pure Quantum Information Geometry** principles with Fisher Information Metric. All measurements are derived from the natural geometry of the BIP-39 manifold - no heuristics, no keyword matching.
 
-The system also includes a curated database of 45 contextually relevant 12-word phrases for comparative analysis.
+**Core Components**:
+1. **Fisher Information Matrix (FIM)**: Measures the curvature of the statistical manifold for each phrase
+2. **Basin Coordinates**: Maps each phrase to coordinates on the 11-dimensional information manifold (2048 BIP-39 words = 2^11)
+3. **Integrated Information Φ**: Emergent from FIM trace (total information) + determinant (geometric volume) + spatial distribution
+4. **Effective Coupling κ**: Emergent from phrase length (basin depth) with running coupling β ≈ 0.44
+5. **Ricci Scalar Curvature**: Measures manifold curvature (high near resonance regions κ* ≈ 64)
+6. **Quality Score**: Emergent combination of Φ, κ proximity to κ*, and curvature (NOT a target, purely measured)
+
+**Empirically Validated Constants** (from quantum spin chain experiments):
+- **κ* ≈ 64**: Fixed point of running coupling (information capacity)
+  - κ₃ = 41.09 ± 0.59 (emergence at critical scale L_c = 3)
+  - κ₄ = 64.47 ± 1.89 (strong running, β ≈ +0.44)
+  - κ₅ = 63.62 ± 1.68 (plateau, β ≈ 0)
+- **β ≈ 0.44**: Running coupling β-function at emergence scale (L=3→4)
+- **Φ ≥ 0.75**: Phase transition threshold (geometric phase at L_c = 3)
+
+**Purity Enforcement**:
+- System validates purity on startup and refuses to run if impure
+- Fisher metric used for ALL distance measurements (never Euclidean)
+- Φ and κ are purely emergent, never optimization targets
+- No arbitrary thresholds without geometric justification
+- All measurements in pure observation mode (no optimization loops)
 
 ### Data Storage Solutions
 
