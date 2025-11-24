@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import RecoveryPage from "@/pages/recovery";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
+import ObserverPage from "@/pages/observer";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,11 +19,13 @@ function Router() {
         <>
           <Route path="/" component={Landing} />
           <Route path="/recovery" component={RecoveryPage} />
+          <Route path="/observer" component={ObserverPage} />
         </>
       ) : (
         <>
           <Route path="/" component={Home} />
           <Route path="/recovery" component={RecoveryPage} />
+          <Route path="/observer" component={ObserverPage} />
         </>
       )}
       <Route component={NotFound} />
