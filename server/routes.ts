@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { generateBitcoinAddress, verifyBrainWallet } from "./crypto";
 import { scorePhrase } from "./qig-scoring";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
-import { generateRandomBIP39Phrase } from "./bip39-words";
+import { generateRandomBIP39Phrase, getBIP39Wordlist } from "./bip39-words";
 import { searchCoordinator } from "./search-coordinator";
 import { testPhraseRequestSchema, batchTestRequestSchema, addAddressRequestSchema, generateRandomPhrasesRequestSchema, createSearchJobRequestSchema, type Candidate, type TargetAddress, type SearchJob } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -216,14 +216,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const p95 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : 0;
       const max = sorted.length > 0 ? sorted[sorted.length - 1] : 0;
       
-      // Pattern Analysis - Word frequency in high-Φ candidates
+      // Pattern Analysis - Word frequency in high-Φ candidates (ONLY BIP-39 words)
+      const bip39Wordlist = getBIP39Wordlist();
+      const bip39WordSet = new Set(bip39Wordlist.map((w: string) => w.toLowerCase()));
+      
       const wordFrequency: Record<string, number> = {};
       const highPhiCandidates = candidates.filter(c => c.score >= 75);
       
       highPhiCandidates.forEach(c => {
         const words = c.phrase.toLowerCase().split(/\s+/);
         words.forEach(word => {
-          wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+          // Only count words that are in the BIP-39 wordlist
+          if (bip39WordSet.has(word)) {
+            wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+          }
         });
       });
       

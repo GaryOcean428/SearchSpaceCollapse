@@ -34,7 +34,7 @@ export const candidateSchema = z.object({
     totalScore: z.number(),
   }),
   testedAt: z.string(),
-  type: z.enum(["bip39", "master-key"]).optional(), // Type of key tested
+  type: z.enum(["bip39", "master-key", "arbitrary"]).optional(), // Type of key tested
 });
 
 export const searchStatsSchema = z.object({
@@ -93,7 +93,7 @@ export const searchJobSchema = z.object({
     bip39Count: z.number().optional(),
     minHighPhi: z.number().optional(),
     wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
-    generationMode: z.enum(["bip39", "master-key", "both"]).optional(), // BIP-39 passphrase, master private key, or both
+    generationMode: z.enum(["bip39", "master-key", "both", "arbitrary"]).optional(), // BIP-39, master key, both, or arbitrary brain wallet
     memoryFragments: z.array(z.string()).optional(), // Base phrases to generate variations from
     testMemoryFragments: z.boolean().optional(), // Whether to prioritize memory fragment testing
   }),

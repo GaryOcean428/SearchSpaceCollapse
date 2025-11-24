@@ -184,6 +184,8 @@ class SearchCoordinator {
       ? "BIP-39 passphrases + master private keys"
       : generationMode === "master-key"
       ? "master private keys (256-bit)"
+      : generationMode === "arbitrary"
+      ? "arbitrary brain wallet passphrases (2009 era, no BIP-39 validation)"
       : `BIP-39 passphrases (${lengthDesc})`;
     
     await storage.appendJobLog(jobId, { 
@@ -233,9 +235,9 @@ class SearchCoordinator {
       }
 
       // Generate batch based on current mode
-      const batch: Array<{ value: string; type: "bip39" | "master-key" }> = [];
+      const batch: Array<{ value: string; type: "bip39" | "master-key" | "arbitrary" }> = [];
       
-      if (actualMode === "investigation" && job.progress.investigationTarget && generationMode !== "master-key") {
+      if (actualMode === "investigation" && job.progress.investigationTarget && generationMode !== "master-key" && generationMode !== "arbitrary") {
         // Investigation mode: generate variations around high-Φ target
         const targetPhrase = job.progress.investigationTarget;
         const variations = generateLocalSearchVariations(targetPhrase, BATCH_SIZE * 2);
@@ -259,6 +261,25 @@ class SearchCoordinator {
             }
           } else if (generationMode === "master-key") {
             batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
+          } else if (generationMode === "arbitrary") {
+            // Arbitrary brain wallet mode - generate random short phrases (4-8 words/characters)
+            // This mode is mainly for memory fragment testing, but we can also generate random attempts
+            const commonWords = ['white', 'tiger', 'gary', 'ocean', 'bitcoin', 'satoshi', 'crypto', 'password', 'secret', 'key'];
+            const numbers = ['77', '17', '07', '1', '7', '17', '2009', '2010'];
+            const wordCount = 2 + (i % 4); // 2-5 elements
+            const elements: string[] = [];
+            
+            for (let w = 0; w < wordCount; w++) {
+              if (w < wordCount - 1 || Math.random() < 0.7) {
+                elements.push(commonWords[Math.floor(Math.random() * commonWords.length)]);
+              } else {
+                elements.push(numbers[Math.floor(Math.random() * numbers.length)]);
+              }
+            }
+            
+            // Try different combinations: space-separated, concatenated, with numbers
+            const phrase = Math.random() < 0.5 ? elements.join(' ') : elements.join('');
+            batch.push({ value: phrase, type: "arbitrary" });
           } else {
             // BIP-39 mode
             if (allLengths) {
@@ -440,7 +461,7 @@ class SearchCoordinator {
     };
   }
 
-  private async processBatchWithTypes(items: Array<{ value: string; type: "bip39" | "master-key" }>, jobId: string): Promise<{
+  private async processBatchWithTypes(items: Array<{ value: string; type: "bip39" | "master-key" | "arbitrary" }>, jobId: string): Promise<{
     highPhiCandidates: number;
     matchFound: boolean;
     matchedPhrase?: string;
@@ -458,6 +479,7 @@ class SearchCoordinator {
       if (item.type === "master-key") {
         address = generateBitcoinAddressFromPrivateKey(item.value);
       } else {
+        // Both BIP-39 and arbitrary passphrases use the same SHA-256 → address flow
         address = generateBitcoinAddress(item.value);
       }
 

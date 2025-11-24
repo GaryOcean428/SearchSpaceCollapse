@@ -26,7 +26,7 @@ export default function RecoveryPage() {
   const [bip39Count, setBip39Count] = useState(100);
   const [minHighPhi, setMinHighPhi] = useState(2);
   const [wordLength, setWordLength] = useState(0); // Default to all lengths
-  const [generationMode, setGenerationMode] = useState<"bip39" | "master-key" | "both">("both"); // Default to both
+  const [generationMode, setGenerationMode] = useState<"bip39" | "master-key" | "both" | "arbitrary">("both"); // Default to both
   const [memoryFragments, setMemoryFragments] = useState("");
   const [testMemoryFragments, setTestMemoryFragments] = useState(false);
   const [newAddress, setNewAddress] = useState("");
@@ -546,23 +546,26 @@ export default function RecoveryPage() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="generationMode" className="text-base">Generation Mode:</Label>
-                  <Select value={generationMode} onValueChange={(v) => setGenerationMode(v as "bip39" | "master-key" | "both")} disabled={!!activeJob}>
+                  <Select value={generationMode} onValueChange={(v) => setGenerationMode(v as "bip39" | "master-key" | "both" | "arbitrary")} disabled={!!activeJob}>
                     <SelectTrigger id="generationMode" className="mt-2" data-testid="select-generation-mode">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="both">Both (BIP-39 + Master Keys) - RECOMMENDED</SelectItem>
+                      <SelectItem value="arbitrary">🔥 Arbitrary Brain Wallet (2009 Era - NO BIP-39)</SelectItem>
                       <SelectItem value="bip39">BIP-39 Passphrases Only</SelectItem>
                       <SelectItem value="master-key">Master Private Keys Only (256-bit)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    BIP-39 was invented in 2013. If your key is from 2009, it might be a raw master private key (64 hex chars) instead. "Both" mode tests both formats.
+                    {generationMode === "arbitrary" 
+                      ? "🔥 BEST FOR 2009! Uses ANY text as passphrase (no BIP-39 word validation). Perfect for testing memory fragments like 'whitetiger77' or 'gary ocean'."
+                      : 'BIP-39 was invented in 2013. If your key is from 2009, it might be a raw master private key (64 hex chars) instead. "Both" mode tests both formats.'}
                   </p>
                 </div>
                 <div>
                   <Label htmlFor="wordLength" className="text-base">BIP-39 Phrase Length (words):</Label>
-                  <Select value={wordLength.toString()} onValueChange={(v) => setWordLength(parseInt(v))} disabled={!!activeJob || generationMode === "master-key"}>
+                  <Select value={wordLength.toString()} onValueChange={(v) => setWordLength(parseInt(v))} disabled={!!activeJob || generationMode === "master-key" || generationMode === "arbitrary"}>
                     <SelectTrigger id="wordLength" className="mt-2" data-testid="select-word-length">
                       <SelectValue />
                     </SelectTrigger>
@@ -576,13 +579,15 @@ export default function RecoveryPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {generationMode === "master-key" ? "Not applicable for master private keys." : '"All lengths" tests every valid BIP-39 length (12/15/18/21/24 words) simultaneously.'}
+                    {generationMode === "master-key" || generationMode === "arbitrary"
+                      ? "Not applicable for this mode." 
+                      : '"All lengths" tests every valid BIP-39 length (12/15/18/21/24 words) simultaneously.'}
                   </p>
                 </div>
                 <div>
                   <Label htmlFor="minHighPhi" className="text-base">
-                    {generationMode === "master-key" 
-                      ? "Run Until High-Φ Target (master keys don't use scoring):" 
+                    {generationMode === "master-key" || generationMode === "arbitrary"
+                      ? "Run Until High-Φ Target (no QIG scoring for this mode):" 
                       : "Run Until This Many High-Φ Candidates Found:"}
                   </Label>
                   <Input

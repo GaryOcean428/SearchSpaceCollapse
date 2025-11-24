@@ -43,6 +43,11 @@ function loadWordlist(): string[] {
 
 export const BIP39_WORDS = loadWordlist();
 
+// Export getter function for wordlist access
+export function getBIP39Wordlist(): string[] {
+  return BIP39_WORDS;
+}
+
 // QIG-informed BIP-39 phrase generation
 // Theoretical foundation: Quantum Information Geometry (QIG)
 // 

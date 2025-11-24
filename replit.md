@@ -7,9 +7,11 @@ The project is built on the theoretical foundation that passphrase generation is
 
 Key capabilities include:
 - Testing user-provided memory fragments and variations.
+- **Supporting arbitrary brain wallet passphrases** (2009 era, no BIP-39 validation) — CRITICAL for 2009 recovery since BIP-39 was invented in 2013.
 - Supporting master private keys (256-bit random hex) alongside BIP-39 passphrases to cover early Bitcoin wallet methods.
 - Testing all valid BIP-39 phrase lengths (12/15/18/21/24 words) simultaneously.
 - Utilizing QIG context keywords spanning the 2008-2015+ crypto era for broader search applicability.
+- Providing a comprehensive analytics dashboard to assess if navigation is "in the ballpark" with statistical analysis, pattern recognition, and trajectory monitoring.
 - Providing a real-time visualization of QIG scores (Φ) to monitor search progress and identify patterns.
 
 The system emphasizes "training as navigation, not optimization," aiming to navigate the information manifold to discover existing passphrase coordinates rather than optimizing towards a solution. High-scoring candidates (Φ ≥ 0.75) are automatically saved for manual verification, treated as significant waypoints in the geodesic exploration.
@@ -18,6 +20,20 @@ The system emphasizes "training as navigation, not optimization," aiming to navi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
+
+### Analytics Dashboard & Arbitrary Brain Wallet Support (2025-11-24)
+Added comprehensive navigation analytics to help determine if the search is "in the ballpark":
+- **Analytics Dashboard**: Statistical analysis (mean, median, percentiles), QIG component breakdown, trajectory analysis (recent vs historical), and pattern recognition (word frequency in high-Φ candidates).
+- **Ballpark Assessment**: Automated evaluation showing convergence indicators, pattern emergence, and recommendations.
+- **BIP-39 Word Validation**: Pattern recognition now filters to only show words from the official BIP-39 wordlist.
+- **Arbitrary Brain Wallet Support** 🔥: Added support for arbitrary text passphrases (not limited to BIP-39 wordlist) — CRITICAL for 2009 recovery since BIP-39 didn't exist then. Perfect for testing memory fragments like "whitetiger77" or "gary ocean" exactly as remembered.
+
+**Key Format Support**:
+- ✅ BIP-39 passphrases (12-24 words, official wordlist)
+- ✅ Master private keys (256-bit hex)
+- ✅ **Arbitrary brain wallet passphrases** (ANY text, 2009 era)
+- ❌ WIF private keys (future consideration)
+- ❌ Electrum seeds (future consideration)
 
 ### Replit Auth Integration (2025-11-23)
 Added Replit Auth for user authentication with the following features:
