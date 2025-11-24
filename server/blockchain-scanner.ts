@@ -313,83 +313,68 @@ export async function scanEarlyEraBlocks(
           if (output.scriptpubkey_address) {
             const address = output.scriptpubkey_address;
             
-            // Check if address already exists
-            const existingAddress = await observerStorage.getAddress(address);
+            // Always call saveAddress - it handles both insert and update idempotently
+            const scriptSig = extractScriptSignature(output.scriptpubkey);
+            const temporal = extractTemporalSignature(blockData);
+            const valueSig = extractValueSignature(txData.vout);
             
-            if (!existingAddress) {
-              // Create new address record with full geometric signatures
-              const scriptSig = extractScriptSignature(output.scriptpubkey);
-              const temporal = extractTemporalSignature(blockData);
-              const valueSig = extractValueSignature(txData.vout);
-              
-              const addressRecord: Omit<Address, "createdAt" | "updatedAt"> = {
-                address,
-                firstSeenHeight: height,
-                firstSeenTxid: txData.txid,
-                firstSeenTimestamp: new Date(blockData.timestamp * 1000),
-                lastActivityHeight: height,
-                lastActivityTxid: txData.txid,
-                lastActivityTimestamp: new Date(blockData.timestamp * 1000),
-                currentBalance: BigInt(output.value), // Initial balance
-                dormancyBlocks: 0,
-                isDormant: false,
-                isCoinbaseReward: txData.vin.some(input => input.is_coinbase),
-                isEarlyEra: height <= 155000, // 2009-2011 era
-                temporalSignature: {
-                  dayOfWeek: temporal.dayOfWeek,
-                  hourUTC: temporal.hourUTC,
-                  dayPattern: temporal.dayPattern,
-                  hourPattern: temporal.hourPattern,
-                  likelyTimezones: temporal.likelyTimezones,
-                  timestamp: temporal.timestamp,
-                },
-                graphSignature: {
-                  // Basic graph features (will be enriched with multi-block analysis in Phase 2)
-                  inputCount: txData.vin.length,
-                  outputCount: txData.vout.length,
-                  isFirstOutput: txData.vout.indexOf(output) === 0,
-                },
-                valueSignature: {
-                  initialValue: output.value,
-                  totalValue: valueSig.totalValue,
-                  hasRoundNumbers: valueSig.hasRoundNumbers,
-                  isCoinbase: txData.vin.some(input => input.is_coinbase),
-                  outputCount: valueSig.outputCount,
-                },
-                scriptSignature: {
-                  type: scriptSig.type,
-                  raw: scriptSig.raw,
-                  softwareFingerprint: scriptSig.softwareFingerprint,
-                },
-              };
-              
-              await observerStorage.saveAddress(addressRecord);
-              console.log(`[BlockchainScanner]   → New address: ${address} (${scriptSig.type})`);
-            } else {
-              // Update existing address - last activity
-              // Note: Balance tracking requires UTXO resolution (future enhancement)
-              await observerStorage.updateAddress(address, {
-                lastActivityHeight: height,
-                lastActivityTxid: txData.txid,
-                lastActivityTimestamp: new Date(blockData.timestamp * 1000),
-                dormancyBlocks: 0, // Reset dormancy - address is active
-                isDormant: false,
-              });
-            }
+            const addressRecord: Omit<Address, "createdAt" | "updatedAt"> = {
+              address,
+              firstSeenHeight: height,
+              firstSeenTxid: txData.txid,
+              firstSeenTimestamp: new Date(blockData.timestamp * 1000),
+              lastActivityHeight: height,
+              lastActivityTxid: txData.txid,
+              lastActivityTimestamp: new Date(blockData.timestamp * 1000),
+              currentBalance: BigInt(output.value), // Balance tracking (proper UTXO tracking in Phase 2)
+              dormancyBlocks: 0, // Will be calculated by dormancy-updater
+              isDormant: false,
+              isCoinbaseReward: txData.vin.some(input => input.is_coinbase),
+              isEarlyEra: height <= 155000, // 2009-2011 era
+              temporalSignature: {
+                dayOfWeek: temporal.dayOfWeek,
+                hourUTC: temporal.hourUTC,
+                dayPattern: temporal.dayPattern,
+                hourPattern: temporal.hourPattern,
+                likelyTimezones: temporal.likelyTimezones,
+                timestamp: temporal.timestamp,
+              },
+              graphSignature: {
+                // Basic graph features (will be enriched with multi-block analysis in Phase 2)
+                inputCount: txData.vin.length,
+                outputCount: txData.vout.length,
+                isFirstOutput: txData.vout.indexOf(output) === 0,
+              },
+              valueSignature: {
+                initialValue: output.value,
+                totalValue: valueSig.totalValue,
+                hasRoundNumbers: valueSig.hasRoundNumbers,
+                isCoinbase: txData.vin.some(input => input.is_coinbase),
+                outputCount: valueSig.outputCount,
+              },
+              scriptSignature: {
+                type: scriptSig.type,
+                raw: scriptSig.raw,
+                softwareFingerprint: scriptSig.softwareFingerprint,
+              },
+            };
+            
+            await observerStorage.saveAddress(addressRecord);
+            console.log(`[BlockchainScanner]   → Address: ${address} (${scriptSig.type}, height ${height})`);
           }
         }
       } catch (error) {
-        console.error(`[BlockchainScanner] Error processing transaction ${txData.txid}:`, error);
+        console.error(`[BlockchainScanner] Error processing tx ${txData.txid}:`, error);
       }
     }
     
-    // Add small delay to avoid rate limiting
+    // Rate limiting: wait 200ms between blocks to respect API limits
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   
-  console.log(`[BlockchainScanner] Scan complete: ${endHeight - startHeight + 1} blocks processed`);
+  console.log(`[BlockchainScanner] ✓ Scan complete: blocks ${startHeight} to ${endHeight}`);
   
-  // Update dormancy for all addresses based on latest block height
+  // After scanning, update dormancy for all addresses
   await updateAddressDormancy(endHeight);
 }
 

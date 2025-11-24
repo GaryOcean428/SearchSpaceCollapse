@@ -142,23 +142,36 @@ export class ObserverStorage implements IObserverStorage {
 
   async saveAddress(address: Omit<Address, "createdAt" | "updatedAt">): Promise<Address> {
     if (!db) throw new Error("Database not initialized");
+    
+    // Use SQL to preserve first-seen data and intelligently merge signatures
     const [saved] = await db.insert(addresses)
       .values(address)
       .onConflictDoUpdate({
         target: addresses.address,
         set: {
-          // On conflict, update with new observations while keeping first-seen data
-          lastActivityHeight: address.lastActivityHeight,
-          lastActivityTxid: address.lastActivityTxid,
-          lastActivityTimestamp: address.lastActivityTimestamp,
-          currentBalance: address.currentBalance,
-          dormancyBlocks: address.dormancyBlocks,
-          isDormant: address.isDormant,
-          // Update geometric signatures with new data
-          temporalSignature: address.temporalSignature,
-          graphSignature: address.graphSignature,
-          valueSignature: address.valueSignature,
-          scriptSignature: address.scriptSignature,
+          // Only update if new activity is MORE RECENT
+          lastActivityHeight: sql`GREATEST(${addresses.lastActivityHeight}, ${address.lastActivityHeight})`,
+          lastActivityTxid: sql`CASE WHEN ${address.lastActivityHeight} > ${addresses.lastActivityHeight} THEN ${address.lastActivityTxid} ELSE ${addresses.lastActivityTxid} END`,
+          lastActivityTimestamp: sql`CASE WHEN ${address.lastActivityHeight} > ${addresses.lastActivityHeight} THEN ${address.lastActivityTimestamp} ELSE ${addresses.lastActivityTimestamp} END`,
+          
+          // Update balance ONLY if observation is more recent (or equal - to handle same-block updates)
+          // Note: Proper UTXO tracking in Phase 2 will compute balance from full UTXO set
+          currentBalance: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.currentBalance} ELSE ${addresses.currentBalance} END`,
+          
+          // Dormancy is calculated by dormancy-updater, preserve existing value
+          dormancyBlocks: addresses.dormancyBlocks,
+          isDormant: addresses.isDormant,
+          
+          // Update geometric signatures ONLY if observation is more recent
+          // This prevents rescanning old blocks from corrupting modern signatures
+          temporalSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.temporalSignature} ELSE ${addresses.temporalSignature} END`,
+          
+          valueSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.valueSignature} ELSE ${addresses.valueSignature} END`,
+          
+          graphSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.graphSignature} ELSE ${addresses.graphSignature} END`,
+          
+          scriptSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.scriptSignature} ELSE ${addresses.scriptSignature} END`,
+          
           updatedAt: new Date(),
         }
       })
