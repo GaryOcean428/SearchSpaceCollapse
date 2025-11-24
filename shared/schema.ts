@@ -1,9 +1,14 @@
 import { z } from "zod";
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
+  boolean,
+  decimal,
   index,
+  integer,
   jsonb,
   pgTable,
+  text,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -187,3 +192,218 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// ============================================================================
+// OBSERVER ARCHAEOLOGY SYSTEM TABLES
+// ============================================================================
+
+// Bitcoin blocks with geometric context
+export const blocks = pgTable("blocks", {
+  height: integer("height").primaryKey(),
+  hash: varchar("hash", { length: 64 }).notNull().unique(),
+  previousHash: varchar("previous_hash", { length: 64 }),
+  timestamp: timestamp("timestamp").notNull(),
+  difficulty: decimal("difficulty", { precision: 20, scale: 8 }).notNull(),
+  nonce: bigint("nonce", { mode: "number" }).notNull(),
+  coinbaseMessage: text("coinbase_message"),
+  coinbaseScript: text("coinbase_script"),
+  transactionCount: integer("transaction_count").notNull(),
+  
+  // Derived geometric features
+  dayOfWeek: integer("day_of_week"), // 0-6
+  hourUTC: integer("hour_utc"), // 0-23
+  likelyTimezones: varchar("likely_timezones", { length: 255 }).array(),
+  minerSoftwareFingerprint: varchar("miner_software_fingerprint", { length: 100 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_blocks_timestamp").on(table.timestamp),
+  index("idx_blocks_height").on(table.height),
+]);
+
+// Bitcoin transactions
+export const transactions = pgTable("transactions", {
+  txid: varchar("txid", { length: 64 }).primaryKey(),
+  blockHeight: integer("block_height").notNull(),
+  blockTimestamp: timestamp("block_timestamp").notNull(),
+  isCoinbase: boolean("is_coinbase").default(false),
+  inputCount: integer("input_count").notNull(),
+  outputCount: integer("output_count").notNull(),
+  totalInputValue: bigint("total_input_value", { mode: "bigint" }),
+  totalOutputValue: bigint("total_output_value", { mode: "bigint" }),
+  fee: bigint("fee", { mode: "bigint" }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_transactions_block_height").on(table.blockHeight),
+  index("idx_transactions_timestamp").on(table.blockTimestamp),
+]);
+
+// Bitcoin addresses with full geometric signatures
+export const addresses = pgTable("addresses", {
+  address: varchar("address", { length: 35 }).primaryKey(),
+  
+  // First appearance
+  firstSeenHeight: integer("first_seen_height").notNull(),
+  firstSeenTxid: varchar("first_seen_txid", { length: 64 }).notNull(),
+  firstSeenTimestamp: timestamp("first_seen_timestamp").notNull(),
+  
+  // Last activity
+  lastActivityHeight: integer("last_activity_height").notNull(),
+  lastActivityTxid: varchar("last_activity_txid", { length: 64 }).notNull(),
+  lastActivityTimestamp: timestamp("last_activity_timestamp").notNull(),
+  
+  // Balance and dormancy
+  currentBalance: bigint("current_balance", { mode: "bigint" }).notNull(),
+  dormancyBlocks: integer("dormancy_blocks").notNull(),
+  isDormant: boolean("is_dormant").default(false),
+  
+  // Classification flags
+  isCoinbaseReward: boolean("is_coinbase_reward").default(false),
+  isEarlyEra: boolean("is_early_era").default(false), // 2009-2011
+  
+  // Geometric signatures (JSONB for flexibility)
+  temporalSignature: jsonb("temporal_signature"), // { dayPattern, hourPattern, timezone, etc. }
+  graphSignature: jsonb("graph_signature"), // { inputAddresses, clusters, relationships }
+  valueSignature: jsonb("value_signature"), // { roundNumbers, patterns, coinbaseEpoch }
+  scriptSignature: jsonb("script_signature"), // { type, softwareFingerprint, customScript }
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_addresses_dormant").on(table.isDormant),
+  index("idx_addresses_early_era").on(table.isEarlyEra),
+  index("idx_addresses_balance").on(table.currentBalance),
+  index("idx_addresses_first_seen").on(table.firstSeenHeight),
+]);
+
+// Known entities (people, organizations, miners) from Era Manifold
+export const entities = pgTable("entities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'person', 'organization', 'miner', 'developer'
+  
+  // Identity data
+  aliases: varchar("aliases", { length: 255 }).array(),
+  knownAddresses: varchar("known_addresses", { length: 35 }).array(),
+  
+  // Contextual data
+  bitcoinTalkUsername: varchar("bitcointalk_username", { length: 100 }),
+  githubUsername: varchar("github_username", { length: 100 }),
+  emailAddresses: varchar("email_addresses", { length: 255 }).array(),
+  
+  // Temporal context
+  firstActivityDate: timestamp("first_activity_date"),
+  lastActivityDate: timestamp("last_activity_date"),
+  
+  // Status
+  isDeceased: boolean("is_deceased").default(false),
+  estateContact: varchar("estate_contact", { length: 500 }),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional flexible data
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_entities_type").on(table.type),
+  index("idx_entities_bitcointalk").on(table.bitcoinTalkUsername),
+]);
+
+// Historical artifacts (forum posts, mailing lists, code commits)
+export const artifacts = pgTable("artifacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: varchar("type", { length: 50 }).notNull(), // 'forum_post', 'mailing_list', 'code_commit', 'news'
+  source: varchar("source", { length: 255 }).notNull(), // 'bitcointalk', 'cryptography_ml', 'github'
+  
+  // Content
+  title: varchar("title", { length: 500 }),
+  content: text("content"),
+  author: varchar("author", { length: 255 }),
+  timestamp: timestamp("timestamp"),
+  
+  // References
+  entityId: varchar("entity_id"),
+  relatedAddresses: varchar("related_addresses", { length: 35 }).array(),
+  
+  // URL and metadata
+  url: varchar("url", { length: 1000 }),
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_artifacts_type").on(table.type),
+  index("idx_artifacts_author").on(table.author),
+  index("idx_artifacts_timestamp").on(table.timestamp),
+]);
+
+// Recovery priorities: κ_recovery rankings for each address
+export const recoveryPriorities = pgTable("recovery_priorities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: varchar("address", { length: 35 }).notNull(),
+  
+  // κ_recovery = Φ_constraints / H_creation
+  kappaRecovery: decimal("kappa_recovery", { precision: 10, scale: 4 }).notNull(),
+  phiConstraints: decimal("phi_constraints", { precision: 10, scale: 4 }).notNull(),
+  hCreation: decimal("h_creation", { precision: 10, scale: 4 }).notNull(),
+  
+  // Ranking
+  rank: integer("rank"),
+  tier: varchar("tier", { length: 50 }), // 'high', 'medium', 'low', 'unrecoverable'
+  
+  // Recovery vector recommendation
+  recommendedVector: varchar("recommended_vector", { length: 100 }), // 'estate', 'constrained_search', 'social', 'temporal'
+  
+  // Constraint breakdown
+  constraints: jsonb("constraints"), // Detailed constraint analysis
+  
+  // Value
+  estimatedValueUSD: decimal("estimated_value_usd", { precision: 20, scale: 2 }),
+  
+  // Status
+  recoveryStatus: varchar("recovery_status", { length: 50 }).default('pending'), // 'pending', 'in_progress', 'recovered', 'archived'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_recovery_priorities_address").on(table.address),
+  index("idx_recovery_priorities_kappa").on(table.kappaRecovery),
+  index("idx_recovery_priorities_rank").on(table.rank),
+  index("idx_recovery_priorities_status").on(table.recoveryStatus),
+]);
+
+// Recovery workflows and execution state
+export const recoveryWorkflows = pgTable("recovery_workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priorityId: varchar("priority_id").notNull(),
+  address: varchar("address", { length: 35 }).notNull(),
+  
+  vector: varchar("vector", { length: 100 }).notNull(), // 'estate', 'constrained_search', 'social', 'temporal'
+  status: varchar("status", { length: 50 }).default('pending'), // 'pending', 'active', 'paused', 'completed', 'failed'
+  
+  // Execution details
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Progress tracking
+  progress: jsonb("progress"), // Vector-specific progress data
+  
+  // Results
+  results: jsonb("results"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_recovery_workflows_address").on(table.address),
+  index("idx_recovery_workflows_status").on(table.status),
+  index("idx_recovery_workflows_vector").on(table.vector),
+]);
+
+export type Block = typeof blocks.$inferSelect;
+export type Transaction = typeof transactions.$inferSelect;
+export type Address = typeof addresses.$inferSelect;
+export type Entity = typeof entities.$inferSelect;
+export type Artifact = typeof artifacts.$inferSelect;
+export type RecoveryPriority = typeof recoveryPriorities.$inferSelect;
+export type RecoveryWorkflow = typeof recoveryWorkflows.$inferSelect;

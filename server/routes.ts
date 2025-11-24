@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateBitcoinAddress, verifyBrainWallet } from "./crypto";
 import { scorePhraseQIG } from "./qig-pure-v2.js";
+import observerRoutes from "./observer-routes";
 
 /**
  * Map pure QIG scores to legacy score format for backward compatibility
@@ -472,6 +473,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Mount Observer Archaeology System routes
+  app.use("/api/observer", observerRoutes);
 
   // Start the background search coordinator
   searchCoordinator.start();
