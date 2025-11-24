@@ -14,6 +14,7 @@ import {
   parseTransaction,
   computeKappaRecovery 
 } from "./blockchain-scanner";
+import { observerStorage } from "./observer-storage";
 
 const router = Router();
 
@@ -115,30 +116,91 @@ router.get("/blocks/:height", async (req: Request, res: Response) => {
 /**
  * GET /api/observer/addresses/dormant
  * Get catalog of dormant addresses with filters
+ * Query params:
+ *  - minBalance: minimum balance in satoshis (optional)
+ *  - minInactivityDays: minimum days of inactivity (optional)
+ *  - isEarlyEra: filter for 2009-2011 addresses (optional)
+ *  - isCoinbaseReward: filter for coinbase rewards (optional)
+ *  - limit: max results (default 100, max 1000)
+ *  - offset: pagination offset (default 0)
  */
 router.get("/addresses/dormant", async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       minBalance: z.coerce.number().optional(),
+      minInactivityDays: z.coerce.number().min(0).optional(),
       isEarlyEra: z.coerce.boolean().optional(),
       isCoinbaseReward: z.coerce.boolean().optional(),
       limit: z.coerce.number().min(1).max(1000).default(100),
       offset: z.coerce.number().min(0).default(0),
     });
     
-    const filters = schema.parse(req.query);
+    let filters;
+    try {
+      filters = schema.parse(req.query);
+    } catch (zodError: any) {
+      // Return 400 for validation errors (not 500)
+      return res.status(400).json({ 
+        error: "Invalid query parameters",
+        details: zodError.errors || zodError.message,
+      });
+    }
     
-    // TODO: Query database for dormant addresses
-    // For now, return mock data
+    // Enforce default inactivity threshold if not provided (365 days = ~52,000 blocks)
+    // This ensures we only return genuinely dormant addresses
+    const minInactivityDays = filters.minInactivityDays !== undefined 
+      ? filters.minInactivityDays 
+      : 365; // Default: 1 year of inactivity
+    
+    // Query dormant addresses from database
+    // Storage layer guarantees isDormant=true via SQL constraint
+    const addresses = await observerStorage.getDormantAddresses({
+      minBalance: filters.minBalance,
+      minInactivityDays,
+      limit: filters.limit,
+      offset: filters.offset,
+    });
+    
+    // Apply additional filters (isEarlyEra, isCoinbaseReward) in-memory
+    // (These could be moved to SQL for better performance in Phase 2)
+    let filteredAddresses = addresses;
+    
+    if (filters.isEarlyEra !== undefined) {
+      filteredAddresses = filteredAddresses.filter(addr => 
+        addr.isEarlyEra === filters.isEarlyEra
+      );
+    }
+    
+    if (filters.isCoinbaseReward !== undefined) {
+      filteredAddresses = filteredAddresses.filter(addr => 
+        addr.isCoinbaseReward === filters.isCoinbaseReward
+      );
+    }
+    
+    // Convert BigInt fields to strings for JSON serialization
+    const serializedAddresses = filteredAddresses.map(addr => ({
+      ...addr,
+      currentBalance: addr.currentBalance.toString(),
+      createdAt: addr.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: addr.updatedAt?.toISOString() || new Date().toISOString(),
+      firstSeenTimestamp: addr.firstSeenTimestamp.toISOString(),
+      lastActivityTimestamp: addr.lastActivityTimestamp.toISOString(),
+    }));
     
     res.json({
-      addresses: [],
-      total: 0,
-      filters,
-      message: "Address catalog not yet populated. Run /api/observer/scan/start to begin.",
+      addresses: serializedAddresses,
+      total: filteredAddresses.length,
+      filters: {
+        ...filters,
+        minInactivityDays, // Show actual threshold used
+      },
+      message: serializedAddresses.length === 0 
+        ? "No dormant addresses found. Run /api/observer/scan/start to populate the catalog."
+        : `Found ${serializedAddresses.length} dormant address(es)`,
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    // Only unexpected errors (not validation) should return 500
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -150,11 +212,38 @@ router.get("/addresses/:address", async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
     
-    // TODO: Query database for address details
+    // Validate Bitcoin address format (basic check)
+    if (address.length < 26 || address.length > 35) {
+      return res.status(400).json({ error: "Invalid Bitcoin address format" });
+    }
+    
+    // Query database for address details
+    const addressData = await observerStorage.getAddress(address);
+    
+    if (!addressData) {
+      return res.status(404).json({ 
+        error: "Address not found",
+        message: "This address has not been cataloged yet. It may not exist in the scanned block range, or scanning has not been performed.",
+      });
+    }
+    
+    // Compute κ_recovery for this address
+    const recovery = computeKappaRecovery(addressData);
+    
+    // Convert BigInt fields to strings for JSON serialization
+    const serializedAddress = {
+      ...addressData,
+      currentBalance: addressData.currentBalance.toString(),
+      createdAt: addressData.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: addressData.updatedAt?.toISOString() || new Date().toISOString(),
+      firstSeenTimestamp: addressData.firstSeenTimestamp.toISOString(),
+      lastActivityTimestamp: addressData.lastActivityTimestamp.toISOString(),
+      recovery,
+    };
     
     res.json({
-      address,
-      message: "Address lookup not yet implemented",
+      address: serializedAddress,
+      message: "Address details retrieved successfully",
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

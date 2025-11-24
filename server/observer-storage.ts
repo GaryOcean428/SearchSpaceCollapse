@@ -202,6 +202,9 @@ export class ObserverStorage implements IObserverStorage {
     
     const conditions = [];
     
+    // CRITICAL: Always filter for dormant addresses only
+    conditions.push(eq(addresses.isDormant, true));
+    
     if (filters?.minBalance !== undefined) {
       conditions.push(gte(addresses.currentBalance, BigInt(filters.minBalance)));
     }
@@ -212,11 +215,7 @@ export class ObserverStorage implements IObserverStorage {
       conditions.push(lte(addresses.lastActivityTimestamp, inactivityThreshold));
     }
     
-    let query = db.select().from(addresses);
-    
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
-    }
+    let query = db.select().from(addresses).where(and(...conditions));
     
     query = query.orderBy(desc(addresses.currentBalance)) as any;
     
