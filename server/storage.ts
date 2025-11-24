@@ -49,8 +49,12 @@ export class MemStorage implements IStorage {
   private loadJobs(): void {
     try {
       if (existsSync(JOBS_FILE)) {
-        const data = readFileSync(JOBS_FILE, "utf-8");
-        this.searchJobs = JSON.parse(data);
+        const data = readFileSync(JOBS_FILE, "utf-8").trim();
+        if (data.length > 0) {
+          this.searchJobs = JSON.parse(data);
+        } else {
+          this.searchJobs = [];
+        }
       }
     } catch (error) {
       console.error("Failed to load jobs:", error);
