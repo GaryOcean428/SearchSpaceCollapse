@@ -1040,6 +1040,238 @@ router.get("/recovery/priorities/:address", async (req: Request, res: Response) 
 });
 
 // ============================================================================
+// RECOVERY WORKFLOW ORCHESTRATION
+// ============================================================================
+
+/**
+ * POST /api/observer/workflows
+ * Start a recovery workflow for an address
+ */
+router.post("/workflows", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      address: z.string().regex(/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/),
+      vector: z.enum(['estate', 'constrained_search', 'social', 'temporal']),
+    });
+    
+    const { address, vector } = schema.parse(req.body);
+    
+    // Get recovery priority
+    const priority = await observerStorage.getRecoveryPriority(address);
+    if (!priority) {
+      return res.status(404).json({
+        error: "Recovery priority not found",
+        message: `No κ_recovery computed for address '${address}'. Run POST /api/observer/recovery/compute first.`,
+      });
+    }
+    
+    // Get entities and artifacts
+    const entities = await observerStorage.getEntitiesByAddress(address);
+    const artifacts = await observerStorage.getArtifactsByAddress(address);
+    
+    // Import orchestrator
+    const { initializeWorkflow } = await import("./recovery-orchestrator");
+    
+    // Initialize workflow
+    const progress = initializeWorkflow(vector, priority, entities, artifacts);
+    
+    // Save workflow to database
+    const workflow = await observerStorage.saveRecoveryWorkflow({
+      id: undefined as any, // Auto-generated
+      priorityId: priority.id,
+      address,
+      vector,
+      status: 'active',
+      startedAt: progress.startedAt,
+      progress: progress as any,
+      results: null,
+      notes: progress.notes.join('\n'),
+    });
+    
+    res.status(201).json({
+      message: `Recovery workflow started: ${vector} for ${address}`,
+      workflow: {
+        id: workflow.id,
+        address: workflow.address,
+        vector: workflow.vector,
+        status: workflow.status,
+        progress: {
+          tasksCompleted: progress.tasksCompleted,
+          tasksTotal: progress.tasksTotal,
+          percentage: Math.round((progress.tasksCompleted / progress.tasksTotal) * 100),
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error("[ObserverAPI] Workflow start error:", error);
+    res.status(500).json({ 
+      error: "Failed to start recovery workflow",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/observer/workflows
+ * List all recovery workflows
+ */
+router.get("/workflows", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      address: z.string().optional(),
+      vector: z.enum(['estate', 'constrained_search', 'social', 'temporal']).optional(),
+      status: z.enum(['pending', 'active', 'paused', 'completed', 'failed']).optional(),
+    });
+    
+    const filters = schema.parse(req.query);
+    
+    const workflows = await observerStorage.getRecoveryWorkflows(filters);
+    
+    // Enhance with progress percentages
+    const enhancedWorkflows = workflows.map(w => {
+      const progress = w.progress as any;
+      return {
+        ...w,
+        progressPercentage: progress 
+          ? Math.round((progress.tasksCompleted / progress.tasksTotal) * 100)
+          : 0,
+      };
+    });
+    
+    res.json({
+      workflows: enhancedWorkflows,
+      total: enhancedWorkflows.length,
+      filters,
+    });
+  } catch (error: any) {
+    res.status(400).json({ 
+      error: "Invalid query parameters",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/observer/workflows/:id
+ * Get detailed workflow status
+ */
+router.get("/workflows/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const workflow = await observerStorage.getRecoveryWorkflow(id);
+    
+    if (!workflow) {
+      return res.status(404).json({
+        error: "Workflow not found",
+        message: `No workflow with ID '${id}' exists.`,
+      });
+    }
+    
+    // Get priority for context
+    const priority = await observerStorage.getRecoveryPriority(workflow.address);
+    
+    const progress = workflow.progress as any;
+    
+    res.json({
+      workflow: {
+        ...workflow,
+        progressPercentage: progress 
+          ? Math.round((progress.tasksCompleted / progress.tasksTotal) * 100)
+          : 0,
+      },
+      context: {
+        kappaRecovery: priority?.kappaRecovery,
+        tier: priority?.tier,
+        recommendedVector: priority?.recommendedVector,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      error: "Failed to retrieve workflow",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * PATCH /api/observer/workflows/:id
+ * Update workflow progress
+ */
+router.patch("/workflows/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const schema = z.object({
+      status: z.enum(['pending', 'active', 'paused', 'completed', 'failed']).optional(),
+      progressUpdate: z.any().optional(), // Vector-specific progress update
+      notes: z.string().optional(),
+      results: z.any().optional(),
+    });
+    
+    const updateData = schema.parse(req.body);
+    
+    // Get existing workflow
+    const workflow = await observerStorage.getRecoveryWorkflow(id);
+    if (!workflow) {
+      return res.status(404).json({
+        error: "Workflow not found",
+      });
+    }
+    
+    // Update progress if provided
+    let updatedProgress = workflow.progress;
+    if (updateData.progressUpdate) {
+      const { updateWorkflowProgress } = await import("./recovery-orchestrator");
+      updatedProgress = updateWorkflowProgress(
+        workflow.vector as any,
+        workflow.progress as any,
+        updateData.progressUpdate
+      );
+    }
+    
+    // Build update object
+    const updates: any = {
+      progress: updatedProgress,
+    };
+    
+    if (updateData.status) {
+      updates.status = updateData.status;
+      
+      if (updateData.status === 'completed') {
+        updates.completedAt = new Date();
+      }
+    }
+    
+    if (updateData.notes) {
+      const currentNotes = workflow.notes || '';
+      updates.notes = currentNotes + '\n' + updateData.notes;
+    }
+    
+    if (updateData.results) {
+      updates.results = updateData.results;
+    }
+    
+    // Save update
+    await observerStorage.updateRecoveryWorkflow(id, updates);
+    
+    // Get updated workflow
+    const updated = await observerStorage.getRecoveryWorkflow(id);
+    
+    res.json({
+      message: "Workflow updated successfully",
+      workflow: updated,
+    });
+  } catch (error: any) {
+    console.error("[ObserverAPI] Workflow update error:", error);
+    res.status(500).json({ 
+      error: "Failed to update workflow",
+      details: error.message,
+    });
+  }
+});
+
+// ============================================================================
 // SYSTEM STATUS
 // ============================================================================
 
