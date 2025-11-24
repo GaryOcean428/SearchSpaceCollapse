@@ -197,6 +197,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/analytics", async (req, res) => {
+    try {
+      const candidates = await storage.getCandidates();
+      
+      // Statistical Analysis
+      const scores = candidates.map(c => c.score);
+      const mean = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+      const sorted = [...scores].sort((a, b) => a - b);
+      const median = sorted.length > 0 
+        ? sorted.length % 2 === 0 
+          ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+          : sorted[Math.floor(sorted.length / 2)]
+        : 0;
+      
+      const p75 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.75)] : 0;
+      const p90 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.90)] : 0;
+      const p95 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : 0;
+      const max = sorted.length > 0 ? sorted[sorted.length - 1] : 0;
+      
+      // Pattern Analysis - Word frequency in high-Φ candidates
+      const wordFrequency: Record<string, number> = {};
+      const highPhiCandidates = candidates.filter(c => c.score >= 75);
+      
+      highPhiCandidates.forEach(c => {
+        const words = c.phrase.toLowerCase().split(/\s+/);
+        words.forEach(word => {
+          wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+        });
+      });
+      
+      const topWords = Object.entries(wordFrequency)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 20)
+        .map(([word, count]) => ({ word, count, frequency: count / highPhiCandidates.length }));
+      
+      // QIG Component Analysis
+      const avgContext = candidates.length > 0 
+        ? candidates.reduce((sum, c) => sum + c.qigScore.contextScore, 0) / candidates.length 
+        : 0;
+      const avgElegance = candidates.length > 0 
+        ? candidates.reduce((sum, c) => sum + c.qigScore.eleganceScore, 0) / candidates.length 
+        : 0;
+      const avgTyping = candidates.length > 0 
+        ? candidates.reduce((sum, c) => sum + c.qigScore.typingScore, 0) / candidates.length 
+        : 0;
+      
+      // Trajectory Analysis (last 100 candidates vs older)
+      const recent = candidates.slice(-100);
+      const recentMean = recent.length > 0 
+        ? recent.reduce((sum, c) => sum + c.score, 0) / recent.length 
+        : 0;
+      const older = candidates.slice(0, -100);
+      const olderMean = older.length > 0 
+        ? older.reduce((sum, c) => sum + c.score, 0) / older.length 
+        : 0;
+      const improvement = recentMean - olderMean;
+      
+      res.json({
+        statistics: {
+          count: candidates.length,
+          mean: mean.toFixed(2),
+          median: median.toFixed(2),
+          p75: p75.toFixed(2),
+          p90: p90.toFixed(2),
+          p95: p95.toFixed(2),
+          max: max.toFixed(2),
+        },
+        qigComponents: {
+          avgContext: avgContext.toFixed(2),
+          avgElegance: avgElegance.toFixed(2),
+          avgTyping: avgTyping.toFixed(2),
+        },
+        patterns: {
+          topWords,
+          highPhiCount: highPhiCandidates.length,
+        },
+        trajectory: {
+          recentMean: recentMean.toFixed(2),
+          olderMean: olderMean.toFixed(2),
+          improvement: improvement.toFixed(2),
+          isImproving: improvement > 0,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/target-addresses", async (req, res) => {
     try {
       const addresses = await storage.getTargetAddresses();

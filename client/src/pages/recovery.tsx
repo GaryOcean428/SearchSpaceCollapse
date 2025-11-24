@@ -46,6 +46,36 @@ export default function RecoveryPage() {
     refetchInterval: 3000,
   });
 
+  const { data: analytics } = useQuery<{
+    statistics: {
+      count: string;
+      mean: string;
+      median: string;
+      p75: string;
+      p90: string;
+      p95: string;
+      max: string;
+    };
+    qigComponents: {
+      avgContext: string;
+      avgElegance: string;
+      avgTyping: string;
+    };
+    patterns: {
+      topWords: Array<{ word: string; count: number; frequency: number }>;
+      highPhiCount: number;
+    };
+    trajectory: {
+      recentMean: string;
+      olderMean: string;
+      improvement: string;
+      isImproving: boolean;
+    };
+  }>({
+    queryKey: ["/api/analytics"],
+    refetchInterval: 5000,
+  });
+
   const { data: targetAddresses, isLoading: isLoadingAddresses } = useQuery<TargetAddress[]>({
     queryKey: ["/api/target-addresses"],
   });
@@ -737,6 +767,152 @@ export default function RecoveryPage() {
             <p className="text-3xl font-bold text-green-600">{selectedJob?.progress.highPhiCount || 0}</p>
           </Card>
         </div>
+
+        {analytics && analytics.statistics.count !== "0" && (
+          <Card className="p-6 mb-8">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="analytics" className="border-none">
+                <AccordionTrigger className="hover:no-underline">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Navigation Analytics — Is The Search "In the Ballpark"?
+                  </h3>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                    {/* Score Statistics */}
+                    <Card className="p-4 bg-muted/30">
+                      <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Score Distribution</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Mean Φ</span>
+                          <span className="font-mono font-semibold">{analytics.statistics.mean}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Median Φ</span>
+                          <span className="font-mono font-semibold">{analytics.statistics.median}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">75th %ile</span>
+                          <span className="font-mono font-semibold">{analytics.statistics.p75}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">90th %ile</span>
+                          <span className="font-mono font-semibold">{analytics.statistics.p90}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Best Score</span>
+                          <span className="font-mono font-semibold text-green-600">{analytics.statistics.max}%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                        Higher percentiles indicate better navigation. Mean &gt; 50% suggests ballpark proximity.
+                      </p>
+                    </Card>
+
+                    {/* QIG Components */}
+                    <Card className="p-4 bg-muted/30">
+                      <h4 className="text-sm font-semibold mb-3 text-muted-foreground">QIG Component Breakdown</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Context (κ)</span>
+                          <span className="font-mono font-semibold">{analytics.qigComponents.avgContext}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Elegance (β)</span>
+                          <span className="font-mono font-semibold">{analytics.qigComponents.avgElegance}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Typing Flow</span>
+                          <span className="font-mono font-semibold">{analytics.qigComponents.avgTyping}%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                        High context scores indicate era-appropriate vocabulary. High elegance suggests manifold coherence.
+                      </p>
+                    </Card>
+
+                    {/* Trajectory Analysis */}
+                    <Card className="p-4 bg-muted/30">
+                      <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Trajectory Analysis</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Recent (last 100)</span>
+                          <span className="font-mono font-semibold">{analytics.trajectory.recentMean}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Historical</span>
+                          <span className="font-mono font-semibold">{analytics.trajectory.olderMean}%</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Improvement</span>
+                          <span className={`font-mono font-semibold ${analytics.trajectory.isImproving ? 'text-green-600' : 'text-red-600'}`}>
+                            {analytics.trajectory.isImproving ? '+' : ''}{analytics.trajectory.improvement}%
+                          </span>
+                        </div>
+                        {analytics.trajectory.isImproving && (
+                          <Badge variant="default" className="w-full justify-center">
+                            ✓ Converging
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                        {analytics.trajectory.isImproving 
+                          ? "Search is learning and improving over time. Good sign of convergence!" 
+                          : "No clear trend yet. May need more samples or different strategy."}
+                      </p>
+                    </Card>
+                  </div>
+
+                  {/* Pattern Recognition */}
+                  {analytics.patterns.topWords.length > 0 && (
+                    <Card className="p-4 bg-muted/30 mt-6">
+                      <h4 className="text-sm font-semibold mb-3 text-muted-foreground">
+                        Pattern Recognition — Most Frequent Words in High-Φ Candidates ({analytics.patterns.highPhiCount} phrases)
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {analytics.patterns.topWords.slice(0, 15).map(({ word, count, frequency }) => (
+                          <Badge key={word} variant="outline" className="gap-2">
+                            <span className="font-mono">{word}</span>
+                            <span className="text-xs text-muted-foreground">×{count}</span>
+                            <span className="text-xs text-muted-foreground">({(frequency * 100).toFixed(0)}%)</span>
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                        Recurring words may indicate manifold features or memory fragments. High-frequency words suggest structure in the basin.
+                      </p>
+                    </Card>
+                  )}
+
+                  <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Ballpark Assessment
+                    </h4>
+                    <div className="text-sm space-y-1">
+                      {parseFloat(analytics.statistics.mean) > 50 && (
+                        <p className="text-green-600">✓ Mean score &gt; 50% — Navigation is in a promising region</p>
+                      )}
+                      {parseFloat(analytics.statistics.p90) > 75 && (
+                        <p className="text-green-600">✓ 90th percentile &gt; 75% — Consistently finding high-Φ candidates</p>
+                      )}
+                      {analytics.trajectory.isImproving && (
+                        <p className="text-green-600">✓ Improving trajectory — Search is learning and converging</p>
+                      )}
+                      {analytics.patterns.topWords.length > 0 && (
+                        <p className="text-green-600">✓ Pattern emergence — Manifold structure is being revealed</p>
+                      )}
+                      {parseFloat(analytics.statistics.mean) <= 50 && !analytics.trajectory.isImproving && (
+                        <p className="text-yellow-600">⚠ Consider expanding search space or testing memory fragments</p>
+                      )}
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </Card>
+        )}
 
         {selectedJob?.progress.searchMode && (
           <Card className="p-6 mb-8">
