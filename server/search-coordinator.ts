@@ -4,7 +4,6 @@ import { generateBitcoinAddress, generateMasterPrivateKey, generateBitcoinAddres
 import { scorePhrase } from "./qig-scoring";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase } from "./bip39-words";
-import { generateFragmentVariations } from "./fragment-variations";
 import { generateLocalSearchVariations } from "./local-search";
 import { DiscoveryTracker } from "./discovery-tracker";
 import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
@@ -86,8 +85,11 @@ class SearchCoordinator {
       job = await storage.getSearchJob(jobId) as SearchJob;
     }
 
-    // Continuous mode for BIP-39
-    if (job.strategy === "bip39-continuous") {
+    // Algorithmic search strategies (continuous generation)
+    if (job.strategy === "bip39-continuous" || 
+        job.strategy === "bip39-adaptive" || 
+        job.strategy === "master-key-sweep" || 
+        job.strategy === "arbitrary-exploration") {
       await this.executeContinuousJob(jobId);
       return;
     }
@@ -180,9 +182,7 @@ class SearchCoordinator {
       ? "all lengths (12-24 words)" 
       : `${wordLength} words`;
     
-    const modeDesc = generationMode === "both" 
-      ? "BIP-39 passphrases + master private keys"
-      : generationMode === "master-key"
+    const modeDesc = generationMode === "master-key"
       ? "master private keys (256-bit)"
       : generationMode === "arbitrary"
       ? "arbitrary brain wallet passphrases (2009 era, no BIP-39 validation)"
@@ -192,22 +192,6 @@ class SearchCoordinator {
       message: `Continuous generation (${modeDesc}): running until ${minHighPhi}+ high-Φ candidates found. Adaptive mode switching enabled.`, 
       type: "info" 
     });
-
-    // Test memory fragments first if provided (only once per job)
-    const shouldTestFragments = job.params.testMemoryFragments && 
-      job.params.memoryFragments && 
-      job.params.memoryFragments.length > 0 &&
-      (!job.progress.fragmentsTotal || job.progress.fragmentsTested === undefined || job.progress.fragmentsTested < job.progress.fragmentsTotal);
-    
-    if (shouldTestFragments) {
-      await this.testMemoryFragments(jobId, job.params.memoryFragments!);
-      
-      // Reload job state after fragment testing
-      job = await storage.getSearchJob(jobId) as SearchJob;
-      if (!job || job.status === "stopped" || job.status === "completed") {
-        return;
-      }
-    }
 
     while (true) {
       // Reload job state to check for stop signals
@@ -251,21 +235,13 @@ class SearchCoordinator {
       } else {
         // Exploration mode: pure random sampling
         for (let i = 0; i < BATCH_SIZE; i++) {
-          if (generationMode === "both") {
-            // Alternate between BIP-39 and master keys
-            if (i % 2 === 0) {
-              const length = allLengths ? validLengths[i % validLengths.length] : wordLength;
-              batch.push({ value: generateRandomBIP39Phrase(length), type: "bip39" });
-            } else {
-              batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
-            }
-          } else if (generationMode === "master-key") {
+          if (generationMode === "master-key") {
             batch.push({ value: generateMasterPrivateKey(), type: "master-key" });
           } else if (generationMode === "arbitrary") {
-            // Arbitrary brain wallet mode - generate random short phrases (4-8 words/characters)
-            // This mode is mainly for memory fragment testing, but we can also generate random attempts
-            const commonWords = ['white', 'tiger', 'gary', 'ocean', 'bitcoin', 'satoshi', 'crypto', 'password', 'secret', 'key'];
-            const numbers = ['77', '17', '07', '1', '7', '17', '2009', '2010'];
+            // Arbitrary brain wallet mode - random 2009-era passphrases (no BIP-39 validation)
+            // Generates short phrases using common crypto-era vocabulary and patterns
+            const commonWords = ['white', 'tiger', 'gary', 'ocean', 'bitcoin', 'satoshi', 'crypto', 'password', 'secret', 'key', 'wallet', 'money', 'hash', 'coin', 'digital'];
+            const numbers = ['77', '17', '07', '1', '7', '17', '2009', '2010', '2008', '08', '09'];
             const wordCount = 2 + (i % 4); // 2-5 elements
             const elements: string[] = [];
             
@@ -382,30 +358,13 @@ class SearchCoordinator {
       case "custom":
         return job.params.customPhrase ? [job.params.customPhrase] : [];
 
-      case "known":
-        return KNOWN_12_WORD_PHRASES;
-
       case "batch":
         return job.params.batchPhrases || [];
 
-      case "bip39-random":
-        const count = job.params.bip39Count || 10;
-        const wordLength = job.params.wordLength || 24; // Default to max entropy
-        const allLengths = wordLength === 0; // 0 = all lengths
-        const validLengths = [12, 15, 18, 21, 24];
-        const phrases: string[] = [];
-        for (let i = 0; i < count; i++) {
-          if (allLengths) {
-            // Cycle through all valid lengths
-            const length = validLengths[i % validLengths.length];
-            phrases.push(generateRandomBIP39Phrase(length));
-          } else {
-            phrases.push(generateRandomBIP39Phrase(wordLength));
-          }
-        }
-        return phrases;
-
       case "bip39-continuous":
+      case "bip39-adaptive":
+      case "master-key-sweep":
+      case "arbitrary-exploration":
         // Continuous mode handles phrase generation internally
         return [];
 
@@ -550,115 +509,6 @@ class SearchCoordinator {
     };
   }
 
-  private async testMemoryFragments(jobId: string, baseFragments: string[]) {
-    await storage.appendJobLog(jobId, { 
-      message: `🧠 Testing memory fragments: ${baseFragments.length} base phrases provided`, 
-      type: "info" 
-    });
-
-    // Generate all variations
-    const variations = generateFragmentVariations(baseFragments);
-    const totalVariations = variations.length;
-    
-    await storage.appendJobLog(jobId, { 
-      message: `Generated ${totalVariations} variations from memory fragments`, 
-      type: "info" 
-    });
-
-    // Initialize fragment progress tracking (preserve existing progress)
-    const job = await storage.getSearchJob(jobId) as SearchJob;
-    await storage.updateSearchJob(jobId, {
-      progress: {
-        ...job.progress,
-        fragmentsTested: 0,
-        fragmentsTotal: totalVariations,
-      }
-    });
-
-    const BATCH_SIZE = 50; // Test fragments in larger batches
-    const targetAddresses = await storage.getTargetAddresses();
-
-    for (let i = 0; i < variations.length; i += BATCH_SIZE) {
-      // Check for stop signal
-      const job = await storage.getSearchJob(jobId);
-      if (!job || job.status === "stopped") {
-        await storage.appendJobLog(jobId, { message: "Fragment testing stopped by user", type: "info" });
-        return;
-      }
-
-      const batch = variations.slice(i, i + BATCH_SIZE);
-      
-      for (const variation of batch) {
-        // Test as passphrase-derived private key (early Bitcoin brain wallet method)
-        const address = generateBitcoinAddress(variation.value);
-        
-        const matchedAddress = targetAddresses.find(t => t.address === address);
-        
-        if (matchedAddress) {
-          // MATCH FOUND!
-          const matchCandidate: Candidate = {
-            id: randomUUID(),
-            phrase: variation.value,
-            address,
-            score: 100,
-            qigScore: {
-              contextScore: 100,
-              eleganceScore: 100,
-              typingScore: 100,
-              totalScore: 100,
-            },
-            testedAt: new Date().toISOString(),
-            type: "bip39",
-          };
-          await storage.addCandidate(matchCandidate);
-          
-          await storage.updateSearchJob(jobId, {
-            status: "completed",
-            stats: { endTime: new Date().toISOString(), rate: 0 },
-          });
-          
-          await storage.appendJobLog(jobId, { 
-            message: `🎉 MATCH FOUND IN MEMORY FRAGMENTS! "${variation.value}" (${variation.description})`, 
-            type: "success" 
-          });
-          return;
-        }
-      }
-
-      // Update progress (preserve existing progress)
-      const fragmentsTested = Math.min(i + BATCH_SIZE, totalVariations);
-      const currentJob = await storage.getSearchJob(jobId) as SearchJob;
-      await storage.updateSearchJob(jobId, {
-        progress: {
-          ...currentJob.progress,
-          fragmentsTested,
-          fragmentsTotal: totalVariations,
-        }
-      });
-
-      await storage.appendJobLog(jobId, { 
-        message: `Fragment testing progress: ${fragmentsTested}/${totalVariations} variations tested`, 
-        type: "info" 
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-
-    // Mark fragment testing as complete (preserve existing progress)
-    const finalJob = await storage.getSearchJob(jobId) as SearchJob;
-    await storage.updateSearchJob(jobId, {
-      progress: {
-        ...finalJob.progress,
-        fragmentsTested: totalVariations,
-        fragmentsTotal: totalVariations,
-      }
-    });
-    
-    await storage.appendJobLog(jobId, { 
-      message: `✓ Memory fragment testing complete: ${totalVariations} variations tested, no match found. Continuing with random exploration...`, 
-      type: "info" 
-    });
-  }
 
   async stopJob(jobId: string) {
     const job = await storage.getSearchJob(jobId);

@@ -6,7 +6,7 @@ The QIG Brain Wallet Recovery Tool is a specialized Bitcoin brain wallet recover
 The project is built on the theoretical foundation that passphrase generation is a process of sampling from an information manifold, grounded in block universe physics. The BIP-39 wordlist defines the geometry of this "basin," and the goal is to discover the pre-existing coordinates of the original 2009 passphrase. This approach considers all possible passphrases as existing at their coordinates in an eternal information manifold.
 
 Key capabilities include:
-- Testing user-provided memory fragments and variations.
+- **Pure algorithmic search** with no reliance on memory fragments or user input — fully autonomous exploration.
 - **Supporting arbitrary brain wallet passphrases** (2009 era, no BIP-39 validation) — CRITICAL for 2009 recovery since BIP-39 was invented in 2013.
 - Supporting master private keys (256-bit random hex) alongside BIP-39 passphrases to cover early Bitcoin wallet methods.
 - Testing all valid BIP-39 phrase lengths (12/15/18/21/24 words) simultaneously.
@@ -21,14 +21,31 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### Analytics Dashboard & Arbitrary Brain Wallet Support (2025-11-24)
-Added comprehensive navigation analytics to help determine if the search is "in the ballpark":
-- **Analytics Dashboard**: Statistical analysis (mean, median, percentiles), QIG component breakdown, trajectory analysis (recent vs historical), and pattern recognition (word frequency in high-Φ candidates).
-- **Ballpark Assessment**: Automated evaluation showing convergence indicators, pattern emergence, and recommendations.
-- **BIP-39 Word Validation**: Pattern recognition now filters to only show words from the official BIP-39 wordlist.
-- **Arbitrary Brain Wallet Support** 🔥: Added support for arbitrary text passphrases (not limited to BIP-39 wordlist) — CRITICAL for 2009 recovery since BIP-39 didn't exist then. Perfect for testing memory fragments like "whitetiger77" or "gary ocean" exactly as remembered.
+### Clean Algorithmic Search Refactor (2025-11-24)
+**MAJOR CHANGE**: Removed all memory fragment features to focus on pure algorithmic exploration.
 
-**Key Format Support**:
+**Rationale**: Memory fragments are unreliable and distract from clean algorithmic search. The system now emphasizes autonomous exploration with no user input beyond target addresses.
+
+**Key Changes**:
+- **Removed**: Memory fragment testing, variation generation, fragment-related UI and storage
+- **Retained**: Analytics dashboard, adaptive exploration/investigation modes, QIG scoring, multi-format generation
+- **Added**: Clean algorithmic search profiles with clear strategies
+
+**New Search Strategy Framework**:
+- `bip39-continuous`: Pure random BIP-39 sampling (all lengths 12-24)
+- `bip39-adaptive`: Adaptive exploration → investigation mode switching
+- `master-key-sweep`: Random 256-bit master private key generation
+- `arbitrary-exploration`: 2009-era arbitrary text passphrase generation
+- Legacy: `custom` (single phrase test), `batch` (batch phrase testing)
+
+**Analytics Dashboard** (retained):
+- Statistical analysis (mean, median, percentiles) to assess "ballpark" proximity
+- QIG component breakdown (context, elegance, typing flow)
+- Trajectory analysis (recent vs historical convergence)
+- Pattern recognition (BIP-39 word frequency in high-Φ candidates)
+- Automated ballpark assessment with recommendations
+
+**Key Format Support** (unchanged):
 - ✅ BIP-39 passphrases (12-24 words, official wordlist)
 - ✅ Master private keys (256-bit hex)
 - ✅ **Arbitrary brain wallet passphrases** (ANY text, 2009 era)

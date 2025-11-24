@@ -85,7 +85,14 @@ export const searchJobLogSchema = z.object({
 
 export const searchJobSchema = z.object({
   id: z.string(),
-  strategy: z.enum(["custom", "known", "batch", "bip39-random", "bip39-continuous"]),
+  strategy: z.enum([
+    "bip39-continuous",      // Pure random BIP-39 sampling
+    "bip39-adaptive",        // Adaptive exploration → investigation
+    "master-key-sweep",      // 256-bit random master keys
+    "arbitrary-exploration", // Random arbitrary text passphrases
+    "custom",                // Legacy: single custom phrase test
+    "batch",                 // Legacy: batch phrase testing
+  ]),
   status: z.enum(["pending", "running", "completed", "stopped", "failed"]),
   params: z.object({
     customPhrase: z.string().optional(),
@@ -93,17 +100,15 @@ export const searchJobSchema = z.object({
     bip39Count: z.number().optional(),
     minHighPhi: z.number().optional(),
     wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
-    generationMode: z.enum(["bip39", "master-key", "both", "arbitrary"]).optional(), // BIP-39, master key, both, or arbitrary brain wallet
-    memoryFragments: z.array(z.string()).optional(), // Base phrases to generate variations from
-    testMemoryFragments: z.boolean().optional(), // Whether to prioritize memory fragment testing
+    generationMode: z.enum(["bip39", "master-key", "arbitrary"]).optional(),
+    enableAdaptiveSearch: z.boolean().optional(), // Enable exploration → investigation switching
+    investigationRadius: z.number().optional(), // Word distance for investigation mode (default: 5)
   }),
   progress: z.object({
     tested: z.number(),
     highPhiCount: z.number(),
     lastBatchIndex: z.number(),
-    fragmentsTested: z.number().optional(), // How many fragment variations have been tested
-    fragmentsTotal: z.number().optional(), // Total fragment variations to test
-    searchMode: z.enum(["exploration", "investigation"]).optional(), // Current search mode
+    searchMode: z.enum(["exploration", "investigation"]).optional(), // Current adaptive mode
     lastHighPhiStep: z.number().optional(), // Step number when last high-Φ was found
     investigationTarget: z.string().optional(), // Phrase we're investigating around
   }),
@@ -122,20 +127,23 @@ export const searchJobSchema = z.object({
 });
 
 export const createSearchJobRequestSchema = z.object({
-  strategy: z.enum(["custom", "known", "batch", "bip39-random", "bip39-continuous"]),
+  strategy: z.enum([
+    "bip39-continuous",      // Pure random BIP-39 sampling
+    "bip39-adaptive",        // Adaptive exploration → investigation
+    "master-key-sweep",      // 256-bit random master keys
+    "arbitrary-exploration", // Random arbitrary text passphrases
+    "custom",                // Legacy: single custom phrase test
+    "batch",                 // Legacy: batch phrase testing
+  ]),
   params: z.object({
     customPhrase: z.string().optional(),
     batchPhrases: z.array(z.string()).optional(),
     bip39Count: z.number().optional(),
     minHighPhi: z.number().optional(),
     wordLength: z.number().optional(), // 12, 15, 18, 21, or 24 words
-    generationMode: z.enum(["bip39", "master-key", "both"]).optional(), // BIP-39 passphrase, master private key, or both
-    memoryFragments: z.array(
-      z.string()
-        .max(100, "Fragment too long (max 100 characters)")
-        .regex(/^[\x20-\x7E]+$/, "Fragment contains invalid characters")
-    ).max(50, "Too many fragments (max 50)").optional(), // Base phrases to generate variations from
-    testMemoryFragments: z.boolean().optional(), // Whether to prioritize memory fragment testing
+    generationMode: z.enum(["bip39", "master-key", "arbitrary"]).optional(),
+    enableAdaptiveSearch: z.boolean().optional(), // Enable exploration → investigation switching
+    investigationRadius: z.number().optional(), // Word distance for investigation mode (default: 5)
   }),
 });
 

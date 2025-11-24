@@ -16,7 +16,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, TargetAddress, SearchJob } from "@shared/schema";
 
-type SearchStrategy = "custom" | "known" | "batch" | "bip39-random" | "bip39-continuous";
+type SearchStrategy = "bip39-continuous" | "bip39-adaptive" | "master-key-sweep" | "arbitrary-exploration" | "custom" | "batch";
 
 export default function RecoveryPage() {
   const { toast } = useToast();
@@ -26,9 +26,7 @@ export default function RecoveryPage() {
   const [bip39Count, setBip39Count] = useState(100);
   const [minHighPhi, setMinHighPhi] = useState(2);
   const [wordLength, setWordLength] = useState(0); // Default to all lengths
-  const [generationMode, setGenerationMode] = useState<"bip39" | "master-key" | "both" | "arbitrary">("both"); // Default to both
-  const [memoryFragments, setMemoryFragments] = useState("");
-  const [testMemoryFragments, setTestMemoryFragments] = useState(false);
+  const [generationMode, setGenerationMode] = useState<"bip39" | "master-key" | "arbitrary">("bip39"); // Default to BIP-39
   const [newAddress, setNewAddress] = useState("");
   const [newAddressLabel, setNewAddressLabel] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -272,24 +270,7 @@ export default function RecoveryPage() {
         return;
       }
       params.batchPhrases = phrases;
-    } else if (strategy === "bip39-random") {
-      if (bip39Count < 1 || bip39Count > 100) {
-        toast({
-          title: "Invalid count",
-          description: "Count must be between 1 and 100",
-          variant: "destructive",
-        });
-        return;
-      }
-      params.bip39Count = bip39Count;
-      params.wordLength = wordLength;
-      
-      // Add memory fragments if enabled
-      if (testMemoryFragments && memoryFragments.trim()) {
-        params.memoryFragments = memoryFragments.split("\n").map(f => f.trim()).filter(f => f.length > 0);
-        params.testMemoryFragments = true;
-      }
-    } else if (strategy === "bip39-continuous") {
+    } else if (strategy === "bip39-continuous" || strategy === "bip39-adaptive" || strategy === "master-key-sweep" || strategy === "arbitrary-exploration") {
       if (minHighPhi < 1 || minHighPhi > 100) {
         toast({
           title: "Invalid target",
@@ -301,12 +282,6 @@ export default function RecoveryPage() {
       params.minHighPhi = minHighPhi;
       params.wordLength = wordLength;
       params.generationMode = generationMode;
-      
-      // Add memory fragments if enabled
-      if (testMemoryFragments && memoryFragments.trim()) {
-        params.memoryFragments = memoryFragments.split("\n").map(f => f.trim()).filter(f => f.length > 0);
-        params.testMemoryFragments = true;
-      }
     }
 
     createJobMutation.mutate({ strategy, params });
@@ -495,11 +470,12 @@ export default function RecoveryPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bip39-continuous">BIP-39 Continuous (Until Target Reached)</SelectItem>
-                  <SelectItem value="bip39-random">BIP-39 Random (Fixed Count)</SelectItem>
-                  <SelectItem value="known">Known 12-Word Phrases</SelectItem>
-                  <SelectItem value="custom">Test Your Own Phrase</SelectItem>
-                  <SelectItem value="batch">Batch Test Multiple Phrases</SelectItem>
+                  <SelectItem value="bip39-continuous">🌐 BIP-39 Continuous Exploration (Recommended)</SelectItem>
+                  <SelectItem value="bip39-adaptive">🧭 BIP-39 Adaptive Search (Exploration + Investigation)</SelectItem>
+                  <SelectItem value="master-key-sweep">🔑 Master Key Sweep (256-bit Random)</SelectItem>
+                  <SelectItem value="arbitrary-exploration">🔥 Arbitrary Brain Wallet (2009 Era)</SelectItem>
+                  <SelectItem value="custom">Test Single Phrase (Legacy)</SelectItem>
+                  <SelectItem value="batch">Batch Test Phrases (Legacy)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -546,21 +522,20 @@ export default function RecoveryPage() {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="generationMode" className="text-base">Generation Mode:</Label>
-                  <Select value={generationMode} onValueChange={(v) => setGenerationMode(v as "bip39" | "master-key" | "both" | "arbitrary")} disabled={!!activeJob}>
+                  <Select value={generationMode} onValueChange={(v) => setGenerationMode(v as "bip39" | "master-key" | "arbitrary")} disabled={!!activeJob}>
                     <SelectTrigger id="generationMode" className="mt-2" data-testid="select-generation-mode">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="both">Both (BIP-39 + Master Keys) - RECOMMENDED</SelectItem>
+                      <SelectItem value="bip39">BIP-39 Passphrases (Standard, 2013+)</SelectItem>
+                      <SelectItem value="master-key">Master Private Keys (256-bit hex)</SelectItem>
                       <SelectItem value="arbitrary">🔥 Arbitrary Brain Wallet (2009 Era - NO BIP-39)</SelectItem>
-                      <SelectItem value="bip39">BIP-39 Passphrases Only</SelectItem>
-                      <SelectItem value="master-key">Master Private Keys Only (256-bit)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
                     {generationMode === "arbitrary" 
-                      ? "🔥 BEST FOR 2009! Uses ANY text as passphrase (no BIP-39 word validation). Perfect for testing memory fragments like 'whitetiger77' or 'gary ocean'."
-                      : 'BIP-39 was invented in 2013. If your key is from 2009, it might be a raw master private key (64 hex chars) instead. "Both" mode tests both formats.'}
+                      ? "🔥 BEST FOR 2009! Uses ANY text as passphrase (no BIP-39 word validation). Random exploration of 2009-era brain wallet patterns."
+                      : 'BIP-39 was invented in 2013. If your key is from 2009, it might be a raw master private key (64 hex chars) instead.'}
                   </p>
                 </div>
                 <div>
@@ -608,117 +583,8 @@ export default function RecoveryPage() {
               </div>
             )}
 
-            {strategy === "bip39-random" && (
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="wordLength" className="text-base">Phrase Length (words):</Label>
-                  <Select value={wordLength.toString()} onValueChange={(v) => setWordLength(parseInt(v))} disabled={!!activeJob}>
-                    <SelectTrigger id="wordLength" className="mt-2" data-testid="select-word-length">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">All lengths (12-24 words) - RECOMMENDED</SelectItem>
-                      <SelectItem value="24">24 words only (256-bit entropy)</SelectItem>
-                      <SelectItem value="21">21 words only (224-bit entropy)</SelectItem>
-                      <SelectItem value="18">18 words only (192-bit entropy)</SelectItem>
-                      <SelectItem value="15">15 words only (160-bit entropy)</SelectItem>
-                      <SelectItem value="12">12 words only (128-bit entropy)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    "All lengths" tests every valid BIP-39 length (12/15/18/21/24 words) simultaneously. Select this if uncertain about original phrase length.
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="bip39Count" className="text-base">Number of Random Phrases to Generate:</Label>
-                  <Input
-                    id="bip39Count"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={bip39Count}
-                    onChange={(e) => setBip39Count(parseInt(e.target.value) || 10)}
-                    className="mt-2"
-                    disabled={!!activeJob}
-                    data-testid="input-bip39-count"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Navigate to 1-100 coordinate points in the eternal information manifold (uniform geodesic sampling)
-                  </p>
-                </div>
-              </div>
-            )}
 
-            {strategy === "known" && (
-              <div className="p-4 bg-muted/50 rounded-md">
-                <p className="text-sm text-muted-foreground">
-                  This will test 45 contextually relevant BIP-39 phrases with Bitcoin/crypto, cypherpunk, and Mac aesthetic themes.
-                </p>
-              </div>
-            )}
 
-            {(strategy === "bip39-continuous" || strategy === "bip39-random") && (
-              <div className="mt-6 border-t pt-6">
-                <Accordion type="single" collapsible className="border rounded-md">
-                  <AccordionItem value="memory-fragments" className="border-none">
-                    <AccordionTrigger className="px-4 py-3 hover-elevate">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4" />
-                        <span className="font-semibold">🧠 Memory Fragment Testing (Optional)</span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-4 pb-4 space-y-4">
-                      <div className="p-3 bg-muted/50 rounded-md text-sm space-y-2">
-                        <p className="text-muted-foreground">
-                          If you remember ANY words, phrases, or patterns that might have been used, enter them here. 
-                          The system will test hundreds of variations (capitalization, spacing, numbers, combinations) before starting random exploration.
-                        </p>
-                        <p className="text-muted-foreground font-medium">
-                          Examples: "whitetiger77", "garyocean", "white tiger", personal names, dates, usernames
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          ⚠️ Fragments are stored locally in your browser only. They are never sent to any server except for testing against your target address.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="testMemoryFragments"
-                          checked={testMemoryFragments}
-                          onCheckedChange={(checked) => setTestMemoryFragments(checked as boolean)}
-                          disabled={!!activeJob}
-                          data-testid="checkbox-test-memory-fragments"
-                        />
-                        <Label htmlFor="testMemoryFragments" className="text-base cursor-pointer">
-                          Enable memory fragment testing (recommended if you have any clues)
-                        </Label>
-                      </div>
-
-                      {testMemoryFragments && (
-                        <div>
-                          <Label htmlFor="memoryFragments" className="text-base">
-                            Memory Fragments (one per line):
-                          </Label>
-                          <Textarea
-                            id="memoryFragments"
-                            value={memoryFragments}
-                            onChange={(e) => setMemoryFragments(e.target.value)}
-                            placeholder="whitetiger77&#10;garyocean&#10;white tiger&#10;yourname&#10;significant dates..."
-                            className="mt-2 font-mono text-sm"
-                            rows={6}
-                            disabled={!!activeJob}
-                            data-testid="input-memory-fragments"
-                          />
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {memoryFragments.split("\n").filter(f => f.trim()).length} base fragments → ~{memoryFragments.split("\n").filter(f => f.trim()).length * 50} variations will be tested
-                          </p>
-                        </div>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-            )}
 
             <div className="flex gap-3 pt-4 border-t">
               {!activeJob ? (
@@ -885,7 +751,7 @@ export default function RecoveryPage() {
                         ))}
                       </div>
                       <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
-                        Recurring words may indicate manifold features or memory fragments. High-frequency words suggest structure in the basin.
+                        Recurring words may indicate manifold features. High-frequency words suggest structure in the information geometry.
                       </p>
                     </Card>
                   )}
@@ -909,7 +775,7 @@ export default function RecoveryPage() {
                         <p className="text-green-600">✓ Pattern emergence — Manifold structure is being revealed</p>
                       )}
                       {parseFloat(analytics.statistics.mean) <= 50 && !analytics.trajectory.isImproving && (
-                        <p className="text-yellow-600">⚠ Consider expanding search space or testing memory fragments</p>
+                        <p className="text-yellow-600">⚠ Consider expanding search space or trying different generation modes</p>
                       )}
                     </div>
                   </div>

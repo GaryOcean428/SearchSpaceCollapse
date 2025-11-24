@@ -377,20 +377,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { strategy, params } = validation.data;
       
-      // Additional sanitization for memory fragments
-      if (params.memoryFragments && params.memoryFragments.length > 0) {
-        params.memoryFragments = params.memoryFragments
-          .map(f => f.trim())
-          .filter(f => f.length > 0 && f.length <= 100);
-        
-        // Ensure we don't exceed reasonable limits
-        if (params.memoryFragments.length > 50) {
-          return res.status(400).json({
-            error: "Too many memory fragments (max 50)",
-          });
-        }
-      }
-      
       const job: SearchJob = {
         id: randomUUID(),
         strategy,
