@@ -1300,13 +1300,42 @@ router.post("/workflows/:id/start-search", async (req: Request, res: Response) =
       });
     }
     
-    // Check if search already started
+    // IDEMPOTENCY: Check if search already started
     const progress = workflow.progress as any;
     const searchProgress = progress?.constrainedSearchProgress;
     if (searchProgress?.searchJobId) {
-      return res.status(400).json({
-        error: "Search already started",
-        message: `Search job '${searchProgress.searchJobId}' already exists for this workflow.`,
+      // Reload workflow from storage to get latest state (fixes stale data)
+      const refreshedWorkflow = await observerStorage.getRecoveryWorkflow(id);
+      
+      // Get priority data for constraint metrics
+      const priority = await observerStorage.getRecoveryPriority(workflow.address);
+      const entities = await observerStorage.getEntitiesByAddress(workflow.address);
+      const artifacts = await observerStorage.getArtifactsByAddress(workflow.address);
+      
+      // Return existing job info instead of error (idempotent)
+      const { storage } = await import("./storage");
+      const existingJob = await storage.getSearchJob(searchProgress.searchJobId);
+      
+      return res.json({
+        message: "Search already started (idempotent)",
+        workflow: refreshedWorkflow, // Use refreshed data
+        searchJob: existingJob ? {
+          id: existingJob.id,
+          status: existingJob.status,
+          strategy: existingJob.strategy,
+          progress: existingJob.progress,
+        } : {
+          id: searchProgress.searchJobId,
+          status: 'unknown',
+          strategy: 'bip39-adaptive',
+        },
+        constraints: {
+          kappaRecovery: priority?.kappaRecovery ?? 0,
+          phiConstraints: priority?.phiConstraints ?? 0,
+          hCreation: priority?.hCreation ?? 0,
+          entities: entities.length,
+          artifacts: artifacts.length,
+        },
       });
     }
     
@@ -1323,8 +1352,21 @@ router.post("/workflows/:id/start-search", async (req: Request, res: Response) =
     const entities = await observerStorage.getEntitiesByAddress(workflow.address);
     const artifacts = await observerStorage.getArtifactsByAddress(workflow.address);
     
-    // Import search coordinator
+    // Import singleton searchCoordinator instance (started in routes.ts on boot)
     const { searchCoordinator } = await import("./search-coordinator");
+    
+    // SAFETY: Verify SearchCoordinator is running before queuing job
+    if (!searchCoordinator.running) {
+      console.warn("[ObserverAPI] SearchCoordinator not running, attempting to start...");
+      try {
+        await searchCoordinator.start();
+      } catch (startError: any) {
+        return res.status(503).json({
+          error: "Search coordinator unavailable",
+          message: `SearchCoordinator failed to start: ${startError.message}. Please contact system administrator.`,
+        });
+      }
+    }
     
     // Create search job configuration
     const searchJobId = randomUUID();
@@ -1340,8 +1382,8 @@ router.post("/workflows/:id/start-search", async (req: Request, res: Response) =
         // Add constraint metadata for future use
         targetAddress: workflow.address,
         kappaRecovery: priority.kappaRecovery,
-        phiConstraints: (priority.constraints as any).phiConstraints,
-        hCreation: (priority.entropy as any).hCreation,
+        phiConstraints: priority.phiConstraints, // Top-level field
+        hCreation: priority.hCreation,           // Top-level field
         entityCount: entities.length,
         artifactCount: artifacts.length,
       },
@@ -1362,78 +1404,90 @@ router.post("/workflows/:id/start-search", async (req: Request, res: Response) =
       updatedAt: new Date().toISOString(),
     };
     
-    // Save search job to storage
+    // Save search job to storage with rollback on failure
     const { storage } = await import("./storage");
-    await storage.addSearchJob(searchJob as any);
+    let jobCreated = false;
     
-    // Add target address for this search (idempotent - skip if already exists)
+    // Capture original workflow state for rollback
+    const originalStatus = workflow.status;
+    const originalProgress = workflow.progress;
+    const originalNotes = workflow.notes;
+    
     try {
-      await storage.addTargetAddress({
-        address: workflow.address,
-        label: `Observer recovery: ${workflow.address} (κ=${priority.kappaRecovery.toFixed(2)})`,
-      });
-    } catch (error: any) {
-      // Address may already exist from previous workflow - this is OK
-      const isDuplicateError = 
-        error.code === 'SQLITE_CONSTRAINT_UNIQUE' || 
-        error.code === '23505' || // PostgreSQL unique violation
-        error.message?.includes('duplicate') || 
-        error.message?.includes('already exists');
+      // Step 1: Create search job
+      await storage.addSearchJob(searchJob as any);
+      jobCreated = true;
+      console.log(`[ObserverAPI] Search job ${searchJobId} created`);
       
-      if (!isDuplicateError) {
-        throw error; // Re-throw if it's a different error
-      }
-    }
-    
-    // Update workflow with search job ID
-    const { updateWorkflowProgress } = await import("./recovery-orchestrator");
-    const updatedProgress = updateWorkflowProgress(
-      'constrained_search',
-      workflow.progress as any,
-      {
-        searchJobId,
-        qigParametersSet: true,
-        searchStatus: 'not_started' as const,
-      }
-    );
-    
-    await observerStorage.updateRecoveryWorkflow(id, {
-      progress: updatedProgress,
-      status: 'active',
-    });
-    
-    // Start the search job (with rollback on failure)
-    try {
-      await searchCoordinator.startJob(searchJobId);
-    } catch (startError: any) {
-      console.error(`[ObserverAPI] Failed to start search job ${searchJobId}:`, startError);
-      
-      // Rollback: Remove search job and revert workflow status
+      // Step 2: Add target address (idempotent - skip if already exists)
       try {
-        await storage.deleteSearchJob(searchJobId);
-      } catch (deleteError) {
-        console.error('[ObserverAPI] Failed to cleanup search job:', deleteError);
+        await storage.addTargetAddress({
+          address: workflow.address,
+          label: `Observer recovery: ${workflow.address} (κ=${priority.kappaRecovery.toFixed(2)})`,
+        });
+      } catch (error: any) {
+        // Address may already exist from previous workflow - this is OK
+        const isDuplicateError = 
+          error.code === 'SQLITE_CONSTRAINT_UNIQUE' || 
+          error.code === '23505' || // PostgreSQL unique violation
+          error.message?.includes('duplicate') || 
+          error.message?.includes('already exists');
+        
+        if (!isDuplicateError) {
+          throw error; // Re-throw if it's a different error
+        }
       }
       
-      // Revert workflow to pending status without searchJobId
-      const revertedProgress = updateWorkflowProgress(
+      // Step 3: Update workflow with search job ID
+      const { updateWorkflowProgress } = await import("./recovery-orchestrator");
+      const updatedProgress = updateWorkflowProgress(
         'constrained_search',
         workflow.progress as any,
         {
-          searchJobId: undefined,
-          qigParametersSet: false,
-          searchStatus: 'failed' as const,
+          searchJobId,
+          qigParametersSet: true,
+          searchStatus: 'not_started' as const,
         }
       );
       
       await observerStorage.updateRecoveryWorkflow(id, {
-        progress: revertedProgress,
-        status: 'failed',
-        notes: workflow.notes + `\nERROR: Failed to start search job: ${startError.message}`,
+        progress: updatedProgress,
+        status: 'active',
       });
+      console.log(`[ObserverAPI] Workflow ${id} updated to active`);
       
-      throw new Error(`Failed to start search coordinator: ${startError.message}`);
+    } catch (updateError: any) {
+      // ROLLBACK: Clean up search job AND restore original workflow state
+      console.error(`[ObserverAPI] Failed to complete search start:`, updateError);
+      
+      if (jobCreated) {
+        console.log(`[ObserverAPI] Rolling back: deleting search job ${searchJobId}`);
+        try {
+          await storage.deleteSearchJob(searchJobId);
+        } catch (deleteError) {
+          console.error(`[ObserverAPI] Failed to rollback search job:`, deleteError);
+        }
+      }
+      
+      // Restore original workflow state
+      console.log(`[ObserverAPI] Rolling back: restoring workflow to status '${originalStatus}'`);
+      try {
+        await observerStorage.updateRecoveryWorkflow(id, {
+          status: originalStatus,
+          progress: originalProgress,
+          notes: originalNotes,
+        });
+      } catch (restoreError) {
+        console.error(`[ObserverAPI] Failed to restore workflow state:`, restoreError);
+      }
+      
+      throw new Error(`Failed to start constrained search: ${updateError.message}`);
     }
+    
+    // Search job is now queued in storage as 'pending'
+    // SearchCoordinator background worker automatically picks up and processes pending jobs
+    console.log(`[ObserverAPI] Search job ${searchJobId} queued successfully for workflow ${id}`);
+    console.log(`[ObserverAPI] SearchCoordinator will auto-process (no manual start needed)`);
     
     // Get updated workflow
     const updatedWorkflow = await observerStorage.getRecoveryWorkflow(id);
@@ -1448,8 +1502,8 @@ router.post("/workflows/:id/start-search", async (req: Request, res: Response) =
       },
       constraints: {
         kappaRecovery: priority.kappaRecovery,
-        phiConstraints: (priority.constraints as any).phiConstraints,
-        hCreation: (priority.entropy as any).hCreation,
+        phiConstraints: priority.phiConstraints, // Top-level field
+        hCreation: priority.hCreation,           // Top-level field
         entities: entities.length,
         artifacts: artifacts.length,
       },

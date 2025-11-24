@@ -14,6 +14,8 @@
 import type { Address, Block, Transaction } from "@shared/schema";
 import { observerStorage } from "./observer-storage";
 import { updateAddressDormancy } from "./dormancy-updater";
+import { createHash } from "crypto";
+import bs58check from "bs58check";
 
 // Blockstream API base URL (free, no API key required)
 const BLOCKSTREAM_API = "https://blockstream.info/api";
@@ -115,6 +117,45 @@ function extractValueSignature(outputs: Array<{ value: number }>) {
     values,
     avgValue: totalValue / outputs.length,
   };
+}
+
+/**
+ * Derive Bitcoin address from P2PK (Pay-to-Public-Key) script
+ * Early Bitcoin outputs used raw public keys instead of addresses
+ * Format: <pubkey_len> <pubkey> OP_CHECKSIG
+ */
+function deriveP2PKAddress(scriptpubkey: string): string | null {
+  try {
+    // P2PK format: <len><pubkey>ac (OP_CHECKSIG)
+    // 0x41 (65 bytes) for uncompressed pubkey or 0x21 (33 bytes) for compressed
+    if (!scriptpubkey.endsWith("ac")) return null;
+    
+    const lengthByte = scriptpubkey.substring(0, 2);
+    const expectedLength = lengthByte === "41" ? 65 : lengthByte === "21" ? 33 : 0;
+    
+    if (expectedLength === 0) return null;
+    
+    // Extract public key (skip length byte, exclude OP_CHECKSIG)
+    const pubkeyHex = scriptpubkey.substring(2, 2 + expectedLength * 2);
+    
+    if (pubkeyHex.length !== expectedLength * 2) return null;
+    
+    // Hash the public key: SHA-256 then RIPEMD-160
+    const pubkeyBuffer = Buffer.from(pubkeyHex, "hex");
+    const sha256Hash = createHash("sha256").update(pubkeyBuffer).digest();
+    const ripemd160Hash = createHash("ripemd160").update(sha256Hash).digest();
+    
+    // Add version byte (0x00 for mainnet P2PKH)
+    const versionedHash = Buffer.concat([Buffer.from([0x00]), ripemd160Hash]);
+    
+    // Encode with Base58Check
+    const address = bs58check.encode(versionedHash);
+    
+    return address;
+  } catch (error) {
+    console.error(`[BlockchainScanner] Error deriving P2PK address:`, error);
+    return null;
+  }
 }
 
 /**
@@ -310,58 +351,71 @@ export async function scanEarlyEraBlocks(
         
         // Extract and save addresses from outputs
         for (const output of txData.vout) {
-          if (output.scriptpubkey_address) {
-            const address = output.scriptpubkey_address;
+          // Get address from Blockstream, or derive from P2PK script for early blocks
+          let address: string | null = output.scriptpubkey_address || null;
+          
+          if (!address && output.scriptpubkey) {
+            // Early Bitcoin used P2PK (Pay-to-Public-Key) without addresses
+            address = deriveP2PKAddress(output.scriptpubkey);
             
-            // Always call saveAddress - it handles both insert and update idempotently
-            const scriptSig = extractScriptSignature(output.scriptpubkey);
-            const temporal = extractTemporalSignature(blockData);
-            const valueSig = extractValueSignature(txData.vout);
-            
-            const addressRecord: Omit<Address, "createdAt" | "updatedAt"> = {
-              address,
-              firstSeenHeight: height,
-              firstSeenTxid: txData.txid,
-              firstSeenTimestamp: new Date(blockData.timestamp * 1000),
-              lastActivityHeight: height,
-              lastActivityTxid: txData.txid,
-              lastActivityTimestamp: new Date(blockData.timestamp * 1000),
-              currentBalance: BigInt(output.value), // Balance tracking (proper UTXO tracking in Phase 2)
-              dormancyBlocks: 0, // Will be calculated by dormancy-updater
-              isDormant: false,
-              isCoinbaseReward: txData.vin.some(input => input.is_coinbase),
-              isEarlyEra: height <= 155000, // 2009-2011 era
-              temporalSignature: {
-                dayOfWeek: temporal.dayOfWeek,
-                hourUTC: temporal.hourUTC,
-                dayPattern: temporal.dayPattern,
-                hourPattern: temporal.hourPattern,
-                likelyTimezones: temporal.likelyTimezones,
-                timestamp: temporal.timestamp,
-              },
-              graphSignature: {
-                // Basic graph features (will be enriched with multi-block analysis in Phase 2)
-                inputCount: txData.vin.length,
-                outputCount: txData.vout.length,
-                isFirstOutput: txData.vout.indexOf(output) === 0,
-              },
-              valueSignature: {
-                initialValue: output.value,
-                totalValue: valueSig.totalValue,
-                hasRoundNumbers: valueSig.hasRoundNumbers,
-                isCoinbase: txData.vin.some(input => input.is_coinbase),
-                outputCount: valueSig.outputCount,
-              },
-              scriptSignature: {
-                type: scriptSig.type,
-                raw: scriptSig.raw,
-                softwareFingerprint: scriptSig.softwareFingerprint,
-              },
-            };
-            
-            await observerStorage.saveAddress(addressRecord);
-            console.log(`[BlockchainScanner]   → Address: ${address} (${scriptSig.type}, height ${height})`);
+            if (address) {
+              console.log(`[BlockchainScanner]   → Derived P2PK address: ${address}`);
+            }
           }
+          
+          if (!address) {
+            console.log(`[BlockchainScanner]   ⚠ Skipped output: no address (script: ${output.scriptpubkey?.substring(0, 20)}...)`);
+            continue; // Skip outputs without recoverable addresses
+          }
+          
+          // Always call saveAddress - it handles both insert and update idempotently
+          const scriptSig = extractScriptSignature(output.scriptpubkey);
+          const temporal = extractTemporalSignature(blockData);
+          const valueSig = extractValueSignature(txData.vout);
+          
+          const addressRecord: Omit<Address, "createdAt" | "updatedAt"> = {
+            address,
+            firstSeenHeight: height,
+            firstSeenTxid: txData.txid,
+            firstSeenTimestamp: new Date(blockData.timestamp * 1000),
+            lastActivityHeight: height,
+            lastActivityTxid: txData.txid,
+            lastActivityTimestamp: new Date(blockData.timestamp * 1000),
+            currentBalance: BigInt(output.value), // Balance tracking (proper UTXO tracking in Phase 2)
+            dormancyBlocks: 0, // Will be calculated by dormancy-updater
+            isDormant: false,
+            isCoinbaseReward: txData.vin.some(input => input.is_coinbase),
+            isEarlyEra: height <= 155000, // 2009-2011 era
+            temporalSignature: {
+              dayOfWeek: temporal.dayOfWeek,
+              hourUTC: temporal.hourUTC,
+              dayPattern: temporal.dayPattern,
+              hourPattern: temporal.hourPattern,
+              likelyTimezones: temporal.likelyTimezones,
+              timestamp: temporal.timestamp,
+            },
+            graphSignature: {
+              // Basic graph features (will be enriched with multi-block analysis in Phase 2)
+              inputCount: txData.vin.length,
+              outputCount: txData.vout.length,
+              isFirstOutput: txData.vout.indexOf(output) === 0,
+            },
+            valueSignature: {
+              initialValue: output.value,
+              totalValue: valueSig.totalValue,
+              hasRoundNumbers: valueSig.hasRoundNumbers,
+              isCoinbase: txData.vin.some(input => input.is_coinbase),
+              outputCount: valueSig.outputCount,
+            },
+            scriptSignature: {
+              type: scriptSig.type,
+              raw: scriptSig.raw,
+              softwareFingerprint: scriptSig.softwareFingerprint,
+            },
+          };
+          
+          await observerStorage.saveAddress(addressRecord);
+          console.log(`[BlockchainScanner]   → Saved address: ${address} (${scriptSig.type}, ${output.value} sats)`);
         }
       } catch (error) {
         console.error(`[BlockchainScanner] Error processing tx ${txData.txid}:`, error);

@@ -22,6 +22,11 @@ class SearchCoordinator {
   private velocityMonitors = new Map<string, BasinVelocityMonitor>();
   private resonanceDetectors = new Map<string, ResonanceDetector>();
 
+  // Public getter for coordinator status
+  get running(): boolean {
+    return this.isRunning;
+  }
+  
   async start() {
     if (this.isRunning) {
       console.log("[SearchCoordinator] Already running");
