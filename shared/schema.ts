@@ -4,6 +4,7 @@ import {
   bigint,
   boolean,
   decimal,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -343,9 +344,9 @@ export const recoveryPriorities = pgTable("recovery_priorities", {
   address: varchar("address", { length: 35 }).notNull(),
   
   // κ_recovery = Φ_constraints / H_creation
-  kappaRecovery: decimal("kappa_recovery", { precision: 10, scale: 4 }).notNull(),
-  phiConstraints: decimal("phi_constraints", { precision: 10, scale: 4 }).notNull(),
-  hCreation: decimal("h_creation", { precision: 10, scale: 4 }).notNull(),
+  kappaRecovery: doublePrecision("kappa_recovery").notNull(),
+  phiConstraints: doublePrecision("phi_constraints").notNull(),
+  hCreation: doublePrecision("h_creation").notNull(),
   
   // Ranking
   rank: integer("rank"),

@@ -12,6 +12,8 @@
  */
 
 import type { Address, Block, Transaction } from "@shared/schema";
+import { observerStorage } from "./observer-storage";
+import { updateAddressDormancy } from "./dormancy-updater";
 
 // Blockstream API base URL (free, no API key required)
 const BLOCKSTREAM_API = "https://blockstream.info/api";
@@ -140,6 +142,35 @@ function extractScriptSignature(scriptpubkey: string) {
 }
 
 /**
+ * Extract miner software fingerprint from coinbase transaction
+ */
+function extractMinerFingerprint(coinbaseTx: BlockstreamTransaction): string | null {
+  if (!coinbaseTx.vin || coinbaseTx.vin.length === 0 || !coinbaseTx.vin[0].is_coinbase) {
+    return null;
+  }
+  
+  const coinbase = coinbaseTx.vin[0];
+  const scriptsig = coinbase.scriptsig || "";
+  
+  // Early Bitcoin software fingerprints based on coinbase patterns
+  // Satoshi's original client had specific patterns
+  if (scriptsig.length < 10) {
+    return "satoshi-v0.1"; // Very early blocks
+  }
+  
+  // Known mining pool signatures (added in later years)
+  if (scriptsig.includes("slush") || scriptsig.includes("Slush")) return "slushpool";
+  if (scriptsig.includes("eligius") || scriptsig.includes("Eligius")) return "eligius";
+  if (scriptsig.includes("btcguild") || scriptsig.includes("BTCGuild")) return "btcguild";
+  
+  // Generic detection based on scriptsig structure
+  if (scriptsig.length > 100) return "custom-large";
+  if (scriptsig.length > 50) return "custom-medium";
+  
+  return "unknown";
+}
+
+/**
  * Fetch block by height from Blockstream API
  */
 export async function fetchBlockByHeight(height: number): Promise<BlockstreamBlock | null> {
@@ -189,8 +220,8 @@ export function parseBlock(blockData: BlockstreamBlock): Partial<Block> {
     hash: blockData.id,
     previousHash: blockData.previousblockhash,
     timestamp: new Date(blockData.timestamp * 1000),
-    difficulty: blockData.difficulty.toString(),
-    nonce: blockData.nonce,
+    difficulty: blockData.difficulty.toString(), // Store as string to preserve precision
+    nonce: blockData.nonce, // Schema uses { mode: "number" } for nonce
     transactionCount: blockData.tx_count,
     dayOfWeek: temporal.dayOfWeek,
     hourUTC: temporal.hourUTC,
@@ -201,16 +232,19 @@ export function parseBlock(blockData: BlockstreamBlock): Partial<Block> {
 
 /**
  * Parse transaction into database format
+ * Note: UTXO resolution required for accurate input values/fees (deferred to Phase 2)
  */
 export function parseTransaction(txData: BlockstreamTransaction): Partial<Transaction> {
   const isCoinbase = txData.vin.some(input => input.is_coinbase);
-  const totalInputValue = isCoinbase ? BigInt(0) : BigInt(
-    txData.vin.reduce((sum, input) => sum + (input.vout || 0), 0)
-  );
-  const totalOutputValue = BigInt(
-    txData.vout.reduce((sum, output) => sum + output.value, 0)
-  );
   
+  // Calculate total output value using BigInt throughout to avoid overflow
+  let totalOutputValue = BigInt(0);
+  for (const output of txData.vout) {
+    totalOutputValue += BigInt(output.value);
+  }
+  
+  // Note: totalInputValue requires UTXO resolution
+  // For now, we store null for inputs (will be enriched in Phase 2)
   return {
     txid: txData.txid,
     blockHeight: txData.status.block_height,
@@ -218,9 +252,9 @@ export function parseTransaction(txData: BlockstreamTransaction): Partial<Transa
     isCoinbase,
     inputCount: txData.vin.length,
     outputCount: txData.vout.length,
-    totalInputValue,
+    totalInputValue: isCoinbase ? BigInt(0) : null, // Requires UTXO resolution
     totalOutputValue,
-    fee: txData.fee ? BigInt(txData.fee) : BigInt(0),
+    fee: txData.fee ? BigInt(txData.fee) : BigInt(0), // Blockstream provides this directly
   };
 }
 
@@ -244,19 +278,119 @@ export async function scanEarlyEraBlocks(
       continue;
     }
     
-    // Parse and store block
-    const block = parseBlock(blockData);
-    console.log(`[BlockchainScanner] Parsed block ${height}: ${block.hash}`);
-    
-    // Fetch and parse transactions
+    // Fetch transactions first (needed for miner fingerprint)
     const txs = await fetchBlockTransactions(blockData.id);
     console.log(`[BlockchainScanner] Block ${height} has ${txs.length} transactions`);
+    
+    // Parse and save block with miner fingerprint
+    const blockToSave = parseBlock(blockData);
+    
+    // Extract miner fingerprint from coinbase transaction
+    const coinbaseTx = txs.find(tx => tx.vin.some(input => input.is_coinbase));
+    if (coinbaseTx) {
+      blockToSave.minerSoftwareFingerprint = extractMinerFingerprint(coinbaseTx);
+    }
+    
+    try {
+      await observerStorage.saveBlock(blockToSave as any);
+      console.log(`[BlockchainScanner] ✓ Saved block ${height}: ${blockToSave.hash}${blockToSave.minerSoftwareFingerprint ? ` (miner: ${blockToSave.minerSoftwareFingerprint})` : ''}`);
+    } catch (error) {
+      console.error(`[BlockchainScanner] Error saving block ${height}:`, error);
+      continue;
+    }
+    
+    // Process each transaction
+    for (let position = 0; position < txs.length; position++) {
+      const txData = txs[position];
+      const tx = parseTransaction(txData);
+      
+      try {
+        // Save transaction
+        await observerStorage.saveTransaction(tx as any);
+        
+        // Extract and save addresses from outputs
+        for (const output of txData.vout) {
+          if (output.scriptpubkey_address) {
+            const address = output.scriptpubkey_address;
+            
+            // Check if address already exists
+            const existingAddress = await observerStorage.getAddress(address);
+            
+            if (!existingAddress) {
+              // Create new address record with full geometric signatures
+              const scriptSig = extractScriptSignature(output.scriptpubkey);
+              const temporal = extractTemporalSignature(blockData);
+              const valueSig = extractValueSignature(txData.vout);
+              
+              const addressRecord: Omit<Address, "createdAt" | "updatedAt"> = {
+                address,
+                firstSeenHeight: height,
+                firstSeenTxid: txData.txid,
+                firstSeenTimestamp: new Date(blockData.timestamp * 1000),
+                lastActivityHeight: height,
+                lastActivityTxid: txData.txid,
+                lastActivityTimestamp: new Date(blockData.timestamp * 1000),
+                currentBalance: BigInt(output.value), // Initial balance
+                dormancyBlocks: 0,
+                isDormant: false,
+                isCoinbaseReward: txData.vin.some(input => input.is_coinbase),
+                isEarlyEra: height <= 155000, // 2009-2011 era
+                temporalSignature: {
+                  dayOfWeek: temporal.dayOfWeek,
+                  hourUTC: temporal.hourUTC,
+                  dayPattern: temporal.dayPattern,
+                  hourPattern: temporal.hourPattern,
+                  likelyTimezones: temporal.likelyTimezones,
+                  timestamp: temporal.timestamp,
+                },
+                graphSignature: {
+                  // Basic graph features (will be enriched with multi-block analysis in Phase 2)
+                  inputCount: txData.vin.length,
+                  outputCount: txData.vout.length,
+                  isFirstOutput: txData.vout.indexOf(output) === 0,
+                },
+                valueSignature: {
+                  initialValue: output.value,
+                  totalValue: valueSig.totalValue,
+                  hasRoundNumbers: valueSig.hasRoundNumbers,
+                  isCoinbase: txData.vin.some(input => input.is_coinbase),
+                  outputCount: valueSig.outputCount,
+                },
+                scriptSignature: {
+                  type: scriptSig.type,
+                  raw: scriptSig.raw,
+                  softwareFingerprint: scriptSig.softwareFingerprint,
+                },
+              };
+              
+              await observerStorage.saveAddress(addressRecord);
+              console.log(`[BlockchainScanner]   → New address: ${address} (${scriptSig.type})`);
+            } else {
+              // Update existing address - last activity
+              // Note: Balance tracking requires UTXO resolution (future enhancement)
+              await observerStorage.updateAddress(address, {
+                lastActivityHeight: height,
+                lastActivityTxid: txData.txid,
+                lastActivityTimestamp: new Date(blockData.timestamp * 1000),
+                dormancyBlocks: 0, // Reset dormancy - address is active
+                isDormant: false,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`[BlockchainScanner] Error processing transaction ${txData.txid}:`, error);
+      }
+    }
     
     // Add small delay to avoid rate limiting
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   
   console.log(`[BlockchainScanner] Scan complete: ${endHeight - startHeight + 1} blocks processed`);
+  
+  // Update dormancy for all addresses based on latest block height
+  await updateAddressDormancy(endHeight);
 }
 
 /**

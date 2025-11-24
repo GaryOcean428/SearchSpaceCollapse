@@ -56,7 +56,7 @@ const databaseUrl = getDatabaseUrl();
 if (databaseUrl) {
   try {
     pool = new Pool({ connectionString: databaseUrl });
-    db = drizzle({ client: pool, schema });
+    db = drizzle(pool, { schema });
     console.log("[DB] Database connection initialized");
   } catch (err) {
     console.error("[DB] Failed to initialize database connection:", err);
