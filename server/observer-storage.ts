@@ -87,6 +87,7 @@ export interface IObserverStorage {
     status?: string;
   }): Promise<RecoveryWorkflow[]>;
   getRecoveryWorkflow(id: string): Promise<RecoveryWorkflow | null>;
+  findWorkflowBySearchJobId(searchJobId: string): Promise<RecoveryWorkflow | null>;
 }
 
 export class ObserverStorage implements IObserverStorage {
@@ -699,6 +700,24 @@ export class ObserverStorage implements IObserverStorage {
     }
     
     return workflow;
+  }
+
+  async findWorkflowBySearchJobId(searchJobId: string): Promise<RecoveryWorkflow | null> {
+    if (!db) throw new Error("Database not initialized");
+    
+    const allWorkflows = await db.select().from(recoveryWorkflows);
+    
+    for (const workflow of allWorkflows) {
+      const progress = workflow.progress as any;
+      const searchProgress = progress?.constrainedSearchProgress;
+      
+      if (searchProgress?.searchJobId === searchJobId) {
+        await this.normalizeWorkflowProgress(workflow);
+        return workflow;
+      }
+    }
+    
+    return null;
   }
 }
 

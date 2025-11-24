@@ -27,6 +27,41 @@ class SearchCoordinator {
     return this.isRunning;
   }
   
+  private async syncWorkflowProgress(jobId: string, job: SearchJob): Promise<void> {
+    try {
+      const { observerStorage } = await import("./observer-storage");
+      const workflow = await observerStorage.findWorkflowBySearchJobId(jobId);
+      
+      if (!workflow) {
+        return;
+      }
+      
+      const progress = workflow.progress as any;
+      const searchProgress = progress?.constrainedSearchProgress || {};
+      
+      const updatedSearchProgress = {
+        ...searchProgress,
+        phrasesTested: job.progress.tested,
+        phrasesGenerated: job.progress.tested,
+        highPhiCount: job.progress.highPhiCount,
+        searchStatus: job.status === 'completed' ? 'completed' as const : 'running' as const,
+        matchFound: job.status === 'completed' && job.progress.tested > 0,
+      };
+      
+      const updatedProgress = {
+        ...progress,
+        constrainedSearchProgress: updatedSearchProgress,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      
+      await observerStorage.updateRecoveryWorkflow(workflow.id, {
+        progress: updatedProgress,
+      });
+    } catch (error) {
+      console.error(`[SearchCoordinator] Failed to sync workflow progress for job ${jobId}:`, error);
+    }
+  }
+  
   async start() {
     if (this.isRunning) {
       console.log("[SearchCoordinator] Already running");
@@ -146,6 +181,8 @@ class SearchCoordinator {
         },
         stats: { rate },
       });
+      const updatedJob = await storage.getSearchJob(jobId) as SearchJob;
+      await this.syncWorkflowProgress(jobId, updatedJob);
       await storage.appendJobLog(jobId, { 
         message: `Batch complete: ${batch.length} phrases tested, ${results.highPhiCandidates} high-Φ`, 
         type: "info" 
@@ -157,6 +194,8 @@ class SearchCoordinator {
           status: "completed",
           stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
         });
+        const completedJob = await storage.getSearchJob(jobId) as SearchJob;
+        await this.syncWorkflowProgress(jobId, completedJob);
         await storage.appendJobLog(jobId, { 
           message: `🎉 MATCH FOUND! ${results.matchedPhrase}`, 
           type: "success" 
@@ -350,6 +389,8 @@ class SearchCoordinator {
           status: "completed",
           stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
         });
+        const completedJob = await storage.getSearchJob(jobId) as SearchJob;
+        await this.syncWorkflowProgress(jobId, completedJob);
         await storage.appendJobLog(jobId, { 
           message: `🎉 MATCH FOUND! ${results.matchedPhrase}`, 
           type: "success" 
