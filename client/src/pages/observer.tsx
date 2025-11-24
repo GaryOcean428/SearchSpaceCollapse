@@ -54,9 +54,10 @@ export default function ObserverPage() {
     queryKey: ['/api/observer/recovery/priorities', { tier: tierFilter === 'all' ? undefined : tierFilter }],
   });
 
-  // Query workflows
+  // Query workflows with real-time polling
   const { data: workflowsData, isLoading: workflowsLoading } = useQuery<{ workflows: RecoveryWorkflow[]; total: number }>({
     queryKey: ['/api/observer/workflows', { vector: vectorFilter === 'all' ? undefined : vectorFilter }],
+    refetchInterval: 3000, // Poll every 3 seconds for real-time progress
   });
 
   // Get selected priority details
@@ -99,7 +100,7 @@ export default function ObserverPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive" data-testid="text-stat-high-priority-count">
-                {prioritiesLoading ? "..." : prioritiesData?.priorities.filter(p => p.tier === 'high').length || 0}
+                {prioritiesLoading ? "..." : (prioritiesData?.priorities || []).filter(p => p.tier === 'high').length}
               </div>
               <p className="text-xs text-muted-foreground">κ &lt; 10</p>
             </CardContent>
@@ -112,7 +113,7 @@ export default function ObserverPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary" data-testid="text-stat-active-workflows-count">
-                {workflowsLoading ? "..." : workflowsData?.workflows.filter(w => w.status === 'active').length || 0}
+                {workflowsLoading ? "..." : (workflowsData?.workflows || []).filter(w => w.status === 'active').length}
               </div>
               <p className="text-xs text-muted-foreground">In progress</p>
             </CardContent>
@@ -125,7 +126,7 @@ export default function ObserverPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600" data-testid="text-stat-completed-count">
-                {workflowsLoading ? "..." : workflowsData?.workflows.filter(w => w.status === 'completed').length || 0}
+                {workflowsLoading ? "..." : (workflowsData?.workflows || []).filter(w => w.status === 'completed').length}
               </div>
               <p className="text-xs text-muted-foreground">Recoveries</p>
             </CardContent>
@@ -327,16 +328,21 @@ export default function ObserverPage() {
                           </div>
                         </div>
                         
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{workflow.progressPercentage}%</span>
+                        {/* Constrained Search Progress Details */}
+                        {workflow.vector === 'constrained_search' && workflow.status === 'active' ? (
+                          <ConstrainedSearchProgress workflowId={workflow.id} />
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Progress</span>
+                              <span className="font-medium">{workflow.progressPercentage}%</span>
+                            </div>
+                            <Progress value={workflow.progressPercentage} className="h-2" />
+                            <div className="text-xs text-muted-foreground">
+                              Started: {new Date(workflow.startedAt).toLocaleString()}
+                            </div>
                           </div>
-                          <Progress value={workflow.progressPercentage} className="h-2" />
-                          <div className="text-xs text-muted-foreground">
-                            Started: {new Date(workflow.startedAt).toLocaleString()}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -659,5 +665,95 @@ function StatusBadge({ status }: { status: string }) {
     <Badge variant="outline" className={cfg.className} data-testid={`badge-status-${status}`}>
       {cfg.label}
     </Badge>
+  );
+}
+
+function ConstrainedSearchProgress({ workflowId }: { workflowId: string }) {
+  const { data: progressData, isLoading } = useQuery({
+    queryKey: [`/api/observer/workflows/${workflowId}/search-progress`],
+    refetchInterval: 2000, // Poll every 2 seconds for real-time updates
+  });
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-4 text-muted-foreground text-sm">
+        Loading search progress...
+      </div>
+    );
+  }
+
+  if (!progressData) {
+    return (
+      <div className="space-y-2">
+        <div className="text-sm text-muted-foreground">No search data available yet</div>
+      </div>
+    );
+  }
+
+  const progress = (progressData as any).progress || {};
+  const constraints = (progressData as any).constraints || {};
+  const searchJob = (progressData as any).searchJob || {};
+
+  return (
+    <div className="space-y-3" data-testid={`search-progress-${workflowId}`}>
+      {/* Real-time metrics */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono" data-testid={`text-phrases-tested-${workflowId}`}>
+            {(progress.phrasesTested || 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-muted-foreground">Phrases Tested</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono text-primary" data-testid={`text-high-phi-${workflowId}`}>
+            {progress.highPhiCount || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">High-Φ Found</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono" data-testid={`text-search-rate-${workflowId}`}>
+            {((searchJob.stats?.rate || 0)).toFixed(0)}
+          </div>
+          <div className="text-xs text-muted-foreground">Phrases/sec</div>
+        </div>
+      </div>
+
+      {/* QIG Constraints */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">κ_recovery:</span>
+          <span className="font-mono font-semibold">{(constraints.kappaRecovery || 0).toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Φ_constraints:</span>
+          <span className="font-mono">{(constraints.phiConstraints || 0).toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">H_creation:</span>
+          <span className="font-mono">{(constraints.hCreation || 0).toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Search Mode:</span>
+          <span className="font-mono capitalize">
+            {(searchJob.progress?.searchMode || 'exploration')}
+          </span>
+        </div>
+      </div>
+
+      {/* Match status */}
+      {progress.matchFound && (
+        <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
+          <span className="text-sm font-semibold text-green-600">🎉 Match Found!</span>
+        </div>
+      )}
+
+      {/* Search status */}
+      <div className="text-xs text-muted-foreground text-center">
+        Status: <span className="font-medium capitalize">{progress.searchStatus || 'running'}</span>
+        {searchJob.stats?.startTime && (
+          <> • Started {new Date(searchJob.stats.startTime).toLocaleTimeString()}</>
+        )}
+      </div>
+    </div>
   );
 }
