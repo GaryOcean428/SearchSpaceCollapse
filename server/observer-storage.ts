@@ -410,10 +410,28 @@ export class ObserverStorage implements IObserverStorage {
     }
     
     if (conditions.length > 0) {
-      return await db.select().from(artifacts).where(and(...conditions));
+      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
+      const whereClause = conditions.length === 1 
+        ? conditions[0] 
+        : and(...conditions);
+      return await db.select().from(artifacts).where(whereClause);
     }
     
     return await db.select().from(artifacts);
+  }
+  
+  async getEntitiesByAddress(address: string): Promise<Entity[]> {
+    if (!db) throw new Error("Database not initialized");
+    // Find entities that have this address in their knownAddresses array
+    return await db.select().from(entities)
+      .where(sql`${address} = ANY(${entities.knownAddresses})`);
+  }
+  
+  async getArtifactsByAddress(address: string): Promise<Artifact[]> {
+    if (!db) throw new Error("Database not initialized");
+    // Find artifacts that have this address in their relatedAddresses array
+    return await db.select().from(artifacts)
+      .where(sql`${address} = ANY(${artifacts.relatedAddresses})`);
   }
 
   async saveRecoveryPriority(priority: Omit<RecoveryPriority, "createdAt" | "updatedAt">): Promise<RecoveryPriority> {
@@ -455,7 +473,11 @@ export class ObserverStorage implements IObserverStorage {
     let query = db.select().from(recoveryPriorities);
     
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
+      const whereClause = conditions.length === 1 
+        ? conditions[0] 
+        : and(...conditions);
+      query = query.where(whereClause) as any;
     }
     
     query = query.orderBy(desc(recoveryPriorities.kappaRecovery)) as any;
@@ -512,7 +534,11 @@ export class ObserverStorage implements IObserverStorage {
     }
     
     if (conditions.length > 0) {
-      return await db.select().from(recoveryWorkflows).where(and(...conditions));
+      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
+      const whereClause = conditions.length === 1 
+        ? conditions[0] 
+        : and(...conditions);
+      return await db.select().from(recoveryWorkflows).where(whereClause);
     }
     
     return await db.select().from(recoveryWorkflows);

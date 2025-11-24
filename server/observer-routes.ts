@@ -836,6 +836,210 @@ router.get("/artifacts", async (req: Request, res: Response) => {
 });
 
 // ============================================================================
+// κ_RECOVERY COMPUTATION
+// ============================================================================
+
+/**
+ * POST /api/observer/recovery/compute
+ * Compute κ_recovery rankings for all dormant addresses
+ */
+router.post("/recovery/compute", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      btcPriceUSD: z.number().min(0).default(100000),
+      minBalance: z.number().min(0).default(0), // Minimum balance in satoshis
+      limit: z.number().min(1).max(10000).default(1000), // Max addresses to process
+    });
+    
+    const { btcPriceUSD, minBalance, limit } = schema.parse(req.body);
+    
+    // Import constraint solver
+    const { rankRecoveryPriorities } = await import("./kappa-recovery-solver");
+    
+    // Get dormant addresses
+    const dormantAddresses = await observerStorage.getDormantAddresses({
+      minBalance: BigInt(minBalance),
+      limit,
+    });
+    
+    if (dormantAddresses.length === 0) {
+      return res.json({
+        message: "No dormant addresses found. Run blockchain scan first.",
+        computed: 0,
+      });
+    }
+    
+    // Build maps of entities and artifacts by address
+    const entitiesByAddress = new Map();
+    const artifactsByAddress = new Map();
+    
+    for (const address of dormantAddresses) {
+      const entities = await observerStorage.getEntitiesByAddress(address.address);
+      const artifacts = await observerStorage.getArtifactsByAddress(address.address);
+      
+      entitiesByAddress.set(address.address, entities);
+      artifactsByAddress.set(address.address, artifacts);
+    }
+    
+    // Compute κ_recovery rankings
+    const rankedResults = rankRecoveryPriorities(
+      dormantAddresses,
+      entitiesByAddress,
+      artifactsByAddress,
+      btcPriceUSD
+    );
+    
+    // Save to database
+    let savedCount = 0;
+    for (const result of rankedResults) {
+      // Check if priority already exists
+      const existing = await observerStorage.getRecoveryPriority(result.address);
+      
+      if (existing) {
+        // Update existing priority
+        await observerStorage.updateRecoveryPriority(existing.id, {
+          kappaRecovery: result.kappa,
+          phiConstraints: result.phi,
+          hCreation: result.h,
+          rank: result.rank,
+          tier: result.tier,
+          recommendedVector: result.recommendedVector,
+          constraints: result.constraints as any,
+          estimatedValueUSD: result.estimatedValueUSD.toString(),
+        });
+      } else {
+        // Create new priority
+        await observerStorage.saveRecoveryPriority({
+          id: undefined as any, // Will be auto-generated
+          address: result.address,
+          kappaRecovery: result.kappa,
+          phiConstraints: result.phi,
+          hCreation: result.h,
+          rank: result.rank,
+          tier: result.tier,
+          recommendedVector: result.recommendedVector,
+          constraints: result.constraints as any,
+          estimatedValueUSD: result.estimatedValueUSD.toString(),
+          recoveryStatus: 'pending',
+        });
+      }
+      savedCount++;
+    }
+    
+    res.json({
+      message: `Successfully computed κ_recovery for ${savedCount} dormant addresses`,
+      computed: savedCount,
+      btcPriceUSD,
+      summary: {
+        high: rankedResults.filter(r => r.tier === 'high').length,
+        medium: rankedResults.filter(r => r.tier === 'medium').length,
+        low: rankedResults.filter(r => r.tier === 'low').length,
+        unrecoverable: rankedResults.filter(r => r.tier === 'unrecoverable').length,
+      },
+    });
+  } catch (error: any) {
+    console.error("[ObserverAPI] κ_recovery computation error:", error);
+    res.status(500).json({ 
+      error: "Failed to compute κ_recovery rankings",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/observer/recovery/priorities
+ * Get ranked recovery priorities
+ */
+router.get("/recovery/priorities", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      tier: z.enum(['high', 'medium', 'low', 'unrecoverable']).optional(),
+      status: z.string().optional(),
+      minKappa: z.number().optional(),
+      maxKappa: z.number().optional(),
+      limit: z.number().min(1).max(1000).default(100),
+      offset: z.number().min(0).default(0),
+    });
+    
+    const filters = schema.parse(req.query);
+    
+    // Query recovery priorities
+    const priorities = await observerStorage.getRecoveryPriorities({
+      status: filters.status,
+      minKappa: filters.minKappa,
+      maxKappa: filters.maxKappa,
+      limit: filters.limit,
+      offset: filters.offset,
+    });
+    
+    // Filter by tier if provided (not in DB query)
+    let filteredPriorities = priorities;
+    if (filters.tier) {
+      filteredPriorities = priorities.filter(p => p.tier === filters.tier);
+    }
+    
+    res.json({
+      priorities: filteredPriorities,
+      total: filteredPriorities.length,
+      filters,
+    });
+  } catch (error: any) {
+    res.status(400).json({ 
+      error: "Invalid query parameters",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/observer/recovery/priorities/:address
+ * Get recovery priority for specific address
+ */
+router.get("/recovery/priorities/:address", async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    // Validate Bitcoin address format
+    if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
+      return res.status(400).json({
+        error: "Invalid Bitcoin address format",
+      });
+    }
+    
+    const priority = await observerStorage.getRecoveryPriority(address);
+    
+    if (!priority) {
+      return res.status(404).json({
+        error: "Recovery priority not found",
+        message: `No recovery priority computed for address '${address}'. Run POST /api/observer/recovery/compute first.`,
+      });
+    }
+    
+    // Get linked entities and artifacts for context
+    const entities = await observerStorage.getEntitiesByAddress(address);
+    const artifacts = await observerStorage.getArtifactsByAddress(address);
+    
+    res.json({
+      priority,
+      context: {
+        linkedEntities: entities.length,
+        linkedArtifacts: artifacts.length,
+        entities: entities.map(e => ({
+          id: e.id,
+          name: e.name,
+          type: e.type,
+        })),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      error: "Failed to retrieve recovery priority",
+      details: error.message,
+    });
+  }
+});
+
+// ============================================================================
 // SYSTEM STATUS
 // ============================================================================
 
