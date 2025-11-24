@@ -44,8 +44,9 @@ class SearchCoordinator {
         phrasesTested: job.progress.tested,
         phrasesGenerated: job.progress.tested,
         highPhiCount: job.progress.highPhiCount,
-        searchStatus: job.status === 'completed' ? 'completed' as const : 'running' as const,
-        matchFound: job.status === 'completed' && job.progress.tested > 0,
+        searchStatus: job.status === 'completed' ? 'completed' as const : 
+                      job.status === 'failed' ? 'failed' as const : 'running' as const,
+        matchFound: job.progress.matchFound === true,
       };
       
       const updatedProgress = {
@@ -54,9 +55,22 @@ class SearchCoordinator {
         lastUpdatedAt: new Date().toISOString(),
       };
       
-      await observerStorage.updateRecoveryWorkflow(workflow.id, {
+      const updates: any = {
         progress: updatedProgress,
-      });
+      };
+      
+      // Update workflow status when search completes (with match) or fails
+      if (job.status === 'completed' && job.progress.matchFound === true && workflow.status === 'active') {
+        updates.status = 'completed';
+        updates.completedAt = new Date();
+        console.log(`[SearchCoordinator] Workflow ${workflow.id} marked as completed (match found!)`);
+      } else if (job.status === 'failed' && workflow.status === 'active') {
+        updates.status = 'failed';
+        updates.notes = (workflow.notes || '') + `\nSearch failed: ${job.progress.lastHighPhiStep || 'Unknown error'}`;
+        console.log(`[SearchCoordinator] Workflow ${workflow.id} marked as failed`);
+      }
+      
+      await observerStorage.updateRecoveryWorkflow(workflow.id, updates);
     } catch (error) {
       console.error(`[SearchCoordinator] Failed to sync workflow progress for job ${jobId}:`, error);
     }
@@ -192,6 +206,11 @@ class SearchCoordinator {
         const finalJob = await storage.getSearchJob(jobId) as SearchJob;
         await storage.updateSearchJob(jobId, {
           status: "completed",
+          progress: {
+            ...finalJob.progress,
+            matchFound: true,
+            matchedPhrase: results.matchedPhrase,
+          },
           stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
         });
         const completedJob = await storage.getSearchJob(jobId) as SearchJob;
@@ -387,6 +406,11 @@ class SearchCoordinator {
         const finalJob = await storage.getSearchJob(jobId) as SearchJob;
         await storage.updateSearchJob(jobId, {
           status: "completed",
+          progress: {
+            ...finalJob.progress,
+            matchFound: true,
+            matchedPhrase: results.matchedPhrase,
+          },
           stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
         });
         const completedJob = await storage.getSearchJob(jobId) as SearchJob;

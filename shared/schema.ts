@@ -117,6 +117,8 @@ export const searchJobSchema = z.object({
     searchMode: z.enum(["exploration", "investigation"]).optional(), // Current adaptive mode
     lastHighPhiStep: z.number().optional(), // Step number when last high-Φ was found
     investigationTarget: z.string().optional(), // Phrase we're investigating around
+    matchFound: z.boolean().optional(), // Whether a matching phrase was found
+    matchedPhrase: z.string().optional(), // The phrase that matched (if found)
   }),
   stats: z.object({
     startTime: z.string().optional(),
