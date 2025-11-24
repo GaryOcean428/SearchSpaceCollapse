@@ -61,7 +61,7 @@ export default function ObserverPage() {
 
   // Get selected priority details
   const selectedPriority = prioritiesData?.priorities.find(p => p.address === selectedAddress);
-  const selectedWorkflows = workflowsData?.workflows.filter(w => w.address === selectedAddress) || [];
+  const selectedWorkflows = (workflowsData?.workflows || []).filter(w => w.address === selectedAddress);
 
   return (
     <div className="min-h-screen bg-background">

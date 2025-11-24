@@ -147,6 +147,38 @@ export interface ConstrainedSearchProgress {
 }
 
 /**
+ * Format constraint breakdown into canonical display strings
+ * Uses Task 7 normalized field names (entityLinkage, artifactDensity, graphSignature)
+ */
+export function formatConstraintsForDisplay(constraints: any): string[] {
+  if (!constraints) return [];
+  
+  const formatted: string[] = [];
+  
+  if (constraints.entityLinkage > 0) {
+    formatted.push(`Entity linkage: ${constraints.entityLinkage} linked entities`);
+  }
+  
+  if (constraints.artifactDensity > 0) {
+    formatted.push(`Artifact density: ${constraints.artifactDensity.toFixed(2)} vectors`);
+  }
+  
+  if (constraints.temporalPrecisionHours >= 1.0) {
+    formatted.push(`Temporal precision: ${constraints.temporalPrecisionHours}h`);
+  }
+  
+  if (constraints.graphSignature > 0) {
+    formatted.push(`Graph signature: ${constraints.graphSignature} nodes`);
+  }
+  
+  if (constraints.phiConstraints > 0) {
+    formatted.push(`Φ_constraints: ${constraints.phiConstraints.toFixed(2)}`);
+  }
+  
+  return formatted;
+}
+
+/**
  * Constrained Search Workflow (QIG)
  * 
  * Steps:
@@ -163,30 +195,8 @@ export function initializeConstrainedSearchWorkflow(
   artifacts: Artifact[]
 ): WorkflowProgress {
   
-  const constraints: string[] = [];
-  
-  // Identify constraints from priority data
-  const constraintData = priority.constraints as any;
-  
-  if (constraintData.linkedEntities > 0) {
-    constraints.push(`${constraintData.linkedEntities} linked entities`);
-  }
-  
-  if (constraintData.artifactCount > 0) {
-    constraints.push(`${constraintData.artifactCount} historical artifacts`);
-  }
-  
-  if (constraintData.temporalPrecisionHours >= 1.0) {
-    constraints.push(`Temporal signature (${constraintData.temporalPrecisionHours}h precision)`);
-  }
-  
-  if (constraintData.graphDegree > 0) {
-    constraints.push(`${constraintData.graphDegree} graph connections`);
-  }
-  
-  if (constraintData.hasSoftwareFingerprint) {
-    constraints.push('Software fingerprint identified');
-  }
+  // Generate canonical constraint display strings (Task 7 normalized labels)
+  const constraints = formatConstraintsForDisplay(priority.constraints as any);
   
   const progress: WorkflowProgress = {
     startedAt: new Date(),

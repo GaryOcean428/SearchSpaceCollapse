@@ -18,18 +18,17 @@ import type { Address, Entity, Artifact, RecoveryPriority } from "@shared/schema
 
 export interface ConstraintBreakdown {
   // Entity linkage
-  linkedEntities: number;
+  entityLinkage: number;  // Renamed from linkedEntities
   entityConfidence: number; // 0-1
   
   // Artifact linkage
-  artifactCount: number;
   artifactDensity: number; // artifacts per day of activity
   
   // Temporal precision
   temporalPrecisionHours: number; // How precisely we know creation time
   
   // Graph connectivity
-  graphDegree: number; // Number of known connected addresses
+  graphSignature: number; // Renamed from graphDegree - graph connectivity score
   clusterSize: number; // Size of address cluster
   
   // Value patterns
@@ -54,12 +53,11 @@ export function computePhiConstraints(
 ): { phi: number; breakdown: ConstraintBreakdown } {
   
   const breakdown: ConstraintBreakdown = {
-    linkedEntities: entities.length,
+    entityLinkage: entities.length,
     entityConfidence: 0,
-    artifactCount: artifacts.length,
     artifactDensity: 0,
     temporalPrecisionHours: 0,
-    graphDegree: 0,
+    graphSignature: 0,
     clusterSize: 0,
     hasRoundNumbers: false,
     isCoinbase: address.isCoinbaseReward || false,
@@ -108,10 +106,10 @@ export function computePhiConstraints(
   // Graph connectivity (0-15 points)
   const graphSig = address.graphSignature as any;
   if (graphSig) {
-    breakdown.graphDegree = graphSig.inputAddresses?.length || 0;
+    breakdown.graphSignature = graphSig.inputAddresses?.length || 0;
     breakdown.clusterSize = graphSig.clusterSize || 0;
   }
-  const graphScore = Math.min(breakdown.graphDegree * 3 + breakdown.clusterSize * 0.5, 15);
+  const graphScore = Math.min(breakdown.graphSignature * 3 + breakdown.clusterSize * 0.5, 15);
   
   // Value pattern analysis (0-10 points)
   const valueSig = address.valueSignature as any;
@@ -276,7 +274,7 @@ export function computeKappaRecovery(
     recommendedVector = 'estate';
   } else if (hasManyArtifacts) {
     recommendedVector = 'social';
-  } else if (hasTemporalSignature || constraints.graphDegree > 0) {
+  } else if (hasTemporalSignature || constraints.graphSignature > 0) {
     recommendedVector = 'constrained_search';
   } else {
     recommendedVector = 'temporal';

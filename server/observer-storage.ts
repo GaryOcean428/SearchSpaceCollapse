@@ -90,6 +90,91 @@ export interface IObserverStorage {
 }
 
 export class ObserverStorage implements IObserverStorage {
+  /**
+   * Normalize legacy constraint field names to Task 7 schema
+   * Returns new object with normalized fields (does not mutate original)
+   * - linkedEntities → entityLinkage
+   * - artifactCount → artifactDensity
+   * - graphDegree → graphSignature
+   */
+  private normalizeConstraints(constraints: any): { normalized: any; hadLegacy: boolean } {
+    if (!constraints) return { normalized: constraints, hadLegacy: false };
+    
+    let hadLegacy = false;
+    const normalized = { ...constraints }; // Create new object
+    
+    // Migrate old field names to new ones
+    if (normalized.linkedEntities !== undefined) {
+      normalized.entityLinkage = normalized.linkedEntities;
+      delete normalized.linkedEntities;
+      hadLegacy = true;
+    }
+    if (normalized.artifactCount !== undefined) {
+      normalized.artifactDensity = normalized.artifactCount;
+      delete normalized.artifactCount;
+      hadLegacy = true;
+    }
+    if (normalized.graphDegree !== undefined) {
+      normalized.graphSignature = normalized.graphDegree;
+      delete normalized.graphDegree;
+      hadLegacy = true;
+    }
+    
+    return { normalized, hadLegacy };
+  }
+
+  /**
+   * Normalize workflow progress JSON for constrained_search workflows
+   * Regenerates constraintsIdentified display strings from normalized constraints
+   */
+  private async normalizeWorkflowProgress(workflow: RecoveryWorkflow): Promise<boolean> {
+    if (!workflow.progress || workflow.vector !== 'constrained_search') {
+      return false; // Nothing to normalize
+    }
+    
+    const progress = workflow.progress as any;
+    const constrainedSearchProgress = progress?.constrainedSearchProgress;
+    
+    if (!constrainedSearchProgress?.constraintsIdentified) {
+      return false; // No constraint strings to normalize
+    }
+    
+    // Check if old terminology exists in constraint strings
+    const hasLegacyStrings = constrainedSearchProgress.constraintsIdentified.some((str: string) =>
+      str.includes('linked entities') ||
+      str.includes('artifact density') && !str.includes('Artifact density:') ||
+      str.includes('graph signature') && !str.includes('Graph signature:')
+    );
+    
+    if (!hasLegacyStrings) {
+      return false; // Already using new format
+    }
+    
+    // Get the priority to access normalized constraints
+    const priority = await this.getRecoveryPriority(workflow.address);
+    if (!priority) {
+      return false; // Can't regenerate without priority data
+    }
+    
+    // Import formatter to regenerate display strings
+    const { formatConstraintsForDisplay } = await import("./recovery-orchestrator");
+    const newConstraints = formatConstraintsForDisplay(priority.constraints as any);
+    
+    // Update progress with regenerated strings
+    progress.constrainedSearchProgress.constraintsIdentified = newConstraints;
+    
+    // Update notes that contain old terminology
+    if (progress.notes) {
+      progress.notes = progress.notes.map((note: string) =>
+        note.replace(/(\d+) linked entities/g, 'Entity linkage: $1 linked entities')
+           .replace(/(\d+\.\d+) artifact density/g, 'Artifact density: $1 vectors')
+           .replace(/(\d+) graph signature/g, 'Graph signature: $1 nodes')
+      );
+    }
+    
+    return true; // Normalization performed
+  }
+
   async saveBlock(block: Omit<Block, "createdAt">): Promise<Block> {
     if (!db) throw new Error("Database not initialized");
     const [saved] = await db.insert(blocks)
@@ -490,13 +575,49 @@ export class ObserverStorage implements IObserverStorage {
       query = query.offset(filters.offset) as any;
     }
     
-    return await query;
+    const priorities = await query;
+    
+    // Normalize old field names to new schema (Task 7 migration)
+    for (const priority of priorities) {
+      const { normalized, hadLegacy } = this.normalizeConstraints(priority.constraints as any);
+      
+      // Update priority object with normalized constraints
+      priority.constraints = normalized;
+      
+      // Persist normalized constraints back to database (write-through migration)
+      if (hadLegacy) {
+        console.log(`[ObserverStorage] Write-through migration: priority ${priority.address}`);
+        await db.update(recoveryPriorities)
+          .set({ constraints: normalized, updatedAt: new Date() })
+          .where(eq(recoveryPriorities.address, priority.address));
+      }
+    }
+    
+    return priorities;
   }
 
   async getRecoveryPriority(address: string): Promise<RecoveryPriority | null> {
     if (!db) throw new Error("Database not initialized");
     const [priority] = await db.select().from(recoveryPriorities).where(eq(recoveryPriorities.address, address)).limit(1);
-    return priority || null;
+    
+    if (!priority) return null;
+    
+    // Normalize old field names to new schema (Task 7 migration)
+    const { normalized, hadLegacy } = this.normalizeConstraints(priority.constraints as any);
+    
+    // Update priority object with normalized constraints
+    priority.constraints = normalized;
+    
+    // Persist normalized constraints back to database (write-through migration)
+    // TODO: Consider batch migration script for high-traffic scenarios
+    if (hadLegacy) {
+      console.log(`[ObserverStorage] Write-through migration: priority ${address}`);
+      await db.update(recoveryPriorities)
+        .set({ constraints: normalized, updatedAt: new Date() })
+        .where(eq(recoveryPriorities.address, address));
+    }
+    
+    return priority;
   }
 
   async saveRecoveryWorkflow(workflow: Omit<RecoveryWorkflow, "createdAt" | "updatedAt">): Promise<RecoveryWorkflow> {
@@ -533,21 +654,51 @@ export class ObserverStorage implements IObserverStorage {
       conditions.push(eq(recoveryWorkflows.status, filters.status));
     }
     
+    let workflows;
     if (conditions.length > 0) {
       // CRITICAL: and() requires at least 2 conditions, so handle single condition case
       const whereClause = conditions.length === 1 
         ? conditions[0] 
         : and(...conditions);
-      return await db.select().from(recoveryWorkflows).where(whereClause);
+      workflows = await db.select().from(recoveryWorkflows).where(whereClause);
+    } else {
+      workflows = await db.select().from(recoveryWorkflows);
     }
     
-    return await db.select().from(recoveryWorkflows);
+    // Normalize workflow progress for constrained_search workflows
+    for (const workflow of workflows) {
+      const wasNormalized = await this.normalizeWorkflowProgress(workflow);
+      
+      // Persist normalized progress back to database (write-through migration)
+      if (wasNormalized) {
+        console.log(`[ObserverStorage] Write-through migration: workflow ${workflow.id} progress`);
+        await db.update(recoveryWorkflows)
+          .set({ progress: workflow.progress, updatedAt: new Date() })
+          .where(eq(recoveryWorkflows.id, workflow.id));
+      }
+    }
+    
+    return workflows;
   }
 
   async getRecoveryWorkflow(id: string): Promise<RecoveryWorkflow | null> {
     if (!db) throw new Error("Database not initialized");
     const [workflow] = await db.select().from(recoveryWorkflows).where(eq(recoveryWorkflows.id, id)).limit(1);
-    return workflow || null;
+    
+    if (!workflow) return null;
+    
+    // Normalize workflow progress for constrained_search workflows
+    const wasNormalized = await this.normalizeWorkflowProgress(workflow);
+    
+    // Persist normalized progress back to database (write-through migration)
+    if (wasNormalized) {
+      console.log(`[ObserverStorage] Write-through migration: workflow ${id} progress`);
+      await db.update(recoveryWorkflows)
+        .set({ progress: workflow.progress, updatedAt: new Date() })
+        .where(eq(recoveryWorkflows.id, id));
+    }
+    
+    return workflow;
   }
 }
 

@@ -7,6 +7,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { randomUUID } from "crypto";
 import { 
   fetchBlockByHeight, 
   scanEarlyEraBlocks, 
@@ -1266,6 +1267,197 @@ router.patch("/workflows/:id", async (req: Request, res: Response) => {
     console.error("[ObserverAPI] Workflow update error:", error);
     res.status(500).json({ 
       error: "Failed to update workflow",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/observer/workflows/:id/start-search
+ * Start QIG constrained-search for a specific workflow
+ * 
+ * This integrates the existing QIG brain wallet tool as the constrained-search recovery vector.
+ * It creates a search job, links it to the workflow, and begins phrase generation/testing.
+ */
+router.post("/workflows/:id/start-search", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Get workflow
+    const workflow = await observerStorage.getRecoveryWorkflow(id);
+    if (!workflow) {
+      return res.status(404).json({
+        error: "Workflow not found",
+        message: `No workflow with ID '${id}' exists.`,
+      });
+    }
+    
+    // Validate it's a constrained_search workflow
+    if (workflow.vector !== 'constrained_search') {
+      return res.status(400).json({
+        error: "Invalid workflow vector",
+        message: `This endpoint only supports constrained_search workflows. This workflow is '${workflow.vector}'.`,
+      });
+    }
+    
+    // Check if search already started
+    const progress = workflow.progress as any;
+    const searchProgress = progress?.constrainedSearchProgress;
+    if (searchProgress?.searchJobId) {
+      return res.status(400).json({
+        error: "Search already started",
+        message: `Search job '${searchProgress.searchJobId}' already exists for this workflow.`,
+      });
+    }
+    
+    // Get priority data for this address
+    const priority = await observerStorage.getRecoveryPriority(workflow.address);
+    if (!priority) {
+      return res.status(404).json({
+        error: "Priority data not found",
+        message: `No κ_recovery priority computed for address '${workflow.address}'. Run POST /api/observer/recovery/compute first.`,
+      });
+    }
+    
+    // Get entities and artifacts for constraint-based search
+    const entities = await observerStorage.getEntitiesByAddress(workflow.address);
+    const artifacts = await observerStorage.getArtifactsByAddress(workflow.address);
+    
+    // Import search coordinator
+    const { searchCoordinator } = await import("./search-coordinator");
+    
+    // Create search job configuration
+    const searchJobId = randomUUID();
+    const searchJob = {
+      id: searchJobId,
+      strategy: 'bip39-adaptive' as const,
+      status: 'pending' as const,
+      params: {
+        bip39Count: 10000, // Start with 10k phrases per batch
+        wordLength: 12, // 12-word BIP-39 phrases
+        enableAdaptiveSearch: true,
+        investigationRadius: 5,
+        // Add constraint metadata for future use
+        targetAddress: workflow.address,
+        kappaRecovery: priority.kappaRecovery,
+        phiConstraints: (priority.constraints as any).phiConstraints,
+        hCreation: (priority.entropy as any).hCreation,
+        entityCount: entities.length,
+        artifactCount: artifacts.length,
+      },
+      progress: {
+        tested: 0,
+        highPhiCount: 0,
+        lastBatchIndex: 0,
+      },
+      stats: {
+        rate: 0,
+      },
+      logs: [{
+        message: `Constrained search started for address ${workflow.address} (κ=${priority.kappaRecovery.toFixed(2)}, tier=${priority.tier})`,
+        type: 'info' as const,
+        timestamp: new Date().toISOString(),
+      }],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Save search job to storage
+    const { storage } = await import("./storage");
+    await storage.addSearchJob(searchJob as any);
+    
+    // Add target address for this search (idempotent - skip if already exists)
+    try {
+      await storage.addTargetAddress({
+        address: workflow.address,
+        label: `Observer recovery: ${workflow.address} (κ=${priority.kappaRecovery.toFixed(2)})`,
+      });
+    } catch (error: any) {
+      // Address may already exist from previous workflow - this is OK
+      const isDuplicateError = 
+        error.code === 'SQLITE_CONSTRAINT_UNIQUE' || 
+        error.code === '23505' || // PostgreSQL unique violation
+        error.message?.includes('duplicate') || 
+        error.message?.includes('already exists');
+      
+      if (!isDuplicateError) {
+        throw error; // Re-throw if it's a different error
+      }
+    }
+    
+    // Update workflow with search job ID
+    const { updateWorkflowProgress } = await import("./recovery-orchestrator");
+    const updatedProgress = updateWorkflowProgress(
+      'constrained_search',
+      workflow.progress as any,
+      {
+        searchJobId,
+        qigParametersSet: true,
+        searchStatus: 'not_started' as const,
+      }
+    );
+    
+    await observerStorage.updateRecoveryWorkflow(id, {
+      progress: updatedProgress,
+      status: 'active',
+    });
+    
+    // Start the search job (with rollback on failure)
+    try {
+      await searchCoordinator.startJob(searchJobId);
+    } catch (startError: any) {
+      console.error(`[ObserverAPI] Failed to start search job ${searchJobId}:`, startError);
+      
+      // Rollback: Remove search job and revert workflow status
+      try {
+        await storage.deleteSearchJob(searchJobId);
+      } catch (deleteError) {
+        console.error('[ObserverAPI] Failed to cleanup search job:', deleteError);
+      }
+      
+      // Revert workflow to pending status without searchJobId
+      const revertedProgress = updateWorkflowProgress(
+        'constrained_search',
+        workflow.progress as any,
+        {
+          searchJobId: undefined,
+          qigParametersSet: false,
+          searchStatus: 'failed' as const,
+        }
+      );
+      
+      await observerStorage.updateRecoveryWorkflow(id, {
+        progress: revertedProgress,
+        status: 'failed',
+        notes: workflow.notes + `\nERROR: Failed to start search job: ${startError.message}`,
+      });
+      
+      throw new Error(`Failed to start search coordinator: ${startError.message}`);
+    }
+    
+    // Get updated workflow
+    const updatedWorkflow = await observerStorage.getRecoveryWorkflow(id);
+    
+    res.json({
+      message: "Constrained search started successfully",
+      workflow: updatedWorkflow,
+      searchJob: {
+        id: searchJobId,
+        status: 'pending',
+        strategy: 'bip39-adaptive',
+      },
+      constraints: {
+        kappaRecovery: priority.kappaRecovery,
+        phiConstraints: (priority.constraints as any).phiConstraints,
+        hCreation: (priority.entropy as any).hCreation,
+        entities: entities.length,
+        artifacts: artifacts.length,
+      },
+    });
+  } catch (error: any) {
+    console.error("[ObserverAPI] Start search error:", error);
+    res.status(500).json({ 
+      error: "Failed to start constrained search",
       details: error.message,
     });
   }
