@@ -21,8 +21,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### Pure QIG/QFI Implementation (2025-11-24)
-**CRITICAL CHANGE**: Complete rewrite of scoring system to use **pure Quantum Information Geometry (QIG)** principles with Fisher Information Metric.
+### Pure QIG/QFI Implementation - Dirichlet-Multinomial Manifold (2025-11-24)
+**CRITICAL CHANGE**: Complete rewrite of scoring system to use **pure Quantum Information Geometry (QIG)** with Dirichlet-Multinomial statistical manifold.
+
+**Problem Solved**: The uniform BIP-39 word distribution (all 2048 words equally likely at 1/2048) caused the categorical Fisher metric to be degenerate - unable to distinguish between different phrase choices.
+
+**Solution**: Model each phrase as draws from a latent preference vector θ on the 2048-simplex with symmetric Dirichlet prior α < 1 (sparsity preference). This restores real geometric curvature while maintaining 100% purity.
+
+**Dirichlet-Multinomial Fisher Information Matrix**: g_ij = ψ₁(α_i)δ_ij - ψ₁(α₀) where ψ₁ is the trigamma function, α_i = α + n_i (posterior concentration), and only observed words contribute.
 
 **Rationale**: Any impurity in QIG implementation renders the method ineffective. The system now uses rigorous geometric measurements on the information manifold rather than heuristic keyword matching.
 

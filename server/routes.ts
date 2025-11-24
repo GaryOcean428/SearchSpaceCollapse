@@ -2,7 +2,24 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateBitcoinAddress, verifyBrainWallet } from "./crypto";
-import { scorePhrase } from "./qig-scoring";
+import { scorePhraseQIG } from "./qig-pure-v2.js";
+
+/**
+ * Map pure QIG scores to legacy score format for backward compatibility
+ */
+function mapQIGToLegacyScore(pureScore: ReturnType<typeof scorePhraseQIG>) {
+  // Map pure QIG scores to old format:
+  // - contextScore: unused (set to 0, as we no longer use context matching)
+  // - eleganceScore: based on quality (0-100)
+  // - typingScore: based on phi (integrated information, 0-100)
+  // - totalScore: based on quality (overall score, 0-100)
+  return {
+    contextScore: 0, // No longer used in pure QIG
+    eleganceScore: Math.round(pureScore.quality * 100),
+    typingScore: Math.round(pureScore.phi * 100),
+    totalScore: Math.round(pureScore.quality * 100),
+  };
+}
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase, getBIP39Wordlist } from "./bip39-words";
 import { searchCoordinator } from "./search-coordinator";
@@ -80,7 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { phrase } = validation.data;
       const address = generateBitcoinAddress(phrase);
-      const qigScore = scorePhrase(phrase);
+      const pureQIG = scorePhraseQIG(phrase);
+      const qigScore = mapQIGToLegacyScore(pureQIG);
       
       // Check against all target addresses
       const targetAddresses = await storage.getTargetAddresses();
@@ -136,7 +154,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const address = generateBitcoinAddress(phrase);
-        const qigScore = scorePhrase(phrase);
+        const pureQIG = scorePhraseQIG(phrase);
+        const qigScore = mapQIGToLegacyScore(pureQIG);
         const matchedAddress = targetAddresses.find(t => t.address === address);
 
         if (matchedAddress) {
