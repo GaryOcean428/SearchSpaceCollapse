@@ -969,7 +969,13 @@ function ConstrainedSearchProgress({ workflowId }: { workflowId: string }) {
           <div className="text-2xl font-bold font-mono" data-testid={`text-phrases-tested-${workflowId}`}>
             {(progress.phrasesTested || 0).toLocaleString()}
           </div>
-          <div className="text-xs text-muted-foreground">Phrases Tested</div>
+          <div className="text-xs text-muted-foreground">
+            {searchJob.params?.generationMode === "master-key" 
+              ? "Keys Tested" 
+              : searchJob.params?.generationMode === "arbitrary"
+              ? "Passphrases Tested"
+              : "Phrases Tested"}
+          </div>
         </div>
         <div className="text-center p-2 rounded-lg bg-muted/50">
           <div className="text-2xl font-bold font-mono text-primary" data-testid={`text-high-phi-${workflowId}`}>
@@ -981,7 +987,13 @@ function ConstrainedSearchProgress({ workflowId }: { workflowId: string }) {
           <div className="text-2xl font-bold font-mono" data-testid={`text-search-rate-${workflowId}`}>
             {((searchJob.stats?.rate || 0)).toFixed(0)}
           </div>
-          <div className="text-xs text-muted-foreground">Phrases/sec</div>
+          <div className="text-xs text-muted-foreground">
+            {searchJob.params?.generationMode === "master-key" 
+              ? "Keys/sec" 
+              : searchJob.params?.generationMode === "arbitrary"
+              ? "Passphrases/sec"
+              : "Phrases/sec"}
+          </div>
         </div>
       </div>
 

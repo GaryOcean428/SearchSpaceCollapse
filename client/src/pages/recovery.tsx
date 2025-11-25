@@ -681,10 +681,16 @@ export default function RecoveryPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Phrases Tested</span>
+              <span className="text-sm text-muted-foreground">
+                {(selectedJob?.params as any)?.generationMode === "master-key" 
+                  ? "Keys Tested" 
+                  : (selectedJob?.params as any)?.generationMode === "arbitrary"
+                  ? "Passphrases Tested"
+                  : "Phrases Tested"}
+              </span>
               <Hash className="w-4 h-4 text-muted-foreground" />
             </div>
-            <p className="text-3xl font-bold text-primary">{selectedJob?.progress.tested || 0}</p>
+            <p className="text-3xl font-bold text-primary" data-testid="text-items-tested">{selectedJob?.progress.tested || 0}</p>
           </Card>
 
           <Card className="p-6">
@@ -692,7 +698,16 @@ export default function RecoveryPage() {
               <span className="text-sm text-muted-foreground">Test Rate</span>
               <Zap className="w-4 h-4 text-muted-foreground" />
             </div>
-            <p className="text-3xl font-bold text-chart-1">{selectedJob?.stats.rate.toFixed(1) || 0.0} <span className="text-lg text-muted-foreground">phrases/sec</span></p>
+            <p className="text-3xl font-bold text-chart-1" data-testid="text-test-rate">
+              {selectedJob?.stats.rate.toFixed(1) || 0.0} 
+              <span className="text-lg text-muted-foreground">
+                {(selectedJob?.params as any)?.generationMode === "master-key" 
+                  ? " keys/sec" 
+                  : (selectedJob?.params as any)?.generationMode === "arbitrary"
+                  ? " passphrases/sec"
+                  : " phrases/sec"}
+              </span>
+            </p>
           </Card>
 
           <Card className="p-6">
@@ -931,7 +946,15 @@ export default function RecoveryPage() {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis 
                     dataKey="index" 
-                    label={{ value: 'Phrases Tested', position: 'insideBottom', offset: -5 }}
+                    label={{ 
+                      value: (selectedJob?.params as any)?.generationMode === "master-key" 
+                        ? 'Keys Tested' 
+                        : (selectedJob?.params as any)?.generationMode === "arbitrary"
+                        ? 'Passphrases Tested'
+                        : 'Phrases Tested', 
+                      position: 'insideBottom', 
+                      offset: -5 
+                    }}
                     className="text-xs"
                   />
                   <YAxis 
