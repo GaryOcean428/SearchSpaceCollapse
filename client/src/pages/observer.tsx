@@ -398,7 +398,7 @@ export default function ObserverPage() {
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                               <span>First: {new Date(addr.firstSeenAt).toLocaleDateString()}</span>
                               <span>Last: {new Date(addr.lastSeenAt).toLocaleDateString()}</span>
-                              <span>{addr.dormancyYears.toFixed(1)} years dormant</span>
+                              <span>{addr.dormancyYears?.toFixed(1) || 'N/A'} years dormant</span>
                             </div>
                           </div>
                           <div className="text-right">
@@ -568,13 +568,13 @@ export default function ObserverPage() {
                 {/* Workflow List */}
                 {workflowsLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading workflows...</div>
-                ) : workflowsData?.workflows.length === 0 ? (
+                ) : !workflowsData?.workflows || workflowsData.workflows.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No workflows started yet. Select an address from Rankings to start recovery.
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {workflowsData?.workflows.map((workflow) => (
+                    {workflowsData.workflows.map((workflow) => (
                       <div
                         key={workflow.id}
                         className="p-4 rounded-lg border"
