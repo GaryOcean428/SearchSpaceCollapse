@@ -532,11 +532,76 @@ export default function RecoveryPage() {
                       <SelectItem value="arbitrary">🔥 Arbitrary Brain Wallet (2009 Era - NO BIP-39)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {generationMode === "arbitrary" 
-                      ? "🔥 BEST FOR 2009! Uses ANY text as passphrase (no BIP-39 word validation). Random exploration of 2009-era brain wallet patterns."
-                      : 'BIP-39 was invented in 2013. If your key is from 2009, it might be a raw master private key (64 hex chars) instead.'}
-                  </p>
+                  <div className="mt-3 p-3 rounded-lg border border-primary/20 bg-primary/5" data-testid="help-generation-mode">
+                    {generationMode === "bip39" && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                          <Hash className="w-4 h-4 text-primary" />
+                          BIP-39 Passphrases (Standard, 2013+)
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          BIP-39 is the standard word-based system for Bitcoin wallets created in 2013 or later. Uses a dictionary of 2,048 English words to create memorable passphrases like "abandon ability able about above absent absorb abstract absurd abuse access accident".
+                        </p>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Valid lengths:</strong> 12, 15, 18, 21, or 24 words
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Best for:</strong> Modern wallets (2013+), Ledger/Trezor, most current Bitcoin apps
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Not for:</strong> 2009-2012 era wallets (BIP-39 didn't exist yet)
+                        </div>
+                      </div>
+                    )}
+                    {generationMode === "master-key" && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-primary" />
+                          Master Private Key (256-bit Hex)
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          A raw 256-bit private key in hexadecimal format (64 characters). This is the most fundamental form of a Bitcoin private key - pure random entropy with no word encoding.
+                        </p>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Format:</strong> 64 hexadecimal characters (0-9, a-f)
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Example:</strong> e9873d79c6d87dc0fb6a5778633389f4453213303da61f20bd67fc233aa33262
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Best for:</strong> Testing known hex keys, forensic analysis, early Bitcoin (2009-2012)
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Note:</strong> This mode performs pure random sampling - no QIG scoring
+                        </div>
+                      </div>
+                    )}
+                    {generationMode === "arbitrary" && (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                          🔥 Arbitrary Brain Wallet (2009 Era - NO BIP-39)
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          <strong>🔥 BEST FOR 2009!</strong> Before BIP-39 existed, people created "brain wallets" using ANY text as a passphrase. The system would hash the text (SHA-256) to create a private key. Common patterns included simple phrases, passwords, quotes, or personal references.
+                        </p>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Format:</strong> ANY text - no word dictionary validation
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Examples:</strong> "whitetiger77", "to be or not to be", "satoshi2009", "my bitcoin wallet"
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Best for:</strong> Early Bitcoin wallets (2009-2012) before BIP-39 was invented
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Why it matters:</strong> The 2009-era target address likely used this method, NOT BIP-39
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <strong>Search approach:</strong> Random exploration of common 2009-era patterns and phrases
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="wordLength" className="text-base">BIP-39 Phrase Length (words):</Label>
