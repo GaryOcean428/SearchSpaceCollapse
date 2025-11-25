@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart } from "lucide-react";
+import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from 'recharts';
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface DormantAddress {
   address: string;
@@ -38,11 +41,21 @@ interface RecoveryWorkflow {
   startedAt: string;
 }
 
+interface TargetAddress {
+  id: string;
+  address: string;
+  label?: string;
+  addedAt: string;
+}
+
 export default function ObserverPage() {
+  const { toast } = useToast();
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [vectorFilter, setVectorFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [newTargetAddress, setNewTargetAddress] = useState("");
+  const [newTargetLabel, setNewTargetLabel] = useState("");
 
   // Query dormant addresses
   const { data: addressesData, isLoading: addressesLoading } = useQuery<{ addresses: DormantAddress[]; total: number }>({
@@ -58,6 +71,55 @@ export default function ObserverPage() {
   const { data: workflowsData, isLoading: workflowsLoading } = useQuery<{ workflows: RecoveryWorkflow[]; total: number }>({
     queryKey: ['/api/observer/workflows', { vector: vectorFilter === 'all' ? undefined : vectorFilter }],
     refetchInterval: 3000, // Poll every 3 seconds for real-time progress
+  });
+
+  // Query target addresses
+  const { data: targetAddresses, isLoading: targetAddressesLoading } = useQuery<TargetAddress[]>({
+    queryKey: ['/api/target-addresses'],
+  });
+
+  // Add target address mutation
+  const addTargetMutation = useMutation({
+    mutationFn: async (data: { address: string; label?: string }) => {
+      return await apiRequest("POST", "/api/target-addresses", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/target-addresses'] });
+      setNewTargetAddress("");
+      setNewTargetLabel("");
+      toast({
+        title: "Address added",
+        description: "Target address added successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add address",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Remove target address mutation
+  const removeTargetMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/target-addresses/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/target-addresses'] });
+      toast({
+        title: "Address removed",
+        description: "Target address removed successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove address",
+        variant: "destructive",
+      });
+    },
   });
 
   // Get selected priority details
@@ -156,6 +218,142 @@ export default function ObserverPage() {
 
           {/* Address Catalog Tab */}
           <TabsContent value="catalog" className="space-y-4">
+            {/* Target Address Management */}
+            <Card data-testid="card-target-addresses">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5" />
+                  Target Addresses
+                </CardTitle>
+                <CardDescription>
+                  Bitcoin addresses to recover - all searches will check against these targets simultaneously
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Add New Address Form */}
+                <div className="p-4 rounded-lg border bg-muted/30 space-y-3">
+                  <Label className="text-sm font-medium">Add New Target Address</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Bitcoin address (e.g., 1A1zP1eP...)"
+                        value={newTargetAddress}
+                        onChange={(e) => setNewTargetAddress(e.target.value)}
+                        data-testid="input-new-target-address"
+                      />
+                    </div>
+                    <div className="w-48">
+                      <Input
+                        placeholder="Label (optional)"
+                        value={newTargetLabel}
+                        onChange={(e) => setNewTargetLabel(e.target.value)}
+                        data-testid="input-new-target-label"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => {
+                        const address = newTargetAddress.trim();
+                        
+                        if (!address) {
+                          toast({
+                            title: "Error",
+                            description: "Please enter a Bitcoin address",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        // Basic Bitcoin address format validation
+                        if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/.test(address)) {
+                          toast({
+                            title: "Invalid Address",
+                            description: "Please enter a valid Bitcoin address format",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        // Check for duplicates
+                        if (targetAddresses?.some(t => t.address === address)) {
+                          toast({
+                            title: "Duplicate Address",
+                            description: "This address is already in your target list",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        addTargetMutation.mutate({
+                          address,
+                          label: newTargetLabel.trim() || undefined,
+                        });
+                      }}
+                      disabled={addTargetMutation.isPending || !newTargetAddress.trim()}
+                      data-testid="button-add-target-address"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground" data-testid="text-help-multiple-addresses">
+                    💡 Tip: All constrained searches will check passphrases against all target addresses
+                  </p>
+                </div>
+
+                {/* Target Address List */}
+                {targetAddressesLoading ? (
+                  <div className="text-center py-4 text-muted-foreground">Loading target addresses...</div>
+                ) : (
+                  <div className="space-y-2">
+                    {(targetAddresses || []).map((target) => (
+                      <div
+                        key={target.id}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                        data-testid={`target-address-item-${target.id}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-medium truncate" data-testid={`text-target-address-${target.id}`}>
+                              {target.address}
+                            </span>
+                            {target.label && (
+                              <Badge variant="outline" className="text-xs" data-testid={`badge-target-label-${target.id}`}>
+                                {target.label}
+                              </Badge>
+                            )}
+                            {targetAddresses && targetAddresses[0]?.id === target.id && (
+                              <Badge variant="outline" className="text-xs bg-primary/10 text-primary" data-testid={`badge-target-primary-${target.id}`}>
+                                Primary
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1" data-testid={`text-target-date-${target.id}`}>
+                            Added {new Date(target.addedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        {targetAddresses && targetAddresses[0]?.id !== target.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              if (confirm(`Remove ${target.address}?`)) {
+                                removeTargetMutation.mutate(target.id);
+                              }
+                            }}
+                            disabled={removeTargetMutation.isPending}
+                            data-testid={`button-remove-target-${target.id}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Dormant Address Catalog */}
             <Card data-testid="card-address-catalog">
               <CardHeader>
                 <CardTitle>Dormant Address Catalog</CardTitle>
@@ -279,11 +477,75 @@ export default function ObserverPage() {
 
           {/* Recovery Workflows Tab */}
           <TabsContent value="workflows" className="space-y-4">
+            {/* Recovery Vector Explanations */}
+            <Card data-testid="card-vector-explanations" className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-lg">Understanding Recovery Vectors</CardTitle>
+                <CardDescription>
+                  The system uses four distinct approaches to recover lost Bitcoin
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 rounded-lg border bg-card space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-chart-1" />
+                    <span className="font-semibold text-sm">Estate Contact</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Reaches out to estates of deceased Bitcoin holders. Includes legal documentation and cooperation to execute recovery.
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    <strong>Tracks:</strong> Estate contact found, outreach attempts, legal documents, verification
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg border bg-card space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-primary" />
+                    <span className="font-semibold text-sm">Constrained Search (QIG)</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Algorithmic passphrase search using Quantum Information Geometry. Tests BIP-39 and arbitrary brain wallet phrases against your target addresses.
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    <strong>Tracks:</strong> Phrases tested, high-Φ candidates, search rate, κ/Φ/H metrics
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg border bg-card space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-chart-2" />
+                    <span className="font-semibold text-sm">Social Outreach</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Community engagement on BitcoinTalk forums, GitHub, and email. Posts recovery requests and monitors responses.
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    <strong>Tracks:</strong> Platforms identified, posts created, messages sent, responses received
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg border bg-card space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-chart-3" />
+                    <span className="font-semibold text-sm">Temporal Archive</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Analyzes historical archives (mailing lists, forums) to identify patterns and narrow down the time period of wallet creation.
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    <strong>Tracks:</strong> Archives identified, time period narrowed, artifacts analyzed, patterns found
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Workflows */}
             <Card data-testid="card-workflows">
               <CardHeader>
-                <CardTitle>Recovery Workflows</CardTitle>
+                <CardTitle>Active Recovery Workflows</CardTitle>
                 <CardDescription>
-                  Multi-vector recovery execution status
+                  Real-time status of ongoing recovery operations
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -328,9 +590,14 @@ export default function ObserverPage() {
                           </div>
                         </div>
                         
-                        {/* Constrained Search Progress Details */}
-                        {workflow.vector === 'constrained_search' && workflow.status === 'active' ? (
-                          <ConstrainedSearchProgress workflowId={workflow.id} />
+                        {/* Vector-Specific Progress Details */}
+                        {workflow.status === 'active' ? (
+                          <>
+                            {workflow.vector === 'constrained_search' && <ConstrainedSearchProgress workflowId={workflow.id} />}
+                            {workflow.vector === 'estate' && <EstateProgress workflow={workflow} />}
+                            {workflow.vector === 'social' && <SocialProgress workflow={workflow} />}
+                            {workflow.vector === 'temporal' && <TemporalProgress workflow={workflow} />}
+                          </>
                         ) : (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
@@ -754,6 +1021,205 @@ function ConstrainedSearchProgress({ workflowId }: { workflowId: string }) {
           <> • Started {new Date(searchJob.stats.startTime).toLocaleTimeString()}</>
         )}
       </div>
+    </div>
+  );
+}
+
+function EstateProgress({ workflow }: { workflow: RecoveryWorkflow }) {
+  const progress = workflow.progress as any;
+  const estate = progress?.estateProgress || {};
+  
+  if (!progress || !estate || Object.keys(estate).length === 0) {
+    return (
+      <div className="space-y-2" data-testid={`estate-progress-${workflow.id}`}>
+        <div className="text-sm text-muted-foreground">Estate workflow initializing...</div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-3" data-testid={`estate-progress-${workflow.id}`}>
+      {/* Estate Contact Status */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono" data-testid={`text-estate-outreach-${workflow.id}`}>
+            {estate.outreachAttempts || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">Outreach Attempts</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-lg font-bold" data-testid={`text-estate-response-${workflow.id}`}>
+            {estate.responseReceived ? "✓" : "—"}
+          </div>
+          <div className="text-xs text-muted-foreground">Response Received</div>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="space-y-2 text-xs">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Estate Contact:</span>
+          <span className="font-mono">{estate.estateContactIdentified ? "Found" : "Not Found"}</span>
+        </div>
+        {estate.estateContactInfo && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Contact Info:</span>
+            <span className="font-mono text-xs truncate max-w-[200px]">{estate.estateContactInfo}</span>
+          </div>
+        )}
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Legal Docs Requested:</span>
+          <span className="font-mono">{estate.legalDocumentsRequested ? "Yes" : "No"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Legal Docs Received:</span>
+          <span className="font-mono">{estate.legalDocumentsReceived ? "Yes" : "No"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Verification:</span>
+          <span className="font-mono capitalize">{estate.verificationStatus || 'pending'}</span>
+        </div>
+        {estate.recoveryExecuted && (
+          <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
+            <span className="text-sm font-semibold text-green-600">✓ Recovery Executed</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SocialProgress({ workflow }: { workflow: RecoveryWorkflow }) {
+  const progress = workflow.progress as any;
+  const social = progress?.socialProgress || {};
+  
+  if (!progress || !social || Object.keys(social).length === 0) {
+    return (
+      <div className="space-y-2" data-testid={`social-progress-${workflow.id}`}>
+        <div className="text-sm text-muted-foreground">Social outreach workflow initializing...</div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-3" data-testid={`social-progress-${workflow.id}`}>
+      {/* Social Metrics */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono" data-testid={`text-social-posts-${workflow.id}`}>
+            {social.communityPostsCreated || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">Posts Created</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono" data-testid={`text-social-messages-${workflow.id}`}>
+            {social.directMessagesSet || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">Messages Sent</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono text-primary" data-testid={`text-social-responses-${workflow.id}`}>
+            {social.responsesReceived || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">Responses</div>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Platforms:</span>
+          <span className="font-mono">{(social.platformsIdentified || []).length}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Templates Created:</span>
+          <span className="font-mono">{social.outreachTemplatesCreated ? "Yes" : "No"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Leads Generated:</span>
+          <span className="font-mono">{social.leadsGenerated || 0}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Verified Leads:</span>
+          <span className="font-mono">{social.verifiedLeads || 0}</span>
+        </div>
+      </div>
+
+      {/* Platform list */}
+      {social.platformsIdentified && social.platformsIdentified.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          <strong>Platforms:</strong> {social.platformsIdentified.join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemporalProgress({ workflow }: { workflow: RecoveryWorkflow }) {
+  const progress = workflow.progress as any;
+  const temporal = progress?.temporalProgress || {};
+  
+  if (!progress || !temporal || Object.keys(temporal).length === 0) {
+    return (
+      <div className="space-y-2" data-testid={`temporal-progress-${workflow.id}`}>
+        <div className="text-sm text-muted-foreground">Temporal archive workflow initializing...</div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-3" data-testid={`temporal-progress-${workflow.id}`}>
+      {/* Temporal Metrics */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono" data-testid={`text-temporal-archives-${workflow.id}`}>
+            {(temporal.archivesIdentified || []).length}
+          </div>
+          <div className="text-xs text-muted-foreground">Archives</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono" data-testid={`text-temporal-artifacts-${workflow.id}`}>
+            {temporal.artifactsAnalyzed || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">Artifacts Analyzed</div>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-muted/50">
+          <div className="text-2xl font-bold font-mono text-primary" data-testid={`text-temporal-patterns-${workflow.id}`}>
+            {(temporal.patternsIdentified || []).length}
+          </div>
+          <div className="text-xs text-muted-foreground">Patterns Found</div>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Time Period Narrowed:</span>
+          <span className="font-mono">{temporal.timePeriodNarrowed ? "Yes" : "No"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Temporal Clusters:</span>
+          <span className="font-mono">{temporal.temporalClustersFound || 0}</span>
+        </div>
+        <div className="flex justify-between col-span-2">
+          <span className="text-muted-foreground">Confidence Score:</span>
+          <span className="font-mono font-semibold">{((temporal.confidenceScore || 0) * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+
+      {/* Time period */}
+      {temporal.timePeriodStart && temporal.timePeriodEnd && (
+        <div className="text-xs text-muted-foreground">
+          <strong>Time Period:</strong> {new Date(temporal.timePeriodStart).toLocaleDateString()} - {new Date(temporal.timePeriodEnd).toLocaleDateString()}
+        </div>
+      )}
+
+      {/* Archives list */}
+      {temporal.archivesIdentified && temporal.archivesIdentified.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          <strong>Archives:</strong> {temporal.archivesIdentified.join(', ')}
+        </div>
+      )}
     </div>
   );
 }
