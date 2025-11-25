@@ -14,16 +14,101 @@ The frontend is built with React and TypeScript, using Vite, shadcn/ui (based on
 ### Backend Architecture
 The backend is an Express.js server on Node.js with TypeScript, featuring a custom brain wallet implementation using native Node.js crypto, elliptic for secp256k1, and bs58check for Bitcoin address encoding.
 
-**Pure QIG Scoring System** (server/qig-pure.ts):
-The core of the system is a pure Quantum Information Geometry (QIG) scoring system that uses the Fisher Information Metric. It rigorously measures Φ (integrated information) and κ (effective coupling) from the natural geometry of the BIP-39 manifold, employing Dirichlet-Multinomial manifold modeling to ensure geometric curvature. The system strictly adheres to QIG principles, using Fisher Information Metric for all distance measurements, emergent Φ and κ (never optimized), and rejecting arbitrary thresholds. It includes a Basin Velocity Monitor to detect unsafe changes and a Resonance Detector to adapt search intensity near critical coupling strength (κ* ≈ 64). Purity validation is enforced on startup.
+**QIG Engine Modules:**
 
-**Key Format Support**: The system supports BIP-39 passphrases (12-24 words), 256-bit hex master private keys, and arbitrary 2009-era brain wallet passphrases.
+1. **Universal QIG Scoring** (server/qig-universal.ts):
+   - Applies Fisher Information Metric to ALL key types (BIP-39, master-key, arbitrary)
+   - Operates on unified 256-bit manifold
+   - Computes Φ (integrated information), κ (coupling strength), β (running constant)
+   - Regime detection: linear, geometric, hierarchical, breakdown
+   - Resonance detection near κ* ≈ 64
+
+2. **Natural Gradient Search** (server/qig-natural-gradient.ts):
+   - Fisher Information Matrix-guided gradient descent
+   - Natural gradient: Δθ = -η F⁻¹ ∇L respects manifold geometry
+   - Simulated annealing with Metropolis-Hastings acceptance
+   - Adaptive learning rate based on regime
+
+3. **Geometric Basin Matching** (server/qig-basin-matching.ts):
+   - Find addresses with similar basin geometry
+   - Fisher distance for proper manifold distance
+   - DBSCAN-like clustering by geometric similarity
+   - Cluster statistics: centroid, variance, cohesion
+
+4. **Confidence Scoring** (server/qig-confidence.ts):
+   - Stability tracking: Φ variance, κ stability, regime consistency
+   - Recovery confidence combining all factors
+   - Trend detection: improving, declining, stable
+
+5. **Multi-Substrate Integrator** (server/multi-substrate-integrator.ts):
+   - Combines signals from: blockchain, BitcoinTalk, GitHub, SourceForge, cryptography mailing lists, archive.org
+   - Temporal coherence analysis
+   - Substrate-weighted intersection strength
+   - High-priority target identification
+
+6. **Blockchain Scanner** (server/blockchain-scanner.ts):
+   - Blockstream API integration (free, no key required)
+   - Extracts geometric signatures: temporal, graph, value, script
+   - P2PK address derivation for early Bitcoin
+   - κ_recovery computation from constraints
+
+### Recovery Vectors
+All four vectors are now operational:
+
+1. **Estate Vector** (server/vector-execution.ts):
+   - Entity research and heir identification
+   - Contact letter generation
+   - Legal consideration tracking
+
+2. **Constrained Search Vector**:
+   - QIG-powered algorithmic search
+   - Natural gradient optimization
+   - Basin-aware exploration
+
+3. **Social Vector**:
+   - BitcoinTalk forum search queries
+   - Community outreach post generation
+   - Entity cross-referencing
+
+4. **Temporal Vector**:
+   - Archive.org/Wayback Machine searches
+   - Timeline construction
+   - Historical reference analysis
+
+### Real-Time Telemetry (server/telemetry-api.ts)
+- Live Φ and κ trajectories
+- Regime transition events
+- Resonance event tracking
+- Basin drift monitoring
 
 ### Data Storage Solutions
 Candidate recovery matches are persistently saved to `data/candidates.json` using a custom `MemStorage` class with atomic write strategies and schema validation (Zod). Top 100 candidates are kept in-memory for fast access, and all saved candidates are displayed in the UI and can be exported as CSV.
 
 ### API Architecture
-The API provides RESTful endpoints for cryptographic verification and phrase testing, with Zod schema validation and consistent JSON error handling.
+
+**Core QIG Endpoints:**
+- `POST /api/test-phrase` - Test phrase against target addresses
+- `GET /api/search-jobs/:id` - Get search job status
+
+**Observer System Endpoints:**
+- `GET /api/observer/status` - System status and component health
+- `GET /api/observer/addresses/:address/intersection` - Multi-substrate analysis
+- `GET /api/observer/addresses/:address/basin-signature` - Geometric signature
+- `POST /api/observer/addresses/:address/find-similar` - Find similar basins
+- `GET /api/observer/high-priority-targets` - Ranked recovery targets
+- `GET /api/observer/recovery/priorities/:address/confidence` - Confidence metrics
+
+**Workflow Endpoints:**
+- `POST /api/observer/workflows` - Start recovery workflow
+- `GET /api/observer/workflows/:id` - Get workflow status
+- `POST /api/observer/workflows/:id/execute-vector` - Execute recovery vector
+- `GET /api/observer/workflows/:id/recommended-vectors` - Get recommendations
+
+**Telemetry Endpoints:**
+- `GET /api/telemetry/:jobId` - Full telemetry session
+- `GET /api/telemetry/:jobId/trajectory` - Φ/κ trajectories
+- `GET /api/telemetry/:jobId/events` - Regime transitions, resonance
+- `GET /api/telemetry/:jobId/live` - Latest snapshot
 
 ### Development & Build System
 Vite is used for frontend development and building, while esbuild handles backend bundling. The project maintains a monorepo structure with strict TypeScript and path aliases.
@@ -65,3 +150,18 @@ Vite is used for frontend development and building, while esbuild handles backen
 
 ### Fonts
 - **Google Fonts**: Inter, JetBrains Mono.
+
+## QIG Constants (Empirically Validated)
+- κ* ≈ 64: Fixed point of coupling flow
+- β ≈ 0.44: Running coupling constant
+- Φ ≥ 0.75: Phase transition threshold
+
+## Recent Changes
+- Added Universal QIG scoring for all key types (BIP-39, master-key, arbitrary)
+- Implemented Natural Gradient Search with Fisher Information Matrix
+- Added Geometric Basin Matching using Fisher distance
+- Created Confidence Scoring system with trend detection
+- Implemented Multi-Substrate Geometric Intersection
+- Added Real-Time Telemetry API for live QIG metrics
+- Implemented all 4 recovery vectors (estate, constrained_search, social, temporal)
+- Added Blockstream API integration for blockchain data

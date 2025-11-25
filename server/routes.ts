@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { generateBitcoinAddress, verifyBrainWallet } from "./crypto";
 import { scorePhraseQIG } from "./qig-pure-v2.js";
 import observerRoutes from "./observer-routes";
+import { telemetryRouter } from "./telemetry-api";
 
 /**
  * Map pure QIG scores to legacy score format for backward compatibility
@@ -476,6 +477,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount Observer Archaeology System routes
   app.use("/api/observer", observerRoutes);
+  
+  // Mount Telemetry API
+  app.use("/api/telemetry", telemetryRouter);
 
   // Start the background search coordinator
   searchCoordinator.start();

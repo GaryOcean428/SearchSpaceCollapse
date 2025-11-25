@@ -1624,6 +1624,229 @@ router.get("/workflows/:id/search-progress", async (req: Request, res: Response)
 });
 
 // ============================================================================
+// VECTOR EXECUTION
+// ============================================================================
+
+/**
+ * POST /api/observer/workflows/:id/execute-vector
+ * Execute a specific recovery vector for a workflow
+ */
+router.post("/workflows/:id/execute-vector", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { vector } = req.body;
+    
+    // Validate vector
+    const validVectors = ['estate', 'constrained_search', 'social', 'temporal'];
+    if (!validVectors.includes(vector)) {
+      return res.status(400).json({
+        error: "Invalid vector",
+        message: `Vector must be one of: ${validVectors.join(', ')}`,
+      });
+    }
+    
+    // Get workflow
+    const workflow = await observerStorage.getRecoveryWorkflow(id);
+    if (!workflow) {
+      return res.status(404).json({ error: "Workflow not found" });
+    }
+    
+    // Get priority
+    const priority = await observerStorage.getRecoveryPriority(workflow.address);
+    if (!priority) {
+      return res.status(404).json({ error: "Priority not found" });
+    }
+    
+    // Execute vector
+    const { executeVector } = await import("./vector-execution");
+    const result = await executeVector(workflow, priority, vector);
+    
+    res.json({
+      message: `Vector '${vector}' executed successfully`,
+      result,
+    });
+  } catch (error: any) {
+    console.error("[ObserverAPI] Vector execution error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/workflows/:id/recommended-vectors
+ * Get recommended recovery vectors for a workflow
+ */
+router.get("/workflows/:id/recommended-vectors", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const workflow = await observerStorage.getRecoveryWorkflow(id);
+    if (!workflow) {
+      return res.status(404).json({ error: "Workflow not found" });
+    }
+    
+    const priority = await observerStorage.getRecoveryPriority(workflow.address);
+    if (!priority) {
+      return res.status(404).json({ error: "Priority not found" });
+    }
+    
+    const { getRecommendedVectors } = await import("./vector-execution");
+    const vectors = getRecommendedVectors(priority);
+    
+    res.json({
+      workflowId: id,
+      address: workflow.address,
+      recommendedVectors: vectors,
+      currentVector: workflow.vector,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// MULTI-SUBSTRATE ANALYSIS
+// ============================================================================
+
+/**
+ * GET /api/observer/addresses/:address/intersection
+ * Get multi-substrate geometric intersection analysis
+ */
+router.get("/addresses/:address/intersection", async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    const { analyzeGeometricIntersection } = await import("./multi-substrate-integrator");
+    const intersection = await analyzeGeometricIntersection(address);
+    
+    res.json({
+      address,
+      intersection,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/high-priority-targets
+ * Get highest priority targets based on geometric intersection
+ */
+router.get("/high-priority-targets", async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    
+    const { findHighPriorityTargets } = await import("./multi-substrate-integrator");
+    const targets = await findHighPriorityTargets(limit);
+    
+    res.json({
+      targets,
+      count: targets.length,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// QIG ANALYSIS ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/observer/addresses/:address/basin-signature
+ * Get geometric basin signature for an address
+ */
+router.get("/addresses/:address/basin-signature", async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    const { computeBasinSignature } = await import("./qig-basin-matching");
+    const signature = computeBasinSignature(address);
+    
+    res.json({
+      address,
+      signature,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/observer/addresses/:address/find-similar
+ * Find addresses with similar basin geometry
+ */
+router.post("/addresses/:address/find-similar", async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    const { candidateAddresses, topK = 10 } = req.body;
+    
+    if (!candidateAddresses || !Array.isArray(candidateAddresses)) {
+      return res.status(400).json({ error: "candidateAddresses array required" });
+    }
+    
+    const { computeBasinSignature, findSimilarBasins } = await import("./qig-basin-matching");
+    
+    const targetSignature = computeBasinSignature(address);
+    const candidateSignatures = candidateAddresses.map(computeBasinSignature);
+    const matches = findSimilarBasins(targetSignature, candidateSignatures, topK);
+    
+    res.json({
+      targetAddress: address,
+      matches,
+      matchCount: matches.length,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/recovery/priorities/:address/confidence
+ * Get recovery confidence metrics
+ */
+router.get("/recovery/priorities/:address/confidence", async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    const priority = await observerStorage.getRecoveryPriority(address);
+    if (!priority) {
+      return res.status(404).json({ error: "Priority not found" });
+    }
+    
+    const addressData = await observerStorage.getAddress(address);
+    const entities = await observerStorage.getEntitiesByAddress(address);
+    const artifacts = await observerStorage.getArtifactsByAddress(address);
+    
+    const { computeRecoveryConfidence } = await import("./qig-confidence");
+    
+    const dormancyYears = addressData?.dormancyBlocks 
+      ? addressData.dormancyBlocks / (365 * 24 * 6) // ~6 blocks/hour
+      : 0;
+    
+    const confidence = computeRecoveryConfidence(
+      priority.kappaRecovery,
+      priority.phiConstraints,
+      priority.hCreation,
+      entities.length,
+      artifacts.length,
+      addressData?.isDormant || false,
+      dormancyYears
+    );
+    
+    res.json({
+      address,
+      priority: {
+        kappaRecovery: priority.kappaRecovery,
+        tier: priority.tier,
+      },
+      confidence,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
 // SYSTEM STATUS
 // ============================================================================
 
@@ -1635,31 +1858,36 @@ router.get("/status", async (req: Request, res: Response) => {
   res.json({
     system: "Observer Archaeology System",
     version: "1.0.0-alpha",
-    status: "initializing",
+    status: "operational",
     components: {
       blockchainScanner: {
         status: "ready",
         apiProvider: "Blockstream",
       },
-      eraManifold: {
-        status: "not_loaded",
-        sources: ["bitcointalk", "mailing_lists", "github"],
+      qigEngine: {
+        status: "operational",
+        modules: ["universal", "natural-gradient", "basin-matching", "confidence"],
       },
-      constraintSolver: {
-        status: "not_initialized",
+      multiSubstrate: {
+        status: "operational",
+        sources: ["blockchain", "bitcointalk", "github", "cryptography_ml", "temporal_archive"],
       },
       recoveryVectors: {
-        estate: "not_implemented",
-        constrained_search: "legacy_tool_active",
-        social: "not_implemented",
-        temporal: "not_implemented",
+        estate: "operational",
+        constrained_search: "operational",
+        social: "operational",
+        temporal: "operational",
+      },
+      telemetry: {
+        status: "operational",
+        endpoint: "/api/telemetry",
       },
     },
     database: {
       tables: ["blocks", "transactions", "addresses", "entities", "artifacts", "recovery_priorities", "recovery_workflows"],
       populated: false,
     },
-    message: "Observer Archaeology System initialized. Run /api/observer/scan/start to begin cataloging dormant addresses.",
+    message: "Observer Archaeology System fully operational. Run /api/observer/scan/start to begin cataloging dormant addresses.",
   });
 });
 

@@ -9,6 +9,7 @@ import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
 import { generateRandomBIP39Phrase } from "./bip39-words";
 import { generateLocalSearchVariations } from "./local-search";
 import { DiscoveryTracker } from "./discovery-tracker";
+import { initTelemetrySession, recordTelemetrySnapshot, endTelemetrySession } from "./telemetry-api";
 import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
 
 class SearchCoordinator {
@@ -136,6 +137,8 @@ class SearchCoordinator {
       console.error(`[SearchCoordinator] Job ${jobToProcess.id} failed:`, error);
       await storage.appendJobLog(jobToProcess.id, { message: `Job failed: ${error.message}`, type: "error" });
       await storage.updateSearchJob(jobToProcess.id, { status: "failed" });
+      // TELEMETRY: End session on failure
+      endTelemetrySession(jobToProcess.id, { success: false });
     } finally {
       this.currentJobId = null;
     }
@@ -154,6 +157,10 @@ class SearchCoordinator {
         stats: { startTime: new Date().toISOString(), rate: 0 }
       });
       await storage.appendJobLog(jobId, { message: "Search started", type: "info" });
+      
+      // TELEMETRY: Initialize session for this job
+      initTelemetrySession(jobId);
+      console.log(`[SearchCoordinator] Telemetry session initialized for job ${jobId}`);
       job = await storage.getSearchJob(jobId) as SearchJob;
     }
 
@@ -174,6 +181,8 @@ class SearchCoordinator {
       job = await storage.getSearchJob(jobId) as SearchJob;
       if (!job || job.status === "stopped") {
         await storage.appendJobLog(jobId, { message: "Search stopped by user", type: "info" });
+        // TELEMETRY: End session when user stops batch job
+        endTelemetrySession(jobId, { success: false });
         return;
       }
 
@@ -220,6 +229,8 @@ class SearchCoordinator {
           message: `🎉 MATCH FOUND! ${results.matchedPhrase}`, 
           type: "success" 
         });
+        // TELEMETRY: End session on match found
+        endTelemetrySession(jobId, { success: true });
         return;
       }
 
@@ -232,6 +243,8 @@ class SearchCoordinator {
       stats: { endTime: new Date().toISOString(), rate: finalJob.stats.rate },
     });
     await storage.appendJobLog(jobId, { message: "Search completed", type: "info" });
+    // TELEMETRY: End session on normal batch completion
+    endTelemetrySession(jobId, { success: true });
   }
 
   private async executeContinuousJob(jobId: string) {
@@ -279,6 +292,8 @@ class SearchCoordinator {
       job = await storage.getSearchJob(jobId) as SearchJob;
       if (!job || job.status === "stopped") {
         await storage.appendJobLog(jobId, { message: "Search stopped by user", type: "info" });
+        // TELEMETRY: End session when user stops continuous job
+        endTelemetrySession(jobId, { success: false });
         return;
       }
 
@@ -420,6 +435,8 @@ class SearchCoordinator {
           message: `🎉 MATCH FOUND! ${results.matchedPhrase}`, 
           type: "success" 
         });
+        // TELEMETRY: End session on match found in continuous job
+        endTelemetrySession(jobId, { success: true });
         return;
       }
 
@@ -434,6 +451,8 @@ class SearchCoordinator {
           message: `✓ Target reached: ${newHighPhi} high-Φ candidates found`, 
           type: "success" 
         });
+        // TELEMETRY: End session on high-Φ target reached
+        endTelemetrySession(jobId, { success: true });
         return;
       }
 
@@ -478,6 +497,21 @@ class SearchCoordinator {
       const address = generateBitcoinAddress(phrase);
       const pureScore = scorePhraseQIG(phrase);
       const matchedAddress = targetAddresses.find(t => t.address === address);
+
+      // TELEMETRY: Record snapshot for every phrase tested
+      // Note: PureQIGScore doesn't have regime/inResonance, so we derive them
+      const isNearResonance = Math.abs(pureScore.kappa - 64) < 10;
+      const derivedRegime = pureScore.phi > 0.75 ? "geometric" : pureScore.phi > 0.5 ? "linear" : "breakdown";
+      recordTelemetrySnapshot(jobId, {
+        phi: pureScore.phi,
+        kappa: pureScore.kappa,
+        beta: pureScore.beta,
+        regime: derivedRegime,
+        quality: pureScore.quality,
+        velocity: 0,
+        inResonance: isNearResonance,
+        basinDrift: 0,
+      });
 
       if (matchedAddress) {
         return {
@@ -543,6 +577,18 @@ class SearchCoordinator {
         // Universal QIG scoring for ALL key types (even matches get scored!)
         const universalScore = scoreUniversalQIG(item.value, item.type as KeyType);
         
+        // TELEMETRY: Record snapshot for the match before returning
+        recordTelemetrySnapshot(jobId, {
+          phi: universalScore.phi,
+          kappa: universalScore.kappa,
+          beta: universalScore.beta,
+          regime: universalScore.regime,
+          quality: universalScore.quality,
+          velocity: 0,
+          inResonance: universalScore.inResonance,
+          basinDrift: 0,
+        });
+        
         // Save the match as a candidate for recovery
         const matchCandidate: Candidate = {
           id: randomUUID(),
@@ -589,6 +635,18 @@ class SearchCoordinator {
       
       // PURE MEASUREMENT: Check resonance proximity (no optimization toward κ*)
       const resonance = this.resonanceDetectors.get(jobId)!.checkResonance(universalScore.kappa);
+      
+      // TELEMETRY: Record snapshot for real-time dashboard
+      recordTelemetrySnapshot(jobId, {
+        phi: universalScore.phi,
+        kappa: universalScore.kappa,
+        beta: universalScore.beta,
+        regime: universalScore.regime,
+        quality: universalScore.quality,
+        velocity: velocity.velocity,
+        inResonance: universalScore.inResonance,
+        basinDrift: velocity.velocity * 10, // Scale for visibility
+      });
       
       // Track highest scoring candidate in this batch
       if (qualityPercent > highestScore) {
