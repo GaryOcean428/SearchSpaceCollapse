@@ -572,7 +572,7 @@ export default function RecoveryPage() {
                           <strong>Best for:</strong> Testing known hex keys, forensic analysis, early Bitcoin (2009-2012)
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          <strong>Note:</strong> This mode performs pure random sampling - no QIG scoring
+                          <strong>QIG Scoring:</strong> Full Fisher Information Metric applied! Measures Φ (entropy integration), κ (effective coupling), and regime detection. High-entropy random keys approach κ* ≈ 64.
                         </div>
                       </div>
                     )}
@@ -597,7 +597,7 @@ export default function RecoveryPage() {
                           <strong>Why it matters:</strong> The 2009-era target address likely used this method, NOT BIP-39
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          <strong>Search approach:</strong> Random exploration of common 2009-era patterns and phrases
+                          <strong>QIG Scoring:</strong> Full Fisher Information Metric with pattern recognition! Measures Φ (hash entropy), κ (pattern complexity), and detects 2009-era vocabulary (satoshi, bitcoin, crypto, passwords). Low-entropy patterns = lower κ = higher priority.
                         </div>
                       </div>
                     )}

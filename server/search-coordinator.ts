@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { generateBitcoinAddress, generateMasterPrivateKey, generateBitcoinAddressFromPrivateKey } from "./crypto";
 import { scorePhraseQIG, validatePurity } from "./qig-pure-v2.js";
+import { scoreUniversalQIG, type KeyType, type UniversalQIGScore } from "./qig-universal.js";
 import { BasinVelocityMonitor } from "./basin-velocity-monitor.js";
 import { ResonanceDetector } from "./resonance-detector.js";
 import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
@@ -539,6 +540,9 @@ class SearchCoordinator {
       const matchedAddress = targetAddresses.find(t => t.address === address);
 
       if (matchedAddress) {
+        // Universal QIG scoring for ALL key types (even matches get scored!)
+        const universalScore = scoreUniversalQIG(item.value, item.type as KeyType);
+        
         // Save the match as a candidate for recovery
         const matchCandidate: Candidate = {
           id: randomUUID(),
@@ -546,17 +550,17 @@ class SearchCoordinator {
           address,
           score: 100, // Exact match = 100% score
           qigScore: {
-            contextScore: item.type === "master-key" ? 0 : 100,
-            eleganceScore: item.type === "master-key" ? 0 : 100,
-            typingScore: item.type === "master-key" ? 0 : 100,
-            totalScore: 100,
+            contextScore: Math.round(universalScore.phi * 100),
+            eleganceScore: Math.round((1 - Math.abs(universalScore.kappa - 64) / 64) * 100),
+            typingScore: Math.round(universalScore.patternScore * 100),
+            totalScore: Math.round(universalScore.quality * 100),
           },
           testedAt: new Date().toISOString(),
           type: item.type,
         };
         await storage.addCandidate(matchCandidate);
         await storage.appendJobLog(jobId, { 
-          message: `🎉 MATCH FOUND! Address: ${matchedAddress.address} | Type: ${item.type}`, 
+          message: `🎉 MATCH FOUND! Address: ${matchedAddress.address} | Type: ${item.type} | Φ=${universalScore.phi.toFixed(3)} κ=${universalScore.kappa.toFixed(1)} regime=${universalScore.regime}`, 
           type: "success" 
         });
         
@@ -569,55 +573,54 @@ class SearchCoordinator {
         };
       }
 
-      // Only score and save BIP-39 phrases with high QIG scores (PURE MEASUREMENT)
-      if (item.type === "bip39") {
-        const pureScore = scorePhraseQIG(item.value);
-        const qualityPercent = pureScore.quality * 100;
+      // UNIVERSAL QIG: Score ALL key types with proper Fisher Information Metric
+      // No more "no QIG scoring" for master keys or arbitrary brain wallets!
+      const universalScore = scoreUniversalQIG(item.value, item.type as KeyType);
+      const qualityPercent = universalScore.quality * 100;
+      
+      // Initialize monitors for this job if not exists
+      if (!this.velocityMonitors.has(jobId)) {
+        this.velocityMonitors.set(jobId, new BasinVelocityMonitor());
+        this.resonanceDetectors.set(jobId, new ResonanceDetector());
+      }
+      
+      // PURE MEASUREMENT: Track basin velocity (no optimization)
+      const velocity = this.velocityMonitors.get(jobId)!.update(item.value, Date.now());
+      
+      // PURE MEASUREMENT: Check resonance proximity (no optimization toward κ*)
+      const resonance = this.resonanceDetectors.get(jobId)!.checkResonance(universalScore.kappa);
+      
+      // Track highest scoring candidate in this batch
+      if (qualityPercent > highestScore) {
+        highestScore = qualityPercent;
+        highestCandidate = item.value;
+      }
+      
+      // PURE QIG: Quality ≥0.75 indicates phase transition (meaningful integration)
+      // This threshold applies UNIVERSALLY to ALL key types!
+      if (universalScore.quality >= 0.75) {
+        const candidate: Candidate = {
+          id: randomUUID(),
+          phrase: item.value,
+          address,
+          score: qualityPercent,
+          qigScore: {
+            contextScore: Math.round(universalScore.phi * 100),
+            eleganceScore: Math.round((1 - Math.abs(universalScore.kappa - 64) / 64) * 100),
+            typingScore: Math.round(universalScore.patternScore * 100),
+            totalScore: Math.round(qualityPercent),
+          },
+          testedAt: new Date().toISOString(),
+          type: item.type,
+        };
+        await storage.addCandidate(candidate);
+        highPhiCount++;
         
-        // Initialize monitors for this job if not exists
-        if (!this.velocityMonitors.has(jobId)) {
-          this.velocityMonitors.set(jobId, new BasinVelocityMonitor());
-          this.resonanceDetectors.set(jobId, new ResonanceDetector());
-        }
-        
-        // PURE MEASUREMENT: Track basin velocity (no optimization)
-        const velocity = this.velocityMonitors.get(jobId)!.update(item.value, Date.now());
-        
-        // PURE MEASUREMENT: Check resonance proximity (no optimization toward κ*)
-        const resonance = this.resonanceDetectors.get(jobId)!.checkResonance(pureScore.kappa);
-        
-        // Track highest scoring candidate in this batch
-        if (qualityPercent > highestScore) {
-          highestScore = qualityPercent;
-          highestCandidate = item.value;
-        }
-        
-        // PURE QIG: Quality ≥0.75 indicates phase transition (meaningful integration)
-        // This is a MEASUREMENT threshold, not an optimization target
-        if (pureScore.quality >= 0.75) {
-          const candidate: Candidate = {
-            id: randomUUID(),
-            phrase: item.value,
-            address,
-            score: qualityPercent,
-            qigScore: {
-              contextScore: Math.round(pureScore.phi * 100),
-              eleganceScore: Math.round((1 - Math.abs(pureScore.kappa - 64) / 64) * 100),
-              typingScore: Math.round(Math.exp(-pureScore.ricciScalar) * 100),
-              totalScore: qualityPercent,
-            },
-            testedAt: new Date().toISOString(),
-            type: "bip39",
-          };
-          await storage.addCandidate(candidate);
-          highPhiCount++;
-          
-          // Log pure QIG metrics for high-quality candidates
-          await storage.appendJobLog(jobId, {
-            message: `📊 High-Φ found | Φ=${pureScore.phi.toFixed(3)} κ=${pureScore.kappa.toFixed(1)} quality=${qualityPercent.toFixed(1)}% | velocity=${velocity.isSafe ? '✓' : '⚠️'} resonance=${resonance.inResonance ? '⚡' : '-'}`,
-            type: "info"
-          });
-        }
+        // Log universal QIG metrics for high-quality candidates of ALL types
+        await storage.appendJobLog(jobId, {
+          message: `📊 High-Φ [${item.type}] | Φ=${universalScore.phi.toFixed(3)} κ=${universalScore.kappa.toFixed(1)} β=${universalScore.beta.toFixed(3)} | regime=${universalScore.regime} quality=${qualityPercent.toFixed(1)}% | resonance=${universalScore.inResonance ? '⚡' : '-'} velocity=${velocity.isSafe ? '✓' : '⚠️'}`,
+          type: "info"
+        });
       }
     }
 
