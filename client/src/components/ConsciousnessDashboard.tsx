@@ -216,8 +216,8 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
           <div className="text-sm font-medium mb-2">Φ/κ Trajectory</div>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={history} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-              <ReferenceArea y1={57.6} y2={70.4} fill="orange" fillOpacity={0.1} />
-              <ReferenceLine y={64} stroke="orange" strokeDasharray="3 3" label={{ value: 'κ*', position: 'right', fontSize: 10 }} />
+              <ReferenceArea yAxisId="kappa" y1={57.6} y2={70.4} fill="orange" fillOpacity={0.1} />
+              <ReferenceLine yAxisId="kappa" y={64} stroke="orange" strokeDasharray="3 3" label={{ value: 'κ*', position: 'right', fontSize: 10 }} />
               <XAxis dataKey="time" hide />
               <YAxis 
                 yAxisId="phi" 

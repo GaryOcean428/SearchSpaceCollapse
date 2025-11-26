@@ -131,7 +131,16 @@ export function MemoryFragmentSearch() {
         phrase,
         testAgainstTargets: true,
       });
-      return response.json() as Promise<DirectTestResult>;
+      const data = await response.json();
+      return {
+        phrase: data.phrase,
+        address: data.address,
+        match: data.match,
+        phi: data.qigScore?.phi ?? 0,
+        kappa: data.qigScore?.kappa ?? 0,
+        regime: data.qigScore?.regime ?? "unknown",
+        inResonance: data.qigScore?.inResonance ?? false,
+      } as DirectTestResult;
     },
     onSuccess: (result) => {
       setDirectTestResult(result);
@@ -699,6 +708,22 @@ export function MemoryFragmentSearch() {
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 10, right: 30, bottom: 30, left: 10 }}>
+                      <XAxis 
+                        dataKey="phi" 
+                        type="number" 
+                        domain={[0, 100]} 
+                        name="Φ"
+                        tick={{ fontSize: 10 }}
+                        label={{ value: 'Φ (Integration) %', position: 'bottom', offset: 15, fontSize: 11 }}
+                      />
+                      <YAxis 
+                        dataKey="kappa" 
+                        type="number" 
+                        domain={[0, 100]} 
+                        name="κ"
+                        tick={{ fontSize: 10 }}
+                        label={{ value: 'κ (Coupling)', angle: -90, position: 'insideLeft', fontSize: 11 }}
+                      />
                       <ReferenceArea 
                         x1={0} x2={100} 
                         y1={57.6} y2={70.4} 
@@ -717,22 +742,6 @@ export function MemoryFragmentSearch() {
                         stroke="green" 
                         strokeDasharray="3 3" 
                         label={{ value: 'Φ threshold', position: 'top', fontSize: 10, fill: 'green' }} 
-                      />
-                      <XAxis 
-                        dataKey="phi" 
-                        type="number" 
-                        domain={[0, 100]} 
-                        name="Φ"
-                        tick={{ fontSize: 10 }}
-                        label={{ value: 'Φ (Integration) %', position: 'bottom', offset: 15, fontSize: 11 }}
-                      />
-                      <YAxis 
-                        dataKey="kappa" 
-                        type="number" 
-                        domain={[0, 100]} 
-                        name="κ"
-                        tick={{ fontSize: 10 }}
-                        label={{ value: 'κ (Coupling)', angle: -90, position: 'insideLeft', fontSize: 11 }}
                       />
                       <ZAxis dataKey="confidence" range={[30, 200]} name="Confidence" />
                       <Tooltip 
