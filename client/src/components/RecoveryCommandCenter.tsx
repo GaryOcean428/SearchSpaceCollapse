@@ -29,7 +29,7 @@ import {
   Key,
   Hash,
   Search,
-  Database,
+  HardDrive,
   Info
 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -42,7 +42,7 @@ const STRATEGY_LABELS: Record<string, { label: string; icon: typeof Brain; descr
   bitcoin_terms: { label: 'Bitcoin Terms', icon: Hash, description: 'Crypto terminology' },
   linguistic: { label: 'Linguistic', icon: Search, description: 'Human-like phrases' },
   qig_basin_search: { label: 'QIG Basin', icon: Zap, description: 'Geometric search' },
-  historical_autonomous: { label: 'Historical Mining', icon: Database, description: 'Auto-mined patterns' },
+  historical_autonomous: { label: 'Historical Mining', icon: HardDrive, description: 'Auto-mined patterns' },
   cross_format: { label: 'Cross-Format', icon: Target, description: 'Multi-format testing' },
 };
 
