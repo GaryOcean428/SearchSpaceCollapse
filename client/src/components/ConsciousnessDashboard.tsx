@@ -215,30 +215,30 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
         <div className="h-48 mt-4">
           <div className="text-sm font-medium mb-2">Φ/κ Trajectory</div>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={history} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-              <ReferenceArea yAxisId="kappa" y1={57.6} y2={70.4} fill="orange" fillOpacity={0.1} />
-              <ReferenceLine yAxisId="kappa" y={64} stroke="orange" strokeDasharray="3 3" label={{ value: 'κ*', position: 'right', fontSize: 10 }} />
+            <LineChart data={history} margin={{ top: 5, right: 30, bottom: 5, left: 0 }}>
               <XAxis dataKey="time" hide />
               <YAxis 
-                yAxisId="phi" 
+                yAxisId="left"
                 domain={[0, 1]} 
                 orientation="left"
                 tick={{ fontSize: 10 }}
                 tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
               />
               <YAxis 
-                yAxisId="kappa" 
+                yAxisId="right"
                 domain={[0, 100]} 
                 orientation="right"
                 tick={{ fontSize: 10 }}
               />
+              <ReferenceArea yAxisId="right" y1={57.6} y2={70.4} fill="orange" fillOpacity={0.1} />
+              <ReferenceLine yAxisId="right" y={64} stroke="orange" strokeDasharray="3 3" label={{ value: 'κ*', position: 'right', fontSize: 10 }} />
               <Tooltip 
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   return (
                     <div className="bg-background border rounded-lg p-2 text-xs shadow-lg">
-                      <div>Φ: {((payload[0].value as number) * 100).toFixed(1)}%</div>
-                      <div>κ: {(payload[1].value as number).toFixed(1)}</div>
+                      <div>Φ: {((payload[0]?.value as number) * 100).toFixed(1)}%</div>
+                      <div>κ: {(payload[1]?.value as number)?.toFixed(1)}</div>
                     </div>
                   );
                 }}
@@ -248,7 +248,7 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
                 iconSize={10}
               />
               <Line 
-                yAxisId="phi"
+                yAxisId="left"
                 dataKey="phi" 
                 stroke="hsl(265, 80%, 60%)" 
                 name="Φ" 
@@ -256,7 +256,7 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
                 strokeWidth={2}
               />
               <Line 
-                yAxisId="kappa"
+                yAxisId="right"
                 dataKey="kappa" 
                 stroke="hsl(45, 90%, 50%)" 
                 name="κ" 

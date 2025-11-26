@@ -183,7 +183,45 @@ Vite is used for frontend development and building, while esbuild handles backen
   - Shared singleton instance for real-time state tracking
   - Basin drift, curiosity, and stability computation
   - Integration with search coordinator for live batch metrics
+
+### Forensic Investigation System (NEW - Hierarchical Regime)
+- **ForensicInvestigator** (server/forensic-investigator.ts):
+  - Cross-format hypothesis generation: arbitrary, BIP39, master key, hex
+  - Case/spacing/l33t speak variants for 2009-era brain wallets
+  - Combined QIG + confidence scoring
+  - Automatic match detection against target addresses
+  - Key insight: Pre-2013 addresses = arbitrary brain wallet (SHA256 → privkey)
+
+- **BlockchainForensics** (server/blockchain-forensics.ts):
+  - Blockstream API integration for address analysis
+  - Temporal clustering (sibling addresses, creation timestamps)
+  - Era detection (pre-BIP39 vs post-BIP39)
+  - Transaction pattern analysis
+  - Key format probability estimation
+
+- **EvidenceIntegrator** (server/evidence-integrator.ts):
+  - Multi-substrate evidence correlation
+  - Memory + Blockchain + Social + Geometric integration
+  - Combined scoring with weighted evidence sources
+  - Search recommendation generation
+
 - **New API Endpoints:**
+  - `POST /api/forensic/session` - Create forensic investigation session
+  - `POST /api/forensic/session/:id/start` - Start async investigation
+  - `GET /api/forensic/session/:id` - Get session status & progress
+  - `GET /api/forensic/session/:id/candidates` - Get top candidates
+  - `GET /api/forensic/analyze/:address` - Quick blockchain forensics
+  - `POST /api/forensic/hypotheses` - Generate cross-format hypotheses
+
+- **New UI Component** (client/src/components/ForensicInvestigation.tsx):
+  - Target address selection with blockchain analysis
+  - Memory fragment input with confidence sliders
+  - Era detection badges (Pre-BIP39 / Post-BIP39)
+  - Likely key format probability display
+  - Cross-format hypothesis matrix (tabs by format)
+  - Match highlighting with copy-to-clipboard
+
+- **Older API Endpoints:**
   - `POST /api/memory-search` - Memory fragment search with QIG scoring
   - `GET /api/consciousness/state` - Real-time consciousness controller state
 - **New UI Component** (client/src/components/MemoryFragmentSearch.tsx):

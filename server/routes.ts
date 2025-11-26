@@ -547,6 +547,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================
+  // FORENSIC INVESTIGATION API (Cross-Format Hypothesis Testing)
+  // ============================================================
+  
+  // Import forensic modules
+  const { forensicInvestigator } = await import("./forensic-investigator");
+  const { blockchainForensics } = await import("./blockchain-forensics");
+  const { evidenceIntegrator } = await import("./evidence-integrator");
+
+  // Create forensic investigation session
+  app.post("/api/forensic/session", async (req, res) => {
+    try {
+      const { targetAddress, fragments, socialProfiles } = req.body;
+      
+      if (!targetAddress) {
+        return res.status(400).json({ error: "Target address is required" });
+      }
+      
+      if (!fragments || !Array.isArray(fragments) || fragments.length === 0) {
+        return res.status(400).json({ error: "At least one memory fragment is required" });
+      }
+      
+      const session = evidenceIntegrator.createSession(
+        targetAddress,
+        fragments,
+        socialProfiles || []
+      );
+      
+      res.json({
+        sessionId: session.id,
+        status: session.status,
+        targetAddress: session.targetAddress,
+        fragmentCount: fragments.length,
+      });
+    } catch (error: any) {
+      console.error("[Forensic] Error creating session:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Start forensic investigation (async)
+  app.post("/api/forensic/session/:sessionId/start", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      const session = evidenceIntegrator.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Start investigation in background
+      evidenceIntegrator.integrateAllSources(sessionId).catch(err => {
+        console.error("[Forensic] Investigation error:", err);
+      });
+      
+      res.json({
+        sessionId,
+        status: 'started',
+        message: 'Forensic investigation started. Poll /api/forensic/session/:sessionId for progress.',
+      });
+    } catch (error: any) {
+      console.error("[Forensic] Error starting investigation:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get forensic session status
+  app.get("/api/forensic/session/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      const session = evidenceIntegrator.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      res.json({
+        id: session.id,
+        status: session.status,
+        progress: session.progress,
+        targetAddress: session.targetAddress,
+        fragmentCount: session.memoryFragments.length,
+        hypothesisCount: session.hypotheses.length,
+        candidateCount: session.integratedCandidates.length,
+        matchCount: session.matches.length,
+        likelyKeyFormat: session.likelyKeyFormat,
+        temporalClues: session.temporalClues,
+        searchRecommendations: session.searchRecommendations,
+        startedAt: session.startedAt,
+        completedAt: session.completedAt,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get top candidates from forensic session
+  app.get("/api/forensic/session/:sessionId/candidates", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const session = evidenceIntegrator.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const summary = evidenceIntegrator.getSessionSummary(sessionId);
+      
+      res.json({
+        totalCandidates: session.integratedCandidates.length,
+        matches: session.matches,
+        topCandidates: session.topMatches.slice(0, limit),
+        summary,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Quick forensic analysis (single address)
+  app.get("/api/forensic/analyze/:address", async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      const forensics = await blockchainForensics.analyzeAddress(address);
+      const likelyFormat = blockchainForensics.estimateLikelyKeyFormat(forensics);
+      const isPreBIP39 = blockchainForensics.isPreBIP39Era(forensics);
+      
+      res.json({
+        address,
+        forensics,
+        likelyKeyFormat: likelyFormat,
+        isPreBIP39Era: isPreBIP39,
+        recommendations: isPreBIP39 
+          ? ['Focus on arbitrary brain wallet passphrases', 'Prioritize simple concatenations over BIP39']
+          : ['Consider BIP39 mnemonic phrases', 'Check HD wallet derivation paths'],
+      });
+    } catch (error: any) {
+      console.error("[Forensic] Analysis error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate cross-format hypotheses (quick, no session needed)
+  app.post("/api/forensic/hypotheses", async (req, res) => {
+    try {
+      const { targetAddress, fragments } = req.body;
+      
+      if (!fragments || !Array.isArray(fragments) || fragments.length === 0) {
+        return res.status(400).json({ error: "At least one memory fragment is required" });
+      }
+      
+      // Get target address from storage if not provided
+      const addresses = await storage.getTargetAddresses();
+      const target = targetAddress || addresses[0]?.address || "";
+      
+      // Create session and run investigation
+      const session = forensicInvestigator.createSession(target, fragments);
+      const hypotheses = await forensicInvestigator.investigateFragments(session.id);
+      
+      // Group by format
+      const byFormat: Record<string, typeof hypotheses> = {};
+      for (const h of hypotheses.slice(0, 100)) {
+        if (!byFormat[h.format]) byFormat[h.format] = [];
+        byFormat[h.format].push(h);
+      }
+      
+      res.json({
+        targetAddress: target,
+        totalHypotheses: hypotheses.length,
+        matchFound: hypotheses.some(h => h.match),
+        matches: hypotheses.filter(h => h.match),
+        byFormat: Object.fromEntries(
+          Object.entries(byFormat).map(([format, hypos]) => [
+            format,
+            {
+              count: hypos.length,
+              topCandidates: hypos.slice(0, 10).map(h => ({
+                phrase: h.phrase,
+                method: h.method,
+                confidence: h.confidence,
+                phi: h.qigScore?.phi,
+                kappa: h.qigScore?.kappa,
+                regime: h.qigScore?.regime,
+                combinedScore: h.combinedScore,
+                address: h.address,
+                match: h.match,
+              })),
+            },
+          ])
+        ),
+      });
+    } catch (error: any) {
+      console.error("[Forensic] Hypothesis generation error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Mount Observer Archaeology System routes
   app.use("/api/observer", observerRoutes);
   

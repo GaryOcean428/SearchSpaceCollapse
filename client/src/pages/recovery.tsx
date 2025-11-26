@@ -14,6 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, Clock, Shield, Copy, Download, Plus, X, Hash, BarChart3, Brain } from "lucide-react";
 import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
 import { ConsciousnessDashboard } from "@/components/ConsciousnessDashboard";
+import { ForensicInvestigation } from "@/components/ForensicInvestigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, TargetAddress, SearchJob } from "@shared/schema";
@@ -461,7 +462,20 @@ export default function RecoveryPage() {
           </div>
         </Card>
 
-        <Accordion type="single" collapsible className="mb-8">
+        <Accordion type="multiple" defaultValue={["forensic"]} className="mb-8 space-y-4">
+          <AccordionItem value="forensic" className="border rounded-lg bg-card border-purple-500/30">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-purple-500" />
+                <span className="font-semibold">Forensic Investigation (Cross-Format)</span>
+                <Badge className="ml-2 bg-purple-600">NEW</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6">
+              <ForensicInvestigation />
+            </AccordionContent>
+          </AccordionItem>
+          
           <AccordionItem value="memory-search" className="border rounded-lg bg-card">
             <AccordionTrigger className="px-6 py-4 hover:no-underline">
               <div className="flex items-center gap-3">
