@@ -483,22 +483,22 @@ export class HistoricalDataMiner {
       }
     }
     
-    // Add pop culture patterns for early eras
-    if (era === 'genesis-2009' || era === '2010-2011') {
-      const popSource: PatternSource = { type: 'pop_culture', name: '2009 pop culture', confidence: 0.2 };
-      sources.push(popSource);
-      for (const p of POP_CULTURE_2009) {
-        const variations = generateVariations(p.phrase);
-        for (const v of variations) {
-          patterns.push({
-            phrase: v,
-            format: 'arbitrary',
-            source: popSource,
-            likelihood: p.likelihood,
-            reasoning: p.source,
-            era,
-          });
-        }
+    // Add era-specific patterns
+    const eraSource: PatternSource = { type: 'pop_culture', name: `${era} era culture`, confidence: 0.3 };
+    sources.push(eraSource);
+    
+    const eraPatterns = this.getEraPatternsForEra(era);
+    for (const p of eraPatterns) {
+      const variations = generateVariations(p.phrase);
+      for (const v of variations) {
+        patterns.push({
+          phrase: v,
+          format: 'arbitrary',
+          source: eraSource,
+          likelihood: p.likelihood,
+          reasoning: p.source,
+          era,
+        });
       }
     }
     
@@ -578,6 +578,53 @@ export class HistoricalDataMiner {
     }
     
     return crossFormat;
+  }
+  
+  /**
+   * Get era-specific patterns based on detected era
+   */
+  private getEraPatternsForEra(era: Era): Array<{ phrase: string; source: string; likelihood: number }> {
+    switch (era) {
+      case 'genesis-2009':
+        return [...POP_CULTURE_2009, ...CYPHERPUNK_PATTERNS.slice(0, 20)];
+      case '2010-2011':
+        return [...ERA_2010_2011, ...POP_CULTURE_2009];
+      case '2012-2013':
+        return ERA_2012_2013;
+      case '2014-2016':
+        return ERA_2014_2016;
+      case '2017-2019':
+        return ERA_2017_2019;
+      case '2020-2021':
+        return ERA_2020_2021;
+      case '2022-present':
+        return ERA_2022_PRESENT;
+      default:
+        return POP_CULTURE_2009;
+    }
+  }
+  
+  /**
+   * Detect era from a timestamp
+   */
+  static detectEraFromTimestamp(timestamp: Date): Era {
+    const year = timestamp.getFullYear();
+    const month = timestamp.getMonth();
+    
+    if (year === 2009) return 'genesis-2009';
+    if (year <= 2011) return '2010-2011';
+    if (year <= 2013) return '2012-2013';
+    if (year <= 2016) return '2014-2016';
+    if (year <= 2019) return '2017-2019';
+    if (year <= 2021) return '2020-2021';
+    return '2022-present';
+  }
+  
+  /**
+   * Get format weights for an era
+   */
+  static getFormatWeightsForEra(era: Era): Record<KeyFormat, number> {
+    return ERA_FORMAT_WEIGHTS[era];
   }
 }
 

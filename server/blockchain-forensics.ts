@@ -7,7 +7,10 @@
  * - Transaction pattern signatures
  * - Related addresses through co-spending analysis
  * - Temporal clusters (addresses created within time windows)
+ * - Era detection for strategy selection
  */
+
+import { HistoricalDataMiner, type Era, ERA_FORMAT_WEIGHTS, type KeyFormat } from './historical-data-miner';
 
 const BLOCKSTREAM_API = 'https://blockstream.info/api';
 
