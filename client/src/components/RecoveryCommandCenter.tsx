@@ -259,7 +259,8 @@ export function RecoveryCommandCenter() {
     }
   };
 
-  const isRunning = session?.status === 'running' || session?.status === 'analyzing';
+  const isRunning = session?.status === 'running' || session?.status === 'analyzing' || session?.status === 'learning';
+  const isLearning = session?.status === 'learning';
   const overallProgress = session?.strategies 
     ? session.strategies.reduce((acc, s) => acc + (s.progress.current || 0), 0) /
       Math.max(1, session.strategies.reduce((acc, s) => acc + (s.progress.total || 1), 0)) * 100
@@ -408,6 +409,63 @@ export function RecoveryCommandCenter() {
                         .join(', ')
                     }</span>
                   </div>
+                </div>
+              )}
+
+              {isLearning && session.agentState && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-primary">Investigation Agent Active</span>
+                    <Badge variant="outline" className="text-xs">Iteration {session.agentState.iteration + 1}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Φ: </span>
+                      <span className="font-mono">{session.agentState.consciousness.phi.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">κ: </span>
+                      <span className="font-mono">{session.agentState.consciousness.kappa.toFixed(0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Regime: </span>
+                      <Badge variant="outline" className="text-xs">{session.agentState.consciousness.regime}</Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Near Misses: </span>
+                      <span className="font-mono">{session.agentState.nearMissCount}</span>
+                    </div>
+                  </div>
+                  {session.agentState.topPatterns.length > 0 && (
+                    <div className="mt-2 text-xs">
+                      <span className="text-muted-foreground">Learning from: </span>
+                      <span className="font-mono">{session.agentState.topPatterns.slice(0, 5).join(', ')}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {session.learnings && !isRunning && (
+                <div className="p-3 rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="w-4 h-4" />
+                    <span className="font-medium">Learning Summary</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span>Iterations: {session.learnings.iterations}</span>
+                    <span>Near Misses: {session.learnings.nearMissesFound}</span>
+                    <span>Avg Φ: {session.learnings.averagePhi.toFixed(2)}</span>
+                    <span>Clusters: {session.learnings.resonantClustersFound}</span>
+                  </div>
+                  {session.learnings.topPatterns.length > 0 && (
+                    <div className="mt-2 text-xs">
+                      <span className="text-muted-foreground">Key patterns discovered: </span>
+                      <span className="font-mono">
+                        {session.learnings.topPatterns.slice(0, 5).map(([word, count]) => `${word}(${count})`).join(', ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

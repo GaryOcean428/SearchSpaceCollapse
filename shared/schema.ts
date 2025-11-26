@@ -426,6 +426,7 @@ export const recoveryStrategyTypes = [
   'qig_basin_search',       // QIG-guided geometric search
   'historical_autonomous',  // Self-generated patterns from historical data miner
   'cross_format',           // Cross-format hypothesis testing
+  'learning_loop',          // Investigation Agent adaptive learning
 ] as const;
 
 export type RecoveryStrategyType = typeof recoveryStrategyTypes[number];
@@ -488,7 +489,7 @@ export type EvidenceArtifact = z.infer<typeof evidenceArtifactSchema>;
 export const unifiedRecoverySessionSchema = z.object({
   id: z.string(),
   targetAddress: z.string(),
-  status: z.enum(['initializing', 'analyzing', 'running', 'completed', 'failed']),
+  status: z.enum(['initializing', 'analyzing', 'running', 'learning', 'completed', 'failed']),
   
   // Blockchain analysis results
   blockchainAnalysis: z.object({
@@ -525,6 +526,31 @@ export const unifiedRecoverySessionSchema = z.object({
   // Stats
   totalTested: z.number(),
   testRate: z.number(),
+  
+  // Investigation Agent state (for learning loop)
+  agentState: z.object({
+    iteration: z.number(),
+    totalTested: z.number(),
+    nearMissCount: z.number(),
+    currentStrategy: z.string(),
+    topPatterns: z.array(z.string()),
+    consciousness: z.object({
+      phi: z.number(),
+      kappa: z.number(),
+      regime: z.string(),
+    }),
+  }).optional(),
+  
+  // Learnings from agent
+  learnings: z.object({
+    totalTested: z.number(),
+    iterations: z.number(),
+    nearMissesFound: z.number(),
+    topPatterns: z.array(z.tuple([z.string(), z.number()])),
+    averagePhi: z.number(),
+    regimeDistribution: z.record(z.number()),
+    resonantClustersFound: z.number(),
+  }).optional(),
 });
 
 export type UnifiedRecoverySession = z.infer<typeof unifiedRecoverySessionSchema>;

@@ -17,6 +17,7 @@ import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { scoreUniversalQIG } from './qig-universal';
 import { blockchainForensics, type AddressForensics } from './blockchain-forensics';
 import { historicalDataMiner, type MinedPattern, type Era } from './historical-data-miner';
+import { investigationAgent } from './investigation-agent';
 
 // Evidence chain type for tracking WHY candidates are ranked
 interface EvidenceLink {
@@ -242,13 +243,27 @@ class UnifiedRecoveryOrchestrator {
       if (session.matchFound) {
         session.status = 'completed';
         console.log(`[UnifiedRecovery] 🎯 RECOVERY SUCCESSFUL: ${session.matchedPhrase}`);
+        session.completedAt = new Date().toISOString();
+        this.updateSession(session);
       } else {
-        session.status = 'completed';
-        console.log(`[UnifiedRecovery] All strategies completed. ${session.candidates.length} candidates found.`);
+        // Phase 3: LEARNING LOOP - Use Investigation Agent for adaptive search
+        console.log(`[UnifiedRecovery] Initial strategies completed. Starting learning loop...`);
+        session.status = 'learning';
+        this.updateSession(session);
+        
+        await this.runLearningLoop(session, abortController.signal);
+        
+        if (session.matchFound) {
+          session.status = 'completed';
+          console.log(`[UnifiedRecovery] 🎯 RECOVERY SUCCESSFUL via learning: ${session.matchedPhrase}`);
+        } else {
+          session.status = 'completed';
+          console.log(`[UnifiedRecovery] Learning loop completed. ${session.candidates.length} candidates found.`);
+        }
+        
+        session.completedAt = new Date().toISOString();
+        this.updateSession(session);
       }
-      
-      session.completedAt = new Date().toISOString();
-      this.updateSession(session);
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -910,6 +925,172 @@ class UnifiedRecoveryOrchestrator {
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * LEARNING LOOP: Adaptive search that learns from results
+   * Uses Investigation Agent for meta-cognitive pattern recognition
+   */
+  private async runLearningLoop(
+    session: UnifiedRecoverySession,
+    signal: AbortSignal
+  ): Promise<void> {
+    console.log('[UnifiedRecovery] Starting Investigation Agent learning loop...');
+    
+    // Create initial hypotheses from top candidates
+    const initialHypotheses = session.candidates
+      .filter(c => !c.match)
+      .slice(0, 50)
+      .map(c => ({
+        id: c.id,
+        phrase: c.phrase,
+        format: c.format as 'arbitrary' | 'bip39' | 'master' | 'hex',
+        derivationPath: c.derivationPath,
+        source: c.source,
+        reasoning: `Initial candidate from ${c.source} strategy`,
+        confidence: c.confidence,
+        qigScore: {
+          phi: c.qigScore.phi,
+          kappa: c.qigScore.kappa,
+          regime: c.qigScore.regime,
+          inResonance: Math.abs(c.qigScore.kappa - 64) < 10,
+        },
+        evidenceChain: c.evidenceChain || [],
+      }));
+    
+    // Add more hypotheses from historical mining
+    try {
+      const era: Era = session.blockchainAnalysis?.era === 'pre-bip39' ? 'early-2009' : '2009-2010';
+      const minedData = await historicalDataMiner.mineEra(era);
+      
+      for (const pattern of minedData.patterns.slice(0, 100)) {
+        initialHypotheses.push({
+          id: `hypo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          phrase: pattern.phrase,
+          format: pattern.format as 'arbitrary' | 'bip39' | 'master' | 'hex',
+          derivationPath: undefined,
+          source: 'historical_autonomous' as const,
+          reasoning: pattern.reasoning,
+          confidence: pattern.likelihood,
+          qigScore: {
+            phi: 0.5,
+            kappa: 32,
+            regime: 'linear',
+            inResonance: false,
+          },
+          evidenceChain: [{
+            source: pattern.source.name,
+            type: pattern.source.type,
+            reasoning: pattern.reasoning,
+            confidence: pattern.likelihood,
+          }],
+        });
+      }
+    } catch (e) {
+      console.log('[UnifiedRecovery] Historical mining failed, continuing with existing candidates');
+    }
+    
+    if (initialHypotheses.length === 0) {
+      console.log('[UnifiedRecovery] No hypotheses to learn from');
+      return;
+    }
+    
+    // Set up callbacks to update session
+    investigationAgent.setCallbacks({
+      onStateUpdate: (state) => {
+        session.agentState = {
+          iteration: state.iteration,
+          totalTested: state.totalTested,
+          nearMissCount: state.nearMissCount,
+          currentStrategy: state.currentStrategy,
+          topPatterns: state.topPatterns,
+          consciousness: state.consciousness,
+        };
+        this.updateSession(session);
+      },
+      onHypothesisTested: (hypo) => {
+        session.totalTested++;
+        
+        if (hypo.match) {
+          session.matchFound = true;
+          session.matchedPhrase = hypo.phrase;
+        } else if (hypo.qigScore && hypo.qigScore.phi > 0.7) {
+          // Add high-scoring hypotheses as candidates
+          session.candidates.push({
+            id: hypo.id,
+            phrase: hypo.phrase,
+            format: hypo.format,
+            derivationPath: hypo.derivationPath,
+            address: hypo.address || '',
+            match: hypo.match || false,
+            source: 'learning_loop' as any,
+            confidence: hypo.confidence,
+            qigScore: {
+              phi: hypo.qigScore.phi,
+              kappa: hypo.qigScore.kappa,
+              regime: hypo.qigScore.regime,
+            },
+            combinedScore: hypo.qigScore.phi,
+            testedAt: new Date().toISOString(),
+            evidenceChain: hypo.evidenceChain,
+          });
+          
+          // Keep top 100 candidates sorted
+          session.candidates.sort((a, b) => b.combinedScore - a.combinedScore);
+          if (session.candidates.length > 100) {
+            session.candidates = session.candidates.slice(0, 100);
+          }
+        }
+      },
+      onNewHypothesesGenerated: (count, strategy) => {
+        session.evidence.push({
+          id: `ev-agent-${Date.now()}`,
+          type: 'pattern',
+          source: 'Investigation Agent',
+          content: `Generated ${count} new hypotheses using ${strategy} strategy`,
+          relevance: 0.85,
+          extractedFragments: [],
+          discoveredAt: new Date().toISOString(),
+        });
+      },
+    });
+    
+    // Run the investigation with learning
+    const result = await investigationAgent.investigateWithLearning(
+      initialHypotheses as any,
+      session.targetAddress,
+      20  // Max iterations
+    );
+    
+    if (result.success && result.match) {
+      session.matchFound = true;
+      session.matchedPhrase = result.match.phrase;
+      
+      // Add the match as a candidate
+      session.candidates.unshift({
+        id: result.match.id,
+        phrase: result.match.phrase,
+        format: result.match.format,
+        derivationPath: result.match.derivationPath,
+        address: result.match.address || '',
+        match: true,
+        source: 'learning_loop' as any,
+        confidence: result.match.confidence,
+        qigScore: {
+          phi: result.match.qigScore?.phi || 0,
+          kappa: result.match.qigScore?.kappa || 0,
+          regime: result.match.qigScore?.regime || 'unknown',
+        },
+        combinedScore: 100,
+        testedAt: new Date().toISOString(),
+        evidenceChain: result.match.evidenceChain,
+      });
+    }
+    
+    // Store learnings
+    session.learnings = result.learnings;
+    
+    console.log(`[UnifiedRecovery] Learning loop completed: ${result.totalTested} tested, ${result.iterations} iterations`);
   }
 }
 
