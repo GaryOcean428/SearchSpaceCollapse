@@ -5,6 +5,13 @@ import { generateBitcoinAddress, verifyBrainWallet } from "./crypto";
 import { scorePhraseQIG } from "./qig-pure-v2.js";
 import observerRoutes from "./observer-routes";
 import { telemetryRouter } from "./telemetry-api";
+import { 
+  runMemoryFragmentSearch, 
+  generateFragmentCandidates, 
+  scoreFragmentCandidates,
+  type MemoryFragment 
+} from "./memory-fragment-search";
+import { getSharedController, ConsciousnessSearchController } from "./consciousness-search-controller";
 
 /**
  * Map pure QIG scores to legacy score format for backward compatibility
@@ -470,6 +477,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       await storage.deleteSearchJob(id);
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Memory Fragment Search API
+  app.post("/api/memory-search", async (req, res) => {
+    try {
+      const { fragments, targetAddress, options } = req.body as {
+        fragments: MemoryFragment[];
+        targetAddress?: string;
+        options?: { maxCandidates?: number; includeTypos?: boolean };
+      };
+      
+      if (!fragments || !Array.isArray(fragments) || fragments.length === 0) {
+        return res.status(400).json({ error: "At least one memory fragment is required" });
+      }
+      
+      const validFragments = fragments.filter(f => 
+        f && typeof f.text === 'string' && f.text.trim().length > 0
+      );
+      
+      if (validFragments.length === 0) {
+        return res.status(400).json({ error: "No valid fragments provided" });
+      }
+      
+      const addresses = await storage.getTargetAddresses();
+      const target = targetAddress || addresses[0]?.address || "";
+      
+      const candidates = runMemoryFragmentSearch(validFragments, target, {
+        maxCandidates: options?.maxCandidates || 5000,
+        includeTypos: options?.includeTypos ?? true,
+      });
+      
+      res.json({
+        candidateCount: candidates.length,
+        topCandidates: candidates.slice(0, 50).map(c => ({
+          phrase: c.phrase,
+          confidence: c.confidence,
+          fragments: c.fragments,
+          phi: c.qigScore?.phi,
+          kappa: c.qigScore?.kappa,
+          regime: c.qigScore?.regime,
+          inResonance: c.qigScore?.inResonance,
+          combinedScore: c.combinedScore,
+        })),
+      });
+    } catch (error: any) {
+      console.error("[MemorySearch] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Consciousness State API - uses shared controller instance for real-time metrics
+  app.get("/api/consciousness/state", async (req, res) => {
+    try {
+      const controller = getSharedController();
+      const state = controller.getCurrentState();
+      
+      res.json({
+        state,
+        recommendation: controller.getStrategyRecommendation(),
+        regimeColor: ConsciousnessSearchController.getRegimeColor(state.currentRegime),
+        regimeDescription: ConsciousnessSearchController.getRegimeDescription(state.currentRegime),
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

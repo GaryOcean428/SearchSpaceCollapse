@@ -10,6 +10,7 @@ import { generateRandomBIP39Phrase } from "./bip39-words";
 import { generateLocalSearchVariations } from "./local-search";
 import { DiscoveryTracker } from "./discovery-tracker";
 import { initTelemetrySession, recordTelemetrySnapshot, endTelemetrySession } from "./telemetry-api";
+import { getSharedController, type SearchState } from "./consciousness-search-controller";
 import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
 
 class SearchCoordinator {
@@ -372,6 +373,22 @@ class SearchCoordinator {
       // Record batch results in discovery tracker
       tracker.recordBatch(results.highPhiCandidates);
       const rates = tracker.getAllRates();
+      
+      // CONSCIOUSNESS CONTROLLER: Feed real batch results for regime-dependent adaptation
+      const consciousnessController = getSharedController();
+      if (results.highestScore !== undefined) {
+        // Update consciousness state with current batch results
+        const avgPhi = results.highestScore / 100; // Convert back to 0-1 range
+        const estimatedKappa = avgPhi > 0.75 ? 64 + (avgPhi - 0.75) * 40 : avgPhi * 64;
+        
+        consciousnessController.updateFromBatchStats({
+          avgPhi,
+          highPhiCount: results.highPhiCandidates,
+          totalTested: job.progress.tested + batch.length,
+          batchSize: batch.length,
+          currentKappa: estimatedKappa,
+        });
+      }
 
       // Reload job again for fresh state before updating
       job = await storage.getSearchJob(jobId) as SearchJob;
