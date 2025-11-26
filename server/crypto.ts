@@ -105,6 +105,153 @@ export function verifyBrainWallet(): { success: boolean; testAddress?: string; e
 }
 
 /**
+ * Full verification of a recovered passphrase against a target address
+ * This performs multiple checks to confirm the passphrase actually works:
+ * 1. Derives the private key from the passphrase
+ * 2. Generates the Bitcoin address and confirms it matches the target
+ * 3. Signs a test message to prove the key is cryptographically valid
+ * 4. Verifies the signature is valid
+ * 
+ * Returns detailed verification results for display to the user
+ */
+export interface VerificationResult {
+  verified: boolean;
+  passphrase: string;
+  targetAddress: string;
+  generatedAddress: string;
+  addressMatch: boolean;
+  privateKeyHex: string;
+  publicKeyHex: string;
+  signatureValid: boolean;
+  testMessage: string;
+  signature: string;
+  error?: string;
+  verificationSteps: {
+    step: string;
+    passed: boolean;
+    detail: string;
+  }[];
+}
+
+export function verifyRecoveredPassphrase(
+  passphrase: string,
+  targetAddress: string,
+  format: 'arbitrary' | 'bip39' | 'master' = 'arbitrary',
+  derivationPath?: string
+): VerificationResult {
+  const steps: VerificationResult['verificationSteps'] = [];
+  const result: VerificationResult = {
+    verified: false,
+    passphrase,
+    targetAddress,
+    generatedAddress: '',
+    addressMatch: false,
+    privateKeyHex: '',
+    publicKeyHex: '',
+    signatureValid: false,
+    testMessage: `Verification test: ${Date.now()}`,
+    signature: '',
+    verificationSteps: steps,
+  };
+
+  try {
+    // Step 1: Derive private key
+    let privateKeyHex: string;
+    let generatedAddress: string;
+    
+    if (format === 'master' && derivationPath) {
+      const seedBuffer = createHash("sha512").update(passphrase, "utf8").digest();
+      const masterKey = createHmac('sha512', 'Bitcoin seed').update(seedBuffer).digest();
+      privateKeyHex = masterKey.slice(0, 32).toString('hex');
+      generatedAddress = deriveBIP32Address(passphrase, derivationPath);
+    } else {
+      privateKeyHex = derivePrivateKeyFromPassphrase(passphrase);
+      generatedAddress = generateBitcoinAddress(passphrase);
+    }
+    
+    result.privateKeyHex = privateKeyHex;
+    result.generatedAddress = generatedAddress;
+    
+    steps.push({
+      step: 'Derive Private Key',
+      passed: true,
+      detail: `SHA-256 hash of passphrase → ${privateKeyHex.slice(0, 16)}...`,
+    });
+
+    // Step 2: Generate public key
+    const keyPair = ec.keyFromPrivate(Buffer.from(privateKeyHex, 'hex'));
+    const publicKeyHex = keyPair.getPublic('hex');
+    result.publicKeyHex = publicKeyHex;
+    
+    steps.push({
+      step: 'Generate Public Key',
+      passed: true,
+      detail: `secp256k1 → ${publicKeyHex.slice(0, 20)}...`,
+    });
+
+    // Step 3: Check address match
+    const addressMatch = generatedAddress === targetAddress;
+    result.addressMatch = addressMatch;
+    
+    steps.push({
+      step: 'Address Match',
+      passed: addressMatch,
+      detail: addressMatch 
+        ? `${generatedAddress} = ${targetAddress}` 
+        : `MISMATCH: ${generatedAddress} ≠ ${targetAddress}`,
+    });
+
+    if (!addressMatch) {
+      result.error = 'Generated address does not match target address';
+      return result;
+    }
+
+    // Step 4: Sign test message
+    const messageHash = createHash('sha256').update(result.testMessage).digest();
+    const signature = keyPair.sign(messageHash);
+    const signatureHex = signature.toDER('hex');
+    result.signature = signatureHex;
+    
+    steps.push({
+      step: 'Sign Test Message',
+      passed: true,
+      detail: `Signed "${result.testMessage.slice(0, 30)}..." → ${signatureHex.slice(0, 20)}...`,
+    });
+
+    // Step 5: Verify signature
+    const isValid = keyPair.verify(messageHash, signature);
+    result.signatureValid = isValid;
+    
+    steps.push({
+      step: 'Verify Signature',
+      passed: isValid,
+      detail: isValid ? 'Signature verified - private key is cryptographically valid!' : 'Signature verification FAILED',
+    });
+
+    result.verified = addressMatch && isValid;
+    
+    if (result.verified) {
+      steps.push({
+        step: 'FULL VERIFICATION',
+        passed: true,
+        detail: '✓ This passphrase correctly controls the target Bitcoin address!',
+      });
+    }
+
+    return result;
+    
+  } catch (error: any) {
+    result.error = error.message;
+    steps.push({
+      step: 'Error',
+      passed: false,
+      detail: error.message,
+    });
+    return result;
+  }
+}
+
+/**
  * Derive Bitcoin address from a seed phrase using BIP32/BIP44 derivation
  * For HD wallet recovery - uses HMAC-SHA512 for key derivation
  * 

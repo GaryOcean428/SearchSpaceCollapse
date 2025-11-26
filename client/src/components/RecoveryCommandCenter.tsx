@@ -135,7 +135,7 @@ function StrategyCard({ strategy }: { strategy: StrategyRun }) {
 
 function CandidateCard({ candidate, rank }: { candidate: RecoveryCandidate; rank: number }) {
   const { toast } = useToast();
-  const [showEvidence, setShowEvidence] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -143,87 +143,160 @@ function CandidateCard({ candidate, rank }: { candidate: RecoveryCandidate; rank
   };
 
   const hasEvidence = candidate.evidenceChain && candidate.evidenceChain.length > 0;
+  const isVerified = candidate.verified === true;
+  const isFalsePositive = candidate.falsePositive === true;
+
+  const getStatusColor = () => {
+    if (isVerified) return 'border-green-500 bg-green-500/10';
+    if (isFalsePositive) return 'border-red-500/50 bg-red-500/5';
+    if (candidate.qigScore.phi > 0.8) return 'border-amber-500/50 bg-amber-500/5';
+    return '';
+  };
+
+  const getStatusBadge = () => {
+    if (isVerified) return <Badge className="bg-green-500 text-xs gap-1"><CheckCircle2 className="w-3 h-3" /> VERIFIED</Badge>;
+    if (isFalsePositive) return <Badge variant="destructive" className="text-xs gap-1"><AlertCircle className="w-3 h-3" /> False Positive</Badge>;
+    if (candidate.qigScore.phi > 0.8) return <Badge className="bg-amber-500 text-xs">Near Miss</Badge>;
+    return <Badge variant="secondary" className="text-xs">Tested</Badge>;
+  };
+
+  const getFormatLabel = () => {
+    switch (candidate.format) {
+      case 'arbitrary': return 'Brain Wallet';
+      case 'bip39': return 'BIP-39 Seed';
+      case 'master': return 'HD Wallet';
+      case 'hex': return 'Hex Key';
+      default: return candidate.format;
+    }
+  };
 
   return (
-    <Card className={candidate.match ? 'border-green-500 bg-green-500/10' : ''}>
+    <Card className={getStatusColor()}>
       <CardContent className="p-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="text-xs">#{rank}</Badge>
-              <Badge variant={candidate.match ? 'default' : 'secondary'} className="text-xs">
-                {candidate.format}
-              </Badge>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <Badge variant="outline" className="text-xs font-bold">#{rank}</Badge>
+              {getStatusBadge()}
               <Badge variant="outline" className="text-xs">
+                {getFormatLabel()}
+              </Badge>
+              <Badge variant="outline" className="text-xs text-muted-foreground">
                 {STRATEGY_LABELS[candidate.source]?.label || candidate.source}
               </Badge>
-              {candidate.match && (
-                <Badge className="bg-green-500 text-xs">MATCH!</Badge>
-              )}
-              {hasEvidence && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1 text-xs"
-                  onClick={() => setShowEvidence(!showEvidence)}
-                  data-testid={`button-show-evidence-${rank}`}
-                >
-                  <Info className="w-3 h-3 mr-1" />
-                  Why?
-                </Button>
-              )}
             </div>
-            <div 
-              className="font-mono text-sm mt-1 truncate cursor-pointer hover:text-primary"
-              onClick={() => copyToClipboard(candidate.phrase)}
-              data-testid={`text-candidate-phrase-${rank}`}
-            >
-              "{candidate.phrase}"
-            </div>
-            <div className="text-xs text-muted-foreground mt-1 font-mono truncate">
-              {candidate.address}
-            </div>
-            {candidate.derivationPath && (
-              <div className="text-xs text-muted-foreground">
-                Path: {candidate.derivationPath}
-              </div>
-            )}
             
-            {showEvidence && hasEvidence && (
-              <div className="mt-2 p-2 bg-muted/50 rounded text-xs space-y-1">
-                <div className="font-medium text-muted-foreground">Evidence Chain:</div>
-                {candidate.evidenceChain!.map((ev, i) => (
-                  <div key={i} className="flex items-start gap-1">
-                    <span className="text-primary">→</span>
-                    <div>
-                      <span className="font-medium">{ev.source}</span>
-                      <span className="text-muted-foreground"> ({ev.type})</span>
-                      <div className="text-muted-foreground">{ev.reasoning}</div>
-                      <Badge variant="outline" className="text-xs mt-0.5">
-                        {(ev.confidence * 100).toFixed(0)}% confidence
-                      </Badge>
+            <div className="space-y-1.5">
+              <div className="text-sm font-medium text-foreground">Passphrase Found:</div>
+              <div 
+                className="font-mono text-base p-2 bg-background rounded border cursor-pointer hover:border-primary transition-colors"
+                onClick={() => copyToClipboard(candidate.phrase)}
+                data-testid={`text-candidate-phrase-${rank}`}
+              >
+                "{candidate.phrase}"
+              </div>
+              <div className="text-xs text-muted-foreground">Click to copy</div>
+            </div>
+            
+            <div className="mt-3 space-y-1">
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <span className="font-medium">Generated Address:</span>
+                <span className="font-mono">{candidate.address}</span>
+              </div>
+              {candidate.derivationPath && (
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-medium">Derivation Path:</span> {candidate.derivationPath}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => setShowDetails(!showDetails)}
+                data-testid={`button-show-details-${rank}`}
+              >
+                <Info className="w-3 h-3 mr-1" />
+                {showDetails ? 'Hide Details' : 'Show Details'}
+              </Button>
+            </div>
+            
+            {showDetails && (
+              <div className="mt-3 space-y-3">
+                <div className="p-2 bg-muted/50 rounded text-xs space-y-2">
+                  <div className="font-medium">QIG Analysis:</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-1.5 bg-background rounded text-center">
+                      <div className="text-muted-foreground text-[10px]">Phi (Φ)</div>
+                      <div className={`font-bold ${candidate.qigScore.phi > 0.8 ? 'text-green-500' : candidate.qigScore.phi > 0.6 ? 'text-amber-500' : ''}`}>
+                        {candidate.qigScore.phi.toFixed(3)}
+                      </div>
+                    </div>
+                    <div className="p-1.5 bg-background rounded text-center">
+                      <div className="text-muted-foreground text-[10px]">Kappa (κ)</div>
+                      <div className="font-bold">{candidate.qigScore.kappa.toFixed(1)}</div>
+                    </div>
+                    <div className="p-1.5 bg-background rounded text-center">
+                      <div className="text-muted-foreground text-[10px]">Regime</div>
+                      <div className="font-bold">{candidate.qigScore.regime}</div>
                     </div>
                   </div>
-                ))}
+                </div>
+
+                {candidate.verificationResult && (
+                  <div className="p-2 bg-muted/50 rounded text-xs space-y-2">
+                    <div className="font-medium flex items-center gap-2">
+                      Verification Steps:
+                      {candidate.verificationResult.verified ? 
+                        <CheckCircle2 className="w-3 h-3 text-green-500" /> : 
+                        <AlertCircle className="w-3 h-3 text-red-500" />
+                      }
+                    </div>
+                    {candidate.verificationResult.verificationSteps.map((step, i) => (
+                      <div key={i} className="flex items-start gap-2 pl-2 border-l-2 border-muted">
+                        <span className={step.passed ? 'text-green-500' : 'text-red-500'}>
+                          {step.passed ? '✓' : '✗'}
+                        </span>
+                        <div>
+                          <span className="font-medium">{step.step}:</span>
+                          <span className="text-muted-foreground ml-1">{step.detail}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {candidate.verificationResult.error && (
+                      <div className="text-red-500 mt-1">Error: {candidate.verificationResult.error}</div>
+                    )}
+                  </div>
+                )}
+                
+                {hasEvidence && (
+                  <div className="p-2 bg-muted/50 rounded text-xs space-y-2">
+                    <div className="font-medium">Why This Candidate:</div>
+                    {candidate.evidenceChain!.map((ev, i) => (
+                      <div key={i} className="flex items-start gap-2 pl-2 border-l-2 border-primary/30">
+                        <div>
+                          <span className="font-medium">{ev.source}</span>
+                          <span className="text-muted-foreground"> ({ev.type})</span>
+                          <div className="text-muted-foreground mt-0.5">{ev.reasoning}</div>
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {(ev.confidence * 100).toFixed(0)}% confidence
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-          <div className="text-right flex-shrink-0">
-            <div className="text-xs">
-              <span className="text-muted-foreground">Score: </span>
-              <span className="font-medium">{candidate.combinedScore.toFixed(2)}</span>
+          
+          <div className="text-right flex-shrink-0 space-y-1">
+            <div className="text-lg font-bold">
+              {(candidate.combinedScore * 100).toFixed(0)}%
             </div>
-            <div className="text-xs">
-              <span className="text-muted-foreground">Φ: </span>
-              <span>{candidate.qigScore.phi.toFixed(2)}</span>
-            </div>
-            <div className="text-xs">
-              <span className="text-muted-foreground">κ: </span>
-              <span>{candidate.qigScore.kappa.toFixed(1)}</span>
-            </div>
-            <Badge variant="outline" className="text-xs mt-1">
-              {candidate.qigScore.regime}
-            </Badge>
+            <div className="text-xs text-muted-foreground">Score</div>
           </div>
         </div>
       </CardContent>

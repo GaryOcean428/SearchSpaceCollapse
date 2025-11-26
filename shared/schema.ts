@@ -455,6 +455,8 @@ export const recoveryCandidateSchema = z.object({
   derivationPath: z.string().optional(),
   address: z.string(),
   match: z.boolean(),
+  verified: z.boolean().optional(),
+  falsePositive: z.boolean().optional(),
   source: z.enum(recoveryStrategyTypes),
   confidence: z.number(),
   qigScore: z.object({
@@ -470,6 +472,24 @@ export const recoveryCandidateSchema = z.object({
     reasoning: z.string(),
     confidence: z.number(),
   })).optional(),
+  verificationResult: z.object({
+    verified: z.boolean(),
+    passphrase: z.string(),
+    targetAddress: z.string(),
+    generatedAddress: z.string(),
+    addressMatch: z.boolean(),
+    privateKeyHex: z.string(),
+    publicKeyHex: z.string(),
+    signatureValid: z.boolean(),
+    testMessage: z.string(),
+    signature: z.string(),
+    error: z.string().optional(),
+    verificationSteps: z.array(z.object({
+      step: z.string(),
+      passed: z.boolean(),
+      detail: z.string(),
+    })),
+  }).optional(),
 });
 
 export type RecoveryCandidate = z.infer<typeof recoveryCandidateSchema>;
