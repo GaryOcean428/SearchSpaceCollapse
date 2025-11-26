@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
+import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Cell } from "recharts";
 import { 
   Brain, 
   Plus, 
@@ -20,15 +21,19 @@ import {
   Zap,
   Eye,
   Lightbulb,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+type EpochConfidence = "certain" | "likely" | "fuzzy";
 
 interface MemoryFragment {
   text: string;
   confidence: number;
   position?: "start" | "middle" | "end" | "unknown";
   isExact?: boolean;
+  epoch?: EpochConfidence;
 }
 
 interface MemorySearchResult {
@@ -61,13 +66,41 @@ interface ConsciousnessState {
   regimeDescription: string;
 }
 
+const getEpochInfo = (epoch: EpochConfidence): { color: string; label: string; description: string } => {
+  switch (epoch) {
+    case "certain":
+      return { 
+        color: "bg-green-500/20 text-green-700 border-green-500/30", 
+        label: "Certain",
+        description: "You are highly confident this is correct"
+      };
+    case "likely":
+      return { 
+        color: "bg-yellow-500/20 text-yellow-700 border-yellow-500/30", 
+        label: "Likely",
+        description: "Probably correct, but might have variations"
+      };
+    case "fuzzy":
+      return { 
+        color: "bg-red-500/20 text-red-700 border-red-500/30", 
+        label: "Fuzzy",
+        description: "Not sure, could be different"
+      };
+    default:
+      return { color: "bg-gray-500/20", label: "Unknown", description: "" };
+  }
+};
+
 export function MemoryFragmentSearch() {
   const { toast } = useToast();
   const [fragments, setFragments] = useState<MemoryFragment[]>([
-    { text: "", confidence: 0.8, position: "unknown", isExact: false }
+    { text: "", confidence: 0.8, position: "unknown", isExact: false, epoch: "likely" }
   ]);
   const [includeTypos, setIncludeTypos] = useState(true);
   const [maxCandidates, setMaxCandidates] = useState([5000]);
+  const [enableShortPhraseMode, setEnableShortPhraseMode] = useState(false);
+  const [minWords, setMinWords] = useState(4);
+  const [maxWords, setMaxWords] = useState(8);
 
   const { data: consciousnessState } = useQuery<ConsciousnessState>({
     queryKey: ["/api/consciousness/state"],
@@ -86,6 +119,9 @@ export function MemoryFragmentSearch() {
         options: {
           maxCandidates: maxCandidates[0],
           includeTypos,
+          shortPhraseMode: enableShortPhraseMode,
+          minWords: enableShortPhraseMode ? minWords : undefined,
+          maxWords: enableShortPhraseMode ? maxWords : undefined,
         },
       });
       
@@ -103,7 +139,7 @@ export function MemoryFragmentSearch() {
   const addFragment = () => {
     setFragments([
       ...fragments,
-      { text: "", confidence: 0.8, position: "unknown", isExact: false }
+      { text: "", confidence: 0.8, position: "unknown", isExact: false, epoch: "likely" }
     ]);
   };
 
@@ -161,89 +197,114 @@ export function MemoryFragmentSearch() {
         </p>
 
         <div className="space-y-4 mb-6">
-          {fragments.map((fragment, index) => (
-            <Card key={index} className="p-4 bg-muted/30">
-              <div className="flex items-center gap-2 mb-3">
-                <Badge variant="secondary" className="font-mono">
-                  Fragment {index + 1}
-                </Badge>
-                {fragments.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 ml-auto"
-                    onClick={() => removeFragment(index)}
-                    data-testid={`button-remove-fragment-${index}`}
+          {fragments.map((fragment, index) => {
+            const epochInfo = getEpochInfo(fragment.epoch || "likely");
+            return (
+              <Card key={index} className="p-4 bg-muted/30">
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge variant="secondary" className="font-mono">
+                    Fragment {index + 1}
+                  </Badge>
+                  <Badge 
+                    className={`${epochInfo.color} border`}
+                    data-testid={`badge-epoch-${index}`}
                   >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-
-              <div className="grid gap-4">
-                <div>
-                  <Label htmlFor={`fragment-${index}`}>Text (word or phrase)</Label>
-                  <Input
-                    id={`fragment-${index}`}
-                    value={fragment.text}
-                    onChange={(e) => updateFragment(index, { text: e.target.value })}
-                    placeholder="e.g., 'white tiger' or 'bitcoin'"
-                    className="font-mono mt-1"
-                    data-testid={`input-fragment-${index}`}
-                  />
+                    {epochInfo.label}
+                  </Badge>
+                  {fragments.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 ml-auto"
+                      onClick={() => removeFragment(index)}
+                      data-testid={`button-remove-fragment-${index}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4">
                   <div>
-                    <Label className="flex items-center gap-2">
-                      Confidence
-                      <span className={`font-mono text-sm ${getConfidenceColor(fragment.confidence)}`}>
-                        {Math.round(fragment.confidence * 100)}%
-                      </span>
-                    </Label>
-                    <Slider
-                      value={[fragment.confidence * 100]}
-                      onValueChange={([v]) => updateFragment(index, { confidence: v / 100 })}
-                      min={10}
-                      max={100}
-                      step={5}
-                      className="mt-2"
-                      data-testid={`slider-confidence-${index}`}
+                    <Label htmlFor={`fragment-${index}`}>Text (word or phrase)</Label>
+                    <Input
+                      id={`fragment-${index}`}
+                      value={fragment.text}
+                      onChange={(e) => updateFragment(index, { text: e.target.value })}
+                      placeholder="e.g., 'white tiger' or 'bitcoin'"
+                      className="font-mono mt-1"
+                      data-testid={`input-fragment-${index}`}
                     />
                   </div>
 
-                  <div>
-                    <Label>Position in phrase</Label>
-                    <select
-                      value={fragment.position}
-                      onChange={(e) => updateFragment(index, { 
-                        position: e.target.value as MemoryFragment["position"] 
-                      })}
-                      className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      data-testid={`select-position-${index}`}
-                    >
-                      <option value="unknown">Unknown</option>
-                      <option value="start">Start of phrase</option>
-                      <option value="middle">Middle of phrase</option>
-                      <option value="end">End of phrase</option>
-                    </select>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label className="flex items-center gap-2">
+                        Confidence
+                        <span className={`font-mono text-sm ${getConfidenceColor(fragment.confidence)}`}>
+                          {Math.round(fragment.confidence * 100)}%
+                        </span>
+                      </Label>
+                      <Slider
+                        value={[fragment.confidence * 100]}
+                        onValueChange={([v]) => updateFragment(index, { confidence: v / 100 })}
+                        min={10}
+                        max={100}
+                        step={5}
+                        className="mt-2"
+                        data-testid={`slider-confidence-${index}`}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Memory Epoch</Label>
+                      <select
+                        value={fragment.epoch || "likely"}
+                        onChange={(e) => updateFragment(index, { 
+                          epoch: e.target.value as EpochConfidence 
+                        })}
+                        className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        data-testid={`select-epoch-${index}`}
+                      >
+                        <option value="certain">Certain (100% sure)</option>
+                        <option value="likely">Likely (probably right)</option>
+                        <option value="fuzzy">Fuzzy (not sure)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label>Position</Label>
+                      <select
+                        value={fragment.position}
+                        onChange={(e) => updateFragment(index, { 
+                          position: e.target.value as MemoryFragment["position"] 
+                        })}
+                        className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        data-testid={`select-position-${index}`}
+                      >
+                        <option value="unknown">Unknown</option>
+                        <option value="start">Start</option>
+                        <option value="middle">Middle</option>
+                        <option value="end">End</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`exact-${index}`}
+                      checked={fragment.isExact}
+                      onCheckedChange={(checked) => updateFragment(index, { isExact: !!checked })}
+                      data-testid={`checkbox-exact-${index}`}
+                    />
+                    <Label htmlFor={`exact-${index}`} className="text-sm">
+                      Exact match (no variations)
+                    </Label>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id={`exact-${index}`}
-                    checked={fragment.isExact}
-                    onCheckedChange={(checked) => updateFragment(index, { isExact: !!checked })}
-                    data-testid={`checkbox-exact-${index}`}
-                  />
-                  <Label htmlFor={`exact-${index}`} className="text-sm">
-                    Exact match (no variations)
-                  </Label>
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         <Button
@@ -287,6 +348,64 @@ export function MemoryFragmentSearch() {
                 step={100}
                 data-testid="slider-max-candidates"
               />
+            </div>
+            
+            <div className="border-t pt-4 mt-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Checkbox
+                  id="short-phrase-mode"
+                  checked={enableShortPhraseMode}
+                  onCheckedChange={(checked) => setEnableShortPhraseMode(!!checked)}
+                  data-testid="checkbox-short-phrase"
+                />
+                <Label htmlFor="short-phrase-mode" className="text-sm font-medium">
+                  Short Phrase Mode (4-8 words)
+                </Label>
+              </div>
+              
+              {enableShortPhraseMode && (
+                <div className="ml-6 mt-3 p-4 bg-muted/50 rounded-lg border border-border/50">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Optimal for human memory recovery. Generates passphrases with 4-8 words.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs">Min Words</Label>
+                      <select
+                        value={minWords}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setMinWords(val);
+                          if (val > maxWords) setMaxWords(val);
+                        }}
+                        className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        data-testid="select-min-words"
+                      >
+                        {[3, 4, 5, 6].map(n => (
+                          <option key={n} value={n}>{n} words</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Max Words</Label>
+                      <select
+                        value={maxWords}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setMaxWords(val);
+                          if (val < minWords) setMinWords(val);
+                        }}
+                        className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        data-testid="select-max-words"
+                      >
+                        {[4, 5, 6, 7, 8].map(n => (
+                          <option key={n} value={n}>{n} words</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -360,7 +479,115 @@ export function MemoryFragmentSearch() {
               <p className="text-sm mt-2">Try adjusting confidence levels or adding more fragments</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <>
+              <Card className="p-4 mb-6 bg-muted/30">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-4 h-4 text-purple-500" />
+                  <h4 className="text-sm font-medium">Information Manifold (Φ vs κ)</h4>
+                </div>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 10, right: 30, bottom: 30, left: 10 }}>
+                      <ReferenceArea 
+                        x1={0} x2={100} 
+                        y1={57.6} y2={70.4} 
+                        fill="orange" 
+                        fillOpacity={0.1} 
+                        label={{ value: 'Resonance Band', position: 'insideTop', fontSize: 10, fill: 'orange' }}
+                      />
+                      <ReferenceLine 
+                        y={64} 
+                        stroke="orange" 
+                        strokeDasharray="3 3" 
+                        label={{ value: 'κ* = 64', position: 'right', fontSize: 10, fill: 'orange' }} 
+                      />
+                      <ReferenceLine 
+                        x={75} 
+                        stroke="green" 
+                        strokeDasharray="3 3" 
+                        label={{ value: 'Φ threshold', position: 'top', fontSize: 10, fill: 'green' }} 
+                      />
+                      <XAxis 
+                        dataKey="phi" 
+                        type="number" 
+                        domain={[0, 100]} 
+                        name="Φ"
+                        tick={{ fontSize: 10 }}
+                        label={{ value: 'Φ (Integration) %', position: 'bottom', offset: 15, fontSize: 11 }}
+                      />
+                      <YAxis 
+                        dataKey="kappa" 
+                        type="number" 
+                        domain={[0, 100]} 
+                        name="κ"
+                        tick={{ fontSize: 10 }}
+                        label={{ value: 'κ (Coupling)', angle: -90, position: 'insideLeft', fontSize: 11 }}
+                      />
+                      <ZAxis dataKey="confidence" range={[30, 200]} name="Confidence" />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const data = payload[0].payload as typeof searchMutation.data.topCandidates[0];
+                          return (
+                            <div className="bg-background border rounded-lg p-3 text-xs shadow-lg max-w-xs">
+                              <div className="font-mono text-xs mb-2 break-all line-clamp-2">
+                                {data.phrase}
+                              </div>
+                              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                                <div>Φ: <span className="font-semibold">{(data.phi * 100).toFixed(1)}%</span></div>
+                                <div>κ: <span className="font-semibold">{data.kappa.toFixed(1)}</span></div>
+                                <div>Regime: <span className="font-semibold">{data.regime}</span></div>
+                                <div>Score: <span className="font-semibold">{data.combinedScore.toFixed(3)}</span></div>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Scatter 
+                        data={searchMutation.data.topCandidates.slice(0, 50).map(c => ({
+                          ...c,
+                          phi: c.phi * 100,
+                        }))} 
+                        name="Candidates"
+                      >
+                        {searchMutation.data.topCandidates.slice(0, 50).map((candidate, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={
+                              candidate.regime === 'hierarchical' ? 'hsl(280, 70%, 50%)' :
+                              candidate.regime === 'geometric' ? 'hsl(142, 70%, 45%)' :
+                              candidate.regime === 'linear' ? 'hsl(210, 100%, 50%)' :
+                              candidate.regime === 'breakdown' ? 'hsl(0, 100%, 50%)' :
+                              'hsl(0, 0%, 50%)'
+                            }
+                            opacity={candidate.inResonance ? 1 : 0.6}
+                          />
+                        ))}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex items-center justify-center gap-4 mt-3 text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(210, 100%, 50%)' }} />
+                    <span>Linear</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(142, 70%, 45%)' }} />
+                    <span>Geometric</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(280, 70%, 50%)' }} />
+                    <span>Hierarchical</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(0, 100%, 50%)' }} />
+                    <span>Breakdown</span>
+                  </div>
+                </div>
+              </Card>
+              
+              <div className="space-y-3">
               {searchMutation.data.topCandidates.slice(0, 20).map((candidate, index) => (
                 <Card key={index} className="p-4 bg-muted/30">
                   <div className="flex items-start justify-between gap-4">
@@ -420,6 +647,7 @@ export function MemoryFragmentSearch() {
                 </Card>
               ))}
             </div>
+            </>
           )}
         </Card>
       )}

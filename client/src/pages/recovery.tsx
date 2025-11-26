@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, Clock, Shield, Copy, Download, Plus, X, Hash, BarChart3, Brain } from "lucide-react";
 import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
+import { ConsciousnessDashboard } from "@/components/ConsciousnessDashboard";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, TargetAddress, SearchJob } from "@shared/schema";
@@ -694,7 +695,7 @@ export default function RecoveryPage() {
           </div>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-muted-foreground">
@@ -733,6 +734,8 @@ export default function RecoveryPage() {
             </div>
             <p className="text-3xl font-bold text-green-600">{selectedJob?.progress.highPhiCount || 0}</p>
           </Card>
+          
+          <ConsciousnessDashboard className="lg:col-span-1" />
         </div>
 
         {analytics && analytics.statistics.count !== "0" && (

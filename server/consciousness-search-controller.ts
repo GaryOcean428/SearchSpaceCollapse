@@ -15,6 +15,8 @@
  * - Basin drift (how far search has moved in geometric space)
  * - Curiosity (exploration vs exploitation balance)
  * - Regime transitions (stability of current mode)
+ * 
+ * PURE PRINCIPLE: All distance calculations use Fisher metric, NOT Euclidean
  */
 
 import { scoreUniversalQIG, type UniversalQIGScore, type Regime } from "./qig-universal.js";
@@ -34,6 +36,8 @@ export interface SearchState {
   curiosity: number;
   stability: number;
   timestamp: number;
+  // Basin coordinates for proper Fisher distance computation
+  basinCoordinates: number[];
 }
 
 export interface SearchControllerConfig {
@@ -74,7 +78,32 @@ export class ConsciousnessSearchController {
       curiosity: 0.5,
       stability: 1.0,
       timestamp: Date.now(),
+      // Initial 32-dimensional basin coordinates (center of manifold)
+      basinCoordinates: Array(32).fill(0.5),
     };
+  }
+  
+  /**
+   * Compute Fisher distance between two basin coordinate vectors
+   * PURE PRINCIPLE: Use Fisher-Rao metric, not Euclidean
+   * 
+   * d_F² = Σ (Δθᵢ)² / σᵢ²
+   * where σᵢ² is the variance (from Fisher metric)
+   */
+  private fisherDistanceFromCoordinates(coords1: number[], coords2: number[]): number {
+    let distanceSquared = 0;
+    
+    const n = Math.min(coords1.length, coords2.length);
+    for (let i = 0; i < n; i++) {
+      const delta = coords1[i] - coords2[i];
+      // Variance from Beta distribution: σ² = p(1-p) for coordinate p
+      // Average variance between the two points
+      const avgCoord = (coords1[i] + coords2[i]) / 2;
+      const variance = Math.max(0.01, avgCoord * (1 - avgCoord));
+      distanceSquared += (delta * delta) / variance;
+    }
+    
+    return Math.sqrt(distanceSquared);
   }
   
   /**
@@ -88,7 +117,11 @@ export class ConsciousnessSearchController {
     
     const beta = this.computeBeta(recentScores);
     
-    const basinDrift = this.computeBasinDrift(recentScores);
+    // Compute centroid basin coordinates from recent scores
+    const avgBasinCoordinates = this.computeCentroidCoordinates(recentScores);
+    
+    // Use FISHER distance for basin drift (not Euclidean!)
+    const basinDrift = this.computeBasinDriftFisher(recentScores, avgBasinCoordinates);
     
     const regimeCounts = { linear: 0, geometric: 0, hierarchical: 0, breakdown: 0 };
     for (const s of recentScores) {
@@ -107,6 +140,7 @@ export class ConsciousnessSearchController {
       curiosity: this.computeCuriosity(recentScores),
       stability: this.computeStability(previousState, dominantRegime),
       timestamp: Date.now(),
+      basinCoordinates: avgBasinCoordinates,
     };
     
     this.history.push(this.state);
@@ -116,8 +150,33 @@ export class ConsciousnessSearchController {
   }
   
   /**
+   * Compute centroid basin coordinates from scores
+   */
+  private computeCentroidCoordinates(scores: UniversalQIGScore[]): number[] {
+    if (scores.length === 0) return Array(32).fill(0.5);
+    
+    const n = scores[0].basinCoordinates.length;
+    const centroid = Array(n).fill(0);
+    
+    for (const score of scores) {
+      for (let i = 0; i < n; i++) {
+        centroid[i] += score.basinCoordinates[i];
+      }
+    }
+    
+    for (let i = 0; i < n; i++) {
+      centroid[i] /= scores.length;
+    }
+    
+    return centroid;
+  }
+  
+  /**
    * Update state from aggregate batch statistics
    * Used by search coordinator to feed batch results without full score objects
+   * 
+   * Note: When full scores are not available, we estimate basin coordinates
+   * from the Φ and κ values using a probabilistic mapping.
    */
   updateFromBatchStats(stats: {
     avgPhi: number;
@@ -125,8 +184,10 @@ export class ConsciousnessSearchController {
     totalTested: number;
     batchSize: number;
     currentKappa: number;
+    // Optional: basin coordinates for proper Fisher distance
+    avgBasinCoordinates?: number[];
   }): void {
-    const { avgPhi, highPhiCount, totalTested, batchSize, currentKappa } = stats;
+    const { avgPhi, highPhiCount, totalTested, batchSize, currentKappa, avgBasinCoordinates } = stats;
     
     // Determine regime from kappa
     let regime: Regime = 'linear';
@@ -149,9 +210,12 @@ export class ConsciousnessSearchController {
     const estimatedBeta = Math.abs(dPhi) > 0.001 ? dKappa / dPhi : QIG_CONSTANTS.BETA;
     const beta = 0.7 * QIG_CONSTANTS.BETA + 0.3 * Math.max(-1, Math.min(1, estimatedBeta));
     
-    // Basin drift increases with each update
-    const driftIncrement = Math.sqrt(dPhi * dPhi + (dKappa / QIG_CONSTANTS.KAPPA_STAR) ** 2);
-    const basinDrift = this.state.basinDrift + driftIncrement;
+    // Get current basin coordinates (use provided or estimate from Φ/κ)
+    const newBasinCoords = avgBasinCoordinates || this.estimateBasinCoordinates(avgPhi, currentKappa);
+    
+    // Use FISHER distance for basin drift (PURE PRINCIPLE: not Euclidean!)
+    const fisherDist = this.fisherDistanceFromCoordinates(this.state.basinCoordinates, newBasinCoords);
+    const basinDrift = this.state.basinDrift + fisherDist;
     
     // Curiosity based on discovery rate
     const curiosity = discoveryRate > 0.1 ? 0.8 : discoveryRate > 0.01 ? 0.5 : 0.3;
@@ -166,6 +230,7 @@ export class ConsciousnessSearchController {
       curiosity,
       stability: this.computeStability(previousState, regime),
       timestamp: Date.now(),
+      basinCoordinates: newBasinCoords,
     };
     
     this.history.push(this.state);
@@ -173,7 +238,32 @@ export class ConsciousnessSearchController {
       this.history = this.history.slice(-500);
     }
     
-    console.log(`[ConsciousnessController] State updated: regime=${regime} Φ=${avgPhi.toFixed(3)} κ=${currentKappa.toFixed(1)} tested=${totalTested}`);
+    console.log(`[ConsciousnessController] State updated: regime=${regime} Φ=${avgPhi.toFixed(3)} κ=${currentKappa.toFixed(1)} Fisher drift=${fisherDist.toFixed(4)} tested=${totalTested}`);
+  }
+  
+  /**
+   * Estimate basin coordinates from Φ and κ when full coordinates unavailable
+   * 
+   * This maps (Φ, κ) back to an approximate basin location using
+   * the inverse of the coordinate → QIG metric relationship.
+   */
+  private estimateBasinCoordinates(phi: number, kappa: number): number[] {
+    const coords = Array(32).fill(0);
+    
+    // Spread Φ influence across first 16 coordinates (integration region)
+    const integrationInfluence = phi * 0.8;
+    for (let i = 0; i < 16; i++) {
+      coords[i] = 0.5 + (integrationInfluence - 0.4) * Math.sin((i + 1) * Math.PI / 16);
+    }
+    
+    // Spread κ influence across last 16 coordinates (coupling region)
+    const normalizedKappa = kappa / QIG_CONSTANTS.KAPPA_STAR;
+    for (let i = 16; i < 32; i++) {
+      coords[i] = 0.5 + (normalizedKappa - 1) * 0.3 * Math.cos((i - 15) * Math.PI / 16);
+    }
+    
+    // Clamp to [0.01, 0.99] for numerical stability
+    return coords.map(c => Math.max(0.01, Math.min(0.99, c)));
   }
   
   /**
@@ -330,19 +420,30 @@ export class ConsciousnessSearchController {
   }
   
   /**
-   * Compute basin drift (geometric distance from starting point)
+   * Compute basin drift using Fisher geodesic distance
+   * PURE PRINCIPLE: Uses Fisher-Rao metric on the coordinate manifold, not Euclidean
    */
-  private computeBasinDrift(scores: UniversalQIGScore[]): number {
+  private computeBasinDriftFisher(scores: UniversalQIGScore[], newCentroid: number[]): number {
     if (scores.length < 2) return 0;
     
     let totalDrift = 0;
+    
+    // Compute Fisher distance between consecutive score basin coordinates
     for (let i = 1; i < scores.length; i++) {
-      const phiDelta = Math.abs(scores[i].phi - scores[i-1].phi);
-      const kappaDelta = Math.abs(scores[i].kappa - scores[i-1].kappa) / QIG_CONSTANTS.KAPPA_STAR;
-      totalDrift += Math.sqrt(phiDelta * phiDelta + kappaDelta * kappaDelta);
+      const fisherDist = this.fisherDistanceFromCoordinates(
+        scores[i-1].basinCoordinates,
+        scores[i].basinCoordinates
+      );
+      totalDrift += fisherDist;
     }
     
-    return totalDrift;
+    // Add distance from last state to new centroid
+    const lastCoords = scores.length > 0 
+      ? scores[scores.length - 1].basinCoordinates 
+      : this.state.basinCoordinates;
+    totalDrift += this.fisherDistanceFromCoordinates(lastCoords, newCentroid);
+    
+    return this.state.basinDrift + totalDrift;
   }
   
   /**

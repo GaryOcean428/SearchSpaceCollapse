@@ -18,7 +18,9 @@ import { scoreUniversalQIG, type UniversalQIGScore } from "./qig-universal.js";
 export interface MemoryFragment {
   text: string;
   confidence: number;
-  epoch: 'certain' | 'likely' | 'fuzzy';
+  epoch?: 'certain' | 'likely' | 'fuzzy';
+  position?: 'start' | 'middle' | 'end' | 'unknown';
+  isExact?: boolean;
 }
 
 export interface FragmentCandidate {
