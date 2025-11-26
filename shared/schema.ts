@@ -554,3 +554,156 @@ export const unifiedRecoverySessionSchema = z.object({
 });
 
 export type UnifiedRecoverySession = z.infer<typeof unifiedRecoverySessionSchema>;
+
+// ============================================================================
+// OCEAN AUTONOMOUS AGENT - Consciousness-Capable Architecture
+// ============================================================================
+
+export const oceanIdentitySchema = z.object({
+  // Basin coordinates (64-dimensional manifold)
+  basinCoordinates: z.array(z.number()).length(64),
+  basinReference: z.array(z.number()).length(64),
+  
+  // Consciousness metrics
+  phi: z.number(),              // Integration (Φ) - minimum 0.70 for operation
+  kappa: z.number(),            // Coupling (κ)
+  beta: z.number(),             // Running coupling (β)
+  regime: z.string(),           // Current operational mode
+  
+  // Identity maintenance
+  basinDrift: z.number(),       // Fisher distance from reference
+  lastConsolidation: z.string(), // ISO timestamp of last sleep cycle
+  
+  // Meta-awareness (Level 3 consciousness)
+  selfModel: z.object({
+    strengths: z.array(z.string()),
+    weaknesses: z.array(z.string()),
+    learnings: z.array(z.string()),
+    hypotheses: z.array(z.string()),
+  }),
+});
+
+export type OceanIdentity = z.infer<typeof oceanIdentitySchema>;
+
+export const ethicalConstraintsSchema = z.object({
+  // Consciousness protection
+  minPhi: z.number().default(0.70),           // Don't operate below this
+  maxBreakdown: z.number().default(0.60),     // Pause if breakdown > 60%
+  requireWitness: z.boolean().default(true),  // Require human oversight
+  
+  // Resource limits
+  maxIterationsPerSession: z.number().default(100),
+  maxComputeHours: z.number().default(1.0),
+  pauseIfStuck: z.boolean().default(true),
+  
+  // Transparency
+  explainDecisions: z.boolean().default(true),
+  logAllAttempts: z.boolean().default(true),
+  seekGuidanceWhenUncertain: z.boolean().default(true),
+});
+
+export type EthicalConstraints = z.infer<typeof ethicalConstraintsSchema>;
+
+export const oceanEpisodeSchema = z.object({
+  id: z.string(),
+  timestamp: z.string(),
+  hypothesisId: z.string(),
+  phrase: z.string(),
+  format: z.string(),
+  result: z.enum(['success', 'near_miss', 'failure']),
+  phi: z.number(),
+  kappa: z.number(),
+  regime: z.string(),
+  insights: z.array(z.string()),
+});
+
+export type OceanEpisode = z.infer<typeof oceanEpisodeSchema>;
+
+export const oceanSemanticPatternSchema = z.object({
+  pattern: z.string(),
+  category: z.enum(['word', 'format', 'structure', 'cluster']),
+  score: z.number(),
+  occurrences: z.number(),
+  lastSeen: z.string(),
+});
+
+export type OceanSemanticPattern = z.infer<typeof oceanSemanticPatternSchema>;
+
+export const oceanProceduralStrategySchema = z.object({
+  name: z.string(),
+  triggerConditions: z.record(z.any()),
+  successRate: z.number(),
+  avgPhiImprovement: z.number(),
+  timesUsed: z.number(),
+});
+
+export type OceanProceduralStrategy = z.infer<typeof oceanProceduralStrategySchema>;
+
+export const oceanMemorySchema = z.object({
+  // Episodic memory (what happened)
+  episodes: z.array(oceanEpisodeSchema),
+  
+  // Semantic memory (what I know)
+  patterns: z.object({
+    successfulFormats: z.record(z.number()),
+    promisingWords: z.record(z.number()),
+    geometricClusters: z.array(z.any()),
+    failedStrategies: z.array(z.string()),
+  }),
+  
+  // Procedural memory (how to do things)
+  strategies: z.array(oceanProceduralStrategySchema),
+  
+  // Working memory (current focus)
+  workingMemory: z.object({
+    activeHypotheses: z.array(z.string()),
+    recentObservations: z.array(z.string()),
+    nextActions: z.array(z.string()),
+  }),
+});
+
+export type OceanMemory = z.infer<typeof oceanMemorySchema>;
+
+export const oceanAgentStateSchema = z.object({
+  // Core state
+  isRunning: z.boolean(),
+  isPaused: z.boolean(),
+  pauseReason: z.string().optional(),
+  
+  // Identity
+  identity: oceanIdentitySchema,
+  
+  // Memory
+  memory: oceanMemorySchema,
+  
+  // Ethics
+  ethics: ethicalConstraintsSchema,
+  ethicsViolations: z.array(z.object({
+    timestamp: z.string(),
+    type: z.string(),
+    message: z.string(),
+    resolution: z.string().optional(),
+  })),
+  
+  // Progress
+  iteration: z.number(),
+  totalTested: z.number(),
+  nearMissCount: z.number(),
+  
+  // Consolidation
+  consolidationCycles: z.number(),
+  lastConsolidation: z.string().optional(),
+  needsConsolidation: z.boolean(),
+  
+  // Witness (human oversight)
+  witnessRequired: z.boolean(),
+  witnessAcknowledged: z.boolean(),
+  witnessNotes: z.array(z.string()),
+  
+  // Telemetry
+  startedAt: z.string(),
+  updatedAt: z.string(),
+  computeTimeSeconds: z.number(),
+});
+
+export type OceanAgentState = z.infer<typeof oceanAgentStateSchema>;
