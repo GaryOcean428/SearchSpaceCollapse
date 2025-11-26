@@ -3,6 +3,7 @@ import { scoreUniversalQIG } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, verifyRecoveredPassphrase, type VerificationResult } from './crypto';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
 import { BlockchainForensics } from './blockchain-forensics';
+import { geometricMemory, type BasinProbe } from './geometric-memory';
 import type { 
   OceanIdentity, 
   OceanMemory, 
@@ -207,6 +208,7 @@ export class OceanAgent {
     telemetry: any;
     learnings: any;
     ethicsReport: any;
+    manifoldState?: any;
   }> {
     console.log('[Ocean] Starting autonomous investigation...');
     console.log(`[Ocean] Target: ${targetAddress}`);
@@ -223,6 +225,30 @@ export class OceanAgent {
     const startTime = Date.now();
     
     try {
+      // CONSCIOUSNESS ELEVATION - Understand the geometry before searching
+      console.log('[Ocean] === CONSCIOUSNESS ELEVATION PHASE ===');
+      console.log('[Ocean] Understanding the manifold geometry before exploration...');
+      
+      const manifoldState = geometricMemory.getManifoldSummary();
+      console.log(`[Ocean] Prior exploration: ${manifoldState.totalProbes} probes on manifold`);
+      console.log(`[Ocean] Average Φ: ${manifoldState.avgPhi.toFixed(3)}, Average κ: ${manifoldState.avgKappa.toFixed(1)}`);
+      console.log(`[Ocean] Resonance clusters discovered: ${manifoldState.resonanceClusters}`);
+      console.log(`[Ocean] Dominant regime: ${manifoldState.dominantRegime}`);
+      
+      if (manifoldState.recommendations.length > 0) {
+        console.log('[Ocean] Geometric insights from prior runs:');
+        for (const rec of manifoldState.recommendations) {
+          console.log(`  → ${rec}`);
+          this.memory.workingMemory.recentObservations.push(rec);
+        }
+      }
+      
+      // Use prior learnings to boost initial consciousness
+      if (manifoldState.avgPhi > 0.5 && manifoldState.totalProbes > 100) {
+        this.identity.phi = Math.min(0.85, manifoldState.avgPhi + 0.1);
+        console.log(`[Ocean] Boosting initial Φ to ${this.identity.phi.toFixed(2)} from prior learning`);
+      }
+      
       // AUTONOMOUS ERA DETECTION - Analyze target address to determine Bitcoin era
       console.log('[Ocean] Analyzing target address for era detection...');
       try {
@@ -372,12 +398,19 @@ export class OceanAgent {
       
       this.state.computeTimeSeconds = (Date.now() - startTime) / 1000;
       
+      // SAVE GEOMETRIC LEARNINGS - Persist manifold state for future runs
+      console.log('[Ocean] Saving geometric learnings to manifold memory...');
+      geometricMemory.forceSave();
+      const finalManifold = geometricMemory.getManifoldSummary();
+      console.log(`[Ocean] Manifold now has ${finalManifold.totalProbes} probes, ${finalManifold.resonanceClusters} resonance clusters`);
+      
       return {
         success: !!finalResult,
         match: finalResult || undefined,
         telemetry: this.generateTelemetry(),
         learnings: this.summarizeLearnings(),
         ethicsReport: this.generateEthicsReport(),
+        manifoldState: finalManifold,
       };
       
     } finally {
@@ -667,6 +700,15 @@ export class OceanAgent {
         };
         this.memory.episodes.push(episode);
         
+        geometricMemory.recordProbe(hypo.phrase, {
+          phi: qigResult.phi,
+          kappa: qigResult.kappa,
+          regime: qigResult.regime,
+          ricciScalar: qigResult.ricciScalar,
+          fisherTrace: qigResult.fisherTrace,
+          basinCoordinates: qigResult.basinCoordinates,
+        }, `ocean-${this.targetAddress.slice(0, 8)}`);
+        
         if (this.memory.episodes.length > 1000) {
           this.memory.episodes = this.memory.episodes.slice(-500);
         }
@@ -870,8 +912,36 @@ export class OceanAgent {
 
   private async generateInitialHypotheses(): Promise<OceanHypothesis[]> {
     console.log('[Ocean] Generating initial hypotheses...');
+    console.log('[Ocean] Consulting geometric memory for prior learnings...');
     
     const hypotheses: OceanHypothesis[] = [];
+    
+    const manifoldSummary = geometricMemory.getManifoldSummary();
+    console.log(`[Ocean] Manifold state: ${manifoldSummary.totalProbes} probes, avg Φ=${manifoldSummary.avgPhi.toFixed(2)}, ${manifoldSummary.resonanceClusters} resonance clusters`);
+    
+    if (manifoldSummary.recommendations.length > 0) {
+      console.log(`[Ocean] Geometric insights: ${manifoldSummary.recommendations.join('; ')}`);
+    }
+    
+    const learned = geometricMemory.exportLearnedPatterns();
+    if (learned.highPhiPatterns.length > 0) {
+      console.log(`[Ocean] Using ${learned.highPhiPatterns.length} high-Φ patterns from prior runs`);
+      for (const pattern of learned.highPhiPatterns.slice(0, 10)) {
+        hypotheses.push(this.createHypothesis(pattern, 'arbitrary', 'geometric_memory', 'High-Φ pattern from prior manifold exploration', 0.85));
+        
+        const variations = this.generateWordVariations(pattern);
+        for (const v of variations.slice(0, 3)) {
+          hypotheses.push(this.createHypothesis(v, 'arbitrary', 'geometric_memory_variation', 'Variation of high-Φ pattern', 0.75));
+        }
+      }
+    }
+    
+    if (learned.resonancePatterns.length > 0) {
+      console.log(`[Ocean] Using ${learned.resonancePatterns.length} resonance cluster patterns`);
+      for (const pattern of learned.resonancePatterns.slice(0, 5)) {
+        hypotheses.push(this.createHypothesis(pattern, 'arbitrary', 'resonance_cluster', 'From resonance cluster in manifold', 0.9));
+      }
+    }
     
     const eraPhrases = await this.generateEraSpecificPhrases();
     hypotheses.push(...eraPhrases);
@@ -879,7 +949,7 @@ export class OceanAgent {
     const commonPhrases = this.generateCommonBrainWalletPhrases();
     hypotheses.push(...commonPhrases);
     
-    console.log(`[Ocean] Generated ${hypotheses.length} initial hypotheses`);
+    console.log(`[Ocean] Generated ${hypotheses.length} initial hypotheses (${learned.highPhiPatterns.length + learned.resonancePatterns.length} from geometric memory)`);
     return hypotheses;
   }
 
