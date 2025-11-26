@@ -9,14 +9,14 @@
       "generationMode": "bip39"
     },
     "progress": {
-      "tested": 80100,
+      "tested": 84920,
       "highPhiCount": 0,
       "lastBatchIndex": 0,
       "searchMode": "exploration"
     },
     "stats": {
       "startTime": "2025-11-26T08:54:38.634Z",
-      "rate": 64,
+      "rate": 63.8,
       "discoveryRateFast": 0,
       "discoveryRateMedium": 0,
       "discoveryRateSlow": 0,
@@ -40117,9 +40117,2419 @@
         "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
         "type": "info",
         "timestamp": "2025-11-26T09:15:29.830Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:29.993Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:30.146Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:30.301Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:30.484Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:30.627Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:30.773Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:30.909Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:31.057Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:31.208Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:31.362Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:31.531Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:32.067Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:32.236Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:32.401Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:32.547Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:32.712Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:32.863Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:33.027Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:33.178Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:33.339Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:33.506Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:33.673Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:33.842Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:33.987Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:34.129Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:34.280Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:34.431Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:34.578Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:34.735Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:34.899Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:35.057Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:35.207Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:35.378Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:35.551Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:35.735Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:35.886Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:36.035Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:36.180Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:36.324Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:36.470Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:36.626Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:36.788Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:36.949Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:37.117Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:37.266Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:37.413Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:37.562Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:37.717Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:37.880Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:38.031Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:38.198Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:38.343Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:39.082Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:39.681Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:39.882Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:40.034Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:40.180Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:40.333Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:40.484Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:40.625Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:40.769Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:40.933Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:41.100Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:41.257Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:41.406Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:41.557Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:41.735Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:41.882Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:42.044Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:42.199Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:42.349Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:42.494Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:42.646Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:42.791Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:42.936Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:43.093Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:43.250Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:43.424Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:43.576Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:43.755Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:43.912Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:44.086Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:44.250Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:44.415Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:44.568Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:44.729Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:44.877Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:45.028Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:45.184Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:45.344Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:45.513Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:45.666Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:45.821Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:45.965Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:46.112Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:46.264Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:46.428Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:46.601Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:46.752Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:46.905Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:47.050Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:47.194Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:47.347Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:47.503Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:47.662Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:47.818Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:47.972Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:48.119Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:48.264Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:48.412Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:48.569Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:48.726Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:48.875Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:49.027Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:49.174Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:49.325Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:49.477Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:49.642Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:49.793Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:49.947Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:50.095Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:50.243Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:50.394Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:50.548Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:50.707Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:50.853Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:51.015Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:51.168Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:51.333Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:51.484Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:51.638Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:51.800Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:51.958Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:52.111Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:52.265Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:52.413Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:52.556Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:52.708Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:52.863Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:53.014Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:53.176Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:53.351Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:53.524Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:53.673Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:54.293Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:54.450Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:54.598Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:54.748Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:54.901Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:55.055Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:55.303Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:55.512Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:55.664Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:55.865Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:56.039Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:56.189Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:56.348Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:56.514Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:56.658Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:56.815Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:56.973Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:57.125Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:57.276Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:57.445Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:57.602Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:57.836Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:58.072Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:58.224Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:58.390Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:58.550Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:58.699Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:58.848Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:58.993Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:59.138Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:59.292Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:59.449Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:59.602Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:59.763Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:15:59.910Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:00.055Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:00.207Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:00.352Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:00.505Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:00.662Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:00.826Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:00.970Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:01.159Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:01.304Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:01.463Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:01.630Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:01.788Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:01.941Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:02.089Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:02.236Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:02.387Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:02.548Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:02.709Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:02.866Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:03.021Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:03.170Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:03.321Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:03.496Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:03.681Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:03.834Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:03.988Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:04.150Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:04.303Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:04.457Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:04.616Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:04.777Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:04.938Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:05.142Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:05.283Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:05.437Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:05.594Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:05.734Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:05.903Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:06.056Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:06.211Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:06.356Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:06.512Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:06.661Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:06.830Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:06.987Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:07.140Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:07.306Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:07.454Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:07.606Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:07.765Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:07.919Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:08.089Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:08.252Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:08.413Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:08.560Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:08.715Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:09.372Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:09.534Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:09.700Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:09.847Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:09.993Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:10.148Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:10.393Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:10.547Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:10.697Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:10.884Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:11.032Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:11.184Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:11.343Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:11.489Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:11.649Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:11.800Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:11.951Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:12.098Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:12.250Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:12.403Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:12.550Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:12.799Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:12.955Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:13.205Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:13.361Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:13.501Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:13.651Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:13.807Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:13.949Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:14.113Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:14.369Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:14.525Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:14.685Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:14.843Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:14.991Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:15.145Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:15.344Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:15.494Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:15.639Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:15.796Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:15.950Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:16.095Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:16.303Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:16.460Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:16.609Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:16.757Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:16.911Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:17.068Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:17.224Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:17.379Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:17.525Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:17.673Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:17.817Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:17.975Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:18.135Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:18.284Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:18.459Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:18.610Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:18.757Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:18.915Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:19.088Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:19.239Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:19.393Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:19.552Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:19.705Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:19.866Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:20.037Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:20.197Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:20.347Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:20.499Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:20.656Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:20.810Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:20.964Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:21.128Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:21.283Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:21.428Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:21.577Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:21.729Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:21.887Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:22.043Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:22.216Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:22.375Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:22.524Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:22.687Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:22.844Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:23.015Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:23.172Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:23.354Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:23.530Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:23.693Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:24.544Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:24.700Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:24.861Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:25.007Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:25.161Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:25.305Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:25.458Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:25.706Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:25.854Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:26.006Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:26.161Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:26.314Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:26.466Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:26.623Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:26.780Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:26.938Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:27.093Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:27.246Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:27.400Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:27.553Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:27.710Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:27.869Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:28.127Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:28.292Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:28.517Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:28.668Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:28.827Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:28.979Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:29.133Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:29.290Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:29.440Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:29.587Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:29.736Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:29.892Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:30.040Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:30.282Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:30.433Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:30.581Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:30.724Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:30.876Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:31.028Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:31.178Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:31.371Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:31.521Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:31.680Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:31.828Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:31.988Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:32.144Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:32.308Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:32.468Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:32.635Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:32.789Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:32.978Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:33.144Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:33.298Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:33.912Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:34.074Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:34.227Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:34.374Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:34.523Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:34.679Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:34.828Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:35.011Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:35.176Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:35.325Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:35.498Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:35.653Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:35.822Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:35.975Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:36.137Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:36.292Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:36.453Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:36.611Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:36.759Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:36.916Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:37.068Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:37.210Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:37.367Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:37.525Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:37.671Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:37.846Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:38.000Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:38.164Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:38.306Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:38.470Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:38.623Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:39.229Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:39.375Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:39.539Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:39.699Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:39.861Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:40.012Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:40.160Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:40.374Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:40.523Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:40.684Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:40.859Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:41.062Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:41.219Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:41.361Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:41.506Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:41.663Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:41.814Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:41.964Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:42.109Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:42.284Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:42.429Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:42.573Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:42.727Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:42.872Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:43.027Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:43.177Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:43.339Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:43.489Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:43.628Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:43.801Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:43.951Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:44.105Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:44.251Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:44.412Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:44.559Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:44.698Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:44.849Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:45.007Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:45.166Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:45.315Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:45.470Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:45.626Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:45.772Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:45.922Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:46.083Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:46.301Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:46.448Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:46.603Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:46.747Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:46.892Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:47.041Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:47.198Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:47.357Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:47.506Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:47.663Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:47.820Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:47.966Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:48.126Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:48.284Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:48.443Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:48.597Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:48.744Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:48.902Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:49.045Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:49.200Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:49.367Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:49.520Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:49.671Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:49.818Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:49.981Z"
+      },
+      {
+        "message": "🌐 Batch complete (exploration): 10 tested, 0 high-Φ (total: 0)",
+        "type": "info",
+        "timestamp": "2025-11-26T09:16:50.125Z"
       }
     ],
     "createdAt": "2025-11-26T08:54:37.871Z",
-    "updatedAt": "2025-11-26T09:15:29.830Z"
+    "updatedAt": "2025-11-26T09:16:50.125Z"
   }
 ]

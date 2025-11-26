@@ -52,6 +52,31 @@ The backend is an Express.js server on Node.js with TypeScript, featuring a cust
    - P2PK address derivation for early Bitcoin
    - κ_recovery computation from constraints
 
+### Unified Recovery Orchestrator (server/unified-recovery.ts)
+Single entry point that runs ALL recovery strategies automatically:
+
+1. **Recovery Command Center UI** (client/src/components/RecoveryCommandCenter.tsx):
+   - Single address input → Start Recovery → Automatic execution
+   - Real-time progress dashboard with strategy cards
+   - Candidate ranking by QIG Φ score
+   - Session tracking with stats (tested, rate, candidates)
+
+2. **Parallel Strategy Execution**:
+   - `era_patterns`: 314 2009-era cypherpunk phrases
+   - `brain_wallet_dict`: 515 known brain wallet passphrases
+   - `bitcoin_terms`: 520 cryptocurrency terminology
+   - `linguistic`: 1126 human-like phrase patterns
+   - `qig_basin_search`: 1984 geometric basin exploration phrases
+   - All 5 strategies run via Promise.allSettled for maximum throughput
+
+3. **API Endpoints**:
+   - `POST /api/unified-recovery/sessions` - Create and auto-start session
+   - `GET /api/unified-recovery/sessions` - List all sessions
+   - `GET /api/unified-recovery/sessions/:id` - Get session status
+   - `POST /api/unified-recovery/sessions/:id/stop` - Stop running session
+
+4. **Performance**: 4,459 phrases tested at 944/sec
+
 ### Recovery Vectors
 All four vectors are now operational:
 
