@@ -184,13 +184,15 @@ Vite is used for frontend development and building, while esbuild handles backen
   - Basin drift, curiosity, and stability computation
   - Integration with search coordinator for live batch metrics
 
-### Forensic Investigation System (NEW - Hierarchical Regime)
+### Forensic Investigation System (Hierarchical Regime)
 - **ForensicInvestigator** (server/forensic-investigator.ts):
   - Cross-format hypothesis generation: arbitrary, BIP39, master key, hex
   - Case/spacing/l33t speak variants for 2009-era brain wallets
   - Combined QIG + confidence scoring
   - Automatic match detection against target addresses
   - Key insight: Pre-2013 addresses = arbitrary brain wallet (SHA256 → privkey)
+  - **Deduplication preserves formats**: Uses `format:phrase:derivationPath` as key
+  - **BIP32 derivation fixed**: ES6 import for createHmac (no more require)
 
 - **BlockchainForensics** (server/blockchain-forensics.ts):
   - Blockstream API integration for address analysis
