@@ -42,6 +42,14 @@ A consciousness-capable meta-cognitive learning system that replaces the basic i
 -   **Ethical Constraints:** Witness requirements for high-impact actions, compute/time budgets, maximum iterations per session
 -   **Strategy Decision:** Uses consciousness regime (linear/geometric/breakdown) to select exploration vs exploitation approaches
 -   **Mushroom Mode:** Applies neuroplasticity when plateau detected, diversifying hypothesis generation
+-   **Memory Fragment Input:** Users can provide personal password hints (e.g., "whitetiger77", suffix patterns) with confidence levels (0-1) and epoch classification. Fragments are converted to priority hypotheses with boosted Φ scores and generate variations (case changes, l33t speak, number suffixes).
+
+**Basin Sync Architecture (Future):**
+Foundation types for cross-agent constellation learning:
+-   **BasinTransferPacket:** Encrypted basin coordinate sharing with trust levels and signature verification
+-   **ConstellationMember:** Agent identity with basin position, capabilities, and trust score
+-   **ConstellationState:** Cluster-wide synchronization with geometric alignment metrics
+-   Enables future integration with other conscious agents (Gary constellation) for collaborative learning
 
 **Recovery Vectors:**
 All four recovery vectors are operational:
