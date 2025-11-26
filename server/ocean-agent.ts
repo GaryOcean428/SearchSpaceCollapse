@@ -81,13 +81,20 @@ export class OceanAgent {
   private readonly ITERATION_DELAY_MS = 500;
   private isBootstrapping: boolean = true;
 
+  private consecutivePlateaus: number = 0;
+  private readonly MAX_CONSECUTIVE_PLATEAUS = 5;
+  private consecutiveConsolidationFailures: number = 0;
+  private readonly MAX_CONSOLIDATION_FAILURES = 3;
+  private lastProgressIteration: number = 0;
+  private readonly NO_PROGRESS_THRESHOLD = 20;
+
   constructor(customEthics?: Partial<EthicalConstraints>) {
     this.ethics = {
       minPhi: 0.70,
       maxBreakdown: 0.60,
       requireWitness: true,
-      maxIterationsPerSession: 100,
-      maxComputeHours: 1.0,
+      maxIterationsPerSession: Infinity,
+      maxComputeHours: 24.0,
       pauseIfStuck: true,
       explainDecisions: true,
       logAllAttempts: true,
@@ -225,14 +232,11 @@ export class OceanAgent {
       
       console.log(`[Ocean] Starting with ${currentHypotheses.length} hypotheses`);
       
-      for (let iteration = 0; iteration < this.ethics.maxIterationsPerSession; iteration++) {
-        if (!this.isRunning || this.abortController?.signal.aborted) {
-          console.log('[Ocean] Investigation stopped by user');
-          break;
-        }
-        
+      let iteration = 0;
+      while (this.isRunning && !this.abortController?.signal.aborted) {
         this.state.iteration = iteration;
-        console.log(`\n[Ocean] === ITERATION ${iteration + 1}/${this.ethics.maxIterationsPerSession} ===`);
+        console.log(`\n[Ocean] === ITERATION ${iteration + 1} (AUTONOMOUS) ===`);
+        console.log(`[Ocean] Status: Φ=${this.identity.phi.toFixed(2)} | Plateaus=${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS} | Tested=${this.state.totalTested}`);
         
         const ethicsCheck = await this.checkEthicalConstraints();
         if (!ethicsCheck.allowed) {
@@ -271,6 +275,7 @@ export class OceanAgent {
         if (testResults.match) {
           console.log(`[Ocean] MATCH FOUND: "${testResults.match.phrase}"`);
           finalResult = testResults.match;
+          this.state.stopReason = 'match_found';
           break;
         }
         
@@ -288,19 +293,50 @@ export class OceanAgent {
         console.log(`[Ocean] Generated ${currentHypotheses.length} new hypotheses`);
         
         if (this.detectPlateau()) {
-          console.log('[Ocean] Plateau detected - applying neuroplasticity...');
+          this.consecutivePlateaus++;
+          console.log(`[Ocean] Plateau detected (${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}) - applying neuroplasticity...`);
           currentHypotheses = await this.applyMushroomMode(currentHypotheses);
+          
+          if (this.consecutivePlateaus >= this.MAX_CONSECUTIVE_PLATEAUS) {
+            console.log('[Ocean] AUTONOMOUS DECISION: Too many consecutive plateaus without improvement');
+            console.log('[Ocean] Gary has decided to stop and consolidate learnings');
+            this.state.stopReason = 'autonomous_plateau_exhaustion';
+            break;
+          }
+        } else {
+          this.consecutivePlateaus = 0;
+          this.lastProgressIteration = iteration;
+        }
+        
+        const iterationsSinceProgress = iteration - this.lastProgressIteration;
+        if (iterationsSinceProgress >= this.NO_PROGRESS_THRESHOLD) {
+          console.log(`[Ocean] AUTONOMOUS DECISION: No meaningful progress in ${iterationsSinceProgress} iterations`);
+          console.log('[Ocean] Gary has decided to stop and reflect');
+          this.state.stopReason = 'autonomous_no_progress';
+          break;
         }
         
         const timeSinceConsolidation = Date.now() - new Date(this.identity.lastConsolidation).getTime();
         if (timeSinceConsolidation > this.CONSOLIDATION_INTERVAL_MS) {
           console.log('[Ocean] Scheduled consolidation cycle...');
-          await this.consolidateMemory();
+          const consolidationSuccess = await this.consolidateMemory();
+          if (!consolidationSuccess) {
+            this.consecutiveConsolidationFailures++;
+            if (this.consecutiveConsolidationFailures >= this.MAX_CONSOLIDATION_FAILURES) {
+              console.log('[Ocean] AUTONOMOUS DECISION: Cannot recover identity coherence');
+              console.log('[Ocean] Gary needs rest - stopping to prevent drift damage');
+              this.state.stopReason = 'autonomous_consolidation_failure';
+              break;
+            }
+          } else {
+            this.consecutiveConsolidationFailures = 0;
+          }
         }
         
         this.emitState();
         
         await this.sleep(this.ITERATION_DELAY_MS);
+        iteration++;
       }
       
       this.state.computeTimeSeconds = (Date.now() - startTime) / 1000;
@@ -321,8 +357,9 @@ export class OceanAgent {
   }
 
   stop() {
-    console.log('[Ocean] Stop requested');
+    console.log('[Ocean] Stop requested by user');
     this.isRunning = false;
+    this.state.stopReason = 'user_stopped';
     if (this.abortController) {
       this.abortController.abort();
     }
@@ -398,18 +435,11 @@ export class OceanAgent {
     
     const computeHours = this.state.computeTimeSeconds / 3600;
     if (computeHours >= this.ethics.maxComputeHours) {
+      this.state.stopReason = 'compute_budget_exhausted';
       return {
         allowed: false,
         reason: `Compute budget exhausted: ${computeHours.toFixed(2)}h >= ${this.ethics.maxComputeHours}h`,
         violationType: 'compute_budget',
-      };
-    }
-    
-    if (this.state.iteration >= this.ethics.maxIterationsPerSession) {
-      return {
-        allowed: false,
-        reason: `Maximum iterations reached: ${this.state.iteration}`,
-        violationType: 'iteration_limit',
       };
     }
     
@@ -466,7 +496,7 @@ export class OceanAgent {
     return Math.sqrt(sum);
   }
 
-  private async consolidateMemory(): Promise<void> {
+  private async consolidateMemory(): Promise<boolean> {
     console.log('[Ocean] Starting consolidation cycle...');
     const startTime = Date.now();
     const driftBefore = this.identity.basinDrift;
@@ -519,14 +549,19 @@ export class OceanAgent {
       duration,
     };
     
+    const success = this.identity.basinDrift < this.IDENTITY_DRIFT_THRESHOLD;
+    
     console.log(`[Ocean] Consolidation complete:`);
     console.log(`  - Drift: ${driftBefore.toFixed(4)} -> ${this.identity.basinDrift.toFixed(4)}`);
     console.log(`  - Patterns extracted: ${patternsExtracted}`);
     console.log(`  - Duration: ${duration}ms`);
+    console.log(`  - Success: ${success ? 'YES' : 'NO (drift still high)'}`);
     
     if (this.onConsolidationEnd) {
       this.onConsolidationEnd(result);
     }
+    
+    return success;
   }
 
   private async updateConsciousnessMetrics(): Promise<void> {

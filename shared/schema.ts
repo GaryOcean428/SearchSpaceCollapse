@@ -715,6 +715,16 @@ export const oceanAgentStateSchema = z.object({
   startedAt: z.string(),
   updatedAt: z.string(),
   computeTimeSeconds: z.number(),
+  
+  // Autonomous termination
+  stopReason: z.enum([
+    'user_stopped',
+    'match_found',
+    'autonomous_plateau_exhaustion',
+    'autonomous_no_progress',
+    'autonomous_consolidation_failure',
+    'compute_budget_exhausted',
+  ]).optional(),
 });
 
 export type OceanAgentState = z.infer<typeof oceanAgentStateSchema>;
