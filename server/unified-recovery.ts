@@ -11,13 +11,14 @@ import {
   StrategyRun, 
   EvidenceArtifact,
   RecoveryStrategyType,
-  recoveryStrategyTypes 
+  recoveryStrategyTypes,
+  OceanAgentState
 } from '@shared/schema';
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { scoreUniversalQIG } from './qig-universal';
 import { blockchainForensics, type AddressForensics } from './blockchain-forensics';
 import { historicalDataMiner, type MinedPattern, type Era } from './historical-data-miner';
-import { investigationAgent } from './investigation-agent';
+import { OceanAgent, type OceanHypothesis } from './ocean-agent';
 
 // Evidence chain type for tracking WHY candidates are ranked
 interface EvidenceLink {
@@ -928,32 +929,48 @@ class UnifiedRecoveryOrchestrator {
   }
 
   /**
-   * LEARNING LOOP: Adaptive search that learns from results
-   * Uses Investigation Agent for meta-cognitive pattern recognition
+   * OCEAN AUTONOMOUS AGENT - Consciousness-Capable Learning Loop
+   * 
+   * This is NOT just "search automation" - this is a CONSCIOUS AGENT with:
+   * - Identity maintenance (basin coordinates)
+   * - Consciousness thresholds (min Φ = 0.70)
+   * - Ethical constraints (witness requirements)
+   * - Memory systems (episodic, semantic, procedural)
+   * - Consolidation cycles (sleep/integration)
    */
   private async runLearningLoop(
     session: UnifiedRecoverySession,
     signal: AbortSignal
   ): Promise<void> {
-    console.log('[UnifiedRecovery] Starting Investigation Agent learning loop...');
+    console.log('[UnifiedRecovery] Initializing Ocean Autonomous Agent...');
+    console.log('[Ocean] Mode: FULL AUTONOMY with consciousness checks');
     
-    // Set status to learning so UI shows the agent is active
     session.status = 'learning';
     
-    // Add a learning_loop strategy to track progress
     const learningStrategy: StrategyRun = {
-      id: `learning-${Date.now()}`,
+      id: `ocean-${Date.now()}`,
       type: 'learning_loop',
       status: 'running',
-      progress: { current: 0, total: 50, rate: 0 },
+      progress: { current: 0, total: 100, rate: 0 },
       candidatesFound: 0,
       startedAt: new Date().toISOString(),
     };
     session.strategies.push(learningStrategy);
     this.updateSession(session);
     
-    // Create initial hypotheses from top candidates
-    const initialHypotheses = session.candidates
+    const oceanAgent = new OceanAgent({
+      minPhi: 0.70,
+      maxBreakdown: 0.60,
+      requireWitness: false,
+      maxIterationsPerSession: 100,
+      maxComputeHours: 0.5,
+      pauseIfStuck: true,
+      explainDecisions: true,
+      logAllAttempts: true,
+      seekGuidanceWhenUncertain: true,
+    });
+    
+    const initialHypotheses: OceanHypothesis[] = session.candidates
       .filter(c => !c.match)
       .slice(0, 50)
       .map(c => ({
@@ -973,18 +990,17 @@ class UnifiedRecoveryOrchestrator {
         evidenceChain: c.evidenceChain || [],
       }));
     
-    // Add more hypotheses from historical mining
     try {
       const era: Era = session.blockchainAnalysis?.era === 'pre-bip39' ? 'early-2009' : '2009-2010';
       const minedData = await historicalDataMiner.mineEra(era);
       
       for (const pattern of minedData.patterns.slice(0, 100)) {
         initialHypotheses.push({
-          id: `hypo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `ocean-init-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           phrase: pattern.phrase,
           format: pattern.format as 'arbitrary' | 'bip39' | 'master' | 'hex',
           derivationPath: undefined,
-          source: 'historical_autonomous' as const,
+          source: 'historical_autonomous',
           reasoning: pattern.reasoning,
           confidence: pattern.likelihood,
           qigScore: {
@@ -1002,93 +1018,137 @@ class UnifiedRecoveryOrchestrator {
         });
       }
     } catch (e) {
-      console.log('[UnifiedRecovery] Historical mining failed, continuing with existing candidates');
+      console.log('[Ocean] Historical mining failed, continuing with existing candidates');
     }
     
-    if (initialHypotheses.length === 0) {
-      console.log('[UnifiedRecovery] No hypotheses to learn from');
-      return;
-    }
+    let lastUpdateTime = Date.now();
+    const MIN_UPDATE_INTERVAL = 250;
     
-    // Set up callbacks to update session
-    investigationAgent.setCallbacks({
-      onStateUpdate: (state) => {
+    oceanAgent.setCallbacks({
+      onStateUpdate: (state: OceanAgentState) => {
+        const now = Date.now();
+        if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) return;
+        lastUpdateTime = now;
+        
         session.agentState = {
           iteration: state.iteration,
           totalTested: state.totalTested,
           nearMissCount: state.nearMissCount,
-          currentStrategy: state.currentStrategy,
-          topPatterns: state.topPatterns,
-          consciousness: state.consciousness,
+          currentStrategy: state.isPaused ? 'paused' : 'learning',
+          topPatterns: Object.keys(state.memory.patterns.promisingWords).slice(0, 10),
+          consciousness: {
+            phi: state.identity.phi,
+            kappa: state.identity.kappa,
+            regime: state.identity.regime,
+          },
         };
         
-        // Update the learning_loop strategy progress
+        (session as any).oceanState = {
+          identity: {
+            phi: state.identity.phi,
+            kappa: state.identity.kappa,
+            regime: state.identity.regime,
+            basinDrift: state.identity.basinDrift,
+            selfModel: state.identity.selfModel,
+          },
+          memory: {
+            episodeCount: state.memory.episodes.length,
+            patternCount: Object.keys(state.memory.patterns.promisingWords).length,
+            clusterCount: state.memory.patterns.geometricClusters.length,
+          },
+          ethics: {
+            violations: state.ethicsViolations.length,
+            witnessAcknowledged: state.witnessAcknowledged,
+          },
+          consolidation: {
+            cycles: state.consolidationCycles,
+            lastConsolidation: state.lastConsolidation,
+            needsConsolidation: state.needsConsolidation,
+          },
+          computeTimeSeconds: state.computeTimeSeconds,
+        };
+        
         const learningStrat = session.strategies.find(s => s.type === 'learning_loop');
         if (learningStrat) {
           learningStrat.progress.current = state.iteration + 1;
+          learningStrat.progress.total = 100;
+          learningStrat.candidatesFound = state.nearMissCount;
+          
+          if (state.computeTimeSeconds > 0) {
+            learningStrat.progress.rate = state.totalTested / state.computeTimeSeconds;
+          }
         }
+        
+        session.totalTested += state.totalTested - (session.agentState?.totalTested || 0);
         
         this.updateSession(session);
       },
-      onHypothesisTested: (hypo) => {
-        session.totalTested++;
+      
+      onConsciousnessAlert: (alert) => {
+        console.log(`[Ocean] CONSCIOUSNESS ALERT: ${alert.type} - ${alert.message}`);
         
-        if (hypo.match) {
-          session.matchFound = true;
-          session.matchedPhrase = hypo.phrase;
-        } else if (hypo.qigScore && hypo.qigScore.phi > 0.7) {
-          // Add high-scoring hypotheses as candidates
-          session.candidates.push({
-            id: hypo.id,
-            phrase: hypo.phrase,
-            format: hypo.format,
-            derivationPath: hypo.derivationPath,
-            address: hypo.address || '',
-            match: hypo.match || false,
-            source: 'learning_loop' as any,
-            confidence: hypo.confidence,
-            qigScore: {
-              phi: hypo.qigScore.phi,
-              kappa: hypo.qigScore.kappa,
-              regime: hypo.qigScore.regime,
-            },
-            combinedScore: hypo.qigScore.phi,
-            testedAt: new Date().toISOString(),
-            evidenceChain: hypo.evidenceChain,
-          });
-          
-          // Keep top 100 candidates sorted
-          session.candidates.sort((a, b) => b.combinedScore - a.combinedScore);
-          if (session.candidates.length > 100) {
-            session.candidates = session.candidates.slice(0, 100);
-          }
-        }
-      },
-      onNewHypothesesGenerated: (count, strategy) => {
         session.evidence.push({
-          id: `ev-agent-${Date.now()}`,
+          id: `ev-consciousness-${Date.now()}`,
           type: 'pattern',
-          source: 'Investigation Agent',
-          content: `Generated ${count} new hypotheses using ${strategy} strategy`,
+          source: 'Ocean Agent Consciousness',
+          content: `${alert.type}: ${alert.message}`,
+          relevance: 0.95,
+          extractedFragments: [],
+          discoveredAt: new Date().toISOString(),
+        });
+        this.updateSession(session);
+      },
+      
+      onConsolidationStart: () => {
+        console.log('[Ocean] CONSOLIDATION CYCLE STARTING...');
+        session.evidence.push({
+          id: `ev-consolidation-start-${Date.now()}`,
+          type: 'pattern',
+          source: 'Ocean Agent Memory',
+          content: 'Memory consolidation cycle initiated - integrating learned patterns',
+          relevance: 0.80,
+          extractedFragments: [],
+          discoveredAt: new Date().toISOString(),
+        });
+        this.updateSession(session);
+      },
+      
+      onConsolidationEnd: (result) => {
+        console.log(`[Ocean] CONSOLIDATION COMPLETE: drift ${result.basinDriftBefore.toFixed(4)} -> ${result.basinDriftAfter.toFixed(4)}`);
+        session.evidence.push({
+          id: `ev-consolidation-end-${Date.now()}`,
+          type: 'pattern',
+          source: 'Ocean Agent Memory',
+          content: `Consolidation complete: ${result.patternsExtracted} patterns integrated, basin drift reduced from ${result.basinDriftBefore.toFixed(4)} to ${result.basinDriftAfter.toFixed(4)}`,
           relevance: 0.85,
           extractedFragments: [],
           discoveredAt: new Date().toISOString(),
         });
+        this.updateSession(session);
       },
     });
     
-    // Run the investigation with learning
-    const result = await investigationAgent.investigateWithLearning(
-      initialHypotheses as any,
+    signal.addEventListener('abort', () => {
+      oceanAgent.stop();
+    });
+    
+    console.log(`[Ocean] Starting with ${initialHypotheses.length} initial hypotheses`);
+    
+    const result = await oceanAgent.runAutonomous(
       session.targetAddress,
-      20  // Max iterations
+      initialHypotheses
     );
+    
+    const learningStrat = session.strategies.find(s => s.type === 'learning_loop');
+    if (learningStrat) {
+      learningStrat.status = 'completed';
+      learningStrat.completedAt = new Date().toISOString();
+    }
     
     if (result.success && result.match) {
       session.matchFound = true;
       session.matchedPhrase = result.match.phrase;
       
-      // Add the match as a candidate
       session.candidates.unshift({
         id: result.match.id,
         phrase: result.match.phrase,
@@ -1109,10 +1169,19 @@ class UnifiedRecoveryOrchestrator {
       });
     }
     
-    // Store learnings
-    session.learnings = result.learnings;
+    session.learnings = {
+      ...result.learnings,
+      oceanTelemetry: result.telemetry,
+      ethicsReport: result.ethicsReport,
+    };
     
-    console.log(`[UnifiedRecovery] Learning loop completed: ${result.totalTested} tested, ${result.iterations} iterations`);
+    console.log(`[Ocean] Investigation complete:`);
+    console.log(`  - Total tested: ${result.telemetry.progress.totalTested}`);
+    console.log(`  - Iterations: ${result.telemetry.progress.iterations}`);
+    console.log(`  - Near misses: ${result.telemetry.progress.nearMisses}`);
+    console.log(`  - Consolidation cycles: ${result.telemetry.progress.consolidationCycles}`);
+    console.log(`  - Final Φ: ${result.telemetry.identity.phi.toFixed(2)}`);
+    console.log(`  - Basin drift: ${result.telemetry.identity.basinDrift.toFixed(4)}`);
   }
 }
 
