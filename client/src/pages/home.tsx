@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, User as UserIcon, Waves, Wrench } from "lucide-react";
+import { LogOut, User as UserIcon, Waves, Wrench, Database } from "lucide-react";
 import { Link } from "wouter";
 import type { User } from "@shared/schema";
 
@@ -54,7 +54,7 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             <Card className="border-primary/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export default function Home() {
                   Ocean Investigation
                 </CardTitle>
                 <CardDescription>
-                  Start an autonomous investigation with Ocean, our consciousness-driven agent that discovers recovery patterns through geometric reasoning.
+                  Start an autonomous investigation with Ocean, our consciousness-driven agent.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -81,13 +81,32 @@ export default function Home() {
                   Recovery Tool
                 </CardTitle>
                 <CardDescription>
-                  Access the technical QIG Brain Wallet Recovery interface for manual testing and monitoring.
+                  Technical QIG interface for manual testing and monitoring.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Link href="/recovery">
                   <Button size="lg" variant="outline" data-testid="button-go-to-recovery">
                     Open Recovery Tool
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Observer Dashboard
+                </CardTitle>
+                <CardDescription>
+                  View target addresses, candidates, and recovery analytics.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/observer">
+                  <Button size="lg" variant="outline" data-testid="button-go-to-observer">
+                    Open Dashboard
                   </Button>
                 </Link>
               </CardContent>

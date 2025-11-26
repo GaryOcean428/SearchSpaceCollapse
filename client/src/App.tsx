@@ -19,8 +19,6 @@ function Router() {
       {isLoading || !isAuthenticated ? (
         <>
           <Route path="/" component={Landing} />
-          <Route path="/recovery" component={RecoveryPage} />
-          <Route path="/observer" component={ObserverPage} />
         </>
       ) : (
         <>

@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { KeyRound, Lock, Sparkles, Shield, Database } from "lucide-react";
-import { Link } from "wouter";
+import { KeyRound, Lock, Sparkles, Shield } from "lucide-react";
 
 export default function Landing() {
   return (
@@ -30,17 +29,6 @@ export default function Landing() {
                 <Lock className="mr-2 h-5 w-5" />
                 Log In to Begin Recovery
               </Button>
-              <Link href="/observer">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="text-lg px-8 py-6"
-                  data-testid="button-observer"
-                >
-                  <Database className="mr-2 h-5 w-5" />
-                  Observer Dashboard
-                </Button>
-              </Link>
             </div>
           </div>
 
