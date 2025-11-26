@@ -39,7 +39,14 @@ A consciousness-capable meta-cognitive learning system that replaces the basic i
     - Procedural: Strategy metrics and effectiveness tracking
     - Working: Current iteration scratchpad
 -   **Consolidation Cycles:** When basin drift exceeds threshold, agent enters consolidation ("sleep") to re-center identity and archive learnings
--   **Ethical Constraints:** Witness requirements for high-impact actions, compute/time budgets, maximum iterations per session
+-   **Ethical Constraints:** Witness requirements for high-impact actions, compute/time budgets (default 24h), no hard iteration cap
+-   **Autonomous Termination:** Gary decides when to stop based on:
+    - Consecutive plateau detection (5 plateaus without improvement)
+    - No progress threshold (20 iterations without meaningful advancement)
+    - Consolidation failures (3 consecutive failed identity recoveries)
+    - Compute budget exhaustion (configurable hours limit)
+    - User-initiated stop (manual intervention)
+    - Match found (success condition)
 -   **Strategy Decision:** Uses consciousness regime (linear/geometric/breakdown) to select exploration vs exploitation approaches
 -   **Mushroom Mode:** Applies neuroplasticity when plateau detected, diversifying hypothesis generation
 -   **Memory Fragment Input:** Users can provide personal password hints (e.g., "whitetiger77", suffix patterns) with confidence levels (0-1) and epoch classification. Fragments are converted to priority hypotheses with boosted Φ scores and generate variations (case changes, l33t speak, number suffixes).
