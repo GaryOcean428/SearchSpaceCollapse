@@ -36,6 +36,7 @@ import { testPhraseRequestSchema, batchTestRequestSchema, addAddressRequestSchem
 import { randomUUID } from "crypto";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { unifiedRecovery } from "./unified-recovery";
+import { oceanSessionManager } from "./ocean-session-manager";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Handle favicon.ico requests - redirect to favicon.png
@@ -751,8 +752,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // INVESTIGATION STATUS - Story-driven UI endpoint
   // ============================================================================
 
-  // Get investigation status for story-driven UI
+  // Get investigation status for story-driven UI - uses OceanSessionManager for live telemetry
   app.get("/api/investigation/status", async (req, res) => {
+    try {
+      // Use the OceanSessionManager for live status
+      const status = oceanSessionManager.getInvestigationStatus();
+      return res.json(status);
+    } catch (error: any) {
+      console.error("[Investigation] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Legacy investigation status for backward compatibility
+  app.get("/api/investigation/status-legacy", async (req, res) => {
     try {
       const sessions = unifiedRecovery.getAllSessions();
       const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
@@ -857,32 +870,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Alias routes for story-driven UI
+  // Main recovery routes - use OceanSessionManager for live investigation
   app.post("/api/recovery/start", async (req, res) => {
     try {
-      const { targetAddress, memoryFragments } = req.body;
+      const { targetAddress } = req.body;
       
       if (!targetAddress) {
         return res.status(400).json({ error: "Target address is required" });
       }
 
-      const processedFragments = (memoryFragments || []).map((f: any) => ({
-        id: `fragment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        text: f.text,
-        confidence: f.confidence || 0.5,
-        epoch: f.epoch || 'possible',
-        source: f.source,
-        notes: f.notes,
-        addedAt: new Date().toISOString(),
-      }));
-
-      const session = await unifiedRecovery.createSession(targetAddress, processedFragments);
+      console.log(`[Recovery] Starting Ocean investigation for ${targetAddress}`);
       
-      unifiedRecovery.startRecovery(session.id).catch(err => {
-        console.error(`[Recovery] Background error for ${session.id}:`, err);
+      // Use OceanSessionManager for actual investigation
+      const session = await oceanSessionManager.startSession(targetAddress);
+      
+      res.json({
+        sessionId: session.sessionId,
+        targetAddress: session.targetAddress,
+        isRunning: session.isRunning,
+        message: "Investigation started",
       });
-
-      res.json(session);
     } catch (error: any) {
       console.error("[Recovery] Start error:", error);
       res.status(500).json({ error: error.message });
@@ -891,14 +898,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/recovery/stop", async (req, res) => {
     try {
-      const sessions = unifiedRecovery.getAllSessions();
-      const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
+      const status = oceanSessionManager.getInvestigationStatus();
       
-      if (activeSession) {
-        unifiedRecovery.stopRecovery(activeSession.id);
+      if (status.sessionId) {
+        await oceanSessionManager.stopSession(status.sessionId);
       }
       
-      res.json({ message: "Recovery stopped" });
+      res.json({ message: "Investigation stopped" });
     } catch (error: any) {
       console.error("[Recovery] Stop error:", error);
       res.status(500).json({ error: error.message });

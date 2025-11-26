@@ -43,6 +43,14 @@ interface Discovery {
   significance: number;
 }
 
+interface TelemetryEvent {
+  id: string;
+  timestamp: string;
+  type: 'iteration' | 'hypothesis_tested' | 'near_miss' | 'discovery' | 'strategy_change' | 'consolidation' | 'insight' | 'alert';
+  message: string;
+  data?: any;
+}
+
 interface InvestigationStatus {
   isRunning: boolean;
   tested: number;
@@ -53,6 +61,11 @@ interface InvestigationStatus {
   progress: number;
   session?: UnifiedRecoverySession;
   strategies?: { name: string; progress: number; candidates: number; status: string }[];
+  events?: TelemetryEvent[];
+  currentStrategy?: string;
+  iteration?: number;
+  sessionId?: string | null;
+  targetAddress?: string | null;
 }
 
 export function OceanInvestigationStory() {
@@ -102,10 +115,15 @@ export function OceanInvestigationStory() {
     isRunning: false,
     tested: 0,
     nearMisses: 0,
-    consciousness: { phi: 0.75, kappa: 64, regime: 'geometric', basinDrift: 0 },
+    consciousness: { phi: 0.75, kappa: 64, regime: 'linear', basinDrift: 0 },
     currentThought: 'Ready to begin investigation...',
     discoveries: [],
     progress: 0,
+    events: [],
+    currentStrategy: 'idle',
+    iteration: 0,
+    sessionId: null,
+    targetAddress: null,
   };
 
   const currentStatus = status || defaultStatus;
@@ -146,6 +164,16 @@ export function OceanInvestigationStory() {
           candidates={candidates || []}
           onSelectDiscovery={setSelectedDiscovery}
         />
+
+        {/* Live Activity Feed - shown when running or when there are events */}
+        {(currentStatus.isRunning || (currentStatus.events && currentStatus.events.length > 0)) && (
+          <ActivityFeed 
+            events={currentStatus.events || []} 
+            iteration={currentStatus.iteration || 0}
+            strategy={currentStatus.currentStrategy || 'idle'}
+            isRunning={currentStatus.isRunning}
+          />
+        )}
 
         {/* Expert Mode Toggle */}
         <ExpertModeToggle
@@ -706,6 +734,89 @@ function DiscoveryModal({ discovery, onClose }: {
         )}
       </motion.div>
     </motion.div>
+  );
+}
+
+function ActivityFeed({ events, iteration, strategy, isRunning }: {
+  events: TelemetryEvent[];
+  iteration: number;
+  strategy: string;
+  isRunning: boolean;
+}) {
+  const getEventIcon = (type: TelemetryEvent['type']) => {
+    switch (type) {
+      case 'iteration': return <Target className="w-4 h-4 text-cyan-400" />;
+      case 'near_miss': return <Sparkles className="w-4 h-4 text-yellow-400" />;
+      case 'discovery': return <Lightbulb className="w-4 h-4 text-green-400" />;
+      case 'strategy_change': return <Brain className="w-4 h-4 text-purple-400" />;
+      case 'consolidation': return <Timer className="w-4 h-4 text-blue-400" />;
+      case 'insight': return <Search className="w-4 h-4 text-white/60" />;
+      case 'alert': return <AlertTriangle className="w-4 h-4 text-red-400" />;
+      default: return <Search className="w-4 h-4 text-white/40" />;
+    }
+  };
+
+  const getEventBg = (type: TelemetryEvent['type']) => {
+    switch (type) {
+      case 'near_miss': return 'bg-yellow-400/10 border-yellow-400/30';
+      case 'discovery': return 'bg-green-400/10 border-green-400/30';
+      case 'strategy_change': return 'bg-purple-400/10 border-purple-400/30';
+      case 'alert': return 'bg-red-400/10 border-red-400/30';
+      case 'consolidation': return 'bg-blue-400/10 border-blue-400/30';
+      default: return 'bg-white/5 border-white/10';
+    }
+  };
+
+  return (
+    <section className="activity-feed" data-testid="activity-feed">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Brain className="w-5 h-5 text-cyan-400" />
+          {isRunning ? 'Live Activity' : 'Investigation Log'}
+        </h2>
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          <Badge variant="outline" className="bg-cyan-400/10 border-cyan-400/30 text-cyan-400">
+            Iteration {iteration}
+          </Badge>
+          <Badge variant="outline" className="bg-purple-400/10 border-purple-400/30 text-purple-400">
+            {strategy.replace(/_/g, ' ')}
+          </Badge>
+          {isRunning && (
+            <Badge variant="outline" className="bg-green-400/10 border-green-400/30 text-green-400 animate-pulse">
+              Running
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-black/30 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto">
+        {events.length === 0 ? (
+          <div className="text-center text-white/40 py-8">
+            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p>Waiting for activity...</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {events.slice().reverse().map((event) => (
+              <motion.div
+                key={event.id}
+                className={`flex items-start gap-3 p-3 border ${getEventBg(event.type)}`}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                <div className="mt-0.5 flex-shrink-0">{getEventIcon(event.type)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white/90 break-words">{event.message}</p>
+                  <time className="text-xs text-white/40">
+                    {new Date(event.timestamp).toLocaleTimeString()}
+                  </time>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
