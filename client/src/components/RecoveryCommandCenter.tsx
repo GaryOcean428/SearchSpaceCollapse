@@ -7,6 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { 
   Select,
   SelectContent,
@@ -14,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
 import { 
   Play, 
   Square, 
@@ -30,11 +38,31 @@ import {
   Hash,
   Search,
   HardDrive,
-  Info
+  Info,
+  Plus,
+  X,
+  Lightbulb,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { UnifiedRecoverySession, RecoveryCandidate, StrategyRun, TargetAddress } from '@shared/schema';
+
+interface MemoryFragmentInput {
+  id: string;
+  text: string;
+  confidence: number;
+  epoch: 'certain' | 'likely' | 'possible' | 'speculative';
+  notes?: string;
+}
+
+const EPOCH_LABELS: Record<string, { label: string; description: string }> = {
+  'certain': { label: 'Certain', description: 'You remember this clearly' },
+  'likely': { label: 'Likely', description: 'Pretty sure about this' },
+  'possible': { label: 'Possible', description: 'Might be related' },
+  'speculative': { label: 'Speculative', description: 'Just a guess' },
+};
 
 const STRATEGY_LABELS: Record<string, { label: string; icon: typeof Brain; description: string }> = {
   era_patterns: { label: 'Era Patterns', icon: Clock, description: '2009 cypherpunk phrases' },
@@ -208,6 +236,13 @@ export function RecoveryCommandCenter() {
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [customAddress, setCustomAddress] = useState('');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  
+  const [memoryFragments, setMemoryFragments] = useState<MemoryFragmentInput[]>([]);
+  const [showFragments, setShowFragments] = useState(false);
+  const [newFragmentText, setNewFragmentText] = useState('');
+  const [newFragmentConfidence, setNewFragmentConfidence] = useState(0.5);
+  const [newFragmentEpoch, setNewFragmentEpoch] = useState<'certain' | 'likely' | 'possible' | 'speculative'>('possible');
+  const [newFragmentNotes, setNewFragmentNotes] = useState('');
 
   const { data: targetAddresses = [] } = useQuery<TargetAddress[]>({
     queryKey: ['/api/target-addresses'],
@@ -220,15 +255,28 @@ export function RecoveryCommandCenter() {
   });
 
   const startMutation = useMutation({
-    mutationFn: async (address: string) => {
+    mutationFn: async ({ address, fragments }: { address: string; fragments: MemoryFragmentInput[] }) => {
       const response = await apiRequest('POST', '/api/unified-recovery/sessions', { 
-        targetAddress: address 
+        targetAddress: address,
+        memoryFragments: fragments.map(f => ({
+          text: f.text,
+          confidence: f.confidence,
+          epoch: f.epoch,
+          notes: f.notes,
+          source: 'user_input',
+        })),
       });
       return response.json();
     },
     onSuccess: (data: UnifiedRecoverySession) => {
       setActiveSessionId(data.id);
-      toast({ title: 'Recovery started', description: `Session ${data.id} created` });
+      const fragmentCount = memoryFragments.length;
+      toast({ 
+        title: 'Recovery started', 
+        description: fragmentCount > 0 
+          ? `Session started with ${fragmentCount} memory fragment${fragmentCount > 1 ? 's' : ''}`
+          : `Session ${data.id.slice(0, 12)}... created`
+      });
     },
     onError: (error: any) => {
       toast({ title: 'Failed to start recovery', description: error.message, variant: 'destructive' });
@@ -246,13 +294,40 @@ export function RecoveryCommandCenter() {
     },
   });
 
+  const addFragment = () => {
+    if (!newFragmentText.trim()) {
+      toast({ title: 'Enter a memory fragment', variant: 'destructive' });
+      return;
+    }
+    
+    const fragment: MemoryFragmentInput = {
+      id: `frag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      text: newFragmentText.trim(),
+      confidence: newFragmentConfidence,
+      epoch: newFragmentEpoch,
+      notes: newFragmentNotes.trim() || undefined,
+    };
+    
+    setMemoryFragments([...memoryFragments, fragment]);
+    setNewFragmentText('');
+    setNewFragmentNotes('');
+    setNewFragmentConfidence(0.5);
+    setNewFragmentEpoch('possible');
+    
+    toast({ title: 'Fragment added', description: `"${fragment.text}"` });
+  };
+
+  const removeFragment = (id: string) => {
+    setMemoryFragments(memoryFragments.filter(f => f.id !== id));
+  };
+
   const handleStart = () => {
     const address = selectedAddress === 'custom' ? customAddress : selectedAddress;
     if (!address) {
       toast({ title: 'Please select or enter an address', variant: 'destructive' });
       return;
     }
-    startMutation.mutate(address);
+    startMutation.mutate({ address, fragments: memoryFragments });
   };
 
   const handleStop = () => {
@@ -337,6 +412,141 @@ export function RecoveryCommandCenter() {
               data-testid="input-custom-address"
             />
           )}
+
+          <Separator className="my-2" />
+
+          <Collapsible open={showFragments} onOpenChange={setShowFragments}>
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                className="w-full justify-between gap-2 h-auto py-2"
+                disabled={isRunning}
+                data-testid="button-toggle-fragments"
+              >
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4" />
+                  <span>Memory Fragments</span>
+                  {memoryFragments.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {memoryFragments.length}
+                    </Badge>
+                  )}
+                </div>
+                {showFragments ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-3">
+              <div className="text-sm text-muted-foreground">
+                Add any password hints, username patterns, or partial memories that Ocean should prioritize during investigation.
+              </div>
+              
+              {memoryFragments.length > 0 && (
+                <div className="space-y-2">
+                  {memoryFragments.map((fragment) => (
+                    <div 
+                      key={fragment.id} 
+                      className="flex items-start gap-2 p-2 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm truncate max-w-[200px]">
+                            "{fragment.text}"
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {EPOCH_LABELS[fragment.epoch]?.label}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {(fragment.confidence * 100).toFixed(0)}%
+                          </Badge>
+                        </div>
+                        {fragment.notes && (
+                          <div className="text-xs text-muted-foreground mt-1 truncate">
+                            {fragment.notes}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeFragment(fragment.id)}
+                        data-testid={`button-remove-fragment-${fragment.id}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-3 p-3 rounded-lg border bg-card">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g., whitetiger77, garyocean, 77-suffix"
+                    value={newFragmentText}
+                    onChange={(e) => setNewFragmentText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addFragment()}
+                    data-testid="input-new-fragment"
+                  />
+                  <Button 
+                    size="icon"
+                    onClick={addFragment}
+                    disabled={!newFragmentText.trim()}
+                    data-testid="button-add-fragment"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Confidence</span>
+                      <span>{(newFragmentConfidence * 100).toFixed(0)}%</span>
+                    </div>
+                    <Slider
+                      value={[newFragmentConfidence]}
+                      onValueChange={(v) => setNewFragmentConfidence(v[0])}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      data-testid="slider-fragment-confidence"
+                    />
+                  </div>
+                  
+                  <Select
+                    value={newFragmentEpoch}
+                    onValueChange={(v) => setNewFragmentEpoch(v as typeof newFragmentEpoch)}
+                  >
+                    <SelectTrigger className="w-[140px]" data-testid="select-fragment-epoch">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(EPOCH_LABELS).map(([key, { label, description }]) => (
+                        <SelectItem key={key} value={key}>
+                          <div className="flex flex-col">
+                            <span>{label}</span>
+                            <span className="text-xs text-muted-foreground">{description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Textarea
+                  placeholder="Optional notes: context, related memories..."
+                  value={newFragmentNotes}
+                  onChange={(e) => setNewFragmentNotes(e.target.value)}
+                  className="resize-none h-16"
+                  data-testid="textarea-fragment-notes"
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </CardContent>
       </Card>
 
