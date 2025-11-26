@@ -93,6 +93,30 @@ All four recovery vectors are operational:
 **Data Storage Solutions:**
 All critical data (candidates, search jobs, target addresses) is persistently saved to disk using `MemStorage` with Zod schema validation and atomic writes.
 
+## Security Features
+
+### Input Validation (server/crypto.ts)
+- `validatePassphrase()`: Ensures passphrases are non-empty strings under 10KB
+- `validatePrivateKeyHex()`: Validates 64-character hex private keys
+- `validateDerivationPath()`: Validates BIP32 paths with segment bounds (0 to 2^31-1)
+- `validateBitcoinAddress()`: Validates Base58Check format and checksum
+- `CryptoValidationError`: Custom error class for proper HTTP 400 responses
+
+### Rate Limiting (server/routes.ts)
+- `strictLimiter`: 5 requests/minute for sensitive crypto endpoints (/api/test-phrase, /api/batch-test)
+- `standardLimiter`: 20 requests/minute for moderate endpoints
+- `generousLimiter`: 60 requests/minute for read-only endpoints
+
+### Sensitive Data Protection (server/index.ts)
+- Response body redaction for sensitive endpoints (test-phrase, batch-test, verify, derive, etc.)
+- Logs show [REDACTED] instead of actual response content
+
+### Security Headers (Helmet)
+- Content Security Policy (CSP): Restricts script/style sources
+- HSTS: Enforces HTTPS with 1-year max-age
+- noSniff: Prevents MIME type sniffing
+- Referrer Policy: strict-origin-when-cross-origin
+
 ## External Dependencies
 
 ### Cryptographic Libraries
