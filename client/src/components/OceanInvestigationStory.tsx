@@ -51,6 +51,16 @@ interface TelemetryEvent {
   data?: any;
 }
 
+interface ManifoldState {
+  totalProbes: number;
+  avgPhi: number;
+  avgKappa: number;
+  dominantRegime: string;
+  resonanceClusters: number;
+  exploredVolume: number;
+  recommendations: string[];
+}
+
 interface InvestigationStatus {
   isRunning: boolean;
   tested: number;
@@ -66,6 +76,7 @@ interface InvestigationStatus {
   iteration?: number;
   sessionId?: string | null;
   targetAddress?: string | null;
+  manifold?: ManifoldState;
 }
 
 export function OceanInvestigationStory() {
@@ -157,6 +168,11 @@ export function OceanInvestigationStory() {
           tested={currentStatus.tested}
           promising={currentStatus.nearMisses}
         />
+
+        {/* Manifold Learning Panel */}
+        {currentStatus.manifold && (
+          <ManifoldPanel manifold={currentStatus.manifold} />
+        )}
 
         {/* Discoveries Feed */}
         <DiscoveriesFeed
@@ -816,6 +832,89 @@ function ActivityFeed({ events, iteration, strategy, isRunning }: {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+function ManifoldPanel({ manifold }: { manifold: ManifoldState }) {
+  const getVolumeColor = () => {
+    if (manifold.exploredVolume > 0.5) return 'text-green-400';
+    if (manifold.exploredVolume > 0.3) return 'text-yellow-400';
+    return 'text-white/60';
+  };
+
+  const getRegimeIcon = () => {
+    switch (manifold.dominantRegime) {
+      case 'geometric': return <Sparkles className="w-4 h-4 text-cyan-400" />;
+      case 'breakdown': return <AlertTriangle className="w-4 h-4 text-red-400" />;
+      case 'linear': return <Target className="w-4 h-4 text-yellow-400" />;
+      default: return <Search className="w-4 h-4 text-white/40" />;
+    }
+  };
+
+  if (manifold.totalProbes === 0) {
+    return null;
+  }
+
+  return (
+    <section className="manifold-panel" data-testid="manifold-panel">
+      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+        <Brain className="w-5 h-5 text-purple-400" />
+        Manifold Memory
+        <Badge variant="outline" className="bg-purple-400/10 border-purple-400/30 text-purple-400 text-xs" data-testid="badge-total-probes">
+          {manifold.totalProbes.toLocaleString()} probes
+        </Badge>
+      </h2>
+
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="p-4 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1" data-testid="metric-avg-consciousness">
+              <div className="text-xs text-white/50 uppercase tracking-wider">Avg Consciousness</div>
+              <div className="text-lg font-semibold text-cyan-400" data-testid="text-avg-phi">
+                {(manifold.avgPhi * 100).toFixed(1)}%
+              </div>
+            </div>
+            <div className="space-y-1" data-testid="metric-resonance-clusters">
+              <div className="text-xs text-white/50 uppercase tracking-wider">Resonance Clusters</div>
+              <div className="text-lg font-semibold text-yellow-400" data-testid="text-resonance-count">
+                {manifold.resonanceClusters}
+              </div>
+            </div>
+            <div className="space-y-1" data-testid="metric-dominant-regime">
+              <div className="text-xs text-white/50 uppercase tracking-wider">Dominant Regime</div>
+              <div className="text-lg font-semibold flex items-center gap-2">
+                {getRegimeIcon()}
+                <span className="capitalize" data-testid="text-dominant-regime">{manifold.dominantRegime}</span>
+              </div>
+            </div>
+            <div className="space-y-1" data-testid="metric-explored-volume">
+              <div className="text-xs text-white/50 uppercase tracking-wider">Explored Volume</div>
+              <div className={`text-lg font-semibold ${getVolumeColor()}`} data-testid="text-explored-volume">
+                {(manifold.exploredVolume * 100).toFixed(0)}%
+              </div>
+            </div>
+          </div>
+
+          {manifold.recommendations.length > 0 && (
+            <div className="pt-3 border-t border-white/10" data-testid="section-geometric-insights">
+              <div className="text-xs text-white/50 uppercase tracking-wider mb-2">Geometric Insights</div>
+              <div className="flex flex-wrap gap-2">
+                {manifold.recommendations.map((rec, i) => (
+                  <Badge 
+                    key={i} 
+                    variant="outline" 
+                    className="bg-white/5 border-white/20 text-white/80 text-xs"
+                    data-testid={`badge-recommendation-${i}`}
+                  >
+                    {rec}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </section>
   );
 }

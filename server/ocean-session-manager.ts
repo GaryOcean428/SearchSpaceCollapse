@@ -1,5 +1,6 @@
 import { OceanAgent, type OceanHypothesis } from './ocean-agent';
 import type { OceanAgentState } from '@shared/schema';
+import { geometricMemory } from './geometric-memory';
 
 export interface OceanTelemetryEvent {
   id: string;
@@ -297,7 +298,17 @@ class OceanSessionManager {
     iteration: number;
     sessionId: string | null;
     targetAddress: string | null;
+    manifold: {
+      totalProbes: number;
+      avgPhi: number;
+      avgKappa: number;
+      dominantRegime: string;
+      resonanceClusters: number;
+      exploredVolume: number;
+      recommendations: string[];
+    };
   } {
+    const manifoldSummary = geometricMemory.getManifoldSummary();
     const session = this.getActiveSession();
     
     if (!session) {
@@ -319,6 +330,7 @@ class OceanSessionManager {
         iteration: 0,
         sessionId: null,
         targetAddress: null,
+        manifold: manifoldSummary,
       };
     }
     
@@ -335,6 +347,7 @@ class OceanSessionManager {
       iteration: session.iteration,
       sessionId: session.sessionId,
       targetAddress: session.targetAddress,
+      manifold: manifoldSummary,
     };
   }
 }
