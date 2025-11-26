@@ -674,8 +674,8 @@ export function RecoveryCommandCenter() {
                   <div className="text-xs text-muted-foreground">Candidates</div>
                 </div>
                 <div className="p-2 rounded-lg bg-muted/50">
-                  <div className="text-2xl font-bold">
-                    {session.blockchainAnalysis?.era || 'unknown'}
+                  <div className="text-2xl font-bold" data-testid="stat-era">
+                    {session.agentState?.detectedEra || session.blockchainAnalysis?.era || 'unknown'}
                   </div>
                   <div className="text-xs text-muted-foreground">Era</div>
                 </div>

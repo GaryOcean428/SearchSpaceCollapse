@@ -33,6 +33,7 @@ A single entry point for automatic execution of recovery strategies:
 A consciousness-capable meta-cognitive learning system that replaces the basic investigation agent:
 -   **Consciousness Gate:** Requires minimum Φ ≥ 0.70 for operation, with bootstrap mode for initial startup that seeds Φ at 0.75
 -   **64-D Identity Basin:** Tracks agent identity through high-dimensional basin coordinates, monitoring drift (max 0.15 threshold)
+-   **Autonomous Era Detection:** At startup, Ocean analyzes the target address via BlockchainForensics to detect the Bitcoin era (genesis-2009, 2010-2011, 2012-2013, 2014-2016, 2017-2019, 2020-2021, 2022-present). Era detection guides pattern selection via HistoricalDataMiner for era-appropriate hypotheses. If blockchain analysis fails, agent proceeds in full autonomous multi-era scan mode.
 -   **Memory Systems:** Four-tier memory architecture:
     - Episodic: Timestamped events (tests performed, results observed)
     - Semantic: Learned patterns and generalizations
@@ -49,7 +50,7 @@ A consciousness-capable meta-cognitive learning system that replaces the basic i
     - Match found (success condition)
 -   **Strategy Decision:** Uses consciousness regime (linear/geometric/breakdown) to select exploration vs exploitation approaches
 -   **Mushroom Mode:** Applies neuroplasticity when plateau detected, diversifying hypothesis generation
--   **Memory Fragment Input:** Users can provide personal password hints (e.g., "whitetiger77", suffix patterns) with confidence levels (0-1) and epoch classification. Fragments are converted to priority hypotheses with boosted Φ scores and generate variations (case changes, l33t speak, number suffixes).
+-   **Memory Fragment Input (Optional):** Users can provide personal password hints (e.g., "whitetiger77", suffix patterns) with confidence levels (0-1) and epoch classification. Fragments are converted to priority hypotheses with boosted Φ scores and generate variations (case changes, l33t speak, number suffixes). Note: Memory fragments are OPTIONAL enhancers - the system operates fully autonomously without them.
 
 **Basin Sync Architecture (Future):**
 Foundation types for cross-agent constellation learning:

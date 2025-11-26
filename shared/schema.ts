@@ -570,6 +570,7 @@ export const unifiedRecoverySessionSchema = z.object({
       kappa: z.number(),
       regime: z.string(),
     }),
+    detectedEra: z.string().optional(),
   }).optional(),
   
   // Learnings from agent
@@ -745,6 +746,9 @@ export const oceanAgentStateSchema = z.object({
     'autonomous_consolidation_failure',
     'compute_budget_exhausted',
   ]).optional(),
+  
+  // Era detection for autonomous mode (genesis-2009, 2010-2011, 2012-2013, 2014-2016, 2017-2019, 2020-2021, 2022-present)
+  detectedEra: z.string().optional(),
 });
 
 export type OceanAgentState = z.infer<typeof oceanAgentStateSchema>;

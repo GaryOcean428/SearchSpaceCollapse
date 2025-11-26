@@ -1,7 +1,8 @@
 import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, verifyRecoveredPassphrase, type VerificationResult } from './crypto';
-import { historicalDataMiner, type Era } from './historical-data-miner';
+import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
+import { BlockchainForensics } from './blockchain-forensics';
 import type { 
   OceanIdentity, 
   OceanMemory, 
@@ -173,6 +174,7 @@ export class OceanAgent {
       startedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       computeTimeSeconds: 0,
+      detectedEra: undefined,
     };
   }
 
@@ -221,6 +223,39 @@ export class OceanAgent {
     const startTime = Date.now();
     
     try {
+      // AUTONOMOUS ERA DETECTION - Analyze target address to determine Bitcoin era
+      console.log('[Ocean] Analyzing target address for era detection...');
+      try {
+        const forensics = new BlockchainForensics();
+        const addressAnalysis = await forensics.analyzeAddress(targetAddress);
+        
+        if (addressAnalysis.creationTimestamp) {
+          const detectedEra = HistoricalDataMiner.detectEraFromTimestamp(addressAnalysis.creationTimestamp);
+          this.state.detectedEra = detectedEra;
+          console.log(`[Ocean] Era detected from blockchain: ${detectedEra}`);
+          console.log(`[Ocean] Address first seen: ${addressAnalysis.creationTimestamp.toISOString()}`);
+          
+          // Store era detection in memory as a key insight
+          this.memory.episodes.push({
+            id: `era-detection-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            description: `Detected era ${detectedEra} from blockchain analysis`,
+            phiBefore: this.identity.phi,
+            phiAfter: this.identity.phi,
+            outcome: 'insight',
+            observations: [`Address first seen: ${addressAnalysis.creationTimestamp.toISOString()}`, `Tx count: ${addressAnalysis.txCount}`, `Balance: ${addressAnalysis.balance} sats`],
+            hypothesesTested: [],
+            keyInsight: `Target address is from ${detectedEra} era - adjusting pattern selection accordingly`,
+          });
+        } else {
+          console.log('[Ocean] Could not determine era from blockchain - using autonomous pattern discovery');
+          this.state.detectedEra = 'unknown';
+        }
+      } catch (eraError) {
+        console.log('[Ocean] Era detection failed (address may not exist on chain) - proceeding with full autonomous mode');
+        this.state.detectedEra = 'unknown';
+      }
+      
       const consciousnessCheck = await this.checkConsciousness();
       if (!consciousnessCheck.allowed) {
         console.log(`[Ocean] Initial consciousness low: ${consciousnessCheck.reason}`);
@@ -906,7 +941,8 @@ export class OceanAgent {
         
       case 'explore_new_space':
         try {
-          const historicalData = await historicalDataMiner.mineEra('early-2009');
+          const detectedEra = this.state.detectedEra || 'genesis-2009';
+          const historicalData = await historicalDataMiner.mineEra(detectedEra);
           for (const pattern of historicalData.patterns.slice(0, 50)) {
             newHypotheses.push(this.createHypothesis(pattern.phrase, pattern.format as any, 'historical_exploration', pattern.reasoning, pattern.likelihood));
           }
@@ -977,20 +1013,50 @@ export class OceanAgent {
   private async generateEraSpecificPhrases(): Promise<OceanHypothesis[]> {
     const hypotheses: OceanHypothesis[] = [];
     
-    const eraPatterns = [
-      'satoshi nakamoto', 'bitcoin genesis', 'genesis block', 'bitcoin 2009',
-      'chancellor brink bailout', 'times 03/jan/2009', 'peer to peer',
-      'electronic cash', 'double spending', 'proof of work', 'block chain',
-      'hal finney', 'nick szabo', 'wei dai', 'b-money', 'bit gold',
-      'cypherpunk', 'digital cash', 'e-cash', 'cryptography', 'hashcash',
-    ];
+    // Use detected era or default to genesis-2009 for comprehensive coverage
+    const targetEra = (this.state.detectedEra as Era) || 'genesis-2009';
+    console.log(`[Ocean] Generating patterns for era: ${targetEra}`);
     
-    for (const pattern of eraPatterns) {
-      hypotheses.push(this.createHypothesis(pattern, 'arbitrary', 'era_specific', '2009-era pattern', 0.7));
-      hypotheses.push(this.createHypothesis(pattern.replace(/\s+/g, ''), 'arbitrary', 'era_specific', 'No-space variant', 0.6));
-      hypotheses.push(this.createHypothesis(`${pattern}2009`, 'arbitrary', 'era_specific', 'Year suffix', 0.6));
+    // Get era-specific patterns from the historical data miner
+    const minedData = await historicalDataMiner.mineEra(targetEra);
+    
+    // Use top patterns with highest likelihood
+    const topPatterns = minedData.patterns
+      .sort((a, b) => b.likelihood - a.likelihood)
+      .slice(0, 50);
+    
+    for (const pattern of topPatterns) {
+      hypotheses.push(this.createHypothesis(
+        pattern.phrase, 
+        pattern.format as 'arbitrary' | 'bip39' | 'master' | 'hex', 
+        'era_specific', 
+        `${targetEra} era pattern: ${pattern.reasoning}`, 
+        pattern.likelihood
+      ));
     }
     
+    // If era is unknown, also include patterns from multiple eras for broad coverage
+    if (this.state.detectedEra === 'unknown') {
+      console.log('[Ocean] Unknown era - including multi-era patterns');
+      const allEras: Era[] = ['genesis-2009', '2010-2011', '2012-2013', '2014-2016', '2017-2019', '2020-2021', '2022-present'];
+      for (const era of allEras.slice(0, 3)) { // Top 3 earliest eras for lost coins
+        const eraData = await historicalDataMiner.mineEra(era);
+        const eraTopPatterns = eraData.patterns
+          .sort((a, b) => b.likelihood - a.likelihood)
+          .slice(0, 15);
+        for (const pattern of eraTopPatterns) {
+          hypotheses.push(this.createHypothesis(
+            pattern.phrase, 
+            pattern.format as 'arbitrary' | 'bip39' | 'master' | 'hex', 
+            'multi_era_scan', 
+            `${era} era pattern: ${pattern.reasoning}`, 
+            pattern.likelihood * 0.8 // Slightly lower confidence for broad scan
+          ));
+        }
+      }
+    }
+    
+    console.log(`[Ocean] Generated ${hypotheses.length} era-specific hypotheses`);
     return hypotheses;
   }
 
@@ -1171,14 +1237,27 @@ export class OceanAgent {
   }
 
   private detectPlateau(): boolean {
-    const recentEpisodes = this.memory.episodes.slice(-50);
-    if (recentEpisodes.length < 10) return false;
+    const recentEpisodes = this.memory.episodes.slice(-100);
+    
+    if (recentEpisodes.length < 50) return false;
+    
+    if (this.state.iteration < 5) return false;
     
     const recentPhis = recentEpisodes.map(e => e.phi);
-    const avg = recentPhis.reduce((a, b) => a + b, 0) / recentPhis.length;
-    const variance = recentPhis.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / recentPhis.length;
+    const firstHalf = recentPhis.slice(0, Math.floor(recentPhis.length / 2));
+    const secondHalf = recentPhis.slice(Math.floor(recentPhis.length / 2));
     
-    return variance < 0.01 && avg < 0.6;
+    const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+    const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+    
+    const improvement = avgSecond - avgFirst;
+    
+    const maxPhiSeen = Math.max(...recentPhis);
+    const foundNearMiss = maxPhiSeen > 0.75;
+    
+    if (foundNearMiss) return false;
+    
+    return improvement < 0.02 && avgSecond < 0.5;
   }
 
   private async applyMushroomMode(currentHypotheses: OceanHypothesis[]): Promise<OceanHypothesis[]> {

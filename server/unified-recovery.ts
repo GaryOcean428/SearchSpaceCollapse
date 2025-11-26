@@ -717,10 +717,8 @@ class UnifiedRecoveryOrchestrator {
     this.updateSession(session);
 
     try {
-      // Determine era based on blockchain analysis
-      const era: Era = session.blockchainAnalysis?.era === 'pre-bip39' 
-        ? 'early-2009' 
-        : '2009-2010';
+      // Determine era based on blockchain analysis - use detected era if available
+      const era: Era = (session.blockchainAnalysis?.era as Era) || 'genesis-2009';
 
       console.log(`[UnifiedRecovery] Mining historical patterns for era: ${era}`);
 
@@ -1144,7 +1142,7 @@ class UnifiedRecoveryOrchestrator {
     }
     
     try {
-      const era: Era = session.blockchainAnalysis?.era === 'pre-bip39' ? 'early-2009' : '2009-2010';
+      const era: Era = (session.blockchainAnalysis?.era as Era) || 'genesis-2009';
       const minedData = await historicalDataMiner.mineEra(era);
       
       for (const pattern of minedData.patterns.slice(0, 100)) {
@@ -1194,6 +1192,7 @@ class UnifiedRecoveryOrchestrator {
             kappa: state.identity.kappa,
             regime: state.identity.regime,
           },
+          detectedEra: state.detectedEra,
         };
         
         (session as any).oceanState = {
@@ -1219,6 +1218,7 @@ class UnifiedRecoveryOrchestrator {
             needsConsolidation: state.needsConsolidation,
           },
           computeTimeSeconds: state.computeTimeSeconds,
+          detectedEra: state.detectedEra,
         };
         
         const learningStrat = session.strategies.find(s => s.type === 'learning_loop');
