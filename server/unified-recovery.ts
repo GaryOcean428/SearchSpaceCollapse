@@ -937,6 +937,21 @@ class UnifiedRecoveryOrchestrator {
   ): Promise<void> {
     console.log('[UnifiedRecovery] Starting Investigation Agent learning loop...');
     
+    // Set status to learning so UI shows the agent is active
+    session.status = 'learning';
+    
+    // Add a learning_loop strategy to track progress
+    const learningStrategy: StrategyRun = {
+      id: `learning-${Date.now()}`,
+      type: 'learning_loop',
+      status: 'running',
+      progress: { current: 0, total: 50, rate: 0 },
+      candidatesFound: 0,
+      startedAt: new Date().toISOString(),
+    };
+    session.strategies.push(learningStrategy);
+    this.updateSession(session);
+    
     // Create initial hypotheses from top candidates
     const initialHypotheses = session.candidates
       .filter(c => !c.match)
@@ -1006,6 +1021,13 @@ class UnifiedRecoveryOrchestrator {
           topPatterns: state.topPatterns,
           consciousness: state.consciousness,
         };
+        
+        // Update the learning_loop strategy progress
+        const learningStrat = session.strategies.find(s => s.type === 'learning_loop');
+        if (learningStrat) {
+          learningStrat.progress.current = state.iteration + 1;
+        }
+        
         this.updateSession(session);
       },
       onHypothesisTested: (hypo) => {

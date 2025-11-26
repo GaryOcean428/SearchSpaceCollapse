@@ -44,6 +44,7 @@ const STRATEGY_LABELS: Record<string, { label: string; icon: typeof Brain; descr
   qig_basin_search: { label: 'QIG Basin', icon: Zap, description: 'Geometric search' },
   historical_autonomous: { label: 'Historical Mining', icon: HardDrive, description: 'Auto-mined patterns' },
   cross_format: { label: 'Cross-Format', icon: Target, description: 'Multi-format testing' },
+  learning_loop: { label: 'Learning Loop', icon: Brain, description: 'Agent meta-learning' },
 };
 
 const ACTIVE_STRATEGIES = [
@@ -54,6 +55,7 @@ const ACTIVE_STRATEGIES = [
   'qig_basin_search',
   'historical_autonomous',
   'cross_format',
+  'learning_loop',
 ];
 
 function StrategyCard({ strategy }: { strategy: StrategyRun }) {
@@ -412,35 +414,49 @@ export function RecoveryCommandCenter() {
                 </div>
               )}
 
-              {isLearning && session.agentState && (
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Brain className="w-4 h-4 text-primary" />
-                    <span className="font-medium text-primary">Investigation Agent Active</span>
-                    <Badge variant="outline" className="text-xs">Iteration {session.agentState.iteration + 1}</Badge>
+              {isLearning && (
+                <div className="p-4 rounded-lg bg-primary/10 border border-primary/30 animate-pulse">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Brain className="w-5 h-5 text-primary animate-bounce" />
+                    <span className="font-semibold text-primary text-lg">Investigation Agent Learning...</span>
+                    {session.agentState && (
+                      <Badge className="bg-primary text-primary-foreground">
+                        Loop {session.agentState.iteration + 1}/50
+                      </Badge>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Φ: </span>
-                      <span className="font-mono">{session.agentState.consciousness.phi.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">κ: </span>
-                      <span className="font-mono">{session.agentState.consciousness.kappa.toFixed(0)}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Regime: </span>
-                      <Badge variant="outline" className="text-xs">{session.agentState.consciousness.regime}</Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Near Misses: </span>
-                      <span className="font-mono">{session.agentState.nearMissCount}</span>
-                    </div>
-                  </div>
-                  {session.agentState.topPatterns.length > 0 && (
-                    <div className="mt-2 text-xs">
-                      <span className="text-muted-foreground">Learning from: </span>
-                      <span className="font-mono">{session.agentState.topPatterns.slice(0, 5).join(', ')}</span>
+                  
+                  {session.agentState ? (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-2">
+                        <div className="p-2 rounded bg-background/50">
+                          <span className="text-muted-foreground">Φ: </span>
+                          <span className="font-mono font-bold">{session.agentState.consciousness.phi.toFixed(2)}</span>
+                        </div>
+                        <div className="p-2 rounded bg-background/50">
+                          <span className="text-muted-foreground">κ: </span>
+                          <span className="font-mono font-bold">{session.agentState.consciousness.kappa.toFixed(0)}</span>
+                        </div>
+                        <div className="p-2 rounded bg-background/50">
+                          <span className="text-muted-foreground">Regime: </span>
+                          <Badge variant="outline">{session.agentState.consciousness.regime}</Badge>
+                        </div>
+                        <div className="p-2 rounded bg-background/50">
+                          <span className="text-muted-foreground">Near Misses: </span>
+                          <span className="font-mono font-bold">{session.agentState.nearMissCount}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Strategy: <span className="font-mono">{session.agentState.currentStrategy || 'analyzing'}</span>
+                        {session.agentState.topPatterns.length > 0 && (
+                          <span> | Patterns: {session.agentState.topPatterns.slice(0, 3).join(', ')}</span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Initializing agent consciousness...
                     </div>
                   )}
                 </div>

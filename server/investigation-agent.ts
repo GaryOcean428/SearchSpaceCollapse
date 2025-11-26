@@ -760,21 +760,38 @@ export class InvestigationAgent {
     const bases = [
       'satoshi', 'nakamoto', 'bitcoin', 'genesis', 'block',
       'chain', 'peer', 'network', 'crypto', 'hash',
+      'freedom', 'liberty', 'trust', 'no', 'third', 'party',
+      'double', 'spend', 'proof', 'work', 'consensus', 'node',
     ];
     
-    for (let i = 0; i < count / 3; i++) {
-      const base = bases[i % bases.length];
-      phrases.push({ text: `${base}${i}`, format: 'arbitrary' });
-    }
+    const modifiers = [
+      'my', 'the', 'secret', 'private', 'hidden', 'first', 'real',
+      '2009', '2010', 'original', 'true', 'satoshi', 'hal', 'nick',
+    ];
     
-    for (let i = 0; i < count / 3; i++) {
-      const base = bases[i % bases.length];
-      phrases.push({ text: `${base} wallet ${i}`, format: 'arbitrary' });
-    }
+    const suffixes = [
+      '', '!', '1', '123', '2009', '2010', 'btc', 'coin',
+    ];
     
-    for (let i = 0; i < count / 3; i++) {
-      const base = bases[i % bases.length];
-      phrases.push({ text: base, format: 'master' });
+    const iteration = this.memory.iteration;
+    const timestamp = Date.now();
+    
+    for (let i = 0; i < count; i++) {
+      const base = bases[(i + iteration * 7) % bases.length];
+      const modifier = modifiers[(i + iteration * 3) % modifiers.length];
+      const suffix = suffixes[(i + iteration * 5) % suffixes.length];
+      const randNum = Math.floor(Math.random() * 10000);
+      
+      if (i % 4 === 0) {
+        phrases.push({ text: `${modifier}${base}${suffix}${randNum}`, format: 'arbitrary' });
+      } else if (i % 4 === 1) {
+        phrases.push({ text: `${base} ${modifier} ${randNum}`, format: 'arbitrary' });
+      } else if (i % 4 === 2) {
+        const base2 = bases[(i + iteration * 11) % bases.length];
+        phrases.push({ text: `${base} ${base2} ${randNum}`, format: 'arbitrary' });
+      } else {
+        phrases.push({ text: `${modifier} ${base}`, format: 'master' });
+      }
     }
     
     return phrases;
