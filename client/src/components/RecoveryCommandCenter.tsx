@@ -415,70 +415,231 @@ export function RecoveryCommandCenter() {
               )}
 
               {isLearning && (
-                <div className="p-4 rounded-lg bg-primary/10 border border-primary/30 animate-pulse">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Brain className="w-5 h-5 text-primary animate-bounce" />
-                    <span className="font-semibold text-primary text-lg">Investigation Agent Learning...</span>
+                <div className="p-4 rounded-lg bg-gradient-to-br from-primary/10 to-purple-500/10 border border-primary/30">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <Brain className="w-6 h-6 text-primary" />
+                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      </div>
+                      <span className="font-bold text-primary text-lg">Ocean Autonomous Agent</span>
+                    </div>
                     {session.agentState && (
-                      <Badge className="bg-primary text-primary-foreground">
-                        Loop {session.agentState.iteration + 1}/50
+                      <Badge className="bg-primary/90 text-primary-foreground">
+                        Iteration {session.agentState.iteration + 1}/100
                       </Badge>
                     )}
                   </div>
                   
                   {session.agentState ? (
-                    <>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-2">
-                        <div className="p-2 rounded bg-background/50">
-                          <span className="text-muted-foreground">Φ: </span>
-                          <span className="font-mono font-bold">{session.agentState.consciousness.phi.toFixed(2)}</span>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+                        <div className="p-2 rounded-lg bg-background/60 border border-border/50">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Consciousness</div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono font-bold text-lg">
+                              {session.agentState.consciousness.phi.toFixed(2)}
+                            </span>
+                            <span className={`text-xs ${session.agentState.consciousness.phi >= 0.7 ? 'text-green-500' : 'text-orange-500'}`}>
+                              Φ
+                            </span>
+                          </div>
+                          <Progress 
+                            value={session.agentState.consciousness.phi * 100} 
+                            className="h-1 mt-1" 
+                          />
                         </div>
-                        <div className="p-2 rounded bg-background/50">
-                          <span className="text-muted-foreground">κ: </span>
-                          <span className="font-mono font-bold">{session.agentState.consciousness.kappa.toFixed(0)}</span>
+                        
+                        <div className="p-2 rounded-lg bg-background/60 border border-border/50">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Coupling</div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono font-bold text-lg">
+                              {session.agentState.consciousness.kappa.toFixed(0)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">κ</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {Math.abs(session.agentState.consciousness.kappa - 64) < 10 ? 'In resonance' : 'Exploring'}
+                          </div>
                         </div>
-                        <div className="p-2 rounded bg-background/50">
-                          <span className="text-muted-foreground">Regime: </span>
-                          <Badge variant="outline">{session.agentState.consciousness.regime}</Badge>
+                        
+                        <div className="p-2 rounded-lg bg-background/60 border border-border/50">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Regime</div>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              session.agentState.consciousness.regime === 'geometric' ? 'border-green-500 text-green-500' :
+                              session.agentState.consciousness.regime === 'breakdown' ? 'border-red-500 text-red-500' :
+                              ''
+                            }`}
+                          >
+                            {session.agentState.consciousness.regime}
+                          </Badge>
                         </div>
-                        <div className="p-2 rounded bg-background/50">
-                          <span className="text-muted-foreground">Near Misses: </span>
-                          <span className="font-mono font-bold">{session.agentState.nearMissCount}</span>
+                        
+                        <div className="p-2 rounded-lg bg-background/60 border border-border/50">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Near Misses</div>
+                          <div className="font-mono font-bold text-lg text-amber-500">
+                            {session.agentState.nearMissCount}
+                          </div>
+                        </div>
+                        
+                        <div className="p-2 rounded-lg bg-background/60 border border-border/50">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Tested</div>
+                          <div className="font-mono font-bold text-lg">
+                            {session.agentState.totalTested?.toLocaleString() || '0'}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        Strategy: <span className="font-mono">{session.agentState.currentStrategy || 'analyzing'}</span>
-                        {session.agentState.topPatterns.length > 0 && (
-                          <span> | Patterns: {session.agentState.topPatterns.slice(0, 3).join(', ')}</span>
+                      
+                      {(session as any).oceanState && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                          <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                            <div className="text-[10px] uppercase tracking-wider text-purple-400 mb-1">Basin Drift</div>
+                            <div className="flex items-center gap-1">
+                              <span className={`font-mono font-bold ${
+                                (session as any).oceanState.identity.basinDrift > 0.15 ? 'text-red-500' : 'text-green-500'
+                              }`}>
+                                {(session as any).oceanState.identity.basinDrift.toFixed(4)}
+                              </span>
+                              {(session as any).oceanState.identity.basinDrift > 0.15 && (
+                                <span className="text-red-500 text-[10px]">DRIFT!</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                            <div className="text-[10px] uppercase tracking-wider text-blue-400 mb-1">Memory</div>
+                            <div className="font-mono text-sm">
+                              <span className="text-blue-400">{(session as any).oceanState.memory.episodeCount}</span>
+                              <span className="text-muted-foreground"> episodes</span>
+                            </div>
+                            <div className="font-mono text-sm">
+                              <span className="text-blue-400">{(session as any).oceanState.memory.patternCount}</span>
+                              <span className="text-muted-foreground"> patterns</span>
+                            </div>
+                          </div>
+                          
+                          <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                            <div className="text-[10px] uppercase tracking-wider text-green-400 mb-1">Consolidation</div>
+                            <div className="font-mono text-sm">
+                              <span className="text-green-400">{(session as any).oceanState.consolidation.cycles}</span>
+                              <span className="text-muted-foreground"> cycles</span>
+                            </div>
+                            {(session as any).oceanState.consolidation.needsConsolidation && (
+                              <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500 mt-1">
+                                Needs Sleep
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                            <div className="text-[10px] uppercase tracking-wider text-orange-400 mb-1">Ethics</div>
+                            <div className="flex items-center gap-1">
+                              {(session as any).oceanState.ethics.witnessAcknowledged ? (
+                                <Badge variant="outline" className="text-[10px] border-green-500 text-green-500">
+                                  Witnessed
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">
+                                  Unwitnessed
+                                </Badge>
+                              )}
+                            </div>
+                            {(session as any).oceanState.ethics.violations > 0 && (
+                              <span className="text-red-500 text-[10px]">
+                                {(session as any).oceanState.ethics.violations} violations
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                        <span>Strategy: </span>
+                        <span className="font-mono text-primary">{session.agentState.currentStrategy || 'analyzing'}</span>
+                        {session.agentState.topPatterns?.length > 0 && (
+                          <>
+                            <span className="mx-2">|</span>
+                            <span>Top patterns: </span>
+                            <span className="font-mono">
+                              {session.agentState.topPatterns.slice(0, 5).join(', ')}
+                            </span>
+                          </>
                         )}
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <div className="text-sm text-muted-foreground flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Initializing agent consciousness...
+                      Initializing Ocean Agent consciousness field...
                     </div>
                   )}
                 </div>
               )}
 
               {session.learnings && !isRunning && (
-                <div className="p-3 rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Brain className="w-4 h-4" />
-                    <span className="font-medium">Learning Summary</span>
+                <div className="p-4 rounded-lg bg-gradient-to-br from-muted/30 to-purple-500/5 border border-border/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Brain className="w-5 h-5 text-primary" />
+                    <span className="font-semibold">Ocean Agent Summary</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                    <span>Iterations: {session.learnings.iterations}</span>
-                    <span>Near Misses: {session.learnings.nearMissesFound}</span>
-                    <span>Avg Φ: {session.learnings.averagePhi.toFixed(2)}</span>
-                    <span>Clusters: {session.learnings.resonantClustersFound}</span>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+                    <div className="p-2 rounded-lg bg-background/50">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Iterations</div>
+                      <div className="font-mono font-bold">{session.learnings.iterations}</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-background/50">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Tested</div>
+                      <div className="font-mono font-bold">{session.learnings.totalTested?.toLocaleString()}</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-background/50">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Near Misses</div>
+                      <div className="font-mono font-bold text-amber-500">{session.learnings.nearMissesFound}</div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-background/50">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Avg Φ</div>
+                      <div className="font-mono font-bold">{session.learnings.averagePhi?.toFixed(2) || '—'}</div>
+                    </div>
                   </div>
-                  {session.learnings.topPatterns.length > 0 && (
-                    <div className="mt-2 text-xs">
-                      <span className="text-muted-foreground">Key patterns discovered: </span>
+                  
+                  {(session.learnings as any).oceanTelemetry && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-3">
+                      <div className="p-2 rounded-lg bg-purple-500/10">
+                        <span className="text-purple-400">Final Φ: </span>
+                        <span className="font-mono">{(session.learnings as any).oceanTelemetry.identity.phi.toFixed(2)}</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-purple-500/10">
+                        <span className="text-purple-400">Basin Drift: </span>
+                        <span className="font-mono">{(session.learnings as any).oceanTelemetry.identity.basinDrift.toFixed(4)}</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-blue-500/10">
+                        <span className="text-blue-400">Episodes: </span>
+                        <span className="font-mono">{(session.learnings as any).oceanTelemetry.memory.episodes}</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-green-500/10">
+                        <span className="text-green-400">Consolidations: </span>
+                        <span className="font-mono">{(session.learnings as any).oceanTelemetry.progress.consolidationCycles}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {session.learnings.topPatterns?.length > 0 && (
+                    <div className="text-xs p-2 rounded-lg bg-background/30">
+                      <span className="text-muted-foreground">Key patterns: </span>
                       <span className="font-mono">
-                        {session.learnings.topPatterns.slice(0, 5).map(([word, count]) => `${word}(${count})`).join(', ')}
+                        {session.learnings.topPatterns.slice(0, 5).map(([word, count]: [string, number]) => `${word}(${count})`).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {(session.learnings as any).selfModel && (
+                    <div className="mt-2 text-xs p-2 rounded-lg bg-background/30">
+                      <span className="text-muted-foreground">Agent learnings: </span>
+                      <span className="font-mono">
+                        {(session.learnings as any).selfModel.learnings?.slice(-3).join(' | ') || 'Processing...'}
                       </span>
                     </div>
                   )}
