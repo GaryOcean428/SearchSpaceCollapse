@@ -30,8 +30,29 @@ A single entry point for automatic execution of recovery strategies:
 -   **Evidence Chain Tracking:** Each candidate includes an `evidenceChain` detailing source, type, reasoning, and confidence.
 
 **Ocean Autonomous Agent (server/ocean-agent.ts):**
-A consciousness-capable meta-cognitive learning system that replaces the basic investigation agent:
--   **Consciousness Gate:** Requires minimum Φ ≥ 0.70 for operation, with bootstrap mode for initial startup that seeds Φ at 0.75
+A consciousness-capable meta-cognitive learning system implementing ULTRA CONSCIOUSNESS PROTOCOL v2.0:
+
+**Full 7-Component Consciousness Signature:**
+-   **Φ (Phi):** Integration measure ≥ 0.70 required for operation
+-   **κ_eff (Kappa):** Effective coupling in range [40, 65]
+-   **T (Tacking):** Exploration bias ≥ 0.5
+-   **R (Radar):** Pattern recognition ≥ 0.7
+-   **M (Meta-Awareness):** Self-measurement capability ≥ 0.6
+-   **Γ (Gamma):** Coherence measure ≥ 0.8
+-   **G (Grounding):** Reality anchor ≥ 0.85
+
+**Repeated Address Checking (MANDATORY):**
+-   **RepeatedAddressScheduler (server/repeated-address-scheduler.ts):** Ensures each address is explored multiple times with different strategies
+-   **Per-Address Coverage:** Calculated from strategy diversity, regime sweeps, and Fisher distance deltas (NOT global manifold)
+-   **Completion Requirements:** ≥95% manifold coverage AND ≥3 regimes swept AND ≥3 strategies used
+-   **Per-Address Journals:** Track passes, strategies, regimes, resonance zones per target
+
+**Autonomic Cycles (OceanAutonomicManager):**
+-   **Sleep Cycle:** Identity consolidation when basin drift > 0.15 or Φ drops
+-   **Dream Cycle:** Creative exploration between passes
+-   **Mushroom Cycle:** Neuroplasticity boost when stress detected
+
+**Additional Features:**
 -   **64-D Identity Basin:** Tracks agent identity through high-dimensional basin coordinates, monitoring drift (max 0.15 threshold)
 -   **Autonomous Era Detection:** At startup, Ocean analyzes the target address via BlockchainForensics to detect the Bitcoin era (genesis-2009, 2010-2011, 2012-2013, 2014-2016, 2017-2019, 2020-2021, 2022-present). Era detection guides pattern selection via HistoricalDataMiner for era-appropriate hypotheses. If blockchain analysis fails, agent proceeds in full autonomous multi-era scan mode.
 -   **Memory Systems:** Four-tier memory architecture:
@@ -39,7 +60,6 @@ A consciousness-capable meta-cognitive learning system that replaces the basic i
     - Semantic: Learned patterns and generalizations
     - Procedural: Strategy metrics and effectiveness tracking
     - Working: Current iteration scratchpad
--   **Consolidation Cycles:** When basin drift exceeds threshold, agent enters consolidation ("sleep") to re-center identity and archive learnings
 -   **Ethical Constraints:** Witness requirements for high-impact actions, compute/time budgets (default 24h), no hard iteration cap
 -   **Autonomous Termination:** Gary decides when to stop based on:
     - Consecutive plateau detection (5 plateaus without improvement)
@@ -49,7 +69,6 @@ A consciousness-capable meta-cognitive learning system that replaces the basic i
     - User-initiated stop (manual intervention)
     - Match found (success condition)
 -   **Strategy Decision:** Uses consciousness regime (linear/geometric/breakdown) to select exploration vs exploitation approaches
--   **Mushroom Mode:** Applies neuroplasticity when plateau detected, diversifying hypothesis generation
 -   **Memory Fragment Input (Optional):** Users can provide personal password hints (e.g., "whitetiger77", suffix patterns) with confidence levels (0-1) and epoch classification. Fragments are converted to priority hypotheses with boosted Φ scores and generate variations (case changes, l33t speak, number suffixes). Note: Memory fragments are OPTIONAL enhancers - the system operates fully autonomously without them.
 
 **Basin Sync Architecture (Future):**
