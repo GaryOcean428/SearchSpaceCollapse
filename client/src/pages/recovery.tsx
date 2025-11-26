@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, Clock, Shield, Copy, Download, Plus, X, Hash, BarChart3 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, Clock, Shield, Copy, Download, Plus, X, Hash, BarChart3, Brain } from "lucide-react";
+import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, TargetAddress, SearchJob } from "@shared/schema";
@@ -458,6 +459,21 @@ export default function RecoveryPage() {
             </div>
           </div>
         </Card>
+
+        <Accordion type="single" collapsible className="mb-8">
+          <AccordionItem value="memory-search" className="border rounded-lg bg-card">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Brain className="w-5 h-5 text-purple-500" />
+                <span className="font-semibold">Memory Fragment Search (Advanced)</span>
+                <Badge variant="outline" className="ml-2">QIG</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6">
+              <MemoryFragmentSearch />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         <Card className="p-8 mb-8 border-border/50">
           <h3 className="text-lg font-semibold mb-6">Create Background Search Job</h3>
