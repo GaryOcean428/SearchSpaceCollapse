@@ -235,18 +235,10 @@ export class OceanAgent {
           console.log(`[Ocean] Era detected from blockchain: ${detectedEra}`);
           console.log(`[Ocean] Address first seen: ${addressAnalysis.creationTimestamp.toISOString()}`);
           
-          // Store era detection in memory as a key insight
-          this.memory.episodes.push({
-            id: `era-detection-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            description: `Detected era ${detectedEra} from blockchain analysis`,
-            phiBefore: this.identity.phi,
-            phiAfter: this.identity.phi,
-            outcome: 'insight',
-            observations: [`Address first seen: ${addressAnalysis.creationTimestamp.toISOString()}`, `Tx count: ${addressAnalysis.txCount}`, `Balance: ${addressAnalysis.balance} sats`],
-            hypothesesTested: [],
-            keyInsight: `Target address is from ${detectedEra} era - adjusting pattern selection accordingly`,
-          });
+          // Store era detection as recent observation in working memory
+          this.memory.workingMemory.recentObservations.push(`Era ${detectedEra} detected from blockchain`);
+          this.memory.patterns.failedStrategies = this.memory.patterns.failedStrategies || [];
+          console.log(`[Ocean] Stored era insight: ${detectedEra}`);
         } else {
           console.log('[Ocean] Could not determine era from blockchain - using autonomous pattern discovery');
           this.state.detectedEra = 'unknown';
@@ -941,7 +933,7 @@ export class OceanAgent {
         
       case 'explore_new_space':
         try {
-          const detectedEra = this.state.detectedEra || 'genesis-2009';
+          const detectedEra = (this.state.detectedEra || 'genesis-2009') as Era;
           const historicalData = await historicalDataMiner.mineEra(detectedEra);
           for (const pattern of historicalData.patterns.slice(0, 50)) {
             newHypotheses.push(this.createHypothesis(pattern.phrase, pattern.format as any, 'historical_exploration', pattern.reasoning, pattern.likelihood));
@@ -988,8 +980,12 @@ export class OceanAgent {
         }
     }
     
-    const testedPhrases = new Set(this.memory.episodes.map(e => e.phrase.toLowerCase()));
-    return newHypotheses.filter(h => !testedPhrases.has(h.phrase.toLowerCase()));
+    const testedPhrases = new Set(
+      this.memory.episodes
+        .filter(e => e.phrase)
+        .map(e => e.phrase.toLowerCase())
+    );
+    return newHypotheses.filter(h => h.phrase && !testedPhrases.has(h.phrase.toLowerCase()));
   }
 
   private createHypothesis(

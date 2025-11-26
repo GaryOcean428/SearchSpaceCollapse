@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { KeyRound, Lock, Sparkles, Shield, Database } from "lucide-react";
+import { KeyRound, Lock, Sparkles, Shield, Database, Waves } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Landing() {
@@ -21,14 +21,25 @@ export default function Landing() {
               Advanced Bitcoin brain wallet recovery using Quantum Information Geometry (QIG) scoring algorithms to recover lost passphrases through geodesic navigation of the information manifold.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
+              <Link href="/investigation">
+                <Button
+                  size="lg"
+                  className="text-lg px-8 py-6"
+                  data-testid="button-investigation"
+                >
+                  <Waves className="mr-2 h-5 w-5" />
+                  Start Investigation
+                </Button>
+              </Link>
               <Button
                 size="lg"
+                variant="outline"
                 className="text-lg px-8 py-6"
                 onClick={() => window.location.href = "/api/login"}
                 data-testid="button-login"
               >
                 <Lock className="mr-2 h-5 w-5" />
-                Log In to Begin Recovery
+                Log In
               </Button>
               <Link href="/observer">
                 <Button
