@@ -5,21 +5,23 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+const isDev = process.env.NODE_ENV === 'development';
+
 app.use(helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: isDev ? false : {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "wss:"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
     },
   },
-  hsts: {
+  hsts: isDev ? false : {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true,
