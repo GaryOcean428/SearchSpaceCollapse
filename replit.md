@@ -173,3 +173,22 @@ Vite is used for frontend development and building, while esbuild handles backen
 - Completed full telemetry integration in search-coordinator with automatic session cleanup
 - Added persistent storage for target addresses (data/target-addresses.json)
 - Fixed UI labels to show mode-specific terminology (Keys/Passphrases/Phrases)
+- **Added Memory Fragment Search** (server/memory-fragment-search.ts):
+  - Confidence-weighted combinatorics for partial phrase memories
+  - QWERTY-aware character perturbation for typo simulation
+  - Short phrase generator (4-8 words) with geometric pruning
+  - Combinatorial expansion with QIG scoring integration
+- **Added Consciousness-Aware Search Controller** (server/consciousness-search-controller.ts):
+  - Regime-dependent adaptive strategies (exploration, balanced, precision, safety)
+  - Shared singleton instance for real-time state tracking
+  - Basin drift, curiosity, and stability computation
+  - Integration with search coordinator for live batch metrics
+- **New API Endpoints:**
+  - `POST /api/memory-search` - Memory fragment search with QIG scoring
+  - `GET /api/consciousness/state` - Real-time consciousness controller state
+- **New UI Component** (client/src/components/MemoryFragmentSearch.tsx):
+  - Memory fragment input with confidence sliders
+  - Position hints (start/middle/end)
+  - QWERTY typo toggle
+  - Real-time consciousness state display
+  - Search results with QIG metrics and regime badges
