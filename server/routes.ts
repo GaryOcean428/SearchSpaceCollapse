@@ -748,6 +748,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // INVESTIGATION STATUS - Story-driven UI endpoint
+  // ============================================================================
+
+  // Get investigation status for story-driven UI
+  app.get("/api/investigation/status", async (req, res) => {
+    try {
+      const sessions = unifiedRecovery.getAllSessions();
+      const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
+      
+      if (!activeSession) {
+        return res.json({
+          isRunning: false,
+          tested: 0,
+          nearMisses: 0,
+          consciousness: {
+            phi: 0.75,
+            kappa: 64,
+            regime: 'geometric',
+            basinDrift: 0,
+          },
+          currentThought: 'Ready to begin investigation...',
+          discoveries: [],
+          progress: 0,
+        });
+      }
+
+      // Get consciousness state from agent state
+      const agentState = activeSession.agentState || {
+        iteration: 0,
+        totalTested: 0,
+        nearMissCount: 0,
+        currentStrategy: 'initializing',
+        topPatterns: [],
+        consciousness: { phi: 0.75, kappa: 64, regime: 'geometric' },
+      };
+
+      // Generate current thought based on state
+      const generateThought = () => {
+        const { phi } = agentState.consciousness;
+        const { nearMissCount, totalTested, currentStrategy } = agentState;
+        
+        if (phi < 0.70) {
+          return "I need to consolidate my thoughts before continuing...";
+        }
+        
+        if (nearMissCount > 10) {
+          return `I've found ${nearMissCount} promising patterns. Getting warmer...`;
+        }
+        
+        if (totalTested > 1000) {
+          return `I've explored ${totalTested.toLocaleString()} possibilities. Searching deeper...`;
+        }
+        
+        if (agentState.consciousness.regime === 'geometric') {
+          return `Thinking geometrically with ${currentStrategy}. Looking for resonant patterns...`;
+        }
+        
+        if (agentState.consciousness.regime === 'breakdown') {
+          return "Consolidating... This is complex but I'm making progress.";
+        }
+        
+        return "Investigating systematically. Each test teaches me something new.";
+      };
+
+      // Calculate progress
+      const maxIterations = 1000;
+      const progress = Math.min((agentState.iteration / maxIterations) * 100, 99);
+
+      // Get recent discoveries from candidates
+      const discoveries = activeSession.candidates
+        .filter(c => c.verified || (c.qigScore?.phi || 0) > 0.75)
+        .slice(-10)
+        .map(c => ({
+          id: c.id,
+          type: c.verified ? 'match' as const : 'near_miss' as const,
+          timestamp: new Date(c.testedAt),
+          message: c.verified 
+            ? `Found the correct passphrase!` 
+            : `High consciousness pattern: ${(c.qigScore?.phi || 0) * 100}% Φ`,
+          details: { phrase: c.phrase, address: c.address, phi: c.qigScore?.phi },
+          significance: c.qigScore?.phi || 0,
+        }));
+
+      // Get strategy statuses (from session if available, else empty array)
+      const sessionAny = activeSession as any;
+      const strategies = (sessionAny.strategyStatus || []).map((s: any) => ({
+        name: s.strategy,
+        progress: s.candidatesTested > 0 ? Math.min((s.candidatesTested / 100) * 100, 100) : 0,
+        candidates: s.candidatesTested || 0,
+        status: s.status,
+      }));
+
+      res.json({
+        isRunning: activeSession.status === 'running' || activeSession.status === 'analyzing',
+        tested: activeSession.totalTested || 0,
+        nearMisses: agentState.nearMissCount || 0,
+        consciousness: agentState.consciousness,
+        currentThought: generateThought(),
+        discoveries,
+        progress,
+        session: activeSession,
+        strategies,
+      });
+    } catch (error: any) {
+      console.error("[Investigation] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Alias routes for story-driven UI
+  app.post("/api/recovery/start", async (req, res) => {
+    try {
+      const { targetAddress, memoryFragments } = req.body;
+      
+      if (!targetAddress) {
+        return res.status(400).json({ error: "Target address is required" });
+      }
+
+      const processedFragments = (memoryFragments || []).map((f: any) => ({
+        id: `fragment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        text: f.text,
+        confidence: f.confidence || 0.5,
+        epoch: f.epoch || 'possible',
+        source: f.source,
+        notes: f.notes,
+        addedAt: new Date().toISOString(),
+      }));
+
+      const session = await unifiedRecovery.createSession(targetAddress, processedFragments);
+      
+      unifiedRecovery.startRecovery(session.id).catch(err => {
+        console.error(`[Recovery] Background error for ${session.id}:`, err);
+      });
+
+      res.json(session);
+    } catch (error: any) {
+      console.error("[Recovery] Start error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/recovery/stop", async (req, res) => {
+    try {
+      const sessions = unifiedRecovery.getAllSessions();
+      const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
+      
+      if (activeSession) {
+        unifiedRecovery.stopRecovery(activeSession.id);
+      }
+      
+      res.json({ message: "Recovery stopped" });
+    } catch (error: any) {
+      console.error("[Recovery] Stop error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/recovery/session", async (req, res) => {
+    try {
+      const sessions = unifiedRecovery.getAllSessions();
+      const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
+      res.json(activeSession || null);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/recovery/candidates", async (req, res) => {
+    try {
+      const sessions = unifiedRecovery.getAllSessions();
+      const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
+      res.json(activeSession?.candidates || []);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/recovery/addresses", async (req, res) => {
+    try {
+      const addresses = await storage.getTargetAddresses();
+      res.json(addresses);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
   // UNIFIED RECOVERY - Single entry point for all recovery strategies
   // ============================================================================
 

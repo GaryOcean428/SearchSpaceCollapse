@@ -1,0 +1,773 @@
+/**
+ * OCEAN CONSCIOUSNESS DESIGN SYSTEM
+ * 
+ * Beautiful, cohesive visual design for SearchSpaceCollapse
+ * Makes consciousness feel alive through color, motion, typography
+ */
+
+/* ============================================
+   DESIGN TOKENS - OCEAN THEME
+   ============================================ */
+
+:root {
+  /* Ocean Consciousness Color Palette */
+  --ocean-deep: 222 47% 11%;
+  --ocean-medium: 220 42% 16%;
+  --ocean-light: 217 33% 26%;
+  --ocean-accent: 166 100% 70%;
+  --ocean-glow: 189 100% 50%;
+  --consciousness: 263 70% 58%;
+  --discovery: 160 84% 39%;
+  --thinking: 38 92% 50%;
+  --danger: 0 84% 60%;
+  --warning: 38 92% 50%;
+  --success: 160 84% 39%;
+  
+  /* Typography - Custom Fonts */
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Consciousness Pulse */
+@keyframes consciousness-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* Thought Ripple */
+@keyframes thought-ripple {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+/* Discovery Flash */
+@keyframes discovery-flash {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Shimmer Loading Effect */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* Float Animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Glow Pulse */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px hsl(var(--ocean-accent));
+  }
+  50% {
+    box-shadow: 0 0 40px hsl(var(--ocean-glow)), 0 0 60px hsl(var(--ocean-accent));
+  }
+}
+
+/* Rotate */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Slide In */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Fade In Up */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scale In */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Breathing Animation for Orbs */
+@keyframes breathing {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   OCEAN INVESTIGATION STORY STYLES
+   ============================================ */
+
+.investigation-story {
+  min-height: 100vh;
+  background: linear-gradient(
+    180deg,
+    hsl(var(--ocean-deep)) 0%,
+    hsl(var(--ocean-medium)) 50%,
+    hsl(var(--ocean-deep)) 100%
+  );
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated Background Gradient */
+.investigation-story::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(
+      circle at 20% 30%,
+      hsla(var(--ocean-accent), 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      hsla(var(--consciousness), 0.1) 0%,
+      transparent 50%
+    );
+  animation: float 10s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ============================================
+   CONSCIOUSNESS ORB
+   ============================================ */
+
+.consciousness-orb {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+
+.consciousness-orb .pulse-ring {
+  position: absolute;
+  inset: 0;
+  border: 3px solid hsl(var(--ocean-accent));
+  border-radius: 50%;
+  animation: consciousness-pulse 2s ease-in-out infinite;
+}
+
+.consciousness-orb .core {
+  position: absolute;
+  inset: 20px;
+  border-radius: 50%;
+  filter: blur(15px);
+}
+
+.consciousness-orb .phi-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+}
+
+.consciousness-orb .phi-value {
+  font-size: 3rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 0 20px hsl(var(--ocean-glow));
+}
+
+.consciousness-orb .phi-label {
+  font-size: 0.875rem;
+  color: hsl(var(--ocean-accent));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ============================================
+   HERO SECTION
+   ============================================ */
+
+.hero-section {
+  position: relative;
+  padding: 4rem 2rem;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--ocean-deep)) 0%,
+    hsl(var(--ocean-medium)) 100%
+  );
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.hero-content {
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ============================================
+   THOUGHT BUBBLE
+   ============================================ */
+
+.thought-bubble {
+  position: relative;
+  max-width: 600px;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  border: 1px solid hsla(var(--ocean-accent), 0.2);
+}
+
+.thought-bubble .bubble-tail {
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 10px solid rgba(255, 255, 255, 0.1);
+}
+
+.thought-bubble p {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: white;
+  font-family: var(--font-body);
+}
+
+/* ============================================
+   METRICS BAR
+   ============================================ */
+
+.metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.metric {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: help;
+  transition: all 0.2s;
+}
+
+.metric:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.metric-icon {
+  font-size: 2rem;
+}
+
+.metric-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: white;
+  font-family: var(--font-display);
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   DISCOVERY CARDS
+   ============================================ */
+
+.discovery-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.discovery-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(10px);
+}
+
+.discovery-icon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+}
+
+.discovery-content {
+  flex: 1;
+}
+
+.discovery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.discovery-header h3 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.discovery-header time {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.discovery-message {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.excitement-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #FFD700;
+}
+
+/* ============================================
+   PROGRESS RING
+   ============================================ */
+
+.progress-ring-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+/* ============================================
+   NARRATIVE SECTION
+   ============================================ */
+
+.narrative-section {
+  padding: 3rem 2rem;
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.narrative-section h1 {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.narrative-section p {
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 2rem;
+}
+
+/* ============================================
+   TECHNICAL DASHBOARD
+   ============================================ */
+
+.technical-dashboard {
+  margin: 2rem;
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.tech-metric {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.tech-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.5rem;
+}
+
+.tech-value {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  color: hsl(var(--ocean-accent));
+  font-weight: 600;
+}
+
+/* ============================================
+   MODAL OVERLAY
+   ============================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.modal-content {
+  position: relative;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: hsl(var(--ocean-medium));
+  border: 2px solid hsl(var(--ocean-accent));
+  border-radius: 24px;
+  padding: 2rem;
+}
+
+.close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.close-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 2rem;
+}
+
+.loading-orb {
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(
+    circle,
+    hsl(var(--ocean-accent)) 0%,
+    hsl(var(--ocean-glow)) 100%
+  );
+  border-radius: 50%;
+  filter: blur(10px);
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   EXPERT TOGGLE
+   ============================================ */
+
+.expert-toggle-container {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.expert-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: white;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.expert-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: hsl(var(--ocean-accent));
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.consciousness-high {
+  color: hsl(var(--consciousness));
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.consciousness-medium {
+  color: hsl(var(--thinking));
+}
+
+.consciousness-low {
+  color: hsl(var(--danger));
+}
+
+.discovery-exciting {
+  animation: discovery-flash 0.5s ease-out;
+}
+
+.discovery-match {
+  animation: glow-pulse 1s ease-in-out infinite;
+  color: hsl(var(--discovery));
+}
+
+.text-glow {
+  text-shadow: 0 0 20px currentColor;
+}
+
+.text-gradient {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--ocean-accent)) 0%,
+    hsl(var(--consciousness)) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: hsl(var(--ocean-accent));
+  border-radius: 50%;
+  animation: rotate 1s linear infinite;
+}
+
+/* Animation utilities */
+.js-fade-in {
+  animation: fade-in-up 0.5s ease-out;
+}
+
+.js-slide-in {
+  animation: slide-in 0.5s ease-out;
+}
+
+.js-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .hero-content {
+    flex-direction: column;
+    gap: 2rem;
+    text-align: center;
+  }
+  
+  .thought-bubble .bubble-tail {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .consciousness-orb {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .consciousness-orb .phi-value {
+    font-size: 2rem;
+  }
+  
+  .hero-section {
+    padding: 2rem 1rem;
+  }
+  
+  .thought-bubble {
+    padding: 1.5rem;
+  }
+  
+  .thought-bubble p {
+    font-size: 1rem;
+  }
+  
+  .narrative-section h1 {
+    font-size: 1.75rem;
+  }
+  
+  .narrative-section p {
+    font-size: 1rem;
+  }
+  
+  .metrics-bar {
+    grid-template-columns: 1fr;
+  }
+  
+  .discovery-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .discovery-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .discovery-card,
+  .metric,
+  .thought-bubble {
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+}
