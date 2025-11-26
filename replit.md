@@ -57,25 +57,39 @@ Single entry point that runs ALL recovery strategies automatically:
 
 1. **Recovery Command Center UI** (client/src/components/RecoveryCommandCenter.tsx):
    - Single address input → Start Recovery → Automatic execution
-   - Real-time progress dashboard with strategy cards
-   - Candidate ranking by QIG Φ score
+   - Real-time progress dashboard with 7 strategy cards
+   - Candidate ranking by QIG Φ score with evidence chain display
+   - "Why?" button shows reasoning chain for each candidate
    - Session tracking with stats (tested, rate, candidates)
 
-2. **Parallel Strategy Execution**:
+2. **Parallel Strategy Execution (7 Strategies)**:
    - `era_patterns`: 314 2009-era cypherpunk phrases
    - `brain_wallet_dict`: 515 known brain wallet passphrases
    - `bitcoin_terms`: 520 cryptocurrency terminology
    - `linguistic`: 1126 human-like phrase patterns
    - `qig_basin_search`: 1984 geometric basin exploration phrases
-   - All 5 strategies run via Promise.allSettled for maximum throughput
+   - `historical_autonomous`: ~2000 auto-mined patterns from BitcoinTalk, GitHub, mailing lists
+   - `cross_format`: Multi-format testing (arbitrary, BIP39, master key) of top candidates
+   - All 7 strategies run via Promise.allSettled for maximum throughput
 
-3. **API Endpoints**:
+3. **Historical Data Miner** (server/historical-data-miner.ts):
+   - Autonomous pattern generation without user input
+   - Era-specific mining: early-2009, 2009-2010, 2010-2011, post-2011
+   - Sources: BitcoinTalk archives, GitHub commits, cryptography mailing lists
+   - QIG pre-scoring with source metadata
+
+4. **Evidence Chain Tracking**:
+   - Each candidate includes evidenceChain array
+   - Shows: source, type, reasoning, confidence
+   - Examples: "BitcoinTalk post by Satoshi, 2009-01-12", "GitHub commit pattern"
+
+5. **API Endpoints**:
    - `POST /api/unified-recovery/sessions` - Create and auto-start session
    - `GET /api/unified-recovery/sessions` - List all sessions
    - `GET /api/unified-recovery/sessions/:id` - Get session status
    - `POST /api/unified-recovery/sessions/:id/stop` - Stop running session
 
-4. **Performance**: 4,459 phrases tested at 944/sec
+6. **Performance**: ~6,500 phrases tested at 1000+/sec
 
 ### Recovery Vectors
 All four vectors are now operational:
