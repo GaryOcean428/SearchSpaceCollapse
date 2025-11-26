@@ -3,17 +3,59 @@
  * 
  * Conducts forensic archaeology across multiple key formats:
  * - Arbitrary passphrases (2009-era brain wallets, most likely for pre-BIP39)
- * - BIP39 mnemonic phrases
- * - Master key derivatives (BIP32/BIP44 paths)
+ * - BIP39 mnemonic phrases (with wordlist matching and fuzzy completion)
+ * - Master key derivatives (BIP32/BIP44 paths with derivation)
  * - Hex fragments (partial private key reconstruction)
  * 
  * Key insight: Target addresses from 2009 predate BIP39 (2013),
  * so arbitrary brain wallets (SHA256 → privkey) are MOST LIKELY.
+ * 
+ * For post-2013 addresses, BIP39 and HD wallet formats are more likely.
  */
 
 import { scoreUniversalQIG, UniversalQIGScore } from './qig-universal';
-import { generateBitcoinAddress } from './crypto';
+import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex } from './crypto';
 import { findSimilarBasins } from './qig-basin-matching';
+import { getBIP39Wordlist } from './bip39-words';
+
+let cachedWordlist: string[] | null = null;
+
+function getWordlist(): string[] {
+  if (!cachedWordlist) {
+    cachedWordlist = getBIP39Wordlist();
+  }
+  return cachedWordlist;
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = Math.min(
+        dp[i-1][j] + 1,
+        dp[i][j-1] + 1,
+        dp[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1)
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+// Common BIP32/BIP44 derivation paths
+const DERIVATION_PATHS = [
+  "m/44'/0'/0'/0/0",  // BIP44 first Bitcoin address (most common)
+  "m/44'/0'/0'/0/1",  // BIP44 second address
+  "m/84'/0'/0'/0/0",  // BIP84 native SegWit (newer)
+  "m/49'/0'/0'/0/0",  // BIP49 SegWit-compatible
+  "m/0'/0'/0'",       // Legacy BIP32
+  "m/0'/0/0",         // Alternative legacy path
+  "m/0",              // Simple first child
+];
 
 export type KeyFormat = 'arbitrary' | 'bip39' | 'master' | 'hex' | 'derived';
 
@@ -136,14 +178,21 @@ export class ForensicInvestigator {
     // Sort by combined confidence + QIG score
     allHypotheses.sort((a, b) => b.combinedScore - a.combinedScore);
 
-    // Deduplicate by phrase
+    // Deduplicate by phrase + format + derivation path (preserve different formats!)
     const seen = new Set<string>();
     const uniqueHypotheses = allHypotheses.filter(h => {
-      const key = h.phrase.toLowerCase();
+      const key = `${h.format}:${h.phrase.toLowerCase()}:${h.derivationPath || ''}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+    
+    // Log format breakdown
+    const formatCounts = uniqueHypotheses.reduce((acc, h) => {
+      acc[h.format] = (acc[h.format] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log(`[Forensic] Format breakdown:`, formatCounts);
 
     session.hypotheses = uniqueHypotheses;
     session.progress.total = uniqueHypotheses.length;
@@ -342,32 +391,118 @@ export class ForensicInvestigator {
   }
 
   /**
-   * Generate BIP39 hypotheses (less likely for 2009, but check anyway)
+   * Generate BIP39 hypotheses with wordlist matching and fuzzy completion
+   * More likely for post-2013 addresses
    */
   private generateBIP39Hypotheses(fragments: MemoryFragment[]): ForensicHypothesis[] {
     const hypotheses: ForensicHypothesis[] = [];
+    const wordlist = getWordlist();
+    const wordlistSet = new Set(wordlist);
+    const avgConfidence = fragments.reduce((sum, f) => sum + f.confidence, 0) / fragments.length;
     
-    // Only if fragments look like BIP39 words
-    const bip39Words = fragments.filter(f => 
-      /^[a-z]+$/.test(f.text.toLowerCase()) && f.text.length >= 3 && f.text.length <= 8
-    );
-
-    if (bip39Words.length >= 3) {
-      const words = bip39Words.map(f => f.text.toLowerCase());
-      const avgConfidence = bip39Words.reduce((sum, f) => sum + f.confidence, 0) / bip39Words.length;
+    const matchedWords: { original: string; matches: string[]; confidence: number }[] = [];
+    
+    for (const frag of fragments) {
+      const text = frag.text.toLowerCase().trim();
       
-      // Try as partial mnemonic phrase
-      const phrase = words.join(' ');
-      hypotheses.push(this.createHypothesis(
-        'bip39',
-        phrase,
-        'BIP39 mnemonic (partial)',
-        avgConfidence * 0.5, // Lower confidence - unlikely for 2009
-        words
-      ));
+      if (wordlistSet.has(text)) {
+        matchedWords.push({ original: text, matches: [text], confidence: frag.confidence });
+        console.log(`[Forensic-BIP39] Exact match: "${text}"`);
+      } else {
+        const similar = wordlist
+          .filter(w => {
+            if (text.length < 3) return false;
+            const dist = levenshteinDistance(text, w);
+            return dist <= 2 && (dist / Math.max(text.length, w.length)) < 0.4;
+          })
+          .slice(0, 5);
+        
+        if (similar.length > 0) {
+          matchedWords.push({ 
+            original: text, 
+            matches: similar, 
+            confidence: frag.confidence * 0.7
+          });
+          console.log(`[Forensic-BIP39] Fuzzy matches for "${text}": ${similar.join(', ')}`);
+        }
+        
+        const prefixMatches = wordlist.filter(w => w.startsWith(text)).slice(0, 5);
+        if (prefixMatches.length > 0 && text.length >= 3) {
+          matchedWords.push({
+            original: text,
+            matches: prefixMatches,
+            confidence: frag.confidence * 0.6
+          });
+          console.log(`[Forensic-BIP39] Prefix matches for "${text}": ${prefixMatches.join(', ')}`);
+        }
+      }
     }
-
+    
+    if (matchedWords.length === 0) {
+      console.log(`[Forensic-BIP39] No BIP39 word matches found`);
+      return hypotheses;
+    }
+    
+    if (matchedWords.length >= 1) {
+      const combos = this.generateWordCombinations(matchedWords, 50);
+      
+      for (const combo of combos) {
+        const phrase = combo.words.join(' ');
+        hypotheses.push(this.createHypothesis(
+          'bip39',
+          phrase,
+          `BIP39 mnemonic (${combo.words.length} words, ${combo.method})`,
+          combo.confidence * 0.8,
+          combo.words
+        ));
+        
+        for (const path of DERIVATION_PATHS.slice(0, 3)) {
+          hypotheses.push(this.createHypothesis(
+            'master',
+            phrase,
+            `HD wallet derivation (${path})`,
+            combo.confidence * 0.6,
+            combo.words,
+            path
+          ));
+        }
+      }
+    }
+    
+    console.log(`[Forensic-BIP39] Generated ${hypotheses.length} BIP39/master hypotheses`);
     return hypotheses;
+  }
+  
+  private generateWordCombinations(
+    matchedWords: { original: string; matches: string[]; confidence: number }[], 
+    maxCombos: number
+  ): { words: string[]; confidence: number; method: string }[] {
+    const results: { words: string[]; confidence: number; method: string }[] = [];
+    
+    for (const mw of matchedWords) {
+      for (const match of mw.matches.slice(0, 3)) {
+        results.push({
+          words: [match],
+          confidence: mw.confidence,
+          method: match === mw.original ? 'exact' : 'fuzzy'
+        });
+      }
+    }
+    
+    if (matchedWords.length >= 2) {
+      for (let i = 0; i < matchedWords.length && results.length < maxCombos; i++) {
+        for (let j = i + 1; j < matchedWords.length && results.length < maxCombos; j++) {
+          const m1 = matchedWords[i].matches[0];
+          const m2 = matchedWords[j].matches[0];
+          const conf = (matchedWords[i].confidence + matchedWords[j].confidence) / 2;
+          
+          results.push({ words: [m1, m2], confidence: conf, method: 'combined' });
+          results.push({ words: [m2, m1], confidence: conf * 0.9, method: 'combined-reversed' });
+        }
+      }
+    }
+    
+    return results.slice(0, maxCombos);
   }
 
   /**
@@ -408,11 +543,11 @@ export class ForensicInvestigator {
     phrase: string,
     method: string,
     confidence: number,
-    sourceFragments: string[]
+    sourceFragments: string[],
+    derivationPath?: string
   ): ForensicHypothesis {
     const qigScore = scoreUniversalQIG(phrase, format === 'bip39' ? 'bip39' : 'arbitrary');
     
-    // Combined score: QIG phi * confidence * regime bonus
     const regimeBonus = qigScore.regime === 'hierarchical' ? 1.5 :
                         qigScore.regime === 'geometric' ? 1.3 :
                         qigScore.inResonance ? 1.4 : 1.0;
@@ -423,6 +558,7 @@ export class ForensicInvestigator {
       id: `hypo_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       format,
       phrase,
+      derivationPath,
       method,
       confidence,
       qigScore,
@@ -435,19 +571,28 @@ export class ForensicInvestigator {
    * Generate address for a hypothesis
    */
   private async generateAddress(hypo: ForensicHypothesis): Promise<string> {
-    switch (hypo.format) {
-      case 'arbitrary':
-        return generateBitcoinAddress(hypo.phrase);
-      case 'bip39':
-        return generateBitcoinAddress(hypo.phrase);
-      case 'hex':
-        // Treat as raw private key hex
-        return generateBitcoinAddress(hypo.phrase);
-      case 'master':
-        // TODO: Implement BIP32 derivation
-        return generateBitcoinAddress(hypo.phrase);
-      default:
-        return generateBitcoinAddress(hypo.phrase);
+    try {
+      switch (hypo.format) {
+        case 'arbitrary':
+          return generateBitcoinAddress(hypo.phrase);
+        case 'bip39':
+          if (hypo.derivationPath) {
+            return deriveBIP32Address(hypo.phrase, hypo.derivationPath);
+          }
+          return generateBitcoinAddress(hypo.phrase);
+        case 'hex':
+          return generateAddressFromHex(hypo.phrase);
+        case 'master':
+          const path = hypo.derivationPath || "m/44'/0'/0'/0/0";
+          return deriveBIP32Address(hypo.phrase, path);
+        case 'derived':
+          return deriveBIP32Address(hypo.phrase, hypo.derivationPath || "m/0");
+        default:
+          return generateBitcoinAddress(hypo.phrase);
+      }
+    } catch (err) {
+      console.error(`[Forensic] Address generation error for ${hypo.format}: ${err}`);
+      return generateBitcoinAddress(hypo.phrase);
     }
   }
 

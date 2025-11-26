@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes } from "crypto";
 import elliptic from "elliptic";
 import bs58check from "bs58check";
 
@@ -102,4 +102,75 @@ export function verifyBrainWallet(): { success: boolean; testAddress?: string; e
       error: error.message,
     };
   }
+}
+
+/**
+ * Derive Bitcoin address from a seed phrase using BIP32/BIP44 derivation
+ * For HD wallet recovery - uses HMAC-SHA512 for key derivation
+ * 
+ * @param seedPhrase - Mnemonic seed phrase (BIP39 words)
+ * @param derivationPath - BIP32 path like "m/44'/0'/0'/0/0"
+ * @returns Bitcoin address derived from the path
+ */
+export function deriveBIP32Address(seedPhrase: string, derivationPath: string = "m/44'/0'/0'/0/0"): string {
+  const seedBuffer = createHash("sha512").update(seedPhrase, "utf8").digest();
+  
+  let masterKey = createHmac('sha512', 'Bitcoin seed')
+    .update(seedBuffer)
+    .digest();
+  
+  let privateKey = masterKey.slice(0, 32);
+  let chainCode = masterKey.slice(32, 64);
+  
+  const pathParts = derivationPath
+    .replace('m/', '')
+    .split('/')
+    .filter(p => p.length > 0);
+  
+  for (const part of pathParts) {
+    const hardened = part.endsWith("'");
+    const index = parseInt(part.replace("'", ""), 10);
+    
+    const actualIndex = hardened ? index + 0x80000000 : index;
+    
+    let data: Buffer;
+    if (hardened) {
+      data = Buffer.concat([
+        Buffer.from([0x00]),
+        privateKey,
+        Buffer.alloc(4)
+      ]);
+    } else {
+      const keyPair = ec.keyFromPrivate(privateKey);
+      const publicKey = Buffer.from(keyPair.getPublic().encode("array", true));
+      data = Buffer.concat([publicKey, Buffer.alloc(4)]);
+    }
+    
+    data.writeUInt32BE(actualIndex, data.length - 4);
+    
+    const derived = createHmac('sha512', chainCode)
+      .update(data)
+      .digest();
+    
+    const childKey = derived.slice(0, 32);
+    const newChainCode = derived.slice(32, 64);
+    
+    const parentKeyBigInt = BigInt('0x' + privateKey.toString('hex'));
+    const childKeyBigInt = BigInt('0x' + childKey.toString('hex'));
+    const secp256k1Order = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    
+    const newPrivateKey = (parentKeyBigInt + childKeyBigInt) % secp256k1Order;
+    privateKey = Buffer.from(newPrivateKey.toString(16).padStart(64, '0'), 'hex');
+    chainCode = newChainCode;
+  }
+  
+  return generateBitcoinAddressFromPrivateKey(privateKey.toString('hex'));
+}
+
+/**
+ * Generate address from hex private key (for hex fragment testing)
+ */
+export function generateAddressFromHex(hexPrivateKey: string): string {
+  const cleanHex = hexPrivateKey.replace(/^0x/, '').padStart(64, '0');
+  return generateBitcoinAddressFromPrivateKey(cleanHex);
 }
