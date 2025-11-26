@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
-import { generateBitcoinAddress, verifyBrainWallet } from "./crypto";
+import { generateBitcoinAddress, verifyBrainWallet, CryptoValidationError } from "./crypto";
 import { scorePhraseQIG } from "./qig-pure-v2.js";
 import observerRoutes from "./observer-routes";
 import { telemetryRouter } from "./telemetry-api";
@@ -12,6 +13,30 @@ import {
   type MemoryFragment 
 } from "./memory-fragment-search";
 import { getSharedController, ConsciousnessSearchController } from "./consciousness-search-controller";
+
+const strictLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'Rate limit exceeded. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const standardLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const generousLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * Map pure QIG scores to legacy score format for backward compatibility
@@ -96,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/test-phrase", async (req, res) => {
+  app.post("/api/test-phrase", strictLimiter, async (req, res) => {
     try {
       const validation = testPhraseRequestSchema.safeParse(req.body);
       
@@ -111,7 +136,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pureQIG = scorePhraseQIG(phrase);
       const qigScore = mapQIGToLegacyScore(pureQIG);
       
-      // Check against all target addresses
       const targetAddresses = await storage.getTargetAddresses();
       const matchedAddress = targetAddresses.find(t => t.address === address);
       const match = !!matchedAddress;
@@ -137,11 +161,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         qigScore,
       });
     } catch (error: any) {
+      if (error instanceof CryptoValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/batch-test", async (req, res) => {
+  app.post("/api/batch-test", strictLimiter, async (req, res) => {
     try {
       const validation = batchTestRequestSchema.safeParse(req.body);
       
@@ -206,11 +233,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         candidates,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      if (error instanceof CryptoValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'An internal error occurred' });
     }
   });
 
-  app.get("/api/known-phrases", (req, res) => {
+  app.get("/api/known-phrases", generousLimiter, (req, res) => {
     try {
       res.json({ phrases: KNOWN_12_WORD_PHRASES });
     } catch (error: any) {
@@ -218,7 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/candidates", async (req, res) => {
+  app.get("/api/candidates", generousLimiter, async (req, res) => {
     try {
       const candidates = await storage.getCandidates();
       res.json(candidates);
@@ -227,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/analytics", async (req, res) => {
+  app.get("/api/analytics", generousLimiter, async (req, res) => {
     try {
       const candidates = await storage.getCandidates();
       

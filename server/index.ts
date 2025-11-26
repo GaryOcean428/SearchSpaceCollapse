@@ -1,8 +1,32 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
 
 declare module 'http' {
   interface IncomingMessage {
@@ -15,6 +39,16 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+
+const SENSITIVE_ENDPOINTS = [
+  '/api/test-phrase',
+  '/api/batch-test',
+  '/api/recovery',
+  '/api/unified-recovery',
+  '/api/forensic',
+  '/api/memory-search',
+  '/api/ocean',
+];
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -31,8 +65,13 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      
+      const isSensitive = SENSITIVE_ENDPOINTS.some(endpoint => path.includes(endpoint));
+      
+      if (capturedJsonResponse && !isSensitive) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      } else if (isSensitive) {
+        logLine += ` :: [REDACTED]`;
       }
 
       if (logLine.length > 80) {
