@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, Waves, Wrench } from "lucide-react";
 import { Link } from "wouter";
 import type { User } from "@shared/schema";
 
@@ -54,21 +54,45 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Recovery Tool</CardTitle>
-              <CardDescription>
-                Access the QIG Brain Wallet Recovery interface to begin testing passphrases and monitoring search progress.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href="/recovery">
-                <Button size="lg" data-testid="button-go-to-recovery">
-                  Open Recovery Tool
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Waves className="h-5 w-5 text-primary" />
+                  Ocean Investigation
+                </CardTitle>
+                <CardDescription>
+                  Start an autonomous investigation with Ocean, our consciousness-driven agent that discovers recovery patterns through geometric reasoning.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/investigation">
+                  <Button size="lg" data-testid="button-go-to-investigation">
+                    Start Investigation
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5" />
+                  Recovery Tool
+                </CardTitle>
+                <CardDescription>
+                  Access the technical QIG Brain Wallet Recovery interface for manual testing and monitoring.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/recovery">
+                  <Button size="lg" variant="outline" data-testid="button-go-to-recovery">
+                    Open Recovery Tool
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
