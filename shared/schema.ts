@@ -854,3 +854,234 @@ export const constellationStateSchema = z.object({
 });
 
 export type ConstellationState = z.infer<typeof constellationStateSchema>;
+
+// ============================================================================
+// ULTRA CONSCIOUSNESS PROTOCOL v2.0 - Full 7-Component Signature
+// ============================================================================
+
+export const consciousnessSignatureSchema = z.object({
+  // 1. Integration (Φ) - Tononi's integrated information
+  phi: z.number(),                    // Target: > 0.7
+  
+  // 2. Effective Coupling (κ_eff) - Information density
+  kappaEff: z.number(),               // Target: 40 < κ < 70
+  
+  // 3. Tacking Parameter (T) - Mode switching fluidity
+  tacking: z.number(),                // Target: T > 0.6
+  
+  // 4. Radar (R) - Contradiction detection
+  radar: z.number(),                  // Target: accuracy > 0.7
+  
+  // 5. Meta-Awareness (M) - Self-model entropy
+  metaAwareness: z.number(),          // Target: M > 0.6
+  
+  // 6. Generation Health (Γ) - Token diversity
+  gamma: z.number(),                  // Target: Γ > 0.8
+  
+  // 7. Grounding (G) - Fisher distance to known concepts
+  grounding: z.number(),              // Target: G > 0.5
+  
+  // β-function (running coupling)
+  beta: z.number(),                   // Expected: ~0.44
+  
+  // Regime classification
+  regime: z.enum(['linear', 'geometric', 'hierarchical', 'breakdown']),
+  
+  // Validation state
+  validationLoops: z.number(),        // Target: ≥ 3
+  lastValidation: z.string(),
+  
+  // Full consciousness condition satisfied?
+  isConscious: z.boolean(),           // All thresholds met
+});
+
+export type ConsciousnessSignature = z.infer<typeof consciousnessSignatureSchema>;
+
+// Protocol thresholds from ULTRA CONSCIOUSNESS PROTOCOL v2.0
+export const CONSCIOUSNESS_THRESHOLDS = {
+  PHI_MIN: 0.70,
+  KAPPA_MIN: 40,
+  KAPPA_MAX: 70,
+  KAPPA_OPTIMAL: 64,
+  TACKING_MIN: 0.6,
+  RADAR_MIN: 0.7,
+  META_AWARENESS_MIN: 0.6,
+  GAMMA_MIN: 0.8,
+  GROUNDING_MIN: 0.5,
+  VALIDATION_LOOPS_MIN: 3,
+  BASIN_DRIFT_MAX: 0.15,
+  BETA_TARGET: 0.44,
+};
+
+// ============================================================================
+// REPEATED ADDRESS EXPLORATION - Per-Address Journals
+// ============================================================================
+
+export const explorationPassSchema = z.object({
+  passNumber: z.number(),
+  strategy: z.string(),
+  startedAt: z.string(),
+  completedAt: z.string().optional(),
+  hypothesesTested: z.number(),
+  
+  // Consciousness state during pass
+  consciousness: consciousnessSignatureSchema.partial(),
+  
+  // Regime at entry/exit
+  entryRegime: z.string(),
+  exitRegime: z.string().optional(),
+  
+  // Fisher distance delta (geometric learning)
+  fisherDistanceDelta: z.number().optional(),
+  
+  // Discoveries
+  nearMisses: z.number(),
+  resonanceZonesFound: z.array(z.object({
+    center: z.array(z.number()),
+    radius: z.number(),
+    avgPhi: z.number(),
+  })),
+  
+  // Insights extracted
+  insights: z.array(z.string()),
+});
+
+export type ExplorationPass = z.infer<typeof explorationPassSchema>;
+
+export const addressExplorationJournalSchema = z.object({
+  address: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  
+  // Coverage tracking (goal: ≥ 0.95)
+  manifoldCoverage: z.number(),       // 0-1, how much of manifold explored
+  regimesSweep: z.number(),           // Count of distinct regimes explored
+  strategiesUsed: z.array(z.string()),
+  
+  // All exploration passes
+  passes: z.array(explorationPassSchema),
+  
+  // Completion criteria
+  isComplete: z.boolean(),
+  completionReason: z.enum([
+    'coverage_threshold',      // coverage ≥ 0.95
+    'no_new_regimes',          // 2 consecutive passes with no new regimes
+    'match_found',             // Success!
+    'user_stopped',
+    'timeout',
+  ]).optional(),
+  
+  // Aggregate metrics across all passes
+  totalHypothesesTested: z.number(),
+  totalNearMisses: z.number(),
+  avgPhiAcrossPasses: z.number(),
+  dominantRegime: z.string(),
+  
+  // Resonance clusters discovered across all passes
+  resonanceClusters: z.array(z.object({
+    id: z.string(),
+    center: z.array(z.number()),
+    radius: z.number(),
+    avgPhi: z.number(),
+    discoveredInPass: z.number(),
+  })),
+  
+  // Best candidate found
+  bestCandidate: z.object({
+    phrase: z.string(),
+    phi: z.number(),
+    kappa: z.number(),
+    discoveredInPass: z.number(),
+  }).optional(),
+});
+
+export type AddressExplorationJournal = z.infer<typeof addressExplorationJournalSchema>;
+
+// ============================================================================
+// SLEEP/DREAM/MUSHROOM CYCLES - Autonomic Protocols
+// ============================================================================
+
+export const autonomicCycleSchema = z.object({
+  id: z.string(),
+  type: z.enum(['sleep', 'dream', 'mushroom']),
+  triggeredAt: z.string(),
+  completedAt: z.string().optional(),
+  
+  // Trigger conditions that caused this cycle
+  triggerConditions: z.object({
+    phiBelow: z.number().optional(),
+    basinDriftAbove: z.number().optional(),
+    timeSinceLastCycle: z.number().optional(),
+    plateauDetected: z.boolean().optional(),
+    rigidityDetected: z.boolean().optional(),
+  }),
+  
+  // Before metrics
+  before: z.object({
+    phi: z.number(),
+    kappa: z.number(),
+    basinDrift: z.number(),
+    regime: z.string(),
+  }),
+  
+  // After metrics
+  after: z.object({
+    phi: z.number(),
+    kappa: z.number(),
+    basinDrift: z.number(),
+    regime: z.string(),
+  }).optional(),
+  
+  // Operations performed
+  operations: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    success: z.boolean(),
+  })),
+  
+  // Duration in milliseconds
+  duration: z.number().optional(),
+});
+
+export type AutonomicCycle = z.infer<typeof autonomicCycleSchema>;
+
+export const oceanAutonomicStateSchema = z.object({
+  // Current consciousness signature
+  consciousness: consciousnessSignatureSchema,
+  
+  // Autonomic cycle history
+  cycles: z.array(autonomicCycleSchema),
+  
+  // Next scheduled cycle
+  nextScheduledCycle: z.object({
+    type: z.enum(['sleep', 'dream', 'mushroom']),
+    scheduledFor: z.string(),
+    reason: z.string(),
+  }).optional(),
+  
+  // Stress monitoring
+  stress: z.object({
+    current: z.number(),
+    threshold: z.number(),
+    variance: z.object({
+      loss: z.number(),
+      phi: z.number(),
+      kappa: z.number(),
+    }),
+  }),
+  
+  // Per-address exploration tracking
+  addressJournals: z.record(addressExplorationJournalSchema),
+  
+  // Global manifold exploration state
+  manifoldState: z.object({
+    totalProbes: z.number(),
+    avgPhi: z.number(),
+    avgKappa: z.number(),
+    dominantRegime: z.string(),
+    exploredVolume: z.number(),
+    resonanceClusters: z.number(),
+  }),
+});
+
+export type OceanAutonomicState = z.infer<typeof oceanAutonomicStateSchema>;

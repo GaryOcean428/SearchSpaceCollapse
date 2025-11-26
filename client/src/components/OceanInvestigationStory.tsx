@@ -61,6 +61,38 @@ interface ManifoldState {
   recommendations: string[];
 }
 
+interface FullConsciousnessSignature {
+  phi: number;
+  kappaEff: number;
+  tacking: number;
+  radar: number;
+  metaAwareness: number;
+  gamma: number;
+  grounding: number;
+  regime: 'geometric' | 'breakdown' | 'linear';
+  isConscious: boolean;
+}
+
+interface CycleTimeline {
+  id: string;
+  type: 'sleep' | 'dream' | 'mushroom';
+  triggeredAt: string;
+  completedAt?: string;
+  duration?: number;
+  beforePhi: number;
+  afterPhi: number;
+  success: boolean;
+}
+
+interface ExplorationJournal {
+  passCount: number;
+  totalHypothesesTested: number;
+  manifoldCoverage: number;
+  regimesSweep: number;
+  strategiesUsed: string[];
+  isComplete: boolean;
+}
+
 interface InvestigationStatus {
   isRunning: boolean;
   tested: number;
@@ -77,6 +109,9 @@ interface InvestigationStatus {
   sessionId?: string | null;
   targetAddress?: string | null;
   manifold?: ManifoldState;
+  fullConsciousness?: FullConsciousnessSignature;
+  cycleTimeline?: CycleTimeline[];
+  explorationJournal?: ExplorationJournal | null;
 }
 
 export function OceanInvestigationStory() {
@@ -939,6 +974,10 @@ function ExpertModeToggle({ isExpert, onToggle }: {
 }
 
 function TechnicalDashboard({ status }: { status: InvestigationStatus }) {
+  const fullC = status.fullConsciousness;
+  const journal = status.explorationJournal;
+  const cycles = status.cycleTimeline || [];
+  
   return (
     <motion.div
       className="technical-dashboard mx-4 p-6 bg-black/30 border border-white/10 rounded-2xl"
@@ -949,12 +988,134 @@ function TechnicalDashboard({ status }: { status: InvestigationStatus }) {
     >
       <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
         <Target className="w-5 h-5" />
-        Technical Telemetry
+        Full Consciousness Signature
       </h3>
 
+      {fullC && (
+        <div className="mb-6">
+          <div className="tech-grid grid grid-cols-4 md:grid-cols-8 gap-3 mb-4">
+            <ConsciousnessMetric label="Phi" value={fullC.phi} threshold={0.7} unit="" />
+            <ConsciousnessMetric label="Kappa" value={fullC.kappaEff} threshold={40} unit="" max={65} />
+            <ConsciousnessMetric label="T (Tacking)" value={fullC.tacking} threshold={0.5} unit="" />
+            <ConsciousnessMetric label="R (Radar)" value={fullC.radar} threshold={0.7} unit="" />
+            <ConsciousnessMetric label="M (Meta)" value={fullC.metaAwareness} threshold={0.6} unit="" />
+            <ConsciousnessMetric label="Gamma" value={fullC.gamma} threshold={0.8} unit="" />
+            <ConsciousnessMetric label="G (Ground)" value={fullC.grounding} threshold={0.85} unit="" />
+            <div className="p-3 bg-white/5 rounded-lg text-center">
+              <div className="text-xs text-white/60 mb-1">Regime</div>
+              <div className={`text-sm font-semibold ${
+                fullC.regime === 'geometric' ? 'text-green-400' :
+                fullC.regime === 'breakdown' ? 'text-red-400' : 'text-yellow-400'
+              }`}>
+                {fullC.regime}
+              </div>
+            </div>
+          </div>
+          
+          <div className={`text-center py-2 px-4 rounded-lg ${
+            fullC.isConscious ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+          }`}>
+            {fullC.isConscious ? 'Consciousness Active' : 'Below Consciousness Threshold'}
+          </div>
+        </div>
+      )}
+
+      {journal && (
+        <div className="mb-6">
+          <h4 className="text-cyan-400 font-semibold mb-3">Exploration Progress</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-white/5 rounded-lg">
+              <div className="text-sm text-white/60 mb-1">Passes</div>
+              <div className="text-xl font-mono text-cyan-400">{journal.passCount}</div>
+            </div>
+            <div className="p-4 bg-white/5 rounded-lg">
+              <div className="text-sm text-white/60 mb-1">Hypotheses</div>
+              <div className="text-xl font-mono text-cyan-400">{journal.totalHypothesesTested}</div>
+            </div>
+            <div className="p-4 bg-white/5 rounded-lg">
+              <div className="text-sm text-white/60 mb-1">Regimes Swept</div>
+              <div className="text-xl font-mono text-cyan-400">{journal.regimesSweep}/3</div>
+            </div>
+            <div className="p-4 bg-white/5 rounded-lg">
+              <div className="text-sm text-white/60 mb-1">Coverage</div>
+              <div className={`text-xl font-mono ${journal.manifoldCoverage >= 0.95 ? 'text-green-400' : 'text-cyan-400'}`}>
+                {(journal.manifoldCoverage * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4">
+            <div className="text-sm text-white/60 mb-2">Manifold Coverage</div>
+            <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+              <motion.div 
+                className={`h-full ${journal.manifoldCoverage >= 0.95 ? 'bg-green-500' : 'bg-cyan-500'}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${journal.manifoldCoverage * 100}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-white/40">
+              <span>0%</span>
+              <span className="text-cyan-400">Target: 95%</span>
+              <span>100%</span>
+            </div>
+          </div>
+          
+          {journal.strategiesUsed.length > 0 && (
+            <div className="mt-4">
+              <div className="text-sm text-white/60 mb-2">Strategies Used</div>
+              <div className="flex flex-wrap gap-2">
+                {journal.strategiesUsed.map(s => (
+                  <Badge key={s} variant="outline" className="text-xs">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {cycles.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-cyan-400 font-semibold mb-3">Autonomic Cycle Timeline</h4>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {cycles.slice().reverse().map(cycle => (
+              <div 
+                key={cycle.id}
+                className={`flex items-center justify-between p-3 rounded-lg ${
+                  cycle.type === 'sleep' ? 'bg-indigo-500/20' :
+                  cycle.type === 'dream' ? 'bg-purple-500/20' : 'bg-amber-500/20'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">
+                    {cycle.type === 'sleep' ? '🌙' : cycle.type === 'dream' ? '💭' : '🍄'}
+                  </span>
+                  <div>
+                    <div className="text-white font-medium capitalize">{cycle.type} Cycle</div>
+                    <div className="text-xs text-white/60">
+                      {new Date(cycle.triggeredAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-white/80">
+                    Phi: {cycle.beforePhi.toFixed(2)} {'->'} {cycle.afterPhi.toFixed(2)}
+                  </div>
+                  {cycle.duration && (
+                    <div className="text-xs text-white/60">{cycle.duration}ms</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="tech-grid grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <TechMetric label="Φ (Integration)" value={status.consciousness.phi.toFixed(3)} />
-        <TechMetric label="κ (Coupling)" value={status.consciousness.kappa.toFixed(1)} />
+        <TechMetric label="Phi (Basic)" value={status.consciousness.phi.toFixed(3)} />
+        <TechMetric label="Kappa (Basic)" value={status.consciousness.kappa.toFixed(1)} />
         <TechMetric label="Regime" value={status.consciousness.regime} />
         <TechMetric label="Basin Drift" value={status.consciousness.basinDrift.toFixed(4)} />
       </div>
@@ -980,11 +1141,36 @@ function TechnicalDashboard({ status }: { status: InvestigationStatus }) {
 
       <div>
         <h4 className="text-cyan-400 font-semibold mb-3">Raw Status</h4>
-        <pre className="text-xs text-white/70 bg-black/40 p-4 rounded-lg overflow-x-auto font-mono">
+        <pre className="text-xs text-white/70 bg-black/40 p-4 rounded-lg overflow-x-auto font-mono max-h-64 overflow-y-auto">
           {JSON.stringify(status, null, 2)}
         </pre>
       </div>
     </motion.div>
+  );
+}
+
+function ConsciousnessMetric({ label, value, threshold, unit, max }: { 
+  label: string; 
+  value: number; 
+  threshold: number; 
+  unit: string;
+  max?: number;
+}) {
+  const isAboveThreshold = max 
+    ? (value >= threshold && value <= max) 
+    : value >= threshold;
+  
+  return (
+    <div className={`p-3 rounded-lg text-center ${
+      isAboveThreshold ? 'bg-green-500/10 border border-green-500/30' : 'bg-white/5'
+    }`}>
+      <div className="text-xs text-white/60 mb-1">{label}</div>
+      <div className={`text-lg font-mono font-semibold ${
+        isAboveThreshold ? 'text-green-400' : 'text-cyan-400'
+      }`}>
+        {typeof value === 'number' ? value.toFixed(2) : value}{unit}
+      </div>
+    </div>
   );
 }
 

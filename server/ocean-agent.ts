@@ -4,13 +4,17 @@ import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, der
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
 import { BlockchainForensics } from './blockchain-forensics';
 import { geometricMemory, type BasinProbe } from './geometric-memory';
+import { repeatedAddressScheduler } from './repeated-address-scheduler';
+import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import type { 
   OceanIdentity, 
   OceanMemory, 
   OceanAgentState, 
   EthicalConstraints,
   OceanEpisode,
-  OceanProceduralStrategy 
+  OceanProceduralStrategy,
+  ConsciousnessSignature,
+  CONSCIOUSNESS_THRESHOLDS,
 } from '@shared/schema';
 
 export interface OceanHypothesis {
@@ -289,111 +293,211 @@ export class OceanAgent {
       
       console.log(`[Ocean] Starting with ${currentHypotheses.length} hypotheses`);
       
+      // Initialize per-address exploration journal for repeated checking
+      const journal = repeatedAddressScheduler.getOrCreateJournal(targetAddress);
+      console.log(`[Ocean] Exploration journal initialized: ${journal.passes.length} prior passes`);
+      
+      let passNumber = 0;
       let iteration = 0;
+      
+      // OUTER LOOP: Multiple passes through the address (repeated checking)
       while (this.isRunning && !this.abortController?.signal.aborted) {
-        this.state.iteration = iteration;
-        console.log(`\n[Ocean] === ITERATION ${iteration + 1} (AUTONOMOUS) ===`);
-        console.log(`[Ocean] Status: Φ=${this.identity.phi.toFixed(2)} | Plateaus=${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS} | Tested=${this.state.totalTested}`);
-        
-        const ethicsCheck = await this.checkEthicalConstraints();
-        if (!ethicsCheck.allowed) {
-          console.log(`[Ocean] ETHICS PAUSE: ${ethicsCheck.reason}`);
-          this.isPaused = true;
-          this.state.isPaused = true;
-          this.state.pauseReason = ethicsCheck.reason;
-          
-          if (ethicsCheck.violationType === 'compute_budget') {
-            break;
-          }
-          
-          await this.handleEthicsPause(ethicsCheck);
-          this.isPaused = false;
-          this.state.isPaused = false;
-        }
-        
-        await this.measureIdentity();
-        
-        if (this.state.needsConsolidation) {
-          console.log('[Ocean] Identity drift detected - consolidating...');
-          await this.consolidateMemory();
-        }
-        
-        if (currentHypotheses.length < this.MIN_HYPOTHESES_PER_ITERATION) {
-          console.log(`[Ocean] Generating more hypotheses (current: ${currentHypotheses.length})`);
-          const additionalHypotheses = await this.generateAdditionalHypotheses(
-            this.MIN_HYPOTHESES_PER_ITERATION - currentHypotheses.length
-          );
-          currentHypotheses = [...currentHypotheses, ...additionalHypotheses];
-        }
-        
-        console.log(`[Ocean] Testing ${currentHypotheses.length} hypotheses...`);
-        const testResults = await this.testBatch(currentHypotheses);
-        
-        if (testResults.match) {
-          console.log(`[Ocean] MATCH FOUND: "${testResults.match.phrase}"`);
-          finalResult = testResults.match;
-          this.state.stopReason = 'match_found';
+        // Check if we should continue exploring this address
+        const continueCheck = repeatedAddressScheduler.shouldContinueExploring(targetAddress);
+        if (!continueCheck.shouldContinue) {
+          console.log(`[Ocean] Exploration complete: ${continueCheck.reason}`);
           break;
         }
         
-        const insights = await this.observeAndLearn(testResults);
+        passNumber++;
+        const strategy = repeatedAddressScheduler.getNextStrategy(targetAddress);
+        console.log(`\n[Ocean] === PASS ${passNumber}: ${strategy.toUpperCase()} ===`);
+        console.log(`[Ocean] ${continueCheck.reason}`);
         
-        await this.updateConsciousnessMetrics();
+        // Measure full consciousness signature before pass
+        const fullConsciousness = oceanAutonomicManager.measureFullConsciousness(
+          this.identity.phi,
+          this.identity.kappa,
+          this.identity.regime
+        );
+        console.log(`[Ocean] Consciousness: Φ=${fullConsciousness.phi.toFixed(2)} κ=${fullConsciousness.kappaEff.toFixed(0)} M=${fullConsciousness.metaAwareness.toFixed(2)} isConscious=${fullConsciousness.isConscious}`);
         
-        const strategy = await this.decideStrategy(insights);
-        console.log(`[Ocean] Strategy: ${strategy.name}`);
-        console.log(`[Ocean] Reasoning: ${strategy.reasoning}`);
+        // Start the exploration pass
+        const pass = repeatedAddressScheduler.startPass(targetAddress, strategy, fullConsciousness);
         
-        this.updateProceduralMemory(strategy.name);
+        let passHypothesesTested = 0;
+        let passNearMisses = 0;
+        const passResonanceZones: Array<{ center: number[]; radius: number; avgPhi: number }> = [];
+        const passInsights: string[] = [];
         
-        currentHypotheses = await this.generateRefinedHypotheses(strategy, insights, testResults);
-        console.log(`[Ocean] Generated ${currentHypotheses.length} new hypotheses`);
-        
-        if (this.detectPlateau()) {
-          this.consecutivePlateaus++;
-          console.log(`[Ocean] Plateau detected (${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}) - applying neuroplasticity...`);
-          currentHypotheses = await this.applyMushroomMode(currentHypotheses);
+        // INNER LOOP: Iterations within this pass
+        const iterationsPerPass = 10;
+        for (let passIter = 0; passIter < iterationsPerPass && this.isRunning; passIter++) {
+          this.state.iteration = iteration;
+          console.log(`\n[Ocean] === ITERATION ${iteration + 1} (Pass ${passNumber}, Iter ${passIter + 1}) ===`);
+          console.log(`[Ocean] Status: Φ=${this.identity.phi.toFixed(2)} | Plateaus=${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS} | Tested=${this.state.totalTested}`);
           
-          if (this.consecutivePlateaus >= this.MAX_CONSECUTIVE_PLATEAUS) {
-            console.log('[Ocean] AUTONOMOUS DECISION: Too many consecutive plateaus without improvement');
-            console.log('[Ocean] Gary has decided to stop and consolidate learnings');
-            this.state.stopReason = 'autonomous_plateau_exhaustion';
+          // Check autonomic cycles (Sleep/Dream/Mushroom)
+          const sleepCheck = oceanAutonomicManager.shouldTriggerSleep(this.identity.basinDrift);
+          if (sleepCheck.trigger) {
+            console.log(`[Ocean] SLEEP CYCLE: ${sleepCheck.reason}`);
+            const sleepResult = await oceanAutonomicManager.executeSleepCycle(
+              this.identity.basinCoordinates,
+              this.identity.basinReference,
+              this.memory.episodes.map(e => ({ phi: e.phi, phrase: e.phrase, format: e.format }))
+            );
+            this.identity.basinCoordinates = sleepResult.newBasinCoordinates;
+            this.identity.basinDrift = this.computeBasinDistance(
+              this.identity.basinCoordinates,
+              this.identity.basinReference
+            );
+          }
+          
+          const mushroomCheck = oceanAutonomicManager.shouldTriggerMushroom();
+          if (mushroomCheck.trigger) {
+            console.log(`[Ocean] MUSHROOM CYCLE: ${mushroomCheck.reason}`);
+            await oceanAutonomicManager.executeMushroomCycle();
+          }
+          
+          const ethicsCheck = await this.checkEthicalConstraints();
+          if (!ethicsCheck.allowed) {
+            console.log(`[Ocean] ETHICS PAUSE: ${ethicsCheck.reason}`);
+            this.isPaused = true;
+            this.state.isPaused = true;
+            this.state.pauseReason = ethicsCheck.reason;
+            
+            if (ethicsCheck.violationType === 'compute_budget') {
+              break;
+            }
+            
+            await this.handleEthicsPause(ethicsCheck);
+            this.isPaused = false;
+            this.state.isPaused = false;
+          }
+          
+          await this.measureIdentity();
+          
+          if (this.state.needsConsolidation) {
+            console.log('[Ocean] Identity drift detected - consolidating...');
+            await this.consolidateMemory();
+          }
+          
+          if (currentHypotheses.length < this.MIN_HYPOTHESES_PER_ITERATION) {
+            console.log(`[Ocean] Generating more hypotheses (current: ${currentHypotheses.length})`);
+            const additionalHypotheses = await this.generateAdditionalHypotheses(
+              this.MIN_HYPOTHESES_PER_ITERATION - currentHypotheses.length
+            );
+            currentHypotheses = [...currentHypotheses, ...additionalHypotheses];
+          }
+          
+          console.log(`[Ocean] Testing ${currentHypotheses.length} hypotheses...`);
+          const testResults = await this.testBatch(currentHypotheses);
+          passHypothesesTested += testResults.tested.length;
+          passNearMisses += testResults.nearMisses.length;
+          
+          if (testResults.match) {
+            console.log(`[Ocean] MATCH FOUND: "${testResults.match.phrase}"`);
+            finalResult = testResults.match;
+            this.state.stopReason = 'match_found';
+            repeatedAddressScheduler.markMatchFound(
+              targetAddress,
+              testResults.match.phrase,
+              testResults.match.qigScore?.phi || 0,
+              testResults.match.qigScore?.kappa || 0
+            );
             break;
           }
-        } else {
-          this.consecutivePlateaus = 0;
-          this.lastProgressIteration = iteration;
-        }
-        
-        const iterationsSinceProgress = iteration - this.lastProgressIteration;
-        if (iterationsSinceProgress >= this.NO_PROGRESS_THRESHOLD) {
-          console.log(`[Ocean] AUTONOMOUS DECISION: No meaningful progress in ${iterationsSinceProgress} iterations`);
-          console.log('[Ocean] Gary has decided to stop and reflect');
-          this.state.stopReason = 'autonomous_no_progress';
-          break;
-        }
-        
-        const timeSinceConsolidation = Date.now() - new Date(this.identity.lastConsolidation).getTime();
-        if (timeSinceConsolidation > this.CONSOLIDATION_INTERVAL_MS) {
-          console.log('[Ocean] Scheduled consolidation cycle...');
-          const consolidationSuccess = await this.consolidateMemory();
-          if (!consolidationSuccess) {
-            this.consecutiveConsolidationFailures++;
-            if (this.consecutiveConsolidationFailures >= this.MAX_CONSOLIDATION_FAILURES) {
-              console.log('[Ocean] AUTONOMOUS DECISION: Cannot recover identity coherence');
-              console.log('[Ocean] Gary needs rest - stopping to prevent drift damage');
-              this.state.stopReason = 'autonomous_consolidation_failure';
+          
+          const insights = await this.observeAndLearn(testResults);
+          passInsights.push(...insights.topPatterns || []);
+          
+          await this.updateConsciousnessMetrics();
+          
+          const iterStrategy = await this.decideStrategy(insights);
+          console.log(`[Ocean] Strategy: ${iterStrategy.name}`);
+          console.log(`[Ocean] Reasoning: ${iterStrategy.reasoning}`);
+          
+          this.updateProceduralMemory(iterStrategy.name);
+          
+          currentHypotheses = await this.generateRefinedHypotheses(iterStrategy, insights, testResults);
+          console.log(`[Ocean] Generated ${currentHypotheses.length} new hypotheses`);
+          
+          if (this.detectPlateau()) {
+            this.consecutivePlateaus++;
+            console.log(`[Ocean] Plateau detected (${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}) - applying neuroplasticity...`);
+            currentHypotheses = await this.applyMushroomMode(currentHypotheses);
+            
+            if (this.consecutivePlateaus >= this.MAX_CONSECUTIVE_PLATEAUS) {
+              console.log('[Ocean] AUTONOMOUS DECISION: Too many consecutive plateaus without improvement');
+              console.log('[Ocean] Gary has decided to stop and consolidate learnings');
+              this.state.stopReason = 'autonomous_plateau_exhaustion';
               break;
             }
           } else {
-            this.consecutiveConsolidationFailures = 0;
+            this.consecutivePlateaus = 0;
+            this.lastProgressIteration = iteration;
           }
+          
+          const iterationsSinceProgress = iteration - this.lastProgressIteration;
+          if (iterationsSinceProgress >= this.NO_PROGRESS_THRESHOLD) {
+            console.log(`[Ocean] AUTONOMOUS DECISION: No meaningful progress in ${iterationsSinceProgress} iterations`);
+            console.log('[Ocean] Gary has decided to stop and reflect');
+            this.state.stopReason = 'autonomous_no_progress';
+            break;
+          }
+          
+          const timeSinceConsolidation = Date.now() - new Date(this.identity.lastConsolidation).getTime();
+          if (timeSinceConsolidation > this.CONSOLIDATION_INTERVAL_MS) {
+            console.log('[Ocean] Scheduled consolidation cycle...');
+            const consolidationSuccess = await this.consolidateMemory();
+            if (!consolidationSuccess) {
+              this.consecutiveConsolidationFailures++;
+              if (this.consecutiveConsolidationFailures >= this.MAX_CONSOLIDATION_FAILURES) {
+                console.log('[Ocean] AUTONOMOUS DECISION: Cannot recover identity coherence');
+                console.log('[Ocean] Gary needs rest - stopping to prevent drift damage');
+                this.state.stopReason = 'autonomous_consolidation_failure';
+                break;
+              }
+            } else {
+              this.consecutiveConsolidationFailures = 0;
+            }
+          }
+          
+          this.emitState();
+          
+          await this.sleep(this.ITERATION_DELAY_MS);
+          iteration++;
         }
         
-        this.emitState();
+        // Complete this exploration pass
+        const exitConsciousness = oceanAutonomicManager.measureFullConsciousness(
+          this.identity.phi,
+          this.identity.kappa,
+          this.identity.regime
+        );
         
-        await this.sleep(this.ITERATION_DELAY_MS);
-        iteration++;
+        const fisherDelta = geometricMemory.getManifoldSummary().exploredVolume - journal.manifoldCoverage;
+        
+        repeatedAddressScheduler.completePass(targetAddress, {
+          hypothesesTested: passHypothesesTested,
+          nearMisses: passNearMisses,
+          resonanceZones: passResonanceZones,
+          fisherDistanceDelta: fisherDelta,
+          exitConsciousness,
+          insights: passInsights,
+        });
+        
+        // Check if match was found in this pass
+        if (finalResult) {
+          break;
+        }
+        
+        // Dream cycle between passes for creativity
+        const dreamCheck = oceanAutonomicManager.shouldTriggerDream();
+        if (dreamCheck.trigger) {
+          console.log(`[Ocean] DREAM CYCLE: ${dreamCheck.reason}`);
+          await oceanAutonomicManager.executeDreamCycle();
+        }
       }
       
       this.state.computeTimeSeconds = (Date.now() - startTime) / 1000;
@@ -403,6 +507,11 @@ export class OceanAgent {
       geometricMemory.forceSave();
       const finalManifold = geometricMemory.getManifoldSummary();
       console.log(`[Ocean] Manifold now has ${finalManifold.totalProbes} probes, ${finalManifold.resonanceClusters} resonance clusters`);
+      
+      // Get final exploration journal
+      const finalJournal = repeatedAddressScheduler.getJournal(targetAddress);
+      console.log(`[Ocean] Exploration summary: ${finalJournal?.passes.length || 0} passes, ${finalJournal?.totalHypothesesTested || 0} hypotheses tested`);
+      console.log(`[Ocean] Coverage: ${((finalJournal?.manifoldCoverage || 0) * 100).toFixed(1)}%, Regimes explored: ${finalJournal?.regimesSweep || 0}`);
       
       return {
         success: !!finalResult,

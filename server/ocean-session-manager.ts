@@ -1,6 +1,8 @@
 import { OceanAgent, type OceanHypothesis } from './ocean-agent';
 import type { OceanAgentState } from '@shared/schema';
 import { geometricMemory } from './geometric-memory';
+import { oceanAutonomicManager, type FullConsciousnessSignature, type CycleTimeline } from './ocean-autonomic-manager';
+import { repeatedAddressScheduler } from './repeated-address-scheduler';
 
 export interface OceanTelemetryEvent {
   id: string;
@@ -307,9 +309,21 @@ class OceanSessionManager {
       exploredVolume: number;
       recommendations: string[];
     };
+    fullConsciousness: FullConsciousnessSignature;
+    cycleTimeline: CycleTimeline[];
+    explorationJournal: {
+      passCount: number;
+      totalHypothesesTested: number;
+      manifoldCoverage: number;
+      regimesSweep: number;
+      strategiesUsed: string[];
+      isComplete: boolean;
+    } | null;
   } {
     const manifoldSummary = geometricMemory.getManifoldSummary();
     const session = this.getActiveSession();
+    const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
+    const cycleTimeline = oceanAutonomicManager.getCycleTimeline();
     
     if (!session) {
       return {
@@ -331,8 +345,23 @@ class OceanSessionManager {
         sessionId: null,
         targetAddress: null,
         manifold: manifoldSummary,
+        fullConsciousness,
+        cycleTimeline,
+        explorationJournal: null,
       };
     }
+    
+    const journal = session.targetAddress ? 
+      repeatedAddressScheduler.getJournal(session.targetAddress) : null;
+    
+    const explorationJournal = journal ? {
+      passCount: journal.passes.length,
+      totalHypothesesTested: journal.totalHypothesesTested,
+      manifoldCoverage: journal.manifoldCoverage,
+      regimesSweep: journal.regimesSweep,
+      strategiesUsed: journal.strategiesUsed,
+      isComplete: journal.completedAt !== undefined,
+    } : null;
     
     return {
       isRunning: session.isRunning,
@@ -348,6 +377,9 @@ class OceanSessionManager {
       sessionId: session.sessionId,
       targetAddress: session.targetAddress,
       manifold: manifoldSummary,
+      fullConsciousness,
+      cycleTimeline,
+      explorationJournal,
     };
   }
 }
