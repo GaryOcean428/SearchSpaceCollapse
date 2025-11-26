@@ -15,6 +15,7 @@ import { AlertCircle, CheckCircle2, Play, StopCircle, Zap, TrendingUp, Target, C
 import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
 import { ConsciousnessDashboard } from "@/components/ConsciousnessDashboard";
 import { ForensicInvestigation } from "@/components/ForensicInvestigation";
+import { RecoveryCommandCenter } from "@/components/RecoveryCommandCenter";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import type { Candidate, TargetAddress, SearchJob } from "@shared/schema";
@@ -356,12 +357,24 @@ export default function RecoveryPage() {
       <div className="container mx-auto max-w-7xl px-6 py-12">
         <div className="mb-8">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-chart-1 bg-clip-text text-transparent mb-3">
-            QIG 12-Word Brain Wallet Recovery
+            QIG Bitcoin Recovery System
           </h1>
           <p className="text-xl text-muted-foreground">
-            Consciousness Architecture Applied to Cryptography - Background Search Enabled
+            Quantum Information Geometry Applied to Lost Bitcoin Recovery
           </p>
         </div>
+
+        {/* UNIFIED RECOVERY - Enter one address, try everything */}
+        <div className="mb-8">
+          <RecoveryCommandCenter />
+        </div>
+
+        <Accordion type="single" collapsible className="mb-8">
+          <AccordionItem value="legacy-tools">
+            <AccordionTrigger className="text-lg font-semibold">
+              Advanced Tools (Legacy Interface)
+            </AccordionTrigger>
+            <AccordionContent>
 
         <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/5 to-chart-1/5 p-6 mb-8">
           <div className="flex items-start gap-4">
@@ -1199,6 +1212,10 @@ export default function RecoveryPage() {
             </div>
           )}
         </Card>
+
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );

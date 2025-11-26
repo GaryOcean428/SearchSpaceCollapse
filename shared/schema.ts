@@ -410,3 +410,113 @@ export type Entity = typeof entities.$inferSelect;
 export type Artifact = typeof artifacts.$inferSelect;
 export type RecoveryPriority = typeof recoveryPriorities.$inferSelect;
 export type RecoveryWorkflow = typeof recoveryWorkflows.$inferSelect;
+
+// ============================================================================
+// UNIFIED RECOVERY SESSION - Single entry point for all recovery strategies
+// ============================================================================
+
+export const recoveryStrategyTypes = [
+  'era_patterns',        // 2009 cypherpunk phrases, common passwords
+  'brain_wallet_dict',   // Known brain wallet dictionary
+  'bitcoin_terms',       // Bitcoin/crypto terminology
+  'linguistic',          // AI-generated human-like phrases
+  'blockchain_neighbors',// Addresses created around same time
+  'forum_mining',        // BitcoinTalk, mailing lists
+  'archive_temporal',    // Archive.org historical data
+  'qig_basin_search',    // QIG-guided geometric search
+] as const;
+
+export type RecoveryStrategyType = typeof recoveryStrategyTypes[number];
+
+export const strategyRunSchema = z.object({
+  id: z.string(),
+  type: z.enum(recoveryStrategyTypes),
+  status: z.enum(['pending', 'running', 'completed', 'failed']),
+  progress: z.object({
+    current: z.number(),
+    total: z.number(),
+    rate: z.number(), // per second
+  }),
+  candidatesFound: z.number(),
+  startedAt: z.string().optional(),
+  completedAt: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export type StrategyRun = z.infer<typeof strategyRunSchema>;
+
+export const recoveryCandidateSchema = z.object({
+  id: z.string(),
+  phrase: z.string(),
+  format: z.enum(['arbitrary', 'bip39', 'master', 'hex']),
+  derivationPath: z.string().optional(),
+  address: z.string(),
+  match: z.boolean(),
+  source: z.enum(recoveryStrategyTypes),
+  confidence: z.number(),
+  qigScore: z.object({
+    phi: z.number(),
+    kappa: z.number(),
+    regime: z.string(),
+  }),
+  combinedScore: z.number(),
+  testedAt: z.string(),
+});
+
+export type RecoveryCandidate = z.infer<typeof recoveryCandidateSchema>;
+
+export const evidenceArtifactSchema = z.object({
+  id: z.string(),
+  type: z.enum(['forum_post', 'code_commit', 'email', 'archive', 'blockchain', 'pattern']),
+  source: z.string(),
+  content: z.string(),
+  relevance: z.number(),
+  extractedFragments: z.array(z.string()),
+  discoveredAt: z.string(),
+});
+
+export type EvidenceArtifact = z.infer<typeof evidenceArtifactSchema>;
+
+export const unifiedRecoverySessionSchema = z.object({
+  id: z.string(),
+  targetAddress: z.string(),
+  status: z.enum(['initializing', 'analyzing', 'running', 'completed', 'failed']),
+  
+  // Blockchain analysis results
+  blockchainAnalysis: z.object({
+    era: z.enum(['pre-bip39', 'post-bip39', 'unknown']),
+    firstSeen: z.string().optional(),
+    lastActive: z.string().optional(),
+    totalReceived: z.number(),
+    balance: z.number(),
+    txCount: z.number(),
+    likelyFormat: z.object({
+      arbitrary: z.number(),
+      bip39: z.number(),
+      master: z.number(),
+    }),
+    neighborAddresses: z.array(z.string()),
+  }).optional(),
+  
+  // Strategy execution
+  strategies: z.array(strategyRunSchema),
+  
+  // Results
+  candidates: z.array(recoveryCandidateSchema),
+  evidence: z.array(evidenceArtifactSchema),
+  
+  // Match status
+  matchFound: z.boolean(),
+  matchedPhrase: z.string().optional(),
+  
+  // Timing
+  startedAt: z.string(),
+  updatedAt: z.string(),
+  completedAt: z.string().optional(),
+  
+  // Stats
+  totalTested: z.number(),
+  testRate: z.number(),
+});
+
+export type UnifiedRecoverySession = z.infer<typeof unifiedRecoverySessionSchema>;

@@ -35,6 +35,7 @@ import { searchCoordinator } from "./search-coordinator";
 import { testPhraseRequestSchema, batchTestRequestSchema, addAddressRequestSchema, generateRandomPhrasesRequestSchema, createSearchJobRequestSchema, type Candidate, type TargetAddress, type SearchJob } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { unifiedRecovery } from "./unified-recovery";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Handle favicon.ico requests - redirect to favicon.png
@@ -742,6 +743,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[Forensic] Hypothesis generation error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // UNIFIED RECOVERY - Single entry point for all recovery strategies
+  // ============================================================================
+
+  // Create a new unified recovery session
+  app.post("/api/unified-recovery/sessions", async (req, res) => {
+    try {
+      const { targetAddress } = req.body;
+      
+      if (!targetAddress) {
+        return res.status(400).json({ error: "Target address is required" });
+      }
+
+      const session = await unifiedRecovery.createSession(targetAddress);
+      
+      // Start recovery in background
+      unifiedRecovery.startRecovery(session.id).catch(err => {
+        console.error(`[UnifiedRecovery] Background error for ${session.id}:`, err);
+      });
+
+      res.json(session);
+    } catch (error: any) {
+      console.error("[UnifiedRecovery] Session creation error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get session status
+  app.get("/api/unified-recovery/sessions/:id", async (req, res) => {
+    try {
+      const session = unifiedRecovery.getSession(req.params.id);
+      
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      res.json(session);
+    } catch (error: any) {
+      console.error("[UnifiedRecovery] Session fetch error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all sessions
+  app.get("/api/unified-recovery/sessions", async (req, res) => {
+    try {
+      const sessions = unifiedRecovery.getAllSessions();
+      res.json(sessions);
+    } catch (error: any) {
+      console.error("[UnifiedRecovery] Sessions list error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stop a session
+  app.post("/api/unified-recovery/sessions/:id/stop", async (req, res) => {
+    try {
+      unifiedRecovery.stopRecovery(req.params.id);
+      const session = unifiedRecovery.getSession(req.params.id);
+      res.json(session || { message: "Session stopped" });
+    } catch (error: any) {
+      console.error("[UnifiedRecovery] Session stop error:", error);
       res.status(500).json({ error: error.message });
     }
   });
