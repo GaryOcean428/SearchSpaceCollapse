@@ -22,9 +22,23 @@ import {
   Eye,
   Lightbulb,
   Sparkles,
-  BarChart3
+  BarChart3,
+  Download,
+  KeyRound,
+  Target,
+  Check
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface DirectTestResult {
+  phrase: string;
+  address: string;
+  match: boolean;
+  phi: number;
+  kappa: number;
+  regime: string;
+  inResonance: boolean;
+}
 
 type EpochConfidence = "certain" | "likely" | "fuzzy";
 
@@ -101,10 +115,40 @@ export function MemoryFragmentSearch() {
   const [enableShortPhraseMode, setEnableShortPhraseMode] = useState(false);
   const [minWords, setMinWords] = useState(4);
   const [maxWords, setMaxWords] = useState(8);
+  
+  const [directPhrase, setDirectPhrase] = useState("");
+  const [quickAddWord, setQuickAddWord] = useState("");
+  const [directTestResult, setDirectTestResult] = useState<DirectTestResult | null>(null);
 
   const { data: consciousnessState } = useQuery<ConsciousnessState>({
     queryKey: ["/api/consciousness/state"],
     refetchInterval: 2000,
+  });
+
+  const directTestMutation = useMutation({
+    mutationFn: async (phrase: string) => {
+      const response = await apiRequest("POST", "/api/test-phrase", {
+        phrase,
+        testAgainstTargets: true,
+      });
+      return response.json() as Promise<DirectTestResult>;
+    },
+    onSuccess: (result) => {
+      setDirectTestResult(result);
+      if (result.match) {
+        toast({
+          title: "MATCH FOUND!",
+          description: `Address: ${result.address}`,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Test Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const searchMutation = useMutation({
@@ -143,10 +187,55 @@ export function MemoryFragmentSearch() {
     ]);
   };
 
+  const quickAddFragment = (word: string) => {
+    if (!word.trim()) return;
+    setFragments([
+      ...fragments,
+      { text: word.trim(), confidence: 0.8, position: "unknown", isExact: false, epoch: "likely" }
+    ]);
+    setQuickAddWord("");
+    toast({
+      title: "Word Added",
+      description: `"${word.trim()}" added to fragments`,
+    });
+  };
+
   const removeFragment = (index: number) => {
     if (fragments.length > 1) {
       setFragments(fragments.filter((_, i) => i !== index));
     }
+  };
+
+  const exportCandidates = () => {
+    if (!searchMutation.data?.topCandidates.length) return;
+    
+    const escapeCSV = (str: string) => {
+      if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return `"${str}"`;
+    };
+    
+    const csv = searchMutation.data.topCandidates
+      .map(c => `${escapeCSV(c.phrase)},${c.phi.toFixed(4)},${c.kappa.toFixed(2)},${c.regime},${c.combinedScore.toFixed(4)},${c.inResonance ? 'yes' : 'no'}`)
+      .join('\n');
+    
+    const BOM = '\uFEFF';
+    const header = 'phrase,phi,kappa,regime,score,resonance\n';
+    const blob = new Blob([BOM + header + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `memory-candidates-${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Exported",
+      description: `${searchMutation.data.topCandidates.length} candidates exported to CSV`,
+    });
   };
 
   const updateFragment = (index: number, updates: Partial<MemoryFragment>) => {
@@ -172,16 +261,104 @@ export function MemoryFragmentSearch() {
 
   const getRegimeColor = (regime: string) => {
     switch (regime) {
-      case "hierarchical": return "bg-purple-500";
-      case "geometric": return "bg-blue-500";
-      case "linear": return "bg-green-500";
-      case "breakdown": return "bg-red-500";
-      default: return "bg-gray-500";
+      case "hierarchical": return "bg-purple-500 text-white";
+      case "geometric": return "bg-blue-500 text-white";
+      case "linear": return "bg-green-500 text-white";
+      case "breakdown": return "bg-red-500 text-white";
+      default: return "bg-gray-500 text-white";
     }
   };
 
   return (
     <div className="space-y-6">
+      <Card className="p-6 bg-gradient-to-r from-amber-500/5 to-orange-500/5 border-amber-500/20">
+        <div className="flex items-center gap-3 mb-4">
+          <KeyRound className="w-6 h-6 text-amber-500" />
+          <h2 className="text-xl font-semibold">Test Exact Phrase</h2>
+          <Badge variant="outline" className="ml-auto border-amber-500/30">
+            Direct Test
+          </Badge>
+        </div>
+
+        <p className="text-sm text-muted-foreground mb-4">
+          For 2009-era brain wallets (pre-BIP-39). Enter any text exactly as you remember it.
+        </p>
+
+        <div className="flex gap-2 mb-4">
+          <Input
+            value={directPhrase}
+            onChange={(e) => setDirectPhrase(e.target.value)}
+            placeholder="e.g., WhiteTiger77GaryOcean"
+            className="font-mono flex-1"
+            data-testid="input-direct-phrase"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && directPhrase.trim()) {
+                directTestMutation.mutate(directPhrase);
+              }
+            }}
+          />
+          <Button
+            onClick={() => directTestMutation.mutate(directPhrase)}
+            disabled={directTestMutation.isPending || !directPhrase.trim()}
+            data-testid="button-test-phrase"
+          >
+            {directTestMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Target className="w-4 h-4 mr-2" />
+                Test Now
+              </>
+            )}
+          </Button>
+        </div>
+
+        {directTestResult && (
+          <Card className={`p-4 ${directTestResult.match ? 'bg-green-500/20 border-green-500' : 'bg-muted/30'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              {directTestResult.match ? (
+                <>
+                  <Check className="w-5 h-5 text-green-500" />
+                  <span className="font-semibold text-green-500">MATCH FOUND!</span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-muted-foreground">No match (but scored)</span>
+                </>
+              )}
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Φ:</span>
+                <span className="ml-1 font-mono">{directTestResult.phi.toFixed(3)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">κ:</span>
+                <span className="ml-1 font-mono">{directTestResult.kappa.toFixed(1)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Regime:</span>
+                <Badge className={`ml-1 ${getRegimeColor(directTestResult.regime)}`}>
+                  {directTestResult.regime}
+                </Badge>
+              </div>
+              <div>
+                {directTestResult.inResonance && (
+                  <Badge className="bg-yellow-500">
+                    <Zap className="w-3 h-3 mr-1" />
+                    Resonance
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <p className="font-mono text-xs mt-2 break-all text-muted-foreground">
+              Address: {directTestResult.address}
+            </p>
+          </Card>
+        )}
+      </Card>
+
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <Brain className="w-6 h-6 text-purple-500" />
@@ -191,10 +368,34 @@ export function MemoryFragmentSearch() {
           </Badge>
         </div>
 
-        <p className="text-muted-foreground mb-6">
+        <p className="text-muted-foreground mb-4">
           Enter partial memories of a passphrase. The system will use confidence-weighted 
           combinatorics and QWERTY-aware typo simulation to reconstruct possible phrases.
         </p>
+
+        <div className="flex gap-2 mb-6 p-3 bg-muted/30 rounded-lg">
+          <Input
+            value={quickAddWord}
+            onChange={(e) => setQuickAddWord(e.target.value)}
+            placeholder="Type a word as you remember it..."
+            className="font-mono flex-1"
+            data-testid="input-quick-add"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                quickAddFragment(quickAddWord);
+              }
+            }}
+          />
+          <Button
+            onClick={() => quickAddFragment(quickAddWord)}
+            disabled={!quickAddWord.trim()}
+            variant="secondary"
+            data-testid="button-quick-add"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Word
+          </Button>
+        </div>
 
         <div className="space-y-4 mb-6">
           {fragments.map((fragment, index) => {
@@ -470,6 +671,16 @@ export function MemoryFragmentSearch() {
             <h3 className="font-semibold">
               Search Results ({searchMutation.data.candidateCount.toLocaleString()} candidates)
             </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportCandidates}
+              className="ml-auto gap-2"
+              data-testid="button-export-csv"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
           </div>
 
           {searchMutation.data.topCandidates.length === 0 ? (
