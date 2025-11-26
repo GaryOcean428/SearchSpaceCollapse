@@ -82,7 +82,12 @@ All four vectors are now operational:
 - Basin drift monitoring
 
 ### Data Storage Solutions
-Candidate recovery matches are persistently saved to `data/candidates.json` using a custom `MemStorage` class with atomic write strategies and schema validation (Zod). Top 100 candidates are kept in-memory for fast access, and all saved candidates are displayed in the UI and can be exported as CSV.
+All critical data is persistently saved to disk:
+- **Candidates**: `data/candidates.json` - Recovery matches with atomic write strategies
+- **Search Jobs**: `data/search-jobs.json` - All search job state and progress
+- **Target Addresses**: `data/target-addresses.json` - User-added target addresses
+
+The `MemStorage` class uses schema validation (Zod) and atomic writes. Top 100 candidates are kept in-memory for fast access, and all saved candidates are displayed in the UI and can be exported as CSV. Target addresses and search jobs persist across server restarts.
 
 ### API Architecture
 
@@ -166,3 +171,5 @@ Vite is used for frontend development and building, while esbuild handles backen
 - Implemented all 4 recovery vectors (estate, constrained_search, social, temporal)
 - Added Blockstream API integration for blockchain data
 - Completed full telemetry integration in search-coordinator with automatic session cleanup
+- Added persistent storage for target addresses (data/target-addresses.json)
+- Fixed UI labels to show mode-specific terminology (Keys/Passphrases/Phrases)

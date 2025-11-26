@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const JOBS_FILE = join(__dirname, "../data/search-jobs.json");
 const CANDIDATES_FILE = join(__dirname, "../data/candidates.json");
+const TARGET_ADDRESSES_FILE = join(__dirname, "../data/target-addresses.json");
 
 export interface IStorage {
   getCandidates(): Promise<Candidate[]>;
@@ -31,19 +32,13 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private candidates: Candidate[] = [];
-  private targetAddresses: TargetAddress[] = [
-    {
-      id: "default",
-      address: "15BKWJjL5YWXtaP449WAYqVYZQE1szicTn",
-      label: "Original $52.6M Address",
-      addedAt: new Date().toISOString(),
-    }
-  ];
+  private targetAddresses: TargetAddress[] = [];
   private searchJobs: SearchJob[] = [];
 
   constructor() {
     this.loadJobs();
     this.loadCandidates();
+    this.loadTargetAddresses();
   }
 
   private loadJobs(): void {
@@ -210,6 +205,68 @@ export class MemStorage implements IStorage {
     }
   }
 
+  private loadTargetAddresses(): void {
+    const defaultAddress: TargetAddress = {
+      id: "default",
+      address: "15BKWJjL5YWXtaP449WAYqVYZQE1szicTn",
+      label: "Original $52.6M Address",
+      addedAt: new Date().toISOString(),
+    };
+
+    try {
+      if (existsSync(TARGET_ADDRESSES_FILE)) {
+        const data = readFileSync(TARGET_ADDRESSES_FILE, "utf-8").trim();
+        if (data.length > 0) {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed)) {
+            // Validate each address has required fields
+            const validAddresses: TargetAddress[] = [];
+            for (const item of parsed) {
+              if (
+                item &&
+                typeof item === "object" &&
+                typeof item.id === "string" &&
+                typeof item.address === "string" &&
+                typeof item.addedAt === "string"
+              ) {
+                validAddresses.push(item as TargetAddress);
+              } else {
+                console.warn(`[Storage] Skipping invalid target address entry:`, item);
+              }
+            }
+            this.targetAddresses = validAddresses;
+            console.log(`[Storage] Loaded ${this.targetAddresses.length} target addresses from disk`);
+            
+            // Ensure default address always exists
+            if (!this.targetAddresses.find(a => a.id === "default")) {
+              this.targetAddresses.unshift(defaultAddress);
+              this.saveTargetAddresses();
+            }
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load target addresses:", error);
+    }
+    
+    // If no file exists or loading failed, start with default
+    this.targetAddresses = [defaultAddress];
+    this.saveTargetAddresses();
+  }
+
+  private saveTargetAddresses(): void {
+    try {
+      const dir = dirname(TARGET_ADDRESSES_FILE);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(TARGET_ADDRESSES_FILE, JSON.stringify(this.targetAddresses, null, 2), "utf-8");
+    } catch (error) {
+      console.error("Failed to save target addresses:", error);
+    }
+  }
+
   async getCandidates(): Promise<Candidate[]> {
     return [...this.candidates].sort((a, b) => b.score - a.score);
   }
@@ -256,10 +313,14 @@ export class MemStorage implements IStorage {
 
   async addTargetAddress(address: TargetAddress): Promise<void> {
     this.targetAddresses.push(address);
+    this.saveTargetAddresses();
+    console.log(`[Storage] Target address saved: ${address.address}`);
   }
 
   async removeTargetAddress(id: string): Promise<void> {
     this.targetAddresses = this.targetAddresses.filter(a => a.id !== id);
+    this.saveTargetAddresses();
+    console.log(`[Storage] Target address removed: ${id}`);
   }
 
   async getSearchJobs(): Promise<SearchJob[]> {
