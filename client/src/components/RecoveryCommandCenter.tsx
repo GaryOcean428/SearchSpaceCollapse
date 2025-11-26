@@ -28,7 +28,9 @@ import {
   Brain,
   Key,
   Hash,
-  Search
+  Search,
+  Database,
+  Info
 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -40,9 +42,19 @@ const STRATEGY_LABELS: Record<string, { label: string; icon: typeof Brain; descr
   bitcoin_terms: { label: 'Bitcoin Terms', icon: Hash, description: 'Crypto terminology' },
   linguistic: { label: 'Linguistic', icon: Search, description: 'Human-like phrases' },
   qig_basin_search: { label: 'QIG Basin', icon: Zap, description: 'Geometric search' },
+  historical_autonomous: { label: 'Historical Mining', icon: Database, description: 'Auto-mined patterns' },
+  cross_format: { label: 'Cross-Format', icon: Target, description: 'Multi-format testing' },
 };
 
-const ACTIVE_STRATEGIES = ['era_patterns', 'brain_wallet_dict', 'bitcoin_terms', 'linguistic', 'qig_basin_search'];
+const ACTIVE_STRATEGIES = [
+  'era_patterns', 
+  'brain_wallet_dict', 
+  'bitcoin_terms', 
+  'linguistic', 
+  'qig_basin_search',
+  'historical_autonomous',
+  'cross_format',
+];
 
 function StrategyCard({ strategy }: { strategy: StrategyRun }) {
   const config = STRATEGY_LABELS[strategy.type] || { 
@@ -93,24 +105,42 @@ function StrategyCard({ strategy }: { strategy: StrategyRun }) {
 
 function CandidateCard({ candidate, rank }: { candidate: RecoveryCandidate; rank: number }) {
   const { toast } = useToast();
+  const [showEvidence, setShowEvidence] = useState(false);
   
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: 'Copied to clipboard' });
   };
 
+  const hasEvidence = candidate.evidenceChain && candidate.evidenceChain.length > 0;
+
   return (
     <Card className={candidate.match ? 'border-green-500 bg-green-500/10' : ''}>
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="text-xs">#{rank}</Badge>
               <Badge variant={candidate.match ? 'default' : 'secondary'} className="text-xs">
                 {candidate.format}
               </Badge>
+              <Badge variant="outline" className="text-xs">
+                {STRATEGY_LABELS[candidate.source]?.label || candidate.source}
+              </Badge>
               {candidate.match && (
                 <Badge className="bg-green-500 text-xs">MATCH!</Badge>
+              )}
+              {hasEvidence && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1 text-xs"
+                  onClick={() => setShowEvidence(!showEvidence)}
+                  data-testid={`button-show-evidence-${rank}`}
+                >
+                  <Info className="w-3 h-3 mr-1" />
+                  Why?
+                </Button>
               )}
             </div>
             <div 
@@ -126,6 +156,25 @@ function CandidateCard({ candidate, rank }: { candidate: RecoveryCandidate; rank
             {candidate.derivationPath && (
               <div className="text-xs text-muted-foreground">
                 Path: {candidate.derivationPath}
+              </div>
+            )}
+            
+            {showEvidence && hasEvidence && (
+              <div className="mt-2 p-2 bg-muted/50 rounded text-xs space-y-1">
+                <div className="font-medium text-muted-foreground">Evidence Chain:</div>
+                {candidate.evidenceChain!.map((ev, i) => (
+                  <div key={i} className="flex items-start gap-1">
+                    <span className="text-primary">→</span>
+                    <div>
+                      <span className="font-medium">{ev.source}</span>
+                      <span className="text-muted-foreground"> ({ev.type})</span>
+                      <div className="text-muted-foreground">{ev.reasoning}</div>
+                      <Badge variant="outline" className="text-xs mt-0.5">
+                        {(ev.confidence * 100).toFixed(0)}% confidence
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

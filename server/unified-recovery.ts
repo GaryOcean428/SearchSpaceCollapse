@@ -16,6 +16,15 @@ import {
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { scoreUniversalQIG } from './qig-universal';
 import { blockchainForensics, type AddressForensics } from './blockchain-forensics';
+import { historicalDataMiner, type MinedPattern, type Era } from './historical-data-miner';
+
+// Evidence chain type for tracking WHY candidates are ranked
+interface EvidenceLink {
+  source: string;
+  type: string;
+  reasoning: string;
+  confidence: number;
+}
 
 // ============================================================================
 // ERA-SPECIFIC PATTERN DICTIONARIES (2009-2011)
@@ -218,13 +227,15 @@ class UnifiedRecoveryOrchestrator {
 
       console.log(`[UnifiedRecovery] Starting all recovery strategies...`);
       
-      // Run strategies in parallel
+      // Run strategies in parallel - core + autonomous modes
       await Promise.allSettled([
         this.runStrategy(session, 'era_patterns', abortController.signal),
         this.runStrategy(session, 'brain_wallet_dict', abortController.signal),
         this.runStrategy(session, 'bitcoin_terms', abortController.signal),
         this.runStrategy(session, 'linguistic', abortController.signal),
         this.runStrategy(session, 'qig_basin_search', abortController.signal),
+        this.runHistoricalAutonomous(session, abortController.signal),
+        this.runCrossFormatHypotheses(session, abortController.signal),
       ]);
 
       // Check if match was found
@@ -560,6 +571,345 @@ class UnifiedRecoveryOrchestrator {
   private updateSession(session: UnifiedRecoverySession): void {
     session.updatedAt = new Date().toISOString();
     this.sessions.set(session.id, session);
+  }
+
+  /**
+   * AUTONOMOUS MODE: Historical Data Mining
+   * Generates its own fragments from 2009-era patterns without user input
+   */
+  private async runHistoricalAutonomous(
+    session: UnifiedRecoverySession,
+    signal: AbortSignal
+  ): Promise<void> {
+    const strategy = session.strategies.find(s => s.type === 'historical_autonomous');
+    if (!strategy) return;
+
+    strategy.status = 'running';
+    strategy.startedAt = new Date().toISOString();
+    this.updateSession(session);
+
+    try {
+      // Determine era based on blockchain analysis
+      const era: Era = session.blockchainAnalysis?.era === 'pre-bip39' 
+        ? 'early-2009' 
+        : '2009-2010';
+
+      console.log(`[UnifiedRecovery] Mining historical patterns for era: ${era}`);
+
+      // Mine patterns autonomously
+      const minedData = await historicalDataMiner.mineEra(era);
+      
+      // Score patterns with QIG
+      const scoredPatterns = await historicalDataMiner.scorePatterns(minedData.patterns);
+
+      strategy.progress.total = scoredPatterns.length;
+      console.log(`[UnifiedRecovery] Historical Autonomous: Testing ${scoredPatterns.length} mined patterns`);
+
+      // Add evidence about the mining
+      session.evidence.push({
+        id: `ev-mining-${Date.now()}`,
+        type: 'pattern',
+        source: 'Historical Data Miner',
+        content: `Mined ${scoredPatterns.length} patterns from ${minedData.sources.length} sources for era ${era}`,
+        relevance: 0.8,
+        extractedFragments: minedData.sources.map(s => s.name),
+        discoveredAt: new Date().toISOString(),
+      });
+
+      const startTime = Date.now();
+      let tested = 0;
+
+      for (const pattern of scoredPatterns) {
+        if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+        if (session.matchFound) break;
+
+        // Test with evidence chain showing WHY this pattern was tested
+        const evidenceChain: EvidenceLink[] = [{
+          source: pattern.source.name,
+          type: pattern.source.type,
+          reasoning: pattern.reasoning,
+          confidence: pattern.likelihood,
+        }];
+
+        const candidate = await this.testPhraseWithEvidence(
+          session.targetAddress,
+          pattern.phrase,
+          pattern.format as any,
+          'historical_autonomous',
+          evidenceChain,
+          undefined
+        );
+
+        tested++;
+        strategy.progress.current = tested;
+        const elapsed = (Date.now() - startTime) / 1000;
+        strategy.progress.rate = elapsed > 0 ? tested / elapsed : 0;
+        session.totalTested++;
+
+        const totalElapsed = (Date.now() - new Date(session.startedAt).getTime()) / 1000;
+        session.testRate = totalElapsed > 0 ? session.totalTested / totalElapsed : 0;
+
+        if (candidate) {
+          session.candidates.push(candidate);
+          strategy.candidatesFound++;
+          session.candidates.sort((a, b) => b.combinedScore - a.combinedScore);
+          if (session.candidates.length > 100) {
+            session.candidates = session.candidates.slice(0, 100);
+          }
+
+          if (candidate.match) {
+            session.matchFound = true;
+            session.matchedPhrase = candidate.phrase;
+            console.log(`[UnifiedRecovery] 🎯 MATCH FOUND via Historical Mining: "${candidate.phrase}"`);
+          }
+        }
+
+        if (tested % 500 === 0) {
+          this.updateSession(session);
+        }
+      }
+
+      strategy.status = 'completed';
+      strategy.completedAt = new Date().toISOString();
+      console.log(`[UnifiedRecovery] Historical Autonomous: Completed. ${strategy.candidatesFound} candidates found.`);
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        strategy.status = 'completed';
+      } else {
+        strategy.status = 'failed';
+        strategy.error = error.message;
+        console.error(`[UnifiedRecovery] Historical Autonomous failed:`, error);
+      }
+    }
+
+    this.updateSession(session);
+  }
+
+  /**
+   * CROSS-FORMAT TESTING
+   * Takes top candidates from other strategies and tests them in different formats
+   */
+  private async runCrossFormatHypotheses(
+    session: UnifiedRecoverySession,
+    signal: AbortSignal
+  ): Promise<void> {
+    const strategy = session.strategies.find(s => s.type === 'cross_format');
+    if (!strategy) return;
+
+    strategy.status = 'running';
+    strategy.startedAt = new Date().toISOString();
+    this.updateSession(session);
+
+    try {
+      // Wait a bit for other strategies to produce candidates
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Collect top candidates from all strategies
+      const topCandidates = session.candidates
+        .filter(c => !c.match)
+        .slice(0, 50);
+
+      if (topCandidates.length === 0) {
+        strategy.status = 'completed';
+        strategy.completedAt = new Date().toISOString();
+        return;
+      }
+
+      // Generate cross-format hypotheses
+      const hypotheses: Array<{
+        phrase: string;
+        format: 'arbitrary' | 'bip39' | 'master' | 'hex';
+        original: RecoveryCandidate;
+        derivationPath?: string;
+      }> = [];
+
+      for (const cand of topCandidates) {
+        // If tested as arbitrary, try as master key with different paths
+        if (cand.format === 'arbitrary') {
+          const paths = ["m/44'/0'/0'/0/0", "m/0'/0'/0'", "m/0", "m/44'/0'/0'"];
+          for (const path of paths) {
+            hypotheses.push({
+              phrase: cand.phrase,
+              format: 'master',
+              original: cand,
+              derivationPath: path,
+            });
+          }
+        }
+
+        // If BIP39, also try as arbitrary brain wallet
+        if (cand.format === 'bip39') {
+          hypotheses.push({
+            phrase: cand.phrase.replace(/\s+/g, ''),
+            format: 'arbitrary',
+            original: cand,
+          });
+        }
+
+        // Try variants
+        const variants = [
+          cand.phrase.toLowerCase(),
+          cand.phrase.toUpperCase(),
+          cand.phrase.replace(/\s+/g, '_'),
+        ];
+        for (const v of variants) {
+          if (v !== cand.phrase) {
+            hypotheses.push({
+              phrase: v,
+              format: 'arbitrary',
+              original: cand,
+            });
+          }
+        }
+      }
+
+      strategy.progress.total = hypotheses.length;
+      console.log(`[UnifiedRecovery] Cross-Format: Testing ${hypotheses.length} hypotheses from ${topCandidates.length} candidates`);
+
+      session.evidence.push({
+        id: `ev-crossfmt-${Date.now()}`,
+        type: 'pattern',
+        source: 'Cross-Format Hypothesis Generator',
+        content: `Generated ${hypotheses.length} cross-format hypotheses from top ${topCandidates.length} candidates`,
+        relevance: 0.7,
+        extractedFragments: [],
+        discoveredAt: new Date().toISOString(),
+      });
+
+      const startTime = Date.now();
+      let tested = 0;
+
+      for (const hypo of hypotheses) {
+        if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+        if (session.matchFound) break;
+
+        const evidenceChain: EvidenceLink[] = [
+          {
+            source: 'Cross-Format Inference',
+            type: 'hypothesis',
+            reasoning: `Derived from ${hypo.original.format} candidate: "${hypo.original.phrase}" → testing as ${hypo.format}`,
+            confidence: hypo.original.confidence * 0.8,
+          },
+          ...(hypo.original.evidenceChain || []),
+        ];
+
+        const candidate = await this.testPhraseWithEvidence(
+          session.targetAddress,
+          hypo.phrase,
+          hypo.format,
+          'cross_format',
+          evidenceChain,
+          hypo.derivationPath
+        );
+
+        tested++;
+        strategy.progress.current = tested;
+        const elapsed = (Date.now() - startTime) / 1000;
+        strategy.progress.rate = elapsed > 0 ? tested / elapsed : 0;
+        session.totalTested++;
+
+        const totalElapsed = (Date.now() - new Date(session.startedAt).getTime()) / 1000;
+        session.testRate = totalElapsed > 0 ? session.totalTested / totalElapsed : 0;
+
+        if (candidate) {
+          session.candidates.push(candidate);
+          strategy.candidatesFound++;
+          session.candidates.sort((a, b) => b.combinedScore - a.combinedScore);
+          if (session.candidates.length > 100) {
+            session.candidates = session.candidates.slice(0, 100);
+          }
+
+          if (candidate.match) {
+            session.matchFound = true;
+            session.matchedPhrase = candidate.phrase;
+            console.log(`[UnifiedRecovery] 🎯 MATCH FOUND via Cross-Format: "${candidate.phrase}"`);
+          }
+        }
+
+        if (tested % 100 === 0) {
+          this.updateSession(session);
+        }
+      }
+
+      strategy.status = 'completed';
+      strategy.completedAt = new Date().toISOString();
+      console.log(`[UnifiedRecovery] Cross-Format: Completed. ${strategy.candidatesFound} candidates found.`);
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        strategy.status = 'completed';
+      } else {
+        strategy.status = 'failed';
+        strategy.error = error.message;
+        console.error(`[UnifiedRecovery] Cross-Format failed:`, error);
+      }
+    }
+
+    this.updateSession(session);
+  }
+
+  /**
+   * Test a phrase with full evidence chain
+   */
+  private async testPhraseWithEvidence(
+    targetAddress: string,
+    phrase: string,
+    format: 'arbitrary' | 'bip39' | 'master' | 'hex',
+    source: RecoveryStrategyType,
+    evidenceChain: EvidenceLink[],
+    derivationPath?: string
+  ): Promise<RecoveryCandidate | null> {
+    try {
+      let address: string;
+      
+      if (format === 'master' && derivationPath) {
+        address = deriveBIP32Address(phrase, derivationPath);
+      } else {
+        address = generateBitcoinAddress(phrase);
+      }
+
+      const match = address === targetAddress;
+      const qigResult = scoreUniversalQIG(
+        phrase, 
+        format === 'bip39' ? 'bip39' : format === 'master' ? 'master-key' : 'arbitrary'
+      );
+
+      // Calculate combined score with evidence boost
+      const kappaProximity = 1 - Math.abs(qigResult.kappa - 64) / 64;
+      const evidenceBoost = evidenceChain.reduce((sum, e) => sum + e.confidence * 0.1, 0);
+      const combinedScore = (qigResult.phi * 0.35) + 
+                           (qigResult.quality * 0.25) + 
+                           (kappaProximity * 0.25) +
+                           (evidenceBoost * 0.15) +
+                           (match ? 100 : 0);
+
+      // Only keep matching or high-scoring candidates
+      if (match || combinedScore > 0.6) {
+        return {
+          id: `cand-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          phrase,
+          format,
+          derivationPath,
+          address,
+          match,
+          source,
+          confidence: qigResult.quality,
+          qigScore: {
+            phi: qigResult.phi,
+            kappa: qigResult.kappa,
+            regime: qigResult.regime,
+          },
+          combinedScore,
+          testedAt: new Date().toISOString(),
+          evidenceChain,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    }
   }
 }
 

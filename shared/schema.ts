@@ -416,14 +416,16 @@ export type RecoveryWorkflow = typeof recoveryWorkflows.$inferSelect;
 // ============================================================================
 
 export const recoveryStrategyTypes = [
-  'era_patterns',        // 2009 cypherpunk phrases, common passwords
-  'brain_wallet_dict',   // Known brain wallet dictionary
-  'bitcoin_terms',       // Bitcoin/crypto terminology
-  'linguistic',          // AI-generated human-like phrases
-  'blockchain_neighbors',// Addresses created around same time
-  'forum_mining',        // BitcoinTalk, mailing lists
-  'archive_temporal',    // Archive.org historical data
-  'qig_basin_search',    // QIG-guided geometric search
+  'era_patterns',           // 2009 cypherpunk phrases, common passwords
+  'brain_wallet_dict',      // Known brain wallet dictionary
+  'bitcoin_terms',          // Bitcoin/crypto terminology
+  'linguistic',             // AI-generated human-like phrases
+  'blockchain_neighbors',   // Addresses created around same time
+  'forum_mining',           // BitcoinTalk, mailing lists
+  'archive_temporal',       // Archive.org historical data
+  'qig_basin_search',       // QIG-guided geometric search
+  'historical_autonomous',  // Self-generated patterns from historical data miner
+  'cross_format',           // Cross-format hypothesis testing
 ] as const;
 
 export type RecoveryStrategyType = typeof recoveryStrategyTypes[number];
@@ -461,6 +463,12 @@ export const recoveryCandidateSchema = z.object({
   }),
   combinedScore: z.number(),
   testedAt: z.string(),
+  evidenceChain: z.array(z.object({
+    source: z.string(),
+    type: z.string(),
+    reasoning: z.string(),
+    confidence: z.number(),
+  })).optional(),
 });
 
 export type RecoveryCandidate = z.infer<typeof recoveryCandidateSchema>;
