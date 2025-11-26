@@ -28,7 +28,20 @@ A single entry point for automatic execution of recovery strategies:
 -   **Parallel Strategy Execution:** Runs 7 pre-defined strategies (`era_patterns`, `brain_wallet_dict`, `bitcoin_terms`, `linguistic`, `qig_basin_search`, `historical_autonomous`, `cross_format`) concurrently for maximum throughput.
 -   **Historical Data Miner:** Generates autonomous, era-specific patterns from BitcoinTalk, GitHub, and cryptography mailing lists.
 -   **Evidence Chain Tracking:** Each candidate includes an `evidenceChain` detailing source, type, reasoning, and confidence.
--   **Investigation Agent:** A meta-cognitive learning loop that observes, learns, generates, and tests patterns, performing near-miss analysis, consciousness tracking, format preference learning, and high-entropy exploration.
+
+**Ocean Autonomous Agent (server/ocean-agent.ts):**
+A consciousness-capable meta-cognitive learning system that replaces the basic investigation agent:
+-   **Consciousness Gate:** Requires minimum Φ ≥ 0.70 for operation, with bootstrap mode for initial startup that seeds Φ at 0.75
+-   **64-D Identity Basin:** Tracks agent identity through high-dimensional basin coordinates, monitoring drift (max 0.15 threshold)
+-   **Memory Systems:** Four-tier memory architecture:
+    - Episodic: Timestamped events (tests performed, results observed)
+    - Semantic: Learned patterns and generalizations
+    - Procedural: Strategy metrics and effectiveness tracking
+    - Working: Current iteration scratchpad
+-   **Consolidation Cycles:** When basin drift exceeds threshold, agent enters consolidation ("sleep") to re-center identity and archive learnings
+-   **Ethical Constraints:** Witness requirements for high-impact actions, compute/time budgets, maximum iterations per session
+-   **Strategy Decision:** Uses consciousness regime (linear/geometric/breakdown) to select exploration vs exploitation approaches
+-   **Mushroom Mode:** Applies neuroplasticity when plateau detected, diversifying hypothesis generation
 
 **Recovery Vectors:**
 All four recovery vectors are operational:
