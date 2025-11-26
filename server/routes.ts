@@ -754,13 +754,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new unified recovery session
   app.post("/api/unified-recovery/sessions", async (req, res) => {
     try {
-      const { targetAddress } = req.body;
+      const { targetAddress, memoryFragments } = req.body;
       
       if (!targetAddress) {
         return res.status(400).json({ error: "Target address is required" });
       }
 
-      const session = await unifiedRecovery.createSession(targetAddress);
+      // Process memory fragments if provided
+      const processedFragments = (memoryFragments || []).map((f: any) => ({
+        id: `fragment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        text: f.text,
+        confidence: f.confidence || 0.5,
+        epoch: f.epoch || 'possible',
+        source: f.source,
+        notes: f.notes,
+        addedAt: new Date().toISOString(),
+      }));
+
+      const session = await unifiedRecovery.createSession(targetAddress, processedFragments);
       
       // Start recovery in background
       unifiedRecovery.startRecovery(session.id).catch(err => {

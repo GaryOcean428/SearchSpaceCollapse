@@ -12,7 +12,8 @@ import {
   EvidenceArtifact,
   RecoveryStrategyType,
   recoveryStrategyTypes,
-  OceanAgentState
+  OceanAgentState,
+  MemoryFragment
 } from '@shared/schema';
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { scoreUniversalQIG } from './qig-universal';
@@ -124,7 +125,10 @@ class UnifiedRecoveryOrchestrator {
   private sessions = new Map<string, UnifiedRecoverySession>();
   private runningStrategies = new Map<string, AbortController>();
 
-  async createSession(targetAddress: string): Promise<UnifiedRecoverySession> {
+  async createSession(
+    targetAddress: string, 
+    memoryFragments: MemoryFragment[] = []
+  ): Promise<UnifiedRecoverySession> {
     const id = `unified-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     
     const strategies: StrategyRun[] = recoveryStrategyTypes.map(type => ({
@@ -139,6 +143,7 @@ class UnifiedRecoveryOrchestrator {
       id,
       targetAddress,
       status: 'initializing',
+      memoryFragments: memoryFragments.length > 0 ? memoryFragments : undefined,
       strategies,
       candidates: [],
       evidence: [],
@@ -150,7 +155,16 @@ class UnifiedRecoveryOrchestrator {
     };
 
     this.sessions.set(id, session);
-    console.log(`[UnifiedRecovery] Created session ${id} for ${targetAddress}`);
+    
+    if (memoryFragments.length > 0) {
+      console.log(`[UnifiedRecovery] Created session ${id} for ${targetAddress} with ${memoryFragments.length} memory fragments`);
+      memoryFragments.forEach(f => {
+        console.log(`  - "${f.text}" (confidence: ${f.confidence}, epoch: ${f.epoch})`);
+      });
+    } else {
+      console.log(`[UnifiedRecovery] Created session ${id} for ${targetAddress}`);
+    }
+    
     return session;
   }
 
@@ -590,6 +604,104 @@ class UnifiedRecoveryOrchestrator {
   }
 
   /**
+   * MEMORY FRAGMENT VARIATION GENERATOR
+   * 
+   * Generates multiple hypothesis variations from a single memory fragment.
+   * Higher confidence fragments get fewer variations (more focused search).
+   * Lower confidence fragments get more exploratory variations.
+   */
+  private generateFragmentVariations(fragment: MemoryFragment): Array<{
+    phrase: string;
+    type: string;
+    confidenceMultiplier: number;
+  }> {
+    const variations: Array<{ phrase: string; type: string; confidenceMultiplier: number }> = [];
+    const text = fragment.text.trim();
+    
+    // Original phrase is always included
+    variations.push({ phrase: text, type: 'original', confidenceMultiplier: 1.0 });
+    
+    // Case variations
+    variations.push({ phrase: text.toLowerCase(), type: 'lowercase', confidenceMultiplier: 0.95 });
+    variations.push({ phrase: text.toUpperCase(), type: 'uppercase', confidenceMultiplier: 0.7 });
+    variations.push({ 
+      phrase: text.charAt(0).toUpperCase() + text.slice(1).toLowerCase(), 
+      type: 'capitalized', 
+      confidenceMultiplier: 0.85 
+    });
+    
+    // No spaces
+    variations.push({ 
+      phrase: text.replace(/\s+/g, ''), 
+      type: 'no_spaces', 
+      confidenceMultiplier: 0.8 
+    });
+    
+    // Underscore separated
+    variations.push({ 
+      phrase: text.replace(/\s+/g, '_'), 
+      type: 'underscores', 
+      confidenceMultiplier: 0.75 
+    });
+    
+    // CamelCase
+    const camelCase = text.split(/\s+/).map((w, i) => 
+      i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+    ).join('');
+    variations.push({ phrase: camelCase, type: 'camelCase', confidenceMultiplier: 0.7 });
+    
+    // Common 2009-era suffix patterns
+    const suffixes = ['1', '77', '123', '!', '@', '#', '2009', '09'];
+    for (const suffix of suffixes) {
+      variations.push({ 
+        phrase: text + suffix, 
+        type: `suffix_${suffix}`, 
+        confidenceMultiplier: 0.6 
+      });
+      variations.push({ 
+        phrase: text.toLowerCase() + suffix, 
+        type: `lowercase_suffix_${suffix}`, 
+        confidenceMultiplier: 0.55 
+      });
+    }
+    
+    // L33t speak variations (for lower confidence fragments)
+    if (fragment.confidence < 0.7) {
+      const leet = text
+        .replace(/e/gi, '3')
+        .replace(/a/gi, '4')
+        .replace(/i/gi, '1')
+        .replace(/o/gi, '0')
+        .replace(/s/gi, '5');
+      variations.push({ phrase: leet, type: 'l33t', confidenceMultiplier: 0.4 });
+    }
+    
+    // Pattern detection: if fragment ends in number, try number variations
+    const numMatch = text.match(/(\d+)$/);
+    if (numMatch) {
+      const base = text.slice(0, -numMatch[1].length);
+      const num = parseInt(numMatch[1]);
+      
+      // Try adjacent numbers
+      variations.push({ phrase: base + (num - 1), type: 'num_minus_1', confidenceMultiplier: 0.5 });
+      variations.push({ phrase: base + (num + 1), type: 'num_plus_1', confidenceMultiplier: 0.5 });
+      
+      // Try double digit if single
+      if (num < 10) {
+        variations.push({ phrase: base + num + num, type: 'num_doubled', confidenceMultiplier: 0.45 });
+      }
+    }
+    
+    // Deduplicate by phrase
+    const seen = new Set<string>();
+    return variations.filter(v => {
+      if (seen.has(v.phrase)) return false;
+      seen.add(v.phrase);
+      return true;
+    });
+  }
+
+  /**
    * AUTONOMOUS MODE: Historical Data Mining
    * Generates its own fragments from 2009-era patterns without user input
    */
@@ -989,6 +1101,47 @@ class UnifiedRecoveryOrchestrator {
         },
         evidenceChain: c.evidenceChain || [],
       }));
+    
+    // ========================================================================
+    // MEMORY FRAGMENT HYPOTHESIS GENERATION
+    // User-provided fragments become PRIORITY hypotheses for Ocean
+    // ========================================================================
+    if (session.memoryFragments && session.memoryFragments.length > 0) {
+      console.log(`[Ocean] Processing ${session.memoryFragments.length} memory fragments as priority hypotheses...`);
+      
+      for (const fragment of session.memoryFragments) {
+        // Generate variations based on confidence
+        const variations = this.generateFragmentVariations(fragment);
+        
+        for (const variation of variations) {
+          initialHypotheses.unshift({
+            id: `fragment-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            phrase: variation.phrase,
+            format: 'arbitrary' as const,
+            derivationPath: undefined,
+            source: 'memory_fragment',
+            reasoning: `User memory fragment: "${fragment.text}" (${fragment.epoch}) - ${variation.type}`,
+            confidence: fragment.confidence * variation.confidenceMultiplier,
+            qigScore: {
+              phi: 0.75 + (fragment.confidence * 0.15),
+              kappa: 64,
+              regime: 'geometric',
+              inResonance: true,
+            },
+            evidenceChain: [{
+              source: 'User Memory',
+              type: 'memory_fragment',
+              reasoning: `Fragment "${fragment.text}" with ${(fragment.confidence * 100).toFixed(0)}% confidence, epoch: ${fragment.epoch}${fragment.notes ? ` - Notes: ${fragment.notes}` : ''}`,
+              confidence: fragment.confidence,
+            }],
+          });
+        }
+        
+        console.log(`  - "${fragment.text}" → ${variations.length} variations (confidence: ${(fragment.confidence * 100).toFixed(0)}%)`);
+      }
+      
+      console.log(`[Ocean] Total hypotheses with fragments: ${initialHypotheses.length}`);
+    }
     
     try {
       const era: Era = session.blockchainAnalysis?.era === 'pre-bip39' ? 'early-2009' : '2009-2010';

@@ -491,6 +491,17 @@ export const unifiedRecoverySessionSchema = z.object({
   targetAddress: z.string(),
   status: z.enum(['initializing', 'analyzing', 'running', 'learning', 'completed', 'failed']),
   
+  // Memory fragments (user-provided hints for Ocean to prioritize)
+  memoryFragments: z.array(z.object({
+    id: z.string(),
+    text: z.string(),
+    confidence: z.number().min(0).max(1),
+    epoch: z.enum(['certain', 'likely', 'possible', 'speculative']),
+    source: z.string().optional(),
+    notes: z.string().optional(),
+    addedAt: z.string(),
+  })).optional(),
+  
   // Blockchain analysis results
   blockchainAnalysis: z.object({
     era: z.enum(['pre-bip39', 'post-bip39', 'unknown']),
