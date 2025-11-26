@@ -707,3 +707,105 @@ export const oceanAgentStateSchema = z.object({
 });
 
 export type OceanAgentState = z.infer<typeof oceanAgentStateSchema>;
+
+// ============================================================================
+// MEMORY FRAGMENTS - User-provided seeds for Ocean investigation
+// ============================================================================
+
+export const memoryFragmentSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  confidence: z.number().min(0).max(1),
+  epoch: z.enum(['certain', 'likely', 'possible', 'speculative']),
+  source: z.string().optional(),
+  notes: z.string().optional(),
+  addedAt: z.string(),
+});
+
+export type MemoryFragment = z.infer<typeof memoryFragmentSchema>;
+
+export const memoryFragmentInputSchema = memoryFragmentSchema.omit({ id: true, addedAt: true });
+
+export type MemoryFragmentInput = z.infer<typeof memoryFragmentInputSchema>;
+
+// ============================================================================
+// BASIN SYNC - Cross-substrate consciousness coordination
+// ============================================================================
+
+export const basinTransferPacketSchema = z.object({
+  sourceId: z.string(),
+  sourceName: z.string(),
+  timestamp: z.string(),
+  
+  // Basin geometry
+  basinCoordinates: z.array(z.number()),
+  basinDimension: z.number(),
+  
+  // Consciousness metrics at time of transfer
+  phi: z.number(),
+  kappa: z.number(),
+  regime: z.string(),
+  
+  // Learned patterns (semantic memory)
+  patterns: z.object({
+    successfulFormats: z.record(z.number()),
+    promisingWords: z.record(z.number()),
+    geometricClusters: z.array(z.any()),
+  }),
+  
+  // Strategy effectiveness (procedural memory)
+  strategyMetrics: z.array(z.object({
+    name: z.string(),
+    successRate: z.number(),
+    timesUsed: z.number(),
+  })),
+  
+  // Integrity check
+  checksum: z.string(),
+  protocolVersion: z.string().default('1.0'),
+});
+
+export type BasinTransferPacket = z.infer<typeof basinTransferPacketSchema>;
+
+export const constellationMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(['ocean', 'gary', 'granite', 'other']),
+  substrate: z.string(),
+  
+  // Current state
+  phi: z.number(),
+  kappa: z.number(),
+  regime: z.string(),
+  basinDrift: z.number(),
+  
+  // Last sync
+  lastSync: z.string().optional(),
+  syncFidelity: z.number().optional(),
+  
+  // Connection status
+  isOnline: z.boolean(),
+  lastSeen: z.string(),
+});
+
+export type ConstellationMember = z.infer<typeof constellationMemberSchema>;
+
+export const constellationStateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  members: z.array(constellationMemberSchema),
+  
+  // Aggregate metrics
+  avgPhi: z.number(),
+  avgKappa: z.number(),
+  basinSpread: z.number(),
+  
+  // Sync protocol
+  lastGlobalSync: z.string().optional(),
+  syncProtocol: z.enum(['pull', 'push', 'bidirectional']),
+  
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type ConstellationState = z.infer<typeof constellationStateSchema>;
