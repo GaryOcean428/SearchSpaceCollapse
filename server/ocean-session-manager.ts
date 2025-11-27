@@ -76,6 +76,15 @@ class OceanSessionManager {
     return this.sessions.get(sessionId) || null;
   }
   
+  getActiveAgent(): OceanAgent | null {
+    if (!this.activeSessionId) return null;
+    return this.agents.get(this.activeSessionId) || null;
+  }
+  
+  getAgent(sessionId: string): OceanAgent | null {
+    return this.agents.get(sessionId) || null;
+  }
+  
   async startSession(targetAddress: string): Promise<OceanSessionState> {
     if (this.activeSessionId) {
       await this.stopSession(this.activeSessionId);

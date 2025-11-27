@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import rateLimit from "express-rate-limit";
+import fs from "fs";
+import path from "path";
 import { storage } from "./storage";
 import { generateBitcoinAddress, verifyBrainWallet, CryptoValidationError } from "./crypto";
 import { scorePhraseQIG } from "./qig-pure-v2.js";
@@ -1139,6 +1141,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(session || { message: "Session stopped" });
     } catch (error: any) {
       console.error("[UnifiedRecovery] Session stop error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
+  // NEUROCHEMISTRY API - Ocean's emotional state
+  // ============================================================
+  
+  app.get("/api/ocean/neurochemistry", generousLimiter, async (req, res) => {
+    try {
+      const session = oceanSessionManager.getActiveSession();
+      const agent = oceanSessionManager.getActiveAgent();
+      
+      if (!session || !agent) {
+        const defaultState = {
+          dopamine: { totalDopamine: 0.5, motivationLevel: 0.5 },
+          serotonin: { totalSerotonin: 0.6, contentmentLevel: 0.6 },
+          norepinephrine: { totalNorepinephrine: 0.4, alertnessLevel: 0.4 },
+          gaba: { totalGABA: 0.7, calmLevel: 0.7 },
+          acetylcholine: { totalAcetylcholine: 0.5, learningRate: 0.5 },
+          endorphins: { totalEndorphins: 0.3, pleasureLevel: 0.3 },
+          overallMood: 0.5,
+          emotionalState: 'content' as const,
+          timestamp: new Date(),
+        };
+        return res.json({ 
+          neurochemistry: defaultState,
+          behavioral: null,
+          sessionActive: false,
+        });
+      }
+      
+      const neurochemistry = agent.getNeurochemistry();
+      const behavioral = agent.getBehavioralModulation();
+      
+      res.json({ 
+        neurochemistry,
+        behavioral,
+        sessionActive: true,
+        sessionId: session.sessionId,
+      });
+    } catch (error: any) {
+      console.error("[Neurochemistry] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
+  // RECOVERY BUNDLE API - Access found keys/phrases
+  // ============================================================
+  
+  const recoveriesDir = path.join(process.cwd(), 'data', 'recoveries');
+  
+  // List all recovery bundles
+  app.get("/api/recoveries", generousLimiter, async (req, res) => {
+    try {
+      if (!fs.existsSync(recoveriesDir)) {
+        return res.json({ recoveries: [], count: 0 });
+      }
+      
+      const files = fs.readdirSync(recoveriesDir);
+      const recoveries = files
+        .filter(f => f.endsWith('.json'))
+        .map(filename => {
+          const filePath = path.join(recoveriesDir, filename);
+          const stats = fs.statSync(filePath);
+          try {
+            const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            return {
+              filename,
+              address: content.address,
+              passphrase: content.passphrase ? `${content.passphrase.slice(0, 8)}...` : undefined,
+              timestamp: content.timestamp,
+              qigMetrics: content.qigMetrics,
+              fileSize: stats.size,
+              createdAt: stats.mtime,
+            };
+          } catch {
+            return {
+              filename,
+              error: 'Could not parse file',
+              fileSize: stats.size,
+              createdAt: stats.mtime,
+            };
+          }
+        })
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      res.json({ recoveries, count: recoveries.length });
+    } catch (error: any) {
+      console.error("[Recoveries] List error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get full recovery bundle (requires authentication for security)
+  app.get("/api/recoveries/:filename", standardLimiter, async (req, res) => {
+    try {
+      const filename = req.params.filename;
+      
+      // Security: Only allow .json or .txt files
+      if (!filename.endsWith('.json') && !filename.endsWith('.txt')) {
+        return res.status(400).json({ error: 'Invalid file type' });
+      }
+      
+      // Security: Prevent directory traversal
+      if (filename.includes('..') || filename.includes('/')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+      }
+      
+      const filePath = path.join(recoveriesDir, filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Recovery file not found' });
+      }
+      
+      const content = fs.readFileSync(filePath, 'utf-8');
+      
+      if (filename.endsWith('.json')) {
+        res.json(JSON.parse(content));
+      } else {
+        res.type('text/plain').send(content);
+      }
+    } catch (error: any) {
+      console.error("[Recoveries] Get error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Download recovery bundle as file
+  app.get("/api/recoveries/:filename/download", standardLimiter, async (req, res) => {
+    try {
+      const filename = req.params.filename;
+      
+      // Security checks
+      if (!filename.endsWith('.json') && !filename.endsWith('.txt')) {
+        return res.status(400).json({ error: 'Invalid file type' });
+      }
+      if (filename.includes('..') || filename.includes('/')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+      }
+      
+      const filePath = path.join(recoveriesDir, filename);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Recovery file not found' });
+      }
+      
+      res.download(filePath, filename);
+    } catch (error: any) {
+      console.error("[Recoveries] Download error:", error);
       res.status(500).json({ error: error.message });
     }
   });

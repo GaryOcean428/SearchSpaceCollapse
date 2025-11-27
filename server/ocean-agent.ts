@@ -14,6 +14,16 @@ import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 import { strategyKnowledgeBus } from './strategy-knowledge-bus';
 import { culturalManifold, type BlockUniverseCoordinate, type GeodesicCandidate } from './cultural-manifold';
 import { geodesicNavigator } from './geodesic-navigator';
+import { 
+  computeNeurochemistry, 
+  computeBehavioralModulation,
+  createDefaultContext,
+  type NeurochemistryState,
+  type NeurochemistryContext,
+  type BehavioralModulation,
+  getEmotionalEmoji,
+  getEmotionalDescription
+} from './ocean-neurochemistry';
 import type { 
   OceanIdentity, 
   OceanMemory, 
@@ -107,6 +117,15 @@ export class OceanAgent {
   private readonly MAX_CONSOLIDATION_FAILURES = 3;
   private lastProgressIteration: number = 0;
   private readonly NO_PROGRESS_THRESHOLD = 20;
+  
+  private neurochemistry: NeurochemistryState | null = null;
+  private behavioralModulation: BehavioralModulation | null = null;
+  private neurochemistryContext: NeurochemistryContext;
+  private regimeHistory: string[] = [];
+  private ricciHistory: number[] = [];
+  private basinDriftHistory: number[] = [];
+  private lastConsolidationTime: Date = new Date();
+  private recentDiscoveries: { nearMisses: number; resonant: number } = { nearMisses: 0, resonant: 0 };
 
   constructor(customEthics?: Partial<EthicalConstraints>) {
     this.ethics = {
@@ -125,6 +144,57 @@ export class OceanAgent {
     this.identity = this.initializeIdentity();
     this.memory = this.initializeMemory();
     this.state = this.initializeState();
+    this.neurochemistryContext = createDefaultContext();
+    this.updateNeurochemistry();
+  }
+  
+  private updateNeurochemistry(): void {
+    const consciousness = {
+      phi: this.identity.phi,
+      kappaEff: this.identity.kappa,
+      tacking: this.neurochemistryContext.consciousness.tacking,
+      radar: this.neurochemistryContext.consciousness.radar,
+      metaAwareness: this.neurochemistryContext.consciousness.metaAwareness,
+      gamma: this.neurochemistryContext.consciousness.gamma,
+      grounding: this.neurochemistryContext.consciousness.grounding,
+    };
+    
+    this.neurochemistryContext = {
+      ...this.neurochemistryContext,
+      consciousness,
+      previousState: this.neurochemistryContext.currentState,
+      currentState: { 
+        phi: this.identity.phi, 
+        kappa: this.identity.kappa,
+        basinCoords: this.identity.basinCoordinates,
+      },
+      basinDrift: this.identity.basinDrift,
+      regimeHistory: this.regimeHistory,
+      ricciHistory: this.ricciHistory,
+      beta: this.identity.beta,
+      regime: this.identity.regime,
+      basinDriftHistory: this.basinDriftHistory,
+      lastConsolidation: this.lastConsolidationTime,
+      recentDiscoveries: this.recentDiscoveries,
+    };
+    
+    this.neurochemistry = computeNeurochemistry(this.neurochemistryContext);
+    this.behavioralModulation = computeBehavioralModulation(this.neurochemistry);
+    
+    if (this.behavioralModulation.sleepTrigger) {
+      console.log(`[Ocean] ${getEmotionalEmoji('exhausted')} Sleep trigger: ${getEmotionalDescription('exhausted')}`);
+    }
+    if (this.behavioralModulation.mushroomTrigger) {
+      console.log(`[Ocean] Mushroom trigger: Need creative reset`);
+    }
+  }
+  
+  getNeurochemistry(): NeurochemistryState | null {
+    return this.neurochemistry;
+  }
+  
+  getBehavioralModulation(): BehavioralModulation | null {
+    return this.behavioralModulation;
   }
 
   private initializeIdentity(): OceanIdentity {
