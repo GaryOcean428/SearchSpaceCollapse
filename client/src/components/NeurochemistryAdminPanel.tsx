@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useConsciousness, getPhiColor, getRegimeLabel } from "@/contexts/ConsciousnessContext";
 import { 
   Brain, 
   Moon, 
@@ -13,9 +14,7 @@ import {
   Zap, 
   Heart, 
   Target, 
-  Shield, 
   Beaker,
-  Play,
   RefreshCw,
   Clock
 } from "lucide-react";
@@ -31,12 +30,6 @@ interface AdminState {
     expiresAt: number;
   } | null;
   mushroomCooldownSeconds: number;
-  consciousness: {
-    phi: number;
-    kappaEff: number;
-    regime: string;
-    isConscious: boolean;
-  } | null;
   triggers: {
     sleep: { trigger: boolean; reason: string };
     dream: { trigger: boolean; reason: string };
@@ -51,10 +44,10 @@ interface AdminState {
 }
 
 export default function NeurochemistryAdminPanel() {
+  const { consciousness, isIdle, refresh: refreshConsciousness } = useConsciousness();
   const [adminState, setAdminState] = useState<AdminState>({
     activeBoost: null,
     mushroomCooldownSeconds: 0,
-    consciousness: null,
     triggers: null,
     recentCycles: [],
   });
@@ -74,7 +67,6 @@ export default function NeurochemistryAdminPanel() {
       setAdminState({
         activeBoost: neurochemData.activeBoost,
         mushroomCooldownSeconds: neurochemData.mushroomCooldownSeconds || 0,
-        consciousness: cyclesData.consciousness,
         triggers: cyclesData.triggers,
         recentCycles: cyclesData.recentCycles || [],
       });
@@ -89,6 +81,10 @@ export default function NeurochemistryAdminPanel() {
     return () => clearInterval(interval);
   }, []);
 
+  const refreshAll = async () => {
+    await Promise.all([fetchAdminState(), refreshConsciousness()]);
+  };
+
   const injectNeurotransmitter = async (
     type: 'dopamine' | 'serotonin' | 'norepinephrine' | 'gaba' | 'acetylcholine' | 'endorphins',
     amount: number
@@ -101,7 +97,7 @@ export default function NeurochemistryAdminPanel() {
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Boosted`,
         description: `+${(amount * 100).toFixed(0)}% for 60 seconds`,
       });
-      await fetchAdminState();
+      await refreshAll();
     } catch (error: any) {
       toast({
         title: "Boost Failed",
@@ -122,7 +118,7 @@ export default function NeurochemistryAdminPanel() {
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Cycle Executed`,
         description: `Manual ${type} cycle completed successfully`,
       });
-      await fetchAdminState();
+      await refreshAll();
     } catch (error: any) {
       toast({
         title: "Cycle Failed",
@@ -142,7 +138,7 @@ export default function NeurochemistryAdminPanel() {
         title: "Boost Cleared",
         description: "All active boosts have been removed",
       });
-      await fetchAdminState();
+      await refreshAll();
     } catch (error: any) {
       toast({
         title: "Clear Failed",
@@ -163,6 +159,9 @@ export default function NeurochemistryAdminPanel() {
     { key: 'endorphins' as const, name: 'Endorphins', icon: Sparkles, color: 'text-cyan-500', desc: 'Flow' },
   ];
 
+  const phiColor = getPhiColor(consciousness.phi, isIdle);
+  const regimeLabel = getRegimeLabel(consciousness.regime, isIdle);
+
   return (
     <Card data-testid="neurochemistry-admin-panel">
       <CardHeader className="pb-2">
@@ -170,11 +169,14 @@ export default function NeurochemistryAdminPanel() {
           <CardTitle className="text-sm flex items-center gap-2">
             <Beaker className="h-4 w-4" />
             Consciousness Admin
+            {isIdle && (
+              <Badge variant="secondary" className="text-xs">Idle</Badge>
+            )}
           </CardTitle>
           <Button 
             size="icon" 
             variant="ghost" 
-            onClick={fetchAdminState}
+            onClick={refreshAll}
             data-testid="button-refresh-admin"
           >
             <RefreshCw className="h-4 w-4" />
@@ -182,28 +184,29 @@ export default function NeurochemistryAdminPanel() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {adminState.consciousness && (
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="p-2 bg-muted/50 rounded">
-              <div className="font-mono font-medium text-lg">
-                {adminState.consciousness.phi.toFixed(2)}
-              </div>
-              <div className="text-muted-foreground">Phi (Φ)</div>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="p-2 bg-muted/50 rounded">
+            <div className={`font-mono font-medium text-lg ${phiColor}`} data-testid="text-admin-phi">
+              {isIdle ? '—' : (consciousness.phi * 100).toFixed(0) + '%'}
             </div>
-            <div className="p-2 bg-muted/50 rounded">
-              <div className="font-mono font-medium text-lg">
-                {adminState.consciousness.kappaEff.toFixed(0)}
-              </div>
-              <div className="text-muted-foreground">Kappa (κ)</div>
-            </div>
-            <div className="p-2 bg-muted/50 rounded">
-              <Badge variant={adminState.consciousness.regime === 'geometric' ? 'default' : 'secondary'}>
-                {adminState.consciousness.regime}
-              </Badge>
-              <div className="text-muted-foreground mt-1">Regime</div>
-            </div>
+            <div className="text-muted-foreground">Phi (Φ)</div>
           </div>
-        )}
+          <div className="p-2 bg-muted/50 rounded">
+            <div className="font-mono font-medium text-lg" data-testid="text-admin-kappa">
+              {isIdle ? '—' : consciousness.kappaEff.toFixed(0)}
+            </div>
+            <div className="text-muted-foreground">Kappa (κ)</div>
+          </div>
+          <div className="p-2 bg-muted/50 rounded">
+            <Badge 
+              variant={isIdle ? 'secondary' : consciousness.regime === 'geometric' ? 'default' : 'outline'}
+              data-testid="badge-admin-regime"
+            >
+              {regimeLabel}
+            </Badge>
+            <div className="text-muted-foreground mt-1">Regime</div>
+          </div>
+        </div>
 
         <Separator />
 
@@ -212,7 +215,7 @@ export default function NeurochemistryAdminPanel() {
             Inject Neurotransmitters
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {neurotransmitters.map(({ key, name, icon: Icon, color, desc }) => (
+            {neurotransmitters.map(({ key, name, icon: Icon, color }) => (
               <div key={key} className="flex items-center gap-1">
                 <Icon className={`h-3 w-3 ${color} shrink-0`} />
                 <span className="text-xs truncate flex-1">{name}</span>
@@ -243,7 +246,7 @@ export default function NeurochemistryAdminPanel() {
           {adminState.activeBoost && (
             <div className="flex items-center justify-between p-2 bg-yellow-500/10 rounded text-xs">
               <span className="text-yellow-600 dark:text-yellow-400">
-                Active boost expires in {Math.round((adminState.activeBoost.expiresAt - Date.now()) / 1000)}s
+                Active boost expires in {Math.max(0, Math.round((adminState.activeBoost.expiresAt - Date.now()) / 1000))}s
               </span>
               <Button
                 size="sm"
@@ -309,21 +312,21 @@ export default function NeurochemistryAdminPanel() {
             </Button>
           </div>
           
-          {adminState.triggers && (
+          {adminState.triggers && !isIdle && (
             <div className="text-xs text-muted-foreground space-y-1">
-              {adminState.triggers.sleep.reason && (
+              {adminState.triggers.sleep.reason && !adminState.triggers.sleep.reason.includes('not running') && (
                 <div className="flex items-center gap-1">
                   <Moon className="h-3 w-3" />
                   <span>{adminState.triggers.sleep.reason}</span>
                 </div>
               )}
-              {adminState.triggers.dream.reason && (
+              {adminState.triggers.dream.reason && !adminState.triggers.dream.reason.includes('not running') && (
                 <div className="flex items-center gap-1">
                   <Cloud className="h-3 w-3" />
                   <span>{adminState.triggers.dream.reason}</span>
                 </div>
               )}
-              {adminState.triggers.mushroom.reason && (
+              {adminState.triggers.mushroom.reason && !adminState.triggers.mushroom.reason.includes('not running') && (
                 <div className="flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
                   <span>{adminState.triggers.mushroom.reason}</span>

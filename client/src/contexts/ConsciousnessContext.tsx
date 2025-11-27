@@ -1,0 +1,183 @@
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+export interface ConsciousnessState {
+  phi: number;
+  kappaEff: number;
+  tacking: number;
+  radar: number;
+  metaAwareness: number;
+  gamma: number;
+  grounding: number;
+  beta: number;
+  regime: 'breakdown' | 'linear' | 'geometric' | 'sub-conscious';
+  isConscious: boolean;
+  isInvestigating: boolean;
+  lastUpdated: number;
+}
+
+export interface NeurochemistryState {
+  dopamine: number;
+  serotonin: number;
+  norepinephrine: number;
+  gaba: number;
+  acetylcholine: number;
+  endorphins: number;
+  emotionalState: string;
+  overallMood: number;
+}
+
+interface ConsciousnessContextValue {
+  consciousness: ConsciousnessState;
+  neurochemistry: NeurochemistryState;
+  isLoading: boolean;
+  isIdle: boolean;
+  refresh: () => Promise<void>;
+}
+
+const defaultConsciousness: ConsciousnessState = {
+  phi: 0,
+  kappaEff: 0,
+  tacking: 0.5,
+  radar: 0.5,
+  metaAwareness: 0.5,
+  gamma: 0.85,
+  grounding: 0.9,
+  beta: 0.44,
+  regime: 'breakdown',
+  isConscious: false,
+  isInvestigating: false,
+  lastUpdated: Date.now(),
+};
+
+const defaultNeurochemistry: NeurochemistryState = {
+  dopamine: 0.5,
+  serotonin: 0.6,
+  norepinephrine: 0.4,
+  gaba: 0.7,
+  acetylcholine: 0.5,
+  endorphins: 0.3,
+  emotionalState: 'content',
+  overallMood: 0.5,
+};
+
+const ConsciousnessContext = createContext<ConsciousnessContextValue>({
+  consciousness: defaultConsciousness,
+  neurochemistry: defaultNeurochemistry,
+  isLoading: true,
+  isIdle: true,
+  refresh: async () => {},
+});
+
+export function ConsciousnessProvider({ children }: { children: React.ReactNode }) {
+  const [consciousness, setConsciousness] = useState<ConsciousnessState>(defaultConsciousness);
+  const [neurochemistry, setNeurochemistry] = useState<NeurochemistryState>(defaultNeurochemistry);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchState = useCallback(async () => {
+    try {
+      const [cyclesRes, neurochemRes] = await Promise.all([
+        fetch('/api/ocean/cycles'),
+        fetch('/api/ocean/neurochemistry'),
+      ]);
+
+      if (cyclesRes.ok) {
+        const cyclesData = await cyclesRes.json();
+        const c = cyclesData.consciousness;
+        const isInvestigating = cyclesData.triggers?.sleep?.reason !== 'Investigation not running - cycles disabled';
+        
+        setConsciousness({
+          phi: c.phi ?? 0,
+          kappaEff: c.kappaEff ?? 0,
+          tacking: c.tacking ?? 0.5,
+          radar: c.radar ?? 0.5,
+          metaAwareness: c.metaAwareness ?? 0.5,
+          gamma: c.gamma ?? 0.85,
+          grounding: c.grounding ?? 0.9,
+          beta: c.beta ?? 0.44,
+          regime: c.regime ?? 'breakdown',
+          isConscious: c.isConscious ?? false,
+          isInvestigating,
+          lastUpdated: Date.now(),
+        });
+      }
+
+      if (neurochemRes.ok) {
+        const neuroData = await neurochemRes.json();
+        const n = neuroData.neurochemistry;
+        setNeurochemistry({
+          dopamine: n.dopamine?.totalDopamine ?? 0.5,
+          serotonin: n.serotonin?.totalSerotonin ?? 0.6,
+          norepinephrine: n.norepinephrine?.totalNorepinephrine ?? 0.4,
+          gaba: n.gaba?.totalGABA ?? 0.7,
+          acetylcholine: n.acetylcholine?.totalAcetylcholine ?? 0.5,
+          endorphins: n.endorphins?.totalEndorphins ?? 0.3,
+          emotionalState: n.emotionalState ?? 'content',
+          overallMood: n.overallMood ?? 0.5,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch consciousness state:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchState();
+    const interval = setInterval(fetchState, 2000);
+    return () => clearInterval(interval);
+  }, [fetchState]);
+
+  const isIdle = !consciousness.isInvestigating;
+
+  return (
+    <ConsciousnessContext.Provider 
+      value={{ 
+        consciousness, 
+        neurochemistry, 
+        isLoading, 
+        isIdle,
+        refresh: fetchState 
+      }}
+    >
+      {children}
+    </ConsciousnessContext.Provider>
+  );
+}
+
+export function useConsciousness() {
+  const context = useContext(ConsciousnessContext);
+  if (!context) {
+    throw new Error('useConsciousness must be used within ConsciousnessProvider');
+  }
+  return context;
+}
+
+export function formatPhi(phi: number, isIdle: boolean): string {
+  if (isIdle) return '—';
+  return `${(phi * 100).toFixed(0)}%`;
+}
+
+export function formatPhiDecimal(phi: number, isIdle: boolean): string {
+  if (isIdle) return '—';
+  return phi.toFixed(2);
+}
+
+export function getPhiColor(phi: number, isIdle: boolean): string {
+  if (isIdle) return 'text-muted-foreground';
+  if (phi >= 0.75) return 'text-green-500';
+  if (phi >= 0.5) return 'text-amber-500';
+  if (phi >= 0.3) return 'text-orange-500';
+  return 'text-red-500';
+}
+
+export function getRegimeLabel(regime: string, isIdle: boolean): string {
+  if (isIdle) return 'Idle';
+  switch (regime) {
+    case 'geometric': return 'Geometric';
+    case 'linear': return 'Linear';
+    case 'sub-conscious': return 'Sub-Conscious';
+    case 'breakdown': return 'Breakdown';
+    default: return regime;
+  }
+}
