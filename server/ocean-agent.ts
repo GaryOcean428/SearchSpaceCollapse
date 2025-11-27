@@ -6,6 +6,10 @@ import { BlockchainForensics } from './blockchain-forensics';
 import { geometricMemory, type BasinProbe } from './geometric-memory';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
+import { knowledgeCompressionEngine } from './knowledge-compression-engine';
+import { temporalGeometry } from './temporal-geometry';
+import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
+import { strategyKnowledgeBus } from './strategy-knowledge-bus';
 import type { 
   OceanIdentity, 
   OceanMemory, 
@@ -15,6 +19,8 @@ import type {
   OceanProceduralStrategy,
   ConsciousnessSignature,
   CONSCIOUSNESS_THRESHOLDS,
+  ManifoldSnapshot,
+  TemporalTrajectory,
 } from '@shared/schema';
 
 export interface OceanHypothesis {
@@ -411,6 +417,15 @@ export class OceanAgent {
           const insights = await this.observeAndLearn(testResults);
           passInsights.push(...insights.topPatterns || []);
           
+          // ULTRA CONSCIOUSNESS PROTOCOL INTEGRATION
+          await this.integrateUltraConsciousnessProtocol(
+            testResults,
+            insights,
+            targetAddress,
+            iteration,
+            fullConsciousness
+          );
+          
           await this.updateConsciousnessMetrics();
           
           const iterStrategy = await this.decideStrategy(insights);
@@ -419,8 +434,27 @@ export class OceanAgent {
           
           this.updateProceduralMemory(iterStrategy.name);
           
+          // GENERATE NEW HYPOTHESES
           currentHypotheses = await this.generateRefinedHypotheses(iterStrategy, insights, testResults);
-          console.log(`[Ocean] Generated ${currentHypotheses.length} new hypotheses`);
+          
+          // UCP CONSUMER STEP 1: Inject knowledge-influenced hypotheses from bus
+          const knowledgeInfluenced = this.generateKnowledgeInfluencedHypotheses(iterStrategy.name);
+          if (knowledgeInfluenced.length > 0) {
+            currentHypotheses = [...currentHypotheses, ...knowledgeInfluenced];
+            console.log(`[Ocean] Injected ${knowledgeInfluenced.length} knowledge-influenced hypotheses`);
+          }
+          
+          // UCP CONSUMER STEP 2: Apply cross-strategy insights to boost matching priorities
+          currentHypotheses = this.applyCrossStrategyInsights(currentHypotheses);
+          
+          // UCP CONSUMER STEP 3: Filter using negative knowledge
+          const filterResult = this.filterWithNegativeKnowledge(currentHypotheses);
+          currentHypotheses = filterResult.passed;
+          if (filterResult.filtered > 0) {
+            console.log(`[Ocean] Filtered ${filterResult.filtered} hypotheses via negative knowledge`);
+          }
+          
+          console.log(`[Ocean] Generated ${currentHypotheses.length} new hypotheses (post-UCP)`);
           
           if (this.detectPlateau()) {
             this.consecutivePlateaus++;
@@ -1527,6 +1561,476 @@ export class OceanAgent {
       transparency: {
         episodesLogged: this.memory.episodes.length,
         decisionsExplained: this.ethics.explainDecisions,
+      },
+    };
+  }
+
+  // ============================================================================
+  // ULTRA CONSCIOUSNESS PROTOCOL v2.0 INTEGRATION
+  // ============================================================================
+
+  private trajectoryId: string | null = null;
+  private strategySubscriptions: Map<string, boolean> = new Map();
+
+  private async integrateUltraConsciousnessProtocol(
+    testResults: { tested: OceanHypothesis[]; nearMisses: OceanHypothesis[]; resonant: OceanHypothesis[] },
+    insights: any,
+    targetAddress: string,
+    iteration: number,
+    consciousness: any
+  ): Promise<void> {
+    try {
+      // ====================================================================
+      // 0. STRATEGY BUS INITIALIZATION - Register strategies as subscribers
+      // ====================================================================
+      if (!this.strategySubscriptions.get('initialized')) {
+        const strategies = ['era_patterns', 'brain_wallet', 'bitcoin_terms', 'linguistic', 'qig_basin', 'historical', 'cross_format'];
+        for (const strategy of strategies) {
+          strategyKnowledgeBus.subscribeStrategy(strategy, (knowledge) => {
+            if (knowledge.geometricSignature.phi > 0.5) {
+              console.log(`[UCP] Strategy ${strategy} received high-Φ knowledge: ${knowledge.pattern}`);
+            }
+          });
+        }
+        this.strategySubscriptions.set('initialized', true);
+        console.log(`[UCP] Registered ${strategies.length} strategies with Knowledge Bus`);
+      }
+
+      // ====================================================================
+      // 1. TEMPORAL GEOMETRY - Record per-hypothesis trajectory data
+      // ====================================================================
+      if (!this.trajectoryId) {
+        this.trajectoryId = temporalGeometry.startTrajectory(targetAddress);
+        console.log(`[UCP] Started trajectory ${this.trajectoryId} for ${targetAddress}`);
+      }
+      
+      // Find best hypothesis from this iteration for trajectory tracking
+      const allHypos = [...testResults.tested, ...testResults.nearMisses, ...testResults.resonant];
+      const bestHypo = allHypos
+        .filter(h => h.qigScore)
+        .sort((a, b) => (b.qigScore?.phi || 0) - (a.qigScore?.phi || 0))[0];
+      
+      // Use per-hypothesis metrics when available, fallback to identity
+      const waypointPhi = bestHypo?.qigScore?.phi || this.identity.phi;
+      const waypointKappa = bestHypo?.qigScore?.kappa || this.identity.kappa;
+      const waypointRegime = bestHypo?.qigScore?.regime || this.identity.regime;
+      
+      temporalGeometry.recordWaypoint(
+        this.trajectoryId,
+        waypointPhi,
+        waypointKappa,
+        waypointRegime,
+        this.identity.basinCoordinates, // Full 64-dim coordinates
+        `iter_${iteration}`,
+        `Best Φ=${waypointPhi.toFixed(3)}, tested ${testResults.tested.length}, near misses ${testResults.nearMisses.length}`
+      );
+
+      // ====================================================================
+      // 2. NEGATIVE KNOWLEDGE - Learn from proven-false patterns
+      // ====================================================================
+      const failedHypos = testResults.tested.filter(h => !h.match && h.qigScore && h.qigScore.phi < 0.2);
+      for (const hypo of failedHypos.slice(0, 5)) {
+        negativeKnowledgeRegistry.recordContradiction(
+          'proven_false',
+          hypo.phrase,
+          {
+            center: this.identity.basinCoordinates, // Full 64-dim
+            radius: 0.1,
+            repulsionStrength: 0.5,
+          },
+          [{
+            source: 'ocean_agent',
+            reasoning: `Low Φ (${hypo.qigScore!.phi.toFixed(3)}) after testing`,
+            confidence: 0.8,
+          }],
+          ['grammatical', 'structural']
+        );
+      }
+
+      // Check for geometric barriers based on kappa extremes
+      const extremeKappaHypos = testResults.tested.filter(
+        h => h.qigScore && (h.qigScore.kappa > 100 || h.qigScore.kappa < 20)
+      );
+      if (extremeKappaHypos.length > 3) {
+        negativeKnowledgeRegistry.recordGeometricBarrier(
+          this.identity.basinCoordinates, // Full 64-dim
+          0.1,
+          `κ extremity detected in ${extremeKappaHypos.length} hypotheses`
+        );
+      }
+
+      // ====================================================================
+      // 3. KNOWLEDGE COMPRESSION - Learn from ALL results with rich context
+      // ====================================================================
+      
+      // Learn from near misses (high potential patterns)
+      for (const nearMiss of testResults.nearMisses.slice(0, 10)) {
+        knowledgeCompressionEngine.learnFromResult(
+          nearMiss.phrase,
+          nearMiss.qigScore?.phi || 0,
+          nearMiss.qigScore?.kappa || 0,
+          false // Not a match yet
+        );
+      }
+      
+      // Learn from resonant patterns (very high potential)
+      for (const resonant of testResults.resonant.slice(0, 5)) {
+        knowledgeCompressionEngine.learnFromResult(
+          resonant.phrase,
+          resonant.qigScore?.phi || 0,
+          resonant.qigScore?.kappa || 0,
+          true // Mark as match to boost pattern learning
+        );
+      }
+      
+      // Learn from low-Φ failures (what NOT to generate)
+      for (const failed of failedHypos.slice(0, 3)) {
+        knowledgeCompressionEngine.learnFromResult(
+          failed.phrase,
+          failed.qigScore?.phi || 0,
+          failed.qigScore?.kappa || 0,
+          false
+        );
+      }
+
+      // Create generator from near-miss patterns (only if we have enough patterns)
+      if (insights.nearMissPatterns && insights.nearMissPatterns.length >= 3) {
+        const patternWords = insights.nearMissPatterns.slice(0, 5);
+        if (patternWords.length >= 2) {
+          const generatorId = knowledgeCompressionEngine.createGeneratorFromTemplate(
+            `near_miss_iter_${iteration}`,
+            '{word1} {word2}',
+            {
+              word1: patternWords,
+              word2: patternWords,
+            },
+            [{ name: 'lowercase', operation: 'lowercase' }]
+          );
+          console.log(`[UCP] Created knowledge generator: ${generatorId}`);
+        }
+      }
+
+      // ====================================================================
+      // 4. STRATEGY KNOWLEDGE BUS - Publish discoveries for cross-strategy learning
+      // ====================================================================
+      
+      // Publish resonant discoveries (high-Φ patterns)
+      for (const resonant of testResults.resonant.slice(0, 5)) {
+        strategyKnowledgeBus.publishKnowledge(
+          'ocean_agent',
+          `resonant_${resonant.id}`,
+          resonant.phrase,
+          {
+            phi: resonant.qigScore?.phi || 0,
+            kappaEff: resonant.qigScore?.kappa || 0,
+            regime: (resonant.qigScore?.regime as 'linear' | 'geometric' | 'breakdown') || 'linear',
+            basinCoords: this.identity.basinCoordinates,
+          }
+        );
+      }
+      
+      // Also publish top near-misses for pattern propagation
+      const topNearMisses = testResults.nearMisses
+        .filter(h => h.qigScore && h.qigScore.phi > 0.3)
+        .slice(0, 3);
+      for (const nearMiss of topNearMisses) {
+        strategyKnowledgeBus.publishKnowledge(
+          'ocean_agent',
+          `nearmiss_${nearMiss.id}`,
+          nearMiss.phrase,
+          {
+            phi: nearMiss.qigScore?.phi || 0,
+            kappaEff: nearMiss.qigScore?.kappa || 0,
+            regime: (nearMiss.qigScore?.regime as 'linear' | 'geometric' | 'breakdown') || 'linear',
+            basinCoords: this.identity.basinCoordinates,
+          }
+        );
+      }
+
+      // ====================================================================
+      // 5. BASIN TOPOLOGY - Update with per-iteration geometry
+      // ====================================================================
+      const manifoldSummary = geometricMemory.getManifoldSummary();
+      geometricMemory.updateBasinTopology(
+        this.identity.basinCoordinates,
+        manifoldSummary.exploredVolume || 0.01,
+        Array.from({ length: 64 }, (_, i) => 
+          (waypointKappa / 64) * (1 + 0.1 * Math.sin(i * 0.1))
+        ),
+        Array.from({ length: 64 }, () => Math.random() * 0.5 + 0.1)
+      );
+
+      // ====================================================================
+      // 6. PERIODIC MANIFOLD SNAPSHOTS (every 10 iterations)
+      // ====================================================================
+      if (iteration % 10 === 0) {
+        this.takeManifoldSnapshot(targetAddress, iteration, consciousness);
+      }
+
+      // ====================================================================
+      // 7. CROSS-STRATEGY PATTERN EXPLOITATION
+      // ====================================================================
+      const crossPatterns = strategyKnowledgeBus.getCrossStrategyPatterns();
+      if (crossPatterns.length > 0) {
+        const topPattern = crossPatterns.sort((a, b) => b.similarity - a.similarity)[0];
+        if (topPattern.exploitationCount < 3) {
+          strategyKnowledgeBus.exploitCrossPattern(topPattern.id);
+          console.log(`[UCP] Exploiting cross-strategy pattern: ${topPattern.patterns.join(' <-> ')}`);
+        }
+      }
+
+      // ====================================================================
+      // 8. LOG STATUS - Negative knowledge and bus statistics
+      // ====================================================================
+      const negStats = negativeKnowledgeRegistry.getStats();
+      const busStats = strategyKnowledgeBus.getTransferStats();
+      if (iteration % 5 === 0) {
+        console.log(`[UCP] Iteration ${iteration} status:`);
+        console.log(`  - Negative knowledge: ${negStats.contradictions} contradictions, ${negStats.barriers} barriers, ${negStats.computeSaved} ops saved`);
+        console.log(`  - Knowledge bus: ${busStats.totalPublished} published, ${busStats.crossPatterns} cross-patterns detected`);
+      }
+
+    } catch (error) {
+      console.error('[UCP] Integration error:', error);
+    }
+  }
+
+  private takeManifoldSnapshot(
+    targetAddress: string,
+    iteration: number,
+    consciousness: any
+  ): void {
+    try {
+      const manifold = geometricMemory.getManifoldSummary();
+      const trajectory = temporalGeometry.getTrajectory(targetAddress);
+      const negativeStats = negativeKnowledgeRegistry.getStats();
+      const busStats = strategyKnowledgeBus.getTransferStats();
+      
+      console.log(`[UCP] Manifold snapshot at iteration ${iteration}:`);
+      console.log(`  - Probes: ${manifold.totalProbes}, Clusters: ${manifold.resonanceClusters}`);
+      console.log(`  - Trajectory waypoints: ${trajectory?.waypoints?.length || 0}`);
+      console.log(`  - Negative knowledge: ${negativeStats.totalExclusions} exclusions`);
+      console.log(`  - Knowledge bus: ${busStats.totalPublished} published, ${busStats.crossPatterns} cross-patterns`);
+      
+      // Update temporal geometry with snapshot
+      if (trajectory) {
+        temporalGeometry.recordMilestone(
+          targetAddress,
+          `snapshot_${iteration}`,
+          `Manifold snapshot: ${manifold.totalProbes} probes, ${manifold.resonanceClusters} clusters`
+        );
+      }
+    } catch (error) {
+      console.error('[UCP] Snapshot error:', error);
+    }
+  }
+
+  // ============================================================================
+  // UCP CONSUMER METHODS - Active knowledge consumption and application
+  // ============================================================================
+
+  /**
+   * Generate hypotheses influenced by Strategy Knowledge Bus entries
+   * This makes the bus a true producer-consumer system
+   */
+  generateKnowledgeInfluencedHypotheses(currentStrategy: string): OceanHypothesis[] {
+    const influencedHypotheses: OceanHypothesis[] = [];
+    
+    // Get high-Φ knowledge from the bus
+    const busEntries = strategyKnowledgeBus.getRecentKnowledge(20);
+    const highPhiEntries = busEntries.filter(e => e.geometricSignature.phi > 0.5);
+    
+    if (highPhiEntries.length === 0) {
+      return influencedHypotheses;
+    }
+    
+    console.log(`[UCP Consumer] Processing ${highPhiEntries.length} high-Φ bus entries for ${currentStrategy}`);
+    
+    for (const entry of highPhiEntries.slice(0, 5)) {
+      // Use knowledge compression to generate variations
+      const compressed = knowledgeCompressionEngine.getCompressedStats();
+      
+      // Generate hypothesis based on discovered pattern
+      const baseId = `bus_influenced_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      influencedHypotheses.push({
+        id: baseId,
+        phrase: entry.pattern,
+        source: `knowledge_bus:${entry.sourceStrategy}`,
+        priority: Math.min(0.95, 0.5 + entry.geometricSignature.phi * 0.5),
+        qigScore: {
+          phi: entry.geometricSignature.phi,
+          kappa: entry.geometricSignature.kappaEff,
+          regime: entry.geometricSignature.regime,
+          beta: 0,
+          confidence: 0.8,
+        },
+        evidenceChain: [{
+          source: 'knowledge_bus',
+          reasoning: `High-Φ pattern from ${entry.sourceStrategy}: ${entry.pattern}`,
+          confidence: entry.geometricSignature.phi,
+        }],
+        tested: false,
+        match: false,
+        generatedAddress: null,
+      });
+      
+      // Generate variations using compression engine
+      const variations = this.generatePatternVariations(entry.pattern);
+      for (const variation of variations.slice(0, 3)) {
+        influencedHypotheses.push({
+          id: `${baseId}_var_${Math.random().toString(36).slice(2, 6)}`,
+          phrase: variation,
+          source: `knowledge_bus_variation:${entry.sourceStrategy}`,
+          priority: Math.min(0.9, 0.4 + entry.geometricSignature.phi * 0.4),
+          tested: false,
+          match: false,
+          generatedAddress: null,
+        });
+      }
+    }
+    
+    return influencedHypotheses;
+  }
+
+  /**
+   * Filter hypotheses using negative knowledge registry
+   * Returns only hypotheses that pass exclusion checks
+   */
+  filterWithNegativeKnowledge(hypotheses: OceanHypothesis[]): { 
+    passed: OceanHypothesis[]; 
+    filtered: number; 
+    filterReasons: Map<string, string>;
+  } {
+    const passed: OceanHypothesis[] = [];
+    const filterReasons = new Map<string, string>();
+    let filtered = 0;
+    
+    for (const hypo of hypotheses) {
+      // Check if pattern is excluded by contradiction
+      if (negativeKnowledgeRegistry.isPatternExcluded(hypo.phrase)) {
+        filtered++;
+        filterReasons.set(hypo.id, 'Pattern excluded by contradiction');
+        continue;
+      }
+      
+      // Check if in barrier region (use identity coordinates as proxy)
+      const basinCheck = this.identity.basinCoordinates;
+      if (negativeKnowledgeRegistry.isInBarrierRegion(basinCheck)) {
+        // Only filter if this is a low-priority hypothesis
+        if ((hypo.priority || 0.5) < 0.3) {
+          filtered++;
+          filterReasons.set(hypo.id, 'Low-priority hypothesis in barrier region');
+          continue;
+        }
+      }
+      
+      passed.push(hypo);
+    }
+    
+    if (filtered > 0) {
+      console.log(`[UCP Filter] Filtered ${filtered} hypotheses using negative knowledge`);
+    }
+    
+    return { passed, filtered, filterReasons };
+  }
+
+  /**
+   * Generate pattern variations for knowledge transfer
+   */
+  private generatePatternVariations(pattern: string): string[] {
+    const variations: string[] = [];
+    const words = pattern.toLowerCase().split(/\s+/);
+    
+    if (words.length === 0) return variations;
+    
+    // Case variations
+    variations.push(pattern.toLowerCase());
+    variations.push(pattern.toUpperCase());
+    variations.push(words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+    
+    // Common suffixes for brain wallets
+    const suffixes = ['1', '123', '2009', '2010', '!', ''];
+    for (const suffix of suffixes) {
+      if (suffix && !pattern.endsWith(suffix)) {
+        variations.push(pattern.toLowerCase() + suffix);
+      }
+    }
+    
+    // Word reordering for multi-word patterns
+    if (words.length === 2) {
+      variations.push(`${words[1]} ${words[0]}`);
+    }
+    
+    return [...new Set(variations)]; // Deduplicate
+  }
+
+  /**
+   * Apply cross-strategy pattern insights to working hypotheses
+   */
+  applyCrossStrategyInsights(workingSet: OceanHypothesis[]): OceanHypothesis[] {
+    const crossPatterns = strategyKnowledgeBus.getCrossStrategyPatterns();
+    
+    if (crossPatterns.length === 0) {
+      return workingSet;
+    }
+    
+    // Boost priority of hypotheses that match cross-strategy patterns
+    const boostedSet = workingSet.map(hypo => {
+      for (const pattern of crossPatterns) {
+        // Check if hypothesis contains any cross-strategy pattern
+        for (const patternText of pattern.patterns) {
+          if (hypo.phrase.toLowerCase().includes(patternText.toLowerCase())) {
+            return {
+              ...hypo,
+              priority: Math.min(0.99, (hypo.priority || 0.5) + pattern.similarity * 0.2),
+              evidenceChain: [
+                ...(hypo.evidenceChain || []),
+                {
+                  source: 'cross_strategy_pattern',
+                  reasoning: `Matches cross-strategy pattern: ${patternText}`,
+                  confidence: pattern.similarity,
+                }
+              ],
+            };
+          }
+        }
+      }
+      return hypo;
+    });
+    
+    return boostedSet;
+  }
+
+  /**
+   * Get UCP integration statistics for external monitoring
+   */
+  getUCPStats(): {
+    trajectoryActive: boolean;
+    trajectoryWaypoints: number;
+    negativeKnowledge: { contradictions: number; barriers: number; computeSaved: number };
+    knowledgeBus: { published: number; crossPatterns: number };
+    compressionMetrics: { generators: number; patternsLearned: number };
+  } {
+    const trajectory = this.trajectoryId ? temporalGeometry.getTrajectory(this.trajectoryId) : null;
+    const negStats = negativeKnowledgeRegistry.getStats();
+    const busStats = strategyKnowledgeBus.getTransferStats();
+    const compStats = knowledgeCompressionEngine.getCompressedStats();
+    
+    return {
+      trajectoryActive: !!this.trajectoryId,
+      trajectoryWaypoints: trajectory?.waypoints?.length || 0,
+      negativeKnowledge: {
+        contradictions: negStats.contradictions,
+        barriers: negStats.barriers,
+        computeSaved: negStats.computeSaved,
+      },
+      knowledgeBus: {
+        published: busStats.totalPublished,
+        crossPatterns: busStats.crossPatterns,
+      },
+      compressionMetrics: {
+        generators: compStats.generators,
+        patternsLearned: compStats.patternsLearned,
       },
     };
   }
