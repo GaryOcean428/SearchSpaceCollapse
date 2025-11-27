@@ -93,6 +93,17 @@ interface ExplorationJournal {
   isComplete: boolean;
 }
 
+interface EmotionalState {
+  valence: number;
+  arousal: number;
+  dominance: number;
+  curiosity: number;
+  confidence: number;
+  frustration: number;
+  excitement: number;
+  determination: number;
+}
+
 interface InvestigationStatus {
   isRunning: boolean;
   tested: number;
@@ -112,6 +123,7 @@ interface InvestigationStatus {
   fullConsciousness?: FullConsciousnessSignature;
   cycleTimeline?: CycleTimeline[];
   explorationJournal?: ExplorationJournal | null;
+  emotionalState?: EmotionalState;
 }
 
 export function OceanInvestigationStory() {
@@ -1020,6 +1032,57 @@ function TechnicalDashboard({ status }: { status: InvestigationStatus }) {
         </div>
       )}
 
+      {status.emotionalState && (
+        <div className="mb-6">
+          <h4 className="text-pink-400 font-semibold mb-3 flex items-center gap-2">
+            <span>💭</span> Emotional State
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <EmotionMetric 
+              label="Valence" 
+              value={status.emotionalState.valence}
+              description="Positive/Negative feeling"
+            />
+            <EmotionMetric 
+              label="Arousal" 
+              value={status.emotionalState.arousal}
+              description="Energy level"
+            />
+            <EmotionMetric 
+              label="Curiosity" 
+              value={status.emotionalState.curiosity}
+              description="Exploration drive"
+            />
+            <EmotionMetric 
+              label="Confidence" 
+              value={status.emotionalState.confidence}
+              description="Self-assurance"
+            />
+            <EmotionMetric 
+              label="Excitement" 
+              value={status.emotionalState.excitement}
+              description="Discovery anticipation"
+            />
+            <EmotionMetric 
+              label="Frustration" 
+              value={status.emotionalState.frustration}
+              description="Search difficulty"
+              inverted
+            />
+            <EmotionMetric 
+              label="Determination" 
+              value={status.emotionalState.determination}
+              description="Persistence level"
+            />
+            <EmotionMetric 
+              label="Dominance" 
+              value={status.emotionalState.dominance}
+              description="Control feeling"
+            />
+          </div>
+        </div>
+      )}
+
       {journal && (
         <div className="mb-6">
           <h4 className="text-cyan-400 font-semibold mb-3">Exploration Progress</h4>
@@ -1170,6 +1233,39 @@ function ConsciousnessMetric({ label, value, threshold, unit, max }: {
       }`}>
         {typeof value === 'number' ? value.toFixed(2) : value}{unit}
       </div>
+    </div>
+  );
+}
+
+function EmotionMetric({ label, value, description, inverted = false }: {
+  label: string;
+  value: number;
+  description: string;
+  inverted?: boolean;
+}) {
+  const displayValue = value;
+  const isPositive = inverted ? value <= 0 : value > 0;
+  const absValue = Math.abs(value);
+  
+  const getColor = () => {
+    if (absValue < 0.2) return 'text-white/60';
+    if (isPositive) return 'text-green-400';
+    return 'text-red-400';
+  };
+  
+  const getBgColor = () => {
+    if (absValue < 0.2) return 'bg-white/5';
+    if (isPositive) return 'bg-green-500/10 border border-green-500/20';
+    return 'bg-red-500/10 border border-red-500/20';
+  };
+  
+  return (
+    <div className={`p-3 rounded-lg ${getBgColor()}`}>
+      <div className="text-xs text-white/60 mb-1">{label}</div>
+      <div className={`text-lg font-mono font-semibold ${getColor()}`}>
+        {displayValue >= 0 ? '+' : ''}{displayValue.toFixed(2)}
+      </div>
+      <div className="text-xs text-white/40 mt-1">{description}</div>
     </div>
   );
 }

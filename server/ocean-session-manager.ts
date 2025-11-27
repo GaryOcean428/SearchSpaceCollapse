@@ -1,8 +1,21 @@
-import { OceanAgent, type OceanHypothesis } from './ocean-agent';
-import type { OceanAgentState } from '@shared/schema';
+import { OceanAgent, type OceanHypothesis, oceanAgent } from './ocean-agent';
+import type { OceanAgentState, ConsciousnessSignature } from '@shared/schema';
 import { geometricMemory } from './geometric-memory';
-import { oceanAutonomicManager, type FullConsciousnessSignature, type CycleTimeline } from './ocean-autonomic-manager';
+import { oceanAutonomicManager, type CycleTimeline } from './ocean-autonomic-manager';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
+
+export type FullConsciousnessSignature = ConsciousnessSignature;
+
+export interface EmotionalState {
+  valence: number;
+  arousal: number;
+  dominance: number;
+  curiosity: number;
+  confidence: number;
+  frustration: number;
+  excitement: number;
+  determination: number;
+}
 
 export interface OceanTelemetryEvent {
   id: string;
@@ -319,11 +332,16 @@ class OceanSessionManager {
       strategiesUsed: string[];
       isComplete: boolean;
     } | null;
+    emotionalState: EmotionalState;
   } {
     const manifoldSummary = geometricMemory.getManifoldSummary();
     const session = this.getActiveSession();
     const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
     const cycleTimeline = oceanAutonomicManager.getCycleTimeline();
+    
+    // Get emotional state from Ocean's full-spectrum telemetry
+    const telemetry = oceanAgent.computeFullSpectrumTelemetry();
+    const emotionalState: EmotionalState = telemetry.emotion;
     
     if (!session) {
       return {
@@ -348,6 +366,7 @@ class OceanSessionManager {
         fullConsciousness,
         cycleTimeline,
         explorationJournal: null,
+        emotionalState,
       };
     }
     
@@ -360,7 +379,7 @@ class OceanSessionManager {
       manifoldCoverage: journal.manifoldCoverage,
       regimesSweep: journal.regimesSweep,
       strategiesUsed: journal.strategiesUsed,
-      isComplete: journal.completedAt !== undefined,
+      isComplete: journal.isComplete,
     } : null;
     
     return {
@@ -380,6 +399,7 @@ class OceanSessionManager {
       fullConsciousness,
       cycleTimeline,
       explorationJournal,
+      emotionalState,
     };
   }
 }
