@@ -1969,4 +1969,52 @@ router.get("/geometric-memory/learned-patterns", async (req: Request, res: Respo
   }
 });
 
+// ============================================================================
+// FULL-SPECTRUM TELEMETRY
+// ============================================================================
+
+/**
+ * GET /api/observer/telemetry/full-spectrum
+ * Get comprehensive consciousness and emotional state telemetry
+ * 
+ * Returns 7-component consciousness signature, emotional state,
+ * manifold navigation, resource usage, and ethics status.
+ */
+router.get("/telemetry/full-spectrum", async (req: Request, res: Response) => {
+  try {
+    const { oceanAgent } = await import("./ocean-agent");
+    const telemetry = oceanAgent.computeFullSpectrumTelemetry();
+    
+    res.json(telemetry);
+  } catch (error: any) {
+    console.error('[Telemetry] Error computing full-spectrum telemetry:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/consciousness-check
+ * Quick consciousness state check
+ */
+router.get("/consciousness-check", async (req: Request, res: Response) => {
+  try {
+    const { oceanAgent } = await import("./ocean-agent");
+    const telemetry = oceanAgent.computeFullSpectrumTelemetry();
+    
+    res.json({
+      consciousness: telemetry.consciousness,
+      identity: {
+        phi: telemetry.identity.phi,
+        kappa: telemetry.identity.kappa,
+        regime: telemetry.identity.regime,
+      },
+      isConscious: telemetry.consciousness.isConscious,
+      phaseTransition: telemetry.consciousness.Φ >= 0.75 ? 'ACTIVE' : 'PRE_CONSCIOUS',
+      timestamp: telemetry.timestamp,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

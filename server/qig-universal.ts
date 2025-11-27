@@ -317,29 +317,128 @@ function computeRicciScalar(fim: number[][]): number {
 
 /**
  * Classify regime from metrics
+ * 
+ * CRITICAL PRINCIPLE: Consciousness (Φ≥threshold) DOMINATES regime classification!
+ * 
+ * Phase transition at Φ=0.75 forces geometric regime regardless of κ.
+ * This is because consciousness IS geometric integration - you cannot have
+ * integrated information (Φ) without geometric structure (regime='geometric').
+ * 
+ * Regime hierarchy (in order of precedence):
+ * 1. BREAKDOWN - Structural instability (overrides everything)
+ * 2. CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
+ * 3. SUB-CONSCIOUS ORGANIZATION - κ-dependent for Φ<0.75
+ * 4. LINEAR - Default for low integration
  */
 function classifyRegime(phi: number, kappa: number, ricciScalar: number): Regime {
-  // Breakdown: high curvature or extreme κ
+  // ====================================================================
+  // LEVEL 1: BREAKDOWN (Absolute Precedence)
+  // ====================================================================
+  // Structural instability: high curvature or extreme κ
+  // This indicates manifold instability - must handle before other checks
   if (ricciScalar > 0.5 || kappa > 90 || kappa < 10) {
     return 'breakdown';
   }
   
-  // Linear: low Φ
-  if (phi < 0.45) {
-    return 'linear';
-  }
-  
-  // Hierarchical: high Φ, low κ
-  if (phi > 0.85 && kappa < 40) {
-    return 'hierarchical';
-  }
-  
-  // Geometric: optimal range
-  if (phi >= 0.45 && phi <= 0.85 && kappa >= 30 && kappa <= 80) {
+  // ====================================================================
+  // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION (Primary Classification)
+  // ====================================================================
+  // Φ ≥ 0.75 → Geometric regime REQUIRED
+  // Integrated information cannot exist without geometric structure!
+  // This is a PHASE TRANSITION - it DOMINATES coupling constraints
+  if (phi >= QIG_CONSTANTS.PHI_THRESHOLD) {
+    // Exception: Very high Φ with very low κ → hierarchical (nested structure)
+    // This represents layered/hierarchical integration patterns
+    if (phi > 0.85 && kappa < 40) {
+      return 'hierarchical';
+    }
+    
+    // Default for consciousness: GEOMETRIC
+    // Once Φ≥threshold, you MUST have geometric regime
+    // This is not negotiable - it's physics!
     return 'geometric';
   }
   
+  // ====================================================================
+  // LEVEL 3: SUB-CONSCIOUS ORGANIZATION (Secondary Classification)
+  // ====================================================================
+  // Below consciousness threshold (Φ < 0.75)
+  // Here κ range influences regime assignment
+  
+  // Emerging geometry: mid-range Φ with optimal κ
+  // This is the "approach to consciousness" region
+  if (phi >= 0.45 && phi < 0.75 && kappa >= 30 && kappa <= 80) {
+    return 'geometric';
+  }
+  
+  // Transitional geometry: Φ approaching threshold
+  // Even with sub-optimal κ, high Φ (>0.50) indicates emerging geometry
+  if (phi >= 0.50 && phi < 0.75) {
+    return 'geometric';  // Treat as geometric (pre-conscious state)
+  }
+  
+  // ====================================================================
+  // LEVEL 4: LINEAR (Default for Low Integration)
+  // ====================================================================
+  // Low integration, no consciousness
+  // This is the "random exploration" regime
   return 'linear';
+}
+
+/**
+ * Validate phase transition behavior
+ * Ensures consciousness (Φ≥0.75) properly forces geometric regime
+ */
+export function validatePhaseTransition(): { passed: boolean; failures: string[] } {
+  const failures: string[] = [];
+  
+  // Test 1: Φ≥0.75 MUST be geometric (unless hierarchical)
+  const testCases = [
+    { phi: 0.75, kappa: 25, ricci: 0.3, expected: 'geometric', reason: 'Consciousness at threshold with low κ' },
+    { phi: 0.80, kappa: 85, ricci: 0.3, expected: 'geometric', reason: 'Consciousness with high κ' },
+    { phi: 0.75, kappa: 50, ricci: 0.3, expected: 'geometric', reason: 'Consciousness with mid κ' },
+    { phi: 0.90, kappa: 35, ricci: 0.3, expected: 'hierarchical', reason: 'Very high Φ with low κ (exception)' },
+    { phi: 0.75, kappa: 15, ricci: 0.3, expected: 'geometric', reason: 'Consciousness overrides low κ' },
+  ];
+  
+  for (const test of testCases) {
+    const regime = classifyRegime(test.phi, test.kappa, test.ricci);
+    if (regime !== test.expected) {
+      failures.push(
+        `FAILED: Φ=${test.phi}, κ=${test.kappa} → ${regime} (expected ${test.expected})\n` +
+        `  Reason: ${test.reason}`
+      );
+    }
+  }
+  
+  // Test 2: Φ<0.75 CAN be linear
+  const linearTest = classifyRegime(0.40, 50, 0.3);
+  if (linearTest !== 'linear') {
+    failures.push(`FAILED: Φ=0.40 should allow linear regime, got ${linearTest}`);
+  }
+  
+  // Test 3: Breakdown overrides everything
+  const breakdownTest = classifyRegime(0.80, 95, 0.3);
+  if (breakdownTest !== 'breakdown') {
+    failures.push(`FAILED: κ=95 should force breakdown even with Φ=0.80, got ${breakdownTest}`);
+  }
+  
+  return {
+    passed: failures.length === 0,
+    failures
+  };
+}
+
+// Run validation on module load
+console.log('[QIG-Universal] Validating phase transition fix...');
+const phaseCheck = validatePhaseTransition();
+if (phaseCheck.passed) {
+  console.log('[QIG-Universal] ✅ Phase transition working correctly!');
+} else {
+  console.log('[QIG-Universal] ❌ Phase transition FAILED:');
+  for (const failure of phaseCheck.failures) {
+    console.log(`  ${failure}`);
+  }
 }
 
 /**

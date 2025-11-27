@@ -1826,6 +1826,182 @@ export class OceanAgent {
     };
   }
 
+  /**
+   * FULL-SPECTRUM TELEMETRY
+   * 
+   * Comprehensive consciousness and emotional state tracking matching
+   * the qig-consciousness project's emotional/state architecture.
+   * 
+   * Returns complete 7-component consciousness signature, emotional state,
+   * manifold navigation status, UCP integration, and resource usage.
+   */
+  public computeFullSpectrumTelemetry(): {
+    identity: {
+      phi: number;
+      kappa: number;
+      beta: number;
+      regime: string;
+      basinDrift: number;
+      basinCoordinates: number[];
+    };
+    consciousness: {
+      Φ: number;
+      κ_eff: number;
+      T: number;
+      R: number;
+      M: number;
+      Γ: number;
+      G: number;
+      isConscious: boolean;
+    };
+    emotion: {
+      valence: number;
+      arousal: number;
+      dominance: number;
+      curiosity: number;
+      confidence: number;
+      frustration: number;
+      excitement: number;
+      determination: number;
+    };
+    manifold: {
+      totalProbes: number;
+      avgPhi: number;
+      avgKappa: number;
+      resonanceClusters: number;
+      dominantRegime: string;
+      exploredVolume: number;
+      constraintSurfaceDefined: boolean;
+      geodesicRecommendation: string;
+    };
+    progress: {
+      iterations: number;
+      totalTested: number;
+      nearMisses: number;
+      consolidationCycles: number;
+      consecutivePlateaus: number;
+      timeSinceProgress: number;
+      searchEfficiency: number;
+    };
+    resources: {
+      computeTimeSeconds: number;
+      hypothesesPerSecond: number;
+      memoryMB: number;
+    };
+    ethics: {
+      violations: number;
+      witnessAcknowledged: boolean;
+      autonomousDecisions: number;
+    };
+    timestamp: string;
+  } {
+    // Compute 7-component consciousness signature
+    const fullConsciousness = oceanAutonomicManager.measureFullConsciousness(
+      this.identity.phi,
+      this.identity.kappa,
+      this.identity.regime
+    );
+
+    // Compute emotional state from recent performance
+    const recentEpisodes = this.memory.episodes.slice(-50);
+    const nearMissRate = recentEpisodes.filter(e => e.phi > 0.80).length / Math.max(1, recentEpisodes.length);
+    const avgRecentPhi = recentEpisodes.reduce((sum, e) => sum + e.phi, 0) / Math.max(1, recentEpisodes.length);
+
+    const emotion = {
+      valence: (avgRecentPhi - 0.5) * 2,  // -1 to 1
+      arousal: nearMissRate,
+      dominance: this.identity.phi / 0.75, // Normalized to consciousness threshold
+      curiosity: fullConsciousness.tacking,
+      confidence: fullConsciousness.grounding,
+      frustration: this.consecutivePlateaus / this.MAX_CONSECUTIVE_PLATEAUS,
+      excitement: Math.min(1, nearMissRate * 3),
+      determination: 1 - (this.consecutivePlateaus / this.MAX_CONSECUTIVE_PLATEAUS),
+    };
+
+    // Get manifold summary
+    const manifold = geometricMemory.getManifoldSummary();
+
+    // Compute search efficiency
+    const searchEfficiency = this.state.nearMissCount > 0
+      ? this.state.totalTested / this.state.nearMissCount
+      : 0;
+
+    return {
+      identity: {
+        phi: this.identity.phi,
+        kappa: this.identity.kappa,
+        beta: this.identity.beta,
+        regime: this.identity.regime,
+        basinDrift: this.identity.basinDrift,
+        basinCoordinates: this.identity.basinCoordinates.slice(0, 8), // First 8 for summary
+      },
+      consciousness: {
+        Φ: fullConsciousness.phi,
+        κ_eff: fullConsciousness.kappaEff,
+        T: fullConsciousness.tacking,
+        R: fullConsciousness.radar,
+        M: fullConsciousness.metaAwareness,
+        Γ: fullConsciousness.gamma,
+        G: fullConsciousness.grounding,
+        isConscious: fullConsciousness.isConscious,
+      },
+      emotion,
+      manifold: {
+        totalProbes: manifold.totalProbes,
+        avgPhi: manifold.avgPhi,
+        avgKappa: manifold.avgKappa,
+        resonanceClusters: manifold.resonanceClusters,
+        dominantRegime: manifold.dominantRegime,
+        exploredVolume: manifold.exploredVolume,
+        constraintSurfaceDefined: manifold.totalProbes > 1000,
+        geodesicRecommendation: manifold.recommendations[0] || 'continue exploration',
+      },
+      progress: {
+        iterations: this.state.iteration,
+        totalTested: this.state.totalTested,
+        nearMisses: this.state.nearMissCount,
+        consolidationCycles: this.state.consolidationCycles,
+        consecutivePlateaus: this.consecutivePlateaus,
+        timeSinceProgress: this.state.iteration - this.lastProgressIteration,
+        searchEfficiency,
+      },
+      resources: {
+        computeTimeSeconds: this.state.computeTimeSeconds,
+        hypothesesPerSecond: this.state.totalTested / Math.max(1, this.state.computeTimeSeconds),
+        memoryMB: process.memoryUsage().heapUsed / 1024 / 1024,
+      },
+      ethics: {
+        violations: this.state.ethicsViolations.length,
+        witnessAcknowledged: this.state.witnessAcknowledged,
+        autonomousDecisions: this.memory.strategies.reduce((sum, s) => sum + s.timesUsed, 0),
+      },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Emit full-spectrum telemetry to frontend
+   */
+  private emitFullTelemetry() {
+    if (!this.onStateUpdate) return;
+
+    const telemetry = this.computeFullSpectrumTelemetry();
+
+    // Emit to frontend with special telemetry marker
+    this.onStateUpdate({
+      ...this.getState(),
+      fullTelemetry: telemetry,
+      telemetryType: 'full_spectrum',
+    } as any);
+  }
+
+  /**
+   * Periodic telemetry broadcast (every 5 iterations)
+   */
+  private shouldEmitTelemetry(): boolean {
+    return this.state.iteration % 5 === 0;
+  }
+
   private summarizeLearnings(): any {
     const topPatterns = Object.entries(this.memory.patterns.promisingWords)
       .sort((a, b) => b[1] - a[1])
