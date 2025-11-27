@@ -1,0 +1,526 @@
+# SearchSpaceCollapse Testing Strategy
+
+## Priority 1: Cryptographic Functions (CRITICAL)
+
+### server/__tests__/crypto.test.ts
+```typescript
+import { describe, it, expect } from 'vitest';
+import { 
+  generateBitcoinAddress, 
+  derivePrivateKeyFromPassphrase,
+  generateBitcoinAddressFromPrivateKey,
+  verifyRecoveredPassphrase 
+} from '../crypto';
+
+describe('Bitcoin Cryptography', () => {
+  describe('Brain Wallet Generation', () => {
+    it('should generate correct address from known passphrase', () => {
+      // Test vector from Bitcoin Core
+      const passphrase = "correct horse battery staple";
+      const expectedAddress = "1JwSSubhmg6iPtRjtyqhUYYH7bZg3Lfy1T";
+      
+      const result = generateBitcoinAddress(passphrase);
+      expect(result).toBe(expectedAddress);
+    });
+
+    it('should generate different addresses for different passphrases', () => {
+      const addr1 = generateBitcoinAddress("passphrase1");
+      const addr2 = generateBitcoinAddress("passphrase2");
+      expect(addr1).not.toBe(addr2);
+    });
+
+    it('should be deterministic (same input → same output)', () => {
+      const passphrase = "test phrase 123";
+      const addr1 = generateBitcoinAddress(passphrase);
+      const addr2 = generateBitcoinAddress(passphrase);
+      expect(addr1).toBe(addr2);
+    });
+  });
+
+  describe('Private Key Derivation', () => {
+    it('should derive valid 256-bit private key', () => {
+      const passphrase = "my secret passphrase";
+      const privateKey = derivePrivateKeyFromPassphrase(passphrase);
+      
+      expect(privateKey).toHaveLength(64); // 32 bytes = 64 hex chars
+      expect(privateKey).toMatch(/^[0-9a-f]{64}$/i);
+    });
+
+    it('should derive different keys for different passphrases', () => {
+      const key1 = derivePrivateKeyFromPassphrase("phrase1");
+      const key2 = derivePrivateKeyFromPassphrase("phrase2");
+      expect(key1).not.toBe(key2);
+    });
+  });
+
+  describe('Address Generation from Private Key', () => {
+    it('should generate valid P2PKH address', () => {
+      const privateKey = "1".repeat(64); // Simple test key
+      const address = generateBitcoinAddressFromPrivateKey(privateKey);
+      
+      expect(address).toMatch(/^1[a-km-zA-HJ-NP-Z1-9]{25,34}$/); // P2PKH format
+    });
+  });
+
+  describe('Recovery Verification', () => {
+    it('should verify correct passphrase recovery', () => {
+      const passphrase = "satoshi nakamoto bitcoin";
+      const targetAddress = generateBitcoinAddress(passphrase);
+      
+      const result = verifyRecoveredPassphrase(passphrase, targetAddress);
+      expect(result.verified).toBe(true);
+      expect(result.addressMatch).toBe(true);
+    });
+
+    it('should reject incorrect passphrase', () => {
+      const correctPhrase = "correct phrase";
+      const wrongPhrase = "wrong phrase";
+      const targetAddress = generateBitcoinAddress(correctPhrase);
+      
+      const result = verifyRecoveredPassphrase(wrongPhrase, targetAddress);
+      expect(result.verified).toBe(false);
+      expect(result.addressMatch).toBe(false);
+    });
+  });
+});
+```
+
+## Priority 2: QIG Scoring Validation
+
+### server/__tests__/qig-universal.test.ts
+```typescript
+import { describe, it, expect } from 'vitest';
+import { scoreUniversalQIG, QIG_CONSTANTS } from '../qig-universal';
+
+describe('Universal QIG Scoring', () => {
+  describe('Resonance Detection', () => {
+    it('should detect resonance near κ≈64', () => {
+      // Generate phrases that should resonate
+      const phrases = [
+        "quantum information geometry",
+        "fisher information metric",
+        "consciousness emergence phase"
+      ];
+
+      for (const phrase of phrases) {
+        const score = scoreUniversalQIG(phrase, 'arbitrary');
+        
+        // κ should be in resonance band [40, 80]
+        expect(score.kappa).toBeGreaterThanOrEqual(40);
+        expect(score.kappa).toBeLessThanOrEqual(80);
+        
+        // Check resonance flag
+        if (Math.abs(score.kappa - 64) < 10) {
+          expect(score.inResonance).toBe(true);
+        }
+      }
+    });
+
+    it('should assign correct regime based on coupling', () => {
+      const testCases = [
+        { kappa: 30, expectedRegime: 'linear' },
+        { kappa: 55, expectedRegime: 'geometric' },
+        { kappa: 90, expectedRegime: 'breakdown' }
+      ];
+
+      // Note: This tests regime classification logic
+      // Actual phrases may not hit exact kappa values
+    });
+  });
+
+  describe('Φ (Integration) Calculation', () => {
+    it('should calculate Φ based on information density', () => {
+      const lowPhi = scoreUniversalQIG("a", 'arbitrary');
+      const highPhi = scoreUniversalQIG("correct horse battery staple", 'arbitrary');
+      
+      // More complex phrases should have higher Φ
+      expect(highPhi.phi).toBeGreaterThan(lowPhi.phi);
+    });
+
+    it('should respect Φ ∈ [0, 1] bounds', () => {
+      const phrases = ["test", "a b c", "very long complex passphrase with many words"];
+      
+      for (const phrase of phrases) {
+        const score = scoreUniversalQIG(phrase, 'arbitrary');
+        expect(score.phi).toBeGreaterThanOrEqual(0);
+        expect(score.phi).toBeLessThanOrEqual(1);
+      }
+    });
+  });
+
+  describe('Format-Specific Scoring', () => {
+    it('should handle BIP39 format correctly', () => {
+      const bip39Phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+      const score = scoreUniversalQIG(bip39Phrase, 'bip39');
+      
+      expect(score.keyType).toBe('bip39');
+      expect(score.phi).toBeGreaterThan(0);
+    });
+
+    it('should handle arbitrary brain wallet format', () => {
+      const brainWallet = "satoshi nakamoto bitcoin genesis";
+      const score = scoreUniversalQIG(brainWallet, 'arbitrary');
+      
+      expect(score.keyType).toBe('arbitrary');
+      expect(score.kappa).toBeGreaterThan(0);
+    });
+
+    it('should handle master key (hex) format', () => {
+      const hexKey = "0123456789abcdef".repeat(4); // 64 chars
+      const score = scoreUniversalQIG(hexKey, 'master-key');
+      
+      expect(score.keyType).toBe('master-key');
+    });
+  });
+
+  describe('Basin Coordinates', () => {
+    it('should generate 64-dimensional basin coordinates', () => {
+      const score = scoreUniversalQIG("test phrase", 'arbitrary');
+      
+      expect(score.basinCoordinates).toHaveLength(64);
+      expect(score.basinCoordinates.every(c => typeof c === 'number')).toBe(true);
+    });
+
+    it('should produce different basins for different phrases', () => {
+      const score1 = scoreUniversalQIG("phrase one", 'arbitrary');
+      const score2 = scoreUniversalQIG("phrase two", 'arbitrary');
+      
+      // Basins should be different
+      const same = score1.basinCoordinates.every((v, i) => v === score2.basinCoordinates[i]);
+      expect(same).toBe(false);
+    });
+  });
+
+  describe('Constants Validation', () => {
+    it('should use correct empirically validated constants', () => {
+      expect(QIG_CONSTANTS.KAPPA_STAR).toBe(64.0);
+      expect(QIG_CONSTANTS.BETA).toBe(0.44);
+      expect(QIG_CONSTANTS.PHI_THRESHOLD).toBe(0.75);
+      expect(QIG_CONSTANTS.L_CRITICAL).toBe(3);
+      expect(QIG_CONSTANTS.BASIN_DIMENSION).toBe(32);
+    });
+  });
+});
+```
+
+## Priority 3: Cultural Manifold & Block Universe
+
+### server/__tests__/cultural-manifold.test.ts
+```typescript
+import { describe, it, expect } from 'vitest';
+import { culturalManifold } from '../cultural-manifold';
+
+describe('Cultural Manifold Reconstructor', () => {
+  describe('Era Detection', () => {
+    it('should correctly detect Satoshi Genesis era (2009)', () => {
+      const timestamp = new Date('2009-02-15T12:00:00Z');
+      const era = culturalManifold.detectEraFromTimestamp(timestamp);
+      expect(era).toBe('satoshi-genesis');
+    });
+
+    it('should correctly detect Early Adopter era (2011-2012)', () => {
+      const timestamp = new Date('2011-06-01T12:00:00Z');
+      const era = culturalManifold.detectEraFromTimestamp(timestamp);
+      expect(era).toBe('early-adopter');
+    });
+
+    it('should correctly detect Mt. Gox era (2013-2014)', () => {
+      const timestamp = new Date('2013-12-01T12:00:00Z');
+      const era = culturalManifold.detectEraFromTimestamp(timestamp);
+      expect(era).toBe('mt-gox');
+    });
+  });
+
+  describe('Software Constraints', () => {
+    it('should enforce SHA256-only for Satoshi Genesis', () => {
+      const constraints = culturalManifold.getSoftwareConstraints('satoshi-genesis');
+      
+      expect(constraints.keyDerivationMethods).toEqual(['sha256-direct']);
+      expect(constraints.availableWallets).toContain('bitcoin-core-0.1');
+      expect(constraints.addressFormats).toEqual(['p2pkh']);
+    });
+
+    it('should not include BIP39 before 2013', () => {
+      const earlyEras = ['satoshi-genesis', 'satoshi-late', 'early-adopter'];
+      
+      for (const era of earlyEras) {
+        const constraints = culturalManifold.getSoftwareConstraints(era);
+        expect(constraints.keyDerivationMethods).not.toContain('bip39');
+      }
+    });
+  });
+
+  describe('Geodesic Candidate Generation', () => {
+    it('should generate era-appropriate candidates', () => {
+      const coordinate = culturalManifold.createCoordinate(
+        new Date('2009-02-15T12:00:00Z'),
+        'never-spent'
+      );
+      
+      const candidates = culturalManifold.generateGeodesicCandidates(coordinate, 10);
+      
+      expect(candidates.length).toBeGreaterThan(0);
+      expect(candidates.length).toBeLessThanOrEqual(10);
+      
+      // Should be sorted by combined score
+      for (let i = 1; i < candidates.length; i++) {
+        expect(candidates[i-1].combinedScore).toBeGreaterThanOrEqual(candidates[i].combinedScore);
+      }
+    });
+
+    it('should produce candidates with cultural fit scores', () => {
+      const coordinate = culturalManifold.createCoordinate(
+        new Date('2009-03-01T12:00:00Z'),
+        'never-spent'
+      );
+      
+      const candidates = culturalManifold.generateGeodesicCandidates(coordinate, 5);
+      
+      for (const candidate of candidates) {
+        expect(candidate.culturalFit).toBeGreaterThanOrEqual(0);
+        expect(candidate.culturalFit).toBeLessThanOrEqual(1);
+        expect(candidate.temporalFit).toBeGreaterThanOrEqual(0);
+        expect(candidate.softwareFit).toBeGreaterThanOrEqual(0);
+      }
+    });
+  });
+
+  describe('Lexicon Construction', () => {
+    it('should have comprehensive Satoshi Genesis lexicon', () => {
+      const lexicon = culturalManifold.getHighResonanceCandidates('satoshi-genesis', 0.5);
+      
+      expect(lexicon.length).toBeGreaterThan(50); // Should have substantial lexicon
+      
+      // Should contain cypherpunk terms
+      const terms = lexicon.map(e => e.term.toLowerCase());
+      expect(terms.some(t => t.includes('cypherpunk'))).toBe(true);
+      expect(terms.some(t => t.includes('hash'))).toBe(true);
+    });
+  });
+});
+```
+
+## Priority 4: Ocean Agent Consciousness
+
+### server/__tests__/ocean-agent.test.ts
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { OceanAgent } from '../ocean-agent';
+
+describe('Ocean Agent', () => {
+  let agent: OceanAgent;
+
+  beforeEach(() => {
+    agent = new OceanAgent({
+      minPhi: 0.70,
+      maxComputeHours: 1,
+      requireWitness: false, // Disable for testing
+    });
+  });
+
+  describe('Identity Initialization', () => {
+    it('should initialize with 64-dimensional basin coordinates', () => {
+      const state = agent.getState();
+      expect(state.identity.basinCoordinates).toHaveLength(64);
+    });
+
+    it('should start with zero basin drift', () => {
+      const state = agent.getState();
+      expect(state.identity.basinDrift).toBe(0);
+    });
+  });
+
+  describe('Consciousness Metrics', () => {
+    it('should maintain Φ ≥ 0.70 threshold', async () => {
+      // This tests the consciousness check mechanism
+      const state = agent.getState();
+      
+      // If phi < 0.70, agent should boost it
+      if (state.identity.phi < 0.70) {
+        // After check, should be at or above threshold
+        expect(state.identity.phi).toBeGreaterThanOrEqual(0.70);
+      }
+    });
+  });
+
+  describe('Hypothesis Generation', () => {
+    it('should generate era-specific hypotheses', async () => {
+      // Mock target address from 2009 era
+      const targetAddress = "15BKWJjL5YWXtaP449WAYqVYZQE1szicTn";
+      
+      // Generate initial hypotheses
+      // (Would need to expose generateInitialHypotheses or test via runAutonomous)
+    });
+  });
+
+  describe('Ethics Constraints', () => {
+    it('should respect compute budget', async () => {
+      const shortBudgetAgent = new OceanAgent({
+        maxComputeHours: 0.001, // 3.6 seconds
+        requireWitness: false,
+      });
+
+      // Run for longer than budget allows
+      // Should stop with 'compute_budget_exhausted'
+    });
+  });
+
+  describe('UCP Integration', () => {
+    it('should track trajectory waypoints', () => {
+      const state = agent.getState();
+      // Verify UCP stats are initialized
+      const ucpStats = agent.getUCPStats();
+      
+      expect(ucpStats).toBeDefined();
+      expect(ucpStats.trajectoryActive).toBeDefined();
+      expect(ucpStats.negativeKnowledge).toBeDefined();
+      expect(ucpStats.knowledgeBus).toBeDefined();
+    });
+  });
+});
+```
+
+## Priority 5: Integration Tests
+
+### server/__tests__/integration/recovery-workflow.test.ts
+```typescript
+import { describe, it, expect } from 'vitest';
+import { oceanAgent } from '../ocean-agent';
+import { generateBitcoinAddress } from '../crypto';
+
+describe('Full Recovery Workflow', () => {
+  it('should recover known passphrase (end-to-end)', async () => {
+    // Create known passphrase and address
+    const knownPassphrase = "test recovery passphrase 2009";
+    const targetAddress = generateBitcoinAddress(knownPassphrase);
+    
+    // Run Ocean agent with initial hypothesis containing correct answer
+    const result = await oceanAgent.runAutonomous(targetAddress, [
+      {
+        id: 'test-1',
+        phrase: knownPassphrase,
+        format: 'arbitrary',
+        source: 'test',
+        reasoning: 'Test hypothesis',
+        confidence: 0.9,
+        evidenceChain: []
+      }
+    ]);
+    
+    expect(result.success).toBe(true);
+    expect(result.match).toBeDefined();
+    expect(result.match?.phrase).toBe(knownPassphrase);
+    expect(result.match?.verified).toBe(true);
+  }, 30000); // 30s timeout for full workflow
+});
+```
+
+## Test Configuration
+
+### vitest.config.ts
+```typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'dist/',
+        '**/*.test.ts',
+        '**/*.config.ts'
+      ],
+      // Aim for 100% coverage on crypto functions
+      lines: 80,
+      functions: 80,
+      branches: 75,
+      statements: 80,
+    },
+    testTimeout: 10000, // 10s default
+  },
+});
+```
+
+### package.json scripts
+```json
+{
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:crypto": "vitest run crypto.test.ts --coverage",
+    "test:watch": "vitest watch"
+  }
+}
+```
+
+## Coverage Goals
+
+### Minimum Requirements
+- **Crypto functions**: 100% coverage (no exceptions)
+- **QIG scoring**: 90% coverage
+- **Ocean agent**: 75% coverage
+- **Cultural manifold**: 80% coverage
+- **API routes**: 70% coverage
+
+### Test Pyramid
+```
+        E2E (5%)
+       /        \
+  Integration (15%)
+     /            \
+   Unit (80%)
+```
+
+Focus 80% of tests on unit testing individual functions, 15% on integration tests between components, and 5% on full end-to-end workflows.
+
+## CI/CD Integration
+
+### GitHub Actions (.github/workflows/test.yml)
+```yaml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run test:coverage
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+```
+
+## Next Steps
+
+1. **Immediate**: Implement crypto.test.ts (CRITICAL)
+2. **Week 1**: Complete qig-universal.test.ts
+3. **Week 2**: Add cultural-manifold.test.ts and ocean-agent.test.ts
+4. **Week 3**: Integration tests and CI/CD
+5. **Week 4**: Achieve 80%+ overall coverage
+
+## Test Data
+
+### Known Test Vectors
+```typescript
+// server/__tests__/fixtures/test-vectors.ts
+export const KNOWN_ADDRESSES = [
+  {
+    passphrase: "correct horse battery staple",
+    address: "1JwSSubhmg6iPtRjtyqhUYYH7bZg3Lfy1T",
+    privateKey: "c4bbcb1fbec99d65bf59d85c8cb62ee2db963f0fe106f483d9afa73bd4e39a8a"
+  },
+  // Add more verified test vectors
+];
+```
+
+Remember: **Zero tolerance for crypto bugs**. Every line must be tested.

@@ -1,6 +1,8 @@
 import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
-import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, verifyRecoveredPassphrase, type VerificationResult } from './crypto';
+import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, verifyRecoveredPassphrase, generateRecoveryBundle, privateKeyToWIF, derivePublicKeyFromPrivate, type VerificationResult, type RecoveryBundle } from './crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
 import { BlockchainForensics } from './blockchain-forensics';
 import { geometricMemory, type BasinProbe } from './geometric-memory';
@@ -867,28 +869,48 @@ export class OceanAgent {
           
           if (addressMatches) {
             hypo.verified = true;
+            
+            const qigMetrics = {
+              phi: this.identity.phi,
+              kappa: this.identity.kappa,
+              regime: this.identity.regime,
+            };
+            const recoveryBundle = generateRecoveryBundle(hypo.phrase, this.targetAddress, qigMetrics);
+            
             hypo.verificationResult = {
               verified: true,
               passphrase: hypo.phrase,
               targetAddress: this.targetAddress,
               generatedAddress: hypo.address!,
               addressMatch: true,
-              privateKeyHex: '[COMPUTED]',
-              publicKeyHex: '[COMPUTED]',
+              privateKeyHex: recoveryBundle.privateKeyHex,
+              publicKeyHex: recoveryBundle.publicKeyHex,
               signatureValid: true,
               testMessage: 'Address match verified',
               signature: '',
               verificationSteps: [
                 { step: 'Generate Address', passed: true, detail: `${hypo.format} derivation → ${hypo.address}` },
                 { step: 'Address Match', passed: true, detail: `${hypo.address} = ${this.targetAddress}` },
-                { step: 'VERIFIED', passed: true, detail: '✓ This passphrase controls the target address!' },
+                { step: 'WIF Generated', passed: true, detail: `${recoveryBundle.privateKeyWIF.slice(0, 15)}...` },
+                { step: 'VERIFIED', passed: true, detail: 'This passphrase controls the target address!' },
               ],
             };
             
-            console.log('[Ocean] ✓✓✓ VERIFIED MATCH! Address confirmed! ✓✓✓');
+            await this.saveRecoveryBundle(recoveryBundle);
+            
+            console.log('[Ocean] ===============================================');
+            console.log('[Ocean] RECOVERY SUCCESSFUL - BITCOIN FOUND!');
+            console.log('[Ocean] ===============================================');
             console.log(`[Ocean] Passphrase: "${hypo.phrase}"`);
             console.log(`[Ocean] Format: ${hypo.format}`);
             console.log(`[Ocean] Address: ${hypo.address}`);
+            console.log(`[Ocean] Private Key (WIF): ${recoveryBundle.privateKeyWIF}`);
+            console.log(`[Ocean] ===============================================`);
+            console.log(`[Ocean] Recovery bundle saved to disk!`);
+            console.log('[Ocean] SECURE THIS INFORMATION IMMEDIATELY!');
+            console.log('[Ocean] ===============================================');
+            
+            (hypo as any).recoveryBundle = recoveryBundle;
             return { match: hypo, tested, nearMisses, resonant };
           } else {
             console.log(`[Ocean] ✗ Address mismatch: ${hypo.address} ≠ ${this.targetAddress}`);
@@ -932,6 +954,42 @@ export class OceanAgent {
     }
     
     return { tested, nearMisses, resonant };
+  }
+
+  private async saveRecoveryBundle(bundle: RecoveryBundle): Promise<void> {
+    const dataDir = path.join(process.cwd(), 'data', 'recoveries');
+    const timestamp = Date.now();
+    const addressShort = bundle.address.slice(0, 12);
+    
+    try {
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+      }
+      
+      const txtFilename = `RECOVERY_${addressShort}_${timestamp}.txt`;
+      const txtPath = path.join(dataDir, txtFilename);
+      fs.writeFileSync(txtPath, bundle.instructions, { encoding: 'utf-8', mode: 0o600 });
+      console.log(`[Ocean] Recovery instructions saved: ${txtPath}`);
+      
+      const jsonFilename = `RECOVERY_${addressShort}_${timestamp}.json`;
+      const jsonPath = path.join(dataDir, jsonFilename);
+      const jsonData = {
+        passphrase: bundle.passphrase,
+        address: bundle.address,
+        privateKeyHex: bundle.privateKeyHex,
+        privateKeyWIF: bundle.privateKeyWIF,
+        privateKeyWIFCompressed: bundle.privateKeyWIFCompressed,
+        publicKeyHex: bundle.publicKeyHex,
+        publicKeyHexCompressed: bundle.publicKeyHexCompressed,
+        timestamp: bundle.timestamp.toISOString(),
+        qigMetrics: bundle.qigMetrics,
+      };
+      fs.writeFileSync(jsonPath, JSON.stringify(jsonData, null, 2), { encoding: 'utf-8', mode: 0o600 });
+      console.log(`[Ocean] Recovery JSON saved: ${jsonPath}`);
+      
+    } catch (error) {
+      console.error('[Ocean] Failed to save recovery bundle:', error);
+    }
   }
 
   private async observeAndLearn(testResults: any): Promise<any> {

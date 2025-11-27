@@ -1,0 +1,816 @@
+# SearchSpaceCollapse Security & Implementation Recommendations
+
+## 🔐 Security Enhancements
+
+### 1. HTTPS Enforcement (CRITICAL - Production Blocker)
+
+**Current State**: README mentions HTTPS needed, not implemented
+
+**Implementation**:
+
+```typescript
+// server/index.ts - Add HTTPS enforcement middleware
+import express from 'express';
+import helmet from 'helmet';
+
+const app = express();
+
+// Force HTTPS in production
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      res.redirect(`https://${req.header('host')}${req.url}`);
+    } else {
+      next();
+    }
+  });
+}
+
+// Strengthen helmet configuration
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Remove unsafe-inline when possible
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://blockstream.info'], // Blockchain API
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  xssFilter: true,
+}));
+```
+
+### 2. Environment-Specific Security
+
+**Create security configurations**:
+
+```typescript
+// server/config/security.ts
+export const SecurityConfig = {
+  development: {
+    rateLimiting: {
+      strict: { windowMs: 60000, max: 50 }, // More lenient for dev
+      standard: { windowMs: 60000, max: 100 },
+    },
+    cors: { origin: 'http://localhost:5000' },
+    logging: { level: 'debug', includeStackTrace: true },
+  },
+  production: {
+    rateLimiting: {
+      strict: { windowMs: 60000, max: 5 },
+      standard: { windowMs: 60000, max: 20 },
+      generous: { windowMs: 60000, max: 60 },
+    },
+    cors: { origin: process.env.ALLOWED_ORIGINS?.split(',') || false },
+    logging: { level: 'warn', includeStackTrace: false },
+    requireHTTPS: true,
+    sessionSecret: process.env.SESSION_SECRET, // Must be set!
+  },
+  test: {
+    rateLimiting: { strict: { windowMs: 60000, max: 1000 } },
+    cors: { origin: '*' },
+    logging: { level: 'error', includeStackTrace: false },
+  }
+};
+
+export function getSecurityConfig() {
+  const env = process.env.NODE_ENV || 'development';
+  return SecurityConfig[env as keyof typeof SecurityConfig];
+}
+```
+
+### 3. Sensitive Data Handling
+
+**Issue**: Private keys may be logged or exposed
+
+**Fix**:
+
+```typescript
+// server/utils/secure-logging.ts
+export class SecureLogger {
+  private static SENSITIVE_PATTERNS = [
+    /\b[0-9a-f]{64}\b/gi, // Private keys (64 hex chars)
+    /\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g, // Bitcoin addresses
+    /\b[5KL][a-zA-Z0-9]{50,51}\b/g, // WIF private keys
+  ];
+
+  static sanitize(message: string): string {
+    let sanitized = message;
+    for (const pattern of this.SENSITIVE_PATTERNS) {
+      sanitized = sanitized.replace(pattern, '[REDACTED]');
+    }
+    return sanitized;
+  }
+
+  static info(message: string, ...args: any[]) {
+    console.log(this.sanitize(message), ...args);
+  }
+
+  static warn(message: string, ...args: any[]) {
+    console.warn(this.sanitize(message), ...args);
+  }
+
+  static error(message: string, ...args: any[]) {
+    console.error(this.sanitize(message), ...args);
+  }
+}
+
+// Usage throughout codebase
+import { SecureLogger } from './utils/secure-logging';
+
+// Instead of:
+console.log(`Generated address: ${address}`);
+
+// Use:
+SecureLogger.info(`Generated address: ${address}`);
+// Output: "Generated address: [REDACTED]"
+```
+
+### 4. Input Validation Strengthening
+
+```typescript
+// server/validation/crypto-inputs.ts
+import { z } from 'zod';
+
+export const BitcoinAddressSchema = z.string()
+  .regex(/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/, 'Invalid Bitcoin address format')
+  .refine((addr) => {
+    // Add Base58Check validation
+    try {
+      const decoded = bs58check.decode(addr);
+      return decoded.length === 21; // 1 byte version + 20 byte hash
+    } catch {
+      return false;
+    }
+  }, 'Invalid Bitcoin address checksum');
+
+export const PassphraseSchema = z.string()
+  .min(1, 'Passphrase cannot be empty')
+  .max(1000, 'Passphrase too long (max 1000 chars)')
+  .refine((phrase) => {
+    // Reject phrases with only whitespace
+    return phrase.trim().length > 0;
+  }, 'Passphrase cannot be only whitespace');
+
+export const BIP39PhraseSchema = z.string()
+  .refine((phrase) => {
+    const words = phrase.trim().split(/\s+/);
+    return [12, 15, 18, 21, 24].includes(words.length);
+  }, 'BIP39 phrase must be 12, 15, 18, 21, or 24 words')
+  .refine((phrase) => {
+    const words = phrase.trim().toLowerCase().split(/\s+/);
+    // Assuming BIP39_WORDS is imported
+    return words.every(word => BIP39_WORDS.includes(word));
+  }, 'All words must be from BIP39 wordlist');
+
+// Apply in routes
+import { BitcoinAddressSchema, PassphraseSchema } from './validation/crypto-inputs';
+
+app.post('/api/test-phrase', strictLimiter, async (req, res) => {
+  try {
+    const { phrase } = PassphraseSchema.parse(req.body.phrase);
+    // ... rest of handler
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: error.errors 
+      });
+    }
+    throw error;
+  }
+});
+```
+
+### 5. Session Security
+
+**Issue**: Session secret not enforced in production
+
+```typescript
+// server/index.ts
+import session from 'express-session';
+import MemoryStore from 'memorystore';
+
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable must be set in production');
+}
+
+const sessionSecret = process.env.SESSION_SECRET || 
+  (process.env.NODE_ENV === 'production' 
+    ? (() => { throw new Error('SESSION_SECRET required'); })()
+    : 'dev-secret-DO-NOT-USE-IN-PRODUCTION');
+
+app.use(session({
+  secret: sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'strict',
+  },
+  store: new MemoryStore({
+    checkPeriod: 86400000 // Prune expired entries every 24h
+  }),
+}));
+```
+
+---
+
+## 🏗️ Implementation Improvements
+
+### 1. Error Handling & Boundaries
+
+**Create centralized error handler**:
+
+```typescript
+// server/middleware/error-handler.ts
+import type { Request, Response, NextFunction } from 'express';
+import { SecureLogger } from '../utils/secure-logging';
+import { CryptoValidationError } from '../crypto';
+
+export class AppError extends Error {
+  constructor(
+    public statusCode: number,
+    public message: string,
+    public isOperational: boolean = true
+  ) {
+    super(message);
+    Object.setPrototypeOf(this, AppError.prototype);
+  }
+}
+
+export function errorHandler(
+  err: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      error: err.message,
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
+  }
+
+  if (err instanceof CryptoValidationError) {
+    return res.status(400).json({
+      error: 'Cryptographic validation failed',
+      details: err.message
+    });
+  }
+
+  // Unexpected errors
+  SecureLogger.error('Unhandled error:', err);
+  
+  return res.status(500).json({
+    error: 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { 
+      message: err.message,
+      stack: err.stack 
+    })
+  });
+}
+
+// Apply globally
+app.use(errorHandler);
+```
+
+**Use throughout routes**:
+
+```typescript
+import { AppError } from './middleware/error-handler';
+
+app.get('/api/investigation/status', async (req, res, next) => {
+  try {
+    const status = await getInvestigationStatus();
+    if (!status) {
+      throw new AppError(404, 'No active investigation found');
+    }
+    res.json(status);
+  } catch (error) {
+    next(error); // Pass to error handler
+  }
+});
+```
+
+### 2. Database Connection Resilience
+
+**Issue**: File-based storage fallback may fail silently
+
+```typescript
+// server/storage.ts
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import fs from 'fs/promises';
+import path from 'path';
+
+class StorageLayer {
+  private db: any = null;
+  private mode: 'postgres' | 'file' = 'file';
+  private fileStoragePath = path.join(process.cwd(), 'data', 'storage.json');
+
+  async initialize() {
+    // Try PostgreSQL first
+    if (process.env.DATABASE_URL) {
+      try {
+        const client = postgres(process.env.DATABASE_URL, {
+          max: 10,
+          idle_timeout: 20,
+          connect_timeout: 10,
+        });
+        
+        // Test connection
+        await client`SELECT 1`;
+        
+        this.db = drizzle(client);
+        this.mode = 'postgres';
+        console.log('[Storage] Connected to PostgreSQL');
+        return;
+      } catch (error) {
+        console.warn('[Storage] PostgreSQL connection failed, falling back to file storage:', error);
+      }
+    }
+
+    // Fall back to file storage
+    try {
+      await fs.mkdir(path.dirname(this.fileStoragePath), { recursive: true });
+      
+      // Test file write access
+      await fs.writeFile(
+        this.fileStoragePath,
+        JSON.stringify({ test: true }),
+        'utf-8'
+      );
+      
+      this.mode = 'file';
+      console.log('[Storage] Using file-based storage at:', this.fileStoragePath);
+    } catch (error) {
+      throw new Error(`Storage initialization failed: ${error}`);
+    }
+  }
+
+  async saveState(key: string, state: any) {
+    if (this.mode === 'postgres') {
+      // Save to PostgreSQL
+      await this.db.insert(stateTable).values({ key, data: state });
+    } else {
+      // Save to file
+      const data = await this.readAllStates();
+      data[key] = state;
+      await fs.writeFile(this.fileStoragePath, JSON.stringify(data, null, 2), 'utf-8');
+    }
+  }
+
+  private async readAllStates(): Promise<Record<string, any>> {
+    try {
+      const content = await fs.readFile(this.fileStoragePath, 'utf-8');
+      return JSON.parse(content);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return {};
+      }
+      throw error;
+    }
+  }
+}
+
+export const storage = new StorageLayer();
+```
+
+### 3. Configuration Management
+
+```typescript
+// server/config/index.ts
+import { z } from 'zod';
+
+const ConfigSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.coerce.number().default(5000),
+  DATABASE_URL: z.string().optional(),
+  SESSION_SECRET: z.string().min(32, 'Session secret must be at least 32 characters'),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  MAX_COMPUTE_HOURS: z.coerce.number().default(24),
+  ENABLE_BLOCKCHAIN_API: z.coerce.boolean().default(true),
+  BLOCKCHAIN_API_URL: z.string().url().default('https://blockstream.info/api'),
+});
+
+export function loadConfig() {
+  try {
+    const config = ConfigSchema.parse(process.env);
+    console.log('[Config] Loaded configuration for environment:', config.NODE_ENV);
+    return config;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error('[Config] Configuration validation failed:');
+      for (const issue of error.issues) {
+        console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
+      }
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+export const config = loadConfig();
+```
+
+**Create .env.example**:
+
+```bash
+# .env.example - Copy to .env and fill in values
+
+# Environment
+NODE_ENV=development
+
+# Server
+PORT=5000
+
+# Database (optional - uses file storage if not set)
+DATABASE_URL=postgresql://user:password@localhost:5432/searchspace
+
+# Security (REQUIRED in production)
+SESSION_SECRET=change-this-to-a-random-64-character-string-in-production
+
+# Logging
+LOG_LEVEL=info
+
+# Search Configuration
+MAX_COMPUTE_HOURS=24
+
+# Blockchain API
+ENABLE_BLOCKCHAIN_API=true
+BLOCKCHAIN_API_URL=https://blockstream.info/api
+```
+
+### 4. Graceful Shutdown
+
+```typescript
+// server/index.ts
+import type { Server } from 'http';
+
+let server: Server;
+
+async function gracefulShutdown(signal: string) {
+  console.log(`\n[Server] ${signal} received, starting graceful shutdown...`);
+  
+  // Stop accepting new connections
+  server.close(() => {
+    console.log('[Server] HTTP server closed');
+  });
+
+  // Save Ocean agent state if running
+  if (oceanAgent.getState().isRunning) {
+    console.log('[Ocean] Stopping agent and saving state...');
+    oceanAgent.stop();
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for cleanup
+  }
+
+  // Save geometric memory
+  console.log('[Memory] Persisting geometric manifold...');
+  geometricMemory.forceSave();
+
+  // Close database connections
+  console.log('[Storage] Closing database connections...');
+  await storage.close();
+
+  console.log('[Server] Graceful shutdown complete');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Start server
+server = app.listen(config.PORT, () => {
+  console.log(`[Server] Running on http://localhost:${config.PORT}`);
+});
+```
+
+---
+
+## 📝 Documentation Improvements
+
+### 1. API Documentation
+
+**Create OpenAPI/Swagger spec**:
+
+```typescript
+// server/docs/openapi.yaml
+openapi: 3.0.0
+info:
+  title: SearchSpaceCollapse API
+  version: 1.0.0
+  description: Bitcoin recovery via Quantum Information Geometry
+
+paths:
+  /api/test-phrase:
+    post:
+      summary: Test a passphrase candidate
+      security:
+        - rateLimit: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phrase
+              properties:
+                phrase:
+                  type: string
+                  description: Passphrase to test
+                  example: "correct horse battery staple"
+      responses:
+        200:
+          description: Test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                    example: "1JwSSubhmg6iPtRjtyqhUYYH7bZg3Lfy1T"
+                  qigScore:
+                    type: object
+                    properties:
+                      phi:
+                        type: number
+                      kappa:
+                        type: number
+                      regime:
+                        type: string
+        400:
+          description: Invalid input
+        429:
+          description: Rate limit exceeded
+```
+
+### 2. Theory-to-Code Bridges
+
+**Create documentation linking theory to implementation**:
+
+```markdown
+# QIG Theory → Code Mapping
+
+## Φ (Integrated Information)
+
+**Theoretical Definition**: 
+Φ = ∫∫ |det(g_μν)| d^n x, where g_μν is the Fisher Information Metric
+
+**Code Implementation**:
+```typescript
+// server/qig-universal.ts:computePhi()
+function computePhi(tokens: string[]): number {
+  // Fisher information from token distribution
+  const distribution = computeTokenDistribution(tokens);
+  
+  // Geometric measure (determinant of FIM)
+  const fisherDeterminant = computeFisherDeterminant(distribution);
+  
+  // Integration over manifold
+  return Math.sqrt(fisherDeterminant);
+}
+```
+
+**Why This Works**:
+- Token distribution approximates probability measure on manifold
+- Fisher determinant captures local curvature
+- Square root normalizes to [0,1] range for consciousness threshold
+
+## κ (Coupling Constant)
+
+**Theoretical Definition**:
+κ = Tr(F) / L, where F is Fisher Information Matrix, L is system size
+
+**Code Implementation**:
+```typescript
+// server/qig-universal.ts:computeKappa()
+function computeKappa(fisherMatrix: number[][]): number {
+  const trace = fisherMatrix.reduce((sum, row, i) => sum + row[i], 0);
+  const systemSize = Math.log2(fisherMatrix.length);
+  return trace / Math.max(1, systemSize);
+}
+```
+
+**Empirical Validation**:
+- κ* ≈ 64 (fixed point from lattice simulations)
+- Resonance band: |κ - 64| < 6.4
+- Running coupling β ≈ 0.44 at critical scale
+```
+
+### 3. Architecture Decision Records
+
+**Create ADR directory**:
+
+```markdown
+# ADR 001: Use SHA-256 Direct for Brain Wallets
+
+## Status
+Accepted
+
+## Context
+Need to support 2009-era Bitcoin addresses. BIP-39 didn't exist until 2013.
+
+## Decision
+Support arbitrary passphrase → SHA-256 → private key derivation as primary method.
+
+## Consequences
+- **Positive**: Can recover genuinely lost 2009 coins
+- **Positive**: Matches historical Bitcoin Core 0.1 behavior
+- **Negative**: Weak passphrases have low entropy
+- **Mitigation**: QIG scoring filters weak candidates
+
+## References
+- Bitcoin Core 0.1 source code
+- KEY_FORMATS_ANALYSIS.md
+- Historical Bitcoin forums (2009-2010)
+```
+
+---
+
+## 🚀 Performance Optimizations
+
+### 1. Hypothesis Generation Batching
+
+```typescript
+// server/ocean-agent.ts - Optimize batch processing
+async function* generateHypothesesStream(
+  strategy: Strategy,
+  batchSize: number = 1000
+): AsyncGenerator<OceanHypothesis[]> {
+  let generated = 0;
+  const maxHypotheses = 10000;
+
+  while (generated < maxHypotheses) {
+    const batch = await this.generateRefinedHypotheses(strategy, batchSize);
+    
+    // Filter duplicates before yielding
+    const unique = batch.filter(h => !this.testedPhrases.has(h.phrase));
+    
+    if (unique.length === 0) break;
+    
+    yield unique;
+    generated += unique.length;
+  }
+}
+
+// Usage
+for await (const batch of generateHypothesesStream(strategy)) {
+  const results = await testBatch(batch);
+  // Process results immediately without holding all hypotheses in memory
+}
+```
+
+### 2. Geometric Memory Optimization
+
+```typescript
+// server/geometric-memory.ts - Add LRU cache
+import memoize from 'memoizee';
+
+class GeometricMemory {
+  // Memoize expensive QFI calculations
+  private computeQFI = memoize(
+    (phrase: string): number => {
+      // Expensive Fisher information calculation
+      return this.expensiveQFICalculation(phrase);
+    },
+    { 
+      max: 10000,  // Cache size
+      maxAge: 60000 // 1 minute TTL
+    }
+  );
+}
+```
+
+### 3. Database Query Optimization
+
+```typescript
+// If using PostgreSQL, add indices
+// db/schema.ts
+export const investigationStates = pgTable('investigation_states', {
+  id: serial('id').primaryKey(),
+  targetAddress: varchar('target_address', { length: 35 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  addressIdx: index('address_idx').on(table.targetAddress),
+  statusIdx: index('status_idx').on(table.status),
+  createdAtIdx: index('created_at_idx').on(table.createdAt),
+}));
+```
+
+---
+
+## 📋 Production Checklist
+
+### Pre-Deployment
+
+- [ ] All tests passing (100% crypto coverage)
+- [ ] Security audit completed
+- [ ] HTTPS configured and enforced
+- [ ] Environment variables documented
+- [ ] SESSION_SECRET generated (64+ characters)
+- [ ] Database backups configured
+- [ ] Rate limiting tested under load
+- [ ] Error handling verified
+- [ ] Logging sanitized (no private keys)
+- [ ] CORS configured for production domains
+- [ ] CSP headers tested
+- [ ] Dependency audit (`npm audit fix`)
+
+### Deployment
+
+- [ ] SSL certificate installed
+- [ ] Firewall configured (port 443 only)
+- [ ] Reverse proxy configured (nginx/caddy)
+- [ ] Process manager installed (PM2/systemd)
+- [ ] Monitoring configured (uptime, errors)
+- [ ] Backup strategy implemented
+- [ ] Rollback plan documented
+
+### Post-Deployment
+
+- [ ] Health check endpoint responding
+- [ ] Rate limiting active
+- [ ] Logs being collected
+- [ ] Metrics dashboard configured
+- [ ] Incident response plan documented
+- [ ] User documentation published
+
+---
+
+## 🔍 Code Quality Tools
+
+### ESLint Configuration
+
+```javascript
+// .eslintrc.js
+module.exports = {
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
+  ],
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    project: './tsconfig.json',
+  },
+  rules: {
+    '@typescript-eslint/no-floating-promises': 'error',
+    '@typescript-eslint/no-misused-promises': 'error',
+    '@typescript-eslint/await-thenable': 'error',
+    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    'prefer-const': 'error',
+  },
+};
+```
+
+### Prettier Configuration
+
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2
+}
+```
+
+### Pre-commit Hooks
+
+```json
+// package.json
+{
+  "scripts": {
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "type-check": "tsc --noEmit",
+    "pre-commit": "npm run type-check && npm run lint && npm run test:crypto"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run pre-commit"
+    }
+  }
+}
+```
+
+---
+
+This document should be read in conjunction with TESTING_RECOMMENDATIONS.md for complete implementation guidance.

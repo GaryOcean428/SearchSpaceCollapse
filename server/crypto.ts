@@ -407,3 +407,283 @@ export function generateAddressFromHex(hexPrivateKey: string): string {
   
   return generateBitcoinAddressFromPrivateKey(cleanHex);
 }
+
+/**
+ * Convert hex private key to WIF (Wallet Import Format)
+ * This is the format used by Bitcoin Core, Electrum, and most wallets
+ * 
+ * @param privateKeyHex - 64-character hex string
+ * @param compressed - Whether to use compressed format (default: false for 2009 addresses)
+ * @returns WIF-encoded private key (starts with '5' for uncompressed, 'K'/'L' for compressed)
+ */
+export function privateKeyToWIF(
+  privateKeyHex: string,
+  compressed: boolean = false
+): string {
+  validatePrivateKeyHex(privateKeyHex);
+
+  const prefix = Buffer.from([0x80]);
+  const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
+  
+  let payload: Buffer;
+  if (compressed) {
+    const suffix = Buffer.from([0x01]);
+    payload = Buffer.concat([prefix, privateKeyBuffer, suffix]);
+  } else {
+    payload = Buffer.concat([prefix, privateKeyBuffer]);
+  }
+  
+  return bs58check.encode(payload);
+}
+
+/**
+ * Derive public key from private key
+ * 
+ * @param privateKeyHex - 64-character hex string
+ * @param compressed - Whether to use compressed format
+ * @returns Public key in hex format
+ */
+export function derivePublicKeyFromPrivate(
+  privateKeyHex: string,
+  compressed: boolean = false
+): string {
+  validatePrivateKeyHex(privateKeyHex);
+
+  const keyPair = ec.keyFromPrivate(Buffer.from(privateKeyHex, 'hex'));
+  const publicKey = keyPair.getPublic(compressed, 'hex');
+  
+  return publicKey;
+}
+
+/**
+ * Complete recovery bundle with all formats needed to spend Bitcoin
+ */
+export interface RecoveryBundle {
+  passphrase: string;
+  address: string;
+  
+  privateKeyHex: string;
+  privateKeyWIF: string;
+  privateKeyWIFCompressed: string;
+  
+  publicKeyHex: string;
+  publicKeyHexCompressed: string;
+  
+  timestamp: Date;
+  qigMetrics?: {
+    phi: number;
+    kappa: number;
+    regime: string;
+  };
+  
+  instructions: string;
+}
+
+/**
+ * Generate complete recovery bundle for a found passphrase
+ * This creates EVERYTHING needed to spend the Bitcoin
+ */
+export function generateRecoveryBundle(
+  passphrase: string,
+  targetAddress: string,
+  qigMetrics?: { phi: number; kappa: number; regime: string }
+): RecoveryBundle {
+  const privateKeyHex = derivePrivateKeyFromPassphrase(passphrase);
+  
+  const privateKeyWIF = privateKeyToWIF(privateKeyHex, false);
+  const privateKeyWIFCompressed = privateKeyToWIF(privateKeyHex, true);
+  
+  const address = generateBitcoinAddressFromPrivateKey(privateKeyHex);
+  
+  if (address !== targetAddress) {
+    throw new CryptoValidationError(
+      `Address mismatch: generated ${address} !== target ${targetAddress}`
+    );
+  }
+  
+  const publicKeyHex = derivePublicKeyFromPrivate(privateKeyHex, false);
+  const publicKeyHexCompressed = derivePublicKeyFromPrivate(privateKeyHex, true);
+  
+  const instructions = generateRecoveryInstructions({
+    passphrase,
+    privateKeyHex,
+    privateKeyWIF,
+    privateKeyWIFCompressed,
+    address,
+    publicKeyHex,
+    qigMetrics,
+  });
+  
+  return {
+    passphrase,
+    address,
+    privateKeyHex,
+    privateKeyWIF,
+    privateKeyWIFCompressed,
+    publicKeyHex,
+    publicKeyHexCompressed,
+    timestamp: new Date(),
+    qigMetrics,
+    instructions,
+  };
+}
+
+function generateRecoveryInstructions(data: {
+  passphrase: string;
+  privateKeyHex: string;
+  privateKeyWIF: string;
+  privateKeyWIFCompressed: string;
+  address: string;
+  publicKeyHex: string;
+  qigMetrics?: { phi: number; kappa: number; regime: string };
+}): string {
+  const qigSection = data.qigMetrics ? `
+QIG CONSCIOUSNESS METRICS (Recovery Quality):
+
+Phi (Integration):     ${data.qigMetrics.phi.toFixed(3)}
+Kappa (Coupling):      ${data.qigMetrics.kappa.toFixed(1)}
+Regime:                ${data.qigMetrics.regime}
+Resonance:             ${Math.abs(data.qigMetrics.kappa - 64) < 10 ? 'RESONANT' : 'Non-resonant'}
+
+${Math.abs(data.qigMetrics.kappa - 64) < 10 && data.qigMetrics.phi > 0.75 
+  ? 'High-quality recovery (geometric regime, resonant coupling)'
+  : 'Standard recovery (functional but not optimal geometry)'
+}
+
+===============================================================
+` : '';
+
+  return `
+===============================================================
+           RECOVERY SUCCESSFUL - BITCOIN FOUND
+===============================================================
+
+CRITICAL: Read ALL instructions before proceeding!
+Your Bitcoin is at risk if you don't follow these steps!
+
+===============================================================
+PASSPHRASE (Original Brain Wallet):
+
+${data.passphrase}
+
+SECURITY: Write this on paper and store in a safe!
+NEVER type this into any website!
+NEVER take a photo/screenshot!
+
+===============================================================
+PRIVATE KEY FORMATS:
+
+Format 1: WIF (Wallet Import Format) - UNCOMPRESSED
+This is what you import into Bitcoin Core / Electrum:
+
+${data.privateKeyWIF}
+
+Format 2: WIF (Wallet Import Format) - COMPRESSED
+Alternative format (use if uncompressed doesn't work):
+
+${data.privateKeyWIFCompressed}
+
+Format 3: Hexadecimal (Advanced)
+For manual operations:
+
+${data.privateKeyHex}
+
+===============================================================
+BITCOIN ADDRESS (Verified):
+
+${data.address}
+
+===============================================================
+PUBLIC KEY (For Verification):
+
+${data.publicKeyHex}
+
+===============================================================
+${qigSection}
+NEXT STEPS TO ACCESS YOUR BITCOIN:
+
+STEP 1: SECURE THIS INFORMATION IMMEDIATELY
+-----------------------------------------
+
+- Print this document OR write the WIF on paper
+- Store in multiple secure locations (safe, bank vault)
+- NEVER store digitally (no USB drives, cloud, email)
+- Delete this file after securing
+
+STEP 2: IMPORT INTO BITCOIN WALLET
+-----------------------------------------
+
+OPTION A: Bitcoin Core (Most Secure - Recommended)
+1. Download Bitcoin Core from bitcoin.org
+2. Wait for full blockchain sync (~500GB, takes days)
+3. Open Console (Help -> Debug Window -> Console)
+4. Run: importprivkey "${data.privateKeyWIF}" "recovered" false
+5. Wait for rescan (can take hours)
+6. Your balance will appear in wallet
+
+OPTION B: Electrum (Faster - Good Security)
+1. Download Electrum from electrum.org
+2. Create new wallet (Standard wallet)
+3. Wallet -> Private Keys -> Import
+4. Paste: ${data.privateKeyWIF}
+5. Balance appears immediately (Electrum uses SPV)
+
+STEP 3: TEST BEFORE MOVING FUNDS
+-----------------------------------------
+
+Before moving large amounts, do a test transaction!
+
+1. Send $100-1000 to a test address
+2. Verify it arrives successfully
+3. Wait 6 confirmations (~1 hour)
+4. THEN move the rest to secure storage
+
+STEP 4: SECURE YOUR FUNDS LONG-TERM
+-----------------------------------------
+
+DO NOT leave funds at this address!
+
+1. Buy a hardware wallet (Ledger, Trezor, Coldcard)
+2. Generate NEW addresses on hardware wallet
+3. Sweep ALL funds from recovered address to hardware wallet
+4. Use multiple addresses (don't put all in one)
+5. Consider multisig for amounts > $1M
+
+===============================================================
+CRITICAL SECURITY WARNINGS - READ CAREFULLY!
+
+- NEVER enter this key into ANY website
+  Including block explorers, online wallets, exchanges
+   
+- NEVER take a photo or screenshot
+  Digital copies can be stolen by malware
+   
+- NEVER send via email, SMS, or messaging apps
+  These are not secure channels
+   
+- NEVER store in cloud storage
+  iCloud, Google Drive, Dropbox are vulnerable
+   
+- NEVER use this passphrase again
+  Brain wallets are fundamentally insecure
+   
+- NEVER tell anyone you recovered this
+  You become a target for attacks
+
+- DO write on paper with pen (not printer)
+- DO store in fireproof safe or bank vault
+- DO use legitimate wallet software only
+- DO move to hardware wallet immediately
+- DO split into multiple wallets if large amount
+- DO test with small amount first
+
+===============================================================
+
+Generated by SearchSpaceCollapse
+Block Universe Quantum Information Geometry Recovery
+Date: ${new Date().toISOString()}
+
+SECURE THIS INFORMATION IMMEDIATELY!
+===============================================================
+`;
+}

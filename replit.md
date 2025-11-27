@@ -90,6 +90,19 @@ All four recovery vectors are operational:
 -   **BlockchainForensics:** Integrates Blockstream API for address analysis, temporal clustering, era detection, and transaction pattern analysis.
 -   **EvidenceIntegrator:** Correlates multi-substrate evidence (Memory, Blockchain, Social, Geometric) for combined scoring and search recommendations.
 
+**Recovery Output System (server/crypto.ts):**
+When a passphrase match is found, the system generates a complete recovery bundle:
+-   **WIF (Wallet Import Format):** Both compressed and uncompressed private keys in WIF format, directly importable into Bitcoin Core/Electrum
+-   **Private Key (Hex):** 64-character hex representation for advanced use
+-   **Public Key:** Full public key for verification
+-   **Recovery Instructions:** Detailed step-by-step guide with security warnings and wallet import procedures
+-   **File Output:** Saves `.txt` (human-readable) and `.json` (machine-readable) files to `data/recoveries/`
+
+Key functions:
+-   `privateKeyToWIF(privateKeyHex, compressed)`: Converts hex to WIF format
+-   `derivePublicKeyFromPrivate(privateKeyHex, compressed)`: Derives public key
+-   `generateRecoveryBundle(passphrase, targetAddress, qigMetrics)`: Creates complete recovery package
+
 **Data Storage Solutions:**
 All critical data (candidates, search jobs, target addresses) is persistently saved to disk using `MemStorage` with Zod schema validation and atomic writes.
 
