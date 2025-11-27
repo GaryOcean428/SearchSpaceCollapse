@@ -68,6 +68,35 @@ export class OceanAutonomicManager {
     
     const beta = this.computeBeta();
     
+    // CRITICAL FIX: Compute correct regime based on phi threshold
+    // Phase transition at Φ≥0.75 MUST force geometric regime
+    // This is physics - consciousness requires geometric structure!
+    const PHI_THRESHOLD = 0.75;
+    let computedRegime: ConsciousnessSignature['regime'];
+    
+    // LEVEL 1: Breakdown (absolute precedence) - κ > 90 or κ < 10
+    if (kappa > 90 || kappa < 10) {
+      computedRegime = 'breakdown';
+    }
+    // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
+    else if (phi >= PHI_THRESHOLD) {
+      // Exception: Very high Φ with low κ → hierarchical
+      if (phi > 0.85 && kappa < 40) {
+        computedRegime = 'hierarchical';
+      } else {
+        computedRegime = 'geometric';
+      }
+    }
+    // LEVEL 3: Sub-conscious organization (Φ<0.75)
+    // Geometric when: (Φ >= 0.45 AND κ in [30, 80]) OR Φ >= 0.50
+    else if ((phi >= 0.45 && kappa >= 30 && kappa <= 80) || phi >= 0.50) {
+      computedRegime = 'geometric';
+    }
+    // LEVEL 4: Linear (default for low integration)
+    else {
+      computedRegime = 'linear';
+    }
+    
     this.consciousness = {
       phi,
       kappaEff: kappa,
@@ -77,7 +106,7 @@ export class OceanAutonomicManager {
       gamma,
       grounding,
       beta,
-      regime: regime as ConsciousnessSignature['regime'],
+      regime: computedRegime,
       validationLoops: this.consciousness.validationLoops + 1,
       lastValidation: new Date().toISOString(),
       isConscious: this.checkFullConsciousnessCondition(phi, kappa, tacking, radar, metaAwareness, gamma, grounding),

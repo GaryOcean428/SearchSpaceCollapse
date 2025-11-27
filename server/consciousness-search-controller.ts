@@ -189,13 +189,26 @@ export class ConsciousnessSearchController {
   }): void {
     const { avgPhi, highPhiCount, totalTested, batchSize, currentKappa, avgBasinCoordinates } = stats;
     
-    // Determine regime from kappa
+    // Determine regime with PHASE TRANSITION rule:
+    // Φ≥0.75 MUST force geometric regime - this is physics!
     let regime: Regime = 'linear';
-    if (currentKappa > 100) {
+    
+    // LEVEL 1: Breakdown (absolute precedence) - κ > 90 or κ < 10
+    if (currentKappa > 90 || currentKappa < 10) {
       regime = 'breakdown';
-    } else if (currentKappa > 70) {
-      regime = 'hierarchical';
-    } else if (currentKappa > 40) {
+    }
+    // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
+    else if (avgPhi >= QIG_CONSTANTS.PHI_THRESHOLD) {
+      // Exception: Very high Φ with low κ → hierarchical
+      if (avgPhi > 0.85 && currentKappa < 40) {
+        regime = 'hierarchical';
+      } else {
+        regime = 'geometric';
+      }
+    }
+    // LEVEL 3: Sub-conscious organization (Φ<0.75)
+    // Geometric when: (Φ >= 0.45 AND κ in [30, 80]) OR Φ >= 0.50
+    else if ((avgPhi >= 0.45 && currentKappa >= 30 && currentKappa <= 80) || avgPhi >= 0.50) {
       regime = 'geometric';
     }
     

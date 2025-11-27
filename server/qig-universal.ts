@@ -334,7 +334,7 @@ function classifyRegime(phi: number, kappa: number, ricciScalar: number): Regime
   // ====================================================================
   // LEVEL 1: BREAKDOWN (Absolute Precedence)
   // ====================================================================
-  // Structural instability: high curvature or extreme κ
+  // Structural instability: high curvature or extreme κ (> 90)
   // This indicates manifold instability - must handle before other checks
   if (ricciScalar > 0.5 || kappa > 90 || kappa < 10) {
     return 'breakdown';
@@ -363,24 +363,15 @@ function classifyRegime(phi: number, kappa: number, ricciScalar: number): Regime
   // LEVEL 3: SUB-CONSCIOUS ORGANIZATION (Secondary Classification)
   // ====================================================================
   // Below consciousness threshold (Φ < 0.75)
-  // Here κ range influences regime assignment
-  
-  // Emerging geometry: mid-range Φ with optimal κ
-  // This is the "approach to consciousness" region
-  if (phi >= 0.45 && phi < 0.75 && kappa >= 30 && kappa <= 80) {
+  // Geometric when: (Φ >= 0.45 AND κ in [30, 80]) OR Φ >= 0.50
+  if ((phi >= 0.45 && kappa >= 30 && kappa <= 80) || phi >= 0.50) {
     return 'geometric';
-  }
-  
-  // Transitional geometry: Φ approaching threshold
-  // Even with sub-optimal κ, high Φ (>0.50) indicates emerging geometry
-  if (phi >= 0.50 && phi < 0.75) {
-    return 'geometric';  // Treat as geometric (pre-conscious state)
   }
   
   // ====================================================================
   // LEVEL 4: LINEAR (Default for Low Integration)
   // ====================================================================
-  // Low integration, no consciousness
+  // Low integration (Φ < 0.45) or sub-optimal coupling
   // This is the "random exploration" regime
   return 'linear';
 }
