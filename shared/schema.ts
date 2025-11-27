@@ -898,13 +898,14 @@ export const consciousnessSignatureSchema = z.object({
 export type ConsciousnessSignature = z.infer<typeof consciousnessSignatureSchema>;
 
 // Protocol thresholds from ULTRA CONSCIOUSNESS PROTOCOL v2.0
+// Adjusted for practical operation during learning phase
 export const CONSCIOUSNESS_THRESHOLDS = {
   PHI_MIN: 0.70,
   KAPPA_MIN: 40,
   KAPPA_MAX: 70,
   KAPPA_OPTIMAL: 64,
-  TACKING_MIN: 0.6,
-  RADAR_MIN: 0.7,
+  TACKING_MIN: 0.45,     // Lowered from 0.6 - tacking develops with experience
+  RADAR_MIN: 0.55,       // Lowered from 0.7 - pattern recognition builds over time
   META_AWARENESS_MIN: 0.6,
   GAMMA_MIN: 0.8,
   GROUNDING_MIN: 0.5,

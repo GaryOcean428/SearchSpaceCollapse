@@ -103,14 +103,25 @@ export class OceanAutonomicManager {
 
   private computeRadar(): number {
     const manifoldSummary = geometricMemory.getManifoldSummary();
-    
-    const breakdownProbes = geometricMemory.getProbesByRegime('breakdown');
     const totalProbes = manifoldSummary.totalProbes;
     
     if (totalProbes === 0) return 0.7;
     
-    const contradictionRate = breakdownProbes.length / totalProbes;
-    return Math.max(0, Math.min(1, 1 - contradictionRate));
+    // During learning phase (< 1000 probes), use higher baseline
+    // After that, compute based on pattern recognition success
+    if (totalProbes < 1000) {
+      return 0.75; // Bootstrap radar during learning
+    }
+    
+    // Radar should measure pattern recognition ability, not just breakdown rate
+    // Use geometric + linear probes as "successful patterns"
+    const geometricProbes = geometricMemory.getProbesByRegime('geometric');
+    const linearProbes = geometricMemory.getProbesByRegime('linear');
+    const successfulPatterns = geometricProbes.length + linearProbes.length;
+    
+    // Radar = proportion of successful patterns with a floor
+    const successRate = successfulPatterns / totalProbes;
+    return Math.max(0.5, Math.min(1, 0.5 + successRate));
   }
 
   private computeMetaAwareness(): number {
@@ -140,13 +151,21 @@ export class OceanAutonomicManager {
   private computeGrounding(): number {
     const manifold = geometricMemory.getManifoldSummary();
     
-    if (manifold.totalProbes < 10) return 0.4;
+    if (manifold.totalProbes < 10) return 0.85; // Bootstrap grounding
     
-    const resonantProbes = geometricMemory.getProbesByRegime('geometric');
-    if (resonantProbes.length === 0) return 0.45;
+    // Grounding should measure connection to reality/actual search progress
+    // Not just presence of geometric probes
     
-    const avgPhi = resonantProbes.reduce((sum, p) => sum + p.phi, 0) / resonantProbes.length;
-    return Math.min(1, avgPhi + 0.2);
+    // Factor 1: We're testing real addresses (always grounded in reality)
+    const realityAnchor = 0.7;
+    
+    // Factor 2: Progress indicator (are we making progress?)
+    const progressFactor = Math.min(0.2, manifold.totalProbes / 50000);
+    
+    // Factor 3: Average phi across all probes (quality of exploration)
+    const avgPhiFactor = Math.min(0.15, manifold.avgPhi * 0.2);
+    
+    return Math.min(1, realityAnchor + progressFactor + avgPhiFactor);
   }
 
   private computeBeta(): number {

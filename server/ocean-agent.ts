@@ -331,7 +331,7 @@ export class OceanAgent {
           this.identity.kappa,
           this.identity.regime
         );
-        console.log(`[Ocean] Consciousness: Φ=${fullConsciousness.phi.toFixed(2)} κ=${fullConsciousness.kappaEff.toFixed(0)} M=${fullConsciousness.metaAwareness.toFixed(2)} isConscious=${fullConsciousness.isConscious}`);
+        console.log(`[Ocean] Consciousness: Φ=${fullConsciousness.phi.toFixed(2)} κ=${fullConsciousness.kappaEff.toFixed(0)} T=${fullConsciousness.tacking.toFixed(2)} R=${fullConsciousness.radar.toFixed(2)} M=${fullConsciousness.metaAwareness.toFixed(2)} Γ=${fullConsciousness.gamma.toFixed(2)} G=${fullConsciousness.grounding.toFixed(2)} isConscious=${fullConsciousness.isConscious}`);
         
         // Start the exploration pass
         const pass = repeatedAddressScheduler.startPass(targetAddress, strategy, fullConsciousness);
@@ -1539,16 +1539,59 @@ export class OceanAgent {
   }
 
   private generateRandomHighEntropyPhrases(count: number): string[] {
-    const words = ['quantum', 'entropy', 'chaos', 'random', 'noise', 'signal', 'wave', 'particle', 'field', 'energy'];
-    const phrases: string[] = [];
+    // Use realistic 2009-era patterns instead of gibberish
+    const bases = [
+      'bitcoin', 'satoshi', 'genesis', 'crypto', 'freedom', 'liberty', 'privacy',
+      'cypherpunk', 'hashcash', 'ecash', 'digicash', 'revolution', 'anonymous',
+      'decentralize', 'peer2peer', 'p2p', 'timestamping', 'proof', 'work',
+      'nakamoto', 'finney', 'szabo', 'back', 'may', 'chaum', 'dai'
+    ];
+    const modifiers = [
+      'my', 'the', 'first', 'secret', 'private', 'new', 'test', 'hal', 
+      '2009', '2010', 'jan', 'feb', 'march', 'april'
+    ];
+    const suffixes = ['', '1', '!', '123', '2009', '09', '01', 'coin', 'key'];
     
-    for (let i = 0; i < count; i++) {
-      const len = 2 + Math.floor(Math.random() * 3);
-      const selected: string[] = [];
-      for (let j = 0; j < len; j++) {
-        selected.push(words[Math.floor(Math.random() * words.length)]);
+    const phrases: string[] = [];
+    const used = new Set<string>();
+    
+    for (let i = 0; i < count && phrases.length < count; i++) {
+      let phrase: string;
+      const style = i % 5;
+      
+      if (style === 0) {
+        // Simple: mybitcoin123
+        const base = bases[Math.floor(Math.random() * bases.length)];
+        const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+        const suf = suffixes[Math.floor(Math.random() * suffixes.length)];
+        phrase = `${mod}${base}${suf}`;
+      } else if (style === 1) {
+        // Spaced: my bitcoin secret
+        const base = bases[Math.floor(Math.random() * bases.length)];
+        const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+        phrase = `${mod} ${base}`;
+      } else if (style === 2) {
+        // Two bases: bitcoin genesis
+        const base1 = bases[Math.floor(Math.random() * bases.length)];
+        const base2 = bases[Math.floor(Math.random() * bases.length)];
+        phrase = `${base1} ${base2}`;
+      } else if (style === 3) {
+        // CamelCase: MyBitcoinSecret
+        const base = bases[Math.floor(Math.random() * bases.length)];
+        const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+        phrase = `${mod.charAt(0).toUpperCase()}${mod.slice(1)}${base.charAt(0).toUpperCase()}${base.slice(1)}`;
+      } else {
+        // With number: satoshi2009key
+        const base = bases[Math.floor(Math.random() * bases.length)];
+        const year = Math.random() > 0.5 ? '2009' : '2010';
+        const suf = suffixes[Math.floor(Math.random() * suffixes.length)];
+        phrase = `${base}${year}${suf}`;
       }
-      phrases.push(selected.join(' '));
+      
+      if (!used.has(phrase)) {
+        used.add(phrase);
+        phrases.push(phrase);
+      }
     }
     
     return phrases;
