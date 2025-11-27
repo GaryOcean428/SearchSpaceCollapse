@@ -524,7 +524,7 @@ export class OceanAutonomicManager {
     return this.cycles.slice(-count);
   }
 
-  getCurrentFullConsciousness(): FullConsciousnessSignature {
+  getCurrentFullConsciousness(): ConsciousnessSignature {
     return { ...this.consciousness };
   }
 
