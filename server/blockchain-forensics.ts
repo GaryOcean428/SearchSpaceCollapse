@@ -10,6 +10,8 @@
  * - Era detection for strategy selection
  */
 
+import { createHash } from 'crypto';
+import bs58check from 'bs58check';
 import { HistoricalDataMiner, type Era, ERA_FORMAT_WEIGHTS, type KeyFormat } from './historical-data-miner';
 
 const BLOCKSTREAM_API = 'https://blockstream.info/api';
@@ -125,9 +127,9 @@ export class BlockchainForensics {
         }
       }
 
-      // Find sibling addresses from first transaction
+      // Find sibling addresses from first transaction (pass address to exclude it from siblings)
       const siblingAddresses = firstTx?.hash 
-        ? await this.findSiblingAddresses(firstTx.hash)
+        ? await this.findSiblingAddresses(firstTx.hash, address)
         : [];
       
       // Convert blockchain.info tx format to analyze patterns
@@ -268,26 +270,164 @@ export class BlockchainForensics {
   /**
    * Find sibling addresses from a transaction
    * (addresses created in the same transaction)
+   * Enhanced to handle P2PK (Pay to Public Key) transactions from early Bitcoin era
    */
-  private async findSiblingAddresses(txid: string): Promise<string[]> {
+  private async findSiblingAddresses(txid: string, targetAddress?: string): Promise<string[]> {
     try {
       const response = await fetch(`${BLOCKSTREAM_API}/tx/${txid}`);
       if (!response.ok) return [];
       
       const tx = await response.json();
       const siblings: string[] = [];
+      const seen = new Set<string>();
       
-      // Collect all output addresses
+      // Add target to seen so we don't include it as a sibling
+      if (targetAddress) seen.add(targetAddress);
+      
+      // Collect all output addresses (standard P2PKH, P2SH, P2WPKH)
       for (const vout of tx.vout || []) {
         if (vout.scriptpubkey_address) {
-          siblings.push(vout.scriptpubkey_address);
+          if (!seen.has(vout.scriptpubkey_address)) {
+            siblings.push(vout.scriptpubkey_address);
+            seen.add(vout.scriptpubkey_address);
+          }
+        } else if (vout.scriptpubkey_type === 'p2pk' && vout.scriptpubkey) {
+          // Handle P2PK (early Bitcoin) - derive address from public key
+          const derivedAddress = this.deriveAddressFromP2PK(vout.scriptpubkey);
+          if (derivedAddress && !seen.has(derivedAddress)) {
+            siblings.push(derivedAddress);
+            seen.add(derivedAddress);
+          }
         }
       }
       
+      // Also collect input addresses (co-spenders - often from same wallet)
+      for (const vin of tx.vin || []) {
+        if (vin.prevout?.scriptpubkey_address) {
+          if (!seen.has(vin.prevout.scriptpubkey_address)) {
+            siblings.push(vin.prevout.scriptpubkey_address);
+            seen.add(vin.prevout.scriptpubkey_address);
+          }
+        } else if (vin.prevout?.scriptpubkey_type === 'p2pk' && vin.prevout?.scriptpubkey) {
+          // Handle P2PK input
+          const derivedAddress = this.deriveAddressFromP2PK(vin.prevout.scriptpubkey);
+          if (derivedAddress && !seen.has(derivedAddress)) {
+            siblings.push(derivedAddress);
+            seen.add(derivedAddress);
+          }
+        }
+      }
+      
+      console.log(`[BlockchainForensics] Found ${siblings.length} sibling addresses for tx ${txid.slice(0, 16)}...`);
       return siblings;
     } catch (error) {
       console.error(`[BlockchainForensics] Error finding siblings for ${txid}:`, error);
       return [];
+    }
+  }
+  
+  /**
+   * Derive a P2PKH address from a P2PK scriptpubkey
+   * P2PK format: <pubkey_length> <pubkey> OP_CHECKSIG
+   * We extract the pubkey and hash it to get the P2PKH address
+   */
+  private deriveAddressFromP2PK(scriptpubkey: string): string | null {
+    try {
+      // P2PK scripts: 41<65-byte-pubkey>ac (uncompressed) or 21<33-byte-pubkey>ac (compressed)
+      if (scriptpubkey.startsWith('41') && scriptpubkey.endsWith('ac')) {
+        // Uncompressed public key (65 bytes = 130 hex chars)
+        const pubkeyHex = scriptpubkey.slice(2, 132); // Skip length byte and OP_CHECKSIG
+        return this.pubkeyToAddress(pubkeyHex);
+      } else if (scriptpubkey.startsWith('21') && scriptpubkey.endsWith('ac')) {
+        // Compressed public key (33 bytes = 66 hex chars)
+        const pubkeyHex = scriptpubkey.slice(2, 68);
+        return this.pubkeyToAddress(pubkeyHex);
+      }
+      return null;
+    } catch (error) {
+      console.error(`[BlockchainForensics] Error deriving P2PK address:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Convert a public key to a P2PKH Bitcoin address
+   */
+  private pubkeyToAddress(pubkeyHex: string): string | null {
+    try {
+      // Step 1: SHA256 of the public key
+      const sha256 = createHash('sha256').update(Buffer.from(pubkeyHex, 'hex')).digest();
+      
+      // Step 2: RIPEMD160 of the SHA256
+      const ripemd160 = createHash('ripemd160').update(sha256).digest();
+      
+      // Step 3: Add version byte (0x00 for mainnet P2PKH)
+      const versioned = Buffer.concat([Buffer.from([0x00]), ripemd160]);
+      
+      // Step 4: Base58Check encode
+      const address = bs58check.encode(versioned);
+      
+      return address;
+    } catch (error) {
+      console.error(`[BlockchainForensics] Error converting pubkey to address:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get comprehensive sibling analysis for an address
+   * Analyzes ALL transactions to find related addresses
+   */
+  async getComprehensiveSiblings(address: string, maxTxs: number = 10): Promise<{
+    directSiblings: string[];
+    inputAddresses: string[];
+    outputAddresses: string[];
+    commonSpenders: string[];
+    clusterSize: number;
+  }> {
+    try {
+      const txs = await this.fetchTransactionHistory(address);
+      const limitedTxs = txs.slice(0, maxTxs);
+      
+      const directSiblings: string[] = [];
+      const siblingSet = new Set<string>();
+      
+      for (const tx of limitedTxs) {
+        // Process via Blockstream API for full data
+        try {
+          const siblings = await this.findSiblingAddresses(tx.txid, address);
+          for (const s of siblings) {
+            if (!siblingSet.has(s)) {
+              siblingSet.add(s);
+              directSiblings.push(s);
+            }
+          }
+        } catch (err) {
+          console.error(`[BlockchainForensics] Error processing tx ${tx.txid}:`, err);
+        }
+        
+        // Small delay to be nice to API
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      console.log(`[BlockchainForensics] Comprehensive siblings for ${address}: ${directSiblings.length} total from ${limitedTxs.length} txs`);
+      
+      return {
+        directSiblings,
+        inputAddresses: directSiblings, // All are potential input addresses
+        outputAddresses: directSiblings, // All are potential output addresses
+        commonSpenders: [], // Would require additional analysis
+        clusterSize: directSiblings.length + 1, // +1 for the target address
+      };
+    } catch (error) {
+      console.error(`[BlockchainForensics] Error getting comprehensive siblings:`, error);
+      return {
+        directSiblings: [],
+        inputAddresses: [],
+        outputAddresses: [],
+        commonSpenders: [],
+        clusterSize: 1,
+      };
     }
   }
 

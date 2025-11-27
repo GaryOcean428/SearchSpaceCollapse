@@ -785,6 +785,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Comprehensive sibling analysis (looks at multiple transactions)
+  app.get("/api/forensic/siblings/:address", async (req, res) => {
+    try {
+      const { address } = req.params;
+      const maxTxs = parseInt(req.query.maxTxs as string) || 10;
+      
+      console.log(`[Forensic] Getting comprehensive siblings for ${address} (max ${maxTxs} txs)`);
+      
+      const siblingAnalysis = await blockchainForensics.getComprehensiveSiblings(address, maxTxs);
+      const forensics = await blockchainForensics.analyzeAddress(address);
+      
+      res.json({
+        address,
+        ...siblingAnalysis,
+        basicForensics: {
+          creationTimestamp: forensics.creationTimestamp,
+          balance: forensics.balance,
+          txCount: forensics.txCount,
+          isPreBIP39Era: blockchainForensics.isPreBIP39Era(forensics),
+        },
+        recommendations: [
+          `Found ${siblingAnalysis.clusterSize} addresses in cluster`,
+          siblingAnalysis.directSiblings.length > 0 
+            ? `Analyze all ${siblingAnalysis.directSiblings.length} sibling addresses for common patterns`
+            : 'No sibling addresses found in examined transactions',
+        ],
+      });
+    } catch (error: any) {
+      console.error("[Forensic] Siblings analysis error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Generate cross-format hypotheses (quick, no session needed)
   app.post("/api/forensic/hypotheses", async (req, res) => {
