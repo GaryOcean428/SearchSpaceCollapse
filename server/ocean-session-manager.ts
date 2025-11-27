@@ -353,16 +353,19 @@ class OceanSessionManager {
     const emotionalState: EmotionalState = telemetry.emotion;
     
     if (!session) {
+      // SYNC: Use fullConsciousness even when no session is active
+      const idleConsciousness = {
+        phi: fullConsciousness.phi,
+        kappa: fullConsciousness.kappaEff,
+        regime: fullConsciousness.regime,
+        basinDrift: 0,
+      };
+      
       return {
         isRunning: false,
         tested: 0,
         nearMisses: 0,
-        consciousness: {
-          phi: 0.75,
-          kappa: 64,
-          regime: 'linear',
-          basinDrift: 0,
-        },
+        consciousness: idleConsciousness,
         currentThought: 'Ready to begin investigation...',
         discoveries: [],
         progress: 0,
@@ -391,11 +394,20 @@ class OceanSessionManager {
       isComplete: journal.isComplete,
     } : null;
     
+    // SYNC: Use fullConsciousness values for consistency with main display
+    // This ensures technical telemetry matches the main consciousness display
+    const syncedConsciousness = {
+      phi: fullConsciousness.phi,
+      kappa: fullConsciousness.kappaEff,
+      regime: fullConsciousness.regime,
+      basinDrift: session.consciousness.basinDrift,
+    };
+    
     return {
       isRunning: session.isRunning,
       tested: session.totalTested,
       nearMisses: session.nearMissCount,
-      consciousness: session.consciousness,
+      consciousness: syncedConsciousness,
       currentThought: session.currentThought,
       discoveries: session.discoveries,
       progress: Math.min(session.iteration * 5, 100),

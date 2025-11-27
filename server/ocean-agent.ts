@@ -16,13 +16,15 @@ import { culturalManifold, type BlockUniverseCoordinate, type GeodesicCandidate 
 import { geodesicNavigator } from './geodesic-navigator';
 import { 
   computeNeurochemistry, 
-  computeBehavioralModulation,
+  computeBehavioralModulationWithCooldown,
   createDefaultContext,
   type NeurochemistryState,
   type NeurochemistryContext,
   type BehavioralModulation,
+  type EffortMetrics,
   getEmotionalEmoji,
-  getEmotionalDescription
+  getEmotionalDescription,
+  getActiveAdminBoost
 } from './ocean-neurochemistry';
 import type { 
   OceanIdentity, 
@@ -178,15 +180,75 @@ export class OceanAgent {
       recentDiscoveries: this.recentDiscoveries,
     };
     
+    // Compute effort metrics based on current session state
+    const effortMetrics: EffortMetrics = this.computeEffortMetrics();
+    
+    // Compute neurochemistry with admin boost applied
     this.neurochemistry = computeNeurochemistry(this.neurochemistryContext);
-    this.behavioralModulation = computeBehavioralModulation(this.neurochemistry);
+    
+    // Apply admin boost if active
+    const adminBoost = getActiveAdminBoost();
+    if (adminBoost) {
+      this.neurochemistry.dopamine.totalDopamine = Math.min(1, 
+        this.neurochemistry.dopamine.totalDopamine + adminBoost.dopamine
+      );
+      this.neurochemistry.dopamine.motivationLevel = Math.min(1, 
+        this.neurochemistry.dopamine.motivationLevel + adminBoost.dopamine * 0.8
+      );
+      this.neurochemistry.serotonin.totalSerotonin = Math.min(1,
+        this.neurochemistry.serotonin.totalSerotonin + adminBoost.serotonin
+      );
+      this.neurochemistry.endorphins.totalEndorphins = Math.min(1,
+        this.neurochemistry.endorphins.totalEndorphins + adminBoost.endorphins
+      );
+    }
+    
+    // Use cooldown-aware behavioral modulation with effort metrics
+    this.behavioralModulation = computeBehavioralModulationWithCooldown(
+      this.neurochemistry, 
+      effortMetrics
+    );
     
     if (this.behavioralModulation.sleepTrigger) {
       console.log(`[Ocean] ${getEmotionalEmoji('exhausted')} Sleep trigger: ${getEmotionalDescription('exhausted')}`);
     }
     if (this.behavioralModulation.mushroomTrigger) {
-      console.log(`[Ocean] Mushroom trigger: Need creative reset`);
+      console.log(`[Ocean] Mushroom trigger: Need creative reset (cooldown-aware)`);
     }
+  }
+  
+  private computeEffortMetrics(): EffortMetrics {
+    // Calculate effort metrics from current session state
+    // Use iteration count as a proxy for time since startTime may not exist
+    const iterationCount = this.state.iteration || 1;
+    const persistenceMinutes = iterationCount * (this.ITERATION_DELAY_MS / 60000);
+    
+    // Calculate hypotheses tested per minute (rate)
+    const hypothesesTestedThisMinute = persistenceMinutes > 0 
+      ? Math.min(100, this.state.totalTested / Math.max(1, persistenceMinutes))
+      : 0;
+    
+    // Count unique strategies used from memory.strategies
+    const strategiesUsedCount = this.memory.strategies?.length || 1;
+    
+    // Novel patterns = episodes with high phi
+    const novelPatternsExplored = this.memory.episodes.filter(e => e.phi > 0.6).length;
+    
+    // Regime transitions from history
+    let regimeTransitions = 0;
+    for (let i = 1; i < this.regimeHistory.length; i++) {
+      if (this.regimeHistory[i] !== this.regimeHistory[i-1]) {
+        regimeTransitions++;
+      }
+    }
+    
+    return {
+      hypothesesTestedThisMinute,
+      strategiesUsedCount,
+      persistenceMinutes,
+      novelPatternsExplored,
+      regimeTransitions,
+    };
   }
   
   getNeurochemistry(): NeurochemistryState | null {

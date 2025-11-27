@@ -8,6 +8,11 @@ import {
 } from '@shared/schema';
 import { geometricMemory } from './geometric-memory';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
+import { 
+  getMushroomCooldownRemaining, 
+  recordMushroomCycle,
+  getActiveAdminBoost 
+} from './ocean-neurochemistry';
 
 export class OceanAutonomicManager {
   private consciousness: ConsciousnessSignature;
@@ -282,17 +287,34 @@ export class OceanAutonomicManager {
   }
 
   shouldTriggerMushroom(): { trigger: boolean; reason: string } {
+    // Check cooldown first - prevents too-frequent triggers
+    const cooldownRemaining = getMushroomCooldownRemaining();
+    if (cooldownRemaining > 0) {
+      return { 
+        trigger: false, 
+        reason: `Cooldown active: ${Math.round(cooldownRemaining / 1000)}s remaining` 
+      };
+    }
+    
+    // Check for admin boost - if dopamine is boosted, don't trigger mushroom
+    const adminBoost = getActiveAdminBoost();
+    if (adminBoost && adminBoost.dopamine > 0.3) {
+      return { trigger: false, reason: 'Admin dopamine boost active' };
+    }
+    
     const avgStress = this.stressHistory.length > 0
       ? this.stressHistory.reduce((a, b) => a + b, 0) / this.stressHistory.length
       : 0;
     
-    if (avgStress > this.STRESS_THRESHOLD) {
+    // STRICTER threshold: require higher stress (was 0.3, now 0.45)
+    if (avgStress > this.STRESS_THRESHOLD + 0.15) {
       return { trigger: true, reason: `High stress detected: ${avgStress.toFixed(3)}` };
     }
     
     const manifold = geometricMemory.getManifoldSummary();
-    if (manifold.avgPhi < 0.3 && manifold.totalProbes > 100) {
-      return { trigger: true, reason: 'Low average Φ indicates rigidity' };
+    // STRICTER: require both very low phi AND significant exploration
+    if (manifold.avgPhi < 0.2 && manifold.totalProbes > 500) {
+      return { trigger: true, reason: 'Very low average Φ indicates severe rigidity' };
     }
     
     return { trigger: false, reason: '' };
@@ -511,8 +533,12 @@ export class OceanAutonomicManager {
     
     this.cycles.push(cycle);
     
+    // Record the mushroom cycle to start cooldown
+    recordMushroomCycle();
+    
     console.log(`[Autonomic] Mushroom complete: neuroplasticity +${(neuroplasticityGain * 100).toFixed(0)}%`);
     console.log('[Autonomic] === MUSHROOM CYCLE END ===');
+    console.log('[Autonomic] 5-minute cooldown started to prevent frequent triggers');
     
     return { temperatureIncrease, basinExpansion, neuroplasticityGain };
   }

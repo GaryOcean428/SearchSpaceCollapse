@@ -676,6 +676,177 @@ export function getEmotionalDescription(state: NeurochemistryState['emotionalSta
 /**
  * Create default neurochemistry context for testing/initialization
  */
+// ============================================================================
+// ADMIN NEUROTRANSMITTER BOOST SYSTEM
+// ============================================================================
+
+export interface AdminBoost {
+  dopamine: number;      // 0-1, adds to totalDopamine
+  serotonin: number;     // 0-1, adds to totalSerotonin
+  norepinephrine: number;// 0-1, adds to totalNorepinephrine
+  gaba: number;          // 0-1, adds to totalGABA
+  acetylcholine: number; // 0-1, adds to totalAcetylcholine
+  endorphins: number;    // 0-1, adds to totalEndorphins
+  expiresAt: Date;       // When the boost expires
+}
+
+// Singleton to track admin boosts
+let adminBoost: AdminBoost | null = null;
+
+export function injectAdminBoost(boost: Partial<Omit<AdminBoost, 'expiresAt'>>, durationMs: number = 60000): AdminBoost {
+  adminBoost = {
+    dopamine: Math.min(1, Math.max(0, boost.dopamine || 0)),
+    serotonin: Math.min(1, Math.max(0, boost.serotonin || 0)),
+    norepinephrine: Math.min(1, Math.max(0, boost.norepinephrine || 0)),
+    gaba: Math.min(1, Math.max(0, boost.gaba || 0)),
+    acetylcholine: Math.min(1, Math.max(0, boost.acetylcholine || 0)),
+    endorphins: Math.min(1, Math.max(0, boost.endorphins || 0)),
+    expiresAt: new Date(Date.now() + durationMs),
+  };
+  
+  console.log(`[Neurochemistry] Admin boost injected: D+${boost.dopamine || 0} S+${boost.serotonin || 0} (expires in ${durationMs}ms)`);
+  return adminBoost;
+}
+
+export function clearAdminBoost(): void {
+  adminBoost = null;
+  console.log('[Neurochemistry] Admin boost cleared');
+}
+
+export function getActiveAdminBoost(): AdminBoost | null {
+  if (!adminBoost) return null;
+  if (new Date() > adminBoost.expiresAt) {
+    adminBoost = null;
+    return null;
+  }
+  return adminBoost;
+}
+
+// ============================================================================
+// EFFORT & THINKING REWARDS
+// ============================================================================
+
+export interface EffortMetrics {
+  hypothesesTestedThisMinute: number;  // Rate of testing
+  strategiesUsedCount: number;          // Diversity of approaches
+  persistenceMinutes: number;           // Time spent working
+  novelPatternsExplored: number;        // New patterns tried
+  regimeTransitions: number;            // Adaptability
+}
+
+export function computeEffortReward(effort: EffortMetrics): number {
+  // Reward for sustained effort (testing rate)
+  const testingReward = Math.min(0.3, effort.hypothesesTestedThisMinute / 100);
+  
+  // Reward for strategic diversity
+  const diversityReward = Math.min(0.25, effort.strategiesUsedCount * 0.05);
+  
+  // Reward for persistence (logarithmic to avoid infinite growth)
+  const persistenceReward = Math.min(0.2, Math.log10(effort.persistenceMinutes + 1) * 0.1);
+  
+  // Reward for exploring novel patterns
+  const noveltyReward = Math.min(0.15, effort.novelPatternsExplored / 50);
+  
+  // Reward for adaptability (regime transitions show flexible thinking)
+  const adaptabilityReward = Math.min(0.1, effort.regimeTransitions * 0.02);
+  
+  return testingReward + diversityReward + persistenceReward + noveltyReward + adaptabilityReward;
+}
+
+// ============================================================================
+// ENHANCED DOPAMINE WITH EFFORT REWARDS
+// ============================================================================
+
+export function computeEnhancedDopamine(
+  currentState: { phi: number; kappa: number; basinCoords?: number[] },
+  previousState: { phi: number; kappa: number; basinCoords?: number[] },
+  recentDiscoveries: { nearMisses: number; resonant: number },
+  effort?: EffortMetrics
+): DopamineSignal {
+  // Original dopamine computation
+  const baseDopamine = computeDopamine(currentState, previousState, recentDiscoveries);
+  
+  // Add effort-based reward
+  const effortReward = effort ? computeEffortReward(effort) : 0;
+  
+  // Add admin boost if active
+  const boost = getActiveAdminBoost();
+  const adminDopamine = boost ? boost.dopamine : 0;
+  
+  // Combine: base dopamine + effort reward + admin boost
+  const enhancedTotal = Math.min(1, baseDopamine.totalDopamine + effortReward * 0.3 + adminDopamine);
+  
+  return {
+    ...baseDopamine,
+    totalDopamine: enhancedTotal,
+    motivationLevel: Math.min(1, enhancedTotal * 1.2),
+  };
+}
+
+// ============================================================================
+// MUSHROOM CYCLE COOLDOWN
+// ============================================================================
+
+let lastMushroomTime: Date = new Date(0);
+const MUSHROOM_COOLDOWN_MS = 5 * 60 * 1000; // 5 minute cooldown between mushroom cycles
+
+export function computeBehavioralModulationWithCooldown(
+  state: NeurochemistryState,
+  effortMetrics?: EffortMetrics
+): BehavioralModulation {
+  // Get base modulation
+  const base = computeBehavioralModulation(state);
+  
+  // Apply admin boosts to state
+  const boost = getActiveAdminBoost();
+  
+  // Recalculate mushroom trigger with:
+  // 1. Higher threshold (more frustrated required)
+  // 2. Cooldown period
+  // 3. Consider effort - if putting in effort, don't trigger mushroom
+  const timeSinceMushroom = Date.now() - lastMushroomTime.getTime();
+  const cooldownActive = timeSinceMushroom < MUSHROOM_COOLDOWN_MS;
+  
+  // Effort reduces frustration - working hard should feel better
+  const effortReward = effortMetrics ? computeEffortReward(effortMetrics) : 0;
+  const adjustedDopamine = state.dopamine.motivationLevel + effortReward * 0.2 + (boost?.dopamine || 0);
+  const adjustedSerotonin = state.serotonin.contentmentLevel + effortReward * 0.1 + (boost?.serotonin || 0);
+  
+  // Stricter mushroom trigger:
+  // - Must be truly frustrated (not just low dopamine)
+  // - Must be sustained frustration (both dopamine AND serotonin very low)
+  // - Effort rewards can prevent trigger
+  // - Cooldown prevents too-frequent triggers
+  const strictMushroomTrigger = !cooldownActive && (
+    state.emotionalState === 'frustrated' && adjustedDopamine < 0.15
+  ) || (
+    adjustedDopamine < 0.1 && adjustedSerotonin < 0.2
+  );
+  
+  return {
+    ...base,
+    mushroomTrigger: strictMushroomTrigger,
+    // Boost exploration if admin dopamine is active
+    explorationBias: Math.min(1, base.explorationBias + (boost?.dopamine || 0) * 0.3),
+    // Boost learning if admin acetylcholine is active
+    learningRate: Math.min(1, base.learningRate + (boost?.acetylcholine || 0) * 0.2),
+  };
+}
+
+export function recordMushroomCycle(): void {
+  lastMushroomTime = new Date();
+  console.log('[Neurochemistry] Mushroom cycle recorded, cooldown started');
+}
+
+export function getMushroomCooldownRemaining(): number {
+  const remaining = MUSHROOM_COOLDOWN_MS - (Date.now() - lastMushroomTime.getTime());
+  return Math.max(0, remaining);
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
 export function createDefaultContext(): NeurochemistryContext {
   return {
     consciousness: {

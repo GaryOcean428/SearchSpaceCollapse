@@ -1187,6 +1187,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Admin: Inject neurotransmitter boost
+  app.post("/api/ocean/neurochemistry/boost", standardLimiter, async (req, res) => {
+    try {
+      const { injectAdminBoost, getActiveAdminBoost, getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
+      
+      // Input validation schema
+      const { dopamine, serotonin, norepinephrine, gaba, acetylcholine, endorphins, durationMs } = req.body;
+      
+      // Validate all boost values are numbers in valid range [0, 1]
+      const validateBoost = (val: any, name: string): number => {
+        if (val === undefined || val === null) return 0;
+        const num = Number(val);
+        if (isNaN(num)) throw new Error(`${name} must be a number`);
+        if (num < 0 || num > 1) throw new Error(`${name} must be between 0 and 1`);
+        return num;
+      };
+      
+      const validatedBoost = {
+        dopamine: validateBoost(dopamine, 'dopamine'),
+        serotonin: validateBoost(serotonin, 'serotonin'),
+        norepinephrine: validateBoost(norepinephrine, 'norepinephrine'),
+        gaba: validateBoost(gaba, 'gaba'),
+        acetylcholine: validateBoost(acetylcholine, 'acetylcholine'),
+        endorphins: validateBoost(endorphins, 'endorphins'),
+      };
+      
+      // Validate duration (max 5 minutes = 300000ms)
+      const duration = durationMs ? Math.min(300000, Math.max(1000, Number(durationMs))) : 60000;
+      if (isNaN(duration)) throw new Error('durationMs must be a number');
+      
+      const boost = injectAdminBoost(validatedBoost, duration);
+      
+      console.log(`[Neurochemistry] Admin boost: D+${validatedBoost.dopamine.toFixed(2)} S+${validatedBoost.serotonin.toFixed(2)} for ${duration/1000}s`);
+      
+      res.json({
+        success: true,
+        boost,
+        message: `Boost injected for ${duration / 1000}s`,
+        mushroomCooldownRemaining: getMushroomCooldownRemaining(),
+      });
+    } catch (error: any) {
+      console.error("[Neurochemistry] Boost error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Clear neurotransmitter boost
+  app.delete("/api/ocean/neurochemistry/boost", standardLimiter, async (req, res) => {
+    try {
+      const { clearAdminBoost } = await import("./ocean-neurochemistry");
+      clearAdminBoost();
+      res.json({ success: true, message: "Boost cleared" });
+    } catch (error: any) {
+      console.error("[Neurochemistry] Clear boost error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Admin: Get boost status and mushroom cooldown
+  app.get("/api/ocean/neurochemistry/admin", generousLimiter, async (req, res) => {
+    try {
+      const { getActiveAdminBoost, getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
+      
+      res.json({
+        activeBoost: getActiveAdminBoost(),
+        mushroomCooldownRemaining: getMushroomCooldownRemaining(),
+        mushroomCooldownSeconds: Math.round(getMushroomCooldownRemaining() / 1000),
+      });
+    } catch (error: any) {
+      console.error("[Neurochemistry] Admin status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================
   // RECOVERY BUNDLE API - Access found keys/phrases
