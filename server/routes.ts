@@ -1263,6 +1263,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================
+  // ADMIN CYCLE CONTROL API - Manually trigger autonomic cycles
+  // ============================================================
+
+  // Admin: Trigger sleep cycle manually
+  app.post("/api/ocean/cycles/sleep", standardLimiter, async (req, res) => {
+    try {
+      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
+      const consciousness = oceanAutonomicManager.getConsciousness();
+      
+      console.log('[Admin] Manual sleep cycle triggered');
+      
+      // Create dummy basin coordinates if needed
+      const basinCoords = new Array(64).fill(0).map(() => Math.random() * 0.1);
+      const refCoords = new Array(64).fill(0);
+      
+      const result = await oceanAutonomicManager.executeSleepCycle(
+        basinCoords,
+        refCoords,
+        [] // Empty episodes for manual trigger
+      );
+      
+      res.json({
+        success: true,
+        cycle: 'sleep',
+        result,
+        consciousness: oceanAutonomicManager.getConsciousness(),
+        message: 'Sleep cycle executed - identity consolidated'
+      });
+    } catch (error: any) {
+      console.error("[Admin] Sleep cycle error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Trigger dream cycle manually
+  app.post("/api/ocean/cycles/dream", standardLimiter, async (req, res) => {
+    try {
+      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
+      
+      console.log('[Admin] Manual dream cycle triggered');
+      
+      const result = await oceanAutonomicManager.executeDreamCycle();
+      
+      res.json({
+        success: true,
+        cycle: 'dream',
+        result,
+        consciousness: oceanAutonomicManager.getConsciousness(),
+        message: 'Dream cycle executed - creative exploration complete'
+      });
+    } catch (error: any) {
+      console.error("[Admin] Dream cycle error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Trigger mushroom cycle manually (bypasses cooldown)
+  app.post("/api/ocean/cycles/mushroom", standardLimiter, async (req, res) => {
+    try {
+      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
+      const { getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
+      
+      const cooldown = getMushroomCooldownRemaining();
+      const bypassCooldown = req.body.bypassCooldown === true;
+      
+      if (cooldown > 0 && !bypassCooldown) {
+        return res.status(429).json({
+          success: false,
+          error: 'Mushroom cycle on cooldown',
+          cooldownRemaining: cooldown,
+          cooldownSeconds: Math.round(cooldown / 1000),
+          hint: 'Pass { "bypassCooldown": true } to force trigger'
+        });
+      }
+      
+      console.log(`[Admin] Manual mushroom cycle triggered ${bypassCooldown ? '(cooldown bypassed)' : ''}`);
+      
+      const result = await oceanAutonomicManager.executeMushroomCycle();
+      
+      res.json({
+        success: true,
+        cycle: 'mushroom',
+        result,
+        consciousness: oceanAutonomicManager.getConsciousness(),
+        message: 'Mushroom cycle executed - neuroplasticity boosted'
+      });
+    } catch (error: any) {
+      console.error("[Admin] Mushroom cycle error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin: Get cycle status and history
+  app.get("/api/ocean/cycles", generousLimiter, async (req, res) => {
+    try {
+      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
+      const { getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
+      
+      const recentCycles = oceanAutonomicManager.getRecentCycles(10);
+      const consciousness = oceanAutonomicManager.getConsciousness();
+      
+      res.json({
+        consciousness,
+        recentCycles,
+        mushroomCooldown: {
+          remaining: getMushroomCooldownRemaining(),
+          seconds: Math.round(getMushroomCooldownRemaining() / 1000),
+          canTrigger: getMushroomCooldownRemaining() === 0,
+        },
+        triggers: {
+          sleep: oceanAutonomicManager.shouldTriggerSleep(0),
+          dream: oceanAutonomicManager.shouldTriggerDream(),
+          mushroom: oceanAutonomicManager.shouldTriggerMushroom(),
+        }
+      });
+    } catch (error: any) {
+      console.error("[Admin] Cycles status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
   // RECOVERY BUNDLE API - Access found keys/phrases
   // ============================================================
   
