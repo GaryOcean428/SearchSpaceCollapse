@@ -890,6 +890,9 @@ class GeometricMemory {
   /**
    * Compute the Fisher Information Matrix from all probes.
    * This captures the curvature of the explored manifold region.
+   * 
+   * IMPROVED: Uses full covariance matrix with SVD-based pseudoinverse
+   * (Tikhonov regularization) for proper eigendecomposition.
    */
   computeFisherInformationMatrix(): {
     matrix: number[][];
@@ -898,6 +901,7 @@ class GeometricMemory {
     exploredDimensions: number[];
     unexploredDimensions: number[];
     effectiveRank: number;
+    covarianceMeans: number[];
   } {
     const probes = Array.from(this.probeMap.values());
     const withCoords = probes.filter(p => p.coordinates.length > 0);
@@ -910,12 +914,13 @@ class GeometricMemory {
         exploredDimensions: [],
         unexploredDimensions: Array.from({ length: 32 }, (_, i) => i),
         effectiveRank: 0,
+        covarianceMeans: [],
       };
     }
 
     const dims = Math.min(withCoords[0].coordinates.length, 32);
     
-    // Build covariance matrix from probe coordinates
+    // Step 1: Compute means for centering
     const means = new Array(dims).fill(0);
     for (const probe of withCoords) {
       for (let d = 0; d < dims; d++) {
@@ -926,41 +931,59 @@ class GeometricMemory {
       means[d] /= withCoords.length;
     }
 
-    // Covariance matrix (Fisher = inverse of covariance for Gaussian)
+    // Step 2: Build FULL covariance matrix (including cross-terms!)
     const covariance: number[][] = [];
     for (let i = 0; i < dims; i++) {
       covariance[i] = new Array(dims).fill(0);
-      for (let j = 0; j < dims; j++) {
+      for (let j = 0; j <= i; j++) { // Only lower triangle, then mirror
         let sum = 0;
         for (const probe of withCoords) {
           const ci = (probe.coordinates[i] || 0) - means[i];
           const cj = (probe.coordinates[j] || 0) - means[j];
           sum += ci * cj;
         }
-        covariance[i][j] = sum / withCoords.length;
+        const cov = sum / (withCoords.length - 1); // Unbiased estimator
+        covariance[i][j] = cov;
+        covariance[j][i] = cov; // Symmetric
       }
     }
 
-    // Fisher Information Matrix = inverse of covariance
-    // For numerical stability, we use pseudoinverse via regularization
+    // Step 3: SVD-based eigendecomposition of covariance matrix
+    // For full covariance, we need true eigenvectors, not axis-aligned
+    const { eigenvalues: covEigenvalues, eigenvectors: covEigenvectors } = 
+      this.symmetricEigendecomposition(covariance);
+
+    // Step 4: Fisher = pseudoinverse of covariance via Tikhonov regularization
+    // F = V * diag(1/(λ + ε)) * V^T where ε is regularization
+    const epsilon = 0.01; // Tikhonov regularization parameter
+    const fisherEigenvalues: number[] = covEigenvalues.map(lambda => 
+      1 / (Math.abs(lambda) + epsilon)
+    );
+
+    // Reconstruct Fisher matrix: F = V * diag(fisherEigenvalues) * V^T
     const fisher: number[][] = [];
     for (let i = 0; i < dims; i++) {
       fisher[i] = new Array(dims).fill(0);
-      // Diagonal approximation with regularization
-      const variance = covariance[i][i] + 0.01; // Regularization
-      fisher[i][i] = 1 / variance;
+      for (let j = 0; j < dims; j++) {
+        let sum = 0;
+        for (let k = 0; k < dims; k++) {
+          sum += covEigenvectors[i][k] * fisherEigenvalues[k] * covEigenvectors[j][k];
+        }
+        fisher[i][j] = sum;
+      }
     }
 
-    // Power iteration for eigenvalue decomposition
-    const { eigenvalues, eigenvectors } = this.powerIterationEigen(fisher, Math.min(dims, 16));
-
-    // Classify dimensions by eigenvalue magnitude
-    const threshold = 0.1; // Dimensions with eigenvalue < threshold are "unexplored"
+    // Step 5: Classify dimensions by covariance eigenvalue magnitude
+    // Large eigenvalue = well-explored direction
+    // Small eigenvalue = unexplored direction (in orthogonal complement)
+    const maxEigenvalue = Math.max(...covEigenvalues.map(Math.abs));
+    const threshold = maxEigenvalue * 0.05; // 5% of max is threshold
+    
     const exploredDimensions: number[] = [];
     const unexploredDimensions: number[] = [];
 
-    for (let i = 0; i < eigenvalues.length; i++) {
-      if (eigenvalues[i] >= threshold) {
+    for (let i = 0; i < covEigenvalues.length; i++) {
+      if (Math.abs(covEigenvalues[i]) >= threshold) {
         exploredDimensions.push(i);
       } else {
         unexploredDimensions.push(i);
@@ -970,17 +993,107 @@ class GeometricMemory {
     // Effective rank (number of significant dimensions)
     const effectiveRank = exploredDimensions.length;
 
-    console.log(`[GeometricMemory] Fisher analysis: ${effectiveRank}/${dims} dimensions explored`);
-    console.log(`[GeometricMemory] Unexplored dimensions: [${unexploredDimensions.slice(0, 5).join(', ')}...]`);
+    console.log(`[GeometricMemory] Fisher analysis (FULL covariance): ${effectiveRank}/${dims} dimensions explored`);
+    console.log(`[GeometricMemory] Max eigenvalue: ${maxEigenvalue.toFixed(4)}, threshold: ${threshold.toFixed(4)}`);
+    console.log(`[GeometricMemory] Unexplored dimensions: ${unexploredDimensions.length} (eigenvectors for orthogonal complement)`);
 
     return {
       matrix: fisher,
-      eigenvalues,
-      eigenvectors,
+      eigenvalues: fisherEigenvalues,
+      eigenvectors: covEigenvectors, // Use covariance eigenvectors (they define the directions)
       exploredDimensions,
       unexploredDimensions,
       effectiveRank,
+      covarianceMeans: means,
     };
+  }
+
+  /**
+   * Symmetric eigendecomposition using Jacobi rotation method.
+   * More numerically stable than power iteration for full matrices.
+   */
+  private symmetricEigendecomposition(matrix: number[][]): {
+    eigenvalues: number[];
+    eigenvectors: number[][];
+  } {
+    const n = matrix.length;
+    if (n === 0) return { eigenvalues: [], eigenvectors: [] };
+
+    // Copy matrix for in-place modification
+    const A: number[][] = matrix.map(row => [...row]);
+    
+    // Initialize eigenvectors to identity
+    const V: number[][] = [];
+    for (let i = 0; i < n; i++) {
+      V[i] = new Array(n).fill(0);
+      V[i][i] = 1;
+    }
+
+    // Jacobi rotation iterations
+    const maxIterations = 50;
+    const tolerance = 1e-10;
+
+    for (let iter = 0; iter < maxIterations; iter++) {
+      // Find largest off-diagonal element
+      let maxOffDiag = 0;
+      let p = 0, q = 1;
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          if (Math.abs(A[i][j]) > maxOffDiag) {
+            maxOffDiag = Math.abs(A[i][j]);
+            p = i;
+            q = j;
+          }
+        }
+      }
+
+      if (maxOffDiag < tolerance) break;
+
+      // Compute rotation angle
+      const theta = (A[q][q] - A[p][p]) / (2 * A[p][q]);
+      const t = Math.sign(theta) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+      const c = 1 / Math.sqrt(1 + t * t);
+      const s = t * c;
+
+      // Apply Jacobi rotation to A
+      const App = A[p][p], Aqq = A[q][q], Apq = A[p][q];
+      A[p][p] = c * c * App - 2 * s * c * Apq + s * s * Aqq;
+      A[q][q] = s * s * App + 2 * s * c * Apq + c * c * Aqq;
+      A[p][q] = 0;
+      A[q][p] = 0;
+
+      for (let i = 0; i < n; i++) {
+        if (i !== p && i !== q) {
+          const Aip = A[i][p], Aiq = A[i][q];
+          A[i][p] = c * Aip - s * Aiq;
+          A[p][i] = A[i][p];
+          A[i][q] = s * Aip + c * Aiq;
+          A[q][i] = A[i][q];
+        }
+      }
+
+      // Update eigenvectors
+      for (let i = 0; i < n; i++) {
+        const Vip = V[i][p], Viq = V[i][q];
+        V[i][p] = c * Vip - s * Viq;
+        V[i][q] = s * Vip + c * Viq;
+      }
+    }
+
+    // Extract eigenvalues from diagonal
+    const eigenvalues = A.map((row, i) => row[i]);
+    
+    // Sort by eigenvalue magnitude (descending)
+    const indices = eigenvalues.map((v, i) => i);
+    indices.sort((a, b) => Math.abs(eigenvalues[b]) - Math.abs(eigenvalues[a]));
+
+    const sortedEigenvalues = indices.map(i => eigenvalues[i]);
+    const sortedEigenvectors: number[][] = [];
+    for (let i = 0; i < n; i++) {
+      sortedEigenvectors[i] = indices.map(j => V[i][j]);
+    }
+
+    return { eigenvalues: sortedEigenvalues, eigenvectors: sortedEigenvectors };
   }
 
   /**
@@ -1050,6 +1163,9 @@ class GeometricMemory {
    * 
    * The 20k measurements define a constraint surface.
    * The passphrase lives at the intersection of all constraints.
+   * 
+   * IMPROVED: Uses true eigenvectors from full covariance decomposition
+   * and stores Fisher matrix and means for Mahalanobis distance calculation.
    */
   computeOrthogonalComplement(): {
     complementBasis: number[][];
@@ -1057,16 +1173,43 @@ class GeometricMemory {
     constraintViolations: number;
     geodesicDirections: number[][];
     searchPriority: 'high' | 'medium' | 'low';
+    fisherMatrix: number[][];
+    covarianceMeans: number[];
+    fisherEigenvalues: number[];
   } {
     const fisherAnalysis = this.computeFisherInformationMatrix();
     const probes = Array.from(this.probeMap.values());
     
-    // Orthogonal complement = span of unexplored eigenvectors
-    const complementBasis = fisherAnalysis.unexploredDimensions.map(idx => 
-      fisherAnalysis.eigenvectors[idx] || new Array(32).fill(0).map(() => Math.random() - 0.5)
-    );
+    // Orthogonal complement = span of UNEXPLORED eigenvectors
+    // These are directions with small covariance eigenvalues (little variance explored)
+    // Using proper eigenvectors from full covariance decomposition
+    const complementBasis: number[][] = [];
+    for (const idx of fisherAnalysis.unexploredDimensions) {
+      if (idx < fisherAnalysis.eigenvectors.length) {
+        // Extract the i-th eigenvector (stored as columns in eigenvectors)
+        const eigenvector = fisherAnalysis.eigenvectors.map(row => row[idx] || 0);
+        complementBasis.push(eigenvector);
+      }
+    }
+    
+    // If no unexplored dimensions found, use random orthogonal directions
+    if (complementBasis.length === 0) {
+      console.log(`[GeometricMemory] All dimensions explored - generating random orthogonal directions`);
+      const dims = fisherAnalysis.eigenvectors.length || 32;
+      for (let i = 0; i < 5; i++) {
+        let random = new Array(dims).fill(0).map(() => Math.random() - 0.5);
+        // Gram-Schmidt against existing
+        for (const existing of complementBasis) {
+          const dot = random.reduce((s, x, j) => s + x * (existing[j] || 0), 0);
+          random = random.map((x, j) => x - dot * (existing[j] || 0));
+        }
+        const norm = Math.sqrt(random.reduce((s, x) => s + x * x, 0)) || 1;
+        complementBasis.push(random.map(x => x / norm));
+      }
+    }
     
     // Geodesic directions: Follow Fisher gradient AWAY from explored space
+    // Now informed by the actual eigenvector structure
     const geodesicDirections: number[][] = [];
     
     // Direction 1: Away from centroid of explored space
@@ -1075,13 +1218,21 @@ class GeometricMemory {
     const norm1 = Math.sqrt(awayFromCentroid.reduce((s, x) => s + x * x, 0)) || 1;
     geodesicDirections.push(awayFromCentroid.map(x => x / norm1));
     
-    // Direction 2: Toward high-curvature regions (where geometry changes rapidly)
-    const highCurvatureDir = this.computeHighCurvatureDirection(probes);
-    geodesicDirections.push(highCurvatureDir);
+    // Direction 2: Largest unexplored eigenvector direction
+    if (complementBasis.length > 0) {
+      geodesicDirections.push(complementBasis[0]);
+    } else {
+      const highCurvatureDir = this.computeHighCurvatureDirection(probes);
+      geodesicDirections.push(highCurvatureDir);
+    }
     
-    // Direction 3: Random orthogonal to both (exploration)
-    const randomOrthogonal = this.computeRandomOrthogonalDirection(geodesicDirections);
-    geodesicDirections.push(randomOrthogonal);
+    // Direction 3: Second unexplored eigenvector or random orthogonal
+    if (complementBasis.length > 1) {
+      geodesicDirections.push(complementBasis[1]);
+    } else {
+      const randomOrthogonal = this.computeRandomOrthogonalDirection(geodesicDirections);
+      geodesicDirections.push(randomOrthogonal);
+    }
 
     // Constraint violations: How many probes are in "contradiction" regions
     const constraintViolations = probes.filter(p => p.phi < 0.2).length;
@@ -1098,7 +1249,7 @@ class GeometricMemory {
       searchPriority = 'low'; // Heavily explored, might need new strategy
     }
 
-    console.log(`[GeometricMemory] Orthogonal complement: ${complementBasis.length} dimensions`);
+    console.log(`[GeometricMemory] Orthogonal complement: ${complementBasis.length} dimensions (proper eigenvector basis)`);
     console.log(`[GeometricMemory] Search priority: ${searchPriority}`);
 
     return {
@@ -1107,7 +1258,55 @@ class GeometricMemory {
       constraintViolations,
       geodesicDirections,
       searchPriority,
+      fisherMatrix: fisherAnalysis.matrix,
+      covarianceMeans: fisherAnalysis.covarianceMeans,
+      fisherEigenvalues: fisherAnalysis.eigenvalues,
     };
+  }
+
+  /**
+   * Compute Mahalanobis distance from a point to the explored manifold.
+   * Uses the Fisher Information Matrix as the metric tensor.
+   * 
+   * Mahalanobis(x, μ, Σ^-1) = sqrt((x - μ)^T * Σ^-1 * (x - μ))
+   *                        = sqrt((x - μ)^T * F * (x - μ))
+   * where F is the Fisher Information Matrix
+   */
+  computeMahalanobisDistance(coords: number[], fisherMatrix: number[][], means: number[]): number {
+    if (fisherMatrix.length === 0 || coords.length === 0) return 0;
+    
+    const dims = Math.min(coords.length, fisherMatrix.length);
+    const diff = coords.slice(0, dims).map((c, i) => c - (means[i] || 0));
+    
+    // Compute (x - μ)^T * F * (x - μ)
+    let mahalanobis = 0;
+    for (let i = 0; i < dims; i++) {
+      for (let j = 0; j < dims; j++) {
+        mahalanobis += diff[i] * (fisherMatrix[i]?.[j] || 0) * diff[j];
+      }
+    }
+    
+    return Math.sqrt(Math.max(0, mahalanobis));
+  }
+
+  /**
+   * Project a point onto the orthogonal complement basis.
+   * Returns the magnitude of projection (how much of the point is in unexplored space).
+   */
+  computeComplementProjectionStrength(coords: number[], complementBasis: number[][]): number {
+    if (complementBasis.length === 0 || coords.length === 0) return 0;
+    
+    let totalProjection = 0;
+    for (const basis of complementBasis) {
+      // Dot product with each basis vector
+      let dot = 0;
+      for (let i = 0; i < Math.min(coords.length, basis.length); i++) {
+        dot += coords[i] * (basis[i] || 0);
+      }
+      totalProjection += dot * dot; // Sum of squared projections
+    }
+    
+    return Math.sqrt(totalProjection);
   }
 
   private computeHighCurvatureDirection(probes: BasinProbe[]): number[] {
