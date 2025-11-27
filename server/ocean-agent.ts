@@ -2009,12 +2009,15 @@ export class OceanAgent {
     trajectoryWaypoints: number;
     negativeKnowledge: { contradictions: number; barriers: number; computeSaved: number };
     knowledgeBus: { published: number; crossPatterns: number };
-    compressionMetrics: { generators: number; patternsLearned: number };
+    compressionMetrics: { generators: number; patternsLearned: number; successfulPatterns: number; failedPatterns: number };
   } {
     const trajectory = this.trajectoryId ? temporalGeometry.getTrajectory(this.trajectoryId) : null;
     const negStats = negativeKnowledgeRegistry.getStats();
     const busStats = strategyKnowledgeBus.getTransferStats();
-    const compStats = knowledgeCompressionEngine.getCompressedStats();
+    
+    // Get compression stats using the correct methods
+    const generatorStats = knowledgeCompressionEngine.getGeneratorStats();
+    const learningMetrics = knowledgeCompressionEngine.getLearningMetrics();
     
     return {
       trajectoryActive: !!this.trajectoryId,
@@ -2029,8 +2032,10 @@ export class OceanAgent {
         crossPatterns: busStats.crossPatterns,
       },
       compressionMetrics: {
-        generators: compStats.generators,
-        patternsLearned: compStats.patternsLearned,
+        generators: generatorStats.length,
+        patternsLearned: learningMetrics.patternsLearned,
+        successfulPatterns: learningMetrics.successfulPatterns,
+        failedPatterns: learningMetrics.failedPatterns,
       },
     };
   }

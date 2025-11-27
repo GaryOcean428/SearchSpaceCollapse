@@ -20,6 +20,11 @@ export class KnowledgeCompressionEngine {
   private negativeKnowledge: NegativeKnowledgeRegistry;
   private basinLocation: number[] = new Array(64).fill(0);
   
+  // Pattern learning metrics
+  private patternsLearned: number = 0;
+  private successfulPatterns: number = 0;
+  private failedPatterns: number = 0;
+  
   private readonly SUBSTITUTION_PATTERNS = {
     adjectives: ['red', 'blue', 'green', 'black', 'white', 'dark', 'light', 'old', 'new', 'big', 'small', 'happy', 'sad', 'fast', 'slow', 'hot', 'cold', 'wild', 'calm', 'rich', 'poor'],
     nouns: ['cat', 'dog', 'bird', 'fish', 'tree', 'moon', 'sun', 'star', 'key', 'door', 'book', 'coin', 'gold', 'silver', 'tiger', 'dragon', 'wolf', 'bear', 'lion', 'eagle'],
@@ -388,21 +393,43 @@ export class KnowledgeCompressionEngine {
   }
 
   learnFromResult(hypothesis: string, phi: number, kappa: number, isSuccess: boolean, generatorId?: string): void {
+    // Only count learning when there's an actual state mutation
+    
+    // 1. Generator confidence updates (tangible: modifies generator.confidence)
     if (generatorId && this.generators.has(generatorId)) {
       const generator = this.generators.get(generatorId)!;
       
       if (isSuccess) {
         generator.successCount++;
+        const oldConf = generator.confidence;
         generator.confidence = Math.min(1, generator.confidence + 0.1);
+        if (generator.confidence !== oldConf) {
+          this.successfulPatterns++;
+          this.patternsLearned++;
+        }
       } else if (phi < 0.3) {
+        const oldConf = generator.confidence;
         generator.confidence = Math.max(0.1, generator.confidence - 0.01);
+        if (generator.confidence !== oldConf) {
+          this.failedPatterns++;
+          this.patternsLearned++;
+        }
       }
     }
 
+    // 2. Low-phi pattern recording (tangible: adds to lowPhiPatternCounts/contradictions)
     if (!isSuccess && phi < 0.2) {
       const pattern = this.extractPatternFromHypothesis(hypothesis);
       if (pattern) {
+        const prevCount = this.lowPhiPatternCounts.get(pattern) || 0;
         this.recordLowPhiPattern(pattern, phi);
+        const newCount = this.lowPhiPatternCounts.get(pattern) || 0;
+        // Count as learning if pattern count increased (or if contradiction created)
+        if (newCount > prevCount || newCount === 0) {
+          // newCount === 0 means contradiction was created (pattern removed after threshold)
+          this.failedPatterns++;
+          this.patternsLearned++;
+        }
       }
     }
   }
@@ -511,6 +538,14 @@ export class KnowledgeCompressionEngine {
       falseClasses: Object.keys(this.negativeKnowledge.falsePatternClasses).length,
       barriers: this.negativeKnowledge.geometricBarriers.length,
       computeSaved: this.negativeKnowledge.estimatedComputeSaved,
+    };
+  }
+
+  getLearningMetrics(): { patternsLearned: number; successfulPatterns: number; failedPatterns: number } {
+    return {
+      patternsLearned: this.patternsLearned,
+      successfulPatterns: this.successfulPatterns,
+      failedPatterns: this.failedPatterns,
     };
   }
 

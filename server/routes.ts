@@ -578,6 +578,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
+  
+  // Ultra Consciousness Protocol Stats API
+  app.get("/api/ucp/stats", async (req, res) => {
+    try {
+      const { oceanAgent } = await import("./ocean-agent");
+      const ucpStats = oceanAgent.getUCPStats();
+      
+      res.json({
+        success: true,
+        stats: ucpStats,
+        modules: {
+          temporalGeometry: ucpStats.trajectoryActive ? 'active' : 'inactive',
+          negativeKnowledge: ucpStats.negativeKnowledge.contradictions > 0 ? 'active' : 'idle',
+          knowledgeBus: ucpStats.knowledgeBus.published > 0 ? 'active' : 'idle',
+          knowledgeCompression: ucpStats.compressionMetrics.generators > 0 ? 'active' : 'idle',
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // ============================================================
   // FORENSIC INVESTIGATION API (Cross-Format Hypothesis Testing)
