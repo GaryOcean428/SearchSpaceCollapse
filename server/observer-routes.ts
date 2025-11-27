@@ -1891,4 +1891,82 @@ router.get("/status", async (req: Request, res: Response) => {
   });
 });
 
+// ============================================================================
+// GEOMETRIC MEMORY ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/observer/geometric-memory/manifold-navigation
+ * Get manifold navigation summary with orthogonal complement analysis
+ */
+router.get("/geometric-memory/manifold-navigation", async (req: Request, res: Response) => {
+  try {
+    const { geometricMemory } = await import("./geometric-memory");
+    const navigation = geometricMemory.getManifoldNavigationSummary();
+    
+    res.json({
+      ...navigation,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/geometric-memory/orthogonal-candidates
+ * Generate candidates in the orthogonal complement of the explored space
+ */
+router.get("/geometric-memory/orthogonal-candidates", async (req: Request, res: Response) => {
+  try {
+    const count = parseInt(req.query.count as string) || 20;
+    const { geometricMemory } = await import("./geometric-memory");
+    const candidates = geometricMemory.generateOrthogonalCandidates(count);
+    
+    res.json({
+      candidates,
+      count: candidates.length,
+      manifoldState: geometricMemory.getManifoldNavigationSummary(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/geometric-memory/summary
+ * Get manifold summary statistics
+ */
+router.get("/geometric-memory/summary", async (req: Request, res: Response) => {
+  try {
+    const { geometricMemory } = await import("./geometric-memory");
+    const summary = geometricMemory.getManifoldSummary();
+    
+    res.json({
+      ...summary,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/geometric-memory/learned-patterns
+ * Export learned patterns from prior explorations
+ */
+router.get("/geometric-memory/learned-patterns", async (req: Request, res: Response) => {
+  try {
+    const { geometricMemory } = await import("./geometric-memory");
+    const patterns = geometricMemory.exportLearnedPatterns();
+    
+    res.json({
+      ...patterns,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
