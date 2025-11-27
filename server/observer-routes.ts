@@ -759,16 +759,28 @@ router.get("/priorities", async (req: Request, res: Response) => {
     
     const filters = schema.parse(req.query);
     
-    // TODO: Query database for recovery priorities
+    const priorities = await observerStorage.getRecoveryPriorities({
+      tier: filters.tier,
+      minKappa: filters.minKappa,
+      limit: filters.limit,
+      offset: filters.offset,
+    });
     
     res.json({
-      priorities: [],
-      total: 0,
+      priorities,
+      total: priorities.length,
       filters,
-      message: "Recovery priorities not yet computed. Run scanning and constraint solver.",
+      message: priorities.length === 0 
+        ? "No recovery priorities found. Run scanning and constraint solver first."
+        : `Found ${priorities.length} priorit${priorities.length === 1 ? 'y' : 'ies'}`,
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    if (error.name === 'ZodError') {
+      res.status(400).json({ error: error.message });
+    } else {
+      console.error("[ObserverAPI] Priorities error:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -780,11 +792,19 @@ router.get("/priorities/:address", async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
     
-    // TODO: Query database for priority details
+    const priority = await observerStorage.getRecoveryPriority(address);
+    
+    if (!priority) {
+      return res.status(404).json({
+        error: "Priority not found",
+        address,
+        message: "No recovery priority computed for this address. Run the constraint solver first.",
+      });
+    }
     
     res.json({
-      address,
-      message: "Priority lookup not yet implemented",
+      priority,
+      message: "Recovery priority retrieved successfully",
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -810,16 +830,28 @@ router.get("/workflows", async (req: Request, res: Response) => {
     
     const filters = schema.parse(req.query);
     
-    // TODO: Query database for workflows
+    const workflows = await observerStorage.getRecoveryWorkflows({
+      vectorType: filters.vector,
+      status: filters.status,
+    });
+    
+    const paginatedWorkflows = workflows.slice(filters.offset, filters.offset + filters.limit);
     
     res.json({
-      workflows: [],
-      total: 0,
+      workflows: paginatedWorkflows,
+      total: workflows.length,
       filters,
-      message: "Recovery workflows not yet implemented",
+      message: paginatedWorkflows.length === 0 
+        ? "No recovery workflows found."
+        : `Found ${paginatedWorkflows.length} workflow${paginatedWorkflows.length === 1 ? '' : 's'}`,
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    if (error.name === 'ZodError') {
+      res.status(400).json({ error: error.message });
+    } else {
+      console.error("[ObserverAPI] Workflows error:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -837,19 +869,27 @@ router.post("/workflows", async (req: Request, res: Response) => {
     
     const data = schema.parse(req.body);
     
-    // TODO: Create workflow in database
+    const workflow = await observerStorage.saveRecoveryWorkflow({
+      id: randomUUID(),
+      address: data.address,
+      vector: data.vector,
+      status: "pending",
+      priority: data.priority || null,
+      progress: null,
+      result: null,
+    });
     
     res.json({
-      workflow: {
-        id: "mock-workflow-id",
-        ...data,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      },
+      workflow,
       message: "Workflow created successfully",
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    if (error.name === 'ZodError') {
+      res.status(400).json({ error: error.message });
+    } else {
+      console.error("[ObserverAPI] Workflow creation error:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -861,14 +901,19 @@ router.get("/workflows/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    // TODO: Query database for workflow
+    const workflow = await observerStorage.getRecoveryWorkflow(id);
+    
+    if (!workflow) {
+      return res.status(404).json({
+        error: "Workflow not found",
+        id,
+        message: "No workflow found with this ID.",
+      });
+    }
     
     res.json({
-      workflow: {
-        id,
-        status: "pending",
-        message: "Workflow lookup not yet implemented",
-      },
+      workflow,
+      message: "Workflow retrieved successfully",
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -893,16 +938,25 @@ router.get("/entities", async (req: Request, res: Response) => {
     
     const filters = schema.parse(req.query);
     
-    // TODO: Query database for entities
+    const entities = await observerStorage.getEntities(filters.type);
+    
+    const paginatedEntities = entities.slice(filters.offset, filters.offset + filters.limit);
     
     res.json({
-      entities: [],
-      total: 0,
+      entities: paginatedEntities,
+      total: entities.length,
       filters,
-      message: "Entity data not yet loaded. Awaiting Era Manifold ingestion.",
+      message: paginatedEntities.length === 0 
+        ? "No entities found. Ingest entity data via POST /api/observer/entities."
+        : `Found ${paginatedEntities.length} entit${paginatedEntities.length === 1 ? 'y' : 'ies'}`,
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    if (error.name === 'ZodError') {
+      res.status(400).json({ error: error.message });
+    } else {
+      console.error("[ObserverAPI] Entities error:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
@@ -921,16 +975,25 @@ router.get("/artifacts", async (req: Request, res: Response) => {
     
     const filters = schema.parse(req.query);
     
-    // TODO: Query database for artifacts
+    const artifacts = await observerStorage.getArtifacts({ source: filters.source });
+    
+    const paginatedArtifacts = artifacts.slice(filters.offset, filters.offset + filters.limit);
     
     res.json({
-      artifacts: [],
-      total: 0,
+      artifacts: paginatedArtifacts,
+      total: artifacts.length,
       filters,
-      message: "Artifact data not yet loaded. Awaiting Era Manifold ingestion.",
+      message: paginatedArtifacts.length === 0 
+        ? "No artifacts found. Ingest artifact data via POST /api/observer/artifacts."
+        : `Found ${paginatedArtifacts.length} artifact${paginatedArtifacts.length === 1 ? '' : 's'}`,
     });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    if (error.name === 'ZodError') {
+      res.status(400).json({ error: error.message });
+    } else {
+      console.error("[ObserverAPI] Artifacts error:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
