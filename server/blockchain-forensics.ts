@@ -13,6 +13,7 @@
 import { HistoricalDataMiner, type Era, ERA_FORMAT_WEIGHTS, type KeyFormat } from './historical-data-miner';
 
 const BLOCKSTREAM_API = 'https://blockstream.info/api';
+const BLOCKCHAIN_INFO_API = 'https://blockchain.info';
 
 export interface AddressForensics {
   address: string;
@@ -72,10 +73,23 @@ export interface GitHubRepo {
 const addressCache = new Map<string, AddressForensics>();
 const TX_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
+// Clear specific address from cache (for reanalysis)
+export function clearAddressCache(address?: string): void {
+  if (address) {
+    addressCache.delete(address);
+    console.log(`[BlockchainForensics] Cleared cache for ${address}`);
+  } else {
+    addressCache.clear();
+    console.log(`[BlockchainForensics] Cleared all address cache`);
+  }
+}
+
 export class BlockchainForensics {
   
   /**
    * Analyze a Bitcoin address for forensic clues
+   * Uses blockchain.info API as primary (complete historical data) 
+   * with Blockstream as fallback
    */
   async analyzeAddress(address: string): Promise<AddressForensics> {
     // Check cache
@@ -86,19 +100,38 @@ export class BlockchainForensics {
     console.log(`[BlockchainForensics] Analyzing address: ${address}`);
 
     try {
-      // Fetch address info from Blockstream API
-      const addressInfo = await this.fetchAddressInfo(address);
-      const txHistory = await this.fetchTransactionHistory(address);
+      // Use blockchain.info as primary source (better historical data for 2009-era addresses)
+      const bcInfo = await this.fetchFromBlockchainInfo(address);
       
-      // Find first transaction (creation timestamp)
-      const firstTx = txHistory.length > 0 ? txHistory[txHistory.length - 1] : null;
+      // Extract first and last transaction data
+      let firstTx = null;
+      let lastTx = null;
       
+      if (bcInfo.txs && bcInfo.txs.length > 0) {
+        // blockchain.info returns newest first, so last in array is oldest
+        lastTx = bcInfo.txs[0];
+        
+        // For oldest tx, we need to fetch with offset
+        if (bcInfo.n_tx > bcInfo.txs.length) {
+          // Fetch the oldest transaction
+          const oldestTxData = await this.fetchOldestTransaction(address, bcInfo.n_tx);
+          if (oldestTxData) {
+            firstTx = oldestTxData;
+          } else {
+            firstTx = bcInfo.txs[bcInfo.txs.length - 1];
+          }
+        } else {
+          firstTx = bcInfo.txs[bcInfo.txs.length - 1];
+        }
+      }
+
       // Find sibling addresses from first transaction
-      const siblingAddresses = firstTx 
-        ? await this.findSiblingAddresses(firstTx.txid)
+      const siblingAddresses = firstTx?.hash 
+        ? await this.findSiblingAddresses(firstTx.hash)
         : [];
       
-      // Analyze transaction patterns
+      // Convert blockchain.info tx format to analyze patterns
+      const txHistory = bcInfo.txs || [];
       const transactionPatterns = this.analyzeTransactionPatterns(txHistory);
       
       // Find related addresses through co-spending
@@ -106,19 +139,21 @@ export class BlockchainForensics {
 
       const forensics: AddressForensics = {
         address,
-        creationBlock: firstTx?.status?.block_height,
-        creationTimestamp: firstTx?.status?.block_time 
-          ? new Date(firstTx.status.block_time * 1000)
+        creationBlock: firstTx?.block_height,
+        creationTimestamp: firstTx?.time 
+          ? new Date(firstTx.time * 1000)
           : undefined,
-        firstTxHash: firstTx?.txid,
-        totalReceived: addressInfo.chain_stats.funded_txo_sum,
-        totalSent: addressInfo.chain_stats.spent_txo_sum,
-        balance: addressInfo.chain_stats.funded_txo_sum - addressInfo.chain_stats.spent_txo_sum,
-        txCount: addressInfo.chain_stats.tx_count,
+        firstTxHash: firstTx?.hash,
+        totalReceived: bcInfo.total_received,
+        totalSent: bcInfo.total_sent,
+        balance: bcInfo.final_balance,
+        txCount: bcInfo.n_tx,
         siblingAddresses,
         relatedAddresses,
         transactionPatterns,
       };
+
+      console.log(`[BlockchainForensics] Address ${address}: ${bcInfo.n_tx} txs, balance: ${bcInfo.final_balance / 100000000} BTC, first seen: ${forensics.creationTimestamp?.toISOString()}`);
 
       // Cache result
       addressCache.set(address, forensics);
@@ -142,6 +177,36 @@ export class BlockchainForensics {
   }
 
   /**
+   * Fetch address data from blockchain.info (better historical data)
+   */
+  private async fetchFromBlockchainInfo(address: string): Promise<any> {
+    const response = await fetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`);
+    if (!response.ok) {
+      throw new Error(`blockchain.info API failed: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Fetch the oldest transaction for an address
+   */
+  private async fetchOldestTransaction(address: string, totalTxs: number): Promise<any> {
+    try {
+      const offset = Math.max(0, totalTxs - 1);
+      const response = await fetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=1&offset=${offset}`);
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (data.txs && data.txs.length > 0) {
+        return data.txs[0];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Fetch address info from Blockstream API
    */
   private async fetchAddressInfo(address: string): Promise<any> {
@@ -153,14 +218,51 @@ export class BlockchainForensics {
   }
 
   /**
-   * Fetch transaction history for an address
+   * Fetch FULL transaction history for an address (with pagination)
+   * Blockstream API returns max 25 txs per request, need to paginate to get all
    */
   private async fetchTransactionHistory(address: string): Promise<any[]> {
-    const response = await fetch(`${BLOCKSTREAM_API}/address/${address}/txs`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch transactions: ${response.status}`);
+    const allTxs: any[] = [];
+    let lastSeenTxid: string | null = null;
+    const maxPages = 10; // Safety limit (250 transactions max)
+    
+    for (let page = 0; page < maxPages; page++) {
+      let fetchUrl: string;
+      if (lastSeenTxid) {
+        fetchUrl = `${BLOCKSTREAM_API}/address/${address}/txs/chain/${lastSeenTxid}`;
+      } else {
+        fetchUrl = `${BLOCKSTREAM_API}/address/${address}/txs`;
+      }
+        
+      const fetchResponse: Response = await fetch(fetchUrl);
+      if (!fetchResponse.ok) {
+        if (page === 0) {
+          throw new Error(`Failed to fetch transactions: ${fetchResponse.status}`);
+        }
+        break; // End of pagination
+      }
+      
+      const txBatch: any[] = await fetchResponse.json();
+      if (!txBatch || txBatch.length === 0) {
+        break; // No more transactions
+      }
+      
+      allTxs.push(...txBatch);
+      
+      // Get the last txid for pagination
+      lastSeenTxid = txBatch[txBatch.length - 1].txid;
+      
+      // If we got less than 25 txs, we've reached the end
+      if (txBatch.length < 25) {
+        break;
+      }
+      
+      // Small delay to be nice to the API
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
-    return response.json();
+    
+    console.log(`[BlockchainForensics] Fetched ${allTxs.length} transactions for ${address}`);
+    return allTxs;
   }
 
   /**
