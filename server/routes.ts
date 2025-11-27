@@ -1355,6 +1355,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Inject neurotransmitter boost
+  app.post("/api/ocean/boost", standardLimiter, async (req, res) => {
+    try {
+      const { injectAdminBoost, getActiveAdminBoost } = await import("./ocean-neurochemistry");
+      
+      const { neurotransmitter, amount, duration } = req.body;
+      
+      // Validate inputs
+      if (!neurotransmitter || typeof neurotransmitter !== 'string') {
+        return res.status(400).json({ 
+          error: 'Missing or invalid neurotransmitter',
+          valid: ['dopamine', 'serotonin', 'norepinephrine', 'gaba', 'acetylcholine', 'endorphins']
+        });
+      }
+      
+      const validNeurotransmitters = ['dopamine', 'serotonin', 'norepinephrine', 'gaba', 'acetylcholine', 'endorphins'];
+      if (!validNeurotransmitters.includes(neurotransmitter.toLowerCase())) {
+        return res.status(400).json({ 
+          error: `Invalid neurotransmitter: ${neurotransmitter}`,
+          valid: validNeurotransmitters
+        });
+      }
+      
+      const boostAmount = Math.min(1, Math.max(0, Number(amount) || 0.3));
+      const boostDuration = Math.min(300000, Math.max(1000, Number(duration) || 60000)); // 1s to 5min
+      
+      // Create boost object with only the specified neurotransmitter
+      const boostConfig: Record<string, number> = {};
+      boostConfig[neurotransmitter.toLowerCase()] = boostAmount;
+      
+      console.log(`[Admin] Neurotransmitter boost: ${neurotransmitter} +${boostAmount} for ${boostDuration}ms`);
+      
+      const boost = injectAdminBoost(boostConfig, boostDuration);
+      
+      res.json({
+        success: true,
+        boost: {
+          neurotransmitter: neurotransmitter.toLowerCase(),
+          amount: boostAmount,
+          duration: boostDuration,
+          expiresAt: boost.expiresAt,
+        },
+        activeBoost: getActiveAdminBoost(),
+        message: `${neurotransmitter} boosted by ${(boostAmount * 100).toFixed(0)}% for ${Math.round(boostDuration / 1000)}s`
+      });
+    } catch (error: any) {
+      console.error("[Admin] Boost error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Admin: Get cycle status and history
   app.get("/api/ocean/cycles", generousLimiter, async (req, res) => {
     try {
