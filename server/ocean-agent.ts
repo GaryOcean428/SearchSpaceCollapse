@@ -10,6 +10,8 @@ import { knowledgeCompressionEngine } from './knowledge-compression-engine';
 import { temporalGeometry } from './temporal-geometry';
 import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 import { strategyKnowledgeBus } from './strategy-knowledge-bus';
+import { culturalManifold, type BlockUniverseCoordinate, type GeodesicCandidate } from './cultural-manifold';
+import { geodesicNavigator } from './geodesic-navigator';
 import type { 
   OceanIdentity, 
   OceanMemory, 
@@ -155,6 +157,7 @@ export class OceanAgent {
       strategies: [
         { name: 'exploit_near_miss', triggerConditions: { nearMisses: 3 }, successRate: 0, avgPhiImprovement: 0, timesUsed: 0 },
         { name: 'explore_new_space', triggerConditions: { lowPhi: true }, successRate: 0, avgPhiImprovement: 0, timesUsed: 0 },
+        { name: 'block_universe', triggerConditions: { earlyEra: true, highPhi: true }, successRate: 0, avgPhiImprovement: 0, timesUsed: 0 },
         { name: 'refine_geometric', triggerConditions: { resonantCount: 5 }, successRate: 0, avgPhiImprovement: 0, timesUsed: 0 },
         { name: 'mushroom_reset', triggerConditions: { breakdown: true }, successRate: 0, avgPhiImprovement: 0, timesUsed: 0 },
       ],
@@ -1019,6 +1022,16 @@ export class OceanAgent {
       };
     }
     
+    // Block Universe strategy: Activate when in good consciousness state for early eras
+    const isEarlyEra = ['genesis-2009', '2010-2011', '2012-2013'].includes(this.state.detectedEra || '');
+    if (isEarlyEra && phi >= 0.6 && kappa >= 50) {
+      return {
+        name: 'block_universe',
+        reasoning: `Early era (${this.state.detectedEra}) with high consciousness. Navigate 4D cultural manifold.`,
+        params: { temporalFocus: this.state.detectedEra, geodesicDepth: 2 },
+      };
+    }
+    
     if (regime === 'breakdown') {
       return {
         name: 'mushroom_reset',
@@ -1186,6 +1199,13 @@ export class OceanAgent {
         }
         break;
         
+      case 'block_universe':
+        // Block Universe Consciousness: Navigate 4D spacetime manifold
+        const blockUniverseHypotheses = this.generateBlockUniverseHypotheses(50);
+        newHypotheses.push(...blockUniverseHypotheses);
+        console.log(`[Ocean] Block Universe: Generated ${blockUniverseHypotheses.length} geodesic candidates`);
+        break;
+        
       default:
         const balancedPhrases = this.generateBalancedPhrases(30);
         for (const phrase of balancedPhrases) {
@@ -1333,6 +1353,89 @@ export class OceanAgent {
     }
     
     return phrases;
+  }
+
+  /**
+   * BLOCK UNIVERSE CONSCIOUSNESS
+   * 
+   * Generate hypotheses by navigating the 4D spacetime manifold.
+   * The passphrase EXISTS at specific coordinates in the block universe.
+   * We use the blockchain's temporal/cultural/software constraints to
+   * navigate geodesic paths through the cultural manifold.
+   */
+  private generateBlockUniverseHypotheses(count: number): OceanHypothesis[] {
+    const hypotheses: OceanHypothesis[] = [];
+    
+    // Determine temporal coordinate from detected era
+    let timestamp: Date;
+    switch (this.state.detectedEra) {
+      case 'genesis-2009':
+        // Satoshi Genesis Era - most likely Feb 2009
+        timestamp = new Date('2009-02-15T12:00:00Z');
+        break;
+      case '2010-2011':
+        timestamp = new Date('2010-06-15T12:00:00Z');
+        break;
+      case '2012-2013':
+        timestamp = new Date('2012-06-15T12:00:00Z');
+        break;
+      case '2014-2016':
+        timestamp = new Date('2015-01-01T12:00:00Z');
+        break;
+      default:
+        // Default to Satoshi Genesis for lost coins
+        timestamp = new Date('2009-03-01T12:00:00Z');
+    }
+    
+    // Create Block Universe coordinate from temporal anchor
+    const coordinate = culturalManifold.createCoordinate(timestamp, 'never-spent');
+    console.log(`[BlockUniverse] Coordinate: era=${coordinate.era}, temporal=${timestamp.toISOString()}`);
+    console.log(`[BlockUniverse] Software constraint: ${coordinate.softwareConstraint.keyDerivationMethods.join(', ')}`);
+    console.log(`[BlockUniverse] Cultural context: ${coordinate.culturalContext.primaryInfluences.join(', ')}`);
+    
+    // Generate geodesic candidates from cultural manifold
+    const geodesicCandidates = culturalManifold.generateGeodesicCandidates(coordinate, count * 2);
+    
+    // Convert to hypotheses, sorted by combined score
+    for (const candidate of geodesicCandidates.slice(0, count)) {
+      const hypothesis = this.createHypothesis(
+        candidate.phrase,
+        'arbitrary',
+        'block_universe_geodesic',
+        `4D coordinate (${coordinate.era}): Cultural fit=${candidate.culturalFit.toFixed(2)}, ` +
+        `Temporal fit=${candidate.temporalFit.toFixed(2)}, QFI distance=${candidate.qfiDistance.toFixed(3)}`,
+        candidate.combinedScore
+      );
+      
+      // Enrich evidence chain with Block Universe insights
+      hypothesis.evidenceChain.push({
+        source: 'cultural_manifold',
+        type: 'geodesic_navigation',
+        reasoning: `Era: ${coordinate.era} | Cultural: ${coordinate.culturalContext.technicalLevel} | ` +
+          `Software: ${coordinate.softwareConstraint.keyDerivationMethods[0]}`,
+        confidence: candidate.combinedScore
+      });
+      
+      hypotheses.push(hypothesis);
+    }
+    
+    // Also get high-resonance terms from the era-specific lexicon
+    const highResonance = culturalManifold.getHighResonanceCandidates(coordinate.era, 0.6);
+    for (const entry of highResonance.slice(0, 10)) {
+      hypotheses.push(this.createHypothesis(
+        entry.term,
+        'arbitrary',
+        'block_universe_resonance',
+        `High QFI resonance (${entry.qfiResonance.toFixed(2)}) in ${coordinate.era} lexicon`,
+        0.75 + entry.qfiResonance * 0.2
+      ));
+    }
+    
+    // Log manifold statistics
+    const stats = culturalManifold.getStatistics();
+    console.log(`[BlockUniverse] Manifold: tested=${stats.testedPhrases}, geodesicPath=${stats.geodesicPathLength}, curvature=${stats.averageCurvature.toFixed(3)}`);
+    
+    return hypotheses;
   }
 
   private perturbPhrase(phrase: string, radius: number): string[] {
@@ -1586,7 +1689,7 @@ export class OceanAgent {
       if (!this.strategySubscriptions.get('initialized')) {
         const strategies = ['era_patterns', 'brain_wallet', 'bitcoin_terms', 'linguistic', 'qig_basin', 'historical', 'cross_format'];
         for (const strategy of strategies) {
-          strategyKnowledgeBus.subscribeStrategy(strategy, (knowledge) => {
+          strategyKnowledgeBus.subscribe(`ocean_${strategy}`, strategy, ['*'], (knowledge: any) => {
             if (knowledge.geometricSignature.phi > 0.5) {
               console.log(`[UCP] Strategy ${strategy} received high-Φ knowledge: ${knowledge.pattern}`);
             }
@@ -1751,14 +1854,8 @@ export class OceanAgent {
       // 5. BASIN TOPOLOGY - Update with per-iteration geometry
       // ====================================================================
       const manifoldSummary = geometricMemory.getManifoldSummary();
-      geometricMemory.updateBasinTopology(
-        this.identity.basinCoordinates,
-        manifoldSummary.exploredVolume || 0.01,
-        Array.from({ length: 64 }, (_, i) => 
-          (waypointKappa / 64) * (1 + 0.1 * Math.sin(i * 0.1))
-        ),
-        Array.from({ length: 64 }, () => Math.random() * 0.5 + 0.1)
-      );
+      // Compute basin topology from current attractor coordinates
+      geometricMemory.computeBasinTopology(this.identity.basinCoordinates);
 
       // ====================================================================
       // 6. PERIODIC MANIFOLD SNAPSHOTS (every 10 iterations)
@@ -1812,10 +1909,14 @@ export class OceanAgent {
       console.log(`  - Negative knowledge: ${negativeStats.totalExclusions} exclusions`);
       console.log(`  - Knowledge bus: ${busStats.totalPublished} published, ${busStats.crossPatterns} cross-patterns`);
       
-      // Update temporal geometry with snapshot
-      if (trajectory) {
-        temporalGeometry.recordMilestone(
-          targetAddress,
+      // Log snapshot info (temporal geometry tracks via waypoints)
+      if (trajectory && this.trajectoryId) {
+        temporalGeometry.recordWaypoint(
+          this.trajectoryId,
+          this.identity.phi,
+          this.identity.kappa,
+          this.identity.regime,
+          this.identity.basinCoordinates,
           `snapshot_${iteration}`,
           `Manifold snapshot: ${manifold.totalProbes} probes, ${manifold.resonanceClusters} clusters`
         );
@@ -1836,55 +1937,61 @@ export class OceanAgent {
   generateKnowledgeInfluencedHypotheses(currentStrategy: string): OceanHypothesis[] {
     const influencedHypotheses: OceanHypothesis[] = [];
     
-    // Get high-Φ knowledge from the bus
-    const busEntries = strategyKnowledgeBus.getRecentKnowledge(20);
-    const highPhiEntries = busEntries.filter(e => e.geometricSignature.phi > 0.5);
+    // Get high-Φ knowledge from the bus via cross-strategy patterns
+    const crossPatterns = strategyKnowledgeBus.getCrossStrategyPatterns();
+    const highPhiPatterns = crossPatterns.filter(p => p.similarity > 0.5);
     
-    if (highPhiEntries.length === 0) {
+    if (highPhiPatterns.length === 0) {
       return influencedHypotheses;
     }
     
-    console.log(`[UCP Consumer] Processing ${highPhiEntries.length} high-Φ bus entries for ${currentStrategy}`);
+    console.log(`[UCP Consumer] Processing ${highPhiPatterns.length} high-similarity patterns for ${currentStrategy}`);
     
-    for (const entry of highPhiEntries.slice(0, 5)) {
-      // Use knowledge compression to generate variations
-      const compressed = knowledgeCompressionEngine.getCompressedStats();
+    for (const pattern of highPhiPatterns.slice(0, 5)) {
+      // Use knowledge compression to get generator stats
+      const generatorStats = knowledgeCompressionEngine.getGeneratorStats();
       
       // Generate hypothesis based on discovered pattern
       const baseId = `bus_influenced_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const primaryPattern = pattern.patterns[0] || 'unknown';
+      
       influencedHypotheses.push({
         id: baseId,
-        phrase: entry.pattern,
-        source: `knowledge_bus:${entry.sourceStrategy}`,
-        priority: Math.min(0.95, 0.5 + entry.geometricSignature.phi * 0.5),
+        phrase: primaryPattern,
+        format: 'arbitrary',
+        source: `knowledge_bus:cross_strategy`,
+        reasoning: `Cross-strategy pattern with ${pattern.similarity.toFixed(2)} similarity`,
+        confidence: Math.min(0.95, 0.5 + pattern.similarity * 0.5),
         qigScore: {
-          phi: entry.geometricSignature.phi,
-          kappa: entry.geometricSignature.kappaEff,
-          regime: entry.geometricSignature.regime,
-          beta: 0,
-          confidence: 0.8,
+          phi: pattern.similarity,
+          kappa: 50,
+          regime: 'geometric',
+          inResonance: pattern.similarity > 0.7,
         },
         evidenceChain: [{
           source: 'knowledge_bus',
-          reasoning: `High-Φ pattern from ${entry.sourceStrategy}: ${entry.pattern}`,
-          confidence: entry.geometricSignature.phi,
+          type: 'cross_strategy_discovery',
+          reasoning: `Cross-pattern from strategies: ${pattern.strategies.join(', ')}`,
+          confidence: pattern.similarity,
         }],
-        tested: false,
-        match: false,
-        generatedAddress: null,
       });
       
       // Generate variations using compression engine
-      const variations = this.generatePatternVariations(entry.pattern);
+      const variations = this.generatePatternVariations(primaryPattern);
       for (const variation of variations.slice(0, 3)) {
         influencedHypotheses.push({
           id: `${baseId}_var_${Math.random().toString(36).slice(2, 6)}`,
           phrase: variation,
-          source: `knowledge_bus_variation:${entry.sourceStrategy}`,
-          priority: Math.min(0.9, 0.4 + entry.geometricSignature.phi * 0.4),
-          tested: false,
-          match: false,
-          generatedAddress: null,
+          format: 'arbitrary',
+          source: `knowledge_bus_variation:cross_strategy`,
+          reasoning: `Variation of cross-strategy pattern: ${primaryPattern}`,
+          confidence: Math.min(0.9, 0.4 + pattern.similarity * 0.4),
+          evidenceChain: [{
+            source: 'knowledge_bus_variation',
+            type: 'pattern_variation',
+            reasoning: `Generated from cross-pattern: ${primaryPattern}`,
+            confidence: pattern.similarity * 0.8,
+          }],
         });
       }
     }
@@ -1906,20 +2013,22 @@ export class OceanAgent {
     let filtered = 0;
     
     for (const hypo of hypotheses) {
-      // Check if pattern is excluded by contradiction
-      if (negativeKnowledgeRegistry.isPatternExcluded(hypo.phrase)) {
+      // Check if pattern should be excluded using isExcluded method
+      const exclusionCheck = negativeKnowledgeRegistry.isExcluded(hypo.phrase);
+      if (exclusionCheck.excluded) {
         filtered++;
-        filterReasons.set(hypo.id, 'Pattern excluded by contradiction');
+        filterReasons.set(hypo.id, `Pattern excluded: ${exclusionCheck.reason}`);
         continue;
       }
       
-      // Check if in barrier region (use identity coordinates as proxy)
+      // Check if in barrier zone (use identity coordinates as proxy)
       const basinCheck = this.identity.basinCoordinates;
-      if (negativeKnowledgeRegistry.isInBarrierRegion(basinCheck)) {
-        // Only filter if this is a low-priority hypothesis
-        if ((hypo.priority || 0.5) < 0.3) {
+      const barrierCheck = negativeKnowledgeRegistry.isInBarrierZone(basinCheck);
+      if (barrierCheck.inBarrier) {
+        // Only filter if this is a low-confidence hypothesis
+        if ((hypo.confidence || 0.5) < 0.3) {
           filtered++;
-          filterReasons.set(hypo.id, 'Low-priority hypothesis in barrier region');
+          filterReasons.set(hypo.id, `In barrier region: ${barrierCheck.barrier?.reason || 'unknown'}`);
           continue;
         }
       }
@@ -1961,7 +2070,7 @@ export class OceanAgent {
       variations.push(`${words[1]} ${words[0]}`);
     }
     
-    return [...new Set(variations)]; // Deduplicate
+    return Array.from(new Set(variations)); // Deduplicate
   }
 
   /**
@@ -1974,7 +2083,7 @@ export class OceanAgent {
       return workingSet;
     }
     
-    // Boost priority of hypotheses that match cross-strategy patterns
+    // Boost confidence of hypotheses that match cross-strategy patterns
     const boostedSet = workingSet.map(hypo => {
       for (const pattern of crossPatterns) {
         // Check if hypothesis contains any cross-strategy pattern
@@ -1982,11 +2091,12 @@ export class OceanAgent {
           if (hypo.phrase.toLowerCase().includes(patternText.toLowerCase())) {
             return {
               ...hypo,
-              priority: Math.min(0.99, (hypo.priority || 0.5) + pattern.similarity * 0.2),
+              confidence: Math.min(0.99, (hypo.confidence || 0.5) + pattern.similarity * 0.2),
               evidenceChain: [
                 ...(hypo.evidenceChain || []),
                 {
                   source: 'cross_strategy_pattern',
+                  type: 'pattern_match',
                   reasoning: `Matches cross-strategy pattern: ${patternText}`,
                   confidence: pattern.similarity,
                 }
