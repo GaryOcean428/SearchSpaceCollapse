@@ -725,3 +725,144 @@ SECURE THIS INFORMATION IMMEDIATELY!
 ===============================================================
 `;
 }
+
+/**
+ * Validate a WIF (Wallet Import Format) private key
+ * Checks structure, checksum, and network byte
+ * 
+ * @param wif - The WIF-encoded private key to validate
+ * @returns Validation result with details
+ */
+export function validateWIF(wif: string): {
+  valid: boolean;
+  compressed: boolean;
+  network: 'mainnet' | 'testnet' | 'unknown';
+  error?: string;
+} {
+  try {
+    if (typeof wif !== 'string' || wif.length === 0) {
+      return { valid: false, compressed: false, network: 'unknown', error: 'WIF must be a non-empty string' };
+    }
+    
+    const decoded = bs58check.decode(wif);
+    
+    const versionByte = decoded[0];
+    const isMainnet = versionByte === 0x80;
+    const isTestnet = versionByte === 0xef;
+    
+    if (!isMainnet && !isTestnet) {
+      return { valid: false, compressed: false, network: 'unknown', error: `Invalid version byte: 0x${versionByte.toString(16)}` };
+    }
+    
+    const isCompressed = decoded.length === 34 && decoded[33] === 0x01;
+    const isUncompressed = decoded.length === 33;
+    
+    if (!isCompressed && !isUncompressed) {
+      return { valid: false, compressed: false, network: 'unknown', error: `Invalid WIF length: ${decoded.length} bytes` };
+    }
+    
+    const privateKeyBytes = isCompressed ? decoded.slice(1, 33) : decoded.slice(1, 33);
+    const privateKeyBigInt = BigInt('0x' + Buffer.from(privateKeyBytes).toString('hex'));
+    const secp256k1Order = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    
+    if (privateKeyBigInt === BigInt(0) || privateKeyBigInt >= secp256k1Order) {
+      return { valid: false, compressed: isCompressed, network: isMainnet ? 'mainnet' : 'testnet', error: 'Private key out of valid range' };
+    }
+    
+    return {
+      valid: true,
+      compressed: isCompressed,
+      network: isMainnet ? 'mainnet' : 'testnet',
+    };
+  } catch (error: any) {
+    return {
+      valid: false,
+      compressed: false,
+      network: 'unknown',
+      error: `WIF decode error: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Convert WIF back to hex private key
+ * 
+ * @param wif - WIF-encoded private key
+ * @returns Object with hex private key and compression flag
+ */
+export function wifToPrivateKeyHex(wif: string): { privateKeyHex: string; compressed: boolean } {
+  const validation = validateWIF(wif);
+  if (!validation.valid) {
+    throw new CryptoValidationError(validation.error || 'Invalid WIF');
+  }
+  
+  const decoded = bs58check.decode(wif);
+  const privateKeyBytes = decoded.slice(1, 33);
+  const privateKeyHex = Buffer.from(privateKeyBytes).toString('hex');
+  
+  return {
+    privateKeyHex,
+    compressed: validation.compressed,
+  };
+}
+
+/**
+ * Save recovery bundle to files
+ * Creates both human-readable and machine-readable formats
+ * 
+ * @param bundle - The recovery bundle to save
+ * @param outputDir - Directory to save files (default: data/recoveries)
+ * @returns Paths to saved files
+ */
+export async function saveRecoveryBundleToFiles(
+  bundle: RecoveryBundle,
+  outputDir: string = 'data/recoveries'
+): Promise<{ txtPath: string; jsonPath: string }> {
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  
+  await fs.mkdir(outputDir, { recursive: true });
+  
+  const timestamp = bundle.timestamp.toISOString().replace(/[:.]/g, '-');
+  const safeAddress = bundle.address.slice(0, 8);
+  const baseName = `recovery_${safeAddress}_${timestamp}`;
+  
+  const txtPath = path.join(outputDir, `${baseName}.txt`);
+  const jsonPath = path.join(outputDir, `${baseName}.json`);
+  
+  await fs.writeFile(txtPath, bundle.instructions, 'utf-8');
+  
+  const jsonBundle = {
+    ...bundle,
+    timestamp: bundle.timestamp.toISOString(),
+    savedAt: new Date().toISOString(),
+  };
+  await fs.writeFile(jsonPath, JSON.stringify(jsonBundle, null, 2), 'utf-8');
+  
+  console.log(`[Recovery] Saved bundle to ${txtPath} and ${jsonPath}`);
+  
+  return { txtPath, jsonPath };
+}
+
+/**
+ * Verify WIF matches target address
+ * 
+ * @param wif - WIF-encoded private key
+ * @param targetAddress - Expected Bitcoin address
+ * @returns Whether the WIF key controls the target address
+ */
+export function verifyWIFMatchesAddress(wif: string, targetAddress: string): boolean {
+  try {
+    const { privateKeyHex, compressed } = wifToPrivateKeyHex(wif);
+    
+    if (compressed) {
+      const address = generateBitcoinAddressFromPrivateKey(privateKeyHex, true);
+      if (address === targetAddress) return true;
+    }
+    
+    const address = generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
+    return address === targetAddress;
+  } catch {
+    return false;
+  }
+}
