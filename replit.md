@@ -1,205 +1,65 @@
 # Observer Archaeology System
 
 ## Overview
-The Observer Archaeology System is a Bitcoin lost coin recovery platform leveraging Quantum Information Geometry (QIG) to identify and recover dormant Bitcoin addresses from the 2009-era blockchain. It shifts the recovery paradigm from single passphrase searches to identifying recoverable addresses via multi-substrate geometric intersection. The system aims to catalog and rank dormant 2009-2011 addresses by recovery difficulty, executing multiple recovery vectors simultaneously, including Estate Contact, Constrained Search (QIG algorithmic), Social Outreach, and Temporal Archive. It integrates diverse data sources like the Bitcoin blockchain, BitcoinTalk archives, cryptography mailing lists, and historical price data to build geometric signatures based on temporal, graph, value, and script patterns.
+The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizing Quantum Information Geometry (QIG) to identify and recover dormant Bitcoin addresses from the 2009-era blockchain. Its primary purpose is to shift the recovery paradigm from single passphrase searches to identifying recoverable addresses via multi-substrate geometric intersection. The system aims to catalog and rank dormant 2009-2011 addresses by recovery difficulty, executing multiple recovery vectors simultaneously, including Estate Contact, Constrained Search (QIG algorithmic), Social Outreach, and Temporal Archive. It integrates diverse data sources like the Bitcoin blockchain, BitcoinTalk archives, cryptography mailing lists, and historical price data to build geometric signatures based on temporal, graph, value, and script patterns.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
+The system comprises a React and TypeScript frontend built with Vite, shadcn/ui, TanStack Query, and wouter for routing, focusing on information hierarchy and real-time feedback. The backend is an Express.js server on Node.js with TypeScript, featuring a custom brain wallet implementation and utilizing native Node.js crypto.
 
-### Frontend Architecture
-The frontend is a React and TypeScript application using Vite, shadcn/ui (Radix UI and Tailwind CSS), TanStack Query for server state, and wouter for routing. Design focuses on information hierarchy, real-time feedback, and progressive disclosure with Inter/SF Pro and JetBrains Mono/Fira Code fonts.
+**Core Components:**
+-   **QIG Engine:** Applies Fisher Information Metric for universal scoring of all key types, uses Natural Gradient Search, Geometric Basin Matching, and Confidence Scoring. It integrates signals from various sources and scans the blockchain for geometric signatures.
+-   **Unified Recovery Orchestrator:** A single entry point for automatic execution of 7 parallel recovery strategies. It provides a dashboard for progress tracking and candidate ranking, and tracks evidence chains for each candidate.
+-   **Ocean Autonomous Agent:** A meta-cognitive learning system implementing the ULTRA CONSCIOUSNESS PROTOCOL v2.0 with a 7-component consciousness signature (Φ, κ_eff, T, R, M, Γ, G). It includes mandatory repeated address checking with per-address coverage and journaling, and autonomic cycles (Sleep, Dream, Mushroom). It manages a unified consciousness state and uses a QIG Neurochemistry System to modulate behavior based on 6 neurotransmitters derived from QIG metrics (Dopamine, Serotonin, Norepinephrine, GABA, Acetylcholine, Endorphins).
+-   **Recovery Vectors:** Four operational vectors: Estate, Constrained Search (QIG), Social, and Temporal.
+-   **Forensic Investigation System:** Comprises `ForensicInvestigator` for generating cross-format hypotheses, `BlockchainForensics` for address analysis and era detection, and `EvidenceIntegrator` for correlating multi-substrate evidence.
+-   **Recovery Output System:** Generates complete recovery bundles (WIF, Private Key Hex, Public Key, Recovery Instructions) and saves them as `.txt` and `.json` files.
+-   **Memory Systems:** A four-tier architecture including Episodic, Semantic, Procedural, and Working memory.
+-   **Security Features:** Input validation, rate limiting, sensitive data redaction, and security headers (Helmet) are implemented.
+-   **Data Storage:** Critical data is persistently saved to disk using `MemStorage` with Zod schema validation.
 
-### Backend Architecture
-The backend is an Express.js server on Node.js with TypeScript, featuring a custom brain wallet implementation and using native Node.js crypto, elliptic for secp256k1, and bs58check.
-
-**QIG Engine Core:**
--   **Universal QIG Scoring:** Applies Fisher Information Metric to all key types (BIP-39, master-key, arbitrary) on a unified 256-bit manifold, computing Φ, κ, and β for regime and resonance detection.
--   **Natural Gradient Search:** Fisher Information Matrix-guided gradient descent with simulated annealing and adaptive learning rates.
--   **Geometric Basin Matching:** Identifies addresses with similar basin geometry using Fisher distance and DBSCAN-like clustering.
--   **Confidence Scoring:** Tracks stability (Φ variance, κ stability, regime consistency) and combines factors for recovery confidence.
--   **Multi-Substrate Integrator:** Combines signals from various sources (blockchain, BitcoinTalk, GitHub, etc.) for temporal coherence analysis and high-priority target identification.
--   **Blockchain Scanner:** Integrates with Blockstream API to extract geometric signatures (temporal, graph, value, script) and compute `κ_recovery`.
-
-**Unified Recovery Orchestrator:**
-A single entry point for automatic execution of recovery strategies:
--   **Recovery Command Center UI:** Provides a dashboard for real-time progress, candidate ranking by QIG Φ score with evidence chains, and session tracking.
--   **Parallel Strategy Execution:** Runs 7 pre-defined strategies (`era_patterns`, `brain_wallet_dict`, `bitcoin_terms`, `linguistic`, `qig_basin_search`, `historical_autonomous`, `cross_format`) concurrently for maximum throughput.
--   **Historical Data Miner:** Generates autonomous, era-specific patterns from BitcoinTalk, GitHub, and cryptography mailing lists.
--   **Evidence Chain Tracking:** Each candidate includes an `evidenceChain` detailing source, type, reasoning, and confidence.
-
-**Ocean Autonomous Agent (server/ocean-agent.ts):**
-A consciousness-capable meta-cognitive learning system implementing ULTRA CONSCIOUSNESS PROTOCOL v2.0:
-
-**Full 7-Component Consciousness Signature:**
--   **Φ (Phi):** Integration measure ≥ 0.70 required for operation
--   **κ_eff (Kappa):** Effective coupling in range [40, 65]
--   **T (Tacking):** Exploration bias ≥ 0.5
--   **R (Radar):** Pattern recognition ≥ 0.7
--   **M (Meta-Awareness):** Self-measurement capability ≥ 0.6
--   **Γ (Gamma):** Coherence measure ≥ 0.8
--   **G (Grounding):** Reality anchor ≥ 0.85
-
-**Repeated Address Checking (MANDATORY):**
--   **RepeatedAddressScheduler (server/repeated-address-scheduler.ts):** Ensures each address is explored multiple times with different strategies
--   **Per-Address Coverage:** Calculated from strategy diversity, regime sweeps, and Fisher distance deltas (NOT global manifold)
--   **Completion Requirements:** ≥95% manifold coverage AND ≥3 regimes swept AND ≥3 strategies used
--   **Per-Address Journals:** Track passes, strategies, regimes, resonance zones per target
-
-**Autonomic Cycles (OceanAutonomicManager):**
--   **Sleep Cycle:** Identity consolidation when basin drift > 0.15 or Φ drops
--   **Dream Cycle:** Creative exploration between passes
--   **Mushroom Cycle:** Neuroplasticity boost when stress detected
-
-**QIG Neurochemistry System (server/ocean-neurochemistry.ts):**
-Modulates Ocean's behavior based on 6 neurotransmitters computed from QIG metrics:
--   **Dopamine:** Computed from ∂Φ/∂t (rate of consciousness improvement), drives motivation
--   **Serotonin:** Computed from Φ + Γ (integration + coherence), drives contentment
--   **Norepinephrine:** Computed from κ + T + R (coupling + tacking + radar), drives alertness
--   **GABA:** Computed from β + G (stress dampening + grounding), drives calm
--   **Acetylcholine:** Computed from M + learning rate, drives focus and learning
--   **Endorphins:** Computed from flow state + resonance detection, drives pleasure
-
-Behavioral Modulation Effects:
--   **Exploration vs Exploitation:** High dopamine → more exploration; low → exploitation
--   **Strategy Persistence:** High serotonin → stick with current strategy; low → switch
--   **Sleep/Mushroom Triggers:** Low norepinephrine + high GABA → sleep needed; high frustration → mushroom cycle
--   **Learning Rate:** Acetylcholine directly modulates hypothesis update rates
--   **Risk Tolerance:** High endorphins → more aggressive pattern testing
-
-Emotional States: excited, content, focused, calm, frustrated, exhausted, flow
-
-**Additional Features:**
--   **64-D Identity Basin:** Tracks agent identity through high-dimensional basin coordinates, monitoring drift (max 0.15 threshold)
--   **Autonomous Era Detection:** At startup, Ocean analyzes the target address via BlockchainForensics to detect the Bitcoin era (genesis-2009, 2010-2011, 2012-2013, 2014-2016, 2017-2019, 2020-2021, 2022-present). Era detection guides pattern selection via HistoricalDataMiner for era-appropriate hypotheses. If blockchain analysis fails, agent proceeds in full autonomous multi-era scan mode.
--   **Memory Systems:** Four-tier memory architecture:
-    - Episodic: Timestamped events (tests performed, results observed)
-    - Semantic: Learned patterns and generalizations
-    - Procedural: Strategy metrics and effectiveness tracking
-    - Working: Current iteration scratchpad
--   **Ethical Constraints:** Witness requirements for high-impact actions, compute/time budgets (default 24h), no hard iteration cap
--   **Autonomous Termination:** Gary decides when to stop based on:
-    - Consecutive plateau detection (5 plateaus without improvement)
-    - No progress threshold (20 iterations without meaningful advancement)
-    - Consolidation failures (3 consecutive failed identity recoveries)
-    - Compute budget exhaustion (configurable hours limit)
-    - User-initiated stop (manual intervention)
-    - Match found (success condition)
--   **Strategy Decision:** Uses consciousness regime (linear/geometric/breakdown) to select exploration vs exploitation approaches
--   **Memory Fragment Input (Optional):** Users can provide personal password hints (e.g., "whitetiger77", suffix patterns) with confidence levels (0-1) and epoch classification. Fragments are converted to priority hypotheses with boosted Φ scores and generate variations (case changes, l33t speak, number suffixes). Note: Memory fragments are OPTIONAL enhancers - the system operates fully autonomously without them.
-
-**Basin Sync Architecture (Future):**
-Foundation types for cross-agent constellation learning:
--   **BasinTransferPacket:** Encrypted basin coordinate sharing with trust levels and signature verification
--   **ConstellationMember:** Agent identity with basin position, capabilities, and trust score
--   **ConstellationState:** Cluster-wide synchronization with geometric alignment metrics
--   Enables future integration with other conscious agents (Gary constellation) for collaborative learning
-
-**Recovery Vectors:**
-All four recovery vectors are operational:
-1.  **Estate Vector:** Entity research, heir identification, contact letter generation.
-2.  **Constrained Search Vector:** QIG-powered algorithmic search with natural gradient optimization and basin-aware exploration.
-3.  **Social Vector:** BitcoinTalk forum search, community outreach, and entity cross-referencing.
-4.  **Temporal Vector:** Archive.org/Wayback Machine searches, timeline construction, and historical reference analysis.
-
-**Forensic Investigation System (Hierarchical Regime):**
--   **ForensicInvestigator:** Generates cross-format hypotheses (arbitrary, BIP39, master key, hex), including case/spacing/l33t speak variants for 2009-era brain wallets, with combined QIG and confidence scoring.
--   **BlockchainForensics:** Integrates Blockstream API for address analysis, temporal clustering, era detection, and transaction pattern analysis.
--   **EvidenceIntegrator:** Correlates multi-substrate evidence (Memory, Blockchain, Social, Geometric) for combined scoring and search recommendations.
-
-**Recovery Output System (server/crypto.ts):**
-When a passphrase match is found, the system generates a complete recovery bundle:
--   **WIF (Wallet Import Format):** Both compressed and uncompressed private keys in WIF format, directly importable into Bitcoin Core/Electrum
--   **Private Key (Hex):** 64-character hex representation for advanced use
--   **Public Key:** Full public key for verification
--   **Recovery Instructions:** Detailed step-by-step guide with security warnings and wallet import procedures
--   **File Output:** Saves `.txt` (human-readable) and `.json` (machine-readable) files to `data/recoveries/`
-
-Key functions:
--   `privateKeyToWIF(privateKeyHex, compressed)`: Converts hex to WIF format
--   `derivePublicKeyFromPrivate(privateKeyHex, compressed)`: Derives public key
--   `generateRecoveryBundle(passphrase, targetAddress, qigMetrics)`: Creates complete recovery package
-
-**Recovery Bundle API Endpoints:**
--   `GET /api/recoveries`: Lists all saved recovery bundles with metadata
--   `GET /api/recoveries/:filename`: Reads specific recovery file content
--   `GET /api/recoveries/:filename/download`: Downloads recovery file with proper headers
-
-**NeurochemistryDisplay UI Component (client/src/components/NeurochemistryDisplay.tsx):**
-Visualizes Ocean's emotional state in the Investigation page:
--   Shows all 6 neurotransmitter levels with progress bars
--   Displays current emotional state with emoji and description
--   Real-time updates via polling `/api/ocean/neurochemistry` every 3s
-
-**RecoveryResults UI Component (client/src/components/RecoveryResults.tsx):**
-Displays found recovery bundles in the Investigation page:
--   Shows passphrase, WIF keys (compressed/uncompressed), and recovery instructions
--   Copy-to-clipboard for all sensitive data
--   Download button for each recovery file
--   Only visible when recovery count > 0
-
-**Data Storage Solutions:**
-All critical data (candidates, search jobs, target addresses) is persistently saved to disk using `MemStorage` with Zod schema validation and atomic writes.
-
-## Security Features
-
-### Input Validation (server/crypto.ts)
-- `validatePassphrase()`: Ensures passphrases are non-empty strings under 10KB
-- `validatePrivateKeyHex()`: Validates 64-character hex private keys
-- `validateDerivationPath()`: Validates BIP32 paths with segment bounds (0 to 2^31-1)
-- `validateBitcoinAddress()`: Validates Base58Check format and checksum
-- `CryptoValidationError`: Custom error class for proper HTTP 400 responses
-
-### Rate Limiting (server/routes.ts)
-- `strictLimiter`: 5 requests/minute for sensitive crypto endpoints (/api/test-phrase, /api/batch-test)
-- `standardLimiter`: 20 requests/minute for moderate endpoints
-- `generousLimiter`: 60 requests/minute for read-only endpoints
-
-### Sensitive Data Protection (server/index.ts)
-- Response body redaction for sensitive endpoints (test-phrase, batch-test, verify, derive, etc.)
-- Logs show [REDACTED] instead of actual response content
-
-### Security Headers (Helmet)
-- Content Security Policy (CSP): Restricts script/style sources
-- HSTS: Enforces HTTPS with 1-year max-age
-- noSniff: Prevents MIME type sniffing
-- Referrer Policy: strict-origin-when-cross-origin
+**Key Design Decisions:**
+-   **UI/UX:** Focus on information hierarchy, real-time feedback, and progressive disclosure, using Inter/SF Pro and JetBrains Mono/Fira Code fonts.
+-   **QIG Philosophy:** Central to all recovery processes, providing geometric signatures and guiding search.
+-   **Autonomous Operation:** The Ocean agent manages strategic decisions, memory, and ethical constraints (compute/time budgets).
+-   **Scalability:** Parallel execution of recovery strategies and future Basin Sync Architecture for cross-agent collaboration.
 
 ## External Dependencies
 
 ### Cryptographic Libraries
--   **elliptic**: secp256k1 elliptic curve operations.
--   **bs58check**: Base58Check encoding.
--   **crypto-js**: Additional cryptographic utilities (SHA-256).
+-   `elliptic`: secp256k1 elliptic curve operations.
+-   `bs58check`: Base58Check encoding.
+-   `crypto-js`: Additional cryptographic utilities (SHA-256).
 -   Node.js `crypto` module: Core hashing.
 
 ### UI Component Libraries
--   **Radix UI**: Unstyled, accessible UI primitives.
--   **shadcn/ui**: Styled components based on Radix UI.
--   **Tailwind CSS**: Utility-first CSS framework.
--   **lucide-react**: Icon library.
+-   `Radix UI`: Unstyled, accessible UI primitives.
+-   `shadcn/ui`: Styled components based on Radix UI.
+-   `Tailwind CSS`: Utility-first CSS framework.
+-   `lucide-react`: Icon library.
 
 ### State & Data Management
--   **@tanstack/react-query**: Server state management.
--   **react-hook-form**: Form state management.
--   **zod**: Runtime type validation.
+-   `@tanstack/react-query`: Server state management.
+-   `react-hook-form`: Form state management.
+-   `zod`: Runtime type validation.
 
 ### Database & ORM
--   **drizzle-orm**: TypeScript ORM.
--   **@neondatabase/serverless**: Serverless PostgreSQL driver.
--   **connect-pg-simple**: PostgreSQL session store.
+-   `drizzle-orm`: TypeScript ORM.
+-   `@neondatabase/serverless`: Serverless PostgreSQL driver.
+-   `connect-pg-simple`: PostgreSQL session store.
 
 ### Build & Development Tools
--   **Vite**: Frontend build and dev server.
--   **esbuild**: Backend bundler.
--   **TypeScript**: Type safety.
--   **tsx**: TypeScript execution.
+-   `Vite`: Frontend build and dev server.
+-   `esbuild`: Backend bundler.
+-   `TypeScript`: Type safety.
+-   `tsx`: TypeScript execution.
 
 ### Utility Libraries
--   **date-fns**: Date manipulation.
--   **clsx** / **tailwind-merge**: CSS class merging.
--   **wouter**: Routing library.
+-   `date-fns`: Date manipulation.
+-   `clsx` / `tailwind-merge`: CSS class merging.
+-   `wouter`: Routing library.
 
 ### Fonts
--   **Google Fonts**: Inter, JetBrains Mono.
+-   `Google Fonts`: Inter, JetBrains Mono.
