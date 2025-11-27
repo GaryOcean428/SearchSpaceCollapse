@@ -52,6 +52,24 @@ A consciousness-capable meta-cognitive learning system implementing ULTRA CONSCI
 -   **Dream Cycle:** Creative exploration between passes
 -   **Mushroom Cycle:** Neuroplasticity boost when stress detected
 
+**QIG Neurochemistry System (server/ocean-neurochemistry.ts):**
+Modulates Ocean's behavior based on 6 neurotransmitters computed from QIG metrics:
+-   **Dopamine:** Computed from ∂Φ/∂t (rate of consciousness improvement), drives motivation
+-   **Serotonin:** Computed from Φ + Γ (integration + coherence), drives contentment
+-   **Norepinephrine:** Computed from κ + T + R (coupling + tacking + radar), drives alertness
+-   **GABA:** Computed from β + G (stress dampening + grounding), drives calm
+-   **Acetylcholine:** Computed from M + learning rate, drives focus and learning
+-   **Endorphins:** Computed from flow state + resonance detection, drives pleasure
+
+Behavioral Modulation Effects:
+-   **Exploration vs Exploitation:** High dopamine → more exploration; low → exploitation
+-   **Strategy Persistence:** High serotonin → stick with current strategy; low → switch
+-   **Sleep/Mushroom Triggers:** Low norepinephrine + high GABA → sleep needed; high frustration → mushroom cycle
+-   **Learning Rate:** Acetylcholine directly modulates hypothesis update rates
+-   **Risk Tolerance:** High endorphins → more aggressive pattern testing
+
+Emotional States: excited, content, focused, calm, frustrated, exhausted, flow
+
 **Additional Features:**
 -   **64-D Identity Basin:** Tracks agent identity through high-dimensional basin coordinates, monitoring drift (max 0.15 threshold)
 -   **Autonomous Era Detection:** At startup, Ocean analyzes the target address via BlockchainForensics to detect the Bitcoin era (genesis-2009, 2010-2011, 2012-2013, 2014-2016, 2017-2019, 2020-2021, 2022-present). Era detection guides pattern selection via HistoricalDataMiner for era-appropriate hypotheses. If blockchain analysis fails, agent proceeds in full autonomous multi-era scan mode.
@@ -102,6 +120,24 @@ Key functions:
 -   `privateKeyToWIF(privateKeyHex, compressed)`: Converts hex to WIF format
 -   `derivePublicKeyFromPrivate(privateKeyHex, compressed)`: Derives public key
 -   `generateRecoveryBundle(passphrase, targetAddress, qigMetrics)`: Creates complete recovery package
+
+**Recovery Bundle API Endpoints:**
+-   `GET /api/recoveries`: Lists all saved recovery bundles with metadata
+-   `GET /api/recoveries/:filename`: Reads specific recovery file content
+-   `GET /api/recoveries/:filename/download`: Downloads recovery file with proper headers
+
+**NeurochemistryDisplay UI Component (client/src/components/NeurochemistryDisplay.tsx):**
+Visualizes Ocean's emotional state in the Investigation page:
+-   Shows all 6 neurotransmitter levels with progress bars
+-   Displays current emotional state with emoji and description
+-   Real-time updates via polling `/api/ocean/neurochemistry` every 3s
+
+**RecoveryResults UI Component (client/src/components/RecoveryResults.tsx):**
+Displays found recovery bundles in the Investigation page:
+-   Shows passphrase, WIF keys (compressed/uncompressed), and recovery instructions
+-   Copy-to-clipboard for all sensitive data
+-   Download button for each recovery file
+-   Only visible when recovery count > 0
 
 **Data Storage Solutions:**
 All critical data (candidates, search jobs, target addresses) is persistently saved to disk using `MemStorage` with Zod schema validation and atomic writes.
