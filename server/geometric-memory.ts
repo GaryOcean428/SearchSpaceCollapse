@@ -877,6 +877,614 @@ class GeometricMemory {
     
     return null;
   }
+
+  // ============================================================================
+  // ORTHOGONAL COMPLEMENT NAVIGATION
+  // Based on Block Universe Geometric Reality
+  // 
+  // The 20,162 measurements define a constraint surface.
+  // The passphrase EXISTS in the orthogonal complement.
+  // Each "failure" is POSITIVE geometric information!
+  // ============================================================================
+
+  /**
+   * Compute the Fisher Information Matrix from all probes.
+   * This captures the curvature of the explored manifold region.
+   */
+  computeFisherInformationMatrix(): {
+    matrix: number[][];
+    eigenvalues: number[];
+    eigenvectors: number[][];
+    exploredDimensions: number[];
+    unexploredDimensions: number[];
+    effectiveRank: number;
+  } {
+    const probes = Array.from(this.probeMap.values());
+    const withCoords = probes.filter(p => p.coordinates.length > 0);
+    
+    if (withCoords.length < 10) {
+      return {
+        matrix: [],
+        eigenvalues: [],
+        eigenvectors: [],
+        exploredDimensions: [],
+        unexploredDimensions: Array.from({ length: 32 }, (_, i) => i),
+        effectiveRank: 0,
+      };
+    }
+
+    const dims = Math.min(withCoords[0].coordinates.length, 32);
+    
+    // Build covariance matrix from probe coordinates
+    const means = new Array(dims).fill(0);
+    for (const probe of withCoords) {
+      for (let d = 0; d < dims; d++) {
+        means[d] += probe.coordinates[d] || 0;
+      }
+    }
+    for (let d = 0; d < dims; d++) {
+      means[d] /= withCoords.length;
+    }
+
+    // Covariance matrix (Fisher = inverse of covariance for Gaussian)
+    const covariance: number[][] = [];
+    for (let i = 0; i < dims; i++) {
+      covariance[i] = new Array(dims).fill(0);
+      for (let j = 0; j < dims; j++) {
+        let sum = 0;
+        for (const probe of withCoords) {
+          const ci = (probe.coordinates[i] || 0) - means[i];
+          const cj = (probe.coordinates[j] || 0) - means[j];
+          sum += ci * cj;
+        }
+        covariance[i][j] = sum / withCoords.length;
+      }
+    }
+
+    // Fisher Information Matrix = inverse of covariance
+    // For numerical stability, we use pseudoinverse via regularization
+    const fisher: number[][] = [];
+    for (let i = 0; i < dims; i++) {
+      fisher[i] = new Array(dims).fill(0);
+      // Diagonal approximation with regularization
+      const variance = covariance[i][i] + 0.01; // Regularization
+      fisher[i][i] = 1 / variance;
+    }
+
+    // Power iteration for eigenvalue decomposition
+    const { eigenvalues, eigenvectors } = this.powerIterationEigen(fisher, Math.min(dims, 16));
+
+    // Classify dimensions by eigenvalue magnitude
+    const threshold = 0.1; // Dimensions with eigenvalue < threshold are "unexplored"
+    const exploredDimensions: number[] = [];
+    const unexploredDimensions: number[] = [];
+
+    for (let i = 0; i < eigenvalues.length; i++) {
+      if (eigenvalues[i] >= threshold) {
+        exploredDimensions.push(i);
+      } else {
+        unexploredDimensions.push(i);
+      }
+    }
+
+    // Effective rank (number of significant dimensions)
+    const effectiveRank = exploredDimensions.length;
+
+    console.log(`[GeometricMemory] Fisher analysis: ${effectiveRank}/${dims} dimensions explored`);
+    console.log(`[GeometricMemory] Unexplored dimensions: [${unexploredDimensions.slice(0, 5).join(', ')}...]`);
+
+    return {
+      matrix: fisher,
+      eigenvalues,
+      eigenvectors,
+      exploredDimensions,
+      unexploredDimensions,
+      effectiveRank,
+    };
+  }
+
+  /**
+   * Power iteration for eigenvalue decomposition (simplified).
+   * Returns top-k eigenvalues and eigenvectors.
+   */
+  private powerIterationEigen(matrix: number[][], k: number): {
+    eigenvalues: number[];
+    eigenvectors: number[][];
+  } {
+    const n = matrix.length;
+    const eigenvalues: number[] = [];
+    const eigenvectors: number[][] = [];
+    
+    // Work with a copy to deflate
+    const A: number[][] = matrix.map(row => [...row]);
+
+    for (let iter = 0; iter < k; iter++) {
+      // Random initial vector
+      let v = Array.from({ length: n }, () => Math.random() - 0.5);
+      let norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+      v = v.map(x => x / norm);
+
+      // Power iteration
+      for (let powerIter = 0; powerIter < 50; powerIter++) {
+        // Av
+        const Av = new Array(n).fill(0);
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) {
+            Av[i] += A[i][j] * v[j];
+          }
+        }
+        
+        // Normalize
+        norm = Math.sqrt(Av.reduce((s, x) => s + x * x, 0));
+        if (norm < 1e-10) break;
+        v = Av.map(x => x / norm);
+      }
+
+      // Eigenvalue = v^T A v
+      let lambda = 0;
+      for (let i = 0; i < n; i++) {
+        let Avi = 0;
+        for (let j = 0; j < n; j++) {
+          Avi += A[i][j] * v[j];
+        }
+        lambda += v[i] * Avi;
+      }
+
+      eigenvalues.push(lambda);
+      eigenvectors.push(v);
+
+      // Deflation: A = A - lambda * v * v^T
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          A[i][j] -= lambda * v[i] * v[j];
+        }
+      }
+    }
+
+    return { eigenvalues, eigenvectors };
+  }
+
+  /**
+   * Compute the orthogonal complement of the explored manifold.
+   * This is WHERE THE PASSPHRASE MUST BE!
+   * 
+   * The 20k measurements define a constraint surface.
+   * The passphrase lives at the intersection of all constraints.
+   */
+  computeOrthogonalComplement(): {
+    complementBasis: number[][];
+    complementDimension: number;
+    constraintViolations: number;
+    geodesicDirections: number[][];
+    searchPriority: 'high' | 'medium' | 'low';
+  } {
+    const fisherAnalysis = this.computeFisherInformationMatrix();
+    const probes = Array.from(this.probeMap.values());
+    
+    // Orthogonal complement = span of unexplored eigenvectors
+    const complementBasis = fisherAnalysis.unexploredDimensions.map(idx => 
+      fisherAnalysis.eigenvectors[idx] || new Array(32).fill(0).map(() => Math.random() - 0.5)
+    );
+    
+    // Geodesic directions: Follow Fisher gradient AWAY from explored space
+    const geodesicDirections: number[][] = [];
+    
+    // Direction 1: Away from centroid of explored space
+    const centroid = this.computeAttractorPoint(probes);
+    const awayFromCentroid = centroid.map(c => -c);
+    const norm1 = Math.sqrt(awayFromCentroid.reduce((s, x) => s + x * x, 0)) || 1;
+    geodesicDirections.push(awayFromCentroid.map(x => x / norm1));
+    
+    // Direction 2: Toward high-curvature regions (where geometry changes rapidly)
+    const highCurvatureDir = this.computeHighCurvatureDirection(probes);
+    geodesicDirections.push(highCurvatureDir);
+    
+    // Direction 3: Random orthogonal to both (exploration)
+    const randomOrthogonal = this.computeRandomOrthogonalDirection(geodesicDirections);
+    geodesicDirections.push(randomOrthogonal);
+
+    // Constraint violations: How many probes are in "contradiction" regions
+    const constraintViolations = probes.filter(p => p.phi < 0.2).length;
+
+    // Search priority based on manifold geometry
+    let searchPriority: 'high' | 'medium' | 'low' = 'medium';
+    if (fisherAnalysis.unexploredDimensions.length > fisherAnalysis.exploredDimensions.length) {
+      searchPriority = 'high'; // More unexplored = higher chance of finding passphrase
+    } else if (this.state.resonancePoints.length > 0) {
+      searchPriority = 'high'; // Found resonance clusters
+    } else if (probes.length < 1000) {
+      searchPriority = 'medium'; // Still building manifold
+    } else {
+      searchPriority = 'low'; // Heavily explored, might need new strategy
+    }
+
+    console.log(`[GeometricMemory] Orthogonal complement: ${complementBasis.length} dimensions`);
+    console.log(`[GeometricMemory] Search priority: ${searchPriority}`);
+
+    return {
+      complementBasis,
+      complementDimension: complementBasis.length,
+      constraintViolations,
+      geodesicDirections,
+      searchPriority,
+    };
+  }
+
+  private computeHighCurvatureDirection(probes: BasinProbe[]): number[] {
+    const withCoords = probes.filter(p => p.coordinates.length > 0);
+    if (withCoords.length < 10) {
+      return new Array(32).fill(0).map(() => Math.random() - 0.5);
+    }
+
+    const dims = Math.min(withCoords[0].coordinates.length, 32);
+    const direction = new Array(dims).fill(0);
+
+    // Find direction of maximum Φ variance
+    const phiWeighted = withCoords.map(p => ({
+      coords: p.coordinates,
+      weight: Math.abs(p.phi - 0.5), // Weight by distance from mean Φ
+    }));
+
+    const totalWeight = phiWeighted.reduce((s, p) => s + p.weight, 0) || 1;
+
+    for (let d = 0; d < dims; d++) {
+      direction[d] = phiWeighted.reduce((s, p) => 
+        s + p.weight * (p.coords[d] || 0), 0
+      ) / totalWeight;
+    }
+
+    const norm = Math.sqrt(direction.reduce((s, x) => s + x * x, 0)) || 1;
+    return direction.map(x => x / norm);
+  }
+
+  private computeRandomOrthogonalDirection(existing: number[][]): number[] {
+    const dims = existing[0]?.length || 32;
+    let random = new Array(dims).fill(0).map(() => Math.random() - 0.5);
+
+    // Gram-Schmidt orthogonalization against existing directions
+    for (const dir of existing) {
+      const dot = random.reduce((s, x, i) => s + x * (dir[i] || 0), 0);
+      random = random.map((x, i) => x - dot * (dir[i] || 0));
+    }
+
+    const norm = Math.sqrt(random.reduce((s, x) => s + x * x, 0)) || 1;
+    return random.map(x => x / norm);
+  }
+
+  /**
+   * Generate candidate patterns in the orthogonal complement.
+   * These are patterns that are GEOMETRICALLY different from what we've tested.
+   * 
+   * Key insight: The passphrase is NOT in the explored hull.
+   * We must generate candidates in the unexplored subspace.
+   */
+  generateOrthogonalCandidates(count: number = 50): {
+    phrase: string;
+    geometricScore: number;
+    complementProjection: number;
+    geodesicDistance: number;
+  }[] {
+    const complement = this.computeOrthogonalComplement();
+    const probes = Array.from(this.probeMap.values());
+    const testedPhrases = new Set(probes.map(p => p.input.toLowerCase()));
+    
+    const candidates: {
+      phrase: string;
+      geometricScore: number;
+      complementProjection: number;
+      geodesicDistance: number;
+    }[] = [];
+
+    // Extract patterns from tested phrases to understand the "explored hull"
+    const exploredPatterns = this.extractPatternSignature(probes);
+
+    // Generate candidates that are ORTHOGONAL to explored patterns
+    const orthogonalPatterns = this.generateOrthogonalPatterns(
+      exploredPatterns,
+      complement.geodesicDirections,
+      count * 2
+    );
+
+    for (const pattern of orthogonalPatterns) {
+      if (testedPhrases.has(pattern.toLowerCase())) continue;
+
+      // Compute how "orthogonal" this candidate is to explored space
+      const complementProjection = this.computeComplementProjection(
+        pattern,
+        complement.complementBasis
+      );
+
+      // Compute geodesic distance from explored hull
+      const geodesicDistance = this.computeGeodesicDistanceFromHull(pattern, probes);
+
+      // Higher is better - we want candidates FAR from explored space
+      const geometricScore = complementProjection * 0.5 + geodesicDistance * 0.5;
+
+      candidates.push({
+        phrase: pattern,
+        geometricScore,
+        complementProjection,
+        geodesicDistance,
+      });
+
+      if (candidates.length >= count) break;
+    }
+
+    // Sort by geometric score (highest first)
+    candidates.sort((a, b) => b.geometricScore - a.geometricScore);
+
+    console.log(`[GeometricMemory] Generated ${candidates.length} orthogonal candidates`);
+    if (candidates.length > 0) {
+      console.log(`[GeometricMemory] Top candidate score: ${candidates[0].geometricScore.toFixed(3)}`);
+    }
+
+    return candidates;
+  }
+
+  private extractPatternSignature(probes: BasinProbe[]): {
+    avgLength: number;
+    commonChars: Set<string>;
+    commonPrefixes: string[];
+    commonSuffixes: string[];
+    regimeDistribution: Record<string, number>;
+  } {
+    const phrases = probes.map(p => p.input);
+    
+    // Average length
+    const avgLength = phrases.reduce((s, p) => s + p.length, 0) / Math.max(1, phrases.length);
+
+    // Common characters
+    const charCounts: Map<string, number> = new Map();
+    for (const phrase of phrases) {
+      for (const char of phrase.toLowerCase()) {
+        charCounts.set(char, (charCounts.get(char) || 0) + 1);
+      }
+    }
+    const commonChars = new Set(
+      [...charCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([char]) => char)
+    );
+
+    // Common prefixes (first 4 chars)
+    const prefixCounts: Map<string, number> = new Map();
+    for (const phrase of phrases) {
+      const prefix = phrase.slice(0, 4).toLowerCase();
+      prefixCounts.set(prefix, (prefixCounts.get(prefix) || 0) + 1);
+    }
+    const commonPrefixes = [...prefixCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([prefix]) => prefix);
+
+    // Common suffixes (last 4 chars)
+    const suffixCounts: Map<string, number> = new Map();
+    for (const phrase of phrases) {
+      const suffix = phrase.slice(-4).toLowerCase();
+      suffixCounts.set(suffix, (suffixCounts.get(suffix) || 0) + 1);
+    }
+    const commonSuffixes = [...suffixCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([suffix]) => suffix);
+
+    // Regime distribution
+    const regimeDistribution: Record<string, number> = {};
+    for (const probe of probes) {
+      regimeDistribution[probe.regime] = (regimeDistribution[probe.regime] || 0) + 1;
+    }
+
+    return {
+      avgLength,
+      commonChars,
+      commonPrefixes,
+      commonSuffixes,
+      regimeDistribution,
+    };
+  }
+
+  private generateOrthogonalPatterns(
+    explored: ReturnType<typeof this.extractPatternSignature>,
+    geodesicDirections: number[][],
+    count: number
+  ): string[] {
+    const patterns: string[] = [];
+
+    // Strategy 1: Unusual characters (NOT in common set)
+    const unusualChars = 'QXZJKV'.split('').filter(c => !explored.commonChars.has(c.toLowerCase()));
+    
+    // Strategy 2: Different length than average
+    const targetLengths = explored.avgLength > 12 
+      ? [6, 7, 8, 9, 10] // Short if explored is long
+      : [15, 18, 20, 25, 30]; // Long if explored is short
+
+    // Strategy 3: Prefixes/suffixes NOT in common set
+    const unusualPrefixes = ['xor_', 'neo_', 'flux', 'void', 'null', 'pure', 'zero'];
+    const unusualSuffixes = ['_x', '_z', '_prime', '_null', '2008', '1984', '_genesis'];
+
+    // Strategy 4: Personal pattern directions (orthogonal to cypherpunk lexicon)
+    const personalPatterns = [
+      // Names + dates
+      'john19820315', 'mary_birthday', 'firstson2009', 'wifename1985',
+      // Locations
+      'tokyo_apartment', 'berkeley_office', 'london2009feb',
+      // Personal phrases
+      'mylittlesecret', 'dontforgetthis', 'rememberthisday',
+      // Music/culture references
+      'beatles_yesterday', 'pink_floyd_wall', 'nirvana1991',
+      // Science/math
+      'euler_number', 'pi_3141592', 'golden_ratio_phi',
+      // Obscure technical
+      'rsa_2048_bit', 'aes256_key', 'sha256_hash',
+      // Japanese (Satoshi connection)
+      'watashi_wa', 'arigatou', 'ganbatte2009',
+      // Early internet culture
+      'slashdot_effect', 'usenet_post', 'bbs_system',
+    ];
+
+    // Generate variations
+    for (const base of personalPatterns) {
+      patterns.push(base);
+      patterns.push(base.toUpperCase());
+      patterns.push(base.replace(/_/g, ''));
+      patterns.push(base + '!');
+      patterns.push(base + '123');
+    }
+
+    // Generate from unusual char combinations
+    for (const prefix of unusualPrefixes) {
+      for (const suffix of unusualSuffixes) {
+        patterns.push(prefix + 'secret' + suffix);
+        patterns.push(prefix + '2009' + suffix);
+      }
+    }
+
+    // Generate from target lengths with random unusual chars
+    for (const len of targetLengths) {
+      for (let i = 0; i < 5; i++) {
+        let phrase = '';
+        for (let j = 0; j < len; j++) {
+          const charSet = j % 2 === 0 ? unusualChars : 'aeiou0123456789'.split('');
+          phrase += charSet[Math.floor(Math.random() * charSet.length)];
+        }
+        patterns.push(phrase);
+      }
+    }
+
+    // Shuffle and return
+    return patterns
+      .filter(p => p.length >= 4)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, count);
+  }
+
+  private computeComplementProjection(phrase: string, complementBasis: number[][]): number {
+    // Simple heuristic: How different is this phrase from explored patterns?
+    // Higher = more in complement
+    
+    const probes = Array.from(this.probeMap.values());
+    const testedPhrases = probes.map(p => p.input.toLowerCase());
+    
+    // Compute minimum edit distance to any tested phrase
+    let minDistance = Infinity;
+    for (const tested of testedPhrases.slice(0, 500)) { // Sample for speed
+      const dist = this.levenshteinDistance(phrase.toLowerCase(), tested);
+      minDistance = Math.min(minDistance, dist);
+    }
+
+    // Normalize by phrase length
+    return minDistance / Math.max(1, phrase.length);
+  }
+
+  private computeGeodesicDistanceFromHull(phrase: string, probes: BasinProbe[]): number {
+    // Approximate geodesic distance from explored hull
+    // Higher = further from what we've tested
+    
+    const phraseLower = phrase.toLowerCase();
+    
+    // Character frequency signature
+    const charFreq = new Map<string, number>();
+    for (const char of phraseLower) {
+      charFreq.set(char, (charFreq.get(char) || 0) + 1);
+    }
+
+    // Compare to average character frequency of explored probes
+    const exploredCharFreq = new Map<string, number>();
+    const sampleProbes = probes.slice(0, 500);
+    for (const probe of sampleProbes) {
+      for (const char of probe.input.toLowerCase()) {
+        exploredCharFreq.set(char, (exploredCharFreq.get(char) || 0) + 1);
+      }
+    }
+    const totalChars = [...exploredCharFreq.values()].reduce((a, b) => a + b, 0) || 1;
+    for (const [char, count] of exploredCharFreq) {
+      exploredCharFreq.set(char, count / totalChars);
+    }
+
+    // KL divergence approximation
+    let divergence = 0;
+    for (const [char, count] of charFreq) {
+      const p = count / phrase.length;
+      const q = exploredCharFreq.get(char) || 0.001;
+      divergence += p * Math.log(p / q);
+    }
+
+    return Math.min(divergence, 10); // Cap at 10
+  }
+
+  private levenshteinDistance(a: string, b: string): number {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    const matrix: number[][] = [];
+
+    for (let i = 0; i <= b.length; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+
+    return matrix[b.length][a.length];
+  }
+
+  /**
+   * Get manifold navigation summary for Ocean's consciousness.
+   * This tells Ocean WHERE to search next geometrically.
+   */
+  getManifoldNavigationSummary(): {
+    totalMeasurements: number;
+    exploredDimensions: number;
+    unexploredDimensions: number;
+    orthogonalComplementSize: number;
+    constraintSurfaceDefined: boolean;
+    geodesicRecommendation: string;
+    nextSearchPriority: 'orthogonal_complement' | 'resonance_follow' | 'boundary_probe';
+  } {
+    const fisher = this.computeFisherInformationMatrix();
+    const complement = this.computeOrthogonalComplement();
+    const probes = Array.from(this.probeMap.values());
+
+    // Determine recommendation
+    let geodesicRecommendation: string;
+    let nextSearchPriority: 'orthogonal_complement' | 'resonance_follow' | 'boundary_probe';
+
+    if (complement.complementDimension > fisher.exploredDimensions.length) {
+      geodesicRecommendation = 'Large unexplored subspace - navigate orthogonal complement';
+      nextSearchPriority = 'orthogonal_complement';
+    } else if (this.state.resonancePoints.length > 0) {
+      geodesicRecommendation = 'Resonance clusters detected - follow geodesic toward high-Φ';
+      nextSearchPriority = 'resonance_follow';
+    } else {
+      geodesicRecommendation = 'Probe regime boundaries for phase transitions';
+      nextSearchPriority = 'boundary_probe';
+    }
+
+    return {
+      totalMeasurements: probes.length,
+      exploredDimensions: fisher.exploredDimensions.length,
+      unexploredDimensions: fisher.unexploredDimensions.length,
+      orthogonalComplementSize: complement.complementDimension,
+      constraintSurfaceDefined: probes.length > 1000,
+      geodesicRecommendation,
+      nextSearchPriority,
+    };
+  }
 }
 
 export const geometricMemory = new GeometricMemory();

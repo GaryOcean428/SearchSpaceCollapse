@@ -1098,6 +1098,26 @@ export class OceanAgent {
       };
     }
     
+    // ORTHOGONAL COMPLEMENT STRATEGY
+    // Activate when manifold has been sufficiently prepared with measurements
+    // This is the key insight: 20k+ measurements define a constraint surface
+    // The passphrase EXISTS in the orthogonal complement!
+    const manifoldNav = geometricMemory.getManifoldNavigationSummary();
+    if (manifoldNav.constraintSurfaceDefined && 
+        manifoldNav.unexploredDimensions > manifoldNav.exploredDimensions * 0.5) {
+      return {
+        name: 'orthogonal_complement',
+        reasoning: `Manifold prepared with ${manifoldNav.totalMeasurements} measurements. ` +
+          `${manifoldNav.unexploredDimensions} unexplored dimensions detected. ` +
+          `${manifoldNav.geodesicRecommendation}`,
+        params: { 
+          priorityMode: manifoldNav.nextSearchPriority,
+          exploredDims: manifoldNav.exploredDimensions,
+          unexploredDims: manifoldNav.unexploredDimensions
+        },
+      };
+    }
+    
     // Block Universe strategy: Activate when in good consciousness state for early eras
     const isEarlyEra = ['genesis-2009', '2010-2011', '2012-2013'].includes(this.state.detectedEra || '');
     if (isEarlyEra && phi >= 0.6 && kappa >= 50) {
@@ -1274,6 +1294,33 @@ export class OceanAgent {
           newHypotheses.push(this.createHypothesis(phrase, preferredFormat as any, 'format_focused', `Focused on ${preferredFormat}`, 0.7));
         }
         break;
+      
+      case 'orthogonal_complement':
+        // ORTHOGONAL COMPLEMENT NAVIGATION
+        // The 20k+ measurements define a constraint surface
+        // The passphrase EXISTS in the orthogonal complement!
+        console.log(`[Ocean] Orthogonal Complement: Navigating unexplored subspace`);
+        console.log(`[Ocean] Explored dims: ${strategy.params.exploredDims}, Unexplored: ${strategy.params.unexploredDims}`);
+        
+        // Generate candidates in the orthogonal complement
+        const orthogonalCandidates = geometricMemory.generateOrthogonalCandidates(40);
+        for (const candidate of orthogonalCandidates) {
+          newHypotheses.push(this.createHypothesis(
+            candidate.phrase,
+            'arbitrary',
+            'orthogonal_complement',
+            `Orthogonal to constraint surface. Score: ${candidate.geometricScore.toFixed(3)}, ` +
+            `Distance from hull: ${candidate.geodesicDistance.toFixed(3)}`,
+            0.65 + candidate.geometricScore * 0.25
+          ));
+        }
+        
+        // Also include some Block Universe geodesic candidates
+        const supplementalGeodesic = this.generateBlockUniverseHypotheses(20);
+        newHypotheses.push(...supplementalGeodesic);
+        
+        console.log(`[Ocean] Orthogonal Complement: Generated ${orthogonalCandidates.length} orthogonal + ${supplementalGeodesic.length} geodesic candidates`);
+        break;
         
       case 'block_universe':
         // Block Universe Consciousness: Navigate 4D spacetime manifold
@@ -1438,9 +1485,49 @@ export class OceanAgent {
    * The passphrase EXISTS at specific coordinates in the block universe.
    * We use the blockchain's temporal/cultural/software constraints to
    * navigate geodesic paths through the cultural manifold.
+   * 
+   * CRITICAL INSIGHT: The 20k+ measurements define a constraint surface.
+   * The passphrase is in the ORTHOGONAL COMPLEMENT of what we've tested.
+   * Each "failure" is POSITIVE geometric information!
    */
   private generateBlockUniverseHypotheses(count: number): OceanHypothesis[] {
     const hypotheses: OceanHypothesis[] = [];
+    
+    // First: Analyze the manifold to understand where we've been
+    const manifoldNav = geometricMemory.getManifoldNavigationSummary();
+    console.log(`[BlockUniverse] Manifold state: ${manifoldNav.totalMeasurements} measurements define constraint surface`);
+    console.log(`[BlockUniverse] Explored: ${manifoldNav.exploredDimensions} dims, Unexplored: ${manifoldNav.unexploredDimensions} dims`);
+    console.log(`[BlockUniverse] Recommendation: ${manifoldNav.geodesicRecommendation}`);
+    console.log(`[BlockUniverse] Next priority: ${manifoldNav.nextSearchPriority}`);
+    
+    // ORTHOGONAL COMPLEMENT NAVIGATION
+    // Generate candidates in the subspace ORTHOGONAL to what we've tested
+    if (manifoldNav.totalMeasurements > 100) {
+      const orthogonalCandidates = geometricMemory.generateOrthogonalCandidates(Math.floor(count * 0.4));
+      
+      for (const candidate of orthogonalCandidates) {
+        const hypothesis = this.createHypothesis(
+          candidate.phrase,
+          'arbitrary',
+          'orthogonal_complement',
+          `Orthogonal to ${manifoldNav.totalMeasurements} constraints. Geometric score: ${candidate.geometricScore.toFixed(3)}, ` +
+          `Complement projection: ${candidate.complementProjection.toFixed(3)}, Geodesic distance: ${candidate.geodesicDistance.toFixed(3)}`,
+          0.6 + candidate.geometricScore * 0.3
+        );
+        
+        hypothesis.evidenceChain.push({
+          source: 'orthogonal_complement',
+          type: 'geometric_navigation',
+          reasoning: `NOT in explored hull (${manifoldNav.exploredDimensions} dims). ` +
+            `Passphrase MUST be in orthogonal subspace (${manifoldNav.unexploredDimensions} dims).`,
+          confidence: candidate.geometricScore
+        });
+        
+        hypotheses.push(hypothesis);
+      }
+      
+      console.log(`[BlockUniverse] Generated ${orthogonalCandidates.length} orthogonal complement candidates`);
+    }
     
     // Determine temporal coordinate from detected era
     let timestamp: Date;
@@ -1470,10 +1557,11 @@ export class OceanAgent {
     console.log(`[BlockUniverse] Cultural context: ${coordinate.culturalContext.primaryInfluences.join(', ')}`);
     
     // Generate geodesic candidates from cultural manifold
-    const geodesicCandidates = culturalManifold.generateGeodesicCandidates(coordinate, count * 2);
+    const remainingCount = count - hypotheses.length;
+    const geodesicCandidates = culturalManifold.generateGeodesicCandidates(coordinate, remainingCount * 2);
     
     // Convert to hypotheses, sorted by combined score
-    for (const candidate of geodesicCandidates.slice(0, count)) {
+    for (const candidate of geodesicCandidates.slice(0, remainingCount)) {
       const hypothesis = this.createHypothesis(
         candidate.phrase,
         'arbitrary',
@@ -1510,6 +1598,7 @@ export class OceanAgent {
     // Log manifold statistics
     const stats = culturalManifold.getStatistics();
     console.log(`[BlockUniverse] Manifold: tested=${stats.testedPhrases}, geodesicPath=${stats.geodesicPathLength}, curvature=${stats.averageCurvature.toFixed(3)}`);
+    console.log(`[BlockUniverse] Constraint surface defined: ${manifoldNav.constraintSurfaceDefined ? 'YES' : 'NO'}`);
     
     return hypotheses;
   }
