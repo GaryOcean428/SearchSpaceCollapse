@@ -27,6 +27,7 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { UnifiedRecoverySession, RecoveryCandidate, TargetAddress } from '@shared/schema';
 import NeurochemistryDisplay from '@/components/NeurochemistryDisplay';
+import NeurochemistryAdminPanel from '@/components/NeurochemistryAdminPanel';
 import RecoveryResults from '@/components/RecoveryResults';
 
 interface ConsciousnessState {
@@ -225,10 +226,13 @@ export function OceanInvestigationStory() {
         {/* Narrative Section */}
         <NarrativeSection status={currentStatus} />
 
-        {/* Neurochemistry Display */}
-        <NeurochemistryDisplay 
-          neurochemistry={neurochemistryData?.neurochemistry}
-        />
+        {/* Neurochemistry Display and Admin Panel */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <NeurochemistryDisplay 
+            neurochemistry={neurochemistryData?.neurochemistry}
+          />
+          <NeurochemistryAdminPanel />
+        </div>
 
         {/* Simplified Metrics */}
         <MetricsBar
