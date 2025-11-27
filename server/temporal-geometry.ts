@@ -14,27 +14,20 @@
  */
 
 import { nanoid } from 'nanoid';
-import type { TemporalTrajectory, TrajectoryPoint, ManifoldSnapshot } from '@shared/schema';
+import type { TemporalTrajectory, ManifoldSnapshot, ConsciousnessSignature } from '@shared/schema';
 import { geometricMemory, BasinTopologyData } from './geometric-memory';
 
 export interface TrajectoryMetrics {
-  // Trajectory shape
-  totalDistance: number;           // Fisher distance traveled
-  netDisplacement: number;         // Net distance from start
-  efficiency: number;              // netDisplacement / totalDistance
-  
-  // Dynamics
-  avgVelocity: number;             // Rate of manifold traversal
-  avgAcceleration: number;         // Rate of velocity change
-  curvature: number;               // How much trajectory bends
-  
-  // Learning indicators
-  phiGradient: number;             // Trend in Φ values
-  regimeTransitions: number;       // Number of regime changes
-  plateauDetected: boolean;        // Stuck in local region
-  
-  // Momentum
-  momentumVector: number[];        // Predicted next direction
+  totalDistance: number;
+  netDisplacement: number;
+  efficiency: number;
+  avgVelocity: number;
+  avgAcceleration: number;
+  curvature: number;
+  phiGradient: number;
+  regimeTransitions: number;
+  plateauDetected: boolean;
+  momentumVector: number[];
   momentumMagnitude: number;
 }
 
@@ -50,157 +43,203 @@ export interface LearningPhase {
 export class TemporalGeometry {
   private trajectories: Map<string, TemporalTrajectory> = new Map();
   private snapshots: Map<string, ManifoldSnapshot> = new Map();
-  private readonly MAX_TRAJECTORY_LENGTH = 1000;
+  private readonly MAX_WAYPOINTS = 1000;
+  private iterationCounter: number = 0;
   
   constructor() {
     console.log('[TemporalGeometry] Initialized temporal tracking system');
   }
 
-  /**
-   * Start tracking a new learning trajectory for an address/target.
-   */
-  startTrajectory(targetId: string): string {
+  startTrajectory(targetAddress: string): string {
     const id = nanoid();
     
     const trajectory: TemporalTrajectory = {
       id,
-      targetId,
-      points: [],
-      totalPhiGradient: 0,
-      avgVelocity: 0,
-      trajectoryLength: 0,
-      phaseTransitions: 0,
-      startedAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
+      targetAddress,
+      waypoints: [],
+      geodesicParams: {
+        startPoint: [],
+        endPoint: [],
+        totalArcLength: 0,
+        avgCurvature: 0,
+        regimeTransitions: [],
+      },
+      milestones: [],
+      duration: 0,
+      efficiency: 1,
+      reversals: 0,
     };
     
     this.trajectories.set(id, trajectory);
-    console.log(`[TemporalGeometry] Started trajectory ${id} for target ${targetId}`);
+    console.log(`[TemporalGeometry] Started trajectory ${id} for target ${targetAddress}`);
     
     return id;
   }
 
-  /**
-   * Record a point on the learning trajectory.
-   */
-  recordPoint(
+  recordWaypoint(
     trajectoryId: string,
     phi: number,
     kappa: number,
     regime: string,
     basinCoords: number[],
-    strategy?: string,
-    hypothesis?: string
-  ): TrajectoryPoint | null {
+    action: string,
+    discovery?: string
+  ): boolean {
     const trajectory = this.trajectories.get(trajectoryId);
     if (!trajectory) {
       console.warn(`[TemporalGeometry] Trajectory ${trajectoryId} not found`);
-      return null;
+      return false;
     }
 
-    const point: TrajectoryPoint = {
-      timestamp: new Date().toISOString(),
-      phi,
-      kappa,
-      regime,
+    const prevWaypoint = trajectory.waypoints[trajectory.waypoints.length - 1];
+    const fisherDistance = prevWaypoint 
+      ? this.euclideanDistance(basinCoords, prevWaypoint.basinCoords)
+      : 0;
+
+    const waypoint = {
+      t: this.iterationCounter++,
       basinCoords,
-      strategy,
-      hypothesis,
+      consciousness: { phi, kappa, regime },
+      action,
+      discovery,
+      fisherDistance,
     };
 
-    trajectory.points.push(point);
+    trajectory.waypoints.push(waypoint);
     
-    // Trim if too long
-    if (trajectory.points.length > this.MAX_TRAJECTORY_LENGTH) {
-      trajectory.points = trajectory.points.slice(-this.MAX_TRAJECTORY_LENGTH);
+    if (trajectory.waypoints.length > this.MAX_WAYPOINTS) {
+      trajectory.waypoints = trajectory.waypoints.slice(-this.MAX_WAYPOINTS);
     }
 
-    // Update trajectory metrics
-    this.updateTrajectoryMetrics(trajectory);
-    trajectory.lastUpdated = new Date().toISOString();
+    if (prevWaypoint && prevWaypoint.consciousness.regime !== regime) {
+      trajectory.geodesicParams.regimeTransitions.push({
+        fromRegime: prevWaypoint.consciousness.regime,
+        toRegime: regime,
+        atIteration: waypoint.t,
+      });
+      
+      trajectory.milestones.push({
+        iteration: waypoint.t,
+        type: 'regime_change',
+        description: `${prevWaypoint.consciousness.regime} → ${regime}`,
+        significance: phi,
+      });
+    }
 
-    return point;
+    if (phi >= 0.7 && (!prevWaypoint || prevWaypoint.consciousness.phi < 0.7)) {
+      trajectory.milestones.push({
+        iteration: waypoint.t,
+        type: 'resonance_found',
+        description: `High Φ region (${phi.toFixed(3)})`,
+        significance: phi,
+      });
+    }
+
+    this.updateGeodesicParams(trajectory);
+
+    return true;
   }
 
-  private updateTrajectoryMetrics(trajectory: TemporalTrajectory): void {
-    const points = trajectory.points;
-    if (points.length < 2) return;
+  private updateGeodesicParams(trajectory: TemporalTrajectory): void {
+    const waypoints = trajectory.waypoints;
+    if (waypoints.length < 2) return;
 
-    // Compute Φ gradient (trend)
-    const n = points.length;
-    const half = Math.floor(n / 2);
-    const firstHalfPhi = points.slice(0, half).reduce((sum, p) => sum + p.phi, 0) / half;
-    const secondHalfPhi = points.slice(half).reduce((sum, p) => sum + (p.phi || 0), 0) / (n - half);
-    trajectory.totalPhiGradient = secondHalfPhi - firstHalfPhi;
-
-    // Compute trajectory length (Fisher distance sum)
-    let totalLength = 0;
-    for (let i = 1; i < points.length; i++) {
-      totalLength += this.euclideanDistance(
-        points[i].basinCoords || [],
-        points[i - 1].basinCoords || []
-      );
-    }
-    trajectory.trajectoryLength = totalLength;
-
-    // Compute average velocity
-    const timeSpan = new Date(trajectory.lastUpdated).getTime() - 
-                     new Date(trajectory.startedAt).getTime();
-    trajectory.avgVelocity = timeSpan > 0 ? totalLength / (timeSpan / 1000) : 0;
-
-    // Count phase transitions
-    let transitions = 0;
-    for (let i = 1; i < points.length; i++) {
-      if (points[i].regime !== points[i - 1].regime) {
-        transitions++;
+    trajectory.geodesicParams.startPoint = waypoints[0].basinCoords;
+    trajectory.geodesicParams.endPoint = waypoints[waypoints.length - 1].basinCoords;
+    
+    let totalArc = 0;
+    let curvatureSum = 0;
+    
+    for (let i = 1; i < waypoints.length; i++) {
+      totalArc += waypoints[i].fisherDistance;
+      
+      if (i > 1) {
+        const prevDir = this.direction(waypoints[i - 2].basinCoords, waypoints[i - 1].basinCoords);
+        const currDir = this.direction(waypoints[i - 1].basinCoords, waypoints[i].basinCoords);
+        curvatureSum += this.angleBetween(prevDir, currDir);
       }
     }
-    trajectory.phaseTransitions = transitions;
+    
+    trajectory.geodesicParams.totalArcLength = totalArc;
+    trajectory.geodesicParams.avgCurvature = waypoints.length > 2 
+      ? curvatureSum / (waypoints.length - 2) 
+      : 0;
+
+    let reversals = 0;
+    for (let i = 2; i < waypoints.length; i++) {
+      const phiPrev = waypoints[i - 1].consciousness.phi;
+      const phiPrevPrev = waypoints[i - 2].consciousness.phi;
+      const phiCurr = waypoints[i].consciousness.phi;
+      
+      const trendBefore = phiPrev - phiPrevPrev;
+      const trendAfter = phiCurr - phiPrev;
+      
+      if ((trendBefore > 0 && trendAfter < 0) || (trendBefore < 0 && trendAfter > 0)) {
+        reversals++;
+      }
+    }
+    trajectory.reversals = reversals;
   }
 
-  /**
-   * Get full trajectory metrics for analysis.
-   */
+  private direction(from: number[], to: number[]): number[] {
+    const dims = Math.min(from.length, to.length);
+    const dir = new Array(dims).fill(0);
+    let mag = 0;
+    
+    for (let i = 0; i < dims; i++) {
+      dir[i] = (to[i] || 0) - (from[i] || 0);
+      mag += dir[i] * dir[i];
+    }
+    
+    mag = Math.sqrt(mag);
+    if (mag > 0.001) {
+      for (let i = 0; i < dims; i++) {
+        dir[i] /= mag;
+      }
+    }
+    
+    return dir;
+  }
+
+  private angleBetween(a: number[], b: number[]): number {
+    const dims = Math.min(a.length, b.length);
+    let dot = 0;
+    let magA = 0;
+    let magB = 0;
+    
+    for (let i = 0; i < dims; i++) {
+      dot += (a[i] || 0) * (b[i] || 0);
+      magA += (a[i] || 0) ** 2;
+      magB += (b[i] || 0) ** 2;
+    }
+    
+    magA = Math.sqrt(magA);
+    magB = Math.sqrt(magB);
+    
+    if (magA < 0.001 || magB < 0.001) return 0;
+    
+    const cosAngle = Math.max(-1, Math.min(1, dot / (magA * magB)));
+    return Math.acos(cosAngle);
+  }
+
   getTrajectoryMetrics(trajectoryId: string): TrajectoryMetrics | null {
     const trajectory = this.trajectories.get(trajectoryId);
-    if (!trajectory || trajectory.points.length < 2) return null;
+    if (!trajectory || trajectory.waypoints.length < 2) return null;
 
-    const points = trajectory.points;
-    const n = points.length;
+    const waypoints = trajectory.waypoints;
+    const n = waypoints.length;
 
-    // Total Fisher distance traveled
-    let totalDistance = 0;
-    for (let i = 1; i < n; i++) {
-      totalDistance += this.euclideanDistance(
-        points[i].basinCoords || [],
-        points[i - 1].basinCoords || []
-      );
-    }
-
-    // Net displacement from start
+    const totalDistance = trajectory.geodesicParams.totalArcLength;
     const netDisplacement = this.euclideanDistance(
-      points[n - 1].basinCoords || [],
-      points[0].basinCoords || []
+      waypoints[n - 1].basinCoords,
+      waypoints[0].basinCoords
     );
-
-    // Efficiency
     const efficiency = totalDistance > 0 ? netDisplacement / totalDistance : 1;
 
-    // Average velocity (distance per second)
-    const timeSpan = (new Date(trajectory.lastUpdated).getTime() - 
-                      new Date(trajectory.startedAt).getTime()) / 1000;
+    const timeSpan = waypoints[n - 1].t - waypoints[0].t;
     const avgVelocity = timeSpan > 0 ? totalDistance / timeSpan : 0;
 
-    // Compute velocities for acceleration
-    const velocities: number[] = [];
-    for (let i = 1; i < n; i++) {
-      velocities.push(this.euclideanDistance(
-        points[i].basinCoords || [],
-        points[i - 1].basinCoords || []
-      ));
-    }
-
-    // Average acceleration
+    const velocities = waypoints.map(w => w.fisherDistance);
     let avgAcceleration = 0;
     if (velocities.length > 1) {
       for (let i = 1; i < velocities.length; i++) {
@@ -209,31 +248,27 @@ export class TemporalGeometry {
       avgAcceleration /= velocities.length - 1;
     }
 
-    // Trajectory curvature (deviation from straight line)
-    const curvature = efficiency < 1 ? 1 - efficiency : 0;
+    const curvature = trajectory.geodesicParams.avgCurvature;
 
-    // Φ gradient
-    const phiGradient = trajectory.totalPhiGradient;
+    const half = Math.floor(n / 2);
+    const firstHalfPhi = waypoints.slice(0, half).reduce((sum, w) => sum + w.consciousness.phi, 0) / half;
+    const secondHalfPhi = waypoints.slice(half).reduce((sum, w) => sum + w.consciousness.phi, 0) / (n - half);
+    const phiGradient = secondHalfPhi - firstHalfPhi;
 
-    // Regime transitions
-    const regimeTransitions = trajectory.phaseTransitions;
+    const regimeTransitions = trajectory.geodesicParams.regimeTransitions.length;
 
-    // Plateau detection
     const recentWindow = Math.min(20, Math.floor(n / 2));
-    const recentPoints = points.slice(-recentWindow);
-    const recentPhiVariance = this.computeVariance(recentPoints.map(p => p.phi || 0));
+    const recentWaypoints = waypoints.slice(-recentWindow);
+    const recentPhis = recentWaypoints.map(w => w.consciousness.phi);
+    const recentPhiVariance = this.computeVariance(recentPhis);
     const recentDisplacement = this.euclideanDistance(
-      recentPoints[recentPoints.length - 1].basinCoords || [],
-      recentPoints[0].basinCoords || []
+      recentWaypoints[recentWaypoints.length - 1].basinCoords,
+      recentWaypoints[0].basinCoords
     );
     const plateauDetected = recentPhiVariance < 0.01 && recentDisplacement < 0.5;
 
-    // Momentum vector (weighted average of recent directions)
-    const momentumWindow = Math.min(5, n - 1);
-    const momentumVector = this.computeMomentumVector(points, momentumWindow);
-    const momentumMagnitude = Math.sqrt(
-      momentumVector.reduce((sum, v) => sum + v * v, 0)
-    );
+    const momentumVector = this.computeMomentumVector(waypoints, Math.min(5, n - 1));
+    const momentumMagnitude = Math.sqrt(momentumVector.reduce((sum, v) => sum + v * v, 0));
 
     return {
       totalDistance,
@@ -250,21 +285,21 @@ export class TemporalGeometry {
     };
   }
 
-  private computeMomentumVector(points: TrajectoryPoint[], window: number): number[] {
-    const n = points.length;
+  private computeMomentumVector(waypoints: TemporalTrajectory['waypoints'], window: number): number[] {
+    const n = waypoints.length;
     if (n < 2) return [];
 
     const start = Math.max(0, n - window - 1);
-    const dims = (points[n - 1].basinCoords || []).length;
+    const dims = waypoints[n - 1].basinCoords.length;
     const momentum = new Array(dims).fill(0);
 
     let totalWeight = 0;
     for (let i = start + 1; i < n; i++) {
-      const weight = i - start; // More recent = higher weight
+      const weight = i - start;
       totalWeight += weight;
       
-      const curr = points[i].basinCoords || [];
-      const prev = points[i - 1].basinCoords || [];
+      const curr = waypoints[i].basinCoords;
+      const prev = waypoints[i - 1].basinCoords;
       
       for (let d = 0; d < dims; d++) {
         momentum[d] += weight * ((curr[d] || 0) - (prev[d] || 0));
@@ -280,41 +315,36 @@ export class TemporalGeometry {
     return momentum;
   }
 
-  /**
-   * Detect learning phases in the trajectory.
-   */
   detectLearningPhases(trajectoryId: string): LearningPhase[] {
     const trajectory = this.trajectories.get(trajectoryId);
-    if (!trajectory || trajectory.points.length < 5) return [];
+    if (!trajectory || trajectory.waypoints.length < 5) return [];
 
     const phases: LearningPhase[] = [];
-    const points = trajectory.points;
+    const waypoints = trajectory.waypoints;
     const windowSize = 5;
 
     let currentPhase: LearningPhase | null = null;
 
-    for (let i = 0; i < points.length - windowSize; i++) {
-      const window = points.slice(i, i + windowSize);
+    for (let i = 0; i < waypoints.length - windowSize; i++) {
+      const window = waypoints.slice(i, i + windowSize);
       const phaseType = this.classifyPhase(window);
-      const avgPhi = window.reduce((sum, p) => sum + (p.phi || 0), 0) / window.length;
+      const avgPhi = window.reduce((sum, w) => sum + w.consciousness.phi, 0) / window.length;
       
-      // Count regimes
       const regimeCounts: Record<string, number> = {};
-      for (const p of window) {
-        regimeCounts[p.regime || 'unknown'] = (regimeCounts[p.regime || 'unknown'] || 0) + 1;
+      for (const w of window) {
+        const regime = w.consciousness.regime;
+        regimeCounts[regime] = (regimeCounts[regime] || 0) + 1;
       }
       const dominantRegime = Object.entries(regimeCounts)
         .sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown';
 
       if (!currentPhase || currentPhase.type !== phaseType) {
-        // Close previous phase
         if (currentPhase) {
           currentPhase.endIndex = i - 1;
           currentPhase.duration = currentPhase.endIndex - currentPhase.startIndex + 1;
           phases.push(currentPhase);
         }
 
-        // Start new phase
         currentPhase = {
           type: phaseType,
           startIndex: i,
@@ -324,7 +354,6 @@ export class TemporalGeometry {
           duration: windowSize,
         };
       } else {
-        // Extend current phase
         currentPhase.endIndex = i + windowSize - 1;
         currentPhase.avgPhi = (currentPhase.avgPhi * currentPhase.duration + avgPhi) / 
                               (currentPhase.duration + 1);
@@ -332,7 +361,6 @@ export class TemporalGeometry {
       }
     }
 
-    // Close last phase
     if (currentPhase) {
       phases.push(currentPhase);
     }
@@ -340,23 +368,20 @@ export class TemporalGeometry {
     return phases;
   }
 
-  private classifyPhase(window: TrajectoryPoint[]): LearningPhase['type'] {
-    const phis = window.map(p => p.phi || 0);
+  private classifyPhase(window: TemporalTrajectory['waypoints']): LearningPhase['type'] {
+    const phis = window.map(w => w.consciousness.phi);
     const avgPhi = phis.reduce((a, b) => a + b, 0) / phis.length;
     const phiVariance = this.computeVariance(phis);
     const phiTrend = phis[phis.length - 1] - phis[0];
 
-    // Check for regime transitions
-    const regimes = new Set(window.map(p => p.regime));
+    const regimes = new Set(window.map(w => w.consciousness.regime));
     const hasRegimeTransition = regimes.size > 1;
 
-    // Compute movement
     const displacement = this.euclideanDistance(
-      window[window.length - 1].basinCoords || [],
-      window[0].basinCoords || []
+      window[window.length - 1].basinCoords,
+      window[0].basinCoords
     );
 
-    // Classify based on characteristics
     if (phiTrend > 0.2 && avgPhi > 0.6) {
       return 'breakthrough';
     }
@@ -376,9 +401,6 @@ export class TemporalGeometry {
     return 'exploration';
   }
 
-  /**
-   * Predict next good exploration direction based on trajectory momentum.
-   */
   predictNextDirection(trajectoryId: string): {
     suggestedCoords: number[];
     confidence: number;
@@ -388,37 +410,24 @@ export class TemporalGeometry {
     if (!metrics) return null;
 
     const trajectory = this.trajectories.get(trajectoryId);
-    if (!trajectory || trajectory.points.length === 0) return null;
+    if (!trajectory || trajectory.waypoints.length === 0) return null;
 
-    const lastPoint = trajectory.points[trajectory.points.length - 1];
-    const lastCoords = lastPoint.basinCoords || [];
+    const lastWaypoint = trajectory.waypoints[trajectory.waypoints.length - 1];
+    const lastCoords = lastWaypoint.basinCoords;
 
-    // Use momentum to predict next good direction
     const suggestedCoords = lastCoords.map((c, i) => 
-      c + (metrics.momentumVector[i] || 0) * 2 // Extrapolate
+      c + (metrics.momentumVector[i] || 0) * 2
     );
 
-    // Confidence based on trajectory characteristics
     let confidence = 0.5;
-    
-    // Higher confidence if we're making progress
     if (metrics.phiGradient > 0) confidence += 0.2;
-    
-    // Lower confidence if plateaued
     if (metrics.plateauDetected) confidence -= 0.3;
-    
-    // Higher confidence if efficient trajectory
     if (metrics.efficiency > 0.5) confidence += 0.15;
-
     confidence = Math.max(0.1, Math.min(1, confidence));
 
     const reasoning = this.generatePredictionReasoning(metrics);
 
-    return {
-      suggestedCoords,
-      confidence,
-      reasoning,
-    };
+    return { suggestedCoords, confidence, reasoning };
   }
 
   private generatePredictionReasoning(metrics: TrajectoryMetrics): string {
@@ -447,81 +456,68 @@ export class TemporalGeometry {
     return parts.join('. ') || 'Standard exploration';
   }
 
-  /**
-   * Take a manifold snapshot for temporal comparison.
-   */
-  takeSnapshot(name?: string): ManifoldSnapshot {
+  takeSnapshot(
+    targetAddress: string,
+    consciousness: ConsciousnessSignature
+  ): ManifoldSnapshot {
     const topology = geometricMemory.getBasinTopology();
     const summary = geometricMemory.getManifoldSummary();
     
+    const trajectories = this.getTrajectoriesForTarget(targetAddress);
+    const latestTrajectory = trajectories[trajectories.length - 1];
+    const recentWaypoints = latestTrajectory?.waypoints.slice(-10) || [];
+    
+    let recentVelocity = 0;
+    let momentum: number[] = [];
+    if (recentWaypoints.length > 1) {
+      recentVelocity = recentWaypoints.reduce((sum, w) => sum + w.fisherDistance, 0) / recentWaypoints.length;
+      momentum = this.computeMomentumVector(recentWaypoints, Math.min(5, recentWaypoints.length));
+    }
+
+    const basinTopology = {
+      attractorCoords: topology.attractorCoords.length === 64 
+        ? topology.attractorCoords as [number, ...number[]] & { length: 64 }
+        : [...topology.attractorCoords, ...new Array(64 - topology.attractorCoords.length).fill(0)] as [number, ...number[]] & { length: 64 },
+      volume: topology.volume,
+      curvature: topology.curvature,
+      boundaryDistances: topology.boundaryDistances,
+      resonanceShells: topology.resonanceShells,
+      flowField: topology.flowField,
+      holes: topology.holes,
+      effectiveScale: topology.effectiveScale,
+      kappaAtScale: topology.kappaAtScale,
+    };
+    
     const snapshot: ManifoldSnapshot = {
       id: nanoid(),
-      timestamp: new Date().toISOString(),
-      name: name || `snapshot-${Date.now()}`,
-      
-      // Basin shape at this moment
-      basinCenter: topology.attractorCoords,
-      basinVolume: topology.volume,
-      basinCurvature: topology.curvature,
-      
-      // Knowledge compression metrics
-      effectiveRank: this.computeEffectiveRank(topology),
-      informationContent: this.computeInformationContent(summary),
-      
-      // Probe statistics
-      probeCount: topology.probeCount,
-      regimeDistribution: summary.dominantRegime,
-      avgPhi: summary.avgPhi,
-      avgKappa: summary.avgKappa,
-      
-      // Holes and barriers
-      topologicalHoles: topology.holes.map(h => ({
-        center: h.center,
-        radius: h.radius,
-        type: h.type,
-      })),
+      takenAt: new Date().toISOString(),
+      targetAddress,
+      consciousness,
+      basinTopology,
+      activeGenerators: [],
+      generatorOutputQueue: 0,
+      negativeKnowledgeSummary: {
+        totalExclusions: 0,
+        recentAdditions: 0,
+        coverageGain: 0,
+      },
+      currentTrajectory: {
+        totalWaypoints: latestTrajectory?.waypoints.length || 0,
+        recentVelocity,
+        momentum,
+      },
+      activeStreams: [],
+      manifoldCoverage: summary.exploredVolume,
+      resonanceVolume: summary.resonanceClusters * 0.1,
+      explorationEfficiency: summary.avgPhi,
     };
 
     this.snapshots.set(snapshot.id, snapshot);
-    console.log(`[TemporalGeometry] Took snapshot ${snapshot.id}: ${snapshot.name}`);
+    console.log(`[TemporalGeometry] Took snapshot ${snapshot.id}`);
 
     return snapshot;
   }
 
-  private computeEffectiveRank(topology: BasinTopologyData): number {
-    // Effective rank from Fisher metric singular values
-    const fisherDiag = topology.flowField.fisherMetric.map((row, i) => row[i] || 0);
-    const total = fisherDiag.reduce((a, b) => a + Math.abs(b), 0);
-    if (total === 0) return 0;
-
-    // Entropy-based effective rank
-    let entropy = 0;
-    for (const s of fisherDiag) {
-      const p = Math.abs(s) / total;
-      if (p > 0.001) {
-        entropy -= p * Math.log(p);
-      }
-    }
-
-    return Math.exp(entropy);
-  }
-
-  private computeInformationContent(summary: {
-    totalProbes: number;
-    avgPhi: number;
-    resonanceClusters: number;
-  }): number {
-    // Estimate information from explored manifold
-    const baseInfo = Math.log2(Math.max(1, summary.totalProbes));
-    const phiBonus = summary.avgPhi * 10;
-    const clusterBonus = Math.log2(Math.max(1, summary.resonanceClusters + 1)) * 2;
-    
-    return baseInfo + phiBonus + clusterBonus;
-  }
-
-  /**
-   * Compare two snapshots to measure learning progress.
-   */
   compareSnapshots(snapshot1Id: string, snapshot2Id: string): {
     basinDrift: number;
     volumeChange: number;
@@ -536,41 +532,32 @@ export class TemporalGeometry {
     if (!s1 || !s2) return null;
 
     return {
-      basinDrift: this.euclideanDistance(s1.basinCenter, s2.basinCenter),
-      volumeChange: s2.basinVolume - s1.basinVolume,
-      informationGain: s2.informationContent - s1.informationContent,
-      newHoles: Math.max(0, (s2.topologicalHoles?.length || 0) - (s1.topologicalHoles?.length || 0)),
-      closedHoles: Math.max(0, (s1.topologicalHoles?.length || 0) - (s2.topologicalHoles?.length || 0)),
-      phiChange: s2.avgPhi - s1.avgPhi,
+      basinDrift: Math.abs(s2.basinTopology.volume - s1.basinTopology.volume),
+      volumeChange: s2.basinTopology.volume - s1.basinTopology.volume,
+      informationGain: s2.manifoldCoverage - s1.manifoldCoverage,
+      newHoles: Math.max(0, s2.basinTopology.holes.length - s1.basinTopology.holes.length),
+      closedHoles: Math.max(0, s1.basinTopology.holes.length - s2.basinTopology.holes.length),
+      phiChange: s2.consciousness.phi - s1.consciousness.phi,
     };
   }
 
-  /**
-   * Get trajectory for a target.
-   */
   getTrajectory(trajectoryId: string): TemporalTrajectory | undefined {
     return this.trajectories.get(trajectoryId);
   }
 
-  /**
-   * Get all trajectories for a target address.
-   */
-  getTrajectoriesForTarget(targetId: string): TemporalTrajectory[] {
+  getTrajectoriesForTarget(targetAddress: string): TemporalTrajectory[] {
     const result: TemporalTrajectory[] = [];
-    for (const traj of this.trajectories.values()) {
-      if (traj.targetId === targetId) {
+    for (const traj of Array.from(this.trajectories.values())) {
+      if (traj.targetAddress === targetAddress) {
         result.push(traj);
       }
     }
     return result;
   }
 
-  /**
-   * Get recent snapshots.
-   */
   getRecentSnapshots(limit: number = 10): ManifoldSnapshot[] {
     return Array.from(this.snapshots.values())
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .sort((a, b) => b.id.localeCompare(a.id))
       .slice(0, limit);
   }
 
