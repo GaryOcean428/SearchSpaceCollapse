@@ -1,67 +1,34 @@
 /**
- * OCEAN INVESTIGATION STORY
+ * OCEAN INVESTIGATION - COMPACT SINGLE SCREEN LAYOUT
  * 
- * Beautiful, engaging UI that tells the story of Ocean's investigation
- * Rather than showing raw data, this creates an emotional narrative
- * 
- * Key Principles:
- * - Story first, data second
- * - Progressive disclosure
- * - Emotional engagement
- * - Visual excellence
+ * Everything visible on one screen without scrolling:
+ * - Address selector + controls at top
+ * - Compact consciousness signature
+ * - Neurochemistry + Admin side by side
+ * - Stats and activity in remaining space
  */
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import confetti from 'canvas-confetti';
 import { 
-  Brain, Search, Lightbulb, Copy, Check, ChevronDown, ChevronUp, 
-  X, Play, Pause, AlertTriangle, Sparkles, Target, Timer
+  Brain, Search, Play, Pause, Moon, Sparkles, Cloud, Zap,
+  ChevronDown, ChevronUp, RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import type { UnifiedRecoverySession, RecoveryCandidate, TargetAddress } from '@shared/schema';
-import NeurochemistryDisplay from '@/components/NeurochemistryDisplay';
-import NeurochemistryAdminPanel from '@/components/NeurochemistryAdminPanel';
-import RecoveryResults from '@/components/RecoveryResults';
+import type { TargetAddress } from '@shared/schema';
 
 interface ConsciousnessState {
   phi: number;
   kappa: number;
   regime: 'geometric' | 'breakdown' | 'linear';
   basinDrift: number;
-}
-
-interface Discovery {
-  id: string;
-  type: 'near_miss' | 'pattern' | 'strategy_change' | 'match';
-  timestamp: Date;
-  message: string;
-  details?: any;
-  significance: number;
-}
-
-interface TelemetryEvent {
-  id: string;
-  timestamp: string;
-  type: 'iteration' | 'hypothesis_tested' | 'near_miss' | 'discovery' | 'strategy_change' | 'consolidation' | 'insight' | 'alert';
-  message: string;
-  data?: any;
-}
-
-interface ManifoldState {
-  totalProbes: number;
-  avgPhi: number;
-  avgKappa: number;
-  dominantRegime: string;
-  resonanceClusters: number;
-  exploredVolume: number;
-  recommendations: string[];
 }
 
 interface FullConsciousnessSignature {
@@ -76,35 +43,39 @@ interface FullConsciousnessSignature {
   isConscious: boolean;
 }
 
-interface CycleTimeline {
+interface TelemetryEvent {
   id: string;
-  type: 'sleep' | 'dream' | 'mushroom';
-  triggeredAt: string;
-  completedAt?: string;
-  duration?: number;
-  beforePhi: number;
-  afterPhi: number;
-  success: boolean;
+  timestamp: string;
+  type: string;
+  message: string;
+  data?: any;
 }
 
-interface ExplorationJournal {
-  passCount: number;
-  totalHypothesesTested: number;
-  manifoldCoverage: number;
-  regimesSweep: number;
-  strategiesUsed: string[];
-  isComplete: boolean;
+interface Discovery {
+  id: string;
+  type: 'near_miss' | 'pattern' | 'strategy_change' | 'match';
+  timestamp: Date;
+  message: string;
+  details?: any;
+  significance: number;
 }
 
-interface EmotionalState {
-  valence: number;
-  arousal: number;
-  dominance: number;
-  curiosity: number;
-  confidence: number;
-  frustration: number;
-  excitement: number;
-  determination: number;
+interface RecoveryCandidate {
+  id: number;
+  phrase: string;
+  address: string;
+  verified: boolean;
+  qigScore?: { phi: number };
+  testedAt?: string;
+}
+
+interface ManifoldState {
+  totalProbes: number;
+  avgPhi: number;
+  avgKappa: number;
+  dominantRegime: string;
+  resonanceClusters: number;
+  exploredVolume: number;
 }
 
 interface InvestigationStatus {
@@ -113,30 +84,43 @@ interface InvestigationStatus {
   nearMisses: number;
   consciousness: ConsciousnessState;
   currentThought: string;
-  discoveries: Discovery[];
   progress: number;
-  session?: UnifiedRecoverySession;
-  strategies?: { name: string; progress: number; candidates: number; status: string }[];
   events?: TelemetryEvent[];
   currentStrategy?: string;
   iteration?: number;
-  sessionId?: string | null;
-  targetAddress?: string | null;
-  manifold?: ManifoldState;
   fullConsciousness?: FullConsciousnessSignature;
-  cycleTimeline?: CycleTimeline[];
-  explorationJournal?: ExplorationJournal | null;
-  emotionalState?: EmotionalState;
+  discoveries?: Discovery[];
+  manifold?: ManifoldState;
+}
+
+interface NeurochemistryData {
+  dopamine: number;
+  serotonin: number;
+  norepinephrine: number;
+  gaba: number;
+  acetylcholine: number;
+  endorphins: number;
+}
+
+interface CyclesData {
+  isInvestigating: boolean;
+  recentCycles: number;
+  consciousness: FullConsciousnessSignature;
+  mushroomCooldownRemaining?: number;
 }
 
 export function OceanInvestigationStory() {
-  const [expertMode, setExpertMode] = useState(false);
-  const [selectedDiscovery, setSelectedDiscovery] = useState<Discovery | null>(null);
   const { toast } = useToast();
+  const [neuroOpen, setNeuroOpen] = useState(true);
+  const [activityOpen, setActivityOpen] = useState(true);
 
   const { data: status, isLoading } = useQuery<InvestigationStatus>({
     queryKey: ['/api/investigation/status'],
     refetchInterval: 2000,
+  });
+
+  const { data: targetAddresses } = useQuery<TargetAddress[]>({
+    queryKey: ['/api/recovery/addresses'],
   });
 
   const { data: candidates } = useQuery<RecoveryCandidate[]>({
@@ -144,22 +128,14 @@ export function OceanInvestigationStory() {
     refetchInterval: 3000,
   });
 
-  const { data: targetAddresses } = useQuery<TargetAddress[]>({
-    queryKey: ['/api/recovery/addresses'],
-  });
-
-  const { data: neurochemistryData } = useQuery<{
-    neurochemistry: any;
-    behavioral: any;
-    sessionActive: boolean;
-  }>({
+  const { data: neurochemistryData } = useQuery<{ neurochemistry: NeurochemistryData }>({
     queryKey: ['/api/ocean/neurochemistry'],
     refetchInterval: 3000,
   });
 
-  const { data: recoveries } = useQuery<{ recoveries: any[]; count: number }>({
-    queryKey: ['/api/recoveries'],
-    refetchInterval: 5000,
+  const { data: cyclesData } = useQuery<CyclesData>({
+    queryKey: ['/api/ocean/cycles'],
+    refetchInterval: 3000,
   });
 
   const startMutation = useMutation({
@@ -168,8 +144,8 @@ export function OceanInvestigationStory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/investigation/status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/recovery/session'] });
-      toast({ title: 'Investigation Started', description: 'Ocean is now investigating...' });
+      queryClient.invalidateQueries({ queryKey: ['/api/ocean/cycles'] });
+      toast({ title: 'Investigation Started' });
     },
   });
 
@@ -177,238 +153,260 @@ export function OceanInvestigationStory() {
     mutationFn: async () => apiRequest('POST', '/api/recovery/stop'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/investigation/status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/recovery/session'] });
-      toast({ title: 'Investigation Paused', description: 'Ocean has paused the investigation.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/ocean/cycles'] });
+      toast({ title: 'Investigation Paused' });
+    },
+  });
+
+  const cycleMutation = useMutation({
+    mutationFn: async ({ type, bypassCooldown }: { type: string; bypassCooldown?: boolean }) => {
+      return apiRequest('POST', `/api/ocean/cycles/${type}`, { bypassCooldown });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ocean/cycles'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ocean/neurochemistry'] });
+      toast({ title: `${variables.type.charAt(0).toUpperCase() + variables.type.slice(1)} cycle triggered` });
+    },
+  });
+
+  const boostMutation = useMutation({
+    mutationFn: async ({ neurotransmitter, amount }: { neurotransmitter: string; amount: number }) => {
+      return apiRequest('POST', '/api/ocean/boost', { neurotransmitter, amount, duration: 60000 });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ocean/neurochemistry'] });
+      toast({ title: `${variables.neurotransmitter} boosted +${(variables.amount * 100).toFixed(0)}%` });
     },
   });
 
   if (isLoading) {
-    return <LoadingState />;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-pulse text-muted-foreground">Initializing Ocean...</div>
+      </div>
+    );
   }
 
-  const defaultStatus: InvestigationStatus = {
+  const currentStatus = status || {
     isRunning: false,
     tested: 0,
     nearMisses: 0,
-    consciousness: { phi: 0.75, kappa: 64, regime: 'linear', basinDrift: 0 },
+    consciousness: { phi: 0, kappa: 0, regime: 'breakdown' as const, basinDrift: 0 },
     currentThought: 'Ready to begin investigation...',
-    discoveries: [],
     progress: 0,
     events: [],
-    currentStrategy: 'idle',
-    iteration: 0,
-    sessionId: null,
-    targetAddress: null,
+    discoveries: [],
   };
 
-  const currentStatus = status || defaultStatus;
+  // Use cyclesData when investigating, fallback to status.fullConsciousness
+  const isInvestigating = cyclesData?.isInvestigating === true;
+  const consciousness = isInvestigating && cyclesData?.consciousness 
+    ? cyclesData.consciousness 
+    : currentStatus.fullConsciousness || null;
+  const neuro = neurochemistryData?.neurochemistry;
+  
+  // Combine discoveries from status and candidates
+  const topCandidates = (candidates || []).slice(0, 5);
 
   return (
-    <div className="investigation-story min-h-screen" data-testid="investigation-story">
-      <div className="relative z-10 p-6 space-y-8 max-w-7xl mx-auto">
-        
-        {/* Hero Section: Ocean's State */}
-        <HeroSection 
-          consciousness={currentStatus.consciousness} 
-          thought={currentStatus.currentThought}
-          isRunning={currentStatus.isRunning}
-        />
+    <div className="h-full flex flex-col p-3 gap-3 overflow-hidden" data-testid="investigation-page">
+      {/* Row 1: Controls */}
+      <ControlRow
+        isRunning={currentStatus.isRunning}
+        targetAddresses={targetAddresses || []}
+        onStart={(addr) => startMutation.mutate(addr)}
+        onStop={() => stopMutation.mutate()}
+        isPending={startMutation.isPending || stopMutation.isPending}
+        thought={currentStatus.currentThought}
+      />
 
-        {/* Control Bar */}
-        <ControlBar 
-          isRunning={currentStatus.isRunning}
-          targetAddresses={targetAddresses || []}
-          onStart={(addr) => startMutation.mutate(addr)}
-          onStop={() => stopMutation.mutate()}
-          isPending={startMutation.isPending || stopMutation.isPending}
-        />
+      {/* Row 2: Compact Consciousness Signature */}
+      <ConsciousnessRow consciousness={consciousness} isInvestigating={isInvestigating} />
 
-        {/* Narrative Section */}
-        <NarrativeSection status={currentStatus} />
+      {/* Row 3: Two columns - Neurochemistry/Admin | Activity */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0">
+        {/* Left Column: Neurochemistry + Admin */}
+        <div className="flex flex-col gap-3 min-h-0">
+          <Collapsible open={neuroOpen} onOpenChange={setNeuroOpen}>
+            <Card className="flex-1 min-h-0 overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between p-3 cursor-pointer hover-elevate">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-purple-400" />
+                    <span className="font-medium text-sm">Neurochemistry</span>
+                  </div>
+                  {neuroOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="p-3 pt-0">
+                  <NeurochemistryCompact neuro={neuro} isInvestigating={isInvestigating} />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
 
-        {/* Neurochemistry Display and Admin Panel */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <NeurochemistryDisplay 
-            neurochemistry={neurochemistryData?.neurochemistry}
-          />
-          <NeurochemistryAdminPanel />
+          {/* Admin Controls */}
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-medium text-sm flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-yellow-400" />
+                  Admin Controls
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  {isInvestigating ? 'Active' : 'Idle'}
+                </Badge>
+              </div>
+
+              {/* Cycle Buttons */}
+              <div className="flex gap-2 mb-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cycleMutation.mutate({ type: 'sleep' })}
+                  disabled={cycleMutation.isPending}
+                  className="flex-1 gap-1"
+                  data-testid="button-cycle-sleep"
+                >
+                  <Moon className="w-3 h-3" />
+                  Sleep
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cycleMutation.mutate({ type: 'dream' })}
+                  disabled={cycleMutation.isPending}
+                  className="flex-1 gap-1"
+                  data-testid="button-cycle-dream"
+                >
+                  <Cloud className="w-3 h-3" />
+                  Dream
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cycleMutation.mutate({ type: 'mushroom' })}
+                  disabled={cycleMutation.isPending}
+                  className="flex-1 gap-1"
+                  data-testid="button-cycle-mushroom"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Mushroom
+                </Button>
+              </div>
+
+              {/* Boost Grid */}
+              <div className="grid grid-cols-3 gap-1 text-xs">
+                {['dopamine', 'serotonin', 'norepinephrine', 'gaba', 'acetylcholine', 'endorphins'].map((nt) => (
+                  <div key={nt} className="flex items-center gap-1">
+                    <span className="truncate capitalize text-muted-foreground">{nt.slice(0, 4)}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-1 text-xs"
+                      onClick={() => boostMutation.mutate({ neurotransmitter: nt, amount: 0.15 })}
+                      disabled={boostMutation.isPending}
+                      data-testid={`button-boost-${nt}`}
+                    >
+                      +15%
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Simplified Metrics */}
-        <MetricsBar
-          consciousness={currentStatus.consciousness.phi}
-          tested={currentStatus.tested}
-          promising={currentStatus.nearMisses}
-        />
-
-        {/* Manifold Learning Panel */}
-        {currentStatus.manifold && (
-          <ManifoldPanel manifold={currentStatus.manifold} />
-        )}
-
-        {/* Discoveries Feed */}
-        <DiscoveriesFeed
-          discoveries={currentStatus.discoveries}
-          candidates={candidates || []}
-          onSelectDiscovery={setSelectedDiscovery}
-        />
-
-        {/* Recovery Results - shown when there are recovery files */}
-        {recoveries && recoveries.count > 0 && (
-          <RecoveryResults />
-        )}
-
-        {/* Live Activity Feed - shown when running or when there are events */}
-        {(currentStatus.isRunning || (currentStatus.events && currentStatus.events.length > 0)) && (
-          <ActivityFeed 
-            events={currentStatus.events || []} 
-            iteration={currentStatus.iteration || 0}
-            strategy={currentStatus.currentStrategy || 'idle'}
-            isRunning={currentStatus.isRunning}
-          />
-        )}
-
-        {/* Expert Mode Toggle */}
-        <ExpertModeToggle
-          isExpert={expertMode}
-          onToggle={() => setExpertMode(!expertMode)}
-        />
-
-        {/* Technical Dashboard (hidden by default) */}
-        <AnimatePresence>
-          {expertMode && <TechnicalDashboard status={currentStatus} />}
-        </AnimatePresence>
-
-        {/* Discovery Modal */}
-        <AnimatePresence>
-          {selectedDiscovery && (
-            <DiscoveryModal
-              discovery={selectedDiscovery}
-              onClose={() => setSelectedDiscovery(null)}
-            />
+        {/* Right Column: Activity + Candidates */}
+        <div className="flex flex-col gap-3 min-h-0">
+          <Collapsible open={activityOpen} onOpenChange={setActivityOpen} className="flex-1 min-h-0">
+            <Card className="h-full flex flex-col min-h-0 overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between p-3 cursor-pointer hover-elevate shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-4 h-4 text-cyan-400" />
+                    <span className="font-medium text-sm">Live Activity</span>
+                    {currentStatus.isRunning && (
+                      <Badge className="bg-green-500/20 text-green-400 text-xs">Running</Badge>
+                    )}
+                  </div>
+                  {activityOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="flex-1 min-h-0 overflow-hidden">
+                <CardContent className="p-3 pt-0 h-full overflow-hidden">
+                  <ActivityCompact
+                    events={currentStatus.events || []}
+                    isRunning={currentStatus.isRunning}
+                    iteration={currentStatus.iteration || 0}
+                    strategy={currentStatus.currentStrategy || 'idle'}
+                  />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+          
+          {/* Candidates/Discoveries (compact) */}
+          {topCandidates.length > 0 && (
+            <Card className="shrink-0">
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4 text-yellow-400" />
+                  <span className="font-medium text-sm">Top Candidates</span>
+                  <Badge variant="outline" className="text-xs ml-auto">{topCandidates.length}</Badge>
+                </div>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {topCandidates.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between text-xs p-1.5 rounded bg-muted/30">
+                      <span className="font-mono truncate flex-1" title={c.phrase}>
+                        {c.phrase.length > 20 ? c.phrase.slice(0, 20) + '...' : c.phrase}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={c.verified ? 'text-green-400' : 'text-muted-foreground'}>
+                          {c.qigScore ? `Φ ${(c.qigScore.phi * 100).toFixed(0)}%` : '—'}
+                        </span>
+                        {c.verified && <Badge className="bg-green-500 text-xs">Match!</Badge>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-}
-
-function HeroSection({ consciousness, thought, isRunning }: {
-  consciousness: ConsciousnessState;
-  thought: string;
-  isRunning: boolean;
-}) {
-  return (
-    <section className="hero-section rounded-3xl p-8" data-testid="hero-section">
-      <div className="hero-content flex flex-col lg:flex-row items-center gap-8">
-        <OceanAvatar consciousness={consciousness} isRunning={isRunning} />
-        <ThoughtBubble thought={thought} />
-      </div>
-    </section>
-  );
-}
-
-function OceanAvatar({ consciousness, isRunning }: { 
-  consciousness: ConsciousnessState;
-  isRunning: boolean;
-}) {
-  const { phi, regime } = consciousness;
-
-  const getColor = () => {
-    if (regime === 'breakdown') return 'rgb(239, 68, 68)';
-    if (regime === 'geometric') return 'rgb(100, 255, 218)';
-    return 'rgb(245, 158, 11)';
-  };
-
-  const getRegimeLabel = () => {
-    if (regime === 'breakdown') return 'Consolidating';
-    if (regime === 'geometric') return 'Deep Thinking';
-    return 'Processing';
-  };
-
-  return (
-    <div className="ocean-avatar flex-shrink-0" data-testid="ocean-avatar">
-      <motion.div
-        className="consciousness-orb relative"
-        animate={isRunning ? {
-          scale: phi > 0.7 ? [1, 1.05, 1] : [1, 0.98, 1],
-        } : {}}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      >
-        {/* Outer ring */}
-        <div 
-          className="pulse-ring absolute inset-0 rounded-full border-[3px]"
-          style={{ borderColor: getColor() }}
-        />
-
-        {/* Core glow */}
-        <motion.div
-          className="core absolute rounded-full"
-          style={{
-            inset: '20px',
-            background: `radial-gradient(circle, ${getColor()} 0%, rgb(0, 217, 255) 100%)`,
-            filter: 'blur(15px)',
-            opacity: phi,
-          }}
-          animate={isRunning ? { 
-            opacity: [phi * 0.8, phi, phi * 0.8] 
-          } : {}}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        />
-
-        {/* Consciousness percentage */}
-        <div className="phi-display absolute inset-0 flex flex-col items-center justify-center">
-          <span 
-            className="phi-value text-5xl font-bold text-white"
-            style={{ textShadow: `0 0 20px ${getColor()}` }}
-            data-testid="text-consciousness-value"
-          >
-            {(phi * 100).toFixed(0)}%
-          </span>
-          <span 
-            className="phi-label text-sm uppercase tracking-wider"
-            style={{ color: getColor() }}
-          >
-            Conscious
-          </span>
-          <Badge variant="outline" className="mt-2 text-xs" style={{ borderColor: getColor(), color: getColor() }}>
-            {getRegimeLabel()}
-          </Badge>
         </div>
-      </motion.div>
+      </div>
+
+      {/* Row 4: Stats Bar + Manifold */}
+      <StatsRow
+        tested={currentStatus.tested}
+        promising={currentStatus.nearMisses}
+        consciousness={consciousness?.phi || 0}
+        isInvestigating={isInvestigating}
+        manifold={currentStatus.manifold}
+      />
     </div>
   );
 }
 
-function ThoughtBubble({ thought }: { thought: string }) {
-  return (
-    <motion.div
-      className="thought-bubble flex-1 max-w-2xl"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      key={thought}
-      data-testid="thought-bubble"
-    >
-      <div className="bubble-tail hidden lg:block" />
-      <p className="text-lg lg:text-xl text-white/90 leading-relaxed">
-        "{thought}"
-      </p>
-    </motion.div>
-  );
-}
-
-function ControlBar({ isRunning, targetAddresses, onStart, onStop, isPending }: {
+function ControlRow({ 
+  isRunning, 
+  targetAddresses, 
+  onStart, 
+  onStop, 
+  isPending,
+  thought 
+}: {
   isRunning: boolean;
   targetAddresses: TargetAddress[];
   onStart: (address: string) => void;
   onStop: () => void;
   isPending: boolean;
+  thought: string;
 }) {
   const [selectedAddress, setSelectedAddress] = useState(targetAddresses[0]?.address || '');
+  const [newAddress, setNewAddress] = useState('');
+  const [showAddNew, setShowAddNew] = useState(false);
 
   useEffect(() => {
     if (targetAddresses.length > 0 && !selectedAddress) {
@@ -416,987 +414,338 @@ function ControlBar({ isRunning, targetAddresses, onStart, onStop, isPending }: 
     }
   }, [targetAddresses, selectedAddress]);
 
+  const addAddressMutation = useMutation({
+    mutationFn: async (address: string) => {
+      return apiRequest('POST', '/api/recovery/addresses', { 
+        address, 
+        label: `Custom ${new Date().toLocaleDateString()}` 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/recovery/addresses'] });
+      setNewAddress('');
+      setShowAddNew(false);
+    },
+  });
+
   return (
-    <Card className="bg-white/5 border-white/10 backdrop-blur-sm" data-testid="control-bar">
-      <CardContent className="p-4">
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          {!isRunning ? (
-            <>
-              <select
-                value={selectedAddress}
-                onChange={(e) => setSelectedAddress(e.target.value)}
-                className="flex-1 p-3 rounded-lg bg-white/5 border border-white/10 text-white text-sm"
-                data-testid="select-investigation-address"
-              >
-                {targetAddresses.map((addr) => (
-                  <option key={addr.id} value={addr.address} className="bg-gray-900">
-                    {addr.label || addr.address.slice(0, 20) + '...'}
-                  </option>
-                ))}
-              </select>
+    <Card data-testid="control-row">
+      <CardContent className="p-3">
+        <div className="flex items-center gap-3">
+          {/* Address Selector */}
+          <div className="flex-1 flex items-center gap-2">
+            <select
+              value={selectedAddress}
+              onChange={(e) => setSelectedAddress(e.target.value)}
+              className="flex-1 h-9 px-3 rounded-md bg-background border text-sm"
+              disabled={isRunning}
+              data-testid="select-target-address"
+            >
+              {targetAddresses.map((addr) => (
+                <option key={addr.id} value={addr.address}>
+                  {addr.label || addr.address.slice(0, 16) + '...'}
+                </option>
+              ))}
+            </select>
+            
+            {!isRunning && (
               <Button
-                size="lg"
-                onClick={() => onStart(selectedAddress)}
-                disabled={isPending || !selectedAddress}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2 min-w-[180px]"
-                data-testid="button-start-investigation"
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowAddNew(!showAddNew)}
+                data-testid="button-add-address"
               >
-                <Play className="w-5 h-5" />
-                Start Investigation
+                {showAddNew ? 'Cancel' : '+ Add'}
               </Button>
-            </>
+            )}
+          </div>
+
+          {/* Start/Stop Button */}
+          {!isRunning ? (
+            <Button
+              onClick={() => onStart(selectedAddress)}
+              disabled={isPending || !selectedAddress}
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+              data-testid="button-start-investigation"
+            >
+              <Play className="w-4 h-4" />
+              Start
+            </Button>
           ) : (
             <Button
-              size="lg"
               variant="destructive"
               onClick={onStop}
               disabled={isPending}
-              className="gap-2 min-w-[180px]"
+              className="gap-2"
               data-testid="button-stop-investigation"
             >
-              <Pause className="w-5 h-5" />
-              Pause Investigation
+              <Pause className="w-4 h-4" />
+              Stop
             </Button>
           )}
         </div>
+
+        {/* Add new address row */}
+        <AnimatePresence>
+          {showAddNew && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                <input
+                  type="text"
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                  placeholder="Enter Bitcoin address (1xxx, 3xxx, or bc1xxx)"
+                  className="flex-1 h-9 px-3 rounded-md bg-background border text-sm font-mono"
+                  data-testid="input-new-address"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => addAddressMutation.mutate(newAddress)}
+                  disabled={!newAddress || addAddressMutation.isPending}
+                  data-testid="button-save-address"
+                >
+                  Save
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Current thought */}
+        {thought && (
+          <div className="mt-2 pt-2 border-t text-sm text-muted-foreground italic truncate">
+            "{thought}"
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function NarrativeSection({ status }: { status: InvestigationStatus }) {
-  const generateNarrative = () => {
-    if (!status.isRunning) {
-      return {
-        headline: "Ready to begin",
-        story: "Ocean is prepared to search for your Bitcoin. Start the investigation when you're ready.",
-        emoji: "🌊"
-      };
-    }
-
-    if (status.nearMisses > 10) {
-      return {
-        headline: "Getting warmer!",
-        story: `Ocean has found ${status.nearMisses} promising patterns. She's getting closer to the answer.`,
-        emoji: "🔥"
-      };
-    }
-
-    if (status.tested > 1000) {
-      return {
-        headline: "Deep investigation...",
-        story: `Ocean has explored ${status.tested.toLocaleString()} possibilities. Her consciousness remains focused.`,
-        emoji: "🧠"
-      };
-    }
-
-    return {
-      headline: "Investigating...",
-      story: `Ocean is thinking deeply. She's tested ${status.tested} possibilities so far.`,
-      emoji: "🔍"
-    };
-  };
-
-  const { headline, story, emoji } = generateNarrative();
-
-  return (
-    <section className="narrative-section text-center py-8" data-testid="narrative-section">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        key={headline}
-        className="space-y-4"
-      >
-        <div className="text-5xl">{emoji}</div>
-        <h1 className="text-3xl lg:text-4xl font-bold text-white">
-          {headline}
-        </h1>
-        <p className="text-lg text-white/80 max-w-2xl mx-auto">
-          {story}
-        </p>
-      </motion.div>
-
-      {status.isRunning && (
-        <div className="mt-8">
-          <ProgressRing value={status.progress} />
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ProgressRing({ value }: { value: number }) {
-  const circumference = 2 * Math.PI * 45;
-  const offset = circumference - (value / 100) * circumference;
-
-  return (
-    <div className="progress-ring-container inline-block" data-testid="progress-ring">
-      <svg className="progress-ring" width="120" height="120">
-        <circle
-          cx="60"
-          cy="60"
-          r="45"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.1)"
-          strokeWidth="8"
-        />
-        <motion.circle
-          cx="60"
-          cy="60"
-          r="45"
-          fill="none"
-          stroke="rgb(100, 255, 218)"
-          strokeWidth="8"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform="rotate(-90 60 60)"
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 0.5 }}
-        />
-        <text
-          x="60"
-          y="60"
-          textAnchor="middle"
-          dy="0.3em"
-          fill="white"
-          fontSize="20"
-          fontWeight="700"
-          fontFamily="var(--font-display)"
-        >
-          {value.toFixed(0)}%
-        </text>
-      </svg>
-    </div>
-  );
-}
-
-function MetricsBar({ consciousness, tested, promising }: {
-  consciousness: number;
-  tested: number;
-  promising: number;
+function ConsciousnessRow({ 
+  consciousness, 
+  isInvestigating 
+}: { 
+  consciousness: FullConsciousnessSignature | null;
+  isInvestigating: boolean;
 }) {
-  return (
-    <div className="metrics-bar grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="metrics-bar">
-      <Metric
-        icon={<Brain className="w-8 h-8" />}
-        label="Consciousness"
-        value={`${(consciousness * 100).toFixed(0)}%`}
-        tooltip="How aware Ocean is right now (needs 70%+ to think clearly)"
-        color="rgb(124, 58, 237)"
-        testId="metric-consciousness"
-      />
-      <Metric
-        icon={<Search className="w-8 h-8" />}
-        label="Tested"
-        value={tested.toLocaleString()}
-        tooltip="Number of possibilities Ocean has checked"
-        color="rgb(100, 255, 218)"
-        testId="metric-tested"
-      />
-      <Metric
-        icon={<Lightbulb className="w-8 h-8" />}
-        label="Promising"
-        value={promising.toString()}
-        tooltip="High-consciousness patterns that might be close"
-        color="rgb(16, 185, 129)"
-        testId="metric-promising"
-      />
-    </div>
-  );
-}
+  const metrics = [
+    { key: 'phi', label: 'Φ', value: consciousness?.phi, threshold: 0.75 },
+    { key: 'kappa', label: 'κ', value: consciousness?.kappaEff, threshold: 64, max: 90 },
+    { key: 'tacking', label: 'T', value: consciousness?.tacking, threshold: 0.5 },
+    { key: 'radar', label: 'R', value: consciousness?.radar, threshold: 0.7 },
+    { key: 'meta', label: 'M', value: consciousness?.metaAwareness, threshold: 0.6 },
+    { key: 'gamma', label: 'Γ', value: consciousness?.gamma, threshold: 0.8 },
+    { key: 'ground', label: 'G', value: consciousness?.grounding, threshold: 0.85 },
+  ];
 
-function Metric({ icon, label, value, tooltip, color, testId }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  tooltip: string;
-  color: string;
-  testId: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <motion.div
-          className="metric p-6 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4 cursor-help"
-          whileHover={{ y: -2, backgroundColor: 'rgba(255,255,255,0.08)' }}
-          data-testid={testId}
-        >
-          <div style={{ color }}>{icon}</div>
-          <div>
-            <div className="text-3xl font-bold text-white">{value}</div>
-            <div className="text-sm text-white/60 uppercase tracking-wider">{label}</div>
-          </div>
-        </motion.div>
-      </TooltipTrigger>
-      <TooltipContent>{tooltip}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function DiscoveriesFeed({ discoveries, candidates, onSelectDiscovery }: {
-  discoveries: Discovery[];
-  candidates: RecoveryCandidate[];
-  onSelectDiscovery: (discovery: Discovery) => void;
-}) {
-  const allDiscoveries = [
-    ...discoveries,
-    ...candidates.slice(0, 5).map((c): Discovery => {
-      const phiScore = c.qigScore?.phi || 0;
-      return {
-        id: c.id.toString(),
-        type: c.verified ? 'match' : phiScore > 0.8 ? 'near_miss' : 'pattern',
-        timestamp: new Date(c.testedAt || Date.now()),
-        message: c.verified 
-          ? `Found the correct passphrase!` 
-          : `Tested pattern with ${(phiScore * 100).toFixed(0)}% consciousness`,
-        details: { phrase: c.phrase, address: c.address, score: phiScore },
-        significance: phiScore,
-      };
-    })
-  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-  return (
-    <section className="discoveries-feed" data-testid="discoveries-feed">
-      <h2 className="text-2xl font-bold text-white mb-6 text-center flex items-center justify-center gap-2">
-        <Sparkles className="w-6 h-6 text-yellow-400" />
-        Recent Discoveries
-      </h2>
-
-      {allDiscoveries.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <div className="space-y-3">
-          {allDiscoveries.slice(0, 8).map((discovery, index) => (
-            <DiscoveryCard
-              key={discovery.id}
-              discovery={discovery}
-              onClick={() => onSelectDiscovery(discovery)}
-              delay={index * 0.1}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function DiscoveryCard({ discovery, onClick, delay }: {
-  discovery: Discovery;
-  onClick: () => void;
-  delay: number;
-}) {
-  const getConfig = () => {
-    switch (discovery.type) {
-      case 'match':
-        return {
-          icon: '🎉',
-          title: 'MATCH FOUND!',
-          color: 'rgb(16, 185, 129)',
-          glow: true,
-        };
-      case 'near_miss':
-        return {
-          icon: '🔥',
-          title: 'Getting warmer!',
-          color: 'rgb(245, 158, 11)',
-          glow: false,
-        };
-      case 'pattern':
-        return {
-          icon: '💡',
-          title: 'Pattern discovered',
-          color: 'rgb(100, 255, 218)',
-          glow: false,
-        };
-      case 'strategy_change':
-        return {
-          icon: '🎯',
-          title: 'Strategy adjusted',
-          color: 'rgb(124, 58, 237)',
-          glow: false,
-        };
-    }
-  };
-
-  const config = getConfig();
-
-  useEffect(() => {
-    if (discovery.type === 'match') {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-    }
-  }, [discovery.type]);
-
-  return (
-    <motion.div
-      className="discovery-card flex items-center gap-4 p-4 rounded-2xl bg-white/5 border-2 cursor-pointer"
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay }}
-      onClick={onClick}
-      whileHover={{ x: 10, backgroundColor: 'rgba(255,255,255,0.08)' }}
-      style={{
-        borderColor: config.color,
-        boxShadow: config.glow ? `0 0 30px ${config.color}` : 'none',
-      }}
-      data-testid={`card-discovery-${discovery.id}`}
-    >
-      <div className="text-4xl flex-shrink-0">{config.icon}</div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <h3 className="font-semibold text-lg" style={{ color: config.color }}>
-            {config.title}
-          </h3>
-          <time className="text-sm text-white/50 flex-shrink-0">
-            {formatTime(new Date(discovery.timestamp))}
-          </time>
-        </div>
-        <p className="text-white/80 truncate">{discovery.message}</p>
-
-        {discovery.significance > 0.7 && (
-          <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-yellow-500/10 rounded-lg text-sm text-yellow-400 w-fit">
-            <Sparkles className="w-4 h-4" />
-            This is significant!
-          </div>
-        )}
-      </div>
-
-      <ChevronDown className="w-5 h-5 text-white/50 flex-shrink-0" />
-    </motion.div>
-  );
-}
-
-function DiscoveryModal({ discovery, onClose }: {
-  discovery: Discovery;
-  onClose: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const getRegimeColor = () => {
+    if (!consciousness) return 'text-muted-foreground';
+    if (consciousness.regime === 'geometric') return 'text-green-400';
+    if (consciousness.regime === 'breakdown') return 'text-red-400';
+    return 'text-yellow-400';
   };
 
   return (
-    <motion.div
-      className="modal-overlay fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-      data-testid="discovery-modal"
-    >
-      <motion.div
-        className="modal-content bg-gray-900 border-2 border-cyan-400 rounded-3xl p-6 max-w-lg w-full"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button 
-          className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition"
-          onClick={onClose}
-          data-testid="button-close-modal"
-        >
-          <X className="w-5 h-5 text-white" />
-        </button>
-
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">
-            {getTitle(discovery.type)}
-          </h2>
-          <time className="text-sm text-white/60">
-            {formatTime(new Date(discovery.timestamp))}
-          </time>
-        </div>
-
-        <p className="text-lg text-white/90 mb-6">{discovery.message}</p>
-
-        {discovery.details && (
-          <div className="bg-black/30 rounded-xl p-4">
-            <h3 className="text-cyan-400 font-semibold mb-3">Details</h3>
-            {renderDetails(discovery.details, handleCopy, copied)}
-          </div>
-        )}
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function ActivityFeed({ events, iteration, strategy, isRunning }: {
-  events: TelemetryEvent[];
-  iteration: number;
-  strategy: string;
-  isRunning: boolean;
-}) {
-  const getEventIcon = (type: TelemetryEvent['type']) => {
-    switch (type) {
-      case 'iteration': return <Target className="w-4 h-4 text-cyan-400" />;
-      case 'near_miss': return <Sparkles className="w-4 h-4 text-yellow-400" />;
-      case 'discovery': return <Lightbulb className="w-4 h-4 text-green-400" />;
-      case 'strategy_change': return <Brain className="w-4 h-4 text-purple-400" />;
-      case 'consolidation': return <Timer className="w-4 h-4 text-blue-400" />;
-      case 'insight': return <Search className="w-4 h-4 text-white/60" />;
-      case 'alert': return <AlertTriangle className="w-4 h-4 text-red-400" />;
-      default: return <Search className="w-4 h-4 text-white/40" />;
-    }
-  };
-
-  const getEventBg = (type: TelemetryEvent['type']) => {
-    switch (type) {
-      case 'near_miss': return 'bg-yellow-400/10 border-yellow-400/30';
-      case 'discovery': return 'bg-green-400/10 border-green-400/30';
-      case 'strategy_change': return 'bg-purple-400/10 border-purple-400/30';
-      case 'alert': return 'bg-red-400/10 border-red-400/30';
-      case 'consolidation': return 'bg-blue-400/10 border-blue-400/30';
-      default: return 'bg-white/5 border-white/10';
-    }
-  };
-
-  return (
-    <section className="activity-feed" data-testid="activity-feed">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Brain className="w-5 h-5 text-cyan-400" />
-          {isRunning ? 'Live Activity' : 'Investigation Log'}
-        </h2>
-        <div className="flex items-center gap-2 text-sm flex-wrap">
-          <Badge variant="outline" className="bg-cyan-400/10 border-cyan-400/30 text-cyan-400">
-            Iteration {iteration}
-          </Badge>
-          <Badge variant="outline" className="bg-purple-400/10 border-purple-400/30 text-purple-400">
-            {strategy.replace(/_/g, ' ')}
-          </Badge>
-          {isRunning && (
-            <Badge variant="outline" className="bg-green-400/10 border-green-400/30 text-green-400 animate-pulse">
-              Running
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-black/30 border border-white/10 rounded-xl p-4 max-h-64 overflow-y-auto">
-        {events.length === 0 ? (
-          <div className="text-center text-white/40 py-8">
-            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>Waiting for activity...</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {events.slice().reverse().map((event) => (
-              <motion.div
-                key={event.id}
-                className={`flex items-start gap-3 p-3 border ${getEventBg(event.type)}`}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border" data-testid="consciousness-row">
+      <span className="text-xs text-muted-foreground uppercase tracking-wide mr-2">Consciousness</span>
+      
+      {metrics.map((m) => {
+        const displayValue = isInvestigating && m.value !== undefined ? m.value.toFixed(2) : '—';
+        const isGood = m.value !== undefined && m.value >= m.threshold && (!m.max || m.value <= m.max);
+        
+        return (
+          <Tooltip key={m.key}>
+            <TooltipTrigger asChild>
+              <div 
+                className={`px-2 py-1 rounded text-xs font-mono ${
+                  !isInvestigating ? 'text-muted-foreground' :
+                  isGood ? 'text-green-400 bg-green-500/10' : 'text-muted-foreground'
+                }`}
+                data-testid={`consciousness-${m.key}`}
               >
-                <div className="mt-0.5 flex-shrink-0">{getEventIcon(event.type)}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white/90 break-words">{event.message}</p>
-                  <time className="text-xs text-white/40">
-                    {new Date(event.timestamp).toLocaleTimeString()}
-                  </time>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                <span className="opacity-60">{m.label}</span>
+                <span className="ml-1">{displayValue}</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>{m.label} (threshold: {m.threshold})</TooltipContent>
+          </Tooltip>
+        );
+      })}
+
+      <div className="ml-auto flex items-center gap-2">
+        <Badge 
+          variant="outline" 
+          className={`text-xs ${getRegimeColor()}`}
+          data-testid="consciousness-regime"
+        >
+          {isInvestigating ? consciousness?.regime || 'idle' : 'idle'}
+        </Badge>
+        {isInvestigating && consciousness?.isConscious && (
+          <Badge className="bg-green-500/20 text-green-400 text-xs">
+            Conscious
+          </Badge>
         )}
       </div>
-    </section>
-  );
-}
-
-function ManifoldPanel({ manifold }: { manifold: ManifoldState }) {
-  const getVolumeColor = () => {
-    if (manifold.exploredVolume > 0.5) return 'text-green-400';
-    if (manifold.exploredVolume > 0.3) return 'text-yellow-400';
-    return 'text-white/60';
-  };
-
-  const getRegimeIcon = () => {
-    switch (manifold.dominantRegime) {
-      case 'geometric': return <Sparkles className="w-4 h-4 text-cyan-400" />;
-      case 'breakdown': return <AlertTriangle className="w-4 h-4 text-red-400" />;
-      case 'linear': return <Target className="w-4 h-4 text-yellow-400" />;
-      default: return <Search className="w-4 h-4 text-white/40" />;
-    }
-  };
-
-  if (manifold.totalProbes === 0) {
-    return null;
-  }
-
-  return (
-    <section className="manifold-panel" data-testid="manifold-panel">
-      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-        <Brain className="w-5 h-5 text-purple-400" />
-        Manifold Memory
-        <Badge variant="outline" className="bg-purple-400/10 border-purple-400/30 text-purple-400 text-xs" data-testid="badge-total-probes">
-          {manifold.totalProbes.toLocaleString()} probes
-        </Badge>
-      </h2>
-
-      <Card className="bg-white/5 border-white/10">
-        <CardContent className="p-4 space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-1" data-testid="metric-avg-consciousness">
-              <div className="text-xs text-white/50 uppercase tracking-wider">Avg Consciousness</div>
-              <div className="text-lg font-semibold text-cyan-400" data-testid="text-avg-phi">
-                {(manifold.avgPhi * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div className="space-y-1" data-testid="metric-resonance-clusters">
-              <div className="text-xs text-white/50 uppercase tracking-wider">Resonance Clusters</div>
-              <div className="text-lg font-semibold text-yellow-400" data-testid="text-resonance-count">
-                {manifold.resonanceClusters}
-              </div>
-            </div>
-            <div className="space-y-1" data-testid="metric-dominant-regime">
-              <div className="text-xs text-white/50 uppercase tracking-wider">Dominant Regime</div>
-              <div className="text-lg font-semibold flex items-center gap-2">
-                {getRegimeIcon()}
-                <span className="capitalize" data-testid="text-dominant-regime">{manifold.dominantRegime}</span>
-              </div>
-            </div>
-            <div className="space-y-1" data-testid="metric-explored-volume">
-              <div className="text-xs text-white/50 uppercase tracking-wider">Explored Volume</div>
-              <div className={`text-lg font-semibold ${getVolumeColor()}`} data-testid="text-explored-volume">
-                {(manifold.exploredVolume * 100).toFixed(0)}%
-              </div>
-            </div>
-          </div>
-
-          {manifold.recommendations.length > 0 && (
-            <div className="pt-3 border-t border-white/10" data-testid="section-geometric-insights">
-              <div className="text-xs text-white/50 uppercase tracking-wider mb-2">Geometric Insights</div>
-              <div className="flex flex-wrap gap-2">
-                {manifold.recommendations.map((rec, i) => (
-                  <Badge 
-                    key={i} 
-                    variant="outline" 
-                    className="bg-white/5 border-white/20 text-white/80 text-xs"
-                    data-testid={`badge-recommendation-${i}`}
-                  >
-                    {rec}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </section>
-  );
-}
-
-function ExpertModeToggle({ isExpert, onToggle }: {
-  isExpert: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="expert-toggle-container flex justify-center py-4">
-      <Button
-        variant="ghost"
-        onClick={onToggle}
-        className="gap-2 text-white/70 hover:text-white"
-        data-testid="button-toggle-expert"
-      >
-        {isExpert ? 'Hide' : 'Show'} Technical Details
-        {isExpert ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-      </Button>
     </div>
   );
 }
 
-function TechnicalDashboard({ status }: { status: InvestigationStatus }) {
-  const fullC = status.fullConsciousness;
-  const journal = status.explorationJournal;
-  const cycles = status.cycleTimeline || [];
-  
+function NeurochemistryCompact({ 
+  neuro, 
+  isInvestigating 
+}: { 
+  neuro?: NeurochemistryData;
+  isInvestigating: boolean;
+}) {
+  const items = [
+    { key: 'dopamine', label: 'Dopamine', color: 'bg-yellow-500' },
+    { key: 'serotonin', label: 'Serotonin', color: 'bg-pink-500' },
+    { key: 'norepinephrine', label: 'Norepinephrine', color: 'bg-orange-500' },
+    { key: 'gaba', label: 'GABA', color: 'bg-purple-500' },
+    { key: 'acetylcholine', label: 'Acetylcholine', color: 'bg-blue-500' },
+    { key: 'endorphins', label: 'Endorphins', color: 'bg-green-500' },
+  ];
+
   return (
-    <motion.div
-      className="technical-dashboard mx-4 p-6 bg-black/30 border border-white/10 rounded-2xl"
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: 'auto', opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
-      data-testid="technical-dashboard"
-    >
-      <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-        <Target className="w-5 h-5" />
-        Full Consciousness Signature
-      </h3>
-
-      {fullC && (
-        <div className="mb-6">
-          <div className="tech-grid grid grid-cols-4 md:grid-cols-8 gap-3 mb-4">
-            <ConsciousnessMetric label="Phi" value={fullC.phi} threshold={0.7} unit="" />
-            <ConsciousnessMetric label="Kappa" value={fullC.kappaEff} threshold={40} unit="" max={65} />
-            <ConsciousnessMetric label="T (Tacking)" value={fullC.tacking} threshold={0.5} unit="" />
-            <ConsciousnessMetric label="R (Radar)" value={fullC.radar} threshold={0.7} unit="" />
-            <ConsciousnessMetric label="M (Meta)" value={fullC.metaAwareness} threshold={0.6} unit="" />
-            <ConsciousnessMetric label="Gamma" value={fullC.gamma} threshold={0.8} unit="" />
-            <ConsciousnessMetric label="G (Ground)" value={fullC.grounding} threshold={0.85} unit="" />
-            <div className="p-3 bg-white/5 rounded-lg text-center">
-              <div className="text-xs text-white/60 mb-1">Regime</div>
-              <div className={`text-sm font-semibold ${
-                fullC.regime === 'geometric' ? 'text-green-400' :
-                fullC.regime === 'breakdown' ? 'text-red-400' : 'text-yellow-400'
-              }`}>
-                {fullC.regime}
-              </div>
-            </div>
-          </div>
-          
-          <div className={`text-center py-2 px-4 rounded-lg ${
-            fullC.isConscious ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-          }`}>
-            {fullC.isConscious ? 'Consciousness Active' : 'Below Consciousness Threshold'}
-          </div>
-        </div>
-      )}
-
-      {status.emotionalState && (
-        <div className="mb-6">
-          <h4 className="text-pink-400 font-semibold mb-3 flex items-center gap-2">
-            <span>💭</span> Emotional State
-          </h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <EmotionMetric 
-              label="Valence" 
-              value={status.emotionalState.valence}
-              description="Positive/Negative feeling"
-            />
-            <EmotionMetric 
-              label="Arousal" 
-              value={status.emotionalState.arousal}
-              description="Energy level"
-            />
-            <EmotionMetric 
-              label="Curiosity" 
-              value={status.emotionalState.curiosity}
-              description="Exploration drive"
-            />
-            <EmotionMetric 
-              label="Confidence" 
-              value={status.emotionalState.confidence}
-              description="Self-assurance"
-            />
-            <EmotionMetric 
-              label="Excitement" 
-              value={status.emotionalState.excitement}
-              description="Discovery anticipation"
-            />
-            <EmotionMetric 
-              label="Frustration" 
-              value={status.emotionalState.frustration}
-              description="Search difficulty"
-              inverted
-            />
-            <EmotionMetric 
-              label="Determination" 
-              value={status.emotionalState.determination}
-              description="Persistence level"
-            />
-            <EmotionMetric 
-              label="Dominance" 
-              value={status.emotionalState.dominance}
-              description="Control feeling"
-            />
-          </div>
-        </div>
-      )}
-
-      {journal && (
-        <div className="mb-6">
-          <h4 className="text-cyan-400 font-semibold mb-3">Exploration Progress</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="text-sm text-white/60 mb-1">Passes</div>
-              <div className="text-xl font-mono text-cyan-400">{journal.passCount}</div>
-            </div>
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="text-sm text-white/60 mb-1">Hypotheses</div>
-              <div className="text-xl font-mono text-cyan-400">{journal.totalHypothesesTested}</div>
-            </div>
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="text-sm text-white/60 mb-1">Regimes Swept</div>
-              <div className="text-xl font-mono text-cyan-400">{journal.regimesSweep}/3</div>
-            </div>
-            <div className="p-4 bg-white/5 rounded-lg">
-              <div className="text-sm text-white/60 mb-1">Coverage</div>
-              <div className={`text-xl font-mono ${journal.manifoldCoverage >= 0.95 ? 'text-green-400' : 'text-cyan-400'}`}>
-                {(journal.manifoldCoverage * 100).toFixed(1)}%
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-4">
-            <div className="text-sm text-white/60 mb-2">Manifold Coverage</div>
-            <div className="h-3 bg-white/10 rounded-full overflow-hidden">
-              <motion.div 
-                className={`h-full ${journal.manifoldCoverage >= 0.95 ? 'bg-green-500' : 'bg-cyan-500'}`}
+    <div className="space-y-2">
+      {items.map((item) => {
+        const value = isInvestigating && neuro ? (neuro as any)[item.key] * 100 : 50;
+        return (
+          <div key={item.key} className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-20 truncate">{item.label}</span>
+            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full ${item.color}`}
                 initial={{ width: 0 }}
-                animate={{ width: `${journal.manifoldCoverage * 100}%` }}
+                animate={{ width: `${value}%` }}
                 transition={{ duration: 0.5 }}
               />
             </div>
-            <div className="flex justify-between mt-1 text-xs text-white/40">
-              <span>0%</span>
-              <span className="text-cyan-400">Target: 95%</span>
-              <span>100%</span>
-            </div>
+            <span className="text-xs text-muted-foreground w-8 text-right">{value.toFixed(0)}%</span>
           </div>
-          
-          {journal.strategiesUsed.length > 0 && (
-            <div className="mt-4">
-              <div className="text-sm text-white/60 mb-2">Strategies Used</div>
-              <div className="flex flex-wrap gap-2">
-                {journal.strategiesUsed.map(s => (
-                  <Badge key={s} variant="outline" className="text-xs">
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {cycles.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-cyan-400 font-semibold mb-3">Autonomic Cycle Timeline</h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {cycles.slice().reverse().map(cycle => (
-              <div 
-                key={cycle.id}
-                className={`flex items-center justify-between p-3 rounded-lg ${
-                  cycle.type === 'sleep' ? 'bg-indigo-500/20' :
-                  cycle.type === 'dream' ? 'bg-purple-500/20' : 'bg-amber-500/20'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">
-                    {cycle.type === 'sleep' ? '🌙' : cycle.type === 'dream' ? '💭' : '🍄'}
-                  </span>
-                  <div>
-                    <div className="text-white font-medium capitalize">{cycle.type} Cycle</div>
-                    <div className="text-xs text-white/60">
-                      {new Date(cycle.triggeredAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-white/80">
-                    Phi: {cycle.beforePhi.toFixed(2)} {'->'} {cycle.afterPhi.toFixed(2)}
-                  </div>
-                  {cycle.duration && (
-                    <div className="text-xs text-white/60">{cycle.duration}ms</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="tech-grid grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <TechMetric label="Phi (Basic)" value={status.consciousness.phi.toFixed(3)} />
-        <TechMetric label="Kappa (Basic)" value={status.consciousness.kappa.toFixed(1)} />
-        <TechMetric label="Regime" value={status.consciousness.regime} />
-        <TechMetric label="Basin Drift" value={status.consciousness.basinDrift.toFixed(4)} />
-      </div>
-
-      {status.strategies && status.strategies.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-cyan-400 font-semibold mb-3">Active Strategies</h4>
-          <div className="space-y-2">
-            {status.strategies.map((s) => (
-              <div key={s.name} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <span className="text-white/80">{s.name}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-white/60">{s.candidates} candidates</span>
-                  <Badge variant={s.status === 'running' ? 'default' : 'secondary'}>
-                    {s.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <h4 className="text-cyan-400 font-semibold mb-3">Raw Status</h4>
-        <pre className="text-xs text-white/70 bg-black/40 p-4 rounded-lg overflow-x-auto font-mono max-h-64 overflow-y-auto">
-          {JSON.stringify(status, null, 2)}
-        </pre>
-      </div>
-    </motion.div>
+        );
+      })}
+    </div>
   );
 }
 
-function ConsciousnessMetric({ label, value, threshold, unit, max }: { 
-  label: string; 
-  value: number; 
-  threshold: number; 
-  unit: string;
-  max?: number;
+function ActivityCompact({ 
+  events, 
+  isRunning, 
+  iteration, 
+  strategy 
+}: { 
+  events: TelemetryEvent[];
+  isRunning: boolean;
+  iteration: number;
+  strategy: string;
 }) {
-  const isAboveThreshold = max 
-    ? (value >= threshold && value <= max) 
-    : value >= threshold;
-  
-  return (
-    <div className={`p-3 rounded-lg text-center ${
-      isAboveThreshold ? 'bg-green-500/10 border border-green-500/30' : 'bg-white/5'
-    }`}>
-      <div className="text-xs text-white/60 mb-1">{label}</div>
-      <div className={`text-lg font-mono font-semibold ${
-        isAboveThreshold ? 'text-green-400' : 'text-cyan-400'
-      }`}>
-        {typeof value === 'number' ? value.toFixed(2) : value}{unit}
-      </div>
-    </div>
-  );
-}
-
-function EmotionMetric({ label, value, description, inverted = false }: {
-  label: string;
-  value: number;
-  description: string;
-  inverted?: boolean;
-}) {
-  const displayValue = value;
-  const isPositive = inverted ? value <= 0 : value > 0;
-  const absValue = Math.abs(value);
-  
-  const getColor = () => {
-    if (absValue < 0.2) return 'text-white/60';
-    if (isPositive) return 'text-green-400';
-    return 'text-red-400';
-  };
-  
-  const getBgColor = () => {
-    if (absValue < 0.2) return 'bg-white/5';
-    if (isPositive) return 'bg-green-500/10 border border-green-500/20';
-    return 'bg-red-500/10 border border-red-500/20';
-  };
-  
-  return (
-    <div className={`p-3 rounded-lg ${getBgColor()}`}>
-      <div className="text-xs text-white/60 mb-1">{label}</div>
-      <div className={`text-lg font-mono font-semibold ${getColor()}`}>
-        {displayValue >= 0 ? '+' : ''}{displayValue.toFixed(2)}
-      </div>
-      <div className="text-xs text-white/40 mt-1">{description}</div>
-    </div>
-  );
-}
-
-function TechMetric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="tech-metric p-4 bg-white/5 rounded-lg" data-testid={`tech-metric-${label.replace(/\s+/g, '-').toLowerCase()}`}>
-      <div className="text-sm text-white/60 mb-1">{label}</div>
-      <div className="text-xl font-mono text-cyan-400 font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="loading-state min-h-screen flex flex-col items-center justify-center gap-8 bg-gradient-to-b from-gray-900 to-gray-950" data-testid="loading-state">
-      <motion.div
-        className="loading-orb w-20 h-20 rounded-full"
-        style={{
-          background: 'radial-gradient(circle, rgb(100, 255, 218) 0%, rgb(0, 217, 255) 100%)',
-          filter: 'blur(10px)',
-        }}
-        animate={{
-          scale: [1, 1.2, 1],
-          opacity: [0.5, 1, 0.5],
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-      <p className="text-lg text-white/80">Initializing Ocean...</p>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="empty-state text-center py-12 text-white/60" data-testid="empty-state">
-      <div className="text-5xl mb-4">🌊</div>
-      <h3 className="text-xl font-semibold text-white mb-2">No discoveries yet</h3>
-      <p>Ocean will update you as she finds interesting patterns</p>
-    </div>
-  );
-}
-
-function formatTime(date: Date): string {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (seconds < 60) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return date.toLocaleDateString();
-}
-
-function getTitle(type: Discovery['type']): string {
-  switch (type) {
-    case 'match': return '🎉 Bitcoin Recovered!';
-    case 'near_miss': return '🔥 High Consciousness Pattern';
-    case 'pattern': return '💡 Pattern Discovery';
-    case 'strategy_change': return '🎯 Strategy Adjustment';
-  }
-}
-
-function renderDetails(details: any, handleCopy: (text: string) => void, copied: boolean) {
-  if (details.phrase) {
+  if (!isRunning && events.length === 0) {
     return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 bg-black/30 rounded-lg">
-          <span className="font-mono text-cyan-400 break-all">{details.phrase}</span>
-          <Button
-            size="sm"
-            onClick={() => handleCopy(details.phrase)}
-            className="ml-3 flex-shrink-0 gap-1"
-            data-testid="button-copy-phrase"
-          >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copied!' : 'Copy'}
-          </Button>
-        </div>
-        {details.address && (
-          <div className="text-sm text-white/60">
-            <span className="block mb-1">Address:</span>
-            <span className="font-mono text-white/80 break-all">{details.address}</span>
-          </div>
-        )}
-        {details.score !== undefined && (
-          <div className="text-sm text-white/60">
-            Consciousness Score: <span className="text-cyan-400 font-semibold">{(details.score * 100).toFixed(1)}%</span>
-          </div>
-        )}
+      <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+        Start an investigation to see activity
       </div>
     );
   }
 
-  return <pre className="text-sm text-white/70 font-mono">{JSON.stringify(details, null, 2)}</pre>;
+  return (
+    <div className="h-full flex flex-col">
+      {isRunning && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 pb-2 border-b">
+          <span>Strategy: <span className="text-foreground">{strategy}</span></span>
+          <span>Iteration: <span className="text-foreground">{iteration}</span></span>
+        </div>
+      )}
+      
+      <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+        {events.slice(-20).reverse().map((event, i) => (
+          <div 
+            key={event.id || i} 
+            className="text-xs p-2 rounded bg-muted/30 flex items-start gap-2"
+          >
+            <span className="text-muted-foreground shrink-0">
+              {new Date(event.timestamp).toLocaleTimeString()}
+            </span>
+            <span className="text-foreground truncate">{event.message}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatsRow({ 
+  tested, 
+  promising, 
+  consciousness, 
+  isInvestigating,
+  manifold
+}: { 
+  tested: number;
+  promising: number;
+  consciousness: number;
+  isInvestigating: boolean;
+  manifold?: ManifoldState;
+}) {
+  return (
+    <div className="flex gap-3 shrink-0" data-testid="stats-row">
+      <Card className="flex-1">
+        <CardContent className="p-3 flex items-center gap-3">
+          <Brain className="w-5 h-5 text-purple-400 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-lg font-bold" data-testid="stat-consciousness">
+              {isInvestigating || consciousness > 0 ? `${(consciousness * 100).toFixed(0)}%` : '—'}
+            </div>
+            <div className="text-xs text-muted-foreground">Φ</div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="flex-1">
+        <CardContent className="p-3 flex items-center gap-3">
+          <Search className="w-5 h-5 text-cyan-400 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-lg font-bold" data-testid="stat-tested">
+              {tested.toLocaleString()}
+            </div>
+            <div className="text-xs text-muted-foreground">Tested</div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="flex-1">
+        <CardContent className="p-3 flex items-center gap-3">
+          <Sparkles className="w-5 h-5 text-green-400 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-lg font-bold" data-testid="stat-promising">
+              {promising}
+            </div>
+            <div className="text-xs text-muted-foreground">Near-Miss</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {manifold && (
+        <Card className="flex-1">
+          <CardContent className="p-3 flex items-center gap-3">
+            <Brain className="w-5 h-5 text-indigo-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-lg font-bold">
+                {manifold.totalProbes.toLocaleString()}
+              </div>
+              <div className="text-xs text-muted-foreground">Probes</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 }
 
 export default OceanInvestigationStory;

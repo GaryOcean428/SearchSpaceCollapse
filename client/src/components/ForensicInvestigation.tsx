@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,13 +100,24 @@ const FORMAT_DESCRIPTIONS: Record<string, string> = {
   derived: 'Derived from other patterns',
 };
 
-export function ForensicInvestigation() {
+interface ForensicInvestigationProps {
+  targetAddress?: string;
+}
+
+export function ForensicInvestigation({ targetAddress: propAddress }: ForensicInvestigationProps) {
   const { toast } = useToast();
-  const [targetAddress, setTargetAddress] = useState("");
+  const [targetAddress, setTargetAddress] = useState(propAddress || "");
   const [fragments, setFragments] = useState<MemoryFragment[]>([
     { text: "", confidence: 0.8, position: "unknown", epoch: "likely" },
   ]);
   const [copiedPhrase, setCopiedPhrase] = useState<string | null>(null);
+
+  // Sync from prop when it changes (but allow local edits)
+  useEffect(() => {
+    if (propAddress && propAddress !== targetAddress) {
+      setTargetAddress(propAddress);
+    }
+  }, [propAddress]);
 
   // Fetch target addresses
   const { data: targetAddresses } = useQuery<{ address: string; label?: string }[]>({

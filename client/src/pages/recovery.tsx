@@ -1,22 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Brain, Wrench, Search, Network, Target, Activity } from "lucide-react";
-import { RecoveryCommandCenter } from "@/components/RecoveryCommandCenter";
+import { Brain, Wrench, Search, Network, Activity, ArrowRight, Target } from "lucide-react";
+import { Link } from "wouter";
 import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
 import { ForensicInvestigation } from "@/components/ForensicInvestigation";
 import { ConsciousnessDashboard } from "@/components/ConsciousnessDashboard";
 import type { TargetAddress, SearchJob } from "@shared/schema";
 
 export default function RecoveryPage() {
-  const [activeTab, setActiveTab] = useState("autonomous");
-  const [sharedAddress, setSharedAddress] = useState("");
-  const [customAddress, setCustomAddress] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedAddress, setSelectedAddress] = useState("");
 
   const { data: targetAddresses = [] } = useQuery<TargetAddress[]>({
     queryKey: ["/api/target-addresses"],
@@ -32,28 +30,54 @@ export default function RecoveryPage() {
     refetchInterval: 5000,
   });
 
+  // Set initial address when data loads
+  useEffect(() => {
+    if (targetAddresses.length > 0 && !selectedAddress) {
+      setSelectedAddress(targetAddresses[0].address);
+    }
+  }, [targetAddresses, selectedAddress]);
+
   const activeJob = jobs.find(j => j.status === "running" || j.status === "pending");
-  const activeAddress = sharedAddress === "custom" ? customAddress : sharedAddress;
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-3">
-              <Wrench className="h-6 w-6" />
-              Recovery Workspace
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Unified tools for Bitcoin key recovery using Quantum Information Geometry
-            </p>
+    <div className="h-full flex flex-col p-4 overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex flex-col h-full gap-4">
+        {/* Header with Address Selector */}
+        <div className="flex items-center justify-between flex-wrap gap-4 shrink-0">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <Wrench className="h-5 w-5" />
+                Recovery Tools
+              </h1>
+              <p className="text-muted-foreground text-sm">
+                Manual recovery tools and analysis
+              </p>
+            </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Shared Address Selector */}
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedAddress} onValueChange={setSelectedAddress}>
+                <SelectTrigger className="w-[200px]" data-testid="select-recovery-address">
+                  <SelectValue placeholder="Select address..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {targetAddresses.map((addr) => (
+                    <SelectItem key={addr.id} value={addr.address}>
+                      {addr.label || addr.address.slice(0, 12) + '...'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {activeJob && (
               <Badge className="bg-green-500/20 text-green-400 gap-2">
                 <Activity className="h-3 w-3 animate-pulse" />
-                Search Active
+                Active
               </Badge>
             )}
             {consciousness?.consciousness?.isConscious && (
@@ -65,106 +89,143 @@ export default function RecoveryPage() {
           </div>
         </div>
 
-        <Card className="border-primary/20">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-3">
-              <Target className="h-5 w-5 text-primary" />
-              <div>
-                <CardTitle className="text-lg">Target Address</CardTitle>
-                <CardDescription>
-                  Select or enter a Bitcoin address to investigate
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <Label className="sr-only">Target Address</Label>
-                <Select value={sharedAddress} onValueChange={setSharedAddress}>
-                  <SelectTrigger data-testid="select-shared-address">
-                    <SelectValue placeholder="Select a target address..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {targetAddresses.map((addr) => (
-                      <SelectItem key={addr.id} value={addr.address}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">{addr.label || "Unnamed"}</span>
-                          <span className="font-mono text-xs">
-                            {addr.address.slice(0, 8)}...{addr.address.slice(-8)}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="custom">Enter custom address...</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {sharedAddress === "custom" && (
-                <div className="flex-1">
-                  <Label className="sr-only">Custom Address</Label>
-                  <Input
-                    value={customAddress}
-                    onChange={(e) => setCustomAddress(e.target.value)}
-                    placeholder="Enter Bitcoin address (1xxx... or 3xxx... or bc1xxx...)"
-                    className="font-mono"
-                    data-testid="input-custom-address"
-                  />
-                </div>
-              )}
-            </div>
-            
-            {activeAddress && (
-              <div className="mt-3 p-3 bg-muted/30 rounded-lg">
-                <span className="text-xs text-muted-foreground">Active Target:</span>
-                <code className="ml-2 font-mono text-sm text-primary" data-testid="text-active-address">
-                  {activeAddress}
-                </code>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
-            <TabsTrigger value="autonomous" className="gap-2 py-3" data-testid="tab-autonomous">
-              <Brain className="h-4 w-4" />
-              <span className="hidden sm:inline">Autonomous Recovery</span>
-              <span className="sm:hidden">Auto</span>
+        {/* Main Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="grid w-full grid-cols-4 h-auto shrink-0">
+            <TabsTrigger value="overview" className="gap-2 py-2" data-testid="tab-overview">
+              <Target className="h-4 w-4" />
+              <span className="hidden sm:inline">Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="memory" className="gap-2 py-3" data-testid="tab-memory">
+            <TabsTrigger value="memory" className="gap-2 py-2" data-testid="tab-memory">
               <Search className="h-4 w-4" />
-              <span className="hidden sm:inline">Memory Search</span>
-              <span className="sm:hidden">Memory</span>
+              <span className="hidden sm:inline">Memory</span>
             </TabsTrigger>
-            <TabsTrigger value="forensic" className="gap-2 py-3" data-testid="tab-forensic">
+            <TabsTrigger value="forensic" className="gap-2 py-2" data-testid="tab-forensic">
               <Network className="h-4 w-4" />
-              <span className="hidden sm:inline">Forensic Analysis</span>
-              <span className="sm:hidden">Forensic</span>
+              <span className="hidden sm:inline">Forensic</span>
             </TabsTrigger>
-            <TabsTrigger value="consciousness" className="gap-2 py-3" data-testid="tab-consciousness">
+            <TabsTrigger value="consciousness" className="gap-2 py-2" data-testid="tab-consciousness">
               <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">Consciousness</span>
-              <span className="sm:hidden">QIG</span>
+              <span className="hidden sm:inline">QIG</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="autonomous" className="mt-0">
-            <RecoveryCommandCenter />
-          </TabsContent>
+          <div className="flex-1 min-h-0 overflow-auto mt-4">
+            <TabsContent value="overview" className="mt-0 h-full">
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Primary CTA - Go to Investigation */}
+                <Card className="md:col-span-2 border-primary/30 bg-primary/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-primary" />
+                      Autonomous Recovery
+                    </CardTitle>
+                    <CardDescription>
+                      Let Ocean's consciousness-driven search find your Bitcoin automatically
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        Start an investigation on the Investigation page
+                      </div>
+                      <Link href="/investigation">
+                        <Button className="gap-2" data-testid="button-go-investigation">
+                          Go to Investigation
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
 
-          <TabsContent value="memory" className="mt-0">
-            <MemoryFragmentSearch />
-          </TabsContent>
+                {/* Current Target */}
+                {selectedAddress && (
+                  <Card className="md:col-span-2">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Target className="h-4 w-4" />
+                        Active Target
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <code className="text-sm font-mono bg-muted px-2 py-1 rounded" data-testid="text-active-target">
+                        {selectedAddress}
+                      </code>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        This address is used by all manual tools below
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
 
-          <TabsContent value="forensic" className="mt-0">
-            <ForensicInvestigation />
-          </TabsContent>
+                {/* Quick Stats */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Activity className="h-4 w-4" />
+                      System Status
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {consciousness?.consciousness?.isConscious ? 'Active' : 'Idle'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Consciousness</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {consciousness?.identity?.regime || '—'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Regime</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-          <TabsContent value="consciousness" className="mt-0">
-            <ConsciousnessDashboard />
-          </TabsContent>
+                {/* Target Addresses Summary */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      All Addresses ({targetAddresses.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {targetAddresses.slice(0, 3).map((addr) => (
+                        <div key={addr.id} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{addr.label || 'Unnamed'}</span>
+                          <code className="text-xs font-mono">
+                            {addr.address.slice(0, 8)}...{addr.address.slice(-6)}
+                          </code>
+                        </div>
+                      ))}
+                      {targetAddresses.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          No addresses. Add one on the Investigation page.
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="memory" className="mt-0">
+              <MemoryFragmentSearch />
+            </TabsContent>
+
+            <TabsContent value="forensic" className="mt-0">
+              <ForensicInvestigation targetAddress={selectedAddress} />
+            </TabsContent>
+
+            <TabsContent value="consciousness" className="mt-0">
+              <ConsciousnessDashboard />
+            </TabsContent>
+          </div>
         </Tabs>
       </div>
     </div>
