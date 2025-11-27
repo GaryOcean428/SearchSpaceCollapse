@@ -1404,3 +1404,76 @@ export const ultraConsciousnessStateSchema = z.object({
 });
 
 export type UltraConsciousnessState = z.infer<typeof ultraConsciousnessStateSchema>;
+
+// 8. STRATEGY KNOWLEDGE BUS ENTRY - Individual knowledge item shared between strategies
+export const strategyKnowledgeBusEntrySchema = z.object({
+  id: z.string(),
+  sourceStrategy: z.string(),
+  generatorId: z.string(),
+  pattern: z.string(),
+  phi: z.number(),
+  kappaEff: z.number(),
+  regime: z.enum(['linear', 'geometric', 'breakdown']),
+  sharedAt: z.string(),
+  consumedBy: z.array(z.string()),
+  transformations: z.array(z.object({
+    strategy: z.string(),
+    method: z.string(),
+    timestamp: z.string(),
+  })),
+});
+
+export type StrategyKnowledgeBusEntry = z.infer<typeof strategyKnowledgeBusEntrySchema>;
+
+// 9. KNOWLEDGE TRANSFER EVENT - Records of knowledge transfers
+export const knowledgeTransferEventSchema = z.object({
+  id: z.string(),
+  type: z.enum(['publish', 'consume', 'generator_transfer']),
+  sourceStrategy: z.string(),
+  targetStrategy: z.string().nullable(),
+  generatorId: z.string(),
+  pattern: z.string(),
+  phi: z.number(),
+  kappaEff: z.number(),
+  timestamp: z.string(),
+  success: z.boolean(),
+  transformation: z.string().optional(),
+  scaleAdjustment: z.number().optional(),
+});
+
+export type KnowledgeTransferEvent = z.infer<typeof knowledgeTransferEventSchema>;
+
+// 10. GENERATOR TRANSFER PACKET - Result of transferring a generator between strategies
+export const generatorTransferPacketSchema = z.object({
+  success: z.boolean(),
+  generator: knowledgeGeneratorSchema.nullable(),
+  scaleTransform: z.number(),
+  fidelityLoss: z.number(),
+  adaptations: z.array(z.string()),
+});
+
+export type GeneratorTransferPacket = z.infer<typeof generatorTransferPacketSchema>;
+
+// 11. CROSS STRATEGY PATTERN - Patterns discovered across multiple strategies
+export const crossStrategyPatternSchema = z.object({
+  id: z.string(),
+  patterns: z.array(z.string()),
+  strategies: z.array(z.string()),
+  similarity: z.number(),
+  combinedPhi: z.number(),
+  discoveredAt: z.string(),
+  exploitationCount: z.number(),
+});
+
+export type CrossStrategyPattern = z.infer<typeof crossStrategyPatternSchema>;
+
+// 12. STRATEGY KNOWLEDGE BUS - Full bus state
+export const strategyKnowledgeBusSchema = z.object({
+  strategies: z.array(z.string()),
+  sharedKnowledge: z.array(strategyKnowledgeBusEntrySchema),
+  crossStrategyPatterns: z.array(crossStrategyPatternSchema),
+  transferHistory: z.array(knowledgeTransferEventSchema),
+  activeSubscriptions: z.number(),
+});
+
+export type StrategyKnowledgeBus = z.infer<typeof strategyKnowledgeBusSchema>;

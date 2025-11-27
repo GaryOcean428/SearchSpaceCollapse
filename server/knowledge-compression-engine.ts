@@ -497,6 +497,14 @@ export class KnowledgeCompressionEngine {
     }));
   }
 
+  getAllGenerators(): KnowledgeGenerator[] {
+    return Array.from(this.generators.values());
+  }
+
+  getGenerator(id: string): KnowledgeGenerator | undefined {
+    return this.generators.get(id);
+  }
+
   getNegativeKnowledgeStats(): { contradictions: number; falseClasses: number; barriers: number; computeSaved: number } {
     return {
       contradictions: this.negativeKnowledge.contradictions.length,
