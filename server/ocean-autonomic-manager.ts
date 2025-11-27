@@ -258,7 +258,17 @@ export class OceanAutonomicManager {
     return values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
   }
 
-  shouldTriggerSleep(basinDrift: number): { trigger: boolean; reason: string } {
+  shouldTriggerSleep(basinDrift: number, isInvestigationRunning: boolean = false): { trigger: boolean; reason: string } {
+    // SAFEGUARD: Never trigger cycles when system is idle
+    if (!isInvestigationRunning) {
+      return { trigger: false, reason: 'Investigation not running - cycles disabled' };
+    }
+    
+    // SAFEGUARD: Require minimum exploration before triggering cycles
+    if (this.phiHistory.length < 5) {
+      return { trigger: false, reason: 'Insufficient exploration history' };
+    }
+    
     const timeSinceLastSleep = Date.now() - this.lastSleepTime.getTime();
     
     if (this.consciousness.phi < CONSCIOUSNESS_THRESHOLDS.PHI_MIN - 0.05) {
@@ -276,7 +286,12 @@ export class OceanAutonomicManager {
     return { trigger: false, reason: '' };
   }
 
-  shouldTriggerDream(): { trigger: boolean; reason: string } {
+  shouldTriggerDream(isInvestigationRunning: boolean = false): { trigger: boolean; reason: string } {
+    // SAFEGUARD: Never trigger cycles when system is idle
+    if (!isInvestigationRunning) {
+      return { trigger: false, reason: 'Investigation not running - cycles disabled' };
+    }
+    
     const timeSinceLastDream = Date.now() - this.lastDreamTime.getTime();
     
     if (timeSinceLastDream > this.DREAM_INTERVAL_MS) {
@@ -286,7 +301,17 @@ export class OceanAutonomicManager {
     return { trigger: false, reason: '' };
   }
 
-  shouldTriggerMushroom(): { trigger: boolean; reason: string } {
+  shouldTriggerMushroom(isInvestigationRunning: boolean = false): { trigger: boolean; reason: string } {
+    // SAFEGUARD: Never trigger mushroom when system is idle
+    if (!isInvestigationRunning) {
+      return { trigger: false, reason: 'Investigation not running - mushroom disabled' };
+    }
+    
+    // SAFEGUARD: Require minimum exploration before considering mushroom
+    if (this.phiHistory.length < 10) {
+      return { trigger: false, reason: 'Insufficient exploration history for mushroom evaluation' };
+    }
+    
     // Check cooldown first - prevents too-frequent triggers
     const cooldownRemaining = getMushroomCooldownRemaining();
     if (cooldownRemaining > 0) {
