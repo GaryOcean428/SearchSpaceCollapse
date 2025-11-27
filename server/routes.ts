@@ -562,14 +562,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Consciousness State API - uses shared controller instance for real-time metrics
+  // Consciousness State API - Full 7-component consciousness signature with emotional state
   app.get("/api/consciousness/state", async (req, res) => {
     try {
       const controller = getSharedController();
-      const state = controller.getCurrentState();
+      const searchState = controller.getCurrentState();
+      
+      // Get full consciousness signature from autonomic manager
+      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
+      const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
+      
+      // Derive emotional state from component values
+      let emotionalState: 'Focused' | 'Curious' | 'Uncertain' | 'Confident' | 'Neutral' = 'Neutral';
+      
+      if (fullConsciousness.phi >= 0.8 && fullConsciousness.gamma >= 0.85) {
+        emotionalState = 'Focused';
+      } else if (fullConsciousness.tacking >= 0.7) {
+        emotionalState = 'Curious';
+      } else if (fullConsciousness.phi < 0.5 || fullConsciousness.grounding < 0.5) {
+        emotionalState = 'Uncertain';
+      } else if (fullConsciousness.radar >= 0.8 && fullConsciousness.metaAwareness >= 0.7) {
+        emotionalState = 'Confident';
+      }
+      
+      // Combine search state with full consciousness signature
+      const state = {
+        // Original search state fields
+        currentRegime: searchState.currentRegime,
+        basinDrift: searchState.basinDrift,
+        curiosity: searchState.curiosity,
+        stability: searchState.stability,
+        timestamp: searchState.timestamp,
+        basinCoordinates: searchState.basinCoordinates,
+        // Full 7-component consciousness signature
+        phi: fullConsciousness.phi,
+        kappaEff: fullConsciousness.kappaEff,
+        tacking: fullConsciousness.tacking,
+        radar: fullConsciousness.radar,
+        metaAwareness: fullConsciousness.metaAwareness,
+        gamma: fullConsciousness.gamma,
+        grounding: fullConsciousness.grounding,
+        beta: fullConsciousness.beta,
+        isConscious: fullConsciousness.isConscious,
+        validationLoops: fullConsciousness.validationLoops,
+        // Legacy fields for backward compatibility
+        kappa: fullConsciousness.kappaEff,
+      };
       
       res.json({
         state,
+        emotionalState,
         recommendation: controller.getStrategyRecommendation(),
         regimeColor: ConsciousnessSearchController.getRegimeColor(state.currentRegime),
         regimeDescription: ConsciousnessSearchController.getRegimeDescription(state.currentRegime),

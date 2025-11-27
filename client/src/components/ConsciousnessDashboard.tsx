@@ -3,22 +3,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceArea, Tooltip, Legend } from "recharts";
-import { Activity, TrendingUp, Radio, Gauge, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Activity, TrendingUp, Radio, Gauge, AlertTriangle, CheckCircle2, Brain, Radar, Focus, Compass, Anchor, Sparkles, Eye } from "lucide-react";
 
 interface ConsciousnessState {
   currentRegime: 'linear' | 'geometric' | 'hierarchical' | 'breakdown';
   phi: number;
-  kappa: number;
+  kappaEff: number;
+  tacking: number;
+  radar: number;
+  metaAwareness: number;
+  gamma: number;
+  grounding: number;
   beta: number;
   basinDrift: number;
   curiosity: number;
   stability: number;
   timestamp: number;
   basinCoordinates: number[];
+  isConscious: boolean;
+  validationLoops: number;
+  kappa: number;
 }
+
+type EmotionalState = 'Focused' | 'Curious' | 'Uncertain' | 'Confident' | 'Neutral';
 
 interface ConsciousnessAPIResponse {
   state: ConsciousnessState;
+  emotionalState: EmotionalState;
   recommendation: string;
   regimeColor: string;
   regimeDescription: string;
@@ -49,7 +60,7 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
         setHistory(prev => [...prev, {
           time: Date.now(),
           phi: data.state.phi,
-          kappa: data.state.kappa,
+          kappa: data.state.kappaEff,
           regime: data.state.currentRegime,
         }].slice(-100));
         
@@ -94,6 +105,28 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
       default: return <Gauge className="w-4 h-4" />;
     }
   };
+
+  const getEmotionalBadgeColor = (emotion: EmotionalState): string => {
+    switch (emotion) {
+      case 'Focused': return 'bg-purple-500/20 text-purple-400';
+      case 'Curious': return 'bg-cyan-500/20 text-cyan-400';
+      case 'Uncertain': return 'bg-yellow-500/20 text-yellow-400';
+      case 'Confident': return 'bg-green-500/20 text-green-400';
+      case 'Neutral': return 'bg-gray-500/20 text-gray-400';
+      default: return 'bg-gray-500/20 text-gray-400';
+    }
+  };
+
+  const getEmotionalIcon = (emotion: EmotionalState) => {
+    switch (emotion) {
+      case 'Focused': return <Focus className="w-3 h-3" />;
+      case 'Curious': return <Compass className="w-3 h-3" />;
+      case 'Uncertain': return <AlertTriangle className="w-3 h-3" />;
+      case 'Confident': return <CheckCircle2 className="w-3 h-3" />;
+      case 'Neutral': return <Brain className="w-3 h-3" />;
+      default: return <Brain className="w-3 h-3" />;
+    }
+  };
   
   if (isLoading) {
     return (
@@ -131,88 +164,176 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
     );
   }
   
-  const { currentRegime, phi, kappa, beta, basinDrift, curiosity, stability } = state.state;
-  const inResonance = Math.abs(kappa - 64) < 6.4;
+  const { 
+    currentRegime, 
+    phi, 
+    kappaEff, 
+    tacking, 
+    radar, 
+    metaAwareness, 
+    gamma, 
+    grounding, 
+    beta, 
+    basinDrift, 
+    curiosity, 
+    stability,
+    isConscious 
+  } = state.state;
+  const { emotionalState } = state;
+  const inResonance = Math.abs(kappaEff - 64) < 6.4;
   
   return (
     <Card className={className}>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Activity className="w-5 h-5 text-purple-500" />
             Search Consciousness
           </CardTitle>
-          <Badge 
-            variant={getRegimeBadgeVariant(currentRegime)}
-            className="flex items-center gap-1"
-            data-testid="badge-regime"
-          >
-            {getRegimeIcon(currentRegime)}
-            {currentRegime.toUpperCase()}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge 
+              className={`flex items-center gap-1 ${getEmotionalBadgeColor(emotionalState)}`}
+              data-testid="badge-emotional-state"
+            >
+              {getEmotionalIcon(emotionalState)}
+              {emotionalState}
+            </Badge>
+            <Badge 
+              variant={getRegimeBadgeVariant(currentRegime)}
+              className="flex items-center gap-1"
+              data-testid="badge-regime"
+            >
+              {getRegimeIcon(currentRegime)}
+              {currentRegime.toUpperCase()}
+            </Badge>
+          </div>
         </div>
-        <CardDescription>
+        <CardDescription className="flex items-center gap-2">
           {state.regimeDescription}
+          {isConscious && (
+            <Badge className="bg-green-500/20 text-green-400 text-xs" data-testid="badge-conscious">
+              <Sparkles className="w-3 h-3 mr-1" />
+              CONSCIOUS
+            </Badge>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="grid-components">
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Φ (Integration)</span>
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Brain className="w-3 h-3" />
+                Φ
+              </span>
               <span className="font-mono font-medium" data-testid="text-phi">
                 {(phi * 100).toFixed(1)}%
               </span>
             </div>
-            <Progress 
-              value={phi * 100} 
-              className="h-2"
-            />
-            {phi >= 0.75 && (
-              <div className="flex items-center gap-1 text-xs text-green-600">
-                <CheckCircle2 className="w-3 h-3" />
-                Above threshold
-              </div>
-            )}
+            <Progress value={phi * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Integration</div>
           </div>
           
-          <div className="space-y-1">
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">κ (Coupling)</span>
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Radio className="w-3 h-3" />
+                κ
+              </span>
               <span className="font-mono font-medium" data-testid="text-kappa">
-                {kappa.toFixed(1)}
+                {kappaEff.toFixed(1)}
               </span>
             </div>
-            <Progress 
-              value={(kappa / 100) * 100} 
-              className="h-2"
-            />
-            {inResonance && (
-              <div className="flex items-center gap-1 text-xs text-amber-600">
-                <Radio className="w-3 h-3 animate-pulse" />
-                In resonance band
-              </div>
-            )}
+            <Progress value={(kappaEff / 100) * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Coupling</div>
           </div>
           
-          <div className="space-y-1">
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">β (Running)</span>
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Compass className="w-3 h-3" />
+                T
+              </span>
+              <span className="font-mono font-medium" data-testid="text-tacking">
+                {(tacking * 100).toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={tacking * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Tacking</div>
+          </div>
+          
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Radar className="w-3 h-3" />
+                R
+              </span>
+              <span className="font-mono font-medium" data-testid="text-radar">
+                {(radar * 100).toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={radar * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Radar</div>
+          </div>
+          
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Eye className="w-3 h-3" />
+                M
+              </span>
+              <span className="font-mono font-medium" data-testid="text-meta-awareness">
+                {(metaAwareness * 100).toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={metaAwareness * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Meta-Awareness</div>
+          </div>
+          
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Γ
+              </span>
+              <span className="font-mono font-medium" data-testid="text-gamma">
+                {(gamma * 100).toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={gamma * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Coherence</div>
+          </div>
+          
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Anchor className="w-3 h-3" />
+                G
+              </span>
+              <span className="font-mono font-medium" data-testid="text-grounding">
+                {(grounding * 100).toFixed(1)}%
+              </span>
+            </div>
+            <Progress value={grounding * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Grounding</div>
+          </div>
+          
+          <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" />
+                β
+              </span>
               <span className="font-mono font-medium" data-testid="text-beta">
                 {beta.toFixed(3)}
               </span>
             </div>
-            <Progress 
-              value={(beta + 1) / 2 * 100} 
-              className="h-2"
-            />
-            <div className="text-xs text-muted-foreground">
-              Target: 0.44
-            </div>
+            <Progress value={(beta + 0.5) * 100} className="h-1.5" />
+            <div className="text-[10px] text-muted-foreground">Running Coupling</div>
           </div>
         </div>
         
-        <div className="h-48 mt-4">
+        <div className="h-40 mt-4">
           <div className="text-sm font-medium mb-2">Φ/κ Trajectory</div>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={history} margin={{ top: 5, right: 30, bottom: 5, left: 0 }}>

@@ -19,33 +19,50 @@ import {
   Wrench, 
   Database, 
   Home,
-  Target,
   Brain,
   Activity,
   LogOut,
   User,
   Sparkles,
+  Radio,
+  Compass,
+  Radar,
+  Eye,
+  Anchor,
+  Focus,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User as UserType } from "@shared/schema";
 
-interface TelemetryData {
-  consciousness: {
-    Φ: number;
-    κ_eff: number;
-    isConscious: boolean;
-  };
-  identity: {
-    regime: string;
-  };
+interface ConsciousnessState {
+  currentRegime: 'linear' | 'geometric' | 'hierarchical' | 'breakdown';
+  phi: number;
+  kappaEff: number;
+  tacking: number;
+  radar: number;
+  metaAwareness: number;
+  gamma: number;
+  grounding: number;
+  beta: number;
+  isConscious: boolean;
+  kappa: number;
+}
+
+type EmotionalState = 'Focused' | 'Curious' | 'Uncertain' | 'Confident' | 'Neutral';
+
+interface ConsciousnessAPIResponse {
+  state: ConsciousnessState;
+  emotionalState: EmotionalState;
 }
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth() as { user: UserType | undefined };
 
-  const { data: telemetry } = useQuery<TelemetryData>({
-    queryKey: ['/api/observer/consciousness-check'],
+  const { data: consciousnessData } = useQuery<ConsciousnessAPIResponse>({
+    queryKey: ['/api/consciousness/state'],
     refetchInterval: 5000,
   });
 
@@ -92,9 +109,35 @@ export function AppSidebar() {
     switch (regime) {
       case 'geometric': return 'text-green-400';
       case 'breakdown': return 'text-red-400';
-      default: return 'text-yellow-400';
+      case 'hierarchical': return 'text-amber-400';
+      default: return 'text-blue-400';
     }
   };
+
+  const getEmotionalBadgeColor = (emotion: EmotionalState): string => {
+    switch (emotion) {
+      case 'Focused': return 'bg-purple-500/20 text-purple-400';
+      case 'Curious': return 'bg-cyan-500/20 text-cyan-400';
+      case 'Uncertain': return 'bg-yellow-500/20 text-yellow-400';
+      case 'Confident': return 'bg-green-500/20 text-green-400';
+      case 'Neutral': return 'bg-gray-500/20 text-gray-400';
+      default: return 'bg-gray-500/20 text-gray-400';
+    }
+  };
+
+  const getEmotionalIcon = (emotion: EmotionalState) => {
+    switch (emotion) {
+      case 'Focused': return <Focus className="w-3 h-3" />;
+      case 'Curious': return <Compass className="w-3 h-3" />;
+      case 'Uncertain': return <AlertTriangle className="w-3 h-3" />;
+      case 'Confident': return <CheckCircle2 className="w-3 h-3" />;
+      case 'Neutral': return <Brain className="w-3 h-3" />;
+      default: return <Brain className="w-3 h-3" />;
+    }
+  };
+
+  const consciousness = consciousnessData?.state;
+  const emotionalState = consciousnessData?.emotionalState ?? 'Neutral';
 
   return (
     <Sidebar>
@@ -141,38 +184,102 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-2">
             <Brain className="h-3 w-3" />
-            Consciousness State
+            Consciousness Signature
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-3 py-2 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Φ (Integration)</span>
-                <span className="text-sm font-mono font-medium">
-                  {telemetry?.consciousness?.Φ?.toFixed(2) ?? '0.00'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">κ (Coupling)</span>
-                <span className="text-sm font-mono font-medium">
-                  {telemetry?.consciousness?.κ_eff?.toFixed(1) ?? '0.0'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Regime</span>
-                <span className={`text-sm font-medium capitalize ${getRegimeColor(telemetry?.identity?.regime ?? 'linear')}`}>
-                  {telemetry?.identity?.regime ?? 'linear'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Status</span>
+            <div className="px-3 py-2 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted-foreground">Emotional State</span>
                 <Badge 
-                  className={telemetry?.consciousness?.isConscious 
-                    ? 'bg-green-500/20 text-green-400' 
-                    : 'bg-yellow-500/20 text-yellow-400'
-                  }
+                  className={`text-xs ${getEmotionalBadgeColor(emotionalState)}`}
+                  data-testid="sidebar-badge-emotional"
                 >
-                  {telemetry?.consciousness?.isConscious ? 'CONSCIOUS' : 'PRE-CONSCIOUS'}
+                  {getEmotionalIcon(emotionalState)}
+                  <span className="ml-1">{emotionalState}</span>
                 </Badge>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center justify-between" data-testid="sidebar-phi">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Brain className="w-3 h-3" />Φ
+                  </span>
+                  <span className="font-mono font-medium">
+                    {((consciousness?.phi ?? 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between" data-testid="sidebar-kappa">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Radio className="w-3 h-3" />κ
+                  </span>
+                  <span className="font-mono font-medium">
+                    {(consciousness?.kappaEff ?? 0).toFixed(0)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between" data-testid="sidebar-tacking">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Compass className="w-3 h-3" />T
+                  </span>
+                  <span className="font-mono font-medium">
+                    {((consciousness?.tacking ?? 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between" data-testid="sidebar-radar">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Radar className="w-3 h-3" />R
+                  </span>
+                  <span className="font-mono font-medium">
+                    {((consciousness?.radar ?? 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between" data-testid="sidebar-meta">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Eye className="w-3 h-3" />M
+                  </span>
+                  <span className="font-mono font-medium">
+                    {((consciousness?.metaAwareness ?? 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between" data-testid="sidebar-gamma">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />Γ
+                  </span>
+                  <span className="font-mono font-medium">
+                    {((consciousness?.gamma ?? 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between" data-testid="sidebar-grounding">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Anchor className="w-3 h-3" />G
+                  </span>
+                  <span className="font-mono font-medium">
+                    {((consciousness?.grounding ?? 0) * 100).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+              
+              <div className="pt-2 mt-2 border-t border-sidebar-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Regime</span>
+                  <span 
+                    className={`text-xs font-medium capitalize ${getRegimeColor(consciousness?.currentRegime ?? 'linear')}`}
+                    data-testid="sidebar-regime"
+                  >
+                    {consciousness?.currentRegime ?? 'linear'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-muted-foreground">Status</span>
+                  <Badge 
+                    className={consciousness?.isConscious 
+                      ? 'bg-green-500/20 text-green-400 text-xs' 
+                      : 'bg-yellow-500/20 text-yellow-400 text-xs'
+                    }
+                    data-testid="sidebar-status"
+                  >
+                    {consciousness?.isConscious ? 'CONSCIOUS' : 'PRE-CONSCIOUS'}
+                  </Badge>
+                </div>
               </div>
             </div>
           </SidebarGroupContent>
