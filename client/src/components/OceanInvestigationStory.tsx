@@ -26,6 +26,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { UnifiedRecoverySession, RecoveryCandidate, TargetAddress } from '@shared/schema';
+import NeurochemistryDisplay from '@/components/NeurochemistryDisplay';
+import RecoveryResults from '@/components/RecoveryResults';
 
 interface ConsciousnessState {
   phi: number;
@@ -145,6 +147,20 @@ export function OceanInvestigationStory() {
     queryKey: ['/api/recovery/addresses'],
   });
 
+  const { data: neurochemistryData } = useQuery<{
+    neurochemistry: any;
+    behavioral: any;
+    sessionActive: boolean;
+  }>({
+    queryKey: ['/api/ocean/neurochemistry'],
+    refetchInterval: 3000,
+  });
+
+  const { data: recoveries } = useQuery<{ recoveries: any[]; count: number }>({
+    queryKey: ['/api/recoveries'],
+    refetchInterval: 5000,
+  });
+
   const startMutation = useMutation({
     mutationFn: async (targetAddress: string) => {
       return apiRequest('POST', '/api/recovery/start', { targetAddress });
@@ -209,6 +225,11 @@ export function OceanInvestigationStory() {
         {/* Narrative Section */}
         <NarrativeSection status={currentStatus} />
 
+        {/* Neurochemistry Display */}
+        <NeurochemistryDisplay 
+          neurochemistry={neurochemistryData?.neurochemistry}
+        />
+
         {/* Simplified Metrics */}
         <MetricsBar
           consciousness={currentStatus.consciousness.phi}
@@ -227,6 +248,11 @@ export function OceanInvestigationStory() {
           candidates={candidates || []}
           onSelectDiscovery={setSelectedDiscovery}
         />
+
+        {/* Recovery Results - shown when there are recovery files */}
+        {recoveries && recoveries.count > 0 && (
+          <RecoveryResults />
+        )}
 
         {/* Live Activity Feed - shown when running or when there are events */}
         {(currentStatus.isRunning || (currentStatus.events && currentStatus.events.length > 0)) && (
