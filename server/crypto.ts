@@ -76,14 +76,19 @@ export function validateBitcoinAddress(address: string): void {
   }
 }
 
-export function generateBitcoinAddress(passphrase: string): string {
+/**
+ * Generate Bitcoin address from passphrase
+ * @param passphrase - The passphrase to hash
+ * @param compressed - Use compressed public key (default: true for modern, false for 2009-era)
+ */
+export function generateBitcoinAddress(passphrase: string, compressed: boolean = true): string {
   validatePassphrase(passphrase);
   
   const privateKeyHash = createHash("sha256").update(passphrase, "utf8").digest();
   
   const keyPair = ec.keyFromPrivate(privateKeyHash);
   
-  const publicKey = Buffer.from(keyPair.getPublic().encode("array", true));
+  const publicKey = Buffer.from(keyPair.getPublic().encode("array", compressed));
   
   const sha256Hash = createHash("sha256").update(publicKey).digest();
   
@@ -97,6 +102,20 @@ export function generateBitcoinAddress(passphrase: string): string {
   const address = bs58check.encode(versionedPayload);
   
   return address;
+}
+
+/**
+ * Generate BOTH compressed and uncompressed addresses from passphrase
+ * Critical for 2009-era recovery where uncompressed was the default
+ */
+export function generateBothAddresses(passphrase: string): { 
+  compressed: string; 
+  uncompressed: string; 
+} {
+  return {
+    compressed: generateBitcoinAddress(passphrase, true),
+    uncompressed: generateBitcoinAddress(passphrase, false),
+  };
 }
 
 export function generateMasterPrivateKey(): string {
@@ -138,14 +157,19 @@ export function generateBitcoinAddressFromPassphrase(passphrase: string): {
   return { address, privateKey };
 }
 
-export function generateBitcoinAddressFromPrivateKey(privateKeyHex: string): string {
+/**
+ * Generate Bitcoin address from private key
+ * @param privateKeyHex - 64-character hex private key
+ * @param compressed - Use compressed public key (default: true)
+ */
+export function generateBitcoinAddressFromPrivateKey(privateKeyHex: string, compressed: boolean = true): string {
   validatePrivateKeyHex(privateKeyHex);
   
   const privateKeyBuffer = Buffer.from(privateKeyHex, "hex");
   
   const keyPair = ec.keyFromPrivate(privateKeyBuffer);
   
-  const publicKey = Buffer.from(keyPair.getPublic().encode("array", true));
+  const publicKey = Buffer.from(keyPair.getPublic().encode("array", compressed));
   
   const sha256Hash = createHash("sha256").update(publicKey).digest();
   
@@ -159,6 +183,20 @@ export function generateBitcoinAddressFromPrivateKey(privateKeyHex: string): str
   const address = bs58check.encode(versionedPayload);
   
   return address;
+}
+
+/**
+ * Generate BOTH compressed and uncompressed addresses from private key
+ * Critical for 2009-era recovery where uncompressed was the default
+ */
+export function generateBothAddressesFromPrivateKey(privateKeyHex: string): {
+  compressed: string;
+  uncompressed: string;
+} {
+  return {
+    compressed: generateBitcoinAddressFromPrivateKey(privateKeyHex, true),
+    uncompressed: generateBitcoinAddressFromPrivateKey(privateKeyHex, false),
+  };
 }
 
 export function verifyBrainWallet(): { success: boolean; testAddress?: string; error?: string } {

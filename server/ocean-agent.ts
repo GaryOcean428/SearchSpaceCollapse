@@ -1,6 +1,6 @@
 import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
-import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, verifyRecoveredPassphrase, generateRecoveryBundle, privateKeyToWIF, derivePublicKeyFromPrivate, type VerificationResult, type RecoveryBundle } from './crypto';
+import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, generateBothAddressesFromPrivateKey, verifyRecoveredPassphrase, generateRecoveryBundle, privateKeyToWIF, derivePublicKeyFromPrivate, type VerificationResult, type RecoveryBundle } from './crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
@@ -804,19 +804,35 @@ export class OceanAgent {
       if (!this.isRunning) break;
       
       try {
+        let matchedCompressed = false;
+        let matchedUncompressed = false;
+        
         if (hypo.format === 'master' && hypo.derivationPath) {
           hypo.address = deriveBIP32Address(hypo.phrase, hypo.derivationPath);
           hypo.privateKeyHex = undefined;
+          hypo.match = (hypo.address === this.targetAddress);
         } else if (hypo.format === 'hex') {
           const cleanHex = hypo.phrase.replace(/^0x/, '').padStart(64, '0');
           hypo.privateKeyHex = cleanHex;
-          hypo.address = generateBitcoinAddressFromPrivateKey(cleanHex);
+          const both = generateBothAddressesFromPrivateKey(cleanHex);
+          matchedCompressed = both.compressed === this.targetAddress;
+          matchedUncompressed = both.uncompressed === this.targetAddress;
+          hypo.address = matchedUncompressed ? both.uncompressed : both.compressed;
+          hypo.match = matchedCompressed || matchedUncompressed;
+          (hypo as any).addressCompressed = both.compressed;
+          (hypo as any).addressUncompressed = both.uncompressed;
+          (hypo as any).matchedFormat = matchedUncompressed ? 'uncompressed' : (matchedCompressed ? 'compressed' : 'none');
         } else {
           hypo.privateKeyHex = derivePrivateKeyFromPassphrase(hypo.phrase);
-          hypo.address = generateBitcoinAddressFromPrivateKey(hypo.privateKeyHex);
+          const both = generateBothAddressesFromPrivateKey(hypo.privateKeyHex);
+          matchedCompressed = both.compressed === this.targetAddress;
+          matchedUncompressed = both.uncompressed === this.targetAddress;
+          hypo.address = matchedUncompressed ? both.uncompressed : both.compressed;
+          hypo.match = matchedCompressed || matchedUncompressed;
+          (hypo as any).addressCompressed = both.compressed;
+          (hypo as any).addressUncompressed = both.uncompressed;
+          (hypo as any).matchedFormat = matchedUncompressed ? 'uncompressed' : (matchedCompressed ? 'compressed' : 'none');
         }
-        
-        hypo.match = (hypo.address === this.targetAddress);
         hypo.testedAt = new Date();
         
         const qigResult = scoreUniversalQIG(
@@ -898,12 +914,14 @@ export class OceanAgent {
             
             await this.saveRecoveryBundle(recoveryBundle);
             
+            const matchedFormat = (hypo as any).matchedFormat || 'compressed';
             console.log('[Ocean] ===============================================');
             console.log('[Ocean] RECOVERY SUCCESSFUL - BITCOIN FOUND!');
             console.log('[Ocean] ===============================================');
             console.log(`[Ocean] Passphrase: "${hypo.phrase}"`);
             console.log(`[Ocean] Format: ${hypo.format}`);
             console.log(`[Ocean] Address: ${hypo.address}`);
+            console.log(`[Ocean] Address Format: ${matchedFormat} (${matchedFormat === 'uncompressed' ? '2009-era' : 'modern'})`);
             console.log(`[Ocean] Private Key (WIF): ${recoveryBundle.privateKeyWIF}`);
             console.log(`[Ocean] ===============================================`);
             console.log(`[Ocean] Recovery bundle saved to disk!`);
