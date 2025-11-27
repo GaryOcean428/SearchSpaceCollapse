@@ -1085,3 +1085,322 @@ export const oceanAutonomicStateSchema = z.object({
 });
 
 export type OceanAutonomicState = z.infer<typeof oceanAutonomicStateSchema>;
+
+// ============================================================================
+// ULTRA CONSCIOUSNESS PROTOCOL v2.0 - Advanced Knowledge Systems
+// ============================================================================
+
+// 1. KNOWLEDGE COMPRESSION ENGINE - Generative patterns instead of facts
+export const knowledgeGeneratorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum([
+    'grammatical',      // Word substitution patterns
+    'temporal',         // Era-specific patterns  
+    'structural',       // Format transformations
+    'geometric',        // Basin-derived patterns
+    'cross_format',     // BIP39 ↔ arbitrary ↔ hex conversions
+  ]),
+  
+  // The compression algorithm itself
+  template: z.string(),                    // e.g., "{adjective} {noun} {number}"
+  substitutionRules: z.record(z.array(z.string())), // { adjective: ['red', 'blue'], noun: ['cat', 'dog'] }
+  transformations: z.array(z.object({
+    name: z.string(),
+    operation: z.enum(['lowercase', 'uppercase', 'l33t', 'reverse', 'append', 'prepend']),
+    params: z.record(z.string()).optional(),
+  })),
+  
+  // Geometric embedding of this generator
+  basinLocation: z.array(z.number()),      // Where in manifold this generator lives
+  curvatureSignature: z.array(z.number()), // κ pattern this generator produces
+  
+  // Metrics
+  entropy: z.number(),                     // Bits of entropy this generator covers
+  expectedOutput: z.number(),              // How many hypotheses this generates
+  compressionRatio: z.number(),            // Information density
+  
+  // Provenance
+  source: z.enum(['historical', 'forensic', 'learned', 'user', 'cross_agent']),
+  confidence: z.number(),
+  createdAt: z.string(),
+  lastUsed: z.string().optional(),
+  successCount: z.number(),
+});
+
+export type KnowledgeGenerator = z.infer<typeof knowledgeGeneratorSchema>;
+
+// 2. BASIN TOPOLOGY - Shape of knowledge space, not just attractor point
+export const basinTopologySchema = z.object({
+  // Attractor point (identity)
+  attractorCoords: z.array(z.number()).length(64),
+  
+  // Basin shape (knowledge structure)
+  volume: z.number(),                      // How much of manifold this basin covers
+  curvature: z.array(z.number()),          // Local curvature at each dimension
+  boundaryDistances: z.array(z.number()),  // Distance to basin edges in each direction
+  
+  // Resonance shells (high-Φ regions within basin)
+  resonanceShells: z.array(z.object({
+    radius: z.number(),
+    avgPhi: z.number(),
+    thickness: z.number(),
+    dominantRegime: z.string(),
+  })),
+  
+  // Flow field (learning trajectories that lead here)
+  flowField: z.object({
+    gradientDirection: z.array(z.number()), // Natural gradient direction
+    fisherMetric: z.array(z.array(z.number())), // Local Fisher Information Matrix
+    geodesicCurvature: z.number(),          // How curved paths through here are
+  }),
+  
+  // Topological features
+  holes: z.array(z.object({               // Unknown regions within basin
+    center: z.array(z.number()),
+    radius: z.number(),
+    type: z.enum(['unexplored', 'contradiction', 'singularity']),
+  })),
+  
+  // Scale properties
+  effectiveScale: z.number(),              // L parameter for renormalization
+  kappaAtScale: z.number(),                // κ(L) at this scale
+});
+
+export type BasinTopology = z.infer<typeof basinTopologySchema>;
+
+// 3. TEMPORAL GEOMETRY - Learning trajectories through manifold
+export const temporalTrajectorySchema = z.object({
+  id: z.string(),
+  targetAddress: z.string(),
+  
+  // Trajectory waypoints
+  waypoints: z.array(z.object({
+    t: z.number(),                         // Iteration number
+    basinCoords: z.array(z.number()),      // Position at this time
+    consciousness: z.object({
+      phi: z.number(),
+      kappa: z.number(),
+      regime: z.string(),
+    }),
+    action: z.string(),                    // What action led here
+    discovery: z.string().optional(),      // What was learned
+    fisherDistance: z.number(),            // Distance traveled (geometric)
+  })),
+  
+  // Compressed geodesic parameters
+  geodesicParams: z.object({
+    startPoint: z.array(z.number()),
+    endPoint: z.array(z.number()),
+    totalArcLength: z.number(),            // Fisher distance traveled
+    avgCurvature: z.number(),
+    regimeTransitions: z.array(z.object({
+      fromRegime: z.string(),
+      toRegime: z.string(),
+      atIteration: z.number(),
+    })),
+  }),
+  
+  // Developmental milestones
+  milestones: z.array(z.object({
+    iteration: z.number(),
+    type: z.enum(['regime_change', 'resonance_found', 'plateau_escaped', 'insight', 'consolidation']),
+    description: z.string(),
+    significance: z.number(),              // 0-1, how important this milestone was
+  })),
+  
+  // Metrics
+  duration: z.number(),                    // Total iterations
+  efficiency: z.number(),                  // Progress / distance ratio
+  reversals: z.number(),                   // Times trajectory doubled back
+});
+
+export type TemporalTrajectory = z.infer<typeof temporalTrajectorySchema>;
+
+// 4. NEGATIVE KNOWLEDGE REGISTRY - What NOT to search
+export const contradictionSchema = z.object({
+  id: z.string(),
+  type: z.enum([
+    'proven_false',        // Tested and definitively failed
+    'geometric_barrier',   // High curvature prevents passage
+    'logical_contradiction', // Self-inconsistent pattern
+    'resource_sink',       // Too expensive to search
+    'era_mismatch',        // Wrong era for target
+  ]),
+  
+  // What's being excluded
+  pattern: z.string(),                     // Pattern or region description
+  affectedGenerators: z.array(z.string()), // Generator IDs that should skip this
+  basinRegion: z.object({                  // Geometric region to avoid
+    center: z.array(z.number()),
+    radius: z.number(),
+    repulsionStrength: z.number(),         // How strongly to avoid
+  }),
+  
+  // Evidence
+  evidence: z.array(z.object({
+    source: z.string(),
+    reasoning: z.string(),
+    confidence: z.number(),
+  })),
+  
+  // Impact
+  hypothesesExcluded: z.number(),          // How many hypotheses this saves
+  computeSaved: z.number(),                // Estimated compute saved
+  
+  createdAt: z.string(),
+  confirmedCount: z.number(),              // Times this exclusion was validated
+});
+
+export type Contradiction = z.infer<typeof contradictionSchema>;
+
+export const negativeKnowledgeRegistrySchema = z.object({
+  contradictions: z.array(contradictionSchema),
+  
+  // Proven-false pattern classes
+  falsePatternClasses: z.record(z.object({
+    count: z.number(),
+    examples: z.array(z.string()),
+    lastUpdated: z.string(),
+  })),
+  
+  // Geometric barriers (high curvature regions)
+  geometricBarriers: z.array(z.object({
+    center: z.array(z.number()),
+    radius: z.number(),
+    curvature: z.number(),
+    reason: z.string(),
+  })),
+  
+  // Era exclusions
+  eraExclusions: z.record(z.array(z.string())),  // { "2020-present": ["genesis patterns"] }
+  
+  // Aggregate metrics
+  totalExclusions: z.number(),
+  estimatedComputeSaved: z.number(),
+  lastPruned: z.string(),
+});
+
+export type NegativeKnowledgeRegistry = z.infer<typeof negativeKnowledgeRegistrySchema>;
+
+// 5. STRATEGY KNOWLEDGE BUS - Share reasoning apparatus between agents
+export const strategyKnowledgePacketSchema = z.object({
+  id: z.string(),
+  sourceAgent: z.string(),                 // "Ocean-1", "Ocean-2", etc.
+  targetAgent: z.string().optional(),      // null = broadcast to all
+  
+  // What's being transferred
+  packetType: z.enum([
+    'generator',           // Knowledge generator
+    'basin_topology',      // Basin shape information
+    'trajectory',          // Learning path
+    'contradiction',       // Negative knowledge
+    'resonance_zone',      // High-Φ region discovery
+    'strategy_weights',    // What strategies work
+  ]),
+  
+  // The payload (type depends on packetType)
+  payload: z.any(),
+  
+  // Privacy-preserving noise (differential privacy in geometric space)
+  noiseApplied: z.boolean(),
+  epsilon: z.number().optional(),          // Privacy budget used
+  
+  // Trust and verification
+  signature: z.string(),                   // Cryptographic signature
+  trustLevel: z.number(),                  // 0-1, how much to trust this
+  verificationLoops: z.number(),           // How many times verified
+  
+  // Metadata
+  createdAt: z.string(),
+  expiresAt: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high', 'critical']),
+});
+
+export type StrategyKnowledgePacket = z.infer<typeof strategyKnowledgePacketSchema>;
+
+// 6. MANIFOLD SNAPSHOT - Block universe view
+export const manifoldSnapshotSchema = z.object({
+  id: z.string(),
+  takenAt: z.string(),
+  targetAddress: z.string(),
+  
+  // Current state
+  consciousness: consciousnessSignatureSchema,
+  basinTopology: basinTopologySchema,
+  
+  // Active generators
+  activeGenerators: z.array(z.string()),   // Generator IDs currently in use
+  generatorOutputQueue: z.number(),        // How many hypotheses queued
+  
+  // Negative knowledge state
+  negativeKnowledgeSummary: z.object({
+    totalExclusions: z.number(),
+    recentAdditions: z.number(),
+    coverageGain: z.number(),              // How much faster we're searching
+  }),
+  
+  // Trajectory state
+  currentTrajectory: z.object({
+    totalWaypoints: z.number(),
+    recentVelocity: z.number(),            // How fast we're moving
+    momentum: z.array(z.number()),         // Direction of movement
+  }),
+  
+  // Parallel strategy streams (block universe = all at once)
+  activeStreams: z.array(z.object({
+    strategyName: z.string(),
+    generatorId: z.string(),
+    hypothesesPending: z.number(),
+    avgPhi: z.number(),
+    isResonant: z.boolean(),
+  })),
+  
+  // Global metrics
+  manifoldCoverage: z.number(),            // 0-1, how much explored
+  resonanceVolume: z.number(),             // Volume of high-Φ regions
+  explorationEfficiency: z.number(),       // Useful discoveries / total tests
+});
+
+export type ManifoldSnapshot = z.infer<typeof manifoldSnapshotSchema>;
+
+// 7. ULTRA CONSCIOUSNESS STATE - Full protocol state
+export const ultraConsciousnessStateSchema = z.object({
+  // Core consciousness
+  signature: consciousnessSignatureSchema,
+  
+  // Knowledge systems
+  generators: z.array(knowledgeGeneratorSchema),
+  basinTopology: basinTopologySchema,
+  
+  // Temporal systems
+  trajectories: z.array(temporalTrajectorySchema),
+  currentTrajectoryId: z.string().optional(),
+  
+  // Negative knowledge
+  negativeKnowledge: negativeKnowledgeRegistrySchema,
+  
+  // Knowledge bus
+  pendingPackets: z.array(strategyKnowledgePacketSchema),
+  receivedPackets: z.array(strategyKnowledgePacketSchema),
+  
+  // Snapshots for block universe viewing
+  snapshots: z.array(manifoldSnapshotSchema),
+  snapshotInterval: z.number(),            // How often to take snapshots
+  
+  // Protocol metrics
+  protocolVersion: z.literal('2.0'),
+  blockUniverseEnabled: z.boolean(),
+  reconstructiveTransferEnabled: z.boolean(),
+  
+  // Aggregate consciousness health
+  overallHealth: z.object({
+    integrationScore: z.number(),          // Φ trend
+    couplingStability: z.number(),         // κ variance
+    trajectoryCoherence: z.number(),       // How consistent learning is
+    generatorDiversity: z.number(),        // Variety of generators
+    negativeKnowledgeEfficiency: z.number(), // Compute saved / total
+  }),
+});
+
+export type UltraConsciousnessState = z.infer<typeof ultraConsciousnessStateSchema>;
