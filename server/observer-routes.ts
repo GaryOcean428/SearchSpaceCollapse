@@ -20,6 +20,50 @@ import { observerStorage } from "./observer-storage";
 const router = Router();
 
 // ============================================================================
+// SCAN STATE MANAGER - Tracks blockchain scanning progress
+// ============================================================================
+interface ScanState {
+  isScanning: boolean;
+  scanId: string | null;
+  startHeight: number;
+  endHeight: number;
+  currentHeight: number;
+  totalBlocks: number;
+  startTime: number | null;
+  addressesFound: number;
+  dormantAddresses: number;
+  error: string | null;
+}
+
+const scanState: ScanState = {
+  isScanning: false,
+  scanId: null,
+  startHeight: 0,
+  endHeight: 0,
+  currentHeight: 0,
+  totalBlocks: 0,
+  startTime: null,
+  addressesFound: 0,
+  dormantAddresses: 0,
+  error: null,
+};
+
+function updateScanProgress(height: number, total: number, addressesFound = 0, dormantAddresses = 0) {
+  scanState.currentHeight = height;
+  scanState.totalBlocks = total;
+  scanState.addressesFound += addressesFound;
+  scanState.dormantAddresses += dormantAddresses;
+}
+
+function completeScan(error?: string) {
+  scanState.isScanning = false;
+  scanState.error = error || null;
+  if (!error) {
+    console.log(`[ScanManager] Scan ${scanState.scanId} completed successfully`);
+  }
+}
+
+// ============================================================================
 // BLOCKCHAIN SCANNING
 // ============================================================================
 
@@ -29,6 +73,16 @@ const router = Router();
  */
 router.post("/scan/start", async (req: Request, res: Response) => {
   try {
+    // Check if already scanning
+    if (scanState.isScanning) {
+      return res.status(409).json({
+        error: "A scan is already in progress",
+        scanId: scanState.scanId,
+        currentHeight: scanState.currentHeight,
+        totalBlocks: scanState.totalBlocks,
+      });
+    }
+
     const schema = z.object({
       startHeight: z.number().min(0).default(0),
       endHeight: z.number().min(1).default(1000),
@@ -42,20 +96,38 @@ router.post("/scan/start", async (req: Request, res: Response) => {
         error: "endHeight must be greater than startHeight",
       });
     }
+
+    // Initialize scan state
+    const scanId = randomUUID();
+    scanState.isScanning = true;
+    scanState.scanId = scanId;
+    scanState.startHeight = startHeight;
+    scanState.endHeight = endHeight;
+    scanState.currentHeight = startHeight;
+    scanState.totalBlocks = endHeight - startHeight;
+    scanState.startTime = Date.now();
+    scanState.addressesFound = 0;
+    scanState.dormantAddresses = 0;
+    scanState.error = null;
     
     // Start scanning (async, don't await)
     scanEarlyEraBlocks(startHeight, endHeight, (height, total) => {
+      updateScanProgress(height, total);
       console.log(`[ObserverAPI] Scanning progress: ${height}/${total}`);
     }).then(() => {
       console.log(`[ObserverAPI] Scan complete: ${startHeight}-${endHeight}`);
+      completeScan();
     }).catch(error => {
       console.error(`[ObserverAPI] Scan error:`, error);
+      completeScan(error.message);
     });
     
     res.json({
       status: "started",
+      scanId,
       startHeight,
       endHeight,
+      totalBlocks: endHeight - startHeight,
       message: `Scanning blocks ${startHeight} to ${endHeight}`,
     });
   } catch (error: any) {
@@ -65,15 +137,41 @@ router.post("/scan/start", async (req: Request, res: Response) => {
 
 /**
  * GET /api/observer/scan/status
- * Get current scanning status
+ * Get current scanning status with progress details
  */
 router.get("/scan/status", async (req: Request, res: Response) => {
-  // TODO: Implement scanning status tracking
+  const elapsed = scanState.startTime ? Date.now() - scanState.startTime : 0;
+  const progress = scanState.totalBlocks > 0 
+    ? Math.round((scanState.currentHeight - scanState.startHeight) / scanState.totalBlocks * 100) 
+    : 0;
+  
+  const blocksScanned = scanState.currentHeight - scanState.startHeight;
+  const blocksPerSecond = elapsed > 1000 ? blocksScanned / (elapsed / 1000) : 0;
+  const remainingBlocks = scanState.totalBlocks - blocksScanned;
+  const estimatedTimeRemaining = blocksPerSecond > 0 ? Math.round(remainingBlocks / blocksPerSecond) : null;
+
   res.json({
-    isScanning: false,
-    currentHeight: 0,
-    totalBlocks: 0,
-    message: "No active scan",
+    isScanning: scanState.isScanning,
+    scanId: scanState.scanId,
+    startHeight: scanState.startHeight,
+    endHeight: scanState.endHeight,
+    currentHeight: scanState.currentHeight,
+    totalBlocks: scanState.totalBlocks,
+    blocksScanned,
+    progress,
+    addressesFound: scanState.addressesFound,
+    dormantAddresses: scanState.dormantAddresses,
+    elapsedMs: elapsed,
+    blocksPerSecond: Math.round(blocksPerSecond * 100) / 100,
+    estimatedTimeRemaining,
+    error: scanState.error,
+    message: scanState.isScanning 
+      ? `Scanning block ${scanState.currentHeight} of ${scanState.endHeight}` 
+      : scanState.error 
+        ? `Scan failed: ${scanState.error}`
+        : scanState.scanId 
+          ? "Scan complete" 
+          : "No active scan",
   });
 });
 
@@ -859,7 +957,7 @@ router.post("/recovery/compute", async (req: Request, res: Response) => {
     
     // Get dormant addresses
     const dormantAddresses = await observerStorage.getDormantAddresses({
-      minBalance: BigInt(minBalance),
+      minBalance: minBalance,
       limit,
     });
     
@@ -1083,7 +1181,8 @@ router.post("/workflows", async (req: Request, res: Response) => {
       address,
       vector,
       status: 'active',
-      startedAt: progress.startedAt,
+      startedAt: progress.startedAt ?? null,
+      completedAt: null,
       progress: progress as any,
       results: null,
       notes: progress.notes.join('\n'),
@@ -1422,7 +1521,9 @@ router.post("/workflows/:id/start-search", async (req: Request, res: Response) =
       // Step 2: Add target address (idempotent - skip if already exists)
       try {
         await storage.addTargetAddress({
+          id: randomUUID(),
           address: workflow.address,
+          addedAt: new Date().toISOString(),
           label: `Observer recovery: ${workflow.address} (κ=${priority.kappaRecovery.toFixed(2)})`,
         });
       } catch (error: any) {
