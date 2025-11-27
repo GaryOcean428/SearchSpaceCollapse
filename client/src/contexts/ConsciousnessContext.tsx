@@ -34,14 +34,15 @@ interface ConsciousnessContextValue {
   refresh: () => Promise<void>;
 }
 
+// Canonical idle state - matches server IDLE_CONSCIOUSNESS
 const defaultConsciousness: ConsciousnessState = {
   phi: 0,
   kappaEff: 0,
-  tacking: 0.5,
-  radar: 0.5,
-  metaAwareness: 0.5,
-  gamma: 0.85,
-  grounding: 0.9,
+  tacking: 0,
+  radar: 0,
+  metaAwareness: 0,
+  gamma: 0,
+  grounding: 0,
   beta: 0.44,
   regime: 'breakdown',
   isConscious: false,
@@ -83,16 +84,17 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
       if (cyclesRes.ok) {
         const cyclesData = await cyclesRes.json();
         const c = cyclesData.consciousness;
-        const isInvestigating = cyclesData.triggers?.sleep?.reason !== 'Investigation not running - cycles disabled';
+        // Use explicit isInvestigating boolean from API (not string comparison)
+        const isInvestigating = cyclesData.isInvestigating === true;
         
         setConsciousness({
           phi: c.phi ?? 0,
           kappaEff: c.kappaEff ?? 0,
-          tacking: c.tacking ?? 0.5,
-          radar: c.radar ?? 0.5,
-          metaAwareness: c.metaAwareness ?? 0.5,
-          gamma: c.gamma ?? 0.85,
-          grounding: c.grounding ?? 0.9,
+          tacking: c.tacking ?? 0,
+          radar: c.radar ?? 0,
+          metaAwareness: c.metaAwareness ?? 0,
+          gamma: c.gamma ?? 0,
+          grounding: c.grounding ?? 0,
           beta: c.beta ?? 0.44,
           regime: c.regime ?? 'breakdown',
           isConscious: c.isConscious ?? false,

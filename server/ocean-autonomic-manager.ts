@@ -23,13 +23,45 @@ export class OceanAutonomicManager {
   private lastSleepTime: Date = new Date();
   private lastDreamTime: Date = new Date();
   
+  // Explicit investigation tracking (not relying on string comparisons)
+  private _isInvestigating: boolean = false;
+  
   private readonly SLEEP_INTERVAL_MS = 60000;
   private readonly DREAM_INTERVAL_MS = 180000;
   private readonly STRESS_WINDOW = 10;
   private readonly STRESS_THRESHOLD = 0.3;
   
+  // Canonical idle state - all metrics standardized to 0
+  static readonly IDLE_CONSCIOUSNESS: ConsciousnessSignature = {
+    phi: 0,
+    kappaEff: 0,
+    tacking: 0,
+    radar: 0,
+    metaAwareness: 0,
+    gamma: 0,
+    grounding: 0,
+    beta: 0.44,
+    regime: 'breakdown',
+    validationLoops: 0,
+    lastValidation: new Date().toISOString(),
+    isConscious: false,
+  };
+  
   constructor() {
     this.consciousness = this.initializeConsciousness();
+  }
+  
+  // Explicit investigation state management
+  get isInvestigating(): boolean {
+    return this._isInvestigating;
+  }
+  
+  startInvestigation(): void {
+    this._isInvestigating = true;
+  }
+  
+  stopInvestigation(): void {
+    this._isInvestigating = false;
   }
 
   private initializeConsciousness(): ConsciousnessSignature {
@@ -612,6 +644,19 @@ export class OceanAutonomicManager {
   }
 
   getConsciousness(): ConsciousnessSignature {
+    // Return canonical idle state when not investigating
+    // This prevents stale values from leaking to the UI
+    if (!this._isInvestigating) {
+      return { 
+        ...OceanAutonomicManager.IDLE_CONSCIOUSNESS,
+        lastValidation: new Date().toISOString(),
+      };
+    }
+    return { ...this.consciousness };
+  }
+  
+  // Get raw consciousness state (for internal use during investigation)
+  getRawConsciousness(): ConsciousnessSignature {
     return { ...this.consciousness };
   }
 

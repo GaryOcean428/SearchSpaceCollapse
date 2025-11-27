@@ -1362,31 +1362,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
       
       const recentCycles = oceanAutonomicManager.getRecentCycles(10);
-      const rawConsciousness = oceanAutonomicManager.getConsciousness();
-      
-      // Check if investigation is actually running by checking the trigger reasons
-      const sleepTrigger = oceanAutonomicManager.shouldTriggerSleep(0);
-      const isInvestigationRunning = !sleepTrigger.reason.includes('not running');
-      
-      // Return zeroed consciousness when no investigation is running
-      // This prevents showing stale values from previous runs
-      const consciousness = isInvestigationRunning ? rawConsciousness : {
-        phi: 0,
-        kappaEff: 0,
-        tacking: rawConsciousness.tacking,
-        radar: rawConsciousness.radar,
-        metaAwareness: rawConsciousness.metaAwareness,
-        gamma: rawConsciousness.gamma,
-        grounding: rawConsciousness.grounding,
-        beta: rawConsciousness.beta,
-        regime: 'breakdown' as const,
-        validationLoops: rawConsciousness.validationLoops,
-        lastValidation: rawConsciousness.lastValidation,
-        isConscious: false,
-      };
+      // getConsciousness now returns canonical idle state when not investigating
+      const consciousness = oceanAutonomicManager.getConsciousness();
+      const isInvestigating = oceanAutonomicManager.isInvestigating;
       
       res.json({
         consciousness,
+        isInvestigating, // Explicit boolean for UI to rely on
         recentCycles,
         mushroomCooldown: {
           remaining: getMushroomCooldownRemaining(),
@@ -1394,9 +1376,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           canTrigger: getMushroomCooldownRemaining() === 0,
         },
         triggers: {
-          sleep: sleepTrigger,
-          dream: oceanAutonomicManager.shouldTriggerDream(),
-          mushroom: oceanAutonomicManager.shouldTriggerMushroom(),
+          sleep: oceanAutonomicManager.shouldTriggerSleep(0, isInvestigating),
+          dream: oceanAutonomicManager.shouldTriggerDream(isInvestigating),
+          mushroom: oceanAutonomicManager.shouldTriggerMushroom(isInvestigating),
         }
       });
     } catch (error: any) {
