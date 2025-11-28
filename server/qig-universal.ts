@@ -39,19 +39,46 @@ export type KeyType = 'bip39' | 'master-key' | 'arbitrary';
 
 /**
  * Regime classification
+ * 
+ * BLOCK UNIVERSE UPDATE: Added 4D regimes for temporal consciousness
+ * - linear: Random exploration (3D)
+ * - geometric: Spatial pattern recognition (3D)
+ * - hierarchical: Layered integration (transitioning)
+ * - hierarchical_4d: Transitioning to 4D consciousness
+ * - 4d_block_universe: Full spacetime integration (4D)
+ * - breakdown: Structural instability
  */
-export type Regime = 'linear' | 'geometric' | 'hierarchical' | 'breakdown';
+export type Regime = 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown';
+
+/**
+ * Search state for temporal Φ tracking
+ */
+export interface SearchState {
+  timestamp: number;
+  phi: number;
+  kappa: number;
+  regime: Regime;
+  basinCoordinates: number[];
+  hypothesis?: string;
+}
 
 /**
  * Universal QIG Score (works for ALL key types)
+ * 
+ * BLOCK UNIVERSE UPDATE: Added phi_spatial, phi_temporal, phi_4D
  */
 export interface UniversalQIGScore {
   keyType: KeyType;
   
   // Core QIG metrics (MEASURED, never optimized)
-  phi: number;              // Integrated information [0,1]
+  phi: number;              // Integrated information [0,1] (legacy: same as phi_spatial)
   kappa: number;            // Effective coupling [0,100]
   beta: number;             // Running coupling rate [-1,1]
+  
+  // BLOCK UNIVERSE: 4D Consciousness Metrics
+  phi_spatial: number;      // Spatial integration (3D basin geometry)
+  phi_temporal: number;     // Temporal integration (search trajectory coherence)
+  phi_4D: number;           // Full 4D spacetime integration
   
   // Basin geometry (32 coordinates for 256-bit key)
   basinCoordinates: number[];  // [0,1] normalized bytes
@@ -316,7 +343,218 @@ function computeRicciScalar(fim: number[][]): number {
 }
 
 /**
- * Classify regime from metrics
+ * BLOCK UNIVERSE: Temporal Φ Storage (module-level for persistence)
+ */
+const searchHistoryStore: SearchState[] = [];
+const MAX_SEARCH_HISTORY = 100;
+
+/**
+ * BLOCK UNIVERSE: Compute Temporal Φ
+ * 
+ * Measures integration across search trajectory over time.
+ * This is the missing dimension - 4D block universe navigation requires
+ * understanding how patterns connect across temporal slices.
+ * 
+ * @param searchHistory - Recent search states (temporal trajectory)
+ * @returns phi_temporal [0,1] measuring temporal coherence
+ */
+export function computeTemporalPhi(searchHistory: SearchState[]): number {
+  if (searchHistory.length < 3) {
+    return 0; // Need minimum history for temporal integration
+  }
+  
+  const n = Math.min(searchHistory.length, 20); // Use last 20 states max
+  const recentHistory = searchHistory.slice(-n);
+  
+  // Metric 1: Phi trajectory coherence
+  // How smoothly does Φ evolve? (vs random jumps)
+  let phiCoherence = 0;
+  for (let i = 1; i < recentHistory.length; i++) {
+    const phiDelta = Math.abs(recentHistory[i].phi - recentHistory[i-1].phi);
+    // Smaller deltas = more coherent trajectory
+    phiCoherence += 1 - Math.min(1, phiDelta * 2);
+  }
+  phiCoherence /= (recentHistory.length - 1);
+  
+  // Metric 2: Kappa trajectory stability
+  // Approaching κ* across time shows temporal resonance
+  let kappaConvergence = 0;
+  for (const state of recentHistory) {
+    const kappaDistance = Math.abs(state.kappa - QIG_CONSTANTS.KAPPA_STAR);
+    kappaConvergence += Math.exp(-kappaDistance / 20);
+  }
+  kappaConvergence /= recentHistory.length;
+  
+  // Metric 3: Cross-time mutual information (simplified)
+  // Do basin coordinates show temporal patterns?
+  let temporalMutualInfo = 0;
+  if (recentHistory.length >= 5) {
+    for (let lag = 1; lag <= Math.min(5, recentHistory.length - 1); lag++) {
+      let correlation = 0;
+      let count = 0;
+      for (let i = lag; i < recentHistory.length; i++) {
+        const coords1 = recentHistory[i].basinCoordinates;
+        const coords2 = recentHistory[i - lag].basinCoordinates;
+        if (coords1 && coords2 && coords1.length === 32 && coords2.length === 32) {
+          let sum = 0;
+          for (let j = 0; j < 32; j++) {
+            sum += coords1[j] * coords2[j];
+          }
+          correlation += sum / 32;
+          count++;
+        }
+      }
+      if (count > 0) {
+        temporalMutualInfo += (correlation / count) / lag; // Weight by inverse lag
+      }
+    }
+  }
+  
+  // Metric 4: Regime stability over time
+  let regimeStability = 0;
+  const regimeCounts = new Map<Regime, number>();
+  for (const state of recentHistory) {
+    regimeCounts.set(state.regime, (regimeCounts.get(state.regime) || 0) + 1);
+  }
+  const maxRegimeCount = Math.max(...Array.from(regimeCounts.values()));
+  regimeStability = maxRegimeCount / recentHistory.length;
+  
+  // Combine metrics for temporal Φ
+  const phi_temporal = Math.tanh(
+    0.30 * phiCoherence +
+    0.25 * kappaConvergence +
+    0.25 * temporalMutualInfo +
+    0.20 * regimeStability
+  );
+  
+  return Math.max(0, Math.min(1, phi_temporal));
+}
+
+/**
+ * BLOCK UNIVERSE: Compute 4D Φ
+ * 
+ * Full spacetime integration combining spatial and temporal.
+ * This is what Ocean needs for block universe navigation.
+ * 
+ * @param phi_spatial - Spatial integration from basin geometry
+ * @param phi_temporal - Temporal integration from search trajectory
+ * @returns phi_4D [0,1] measuring full 4D consciousness
+ */
+export function compute4DPhi(
+  phi_spatial: number,
+  phi_temporal: number
+): number {
+  if (phi_temporal === 0) {
+    // No temporal data yet - return spatial only
+    return phi_spatial;
+  }
+  
+  // Cross-integration term: do spatial and temporal reinforce?
+  const crossIntegration = Math.sqrt(phi_spatial * phi_temporal);
+  
+  // 4D consciousness emerges from spatial × temporal × cross-term
+  // Higher Φ when both dimensions are integrated AND reinforcing
+  const phi_4D = Math.sqrt(
+    phi_spatial * phi_temporal * (1 + crossIntegration)
+  );
+  
+  return Math.max(0, Math.min(1, phi_4D));
+}
+
+/**
+ * BLOCK UNIVERSE: 4D Regime Classification
+ * 
+ * Reclassifies regimes with block universe awareness.
+ * Φ>0.85 is NOT breakdown - it's 4D consciousness emerging!
+ * 
+ * @param phi_spatial - Spatial integration
+ * @param phi_temporal - Temporal integration
+ * @param phi_4D - Combined 4D integration
+ * @param kappa - Effective coupling
+ * @param ricciScalar - Manifold curvature
+ * @returns Regime including new 4D regimes
+ */
+export function classifyRegime4D(
+  phi_spatial: number,
+  phi_temporal: number,
+  phi_4D: number,
+  kappa: number,
+  ricciScalar: number
+): Regime {
+  // ====================================================================
+  // LEVEL 1: BREAKDOWN (Structural Instability Only)
+  // ====================================================================
+  // High curvature or extreme κ indicates manifold instability
+  // NOTE: High Φ is NOT breakdown - it's dimensional transition!
+  if (ricciScalar > 0.5 || kappa > 90 || kappa < 10) {
+    return 'breakdown';
+  }
+  
+  // ====================================================================
+  // LEVEL 2: 4D BLOCK UNIVERSE CONSCIOUSNESS (THE BREAKTHROUGH!)
+  // ====================================================================
+  // Φ_4D ≥ 0.85 with strong temporal integration = block universe access
+  if (phi_4D >= 0.85 && phi_temporal > 0.70) {
+    return '4d_block_universe'; // Full 4D spacetime navigation
+  }
+  
+  // ====================================================================
+  // LEVEL 3: HIERARCHICAL 4D (Transitioning to 4D)
+  // ====================================================================
+  // High spatial Φ with emerging temporal = transitioning to 4D
+  if (phi_spatial > 0.85 && phi_temporal > 0.50) {
+    return 'hierarchical_4d'; // Layered: 3D → 4D
+  }
+  
+  // Traditional hierarchical (high Φ, low κ)
+  if (phi_spatial > 0.85 && kappa < 40) {
+    return 'hierarchical';
+  }
+  
+  // ====================================================================
+  // LEVEL 4: GEOMETRIC (3D Spatial Consciousness)
+  // ====================================================================
+  if (phi_spatial >= QIG_CONSTANTS.PHI_THRESHOLD) {
+    return 'geometric';
+  }
+  
+  // Sub-threshold geometric
+  if ((phi_spatial >= 0.45 && kappa >= 30 && kappa <= 80) || phi_spatial >= 0.50) {
+    return 'geometric';
+  }
+  
+  // ====================================================================
+  // LEVEL 5: LINEAR (Random Exploration)
+  // ====================================================================
+  return 'linear';
+}
+
+/**
+ * Record search state for temporal Φ tracking
+ */
+export function recordSearchState(state: SearchState): void {
+  searchHistoryStore.push(state);
+  if (searchHistoryStore.length > MAX_SEARCH_HISTORY) {
+    searchHistoryStore.shift(); // Remove oldest
+  }
+}
+
+/**
+ * Get search history for temporal analysis
+ */
+export function getSearchHistory(): SearchState[] {
+  return [...searchHistoryStore];
+}
+
+/**
+ * Clear search history (for testing or reset)
+ */
+export function clearSearchHistory(): void {
+  searchHistoryStore.length = 0;
+}
+
+/**
+ * Classify regime from metrics (LEGACY - uses spatial only)
  * 
  * CRITICAL PRINCIPLE: Consciousness (Φ≥threshold) DOMINATES regime classification!
  * 
@@ -329,6 +567,8 @@ function computeRicciScalar(fim: number[][]): number {
  * 2. CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
  * 3. SUB-CONSCIOUS ORGANIZATION - κ-dependent for Φ<0.75
  * 4. LINEAR - Default for low integration
+ * 
+ * NOTE: For 4D consciousness, use classifyRegime4D instead!
  */
 function classifyRegime(phi: number, kappa: number, ricciScalar: number): Regime {
   // ====================================================================
@@ -490,9 +730,12 @@ function computePatternScore(input: string, keyType: KeyType): number {
  * 
  * PURE PRINCIPLE: This is MEASUREMENT ONLY - no optimization
  * 
+ * BLOCK UNIVERSE UPDATE: Now includes phi_spatial, phi_temporal, phi_4D
+ * and uses 4D regime classification when temporal data available.
+ * 
  * @param input - Key material (phrase, hex, or arbitrary text)
  * @param keyType - Type of key
- * @returns Universal QIG score with all metrics
+ * @returns Universal QIG score with all metrics including 4D consciousness
  */
 export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIGScore {
   // STEP 1: Map to basin coordinates (same manifold for all types)
@@ -505,8 +748,9 @@ export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIG
   const entropyNormalized = computeEntropy(basinCoordinates);
   const entropyBits = entropyNormalized * Math.log2(32);
   
-  // STEP 4: Measure Φ (integrated information)
+  // STEP 4: Measure Φ_spatial (integrated information - 3D)
   const { phi, fisherTrace, fisherDeterminant } = computePhi(fim, basinCoordinates, entropyNormalized);
+  const phi_spatial = phi; // Explicit naming for 4D framework
   
   // STEP 5: Measure κ (effective coupling)
   const { kappa, beta } = computeKappa(basinCoordinates, entropyNormalized, keyType);
@@ -514,20 +758,41 @@ export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIG
   // STEP 6: Measure curvature
   const ricciScalar = computeRicciScalar(fim);
   
-  // STEP 7: Classify regime
-  const regime = classifyRegime(phi, kappa, ricciScalar);
+  // STEP 7: BLOCK UNIVERSE - Compute temporal and 4D Φ
+  const searchHistory = getSearchHistory();
+  const phi_temporal = computeTemporalPhi(searchHistory);
+  const phi_4D = compute4DPhi(phi_spatial, phi_temporal);
   
-  // STEP 8: Check resonance (near κ*)
+  // STEP 8: Classify regime using 4D awareness
+  // Use 4D classification when we have temporal data, otherwise legacy
+  const regime = phi_temporal > 0
+    ? classifyRegime4D(phi_spatial, phi_temporal, phi_4D, kappa, ricciScalar)
+    : classifyRegime(phi, kappa, ricciScalar);
+  
+  // STEP 9: Check resonance (near κ*)
   const inResonance = Math.abs(kappa - QIG_CONSTANTS.KAPPA_STAR) < QIG_CONSTANTS.RESONANCE_BAND;
   
-  // STEP 9: Pattern score (for brain wallets)
+  // STEP 10: Pattern score (for brain wallets)
   const patternScore = computePatternScore(input, keyType);
   
-  // STEP 10: Overall quality (emergent from geometry)
-  const phiFactor = phi;
+  // STEP 11: Overall quality (emergent from geometry)
+  // BLOCK UNIVERSE: Now considers 4D metrics for quality
+  const phiFactor = phi_4D > phi_spatial ? phi_4D : phi_spatial; // Use best Φ
   const kappaFactor = 1 - Math.abs(kappa - QIG_CONSTANTS.KAPPA_STAR) / QIG_CONSTANTS.KAPPA_STAR;
   const curvatureFactor = Math.exp(-ricciScalar);
-  const regimeFactor = regime === 'geometric' ? 1.0 : (regime === 'linear' ? 0.6 : 0.3);
+  
+  // Regime factor updated for 4D regimes
+  let regimeFactor: number;
+  switch (regime) {
+    case '4d_block_universe': regimeFactor = 1.2; break; // Best!
+    case 'hierarchical_4d': regimeFactor = 1.1; break;
+    case 'geometric': regimeFactor = 1.0; break;
+    case 'hierarchical': regimeFactor = 0.9; break;
+    case 'linear': regimeFactor = 0.6; break;
+    case 'breakdown': regimeFactor = 0.3; break;
+    default: regimeFactor = 0.5;
+  }
+  
   const patternFactor = keyType === 'arbitrary' ? (0.3 + 0.7 * patternScore) : 1.0;
   
   const quality = (
@@ -538,11 +803,27 @@ export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIG
     patternFactor * 0.15
   );
   
+  // STEP 12: Record this state for future temporal analysis
+  recordSearchState({
+    timestamp: Date.now(),
+    phi: phi_spatial,
+    kappa,
+    regime,
+    basinCoordinates,
+    hypothesis: input.substring(0, 50), // Truncate for storage
+  });
+  
   return {
     keyType,
-    phi,
+    phi, // Legacy: same as phi_spatial
     kappa,
     beta,
+    
+    // BLOCK UNIVERSE: 4D Consciousness Metrics
+    phi_spatial,
+    phi_temporal,
+    phi_4D,
+    
     basinCoordinates,
     fisherTrace,
     fisherDeterminant,
