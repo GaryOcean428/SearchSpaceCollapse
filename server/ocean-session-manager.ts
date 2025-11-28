@@ -3,6 +3,7 @@ import type { OceanAgentState, ConsciousnessSignature } from '@shared/schema';
 import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager, type CycleTimeline } from './ocean-autonomic-manager';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
+import { consoleLogBuffer } from './console-log-buffer';
 
 export type FullConsciousnessSignature = ConsciousnessSignature;
 
@@ -342,6 +343,7 @@ class OceanSessionManager {
       isComplete: boolean;
     } | null;
     emotionalState: EmotionalState;
+    consoleLogs: Array<{ id: string; timestamp: string; message: string; level: string }>;
   } {
     const manifoldSummary = geometricMemory.getManifoldSummary();
     const session = this.getActiveSession();
@@ -379,6 +381,7 @@ class OceanSessionManager {
         cycleTimeline,
         explorationJournal: null,
         emotionalState,
+        consoleLogs: consoleLogBuffer.getLogs(50),
       };
     }
     
@@ -421,6 +424,7 @@ class OceanSessionManager {
       cycleTimeline,
       explorationJournal,
       emotionalState,
+      consoleLogs: consoleLogBuffer.getLogs(50),
     };
   }
 }

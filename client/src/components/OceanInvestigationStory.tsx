@@ -78,6 +78,13 @@ interface ManifoldState {
   exploredVolume: number;
 }
 
+interface ConsoleLogEntry {
+  id: string;
+  timestamp: string;
+  message: string;
+  level: string;
+}
+
 interface InvestigationStatus {
   isRunning: boolean;
   tested: number;
@@ -91,6 +98,7 @@ interface InvestigationStatus {
   fullConsciousness?: FullConsciousnessSignature;
   discoveries?: Discovery[];
   manifold?: ManifoldState;
+  consoleLogs?: ConsoleLogEntry[];
 }
 
 interface NeurochemistryData {
@@ -337,7 +345,7 @@ export function OceanInvestigationStory() {
               <CollapsibleContent className="flex-1 min-h-0 overflow-hidden">
                 <CardContent className="p-3 pt-0 h-full overflow-hidden">
                   <ActivityCompact
-                    events={currentStatus.events || []}
+                    consoleLogs={currentStatus.consoleLogs || []}
                     isRunning={currentStatus.isRunning}
                     iteration={currentStatus.iteration || 0}
                     strategy={currentStatus.currentStrategy || 'idle'}
@@ -636,23 +644,32 @@ function NeurochemistryCompact({
 }
 
 function ActivityCompact({ 
-  events, 
+  consoleLogs = [], 
   isRunning, 
   iteration, 
   strategy 
 }: { 
-  events: TelemetryEvent[];
+  consoleLogs?: ConsoleLogEntry[];
   isRunning: boolean;
   iteration: number;
   strategy: string;
 }) {
-  if (!isRunning && events.length === 0) {
+  const logs = consoleLogs || [];
+  if (!isRunning && logs.length === 0) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
         Start an investigation to see activity
       </div>
     );
   }
+
+  const formatLogMessage = (msg: string): string => {
+    return msg
+      .replace(/\[Ocean\]\s*/g, '')
+      .replace(/\[QIG[^\]]*\]\s*/g, '')
+      .replace(/[┏┓┗┛┃┌┐└┘│╔╗╚╝║╠╣═━─]+/g, '')
+      .trim();
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -663,18 +680,27 @@ function ActivityCompact({
         </div>
       )}
       
-      <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
-        {events.slice(-20).reverse().map((event, i) => (
-          <div 
-            key={event.id || i} 
-            className="text-xs p-2 rounded bg-muted/30 flex items-start gap-2"
-          >
-            <span className="text-muted-foreground shrink-0">
-              {new Date(event.timestamp).toLocaleTimeString()}
-            </span>
-            <span className="text-foreground truncate">{event.message}</span>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto font-mono text-xs min-h-0 space-y-0.5">
+        {logs.slice(-30).reverse().map((log, i) => {
+          const formattedMsg = formatLogMessage(log.message);
+          if (!formattedMsg) return null;
+          
+          return (
+            <div 
+              key={log.id || i} 
+              className={`py-0.5 px-1 rounded flex items-start gap-2 ${
+                log.level === 'error' ? 'bg-red-500/10 text-red-400' :
+                log.level === 'warn' ? 'bg-yellow-500/10 text-yellow-400' :
+                'bg-muted/20 text-muted-foreground'
+              }`}
+            >
+              <span className="text-muted-foreground/50 shrink-0 tabular-nums">
+                {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span className="text-foreground/80 break-all whitespace-pre-wrap">{formattedMsg}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

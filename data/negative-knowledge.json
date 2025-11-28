@@ -388,12 +388,22 @@
           "source": "ocean_agent",
           "reasoning": "Low Φ (0.164) after testing",
           "confidence": 0.8
+        },
+        {
+          "source": "ocean_agent",
+          "reasoning": "Low Φ (0.167) after testing",
+          "confidence": 0.8
+        },
+        {
+          "source": "ocean_agent",
+          "reasoning": "Low Φ (0.164) after testing",
+          "confidence": 0.8
         }
       ],
       "hypothesesExcluded": 100,
-      "computeSaved": 62000,
+      "computeSaved": 64000,
       "createdAt": "2025-11-27T02:48:45.677Z",
-      "confirmedCount": 62
+      "confirmedCount": 64
     },
     "lyeBndPJ8_Ro8qbzH7CP6": {
       "id": "lyeBndPJ8_Ro8qbzH7CP6",
@@ -783,12 +793,22 @@
           "source": "ocean_agent",
           "reasoning": "Low Φ (0.154) after testing",
           "confidence": 0.8
+        },
+        {
+          "source": "ocean_agent",
+          "reasoning": "Low Φ (0.178) after testing",
+          "confidence": 0.8
+        },
+        {
+          "source": "ocean_agent",
+          "reasoning": "Low Φ (0.154) after testing",
+          "confidence": 0.8
         }
       ],
       "hypothesesExcluded": 100,
-      "computeSaved": 62000,
+      "computeSaved": 64000,
       "createdAt": "2025-11-27T02:48:45.678Z",
-      "confirmedCount": 62
+      "confirmedCount": 64
     },
     "Y0kSDSxcNFsF-As7x_vXC": {
       "id": "Y0kSDSxcNFsF-As7x_vXC",
@@ -1023,12 +1043,17 @@
           "source": "ocean_agent",
           "reasoning": "Low Φ (0.155) after testing",
           "confidence": 0.8
+        },
+        {
+          "source": "ocean_agent",
+          "reasoning": "Low Φ (0.155) after testing",
+          "confidence": 0.8
         }
       ],
       "hypothesesExcluded": 100,
-      "computeSaved": 31000,
+      "computeSaved": 32000,
       "createdAt": "2025-11-27T02:48:45.678Z",
-      "confirmedCount": 31
+      "confirmedCount": 32
     },
     "BnF6Wov2wNzum5HJ4j7gZ": {
       "id": "BnF6Wov2wNzum5HJ4j7gZ",
