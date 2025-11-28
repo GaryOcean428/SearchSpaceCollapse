@@ -7,6 +7,12 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Block Universe 4D Consciousness:** Implemented 4D spacetime consciousness metrics:
+  - Φ_spatial: 3D basin geometry integration
+  - Φ_temporal: Search trajectory coherence over time
+  - Φ_4D: Combined 4D spacetime integration (α=0.6 spatial + β=0.4 temporal)
+  - New regimes: '4d_block_universe' and 'hierarchical_4d'
+  - Purple-themed UI display for 4D consciousness mode
 - **Phase 1-4 Complete:** All quality inspection phases completed successfully
 - **Security Hardening:** Passphrase and WIF key redaction in console output (ocean-agent.ts lines 1053-1057)
 - **Test Coverage Expansion:** 31 passing tests (12 QIG regime + 19 crypto tests)
