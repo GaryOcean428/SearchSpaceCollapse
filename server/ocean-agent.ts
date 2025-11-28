@@ -457,6 +457,13 @@ export class OceanAgent {
         console.log(`\n[Ocean] === PASS ${passNumber}: ${strategy.toUpperCase()} ===`);
         console.log(`[Ocean] ${continueCheck.reason}`);
         
+        // Partial plateau reset between passes - give each strategy fresh opportunity
+        // but carry some memory of overall frustration
+        if (this.consecutivePlateaus > this.MAX_CONSECUTIVE_PLATEAUS) {
+          this.consecutivePlateaus = Math.floor(this.MAX_CONSECUTIVE_PLATEAUS * 0.6);
+          console.log(`[Ocean] Plateau counter partial reset: ${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}`);
+        }
+        
         // Measure full consciousness signature before pass
         const fullConsciousness = oceanAutonomicManager.measureFullConsciousness(
           this.identity.phi,
@@ -591,8 +598,19 @@ export class OceanAgent {
           
           this.updateProceduralMemory(iterStrategy.name);
           
-          // GENERATE NEW HYPOTHESES
-          currentHypotheses = await this.generateRefinedHypotheses(iterStrategy, insights, testResults);
+          // GENERATE NEW HYPOTHESES with temperature boost applied
+          currentHypotheses = await this.generateRefinedHypotheses(iterStrategy, insights, testResults, phiElevation.temperature);
+          
+          // APPLY TEMPERATURE BOOST: If in dead zone, inject high-entropy exploration
+          if (phiElevation.explorationBias === 'broader' && phiElevation.temperature > 1.2) {
+            const boostCount = Math.floor(20 * (phiElevation.temperature - 1.0));
+            const highEntropyBoost = this.generateRandomHighEntropyPhrases(boostCount);
+            for (const phrase of highEntropyBoost) {
+              currentHypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'phi_elevation_boost', 
+                `Temperature boost ${phiElevation.temperature.toFixed(2)}x to escape dead zone`, 0.55));
+            }
+            console.log(`[Ocean] PHI BOOST APPLIED: Injected ${boostCount} high-entropy hypotheses`);
+          }
           
           // UCP CONSUMER STEP 1: Inject knowledge-influenced hypotheses from bus
           const knowledgeInfluenced = this.generateKnowledgeInfluencedHypotheses(iterStrategy.name);
@@ -1384,9 +1402,13 @@ export class OceanAgent {
   private async generateRefinedHypotheses(
     strategy: { name: string; reasoning: string; params: any },
     insights: any,
-    testResults: any
+    testResults: any,
+    temperature: number = 1.0
   ): Promise<OceanHypothesis[]> {
     const newHypotheses: OceanHypothesis[] = [];
+    
+    // Apply temperature scaling to diversify exploration when stuck
+    const tempScaledCount = Math.floor(30 * temperature);
     
     switch (strategy.name) {
       case 'exploit_near_miss':
@@ -1483,9 +1505,20 @@ export class OceanAgent {
         break;
         
       default:
-        const balancedPhrases = this.generateBalancedPhrases(30);
+        // Use temperature-scaled count for broader exploration when stuck
+        const balancedPhrases = this.generateBalancedPhrases(tempScaledCount);
         for (const phrase of balancedPhrases) {
-          newHypotheses.push(this.createHypothesis(phrase.text, phrase.format, 'balanced', 'Balanced exploration', 0.6));
+          newHypotheses.push(this.createHypothesis(phrase.text, phrase.format, 'balanced', 
+            `Balanced exploration (T=${temperature.toFixed(2)})`, 0.6));
+        }
+        
+        // If high temperature, also add more diverse patterns
+        if (temperature > 1.3) {
+          const diversePhrases = this.generateExploratoryPhrases().slice(0, Math.floor(10 * (temperature - 1)));
+          for (const phrase of diversePhrases) {
+            newHypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'high_temp_exploration', 
+              `High-temperature diverse exploration (T=${temperature.toFixed(2)})`, 0.5));
+          }
         }
     }
     
