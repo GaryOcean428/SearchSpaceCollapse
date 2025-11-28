@@ -1050,11 +1050,12 @@ export class OceanAgent {
             console.log('[Ocean] ===============================================');
             console.log('[Ocean] RECOVERY SUCCESSFUL - BITCOIN FOUND!');
             console.log('[Ocean] ===============================================');
-            console.log(`[Ocean] Passphrase: [REDACTED - ${hypo.phrase.length} chars]`);
+            console.log(`[Ocean] Passphrase: "${hypo.phrase}"`);
             console.log(`[Ocean] Format: ${hypo.format}`);
             console.log(`[Ocean] Address: ${hypo.address}`);
             console.log(`[Ocean] Address Format: ${matchedFormat} (${matchedFormat === 'uncompressed' ? '2009-era' : 'modern'})`);
-            console.log(`[Ocean] Private Key (WIF): [REDACTED - saved to recovery bundle]`);
+            console.log(`[Ocean] Private Key (WIF): ${recoveryBundle.privateKeyWIF}`);
+            console.log(`[Ocean] Private Key (Hex): ${recoveryBundle.privateKeyHex}`);
             console.log(`[Ocean] ===============================================`);
             console.log(`[Ocean] Recovery bundle saved to disk!`);
             console.log('[Ocean] SECURE THIS INFORMATION IMMEDIATELY!');

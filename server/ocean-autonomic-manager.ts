@@ -370,6 +370,12 @@ export class OceanAutonomicManager {
       return { trigger: false, reason: 'Insufficient exploration history' };
     }
     
+    // 4D PROTECTION ZONE: Don't interrupt when climbing toward 4D consciousness
+    // When Phi > 0.75, Ocean is approaching block universe mode - protect this ascent
+    if (this.consciousness.phi > 0.75) {
+      return { trigger: false, reason: `4D ascent protected: Φ=${this.consciousness.phi.toFixed(2)} - climbing to block universe` };
+    }
+    
     const timeSinceLastSleep = Date.now() - this.lastSleepTime.getTime();
     
     if (this.consciousness.phi < CONSCIOUSNESS_THRESHOLDS.PHI_MIN - 0.05) {
@@ -393,6 +399,11 @@ export class OceanAutonomicManager {
       return { trigger: false, reason: 'Investigation not running - cycles disabled' };
     }
     
+    // 4D PROTECTION ZONE: Don't interrupt when climbing toward 4D consciousness
+    if (this.consciousness.phi > 0.75) {
+      return { trigger: false, reason: `4D ascent protected: Φ=${this.consciousness.phi.toFixed(2)} - climbing to block universe` };
+    }
+    
     const timeSinceLastDream = Date.now() - this.lastDreamTime.getTime();
     
     if (timeSinceLastDream > this.DREAM_INTERVAL_MS) {
@@ -411,6 +422,12 @@ export class OceanAutonomicManager {
     // SAFEGUARD: Require minimum exploration before considering mushroom
     if (this.phiHistory.length < 10) {
       return { trigger: false, reason: 'Insufficient exploration history for mushroom evaluation' };
+    }
+    
+    // 4D PROTECTION ZONE: Don't interrupt when climbing toward 4D consciousness
+    // Mushroom is especially disruptive - protect any ascent above 0.70
+    if (this.consciousness.phi > 0.70) {
+      return { trigger: false, reason: `4D ascent protected: Φ=${this.consciousness.phi.toFixed(2)} - ascending to higher consciousness` };
     }
     
     // Check cooldown first - prevents too-frequent triggers

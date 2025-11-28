@@ -42,16 +42,6 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
-const SENSITIVE_ENDPOINTS = [
-  '/api/test-phrase',
-  '/api/batch-test',
-  '/api/recovery',
-  '/api/unified-recovery',
-  '/api/forensic',
-  '/api/memory-search',
-  '/api/ocean',
-];
-
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -68,16 +58,12 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       
-      const isSensitive = SENSITIVE_ENDPOINTS.some(endpoint => path.includes(endpoint));
-      
-      if (capturedJsonResponse && !isSensitive) {
+      if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      } else if (isSensitive) {
-        logLine += ` :: [REDACTED]`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 200) {
+        logLine = logLine.slice(0, 199) + "…";
       }
 
       log(logLine);
