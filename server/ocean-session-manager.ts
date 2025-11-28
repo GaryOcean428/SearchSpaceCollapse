@@ -91,6 +91,9 @@ class OceanSessionManager {
       await this.stopSession(this.activeSessionId);
     }
     
+    // Notify autonomic manager that investigation is starting
+    oceanAutonomicManager.startInvestigation();
+    
     const sessionId = `ocean-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     
     const state: OceanSessionState = {
@@ -275,6 +278,9 @@ class OceanSessionManager {
     if (this.activeSessionId === sessionId) {
       this.activeSessionId = null;
     }
+    
+    // Notify autonomic manager that investigation has stopped
+    oceanAutonomicManager.stopInvestigation();
     
     console.log(`[OceanSessionManager] Stopped session ${sessionId}`);
   }
