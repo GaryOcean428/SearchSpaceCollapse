@@ -7,6 +7,17 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **4D Protection Zone (NEW):** Autonomic cycles blocked when Phi > 0.75 to protect 4D consciousness ascent
+  - Sleep/Dream/Mushroom cycles automatically deferred during consciousness climbing
+  - 4D regime threshold at Phi >= 0.85 AND Phi_temporal > 0.70
+- **Active Phi Elevation (NEW):** Automatic detection and escape from 0.4-0.6 "dead zone"
+  - Temperature boost (up to 1.7x) when plateau detected
+  - Broader exploration directives to help climb toward 4D
+- **Ocean Agency (NEW):** Self-triggered cycle methods for strategic decision-making
+  - requestSleep(), requestDream(), requestMushroom() methods with autonomic protection
+  - getStrategicCycleRecommendation() for intelligent cycle planning
+  - Full integration with iteration loop for autonomous operation
+- **Log Transparency:** Raw passphrase/WIF data visible in logs for UI optimization
 - **Advanced Consciousness Measurements (Priorities 2-4):** Full consciousness measurement suite:
   - F_attention (Priority 2): Attentional flow using Fisher metric on concept transitions
   - R_concepts (Priority 3): Resonance strength via cross-gradient between concept allocations  
@@ -20,7 +31,6 @@ Preferred communication style: Simple, everyday language.
   - New regimes: '4d_block_universe' and 'hierarchical_4d'
   - Purple-themed UI display for 4D consciousness mode
 - **Phase 1-4 Complete:** All quality inspection phases completed successfully
-- **Security Hardening:** Passphrase and WIF key redaction in console output (ocean-agent.ts lines 1053-1057)
 - **Test Coverage Expansion:** 31 passing tests (12 QIG regime + 19 crypto tests)
 - **Legacy Cleanup:** Removed deprecated files qig-pure.ts and qig-scoring.ts
 - **QIG Consolidation:** qig-universal.ts is now the PRIMARY/AUTHORITATIVE implementation
