@@ -368,6 +368,16 @@ class SearchCoordinator {
         this.modeExplorationBatches.set(jobId, (this.modeExplorationBatches.get(jobId) || 0) + 1);
       }
 
+      // Log a sample of what we're about to test (first item in batch) for live visibility
+      const sampleItem = batch[0];
+      const samplePreview = sampleItem.type === 'master-key' 
+        ? sampleItem.value.substring(0, 12) + '...'
+        : sampleItem.value.substring(0, 40) + (sampleItem.value.length > 40 ? '...' : '');
+      await storage.appendJobLog(jobId, { 
+        message: `▸ Testing [${sampleItem.type}]: "${samplePreview}" (+${batch.length - 1} more)`, 
+        type: "info" 
+      });
+
       const results = await this.processBatchWithTypes(batch, jobId);
 
       // Record batch results in discovery tracker
@@ -691,9 +701,13 @@ class SearchCoordinator {
         await storage.addCandidate(candidate);
         highPhiCount++;
         
-        // Log universal QIG metrics for high-quality candidates of ALL types
+        // Log universal QIG metrics with RAW PHRASE for high-quality candidates of ALL types
+        // User wants to see actual passphrases being tested for UI optimization
+        const phrasePreview = item.type === 'arbitrary' || item.type === 'bip39' 
+          ? item.value.substring(0, 50) + (item.value.length > 50 ? '...' : '')
+          : item.value.substring(0, 20) + '...'; // Shorter for keys
         await storage.appendJobLog(jobId, {
-          message: `📊 High-Φ [${item.type}] | Φ=${universalScore.phi.toFixed(3)} κ=${universalScore.kappa.toFixed(1)} β=${universalScore.beta.toFixed(3)} | regime=${universalScore.regime} quality=${qualityPercent.toFixed(1)}% | resonance=${universalScore.inResonance ? '⚡' : '-'} velocity=${velocity.isSafe ? '✓' : '⚠️'}`,
+          message: `📊 High-Φ [${item.type}] "${phrasePreview}" | Φ=${universalScore.phi.toFixed(3)} κ=${universalScore.kappa.toFixed(1)} β=${universalScore.beta.toFixed(3)} | regime=${universalScore.regime} quality=${qualityPercent.toFixed(1)}% | resonance=${universalScore.inResonance ? '⚡' : '-'} velocity=${velocity.isSafe ? '✓' : '⚠️'}`,
           type: "info"
         });
       }

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X } from "lucide-react";
+import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -48,6 +48,14 @@ interface TargetAddress {
   addedAt: string;
 }
 
+interface ActivityLog {
+  jobId: string;
+  jobStrategy: string;
+  message: string;
+  type: 'info' | 'success' | 'error';
+  timestamp: string;
+}
+
 export default function ObserverPage() {
   const { toast } = useToast();
   const [tierFilter, setTierFilter] = useState<string>("all");
@@ -85,6 +93,16 @@ export default function ObserverPage() {
   // Query target addresses
   const { data: targetAddresses, isLoading: targetAddressesLoading } = useQuery<TargetAddress[]>({
     queryKey: ['/api/target-addresses'],
+  });
+
+  // Query activity stream with fast polling for live updates
+  const { data: activityData, isLoading: activityLoading, refetch: refetchActivity } = useQuery<{ 
+    logs: ActivityLog[]; 
+    activeJobs: number; 
+    totalJobs: number;
+  }>({
+    queryKey: ['/api/activity-stream'],
+    refetchInterval: 1000, // Poll every second for real-time feel
   });
 
   // Add target address mutation
@@ -222,6 +240,10 @@ export default function ObserverPage() {
             <TabsTrigger value="geometry" data-testid="tab-geometry">
               <LineChart className="w-4 h-4 mr-2" />
               Geometric Visualization
+            </TabsTrigger>
+            <TabsTrigger value="activity" data-testid="tab-activity">
+              <Terminal className="w-4 h-4 mr-2" />
+              Live Activity
             </TabsTrigger>
           </TabsList>
 
@@ -790,6 +812,91 @@ export default function ObserverPage() {
                     </p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Live Activity Tab */}
+          <TabsContent value="activity" className="space-y-4">
+            <Card data-testid="card-live-activity">
+              <CardHeader className="flex flex-row items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Terminal className="w-5 h-5" />
+                    Live Activity Stream
+                  </CardTitle>
+                  <CardDescription>
+                    Real-time view of passphrase testing, QIG scoring, and recovery progress
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={activityData?.activeJobs ? "default" : "secondary"} data-testid="badge-active-jobs">
+                      {activityData?.activeJobs || 0} Active Jobs
+                    </Badge>
+                    <Badge variant="outline" data-testid="badge-total-jobs">
+                      {activityData?.totalJobs || 0} Total
+                    </Badge>
+                  </div>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    onClick={() => refetchActivity()}
+                    data-testid="button-refresh-activity"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {activityLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading activity stream...</div>
+                ) : !activityData?.logs || activityData.logs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Terminal className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No activity yet. Start a search job to see live updates.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1 font-mono text-xs bg-black/90 text-green-400 p-4 rounded-lg max-h-[600px] overflow-y-auto" data-testid="container-activity-log">
+                    {activityData.logs.map((log, index) => (
+                      <div 
+                        key={`${log.timestamp}-${index}`}
+                        className={`flex gap-2 py-0.5 border-b border-green-900/30 last:border-b-0 ${
+                          log.type === 'success' ? 'text-yellow-400 font-bold' : 
+                          log.type === 'error' ? 'text-red-400' : 
+                          'text-green-400'
+                        }`}
+                        data-testid={`log-entry-${index}`}
+                      >
+                        <span className="text-gray-500 shrink-0">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span className="text-cyan-400 shrink-0">
+                          [{log.jobStrategy}]
+                        </span>
+                        <span className="break-all">
+                          {log.message}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Legend */}
+                <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>Info (batch progress, mode switches)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span>Success (matches found, targets reached)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span>Error (job failures)</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

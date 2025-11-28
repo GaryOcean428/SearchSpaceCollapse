@@ -490,6 +490,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get logs for a specific search job
+  app.get("/api/search-jobs/:id/logs", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const job = await storage.getSearchJob(id);
+      
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      // Return most recent logs first
+      const logs = job.logs.slice(-limit).reverse();
+      res.json({ logs, total: job.logs.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get unified activity stream from all running jobs
+  app.get("/api/activity-stream", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const jobs = await storage.getSearchJobs();
+      
+      // Collect all logs from all jobs with job context
+      const allLogs: Array<{
+        jobId: string;
+        jobStrategy: string;
+        message: string;
+        type: string;
+        timestamp: string;
+      }> = [];
+      
+      for (const job of jobs) {
+        for (const log of job.logs) {
+          allLogs.push({
+            jobId: job.id,
+            jobStrategy: job.strategy,
+            message: log.message,
+            type: log.type,
+            timestamp: log.timestamp,
+          });
+        }
+      }
+      
+      // Sort by timestamp descending and take limit
+      allLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      res.json({ 
+        logs: allLogs.slice(0, limit),
+        activeJobs: jobs.filter(j => j.status === "running").length,
+        totalJobs: jobs.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/search-jobs/:id/stop", async (req, res) => {
     try {
       const { id } = req.params;
