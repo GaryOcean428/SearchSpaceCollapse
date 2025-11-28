@@ -57,6 +57,15 @@ export default function ObserverPage() {
   const [newTargetAddress, setNewTargetAddress] = useState("");
   const [newTargetLabel, setNewTargetLabel] = useState("");
 
+  // Build URLs with query parameters for filtered queries
+  const prioritiesUrl = tierFilter === 'all' 
+    ? '/api/observer/recovery/priorities' 
+    : `/api/observer/recovery/priorities?tier=${tierFilter}`;
+  
+  const workflowsUrl = vectorFilter === 'all'
+    ? '/api/observer/workflows'
+    : `/api/observer/workflows?vector=${vectorFilter}`;
+
   // Query dormant addresses
   const { data: addressesData, isLoading: addressesLoading } = useQuery<{ addresses: DormantAddress[]; total: number }>({
     queryKey: ['/api/observer/addresses/dormant'],
@@ -64,12 +73,12 @@ export default function ObserverPage() {
 
   // Query recovery priorities
   const { data: prioritiesData, isLoading: prioritiesLoading } = useQuery<{ priorities: RecoveryPriority[]; total: number }>({
-    queryKey: ['/api/observer/recovery/priorities', { tier: tierFilter === 'all' ? undefined : tierFilter }],
+    queryKey: [prioritiesUrl],
   });
 
   // Query workflows with real-time polling
   const { data: workflowsData, isLoading: workflowsLoading } = useQuery<{ workflows: RecoveryWorkflow[]; total: number }>({
-    queryKey: ['/api/observer/workflows', { vector: vectorFilter === 'all' ? undefined : vectorFilter }],
+    queryKey: [workflowsUrl],
     refetchInterval: 3000, // Poll every 3 seconds for real-time progress
   });
 
@@ -680,17 +689,17 @@ export default function ObserverPage() {
                           />
                           <Scatter 
                             name="Addresses" 
-                            data={prioritiesData.priorities.map(p => ({
+                            data={(prioritiesData?.priorities || []).map(p => ({
                               address: p.address,
-                              phi: (p.constraints as any).phiConstraints || 0,
-                              h: (p.entropy as any).hCreation || 0,
-                              kappa: p.kappaRecovery,
+                              phi: (p.constraints as any)?.phiConstraints || 0,
+                              h: (p.entropy as any)?.hCreation || 0,
+                              kappa: p.kappaRecovery || 0,
                               tier: p.tier,
                               isSelected: p.address === selectedAddress,
                             }))}
                             fill="hsl(var(--primary))"
                           >
-                            {prioritiesData.priorities.map((p, index) => (
+                            {(prioritiesData?.priorities || []).map((p, index) => (
                               <Cell 
                                 key={`cell-${index}`}
                                 fill={

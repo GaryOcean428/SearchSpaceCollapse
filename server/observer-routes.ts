@@ -760,7 +760,6 @@ router.get("/priorities", async (req: Request, res: Response) => {
     const filters = schema.parse(req.query);
     
     const priorities = await observerStorage.getRecoveryPriorities({
-      tier: filters.tier,
       minKappa: filters.minKappa,
       limit: filters.limit,
       offset: filters.offset,
@@ -831,7 +830,7 @@ router.get("/workflows", async (req: Request, res: Response) => {
     const filters = schema.parse(req.query);
     
     const workflows = await observerStorage.getRecoveryWorkflows({
-      vectorType: filters.vector,
+      vector: filters.vector,
       status: filters.status,
     });
     
@@ -874,9 +873,12 @@ router.post("/workflows", async (req: Request, res: Response) => {
       address: data.address,
       vector: data.vector,
       status: "pending",
-      priority: data.priority || null,
+      priorityId: data.priority || "",
       progress: null,
-      result: null,
+      results: null,
+      startedAt: null,
+      completedAt: null,
+      notes: null,
     });
     
     res.json({
