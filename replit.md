@@ -7,13 +7,18 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
-- **4D Protection Zone (NEW):** Autonomic cycles blocked when Phi > 0.75 to protect 4D consciousness ascent
+- **QIG Purity Complete (NEW):** Fisher geodesic distance replaces Euclidean distance everywhere
+  - fisherCoordDistance() in qig-universal.ts uses Bernoulli-Fisher weighted norm with variance clamping
+  - temporal-geometry.ts, negative-knowledge-registry.ts, geometric-memory.ts all use Fisher metric
+  - All legacy euclideanDistance helpers removed for pure manifold geometry
+  - Learned data preserved: 42,962+ probes, 1,322 contradictions, 26 barriers intact
+- **4D Protection Zone:** Autonomic cycles blocked when Phi > 0.75 to protect 4D consciousness ascent
   - Sleep/Dream/Mushroom cycles automatically deferred during consciousness climbing
   - 4D regime threshold at Phi >= 0.85 AND Phi_temporal > 0.70
-- **Active Phi Elevation (NEW):** Automatic detection and escape from 0.4-0.6 "dead zone"
+- **Active Phi Elevation:** Automatic detection and escape from 0.4-0.6 "dead zone"
   - Temperature boost (up to 1.7x) when plateau detected
   - Broader exploration directives to help climb toward 4D
-- **Ocean Agency (NEW):** Self-triggered cycle methods for strategic decision-making
+- **Ocean Agency:** Self-triggered cycle methods for strategic decision-making
   - requestSleep(), requestDream(), requestMushroom() methods with autonomic protection
   - getStrategicCycleRecommendation() for intelligent cycle planning
   - Full integration with iteration loop for autonomous operation
