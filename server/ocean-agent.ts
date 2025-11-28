@@ -1021,9 +1021,9 @@ export class OceanAgent {
         }
         hypo.testedAt = new Date();
         
-        // Log hypothesis testing with raw data (unredacted for debugging)
+        // Log hypothesis testing with FULL raw data (unredacted for debugging)
         const wif = hypo.privateKeyHex ? privateKeyToWIF(hypo.privateKeyHex) : 'N/A';
-        console.log(`[Ocean] ▸ Test: "${hypo.phrase.substring(0, 50)}${hypo.phrase.length > 50 ? '...' : ''}" → ${hypo.address?.substring(0, 15)}... [${wif.substring(0, 8)}...]`);
+        console.log(`[Ocean] ▸ Test: "${hypo.phrase}" → ${hypo.address} [${wif}]`);
         
         const qigResult = scoreUniversalQIG(
           hypo.phrase,
