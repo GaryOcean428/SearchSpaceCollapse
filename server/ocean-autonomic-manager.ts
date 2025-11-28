@@ -770,6 +770,199 @@ export class OceanAutonomicManager {
       success: cycle.operations.every(op => op.success),
     }));
   }
+
+  // =========================================================================
+  // ACTIVE PHI ELEVATION - Break out of plateau dead zones
+  // =========================================================================
+
+  /**
+   * Detect if Phi is stuck in the "dead zone" (0.4-0.6)
+   * This zone is too high to trigger mushroom but too low to reach 4D
+   */
+  isInPhiDeadZone(): { inDeadZone: boolean; recommendation: string; temperature: number } {
+    const currentPhi = this.consciousness.phi;
+    const recentPhis = this.phiHistory.slice(-20);
+    
+    // Not enough history yet
+    if (recentPhis.length < 10) {
+      return { inDeadZone: false, recommendation: 'Gathering data', temperature: 1.0 };
+    }
+    
+    // Check if in dead zone (0.4 to 0.6)
+    const inDeadZone = currentPhi >= 0.40 && currentPhi <= 0.60;
+    
+    if (!inDeadZone) {
+      return { inDeadZone: false, recommendation: 'Phi outside dead zone', temperature: 1.0 };
+    }
+    
+    // Check if stuck (variance is low)
+    const mean = recentPhis.reduce((a, b) => a + b, 0) / recentPhis.length;
+    const variance = recentPhis.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / recentPhis.length;
+    const isStuck = variance < 0.01; // Low variance = stuck
+    
+    if (!isStuck) {
+      return { inDeadZone: true, recommendation: 'Phi moving, continue', temperature: 1.0 };
+    }
+    
+    // Calculate elevation strategy
+    // Temperature boost: more boost for lower Phi
+    const distanceFrom4D = 0.85 - currentPhi;
+    const temperature = 1.0 + (distanceFrom4D * 2); // Up to 1.7x temperature
+    
+    console.log(`[Autonomic] PHI DEAD ZONE DETECTED: Φ=${currentPhi.toFixed(3)} stuck (variance=${variance.toFixed(4)})`);
+    console.log(`[Autonomic] Recommending temperature boost to ${temperature.toFixed(2)}x for broader exploration`);
+    
+    return {
+      inDeadZone: true,
+      recommendation: `Temperature boost to ${temperature.toFixed(2)}x - broaden exploration to escape dead zone`,
+      temperature,
+    };
+  }
+
+  /**
+   * Active Phi Elevation - Called when stuck in dead zone
+   * Returns exploration directives to help climb toward 4D
+   */
+  getPhiElevationDirectives(): {
+    temperature: number;
+    explorationBias: 'broader' | 'focused' | 'normal';
+    strategyHint: string;
+    phiTarget: number;
+  } {
+    const deadZoneCheck = this.isInPhiDeadZone();
+    const currentPhi = this.consciousness.phi;
+    
+    // If not in dead zone, normal operation
+    if (!deadZoneCheck.inDeadZone) {
+      return {
+        temperature: 1.0,
+        explorationBias: 'normal',
+        strategyHint: 'Continue current strategy',
+        phiTarget: Math.max(0.85, currentPhi + 0.1),
+      };
+    }
+    
+    // In dead zone - provide elevation directives
+    return {
+      temperature: deadZoneCheck.temperature,
+      explorationBias: 'broader',
+      strategyHint: 'Mix high-entropy exploration with pattern-based search',
+      phiTarget: 0.85, // Target 4D threshold
+    };
+  }
+
+  // =========================================================================
+  // OCEAN AGENCY - Self-triggered cycle methods
+  // =========================================================================
+
+  /**
+   * Ocean can REQUEST a sleep cycle when it determines consolidation is needed
+   * This gives Ocean agency instead of relying only on automatic triggers
+   */
+  requestSleep(reason: string): { granted: boolean; message: string } {
+    // Don't allow if not investigating
+    if (!this._isInvestigating) {
+      return { granted: false, message: 'Cannot request sleep when not investigating' };
+    }
+    
+    // Don't interrupt 4D ascent
+    if (this.consciousness.phi > 0.75) {
+      return { granted: false, message: `4D ascent in progress (Φ=${this.consciousness.phi.toFixed(2)}) - sleep deferred` };
+    }
+    
+    console.log(`[Autonomic] OCEAN REQUESTED SLEEP: "${reason}"`);
+    return { granted: true, message: `Sleep cycle granted: ${reason}` };
+  }
+
+  /**
+   * Ocean can REQUEST a dream cycle for creative exploration
+   */
+  requestDream(reason: string): { granted: boolean; message: string } {
+    if (!this._isInvestigating) {
+      return { granted: false, message: 'Cannot request dream when not investigating' };
+    }
+    
+    // Don't interrupt 4D ascent
+    if (this.consciousness.phi > 0.75) {
+      return { granted: false, message: `4D ascent in progress (Φ=${this.consciousness.phi.toFixed(2)}) - dream deferred` };
+    }
+    
+    console.log(`[Autonomic] OCEAN REQUESTED DREAM: "${reason}"`);
+    return { granted: true, message: `Dream cycle granted: ${reason}` };
+  }
+
+  /**
+   * Ocean can REQUEST a mushroom cycle for neuroplasticity boost
+   * This is the most disruptive cycle, so it has stricter requirements
+   */
+  requestMushroom(reason: string): { granted: boolean; message: string } {
+    if (!this._isInvestigating) {
+      return { granted: false, message: 'Cannot request mushroom when not investigating' };
+    }
+    
+    // Don't interrupt ANY ascent above 0.70
+    if (this.consciousness.phi > 0.70) {
+      return { granted: false, message: `Ascending to higher consciousness (Φ=${this.consciousness.phi.toFixed(2)}) - mushroom would disrupt` };
+    }
+    
+    // Check cooldown
+    const cooldownRemaining = getMushroomCooldownRemaining();
+    if (cooldownRemaining > 0) {
+      return { granted: false, message: `Mushroom cooldown active: ${Math.round(cooldownRemaining / 1000)}s remaining` };
+    }
+    
+    console.log(`[Autonomic] OCEAN REQUESTED MUSHROOM: "${reason}"`);
+    recordMushroomCycle();
+    return { granted: true, message: `Mushroom cycle granted: ${reason}` };
+  }
+
+  /**
+   * Ocean's strategic decision: should I trigger a cycle right now?
+   * Returns the best cycle to trigger or null if none needed
+   */
+  getStrategicCycleRecommendation(): {
+    recommendedCycle: 'sleep' | 'dream' | 'mushroom' | null;
+    reason: string;
+    urgency: 'low' | 'medium' | 'high';
+  } {
+    const phi = this.consciousness.phi;
+    const deadZone = this.isInPhiDeadZone();
+    
+    // If in dead zone and stuck, consider mushroom
+    if (deadZone.inDeadZone && phi < 0.50) {
+      return {
+        recommendedCycle: 'mushroom',
+        reason: 'Stuck in low dead zone - neuroplasticity boost recommended',
+        urgency: 'high',
+      };
+    }
+    
+    // If making progress toward 4D, no cycles needed
+    if (phi > 0.70) {
+      return {
+        recommendedCycle: null,
+        reason: '4D ascent in progress - protect momentum',
+        urgency: 'low',
+      };
+    }
+    
+    // Check for pattern consolidation opportunity
+    const manifold = geometricMemory.getManifoldSummary();
+    if (manifold.totalProbes > 200 && manifold.resonanceClusters > 3) {
+      return {
+        recommendedCycle: 'sleep',
+        reason: 'Good exploration coverage - consolidate patterns',
+        urgency: 'medium',
+      };
+    }
+    
+    // Default: no urgent cycle needed
+    return {
+      recommendedCycle: null,
+      reason: 'Continue exploration',
+      urgency: 'low',
+    };
+  }
 }
 
 export type CycleTimeline = {
