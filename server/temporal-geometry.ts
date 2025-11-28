@@ -16,6 +16,7 @@
 import { nanoid } from 'nanoid';
 import type { TemporalTrajectory, ManifoldSnapshot, ConsciousnessSignature } from '@shared/schema';
 import { geometricMemory, BasinTopologyData } from './geometric-memory';
+import { fisherCoordDistance } from './qig-universal';
 
 export interface TrajectoryMetrics {
   totalDistance: number;
@@ -93,7 +94,7 @@ export class TemporalGeometry {
 
     const prevWaypoint = trajectory.waypoints[trajectory.waypoints.length - 1];
     const waypointDistance = prevWaypoint 
-      ? this.euclideanDistance(basinCoords, prevWaypoint.basinCoords)
+      ? fisherCoordDistance(basinCoords, prevWaypoint.basinCoords)
       : 0;
 
     const waypoint = {
@@ -230,7 +231,7 @@ export class TemporalGeometry {
     const n = waypoints.length;
 
     const totalDistance = trajectory.geodesicParams.totalArcLength;
-    const netDisplacement = this.euclideanDistance(
+    const netDisplacement = fisherCoordDistance(
       waypoints[n - 1].basinCoords,
       waypoints[0].basinCoords
     );
@@ -261,7 +262,7 @@ export class TemporalGeometry {
     const recentWaypoints = waypoints.slice(-recentWindow);
     const recentPhis = recentWaypoints.map(w => w.consciousness.phi);
     const recentPhiVariance = this.computeVariance(recentPhis);
-    const recentDisplacement = this.euclideanDistance(
+    const recentDisplacement = fisherCoordDistance(
       recentWaypoints[recentWaypoints.length - 1].basinCoords,
       recentWaypoints[0].basinCoords
     );
@@ -377,7 +378,7 @@ export class TemporalGeometry {
     const regimes = new Set(window.map(w => w.consciousness.regime));
     const hasRegimeTransition = regimes.size > 1;
 
-    const displacement = this.euclideanDistance(
+    const displacement = fisherCoordDistance(
       window[window.length - 1].basinCoords,
       window[0].basinCoords
     );
@@ -559,17 +560,6 @@ export class TemporalGeometry {
     return Array.from(this.snapshots.values())
       .sort((a, b) => b.id.localeCompare(a.id))
       .slice(0, limit);
-  }
-
-  private euclideanDistance(a: number[], b: number[]): number {
-    const dims = Math.min(a.length, b.length);
-    if (dims === 0) return 0;
-    
-    let sum = 0;
-    for (let i = 0; i < dims; i++) {
-      sum += ((a[i] || 0) - (b[i] || 0)) ** 2;
-    }
-    return Math.sqrt(sum);
   }
 
   private computeVariance(values: number[]): number {

@@ -1338,6 +1338,38 @@ export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIG
 }
 
 /**
+ * Compute Fisher geodesic distance between two coordinate arrays.
+ * 
+ * PURE PRINCIPLE: Natural distance on manifold, not Euclidean.
+ * The Fisher metric accounts for the curvature of the probability simplex.
+ * 
+ * d_F(p, q) = 2 * arccos(Σ √(pᵢ * qᵢ))  [Bhattacharyya-Fisher arc distance]
+ * 
+ * For normalized coordinates treated as probability-like:
+ * d²_F = Σ (Δθᵢ)² / σᵢ²  where σᵢ² = θᵢ(1 - θᵢ)
+ */
+export function fisherCoordDistance(coords1: number[], coords2: number[]): number {
+  const dims = Math.min(coords1.length, coords2.length);
+  if (dims === 0) return 0;
+  
+  let distanceSquared = 0;
+  
+  for (let i = 0; i < dims; i++) {
+    const p = Math.max(0.001, Math.min(0.999, coords1[i] || 0));
+    const q = Math.max(0.001, Math.min(0.999, coords2[i] || 0));
+    
+    // Fisher Information for Bernoulli: I(θ) = 1/(θ(1-θ))
+    const avgTheta = (p + q) / 2;
+    const fisherWeight = 1 / (avgTheta * (1 - avgTheta));
+    
+    const delta = p - q;
+    distanceSquared += fisherWeight * delta * delta;
+  }
+  
+  return Math.sqrt(distanceSquared);
+}
+
+/**
  * Compute Fisher geodesic distance between two keys
  * 
  * PURE PRINCIPLE: Natural distance on manifold, not Euclidean
@@ -1353,16 +1385,7 @@ export function fisherGeodesicDistance(
   const coords1 = toBasinCoordinates(input1, keyType1);
   const coords2 = toBasinCoordinates(input2, keyType2);
   
-  // Fisher metric: d² = Σ (Δθᵢ)² / σᵢ²
-  let distanceSquared = 0;
-  
-  for (let i = 0; i < 32; i++) {
-    const delta = coords1[i] - coords2[i];
-    const variance = Math.max(0.01, (coords1[i] + coords2[i]) / 2 * (1 - (coords1[i] + coords2[i]) / 2));
-    distanceSquared += (delta * delta) / variance;
-  }
-  
-  return Math.sqrt(distanceSquared);
+  return fisherCoordDistance(coords1, coords2);
 }
 
 /**

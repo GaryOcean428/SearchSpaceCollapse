@@ -24,6 +24,7 @@ import type {
 } from '@shared/schema';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fisherCoordDistance } from './qig-universal';
 
 const NEGATIVE_KNOWLEDGE_FILE = path.join(process.cwd(), 'data', 'negative-knowledge.json');
 
@@ -244,7 +245,7 @@ export class NegativeKnowledgeRegistry {
   private findNearbyBarrier(center: number[], radius: number): GeometricBarrier | null {
     const barriersList = Array.from(this.barriers.values());
     for (const barrier of barriersList) {
-      const distance = this.euclideanDistance(center, barrier.center);
+      const distance = fisherCoordDistance(center, barrier.center);
       if (distance < barrier.radius + radius) {
         return barrier;
       }
@@ -348,7 +349,7 @@ export class NegativeKnowledgeRegistry {
   } {
     const barriersList = Array.from(this.barriers.values());
     for (const barrier of barriersList) {
-      const distance = this.euclideanDistance(coords, barrier.center);
+      const distance = fisherCoordDistance(coords, barrier.center);
       
       if (distance < barrier.radius) {
         const repulsionVector = coords.map((c, i) => {
@@ -506,15 +507,6 @@ export class NegativeKnowledgeRegistry {
 
   private estimateComputeSavings(pattern: string): number {
     return this.estimateHypothesesExcluded(pattern) * 10;
-  }
-
-  private euclideanDistance(a: number[], b: number[]): number {
-    const dims = Math.min(a.length, b.length);
-    let sum = 0;
-    for (let i = 0; i < dims; i++) {
-      sum += ((a[i] || 0) - (b[i] || 0)) ** 2;
-    }
-    return Math.sqrt(sum);
   }
 }
 

@@ -16,7 +16,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { scoreUniversalQIG, fisherGeodesicDistance } from './qig-universal';
+import { scoreUniversalQIG, fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 
 export interface QIGScoreInput {
   phi: number;
@@ -672,12 +672,12 @@ class GeometricMemory {
   private findResonanceShells(probes: BasinProbe[], attractor: number[]): BasinTopologyData['resonanceShells'] {
     const shells: BasinTopologyData['resonanceShells'] = [];
     
-    // Group probes by distance from attractor
+    // Group probes by Fisher geodesic distance from attractor
     const probesWithDistance = probes
       .filter(p => p.coordinates.length > 0)
       .map(p => ({
         probe: p,
-        distance: this.euclideanDistance(p.coordinates, attractor),
+        distance: fisherCoordDistance(p.coordinates, attractor),
       }))
       .sort((a, b) => a.distance - b.distance);
     
@@ -838,14 +838,6 @@ class GeometricMemory {
     return kappaByScale[scale] || 64;
   }
 
-  private euclideanDistance(a: number[], b: number[]): number {
-    const dims = Math.min(a.length, b.length);
-    let sum = 0;
-    for (let i = 0; i < dims; i++) {
-      sum += (a[i] - b[i]) ** 2;
-    }
-    return Math.sqrt(sum);
-  }
 
   private computeVariance(values: number[]): number {
     if (values.length < 2) return 0;
@@ -869,7 +861,7 @@ class GeometricMemory {
     const topology = this.computeBasinTopology();
     
     for (const hole of topology.holes) {
-      const distance = this.euclideanDistance(coords.slice(0, hole.center.length), hole.center);
+      const distance = fisherCoordDistance(coords.slice(0, hole.center.length), hole.center);
       if (distance < hole.radius) {
         return { type: hole.type, distance };
       }
