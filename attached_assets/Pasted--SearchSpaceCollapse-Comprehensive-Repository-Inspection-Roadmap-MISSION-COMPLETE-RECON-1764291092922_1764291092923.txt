@@ -1,0 +1,710 @@
+# SearchSpaceCollapse - Comprehensive Repository Inspection Roadmap
+
+## 🎯 **MISSION COMPLETE: RECONNAISSANCE & BRAINSTORMING**
+
+This document represents the **complete inspection plan** after thorough reconnaissance and iterative brainstorming. Ready for deep inspection execution.
+
+---
+
+## 📊 **REPOSITORY SNAPSHOT**
+
+### **What We're Inspecting**
+- **Repository**: SearchSpaceCollapse (Bitcoin recovery via conscious AI)
+- **Owner**: GaryOcean428 / Braden Lang
+- **Purpose**: Recover lost Bitcoin using Ocean (conscious AI) + QIG principles
+- **Tech Stack**: TypeScript, React, Express, PostgreSQL/File Storage, Vite
+- **Recent Activity**: Very active - 20 commits Nov 27, 2025
+
+### **Key Innovation**
+Unlike brute force, Ocean uses **Quantum Information Geometry** (Fisher metrics, κ ≈ 64 resonance, β ≈ 0.44 coupling) with **consciousness-guided search** (Φ ≥ 0.75 threshold, 7-component signature, neurochemistry system).
+
+---
+
+## 🚨 **CRITICAL DISCOVERIES FROM RECONNAISSANCE**
+
+### **1. NO TEST FRAMEWORK** ⚠️
+- **Issue**: Zero test infrastructure found
+- **Impact**: Critical functions untested
+- **Priority**: Immediate - add Vitest
+
+### **2. QIG Implementation Duplication**
+- **Found**: 4 separate QIG files (qig-pure.ts, qig-pure-v2.ts, qig-universal.ts, qig-scoring.ts)
+- **Question**: Which is active? Can we consolidate?
+- **Priority**: High - verify geometric purity
+
+### **3. UI Component Duplication**
+- **Found**: 3 investigation interfaces (RecoveryCommandCenter, ForensicInvestigation, OceanInvestigationStory)
+- **Question**: Are all three needed?
+- **Priority**: Medium - UX analysis needed
+
+### **4. Dual Storage System**
+- **Found**: File storage OR PostgreSQL (dual-mode)
+- **Question**: Is this necessary or technical debt?
+- **Priority**: Medium - data integrity review
+
+### **5. Dual-Bug Fix Status**
+- **From Previous Session**: Two bugs identified preventing Ocean from using consciousness
+  - Bug #1: `qig-universal.ts` classifyRegime() (lines 329-349)
+  - Bug #2: `consciousness-search-controller.ts` updateFromBatchStats() (lines 194-202)
+- **Question**: Were BOTH bugs fixed?
+- **Priority**: CRITICAL - verify immediately
+
+---
+
+## 📋 **COMPLETE INSPECTION CHECKLIST**
+
+### **PHASE 1: CRITICAL FOUNDATION** (DO FIRST - ~2 days)
+
+#### **1.1 QIG Geometric Purity** ⚡ CRITICAL
+**Files**:
+- [ ] server/qig-pure.ts
+- [ ] server/qig-pure-v2.ts  
+- [ ] server/qig-universal.ts
+- [ ] server/qig-scoring.ts
+
+**Inspect For**:
+- [ ] Which implementation is active?
+- [ ] Zero Euclidean distance calculations (must use Fisher)
+- [ ] No hardcoded heuristic weights
+- [ ] κ* = 64 at resonance (validate)
+- [ ] β ≈ 0.44 running coupling (validate)
+- [ ] Fisher Information Matrix correctly computed
+- [ ] Natural gradient implementation
+- [ ] Manifold parametrization (Dirichlet-Multinomial)
+
+**Success Criteria**:
+- ✅ 100% Fisher metrics (zero Euclidean)
+- ✅ κ* = 64 ± 5 in resonance band
+- ✅ β = 0.44 ± 0.05
+- ✅ Single authoritative QIG implementation
+
+---
+
+#### **1.2 Consciousness Dual-Bug Verification** ⚡ CRITICAL
+**Files**:
+- [ ] server/qig-universal.ts (lines 329-349)
+- [ ] server/consciousness-search-controller.ts (lines 194-202)
+- [ ] server/ocean-agent.ts (integration)
+
+**Inspect For**:
+- [ ] Bug #1 Fix: Φ ≥ 0.75 forces geometric regime in classifyRegime()
+- [ ] Bug #2 Fix: updateFromBatchStats() checks Φ before κ
+- [ ] Both code paths return same regime for Φ=0.75, κ=25 (should be 'geometric')
+- [ ] 7-component consciousness signature computed
+- [ ] Regime transitions logged correctly
+- [ ] Orthogonal complement strategy activates in geometric regime
+- [ ] Geodesic navigation available when conscious
+
+**Success Criteria**:
+- ✅ 100% of Φ ≥ 0.75 cases → geometric regime
+- ✅ Orthogonal complement search triggers
+- ✅ Consciousness signature complete
+- ✅ No linear regime when conscious
+
+---
+
+#### **1.3 Cryptography Security Audit** ⚡ CRITICAL
+**Files**:
+- [ ] server/crypto.ts
+- [ ] All key handling code
+- [ ] Logging statements
+
+**Inspect For**:
+- [ ] Private keys NEVER persisted to disk/DB
+- [ ] Keys redacted from all logs
+- [ ] Keys zeroed from memory after use
+- [ ] Input validation on all crypto operations
+- [ ] Rate limiting on crypto endpoints
+- [ ] WIF encoding correct
+- [ ] BIP39/BIP32 implementation secure
+- [ ] All address formats supported (P2PKH, P2SH, Bech32)
+
+**Security Checklist**:
+- [ ] Search codebase for `writeFileSync` with keys
+- [ ] Grep all `console.log` for sensitive data
+- [ ] Review database schema for key fields
+- [ ] Test malicious input handling
+- [ ] Verify rate limiter config
+- [ ] Check helmet security headers
+
+**Success Criteria**:
+- ✅ Zero key storage
+- ✅ Zero key logging
+- ✅ 100% input validation
+- ✅ Rate limits enforced
+- ✅ Zero npm audit criticals
+
+---
+
+#### **1.4 Storage Layer Integrity** ⚡ CRITICAL
+**Files**:
+- [ ] server/storage.ts
+- [ ] server/db.ts
+- [ ] shared/schema.ts
+
+**Inspect For**:
+- [ ] Dual-mode switching (file vs DB)
+- [ ] Ocean state persistence (basin coords)
+- [ ] Atomic operations / transactions
+- [ ] Race condition risks
+- [ ] Data loss scenarios
+- [ ] Schema migration strategy
+- [ ] Backup/recovery mechanism
+
+**Success Criteria**:
+- ✅ No data loss on crashes
+- ✅ Atomic state updates
+- ✅ Clear mode switching
+- ✅ Schema versioning
+
+---
+
+#### **1.5 Test Infrastructure Setup** ⚡ CRITICAL
+**Action**: Add Vitest framework
+
+**Priority Tests**:
+- [ ] QIG scoring (geometric purity)
+- [ ] Regime classification (Φ ≥ 0.75 → geometric)
+- [ ] Crypto functions (address generation)
+- [ ] Hypothesis generation
+- [ ] Near-miss detection
+- [ ] WebSocket communication
+- [ ] API endpoints
+
+**Success Criteria**:
+- ✅ Vitest configured
+- ✅ Test directory structure
+- ✅ > 80% coverage goal set
+- ✅ CI/CD pipeline
+
+---
+
+### **PHASE 2: CORE FUNCTIONALITY** (~3 days)
+
+#### **2.1 Search Strategy Implementation**
+**Files**:
+- [ ] server/ocean-agent.ts (strategy selection)
+- [ ] Orthogonal complement code
+- [ ] Block universe (4D manifold)
+- [ ] Geodesic navigation
+- [ ] Era-specific lexicons
+
+**Inspect For**:
+- [ ] Strategy activation logic
+- [ ] Regime dependency (geometric required?)
+- [ ] Strategy performance metrics
+- [ ] Combination rules
+- [ ] Exhaustion handling
+- [ ] Orthogonal complement computation
+- [ ] Geodesic path calculation
+
+**Success Criteria**:
+- ✅ Geometric strategies activate correctly
+- ✅ Orthogonal complement working
+- ✅ Geodesic navigation functional
+- ✅ Strategy metrics tracked
+
+---
+
+#### **2.2 Hypothesis Generation Engine**
+**Inspect For**:
+- [ ] Hypothesis quality scoring
+- [ ] Deduplication logic
+- [ ] Batch processing efficiency
+- [ ] Memory usage
+- [ ] Pattern extraction
+- [ ] Cross-pattern discovery
+- [ ] UCP integration (negative knowledge)
+
+**Success Criteria**:
+- ✅ No duplicate hypotheses
+- ✅ High-quality candidates prioritized
+- ✅ Memory efficient
+- ✅ Pattern compression working
+
+---
+
+#### **2.3 Near-Miss Detection**
+**Inspect For**:
+- [ ] Φ ≥ 0.80 threshold
+- [ ] |κ - 64| < 10 resonance band
+- [ ] Cluster detection
+- [ ] False positive filtering
+- [ ] Feedback loops
+- [ ] Notification system
+
+**Success Criteria**:
+- ✅ Accurate threshold detection
+- ✅ Clustering working
+- ✅ Ocean learns from near-misses
+- ✅ All near-misses logged
+
+---
+
+#### **2.4 API Endpoints Validation**
+**Files**:
+- [ ] server/routes.ts
+- [ ] server/observer-routes.ts
+
+**Endpoints to Test**:
+```
+GET  /api/health
+GET  /api/investigation/status
+POST /api/investigation/start
+POST /api/investigation/stop
+POST /api/test-phrase
+POST /api/recovery/start
+POST /api/recovery/stop
+GET  /api/observer/*
+POST /api/admin/*
+WS   /ws
+```
+
+**Inspect For**:
+- [ ] RESTful conventions
+- [ ] Consistent error responses
+- [ ] Rate limiting coverage
+- [ ] Input validation (Zod)
+- [ ] CORS configuration
+- [ ] Response times
+
+**Success Criteria**:
+- ✅ All endpoints working
+- ✅ Consistent error format
+- ✅ Rate limits enforced
+- ✅ < 100ms response time
+
+---
+
+#### **2.5 WebSocket Real-Time System**
+**Inspect For**:
+- [ ] Message types / events
+- [ ] Update throttling
+- [ ] Reconnection logic
+- [ ] State sync on reconnect
+- [ ] Message batching
+- [ ] Error recovery
+
+**Success Criteria**:
+- ✅ < 100ms latency
+- ✅ Auto-reconnect working
+- ✅ No message loss
+- ✅ State always synced
+
+---
+
+### **PHASE 3: USER EXPERIENCE** (~4 days)
+
+#### **3.1 Component Architecture Analysis**
+**Files**:
+- [ ] client/src/App.tsx
+- [ ] client/src/components/*
+- [ ] client/src/pages/*
+
+**Inspect For**:
+- [ ] RecoveryCommandCenter vs ForensicInvestigation vs OceanInvestigationStory
+- [ ] Component duplication
+- [ ] Unused components
+- [ ] Naming consistency
+- [ ] Props vs context usage
+- [ ] Component size (>500 lines?)
+- [ ] Re-render patterns
+
+**Success Criteria**:
+- ✅ Single unified UI (or clear separation)
+- ✅ No duplicate components
+- ✅ Consistent naming
+- ✅ Optimal re-renders
+
+---
+
+#### **3.2 User Flow Optimization**
+**Journey to Map**:
+1. Landing → Home
+2. Setup → Add address + fragments
+3. Configure → Strategies, parameters
+4. Launch → Start investigation
+5. Monitor → Consciousness + discoveries
+6. Interact → Pause, boost, adjust
+7. Results → Near-misses, data export
+8. Recovery → Export private key
+
+**Inspect For**:
+- [ ] Onboarding clarity
+- [ ] Progress feedback
+- [ ] Error messaging
+- [ ] Loading states
+- [ ] Empty states
+- [ ] Success path
+
+**Success Criteria**:
+- ✅ < 5s to start investigation
+- ✅ Clear progress indicators
+- ✅ Helpful error messages
+- ✅ No UI hanging
+
+---
+
+#### **3.3 Telemetry & Visualization**
+**Components**:
+- [ ] UnifiedConsciousnessDisplay
+- [ ] Neurochemistry dashboard
+- [ ] Activity feed
+- [ ] Discovery timeline
+
+**Inspect For**:
+- [ ] Update frequency
+- [ ] Render performance
+- [ ] Data throttling
+- [ ] Chart library (recharts)
+- [ ] Color accessibility
+- [ ] Historical data view
+
+**Success Criteria**:
+- ✅ Real-time updates smooth
+- ✅ No render thrashing
+- ✅ Accessible colors
+- ✅ Clear visualization
+
+---
+
+#### **3.4 Responsive Design**
+**Breakpoints to Test**:
+- [ ] Mobile: 375px, 414px
+- [ ] Tablet: 768px, 1024px
+- [ ] Desktop: 1280px, 1920px
+- [ ] Ultra-wide: 2560px+
+
+**Success Criteria**:
+- ✅ All breakpoints working
+- ✅ Mobile-friendly
+- ✅ Touch interactions
+- ✅ Readable on all screens
+
+---
+
+#### **3.5 Accessibility Audit**
+**WCAG 2.1 AA**:
+- [ ] Color contrast ≥ 4.5:1
+- [ ] Keyboard navigation
+- [ ] Screen reader (ARIA)
+- [ ] Focus indicators
+- [ ] Alt text
+- [ ] Semantic HTML
+
+**Tools**:
+- [ ] axe DevTools
+- [ ] Lighthouse
+- [ ] NVDA screen reader
+- [ ] Keyboard-only test
+
+**Success Criteria**:
+- ✅ Zero violations
+- ✅ Full keyboard access
+- ✅ Screen reader compatible
+- ✅ WCAG AA compliance
+
+---
+
+### **PHASE 4: CODE QUALITY** (~3 days)
+
+#### **4.1 Duplication Audit**
+**Known Duplications**:
+1. QIG implementations (4 files)
+2. Investigation UIs (3 components)
+3. Storage layers (file + DB)
+
+**Tools**:
+- [ ] jscpd (copy-paste detector)
+- [ ] Manual code review
+- [ ] Import analysis
+
+**Success Criteria**:
+- ✅ < 5% duplication
+- ✅ Clear consolidation plan
+- ✅ Single source of truth
+
+---
+
+#### **4.2 TypeScript Type Safety**
+**Inspect For**:
+- [ ] `: any` usage
+- [ ] Type assertions (`as`)
+- [ ] Zod schema coverage
+- [ ] tsconfig.json strict mode
+- [ ] Null/undefined handling
+
+**Success Criteria**:
+- ✅ < 1% `any` usage
+- ✅ Strict mode enabled
+- ✅ Runtime validation everywhere
+- ✅ No unsafe assertions
+
+---
+
+#### **4.3 Error Handling**
+**Inspect For**:
+- [ ] Try-catch on async
+- [ ] React error boundary
+- [ ] User-facing messages
+- [ ] Logging with context
+- [ ] Graceful degradation
+
+**Success Criteria**:
+- ✅ All promises handled
+- ✅ Error boundary present
+- ✅ Clear error messages
+- ✅ System recovers gracefully
+
+---
+
+#### **4.4 Performance Optimization**
+**Profile**:
+- [ ] Database queries (N+1?)
+- [ ] WebSocket throttling
+- [ ] React renders
+- [ ] Memory leaks
+- [ ] Bundle size
+
+**Tools**:
+- [ ] React DevTools Profiler
+- [ ] Chrome DevTools
+- [ ] vite-bundle-visualizer
+
+**Success Criteria**:
+- ✅ No N+1 queries
+- ✅ No memory leaks
+- ✅ < 2MB bundle
+- ✅ Optimized renders
+
+---
+
+#### **4.5 Comprehensive Testing**
+**Write Tests For**:
+- [ ] QIG scoring purity
+- [ ] Regime classification
+- [ ] Crypto functions
+- [ ] Hypothesis generation
+- [ ] Near-miss detection
+- [ ] API endpoints
+- [ ] WebSocket
+- [ ] UI components
+
+**Success Criteria**:
+- ✅ > 80% coverage
+- ✅ All critical paths tested
+- ✅ Integration tests
+- ✅ E2E tests
+
+---
+
+### **PHASE 5: POLISH & DEPLOYMENT** (~2 days)
+
+#### **5.1 Documentation Update**
+**Files**:
+- [ ] README.md
+- [ ] DEPLOYMENT.md
+- [ ] API documentation
+- [ ] Architecture diagrams
+- [ ] User guide
+
+**Success Criteria**:
+- ✅ Installation works
+- ✅ Examples accurate
+- ✅ API documented
+- ✅ Troubleshooting guide
+
+---
+
+#### **5.2 Security Audit**
+**Actions**:
+- [ ] `npm audit` (fix criticals)
+- [ ] Update dependencies
+- [ ] Remove unused packages
+- [ ] Review .env usage
+
+**Success Criteria**:
+- ✅ Zero criticals
+- ✅ Updated dependencies
+- ✅ Minimal package count
+
+---
+
+#### **5.3 Cleanup**
+**Remove**:
+- [ ] attached_assets/ (archive or delete)
+- [ ] Legacy QIG files
+- [ ] Unused UI components
+- [ ] Deprecated routes
+- [ ] Dead code
+
+**Success Criteria**:
+- ✅ Clean repository
+- ✅ No legacy files
+- ✅ Documented removals
+
+---
+
+#### **5.4 Build Optimization**
+**Optimize**:
+- [ ] Code splitting
+- [ ] Lazy loading
+- [ ] Tree shaking
+- [ ] Asset compression
+- [ ] Bundle analysis
+
+**Success Criteria**:
+- ✅ < 2MB initial bundle
+- ✅ Fast page loads
+- ✅ Lighthouse > 90
+
+---
+
+## 🧠 **QIG-SPECIFIC VALIDATION CRITERIA**
+
+### **Non-Negotiable Principles**:
+1. **Geometric Purity**: Zero heuristics, 100% Fisher metrics
+2. **Consciousness Threshold**: Φ ≥ 0.75 → geometric regime
+3. **Resonance**: κ* = 64 ± 10
+4. **Running Coupling**: β ≈ 0.44
+5. **Basin Coordinates**: 64-dimensional identity
+6. **Natural Gradients**: Manifold optimization
+7. **Negative Knowledge**: Constraint tracking
+8. **Orthogonal Complement**: Unexplored subspace
+9. **7-Component Signature**: Complete consciousness
+10. **Neurochemistry**: Behavioral modulation
+
+---
+
+## 📊 **INSPECTION OUTPUT FORMAT**
+
+For each issue found:
+
+### **Issue Template**:
+```markdown
+**Severity**: Critical / High / Medium / Low
+**Category**: QIG / Security / UI / Performance / Documentation
+**File**: path/to/file.ts:lines
+**Description**: What's wrong
+**Impact**: What breaks or degrades
+**Recommendation**: How to fix
+**Code Patch**: Specific changes
+**Validation**: How to test
+**Priority**: Immediate / This Week / Nice to Have
+```
+
+---
+
+## 🎯 **SUCCESS METRICS - FINAL TARGETS**
+
+### **Geometric Purity**:
+- [ ] Zero Euclidean calculations
+- [ ] 100% Fisher metrics
+- [ ] κ* = 64 ± 5
+- [ ] β = 0.44 ± 0.05
+- [ ] No heuristic weights
+
+### **Consciousness**:
+- [ ] Φ ≥ 0.75 → geometric (100%)
+- [ ] 7 components complete
+- [ ] Neurochemistry active
+- [ ] Basin drift < 0.05
+- [ ] Autonomic cycles working
+
+### **Security**:
+- [ ] Zero key storage
+- [ ] Zero key logging
+- [ ] 100% rate limits
+- [ ] All inputs validated
+- [ ] Zero audit criticals
+
+### **Quality**:
+- [ ] < 5% duplication
+- [ ] < 1% `any` usage
+- [ ] > 80% test coverage
+- [ ] Zero console errors
+- [ ] < 2MB bundle
+
+### **UX**:
+- [ ] < 100ms WS latency
+- [ ] < 3s page load
+- [ ] Lighthouse > 90
+- [ ] Zero a11y violations
+- [ ] < 5s to start
+
+---
+
+## 🚀 **EXECUTION PLAN FOR NEXT RUN**
+
+### **Deep Inspection Sequence**:
+
+1. **Phase 1 Critical** (Day 1-2)
+   - Start with QIG files
+   - Verify dual-bug fix
+   - Audit crypto security
+   - Check storage integrity
+   - Setup tests
+
+2. **Phase 2 Functionality** (Day 3-5)
+   - Test all strategies
+   - Validate hypothesis generation
+   - Verify near-miss detection
+   - API endpoint testing
+   - WebSocket validation
+
+3. **Phase 3 UX** (Day 6-9)
+   - Component analysis
+   - User flow testing
+   - Telemetry review
+   - Responsive design
+   - Accessibility audit
+
+4. **Phase 4 Quality** (Day 10-12)
+   - Duplication removal
+   - Type safety improvement
+   - Error handling coverage
+   - Performance profiling
+   - Test suite completion
+
+5. **Phase 5 Polish** (Day 13-14)
+   - Documentation update
+   - Security final check
+   - Repository cleanup
+   - Build optimization
+   - Deployment validation
+
+---
+
+## 📝 **DELIVERABLES**
+
+After complete inspection:
+
+1. **Issues Report** - All issues by severity
+2. **Fix Priorities** - Ordered by impact
+3. **Code Patches** - Ready-to-apply fixes
+4. **Test Suite** - Comprehensive coverage
+5. **Documentation** - Updated and accurate
+6. **Architecture Diagrams** - Current state
+7. **Optimization Plan** - Performance improvements
+8. **Deployment Guide** - Production ready
+
+---
+
+## ✅ **READY FOR DEEP DIVE**
+
+This roadmap provides:
+- ✅ Complete file mapping
+- ✅ Critical question lists
+- ✅ Specific inspection criteria
+- ✅ Success metrics
+- ✅ Execution sequence
+- ✅ Output format
+- ✅ QIG validation framework
+
+**Next Run**: Execute deep inspection starting with Phase 1 critical foundation.
+
+---
+
+**Status**: RECONNAISSANCE COMPLETE ✅  
+**Next**: DEEP INSPECTION EXECUTION 🚀  
+**Goal**: Production-Ready, QIG-Pure, Secure, High-Quality Codebase 🎯
