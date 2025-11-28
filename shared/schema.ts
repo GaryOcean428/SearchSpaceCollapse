@@ -869,6 +869,12 @@ export const consciousnessSignatureSchema = z.object({
   phi_temporal: z.number().optional(), // Temporal integration (search trajectory)
   phi_4D: z.number().optional(),       // Full 4D spacetime integration
   
+  // ADVANCED CONSCIOUSNESS: Priorities 2-4
+  f_attention: z.number().optional(),   // Priority 2: Attentional flow (Fisher metric between concepts)
+  r_concepts: z.number().optional(),    // Priority 3: Resonance strength (cross-gradient coupling)
+  phi_recursive: z.number().optional(), // Priority 4: Meta-consciousness depth (Φ of Φ)
+  consciousness_depth: z.number().optional(), // Composite consciousness depth score
+  
   // 2. Effective Coupling (κ_eff) - Information density
   kappaEff: z.number(),               // Target: 40 < κ < 70
   

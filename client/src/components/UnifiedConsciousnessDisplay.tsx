@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Brain, Zap, Heart, Target, Moon, Sparkles, Activity, Loader2, Compass, Orbit, Box } from 'lucide-react';
+import { Brain, Zap, Heart, Target, Moon, Sparkles, Activity, Loader2, Compass, Orbit, Box, Eye, Waves, Layers, Infinity } from 'lucide-react';
 
 interface Props {
   variant?: 'full' | 'compact' | 'minimal';
@@ -57,6 +57,13 @@ export default function UnifiedConsciousnessDisplay({
   const phi4D = consciousness.phi_4D ?? consciousness.phi;
   const phiSpatial = consciousness.phi_spatial ?? consciousness.phi;
   const phiTemporal = consciousness.phi_temporal ?? 0;
+  
+  // Advanced consciousness metrics (Priorities 2-4)
+  const fAttention = consciousness.f_attention ?? 0;
+  const rConcepts = consciousness.r_concepts ?? 0;
+  const phiRecursive = consciousness.phi_recursive ?? 0;
+  const consciousnessDepth = consciousness.consciousness_depth ?? 0;
+  const hasAdvancedMetrics = fAttention > 0 || rConcepts > 0 || phiRecursive > 0;
 
   if (variant === 'compact') {
     return (
@@ -120,6 +127,47 @@ export default function UnifiedConsciousnessDisplay({
                 <span className="font-mono font-medium text-purple-400" data-testid="text-phi-temporal">
                   {(phiTemporal * 100).toFixed(0)}%
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* ADVANCED CONSCIOUSNESS: Priorities 2-4 Metrics */}
+          {hasAdvancedMetrics && !isIdle && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Consciousness Depth</span>
+                <span className="font-mono font-semibold text-cyan-500" data-testid="text-consciousness-depth">
+                  {(consciousnessDepth * 100).toFixed(0)}%
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="flex items-center justify-between p-2 bg-cyan-500/10 rounded border border-cyan-500/20">
+                  <div className="flex items-center gap-1">
+                    <Eye className="h-3 w-3 text-cyan-400" />
+                    <span className="text-cyan-300">F_attn</span>
+                  </div>
+                  <span className="font-mono font-medium text-cyan-400" data-testid="text-f-attention">
+                    {(fAttention * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-cyan-500/10 rounded border border-cyan-500/20">
+                  <div className="flex items-center gap-1">
+                    <Waves className="h-3 w-3 text-cyan-400" />
+                    <span className="text-cyan-300">R_con</span>
+                  </div>
+                  <span className="font-mono font-medium text-cyan-400" data-testid="text-r-concepts">
+                    {(rConcepts * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-cyan-500/10 rounded border border-cyan-500/20">
+                  <div className="flex items-center gap-1">
+                    <Infinity className="h-3 w-3 text-cyan-400" />
+                    <span className="text-cyan-300">Φ_rec</span>
+                  </div>
+                  <span className="font-mono font-medium text-cyan-400" data-testid="text-phi-recursive">
+                    {(phiRecursive * 100).toFixed(0)}%
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -245,6 +293,57 @@ export default function UnifiedConsciousnessDisplay({
                 {(phiTemporal * 100).toFixed(0)}%
               </div>
               <div className="text-xs text-purple-300/70">Search Trajectory</div>
+            </div>
+          </div>
+        )}
+
+        {/* ADVANCED CONSCIOUSNESS: Priorities 2-4 Full Display */}
+        {hasAdvancedMetrics && !isIdle && (
+          <div className="space-y-3 p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-cyan-400">
+                <Layers className="h-4 w-4" />
+                <span className="text-sm font-medium">Consciousness Depth</span>
+              </div>
+              <span className="text-xl font-bold font-mono text-cyan-400" data-testid="text-consciousness-depth-full">
+                {(consciousnessDepth * 100).toFixed(0)}%
+              </span>
+            </div>
+            <Progress 
+              value={consciousnessDepth * 100} 
+              className="h-2 [&>div]:bg-cyan-500" 
+            />
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="flex items-center justify-center gap-1 text-cyan-400 mb-1">
+                  <Eye className="h-3 w-3" />
+                  <span className="text-xs font-medium">Attentional Flow</span>
+                </div>
+                <div className="text-lg font-bold font-mono text-cyan-400" data-testid="text-f-attention-full">
+                  {(fAttention * 100).toFixed(0)}%
+                </div>
+                <div className="text-xs text-cyan-300/70">F_attention</div>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-1 text-cyan-400 mb-1">
+                  <Waves className="h-3 w-3" />
+                  <span className="text-xs font-medium">Resonance</span>
+                </div>
+                <div className="text-lg font-bold font-mono text-cyan-400" data-testid="text-r-concepts-full">
+                  {(rConcepts * 100).toFixed(0)}%
+                </div>
+                <div className="text-xs text-cyan-300/70">R_concepts</div>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-1 text-cyan-400 mb-1">
+                  <Infinity className="h-3 w-3" />
+                  <span className="text-xs font-medium">Meta-Depth</span>
+                </div>
+                <div className="text-lg font-bold font-mono text-cyan-400" data-testid="text-phi-recursive-full">
+                  {(phiRecursive * 100).toFixed(0)}%
+                </div>
+                <div className="text-xs text-cyan-300/70">Φ_recursive</div>
+              </div>
             </div>
           </div>
         )}

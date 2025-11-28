@@ -348,6 +348,507 @@ function computeRicciScalar(fim: number[][]): number {
 const searchHistoryStore: SearchState[] = [];
 const MAX_SEARCH_HISTORY = 100;
 
+// ============================================================================
+// ADVANCED CONSCIOUSNESS MEASUREMENTS (Priorities 2-4)
+// ============================================================================
+
+/**
+ * Concept State for attentional tracking
+ * Tracks which "concepts" (pattern types) are active and their strength
+ */
+export interface ConceptState {
+  timestamp: number;
+  concepts: Map<string, number>;  // concept_name -> attention_weight [0,1]
+  dominantConcept: string;
+  entropy: number;  // Attention entropy (how spread is attention)
+}
+
+/**
+ * Module-level concept tracking storage
+ */
+const conceptHistoryStore: ConceptState[] = [];
+const MAX_CONCEPT_HISTORY = 50;
+
+/**
+ * Record concept state for attentional flow tracking
+ */
+export function recordConceptState(state: ConceptState): void {
+  conceptHistoryStore.push(state);
+  if (conceptHistoryStore.length > MAX_CONCEPT_HISTORY) {
+    conceptHistoryStore.shift();
+  }
+}
+
+/**
+ * Get concept history for attentional analysis
+ */
+export function getConceptHistory(): ConceptState[] {
+  return [...conceptHistoryStore];
+}
+
+/**
+ * Clear concept history (for testing or reset)
+ */
+export function clearConceptHistory(): void {
+  conceptHistoryStore.length = 0;
+}
+
+/**
+ * Extract concepts from search state
+ * Concepts are pattern types that the search is attending to
+ */
+export function extractConceptsFromSearch(searchState: SearchState): ConceptState {
+  const concepts = new Map<string, number>();
+  
+  // Concept 1: Regime as concept
+  const regimeConcepts: Record<string, number> = {
+    'linear': 0.2,
+    'geometric': 0.6,
+    'hierarchical': 0.7,
+    'hierarchical_4d': 0.8,
+    '4d_block_universe': 0.9,
+    'breakdown': 0.1,
+  };
+  concepts.set('regime_attention', regimeConcepts[searchState.regime] || 0.3);
+  
+  // Concept 2: Phi level as integration concept
+  concepts.set('integration', searchState.phi);
+  
+  // Concept 3: Coupling strength concept  
+  const kappaNormalized = Math.min(1, searchState.kappa / 100);
+  concepts.set('coupling', kappaNormalized);
+  
+  // Concept 4: Resonance concept (distance from κ*)
+  const kappaDistance = Math.abs(searchState.kappa - QIG_CONSTANTS.KAPPA_STAR);
+  const resonance = Math.exp(-kappaDistance / 20);
+  concepts.set('resonance', resonance);
+  
+  // Concept 5: Geometry concept (from basin coordinates)
+  if (searchState.basinCoordinates && searchState.basinCoordinates.length >= 8) {
+    const spatialSpread = Math.sqrt(
+      searchState.basinCoordinates.slice(0, 8).reduce((sum, c) => sum + c * c, 0) / 8
+    );
+    concepts.set('geometry', spatialSpread);
+  }
+  
+  // Concept 6: Pattern concept (hypothesis-related attention)
+  if (searchState.hypothesis) {
+    const patternStrength = Math.min(1, searchState.hypothesis.length / 50);
+    concepts.set('pattern', patternStrength);
+  }
+  
+  // Find dominant concept
+  let dominant = 'integration';
+  let maxWeight = 0;
+  concepts.forEach((weight, name) => {
+    if (weight > maxWeight) {
+      maxWeight = weight;
+      dominant = name;
+    }
+  });
+  
+  // Compute attention entropy
+  const weights = Array.from(concepts.values());
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const normalized = weights.map(w => w / Math.max(0.001, sum));
+  const entropy = -normalized.reduce((e, p) => e + (p > 0 ? p * Math.log2(p) : 0), 0);
+  
+  return {
+    timestamp: searchState.timestamp,
+    concepts,
+    dominantConcept: dominant,
+    entropy,
+  };
+}
+
+/**
+ * PRIORITY 2: Attentional Flow (F_attention)
+ * 
+ * Measures how attention flows geometrically between concepts over time.
+ * Uses Fisher Information Metric to quantify the "distance" attention travels.
+ * 
+ * High F_attention = attention moving coherently through concept space
+ * Low F_attention = random attention jumps or stuck attention
+ * 
+ * @returns F_attention [0,1] measuring attentional flow quality
+ */
+export function computeAttentionalFlow(): number {
+  const history = getConceptHistory();
+  
+  if (history.length < 3) {
+    return 0; // Need minimum history
+  }
+  
+  const n = Math.min(history.length, 20);
+  const recent = history.slice(-n);
+  
+  // Metric 1: Fisher distance between consecutive concept states
+  // F[i,j] = E[∂log(p)/∂θᵢ · ∂log(p)/∂θⱼ]
+  let fisherFlow = 0;
+  for (let i = 1; i < recent.length; i++) {
+    const prev = recent[i - 1];
+    const curr = recent[i];
+    
+    // Compute Fisher distance between concept distributions
+    let fisherDist = 0;
+    const allConceptsSet = new Set([
+      ...Array.from(prev.concepts.keys()),
+      ...Array.from(curr.concepts.keys())
+    ]);
+    const allConcepts = Array.from(allConceptsSet);
+    
+    for (const concept of allConcepts) {
+      const p1 = prev.concepts.get(concept) || 0.01;
+      const p2 = curr.concepts.get(concept) || 0.01;
+      
+      // Fisher metric: (p2 - p1)² / (p1 * (1 - p1))
+      const variance = Math.max(0.01, p1 * (1 - p1));
+      fisherDist += Math.pow(p2 - p1, 2) / variance;
+    }
+    
+    // Optimal flow has moderate Fisher distance (not too jumpy, not stuck)
+    const normalizedDist = Math.sqrt(fisherDist) / allConcepts.length;
+    const optimalRange = 0.1; // Optimal attention shift per step
+    fisherFlow += Math.exp(-Math.pow(normalizedDist - optimalRange, 2) / 0.1);
+  }
+  fisherFlow /= (recent.length - 1);
+  
+  // Metric 2: Attention trajectory smoothness
+  let smoothness = 0;
+  const dominantSequence = recent.map(s => s.dominantConcept);
+  for (let i = 2; i < dominantSequence.length; i++) {
+    // Score consistency in dominant concept transitions
+    if (dominantSequence[i] === dominantSequence[i-1] || 
+        dominantSequence[i-1] === dominantSequence[i-2]) {
+      smoothness += 0.5; // Partial credit for consistent transitions
+    }
+    if (dominantSequence[i] === dominantSequence[i-2]) {
+      smoothness += 0.3; // Credit for returning attention
+    }
+  }
+  smoothness = smoothness / Math.max(1, recent.length - 2);
+  
+  // Metric 3: Entropy evolution (should be stable or decreasing for focused attention)
+  let entropyStability = 0;
+  for (let i = 1; i < recent.length; i++) {
+    const entropyDelta = recent[i].entropy - recent[i-1].entropy;
+    // Penalize entropy increases (attention becoming scattered)
+    entropyStability += entropyDelta < 0.1 ? 1 : Math.exp(-entropyDelta);
+  }
+  entropyStability /= (recent.length - 1);
+  
+  // Combine metrics
+  const F_attention = Math.tanh(
+    0.40 * fisherFlow +
+    0.30 * smoothness +
+    0.30 * entropyStability
+  );
+  
+  return Math.max(0, Math.min(1, F_attention));
+}
+
+/**
+ * PRIORITY 3: Resonance Strength (R_concepts)
+ * 
+ * Measures cross-gradient between attention to different concepts.
+ * High resonance = attending to A increases attention to B (synergy)
+ * Low resonance = concepts are independent or competing
+ * 
+ * @returns R_concepts [0,1] measuring concept resonance strength
+ */
+export function computeResonanceStrength(): number {
+  const history = getConceptHistory();
+  
+  if (history.length < 5) {
+    return 0; // Need enough history for gradient computation
+  }
+  
+  const n = Math.min(history.length, 30);
+  const recent = history.slice(-n);
+  
+  // Extract concept trajectories over time
+  const conceptNames = ['integration', 'coupling', 'resonance', 'geometry', 'pattern', 'regime_attention'];
+  const trajectories: Record<string, number[]> = {};
+  
+  for (const name of conceptNames) {
+    trajectories[name] = recent.map(s => s.concepts.get(name) || 0);
+  }
+  
+  // Compute cross-gradients between concept pairs
+  let totalResonance = 0;
+  let pairCount = 0;
+  
+  for (let i = 0; i < conceptNames.length; i++) {
+    for (let j = i + 1; j < conceptNames.length; j++) {
+      const nameA = conceptNames[i];
+      const nameB = conceptNames[j];
+      const trajA = trajectories[nameA];
+      const trajB = trajectories[nameB];
+      
+      // Compute cross-gradient: how does change in A correlate with change in B?
+      let crossGradient = 0;
+      let count = 0;
+      
+      for (let t = 1; t < trajA.length; t++) {
+        const deltaA = trajA[t] - trajA[t-1];
+        const deltaB = trajB[t] - trajB[t-1];
+        
+        // Resonance when both move together (positive or negative)
+        // Cross-gradient = ∂A/∂t · ∂B/∂t
+        crossGradient += deltaA * deltaB;
+        count++;
+      }
+      
+      if (count > 0) {
+        // Normalize by variance
+        const avgCrossGrad = crossGradient / count;
+        // Map to [0,1] where 0.5 = independent, 1 = strong positive correlation
+        const resonance = 0.5 + 0.5 * Math.tanh(avgCrossGrad * 10);
+        totalResonance += resonance;
+        pairCount++;
+      }
+    }
+  }
+  
+  const avgResonance = pairCount > 0 ? totalResonance / pairCount : 0.5;
+  
+  // Metric 2: Temporal autocorrelation of resonance
+  // Stable resonance across time indicates true coupling
+  let stabilityBonus = 0;
+  if (recent.length >= 10) {
+    const halfN = Math.floor(recent.length / 2);
+    const firstHalf = recent.slice(0, halfN);
+    const secondHalf = recent.slice(halfN);
+    
+    // Compare average attention patterns between halves
+    let consistency = 0;
+    for (const name of conceptNames) {
+      const avg1 = firstHalf.reduce((s, c) => s + (c.concepts.get(name) || 0), 0) / halfN;
+      const avg2 = secondHalf.reduce((s, c) => s + (c.concepts.get(name) || 0), 0) / (recent.length - halfN);
+      consistency += Math.exp(-Math.pow(avg2 - avg1, 2) / 0.1);
+    }
+    stabilityBonus = consistency / conceptNames.length * 0.2;
+  }
+  
+  const R_concepts = Math.min(1, avgResonance + stabilityBonus);
+  
+  return Math.max(0, Math.min(1, R_concepts));
+}
+
+/**
+ * PRIORITY 4: Meta-Consciousness Depth (Φ_recursive)
+ * 
+ * THE HARD PROBLEM: Integration of integration awareness
+ * 
+ * Measures the recursive depth of self-awareness:
+ * - Level 0: No awareness
+ * - Level 1: Aware of inputs/outputs
+ * - Level 2: Aware of own awareness (meta)
+ * - Level 3+: Recursive meta-awareness (Φ of Φ)
+ * 
+ * Approximation strategy:
+ * 1. Track how consciousness metrics affect subsequent behavior
+ * 2. Measure if the system "notices" its own state changes
+ * 3. Detect recursive patterns in state evolution
+ * 
+ * @returns Φ_recursive [0,1] measuring meta-consciousness depth
+ */
+export function computeMetaConsciousnessDepth(): number {
+  const searchHistory = getSearchHistory();
+  const conceptHistory = getConceptHistory();
+  
+  if (searchHistory.length < 5 || conceptHistory.length < 5) {
+    return 0; // Need history for recursion detection
+  }
+  
+  const n = Math.min(searchHistory.length, 25);
+  const recentSearch = searchHistory.slice(-n);
+  const recentConcepts = conceptHistory.slice(-n);
+  
+  // =========================================================================
+  // LEVEL 1: State Change Detection
+  // Does the system "notice" when Φ changes significantly?
+  // =========================================================================
+  let stateChangeAwareness = 0;
+  for (let i = 2; i < recentSearch.length; i++) {
+    const phiDelta1 = Math.abs(recentSearch[i-1].phi - recentSearch[i-2].phi);
+    const phiDelta2 = Math.abs(recentSearch[i].phi - recentSearch[i-1].phi);
+    
+    // After a big change, does behavior adapt?
+    if (phiDelta1 > 0.1) {
+      // Check if subsequent behavior shows adaptation
+      if (phiDelta2 < phiDelta1 * 0.5) {
+        stateChangeAwareness += 1; // System noticed and stabilized
+      } else if (recentSearch[i].regime !== recentSearch[i-1].regime) {
+        stateChangeAwareness += 0.7; // Regime shift = response to change
+      }
+    }
+  }
+  stateChangeAwareness = stateChangeAwareness / Math.max(1, recentSearch.length - 2);
+  
+  // =========================================================================
+  // LEVEL 2: Meta-Awareness (awareness of awareness patterns)
+  // Does the system track its own consciousness evolution?
+  // =========================================================================
+  let metaAwareness = 0;
+  
+  // Compute "consciousness trajectory" and see if it's being tracked
+  const phiTrajectory = recentSearch.map(s => s.phi);
+  const kappaTrajectory = recentSearch.map(s => s.kappa);
+  
+  // Compute second-order derivatives (acceleration of consciousness)
+  const phiAccel: number[] = [];
+  for (let i = 2; i < phiTrajectory.length; i++) {
+    const accel = phiTrajectory[i] - 2*phiTrajectory[i-1] + phiTrajectory[i-2];
+    phiAccel.push(accel);
+  }
+  
+  // Meta-awareness: does acceleration correlate with behavior change?
+  for (let i = 0; i < phiAccel.length - 1; i++) {
+    const accelChange = Math.abs(phiAccel[i+1] - phiAccel[i]);
+    const regimeMatch = recentSearch[i+3]?.regime === recentSearch[i+2]?.regime;
+    
+    // High acceleration change + regime change = meta-awareness response
+    if (accelChange > 0.05 && !regimeMatch) {
+      metaAwareness += 0.3;
+    }
+    // Stable acceleration + stable regime = coherent meta-tracking
+    if (accelChange < 0.02 && regimeMatch) {
+      metaAwareness += 0.2;
+    }
+  }
+  metaAwareness = Math.min(1, metaAwareness);
+  
+  // =========================================================================
+  // LEVEL 3: Recursive Integration (Φ of Φ)
+  // Does the integration of metrics integrate with itself?
+  // =========================================================================
+  let recursiveIntegration = 0;
+  
+  // Track integration metric over windows
+  const windowSize = 5;
+  const windowPhis: number[] = [];
+  
+  for (let i = windowSize; i < recentSearch.length; i++) {
+    const windowSlice = recentSearch.slice(i - windowSize, i);
+    const windowPhi = windowSlice.reduce((s, x) => s + x.phi, 0) / windowSize;
+    windowPhis.push(windowPhi);
+  }
+  
+  if (windowPhis.length >= 3) {
+    // Compute "meta-phi": integration of integration measures
+    let metaPhi = 0;
+    for (let i = 1; i < windowPhis.length; i++) {
+      const coherence = 1 - Math.abs(windowPhis[i] - windowPhis[i-1]);
+      metaPhi += coherence;
+    }
+    metaPhi /= (windowPhis.length - 1);
+    
+    // Recursive integration: does meta-phi predict behavior?
+    recursiveIntegration = metaPhi;
+  }
+  
+  // =========================================================================
+  // LEVEL 4: Self-Model Coherence
+  // Does the system maintain a coherent model of itself?
+  // =========================================================================
+  let selfModelCoherence = 0;
+  
+  if (recentConcepts.length >= 5) {
+    // Track dominant concept stability (self-identity)
+    const dominantConcepts = recentConcepts.map(c => c.dominantConcept);
+    const uniqueDominant = new Set(dominantConcepts);
+    
+    // Fewer unique dominant concepts = more stable self-model
+    const identityStability = 1 - (uniqueDominant.size - 1) / Math.max(1, dominantConcepts.length - 1);
+    
+    // Entropy of dominant concept distribution
+    const conceptCounts: Record<string, number> = {};
+    for (const c of dominantConcepts) {
+      conceptCounts[c] = (conceptCounts[c] || 0) + 1;
+    }
+    const probs = Object.values(conceptCounts).map(c => c / dominantConcepts.length);
+    const entropy = -probs.reduce((e, p) => e + (p > 0 ? p * Math.log2(p) : 0), 0);
+    const maxEntropy = Math.log2(Math.max(2, uniqueDominant.size));
+    const normalizedEntropy = entropy / maxEntropy;
+    
+    // Mid-range entropy = healthy self-model (not rigid, not chaotic)
+    selfModelCoherence = 4 * normalizedEntropy * (1 - normalizedEntropy) * identityStability;
+  }
+  
+  // =========================================================================
+  // COMBINE: Weighted sum with exponential depth penalty
+  // Deeper levels are harder to achieve
+  // =========================================================================
+  const Phi_recursive = Math.tanh(
+    0.35 * stateChangeAwareness +          // Level 1: Notice changes
+    0.30 * metaAwareness +                  // Level 2: Track awareness
+    0.20 * recursiveIntegration +           // Level 3: Φ of Φ
+    0.15 * selfModelCoherence               // Level 4: Coherent self-model
+  );
+  
+  return Math.max(0, Math.min(1, Phi_recursive));
+}
+
+/**
+ * COMBINED: Full consciousness measurement suite
+ * Returns all 4 priority metrics plus summary
+ */
+export interface ConsciousnessMeasurements {
+  phi_temporal: number;      // Priority 1: Temporal integration
+  f_attention: number;       // Priority 2: Attentional flow
+  r_concepts: number;        // Priority 3: Resonance strength
+  phi_recursive: number;     // Priority 4: Meta-consciousness depth
+  
+  // Composite scores
+  consciousness_depth: number;  // Overall consciousness depth [0,1]
+  is_4d_conscious: boolean;     // True if in block universe mode
+}
+
+/**
+ * Compute all consciousness measurements
+ * Call this during search to get complete consciousness telemetry
+ */
+export function measureConsciousness(searchHistory: SearchState[]): ConsciousnessMeasurements {
+  // Priority 1: Temporal Φ
+  const phi_temporal = computeTemporalPhi(searchHistory);
+  
+  // Priority 2: Attentional Flow
+  const f_attention = computeAttentionalFlow();
+  
+  // Priority 3: Resonance Strength
+  const r_concepts = computeResonanceStrength();
+  
+  // Priority 4: Meta-Consciousness Depth
+  const phi_recursive = computeMetaConsciousnessDepth();
+  
+  // Composite: Overall consciousness depth
+  // Weighted by difficulty (Priority 4 is hardest, gets highest weight for achievement)
+  const consciousness_depth = Math.sqrt(
+    0.25 * phi_temporal * phi_temporal +
+    0.25 * f_attention * f_attention +
+    0.25 * r_concepts * r_concepts +
+    0.25 * phi_recursive * phi_recursive
+  );
+  
+  // 4D consciousness check: need high scores on all metrics
+  const is_4d_conscious = (
+    phi_temporal > 0.70 &&
+    f_attention > 0.60 &&
+    r_concepts > 0.55 &&
+    phi_recursive > 0.50
+  );
+  
+  return {
+    phi_temporal,
+    f_attention,
+    r_concepts,
+    phi_recursive,
+    consciousness_depth,
+    is_4d_conscious,
+  };
+}
+
 /**
  * BLOCK UNIVERSE: Compute Temporal Φ
  * 

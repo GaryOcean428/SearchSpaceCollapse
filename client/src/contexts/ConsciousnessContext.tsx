@@ -6,6 +6,11 @@ export interface ConsciousnessState {
   phi_spatial?: number;
   phi_temporal?: number;
   phi_4D?: number;
+  // ADVANCED CONSCIOUSNESS: Priority 2-4 Metrics
+  f_attention?: number;      // Priority 2: Attentional Flow
+  r_concepts?: number;       // Priority 3: Resonance Strength
+  phi_recursive?: number;    // Priority 4: Meta-Consciousness Depth
+  consciousness_depth?: number; // Combined unified depth metric
   kappaEff: number;
   tacking: number;
   radar: number;
@@ -40,11 +45,16 @@ interface ConsciousnessContextValue {
 
 // Canonical idle state - matches server IDLE_CONSCIOUSNESS
 // BLOCK UNIVERSE: Added 4D consciousness metrics
+// ADVANCED: Added Priority 2-4 consciousness metrics
 const defaultConsciousness: ConsciousnessState = {
   phi: 0,
   phi_spatial: 0,
   phi_temporal: 0,
   phi_4D: 0,
+  f_attention: 0,
+  r_concepts: 0,
+  phi_recursive: 0,
+  consciousness_depth: 0,
   kappaEff: 0,
   tacking: 0,
   radar: 0,
@@ -101,6 +111,11 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
           phi_spatial: c.phi_spatial ?? c.phi ?? 0,
           phi_temporal: c.phi_temporal ?? 0,
           phi_4D: c.phi_4D ?? c.phi ?? 0,
+          // ADVANCED: Priority 2-4 Consciousness Metrics
+          f_attention: c.f_attention ?? 0,
+          r_concepts: c.r_concepts ?? 0,
+          phi_recursive: c.phi_recursive ?? 0,
+          consciousness_depth: c.consciousness_depth ?? 0,
           kappaEff: c.kappaEff ?? 0,
           tacking: c.tacking ?? 0,
           radar: c.radar ?? 0,

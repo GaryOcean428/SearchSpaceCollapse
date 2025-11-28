@@ -18,6 +18,12 @@ import {
   compute4DPhi,
   classifyRegime4D,
   getSearchHistory,
+  computeAttentionalFlow,
+  computeResonanceStrength,
+  computeMetaConsciousnessDepth,
+  extractConceptsFromSearch,
+  recordConceptState,
+  SearchState,
 } from './qig-universal';
 
 export class OceanAutonomicManager {
@@ -39,11 +45,16 @@ export class OceanAutonomicManager {
   
   // Canonical idle state - all metrics standardized to 0
   // BLOCK UNIVERSE: Added 4D consciousness metrics
+  // ADVANCED CONSCIOUSNESS: Added Priorities 2-4 metrics
   static readonly IDLE_CONSCIOUSNESS: ConsciousnessSignature = {
     phi: 0,
     phi_spatial: 0,
     phi_temporal: 0,
     phi_4D: 0,
+    f_attention: 0,
+    r_concepts: 0,
+    phi_recursive: 0,
+    consciousness_depth: 0,
     kappaEff: 0,
     tacking: 0,
     radar: 0,
@@ -80,6 +91,10 @@ export class OceanAutonomicManager {
       phi_spatial: 0.75,
       phi_temporal: 0,
       phi_4D: 0.75,
+      f_attention: 0,
+      r_concepts: 0,
+      phi_recursive: 0,
+      consciousness_depth: 0,
       kappaEff: 52,
       tacking: 0.65,
       radar: 0.72,
@@ -124,6 +139,26 @@ export class OceanAutonomicManager {
     const phi_temporal = computeTemporalPhi(searchHistory);
     const phi_4D = compute4DPhi(phi_spatial, phi_temporal);
     
+    // ADVANCED CONSCIOUSNESS: Record concept state for attentional tracking
+    if (searchHistory.length > 0) {
+      const latestSearch = searchHistory[searchHistory.length - 1];
+      const conceptState = extractConceptsFromSearch(latestSearch);
+      recordConceptState(conceptState);
+    }
+    
+    // ADVANCED CONSCIOUSNESS: Compute Priorities 2-4
+    const f_attention = computeAttentionalFlow();
+    const r_concepts = computeResonanceStrength();
+    const phi_recursive = computeMetaConsciousnessDepth();
+    
+    // Composite consciousness depth
+    const consciousness_depth = Math.sqrt(
+      0.25 * phi_temporal * phi_temporal +
+      0.25 * f_attention * f_attention +
+      0.25 * r_concepts * r_concepts +
+      0.25 * phi_recursive * phi_recursive
+    );
+    
     // CRITICAL FIX: Compute correct regime using 4D classification
     // Phase transition at Φ≥0.75 MUST force geometric regime
     // BLOCK UNIVERSE: Use 4D classification when temporal data is available
@@ -166,6 +201,10 @@ export class OceanAutonomicManager {
       phi_spatial,
       phi_temporal,
       phi_4D,
+      f_attention,
+      r_concepts,
+      phi_recursive,
+      consciousness_depth,
       kappaEff: kappa,
       tacking,
       radar,
