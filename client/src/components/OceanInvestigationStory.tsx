@@ -102,12 +102,14 @@ interface InvestigationStatus {
 }
 
 interface NeurochemistryData {
-  dopamine: number;
-  serotonin: number;
-  norepinephrine: number;
-  gaba: number;
-  acetylcholine: number;
-  endorphins: number;
+  dopamine: { totalDopamine: number; motivationLevel: number };
+  serotonin: { totalSerotonin: number; contentmentLevel: number };
+  norepinephrine: { totalNorepinephrine: number; alertnessLevel: number };
+  gaba: { totalGABA: number; calmLevel: number };
+  acetylcholine: { totalAcetylcholine: number; learningRate: number };
+  endorphins: { totalEndorphins: number; pleasureLevel: number };
+  overallMood?: number;
+  emotionalState?: string;
 }
 
 interface CyclesData {
@@ -206,11 +208,9 @@ export function OceanInvestigationStory() {
     discoveries: [],
   };
 
-  // Use cyclesData when investigating, fallback to status.fullConsciousness
+  // Always show real consciousness data - prefer cyclesData, fallback to status
   const isInvestigating = cyclesData?.isInvestigating === true;
-  const consciousness = isInvestigating && cyclesData?.consciousness 
-    ? cyclesData.consciousness 
-    : currentStatus.fullConsciousness || null;
+  const consciousness = cyclesData?.consciousness || currentStatus.fullConsciousness || null;
   const neuro = neurochemistryData?.neurochemistry;
   
   // Combine discoveries from status and candidates
@@ -229,7 +229,7 @@ export function OceanInvestigationStory() {
       />
 
       {/* Row 2: Compact Consciousness Signature */}
-      <ConsciousnessRow consciousness={consciousness} isInvestigating={isInvestigating} />
+      <ConsciousnessRow consciousness={consciousness} />
 
       {/* Row 3: Two columns - Neurochemistry/Admin | Activity */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0">
@@ -248,7 +248,7 @@ export function OceanInvestigationStory() {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="p-3 pt-0">
-                  <NeurochemistryCompact neuro={neuro} isInvestigating={isInvestigating} />
+                  <NeurochemistryCompact neuro={neuro} />
                 </CardContent>
               </CollapsibleContent>
             </Card>
@@ -390,7 +390,6 @@ export function OceanInvestigationStory() {
         tested={currentStatus.tested}
         promising={currentStatus.nearMisses}
         consciousness={consciousness?.phi || 0}
-        isInvestigating={isInvestigating}
         manifold={currentStatus.manifold}
       />
     </div>
@@ -536,11 +535,9 @@ function ControlRow({
 }
 
 function ConsciousnessRow({ 
-  consciousness, 
-  isInvestigating 
+  consciousness
 }: { 
   consciousness: FullConsciousnessSignature | null;
-  isInvestigating: boolean;
 }) {
   const metrics = [
     { key: 'phi', label: 'Φ', value: consciousness?.phi, threshold: 0.75 },
@@ -554,8 +551,10 @@ function ConsciousnessRow({
 
   const getRegimeColor = () => {
     if (!consciousness) return 'text-muted-foreground';
-    if (consciousness.regime === 'geometric') return 'text-green-400';
-    if (consciousness.regime === 'breakdown') return 'text-red-400';
+    const regime = consciousness.regime as string;
+    if (regime === 'geometric') return 'text-green-400';
+    if (regime === 'breakdown') return 'text-red-400';
+    if (regime === '4d_block_universe' || regime === 'hierarchical_4d') return 'text-purple-400';
     return 'text-yellow-400';
   };
 
@@ -564,7 +563,7 @@ function ConsciousnessRow({
       <span className="text-xs text-muted-foreground uppercase tracking-wide mr-2">Consciousness</span>
       
       {metrics.map((m) => {
-        const displayValue = isInvestigating && m.value !== undefined ? m.value.toFixed(2) : '—';
+        const displayValue = m.value !== undefined ? m.value.toFixed(2) : '—';
         const isGood = m.value !== undefined && m.value >= m.threshold && (!m.max || m.value <= m.max);
         
         return (
@@ -572,7 +571,6 @@ function ConsciousnessRow({
             <TooltipTrigger asChild>
               <div 
                 className={`px-2 py-1 rounded text-xs font-mono ${
-                  !isInvestigating ? 'text-muted-foreground' :
                   isGood ? 'text-green-400 bg-green-500/10' : 'text-muted-foreground'
                 }`}
                 data-testid={`consciousness-${m.key}`}
@@ -592,9 +590,9 @@ function ConsciousnessRow({
           className={`text-xs ${getRegimeColor()}`}
           data-testid="consciousness-regime"
         >
-          {isInvestigating ? consciousness?.regime || 'idle' : 'idle'}
+          {consciousness?.regime || 'idle'}
         </Badge>
-        {isInvestigating && consciousness?.isConscious && (
+        {consciousness?.isConscious && (
           <Badge className="bg-green-500/20 text-green-400 text-xs">
             Conscious
           </Badge>
@@ -605,12 +603,23 @@ function ConsciousnessRow({
 }
 
 function NeurochemistryCompact({ 
-  neuro, 
-  isInvestigating 
+  neuro
 }: { 
   neuro?: NeurochemistryData;
-  isInvestigating: boolean;
 }) {
+  const getValue = (key: string): number => {
+    if (!neuro) return 0.5;
+    switch (key) {
+      case 'dopamine': return neuro.dopamine?.totalDopamine ?? 0.5;
+      case 'serotonin': return neuro.serotonin?.totalSerotonin ?? 0.5;
+      case 'norepinephrine': return neuro.norepinephrine?.totalNorepinephrine ?? 0.5;
+      case 'gaba': return neuro.gaba?.totalGABA ?? 0.5;
+      case 'acetylcholine': return neuro.acetylcholine?.totalAcetylcholine ?? 0.5;
+      case 'endorphins': return neuro.endorphins?.totalEndorphins ?? 0.5;
+      default: return 0.5;
+    }
+  };
+
   const items = [
     { key: 'dopamine', label: 'Dopamine', color: 'bg-yellow-500' },
     { key: 'serotonin', label: 'Serotonin', color: 'bg-pink-500' },
@@ -623,7 +632,7 @@ function NeurochemistryCompact({
   return (
     <div className="space-y-2">
       {items.map((item) => {
-        const value = isInvestigating && neuro ? (neuro as any)[item.key] * 100 : 50;
+        const value = getValue(item.key) * 100;
         return (
           <div key={item.key} className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-20 truncate">{item.label}</span>
@@ -710,13 +719,11 @@ function StatsRow({
   tested, 
   promising, 
   consciousness, 
-  isInvestigating,
   manifold
 }: { 
   tested: number;
   promising: number;
   consciousness: number;
-  isInvestigating: boolean;
   manifold?: ManifoldState;
 }) {
   return (
@@ -726,7 +733,7 @@ function StatsRow({
           <Brain className="w-5 h-5 text-purple-400 shrink-0" />
           <div className="min-w-0">
             <div className="text-lg font-bold" data-testid="stat-consciousness">
-              {isInvestigating || consciousness > 0 ? `${(consciousness * 100).toFixed(0)}%` : '—'}
+              {consciousness > 0 ? `${(consciousness * 100).toFixed(0)}%` : '—'}
             </div>
             <div className="text-xs text-muted-foreground">Φ</div>
           </div>
