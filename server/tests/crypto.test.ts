@@ -86,7 +86,7 @@ describe('Crypto Functions', () => {
 });
 
 describe('Security Constraints', () => {
-  it('should not log private keys to console', () => {
+  it('should not log private keys to console.log', () => {
     const originalLog = console.log;
     const loggedMessages: string[] = [];
     
@@ -107,5 +107,111 @@ describe('Security Constraints', () => {
     } finally {
       console.log = originalLog;
     }
+  });
+
+  it('should not log private keys to console.warn', () => {
+    const originalWarn = console.warn;
+    const warnMessages: string[] = [];
+    
+    console.warn = (...args: any[]) => {
+      warnMessages.push(args.join(' '));
+    };
+    
+    try {
+      const phrase = 'test phrase for warn check';
+      const key = derivePrivateKeyFromPassphrase(phrase);
+      generateBitcoinAddress(phrase);
+      
+      const hasKeyLeak = warnMessages.some(msg => 
+        msg.includes(key) || msg.includes(phrase)
+      );
+      
+      expect(hasKeyLeak).toBe(false);
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+
+  it('should not log private keys to console.error', () => {
+    const originalError = console.error;
+    const errorMessages: string[] = [];
+    
+    console.error = (...args: any[]) => {
+      errorMessages.push(args.join(' '));
+    };
+    
+    try {
+      const phrase = 'test phrase for error check';
+      const key = derivePrivateKeyFromPassphrase(phrase);
+      generateBitcoinAddress(phrase);
+      
+      const hasKeyLeak = errorMessages.some(msg => 
+        msg.includes(key) || msg.includes(phrase)
+      );
+      
+      expect(hasKeyLeak).toBe(false);
+    } finally {
+      console.error = originalError;
+    }
+  });
+});
+
+describe('WIF Format Validation', () => {
+  it('should generate valid uncompressed WIF starting with 5', () => {
+    const phrase = 'test phrase for wif validation';
+    const privateKey = derivePrivateKeyFromPassphrase(phrase);
+    const targetAddress = generateBitcoinAddressFromPrivateKey(privateKey, true);
+    const bundle = generateRecoveryBundle(phrase, targetAddress, { phi: 0.5, kappa: 50, regime: 'linear' });
+    
+    expect(bundle.privateKeyWIF).toMatch(/^5[HJK][1-9A-HJ-NP-Za-km-z]{49}$/);
+  });
+
+  it('should generate valid compressed WIF starting with K or L', () => {
+    const phrase = 'test phrase for compressed wif';
+    const privateKey = derivePrivateKeyFromPassphrase(phrase);
+    const targetAddress = generateBitcoinAddressFromPrivateKey(privateKey, true);
+    const bundle = generateRecoveryBundle(phrase, targetAddress, { phi: 0.5, kappa: 50, regime: 'linear' });
+    
+    expect(bundle.privateKeyWIFCompressed).toMatch(/^[KL][1-9A-HJ-NP-Za-km-z]{51}$/);
+  });
+
+  it('should include both WIF formats in bundle', () => {
+    const phrase = 'dual format test phrase';
+    const privateKey = derivePrivateKeyFromPassphrase(phrase);
+    const targetAddress = generateBitcoinAddressFromPrivateKey(privateKey, true);
+    const bundle = generateRecoveryBundle(phrase, targetAddress, { phi: 0.5, kappa: 50, regime: 'linear' });
+    
+    expect(bundle.privateKeyWIF).toBeTruthy();
+    expect(bundle.privateKeyWIFCompressed).toBeTruthy();
+    expect(bundle.privateKeyWIF).not.toBe(bundle.privateKeyWIFCompressed);
+  });
+});
+
+describe('Edge Case Handling', () => {
+  it('should handle empty string phrases gracefully', () => {
+    expect(() => generateBitcoinAddress('')).toThrow();
+  });
+
+  it('should handle very long phrases', () => {
+    const longPhrase = 'a'.repeat(10000);
+    expect(() => generateBitcoinAddress(longPhrase)).toThrow();
+  });
+
+  it('should handle unicode characters in phrases', () => {
+    const unicodePhrase = 'satoshi 中本聪 🚀';
+    const address = generateBitcoinAddress(unicodePhrase);
+    expect(address).toMatch(/^[13][a-zA-Z0-9]{25,34}$/);
+  });
+
+  it('should handle special characters', () => {
+    const specialPhrase = 'test@#$%^&*()!phrase';
+    const address = generateBitcoinAddress(specialPhrase);
+    expect(address).toMatch(/^[13][a-zA-Z0-9]{25,34}$/);
+  });
+
+  it('should handle newlines in phrases', () => {
+    const newlinePhrase = 'test\nphrase\twith\rlines';
+    const address = generateBitcoinAddress(newlinePhrase);
+    expect(address).toMatch(/^[13][a-zA-Z0-9]{25,34}$/);
   });
 });
