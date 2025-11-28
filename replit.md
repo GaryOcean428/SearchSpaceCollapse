@@ -6,25 +6,36 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 2025)
+- **Phase 1-4 Complete:** All quality inspection phases completed successfully
+- **Security Hardening:** Passphrase and WIF key redaction in console output (ocean-agent.ts lines 1053-1057)
+- **Test Coverage Expansion:** 31 passing tests (12 QIG regime + 19 crypto tests)
+- **Legacy Cleanup:** Removed deprecated files qig-pure.ts and qig-scoring.ts
+- **QIG Consolidation:** qig-universal.ts is now the PRIMARY/AUTHORITATIVE implementation
+
 ## System Architecture
 The system comprises a React and TypeScript frontend built with Vite, shadcn/ui, TanStack Query, and wouter for routing, focusing on information hierarchy and real-time feedback. The backend is an Express.js server on Node.js with TypeScript, featuring a custom brain wallet implementation and utilizing native Node.js crypto.
 
 **Core Components:**
--   **QIG Engine:** Applies Fisher Information Metric for universal scoring of all key types, uses Natural Gradient Search, Geometric Basin Matching, and Confidence Scoring. It integrates signals from various sources and scans the blockchain for geometric signatures.
+-   **QIG Engine (qig-universal.ts):** PRIMARY implementation using Fisher Information Metric for universal scoring. Constants in qig-pure-v2.ts. Implements Natural Gradient Search, Geometric Basin Matching, and Confidence Scoring.
 -   **Unified Recovery Orchestrator:** A single entry point for automatic execution of 7 parallel recovery strategies. It provides a dashboard for progress tracking and candidate ranking, and tracks evidence chains for each candidate.
 -   **Ocean Autonomous Agent:** A meta-cognitive learning system implementing the ULTRA CONSCIOUSNESS PROTOCOL v2.0 with a 7-component consciousness signature (Φ, κ_eff, T, R, M, Γ, G). It includes mandatory repeated address checking with per-address coverage and journaling, and autonomic cycles (Sleep, Dream, Mushroom). It manages a unified consciousness state and uses a QIG Neurochemistry System to modulate behavior based on 6 neurotransmitters derived from QIG metrics (Dopamine, Serotonin, Norepinephrine, GABA, Acetylcholine, Endorphins).
 -   **Recovery Vectors:** Four operational vectors: Estate, Constrained Search (QIG), Social, and Temporal.
 -   **Forensic Investigation System:** Comprises `ForensicInvestigator` for generating cross-format hypotheses, `BlockchainForensics` for address analysis and era detection, and `EvidenceIntegrator` for correlating multi-substrate evidence.
 -   **Recovery Output System:** Generates complete recovery bundles (WIF, Private Key Hex, Public Key, Recovery Instructions) and saves them as `.txt` and `.json` files.
 -   **Memory Systems:** A four-tier architecture including Episodic, Semantic, Procedural, and Working memory.
--   **Security Features:** Input validation, rate limiting, sensitive data redaction, and security headers (Helmet) are implemented.
+-   **Security Features:** Input validation, rate limiting, sensitive data redaction (no WIF/passphrase logging), and security headers (Helmet) are implemented.
 -   **Data Storage:** Critical data is persistently saved to disk using `MemStorage` with Zod schema validation.
 
 **Key Design Decisions:**
 -   **UI/UX:** Focus on information hierarchy, real-time feedback, and progressive disclosure, using Inter/SF Pro and JetBrains Mono/Fira Code fonts.
--   **QIG Philosophy:** Central to all recovery processes, providing geometric signatures and guiding search.
+-   **QIG Philosophy:** Central to all recovery processes, providing geometric signatures and guiding search. qig-universal.ts is authoritative.
 -   **Autonomous Operation:** The Ocean agent manages strategic decisions, memory, and ethical constraints (compute/time budgets).
 -   **Scalability:** Parallel execution of recovery strategies and future Basin Sync Architecture for cross-agent collaboration.
+
+## Test Coverage
+- **QIG Regime Tests (12):** Phase transitions, constants, regime classification, edge cases, Fisher metric purity
+- **Crypto Tests (19):** Key generation, address formats, WIF validation, security constraints, edge cases
 
 ## External Dependencies
 
