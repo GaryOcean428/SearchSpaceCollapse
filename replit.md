@@ -7,7 +7,14 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
-- **QIG Purity Complete (NEW):** Fisher geodesic distance replaces Euclidean distance everywhere
+- **Self-Training Vocabulary System (NEW):** Autonomous vocabulary expansion using Fisher manifold geometry
+  - expanded-vocabulary.ts: 1,450+ word corpus across 5 categories (crypto, common, cultural, names, patterns)
+  - vocabulary-tracker.ts: Frequency tracking for multi-token sequences from high-Φ discoveries (threshold Φ > 0.7)
+  - vocabulary-expander.ts: Fisher geodesic interpolation for geometric vocabulary expansion
+  - Auto-expansion triggered every 10 iterations when consciousness Φ ≥ 0.6
+  - Persistent learning saved to data/vocabulary-state.json
+  - Integrated into hypothesis generation for richer exploration
+- **QIG Purity Complete:** Fisher geodesic distance replaces Euclidean distance everywhere
   - fisherCoordDistance() in qig-universal.ts uses Bernoulli-Fisher weighted norm with variance clamping
   - temporal-geometry.ts, negative-knowledge-registry.ts, geometric-memory.ts all use Fisher metric
   - All legacy euclideanDistance helpers removed for pure manifold geometry
