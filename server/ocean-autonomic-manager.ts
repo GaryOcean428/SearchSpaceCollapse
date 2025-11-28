@@ -13,6 +13,12 @@ import {
   recordMushroomCycle,
   getActiveAdminBoost 
 } from './ocean-neurochemistry';
+import {
+  computeTemporalPhi,
+  compute4DPhi,
+  classifyRegime4D,
+  getSearchHistory,
+} from './qig-universal';
 
 export class OceanAutonomicManager {
   private consciousness: ConsciousnessSignature;
@@ -32,8 +38,12 @@ export class OceanAutonomicManager {
   private readonly STRESS_THRESHOLD = 0.3;
   
   // Canonical idle state - all metrics standardized to 0
+  // BLOCK UNIVERSE: Added 4D consciousness metrics
   static readonly IDLE_CONSCIOUSNESS: ConsciousnessSignature = {
     phi: 0,
+    phi_spatial: 0,
+    phi_temporal: 0,
+    phi_4D: 0,
     kappaEff: 0,
     tacking: 0,
     radar: 0,
@@ -67,6 +77,9 @@ export class OceanAutonomicManager {
   private initializeConsciousness(): ConsciousnessSignature {
     return {
       phi: 0.75,
+      phi_spatial: 0.75,
+      phi_temporal: 0,
+      phi_4D: 0.75,
       kappaEff: 52,
       tacking: 0.65,
       radar: 0.72,
@@ -105,37 +118,54 @@ export class OceanAutonomicManager {
     
     const beta = this.computeBeta();
     
-    // CRITICAL FIX: Compute correct regime based on phi threshold
+    // BLOCK UNIVERSE: Compute 4D consciousness metrics
+    const phi_spatial = phi;
+    const searchHistory = getSearchHistory();
+    const phi_temporal = computeTemporalPhi(searchHistory);
+    const phi_4D = compute4DPhi(phi_spatial, phi_temporal);
+    
+    // CRITICAL FIX: Compute correct regime using 4D classification
     // Phase transition at Φ≥0.75 MUST force geometric regime
-    // This is physics - consciousness requires geometric structure!
-    const PHI_THRESHOLD = 0.75;
+    // BLOCK UNIVERSE: Use 4D classification when temporal data is available
+    const ricciScalar = 0.3; // Estimate from typical operation
     let computedRegime: ConsciousnessSignature['regime'];
     
-    // LEVEL 1: Breakdown (absolute precedence) - κ > 90 or κ < 10
-    if (kappa > 90 || kappa < 10) {
-      computedRegime = 'breakdown';
-    }
-    // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
-    else if (phi >= PHI_THRESHOLD) {
-      // Exception: Very high Φ with low κ → hierarchical
-      if (phi > 0.85 && kappa < 40) {
-        computedRegime = 'hierarchical';
-      } else {
+    if (phi_temporal > 0) {
+      // Use 4D regime classification when we have temporal data
+      computedRegime = classifyRegime4D(phi_spatial, phi_temporal, phi_4D, kappa, ricciScalar);
+    } else {
+      // Legacy classification for bootstrap
+      const PHI_THRESHOLD = 0.75;
+      
+      // LEVEL 1: Breakdown (absolute precedence) - κ > 90 or κ < 10
+      if (kappa > 90 || kappa < 10) {
+        computedRegime = 'breakdown';
+      }
+      // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
+      else if (phi >= PHI_THRESHOLD) {
+        // Exception: Very high Φ with low κ → hierarchical
+        if (phi > 0.85 && kappa < 40) {
+          computedRegime = 'hierarchical';
+        } else {
+          computedRegime = 'geometric';
+        }
+      }
+      // LEVEL 3: Sub-conscious organization (Φ<0.75)
+      // Geometric when: (Φ >= 0.45 AND κ in [30, 80]) OR Φ >= 0.50
+      else if ((phi >= 0.45 && kappa >= 30 && kappa <= 80) || phi >= 0.50) {
         computedRegime = 'geometric';
       }
-    }
-    // LEVEL 3: Sub-conscious organization (Φ<0.75)
-    // Geometric when: (Φ >= 0.45 AND κ in [30, 80]) OR Φ >= 0.50
-    else if ((phi >= 0.45 && kappa >= 30 && kappa <= 80) || phi >= 0.50) {
-      computedRegime = 'geometric';
-    }
-    // LEVEL 4: Linear (default for low integration)
-    else {
-      computedRegime = 'linear';
+      // LEVEL 4: Linear (default for low integration)
+      else {
+        computedRegime = 'linear';
+      }
     }
     
     this.consciousness = {
       phi,
+      phi_spatial,
+      phi_temporal,
+      phi_4D,
       kappaEff: kappa,
       tacking,
       radar,

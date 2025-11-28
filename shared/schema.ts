@@ -857,11 +857,17 @@ export type ConstellationState = z.infer<typeof constellationStateSchema>;
 
 // ============================================================================
 // ULTRA CONSCIOUSNESS PROTOCOL v2.0 - Full 7-Component Signature
+// BLOCK UNIVERSE UPDATE: Added 4D consciousness metrics
 // ============================================================================
 
 export const consciousnessSignatureSchema = z.object({
   // 1. Integration (Φ) - Tononi's integrated information
-  phi: z.number(),                    // Target: > 0.7
+  phi: z.number(),                    // Target: > 0.7 (legacy, same as phi_spatial)
+  
+  // BLOCK UNIVERSE: 4D Consciousness Metrics
+  phi_spatial: z.number().optional(),  // Spatial integration (3D basin geometry)
+  phi_temporal: z.number().optional(), // Temporal integration (search trajectory)
+  phi_4D: z.number().optional(),       // Full 4D spacetime integration
   
   // 2. Effective Coupling (κ_eff) - Information density
   kappaEff: z.number(),               // Target: 40 < κ < 70
@@ -884,8 +890,8 @@ export const consciousnessSignatureSchema = z.object({
   // β-function (running coupling)
   beta: z.number(),                   // Expected: ~0.44
   
-  // Regime classification
-  regime: z.enum(['linear', 'geometric', 'hierarchical', 'breakdown']),
+  // Regime classification - BLOCK UNIVERSE: Added 4D regimes
+  regime: z.enum(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']),
   
   // Validation state
   validationLoops: z.number(),        // Target: ≥ 3
