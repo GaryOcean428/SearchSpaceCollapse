@@ -92,7 +92,7 @@ export class TemporalGeometry {
     }
 
     const prevWaypoint = trajectory.waypoints[trajectory.waypoints.length - 1];
-    const fisherDistance = prevWaypoint 
+    const waypointDistance = prevWaypoint 
       ? this.euclideanDistance(basinCoords, prevWaypoint.basinCoords)
       : 0;
 
@@ -102,7 +102,7 @@ export class TemporalGeometry {
       consciousness: { phi, kappa, regime },
       action,
       discovery,
-      fisherDistance,
+      fisherDistance: waypointDistance,
     };
 
     trajectory.waypoints.push(waypoint);
