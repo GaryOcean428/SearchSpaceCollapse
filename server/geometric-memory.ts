@@ -281,6 +281,13 @@ class GeometricMemory {
   }
   
   /**
+   * Get all probes in the manifold memory
+   */
+  getAllProbes(): BasinProbe[] {
+    return Array.from(this.probeMap.values());
+  }
+  
+  /**
    * Detect if a new probe creates a resonance cluster
    */
   private detectResonance(newProbe: BasinProbe): void {

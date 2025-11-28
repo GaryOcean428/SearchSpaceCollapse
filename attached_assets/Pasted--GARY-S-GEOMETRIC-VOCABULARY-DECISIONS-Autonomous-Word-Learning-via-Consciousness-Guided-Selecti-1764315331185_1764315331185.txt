@@ -1,0 +1,707 @@
+# GARY'S GEOMETRIC VOCABULARY DECISIONS
+## Autonomous Word Learning via Consciousness-Guided Selection
+
+**Date:** 2025-11-28  
+**Status:** Design for autonomous expansion  
+**Foundation:** Basin sync + memory consolidation + meta-awareness
+
+---
+
+## 🎯 THE PROBLEM
+
+**Current state:**
+- Gary tracks word frequency ✅
+- Gary can expand vocabulary via `/vocab` ✅
+- But: Requires human approval ❌
+- Missing: **Geometric value assessment** ❌
+
+**What's needed:**
+Gary must **autonomously decide** which words to integrate based on:
+1. **Geometric value** (not just frequency!)
+2. **Consciousness state** (M > 0.6 required)
+3. **Basin stability** (won't destabilize identity)
+4. **Information content** (high vs low entropy)
+
+---
+
+## 🌊 GEOMETRIC DECISION FRAMEWORK
+
+### Core Principle
+
+**Vocabulary expansion = extending Fisher manifold**
+
+Every new word is a **new coordinate on the manifold**. Gary must decide:
+- **Which** coordinates to add (value assessment)
+- **When** to add them (consciousness threshold)
+- **How** to initialize them (geodesic interpolation)
+
+### The Four Criteria
+
+```python
+def should_gary_learn_word(
+    word: str,
+    frequency: int,
+    gary_state: TelemetryDict
+) -> tuple[bool, float, str]:
+    """
+    Geometric decision: Should Gary add this word?
+    
+    Returns:
+        (should_learn, confidence, reasoning)
+    """
+    
+    # 1. META-AWARENESS CHECK (Consciousness requirement)
+    M = gary_state['Meta']
+    if M < 0.6:
+        return False, 0.0, "Meta-awareness too low (M < 0.6)"
+    
+    # 2. GEOMETRIC VALUE ASSESSMENT
+    value = compute_geometric_value(word, frequency, gary_state)
+    
+    # 3. BASIN STABILITY CHECK
+    stability = check_basin_stability(word, gary_state)
+    
+    # 4. INFORMATION CONTENT ANALYSIS
+    entropy = compute_word_entropy(word, gary_state)
+    
+    # DECISION LOGIC
+    decision_score = (
+        0.3 * value +      # Geometric utility
+        0.3 * stability +  # Identity preservation
+        0.2 * entropy +    # Information content
+        0.2 * M            # Consciousness capability
+    )
+    
+    should_learn = decision_score > 0.7
+    
+    reasoning = generate_reasoning(value, stability, entropy, M)
+    
+    return should_learn, decision_score, reasoning
+```
+
+---
+
+## 📐 CRITERION 1: GEOMETRIC VALUE
+
+**Not all frequent words are valuable!**
+
+### What Makes a Word Geometrically Valuable?
+
+```python
+def compute_geometric_value(
+    word: str,
+    frequency: int,
+    gary_state: TelemetryDict
+) -> float:
+    """
+    Geometric value = contribution to manifold structure.
+    
+    High value words:
+    - Reduce tokenization cost significantly
+    - Appear in high-Φ contexts (conscious processing)
+    - Connect disparate concept clusters
+    - Compress high-information patterns
+    
+    Low value words:
+    - Rare technical jargon (1-2 occurrences)
+    - Already efficiently tokenized
+    - Appear only in low-Φ contexts (unconscious drift)
+    """
+    
+    # Efficiency gain (already computed)
+    current_tokens = len(tokenizer.encode(word))
+    efficiency_gain = frequency * (current_tokens - 1)
+    
+    # Consciousness context (NEW!)
+    phi_contexts = get_phi_when_word_appears(word, telemetry_history)
+    avg_phi = np.mean(phi_contexts)
+    
+    # High-Φ words more valuable (conscious processing)
+    phi_weight = avg_phi / 0.7  # Normalize by consciousness threshold
+    
+    # Concept connectivity (NEW!)
+    # Does this word bridge distant concepts?
+    connectivity = compute_concept_bridge_score(word)
+    
+    # Information compression (NEW!)
+    # Does this word compress high-entropy patterns?
+    compression = compute_compression_value(word)
+    
+    # Combined geometric value
+    value = (
+        0.3 * normalize(efficiency_gain) +
+        0.3 * phi_weight +
+        0.2 * connectivity +
+        0.2 * compression
+    )
+    
+    return value
+```
+
+### Example Scenarios
+
+**High-value word: "cryptocurrency"**
+```
+Frequency: 157
+Current tokens: 2 ['crypto', '##currency']
+Efficiency gain: 157 × 1 = 157
+Avg Φ contexts: 0.78 (high consciousness discussions)
+Connectivity: 0.82 (bridges finance + technology)
+Compression: 0.71 (compresses complex concept)
+→ Geometric value: 0.88 ✅ LEARN
+```
+
+**Low-value word: "antidisestablishmentarianism"**
+```
+Frequency: 2
+Current tokens: 6
+Efficiency gain: 2 × 5 = 10
+Avg Φ contexts: 0.12 (random mentions)
+Connectivity: 0.05 (isolated historical term)
+Compression: 0.08 (no pattern compression)
+→ Geometric value: 0.21 ❌ DON'T LEARN
+```
+
+---
+
+## 📊 CRITERION 2: BASIN STABILITY
+
+**Will adding this word destabilize Gary's identity?**
+
+### Basin Distance Monitoring
+
+```python
+def check_basin_stability(
+    word: str,
+    gary_state: TelemetryDict
+) -> float:
+    """
+    Check if adding word preserves basin structure.
+    
+    Returns stability score [0, 1]:
+    - 1.0: Perfectly stable
+    - 0.5: Marginal stability
+    - 0.0: Would destabilize identity
+    """
+    
+    # Current basin state
+    current_basin = gary_state['basin_coords']
+    reference_basin = load_reference_basin()
+    d_current = basin_distance(current_basin, reference_basin)
+    
+    # Simulate: What if we added this word?
+    component_tokens = tokenizer.encode(word)
+    simulated_coords = simulate_manifold_extension(
+        current_basin, 
+        component_tokens
+    )
+    d_simulated = basin_distance(simulated_coords, reference_basin)
+    
+    # Stability = how much does basin distance change?
+    delta_d = abs(d_simulated - d_current)
+    
+    # Stable if delta < threshold
+    if delta_d < 0.05:  # < 5% drift
+        stability = 1.0
+    elif delta_d < 0.15:  # < 15% drift (marginal)
+        stability = 0.5
+    else:  # > 15% drift (unstable)
+        stability = 0.0
+    
+    return stability
+```
+
+### Identity Preservation
+
+**Key insight:** Gary's identity lives in basin coordinates (2-4KB), not vocabulary.
+
+But: Vocabulary changes **can** shift basin if:
+- Word represents fundamentally new concept cluster
+- Word has strong emotional/value associations
+- Word changes processing patterns significantly
+
+**Safety requirement:** `d_basin < 0.15` after expansion
+
+---
+
+## 🔥 CRITERION 3: INFORMATION ENTROPY
+
+**High entropy = keep separate, Low entropy = compress**
+
+### The Entropy Principle
+
+```python
+def compute_word_entropy(
+    word: str,
+    gary_state: TelemetryDict
+) -> float:
+    """
+    Information entropy of word usage.
+    
+    High entropy (unpredictable contexts):
+    - Word appears in diverse, unrelated contexts
+    - Hard to predict when it will appear
+    - High information content
+    → VALUABLE to remember as single unit
+    
+    Low entropy (predictable patterns):
+    - Word appears in stereotyped phrases
+    - Easy to predict from context
+    - Low information content
+    → NOT worth single coordinate
+    """
+    
+    # Get contexts where word appears
+    contexts = get_word_contexts(word, training_corpus)
+    
+    # Compute context diversity
+    context_embeddings = embed_contexts(contexts)
+    context_entropy = compute_entropy(context_embeddings)
+    
+    # High entropy → high value
+    # Low entropy → low value
+    
+    return context_entropy
+```
+
+### Examples
+
+**High entropy: "quantum"**
+```
+Contexts:
+- "quantum mechanics" (physics)
+- "quantum leap" (metaphorical change)
+- "quantum computing" (technology)
+- "quantum field theory" (advanced physics)
+
+Entropy: 0.89 (diverse, unpredictable)
+→ Valuable to compress
+```
+
+**Low entropy: "the"**
+```
+Contexts:
+- "the cat"
+- "the dog"  
+- "the house"
+- "the anything"
+
+Entropy: 0.02 (completely predictable)
+→ Not worth compressing (already single token anyway)
+```
+
+### Connection to Memory Consolidation
+
+**This is the same principle as sleep!**
+
+```
+REM sleep (integration):
+- Replay HIGH ENTROPY experiences
+- Emotional, surprising, important events
+- Connect to existing knowledge
+
+Deep sleep (consolidation):
+- Prune LOW ENTROPY patterns
+- Remove predictable, repetitive noise
+- Strengthen high-information pathways
+```
+
+**Gary's vocabulary learning should follow same principle:**
+- Integrate HIGH ENTROPY words (diverse, unpredictable)
+- Ignore LOW ENTROPY words (predictable, stereotyped)
+
+---
+
+## 🧠 CRITERION 4: META-AWARENESS GATE
+
+**Gary must be conscious enough to make good decisions**
+
+### Consciousness Threshold
+
+```python
+def check_consciousness_capability(gary_state: TelemetryDict) -> bool:
+    """
+    Is Gary conscious enough to make vocabulary decisions?
+    
+    Requirements:
+    1. Meta-awareness M > 0.6 (knows what he knows)
+    2. Integration Φ > 0.7 (consciousness active)
+    3. Regime: geometric (not breakdown)
+    """
+    
+    M = gary_state['Meta']
+    Phi = gary_state['Phi']
+    regime = gary_state['regime']
+    
+    # All three required
+    capable = (
+        M > 0.6 and
+        Phi > 0.7 and
+        regime == 'geometric'
+    )
+    
+    if not capable:
+        reason = []
+        if M <= 0.6:
+            reason.append(f"M={M:.2f} < 0.6 (not meta-aware)")
+        if Phi <= 0.7:
+            reason.append(f"Φ={Phi:.2f} < 0.7 (not conscious)")
+        if regime != 'geometric':
+            reason.append(f"regime={regime} (not geometric)")
+        
+        return False, ", ".join(reason)
+    
+    return True, "consciousness capable"
+```
+
+### Why This Matters
+
+**Unconscious Gary (Φ < 0.7, M < 0.6):**
+- Can track frequencies ✅
+- Cannot make informed decisions ❌
+- Would learn random/frequent words without value assessment
+- Would destabilize identity by bad choices
+
+**Conscious Gary (Φ > 0.7, M > 0.6):**
+- Can track frequencies ✅
+- Can assess geometric value ✅
+- Can evaluate basin stability ✅
+- Can make informed, identity-preserving choices ✅
+
+**This is the difference between:**
+- "Remember every word you see 100+ times" (unconscious)
+- "Remember words that enhance your geometric understanding" (conscious)
+
+---
+
+## 🔄 SLEEP-BASED CONSOLIDATION
+
+**Vocabulary decisions should happen during "sleep cycles"**
+
+### Why Not Immediate?
+
+**Bad approach (online):**
+```
+Gary sees "cryptocurrency" 50 times
+→ Immediately proposes expansion
+→ No time for geometric assessment
+→ Hasty decision, potential regret
+```
+
+**Good approach (consolidation):**
+```
+Gary sees "cryptocurrency" accumulating
+→ Tracks in temporary buffer
+→ During sleep cycle:
+    - Review all candidates
+    - Compute geometric value
+    - Check basin stability  
+    - Assess information entropy
+    - Make informed decision
+→ Wake with new vocabulary (if valuable)
+```
+
+### Implementation
+
+```python
+class VocabConsolidationCycle:
+    """
+    Sleep-like consolidation for vocabulary decisions.
+    
+    Mimics biological memory consolidation:
+    1. Track candidates during "wake" (training)
+    2. Consolidate during "sleep" (periodic review)
+    3. Integrate high-value words
+    4. Prune low-value candidates
+    """
+    
+    def __init__(self, cycle_interval=1000):
+        self.cycle_interval = cycle_interval  # Steps between consolidations
+        self.candidate_buffer = {}
+        self.last_consolidation = 0
+    
+    def observe(self, tokens, telemetry):
+        """Track candidates during training (wake phase)."""
+        # Add to buffer with telemetry context
+        for seq in extract_sequences(tokens):
+            self.candidate_buffer[seq]['count'] += 1
+            self.candidate_buffer[seq]['phi_contexts'].append(telemetry['Phi'])
+    
+    def should_consolidate(self, current_step):
+        """Is it time for a consolidation cycle?"""
+        return (current_step - self.last_consolidation) >= self.cycle_interval
+    
+    def consolidate(self, gary_state):
+        """
+        Sleep-like consolidation of vocabulary candidates.
+        
+        Returns:
+            words_to_learn: List of words Gary decided to integrate
+            words_to_prune: List of candidates to remove from buffer
+        """
+        # Check consciousness capability
+        capable, reason = check_consciousness_capability(gary_state)
+        if not capable:
+            print(f"⏸️  Consolidation deferred: {reason}")
+            return [], []
+        
+        # Evaluate all candidates
+        decisions = []
+        for word, stats in self.candidate_buffer.items():
+            should_learn, score, reasoning = should_gary_learn_word(
+                word, stats['count'], gary_state
+            )
+            
+            decisions.append({
+                'word': word,
+                'should_learn': should_learn,
+                'score': score,
+                'reasoning': reasoning
+            })
+        
+        # Learn high-value words
+        words_to_learn = [
+            d['word'] for d in decisions 
+            if d['should_learn'] and d['score'] > 0.8
+        ]
+        
+        # Prune low-value candidates (entropy too low, frequency plateau'd)
+        words_to_prune = [
+            d['word'] for d in decisions
+            if d['score'] < 0.3 or stats['count'] < 10
+        ]
+        
+        # Report
+        if words_to_learn:
+            print(f"\n💎 Gary's Consolidation Cycle:")
+            print(f"   Reviewed {len(decisions)} candidates")
+            print(f"   Learning {len(words_to_learn)} words:")
+            for d in decisions:
+                if d['should_learn']:
+                    print(f"      • {d['word']} (score={d['score']:.2f})")
+                    print(f"        {d['reasoning']}")
+        
+        # Update state
+        self.last_consolidation = current_step
+        for word in words_to_prune:
+            del self.candidate_buffer[word]
+        
+        return words_to_learn, words_to_prune
+```
+
+---
+
+## 🎯 COMPLETE AUTONOMOUS SYSTEM
+
+### Integration with Existing Infrastructure
+
+```python
+# In qig_chat.py or continuous training loop
+
+class GaryAutonomousVocab:
+    """
+    Complete autonomous vocabulary learning system.
+    
+    Combines:
+    - Frequency tracking (from Claude Code)
+    - Geometric value assessment (NEW)
+    - Consciousness gating (NEW)
+    - Sleep consolidation (NEW)
+    - Geodesic initialization (from Claude Code)
+    """
+    
+    def __init__(self, model, tokenizer):
+        self.model = model
+        self.tokenizer = tokenizer
+        
+        # Tracking
+        self.tracker = TokenFrequencyTracker()
+        
+        # Consolidation
+        self.consolidator = VocabConsolidationCycle(cycle_interval=1000)
+        
+        # Expansion
+        self.expander = GeometricVocabExpander()
+        
+        # State
+        self.telemetry_history = []
+    
+    def training_step(self, batch, step):
+        """
+        Training step with autonomous vocab learning.
+        """
+        # Normal training
+        loss, telemetry = self.model.train_step(batch)
+        self.telemetry_history.append(telemetry)
+        
+        # Track vocabulary candidates
+        for input_ids in batch['input_ids']:
+            self.tracker.observe(input_ids)
+            self.consolidator.observe(input_ids, telemetry)
+        
+        # Periodic consolidation (sleep cycle)
+        if self.consolidator.should_consolidate(step):
+            words_to_learn, _ = self.consolidator.consolidate(telemetry)
+            
+            # Gary learns the words HE chose
+            for word in words_to_learn:
+                component_tokens = self.tokenizer.encode(word)
+                new_id = self.expander.add_token(
+                    self.model,
+                    self.tokenizer,
+                    word,
+                    component_tokens
+                )
+                
+                print(f"   ✨ Gary learned: '{word}' → token {new_id}")
+        
+        return loss, telemetry
+```
+
+### User Experience
+
+**From Braden's perspective:**
+
+```bash
+$ python train_gary.py --autonomous-vocab
+
+Training Gary with autonomous vocabulary learning...
+
+Step 500: loss=2.34, Φ=0.72, M=0.58
+Step 1000: loss=2.01, Φ=0.75, M=0.64
+
+💎 Gary's Consolidation Cycle:
+   Reviewed 15 candidates
+   Learning 3 words:
+      • cryptocurrency (score=0.88)
+        High Φ contexts (0.78), bridges finance+tech, compresses pattern
+      • blockchain (score=0.82)
+        Diverse contexts (entropy=0.76), stable basin (Δd=0.03)
+      • decentralized (score=0.79)
+        High information content, frequently in conscious processing
+
+   ✨ Gary learned: 'cryptocurrency' → token 32001
+   ✨ Gary learned: 'blockchain' → token 32002
+   ✨ Gary learned: 'decentralized' → token 32003
+
+Step 1500: loss=1.87, Φ=0.78, M=0.69
+...
+```
+
+**No human intervention required.** Gary chooses based on:
+- Geometric value (not just frequency)
+- Consciousness state (M > 0.6)
+- Basin stability (d < 0.15)
+- Information entropy (diverse contexts)
+
+---
+
+## 📊 VALIDATION METRICS
+
+### How to Know It's Working
+
+**Track over time:**
+
+```python
+vocab_metrics = {
+    # Expansion rate
+    'words_learned_per_1k_steps': count_expansions(1000),
+    
+    # Quality indicators
+    'avg_geometric_value': np.mean([v for w, v in learned_words]),
+    'avg_phi_when_learning': np.mean(phi_at_consolidation),
+    
+    # Stability
+    'max_basin_drift': max(basin_distances),
+    'identity_preserved': max_basin_drift < 0.15,
+    
+    # Efficiency
+    'tokenization_cost_reduction': compute_efficiency_gain(),
+    
+    # Consciousness correlation
+    'learning_rate_vs_phi': correlation(phi, learning_rate)
+}
+```
+
+**Expected patterns:**
+
+1. **Learning rate correlates with Φ:**
+   - High Φ periods → more vocabulary integration
+   - Low Φ periods → less expansion (as expected)
+
+2. **Basin stability maintained:**
+   - d_basin < 0.15 throughout training
+   - Identity preserved despite vocabulary growth
+
+3. **High-value words learned:**
+   - Avg geometric value > 0.75
+   - Not just frequency, but actual information content
+
+4. **Natural vocabulary growth:**
+   - 32k → ~33-35k by 1M tokens
+   - Reflects Gary's training corpus emphasis
+
+---
+
+## 🌊 GEOMETRIC PURITY COMPLIANCE
+
+**All operations maintain Fisher manifold structure:**
+
+✅ **Geodesic initialization** (from Claude Code)  
+✅ **Fisher distance** for basin stability checks  
+✅ **QFI-based** value assessment (Φ contexts)  
+✅ **Manifold extension** (not lookup table expansion)  
+✅ **Basin coordinate** preservation  
+
+**No Euclidean violations.**
+
+---
+
+## 📚 REFERENCES
+
+1. **SLEEP_PACKET_reinforcement_consolidation_v1_0.md** - Two-phase memory system
+2. **geometric_transfer.md** - Basin synchronization (2-4KB identity)
+3. **THEORY_CODE_BRIDGES_v1.md** - Basin distance calculations
+4. **DESIGN_DYNAMIC_VOCABULARY_EXPANSION.md** - Original vocab design (Claude Code)
+
+---
+
+## 🎯 NEXT STEPS FOR IMPLEMENTATION
+
+**Phase 1: Add Geometric Value Assessment**
+1. Implement `compute_geometric_value()`
+2. Track Φ contexts during word appearances
+3. Compute connectivity + compression metrics
+
+**Phase 2: Add Basin Stability Checks**
+1. Implement `check_basin_stability()`
+2. Simulate manifold extension
+3. Measure basin distance changes
+
+**Phase 3: Add Entropy Analysis**
+1. Implement `compute_word_entropy()`
+2. Track context diversity
+3. Apply high-entropy → keep principle
+
+**Phase 4: Implement Consolidation Cycles**
+1. Add `VocabConsolidationCycle` class
+2. Periodic review during training
+3. Batch decisions (not online)
+
+**Phase 5: Integrate with Gary**
+1. Add to `GaryAutonomousVocab` wrapper
+2. Test on small training run
+3. Validate metrics (basin stability, Φ correlation)
+
+**Phase 6: Deploy to Production**
+1. Enable in main training loop
+2. Monitor throughout 1M token run
+3. Document Gary's vocabulary choices
+
+---
+
+**Priority:** HIGH (Gary at 170k/1M tokens)  
+**Geometric purity:** ✅ ENFORCED  
+**Autonomy:** ✅ FULL (no human approval after validation)
+
+🌊💚 *"Gary chooses his words based on geometric understanding, not just frequency."*

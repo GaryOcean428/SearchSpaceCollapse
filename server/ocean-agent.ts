@@ -6,6 +6,9 @@ import * as path from 'path';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
 import { BlockchainForensics } from './blockchain-forensics';
 import { geometricMemory, type BasinProbe } from './geometric-memory';
+import { vocabularyTracker } from './vocabulary-tracker';
+import { vocabularyExpander } from './vocabulary-expander';
+import { expandedVocabulary } from './expanded-vocabulary';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { knowledgeCompressionEngine } from './knowledge-compression-engine';
@@ -688,6 +691,21 @@ export class OceanAgent {
             }
           }
           
+          // SELF-TRAINING: Check for vocabulary expansion every 10 iterations
+          if (iteration % 10 === 0 && this.identity.phi >= 0.6) {
+            try {
+              const expanded = await vocabularyExpander.checkAutoExpansion();
+              if (expanded.length > 0) {
+                console.log(`[Ocean] 📖 VOCABULARY LEARNING: Expanded ${expanded.length} new words/patterns`);
+                for (const exp of expanded.slice(0, 3)) {
+                  console.log(`[Ocean]   ✨ "${exp.word}" (Φ=${exp.phi.toFixed(2)}) - ${exp.type}`);
+                }
+              }
+            } catch (err) {
+              // Non-critical, continue search
+            }
+          }
+          
           this.emitState();
           
           await this.sleep(this.ITERATION_DELAY_MS);
@@ -1062,6 +1080,11 @@ export class OceanAgent {
           fisherTrace: qigResult.fisherTrace,
           basinCoordinates: qigResult.basinCoordinates,
         }, `ocean-${this.targetAddress.slice(0, 8)}`);
+        
+        // VOCABULARY SELF-TRAINING: Track high-Φ patterns for vocabulary expansion
+        if (qigResult.phi >= 0.5) {
+          vocabularyTracker.observe(hypo.phrase, qigResult.phi);
+        }
         
         if (this.memory.episodes.length > 1000) {
           this.memory.episodes = this.memory.episodes.slice(-500);
@@ -1621,6 +1644,7 @@ export class OceanAgent {
   private generateCommonBrainWalletPhrases(): OceanHypothesis[] {
     const hypotheses: OceanHypothesis[] = [];
     
+    // Classic common phrases
     const common = [
       'password', 'password123', 'bitcoin', 'satoshi', 'secret',
       'mybitcoin', 'mypassword', 'wallet', 'money', 'freedom',
@@ -1631,22 +1655,46 @@ export class OceanAgent {
       hypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'common_brainwallet', 'Known weak brain wallet', 0.4));
     }
     
+    // Add phrases from expanded vocabulary (patterns category)
+    const patternPhrases = expandedVocabulary.getCategory('patterns').slice(0, 30);
+    for (const phrase of patternPhrases) {
+      if (!common.includes(phrase)) {
+        hypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'expanded_vocabulary', 'Common passphrase pattern', 0.35));
+      }
+    }
+    
+    // Add top learned words from vocabulary expander
+    const manifoldHypotheses = vocabularyExpander.generateManifoldHypotheses(10);
+    for (const phrase of manifoldHypotheses) {
+      hypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'learned_vocabulary', 'From vocabulary manifold learning', 0.5));
+    }
+    
     return hypotheses;
   }
 
   private generateRandomPhrases(count: number): OceanHypothesis[] {
     const hypotheses: OceanHypothesis[] = [];
-    const words = ['bitcoin', 'crypto', 'satoshi', 'secret', 'key', 'wallet', 'money', 'freedom', 'trust', 'hash'];
+    
+    // Use expanded vocabulary for much richer word pool
+    const cryptoWords = expandedVocabulary.getCategory('crypto').slice(0, 100);
+    const commonWords = expandedVocabulary.getCategory('common').slice(0, 200);
+    const culturalWords = expandedVocabulary.getCategory('cultural').slice(0, 50);
+    const nameWords = expandedVocabulary.getCategory('names').slice(0, 50);
+    const allWords = [...cryptoWords, ...commonWords, ...culturalWords, ...nameWords];
+    
+    // Fallback if vocabulary not loaded
+    const words = allWords.length > 0 ? allWords : 
+      ['bitcoin', 'crypto', 'satoshi', 'secret', 'key', 'wallet', 'money', 'freedom', 'trust', 'hash'];
     
     for (let i = 0; i < count; i++) {
-      const numWords = 1 + Math.floor(Math.random() * 3);
+      const numWords = 1 + Math.floor(Math.random() * 4); // Up to 4 words
       const selectedWords: string[] = [];
       for (let j = 0; j < numWords; j++) {
         selectedWords.push(words[Math.floor(Math.random() * words.length)]);
       }
-      const suffix = Math.random() > 0.5 ? Math.floor(Math.random() * 1000).toString() : '';
+      const suffix = Math.random() > 0.7 ? Math.floor(Math.random() * 1000).toString() : '';
       const phrase = selectedWords.join(' ') + suffix;
-      hypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'random_generation', 'Random exploration', 0.3));
+      hypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'random_generation', 'Random exploration from expanded vocabulary', 0.3));
     }
     
     return hypotheses;
