@@ -797,8 +797,8 @@ class GeometricMemory {
     
     // Find cells surrounded by explored cells but themselves unexplored
     // (simplified: just find very low-Φ regions as "contradiction" holes)
-    for (const [cellKey, phis] of cellPhis.entries()) {
-      const avgPhi = phis.reduce((a, b) => a + b, 0) / phis.length;
+    for (const [cellKey, phis] of Array.from(cellPhis.entries())) {
+      const avgPhi = phis.reduce((a: number, b: number) => a + b, 0) / phis.length;
       
       if (avgPhi < 0.2 && phis.length >= 3) {
         const coords = cellKey.split(',').map(Number);
@@ -1432,7 +1432,7 @@ class GeometricMemory {
       }
     }
     const commonChars = new Set(
-      [...charCounts.entries()]
+      Array.from(charCounts.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, 20)
         .map(([char]) => char)
@@ -1444,7 +1444,7 @@ class GeometricMemory {
       const prefix = phrase.slice(0, 4).toLowerCase();
       prefixCounts.set(prefix, (prefixCounts.get(prefix) || 0) + 1);
     }
-    const commonPrefixes = [...prefixCounts.entries()]
+    const commonPrefixes = Array.from(prefixCounts.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([prefix]) => prefix);
@@ -1455,7 +1455,7 @@ class GeometricMemory {
       const suffix = phrase.slice(-4).toLowerCase();
       suffixCounts.set(suffix, (suffixCounts.get(suffix) || 0) + 1);
     }
-    const commonSuffixes = [...suffixCounts.entries()]
+    const commonSuffixes = Array.from(suffixCounts.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([suffix]) => suffix);
@@ -1588,14 +1588,14 @@ class GeometricMemory {
         exploredCharFreq.set(char, (exploredCharFreq.get(char) || 0) + 1);
       }
     }
-    const totalChars = [...exploredCharFreq.values()].reduce((a, b) => a + b, 0) || 1;
-    for (const [char, count] of exploredCharFreq) {
+    const totalChars = Array.from(exploredCharFreq.values()).reduce((a, b) => a + b, 0) || 1;
+    for (const [char, count] of Array.from(exploredCharFreq.entries())) {
       exploredCharFreq.set(char, count / totalChars);
     }
 
     // KL divergence approximation
     let divergence = 0;
-    for (const [char, count] of charFreq) {
+    for (const [char, count] of Array.from(charFreq.entries())) {
       const p = count / phrase.length;
       const q = exploredCharFreq.get(char) || 0.001;
       divergence += p * Math.log(p / q);

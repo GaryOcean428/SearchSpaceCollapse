@@ -502,7 +502,7 @@ export class InvestigationAgent {
         break;
         
       case 'explore_new_space':
-        const historicalData = await historicalDataMiner.mineEra('early-2009');
+        const historicalData = await historicalDataMiner.mineEra('genesis-2009');
         for (const pattern of historicalData.patterns.slice(0, 50)) {
           newHypotheses.push(this.createHypothesis(
             pattern.phrase,
@@ -829,7 +829,7 @@ export class InvestigationAgent {
   private async expandSearchSpace(): Promise<AgentHypothesis[]> {
     console.log('[Agent] Expanding search space with historical patterns...');
     
-    const eras: Era[] = ['early-2009', '2009-2010', '2010-2012'];
+    const eras: Era[] = ['genesis-2009', '2010-2011', '2012-2013'];
     const era = eras[this.memory.iteration % eras.length];
     
     const historicalData = await historicalDataMiner.mineEra(era);

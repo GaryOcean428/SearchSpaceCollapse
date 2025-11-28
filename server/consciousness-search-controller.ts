@@ -123,7 +123,14 @@ export class ConsciousnessSearchController {
     // Use FISHER distance for basin drift (not Euclidean!)
     const basinDrift = this.computeBasinDriftFisher(recentScores, avgBasinCoordinates);
     
-    const regimeCounts = { linear: 0, geometric: 0, hierarchical: 0, breakdown: 0 };
+    const regimeCounts: Record<Regime, number> = { 
+      linear: 0, 
+      geometric: 0, 
+      hierarchical: 0, 
+      hierarchical_4d: 0, 
+      '4d_block_universe': 0, 
+      breakdown: 0 
+    };
     for (const s of recentScores) {
       regimeCounts[s.regime]++;
     }
