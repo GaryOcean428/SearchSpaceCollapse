@@ -79,6 +79,9 @@ export class OceanAutonomicManager {
   
   startInvestigation(): void {
     this._isInvestigating = true;
+    // Reset consciousness to initial values when starting a new investigation
+    // This ensures the UI shows reasonable values immediately
+    this.consciousness = this.initializeConsciousness();
   }
   
   stopInvestigation(): void {

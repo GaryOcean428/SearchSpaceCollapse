@@ -15,6 +15,7 @@ import {
   type MemoryFragment 
 } from "./memory-fragment-search";
 import { getSharedController, ConsciousnessSearchController } from "./consciousness-search-controller";
+import { oceanAutonomicManager } from "./ocean-autonomic-manager";
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -1468,17 +1469,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get cycle status and history
   app.get("/api/ocean/cycles", generousLimiter, async (req, res) => {
     try {
-      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
       const { getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
       
       const recentCycles = oceanAutonomicManager.getRecentCycles(10);
-      // getConsciousness now returns canonical idle state when not investigating
-      const consciousness = oceanAutonomicManager.getConsciousness();
       const isInvestigating = oceanAutonomicManager.isInvestigating;
+      const consciousness = oceanAutonomicManager.getConsciousness();
       
       res.json({
         consciousness,
-        isInvestigating, // Explicit boolean for UI to rely on
+        isInvestigating,
         recentCycles,
         mushroomCooldown: {
           remaining: getMushroomCooldownRemaining(),
