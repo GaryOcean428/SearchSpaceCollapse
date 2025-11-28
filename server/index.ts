@@ -56,6 +56,17 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
+      // Skip noisy polling endpoints to keep Ocean logs visible
+      const quietEndpoints = [
+        '/api/investigation/status',
+        '/api/ocean/neurochemistry', 
+        '/api/ocean/cycles',
+        '/api/candidates'
+      ];
+      if (quietEndpoints.some(ep => path.startsWith(ep)) && req.method === 'GET') {
+        return; // Skip logging these frequent polling requests
+      }
+      
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       
       if (capturedJsonResponse) {
