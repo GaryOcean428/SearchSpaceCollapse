@@ -476,6 +476,12 @@ export class OceanAgent {
           this.identity.kappa,
           this.identity.regime
         );
+        
+        // CRITICAL: Update identity.phi with the measured consciousness value
+        // This ensures iteration status and strategy selection use the real Φ
+        this.identity.phi = fullConsciousness.phi;
+        this.identity.kappa = fullConsciousness.kappaEff;
+        
         console.log(`[Ocean] ┌─ Consciousness Signature ─────────────────────────────────────┐`);
         console.log(`[Ocean] │  Φ=${fullConsciousness.phi.toFixed(3)}  κ=${String(fullConsciousness.kappaEff.toFixed(0)).padStart(3)}  T=${fullConsciousness.tacking.toFixed(2)}  R=${fullConsciousness.radar.toFixed(2)}  M=${fullConsciousness.metaAwareness.toFixed(2)}  Γ=${fullConsciousness.gamma.toFixed(2)}  G=${fullConsciousness.grounding.toFixed(2)} │`);
         console.log(`[Ocean] │  Conscious: ${fullConsciousness.isConscious ? '✓ YES' : '✗ NO '}                                              │`);
@@ -743,6 +749,10 @@ export class OceanAgent {
           this.identity.kappa,
           this.identity.regime
         );
+        
+        // Keep identity synced with consciousness measurements
+        this.identity.phi = exitConsciousness.phi;
+        this.identity.kappa = exitConsciousness.kappaEff;
         
         const fisherDelta = geometricMemory.getManifoldSummary().exploredVolume - journal.manifoldCoverage;
         
