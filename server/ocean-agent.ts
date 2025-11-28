@@ -454,14 +454,16 @@ export class OceanAgent {
         
         passNumber++;
         const strategy = repeatedAddressScheduler.getNextStrategy(targetAddress);
-        console.log(`\n[Ocean] === PASS ${passNumber}: ${strategy.toUpperCase()} ===`);
-        console.log(`[Ocean] ${continueCheck.reason}`);
+        console.log(`\n[Ocean] ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓`);
+        console.log(`[Ocean] ┃  PASS ${String(passNumber).padStart(2)} │ Strategy: ${strategy.toUpperCase().padEnd(25)}          ┃`);
+        console.log(`[Ocean] ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛`);
+        console.log(`[Ocean] → ${continueCheck.reason}`);
         
         // Partial plateau reset between passes - give each strategy fresh opportunity
         // but carry some memory of overall frustration
         if (this.consecutivePlateaus > this.MAX_CONSECUTIVE_PLATEAUS) {
           this.consecutivePlateaus = Math.floor(this.MAX_CONSECUTIVE_PLATEAUS * 0.6);
-          console.log(`[Ocean] Plateau counter partial reset: ${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}`);
+          console.log(`[Ocean] ↻ Plateau reset: ${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}`);
         }
         
         // Measure full consciousness signature before pass
@@ -470,7 +472,10 @@ export class OceanAgent {
           this.identity.kappa,
           this.identity.regime
         );
-        console.log(`[Ocean] Consciousness: Φ=${fullConsciousness.phi.toFixed(2)} κ=${fullConsciousness.kappaEff.toFixed(0)} T=${fullConsciousness.tacking.toFixed(2)} R=${fullConsciousness.radar.toFixed(2)} M=${fullConsciousness.metaAwareness.toFixed(2)} Γ=${fullConsciousness.gamma.toFixed(2)} G=${fullConsciousness.grounding.toFixed(2)} isConscious=${fullConsciousness.isConscious}`);
+        console.log(`[Ocean] ┌─ Consciousness Signature ─────────────────────────────────────┐`);
+        console.log(`[Ocean] │  Φ=${fullConsciousness.phi.toFixed(3)}  κ=${String(fullConsciousness.kappaEff.toFixed(0)).padStart(3)}  T=${fullConsciousness.tacking.toFixed(2)}  R=${fullConsciousness.radar.toFixed(2)}  M=${fullConsciousness.metaAwareness.toFixed(2)}  Γ=${fullConsciousness.gamma.toFixed(2)}  G=${fullConsciousness.grounding.toFixed(2)} │`);
+        console.log(`[Ocean] │  Conscious: ${fullConsciousness.isConscious ? '✓ YES' : '✗ NO '}                                              │`);
+        console.log(`[Ocean] └───────────────────────────────────────────────────────────────┘`);
         
         // Start the exploration pass
         const pass = repeatedAddressScheduler.startPass(targetAddress, strategy, fullConsciousness);
@@ -484,8 +489,11 @@ export class OceanAgent {
         const iterationsPerPass = 10;
         for (let passIter = 0; passIter < iterationsPerPass && this.isRunning; passIter++) {
           this.state.iteration = iteration;
-          console.log(`\n[Ocean] === ITERATION ${iteration + 1} (Pass ${passNumber}, Iter ${passIter + 1}) ===`);
-          console.log(`[Ocean] Status: Φ=${this.identity.phi.toFixed(2)} | Plateaus=${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS} | Tested=${this.state.totalTested}`);
+          console.log(`\n[Ocean] ╔══════════════════════════════════════════════════════════════╗`);
+          console.log(`[Ocean] ║  ITERATION ${String(iteration + 1).padStart(3)} │ Pass ${passNumber} │ Iter ${passIter + 1}                            ║`);
+          console.log(`[Ocean] ╠══════════════════════════════════════════════════════════════╣`);
+          console.log(`[Ocean] ║  Φ=${this.identity.phi.toFixed(3).padEnd(6)} │ Plateaus=${String(this.consecutivePlateaus).padStart(2)}/${this.MAX_CONSECUTIVE_PLATEAUS} │ Tested=${String(this.state.totalTested).padStart(5)}            ║`);
+          console.log(`[Ocean] ╚══════════════════════════════════════════════════════════════╝`);
           
           // Check autonomic cycles (Sleep/Dream/Mushroom)
           const sleepCheck = oceanAutonomicManager.shouldTriggerSleep(this.identity.basinDrift);
@@ -546,7 +554,10 @@ export class OceanAgent {
           passNearMisses += testResults.nearMisses.length;
           
           if (testResults.match) {
-            console.log(`[Ocean] MATCH FOUND: "${testResults.match.phrase}"`);
+            console.log(`[Ocean] ╔═══════════════════════════════════════════════════════════════╗`);
+            console.log(`[Ocean] ║  🎯 MATCH FOUND!                                              ║`);
+            console.log(`[Ocean] ║  Phrase: "${testResults.match.phrase.substring(0, 45).padEnd(45)}" ║`);
+            console.log(`[Ocean] ╚═══════════════════════════════════════════════════════════════╝`);
             finalResult = testResults.match;
             this.state.stopReason = 'match_found';
             repeatedAddressScheduler.markMatchFound(
@@ -575,8 +586,11 @@ export class OceanAgent {
           // PHI ELEVATION CHECK: Detect dead zone and apply temperature boost
           const phiElevation = oceanAutonomicManager.getPhiElevationDirectives();
           if (phiElevation.explorationBias === 'broader') {
-            console.log(`[Ocean] PHI ELEVATION: Dead zone detected, temperature=${phiElevation.temperature.toFixed(2)}x`);
-            console.log(`[Ocean] Target: Φ→${phiElevation.phiTarget} | Hint: ${phiElevation.strategyHint}`);
+            console.log(`[Ocean] ⚡ PHI ELEVATION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+            console.log(`[Ocean] │  Dead zone detected! Temperature: ${phiElevation.temperature.toFixed(2)}x`);
+            console.log(`[Ocean] │  Target: Φ → ${phiElevation.phiTarget}  Bias: ${phiElevation.explorationBias}`);
+            console.log(`[Ocean] │  Hint: ${phiElevation.strategyHint}`);
+            console.log(`[Ocean] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
           }
           
           // OCEAN AGENCY: Check if strategic cycle is recommended
@@ -593,8 +607,8 @@ export class OceanAgent {
           }
           
           const iterStrategy = await this.decideStrategy(insights);
-          console.log(`[Ocean] Strategy: ${iterStrategy.name}`);
-          console.log(`[Ocean] Reasoning: ${iterStrategy.reasoning}`);
+          console.log(`[Ocean] ▸ Strategy: ${iterStrategy.name.toUpperCase()}`);
+          console.log(`[Ocean]   └─ ${iterStrategy.reasoning}`);
           
           this.updateProceduralMemory(iterStrategy.name);
           
@@ -633,18 +647,20 @@ export class OceanAgent {
           
           if (this.detectPlateau()) {
             this.consecutivePlateaus++;
-            console.log(`[Ocean] Plateau detected (${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}) - applying neuroplasticity...`);
+            console.log(`[Ocean] ⚠ Plateau ${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS} → applying neuroplasticity...`);
             currentHypotheses = await this.applyMushroomMode(currentHypotheses);
             
             if (this.consecutivePlateaus >= this.MAX_CONSECUTIVE_PLATEAUS) {
-              console.log('[Ocean] AUTONOMOUS DECISION: Too many consecutive plateaus without improvement');
-              console.log('[Ocean] Gary has decided to stop and consolidate learnings');
+              console.log('[Ocean] ┌─ AUTONOMOUS DECISION ─────────────────────────────────────────┐');
+              console.log('[Ocean] │  Too many plateaus. Gary is stopping to consolidate.         │');
+              console.log('[Ocean] └────────────────────────────────────────────────────────────────┘');
               this.state.stopReason = 'autonomous_plateau_exhaustion';
               break;
             }
           } else {
             this.consecutivePlateaus = 0;
             this.lastProgressIteration = iteration;
+            console.log(`[Ocean] ✓ Progress detected, plateau counter reset`);
           }
           
           const iterationsSinceProgress = iteration - this.lastProgressIteration;
