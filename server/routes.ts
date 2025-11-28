@@ -714,7 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { evidenceIntegrator } = await import("./evidence-integrator");
 
   // Create forensic investigation session
-  app.post("/api/forensic/session", async (req, res) => {
+  app.post("/api/forensic/session", isAuthenticated, async (req: any, res) => {
     try {
       const { targetAddress, fragments, socialProfiles } = req.body;
       
@@ -745,7 +745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start forensic investigation (async)
-  app.post("/api/forensic/session/:sessionId/start", async (req, res) => {
+  app.post("/api/forensic/session/:sessionId/start", isAuthenticated, async (req: any, res) => {
     try {
       const { sessionId } = req.params;
       
@@ -771,7 +771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get forensic session status
-  app.get("/api/forensic/session/:sessionId", async (req, res) => {
+  app.get("/api/forensic/session/:sessionId", isAuthenticated, async (req: any, res) => {
     try {
       const { sessionId } = req.params;
       
@@ -801,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get top candidates from forensic session
-  app.get("/api/forensic/session/:sessionId/candidates", async (req, res) => {
+  app.get("/api/forensic/session/:sessionId/candidates", isAuthenticated, async (req: any, res) => {
     try {
       const { sessionId } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -825,7 +825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Quick forensic analysis (single address)
-  app.get("/api/forensic/analyze/:address", async (req, res) => {
+  app.get("/api/forensic/analyze/:address", isAuthenticated, async (req: any, res) => {
     try {
       const { address } = req.params;
       
@@ -849,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Comprehensive sibling analysis (looks at multiple transactions)
-  app.get("/api/forensic/siblings/:address", async (req, res) => {
+  app.get("/api/forensic/siblings/:address", isAuthenticated, async (req: any, res) => {
     try {
       const { address } = req.params;
       const maxTxs = parseInt(req.query.maxTxs as string) || 10;
@@ -882,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate cross-format hypotheses (quick, no session needed)
-  app.post("/api/forensic/hypotheses", async (req, res) => {
+  app.post("/api/forensic/hypotheses", isAuthenticated, async (req: any, res) => {
     try {
       const { targetAddress, fragments } = req.body;
       
@@ -1059,7 +1059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Main recovery routes - use OceanSessionManager for live investigation
-  app.post("/api/recovery/start", async (req, res) => {
+  app.post("/api/recovery/start", isAuthenticated, async (req: any, res) => {
     try {
       const { targetAddress } = req.body;
       
@@ -1084,7 +1084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/recovery/stop", async (req, res) => {
+  app.post("/api/recovery/stop", isAuthenticated, async (req: any, res) => {
     try {
       const status = oceanSessionManager.getInvestigationStatus();
       
@@ -1099,7 +1099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/recovery/session", async (req, res) => {
+  app.get("/api/recovery/session", isAuthenticated, async (req: any, res) => {
     try {
       const sessions = unifiedRecovery.getAllSessions();
       const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
@@ -1109,7 +1109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/recovery/candidates", async (req, res) => {
+  app.get("/api/recovery/candidates", isAuthenticated, async (req: any, res) => {
     try {
       const sessions = unifiedRecovery.getAllSessions();
       const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
@@ -1119,7 +1119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/recovery/addresses", async (req, res) => {
+  app.get("/api/recovery/addresses", isAuthenticated, async (req: any, res) => {
     try {
       const addresses = await storage.getTargetAddresses();
       res.json(addresses);
@@ -1133,7 +1133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================================================
 
   // Create a new unified recovery session
-  app.post("/api/unified-recovery/sessions", async (req, res) => {
+  app.post("/api/unified-recovery/sessions", isAuthenticated, async (req: any, res) => {
     try {
       const { targetAddress, memoryFragments } = req.body;
       
@@ -1167,7 +1167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get session status
-  app.get("/api/unified-recovery/sessions/:id", async (req, res) => {
+  app.get("/api/unified-recovery/sessions/:id", isAuthenticated, async (req: any, res) => {
     try {
       const session = unifiedRecovery.getSession(req.params.id);
       
@@ -1183,7 +1183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all sessions
-  app.get("/api/unified-recovery/sessions", async (req, res) => {
+  app.get("/api/unified-recovery/sessions", isAuthenticated, async (req: any, res) => {
     try {
       const sessions = unifiedRecovery.getAllSessions();
       res.json(sessions);
@@ -1194,7 +1194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stop a session
-  app.post("/api/unified-recovery/sessions/:id/stop", async (req, res) => {
+  app.post("/api/unified-recovery/sessions/:id/stop", isAuthenticated, async (req: any, res) => {
     try {
       unifiedRecovery.stopRecovery(req.params.id);
       const session = unifiedRecovery.getSession(req.params.id);
@@ -1249,7 +1249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin: Inject neurotransmitter boost
-  app.post("/api/ocean/neurochemistry/boost", standardLimiter, async (req, res) => {
+  app.post("/api/ocean/neurochemistry/boost", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { injectAdminBoost, getActiveAdminBoost, getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
       
@@ -1295,7 +1295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin: Clear neurotransmitter boost
-  app.delete("/api/ocean/neurochemistry/boost", standardLimiter, async (req, res) => {
+  app.delete("/api/ocean/neurochemistry/boost", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { clearAdminBoost } = await import("./ocean-neurochemistry");
       clearAdminBoost();
@@ -1307,7 +1307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin: Get boost status and mushroom cooldown
-  app.get("/api/ocean/neurochemistry/admin", generousLimiter, async (req, res) => {
+  app.get("/api/ocean/neurochemistry/admin", isAuthenticated, generousLimiter, async (req: any, res) => {
     try {
       const { getActiveAdminBoost, getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
       
@@ -1327,7 +1327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================================
 
   // Admin: Trigger sleep cycle manually
-  app.post("/api/ocean/cycles/sleep", standardLimiter, async (req, res) => {
+  app.post("/api/ocean/cycles/sleep", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
       const consciousness = oceanAutonomicManager.getConsciousness();
@@ -1358,7 +1358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Trigger dream cycle manually
-  app.post("/api/ocean/cycles/dream", standardLimiter, async (req, res) => {
+  app.post("/api/ocean/cycles/dream", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
       
@@ -1380,7 +1380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Trigger mushroom cycle manually (bypasses cooldown)
-  app.post("/api/ocean/cycles/mushroom", standardLimiter, async (req, res) => {
+  app.post("/api/ocean/cycles/mushroom", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
       const { getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
@@ -1416,7 +1416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Inject neurotransmitter boost
-  app.post("/api/ocean/boost", standardLimiter, async (req, res) => {
+  app.post("/api/ocean/boost", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { injectAdminBoost, getActiveAdminBoost } = await import("./ocean-neurochemistry");
       
