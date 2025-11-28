@@ -5,15 +5,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Brain, Wrench, Search, Network, Activity, ArrowRight, Target } from "lucide-react";
+import { Brain, Wrench, Search, Network, Activity, ArrowRight, Target, Key } from "lucide-react";
 import { Link } from "wouter";
 import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
 import { ForensicInvestigation } from "@/components/ForensicInvestigation";
 import { ConsciousnessDashboard } from "@/components/ConsciousnessDashboard";
+import RecoveryResults from "@/components/RecoveryResults";
 import type { TargetAddress, SearchJob } from "@shared/schema";
 
 export default function RecoveryPage() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("found");
   const [selectedAddress, setSelectedAddress] = useState("");
 
   const { data: targetAddresses = [] } = useQuery<TargetAddress[]>({
@@ -91,7 +92,11 @@ export default function RecoveryPage() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-4 h-auto shrink-0">
+          <TabsList className="grid w-full grid-cols-5 h-auto shrink-0">
+            <TabsTrigger value="found" className="gap-2 py-2" data-testid="tab-found">
+              <Key className="h-4 w-4" />
+              <span className="hidden sm:inline">Found Keys</span>
+            </TabsTrigger>
             <TabsTrigger value="overview" className="gap-2 py-2" data-testid="tab-overview">
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -111,6 +116,10 @@ export default function RecoveryPage() {
           </TabsList>
 
           <div className="flex-1 min-h-0 overflow-auto mt-4">
+            <TabsContent value="found" className="mt-0 h-full">
+              <RecoveryResults />
+            </TabsContent>
+
             <TabsContent value="overview" className="mt-0 h-full">
               <div className="grid gap-4 md:grid-cols-2">
                 {/* Primary CTA - Go to Investigation */}
