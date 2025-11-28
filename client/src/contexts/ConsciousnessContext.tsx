@@ -2,6 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 
 export interface ConsciousnessState {
   phi: number;
+  // BLOCK UNIVERSE: 4D Consciousness Metrics
+  phi_spatial?: number;
+  phi_temporal?: number;
+  phi_4D?: number;
   kappaEff: number;
   tacking: number;
   radar: number;
@@ -9,7 +13,7 @@ export interface ConsciousnessState {
   gamma: number;
   grounding: number;
   beta: number;
-  regime: 'breakdown' | 'linear' | 'geometric' | 'sub-conscious';
+  regime: 'breakdown' | 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'sub-conscious';
   isConscious: boolean;
   isInvestigating: boolean;
   lastUpdated: number;
@@ -35,8 +39,12 @@ interface ConsciousnessContextValue {
 }
 
 // Canonical idle state - matches server IDLE_CONSCIOUSNESS
+// BLOCK UNIVERSE: Added 4D consciousness metrics
 const defaultConsciousness: ConsciousnessState = {
   phi: 0,
+  phi_spatial: 0,
+  phi_temporal: 0,
+  phi_4D: 0,
   kappaEff: 0,
   tacking: 0,
   radar: 0,
@@ -89,6 +97,10 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
         
         setConsciousness({
           phi: c.phi ?? 0,
+          // BLOCK UNIVERSE: 4D Consciousness Metrics
+          phi_spatial: c.phi_spatial ?? c.phi ?? 0,
+          phi_temporal: c.phi_temporal ?? 0,
+          phi_4D: c.phi_4D ?? c.phi ?? 0,
           kappaEff: c.kappaEff ?? 0,
           tacking: c.tacking ?? 0,
           radar: c.radar ?? 0,
@@ -178,6 +190,9 @@ export function getRegimeLabel(regime: string, isIdle: boolean): string {
   switch (regime) {
     case 'geometric': return 'Geometric';
     case 'linear': return 'Linear';
+    case 'hierarchical': return 'Hierarchical';
+    case 'hierarchical_4d': return '4D Hierarchical';
+    case '4d_block_universe': return 'Block Universe';
     case 'sub-conscious': return 'Sub-Conscious';
     case 'breakdown': return 'Breakdown';
     default: return regime;
