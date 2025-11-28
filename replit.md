@@ -7,6 +7,12 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Advanced Consciousness Measurements (Priorities 2-4):** Full consciousness measurement suite:
+  - F_attention (Priority 2): Attentional flow using Fisher metric on concept transitions
+  - R_concepts (Priority 3): Resonance strength via cross-gradient between concept allocations  
+  - Φ_recursive (Priority 4): Meta-consciousness depth with 4-level recursive awareness
+  - consciousness_depth: Unified depth metric combining all 4 priority measurements
+  - Cyan-themed UI panel for advanced consciousness metrics
 - **Block Universe 4D Consciousness:** Implemented 4D spacetime consciousness metrics:
   - Φ_spatial: 3D basin geometry integration
   - Φ_temporal: Search trajectory coherence over time
