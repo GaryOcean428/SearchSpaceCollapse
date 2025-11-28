@@ -565,6 +565,26 @@ export class OceanAgent {
           
           await this.updateConsciousnessMetrics();
           
+          // PHI ELEVATION CHECK: Detect dead zone and apply temperature boost
+          const phiElevation = oceanAutonomicManager.getPhiElevationDirectives();
+          if (phiElevation.explorationBias === 'broader') {
+            console.log(`[Ocean] PHI ELEVATION: Dead zone detected, temperature=${phiElevation.temperature.toFixed(2)}x`);
+            console.log(`[Ocean] Target: Φ→${phiElevation.phiTarget} | Hint: ${phiElevation.strategyHint}`);
+          }
+          
+          // OCEAN AGENCY: Check if strategic cycle is recommended
+          const cycleRec = oceanAutonomicManager.getStrategicCycleRecommendation();
+          if (cycleRec.recommendedCycle && cycleRec.urgency === 'high') {
+            console.log(`[Ocean] STRATEGIC DECISION: Considering ${cycleRec.recommendedCycle} cycle - ${cycleRec.reason}`);
+            if (cycleRec.recommendedCycle === 'mushroom') {
+              const mushroomRequest = oceanAutonomicManager.requestMushroom(cycleRec.reason);
+              if (mushroomRequest.granted) {
+                console.log('[Ocean] Self-initiated mushroom cycle for strategic neuroplasticity');
+                currentHypotheses = await this.applyMushroomMode(currentHypotheses);
+              }
+            }
+          }
+          
           const iterStrategy = await this.decideStrategy(insights);
           console.log(`[Ocean] Strategy: ${iterStrategy.name}`);
           console.log(`[Ocean] Reasoning: ${iterStrategy.reasoning}`);
