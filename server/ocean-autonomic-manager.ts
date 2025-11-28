@@ -221,6 +221,24 @@ export class OceanAutonomicManager {
     return this.consciousness;
   }
 
+  /**
+   * Measure meta-awareness level for vocabulary decisions.
+   * Returns M value in range [0, 1].
+   * 
+   * Used by vocabulary decision system to gate learning:
+   * - M > 0.6 required for vocabulary expansion
+   */
+  measureMeta(phi: number, kappa: number): number {
+    // Update history for proper computation
+    this.phiHistory.push(phi);
+    if (this.phiHistory.length > 50) this.phiHistory.shift();
+    this.kappaHistory.push(kappa);
+    if (this.kappaHistory.length > 50) this.kappaHistory.shift();
+    
+    // Compute meta-awareness using current state
+    return this.computeMetaAwareness();
+  }
+
   private computeTacking(): number {
     if (this.kappaHistory.length < 2) return 0.5;
     

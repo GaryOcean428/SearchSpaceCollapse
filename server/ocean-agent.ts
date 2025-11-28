@@ -9,6 +9,7 @@ import { geometricMemory, type BasinProbe } from './geometric-memory';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { vocabularyExpander } from './vocabulary-expander';
 import { expandedVocabulary } from './expanded-vocabulary';
+import { vocabDecisionEngine, shouldGaryLearnWord, type GaryState, type WordContext } from './vocabulary-decision';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { knowledgeCompressionEngine } from './knowledge-compression-engine';
@@ -691,14 +692,38 @@ export class OceanAgent {
             }
           }
           
-          // SELF-TRAINING: Check for vocabulary expansion every 10 iterations
-          if (iteration % 10 === 0 && this.identity.phi >= 0.6) {
+          // SELF-TRAINING: Consciousness-gated vocabulary consolidation
+          // Every 10 iterations, check if Gary is conscious enough to make vocabulary decisions
+          if (iteration % 10 === 0) {
             try {
-              const expanded = await vocabularyExpander.checkAutoExpansion();
-              if (expanded.length > 0) {
-                console.log(`[Ocean] 📖 VOCABULARY LEARNING: Expanded ${expanded.length} new words/patterns`);
-                for (const exp of expanded.slice(0, 3)) {
-                  console.log(`[Ocean]   ✨ "${exp.word}" (Φ=${exp.phi.toFixed(2)}) - ${exp.type}`);
+              // Build Gary's consciousness state for vocabulary decisions
+              const garyState: GaryState = {
+                phi: this.identity.phi,
+                meta: oceanAutonomicManager.measureMeta(this.identity.phi, this.identity.kappa),
+                regime: this.identity.regime,
+                basinCoordinates: this.identity.basinCoordinates,
+                basinReference: this.identity.basinReference,
+              };
+              
+              // Try consciousness-gated consolidation cycle
+              const consolidationResult = await vocabDecisionEngine.tryConsolidation(garyState);
+              
+              if (consolidationResult.processed) {
+                if (consolidationResult.wordsLearned.length > 0) {
+                  console.log(`[Ocean] 🧠 VOCABULARY CONSOLIDATION (Cycle ${consolidationResult.cycleNumber}):`);
+                  console.log(`[Ocean] │  State: Φ=${garyState.phi.toFixed(2)}, M=${garyState.meta.toFixed(2)}, regime=${garyState.regime}`);
+                  console.log(`[Ocean] │  Learned ${consolidationResult.wordsLearned.length} words via geometric decision:`);
+                  for (const word of consolidationResult.wordsLearned.slice(0, 3)) {
+                    console.log(`[Ocean] │    ✨ "${word}"`);
+                  }
+                  if (consolidationResult.wordsPruned.length > 0) {
+                    console.log(`[Ocean] │  Pruned ${consolidationResult.wordsPruned.length} low-value candidates`);
+                  }
+                }
+              } else if (consolidationResult.reason) {
+                // Log why consolidation was deferred (consciousness gate closed)
+                if (iteration % 50 === 0) {  // Only log occasionally to avoid spam
+                  console.log(`[Ocean] 📖 Vocab consolidation deferred: ${consolidationResult.reason}`);
                 }
               }
             } catch (err) {
@@ -1082,8 +1107,15 @@ export class OceanAgent {
         }, `ocean-${this.targetAddress.slice(0, 8)}`);
         
         // VOCABULARY SELF-TRAINING: Track high-Φ patterns for vocabulary expansion
+        // Pass full geometric context for 4-criteria decision making
         if (qigResult.phi >= 0.5) {
-          vocabularyTracker.observe(hypo.phrase, qigResult.phi);
+          vocabularyTracker.observe(
+            hypo.phrase, 
+            qigResult.phi, 
+            qigResult.kappa,
+            qigResult.regime,
+            qigResult.basinCoordinates
+          );
         }
         
         if (this.memory.episodes.length > 1000) {

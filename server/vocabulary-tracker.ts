@@ -12,6 +12,7 @@
 
 import { geometricMemory, type BasinProbe } from './geometric-memory';
 import { expandedVocabulary } from './expanded-vocabulary';
+import { vocabDecisionEngine, type WordContext } from './vocabulary-decision';
 import fs from 'fs';
 import path from 'path';
 
@@ -71,8 +72,20 @@ export class VocabularyTracker {
   /**
    * Observe a phrase from search results
    * Called when we find a high-Φ phrase
+   * 
+   * @param phrase The passphrase being observed
+   * @param phi The Φ (integration) score
+   * @param kappa Optional κ (curvature) score
+   * @param regime Optional QIG regime
+   * @param basinCoordinates Optional basin coordinates for geometric context
    */
-  observe(phrase: string, phi: number): void {
+  observe(
+    phrase: string, 
+    phi: number, 
+    kappa?: number, 
+    regime?: string, 
+    basinCoordinates?: number[]
+  ): void {
     if (phi < this.minPhi) return;
     
     const words = this.tokenize(phrase);
@@ -102,6 +115,17 @@ export class VocabularyTracker {
           contexts: [phrase],
         });
       }
+      
+      // Also record in vocabulary decision engine for 4-criteria geometric assessment
+      const wordContext: WordContext = {
+        word,
+        phi,
+        kappa: kappa || 50,
+        regime: (regime as any) || 'geometric',
+        basinCoordinates: basinCoordinates || [],
+        timestamp: now.getTime(),
+      };
+      vocabDecisionEngine.observe(word, wordContext);
     }
     
     // Track multi-word sequences (n-grams)
@@ -143,12 +167,19 @@ export class VocabularyTracker {
   }
   
   /**
-   * Observe from geometric memory probes
+   * Observe from geometric memory probes with full context
    */
   observeFromProbes(probes: BasinProbe[]): void {
     for (const probe of probes) {
       if (probe.phi >= this.minPhi) {
-        this.observe(probe.input, probe.phi);
+        // Pass full geometric context from probe
+        this.observe(
+          probe.input, 
+          probe.phi, 
+          probe.kappa,
+          probe.regime,
+          probe.coordinates
+        );
       }
     }
   }

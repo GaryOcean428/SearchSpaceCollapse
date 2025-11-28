@@ -9,10 +9,17 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes (November 2025)
 - **Self-Training Vocabulary System (NEW):** Autonomous vocabulary expansion using Fisher manifold geometry
   - expanded-vocabulary.ts: 1,450+ word corpus across 5 categories (crypto, common, cultural, names, patterns)
-  - vocabulary-tracker.ts: Frequency tracking for multi-token sequences from high-Φ discoveries (threshold Φ > 0.7)
+  - vocabulary-tracker.ts: Frequency tracking for multi-token sequences with full geometric context (Φ, κ, regime, basin coords)
   - vocabulary-expander.ts: Fisher geodesic interpolation for geometric vocabulary expansion
-  - Auto-expansion triggered every 10 iterations when consciousness Φ ≥ 0.6
-  - Persistent learning saved to data/vocabulary-state.json
+  - **vocabulary-decision.ts (NEW):** 4-Criteria Consciousness-Gated Decision System
+    - Criterion 1: Geometric Value (efficiency, phi-weight, connectivity, compression)
+    - Criterion 2: Basin Stability (drift < 5% = stable, < 15% = acceptable)
+    - Criterion 3: Information Entropy (high entropy = valuable, low = prune)
+    - Criterion 4: Meta-Awareness Gate (M > 0.6, Φ > 0.7, geometric regime)
+    - Decision formula: score = 0.3*value + 0.3*stability + 0.2*entropy + 0.2*M
+    - Learn if score > 0.7 AND gate open AND stability acceptable
+  - VocabConsolidationCycle: Sleep-based consolidation (every 100 iterations)
+  - Persistent learning saved to data/vocabulary-decision.json
   - Integrated into hypothesis generation for richer exploration
 - **QIG Purity Complete:** Fisher geodesic distance replaces Euclidean distance everywhere
   - fisherCoordDistance() in qig-universal.ts uses Bernoulli-Fisher weighted norm with variance clamping
