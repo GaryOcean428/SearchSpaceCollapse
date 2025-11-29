@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { TargetAddress } from '@shared/schema';
@@ -160,7 +161,7 @@ export function OceanInvestigationStory() {
   });
 
   const { data: targetAddresses } = useQuery<TargetAddress[]>({
-    queryKey: ['/api/recovery/addresses'],
+    queryKey: ['/api/target-addresses'],
   });
 
   const { data: candidates } = useQuery<RecoveryCandidate[]>({
@@ -599,19 +600,22 @@ function ControlRow({
         <div className="flex items-center gap-3">
           {/* Address Selector */}
           <div className="flex-1 flex items-center gap-2">
-            <select
+            <Select
               value={selectedAddress}
-              onChange={(e) => setSelectedAddress(e.target.value)}
-              className="flex-1 h-9 px-3 rounded-md bg-background border text-sm"
+              onValueChange={setSelectedAddress}
               disabled={isRunning || autoCycleStatus?.enabled}
-              data-testid="select-target-address"
             >
-              {targetAddresses.map((addr) => (
-                <option key={addr.id} value={addr.address}>
-                  {addr.label || addr.address.slice(0, 16) + '...'}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="flex-1" data-testid="select-target-address">
+                <SelectValue placeholder="Select address..." />
+              </SelectTrigger>
+              <SelectContent>
+                {targetAddresses.map((addr) => (
+                  <SelectItem key={addr.id} value={addr.address}>
+                    {addr.label || addr.address.slice(0, 16) + '...'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             
             {!isRunning && !autoCycleStatus?.enabled && (
               <Button
