@@ -997,7 +997,10 @@ export const addressExplorationJournalSchema = z.object({
     'match_found',             // Success!
     'user_stopped',
     'timeout',
+    'full_exploration_complete', // All criteria met: coverage, regimes, strategies
+    'diminishing_returns',       // Exploration plateaued with sufficient progress
   ]).optional(),
+  completedAt: z.string().optional(),
   
   // Aggregate metrics across all passes
   totalHypothesesTested: z.number(),
