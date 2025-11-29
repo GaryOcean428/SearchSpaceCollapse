@@ -850,14 +850,58 @@ function BalanceHitsPanel({
 }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   
-  const copyToClipboard = (text: string, fieldId: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(fieldId);
-    setTimeout(() => setCopiedField(null), 2000);
+  const copyToClipboard = async (text: string, fieldId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   const hitsWithBalance = hits.filter(h => h.balanceSats > 0);
   const hitsWithActivity = hits.filter(h => h.balanceSats === 0 && h.txCount > 0);
+
+  const CopyableField = ({ label, value, fieldId }: { label: string; value: string; fieldId: string }) => (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <Button 
+          size="sm"
+          variant="outline"
+          className="h-6 px-2 gap-1"
+          onClick={() => copyToClipboard(value, fieldId)}
+          data-testid={`button-copy-${fieldId}`}
+        >
+          {copiedField === fieldId ? (
+            <>
+              <Check className="w-3 h-3 text-green-400" />
+              <span className="text-xs text-green-400">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3" />
+              <span className="text-xs">Copy</span>
+            </>
+          )}
+        </Button>
+      </div>
+      <div 
+        className="p-2 bg-muted/50 rounded border font-mono text-xs break-all select-all cursor-text"
+        onClick={(e) => {
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(e.currentTarget);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }}
+        data-testid={`text-${fieldId}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
 
   return (
     <Collapsible open={isOpen} onOpenChange={onOpenChange}>
@@ -878,94 +922,72 @@ function BalanceHitsPanel({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <CardContent className="p-3 pt-0 max-h-64 overflow-y-auto">
+          <CardContent className="p-3 pt-0 max-h-[500px] overflow-y-auto">
             {hits.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-4">
                 No addresses with balances found yet. Ocean checks every 3rd generated address.
               </div>
             ) : (
-              <div className="space-y-3">
-                {/* Addresses with balance first */}
+              <div className="space-y-4">
+                {/* Addresses with balance first - FULL RECOVERY DATA */}
                 {hitsWithBalance.map((hit, i) => (
-                  <div key={`bal-${i}`} className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-green-500 text-sm">{hit.balanceBTC} BTC</Badge>
-                      <span className="text-xs text-muted-foreground">{new Date(hit.discoveredAt).toLocaleString()}</span>
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-20">Address:</span>
-                        <code className="text-xs font-mono flex-1 truncate" title={hit.address}>{hit.address}</code>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-6 w-6"
-                          onClick={() => copyToClipboard(hit.address, `addr-${i}`)}
-                          data-testid={`button-copy-address-${i}`}
-                        >
-                          {copiedField === `addr-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-20">Passphrase:</span>
-                        <code className="text-xs font-mono flex-1 break-all bg-muted/30 px-2 py-1 rounded">{hit.passphrase}</code>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-6 w-6"
-                          onClick={() => copyToClipboard(hit.passphrase, `pass-${i}`)}
-                          data-testid={`button-copy-passphrase-${i}`}
-                        >
-                          {copiedField === `pass-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-20">WIF:</span>
-                        <code className="text-xs font-mono flex-1 truncate bg-muted/30 px-2 py-1 rounded" title={hit.wif}>{hit.wif}</code>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-6 w-6"
-                          onClick={() => copyToClipboard(hit.wif, `wif-${i}`)}
-                          data-testid={`button-copy-wif-${i}`}
-                        >
-                          {copiedField === `wif-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                        </Button>
+                  <div key={`bal-${i}`} className="p-4 rounded-lg bg-green-500/10 border-2 border-green-500/50 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <Badge className="bg-green-500 text-base px-3 py-1">{hit.balanceBTC} BTC</Badge>
+                      <div className="text-xs text-muted-foreground text-right">
+                        <div>{new Date(hit.discoveredAt).toLocaleString()}</div>
+                        <div>{hit.txCount} txs | {hit.isCompressed ? 'Compressed' : 'Uncompressed'}</div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 border-t border-green-500/20">
-                      <span>{hit.txCount} transactions</span>
-                      <span>{hit.isCompressed ? 'Compressed' : 'Uncompressed'}</span>
+                    <div className="space-y-3 pt-2 border-t border-green-500/30">
+                      <CopyableField 
+                        label="PASSPHRASE (for recovery)" 
+                        value={hit.passphrase} 
+                        fieldId={`pass-${i}`} 
+                      />
+                      <CopyableField 
+                        label="WIF PRIVATE KEY (import to wallet)" 
+                        value={hit.wif} 
+                        fieldId={`wif-${i}`} 
+                      />
+                      <CopyableField 
+                        label="Bitcoin Address" 
+                        value={hit.address} 
+                        fieldId={`addr-${i}`} 
+                      />
                     </div>
                   </div>
                 ))}
 
-                {/* Addresses with historical activity (0 balance) */}
+                {/* Addresses with historical activity (0 balance) - FULL DATA TOO */}
                 {hitsWithActivity.length > 0 && (
-                  <div className="pt-2">
-                    <div className="text-xs text-muted-foreground mb-2">Historical Activity (emptied):</div>
+                  <div className="pt-2 border-t">
+                    <div className="text-sm font-medium text-muted-foreground mb-3">
+                      Historical Activity (emptied - 0 balance):
+                    </div>
                     {hitsWithActivity.map((hit, i) => (
-                      <div key={`hist-${i}`} className="p-2 rounded bg-muted/20 text-xs space-y-1 mb-1">
-                        <div className="flex items-center justify-between">
-                          <code className="font-mono truncate flex-1" title={hit.address}>{hit.address.slice(0, 16)}...</code>
-                          <span className="text-muted-foreground">{hit.txCount} txs</span>
+                      <div key={`hist-${i}`} className="p-3 rounded-lg bg-muted/30 border space-y-3 mb-3">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{hit.txCount} transactions</span>
+                          <span>{hit.isCompressed ? 'Compressed' : 'Uncompressed'}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Pass:</span>
-                          <code className="font-mono">{hit.passphrase}</code>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="h-5 w-5"
-                            onClick={() => copyToClipboard(hit.passphrase, `histpass-${i}`)}
-                          >
-                            {copiedField === `histpass-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                          </Button>
-                        </div>
+                        
+                        <CopyableField 
+                          label="Passphrase" 
+                          value={hit.passphrase} 
+                          fieldId={`histpass-${i}`} 
+                        />
+                        <CopyableField 
+                          label="WIF Private Key" 
+                          value={hit.wif} 
+                          fieldId={`histwif-${i}`} 
+                        />
+                        <CopyableField 
+                          label="Address" 
+                          value={hit.address} 
+                          fieldId={`histaddr-${i}`} 
+                        />
                       </div>
                     ))}
                   </div>

@@ -1,0 +1,12 @@
+[
+  {
+    "address": "1JR69nTujHR8x5TtdEo8qYt7mpkJQtfHau",
+    "passphrase": "decentralized",
+    "wif": "5HsRWPW5JGa6xMZZBcV5BNQHuCzAvYwfxKdwn55VWYJD5zfRKFa",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-11-29T06:51:40.663Z",
+    "isCompressed": false
+  }
+]
