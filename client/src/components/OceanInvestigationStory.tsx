@@ -13,7 +13,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Brain, Search, Play, Pause, Moon, Sparkles, Cloud, Zap,
-  ChevronDown, ChevronUp, RefreshCw, Radio, Users
+  ChevronDown, ChevronUp, RefreshCw, Radio, Users, Wallet, Copy, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -138,6 +138,17 @@ interface BasinSyncStatus {
   message?: string;
 }
 
+interface BalanceHit {
+  address: string;
+  passphrase: string;
+  wif: string;
+  balanceSats: number;
+  balanceBTC: string;
+  txCount: number;
+  discoveredAt: string;
+  isCompressed: boolean;
+}
+
 export function OceanInvestigationStory() {
   const { toast } = useToast();
   const [neuroOpen, setNeuroOpen] = useState(true);
@@ -171,6 +182,13 @@ export function OceanInvestigationStory() {
     queryKey: ['/api/basin-sync/coordinator/status'],
     refetchInterval: 5000,
   });
+
+  const { data: balanceHits } = useQuery<BalanceHit[]>({
+    queryKey: ['/api/balance-hits'],
+    refetchInterval: 10000,
+  });
+
+  const [balanceHitsOpen, setBalanceHitsOpen] = useState(true);
 
   const startMutation = useMutation({
     mutationFn: async (targetAddress: string) => {
@@ -478,6 +496,13 @@ export function OceanInvestigationStory() {
               </CardContent>
             </Card>
           )}
+
+          {/* Balance Hits - Addresses with coins/activity */}
+          <BalanceHitsPanel 
+            hits={balanceHits || []} 
+            isOpen={balanceHitsOpen}
+            onOpenChange={setBalanceHitsOpen}
+          />
         </div>
       </div>
 
@@ -810,6 +835,146 @@ function ActivityCompact({
         })}
       </div>
     </div>
+  );
+}
+
+function BalanceHitsPanel({
+  hits,
+  isOpen,
+  onOpenChange
+}: {
+  hits: BalanceHit[];
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  
+  const copyToClipboard = (text: string, fieldId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldId);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const hitsWithBalance = hits.filter(h => h.balanceSats > 0);
+  const hitsWithActivity = hits.filter(h => h.balanceSats === 0 && h.txCount > 0);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={onOpenChange}>
+      <Card className={`shrink-0 ${hitsWithBalance.length > 0 ? 'border-green-500/50 bg-green-500/5' : ''}`}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between p-3 cursor-pointer hover-elevate">
+            <div className="flex items-center gap-2">
+              <Wallet className={`w-4 h-4 ${hitsWithBalance.length > 0 ? 'text-green-400' : 'text-muted-foreground'}`} />
+              <span className="font-medium text-sm">Balance Hits</span>
+              {hitsWithBalance.length > 0 && (
+                <Badge className="bg-green-500 text-xs">{hitsWithBalance.length} with coins!</Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">{hits.length} total</Badge>
+              {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-3 pt-0 max-h-64 overflow-y-auto">
+            {hits.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-4">
+                No addresses with balances found yet. Ocean checks every 3rd generated address.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Addresses with balance first */}
+                {hitsWithBalance.map((hit, i) => (
+                  <div key={`bal-${i}`} className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Badge className="bg-green-500 text-sm">{hit.balanceBTC} BTC</Badge>
+                      <span className="text-xs text-muted-foreground">{new Date(hit.discoveredAt).toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-20">Address:</span>
+                        <code className="text-xs font-mono flex-1 truncate" title={hit.address}>{hit.address}</code>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(hit.address, `addr-${i}`)}
+                          data-testid={`button-copy-address-${i}`}
+                        >
+                          {copiedField === `addr-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-20">Passphrase:</span>
+                        <code className="text-xs font-mono flex-1 break-all bg-muted/30 px-2 py-1 rounded">{hit.passphrase}</code>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(hit.passphrase, `pass-${i}`)}
+                          data-testid={`button-copy-passphrase-${i}`}
+                        >
+                          {copiedField === `pass-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-20">WIF:</span>
+                        <code className="text-xs font-mono flex-1 truncate bg-muted/30 px-2 py-1 rounded" title={hit.wif}>{hit.wif}</code>
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(hit.wif, `wif-${i}`)}
+                          data-testid={`button-copy-wif-${i}`}
+                        >
+                          {copiedField === `wif-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 border-t border-green-500/20">
+                      <span>{hit.txCount} transactions</span>
+                      <span>{hit.isCompressed ? 'Compressed' : 'Uncompressed'}</span>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Addresses with historical activity (0 balance) */}
+                {hitsWithActivity.length > 0 && (
+                  <div className="pt-2">
+                    <div className="text-xs text-muted-foreground mb-2">Historical Activity (emptied):</div>
+                    {hitsWithActivity.map((hit, i) => (
+                      <div key={`hist-${i}`} className="p-2 rounded bg-muted/20 text-xs space-y-1 mb-1">
+                        <div className="flex items-center justify-between">
+                          <code className="font-mono truncate flex-1" title={hit.address}>{hit.address.slice(0, 16)}...</code>
+                          <span className="text-muted-foreground">{hit.txCount} txs</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Pass:</span>
+                          <code className="font-mono">{hit.passphrase}</code>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-5 w-5"
+                            onClick={() => copyToClipboard(hit.passphrase, `histpass-${i}`)}
+                          >
+                            {copiedField === `histpass-${i}` ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
 
