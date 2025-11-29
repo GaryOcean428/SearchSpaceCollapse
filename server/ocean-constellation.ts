@@ -353,6 +353,80 @@ export class OceanConstellation {
   }
   
   /**
+   * Buffer basin coordinates for cross-kernel sync
+   * Called by each kernel after generating hypotheses
+   */
+  private bufferBasinSync(agentName: string, coordinates: number[]): void {
+    this.basinSyncBuffer.push({
+      agentName,
+      coordinates: coordinates.slice(0, 32),
+      timestamp: Date.now(),
+    });
+    
+    if (this.basinSyncBuffer.length >= 10) {
+      this.flushBasinSyncBuffer();
+    }
+  }
+  
+  /**
+   * Flush basin sync buffer to coordinator for cross-agent knowledge transfer
+   * Computes geometric centroid and broadcasts to listening ocean instances
+   */
+  private flushBasinSyncBuffer(): void {
+    if (this.basinSyncBuffer.length === 0) return;
+    
+    const centroid = fisherVectorized.computeBasinCentroid(
+      this.basinSyncBuffer.map(s => s.coordinates)
+    );
+    
+    const agentContributions = new Map<string, number>();
+    for (const sync of this.basinSyncBuffer) {
+      agentContributions.set(
+        sync.agentName,
+        (agentContributions.get(sync.agentName) || 0) + 1
+      );
+    }
+    
+    console.log(`[Constellation] Basin sync flush: ${this.basinSyncBuffer.length} entries from ${agentContributions.size} agents`);
+    
+    for (const [agentName, state] of this.agentStates.entries()) {
+      const contribution = agentContributions.get(agentName) || 0;
+      const blendFactor = Math.min(0.2, contribution * 0.05);
+      
+      for (let i = 0; i < Math.min(32, state.basinCoordinates.length); i++) {
+        state.basinCoordinates[i] = state.basinCoordinates[i] * (1 - blendFactor) + centroid[i] * blendFactor;
+      }
+    }
+    
+    this.basinSyncBuffer = [];
+  }
+  
+  /**
+   * Get the current basin sync state for external coordinator integration
+   */
+  getBasinSyncState(): {
+    bufferSize: number;
+    agentCoordinates: Map<string, number[]>;
+    centroid: number[];
+  } {
+    const agentCoordinates = new Map<string, number[]>();
+    for (const [name, state] of this.agentStates.entries()) {
+      agentCoordinates.set(name, state.basinCoordinates.slice(0, 32));
+    }
+    
+    const allCoords = Array.from(agentCoordinates.values());
+    const centroid = allCoords.length > 0 
+      ? fisherVectorized.computeBasinCentroid(allCoords)
+      : new Array(32).fill(0.5);
+    
+    return {
+      bufferSize: this.basinSyncBuffer.length,
+      agentCoordinates,
+      centroid,
+    };
+  }
+  
+  /**
    * Apply QIG weighting based on agent mode
    */
   private applyQIGWeighting(
@@ -397,6 +471,8 @@ export class OceanConstellation {
   
   /**
    * Explorer: High-temperature broad search
+   * QIG Mode: entropy - samples tokens with HIGH entropy (low basin alignment)
+   * Uses Fisher metric to prefer unexplored manifold regions
    */
   private generateExplorerHypotheses(
     state: AgentState,
@@ -404,47 +480,63 @@ export class OceanConstellation {
   ): Array<{ phrase: string; source: string; confidence: number }> {
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     
-    const bases = [
-      'crypto', 'bitcoin', 'freedom', 'genesis', 'block',
-      'satoshi', 'hash', 'chain', 'trust', 'secret',
-    ];
+    const highEntropyTokens = Array.from(this.qigTokenCache.values())
+      .filter(t => t.basinAlignment < 0.4)
+      .sort((a, b) => (1 - a.basinAlignment) - (1 - b.basinAlignment))
+      .slice(0, 30);
     
-    const modifiers = [
-      '', '2009', '2010', '2011', 'my', 'the', 'first',
-      '123', '!', 'btc', 'coin', 'p2p',
-    ];
-    
-    for (const base of bases) {
-      for (const mod of modifiers) {
-        if (Math.random() < state.role.temperature * 0.3) {
-          const phrase = `${base}${mod}`.trim();
-          hypotheses.push({
-            phrase,
-            source: 'explorer_broad',
-            confidence: 0.4 + Math.random() * 0.2,
-          });
-        }
+    for (const token of highEntropyTokens) {
+      if (Math.random() < state.role.temperature * 0.5) {
+        const entropyBoost = (1 - token.basinAlignment) * 0.15;
+        hypotheses.push({
+          phrase: token.word,
+          source: 'explorer_entropy',
+          confidence: 0.4 + entropyBoost,
+        });
       }
     }
+    
+    for (const token of highEntropyTokens.slice(0, 10)) {
+      const modifiers = ['2009', '2010', 'my', '123', '!'];
+      const mod = modifiers[Math.floor(Math.random() * modifiers.length)];
+      if (Math.random() < state.role.temperature * 0.3) {
+        hypotheses.push({
+          phrase: `${token.word}${mod}`,
+          source: 'explorer_entropy_mod',
+          confidence: 0.35 + (1 - token.basinAlignment) * 0.1,
+        });
+      }
+    }
+    
+    this.bufferBasinSync('explorer', state.basinCoordinates);
     
     return hypotheses;
   }
   
   /**
    * Refiner: Exploit near misses and high-phi patterns
+   * QIG Mode: gradient - follows Fisher gradient descent toward high-Φ regions
+   * Weights variations by Fisher metric strength
    */
   private generateRefinerHypotheses(
     state: AgentState
   ): Array<{ phrase: string; source: string; confidence: number }> {
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     
+    const highFisherTokens = Array.from(this.qigTokenCache.values())
+      .filter(t => t.fisherWeight > 0.5)
+      .sort((a, b) => b.fisherWeight - a.fisherWeight)
+      .slice(0, 20);
+    
     for (const pattern of this.sharedKnowledge.highPhiPatterns.slice(0, 10)) {
       const variations = this.generateCloseVariations(pattern);
       for (const v of variations) {
+        const token = this.qigTokenCache.get(v.toLowerCase());
+        const gradientBoost = token ? token.fisherWeight * 0.2 : 0;
         hypotheses.push({
           phrase: v,
-          source: 'refiner_variation',
-          confidence: 0.7,
+          source: 'refiner_gradient',
+          confidence: 0.65 + gradientBoost,
         });
       }
     }
@@ -454,20 +546,38 @@ export class OceanConstellation {
       if (typeof phrase === 'string') {
         const variations = this.generateCloseVariations(phrase);
         for (const v of variations) {
+          const token = this.qigTokenCache.get(v.toLowerCase());
+          const gradientBoost = token ? token.fisherWeight * 0.15 : 0;
           hypotheses.push({
             phrase: v,
-            source: 'refiner_near_miss',
-            confidence: 0.75,
+            source: 'refiner_gradient_near',
+            confidence: 0.7 + gradientBoost,
           });
         }
       }
     }
+    
+    for (const token of highFisherTokens.slice(0, 5)) {
+      const geodesicDir = state.fisherMetricState.geodesicDirection;
+      if (geodesicDir && geodesicDir.length > 0) {
+        const dirMag = Math.abs(geodesicDir[0]) + Math.abs(geodesicDir[1] || 0);
+        hypotheses.push({
+          phrase: token.word,
+          source: 'refiner_geodesic_descent',
+          confidence: 0.6 + dirMag * 0.1 + token.fisherWeight * 0.15,
+        });
+      }
+    }
+    
+    this.bufferBasinSync('refiner', state.basinCoordinates);
     
     return hypotheses;
   }
   
   /**
    * Navigator: Orthogonal complement exploration
+   * QIG Mode: geodesic - follows Fisher geodesics to unexplored manifold regions
+   * Uses resonance scores to weight geodesic steps
    */
   private generateNavigatorHypotheses(
     state: AgentState,
@@ -479,36 +589,70 @@ export class OceanConstellation {
       const orthogonalResults = geometricMemory.generateOrthogonalCandidates(10);
       
       for (const result of orthogonalResults) {
+        const token = this.qigTokenCache.get(result.phrase.toLowerCase());
+        const resonanceBoost = token ? token.resonanceScore * 0.15 : 0;
         hypotheses.push({
           phrase: result.phrase,
-          source: 'navigator_orthogonal',
-          confidence: 0.55 + result.geometricScore * 0.2,
+          source: 'navigator_geodesic',
+          confidence: 0.5 + result.geometricScore * 0.2 + resonanceBoost,
         });
       }
     } catch (e) {
     }
     
-    const unexplored = [
-      'chancellor', 'bailout', 'crisis', 'bank', 'reserve',
-      'fiat', 'inflation', 'gold', 'sound money', 'cypherpunk',
-    ];
+    const highResonanceTokens = Array.from(this.qigTokenCache.values())
+      .filter(t => t.resonanceScore > 0.6 && !this.sharedKnowledge.avoidPatterns.includes(t.word))
+      .sort((a, b) => b.resonanceScore - a.resonanceScore)
+      .slice(0, 15);
     
-    for (const word of unexplored) {
-      if (!this.sharedKnowledge.avoidPatterns.some(p => p.includes(word))) {
+    for (const token of highResonanceTokens) {
+      const fisherCoords = this.wordToBasinCoordinates(token.word);
+      const geodesicStep = fisherVectorized.computeGeodesicDirection(
+        state.basinCoordinates.slice(0, 32),
+        fisherCoords.slice(0, 32)
+      );
+      const stepMag = geodesicStep.reduce((sum, v) => sum + Math.abs(v), 0) / geodesicStep.length;
+      
+      hypotheses.push({
+        phrase: token.word,
+        source: 'navigator_geodesic_step',
+        confidence: 0.45 + token.resonanceScore * 0.2 + stepMag * 0.1,
+      });
+    }
+    
+    const geodesicDir = state.fisherMetricState.geodesicDirection;
+    if (geodesicDir && geodesicDir.length > 0) {
+      const dirTokens = Array.from(this.qigTokenCache.values())
+        .filter(t => {
+          const coords = this.wordToBasinCoordinates(t.word);
+          const alignment = coords.slice(0, 5).reduce((sum, c, i) => 
+            sum + c * (geodesicDir[i] || 0), 0);
+          return alignment > 0.3;
+        })
+        .slice(0, 5);
+      
+      for (const token of dirTokens) {
         hypotheses.push({
-          phrase: word,
-          source: 'navigator_unexplored',
-          confidence: 0.5,
+          phrase: token.word,
+          source: 'navigator_geodesic_aligned',
+          confidence: 0.55 + token.resonanceScore * 0.15,
         });
       }
     }
+    
+    this.bufferBasinSync('navigator', state.basinCoordinates);
     
     return hypotheses;
   }
   
   /**
    * Skeptic: Constraint validation and null hypothesis testing
-   * QIG Mode: null_hypothesis - validates patterns against known constraints
+   * QIG Mode: null_hypothesis - validates patterns by testing AGAINST known constraints
+   * 
+   * NULL HYPOTHESIS LOGIC:
+   * - Identify high-basin-alignment tokens (well-explored regions)
+   * - Generate counter-hypotheses that challenge existing patterns
+   * - Use Fisher metric to find patterns orthogonal to high-confidence failures
    */
   private generateSkepticHypotheses(
     state: AgentState,
@@ -516,17 +660,51 @@ export class OceanConstellation {
   ): Array<{ phrase: string; source: string; confidence: number }> {
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     
+    const highAlignmentTokens = Array.from(this.qigTokenCache.values())
+      .filter(t => t.basinAlignment > 0.7)
+      .sort((a, b) => b.basinAlignment - a.basinAlignment)
+      .slice(0, 20);
+    
+    for (const token of highAlignmentTokens) {
+      const nullHypothesisScore = this.computeNullHypothesisScore(token);
+      if (nullHypothesisScore < 0.3) {
+        const antiPattern = this.generateNullHypothesisVariant(token.word);
+        hypotheses.push({
+          phrase: antiPattern,
+          source: 'skeptic_null_hypothesis',
+          confidence: 0.6 + (1 - nullHypothesisScore) * 0.2,
+        });
+      }
+    }
+    
     const summary = negativeKnowledgeRegistry.getSummary();
     const contradictions = summary.contradictions || [];
     const highConfContradictions = contradictions.filter((c: any) => c.occurrences > 3);
     
     for (const contradiction of highConfContradictions.slice(0, 10)) {
-      const antiPatterns = this.generateAntiPatterns(contradiction.pattern);
-      for (const anti of antiPatterns) {
+      const coords = this.wordToBasinCoordinates(contradiction.pattern);
+      const fisherResult = fisherVectorized.computeMatrix(coords.slice(0, 32));
+      const metrics = fisherVectorized.computeMetrics(fisherResult);
+      
+      const orthogonalDir = fisherVectorized.computeGeodesicDirection(
+        state.basinCoordinates.slice(0, 32),
+        coords.slice(0, 32)
+      );
+      
+      const orthogonalTokens = Array.from(this.qigTokenCache.values())
+        .filter(t => {
+          const tCoords = this.wordToBasinCoordinates(t.word);
+          const alignment = tCoords.slice(0, 5).reduce((sum, c, i) => 
+            sum + c * (orthogonalDir[i] || 0), 0);
+          return Math.abs(alignment) < 0.2;
+        })
+        .slice(0, 3);
+      
+      for (const orthoToken of orthogonalTokens) {
         hypotheses.push({
-          phrase: anti,
-          source: 'skeptic_anti_pattern',
-          confidence: 0.65,
+          phrase: orthoToken.word,
+          source: 'skeptic_orthogonal_to_contradiction',
+          confidence: 0.55 + orthoToken.basinAlignment * 0.15,
         });
       }
     }
@@ -543,18 +721,47 @@ export class OceanConstellation {
       
       const uncommonTokens = Array.from(this.qigTokenCache.values())
         .filter(t => !patternFreq.has(t.word) || patternFreq.get(t.word)! < 2)
-        .slice(0, 20);
+        .sort((a, b) => b.basinAlignment - a.basinAlignment)
+        .slice(0, 15);
       
       for (const token of uncommonTokens) {
         hypotheses.push({
           phrase: token.word,
-          source: 'skeptic_unexplored_token',
-          confidence: 0.5 + token.basinAlignment * 0.15,
+          source: 'skeptic_null_unexplored',
+          confidence: 0.45 + token.basinAlignment * 0.2,
         });
       }
     }
     
+    this.bufferBasinSync('skeptic', state.basinCoordinates);
+    
     return hypotheses;
+  }
+  
+  /**
+   * Compute null hypothesis score for a token
+   * Lower score = more likely to be worth challenging
+   */
+  private computeNullHypothesisScore(token: QIGToken): number {
+    const alignmentPenalty = token.basinAlignment * 0.4;
+    const fisherBonus = token.fisherWeight * 0.3;
+    const resonancePenalty = token.resonanceScore * 0.3;
+    return alignmentPenalty + fisherBonus - resonancePenalty;
+  }
+  
+  /**
+   * Generate null hypothesis variant by inverting pattern structure
+   */
+  private generateNullHypothesisVariant(pattern: string): string {
+    const transformations = [
+      (p: string) => p.split('').reverse().join(''),
+      (p: string) => p.replace(/[aeiou]/gi, ''),
+      (p: string) => p + '_null',
+      (p: string) => 'not_' + p,
+      (p: string) => p.slice(0, Math.ceil(p.length / 2)),
+    ];
+    const transform = transformations[Math.floor(Math.random() * transformations.length)];
+    return transform(pattern);
   }
   
   /**
@@ -586,6 +793,11 @@ export class OceanConstellation {
   /**
    * Resonator: Cross-pattern harmonic detection
    * QIG Mode: eigenvalue - finds patterns with high Fisher eigenvalue resonance
+   * 
+   * EIGENVALUE LOGIC:
+   * - Compute Fisher matrix eigenvalues for token combinations
+   * - Identify patterns near κ*=64 fixed point (high coupling)
+   * - Generate harmonics from eigenvalue-aligned token pairs
    */
   private generateResonatorHypotheses(
     state: AgentState,
@@ -593,48 +805,76 @@ export class OceanConstellation {
   ): Array<{ phrase: string; source: string; confidence: number }> {
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     
+    const eigenvalueAlignedTokens = Array.from(this.qigTokenCache.values())
+      .map(token => {
+        const coords = this.wordToBasinCoordinates(token.word);
+        const fisherResult = fisherVectorized.computeMatrix(coords.slice(0, 32));
+        const metrics = fisherVectorized.computeMetrics(fisherResult);
+        return {
+          token,
+          eigenvalue: metrics.maxEigenvalueEstimate,
+          optimality: Math.exp(-Math.abs(state.kappa - QIG_CONSTANTS.KAPPA_STAR) / 10),
+        };
+      })
+      .filter(t => t.eigenvalue > 0.1)
+      .sort((a, b) => b.eigenvalue - a.eigenvalue)
+      .slice(0, 25);
+    
+    for (const { token, eigenvalue, optimality } of eigenvalueAlignedTokens) {
+      const eigenBoost = eigenvalue * 0.25 + optimality * 0.15;
+      hypotheses.push({
+        phrase: token.word,
+        source: 'resonator_eigenvalue_aligned',
+        confidence: 0.5 + eigenBoost,
+      });
+    }
+    
     const highPhiPatterns = manifoldContext?.highPhiPatterns || this.sharedKnowledge.highPhiPatterns;
     
     if (highPhiPatterns.length >= 2) {
-      for (let i = 0; i < Math.min(highPhiPatterns.length - 1, 10); i++) {
-        for (let j = i + 1; j < Math.min(highPhiPatterns.length, 10); j++) {
+      for (let i = 0; i < Math.min(highPhiPatterns.length - 1, 8); i++) {
+        for (let j = i + 1; j < Math.min(highPhiPatterns.length, 8); j++) {
           const p1 = highPhiPatterns[i];
           const p2 = highPhiPatterns[j];
           
-          const harmonics = this.generateHarmonicCombinations(p1, p2);
-          for (const harmonic of harmonics) {
-            hypotheses.push({
-              phrase: harmonic,
-              source: 'resonator_harmonic',
-              confidence: 0.6,
-            });
+          const coords1 = this.wordToBasinCoordinates(p1);
+          const coords2 = this.wordToBasinCoordinates(p2);
+          const fisher1 = fisherVectorized.computeMetrics(fisherVectorized.computeMatrix(coords1.slice(0, 32)));
+          const fisher2 = fisherVectorized.computeMetrics(fisherVectorized.computeMatrix(coords2.slice(0, 32)));
+          
+          const harmonicStrength = Math.sqrt(fisher1.maxEigenvalueEstimate * fisher2.maxEigenvalueEstimate);
+          
+          if (harmonicStrength > 0.05) {
+            const harmonics = this.generateHarmonicCombinations(p1, p2);
+            for (const harmonic of harmonics) {
+              hypotheses.push({
+                phrase: harmonic,
+                source: 'resonator_eigenvalue_harmonic',
+                confidence: 0.55 + harmonicStrength * 0.3,
+              });
+            }
           }
         }
       }
     }
     
-    const resonantTokens = Array.from(this.qigTokenCache.values())
-      .filter(t => t.resonanceScore > 0.7)
-      .sort((a, b) => b.resonanceScore - a.resonanceScore)
-      .slice(0, 15);
-    
-    for (const token of resonantTokens) {
-      hypotheses.push({
-        phrase: token.word,
-        source: 'resonator_eigenvalue',
-        confidence: 0.55 + token.resonanceScore * 0.2,
-      });
-      
-      for (const other of resonantTokens.slice(0, 3)) {
-        if (other.word !== token.word) {
+    for (let i = 0; i < Math.min(eigenvalueAlignedTokens.length - 1, 10); i++) {
+      for (let j = i + 1; j < Math.min(eigenvalueAlignedTokens.length, 10); j++) {
+        const t1 = eigenvalueAlignedTokens[i];
+        const t2 = eigenvalueAlignedTokens[j];
+        
+        const coupling = Math.sqrt(t1.optimality * t2.optimality) * 0.8;
+        if (coupling > 0.3) {
           hypotheses.push({
-            phrase: `${token.word} ${other.word}`,
-            source: 'resonator_coupling',
-            confidence: 0.5 + (token.resonanceScore + other.resonanceScore) * 0.1,
+            phrase: `${t1.token.word} ${t2.token.word}`,
+            source: 'resonator_eigenvalue_coupling',
+            confidence: 0.5 + coupling * 0.25,
           });
         }
       }
     }
+    
+    this.bufferBasinSync('resonator', state.basinCoordinates);
     
     return hypotheses;
   }
