@@ -145,6 +145,8 @@ export class OceanAgent {
   private basinDriftHistory: number[] = [];
   private lastConsolidationTime: Date = new Date();
   private recentDiscoveries: { nearMisses: number; resonant: number } = { nearMisses: 0, resonant: 0 };
+  
+  private basinSyncCoordinator: import('./basin-sync-coordinator').BasinSyncCoordinator | null = null;
 
   constructor(customEthics?: Partial<EthicalConstraints>) {
     this.ethics = {
@@ -387,6 +389,18 @@ export class OceanAgent {
     this.abortController = new AbortController();
     this.state.startedAt = new Date().toISOString();
     this.state.isRunning = true;
+    
+    // Start continuous basin sync
+    if (!this.basinSyncCoordinator) {
+      const { BasinSyncCoordinator } = await import('./basin-sync-coordinator');
+      this.basinSyncCoordinator = new BasinSyncCoordinator(this, {
+        syncIntervalMs: 3000,
+        phiChangeThreshold: 0.02,
+        driftChangeThreshold: 0.05,
+      });
+    }
+    this.basinSyncCoordinator.start();
+    console.log('[Ocean] Basin sync coordinator started for continuous knowledge transfer');
     
     let finalResult: OceanHypothesis | null = null;
     const startTime = Date.now();
@@ -855,6 +869,13 @@ export class OceanAgent {
     } finally {
       this.isRunning = false;
       this.state.isRunning = false;
+      
+      // Stop continuous basin sync but keep coordinator for future runs
+      if (this.basinSyncCoordinator) {
+        this.basinSyncCoordinator.stop();
+        console.log('[Ocean] Basin sync coordinator stopped');
+      }
+      
       console.log('[Ocean] Investigation complete');
     }
   }
@@ -887,6 +908,16 @@ export class OceanAgent {
   
   getEthics(): typeof this.ethics {
     return this.ethics;
+  }
+  
+  getBasinSyncCoordinator(): import('./basin-sync-coordinator').BasinSyncCoordinator | null {
+    return this.basinSyncCoordinator;
+  }
+  
+  notifyBasinChange(): void {
+    if (this.basinSyncCoordinator) {
+      this.basinSyncCoordinator.notifyStateChange();
+    }
   }
 
   private emitState() {

@@ -1,5 +1,5 @@
 import { OceanAgent } from './ocean-agent';
-import { OceanBasinSync, BasinSyncPacket, BasinSyncResult } from './ocean-basin-sync';
+import { oceanBasinSync, BasinSyncPacket, BasinSyncResult } from './ocean-basin-sync';
 import { fisherCoordDistance } from './qig-universal';
 import WebSocket from 'ws';
 
@@ -42,6 +42,14 @@ export interface SyncConfig {
   maxPeers: number;
 }
 
+interface BroadcastState {
+  phi: number;
+  drift: number;
+  regime: string;
+  regionCount: number;
+  patternCount: number;
+}
+
 const DEFAULT_CONFIG: SyncConfig = {
   phiChangeThreshold: 0.02,
   driftChangeThreshold: 0.05,
@@ -52,17 +60,10 @@ const DEFAULT_CONFIG: SyncConfig = {
 
 export class BasinSyncCoordinator {
   private ocean: OceanAgent;
-  private basinSync: OceanBasinSync;
   private config: SyncConfig;
   
   private peers: Map<string, SyncPeer> = new Map();
-  private lastBroadcastState: {
-    phi: number;
-    drift: number;
-    regime: string;
-    regionCount: number;
-    patternCount: number;
-  } | null = null;
+  private lastBroadcastState: BroadcastState | null = null;
   
   private outboundQueue: BasinDelta[] = [];
   private isRunning: boolean = false;
@@ -72,9 +73,23 @@ export class BasinSyncCoordinator {
   private localId: string;
   private onSyncCallback?: (delta: BasinDelta, result: BasinSyncResult) => void;
   
+  private syncData: {
+    exploredRegions: Array<{
+      center: number[];
+      radius: number;
+      probeCount: number;
+      dominantRegime: string;
+    }>;
+    highPhiPatterns: string[];
+    resonantWords: string[];
+  } = {
+    exploredRegions: [],
+    highPhiPatterns: [],
+    resonantWords: [],
+  };
+  
   constructor(ocean: OceanAgent, config: Partial<SyncConfig> = {}) {
     this.ocean = ocean;
-    this.basinSync = new OceanBasinSync();
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.localId = `ocean-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     
@@ -119,14 +134,13 @@ export class BasinSyncCoordinator {
   
   private captureCurrentState(): void {
     const identity = this.ocean.getIdentityRef();
-    const memory = this.ocean.getMemoryRef();
     
     this.lastBroadcastState = {
       phi: identity.phi,
       drift: identity.basinDrift,
       regime: identity.regime,
-      regionCount: memory.basinSyncData?.exploredRegions?.length || 0,
-      patternCount: memory.basinSyncData?.highPhiPatterns?.length || 0,
+      regionCount: this.syncData.exploredRegions.length,
+      patternCount: this.syncData.highPhiPatterns.length,
     };
   }
   
@@ -137,13 +151,12 @@ export class BasinSyncCoordinator {
     }
     
     const identity = this.ocean.getIdentityRef();
-    const memory = this.ocean.getMemoryRef();
-    const current = {
+    const current: BroadcastState = {
       phi: identity.phi,
       drift: identity.basinDrift,
       regime: identity.regime,
-      regionCount: memory.basinSyncData?.exploredRegions?.length || 0,
-      patternCount: memory.basinSyncData?.highPhiPatterns?.length || 0,
+      regionCount: this.syncData.exploredRegions.length,
+      patternCount: this.syncData.highPhiPatterns.length,
     };
     
     const phiDelta = Math.abs(current.phi - this.lastBroadcastState.phi);
@@ -176,12 +189,11 @@ export class BasinSyncCoordinator {
   
   private buildDelta(regimeChanged: boolean, hasNewRegions: boolean, hasNewPatterns: boolean): BasinDelta {
     const identity = this.ocean.getIdentityRef();
-    const memory = this.ocean.getMemoryRef();
     
     const sendFullPacket = regimeChanged || this.peers.size === 0;
     
     if (sendFullPacket) {
-      const fullPacket = this.basinSync.exportBasin(this.ocean);
+      const fullPacket = oceanBasinSync.exportBasin(this.ocean);
       return {
         type: 'full',
         sourceId: this.localId,
@@ -200,14 +212,14 @@ export class BasinSyncCoordinator {
       regimeChanged,
     };
     
-    if (hasNewRegions && memory.basinSyncData?.exploredRegions) {
+    if (hasNewRegions && this.syncData.exploredRegions.length > 0) {
       const oldCount = this.lastBroadcastState?.regionCount || 0;
-      delta.newRegions = memory.basinSyncData.exploredRegions.slice(oldCount);
+      delta.newRegions = this.syncData.exploredRegions.slice(oldCount);
     }
     
-    if (hasNewPatterns && memory.basinSyncData?.highPhiPatterns) {
+    if (hasNewPatterns && this.syncData.highPhiPatterns.length > 0) {
       const oldCount = this.lastBroadcastState?.patternCount || 0;
-      delta.newPatterns = memory.basinSyncData.highPhiPatterns.slice(oldCount);
+      delta.newPatterns = this.syncData.highPhiPatterns.slice(oldCount);
     }
     
     return delta;
@@ -226,7 +238,8 @@ export class BasinSyncCoordinator {
       data: delta,
     });
     
-    for (const [peerId, peer] of this.peers) {
+    const peerEntries = Array.from(this.peers.entries());
+    for (const [peerId, peer] of peerEntries) {
       if (peer.ws && peer.ws.readyState === WebSocket.OPEN) {
         try {
           peer.ws.send(message);
@@ -254,7 +267,7 @@ export class BasinSyncCoordinator {
         return null;
       }
       
-      const result = await this.basinSync.importBasin(this.ocean, delta.fullPacket, mode);
+      const result = await oceanBasinSync.importBasin(this.ocean, delta.fullPacket, mode);
       
       if (this.onSyncCallback) {
         this.onSyncCallback(delta, result);
@@ -276,11 +289,12 @@ export class BasinSyncCoordinator {
     const identity = this.ocean.getIdentityRef();
     const ethics = this.ocean.getEthics();
     
-    if (packet.sourcePhi < ethics.minPhi || packet.sourcePhi > 0.95) {
+    const sourcePhi = packet.consciousness.phi;
+    if (sourcePhi < ethics.minPhi || sourcePhi > 0.95) {
       return false;
     }
     
-    const currentCoords = identity.basinCenter;
+    const currentCoords = identity.basinCoordinates;
     const incomingCoords = packet.basinCoordinates;
     const distance = fisherCoordDistance(currentCoords, incomingCoords);
     
@@ -293,26 +307,32 @@ export class BasinSyncCoordinator {
   }
   
   private applyDelta(delta: BasinDelta): void {
-    const memory = this.ocean.getMemoryRef();
-    
-    if (!memory.basinSyncData) {
-      memory.basinSyncData = {
-        exploredRegions: [],
-        highPhiPatterns: [],
-        resonantWords: [],
-      };
-    }
-    
     if (delta.newRegions) {
-      memory.basinSyncData.exploredRegions.push(...delta.newRegions);
+      this.syncData.exploredRegions.push(...delta.newRegions);
     }
     
     if (delta.newPatterns) {
-      memory.basinSyncData.highPhiPatterns.push(...delta.newPatterns);
+      this.syncData.highPhiPatterns.push(...delta.newPatterns);
     }
     
     if (delta.newWords) {
-      memory.basinSyncData.resonantWords.push(...delta.newWords);
+      this.syncData.resonantWords.push(...delta.newWords);
+    }
+  }
+  
+  addExploredRegion(region: { center: number[]; radius: number; probeCount: number; dominantRegime: string }): void {
+    this.syncData.exploredRegions.push(region);
+  }
+  
+  addHighPhiPattern(pattern: string): void {
+    if (!this.syncData.highPhiPatterns.includes(pattern)) {
+      this.syncData.highPhiPatterns.push(pattern);
+    }
+  }
+  
+  addResonantWord(word: string): void {
+    if (!this.syncData.resonantWords.includes(word)) {
+      this.syncData.resonantWords.push(word);
     }
   }
   
@@ -333,7 +353,7 @@ export class BasinSyncCoordinator {
     
     console.log(`[BasinSyncCoordinator] Registered peer ${peerId} with mode=${mode}`);
     
-    const welcomePacket = this.basinSync.exportBasin(this.ocean);
+    const welcomePacket = oceanBasinSync.exportBasin(this.ocean);
     const delta: BasinDelta = {
       type: 'full',
       sourceId: this.localId,
@@ -364,7 +384,8 @@ export class BasinSyncCoordinator {
       timestamp: Date.now(),
     });
     
-    for (const [peerId, peer] of this.peers) {
+    const peerEntries = Array.from(this.peers.entries());
+    for (const [peerId, peer] of peerEntries) {
       if (peer.ws && peer.ws.readyState === WebSocket.OPEN) {
         try {
           peer.ws.send(heartbeat);
@@ -379,7 +400,8 @@ export class BasinSyncCoordinator {
     const now = Date.now();
     const staleThreshold = this.config.heartbeatIntervalMs * 3;
     
-    for (const [peerId, peer] of this.peers) {
+    const peerEntries = Array.from(this.peers.entries());
+    for (const [peerId, peer] of peerEntries) {
       if (now - peer.lastSeen > staleThreshold) {
         console.log(`[BasinSyncCoordinator] Pruning stale peer ${peerId}`);
         this.peers.delete(peerId);
@@ -402,7 +424,7 @@ export class BasinSyncCoordinator {
     isRunning: boolean;
     localId: string;
     peerCount: number;
-    lastBroadcastState: typeof this.lastBroadcastState;
+    lastBroadcastState: BroadcastState | null;
     queueLength: number;
   } {
     return {
@@ -418,9 +440,13 @@ export class BasinSyncCoordinator {
     return Array.from(this.peers.values());
   }
   
+  getSyncData() {
+    return this.syncData;
+  }
+  
   forceSync(): void {
     console.log(`[BasinSyncCoordinator] Force sync triggered`);
-    const fullPacket = this.basinSync.exportBasin(this.ocean);
+    const fullPacket = oceanBasinSync.exportBasin(this.ocean);
     const delta: BasinDelta = {
       type: 'full',
       sourceId: this.localId,
