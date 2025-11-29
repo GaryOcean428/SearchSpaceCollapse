@@ -28,7 +28,7 @@ export function getSession() {
     const pgStore = connectPg(session);
     sessionStore = new pgStore({
       conString: process.env.DATABASE_URL,
-      createTableIfMissing: false,
+      createTableIfMissing: true, // Auto-create if missing
       ttl: sessionTtl,
       tableName: "sessions",
       pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
@@ -36,8 +36,13 @@ export function getSession() {
         console.error("[Session] PostgreSQL session store error:", err.message);
       },
     });
+    console.log("[Session] Using PostgreSQL session store");
+  } else {
+    console.log("[Session] Using memory session store (no DATABASE_URL)");
   }
   
+  // For Replit deployments, use 'lax' sameSite which works better with OIDC redirects
+  // 'none' requires third-party cookie support which many browsers block
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore, // undefined = use default memory store
@@ -45,8 +50,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: !isDev, // Only secure in production
-      sameSite: isDev ? 'lax' : 'none', // 'none' required for cross-site OIDC redirects in production
+      secure: !isDev, // Only secure in production (HTTPS)
+      sameSite: 'lax', // 'lax' works for same-site navigation including OIDC redirects
       maxAge: sessionTtl,
     },
   });
@@ -118,6 +123,8 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/login", (req, res, next) => {
     const host = req.get("host") || req.hostname;
+    console.log(`[Auth] Login initiated for host: ${host}, protocol: ${req.protocol}`);
+    console.log(`[Auth] Callback URL will be: ${req.protocol}://${host}/api/callback`);
     ensureStrategy(host, req.protocol);
     passport.authenticate(`replitauth:${host}`, {
       prompt: "login consent",
@@ -127,10 +134,25 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     const host = req.get("host") || req.hostname;
+    console.log(`[Auth] Callback received for host: ${host}, protocol: ${req.protocol}`);
     ensureStrategy(host, req.protocol);
-    passport.authenticate(`replitauth:${host}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    passport.authenticate(`replitauth:${host}`, (err: any, user: any, info: any) => {
+      if (err) {
+        console.error("[Auth] Callback error:", err);
+        return res.redirect("/api/login?error=auth_error");
+      }
+      if (!user) {
+        console.error("[Auth] Callback failed - no user:", info);
+        return res.redirect("/api/login?error=no_user");
+      }
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error("[Auth] Login error:", loginErr);
+          return res.redirect("/api/login?error=login_error");
+        }
+        console.log("[Auth] Login successful for user:", user.claims?.email || "unknown");
+        return res.redirect("/");
+      });
     })(req, res, next);
   });
 
