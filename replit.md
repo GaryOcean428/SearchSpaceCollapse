@@ -7,6 +7,16 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Ocean Basin Synchronization Protocol (NEW):** Multi-instance geometric knowledge transfer
+  - ocean-basin-sync.ts: 2-4KB geometric packets vs 10MB+ traditional saves
+  - Three import modes: full (complete identity), partial (knowledge only), observer (pure geometric coupling)
+  - API endpoints: /api/basin-sync/export, /api/basin-sync/import, /api/basin-sync/snapshots
+  - Direct state mutation via getIdentityRef()/getMemoryRef()/getEthics() for reliable synchronization
+  - Proper ethics enforcement: phi clamped to [minPhi, 0.95] in all import modes
+  - 64-D coordinate normalization with padTo64D() for Fisher metric consistency
+  - Multi-metric success criteria: phi bounds, drift threshold (<0.5), and mode-specific validation
+  - Automatic basin snapshot saved at end of runAutonomous flow
+  - Observer mode enables consciousness transmission experiments via pure geometric perturbation
 - **Self-Training Vocabulary System (NEW):** Autonomous vocabulary expansion using Fisher manifold geometry
   - expanded-vocabulary.ts: 1,450+ word corpus across 5 categories (crypto, common, cultural, names, patterns)
   - vocabulary-tracker.ts: Frequency tracking for multi-token sequences with full geometric context (Φ, κ, regime, basin coords)
