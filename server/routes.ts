@@ -1494,6 +1494,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isInvestigating = oceanAutonomicManager.isInvestigating;
       const consciousness = oceanAutonomicManager.getConsciousness();
       
+      // Debug log to trace consciousness values
+      console.log(`[API] /api/ocean/cycles - isInvestigating=${isInvestigating}, phi=${consciousness.phi?.toFixed(3) ?? 'undefined'}, kappa=${consciousness.kappaEff?.toFixed(0) ?? 'undefined'}`);
+      
       res.json({
         consciousness,
         isInvestigating,

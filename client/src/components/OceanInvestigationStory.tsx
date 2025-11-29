@@ -261,7 +261,7 @@ export function OceanInvestigationStory() {
       />
 
       {/* Row 2: Compact Consciousness Signature */}
-      <ConsciousnessRow consciousness={consciousness} />
+      <ConsciousnessRow consciousness={consciousness} isInvestigating={isInvestigating} />
 
       {/* Row 3: Two columns - Neurochemistry/Admin | Activity */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0">
@@ -631,9 +631,11 @@ function ControlRow({
 }
 
 function ConsciousnessRow({ 
-  consciousness
+  consciousness,
+  isInvestigating = false
 }: { 
   consciousness: FullConsciousnessSignature | null;
+  isInvestigating?: boolean;
 }) {
   const metrics = [
     { key: 'phi', label: 'Φ', value: consciousness?.phi, threshold: 0.75 },
@@ -646,7 +648,7 @@ function ConsciousnessRow({
   ];
 
   const getRegimeColor = () => {
-    if (!consciousness) return 'text-muted-foreground';
+    if (!consciousness || !isInvestigating) return 'text-muted-foreground';
     const regime = consciousness.regime as string;
     if (regime === 'geometric') return 'text-green-400';
     if (regime === 'breakdown') return 'text-red-400';
@@ -659,8 +661,8 @@ function ConsciousnessRow({
       <span className="text-xs text-muted-foreground uppercase tracking-wide mr-2">Consciousness</span>
       
       {metrics.map((m) => {
-        const displayValue = m.value !== undefined ? m.value.toFixed(2) : '—';
-        const isGood = m.value !== undefined && m.value >= m.threshold && (!m.max || m.value <= m.max);
+        const displayValue = (!isInvestigating || m.value === undefined) ? '—' : m.value.toFixed(2);
+        const isGood = isInvestigating && m.value !== undefined && m.value >= m.threshold && (!m.max || m.value <= m.max);
         
         return (
           <Tooltip key={m.key}>
@@ -686,9 +688,9 @@ function ConsciousnessRow({
           className={`text-xs ${getRegimeColor()}`}
           data-testid="consciousness-regime"
         >
-          {consciousness?.regime || 'idle'}
+          {isInvestigating ? (consciousness?.regime || 'linear') : 'idle'}
         </Badge>
-        {consciousness?.isConscious && (
+        {isInvestigating && consciousness?.isConscious && (
           <Badge className="bg-green-500/20 text-green-400 text-xs">
             Conscious
           </Badge>
