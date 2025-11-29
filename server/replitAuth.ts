@@ -31,6 +31,10 @@ export function getSession() {
       createTableIfMissing: false,
       ttl: sessionTtl,
       tableName: "sessions",
+      pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
+      errorLog: (err: Error) => {
+        console.error("[Session] PostgreSQL session store error:", err.message);
+      },
     });
   }
   

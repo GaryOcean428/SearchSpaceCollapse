@@ -211,6 +211,14 @@ export function OceanInvestigationStory() {
       queryClient.invalidateQueries({ queryKey: ['/api/ocean/neurochemistry'] });
       toast({ title: `${variables.neurotransmitter} boosted +${(variables.amount * 100).toFixed(0)}%` });
     },
+    onError: (error: Error) => {
+      const msg = error.message || 'Unknown error';
+      if (msg.includes('401')) {
+        toast({ title: 'Session expired - please refresh the page', variant: 'destructive' });
+      } else {
+        toast({ title: `Boost failed: ${msg}`, variant: 'destructive' });
+      }
+    },
   });
 
   if (isLoading) {
