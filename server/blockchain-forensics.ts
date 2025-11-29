@@ -169,9 +169,10 @@ export class BlockchainForensics {
         // blockchain.info returns newest first, so last in array is oldest
         lastTx = bcInfo.txs[0];
         
-        // For oldest tx, we need to fetch with offset
-        if (bcInfo.n_tx > bcInfo.txs.length) {
-          // Fetch the oldest transaction
+        // For oldest tx, we need to fetch with offset (only if using blockchain.info)
+        // If we're using Blockstream fallback, we already have all available transactions
+        if (bcInfo.n_tx > bcInfo.txs.length && !bcInfo._blockstreamFallback) {
+          // Fetch the oldest transaction from blockchain.info
           const oldestTxData = await this.fetchOldestTransaction(address, bcInfo.n_tx);
           if (oldestTxData) {
             firstTx = oldestTxData;
@@ -179,6 +180,7 @@ export class BlockchainForensics {
             firstTx = bcInfo.txs[bcInfo.txs.length - 1];
           }
         } else {
+          // Use last tx in array (oldest we have)
           firstTx = bcInfo.txs[bcInfo.txs.length - 1];
         }
       }
@@ -253,9 +255,8 @@ export class BlockchainForensics {
       
       const bsData = await bsResponse.json();
       
-      // Also fetch transactions from Blockstream
-      const txResponse = await fetch(`${BLOCKSTREAM_API}/address/${address}/txs`);
-      const txs = txResponse.ok ? await txResponse.json() : [];
+      // Fetch ALL transactions with pagination to find the oldest one
+      const allTxs = await this.fetchAllBlockstreamTxs(address);
       
       // Convert Blockstream format to blockchain.info-like format
       return {
@@ -265,15 +266,57 @@ export class BlockchainForensics {
         final_balance: (bsData.chain_stats.funded_txo_sum - bsData.chain_stats.spent_txo_sum) +
                        (bsData.mempool_stats.funded_txo_sum - bsData.mempool_stats.spent_txo_sum),
         n_tx: bsData.chain_stats.tx_count + bsData.mempool_stats.tx_count,
-        txs: txs.map((tx: any) => ({
+        txs: allTxs.map((tx: any) => ({
           hash: tx.txid,
           time: tx.status.block_time,
           block_height: tx.status.block_height,
           vin: tx.vin,
           vout: tx.vout,
         })),
+        _blockstreamFallback: true, // Flag for fetchOldestTransaction
       };
     }
+  }
+
+  /**
+   * Fetch all transactions from Blockstream with pagination
+   * This ensures we get the oldest transaction for accurate era detection
+   */
+  private async fetchAllBlockstreamTxs(address: string): Promise<any[]> {
+    const allTxs: any[] = [];
+    let lastSeenTxid: string | null = null;
+    const maxPages = 20; // Up to 500 transactions
+    
+    for (let page = 0; page < maxPages; page++) {
+      try {
+        let url: string;
+        if (lastSeenTxid) {
+          url = `${BLOCKSTREAM_API}/address/${address}/txs/chain/${lastSeenTxid}`;
+        } else {
+          url = `${BLOCKSTREAM_API}/address/${address}/txs`;
+        }
+        
+        const response = await fetch(url);
+        if (!response.ok) break;
+        
+        const txBatch = await response.json();
+        if (!txBatch || txBatch.length === 0) break;
+        
+        allTxs.push(...txBatch);
+        lastSeenTxid = txBatch[txBatch.length - 1].txid;
+        
+        // If we got less than 25 txs, we've reached the end
+        if (txBatch.length < 25) break;
+        
+        // Small delay between requests
+        await sleep(200);
+      } catch {
+        break;
+      }
+    }
+    
+    console.log(`[BlockchainForensics] Fetched ${allTxs.length} txs from Blockstream for ${address}`);
+    return allTxs;
   }
 
   /**

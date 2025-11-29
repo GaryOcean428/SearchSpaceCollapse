@@ -68,5 +68,15 @@
     "txCount": 4,
     "discoveredAt": "2025-11-29T09:40:43.309Z",
     "isCompressed": false
+  },
+  {
+    "address": "19zUqQJsaML2ooowV6dRZwwCq8aZpxHZnm",
+    "passphrase": "btc",
+    "wif": "L4rxZjLNGPS9yDKYXDM2TdhN3YKketb8rZTwHLyV993AGB88niDv",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 4,
+    "discoveredAt": "2025-11-29T12:48:51.339Z",
+    "isCompressed": true
   }
 ]
