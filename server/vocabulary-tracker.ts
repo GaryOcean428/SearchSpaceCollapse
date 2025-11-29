@@ -63,10 +63,15 @@ export class VocabularyTracker {
     this.wordObservations = new Map();
     this.sequenceObservations = new Map();
     this.minFrequency = options.minFrequency || 3;
-    this.minPhi = options.minPhi || 0.5;
+    this.minPhi = options.minPhi || 0.35;  // Lowered from 0.5 to capture more learning data
     this.maxSequenceLength = options.maxSequenceLength || 5;
     
     this.loadFromDisk();
+    
+    // Bootstrap from existing geometric memory if we have no data
+    if (this.wordObservations.size === 0) {
+      setTimeout(() => this.bootstrapFromGeometricMemory(), 2000);
+    }
   }
   
   /**

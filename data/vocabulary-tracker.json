@@ -1,0 +1,579 @@
+{
+  "words": [
+    {
+      "word": "2010",
+      "frequency": 222,
+      "avgPhi": 0.38860149315638604,
+      "maxPhi": 0.4747287681425556,
+      "firstSeen": "2025-11-29T09:32:03.926Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "2010 bitcoin",
+        "2010 hash",
+        "2010 freedom",
+        "2010 genesis",
+        "2010 satoshi",
+        "2010 crypto",
+        "2010 block",
+        "2010 chain"
+      ]
+    },
+    {
+      "word": "bitcoin",
+      "frequency": 85,
+      "avgPhi": 0.39719661944385615,
+      "maxPhi": 0.41118101658231637,
+      "firstSeen": "2025-11-29T09:32:03.926Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "2010 bitcoin",
+        "2009 bitcoin",
+        "secret bitcoin",
+        "the bitcoin"
+      ]
+    },
+    {
+      "word": "the",
+      "frequency": 255,
+      "avgPhi": 0.3900860423631738,
+      "maxPhi": 0.4324621567163487,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "the genesis",
+        "the hash",
+        "the block",
+        "the chain",
+        "the freedom",
+        "the satoshi",
+        "the crypto",
+        "the bitcoin"
+      ]
+    },
+    {
+      "word": "genesis",
+      "frequency": 114,
+      "avgPhi": 0.3634680540290043,
+      "maxPhi": 0.36455701588260897,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "the genesis",
+        "2009 genesis",
+        "2010 genesis",
+        "secret genesis"
+      ]
+    },
+    {
+      "word": "hash",
+      "frequency": 126,
+      "avgPhi": 0.36285488198010835,
+      "maxPhi": 0.36455701588260897,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "the hash",
+        "2010 hash",
+        "secret hash",
+        "2009 hash"
+      ]
+    },
+    {
+      "word": "2009",
+      "frequency": 254,
+      "avgPhi": 0.3957936328870083,
+      "maxPhi": 0.4756083995586417,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "2009 genesis",
+        "2009 block",
+        "2009 bitcoin",
+        "2009 freedom",
+        "2009 chain",
+        "2009 crypto",
+        "2009 hash",
+        "2009 satoshi"
+      ]
+    },
+    {
+      "word": "secret",
+      "frequency": 219,
+      "avgPhi": 0.38824562466195434,
+      "maxPhi": 0.4756109248990626,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "secret chain",
+        "secret satoshi",
+        "secret freedom",
+        "secret hash",
+        "secret genesis",
+        "secret bitcoin",
+        "secret crypto",
+        "secret block"
+      ]
+    },
+    {
+      "word": "chain",
+      "frequency": 181,
+      "avgPhi": 0.3953853132955053,
+      "maxPhi": 0.4141577834803316,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "secret chain",
+        "the chain",
+        "2009 chain",
+        "my chain",
+        "2010 chain"
+      ]
+    },
+    {
+      "word": "block",
+      "frequency": 144,
+      "avgPhi": 0.3948723349315402,
+      "maxPhi": 0.41118101658231637,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "the block",
+        "2009 block",
+        "secret block",
+        "2010 block"
+      ]
+    },
+    {
+      "word": "freedom",
+      "frequency": 140,
+      "avgPhi": 0.45546860697495095,
+      "maxPhi": 0.4756109248990626,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "2010 freedom",
+        "my freedom",
+        "2009 freedom",
+        "secret freedom",
+        "the freedom"
+      ]
+    },
+    {
+      "word": "my",
+      "frequency": 62,
+      "avgPhi": 0.3977688186328004,
+      "maxPhi": 0.4367418932739238,
+      "firstSeen": "2025-11-29T09:32:03.927Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "my freedom",
+        "my chain"
+      ]
+    },
+    {
+      "word": "satoshi",
+      "frequency": 121,
+      "avgPhi": 0.362963795198212,
+      "maxPhi": 0.36455701588260897,
+      "firstSeen": "2025-11-29T09:32:03.928Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "secret satoshi",
+        "2010 satoshi",
+        "the satoshi",
+        "2009 satoshi"
+      ]
+    },
+    {
+      "word": "crypto",
+      "frequency": 101,
+      "avgPhi": 0.38547668830886644,
+      "maxPhi": 0.3912524854111248,
+      "firstSeen": "2025-11-29T09:32:03.928Z",
+      "lastSeen": "2025-11-29T09:32:03.944Z",
+      "contexts": [
+        "2009 crypto",
+        "the crypto",
+        "secret crypto",
+        "2010 crypto"
+      ]
+    }
+  ],
+  "sequences": [
+    {
+      "sequence": "2010 bitcoin",
+      "words": [
+        "2010",
+        "bitcoin"
+      ],
+      "frequency": 30,
+      "avgPhi": 0.39086300437172034,
+      "maxPhi": 0.3908630043717205,
+      "efficiencyGain": 30
+    },
+    {
+      "sequence": "the genesis",
+      "words": [
+        "the",
+        "genesis"
+      ],
+      "frequency": 18,
+      "avgPhi": 0.3642288520114796,
+      "maxPhi": 0.36422885201147953,
+      "efficiencyGain": 18
+    },
+    {
+      "sequence": "the hash",
+      "words": [
+        "the",
+        "hash"
+      ],
+      "frequency": 26,
+      "avgPhi": 0.3613572539811577,
+      "maxPhi": 0.3613572539811574,
+      "efficiencyGain": 26
+    },
+    {
+      "sequence": "2009 genesis",
+      "words": [
+        "2009",
+        "genesis"
+      ],
+      "frequency": 33,
+      "avgPhi": 0.3645570158826087,
+      "maxPhi": 0.36455701588260897,
+      "efficiencyGain": 33
+    },
+    {
+      "sequence": "secret chain",
+      "words": [
+        "secret",
+        "chain"
+      ],
+      "frequency": 39,
+      "avgPhi": 0.40285488844120276,
+      "maxPhi": 0.40285488844120254,
+      "efficiencyGain": 39
+    },
+    {
+      "sequence": "2010 hash",
+      "words": [
+        "2010",
+        "hash"
+      ],
+      "frequency": 31,
+      "avgPhi": 0.3641082476098051,
+      "maxPhi": 0.36410824760980537,
+      "efficiencyGain": 31
+    },
+    {
+      "sequence": "the block",
+      "words": [
+        "the",
+        "block"
+      ],
+      "frequency": 32,
+      "avgPhi": 0.4111810165823164,
+      "maxPhi": 0.41118101658231637,
+      "efficiencyGain": 32
+    },
+    {
+      "sequence": "2009 block",
+      "words": [
+        "2009",
+        "block"
+      ],
+      "frequency": 40,
+      "avgPhi": 0.3913372853244863,
+      "maxPhi": 0.39133728532448675,
+      "efficiencyGain": 40
+    },
+    {
+      "sequence": "the chain",
+      "words": [
+        "the",
+        "chain"
+      ],
+      "frequency": 39,
+      "avgPhi": 0.38218278309775405,
+      "maxPhi": 0.38218278309775416,
+      "efficiencyGain": 39
+    },
+    {
+      "sequence": "2009 bitcoin",
+      "words": [
+        "2009",
+        "bitcoin"
+      ],
+      "frequency": 12,
+      "avgPhi": 0.39133728532448675,
+      "maxPhi": 0.39133728532448675,
+      "efficiencyGain": 12
+    },
+    {
+      "sequence": "2010 freedom",
+      "words": [
+        "2010",
+        "freedom"
+      ],
+      "frequency": 16,
+      "avgPhi": 0.4747287681425556,
+      "maxPhi": 0.4747287681425556,
+      "efficiencyGain": 16
+    },
+    {
+      "sequence": "my freedom",
+      "words": [
+        "my",
+        "freedom"
+      ],
+      "frequency": 30,
+      "avgPhi": 0.4367418932739238,
+      "maxPhi": 0.4367418932739238,
+      "efficiencyGain": 30
+    },
+    {
+      "sequence": "2010 genesis",
+      "words": [
+        "2010",
+        "genesis"
+      ],
+      "frequency": 31,
+      "avgPhi": 0.3641082476098051,
+      "maxPhi": 0.36410824760980537,
+      "efficiencyGain": 31
+    },
+    {
+      "sequence": "secret satoshi",
+      "words": [
+        "secret",
+        "satoshi"
+      ],
+      "frequency": 18,
+      "avgPhi": 0.3612969257209304,
+      "maxPhi": 0.3612969257209304,
+      "efficiencyGain": 18
+    },
+    {
+      "sequence": "2010 satoshi",
+      "words": [
+        "2010",
+        "satoshi"
+      ],
+      "frequency": 35,
+      "avgPhi": 0.36410824760980504,
+      "maxPhi": 0.36410824760980537,
+      "efficiencyGain": 35
+    },
+    {
+      "sequence": "2009 freedom",
+      "words": [
+        "2009",
+        "freedom"
+      ],
+      "frequency": 34,
+      "avgPhi": 0.47560839955864165,
+      "maxPhi": 0.4756083995586417,
+      "efficiencyGain": 34
+    },
+    {
+      "sequence": "secret freedom",
+      "words": [
+        "secret",
+        "freedom"
+      ],
+      "frequency": 22,
+      "avgPhi": 0.47561092489906254,
+      "maxPhi": 0.4756109248990626,
+      "efficiencyGain": 22
+    },
+    {
+      "sequence": "2009 chain",
+      "words": [
+        "2009",
+        "chain"
+      ],
+      "frequency": 38,
+      "avgPhi": 0.41415778348033117,
+      "maxPhi": 0.4141577834803316,
+      "efficiencyGain": 38
+    },
+    {
+      "sequence": "the freedom",
+      "words": [
+        "the",
+        "freedom"
+      ],
+      "frequency": 38,
+      "avgPhi": 0.4324621567163489,
+      "maxPhi": 0.4324621567163487,
+      "efficiencyGain": 38
+    },
+    {
+      "sequence": "secret hash",
+      "words": [
+        "secret",
+        "hash"
+      ],
+      "frequency": 36,
+      "avgPhi": 0.3612969257209304,
+      "maxPhi": 0.3612969257209304,
+      "efficiencyGain": 36
+    },
+    {
+      "sequence": "2009 crypto",
+      "words": [
+        "2009",
+        "crypto"
+      ],
+      "frequency": 33,
+      "avgPhi": 0.3912524854111245,
+      "maxPhi": 0.3912524854111248,
+      "efficiencyGain": 33
+    },
+    {
+      "sequence": "the satoshi",
+      "words": [
+        "the",
+        "satoshi"
+      ],
+      "frequency": 37,
+      "avgPhi": 0.3613572539811577,
+      "maxPhi": 0.3613572539811574,
+      "efficiencyGain": 37
+    },
+    {
+      "sequence": "secret genesis",
+      "words": [
+        "secret",
+        "genesis"
+      ],
+      "frequency": 32,
+      "avgPhi": 0.3612969257209304,
+      "maxPhi": 0.3612969257209304,
+      "efficiencyGain": 32
+    },
+    {
+      "sequence": "secret bitcoin",
+      "words": [
+        "secret",
+        "bitcoin"
+      ],
+      "frequency": 15,
+      "avgPhi": 0.3884471088918308,
+      "maxPhi": 0.3884471088918307,
+      "efficiencyGain": 15
+    },
+    {
+      "sequence": "2009 hash",
+      "words": [
+        "2009",
+        "hash"
+      ],
+      "frequency": 33,
+      "avgPhi": 0.3645570158826087,
+      "maxPhi": 0.36455701588260897,
+      "efficiencyGain": 33
+    },
+    {
+      "sequence": "the crypto",
+      "words": [
+        "the",
+        "crypto"
+      ],
+      "frequency": 37,
+      "avgPhi": 0.38218278309775405,
+      "maxPhi": 0.38218278309775416,
+      "efficiencyGain": 37
+    },
+    {
+      "sequence": "secret crypto",
+      "words": [
+        "secret",
+        "crypto"
+      ],
+      "frequency": 19,
+      "avgPhi": 0.37851465372182774,
+      "maxPhi": 0.3785146537218277,
+      "efficiencyGain": 19
+    },
+    {
+      "sequence": "2010 crypto",
+      "words": [
+        "2010",
+        "crypto"
+      ],
+      "frequency": 12,
+      "avgPhi": 0.39077267544139976,
+      "maxPhi": 0.3907726754413997,
+      "efficiencyGain": 12
+    },
+    {
+      "sequence": "secret block",
+      "words": [
+        "secret",
+        "block"
+      ],
+      "frequency": 38,
+      "avgPhi": 0.38844710889183043,
+      "maxPhi": 0.3884471088918307,
+      "efficiencyGain": 38
+    },
+    {
+      "sequence": "the bitcoin",
+      "words": [
+        "the",
+        "bitcoin"
+      ],
+      "frequency": 28,
+      "avgPhi": 0.41118101658231637,
+      "maxPhi": 0.41118101658231637,
+      "efficiencyGain": 28
+    },
+    {
+      "sequence": "my chain",
+      "words": [
+        "my",
+        "chain"
+      ],
+      "frequency": 32,
+      "avgPhi": 0.3612315611567472,
+      "maxPhi": 0.361231561156747,
+      "efficiencyGain": 32
+    },
+    {
+      "sequence": "2010 block",
+      "words": [
+        "2010",
+        "block"
+      ],
+      "frequency": 34,
+      "avgPhi": 0.39086300437172034,
+      "maxPhi": 0.3908630043717205,
+      "efficiencyGain": 34
+    },
+    {
+      "sequence": "2010 chain",
+      "words": [
+        "2010",
+        "chain"
+      ],
+      "frequency": 33,
+      "avgPhi": 0.413662629915107,
+      "maxPhi": 0.4136626299151067,
+      "efficiencyGain": 33
+    },
+    {
+      "sequence": "2009 satoshi",
+      "words": [
+        "2009",
+        "satoshi"
+      ],
+      "frequency": 31,
+      "avgPhi": 0.3645570158826087,
+      "maxPhi": 0.36455701588260897,
+      "efficiencyGain": 31
+    }
+  ],
+  "savedAt": "2025-11-29T09:32:03.945Z"
+}

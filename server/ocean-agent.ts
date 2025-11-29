@@ -1240,7 +1240,8 @@ export class OceanAgent {
         
         // VOCABULARY SELF-TRAINING: Track high-Φ patterns for vocabulary expansion
         // Pass full geometric context for 4-criteria decision making
-        if (qigResult.phi >= 0.5) {
+        // Lowered threshold from 0.5 to 0.35 to enable active learning
+        if (qigResult.phi >= 0.35) {
           vocabularyTracker.observe(
             hypo.phrase, 
             qigResult.phi, 
