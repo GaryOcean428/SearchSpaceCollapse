@@ -833,6 +833,16 @@ export class OceanAgent {
       console.log(`[Ocean] Exploration summary: ${finalJournal?.passes.length || 0} passes, ${finalJournal?.totalHypothesesTested || 0} hypotheses tested`);
       console.log(`[Ocean] Coverage: ${((finalJournal?.manifoldCoverage || 0) * 100).toFixed(1)}%, Regimes explored: ${finalJournal?.regimesSweep || 0}`);
       
+      // BASIN SYNC: Save geometric state for cross-instance knowledge transfer
+      try {
+        const { oceanBasinSync } = await import('./ocean-basin-sync');
+        const packet = oceanBasinSync.exportBasin(this);
+        const filepath = oceanBasinSync.saveBasinSnapshot(packet);
+        console.log(`[Ocean] Basin snapshot saved: ${packet.oceanId} (${JSON.stringify(packet).length} bytes)`);
+      } catch (basinErr) {
+        console.log('[Ocean] Basin sync save skipped:', (basinErr as Error).message);
+      }
+      
       return {
         success: !!finalResult,
         match: finalResult || undefined,
@@ -865,6 +875,18 @@ export class OceanAgent {
       memory: { ...this.memory },
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  getIdentityRef(): OceanIdentity {
+    return this.identity;
+  }
+  
+  getMemoryRef(): OceanMemory {
+    return this.memory;
+  }
+  
+  getEthics(): typeof this.ethics {
+    return this.ethics;
   }
 
   private emitState() {

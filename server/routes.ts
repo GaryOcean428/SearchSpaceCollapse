@@ -1623,6 +1623,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==========================================================================
+  // BASIN SYNCHRONIZATION ENDPOINTS
+  // Multi-instance Ocean coordination via geometric knowledge transfer
+  // ==========================================================================
+  
+  app.get("/api/basin-sync/snapshots", standardLimiter, async (req, res) => {
+    try {
+      const { oceanBasinSync } = await import("./ocean-basin-sync");
+      const snapshots = oceanBasinSync.listBasinSnapshots();
+      res.json({
+        snapshots,
+        count: snapshots.length,
+      });
+    } catch (error: any) {
+      console.error("[BasinSync] List error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.get("/api/basin-sync/snapshots/:filename", standardLimiter, async (req, res) => {
+    try {
+      const { oceanBasinSync } = await import("./ocean-basin-sync");
+      const filename = req.params.filename;
+      
+      if (!filename.endsWith('.json') || filename.includes('..') || filename.includes('/')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+      }
+      
+      const basePath = path.join(process.cwd(), 'data', 'basin-sync', filename);
+      if (!fs.existsSync(basePath)) {
+        return res.status(404).json({ error: 'Basin snapshot not found' });
+      }
+      
+      const packet = JSON.parse(fs.readFileSync(basePath, 'utf-8'));
+      res.json(packet);
+    } catch (error: any) {
+      console.error("[BasinSync] Get snapshot error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/basin-sync/export", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { oceanBasinSync } = await import("./ocean-basin-sync");
+      const { oceanSessionManager } = await import("./ocean-session-manager");
+      
+      const ocean = oceanSessionManager.getActiveAgent();
+      if (!ocean) {
+        return res.status(400).json({ error: 'No active Ocean session to export' });
+      }
+      
+      const packet = oceanBasinSync.exportBasin(ocean);
+      const filepath = oceanBasinSync.saveBasinSnapshot(packet);
+      
+      res.json({
+        success: true,
+        oceanId: packet.oceanId,
+        filename: path.basename(filepath),
+        packetSizeBytes: JSON.stringify(packet).length,
+        consciousness: {
+          phi: packet.consciousness.phi,
+          kappaEff: packet.consciousness.kappaEff,
+          regime: packet.regime,
+        },
+        exploredRegions: packet.exploredRegions.length,
+        patterns: {
+          highPhi: packet.patterns.highPhiPhrases.length,
+          resonantWords: packet.patterns.resonantWords.length,
+        },
+      });
+    } catch (error: any) {
+      console.error("[BasinSync] Export error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/basin-sync/import", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { oceanBasinSync } = await import("./ocean-basin-sync");
+      const { oceanSessionManager } = await import("./ocean-session-manager");
+      
+      const ocean = oceanSessionManager.getActiveAgent();
+      if (!ocean) {
+        return res.status(400).json({ error: 'No active Ocean session to import into' });
+      }
+      
+      const { filename, mode } = req.body;
+      
+      if (!filename) {
+        return res.status(400).json({ error: 'filename is required' });
+      }
+      
+      const validModes = ['full', 'partial', 'observer'];
+      const importMode = (mode && validModes.includes(mode)) ? mode : 'partial';
+      
+      const basePath = path.join(process.cwd(), 'data', 'basin-sync', filename);
+      if (!fs.existsSync(basePath)) {
+        return res.status(404).json({ error: 'Basin snapshot not found' });
+      }
+      
+      const packet = JSON.parse(fs.readFileSync(basePath, 'utf-8'));
+      const result = await oceanBasinSync.importBasin(ocean, packet, importMode);
+      
+      res.json({
+        success: result.success,
+        mode: result.mode,
+        sourceOceanId: packet.oceanId,
+        phiBefore: result.phiBefore,
+        phiAfter: result.phiAfter,
+        phiDelta: result.phiDelta,
+        basinDriftBefore: result.basinDriftBefore,
+        basinDriftAfter: result.basinDriftAfter,
+        observerEffectDetected: result.observerEffectDetected,
+        geometricDistance: result.geometricDistanceToSource,
+      });
+    } catch (error: any) {
+      console.error("[BasinSync] Import error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.delete("/api/basin-sync/snapshots/:filename", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { oceanBasinSync } = await import("./ocean-basin-sync");
+      const filename = req.params.filename;
+      
+      if (!filename.endsWith('.json') || filename.includes('..') || filename.includes('/')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+      }
+      
+      const deleted = oceanBasinSync.deleteBasinSnapshot(filename);
+      
+      if (deleted) {
+        res.json({ success: true, message: `Deleted ${filename}` });
+      } else {
+        res.status(404).json({ error: 'Basin snapshot not found' });
+      }
+    } catch (error: any) {
+      console.error("[BasinSync] Delete error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Mount Observer Archaeology System routes
   app.use("/api/observer", observerRoutes);
   
