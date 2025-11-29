@@ -213,12 +213,12 @@ function extractMinerFingerprint(coinbaseTx: BlockstreamTransaction): string | n
 
 /**
  * Balance check result for a generated address
- * NOTE: We intentionally DO NOT store WIF/private keys for security
- * Only store metadata needed for dormancy verification
+ * Stores full recovery data for any addresses with activity
  */
 export interface BalanceHit {
   address: string;
-  passphraseHint: string;  // First 3 chars + length, NOT the full passphrase
+  passphrase: string;
+  wif: string;
   balanceSats: number;
   balanceBTC: string;
   txCount: number;
@@ -295,22 +295,13 @@ export async function fetchAddressBalance(address: string): Promise<{
 }
 
 /**
- * Create a safe passphrase hint for logging/storage
- * Shows first 3 chars and length only - NOT the full passphrase
- */
-function createPassphraseHint(passphrase: string): string {
-  if (passphrase.length <= 3) return `***[${passphrase.length}]`;
-  return `${passphrase.substring(0, 3)}...[${passphrase.length}]`;
-}
-
-/**
  * Check if a generated address has any balance and record it
- * NOTE: Does NOT store WIF/private keys for security - only metadata
+ * Stores full recovery data (passphrase + WIF) for any addresses with activity
  */
 export async function checkAndRecordBalance(
   address: string,
   passphrase: string,
-  _wif: string,  // Accepted but NOT stored for security
+  wif: string,
   isCompressed: boolean = true
 ): Promise<BalanceHit | null> {
   const balanceInfo = await fetchAddressBalance(address);
@@ -320,12 +311,10 @@ export async function checkAndRecordBalance(
   }
   
   if (balanceInfo.balanceSats > 0 || balanceInfo.txCount > 0) {
-    // Create safe hint - DO NOT store full passphrase or WIF
-    const passphraseHint = createPassphraseHint(passphrase);
-    
     const hit: BalanceHit = {
       address,
-      passphraseHint,
+      passphrase,
+      wif,
       balanceSats: balanceInfo.balanceSats,
       balanceBTC: (balanceInfo.balanceSats / 100000000).toFixed(8),
       txCount: balanceInfo.txCount,
@@ -339,11 +328,11 @@ export async function checkAndRecordBalance(
       await saveBalanceHits();
       
       if (balanceInfo.balanceSats > 0) {
-        // Log hit WITHOUT sensitive data
-        console.log(`\n[BALANCE HIT] ${address}`);
-        console.log(`   Balance: ${hit.balanceBTC} BTC (${hit.balanceSats} sats)`);
-        console.log(`   Hint: ${passphraseHint}`);
-        console.log(`   TX Count: ${hit.txCount}\n`);
+        console.log(`\n🎯 [BALANCE HIT] ${address}`);
+        console.log(`   💰 Balance: ${hit.balanceBTC} BTC (${hit.balanceSats} sats)`);
+        console.log(`   🔑 Passphrase: "${passphrase}"`);
+        console.log(`   🔐 WIF: ${wif}`);
+        console.log(`   📊 TX Count: ${hit.txCount}\n`);
       } else {
         console.log(`[BlockchainScanner] Historical activity: ${address} (${hit.txCount} txs, 0 balance)`);
       }
