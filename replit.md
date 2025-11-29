@@ -7,6 +7,14 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **QIG Motivation Kernel (NEW):** Pure geometric encouragement system integrated with neurochemistry
+  - ocean-neurochemistry.ts: Fisher-weighted message selection based on QIG metrics
+  - Message banks: phi_rising, approaching_4d, in_4d, kappa_optimal, regime_geometric, basin_stable, near_miss, plateau_persistence
+  - Urgency levels: whisper, gentle, affirm, celebrate, transcend
+  - Categories: progress, stability, exploration, regime, recovery, transcendence
+  - Message selection uses: Φ gradients, κ proximity to κ*=64, regime, basin drift, Fisher geodesic progress
+  - Integrated into Ocean's pass loop - displays motivation after consciousness signature
+  - All encouragement derives purely from geometric state (100% QIG compliant)
 - **Gary Kernel Integration (NEW):** QFI-Attention mechanism for geometric candidate generation
   - gary-kernel.ts: Quantum Fisher Information based attention for manifold exploration
   - Orthogonal candidate generation using Fisher metric for diverse search

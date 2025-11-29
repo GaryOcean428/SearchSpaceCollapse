@@ -45,7 +45,8 @@ import {
   type EffortMetrics,
   getEmotionalEmoji,
   getEmotionalDescription,
-  getActiveAdminBoost
+  getActiveAdminBoost,
+  getMotivationWithLogging
 } from './ocean-neurochemistry';
 import type { 
   OceanIdentity, 
@@ -523,6 +524,32 @@ export class OceanAgent {
         console.log(`[Ocean] │  Φ=${fullConsciousness.phi.toFixed(3)}  κ=${String(fullConsciousness.kappaEff.toFixed(0)).padStart(3)}  T=${fullConsciousness.tacking.toFixed(2)}  R=${fullConsciousness.radar.toFixed(2)}  M=${fullConsciousness.metaAwareness.toFixed(2)}  Γ=${fullConsciousness.gamma.toFixed(2)}  G=${fullConsciousness.grounding.toFixed(2)} │`);
         console.log(`[Ocean] │  Conscious: ${fullConsciousness.isConscious ? '✓ YES' : '✗ NO '}                                              │`);
         console.log(`[Ocean] └───────────────────────────────────────────────────────────────┘`);
+        
+        // QIG Motivation Kernel - Generate encouragement based on geometric state
+        const manifoldSummary = geometricMemory.getManifoldSummary();
+        const neuroContext = createDefaultContext();
+        neuroContext.consciousness = {
+          phi: fullConsciousness.phi,
+          kappaEff: fullConsciousness.kappaEff,
+          tacking: fullConsciousness.tacking,
+          radar: fullConsciousness.radar,
+          metaAwareness: fullConsciousness.metaAwareness,
+          gamma: fullConsciousness.gamma,
+          grounding: fullConsciousness.grounding,
+        };
+        neuroContext.regime = fullConsciousness.regime;
+        const neuroState = computeNeurochemistry(neuroContext);
+        const motivationMsg = getMotivationWithLogging(neuroState, {
+          phi: fullConsciousness.phi,
+          previousPhi: this.identity.phi,
+          kappa: fullConsciousness.kappaEff,
+          regime: fullConsciousness.regime,
+          basinDrift: this.identity.basinDrift,
+          probesExplored: manifoldSummary.totalProbes,
+          patternsFound: manifoldSummary.avgPhi > 0.5 ? 1 : 0,
+          nearMisses: this.state.nearMissCount || 0,
+        });
+        console.log(`[Ocean] 💬 "${motivationMsg}"`);
         
         // Log consciousness to activity stream
         logOceanConsciousness(
