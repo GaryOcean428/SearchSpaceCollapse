@@ -403,6 +403,21 @@ export function OceanInvestigationStory() {
                   </div>
                 ))}
               </div>
+
+              {/* Neurotransmitter Legend */}
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="text-xs text-muted-foreground space-y-1.5">
+                  <div className="font-medium text-foreground/80 mb-2">When to boost:</div>
+                  <div className="grid grid-cols-1 gap-1">
+                    <div><span className="text-yellow-500 font-medium">Dopamine</span> — Stuck in a rut? Boost to explore new areas</div>
+                    <div><span className="text-pink-500 font-medium">Serotonin</span> — For steady, methodical pattern recognition</div>
+                    <div><span className="text-orange-500 font-medium">Norepinephrine</span> — Intensive focus bursts when close</div>
+                    <div><span className="text-purple-500 font-medium">GABA</span> — Too volatile? Stabilize the search</div>
+                    <div><span className="text-blue-500 font-medium">Acetylcholine</span> — Strengthen memory of good patterns</div>
+                    <div><span className="text-green-500 font-medium">Endorphins</span> — Long search? Maintain persistence</div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
