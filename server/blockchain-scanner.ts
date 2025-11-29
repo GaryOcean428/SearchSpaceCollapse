@@ -212,6 +212,164 @@ function extractMinerFingerprint(coinbaseTx: BlockstreamTransaction): string | n
 }
 
 /**
+ * Balance check result for a generated address
+ * NOTE: We intentionally DO NOT store WIF/private keys for security
+ * Only store metadata needed for dormancy verification
+ */
+export interface BalanceHit {
+  address: string;
+  passphraseHint: string;  // First 3 chars + length, NOT the full passphrase
+  balanceSats: number;
+  balanceBTC: string;
+  txCount: number;
+  discoveredAt: string;
+  isCompressed: boolean;
+}
+
+// In-memory storage for balance hits (persisted to disk)
+const balanceHits: BalanceHit[] = [];
+const BALANCE_HITS_FILE = 'data/balance-hits.json';
+
+/**
+ * Load balance hits from disk on startup
+ */
+async function loadBalanceHits(): Promise<void> {
+  try {
+    const fs = await import('fs/promises');
+    const data = await fs.readFile(BALANCE_HITS_FILE, 'utf-8');
+    const saved = JSON.parse(data);
+    balanceHits.push(...saved);
+    console.log(`[BlockchainScanner] Loaded ${balanceHits.length} balance hits from disk`);
+  } catch {
+    console.log('[BlockchainScanner] No saved balance hits found, starting fresh');
+  }
+}
+
+/**
+ * Save balance hits to disk
+ */
+async function saveBalanceHits(): Promise<void> {
+  try {
+    const fs = await import('fs/promises');
+    await fs.mkdir('data', { recursive: true });
+    await fs.writeFile(BALANCE_HITS_FILE, JSON.stringify(balanceHits, null, 2));
+    console.log(`[BlockchainScanner] Saved ${balanceHits.length} balance hits to disk`);
+  } catch (error) {
+    console.error('[BlockchainScanner] Error saving balance hits:', error);
+  }
+}
+
+// Load on module init
+loadBalanceHits();
+
+/**
+ * Fetch address balance and transaction count from Blockstream API
+ */
+export async function fetchAddressBalance(address: string): Promise<{
+  balanceSats: number;
+  txCount: number;
+  funded: number;
+  spent: number;
+} | null> {
+  try {
+    const response = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { balanceSats: 0, txCount: 0, funded: 0, spent: 0 };
+      }
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    const funded = (data.chain_stats?.funded_txo_sum || 0) + (data.mempool_stats?.funded_txo_sum || 0);
+    const spent = (data.chain_stats?.spent_txo_sum || 0) + (data.mempool_stats?.spent_txo_sum || 0);
+    const balanceSats = funded - spent;
+    const txCount = (data.chain_stats?.tx_count || 0) + (data.mempool_stats?.tx_count || 0);
+    
+    return { balanceSats, txCount, funded, spent };
+  } catch (error) {
+    console.error(`[BlockchainScanner] Error fetching balance for ${address}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Create a safe passphrase hint for logging/storage
+ * Shows first 3 chars and length only - NOT the full passphrase
+ */
+function createPassphraseHint(passphrase: string): string {
+  if (passphrase.length <= 3) return `***[${passphrase.length}]`;
+  return `${passphrase.substring(0, 3)}...[${passphrase.length}]`;
+}
+
+/**
+ * Check if a generated address has any balance and record it
+ * NOTE: Does NOT store WIF/private keys for security - only metadata
+ */
+export async function checkAndRecordBalance(
+  address: string,
+  passphrase: string,
+  _wif: string,  // Accepted but NOT stored for security
+  isCompressed: boolean = true
+): Promise<BalanceHit | null> {
+  const balanceInfo = await fetchAddressBalance(address);
+  
+  if (!balanceInfo) {
+    return null;
+  }
+  
+  if (balanceInfo.balanceSats > 0 || balanceInfo.txCount > 0) {
+    // Create safe hint - DO NOT store full passphrase or WIF
+    const passphraseHint = createPassphraseHint(passphrase);
+    
+    const hit: BalanceHit = {
+      address,
+      passphraseHint,
+      balanceSats: balanceInfo.balanceSats,
+      balanceBTC: (balanceInfo.balanceSats / 100000000).toFixed(8),
+      txCount: balanceInfo.txCount,
+      discoveredAt: new Date().toISOString(),
+      isCompressed,
+    };
+    
+    const existing = balanceHits.find(h => h.address === address);
+    if (!existing) {
+      balanceHits.push(hit);
+      await saveBalanceHits();
+      
+      if (balanceInfo.balanceSats > 0) {
+        // Log hit WITHOUT sensitive data
+        console.log(`\n[BALANCE HIT] ${address}`);
+        console.log(`   Balance: ${hit.balanceBTC} BTC (${hit.balanceSats} sats)`);
+        console.log(`   Hint: ${passphraseHint}`);
+        console.log(`   TX Count: ${hit.txCount}\n`);
+      } else {
+        console.log(`[BlockchainScanner] Historical activity: ${address} (${hit.txCount} txs, 0 balance)`);
+      }
+    }
+    
+    return hit;
+  }
+  
+  return null;
+}
+
+/**
+ * Get all recorded balance hits
+ */
+export function getBalanceHits(): BalanceHit[] {
+  return [...balanceHits];
+}
+
+/**
+ * Get balance hits with non-zero balance
+ */
+export function getActiveBalanceHits(): BalanceHit[] {
+  return balanceHits.filter(h => h.balanceSats > 0);
+}
+
+/**
  * Fetch block by height from Blockstream API
  */
 export async function fetchBlockByHeight(height: number): Promise<BlockstreamBlock | null> {

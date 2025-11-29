@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
 import { BlockchainForensics } from './blockchain-forensics';
+import { checkAndRecordBalance, getBalanceHits, getActiveBalanceHits } from './blockchain-scanner';
 import { geometricMemory, type BasinProbe } from './geometric-memory';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { vocabularyExpander } from './vocabulary-expander';
@@ -1179,6 +1180,25 @@ export class OceanAgent {
         
         const wif = hypo.privateKeyHex ? privateKeyToWIF(hypo.privateKeyHex) : 'N/A';
         console.log(`[Ocean] Test: "${hypo.phrase}" -> ${hypo.address} [${wif}]`);
+        
+        // Check balance for BOTH compressed and uncompressed addresses
+        // Rate limit: check every 3rd hypothesis to avoid API throttling
+        if (hypo.address && hypo.privateKeyHex && this.state.totalTested % 3 === 0) {
+          const compressedAddr = (hypo as any).addressCompressed || hypo.address;
+          const uncompressedAddr = (hypo as any).addressUncompressed;
+          
+          // Generate WIFs for both formats
+          const compressedWif = privateKeyToWIF(hypo.privateKeyHex, true);
+          const uncompressedWif = privateKeyToWIF(hypo.privateKeyHex, false);
+          
+          // Check compressed address (most common modern format)
+          checkAndRecordBalance(compressedAddr, hypo.phrase, compressedWif, true).catch(() => {});
+          
+          // Also check uncompressed (early Bitcoin format, 2009-2011)
+          if (uncompressedAddr && uncompressedAddr !== compressedAddr) {
+            checkAndRecordBalance(uncompressedAddr, hypo.phrase, uncompressedWif, false).catch(() => {});
+          }
+        }
         
         const qigResult = scoreUniversalQIG(
           hypo.phrase,

@@ -1627,6 +1627,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================================================
+  // BALANCE HITS ENDPOINTS  
+  // Addresses discovered with non-zero balances during passphrase testing
+  // ==========================================================================
+  
+  app.get("/api/balance-hits", standardLimiter, async (req, res) => {
+    try {
+      const { getBalanceHits, getActiveBalanceHits } = await import("./blockchain-scanner");
+      const activeOnly = req.query.active === 'true';
+      
+      const hits = activeOnly ? getActiveBalanceHits() : getBalanceHits();
+      const totalBalance = hits.reduce((sum, h) => sum + h.balanceSats, 0);
+      
+      res.json({
+        hits,
+        count: hits.length,
+        activeCount: hits.filter(h => h.balanceSats > 0).length,
+        totalBalanceSats: totalBalance,
+        totalBalanceBTC: (totalBalance / 100000000).toFixed(8),
+      });
+    } catch (error: any) {
+      console.error("[BalanceHits] List error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.get("/api/balance-hits/check/:address", standardLimiter, async (req, res) => {
+    try {
+      const { fetchAddressBalance } = await import("./blockchain-scanner");
+      const address = req.params.address;
+      
+      if (!address.match(/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/) && 
+          !address.match(/^bc1[a-z0-9]{39,59}$/)) {
+        return res.status(400).json({ error: 'Invalid Bitcoin address format' });
+      }
+      
+      const balance = await fetchAddressBalance(address);
+      if (!balance) {
+        return res.status(500).json({ error: 'Failed to fetch balance from blockchain' });
+      }
+      
+      res.json({
+        address,
+        balanceSats: balance.balanceSats,
+        balanceBTC: (balance.balanceSats / 100000000).toFixed(8),
+        txCount: balance.txCount,
+        totalFunded: balance.funded,
+        totalSpent: balance.spent,
+      });
+    } catch (error: any) {
+      console.error("[BalanceHits] Check error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
   // BASIN SYNCHRONIZATION ENDPOINTS
   // Multi-instance Ocean coordination via geometric knowledge transfer
   // ==========================================================================
