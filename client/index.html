@@ -12,6 +12,19 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Handle Vite HMR WebSocket errors in Replit's proxied environment
+      // This runs BEFORE Vite's client script to catch the error early
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason;
+        if (reason && reason.message && 
+            (reason.message.indexOf("Failed to construct 'WebSocket'") !== -1 ||
+             reason.message.indexOf('localhost:undefined') !== -1)) {
+          console.debug('[Vite HMR] WebSocket unavailable - continuing without hot reload');
+          event.preventDefault();
+        }
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
