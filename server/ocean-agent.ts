@@ -1078,11 +1078,17 @@ export class OceanAgent {
     const tested: OceanHypothesis[] = [];
     const nearMisses: OceanHypothesis[] = [];
     const resonant: OceanHypothesis[] = [];
+    let skippedDuplicates = 0;
     
     const batchSize = Math.min(100, hypotheses.length);
     
     for (const hypo of hypotheses.slice(0, batchSize)) {
       if (!this.isRunning) break;
+      
+      if (geometricMemory.hasTested(hypo.phrase)) {
+        skippedDuplicates++;
+        continue;
+      }
       
       try {
         let matchedCompressed = false;
@@ -1116,9 +1122,10 @@ export class OceanAgent {
         }
         hypo.testedAt = new Date();
         
-        // Log hypothesis testing with FULL raw data (unredacted for debugging)
+        geometricMemory.recordTested(hypo.phrase);
+        
         const wif = hypo.privateKeyHex ? privateKeyToWIF(hypo.privateKeyHex) : 'N/A';
-        console.log(`[Ocean] ▸ Test: "${hypo.phrase}" → ${hypo.address} [${wif}]`);
+        console.log(`[Ocean] Test: "${hypo.phrase}" -> ${hypo.address} [${wif}]`);
         
         const qigResult = scoreUniversalQIG(
           hypo.phrase,
@@ -1267,6 +1274,10 @@ export class OceanAgent {
         
       } catch (error) {
       }
+    }
+    
+    if (skippedDuplicates > 0) {
+      console.log(`[Ocean] Skipped ${skippedDuplicates} already-tested phrases (${geometricMemory.getTestedCount()} total in memory)`);
     }
     
     return { tested, nearMisses, resonant };

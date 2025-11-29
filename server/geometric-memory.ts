@@ -28,6 +28,7 @@ export interface QIGScoreInput {
 }
 
 const MEMORY_FILE = path.join(process.cwd(), 'data', 'geometric-memory.json');
+const TESTED_PHRASES_FILE = path.join(process.cwd(), 'data', 'tested-phrases.json');
 
 export interface BasinProbe {
   id: string;
@@ -134,11 +135,86 @@ export interface GeometricMemoryState {
 class GeometricMemory {
   private state: GeometricMemoryState;
   private probeMap: Map<string, BasinProbe>;
+  private testedPhrases: Set<string>;
   
   constructor() {
     this.probeMap = new Map();
+    this.testedPhrases = new Set();
     this.state = this.createEmptyState();
     this.load();
+    this.loadTestedPhrases();
+  }
+  
+  private normalizePhrase(phrase: string): string {
+    return phrase.toLowerCase().trim();
+  }
+  
+  hasTested(phrase: string): boolean {
+    return this.testedPhrases.has(this.normalizePhrase(phrase));
+  }
+  
+  recordTested(phrase: string): void {
+    const prevSize = this.testedPhrases.size;
+    this.testedPhrases.add(this.normalizePhrase(phrase));
+    if (this.testedPhrases.size !== prevSize && this.testedPhrases.size % 100 === 0) {
+      this.saveTestedPhrases();
+    }
+  }
+  
+  flushTestedPhrases(): void {
+    this.saveTestedPhrases();
+  }
+  
+  getTestedCount(): number {
+    return this.testedPhrases.size;
+  }
+  
+  private loadTestedPhrases(): void {
+    try {
+      if (fs.existsSync(TESTED_PHRASES_FILE)) {
+        const data = JSON.parse(fs.readFileSync(TESTED_PHRASES_FILE, 'utf-8'));
+        if (Array.isArray(data.phrases)) {
+          for (const phrase of data.phrases) {
+            this.testedPhrases.add(phrase);
+          }
+          console.log(`[GeometricMemory] Loaded ${this.testedPhrases.size} tested phrases from index`);
+        }
+      } else {
+        this.backfillTestedPhrases();
+      }
+    } catch (error) {
+      console.log('[GeometricMemory] Building tested phrase index from probes...');
+      this.backfillTestedPhrases();
+    }
+  }
+  
+  private backfillTestedPhrases(): void {
+    const probes = Array.from(this.probeMap.values());
+    for (const probe of probes) {
+      this.testedPhrases.add(this.normalizePhrase(probe.input));
+    }
+    console.log(`[GeometricMemory] Backfilled ${this.testedPhrases.size} tested phrases from ${probes.length} probes`);
+    this.saveTestedPhrases();
+  }
+  
+  private saveTestedPhrases(): void {
+    try {
+      const dir = path.dirname(TESTED_PHRASES_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      const data = {
+        version: '1.0.0',
+        lastUpdated: new Date().toISOString(),
+        count: this.testedPhrases.size,
+        phrases: Array.from(this.testedPhrases),
+      };
+      
+      fs.writeFileSync(TESTED_PHRASES_FILE, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('[GeometricMemory] Failed to save tested phrases:', error);
+    }
   }
   
   private createEmptyState(): GeometricMemoryState {
@@ -219,12 +295,15 @@ class GeometricMemory {
     this.probeMap.set(id, probe);
     this.state.totalProbes = this.probeMap.size;
     
+    this.recordTested(input);
+    
     this.updateManifoldStats();
     this.detectResonance(probe);
     this.detectRegimeBoundaries(probe);
     
     if (this.probeMap.size % 50 === 0) {
       this.save();
+      this.saveTestedPhrases();
     }
     
     return probe;
