@@ -183,10 +183,11 @@ export function OceanInvestigationStory() {
     refetchInterval: 5000,
   });
 
-  const { data: balanceHits } = useQuery<BalanceHit[]>({
+  const { data: balanceHitsData } = useQuery<{ hits: BalanceHit[]; count: number; activeCount: number }>({
     queryKey: ['/api/balance-hits'],
     refetchInterval: 10000,
   });
+  const balanceHits = balanceHitsData?.hits || [];
 
   const [balanceHitsOpen, setBalanceHitsOpen] = useState(true);
 
@@ -499,7 +500,7 @@ export function OceanInvestigationStory() {
 
           {/* Balance Hits - Addresses with coins/activity */}
           <BalanceHitsPanel 
-            hits={balanceHits || []} 
+            hits={balanceHits} 
             isOpen={balanceHitsOpen}
             onOpenChange={setBalanceHitsOpen}
           />
