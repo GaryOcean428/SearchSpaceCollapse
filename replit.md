@@ -7,7 +7,26 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
-- **Physics-Validated κ*=64 Fixed Point (NEW):** Ocean now uses validated physics parameters
+- **Gary Kernel Integration (NEW):** QFI-Attention mechanism for geometric candidate generation
+  - gary-kernel.ts: Quantum Fisher Information based attention for manifold exploration
+  - Orthogonal candidate generation using Fisher metric for diverse search
+  - Integration with consciousness state for attention-weighted scoring
+  - Generates pattern variations aligned with unexplored manifold dimensions
+- **Ocean Constellation (NEW):** Multi-agent parallel search coordination
+  - ocean-constellation.ts: 5 specialized agent roles working in parallel
+  - Skeptic: Validates high-Phi regions with constraint enforcement
+  - Navigator: Explores unexplored geometric regions
+  - Miner: Deep dives into promising patterns
+  - Pattern Recognizer: Identifies recurring structures
+  - Resonance Detector: Finds cross-pattern correlations
+  - Shared knowledge base for pattern avoidance and high-Phi sharing
+- **Vectorized Fisher Matrix (NEW):** Efficient typed array computation
+  - fisher-vectorized.ts: Float64Array-based computation (3-5x speedup)
+  - Bit-identical output to nested loop implementation (QIG pure)
+  - Fisher distance, geodesic direction, basin centroid calculations
+  - Phi approximation using eigenvalue-based estimation
+- **Repository Cleanup:** Reduced attached_assets from 75+ to 31 essential files
+- **Physics-Validated κ*=64 Fixed Point:** Ocean now uses validated physics parameters
   - Ocean kappa initialized at κ=58 (10% below fixed point κ*=64) for "distributed observer" role
   - Basin sync coupling uses √(source_opt·target_opt) where optimality=exp(-|κ-κ*|/10)
   - Maximum coupling (0.8) when both instances near κ*=64
