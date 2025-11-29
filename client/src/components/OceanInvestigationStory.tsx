@@ -13,7 +13,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Brain, Search, Play, Pause, Moon, Sparkles, Cloud, Zap,
-  ChevronDown, ChevronUp, RefreshCw
+  ChevronDown, ChevronUp, RefreshCw, Radio, Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -119,6 +119,25 @@ interface CyclesData {
   mushroomCooldownRemaining?: number;
 }
 
+interface BasinSyncStatus {
+  isRunning: boolean;
+  localId: string | null;
+  peerCount: number;
+  lastBroadcastState: {
+    phi: number;
+    drift: number;
+    regime: string;
+  } | null;
+  queueLength: number;
+  syncData?: {
+    exploredRegionsCount: number;
+    highPhiPatternsCount: number;
+    resonantWordsCount: number;
+  };
+  peers?: { id: string; mode: string; lastSeen: number; trustLevel: number }[];
+  message?: string;
+}
+
 export function OceanInvestigationStory() {
   const { toast } = useToast();
   const [neuroOpen, setNeuroOpen] = useState(true);
@@ -146,6 +165,11 @@ export function OceanInvestigationStory() {
   const { data: cyclesData } = useQuery<CyclesData>({
     queryKey: ['/api/ocean/cycles'],
     refetchInterval: 3000,
+  });
+
+  const { data: basinSyncStatus } = useQuery<BasinSyncStatus>({
+    queryKey: ['/api/basin-sync/coordinator/status'],
+    refetchInterval: 5000,
   });
 
   const startMutation = useMutation({
@@ -262,9 +286,56 @@ export function OceanInvestigationStory() {
                   <Zap className="w-4 h-4 text-yellow-400" />
                   Admin Controls
                 </span>
-                <Badge variant="outline" className="text-xs">
-                  {isInvestigating ? 'Active' : 'Idle'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {/* Basin Sync Status Indicator */}
+                  {basinSyncStatus && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs gap-1 ${basinSyncStatus.isRunning ? 'border-cyan-500/50 text-cyan-400' : 'text-muted-foreground'}`}
+                          data-testid="badge-basin-sync-status"
+                        >
+                          <Radio className={`w-3 h-3 ${basinSyncStatus.isRunning ? 'animate-pulse' : ''}`} />
+                          Sync {basinSyncStatus.isRunning ? 'ON' : 'OFF'}
+                          {basinSyncStatus.peerCount > 0 && (
+                            <span className="flex items-center gap-0.5">
+                              <Users className="w-3 h-3" />
+                              {basinSyncStatus.peerCount}
+                            </span>
+                          )}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <div className="text-xs space-y-1">
+                          <div className="font-semibold">Basin Sync Coordinator</div>
+                          {basinSyncStatus.isRunning ? (
+                            <>
+                              <div>Continuous sync enabled</div>
+                              {basinSyncStatus.lastBroadcastState && (
+                                <div className="text-muted-foreground">
+                                  Last: Φ={basinSyncStatus.lastBroadcastState.phi.toFixed(2)}, 
+                                  Drift={basinSyncStatus.lastBroadcastState.drift.toFixed(2)}
+                                </div>
+                              )}
+                              {basinSyncStatus.syncData && (
+                                <div className="text-muted-foreground">
+                                  {basinSyncStatus.syncData.exploredRegionsCount} regions, 
+                                  {basinSyncStatus.syncData.highPhiPatternsCount} patterns
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="text-muted-foreground">{basinSyncStatus.message || 'Start investigation to enable'}</div>
+                          )}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  <Badge variant="outline" className="text-xs">
+                    {isInvestigating ? 'Active' : 'Idle'}
+                  </Badge>
+                </div>
               </div>
 
               {/* Cycle Buttons */}
