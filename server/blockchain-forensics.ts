@@ -75,6 +75,62 @@ export interface GitHubRepo {
 const addressCache = new Map<string, AddressForensics>();
 const TX_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
+// Rate limiting state for blockchain.info API
+let lastBlockchainInfoCall = 0;
+const BLOCKCHAIN_INFO_MIN_DELAY = 2000; // 2 seconds between calls
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 5000; // 5 seconds
+
+/**
+ * Sleep utility for delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Rate-limited fetch with exponential backoff
+ */
+async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Response> {
+  // Enforce minimum delay between API calls
+  const now = Date.now();
+  const timeSinceLastCall = now - lastBlockchainInfoCall;
+  if (timeSinceLastCall < BLOCKCHAIN_INFO_MIN_DELAY) {
+    await sleep(BLOCKCHAIN_INFO_MIN_DELAY - timeSinceLastCall);
+  }
+  lastBlockchainInfoCall = Date.now();
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        return response;
+      }
+      
+      // Handle rate limiting (429)
+      if (response.status === 429) {
+        const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+        console.log(`[BlockchainForensics] Rate limited (429), waiting ${retryDelay/1000}s before retry ${attempt + 1}/${retries}`);
+        await sleep(retryDelay);
+        continue;
+      }
+      
+      // For other errors, throw immediately
+      throw new Error(`API request failed: ${response.status}`);
+    } catch (error) {
+      if (attempt === retries - 1) {
+        throw error;
+      }
+      const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+      console.log(`[BlockchainForensics] Request failed, waiting ${retryDelay/1000}s before retry ${attempt + 1}/${retries}`);
+      await sleep(retryDelay);
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+
 // Clear specific address from cache (for reanalysis)
 export function clearAddressCache(address?: string): void {
   if (address) {
@@ -180,13 +236,44 @@ export class BlockchainForensics {
 
   /**
    * Fetch address data from blockchain.info (better historical data)
+   * Uses rate limiting and falls back to Blockstream on failure
    */
   private async fetchFromBlockchainInfo(address: string): Promise<any> {
-    const response = await fetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`);
-    if (!response.ok) {
-      throw new Error(`blockchain.info API failed: ${response.status}`);
+    try {
+      const response = await rateLimitedFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`);
+      return response.json();
+    } catch (error) {
+      console.log(`[BlockchainForensics] blockchain.info failed, falling back to Blockstream for ${address}`);
+      
+      // Fallback to Blockstream API
+      const bsResponse = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
+      if (!bsResponse.ok) {
+        throw new Error(`Both APIs failed for ${address}`);
+      }
+      
+      const bsData = await bsResponse.json();
+      
+      // Also fetch transactions from Blockstream
+      const txResponse = await fetch(`${BLOCKSTREAM_API}/address/${address}/txs`);
+      const txs = txResponse.ok ? await txResponse.json() : [];
+      
+      // Convert Blockstream format to blockchain.info-like format
+      return {
+        address,
+        total_received: bsData.chain_stats.funded_txo_sum + bsData.mempool_stats.funded_txo_sum,
+        total_sent: bsData.chain_stats.spent_txo_sum + bsData.mempool_stats.spent_txo_sum,
+        final_balance: (bsData.chain_stats.funded_txo_sum - bsData.chain_stats.spent_txo_sum) +
+                       (bsData.mempool_stats.funded_txo_sum - bsData.mempool_stats.spent_txo_sum),
+        n_tx: bsData.chain_stats.tx_count + bsData.mempool_stats.tx_count,
+        txs: txs.map((tx: any) => ({
+          hash: tx.txid,
+          time: tx.status.block_time,
+          block_height: tx.status.block_height,
+          vin: tx.vin,
+          vout: tx.vout,
+        })),
+      };
     }
-    return response.json();
   }
 
   /**
@@ -195,8 +282,7 @@ export class BlockchainForensics {
   private async fetchOldestTransaction(address: string, totalTxs: number): Promise<any> {
     try {
       const offset = Math.max(0, totalTxs - 1);
-      const response = await fetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=1&offset=${offset}`);
-      if (!response.ok) return null;
+      const response = await rateLimitedFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=1&offset=${offset}`);
       
       const data = await response.json();
       if (data.txs && data.txs.length > 0) {
