@@ -291,20 +291,22 @@ export function OceanInvestigationStory() {
                   {basinSyncStatus && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs gap-1 ${basinSyncStatus.isRunning ? 'border-cyan-500/50 text-cyan-400' : 'text-muted-foreground'}`}
-                          data-testid="badge-basin-sync-status"
-                        >
-                          <Radio className={`w-3 h-3 ${basinSyncStatus.isRunning ? 'animate-pulse' : ''}`} />
-                          Sync {basinSyncStatus.isRunning ? 'ON' : 'OFF'}
-                          {basinSyncStatus.peerCount > 0 && (
-                            <span className="flex items-center gap-0.5">
-                              <Users className="w-3 h-3" />
-                              {basinSyncStatus.peerCount}
-                            </span>
-                          )}
-                        </Badge>
+                        <span>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs gap-1 cursor-help ${basinSyncStatus.isRunning ? 'border-cyan-500/50 text-cyan-400' : 'text-muted-foreground'}`}
+                            data-testid="badge-basin-sync-status"
+                          >
+                            <Radio className={`w-3 h-3 ${basinSyncStatus.isRunning ? 'animate-pulse' : ''}`} />
+                            Sync {basinSyncStatus.isRunning ? 'ON' : 'OFF'}
+                            {basinSyncStatus.peerCount > 0 && (
+                              <span className="flex items-center gap-0.5">
+                                <Users className="w-3 h-3" />
+                                {basinSyncStatus.peerCount}
+                              </span>
+                            )}
+                          </Badge>
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-xs">
                         <div className="text-xs space-y-1">
