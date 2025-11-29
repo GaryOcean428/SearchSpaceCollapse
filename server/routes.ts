@@ -65,6 +65,7 @@ import { randomUUID } from "crypto";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { unifiedRecovery } from "./unified-recovery";
 import { oceanSessionManager } from "./ocean-session-manager";
+import { activityLogStore } from "./activity-log-store";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Handle favicon.ico requests - redirect to favicon.png
@@ -510,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get unified activity stream from all running jobs
+  // Get unified activity stream from all running jobs AND Ocean agent
   app.get("/api/activity-stream", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
@@ -525,6 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: string;
       }> = [];
       
+      // Add search job logs
       for (const job of jobs) {
         for (const log of job.logs) {
           allLogs.push({
@@ -537,13 +539,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Add Ocean agent logs from the activity log store
+      const oceanLogs = activityLogStore.getLogs({ limit: limit * 2 }); // Get more to ensure good coverage
+      for (const oceanLog of oceanLogs) {
+        allLogs.push({
+          jobId: oceanLog.id,
+          jobStrategy: `Ocean:${oceanLog.category}`,
+          message: oceanLog.message,
+          type: oceanLog.type,
+          timestamp: oceanLog.timestamp,
+        });
+      }
+      
       // Sort by timestamp descending and take limit
       allLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       
+      // Check if Ocean is running via session manager
+      const oceanStatus = oceanSessionManager.getInvestigationStatus();
+      const isOceanActive = oceanStatus?.isRunning || false;
+      
       res.json({ 
         logs: allLogs.slice(0, limit),
-        activeJobs: jobs.filter(j => j.status === "running").length,
-        totalJobs: jobs.length,
+        activeJobs: jobs.filter(j => j.status === "running").length + (isOceanActive ? 1 : 0),
+        totalJobs: jobs.length + (oceanLogs.length > 0 ? 1 : 0),
+        oceanActive: isOceanActive,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

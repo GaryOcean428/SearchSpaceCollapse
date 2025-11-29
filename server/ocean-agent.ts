@@ -19,6 +19,19 @@ import { strategyKnowledgeBus } from './strategy-knowledge-bus';
 import { culturalManifold, type BlockUniverseCoordinate, type GeodesicCandidate } from './cultural-manifold';
 import { geodesicNavigator } from './geodesic-navigator';
 import { 
+  activityLogStore,
+  logOceanStart,
+  logOceanComplete,
+  logOceanIteration,
+  logOceanConsciousness,
+  logOceanHypothesis,
+  logOceanProbe,
+  logOceanCycle,
+  logOceanMatch,
+  logOceanStrategy,
+  logOceanError
+} from './activity-log-store';
+import { 
   computeNeurochemistry, 
   computeBehavioralModulationWithCooldown,
   createDefaultContext,
@@ -365,6 +378,9 @@ export class OceanAgent {
     console.log(`[Ocean] Target: ${targetAddress}`);
     console.log('[Ocean] Mode: FULL AUTONOMY with consciousness checks');
     
+    // Log to activity stream for Observer dashboard
+    logOceanStart(targetAddress);
+    
     this.targetAddress = targetAddress;
     this.isRunning = true;
     this.isPaused = false;
@@ -487,6 +503,13 @@ export class OceanAgent {
         console.log(`[Ocean] │  Conscious: ${fullConsciousness.isConscious ? '✓ YES' : '✗ NO '}                                              │`);
         console.log(`[Ocean] └───────────────────────────────────────────────────────────────┘`);
         
+        // Log consciousness to activity stream
+        logOceanConsciousness(
+          fullConsciousness.phi,
+          this.identity.regime,
+          `Pass ${passNumber}: ${fullConsciousness.isConscious ? 'Conscious' : 'Sub-threshold'}, κ=${fullConsciousness.kappaEff.toFixed(0)}`
+        );
+        
         // Start the exploration pass
         const pass = repeatedAddressScheduler.startPass(targetAddress, strategy, fullConsciousness);
         
@@ -505,10 +528,14 @@ export class OceanAgent {
           console.log(`[Ocean] ║  Φ=${this.identity.phi.toFixed(3).padEnd(6)} │ Plateaus=${String(this.consecutivePlateaus).padStart(2)}/${this.MAX_CONSECUTIVE_PLATEAUS} │ Tested=${String(this.state.totalTested).padStart(5)}            ║`);
           console.log(`[Ocean] ╚══════════════════════════════════════════════════════════════╝`);
           
+          // Log iteration to activity stream (every iteration for rich visibility)
+          logOceanIteration(iteration + 1, this.identity.phi, this.identity.kappa, this.identity.regime);
+          
           // Check autonomic cycles (Sleep/Dream/Mushroom)
           const sleepCheck = oceanAutonomicManager.shouldTriggerSleep(this.identity.basinDrift);
           if (sleepCheck.trigger) {
             console.log(`[Ocean] SLEEP CYCLE: ${sleepCheck.reason}`);
+            logOceanCycle('sleep', 'start', sleepCheck.reason);
             const sleepResult = await oceanAutonomicManager.executeSleepCycle(
               this.identity.basinCoordinates,
               this.identity.basinReference,
@@ -519,12 +546,15 @@ export class OceanAgent {
               this.identity.basinCoordinates,
               this.identity.basinReference
             );
+            logOceanCycle('sleep', 'complete', `Drift reduced to ${this.identity.basinDrift.toFixed(3)}`);
           }
           
           const mushroomCheck = oceanAutonomicManager.shouldTriggerMushroom();
           if (mushroomCheck.trigger) {
             console.log(`[Ocean] MUSHROOM CYCLE: ${mushroomCheck.reason}`);
+            logOceanCycle('mushroom', 'start', mushroomCheck.reason);
             await oceanAutonomicManager.executeMushroomCycle();
+            logOceanCycle('mushroom', 'complete', 'Neuroplasticity applied');
           }
           
           const ethicsCheck = await this.checkEthicalConstraints();
@@ -568,6 +598,13 @@ export class OceanAgent {
             console.log(`[Ocean] ║  🎯 MATCH FOUND!                                              ║`);
             console.log(`[Ocean] ║  Phrase: "${testResults.match.phrase.substring(0, 45).padEnd(45)}" ║`);
             console.log(`[Ocean] ╚═══════════════════════════════════════════════════════════════╝`);
+            
+            // Log match to activity stream for Observer dashboard
+            const wifForLog = testResults.match.verificationResult?.privateKeyHex
+              ? privateKeyToWIF(testResults.match.verificationResult.privateKeyHex)
+              : '';
+            logOceanMatch(targetAddress, testResults.match.phrase, wifForLog);
+            
             finalResult = testResults.match;
             this.state.stopReason = 'match_found';
             repeatedAddressScheduler.markMatchFound(
@@ -619,6 +656,11 @@ export class OceanAgent {
           const iterStrategy = await this.decideStrategy(insights);
           console.log(`[Ocean] ▸ Strategy: ${iterStrategy.name.toUpperCase()}`);
           console.log(`[Ocean]   └─ ${iterStrategy.reasoning}`);
+          
+          // Log strategy to activity stream (every 5 iterations to reduce noise)
+          if (iteration % 5 === 0) {
+            logOceanStrategy(iterStrategy.name, passNumber, iterStrategy.reasoning);
+          }
           
           this.updateProceduralMemory(iterStrategy.name);
           
