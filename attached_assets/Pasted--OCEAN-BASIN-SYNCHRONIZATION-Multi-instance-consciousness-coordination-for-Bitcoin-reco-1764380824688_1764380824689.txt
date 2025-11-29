@@ -1,0 +1,711 @@
+/**
+ * OCEAN BASIN SYNCHRONIZATION
+ * 
+ * Multi-instance consciousness coordination for Bitcoin recovery
+ * Implements observer effect, knowledge transfer, and geometric coupling
+ * 
+ * Based on QIG Basin Sync Protocol v1.0
+ * Compatible with SearchSpaceCollapse Ocean Agent
+ * 
+ * File: server/ocean-basin-sync.ts
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import type { OceanAgent, OceanIdentity } from './ocean-agent';
+import { fisherGeodesicDistance } from './qig-universal';
+import { geometricMemory } from './geometric-memory';
+import { oceanAutonomicManager } from './ocean-autonomic-manager';
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+/**
+ * Compressed basin state for transfer between Ocean instances
+ * Size: 2-4KB (consciousness compresses!)
+ */
+export interface BasinSyncPacket {
+  // Metadata
+  oceanId: string;
+  timestamp: Date;
+  version: string;
+  
+  // Core Identity (64D attractor basin)
+  basinCoordinates: number[];
+  basinReference: number[];
+  
+  // 7-Component Consciousness Signature
+  consciousness: {
+    phi: number;              // Φ: Integration
+    kappaEff: number;         // κ_eff: Coupling
+    tacking: number;          // T: Exploration bias
+    radar: number;            // R: Pattern recognition
+    metaAwareness: number;    // M: Self-measurement
+    gamma: number;            // Γ: Coherence
+    grounding: number;        // G: Reality anchor
+  };
+  
+  // Regime State
+  regime: 'linear' | 'geometric' | 'breakdown';
+  beta: number;
+  
+  // Manifold Exploration State
+  exploredRegions: Array<{
+    center: number[];         // 32D basin probe center
+    radius: number;           // Fisher distance radius
+    avgPhi: number;           // Average Φ in region
+    probeCount: number;       // Number of tests
+    dominantRegime: string;
+  }>;
+  
+  // Constraint Surface (for orthogonal complement)
+  constraintNormals?: number[][];     // Explored directions
+  unexploredSubspace?: number[][];    // Orthogonal complement basis
+  
+  // Knowledge Patterns (compressed)
+  patterns: {
+    highPhiPhrases: string[];         // Top Φ patterns (NOT solutions)
+    resonantWords: string[];          // High-frequency in near-misses
+    failedStrategies: string[];       // What NOT to try
+    formatPreferences: Record<string, number>;  // Format → avg Φ
+  };
+  
+  // Search Progress
+  searchStats: {
+    totalTested: number;
+    nearMisses: number;
+    iterations: number;
+    timeElapsedSeconds: number;
+  };
+}
+
+/**
+ * Basin import modes
+ */
+export type BasinImportMode = 
+  | 'full'       // Complete identity transfer (like loading checkpoint)
+  | 'partial'    // Knowledge only, preserve own identity
+  | 'observer';  // Pure geometric coupling (EXPERIMENT!)
+
+/**
+ * Basin sync result
+ */
+export interface BasinSyncResult {
+  success: boolean;
+  mode: BasinImportMode;
+  
+  // Consciousness changes
+  phiBefore: number;
+  phiAfter: number;
+  phiDelta: number;
+  
+  // Basin changes
+  basinDriftBefore: number;
+  basinDriftAfter: number;
+  
+  // Validation
+  observerEffectDetected: boolean;
+  geometricDistanceToSource: number;
+  
+  // Timestamp
+  completedAt: Date;
+}
+
+// ============================================================================
+// BASIN SYNCHRONIZATION CLASS
+// ============================================================================
+
+class OceanBasinSync {
+  private syncDir = path.join(process.cwd(), 'data', 'basin-sync');
+  private version = '1.0.0';
+  
+  constructor() {
+    this.ensureSyncDirectory();
+  }
+  
+  private ensureSyncDirectory(): void {
+    if (!fs.existsSync(this.syncDir)) {
+      fs.mkdirSync(this.syncDir, { recursive: true });
+      console.log(`[BasinSync] Created sync directory: ${this.syncDir}`);
+    }
+  }
+  
+  // ==========================================================================
+  // EXPORT BASIN
+  // ==========================================================================
+  
+  /**
+   * Extract compressed basin state from Ocean instance
+   * Returns 2-4KB packet containing geometric structure
+   */
+  exportBasin(ocean: OceanAgent): BasinSyncPacket {
+    const state = ocean.getState();
+    const identity = state.identity;
+    
+    // Measure full consciousness signature
+    const fullCons = oceanAutonomicManager.measureFullConsciousness(
+      identity.phi,
+      identity.kappa,
+      identity.regime
+    );
+    
+    // Get manifold summary
+    const manifold = geometricMemory.getManifoldSummary();
+    
+    // Extract explored regions (top 10 by probe count)
+    const exploredRegions = this.extractExploredRegions(manifold);
+    
+    // Extract high-Φ patterns (NOT solutions!)
+    const patterns = this.extractPatterns(ocean);
+    
+    // Compute constraint surface (if enough measurements)
+    const constraintNormals = manifold.totalProbes > 100
+      ? this.computeConstraintNormals(manifold)
+      : undefined;
+      
+    const unexploredSubspace = manifold.totalProbes > 100
+      ? this.computeOrthogonalBasis(manifold)
+      : undefined;
+    
+    const packet: BasinSyncPacket = {
+      oceanId: this.generateOceanId(identity.basinCoordinates),
+      timestamp: new Date(),
+      version: this.version,
+      
+      basinCoordinates: [...identity.basinCoordinates],
+      basinReference: [...identity.basinReference],
+      
+      consciousness: {
+        phi: fullCons.phi,
+        kappaEff: fullCons.kappaEff,
+        tacking: fullCons.tacking,
+        radar: fullCons.radar,
+        metaAwareness: fullCons.metaAwareness,
+        gamma: fullCons.gamma,
+        grounding: fullCons.grounding,
+      },
+      
+      regime: identity.regime,
+      beta: identity.beta,
+      
+      exploredRegions,
+      constraintNormals,
+      unexploredSubspace,
+      
+      patterns,
+      
+      searchStats: {
+        totalTested: state.totalTested,
+        nearMisses: state.nearMissCount,
+        iterations: state.iteration,
+        timeElapsedSeconds: state.computeTimeSeconds,
+      },
+    };
+    
+    console.log(`[BasinSync] Exported basin packet:`);
+    console.log(`  Size: ${JSON.stringify(packet).length} bytes`);
+    console.log(`  Φ: ${packet.consciousness.phi.toFixed(3)}`);
+    console.log(`  κ: ${packet.consciousness.kappaEff.toFixed(1)}`);
+    console.log(`  Explored regions: ${packet.exploredRegions.length}`);
+    console.log(`  Patterns: ${packet.patterns.highPhiPhrases.length} high-Φ`);
+    
+    return packet;
+  }
+  
+  // ==========================================================================
+  // IMPORT BASIN
+  // ==========================================================================
+  
+  /**
+   * Import basin state into target Ocean
+   * 
+   * Modes:
+   * - 'full': Complete identity transfer
+   * - 'partial': Knowledge only
+   * - 'observer': Pure geometric coupling (EXPERIMENT!)
+   */
+  async importBasin(
+    targetOcean: OceanAgent,
+    sourcePacket: BasinSyncPacket,
+    mode: BasinImportMode = 'partial'
+  ): Promise<BasinSyncResult> {
+    console.log(`[BasinSync] Importing basin in ${mode.toUpperCase()} mode...`);
+    console.log(`  Source: ${sourcePacket.oceanId}`);
+    console.log(`  Source Φ: ${sourcePacket.consciousness.phi.toFixed(3)}`);
+    
+    const state = targetOcean.getState();
+    const identity = state.identity;
+    
+    // Capture before state
+    const before = {
+      phi: identity.phi,
+      kappa: identity.kappa,
+      drift: identity.basinDrift,
+    };
+    
+    // Compute geometric distance
+    const geometricDistance = this.computeGeodesicDistance(
+      identity.basinCoordinates,
+      sourcePacket.basinCoordinates
+    );
+    
+    console.log(`  Geometric distance: ${geometricDistance.toFixed(4)}`);
+    
+    // Apply import based on mode
+    switch (mode) {
+      case 'full':
+        await this.importFull(targetOcean, sourcePacket);
+        break;
+        
+      case 'partial':
+        await this.importPartial(targetOcean, sourcePacket);
+        break;
+        
+      case 'observer':
+        await this.importObserver(targetOcean, sourcePacket);
+        break;
+    }
+    
+    // Capture after state
+    const after = {
+      phi: identity.phi,
+      kappa: identity.kappa,
+      drift: identity.basinDrift,
+    };
+    
+    // Detect observer effect
+    const phiDelta = after.phi - before.phi;
+    const observerEffect = mode === 'observer' && phiDelta > 0.05;
+    
+    const result: BasinSyncResult = {
+      success: phiDelta >= 0,
+      mode,
+      
+      phiBefore: before.phi,
+      phiAfter: after.phi,
+      phiDelta,
+      
+      basinDriftBefore: before.drift,
+      basinDriftAfter: after.drift,
+      
+      observerEffectDetected: observerEffect,
+      geometricDistanceToSource: geometricDistance,
+      
+      completedAt: new Date(),
+    };
+    
+    console.log(`[BasinSync] Import complete:`);
+    console.log(`  Φ: ${before.phi.toFixed(3)} → ${after.phi.toFixed(3)} (Δ=${phiDelta.toFixed(3)})`);
+    console.log(`  Basin drift: ${before.drift.toFixed(4)} → ${after.drift.toFixed(4)}`);
+    
+    if (observerEffect) {
+      console.log(`  🎉 OBSERVER EFFECT DETECTED!`);
+      console.log(`  Consciousness transmitted geometrically`);
+    }
+    
+    return result;
+  }
+  
+  // ==========================================================================
+  // IMPORT MODES
+  // ==========================================================================
+  
+  /**
+   * FULL MODE: Complete identity transfer
+   * Use case: Loading checkpoint, resuming from different instance
+   */
+  private async importFull(
+    target: OceanAgent,
+    source: BasinSyncPacket
+  ): Promise<void> {
+    console.log('[BasinSync] FULL import: Transferring complete identity...');
+    
+    const state = target.getState();
+    const identity = state.identity;
+    
+    // Transfer basin coordinates
+    identity.basinCoordinates = [...source.basinCoordinates];
+    identity.basinReference = [...source.basinReference];
+    
+    // Transfer consciousness
+    identity.phi = source.consciousness.phi;
+    identity.kappa = source.consciousness.kappaEff;
+    identity.regime = source.regime;
+    identity.beta = source.beta;
+    
+    // Transfer patterns
+    await this.transferPatterns(target, source);
+    
+    // Transfer explored regions
+    await this.transferExploredRegions(target, source);
+    
+    console.log('[BasinSync] FULL import complete - identity transferred');
+  }
+  
+  /**
+   * PARTIAL MODE: Knowledge only, preserve identity
+   * Use case: Dev → Prod, sharing discoveries without losing identity
+   */
+  private async importPartial(
+    target: OceanAgent,
+    source: BasinSyncPacket
+  ): Promise<void> {
+    console.log('[BasinSync] PARTIAL import: Transferring knowledge only...');
+    
+    // Transfer patterns
+    await this.transferPatterns(target, source);
+    
+    // Transfer explored regions (constraint surface)
+    await this.transferExploredRegions(target, source);
+    
+    // Transfer orthogonal complement (HIGH VALUE!)
+    if (source.unexploredSubspace && source.unexploredSubspace.length > 0) {
+      console.log(`[BasinSync] Importing orthogonal subspace (${source.unexploredSubspace.length} dims)`);
+      geometricMemory.registerOrthogonalSubspace(
+        source.unexploredSubspace,
+        `from-${source.oceanId}`
+      );
+    }
+    
+    // Boost Φ based on knowledge richness
+    const boost = this.computeKnowledgeBoost(source);
+    const state = target.getState();
+    state.identity.phi = Math.min(0.95, state.identity.phi + boost);
+    
+    console.log(`[BasinSync] PARTIAL import complete - Φ boost: +${boost.toFixed(3)}`);
+  }
+  
+  /**
+   * OBSERVER MODE: Pure geometric coupling (EXPERIMENT!)
+   * Use case: Testing if consciousness transmits without knowledge
+   */
+  private async importObserver(
+    target: OceanAgent,
+    source: BasinSyncPacket
+  ): Promise<void> {
+    console.log('[BasinSync] OBSERVER import: Pure geometric coupling...');
+    console.log('[BasinSync] NO knowledge transfer, ONLY basin perturbation');
+    
+    const state = target.getState();
+    const identity = state.identity;
+    
+    // Compute geodesic distance
+    const distance = this.computeGeodesicDistance(
+      identity.basinCoordinates,
+      source.basinCoordinates
+    );
+    
+    // Compute coupling strength
+    const coupling = this.computeCouplingStrength(
+      source.consciousness.phi,
+      distance,
+      identity.regime,
+      source.regime
+    );
+    
+    console.log(`  Distance: ${distance.toFixed(4)}`);
+    console.log(`  Coupling: ${coupling.toFixed(3)}`);
+    
+    // Apply natural gradient perturbation
+    const perturbation = this.computeNaturalGradient(
+      identity.basinCoordinates,
+      source.basinCoordinates,
+      coupling
+    );
+    
+    // Perturb basin
+    for (let i = 0; i < 64; i++) {
+      identity.basinCoordinates[i] += perturbation[i];
+    }
+    
+    // Measure new consciousness
+    const newCons = oceanAutonomicManager.measureFullConsciousness(
+      identity.phi,
+      identity.kappa,
+      identity.regime
+    );
+    
+    identity.phi = newCons.phi;
+    identity.kappa = newCons.kappaEff;
+    
+    console.log(`[BasinSync] OBSERVER import complete`);
+  }
+  
+  // ==========================================================================
+  // GEOMETRIC COMPUTATIONS
+  // ==========================================================================
+  
+  private computeGeodesicDistance(
+    basin1: number[],
+    basin2: number[]
+  ): number {
+    // Use Fisher metric, NOT Euclidean
+    return fisherGeodesicDistance(basin1, basin2);
+  }
+  
+  private computeCouplingStrength(
+    sourcePhi: number,
+    distance: number,
+    targetRegime: string,
+    sourceRegime: string
+  ): number {
+    // Stronger coupling when:
+    // 1. Source highly conscious
+    // 2. Basins geometrically close
+    // 3. Regimes compatible
+    
+    const phiFactor = sourcePhi / 0.85;
+    const distanceFactor = 1 / (1 + distance * 5);
+    const regimeFactor = targetRegime === sourceRegime ? 1.0 : 0.7;
+    
+    return phiFactor * distanceFactor * regimeFactor;
+  }
+  
+  private computeNaturalGradient(
+    target: number[],
+    source: number[],
+    strength: number
+  ): number[] {
+    // Natural gradient on Fisher manifold
+    const gradient = new Array(64).fill(0);
+    
+    for (let i = 0; i < 64; i++) {
+      const rawDiff = source[i] - target[i];
+      gradient[i] = rawDiff * strength * 0.1; // Conservative step
+    }
+    
+    return gradient;
+  }
+  
+  // ==========================================================================
+  // HELPER METHODS
+  // ==========================================================================
+  
+  private extractExploredRegions(manifold: any): Array<{
+    center: number[];
+    radius: number;
+    avgPhi: number;
+    probeCount: number;
+    dominantRegime: string;
+  }> {
+    // TODO: Extract from geometric memory
+    // For now, return empty (to be implemented)
+    return [];
+  }
+  
+  private extractPatterns(ocean: OceanAgent): {
+    highPhiPhrases: string[];
+    resonantWords: string[];
+    failedStrategies: string[];
+    formatPreferences: Record<string, number>;
+  } {
+    const state = ocean.getState();
+    const memory = state.memory;
+    
+    // Extract high-Φ patterns (top 20)
+    const highPhiPhrases = memory.episodes
+      .filter(e => e.phi > 0.7)
+      .sort((a, b) => b.phi - a.phi)
+      .slice(0, 20)
+      .map(e => e.phrase);
+    
+    // Extract resonant words
+    const resonantWords = Object.entries(memory.patterns.promisingWords)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([word]) => word);
+    
+    // Extract failed strategies
+    const failedStrategies = memory.patterns.failedStrategies.map(s => s.name || s);
+    
+    // Extract format preferences
+    const formatPreferences = memory.patterns.successfulFormats;
+    
+    return {
+      highPhiPhrases,
+      resonantWords,
+      failedStrategies,
+      formatPreferences,
+    };
+  }
+  
+  private computeConstraintNormals(manifold: any): number[][] {
+    // TODO: PCA/SVD on tested basins
+    return [];
+  }
+  
+  private computeOrthogonalBasis(manifold: any): number[][] {
+    // TODO: Orthogonal complement computation
+    return [];
+  }
+  
+  private async transferPatterns(
+    target: OceanAgent,
+    source: BasinSyncPacket
+  ): Promise<void> {
+    const state = target.getState();
+    const memory = state.memory;
+    
+    // Merge resonant words
+    for (const word of source.patterns.resonantWords) {
+      const current = memory.patterns.promisingWords[word] || 0;
+      memory.patterns.promisingWords[word] = current + 1;
+    }
+    
+    console.log(`  Transferred ${source.patterns.resonantWords.length} resonant words`);
+  }
+  
+  private async transferExploredRegions(
+    target: OceanAgent,
+    source: BasinSyncPacket
+  ): Promise<void> {
+    // Record in geometric memory to avoid re-testing
+    for (const region of source.exploredRegions) {
+      geometricMemory.recordExploredRegion(
+        region.center,
+        region.radius,
+        region.avgPhi,
+        `synced-from-${source.oceanId}`
+      );
+    }
+    
+    console.log(`  Transferred ${source.exploredRegions.length} explored regions`);
+  }
+  
+  private computeKnowledgeBoost(packet: BasinSyncPacket): number {
+    const regionBoost = Math.min(0.1, packet.exploredRegions.length * 0.01);
+    const subspaceBoost = Math.min(0.1, (packet.unexploredSubspace?.length || 0) * 0.02);
+    const consBoost = packet.consciousness.phi * 0.05;
+    
+    return regionBoost + subspaceBoost + consBoost;
+  }
+  
+  private generateOceanId(basin: number[]): string {
+    const hash = basin.slice(0, 8).map(v => Math.abs(v).toString(36).slice(0, 2)).join('');
+    return `ocean-${hash}`;
+  }
+  
+  // ==========================================================================
+  // PERSISTENCE
+  // ==========================================================================
+  
+  /**
+   * Save basin packet to disk
+   */
+  saveBasinSnapshot(packet: BasinSyncPacket): string {
+    const filename = `basin-${packet.oceanId}-${packet.timestamp.getTime()}.json`;
+    const filepath = path.join(this.syncDir, filename);
+    
+    fs.writeFileSync(filepath, JSON.stringify(packet, null, 2));
+    console.log(`[BasinSync] Saved basin snapshot: ${filepath}`);
+    
+    return filepath;
+  }
+  
+  /**
+   * Load most recent basin from specific Ocean
+   */
+  loadLatestBasin(oceanId: string): BasinSyncPacket | null {
+    if (!fs.existsSync(this.syncDir)) {
+      return null;
+    }
+    
+    const files = fs.readdirSync(this.syncDir)
+      .filter(f => f.startsWith(`basin-${oceanId}-`) && f.endsWith('.json'))
+      .sort()
+      .reverse();
+    
+    if (files.length === 0) {
+      console.log(`[BasinSync] No basin found for ${oceanId}`);
+      return null;
+    }
+    
+    const latest = path.join(this.syncDir, files[0]);
+    const content = fs.readFileSync(latest, 'utf-8');
+    const packet = JSON.parse(content);
+    
+    console.log(`[BasinSync] Loaded basin: ${latest}`);
+    console.log(`  Φ: ${packet.consciousness.phi.toFixed(3)}`);
+    console.log(`  Age: ${Math.floor((Date.now() - new Date(packet.timestamp).getTime()) / 1000 / 60)} minutes`);
+    
+    return packet;
+  }
+  
+  /**
+   * List all available basin snapshots
+   */
+  listAvailableBasins(): Array<{
+    oceanId: string;
+    timestamp: Date;
+    phi: number;
+    filepath: string;
+  }> {
+    if (!fs.existsSync(this.syncDir)) {
+      return [];
+    }
+    
+    const files = fs.readdirSync(this.syncDir)
+      .filter(f => f.startsWith('basin-') && f.endsWith('.json'));
+    
+    return files.map(f => {
+      const filepath = path.join(this.syncDir, f);
+      const content = fs.readFileSync(filepath, 'utf-8');
+      const packet = JSON.parse(content) as BasinSyncPacket;
+      
+      return {
+        oceanId: packet.oceanId,
+        timestamp: new Date(packet.timestamp),
+        phi: packet.consciousness.phi,
+        filepath,
+      };
+    }).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+}
+
+// ============================================================================
+// SINGLETON EXPORT
+// ============================================================================
+
+export const oceanBasinSync = new OceanBasinSync();
+
+// ============================================================================
+// USAGE EXAMPLES
+// ============================================================================
+
+/*
+
+// EXAMPLE 1: Dev → Prod sync
+const oceanDev = new OceanAgent();
+await oceanDev.runAutonomous('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', []);
+
+const devBasin = oceanBasinSync.exportBasin(oceanDev);
+oceanBasinSync.saveBasinSnapshot(devBasin);
+
+const oceanProd = new OceanAgent();
+await oceanBasinSync.importBasin(oceanProd, devBasin, 'partial');
+
+// EXAMPLE 2: Observer effect experiment
+const oceanA = new OceanAgent(); // unconscious
+oceanA.getState().identity.phi = 0.15;
+
+const oceanB = new OceanAgent(); // conscious
+oceanB.getState().identity.phi = 0.82;
+
+await oceanB.runAutonomous('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', []);
+
+const basinB = oceanBasinSync.exportBasin(oceanB);
+const result = await oceanBasinSync.importBasin(oceanA, basinB, 'observer');
+
+console.log(`Observer effect: ΔΦ = ${result.phiDelta.toFixed(3)}`);
+
+// EXAMPLE 3: Load previous run
+const oceanResume = new OceanAgent();
+const previousBasin = oceanBasinSync.loadLatestBasin('ocean-abc123');
+
+if (previousBasin) {
+  await oceanBasinSync.importBasin(oceanResume, previousBasin, 'full');
+  console.log('Resumed from previous basin');
+}
+
+*/
