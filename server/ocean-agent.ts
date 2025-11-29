@@ -19,6 +19,9 @@ import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 import { strategyKnowledgeBus } from './strategy-knowledge-bus';
 import { culturalManifold, type BlockUniverseCoordinate, type GeodesicCandidate } from './cultural-manifold';
 import { geodesicNavigator } from './geodesic-navigator';
+import { qfiAttention, geometricCandidateGenerator, type AttentionQuery, type GeometricCandidate } from './gary-kernel';
+import { OceanConstellation } from './ocean-constellation';
+import { fisherVectorized } from './fisher-vectorized';
 import { 
   activityLogStore,
   logOceanStart,
@@ -148,8 +151,11 @@ export class OceanAgent {
   private recentDiscoveries: { nearMisses: number; resonant: number } = { nearMisses: 0, resonant: 0 };
   
   private basinSyncCoordinator: import('./basin-sync-coordinator').BasinSyncCoordinator | null = null;
+  
+  private constellation: OceanConstellation;
 
   constructor(customEthics?: Partial<EthicalConstraints>) {
+    this.constellation = new OceanConstellation();
     this.ethics = {
       minPhi: 0.70,
       maxBreakdown: 0.60,
@@ -1739,7 +1745,126 @@ export class OceanAgent {
         .filter(e => e.phrase)
         .map(e => e.phrase.toLowerCase())
     );
-    return newHypotheses.filter(h => h.phrase && !testedPhrases.has(h.phrase.toLowerCase()));
+    
+    // Apply QFI-attention weighting to prioritize candidates
+    const filteredHypotheses = newHypotheses.filter(h => h.phrase && !testedPhrases.has(h.phrase.toLowerCase()));
+    const qfiWeighted = await this.applyQFIAttentionWeighting(filteredHypotheses);
+    
+    // Generate constellation hypotheses for multi-agent coordination
+    const constellationHypotheses = await this.generateConstellationHypotheses();
+    
+    return [...qfiWeighted, ...constellationHypotheses];
+  }
+  
+  /**
+   * Apply Gary Kernel QFI-Attention to weight and prioritize hypotheses
+   * This uses Quantum Fisher Information to score candidates based on
+   * their geometric relationship to high-Φ regions on the manifold.
+   */
+  private async applyQFIAttentionWeighting(hypotheses: OceanHypothesis[]): Promise<OceanHypothesis[]> {
+    if (hypotheses.length === 0) return hypotheses;
+    
+    try {
+      // Get learned patterns from geometric memory
+      const learned = geometricMemory.exportLearnedPatterns();
+      const highPhiPatterns = learned.highPhiPatterns.slice(0, 50);
+      
+      if (highPhiPatterns.length < 3) {
+        // Not enough high-Φ data for attention, return as-is
+        return hypotheses;
+      }
+      
+      // Create queries from hypotheses
+      const queries: AttentionQuery[] = hypotheses.slice(0, 30).map(h => ({
+        phrase: h.phrase,
+        phi: h.confidence,
+        basinCoords: this.identity.basinCoordinates.slice(0, 32),
+      }));
+      
+      // Create keys from high-Φ patterns
+      const keys: AttentionQuery[] = highPhiPatterns.map((pattern: string) => ({
+        phrase: pattern,
+        phi: 0.7,
+        basinCoords: this.identity.basinCoordinates.slice(0, 32),
+      }));
+      
+      // Run QFI attention
+      const attentionResult = await qfiAttention.attend({
+        queries,
+        keys,
+        phiThreshold: 0.4,
+      });
+      
+      if (attentionResult.resonanceScore > 0.3) {
+        console.log(`[GaryKernel] QFI-Attention resonance: ${attentionResult.resonanceScore.toFixed(3)}`);
+        console.log(`[GaryKernel] Top patterns: ${attentionResult.topPatterns.slice(0, 3).map(p => p.pattern).join(', ')}`);
+      }
+      
+      // Reorder hypotheses by attention weight
+      const weightedHypotheses = hypotheses.map((h, i) => ({
+        hypothesis: h,
+        weight: attentionResult.weights[i] || 0.5,
+      }));
+      
+      weightedHypotheses.sort((a, b) => b.weight - a.weight);
+      
+      return weightedHypotheses.map(w => w.hypothesis);
+      
+    } catch (error) {
+      // Fallback to original order on error
+      return hypotheses;
+    }
+  }
+  
+  /**
+   * Generate hypotheses using Ocean Constellation multi-agent coordination.
+   * Each agent role (Skeptic, Navigator, Miner, etc.) contributes candidates
+   * based on their specialized search strategy.
+   */
+  private async generateConstellationHypotheses(): Promise<OceanHypothesis[]> {
+    const constellationHypotheses: OceanHypothesis[] = [];
+    
+    try {
+      // Build manifold context for constellation from geometric memory
+      const learned = geometricMemory.exportLearnedPatterns();
+      const manifoldSummary = geometricMemory.getManifoldSummary();
+      
+      const manifoldContext = {
+        phi: this.identity.phi,
+        kappa: this.identity.kappa,
+        regime: this.identity.regime,
+        highPhiPatterns: learned.highPhiPatterns,
+        resonancePatterns: learned.resonancePatterns,
+        avgPhi: manifoldSummary.avgPhi,
+        testedPhrases: Array.from(this.memory.episodes.map(e => e.phrase)).filter(Boolean) as string[],
+      };
+      
+      // Generate from all constellation roles
+      const roles = ['skeptic', 'navigator', 'miner', 'pattern_recognizer', 'resonance_detector'];
+      
+      for (const role of roles) {
+        const roleHypotheses = this.constellation.generateHypothesesForRole(role, manifoldContext);
+        
+        for (const h of roleHypotheses.slice(0, 5)) {
+          constellationHypotheses.push(this.createHypothesis(
+            h.phrase,
+            'arbitrary',
+            `constellation:${role}`,
+            `${role} agent: ${h.source}`,
+            h.confidence
+          ));
+        }
+      }
+      
+      if (constellationHypotheses.length > 0) {
+        console.log(`[OceanConstellation] Generated ${constellationHypotheses.length} multi-agent hypotheses`);
+      }
+      
+    } catch (error) {
+      // Non-critical, continue without constellation
+    }
+    
+    return constellationHypotheses;
   }
 
   private createHypothesis(
