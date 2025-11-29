@@ -920,23 +920,23 @@ export default function ObserverPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Entity Linkage:</span>
-                      <span className="font-mono">{(selectedPriority.constraints as any).entityLinkage || 0}</span>
+                      <span className="font-mono">{(selectedPriority.constraints as any)?.entityLinkage ?? 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Artifact Density:</span>
-                      <span className="font-mono">{((selectedPriority.constraints as any).artifactDensity || 0).toFixed(2)}</span>
+                      <span className="font-mono">{((selectedPriority.constraints as any)?.artifactDensity ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Temporal Precision:</span>
-                      <span className="font-mono">{((selectedPriority.constraints as any).temporalPrecisionHours || 0).toFixed(2)}h</span>
+                      <span className="font-mono">{((selectedPriority.constraints as any)?.temporalPrecisionHours ?? 0).toFixed(2)}h</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Graph Signature:</span>
-                      <span className="font-mono">{(selectedPriority.constraints as any).graphSignature || 0}</span>
+                      <span className="font-mono">{(selectedPriority.constraints as any)?.graphSignature ?? 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Φ_constraints (Total):</span>
-                      <span className="font-mono font-bold">{((selectedPriority.constraints as any).phiConstraints || 0).toFixed(2)}</span>
+                      <span className="font-mono font-bold">{((selectedPriority.constraints as any)?.phiConstraints ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -950,23 +950,23 @@ export default function ObserverPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Era Factor:</span>
-                      <span className="font-mono">{((selectedPriority.entropy as any).eraFactor || 0).toFixed(2)}</span>
+                      <span className="font-mono">{((selectedPriority.entropy as any)?.eraFactor ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Script Complexity:</span>
-                      <span className="font-mono">{((selectedPriority.entropy as any).scriptComplexity || 0).toFixed(2)}</span>
+                      <span className="font-mono">{((selectedPriority.entropy as any)?.scriptComplexity ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Mining Factor:</span>
-                      <span className="font-mono">{((selectedPriority.entropy as any).miningFactor || 0).toFixed(2)}</span>
+                      <span className="font-mono">{((selectedPriority.entropy as any)?.miningFactor ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Balance Factor:</span>
-                      <span className="font-mono">{((selectedPriority.entropy as any).balanceFactor || 0).toFixed(2)}</span>
+                      <span className="font-mono">{((selectedPriority.entropy as any)?.balanceFactor ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">H_creation (Total):</span>
-                      <span className="font-mono font-bold">{((selectedPriority.entropy as any).hCreation || 0).toFixed(2)}</span>
+                      <span className="font-mono font-bold">{((selectedPriority.entropy as any)?.hCreation ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

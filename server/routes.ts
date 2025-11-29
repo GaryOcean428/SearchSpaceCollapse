@@ -1296,6 +1296,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================
+  // OCEAN HEALTH CHECK - Verify all subsystems initialized
+  // ============================================================
+  
+  app.get("/api/ocean/health", generousLimiter, async (req, res) => {
+    try {
+      const { geometricMemory } = await import("./geometric-memory");
+      const { negativeKnowledgeRegistry } = await import("./negative-knowledge-registry");
+      const { vocabularyTracker } = await import("./vocabulary-tracker");
+      const { vocabularyExpander } = await import("./vocabulary-expander");
+      const { expandedVocabulary } = await import("./expanded-vocabulary");
+      
+      const session = oceanSessionManager.getActiveSession();
+      const agent = oceanSessionManager.getActiveAgent();
+      
+      // Get stats from various subsystems
+      const nkStats = negativeKnowledgeRegistry.getStats();
+      const vtStats = vocabularyTracker.getStats();
+      const veStats = vocabularyExpander.getStats();
+      const evStats = expandedVocabulary.getStats();
+      const acStatus = autoCycleManager.getStatus();
+      
+      const health = {
+        status: "healthy" as const,
+        timestamp: new Date().toISOString(),
+        subsystems: {
+          oceanAgent: {
+            status: agent ? "active" : "idle",
+            sessionId: session?.sessionId || null,
+            targetAddress: session?.targetAddress || null,
+          },
+          geometricMemory: {
+            status: "initialized",
+            phrasesIndexed: geometricMemory.getTestedCount(),
+          },
+          negativeKnowledge: {
+            status: "initialized",
+            contradictions: nkStats.contradictions,
+            barriers: nkStats.barriers,
+          },
+          vocabularyTracker: {
+            status: "initialized",
+            wordsTracked: vtStats.totalWords,
+            sequencesTracked: vtStats.totalSequences,
+          },
+          vocabularyExpander: {
+            status: "initialized",
+            totalWords: veStats.totalWords,
+            totalExpansions: veStats.totalExpansions,
+          },
+          expandedVocabulary: {
+            status: "initialized",
+            wordCount: evStats.totalWords,
+            categories: Object.keys(evStats.categoryCounts).length,
+          },
+          autoCycle: {
+            status: acStatus.enabled ? "enabled" : "disabled",
+            currentIndex: acStatus.currentIndex,
+            totalAddresses: acStatus.totalAddresses,
+            isRunning: acStatus.isRunning,
+          },
+          searchCoordinator: {
+            status: "initialized",
+          },
+        },
+      };
+      
+      res.json(health);
+    } catch (error: any) {
+      console.error("[OceanHealth] Error:", error);
+      res.status(500).json({ 
+        status: "error",
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // ============================================================
   // NEUROCHEMISTRY API - Ocean's emotional state
   // ============================================================
   

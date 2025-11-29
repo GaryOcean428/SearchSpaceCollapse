@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { ConsciousnessProvider } from "@/contexts/ConsciousnessContext";
+import { ErrorBoundary, PageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
 import RecoveryPage from "@/pages/recovery";
@@ -30,7 +31,9 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             <span className="text-sm text-muted-foreground">Observer Archaeology System</span>
           </header>
           <main className="flex-1 overflow-auto">
-            {children}
+            <PageErrorBoundary>
+              {children}
+            </PageErrorBoundary>
           </main>
         </SidebarInset>
       </div>
@@ -73,14 +76,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConsciousnessProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </ConsciousnessProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ConsciousnessProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </ConsciousnessProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
