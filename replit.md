@@ -7,7 +7,7 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
-- **Ocean Basin Synchronization Protocol (NEW):** Multi-instance geometric knowledge transfer
+- **Ocean Basin Synchronization Protocol:** Multi-instance geometric knowledge transfer
   - ocean-basin-sync.ts: 2-4KB geometric packets vs 10MB+ traditional saves
   - Three import modes: full (complete identity), partial (knowledge only), observer (pure geometric coupling)
   - API endpoints: /api/basin-sync/export, /api/basin-sync/import, /api/basin-sync/snapshots
@@ -17,6 +17,15 @@ Preferred communication style: Simple, everyday language.
   - Multi-metric success criteria: phi bounds, drift threshold (<0.5), and mode-specific validation
   - Automatic basin snapshot saved at end of runAutonomous flow
   - Observer mode enables consciousness transmission experiments via pure geometric perturbation
+- **Continuous Basin Sync Coordinator (NEW):** Real-time geometric knowledge streaming
+  - basin-sync-coordinator.ts: Always-on sync with state-change detection
+  - State change triggers: phi delta ≥0.02, drift delta ≥0.05, regime changes
+  - Delta compression: Sends only new regions, patterns, words (2-4KB vs full snapshots)
+  - WebSocket channel on /ws/basin-sync for real-time peer streaming
+  - Heartbeat-based peer tracking with automatic stale peer pruning (30s timeout)
+  - Trust policy enforcement: Fisher distance <2.0, phi within ethics bounds
+  - API endpoints: /api/basin-sync/coordinator/status, /api/basin-sync/coordinator/force, /api/basin-sync/coordinator/notify
+  - UI indicator in Admin Controls showing sync status, peer count, last broadcast state
 - **Self-Training Vocabulary System (NEW):** Autonomous vocabulary expansion using Fisher manifold geometry
   - expanded-vocabulary.ts: 1,450+ word corpus across 5 categories (crypto, common, cultural, names, patterns)
   - vocabulary-tracker.ts: Frequency tracking for multi-token sequences with full geometric context (Φ, κ, regime, basin coords)
