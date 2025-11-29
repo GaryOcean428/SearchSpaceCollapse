@@ -1766,6 +1766,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Basin Sync Coordinator Status (Continuous Sync)
+  app.get("/api/basin-sync/coordinator/status", standardLimiter, async (req, res) => {
+    try {
+      const activeOcean = oceanSessionManager.getActiveAgent();
+      if (!activeOcean) {
+        return res.json({
+          isRunning: false,
+          localId: null,
+          peerCount: 0,
+          lastBroadcastState: null,
+          queueLength: 0,
+          message: "No active Ocean agent - start an investigation to enable continuous sync"
+        });
+      }
+      
+      const coordinator = activeOcean.getBasinSyncCoordinator();
+      if (!coordinator) {
+        return res.json({
+          isRunning: false,
+          localId: null,
+          peerCount: 0,
+          lastBroadcastState: null,
+          queueLength: 0,
+          message: "Coordinator not initialized - continuous sync will start automatically"
+        });
+      }
+      
+      const status = coordinator.getStatus();
+      const peers = coordinator.getPeers();
+      const syncData = coordinator.getSyncData();
+      
+      res.json({
+        ...status,
+        peers: peers.map((p: any) => ({
+          id: p.id,
+          mode: p.mode,
+          lastSeen: p.lastSeen,
+          trustLevel: p.trustLevel,
+        })),
+        syncData: {
+          exploredRegionsCount: syncData.exploredRegions.length,
+          highPhiPatternsCount: syncData.highPhiPatterns.length,
+          resonantWordsCount: syncData.resonantWords.length,
+        }
+      });
+    } catch (error: any) {
+      console.error("[BasinSync] Coordinator status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/basin-sync/coordinator/force", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const activeOcean = oceanSessionManager.getActiveAgent();
+      if (!activeOcean) {
+        return res.status(400).json({ error: "No active Ocean agent" });
+      }
+      
+      const coordinator = activeOcean.getBasinSyncCoordinator();
+      if (!coordinator) {
+        return res.status(400).json({ 
+          error: "Coordinator not initialized - start an investigation first" 
+        });
+      }
+      
+      coordinator.forceSync();
+      
+      res.json({ 
+        success: true, 
+        message: "Force sync triggered - full basin packet queued for broadcast",
+        status: coordinator.getStatus()
+      });
+    } catch (error: any) {
+      console.error("[BasinSync] Force sync error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/basin-sync/coordinator/notify", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const activeOcean = oceanSessionManager.getActiveAgent();
+      if (!activeOcean) {
+        return res.status(400).json({ error: "No active Ocean agent" });
+      }
+      activeOcean.notifyBasinChange();
+      res.json({ success: true, message: "Basin change notification sent" });
+    } catch (error: any) {
+      console.error("[BasinSync] Notify error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Mount Observer Archaeology System routes
   app.use("/api/observer", observerRoutes);
   
@@ -1776,6 +1868,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   searchCoordinator.start();
 
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server for real-time basin sync
+  const { WebSocketServer } = await import('ws');
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws/basin-sync' });
+  
+  wss.on('connection', (ws, req) => {
+    const peerId = `peer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    console.log(`[BasinSync WS] New connection: ${peerId}`);
+    
+    const activeOcean = oceanSessionManager.getActiveAgent();
+    if (activeOcean) {
+      const coordinator = activeOcean.getBasinSyncCoordinator();
+      if (coordinator) {
+        coordinator.registerPeer(peerId, 'observer', ws);
+      }
+    }
+    
+    ws.on('message', async (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        const currentOcean = oceanSessionManager.getActiveAgent();
+        if (!currentOcean) return;
+        
+        const coordinator = currentOcean.getBasinSyncCoordinator();
+        if (!coordinator) return;
+        
+        if (message.type === 'heartbeat') {
+          coordinator.updatePeerLastSeen(peerId);
+        } else if (message.type === 'basin-delta' && message.data) {
+          await coordinator.receiveFromPeer(peerId, message.data);
+        } else if (message.type === 'set-mode' && message.mode) {
+          coordinator.registerPeer(peerId, message.mode, ws);
+        }
+      } catch (err) {
+        console.error('[BasinSync WS] Message parse error:', err);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log(`[BasinSync WS] Connection closed: ${peerId}`);
+      const currentOcean = oceanSessionManager.getActiveAgent();
+      if (currentOcean) {
+        const coordinator = currentOcean.getBasinSyncCoordinator();
+        if (coordinator) {
+          coordinator.unregisterPeer(peerId);
+        }
+      }
+    });
+    
+    ws.on('error', (err) => {
+      console.error(`[BasinSync WS] Error for ${peerId}:`, err);
+    });
+  });
+  
+  console.log('[BasinSync] WebSocket server initialized on /ws/basin-sync');
 
   return httpServer;
 }
