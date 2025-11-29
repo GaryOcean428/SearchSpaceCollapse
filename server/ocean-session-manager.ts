@@ -305,10 +305,12 @@ class OceanSessionManager {
     // (auto-handoffs should not clear the running state)
     if (isManualStop) {
       autoCycleManager.onSessionStopped();
+      // Only stop the autonomic manager's investigation for true manual stops
+      // Auto-handoffs keep the investigation "running" conceptually
+      oceanAutonomicManager.stopInvestigation();
     }
-    
-    // Notify autonomic manager that investigation has stopped
-    oceanAutonomicManager.stopInvestigation();
+    // Note: For auto-handoffs (isManualStop=false), we don't call stopInvestigation()
+    // because startSession() will call startInvestigation() immediately after
     
     console.log(`[OceanSessionManager] Stopped session ${sessionId} (manual=${isManualStop})`);
   }
