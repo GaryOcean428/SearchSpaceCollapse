@@ -545,13 +545,13 @@ function ControlRow({
 
   const addAddressMutation = useMutation({
     mutationFn: async (address: string) => {
-      return apiRequest('POST', '/api/recovery/addresses', { 
+      return apiRequest('POST', '/api/target-addresses', { 
         address, 
         label: `Custom ${new Date().toLocaleDateString()}` 
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/recovery/addresses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/target-addresses'] });
       setNewAddress('');
       setShowAddNew(false);
     },
