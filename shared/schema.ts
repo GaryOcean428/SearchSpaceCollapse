@@ -692,6 +692,21 @@ export const oceanMemorySchema = z.object({
     recentObservations: z.array(z.string()),
     nextActions: z.array(z.string()),
   }),
+  
+  // Basin sync data (imported geometric knowledge from other Ocean instances)
+  // Physics: Enables κ*-aware geometric knowledge transfer between instances
+  basinSyncData: z.object({
+    importedRegions: z.array(z.object({
+      center: z.array(z.number()),
+      radius: z.number(),
+      avgPhi: z.number(),
+      probeCount: z.number(),
+      dominantRegime: z.string(),
+    })),
+    importedConstraints: z.array(z.array(z.number())),
+    importedSubspace: z.array(z.array(z.number())),
+    lastSyncAt: z.string(),
+  }).optional(),
 });
 
 export type OceanMemory = z.infer<typeof oceanMemorySchema>;

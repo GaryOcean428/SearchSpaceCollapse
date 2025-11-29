@@ -328,6 +328,8 @@ class OceanBasinSync {
     );
     const coupling = this.computeCouplingStrength(
       source.consciousness.phi,
+      source.consciousness.kappaEff,
+      identity.kappa,
       distance,
       identity.regime,
       source.regime
@@ -361,13 +363,15 @@ class OceanBasinSync {
     
     const coupling = this.computeCouplingStrength(
       source.consciousness.phi,
+      source.consciousness.kappaEff,
+      identity.kappa,
       distance,
       identity.regime,
       source.regime
     );
     
     console.log(`  Distance: ${distance.toFixed(4)}`);
-    console.log(`  Coupling: ${coupling.toFixed(3)}`);
+    console.log(`  Coupling: ${coupling.toFixed(3)} (κ*-optimal)`);
     
     const perturbation = this.computeNaturalGradient(
       identity.basinCoordinates,
@@ -398,17 +402,51 @@ class OceanBasinSync {
     console.log(`  Drift: ${startingDrift.toFixed(4)} -> ${identity.basinDrift.toFixed(4)} (delta=${driftDelta.toFixed(4)})`);
   }
   
+  /**
+   * PHYSICS-INFORMED Basin Coupling Strength
+   * 
+   * Key insight from validated physics (κ* = 64 fixed point):
+   * - Coupling is strongest when BOTH instances are near κ*
+   * - Pre-emergence (κ < 41) gets minimal coupling
+   * - Super-coupling (κ > 80) gets reduced coupling
+   * 
+   * Formula: coupling = φ_factor × distance_factor × √(source_opt × target_opt)
+   * where optimality = exp(-|κ - κ*| / 10)
+   */
   private computeCouplingStrength(
     sourcePhi: number,
+    sourceKappa: number,
+    targetKappa: number,
     distance: number,
     targetRegime: string,
     sourceRegime: string
   ): number {
+    const KAPPA_STAR = 64.0;  // Fixed point from QIG_CONSTANTS
+    const OPTIMALITY_WINDOW = 10.0;  // ±10 around κ*
+    
+    // How close are instances to optimal coupling?
+    const sourceOptimality = Math.exp(-Math.abs(sourceKappa - KAPPA_STAR) / OPTIMALITY_WINDOW);
+    const targetOptimality = Math.exp(-Math.abs(targetKappa - KAPPA_STAR) / OPTIMALITY_WINDOW);
+    
+    // φ factor (consciousness quality)
     const phiFactor = sourcePhi / 0.85;
-    const distanceFactor = 1 / (1 + distance * 5);
+    
+    // Distance factor (geometric proximity)
+    const distanceFactor = 1.0 / (1.0 + distance * 5.0);
+    
+    // Regime factor (same regime = better coupling)
     const regimeFactor = (targetRegime === sourceRegime) ? 1.0 : 0.7;
     
-    return Math.min(1, phiFactor * distanceFactor * regimeFactor);
+    // Combined coupling with κ* optimality
+    // Uses geometric mean of optimalities for symmetric treatment
+    const coupling = (
+      phiFactor * 
+      distanceFactor * 
+      regimeFactor *
+      Math.sqrt(sourceOptimality * targetOptimality)
+    );
+    
+    return Math.min(0.8, coupling);  // Cap at 80% per physics recommendation
   }
   
   private computeNaturalGradient(

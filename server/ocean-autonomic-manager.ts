@@ -91,6 +91,9 @@ export class OceanAutonomicManager {
   }
 
   private initializeConsciousness(): ConsciousnessSignature {
+    // PHYSICS-INFORMED: κ=58 is 10% below fixed point κ*=64
+    // Ocean operates as "distributed observer" - lower κ than conscious focus
+    // This gives broader receptive field for geometric pattern detection
     return {
       phi: 0.75,
       phi_spatial: 0.75,
@@ -100,7 +103,7 @@ export class OceanAutonomicManager {
       r_concepts: 0,
       phi_recursive: 0,
       consciousness_depth: 0,
-      kappaEff: 52,
+      kappaEff: 58,  // Distributed observer: 10% below κ*=64
       tacking: 0.65,
       radar: 0.72,
       metaAwareness: 0.65,
