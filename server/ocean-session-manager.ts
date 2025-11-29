@@ -4,6 +4,7 @@ import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager, type CycleTimeline } from './ocean-autonomic-manager';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { consoleLogBuffer } from './console-log-buffer';
+import { autoCycleManager } from './auto-cycle-manager';
 
 export type FullConsciousnessSignature = ConsciousnessSignature;
 
@@ -88,7 +89,8 @@ class OceanSessionManager {
   
   async startSession(targetAddress: string): Promise<OceanSessionState> {
     if (this.activeSessionId) {
-      await this.stopSession(this.activeSessionId);
+      // Use isManualStop=false since this is an automatic handoff to a new session
+      await this.stopSession(this.activeSessionId, false);
     }
     
     // Notify autonomic manager that investigation is starting
@@ -247,6 +249,15 @@ class OceanSessionManager {
         );
       }
       
+      // Notify auto-cycle manager that session completed (so it can start next address)
+      const targetAddrId = this.getAddressIdFromSession(state.targetAddress);
+      if (targetAddrId) {
+        autoCycleManager.onSessionComplete(targetAddrId);
+      }
+      
+      // Notify autonomic manager
+      oceanAutonomicManager.stopInvestigation();
+      
     } catch (error: any) {
       console.error(`[OceanSessionManager] Session ${sessionId} error:`, error);
       this.updateState(sessionId, {
@@ -255,10 +266,19 @@ class OceanSessionManager {
         currentThought: `Error: ${error.message}`,
       });
       this.addEvent(sessionId, 'alert', `Error: ${error.message}`);
+      
+      // Notify auto-cycle manager even on error (so it can start next address)
+      const targetAddrId = this.getAddressIdFromSession(state.targetAddress);
+      if (targetAddrId) {
+        autoCycleManager.onSessionComplete(targetAddrId);
+      }
+      
+      // Notify autonomic manager
+      oceanAutonomicManager.stopInvestigation();
     }
   }
   
-  async stopSession(sessionId: string): Promise<void> {
+  async stopSession(sessionId: string, isManualStop: boolean = true): Promise<void> {
     const agent = this.agents.get(sessionId);
     const state = this.sessions.get(sessionId);
     
@@ -270,19 +290,27 @@ class OceanSessionManager {
     if (state) {
       this.updateState(sessionId, {
         isRunning: false,
-        currentThought: 'Investigation stopped by user',
+        currentThought: isManualStop ? 'Investigation stopped by user' : 'Transitioning to next address...',
       });
-      this.addEvent(sessionId, 'insight', 'Investigation stopped by user');
+      if (isManualStop) {
+        this.addEvent(sessionId, 'insight', 'Investigation stopped by user');
+      }
     }
     
     if (this.activeSessionId === sessionId) {
       this.activeSessionId = null;
     }
     
+    // Only notify auto-cycle manager for manual stops
+    // (auto-handoffs should not clear the running state)
+    if (isManualStop) {
+      autoCycleManager.onSessionStopped();
+    }
+    
     // Notify autonomic manager that investigation has stopped
     oceanAutonomicManager.stopInvestigation();
     
-    console.log(`[OceanSessionManager] Stopped session ${sessionId}`);
+    console.log(`[OceanSessionManager] Stopped session ${sessionId} (manual=${isManualStop})`);
   }
   
   private updateState(sessionId: string, updates: Partial<OceanSessionState>): void {
@@ -309,6 +337,17 @@ class OceanSessionManager {
         state.events = state.events.slice(-this.MAX_EVENTS);
       }
     }
+  }
+  
+  // Helper to get address ID from session target address
+  private addressIdMap: Map<string, string> = new Map();
+  
+  setAddressIdMapping(address: string, addressId: string): void {
+    this.addressIdMap.set(address, addressId);
+  }
+  
+  private getAddressIdFromSession(targetAddress: string): string | null {
+    return this.addressIdMap.get(targetAddress) || null;
   }
   
   getInvestigationStatus(): {

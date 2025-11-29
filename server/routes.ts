@@ -66,6 +66,18 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { unifiedRecovery } from "./unified-recovery";
 import { oceanSessionManager } from "./ocean-session-manager";
 import { activityLogStore } from "./activity-log-store";
+import { autoCycleManager } from "./auto-cycle-manager";
+
+// Set up auto-cycle callback to start sessions via ocean session manager
+autoCycleManager.setOnCycleCallback(async (addressId: string, address: string) => {
+  console.log(`[AutoCycle] Starting session for address: ${address.slice(0, 16)}...`);
+  
+  // Store the address ID mapping so we can notify auto-cycle when session completes
+  oceanSessionManager.setAddressIdMapping(address, addressId);
+  
+  // Start the investigation session
+  await oceanSessionManager.startSession(address);
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Handle favicon.ico requests - redirect to favicon.png
@@ -1111,9 +1123,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await oceanSessionManager.stopSession(status.sessionId);
       }
       
+      // Note: auto-cycle notification is now handled in oceanSessionManager.stopSession()
+      
       res.json({ message: "Investigation stopped" });
     } catch (error: any) {
       console.error("[Recovery] Stop error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================================
+  // AUTO-CYCLE - Automatic address cycling
+  // ============================================================================
+
+  // Get auto-cycle status
+  app.get("/api/auto-cycle/status", async (req, res) => {
+    try {
+      const status = autoCycleManager.getStatus();
+      const position = autoCycleManager.getPositionString();
+      res.json({ ...status, position });
+    } catch (error: any) {
+      console.error("[AutoCycle] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Enable auto-cycle
+  app.post("/api/auto-cycle/enable", isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await autoCycleManager.enable();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[AutoCycle] Enable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Disable auto-cycle
+  app.post("/api/auto-cycle/disable", isAuthenticated, async (req: any, res) => {
+    try {
+      const result = autoCycleManager.disable();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[AutoCycle] Disable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Toggle auto-cycle
+  app.post("/api/auto-cycle/toggle", isAuthenticated, async (req: any, res) => {
+    try {
+      const status = autoCycleManager.getStatus();
+      
+      if (status.enabled) {
+        const result = autoCycleManager.disable();
+        res.json(result);
+      } else {
+        const result = await autoCycleManager.enable();
+        res.json(result);
+      }
+    } catch (error: any) {
+      console.error("[AutoCycle] Toggle error:", error);
       res.status(500).json({ error: error.message });
     }
   });

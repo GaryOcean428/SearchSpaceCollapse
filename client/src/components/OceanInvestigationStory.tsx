@@ -518,6 +518,17 @@ export function OceanInvestigationStory() {
   );
 }
 
+interface AutoCycleStatus {
+  enabled: boolean;
+  currentIndex: number;
+  totalAddresses: number;
+  currentAddressId: string | null;
+  isRunning: boolean;
+  totalCycles: number;
+  lastCycleTime: string | null;
+  position: string;
+}
+
 function ControlRow({ 
   isRunning, 
   targetAddresses, 
@@ -536,12 +547,37 @@ function ControlRow({
   const [selectedAddress, setSelectedAddress] = useState(targetAddresses[0]?.address || '');
   const [newAddress, setNewAddress] = useState('');
   const [showAddNew, setShowAddNew] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (targetAddresses.length > 0 && !selectedAddress) {
       setSelectedAddress(targetAddresses[0].address);
     }
   }, [targetAddresses, selectedAddress]);
+
+  // Auto-cycle status query
+  const { data: autoCycleStatus } = useQuery<AutoCycleStatus>({
+    queryKey: ['/api/auto-cycle/status'],
+    refetchInterval: 3000,
+  });
+
+  // Auto-cycle toggle mutation
+  const autoCycleToggle = useMutation({
+    mutationFn: async () => {
+      const endpoint = autoCycleStatus?.enabled 
+        ? '/api/auto-cycle/disable' 
+        : '/api/auto-cycle/enable';
+      return apiRequest('POST', endpoint, {});
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-cycle/status'] });
+      toast({
+        title: result.success ? 'Success' : 'Error',
+        description: result.message,
+        variant: result.success ? 'default' : 'destructive',
+      });
+    },
+  });
 
   const addAddressMutation = useMutation({
     mutationFn: async (address: string) => {
@@ -567,7 +603,7 @@ function ControlRow({
               value={selectedAddress}
               onChange={(e) => setSelectedAddress(e.target.value)}
               className="flex-1 h-9 px-3 rounded-md bg-background border text-sm"
-              disabled={isRunning}
+              disabled={isRunning || autoCycleStatus?.enabled}
               data-testid="select-target-address"
             >
               {targetAddresses.map((addr) => (
@@ -577,7 +613,7 @@ function ControlRow({
               ))}
             </select>
             
-            {!isRunning && (
+            {!isRunning && !autoCycleStatus?.enabled && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -589,27 +625,72 @@ function ControlRow({
             )}
           </div>
 
-          {/* Start/Stop Button */}
-          {!isRunning ? (
-            <Button
-              onClick={() => onStart(selectedAddress)}
-              disabled={isPending || !selectedAddress}
-              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-              data-testid="button-start-investigation"
-            >
-              <Play className="w-4 h-4" />
-              Start
-            </Button>
-          ) : (
+          {/* Auto-Cycle Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant={autoCycleStatus?.enabled ? 'default' : 'outline'}
+                onClick={() => autoCycleToggle.mutate()}
+                disabled={autoCycleToggle.isPending}
+                className={autoCycleStatus?.enabled 
+                  ? 'bg-blue-600 hover:bg-blue-700 gap-1.5' 
+                  : 'gap-1.5'}
+                data-testid="button-auto-cycle"
+              >
+                <RefreshCw className={`w-4 h-4 ${autoCycleStatus?.enabled && isRunning ? 'animate-spin' : ''}`} />
+                {autoCycleStatus?.enabled ? autoCycleStatus.position : 'Auto'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="font-medium">
+                {autoCycleStatus?.enabled 
+                  ? `Auto-cycling through all addresses (${autoCycleStatus.totalCycles} full cycles completed)` 
+                  : 'Enable auto-cycle to continuously investigate all addresses'}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Start/Stop Button - Hidden when auto-cycle is enabled */}
+          {!autoCycleStatus?.enabled && (
+            !isRunning ? (
+              <Button
+                onClick={() => onStart(selectedAddress)}
+                disabled={isPending || !selectedAddress}
+                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+                data-testid="button-start-investigation"
+              >
+                <Play className="w-4 h-4" />
+                Start
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={onStop}
+                disabled={isPending}
+                className="gap-2"
+                data-testid="button-stop-investigation"
+              >
+                <Pause className="w-4 h-4" />
+                Stop
+              </Button>
+            )
+          )}
+
+          {/* Stop button when auto-cycle is running */}
+          {autoCycleStatus?.enabled && isRunning && (
             <Button
               variant="destructive"
-              onClick={onStop}
-              disabled={isPending}
+              onClick={() => {
+                autoCycleToggle.mutate();
+                onStop();
+              }}
+              disabled={isPending || autoCycleToggle.isPending}
               className="gap-2"
-              data-testid="button-stop-investigation"
+              data-testid="button-stop-auto-cycle"
             >
               <Pause className="w-4 h-4" />
-              Stop
+              Stop All
             </Button>
           )}
         </div>
