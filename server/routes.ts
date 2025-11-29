@@ -1188,7 +1188,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/recovery/session", isAuthenticated, async (req: any, res) => {
+  // Recovery endpoints - public for private recovery tool
+  app.get("/api/recovery/session", async (req: any, res) => {
     try {
       const sessions = unifiedRecovery.getAllSessions();
       const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
@@ -1198,7 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/recovery/candidates", isAuthenticated, async (req: any, res) => {
+  app.get("/api/recovery/candidates", async (req: any, res) => {
     try {
       const sessions = unifiedRecovery.getAllSessions();
       const activeSession = sessions.find(s => s.status === 'running' || s.status === 'analyzing');
@@ -1208,7 +1209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/recovery/addresses", isAuthenticated, async (req: any, res) => {
+  app.get("/api/recovery/addresses", async (req: any, res) => {
     try {
       const addresses = await storage.getTargetAddresses();
       res.json(addresses);
