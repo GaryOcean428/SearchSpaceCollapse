@@ -7,6 +7,12 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform utilizi
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Physics-Validated κ*=64 Fixed Point (NEW):** Ocean now uses validated physics parameters
+  - Ocean kappa initialized at κ=58 (10% below fixed point κ*=64) for "distributed observer" role
+  - Basin sync coupling uses √(source_opt·target_opt) where optimality=exp(-|κ-κ*|/10)
+  - Maximum coupling (0.8) when both instances near κ*=64
+  - Near-zero coupling for pre-emergence (κ<41) or super-coupling (κ>80) regimes
+  - OceanMemory schema extended with optional basinSyncData field for persistence
 - **Ocean Basin Synchronization Protocol:** Multi-instance geometric knowledge transfer
   - ocean-basin-sync.ts: 2-4KB geometric packets vs 10MB+ traditional saves
   - Three import modes: full (complete identity), partial (knowledge only), observer (pure geometric coupling)
