@@ -46,6 +46,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: !isDev, // Only secure in production
+      sameSite: isDev ? 'lax' : 'none', // 'none' required for cross-site OIDC redirects in production
       maxAge: sessionTtl,
     },
   });
