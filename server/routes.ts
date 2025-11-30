@@ -2065,6 +2065,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Geometric Discovery API - 68D Block Universe Navigation
+  app.get("/api/geometric-discovery/status", standardLimiter, async (req, res) => {
+    try {
+      const { oceanDiscoveryController } = await import("./geometric-discovery/ocean-discovery-controller");
+      const state = oceanDiscoveryController.getDiscoveryState();
+      
+      res.json({
+        hasTarget: !!state?.targetCoords,
+        position: state?.currentPosition ? {
+          spacetime: state.currentPosition.spacetime,
+          phi: state.currentPosition.phi,
+          regime: state.currentPosition.regime
+        } : null,
+        target: state?.targetCoords ? {
+          spacetime: state.targetCoords.spacetime,
+          phi: state.targetCoords.phi,
+          regime: state.targetCoords.regime
+        } : null,
+        discoveries: state?.discoveries?.length || 0,
+        tavilyEnabled: oceanDiscoveryController.isTavilyEnabled()
+      });
+    } catch (error: any) {
+      console.error("[GeometricDiscovery] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/geometric-discovery/estimate", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { oceanDiscoveryController } = await import("./geometric-discovery/ocean-discovery-controller");
+      const { targetAddress } = req.body;
+      
+      if (!targetAddress) {
+        return res.status(400).json({ error: "targetAddress required" });
+      }
+      
+      const coords = await oceanDiscoveryController.estimateCoordinates(targetAddress);
+      
+      if (coords) {
+        res.json({
+          success: true,
+          coordinates: {
+            spacetime: coords.spacetime,
+            culturalDimensions: coords.cultural.length,
+            phi: coords.phi,
+            regime: coords.regime
+          }
+        });
+      } else {
+        res.json({ success: false, message: "Could not estimate coordinates" });
+      }
+    } catch (error: any) {
+      console.error("[GeometricDiscovery] Estimate error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/geometric-discovery/discover", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { oceanDiscoveryController } = await import("./geometric-discovery/ocean-discovery-controller");
+      
+      const result = await oceanDiscoveryController.discoverCulturalContext();
+      
+      res.json({
+        success: true,
+        discoveries: result.discoveries,
+        patterns: result.patterns,
+        entropyGained: result.entropyGained
+      });
+    } catch (error: any) {
+      console.error("[GeometricDiscovery] Discover error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/geometric-discovery/search-era", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { oceanDiscoveryController } = await import("./geometric-discovery/ocean-discovery-controller");
+      const { keywords, era } = req.body;
+      
+      if (!keywords || !Array.isArray(keywords)) {
+        return res.status(400).json({ error: "keywords array required" });
+      }
+      
+      const discoveries = await oceanDiscoveryController.searchBitcoinEra(keywords, era || 'pizza_era');
+      
+      res.json({
+        success: true,
+        discoveries: discoveries.map(d => ({
+          source: d.source,
+          phi: d.phi,
+          patterns: d.patterns.slice(0, 10),
+          regime: d.coords.regime,
+          entropyReduction: d.entropyReduction
+        }))
+      });
+    } catch (error: any) {
+      console.error("[GeometricDiscovery] Search era error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/geometric-discovery/crawl", isAuthenticated, strictLimiter, async (req: any, res) => {
+    try {
+      const { oceanDiscoveryController } = await import("./geometric-discovery/ocean-discovery-controller");
+      const { url } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ error: "url required" });
+      }
+      
+      const result = await oceanDiscoveryController.crawlUrl(url);
+      
+      res.json({
+        success: true,
+        patternsFound: result.patterns.length,
+        patterns: result.patterns.slice(0, 50),
+        coords: {
+          spacetime: result.coords.spacetime,
+          phi: result.coords.phi,
+          regime: result.coords.regime
+        }
+      });
+    } catch (error: any) {
+      console.error("[GeometricDiscovery] Crawl error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Mount Observer Archaeology System routes
   app.use("/api/observer", observerRoutes);
   

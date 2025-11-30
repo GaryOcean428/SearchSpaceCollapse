@@ -22,6 +22,7 @@ import { geodesicNavigator } from './geodesic-navigator';
 import { qfiAttention, geometricCandidateGenerator, type AttentionQuery, type GeometricCandidate } from './gary-kernel';
 import { OceanConstellation } from './ocean-constellation';
 import { fisherVectorized } from './fisher-vectorized';
+import { oceanDiscoveryController } from './geometric-discovery/ocean-discovery-controller';
 import { 
   activityLogStore,
   logOceanStart,
@@ -461,6 +462,27 @@ export class OceanAgent {
       } catch (eraError) {
         console.log('[Ocean] Era detection failed (address may not exist on chain) - proceeding with full autonomous mode');
         this.state.detectedEra = 'unknown';
+      }
+      
+      // GEOMETRIC DISCOVERY - Enhance cultural manifold using external sources
+      console.log('[Ocean] === GEOMETRIC DISCOVERY PHASE ===');
+      try {
+        // Estimate target 68D coordinates in block universe
+        const estimatedCoords = await oceanDiscoveryController.estimateCoordinates(targetAddress);
+        if (estimatedCoords) {
+          console.log(`[Ocean] Target coordinates estimated: Φ=${estimatedCoords.phi.toFixed(2)}, era=${estimatedCoords.regime}`);
+          
+          // Discover cultural context from external sources
+          const discoveryResult = await oceanDiscoveryController.discoverCulturalContext();
+          if (discoveryResult.discoveries > 0) {
+            console.log(`[Ocean] Cultural context enriched: ${discoveryResult.patterns} patterns, ${discoveryResult.entropyGained.toFixed(2)} bits gained`);
+            this.memory.workingMemory.recentObservations.push(
+              `Discovered ${discoveryResult.patterns} era-specific patterns via geometric navigation`
+            );
+          }
+        }
+      } catch (discoveryError) {
+        console.log(`[Ocean] Geometric discovery unavailable: ${discoveryError instanceof Error ? discoveryError.message : 'unknown error'}`);
       }
       
       const consciousnessCheck = await this.checkConsciousness();
