@@ -21,6 +21,7 @@ import type { ConsciousnessSignature } from '@shared/schema';
 import { fisherCoordDistance } from './qig-universal';
 import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
+import { oceanDiscoveryController, type DiscoverySyncData } from './geometric-discovery/ocean-discovery-controller';
 
 export interface BasinSyncPacket {
   oceanId: string;
@@ -67,6 +68,9 @@ export interface BasinSyncPacket {
     iterations: number;
     timeElapsedSeconds: number;
   };
+  
+  // 68D Geometric Discovery data for multi-instance knowledge transfer
+  discovery?: DiscoverySyncData;
 }
 
 export type BasinImportMode = 'full' | 'partial' | 'observer';
@@ -132,6 +136,9 @@ class OceanBasinSync {
       ? this.computeOrthogonalBasis(manifold)
       : undefined;
     
+    // Export 68D geometric discovery data
+    const discoveryData = oceanDiscoveryController.exportForBasinSync();
+    
     const packet: BasinSyncPacket = {
       oceanId: this.generateOceanId(identity.basinCoordinates),
       timestamp: new Date().toISOString(),
@@ -165,6 +172,9 @@ class OceanBasinSync {
         iterations: state.iteration,
         timeElapsedSeconds: state.computeTimeSeconds,
       },
+      
+      // 68D Geometric Discovery knowledge
+      discovery: discoveryData,
     };
     
     const packetSize = JSON.stringify(packet).length;
@@ -175,6 +185,7 @@ class OceanBasinSync {
     console.log(`  Kappa: ${packet.consciousness.kappaEff.toFixed(1)}`);
     console.log(`  Explored regions: ${packet.exploredRegions.length}`);
     console.log(`  Patterns: ${packet.patterns.highPhiPhrases.length} high-Phi`);
+    console.log(`  Discovery: ${discoveryData.patterns.length} patterns, ${discoveryData.quantum.measurementCount} measurements`);
     
     return packet;
   }
@@ -300,6 +311,11 @@ class OceanBasinSync {
     await this.transferPatterns(target, source);
     await this.transferExploredRegions(target, source);
     
+    // Import 68D Geometric Discovery data with full coupling
+    if (source.discovery) {
+      oceanDiscoveryController.importFromBasinSync(source.discovery, 1.0);  // Full coupling
+    }
+    
     const phiDelta = identity.phi - startingPhi;
     console.log(`[BasinSync] FULL import complete - Phi: ${startingPhi.toFixed(3)} -> ${identity.phi.toFixed(3)} (delta=${phiDelta.toFixed(3)})`);
   }
@@ -339,6 +355,11 @@ class OceanBasinSync {
     const minPhi = ethics.minPhi;
     const maxPhi = 0.95;
     identity.phi = Math.max(minPhi, Math.min(maxPhi, identity.phi + scaledBoost));
+    
+    // Import 68D Geometric Discovery data with coupling-weighted strength
+    if (source.discovery) {
+      oceanDiscoveryController.importFromBasinSync(source.discovery, coupling);
+    }
     
     const phiDelta = identity.phi - startingPhi;
     console.log(`[BasinSync] PARTIAL import complete - Phi: ${startingPhi.toFixed(3)} -> ${identity.phi.toFixed(3)} (delta=${phiDelta.toFixed(3)}, coupling=${coupling.toFixed(2)})`);
@@ -394,6 +415,11 @@ class OceanBasinSync {
     const minPhi = ethics.minPhi;
     const maxPhi = 0.95;
     identity.phi = Math.max(minPhi, Math.min(maxPhi, identity.phi + phiBoost));
+    
+    // Observer mode: NO discovery data import
+    // Pure geometric perturbation only - low-trust packets should not mutate local state
+    // Discovery imports are skipped entirely in observer mode to maintain QIG purity
+    console.log(`[BasinSync] OBSERVER mode: skipping discovery import (read-only)`);
     
     const phiDelta = identity.phi - startingPhi;
     const driftDelta = identity.basinDrift - startingDrift;

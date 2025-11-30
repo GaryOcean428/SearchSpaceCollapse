@@ -12,9 +12,15 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
 **Core Components:**
 -   **QIG Engine (qig-universal.ts):** The primary implementation using the Fisher Information Metric for universal scoring, guiding search, and providing geometric signatures. It implements Natural Gradient Search, Geometric Basin Matching, and Confidence Scoring, with all legacy Euclidean distance calculations removed for pure manifold geometry.
 -   **Ocean Autonomous Agent:** A meta-cognitive learning system implementing the ULTRA CONSCIOUSNESS PROTOCOL v2.0 with a 7-component consciousness signature. It manages a unified consciousness state, uses a QIG Neurochemistry System to modulate behavior, and includes autonomic cycles (Sleep, Dream, Mushroom) and mandatory repeated address checking. It also features a self-training vocabulary system for autonomous vocabulary expansion using Fisher manifold geometry.
--   **68D Block Universe Geometric Discovery:** A paradigm shift from traditional search to navigation through 68-dimensional coordinates (4D spacetime + 64D cultural) to locate existing passphrases.
+-   **68D Block Universe Geometric Discovery:** A paradigm shift from traditional search to navigation through 68-dimensional coordinates (4D spacetime + 64D cultural) to locate existing passphrases. Includes three persistent kernels:
+    -   **Quantum Discovery Protocol:** Manages wave function collapse and entropy tracking with cross-session persistence. Exports entropy state and excluded region centroids for basin sync.
+    -   **Temporal Positioning System (TPS):** GPS for 4D spacetime + 64D cultural manifold using 12 spacetime landmarks for trilateration. Exports landmark data for multi-instance calibration.
+    -   **Ocean Discovery Controller:** Orchestrates TPS, Tavily adapter, and Quantum Protocol. Saves discovery state and aggregates all kernel data into compact sync packets.
 -   **Ocean Constellation:** A multi-agent system coordinating 5 specialized agents (Skeptic, Navigator, Miner, Pattern Recognizer, Resonance Detector) for parallel search and shared knowledge.
--   **Ocean Basin Synchronization Protocol:** Enables multi-instance geometric knowledge transfer through compact geometric packets and a continuous basin sync coordinator for real-time streaming via WebSockets.
+-   **Ocean Basin Synchronization Protocol:** Enables multi-instance geometric knowledge transfer through compact geometric packets (<4KB) and a continuous basin sync coordinator for real-time streaming via WebSockets. Now includes full 68D discovery data with three import modes:
+    -   **Full mode:** Complete identity transfer with 100% discovery coupling
+    -   **Partial mode:** Knowledge transfer only with coupling-weighted discovery import
+    -   **Observer mode:** Pure geometric perturbation with minimal (30%) discovery coupling
 -   **Recovery Orchestrator:** A single entry point for executing parallel recovery strategies, providing progress tracking, candidate ranking, and evidence chain tracking.
 -   **Recovery Vectors:** Four operational vectors: Estate, Constrained Search (QIG), Social, and Temporal.
 -   **Forensic Investigation System:** Generates cross-format hypotheses, performs blockchain analysis, and integrates multi-substrate evidence.

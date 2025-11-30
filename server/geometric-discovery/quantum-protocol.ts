@@ -11,8 +11,13 @@
  * 
  * Key Insight: Every failed test ELIMINATES a region of possibility space,
  * bringing us closer to the solution through entropy reduction.
+ * 
+ * PERSISTENCE: State is saved to disk for cross-session continuity
+ * BASIN SYNC: Entropy data is exported for QIG-pure knowledge transfer
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { fisherCoordDistance } from '../qig-universal';
 import { tps } from './temporal-positioning-system';
 import {
@@ -41,6 +46,22 @@ interface WaveFunction {
 }
 
 /**
+ * Data structure for basin sync export
+ */
+export interface QuantumSyncData {
+  entropyRemaining: number;
+  entropyReduced: number;
+  measurementCount: number;
+  measurementEfficiency: number;
+  excludedRegionCount: number;
+  excludedRegionCentroids: number[][];  // Centroids for Fisher coupling
+  status: 'searching' | 'solved' | 'exhausted';
+  lastUpdated: string;
+}
+
+const QUANTUM_DATA_FILE = path.join(process.cwd(), 'data', 'quantum-protocol.json');
+
+/**
  * Quantum Discovery Protocol
  * 
  * Manages wave function collapse and entropy tracking
@@ -60,7 +81,159 @@ export class QuantumDiscoveryProtocol {
     };
     this.initialEntropy = 256;
     
+    // Load persisted state
+    this.load();
+    
     console.log('[QuantumProtocol] Initialized with 256-bit possibility space');
+  }
+  
+  /**
+   * Load persisted state from disk
+   */
+  private load(): void {
+    try {
+      if (fs.existsSync(QUANTUM_DATA_FILE)) {
+        const data = JSON.parse(fs.readFileSync(QUANTUM_DATA_FILE, 'utf-8'));
+        
+        // Restore entropy state
+        this.waveFunction.entropy = data.entropy ?? 256;
+        this.waveFunction.totalProbability = data.totalProbability ?? 1.0;
+        this.initialEntropy = data.initialEntropy ?? 256;
+        
+        // Restore excluded regions
+        if (Array.isArray(data.excludedRegions)) {
+          this.excludedRegions = data.excludedRegions;
+        }
+        
+        // Restore measurement count (not full history to save space)
+        if (data.measurementCount) {
+          console.log(`[QuantumProtocol] Restored state: ${data.measurementCount} prior measurements, ${this.waveFunction.entropy.toFixed(1)} bits remaining`);
+        }
+      }
+    } catch (error) {
+      console.log('[QuantumProtocol] Starting fresh (no prior state)');
+    }
+  }
+  
+  /**
+   * Save state to disk for cross-session persistence
+   */
+  save(): void {
+    try {
+      const dir = path.dirname(QUANTUM_DATA_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      const data = {
+        version: '1.0.0',
+        entropy: this.waveFunction.entropy,
+        totalProbability: this.waveFunction.totalProbability,
+        initialEntropy: this.initialEntropy,
+        excludedRegions: this.excludedRegions.slice(-100),  // Keep last 100 regions
+        measurementCount: this.measurements.length,
+        savedAt: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(QUANTUM_DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('[QuantumProtocol] Failed to save:', error);
+    }
+  }
+  
+  /**
+   * Export data for QIG-pure basin sync
+   * 
+   * Only exports geometric structure, not raw data
+   */
+  exportForBasinSync(): QuantumSyncData {
+    const summary = this.getSummary();
+    
+    // Extract region centroids for Fisher coupling computation
+    const centroids = this.excludedRegions
+      .slice(-50)  // Last 50 regions
+      .map(r => r.origin);
+    
+    return {
+      entropyRemaining: summary.entropyRemaining,
+      entropyReduced: summary.entropyReduced,
+      measurementCount: summary.totalMeasurements,
+      measurementEfficiency: summary.efficiency,
+      excludedRegionCount: this.excludedRegions.length,
+      excludedRegionCentroids: centroids,
+      status: summary.status,
+      lastUpdated: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Import basin sync data from peer
+   * 
+   * Uses Fisher-Rao distance to determine coupling strength and filter centroids
+   */
+  importFromBasinSync(data: QuantumSyncData, couplingStrength: number): void {
+    if (couplingStrength < 0.1) return;  // Below coupling threshold
+    
+    // Gain information from peer's entropy reduction
+    // Scaled by coupling strength for QIG-pure transfer
+    const informationGain = data.entropyReduced * couplingStrength * 0.1;
+    
+    // Apply to our wave function
+    this.waveFunction.entropy = Math.max(0, this.waveFunction.entropy - informationGain);
+    
+    // Use Fisher distance to filter and weight peer's excluded regions
+    let addedRegions = 0;
+    const peerCentroids = data.excludedRegionCentroids || [];
+    
+    for (const centroid of peerCentroids.slice(0, 10)) {
+      if (!Array.isArray(centroid) || centroid.length < 8) continue;
+      
+      // Compute minimum Fisher distance to ALL existing regions
+      let minDistance = Infinity;
+      for (const existing of this.excludedRegions) {
+        if (!Array.isArray(existing.origin) || existing.origin.length < 8) continue;
+        const distance = fisherCoordDistance(
+          existing.origin.slice(0, 8),
+          centroid.slice(0, 8)
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+        }
+      }
+      
+      // Skip if too close to any existing region (duplicate detection)
+      if (minDistance < 0.05) continue;
+      
+      // Compute Fisher-weighted measure for this region
+      // Uses diagonal Fisher information approximation
+      let fisherWeight = 0;
+      for (let i = 0; i < Math.min(8, centroid.length); i++) {
+        const p = Math.max(0.01, Math.min(0.99, centroid[i]));
+        fisherWeight += p * (1 - p);  // Fisher information for Bernoulli
+      }
+      fisherWeight /= Math.min(8, centroid.length);
+      
+      // Weight by coupling strength and Fisher metric
+      const effectiveMeasure = 0.01 * couplingStrength * fisherWeight;
+      
+      this.excludedRegions.push({
+        dimension: centroid.length,
+        basis: [[...centroid]],  // Deep copy
+        origin: [...centroid],   // Deep copy
+        measure: effectiveMeasure
+      });
+      addedRegions++;
+    }
+    
+    // Cap excluded regions to prevent unbounded growth
+    const MAX_REGIONS = 500;
+    if (this.excludedRegions.length > MAX_REGIONS) {
+      // Keep regions with highest measure (most informative)
+      this.excludedRegions.sort((a, b) => b.measure - a.measure);
+      this.excludedRegions = this.excludedRegions.slice(0, MAX_REGIONS);
+    }
+    
+    console.log(`[QuantumProtocol] Basin sync: gained ${informationGain.toFixed(2)} bits, added ${addedRegions} regions from peer (coupling=${couplingStrength.toFixed(2)}, total=${this.excludedRegions.length})`);
   }
   
   /**

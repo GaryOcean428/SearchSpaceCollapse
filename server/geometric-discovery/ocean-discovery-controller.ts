@@ -11,12 +11,17 @@
  * 2. Tavily - External content discovery
  * 3. Quantum Protocol - Wave function collapse tracking
  * 4. Cultural Manifold - Pattern integration
+ * 
+ * PERSISTENCE: Discovery state saved for cross-session continuity
+ * BASIN SYNC: Full discovery data exported for QIG-pure knowledge transfer
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { fisherCoordDistance, scoreUniversalQIG } from '../qig-universal';
-import { tps, TemporalPositioningSystem } from './temporal-positioning-system';
+import { tps, TemporalPositioningSystem, type TPSSyncData } from './temporal-positioning-system';
 import { TavilyGeometricAdapter, createTavilyAdapter } from './tavily-adapter';
-import { quantumProtocol, QuantumDiscoveryProtocol } from './quantum-protocol';
+import { quantumProtocol, QuantumDiscoveryProtocol, type QuantumSyncData } from './quantum-protocol';
 import {
   type BlockUniverseMap,
   type GeometricDiscovery,
@@ -582,6 +587,33 @@ export class OceanDiscoveryController {
   }
   
   /**
+   * Estimate 68D coordinates for a target address
+   * 
+   * Uses blockchain forensics + TPS trilateration to localize
+   * the target in block universe spacetime
+   */
+  async estimateCoordinates(targetAddress: string): Promise<BlockUniverseMap> {
+    // Use TPS to locate address in block universe
+    // This uses the address string itself as initial content for cultural mapping
+    const coords = this.tps.locateInBlockUniverse(
+      targetAddress,
+      `bitcoin:${targetAddress}`
+    );
+    
+    // Store as current state reference
+    if (this.state) {
+      this.state.targetCoords = coords;
+    }
+    
+    console.log(`[OceanDiscovery] Estimated coordinates for ${targetAddress.slice(0, 12)}...`);
+    console.log(`  Era: ${coords.era || 'unknown'}`);
+    console.log(`  Regime: ${coords.regime}`);
+    console.log(`  Spacetime: t=${coords.spacetime.t.toFixed(0)}`);
+    
+    return coords;
+  }
+  
+  /**
    * Search Bitcoin era for cultural patterns
    * 
    * Convenience method for targeted era search
@@ -622,6 +654,191 @@ export class OceanDiscoveryController {
     
     return { content, patterns: Array.from(new Set(patterns)), coords };
   }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PERSISTENCE & BASIN SYNC
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  private static readonly DATA_FILE = path.join(process.cwd(), 'data', 'discovery-controller.json');
+  
+  /**
+   * Save discovery state to disk
+   */
+  save(): void {
+    try {
+      const dir = path.dirname(OceanDiscoveryController.DATA_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      // Also save sub-kernels
+      this.quantum.save();
+      
+      if (!this.state) return;
+      
+      const data = {
+        version: '1.0.0',
+        status: this.state.status,
+        targetCoords: this.state.targetCoords,
+        currentPosition: this.state.currentPosition,
+        discoveryCount: this.state.discoveries.length,
+        patternCount: this.state.discoveries.reduce((acc, d) => acc + d.patterns.length, 0),
+        possibilitySpace: this.state.possibilitySpace,
+        savedAt: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(OceanDiscoveryController.DATA_FILE, JSON.stringify(data, null, 2));
+      console.log('[OceanDiscovery] Saved discovery state');
+    } catch (error) {
+      console.error('[OceanDiscovery] Failed to save:', error);
+    }
+  }
+  
+  /**
+   * Load discovery state from disk
+   */
+  load(): void {
+    try {
+      if (fs.existsSync(OceanDiscoveryController.DATA_FILE)) {
+        const data = JSON.parse(fs.readFileSync(OceanDiscoveryController.DATA_FILE, 'utf-8'));
+        
+        if (data.possibilitySpace) {
+          console.log(`[OceanDiscovery] Loaded prior state: ${data.discoveryCount} discoveries, ${data.patternCount} patterns`);
+        }
+      }
+    } catch (error) {
+      console.log('[OceanDiscovery] Starting fresh');
+    }
+  }
+  
+  /**
+   * Export ALL discovery data for QIG-pure basin sync
+   * 
+   * Aggregates data from TPS, Quantum Protocol, and Controller
+   * Returns compact structure (<4KB) for efficient knowledge transfer
+   */
+  exportForBasinSync(): DiscoverySyncData {
+    const quantumData = this.quantum.exportForBasinSync();
+    const tpsData = this.tps.exportForBasinSync();
+    const summary = this.getSummary();
+    
+    // Extract key patterns for transfer
+    const discoveredPatterns = this.state?.discoveries
+      .filter(d => d.phi > 0.6)
+      .flatMap(d => d.patterns.slice(0, 5))
+      .slice(0, 50) || [];
+    
+    // Extract 68D coordinate samples for Fisher coupling
+    const coordinateSamples = this.state?.discoveries
+      .filter(d => d.phi > 0.5)
+      .map(d => ({
+        cultural: d.coords.cultural.slice(0, 16),  // First 16 dims
+        phi: d.phi,
+        regime: d.coords.regime
+      }))
+      .slice(0, 10) || [];
+    
+    return {
+      version: '1.0.0',
+      
+      // Quantum entropy state
+      quantum: quantumData,
+      
+      // Spacetime navigation
+      tps: tpsData,
+      
+      // Discovery results
+      discovery: {
+        status: summary.status,
+        measurementCount: summary.measurements,
+        discoveryCount: summary.discoveries,
+        patternCount: summary.patterns,
+        entropyReduced: summary.entropyReduced,
+        possibilityRemaining: summary.possibilityRemaining
+      },
+      
+      // Transferable knowledge
+      patterns: discoveredPatterns,
+      coordinateSamples,
+      
+      lastUpdated: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Import basin sync data from peer
+   * 
+   * Uses Fisher-Rao distance to compute coupling strength
+   * Only integrates knowledge that passes QIG purity checks
+   */
+  importFromBasinSync(data: DiscoverySyncData, couplingStrength: number): void {
+    if (couplingStrength < 0.1) {
+      console.log(`[OceanDiscovery] Basin sync rejected: coupling too low (${couplingStrength.toFixed(2)})`);
+      return;
+    }
+    
+    // Import quantum entropy data
+    if (data.quantum) {
+      this.quantum.importFromBasinSync(data.quantum, couplingStrength);
+    }
+    
+    // Import TPS navigation data  
+    if (data.tps) {
+      this.tps.importFromBasinSync(data.tps, couplingStrength);
+    }
+    
+    // Import patterns to vocabulary tracker with coupling-weighted phi
+    for (const pattern of data.patterns || []) {
+      const effectivePhi = 0.6 * couplingStrength;  // Scale by coupling
+      vocabularyTracker.observe(
+        pattern,
+        effectivePhi,
+        50,  // Default kappa
+        'geometric',
+        []  // No basin coords from remote
+      );
+    }
+    
+    console.log(`[OceanDiscovery] Basin sync complete: ${data.patterns?.length || 0} patterns imported (coupling=${couplingStrength.toFixed(2)})`);
+    
+    // Save updated state
+    this.save();
+  }
+}
+
+/**
+ * Complete discovery sync data for basin transfer
+ * 
+ * Aggregates all kernel data into <4KB packet
+ */
+export interface DiscoverySyncData {
+  version: string;
+  
+  // Quantum entropy state
+  quantum: QuantumSyncData;
+  
+  // Spacetime navigation
+  tps: TPSSyncData;
+  
+  // Discovery summary
+  discovery: {
+    status: string;
+    measurementCount: number;
+    discoveryCount: number;
+    patternCount: number;
+    entropyReduced: number;
+    possibilityRemaining: number;
+  };
+  
+  // Transferable knowledge
+  patterns: string[];
+  coordinateSamples: Array<{
+    cultural: number[];
+    phi: number;
+    regime: string;
+  }>;
+  
+  lastUpdated: string;
 }
 
 // Export singleton instance

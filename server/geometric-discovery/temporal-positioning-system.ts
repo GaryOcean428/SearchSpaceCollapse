@@ -9,8 +9,13 @@
  * 
  * The passphrase exists at specific 68D coordinates.
  * We trilaterate to find it.
+ * 
+ * PERSISTENCE: Calibration data saved for cross-session continuity
+ * BASIN SYNC: Geodesic paths exported for QIG-pure knowledge transfer
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { createHash } from 'crypto';
 import { fisherCoordDistance, scoreUniversalQIG, type Regime } from '../qig-universal';
 import { computeFisherDistanceVectorized, computeGeodesicDirection } from '../fisher-vectorized';
@@ -477,6 +482,105 @@ export class TemporalPositioningSystem {
   getLandmark(eventId: string): SpacetimeLandmark | undefined {
     return this.landmarks.find(lm => lm.eventId === eventId);
   }
+  
+  /**
+   * Export data for basin sync
+   * 
+   * Exports spacetime navigation structure for QIG-pure knowledge transfer
+   */
+  exportForBasinSync(): TPSSyncData {
+    // Export landmark distances and calibration data
+    const landmarkSummary = this.landmarks.map(lm => ({
+      eventId: lm.eventId,
+      era: lm.era,
+      timestamp: lm.coords.spacetime.t,
+      culturalSignature: lm.coords.cultural.slice(0, 8)  // First 8 dims for coupling
+    }));
+    
+    return {
+      landmarkCount: this.landmarks.length,
+      landmarks: landmarkSummary,
+      geodesicPathsComputed: this.computedPaths.length,
+      lastUpdated: new Date().toISOString()
+    };
+  }
+  
+  /**
+   * Import basin sync data from peer
+   * 
+   * Blends peer landmark/geodesic data using Fisher-Rao distance for coupling
+   * Appends new paths to existing paths (does not overwrite)
+   */
+  importFromBasinSync(data: TPSSyncData, couplingStrength: number): void {
+    if (couplingStrength < 0.1) return;
+    
+    const peerLandmarks = data.landmarks || [];
+    let addedPaths = 0;
+    
+    // Use Fisher distance to weight which peer landmarks are geometrically close
+    for (const peerLandmark of peerLandmarks) {
+      if (!peerLandmark.culturalSignature || peerLandmark.culturalSignature.length < 8) continue;
+      
+      // Find our corresponding landmark
+      const ourLandmark = this.landmarks.find(lm => lm.eventId === peerLandmark.eventId);
+      
+      if (ourLandmark) {
+        // Compute Fisher-Rao distance between cultural signatures
+        const distance = fisherCoordDistance(
+          ourLandmark.coords.cultural.slice(0, 8),
+          peerLandmark.culturalSignature.slice(0, 8)
+        );
+        
+        // Only accept paths with distance < 0.5 (geometrically close)
+        if (distance >= 0.5) continue;
+        
+        // Check for duplicate path (avoid appending same path multiple times)
+        const pathKey = `${ourLandmark.eventId}:${peerLandmark.eventId}`;
+        const isDuplicate = this.computedPaths.some(
+          p => p.from.includes(ourLandmark.eventId) && p.to.includes(peerLandmark.eventId)
+        );
+        
+        if (isDuplicate) continue;
+        
+        // Append new geodesic path with Fisher-weighted distance
+        const weightedDistance = distance * couplingStrength;
+        this.computedPaths.push({
+          from: `local:${ourLandmark.eventId}`,
+          to: `peer:${peerLandmark.eventId}`,
+          distance: weightedDistance
+        });
+        addedPaths++;
+      }
+    }
+    
+    // Cap computed paths to prevent unbounded growth
+    const MAX_PATHS = 100;
+    if (this.computedPaths.length > MAX_PATHS) {
+      // Keep paths sorted by shortest distance (most valuable for navigation)
+      this.computedPaths.sort((a, b) => a.distance - b.distance);
+      this.computedPaths = this.computedPaths.slice(0, MAX_PATHS);
+    }
+    
+    console.log(`[TPS] Basin sync: added ${addedPaths} geodesic paths, total ${this.computedPaths.length} (coupling=${couplingStrength.toFixed(2)})`);
+  }
+  
+  // Track computed paths for basin sync (persists across import calls)
+  private computedPaths: Array<{ from: string; to: string; distance: number }> = [];
+}
+
+/**
+ * Basin sync data for TPS
+ */
+export interface TPSSyncData {
+  landmarkCount: number;
+  landmarks: Array<{
+    eventId: string;
+    era: BitcoinEra;
+    timestamp: number;
+    culturalSignature: number[];
+  }>;
+  geodesicPathsComputed: number;
+  lastUpdated: string;
 }
 
 // Export singleton instance
