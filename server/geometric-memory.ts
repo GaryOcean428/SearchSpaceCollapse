@@ -16,7 +16,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { scoreUniversalQIG, fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
+import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 
 export interface QIGScoreInput {
   phi: number;
@@ -137,12 +137,36 @@ class GeometricMemory {
   private probeMap: Map<string, BasinProbe>;
   private testedPhrases: Set<string>;
   
+  // Probe data version - increments whenever probes are added or modified
+  // Used as a cache key to ensure caches are invalidated on data changes
+  private probeDataVersion: number = 0;
+  
+  // Fisher analysis cache to prevent redundant expensive computations
+  // Cache is invalidated when probeDataVersion changes (not just probe count)
+  private fisherCache: {
+    result: ReturnType<GeometricMemory['computeFisherInformationMatrix']> | null;
+    dataVersion: number;
+  } = { result: null, dataVersion: -1 };
+  
+  // Orthogonal complement cache
+  private orthogonalCache: {
+    result: ReturnType<GeometricMemory['computeOrthogonalComplement']> | null;
+    dataVersion: number;
+  } = { result: null, dataVersion: -1 };
+  
   constructor() {
     this.probeMap = new Map();
     this.testedPhrases = new Set();
     this.state = this.createEmptyState();
     this.load();
     this.loadTestedPhrases();
+  }
+  
+  /**
+   * Invalidate caches - called whenever probe data changes
+   */
+  private invalidateCaches(): void {
+    this.probeDataVersion++;
   }
   
   private normalizePhrase(phrase: string): string {
@@ -182,7 +206,7 @@ class GeometricMemory {
       } else {
         this.backfillTestedPhrases();
       }
-    } catch (error) {
+    } catch {
       console.log('[GeometricMemory] Building tested phrase index from probes...');
       this.backfillTestedPhrases();
     }
@@ -248,7 +272,7 @@ class GeometricMemory {
         this.probeMap = this.state.probes;
         console.log(`[GeometricMemory] Loaded ${this.probeMap.size} probes from manifold memory`);
       }
-    } catch (error) {
+    } catch {
       console.log('[GeometricMemory] Starting with fresh manifold memory');
     }
   }
@@ -294,6 +318,9 @@ class GeometricMemory {
     
     this.probeMap.set(id, probe);
     this.state.totalProbes = this.probeMap.size;
+    
+    // Invalidate caches since probe data has changed
+    this.invalidateCaches();
     
     this.recordTested(input);
     
@@ -971,6 +998,9 @@ class GeometricMemory {
    * 
    * IMPROVED: Uses full covariance matrix with SVD-based pseudoinverse
    * (Tikhonov regularization) for proper eigendecomposition.
+   * 
+   * PERFORMANCE: Results are cached until probe data changes (version-based invalidation).
+   * Cache is automatically invalidated when recordProbe() is called.
    */
   computeFisherInformationMatrix(): {
     matrix: number[][];
@@ -981,6 +1011,15 @@ class GeometricMemory {
     effectiveRank: number;
     covarianceMeans: number[];
   } {
+    // Return cached result if data version hasn't changed
+    // This ensures cache is invalidated whenever probes are added/modified
+    if (
+      this.fisherCache.result &&
+      this.fisherCache.dataVersion === this.probeDataVersion
+    ) {
+      return this.fisherCache.result;
+    }
+    
     const probes = Array.from(this.probeMap.values());
     const withCoords = probes.filter(p => p.coordinates.length > 0);
     
@@ -1075,7 +1114,7 @@ class GeometricMemory {
     console.log(`[GeometricMemory] Max eigenvalue: ${maxEigenvalue.toFixed(4)}, threshold: ${threshold.toFixed(4)}`);
     console.log(`[GeometricMemory] Unexplored dimensions: ${unexploredDimensions.length} (eigenvectors for orthogonal complement)`);
 
-    return {
+    const result = {
       matrix: fisher,
       eigenvalues: fisherEigenvalues,
       eigenvectors: covEigenvectors, // Use covariance eigenvectors (they define the directions)
@@ -1084,6 +1123,14 @@ class GeometricMemory {
       effectiveRank,
       covarianceMeans: means,
     };
+    
+    // Cache the result using data version for invalidation
+    this.fisherCache = {
+      result,
+      dataVersion: this.probeDataVersion,
+    };
+    
+    return result;
   }
 
   /**
@@ -1244,6 +1291,9 @@ class GeometricMemory {
    * 
    * IMPROVED: Uses true eigenvectors from full covariance decomposition
    * and stores Fisher matrix and means for Mahalanobis distance calculation.
+   * 
+   * PERFORMANCE: Results are cached until probe data changes (version-based invalidation).
+   * Cache is automatically invalidated when recordProbe() is called.
    */
   computeOrthogonalComplement(): {
     complementBasis: number[][];
@@ -1255,6 +1305,14 @@ class GeometricMemory {
     covarianceMeans: number[];
     fisherEigenvalues: number[];
   } {
+    // Return cached result if data version hasn't changed
+    if (
+      this.orthogonalCache.result &&
+      this.orthogonalCache.dataVersion === this.probeDataVersion
+    ) {
+      return this.orthogonalCache.result;
+    }
+    
     const fisherAnalysis = this.computeFisherInformationMatrix();
     const probes = Array.from(this.probeMap.values());
     
@@ -1330,7 +1388,7 @@ class GeometricMemory {
     console.log(`[GeometricMemory] Orthogonal complement: ${complementBasis.length} dimensions (proper eigenvector basis)`);
     console.log(`[GeometricMemory] Search priority: ${searchPriority}`);
 
-    return {
+    const result = {
       complementBasis,
       complementDimension: complementBasis.length,
       constraintViolations,
@@ -1340,6 +1398,14 @@ class GeometricMemory {
       covarianceMeans: fisherAnalysis.covarianceMeans,
       fisherEigenvalues: fisherAnalysis.eigenvalues,
     };
+    
+    // Cache the result using data version for invalidation
+    this.orthogonalCache = {
+      result,
+      dataVersion: this.probeDataVersion,
+    };
+    
+    return result;
   }
 
   /**
@@ -1636,7 +1702,7 @@ class GeometricMemory {
       .slice(0, count);
   }
 
-  private computeComplementProjection(phrase: string, complementBasis: number[][]): number {
+  private computeComplementProjection(phrase: string, _complementBasis: number[][]): number {
     // Simple heuristic: How different is this phrase from explored patterns?
     // Higher = more in complement
     

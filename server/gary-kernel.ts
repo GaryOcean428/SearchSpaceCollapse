@@ -273,13 +273,13 @@ export class GeometricCandidateGenerator {
     strategyHint: string;
     manifoldContext: any;
   }): Promise<GeometricCandidate[]> {
-    const { basinState, phi, kappa, regime, temperature, strategyHint, manifoldContext } = params;
+    const { basinState, phi, kappa: _kappa, regime, temperature, strategyHint, manifoldContext } = params;
     
     const candidates: GeometricCandidate[] = [];
     
     const exploredRegions = manifoldContext?.exploredDimensions || 32;
     const avgPhi = manifoldContext?.avgPhi || 0.3;
-    const highPhiRegions = manifoldContext?.highPhiRegions || 0;
+    const _highPhiRegions = manifoldContext?.highPhiRegions || 0;
     
     if (strategyHint === 'exploit_resonance' || regime === 'geometric') {
       candidates.push(...await this.generateResonanceCandidates(basinState, phi, temperature));
@@ -338,7 +338,7 @@ export class GeometricCandidateGenerator {
    */
   private async generateOrthogonalCandidates(
     basinState: number[],
-    temperature: number
+    _temperature: number
   ): Promise<GeometricCandidate[]> {
     const candidates: GeometricCandidate[] = [];
     
@@ -356,7 +356,7 @@ export class GeometricCandidateGenerator {
           attentionWeight: 0.6,
         });
       }
-    } catch (e) {
+    } catch {
     }
     
     return candidates;

@@ -534,7 +534,7 @@ export class HistoricalDataMiner {
     for (const pattern of patterns) {
       try {
         pattern.qigScore = scoreUniversalQIG(pattern.phrase, pattern.format);
-      } catch (e) {
+      } catch {
         // Skip patterns that can't be scored
       }
     }
@@ -609,7 +609,7 @@ export class HistoricalDataMiner {
    */
   static detectEraFromTimestamp(timestamp: Date): Era {
     const year = timestamp.getFullYear();
-    const month = timestamp.getMonth();
+    const _month = timestamp.getMonth();
     
     if (year === 2009) return 'genesis-2009';
     if (year <= 2011) return '2010-2011';

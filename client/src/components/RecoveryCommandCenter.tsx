@@ -6,9 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Collapsible,
   CollapsibleContent,
@@ -43,25 +41,19 @@ import {
   Hash,
   Search,
   HardDrive,
-  Info,
   Plus,
   X,
   Lightbulb,
   ChevronDown,
-  ChevronUp,
   Activity,
   Gauge,
   Waves,
-  Eye,
   Filter,
   ArrowUpDown,
-  Download,
   Shield,
-  Sparkles,
   Radio,
-  Timer
 } from 'lucide-react';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { UnifiedRecoverySession, RecoveryCandidate, StrategyRun, TargetAddress } from '@shared/schema';
 
@@ -140,7 +132,7 @@ function StatCard({
   value, 
   subValue,
   icon: Icon,
-  trend,
+  trend: _trend,
   highlight,
   testId
 }: { 
@@ -528,7 +520,6 @@ export function RecoveryCommandCenter() {
   const [customAddress, setCustomAddress] = useState('');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [setupExpanded, setSetupExpanded] = useState(true);
-  const [showOceanPanel, setShowOceanPanel] = useState(true);
   
   const [memoryFragments, setMemoryFragments] = useState<MemoryFragmentInput[]>([]);
   const [showFragments, setShowFragments] = useState(false);
@@ -568,6 +559,7 @@ export function RecoveryCommandCenter() {
     } else if (session) {
       setSetupExpanded(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.status]);
 
   const startMutation = useMutation({
@@ -662,11 +654,6 @@ export function RecoveryCommandCenter() {
       }
     });
   }, [session?.candidates, sortField, filterStatus]);
-
-  const overallProgress = session?.strategies 
-    ? session.strategies.reduce((acc, s) => acc + (s.progress.current || 0), 0) /
-      Math.max(1, session.strategies.reduce((acc, s) => acc + (s.progress.total || 1), 0)) * 100
-    : 0;
 
   const detectedEra = session?.agentState?.detectedEra || session?.blockchainAnalysis?.era || 'unknown';
 

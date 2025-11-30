@@ -21,18 +21,14 @@ import {
   Clock,
   Fingerprint,
   Network,
-  AlertTriangle,
   ChevronRight,
   Loader2,
   Sparkles,
   Calendar,
   Hash,
-  Key,
-  Shield,
-  TrendingUp,
-  Users,
   Copy,
   CheckCircle2,
+  Key,
   XCircle,
 } from "lucide-react";
 
@@ -117,6 +113,7 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
     if (propAddress && propAddress !== targetAddress) {
       setTargetAddress(propAddress);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propAddress]);
 
   // Fetch target addresses

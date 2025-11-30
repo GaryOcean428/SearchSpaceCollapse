@@ -136,11 +136,11 @@ export function normalizeToFisherMetric(coordinates: number[]): number[] {
   const n = coordinates.length;
   const normalized = new Array(n);
   
-  let totalVariance = 0;
+  let _totalVariance = 0;
   for (let i = 0; i < n; i++) {
-    totalVariance += coordinates[i] * (1 - coordinates[i]);
+    _totalVariance += coordinates[i] * (1 - coordinates[i]);
   }
-  totalVariance /= n;
+  _totalVariance /= n;
   
   for (let i = 0; i < n; i++) {
     normalized[i] = Math.max(0, Math.min(1, coordinates[i]));

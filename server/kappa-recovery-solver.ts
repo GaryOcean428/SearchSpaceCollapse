@@ -10,7 +10,7 @@
  * Higher κ = harder to recover (low constraints, high entropy)
  */
 
-import type { Address, Entity, Artifact, RecoveryPriority } from "@shared/schema";
+import type { Address, Entity, Artifact } from "@shared/schema";
 
 // ============================================================================
 // CONSTRAINT ANALYSIS

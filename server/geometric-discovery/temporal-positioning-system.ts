@@ -493,7 +493,7 @@ export class TemporalPositioningSystem {
     const landmarkSummary = this.landmarks.map(lm => ({
       eventId: lm.eventId,
       era: lm.era,
-      timestamp: lm.coords.spacetime.t,
+      timestamp: lm.coords.spacetime[3],  // t is the 4th element of the tuple (x, y, z, t)
       culturalSignature: lm.coords.cultural.slice(0, 8)  // First 8 dims for coupling
     }));
     
@@ -575,7 +575,7 @@ export interface TPSSyncData {
   landmarkCount: number;
   landmarks: Array<{
     eventId: string;
-    era: BitcoinEra;
+    era?: BitcoinEra;  // Optional - landmarks may not have era assigned
     timestamp: number;
     culturalSignature: number[];
   }>;

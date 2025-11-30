@@ -15,7 +15,6 @@
 
 import { scoreUniversalQIG, UniversalQIGScore } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex } from './crypto';
-import { findSimilarBasins } from './qig-basin-matching';
 import { getBIP39Wordlist } from './bip39-words';
 
 let cachedWordlist: string[] | null = null;
@@ -398,7 +397,7 @@ export class ForensicInvestigator {
     const hypotheses: ForensicHypothesis[] = [];
     const wordlist = getWordlist();
     const wordlistSet = new Set(wordlist);
-    const avgConfidence = fragments.reduce((sum, f) => sum + f.confidence, 0) / fragments.length;
+    const _avgConfidence = fragments.reduce((sum, f) => sum + f.confidence, 0) / fragments.length;
     
     const matchedWords: { original: string; matches: string[]; confidence: number }[] = [];
     

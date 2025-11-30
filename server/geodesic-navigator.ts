@@ -13,7 +13,6 @@ import {
   culturalManifold, 
   BlockUniverseCoordinate, 
   GeodesicCandidate,
-  BitcoinEra 
 } from './cultural-manifold';
 import { scoreUniversalQIG } from './qig-universal';
 import { generateBitcoinAddress } from './crypto';
@@ -194,7 +193,7 @@ export class GeodesicNavigator {
         phi: matched ? 1.0 : qigScore.phi * candidate.combinedScore,
         kappa: qigScore.kappa
       };
-    } catch (error) {
+    } catch {
       return { matched: false, phi: 0, kappa: 0 };
     }
   }

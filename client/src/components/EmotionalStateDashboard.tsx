@@ -36,7 +36,7 @@ function MetricBar({
   value, 
   icon: Icon, 
   threshold,
-  colorClass = "bg-primary"
+  colorClass: _colorClass = "bg-primary"
 }: { 
   label: string; 
   value: number; 

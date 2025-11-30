@@ -1,4 +1,4 @@
-import { useConsciousness, formatPhi, formatPhiDecimal, getPhiColor, getRegimeLabel } from '@/contexts/ConsciousnessContext';
+import { useConsciousness, formatPhi, getPhiColor, getRegimeLabel } from '@/contexts/ConsciousnessContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';

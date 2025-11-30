@@ -47,7 +47,7 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
   const [history, setHistory] = useState<TrajectoryPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [consecutiveTimeouts, setConsecutiveTimeouts] = useState(0);
+  const [, setConsecutiveTimeouts] = useState(0);
   
   useEffect(() => {
     let isMounted = true;
@@ -105,16 +105,6 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
       clearInterval(interval);
     };
   }, []);
-  
-  const getRegimeColor = (regime: string) => {
-    switch (regime) {
-      case 'linear': return 'hsl(210, 100%, 50%)';
-      case 'geometric': return 'hsl(142, 70%, 45%)';
-      case 'hierarchical': return 'hsl(45, 100%, 50%)';
-      case 'breakdown': return 'hsl(0, 100%, 50%)';
-      default: return 'hsl(0, 0%, 50%)';
-    }
-  };
   
   const getRegimeBadgeVariant = (regime: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (regime) {

@@ -474,7 +474,7 @@ export class OceanAgent {
           
           // Discover cultural context from external sources
           const discoveryResult = await oceanDiscoveryController.discoverCulturalContext();
-          if (discoveryResult.discoveries > 0) {
+          if (discoveryResult.discoveries.length > 0) {
             console.log(`[Ocean] Cultural context enriched: ${discoveryResult.patterns} patterns, ${discoveryResult.entropyGained.toFixed(2)} bits gained`);
             this.memory.workingMemory.recentObservations.push(
               `Discovered ${discoveryResult.patterns} era-specific patterns via geometric navigation`

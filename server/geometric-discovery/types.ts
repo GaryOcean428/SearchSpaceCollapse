@@ -37,6 +37,7 @@ export interface BlockUniverseMap {
   ricci: number;  // Curvature scalar (κ proximity to κ*=64)
   phi: number;  // Integration at this point
   regime: Regime;
+  era?: BitcoinEra;  // Optional era classification based on temporal position
 }
 
 /**
@@ -47,6 +48,7 @@ export interface BlockUniverseMap {
 export interface SpacetimeLandmark {
   eventId: string;
   description: string;
+  era?: BitcoinEra;  // Era classification for this landmark
   coords: {
     spacetime: [number, number, number, number];  // (x, y, z, t)
     cultural: number[];  // 64D basin coordinates

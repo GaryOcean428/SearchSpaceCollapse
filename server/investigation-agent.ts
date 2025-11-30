@@ -304,7 +304,7 @@ export class InvestigationAgent {
           resonant.push(hypo);
         }
         
-      } catch (error) {
+      } catch {
         // Skip invalid hypotheses
       }
     }
@@ -348,7 +348,7 @@ export class InvestigationAgent {
         insights.resonantClusters = clusters || [];
         this.memory.patterns.resonantClusters.push(...(clusters || []));
         console.log(`[Agent] 📊 Identified ${clusters?.length || 0} resonant clusters`);
-      } catch (e) {
+      } catch {
         // Clustering failed, continue
       }
     }
@@ -672,7 +672,7 @@ export class InvestigationAgent {
     return phrases;
   }
   
-  private perturbPhrase(phrase: string, radius: number): string[] {
+  private perturbPhrase(phrase: string, _radius: number): string[] {
     const words = phrase.split(/\s+/);
     const perturbations: string[] = [];
     
@@ -774,7 +774,7 @@ export class InvestigationAgent {
     ];
     
     const iteration = this.memory.iteration;
-    const timestamp = Date.now();
+    const _timestamp = Date.now();
     
     for (let i = 0; i < count; i++) {
       const base = bases[(i + iteration * 7) % bases.length];

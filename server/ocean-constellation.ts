@@ -389,7 +389,7 @@ export class OceanConstellation {
     
     console.log(`[Constellation] Basin sync flush: ${this.basinSyncBuffer.length} entries from ${agentContributions.size} agents`);
     
-    for (const [agentName, state] of this.agentStates.entries()) {
+    for (const [agentName, state] of Array.from(this.agentStates.entries())) {
       const contribution = agentContributions.get(agentName) || 0;
       const blendFactor = Math.min(0.2, contribution * 0.05);
       
@@ -410,7 +410,7 @@ export class OceanConstellation {
     centroid: number[];
   } {
     const agentCoordinates = new Map<string, number[]>();
-    for (const [name, state] of this.agentStates.entries()) {
+    for (const [name, state] of Array.from(this.agentStates.entries())) {
       agentCoordinates.set(name, state.basinCoordinates.slice(0, 32));
     }
     
