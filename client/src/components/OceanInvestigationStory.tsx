@@ -580,6 +580,23 @@ function ControlRow({
     },
   });
 
+  // Dedicated disable mutation for Stop All button (avoids race condition)
+  const disableAutoCycle = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/auto-cycle/disable', {});
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-cycle/status'] });
+      if (!result.success) {
+        toast({
+          title: 'Error',
+          description: result.message,
+          variant: 'destructive',
+        });
+      }
+    },
+  });
+
   const addAddressMutation = useMutation({
     mutationFn: async (address: string) => {
       return apiRequest('POST', '/api/target-addresses', { 
@@ -686,10 +703,11 @@ function ControlRow({
             <Button
               variant="destructive"
               onClick={() => {
-                autoCycleToggle.mutate();
+                // Use dedicated disable mutation to avoid race condition
+                disableAutoCycle.mutate();
                 onStop();
               }}
-              disabled={isPending || autoCycleToggle.isPending}
+              disabled={isPending || disableAutoCycle.isPending}
               className="gap-2"
               data-testid="button-stop-auto-cycle"
             >
