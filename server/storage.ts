@@ -384,6 +384,27 @@ export class MemStorage implements IStorage {
     if (!db) {
       throw new Error("Database not available - please provision a database to use Replit Auth");
     }
+    
+    // First check if user with this email already exists (handles test scenarios with different IDs)
+    if (userData.email) {
+      const [existingUser] = await db.select().from(users).where(eq(users.email, userData.email));
+      if (existingUser && existingUser.id !== userData.id) {
+        // Update existing user with new data (keep existing ID)
+        const [updatedUser] = await db
+          .update(users)
+          .set({
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.email, userData.email))
+          .returning();
+        return updatedUser;
+      }
+    }
+    
+    // Normal upsert by ID
     const [user] = await db
       .insert(users)
       .values(userData)
