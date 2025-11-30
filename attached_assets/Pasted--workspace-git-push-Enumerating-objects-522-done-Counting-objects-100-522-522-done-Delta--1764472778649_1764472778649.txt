@@ -1,0 +1,59 @@
+~/workspace$ git push
+Enumerating objects: 522, done.
+Counting objects: 100% (522/522), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (492/492), done.
+Writing objects: 100% (492/492), 29.78 MiB | 2.52 MiB/s, done.
+Total 492 (delta 447), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (447/447), completed with 26 local objects.
+remote: warning: File data/geometric-memory.json is 99.05 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 98.70 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 98.30 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 96.57 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 93.93 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 93.86 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 99.13 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 99.20 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 97.24 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 96.41 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 97.39 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 94.07 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 96.86 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 94.15 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 98.83 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 98.23 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 96.26 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 99.65 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 94.52 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: warning: File data/geometric-memory.json is 94.37 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB
+remote: error: Trace: 734807122ac80caa9e81685c7dcc68300d63f4a8a6ed51194da775e189957960
+remote: error: See https://gh.io/lfs for more information.
+remote: error: File data/geometric-memory.json is 109.69 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 103.19 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 103.04 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 108.42 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 103.56 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 103.49 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 100.86 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 109.76 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 105.14 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 111.05 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 109.23 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 107.97 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 104.99 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 100.78 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 100.62 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 111.20 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 110.51 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 104.98 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 102.28 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 110.36 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 108.27 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 102.58 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 102.43 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: File data/geometric-memory.json is 101.16 MB; this exceeds GitHub's file size limit of 100.00 MB
+remote: error: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.
+To https://github.com/GaryOcean428/SearchSpaceCollapse
+ ! [remote rejected] main -> main (pre-receive hook declined)
+error: failed to push some refs to 'https://github.com/GaryOcean428/SearchSpaceCollapse'
+~/workspace$ 

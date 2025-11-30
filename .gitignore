@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Runtime data files (too large for GitHub, regenerated at runtime)
+data/geometric-memory.json
+data/tested-phrases-index.json
+data/*.json
