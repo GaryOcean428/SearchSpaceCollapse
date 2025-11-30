@@ -167,13 +167,14 @@ export class OceanDiscoveryController {
             console.log(`\n✅ PASSPHRASE DISCOVERED: ${hypothesis}`);
             this.state.status = 'discovered';
             
+            const discoveriesList = Array.isArray(this.state.discoveries) ? this.state.discoveries : [];
             return {
               success: true,
               passphrase: hypothesis,
               wifKey: measurement.result.wifKey,
               iterations: this.state.measurements.length,
               entropyReduced: this.quantum.getTotalEntropyReduction(),
-              patternsDiscovered: this.state.discoveries.reduce((acc, d) => acc + d.patterns.length, 0),
+              patternsDiscovered: discoveriesList.reduce((acc, d) => acc + (Array.isArray(d.patterns) ? d.patterns.length : 0), 0),
               geodesicLength: this.state.geodesicPath.totalArcLength,
               totalTime: Date.now() - startTime
             };
@@ -193,11 +194,12 @@ export class OceanDiscoveryController {
       
       this.state.status = 'exhausted';
       
+      const discoveriesList = Array.isArray(this.state.discoveries) ? this.state.discoveries : [];
       return {
         success: false,
         iterations: summary.totalMeasurements,
         entropyReduced: summary.entropyReduced,
-        patternsDiscovered: this.state.discoveries.reduce((acc, d) => acc + d.patterns.length, 0),
+        patternsDiscovered: discoveriesList.reduce((acc, d) => acc + (Array.isArray(d.patterns) ? d.patterns.length : 0), 0),
         geodesicLength: this.state.geodesicPath?.totalArcLength || 0,
         totalTime: Date.now() - startTime
       };
@@ -368,12 +370,11 @@ export class OceanDiscoveryController {
     const hypotheses: string[] = [];
     
     // Strategy 1: Patterns from discoveries near these coordinates
-    if (this.state?.discoveries) {
-      for (const discovery of this.state.discoveries) {
-        const distance = fisherCoordDistance(coords.cultural, discovery.coords.cultural);
-        if (distance < 1.0) {
-          hypotheses.push(...discovery.patterns.slice(0, 5));
-        }
+    const discoveriesList = Array.isArray(this.state?.discoveries) ? this.state.discoveries : [];
+    for (const discovery of discoveriesList) {
+      const distance = fisherCoordDistance(coords.cultural, discovery.coords.cultural);
+      if (distance < 1.0 && Array.isArray(discovery.patterns)) {
+        hypotheses.push(...discovery.patterns.slice(0, 5));
       }
     }
     
@@ -561,12 +562,13 @@ export class OceanDiscoveryController {
     possibilityRemaining: number;
   } {
     const quantum = this.quantum.getSummary();
+    const discoveries = Array.isArray(this.state?.discoveries) ? this.state.discoveries : [];
     
     return {
       status: this.state?.status || 'idle',
       measurements: quantum.totalMeasurements,
-      discoveries: this.state?.discoveries.length || 0,
-      patterns: this.state?.discoveries.reduce((acc, d) => acc + d.patterns.length, 0) || 0,
+      discoveries: discoveries.length,
+      patterns: discoveries.reduce((acc, d) => acc + (Array.isArray(d.patterns) ? d.patterns.length : 0), 0),
       entropyReduced: quantum.entropyReduced,
       possibilityRemaining: this.state?.possibilitySpace.remainingFraction || 1.0
     };
@@ -598,14 +600,13 @@ export class OceanDiscoveryController {
     entropyGained: number;
   }> {
     try {
-      const result = await this.enhanceCulturalManifoldGeometric();
-      
+      // Initialize state if needed
       if (!this.state) {
         this.state = {
           targetWalletAddress: '',
           currentPosition: this.getCurrentPosition(),
           measurements: [],
-          discoveries: result.discoveries,
+          discoveries: [],
           possibilitySpace: {
             totalDimension: 256,
             remainingFraction: 1.0,
@@ -613,19 +614,35 @@ export class OceanDiscoveryController {
           },
           status: 'navigating'
         };
-      } else {
-        this.state.discoveries = [...this.state.discoveries, ...result.discoveries];
       }
       
-      const allPatterns = result.discoveries.flatMap(d => d.patterns);
+      // Ensure discoveries is an array
+      if (!Array.isArray(this.state.discoveries)) {
+        this.state.discoveries = [];
+      }
+      
+      // enhanceCulturalManifoldGeometric updates this.state.discoveries internally
+      // and returns counts, not arrays
+      const stats = await this.enhanceCulturalManifoldGeometric();
+      
+      // Get the actual discoveries from state (set by enhanceCulturalManifoldGeometric)
+      const discoveries = Array.isArray(this.state.discoveries) ? this.state.discoveries : [];
+      
+      // Extract all patterns from discoveries
+      const allPatterns: string[] = [];
+      for (const d of discoveries) {
+        if (Array.isArray(d.patterns)) {
+          allPatterns.push(...d.patterns);
+        }
+      }
       
       const response = {
-        discoveries: result.discoveries.map(d => ({
+        discoveries: discoveries.map(d => ({
           ...d,
-          source: this.extractSource(d.url)
+          source: this.extractSource(d.url || '')
         })),
         patterns: Array.from(new Set(allPatterns)),
-        entropyGained: result.entropyGained
+        entropyGained: stats.entropyGained
       };
       
       console.log(`[OceanDiscovery] discoverCulturalContext: ${response.discoveries.length} discoveries, ${response.patterns.length} patterns, ${response.entropyGained.toFixed(2)} bits`);
@@ -739,13 +756,14 @@ export class OceanDiscoveryController {
       
       if (!this.state) return;
       
+      const discoveriesList = Array.isArray(this.state.discoveries) ? this.state.discoveries : [];
       const data = {
         version: '1.0.0',
         status: this.state.status,
         targetCoords: this.state.targetCoords,
         currentPosition: this.state.currentPosition,
-        discoveryCount: this.state.discoveries.length,
-        patternCount: this.state.discoveries.reduce((acc, d) => acc + d.patterns.length, 0),
+        discoveryCount: discoveriesList.length,
+        patternCount: discoveriesList.reduce((acc, d) => acc + (Array.isArray(d.patterns) ? d.patterns.length : 0), 0),
         possibilitySpace: this.state.possibilitySpace,
         savedAt: new Date().toISOString()
       };
