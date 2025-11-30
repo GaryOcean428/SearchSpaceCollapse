@@ -587,6 +587,69 @@ export class OceanDiscoveryController {
   }
   
   /**
+   * Discover cultural context - primary API for cultural manifold enrichment
+   * 
+   * Wraps enhanceCulturalManifoldGeometric and returns aggregated stats
+   * for use by API routes and Ocean agent
+   */
+  async discoverCulturalContext(): Promise<{
+    discoveries: GeometricDiscovery[];
+    patterns: string[];
+    entropyGained: number;
+  }> {
+    try {
+      const result = await this.enhanceCulturalManifoldGeometric();
+      
+      if (!this.state) {
+        this.state = {
+          targetWalletAddress: '',
+          currentPosition: this.getCurrentPosition(),
+          measurements: [],
+          discoveries: result.discoveries,
+          possibilitySpace: {
+            totalDimension: 256,
+            remainingFraction: 1.0,
+            entropyBits: 256
+          },
+          status: 'navigating'
+        };
+      } else {
+        this.state.discoveries = [...this.state.discoveries, ...result.discoveries];
+      }
+      
+      const allPatterns = result.discoveries.flatMap(d => d.patterns);
+      
+      const response = {
+        discoveries: result.discoveries.map(d => ({
+          ...d,
+          source: this.extractSource(d.url)
+        })),
+        patterns: Array.from(new Set(allPatterns)),
+        entropyGained: result.entropyGained
+      };
+      
+      console.log(`[OceanDiscovery] discoverCulturalContext: ${response.discoveries.length} discoveries, ${response.patterns.length} patterns, ${response.entropyGained.toFixed(2)} bits`);
+      
+      return response;
+    } catch (error) {
+      console.error('[OceanDiscovery] discoverCulturalContext error:', error);
+      return { discoveries: [], patterns: [], entropyGained: 0 };
+    }
+  }
+  
+  /**
+   * Extract human-readable source from URL
+   */
+  private extractSource(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.replace('www.', '');
+    } catch {
+      return url.slice(0, 30);
+    }
+  }
+  
+  /**
    * Estimate 68D coordinates for a target address
    * 
    * Uses blockchain forensics + TPS trilateration to localize

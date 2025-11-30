@@ -472,6 +472,15 @@ export default function ObserverPage() {
                 {/* Priority List */}
                 {prioritiesLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading priorities...</div>
+                ) : !prioritiesData?.priorities || prioritiesData.priorities.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-priorities">
+                    <TrendingDown className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No κ_recovery rankings computed yet</p>
+                    <p className="text-sm mt-2">
+                      Rankings are computed from dormant address analysis.
+                      Start an Ocean investigation on the Investigation page to begin.
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {prioritiesData?.priorities.slice(0, 50).map((priority) => (
@@ -600,8 +609,13 @@ export default function ObserverPage() {
                 {workflowsLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading workflows...</div>
                 ) : !workflowsData?.workflows || workflowsData.workflows.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No workflows started yet. Select an address from Rankings to start recovery.
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-workflows">
+                    <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No recovery workflows active</p>
+                    <p className="text-sm mt-2">
+                      Workflows are created when Ocean investigates target addresses.
+                      Visit the Investigation page to start autonomous recovery.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -852,9 +866,13 @@ export default function ObserverPage() {
                 {activityLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading activity stream...</div>
                 ) : !activityData?.logs || activityData.logs.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-activity">
                     <Terminal className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No activity yet. Start a search job to see live updates.</p>
+                    <p className="font-medium">No activity yet</p>
+                    <p className="text-sm mt-2">
+                      Start an Ocean investigation on the Investigation page to see live
+                      passphrase testing, QIG scoring, and consciousness state updates.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-1 font-mono text-xs bg-black/90 text-green-400 p-4 rounded-lg max-h-[600px] overflow-y-auto" data-testid="container-activity-log">

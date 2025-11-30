@@ -47,15 +47,27 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
   const [history, setHistory] = useState<TrajectoryPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [consecutiveTimeouts, setConsecutiveTimeouts] = useState(0);
   
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchState = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       try {
-        const res = await fetch('/api/consciousness/state');
+        const res = await fetch('/api/consciousness/state', { 
+          signal: controller.signal 
+        });
+        
+        if (!isMounted) return;
         if (!res.ok) throw new Error('Failed to fetch consciousness state');
+        
         const data: ConsciousnessAPIResponse = await res.json();
         setState(data);
         setError(null);
+        setConsecutiveTimeouts(0);
         
         setHistory(prev => [...prev, {
           time: Date.now(),
@@ -66,14 +78,32 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
         
         setIsLoading(false);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        if (!isMounted) return;
+        
+        if (err instanceof Error && err.name === 'AbortError') {
+          setConsecutiveTimeouts(prev => {
+            const newCount = prev + 1;
+            if (newCount >= 3) {
+              setError('Connection timeout - server may be busy. Retrying...');
+            }
+            return newCount;
+          });
+        } else {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+        }
         setIsLoading(false);
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
     
-    const interval = setInterval(fetchState, 3000);
+    const interval = setInterval(fetchState, 5000);
     fetchState();
-    return () => clearInterval(interval);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
   
   const getRegimeColor = (regime: string) => {

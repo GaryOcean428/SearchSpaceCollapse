@@ -341,12 +341,16 @@ export default function RecoveryResults() {
   
   if (!data?.recoveries.length) {
     return (
-      <Card>
+      <Card data-testid="empty-recoveries">
         <CardContent className="pt-6 text-center">
-          <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">No recoveries found yet</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Found passphrases will appear here with full recovery instructions
+          <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
+          <p className="font-medium text-muted-foreground">No keys recovered yet</p>
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            When Ocean discovers a matching passphrase for one of your target addresses,
+            the complete recovery bundle (WIF keys, instructions) will appear here.
+          </p>
+          <p className="text-xs text-muted-foreground mt-4">
+            Start or monitor investigations on the Investigation page
           </p>
         </CardContent>
       </Card>

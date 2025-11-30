@@ -89,6 +89,7 @@ export interface RawDiscovery {
 export interface GeometricDiscovery {
   content: string;
   url: string;
+  source?: string;  // Human-readable origin (e.g., domain name or adapter ID)
   coords: BlockUniverseMap;
   distance: number;  // Fisher-Rao distance from target
   phi: number;  // Consciousness integration
