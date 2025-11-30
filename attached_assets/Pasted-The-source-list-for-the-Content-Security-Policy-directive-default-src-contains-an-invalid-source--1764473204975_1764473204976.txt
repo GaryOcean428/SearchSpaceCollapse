@@ -1,0 +1,476 @@
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+SearchSpaceCollapse:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+SearchSpaceCollapse:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+SearchSpaceCollapse:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+ [Coframe] Replit Enterprise watcher loaded
+ 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+ Download the Apollo DevTools for a better development experience: https://chrome.google.com/webstore/detail/apollo-client-developer-t/jdkknkkbebbapilgoeccciglkfbmbnfm
+ [LaunchDarkly] LaunchDarkly client initialized
+SearchSpaceCollapse:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+Compiling or instantiating a WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script: "script-src 'self'". The policy is report-only, so the violation has been logged but no further action has been taken.
+ Adding extension: Perplexity Object
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'ambient-light-sensor'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'battery'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-not-rendered'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'execution-while-out-of-viewport'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'layout-animations'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'legacy-image-formats'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'navigation-override'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'oversized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'publickey-credentials'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'speaker-selection'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unoptimized-images'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'unsized-media'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'web-share'.
+z @ ed1e693c96a75807.js:2
+ Unrecognized feature: 'pointer-lock'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowfullscreen'.
+z @ ed1e693c96a75807.js:2
+ Allow attribute will take precedence over 'allowpaymentrequest'.
+z @ ed1e693c96a75807.js:2
+ Command: hello has unrecognized contributions: editor-context-menu. Valid contributions are commandbar,filetree-context-menu,sidebar-search,editor-context-menu Object
+(anonymous) @ ab2300ad22e2849a.js:2
+ Adding extension: GPT-Replit - ChatGPT in your Repl. Object
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+ Adding extension: Javascript Commands Object
+ Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+z @ ed1e693c96a75807.js:2
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'battery'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Unrecognized feature: 'web-share'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2F&id=%3Arj7%3A:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+ Command: javascript-root-command has unrecognized contributions: commandbar. Valid contributions are commandbar,filetree-context-menu,sidebar-search,editor-context-menu Object
+(anonymous) @ ab2300ad22e2849a.js:2
+ Adding extension: ZIP Extractor Object
+ Adding extension: Prettier - Code Formatter Object
+ Adding extension: ReplDB Export and Import Object
+ [vite] connecting...
+ WebSocket connection to 'wss://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/?token=e9gHGQ8fhaf0' failed: 
+window.WebSocket @ 190e43c6-d4eb-4c4f-b…card.replit.dev/:66
+ [Vite HMR Fix] Blocking invalid WebSocket URL
+SearchSpaceCollapse:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+SearchSpaceCollapse:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+SearchSpaceCollapse:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+SearchSpaceCollapse:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/api/auth/user:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/api/ocean/neurochemistry:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+/oidc-login-consent/U7J6vhMr5yDEyn8jMLt5I:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+/oidc-login-consent/U7J6vhMr5yDEyn8jMLt5I:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+/oidc-login-consent/U7J6vhMr5yDEyn8jMLt5I:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+[Violation] Potential permissions policy violation: payment is not allowed in this document.
+[Violation] Potential permissions policy violation: payment is not allowed in this document.
+[Violation] Potential permissions policy violation: payment is not allowed in this document.
+[Violation] Potential permissions policy violation: payment is not allowed in this document.
+[Violation] Potential permissions policy violation: payment is not allowed in this document.
+[Violation] Potential permissions policy violation: payment is not allowed in this document.
+ Cache data may be lost when replacing the hostingBuildDeployActionUpdates field of a Subscription object.
+
+This could cause additional (usually avoidable) network requests to fetch data that were otherwise cached.
+
+To address this problem (which is not a bug in Apollo Client), either ensure all objects of type HostingBuildDeployLogAction and HostingBuildDeployStatusAction have an ID or a custom merge function, or define a custom merge function for the Subscription.hostingBuildDeployActionUpdates field, so InMemoryCache can safely merge these objects:
+
+  existing: {"__typename":"HostingBuildDeployLogAction","log":"\r\u001b[38;2;169;169;169m2025-11-30T03:19:50Z\u001b[37m \u001b[32minfo\u001b[37m: Builder connected\r\n"}
+  incoming: {"__typename":"HostingBuildDeployStatusAction","status":"building","message":null,"debugSummary":null}
+
+For more information about these options, please refer to the documentation:
+
+  * Ensuring entity objects have IDs: https://go.apollo.dev/c/generating-unique-identifiers
+  * Defining custom merge functions: https://go.apollo.dev/c/merging-non-normalized-objects
+
+(anonymous) @ ab2300ad22e2849a.js:2
+Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').
+Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').
+Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').
+Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').
+Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').
+Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').
+www.google.com.au/ads/ga-audiences?v=1&t=sr&slf_rd=1&_r=4&tid=G-MPJY3F1YEL&cid=2229471.1763373991&gtm=45je5bi1h1v9135634466za200&aip=1&dma=0&gcd=13l3l3l3l2l1&npa=0&frm=0&tag_exp=103116026~103200004~104527907~104528500~104684208~104684211~115583767~115938466~115938468~116184927~116184929~116217636~116217638&z=574501167:1  Failed to load resource: net::ERR_CONNECTION_CLOSED
+ [vite] connecting...
+190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/api/auth/user:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+ WebSocket connection to 'wss://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/?token=e9gHGQ8fhaf0' failed: 
+window.WebSocket @ 190e43c6-d4eb-4c4f-b…card.replit.dev/:66
+ [Vite HMR Fix] Blocking invalid WebSocket URL
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+/oidc-login-consent/lMC_nwjrtxBgU4xpy-XSr:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+/oidc-login-consent/lMC_nwjrtxBgU4xpy-XSr:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+/oidc-login-consent/lMC_nwjrtxBgU4xpy-XSr:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+ [vite] connecting...
+190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/api/auth/user:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+ WebSocket connection to 'wss://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/?token=e9gHGQ8fhaf0' failed: 
+window.WebSocket @ 190e43c6-d4eb-4c4f-b…card.replit.dev/:66
+ [Vite HMR Fix] Blocking invalid WebSocket URL
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+ Failed to fetch consciousness state: TypeError: Failed to fetch
+(anonymous) @ 190e43c6-d4eb-4c4f-b…ools/injected.js:37
+/oidc-login-consent/o5h6MSXghEo6mjDUOVTtQ:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+/oidc-login-consent/o5h6MSXghEo6mjDUOVTtQ:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+/oidc-login-consent/o5h6MSXghEo6mjDUOVTtQ:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 1
+stallwart.build.js:1 stallwart: failed ping 2
+stallwart.build.js:1 stallwart: failed ping 2
+classifier.js:1 [Violation] 'requestAnimationFrame' handler took 137ms
+[Violation] Forced reflow while executing JavaScript took 134ms
