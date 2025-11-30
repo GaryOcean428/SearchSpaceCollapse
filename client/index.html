@@ -6,10 +6,30 @@
       (function() {
         const originalWebSocket = window.WebSocket;
         window.WebSocket = function(url, protocols) {
-          // Fix localhost:undefined URLs from Vite HMR
           if (url && url.includes('localhost:undefined')) {
             console.debug('[Vite HMR Fix] Blocking invalid WebSocket URL');
-            return { close: function(){}, send: function(){}, addEventListener: function(){}, removeEventListener: function(){} };
+            var mock = {
+              url: url,
+              readyState: 3,
+              protocol: '',
+              extensions: '',
+              bufferedAmount: 0,
+              binaryType: 'blob',
+              onopen: null,
+              onclose: null,
+              onerror: null,
+              onmessage: null,
+              close: function() { this.readyState = 3; },
+              send: function() {},
+              addEventListener: function() {},
+              removeEventListener: function() {},
+              dispatchEvent: function() { return true; }
+            };
+            mock.CONNECTING = 0;
+            mock.OPEN = 1;
+            mock.CLOSING = 2;
+            mock.CLOSED = 3;
+            return mock;
           }
           return new originalWebSocket(url, protocols);
         };
