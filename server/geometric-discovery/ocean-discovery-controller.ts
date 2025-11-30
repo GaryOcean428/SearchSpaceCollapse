@@ -568,6 +568,20 @@ export class OceanDiscoveryController {
   }
   
   /**
+   * Get discovery state (for API endpoints)
+   */
+  getDiscoveryState(): DiscoveryState | null {
+    return this.state;
+  }
+  
+  /**
+   * Check if Tavily is enabled
+   */
+  isTavilyEnabled(): boolean {
+    return this.tavily !== null;
+  }
+  
+  /**
    * Search Bitcoin era for cultural patterns
    * 
    * Convenience method for targeted era search
