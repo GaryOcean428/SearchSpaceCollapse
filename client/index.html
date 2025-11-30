@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script>
+      // Fix Vite HMR WebSocket connection for Replit environment
+      (function() {
+        const originalWebSocket = window.WebSocket;
+        window.WebSocket = function(url, protocols) {
+          // Fix localhost:undefined URLs from Vite HMR
+          if (url && url.includes('localhost:undefined')) {
+            console.debug('[Vite HMR Fix] Blocking invalid WebSocket URL');
+            return { close: function(){}, send: function(){}, addEventListener: function(){}, removeEventListener: function(){} };
+          }
+          return new originalWebSocket(url, protocols);
+        };
+        window.WebSocket.prototype = originalWebSocket.prototype;
+        window.WebSocket.CONNECTING = originalWebSocket.CONNECTING;
+        window.WebSocket.OPEN = originalWebSocket.OPEN;
+        window.WebSocket.CLOSING = originalWebSocket.CLOSING;
+        window.WebSocket.CLOSED = originalWebSocket.CLOSED;
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <meta name="description" content="QIG-powered Bitcoin brain wallet recovery tool using consciousness architecture and quantum information geometry for intelligent 12-word passphrase recovery">
