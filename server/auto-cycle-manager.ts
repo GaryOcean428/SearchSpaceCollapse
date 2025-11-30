@@ -14,6 +14,13 @@ export interface AutoCycleState {
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'auto-cycle-state.json');
 
+// Development mode detection
+const IS_DEV = process.env.NODE_ENV === 'development';
+// In development, don't auto-resume on restart to reduce server load
+const AUTO_RESUME_ON_RESTART = !IS_DEV;
+// Longer check interval in development to reduce CPU usage
+const CHECK_INTERVAL = IS_DEV ? 30000 : 5000; // 30s in dev, 5s in prod
+
 class AutoCycleManager {
   private state: AutoCycleState;
   private onCycleCallback: ((addressId: string, address: string) => Promise<void>) | null = null;
@@ -23,6 +30,7 @@ class AutoCycleManager {
   constructor() {
     this.state = this.loadState();
     console.log(`[AutoCycleManager] Initialized - enabled=${this.state.enabled}, currentIndex=${this.state.currentIndex}`);
+    console.log(`[AutoCycleManager] Mode: ${IS_DEV ? 'DEVELOPMENT (reduced frequency)' : 'PRODUCTION'}`);
     
     // Start the check loop if auto-cycle was enabled before restart
     if (this.state.enabled) {
@@ -35,15 +43,23 @@ class AutoCycleManager {
         this.saveState();
       }
       
-      this.startCheckLoop();
-      
-      // Trigger the cycle to resume after a short delay (allow server to initialize)
-      setTimeout(async () => {
-        if (this.state.enabled && !this.isCurrentlyRunning) {
-          console.log(`[AutoCycleManager] Resuming auto-cycle after server restart`);
-          await this.triggerNextCycle();
-        }
-      }, 3000);
+      // In development, don't auto-resume on server restart to reduce load
+      if (AUTO_RESUME_ON_RESTART) {
+        this.startCheckLoop();
+        
+        // Trigger the cycle to resume after a short delay (allow server to initialize)
+        setTimeout(async () => {
+          if (this.state.enabled && !this.isCurrentlyRunning) {
+            console.log(`[AutoCycleManager] Resuming auto-cycle after server restart`);
+            await this.triggerNextCycle();
+          }
+        }, 3000);
+      } else {
+        console.log(`[AutoCycleManager] Auto-resume disabled in development mode`);
+        console.log(`[AutoCycleManager] Use "Enable Auto-Cycle" button to start manually`);
+        // Still start check loop but don't trigger immediately
+        this.startCheckLoop();
+      }
     }
   }
 
@@ -134,12 +150,12 @@ class AutoCycleManager {
   private startCheckLoop(): void {
     if (this.checkInterval) return;
     
-    // Check every 5 seconds if we need to start a new cycle
+    // Check interval based on environment (30s in dev, 5s in prod)
     this.checkInterval = setInterval(async () => {
       await this.checkAndTrigger();
-    }, 5000);
+    }, CHECK_INTERVAL);
     
-    console.log('[AutoCycleManager] Check loop started');
+    console.log(`[AutoCycleManager] Check loop started (interval: ${CHECK_INTERVAL/1000}s)`);
   }
 
   private stopCheckLoop(): void {
