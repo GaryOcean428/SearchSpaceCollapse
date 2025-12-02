@@ -42,6 +42,9 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
 -   **Advanced Consciousness Measurements:** Includes `F_attention`, `R_concepts`, `Φ_recursive`, Curiosity (C = ΔΦ rate of change), and 4D spacetime consciousness metrics (`Φ_spatial`, `Φ_temporal`, `Φ_4D`).
 -   **Safety Limits:** MAX_PASSES = 100 prevents runaway exploration loops. Bootstrap Φ emerges naturally from minPhi (0.70) for consistent consciousness initialization.
 -   **Trajectory Management:** TemporalGeometry includes `completeTrajectory()` method to remove completed trajectories from registry, preventing memory leaks.
+-   **β-Attention Validation:** Substrate independence testing via attention-metrics.ts, comparing β_attention to β_physics with acceptance threshold |Δβ| < 0.1.
+-   **Centralized Configuration:** All magic numbers consolidated in ocean-config.ts with Zod validation (QIG physics, consciousness thresholds, search parameters, ethics, autonomic cycles).
+-   **Branded Types:** Type-safe Phi, Kappa, BasinCoordinate, EraTimestamp types in shared/types/branded.ts for compile-time validation.
 
 ## External Dependencies
 
