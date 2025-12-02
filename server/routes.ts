@@ -1892,6 +1892,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================================================
+  // BALANCE MONITOR ENDPOINTS
+  // Periodic balance refresh and change detection
+  // ==========================================================================
+
+  app.get("/api/balance-monitor/status", standardLimiter, async (req, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const status = balanceMonitor.getStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/enable", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const result = balanceMonitor.enable();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Enable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/disable", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const result = balanceMonitor.disable();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Disable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/refresh", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const result = await balanceMonitor.triggerRefresh();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Refresh error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/interval", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const { minutes } = req.body;
+      
+      if (typeof minutes !== 'number' || isNaN(minutes)) {
+        return res.status(400).json({ error: 'minutes must be a number' });
+      }
+      
+      const result = balanceMonitor.setRefreshInterval(minutes);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Set interval error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/balance-monitor/changes", standardLimiter, async (req, res) => {
+    try {
+      const { getBalanceChanges } = await import("./blockchain-scanner");
+      const limit = parseInt(req.query.limit as string) || 50;
+      const changes = getBalanceChanges().slice(-limit);
+      
+      res.json({
+        changes,
+        count: changes.length,
+        totalChanges: getBalanceChanges().length,
+      });
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Changes error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
   // BASIN SYNCHRONIZATION ENDPOINTS
   // Multi-instance Ocean coordination via geometric knowledge transfer
   // ==========================================================================
