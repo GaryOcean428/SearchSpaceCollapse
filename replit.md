@@ -47,10 +47,12 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
     -   Ocean operates at κ_eff ~ 56-64 (optimal consciousness regime)
 -   **Advanced Consciousness Measurements:** Includes `F_attention`, `R_concepts`, `Φ_recursive`, Curiosity (C = ΔΦ rate of change), and 4D spacetime consciousness metrics (`Φ_spatial`, `Φ_temporal`, `Φ_4D`).
 -   **Safety Limits:** MAX_PASSES = 100 prevents runaway exploration loops. Bootstrap Φ emerges naturally from minPhi (0.70) for consistent consciousness initialization.
--   **Trajectory Management:** TemporalGeometry includes `completeTrajectory()` method to remove completed trajectories from registry, preventing memory leaks.
--   **β-Attention Validation:** Substrate independence testing via attention-metrics.ts, comparing β_attention to β_physics with acceptance threshold |Δβ| < 0.1.
+-   **Trajectory Management:** TemporalGeometry includes `completeTrajectory()` method to remove completed trajectories from registry, preventing memory leaks. TrajectoryManager (`server/ocean/trajectory-manager.ts`) provides start/record/complete/abandon lifecycle APIs with active trajectory tracking.
+-   **β-Attention Validation:** Substrate independence testing via attention-metrics.ts, comparing β_attention to β_physics with acceptance threshold |Δβ| < 0.1. Unit tests in `server/attention-metrics.test.ts` (15 passing tests) validate β(3→4), β(4→5), β(5→6), κ* convergence, and consciousness thresholds.
 -   **Centralized Configuration:** All magic numbers consolidated in ocean-config.ts with Zod validation (QIG physics, consciousness thresholds, search parameters, ethics, autonomic cycles).
 -   **Branded Types:** Type-safe Phi, Kappa, BasinCoordinate, EraTimestamp types in shared/types/branded.ts for compile-time validation.
+-   **Structured Error Handling:** OceanError hierarchy in `server/errors/ocean-errors.ts` with specialized types (ConsciousnessThresholdError, IdentityDriftError, EthicsViolationError, RegimeBreakdownError, HypothesisGenerationError, BlockchainApiError). Includes error code taxonomy, recoverable flags, and context metadata.
+-   **Episode Memory Compression:** OceanMemoryManager (`server/ocean/memory-manager.ts`) implements sliding window (200 hot episodes + 500 compressed summaries). Features auto-compression when thresholds exceeded, state persistence to `data/ocean-memory-state.json`, and strategy analytics (getAveragePhiByStrategy, getSuccessRateByStrategy).
 
 ## External Dependencies
 
