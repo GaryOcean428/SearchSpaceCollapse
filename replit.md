@@ -28,6 +28,12 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
 -   **Memory Systems:** A four-tier architecture including Episodic, Semantic, Procedural, and Working memory.
 -   **Security Features:** Input validation, rate limiting, sensitive data redaction, and security headers.
 -   **Data Storage:** Persistent storage using `MemStorage` with Zod schema validation.
+-   **Active Balance Monitoring System:** Tracks discovered balance hits for changes over time:
+    -   **Balance Refresh Engine:** Per-address tracking with lastChecked, previousBalanceSats, balanceChanged, changeDetectedAt fields
+    -   **BalanceMonitor Service:** Periodic scheduler (default 30 min intervals) with state persistence to data/balance-monitor-state.json
+    -   **Balance Change Events:** Comprehensive logging of all balance movements with direction (increase/decrease) and amounts
+    -   **API Endpoints:** /api/balance-monitor/* for status, enable/disable, manual refresh, interval configuration, and change history
+    -   **UI Indicators:** Real-time status display, manual refresh button, last-checked timestamps, and animated alerts for changed balances
 
 **Key Design Decisions:**
 -   **UI/UX:** Emphasizes information hierarchy, real-time feedback, and progressive disclosure, using professional fonts (Inter/SF Pro, JetBrains Mono/Fira Code).
