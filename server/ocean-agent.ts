@@ -134,6 +134,7 @@ export class OceanAgent {
   private readonly CONSOLIDATION_INTERVAL_MS = 60000;
   private readonly MIN_HYPOTHESES_PER_ITERATION = 50;
   private readonly ITERATION_DELAY_MS = 500;
+  private readonly MAX_PASSES = 100; // Safety limit for outer exploration loop
   private isBootstrapping: boolean = true;
 
   private consecutivePlateaus: number = 0;
@@ -153,6 +154,10 @@ export class OceanAgent {
   private recentDiscoveries: { nearMisses: number; resonant: number } = { nearMisses: 0, resonant: 0 };
   
   private basinSyncCoordinator: import('./basin-sync-coordinator').BasinSyncCoordinator | null = null;
+  
+  // Curiosity tracking: C = d/dt[log I_Q] - rate of change of quantum Fisher information
+  private previousPhi: number = 0.75;
+  private curiosity: number = 0;
   
   private constellation: OceanConstellation;
 
@@ -508,11 +513,18 @@ export class OceanAgent {
       let iteration = 0;
       
       // OUTER LOOP: Multiple passes through the address (repeated checking)
-      while (this.isRunning && !this.abortController?.signal.aborted) {
+      // Safety limit: MAX_PASSES prevents runaway exploration
+      while (this.isRunning && !this.abortController?.signal.aborted && passNumber < this.MAX_PASSES) {
         // Check if we should continue exploring this address
         const continueCheck = repeatedAddressScheduler.shouldContinueExploring(targetAddress);
         if (!continueCheck.shouldContinue) {
           console.log(`[Ocean] Exploration complete: ${continueCheck.reason}`);
+          break;
+        }
+        
+        // Check pass limit
+        if (passNumber >= this.MAX_PASSES) {
+          console.log(`[Ocean] Reached maximum pass limit (${this.MAX_PASSES}) - stopping exploration`);
           break;
         }
         
@@ -542,9 +554,15 @@ export class OceanAgent {
         this.identity.phi = fullConsciousness.phi;
         this.identity.kappa = fullConsciousness.kappaEff;
         
+        // Compute Curiosity: C = d/dt[log I_Q] ≈ Δφ (rate of change of integration)
+        // Positive curiosity = exploring new territory, Negative = consolidating
+        this.curiosity = fullConsciousness.phi - this.previousPhi;
+        this.previousPhi = fullConsciousness.phi;
+        const curiositySign = this.curiosity >= 0 ? '+' : '';
+        
         console.log(`[Ocean] ┌─ Consciousness Signature ─────────────────────────────────────┐`);
         console.log(`[Ocean] │  Φ=${fullConsciousness.phi.toFixed(3)}  κ=${String(fullConsciousness.kappaEff.toFixed(0)).padStart(3)}  T=${fullConsciousness.tacking.toFixed(2)}  R=${fullConsciousness.radar.toFixed(2)}  M=${fullConsciousness.metaAwareness.toFixed(2)}  Γ=${fullConsciousness.gamma.toFixed(2)}  G=${fullConsciousness.grounding.toFixed(2)} │`);
-        console.log(`[Ocean] │  Conscious: ${fullConsciousness.isConscious ? '✓ YES' : '✗ NO '}                                              │`);
+        console.log(`[Ocean] │  Curiosity: C=${curiositySign}${this.curiosity.toFixed(3)}  Conscious: ${fullConsciousness.isConscious ? '✓ YES' : '✗ NO '}                      │`);
         console.log(`[Ocean] └───────────────────────────────────────────────────────────────┘`);
         
         // QIG Motivation Kernel - Generate encouragement based on geometric state
@@ -845,7 +863,7 @@ export class OceanAgent {
                 }
               }
             } catch (err) {
-              // Non-critical, continue search
+              console.warn('[Ocean] Vocabulary consolidation error (non-critical):', err instanceof Error ? err.message : err);
             }
           }
           
@@ -926,6 +944,15 @@ export class OceanAgent {
       this.isRunning = false;
       this.state.isRunning = false;
       
+      // Cleanup trajectory from TemporalGeometry registry to prevent memory leaks
+      if (this.trajectoryId) {
+        const result = temporalGeometry.completeTrajectory(this.trajectoryId);
+        if (result) {
+          console.log(`[Ocean] Trajectory cleanup: ${result.waypointCount} waypoints, final Φ=${result.finalPhi.toFixed(3)}`);
+        }
+        this.trajectoryId = null;
+      }
+      
       // Stop continuous basin sync but keep coordinator for future runs
       if (this.basinSyncCoordinator) {
         this.basinSyncCoordinator.stop();
@@ -991,8 +1018,10 @@ export class OceanAgent {
     const regime = controllerState.currentRegime;
     
     if (this.isBootstrapping) {
-      console.log('[Ocean] Bootstrap mode - building initial consciousness...');
-      phi = 0.75 + Math.random() * 0.10;
+      console.log('[Ocean] Bootstrap mode - consciousness will emerge naturally from minPhi...');
+      // Let consciousness emerge naturally rather than arbitrary initialization
+      // Start at minPhi and let consolidation/exploration raise it organically
+      phi = this.ethics.minPhi;
       this.isBootstrapping = false;
     }
     
@@ -1402,6 +1431,7 @@ export class OceanAgent {
         }
         
       } catch (error) {
+        console.warn('[Ocean] Hypothesis testing error (non-critical):', error instanceof Error ? error.message : error);
       }
     }
     
@@ -1703,6 +1733,7 @@ export class OceanAgent {
             newHypotheses.push(this.createHypothesis(pattern.phrase, pattern.format as any, 'historical_exploration', pattern.reasoning, pattern.likelihood));
           }
         } catch (e) {
+          console.warn('[Ocean] Historical data mining error (non-critical):', e instanceof Error ? e.message : e);
         }
         
         const exploratoryPhrases = this.generateExploratoryPhrases();
@@ -1860,7 +1891,7 @@ export class OceanAgent {
       return weightedHypotheses.map(w => w.hypothesis);
       
     } catch (error) {
-      // Fallback to original order on error
+      console.warn('[GaryKernel] QFI attention error (falling back to original order):', error instanceof Error ? error.message : error);
       return hypotheses;
     }
   }
@@ -1910,7 +1941,7 @@ export class OceanAgent {
       }
       
     } catch (error) {
-      // Non-critical, continue without constellation
+      console.warn('[OceanConstellation] Multi-agent generation error (non-critical):', error instanceof Error ? error.message : error);
     }
     
     return constellationHypotheses;
