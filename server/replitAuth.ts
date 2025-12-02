@@ -70,13 +70,42 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
+  const userData = {
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
-  });
+  };
+  await storage.upsertUser(userData);
+  return userData;
+}
+
+// Cache user profile data in the session to avoid DB lookups on every request
+function cacheUserInSession(user: any, userData: any) {
+  user.cachedProfile = {
+    id: userData.id,
+    email: userData.email,
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    profileImageUrl: userData.profileImageUrl,
+    cachedAt: Date.now(),
+  };
+}
+
+// Get cached user from session (valid for 5 minutes)
+const USER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export function getCachedUser(user: any): any | null {
+  if (!user?.cachedProfile) return null;
+  
+  const age = Date.now() - user.cachedProfile.cachedAt;
+  if (age > USER_CACHE_TTL_MS) {
+    // Cache expired
+    return null;
+  }
+  
+  return user.cachedProfile;
 }
 
 export async function setupAuth(app: Express) {
@@ -91,9 +120,11 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
+    const user: any = {};
     updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
+    // Upsert user and cache profile in session to avoid DB lookups later
+    const userData = await upsertUser(tokens.claims());
+    cacheUserInSession(user, userData);
     verified(null, user);
   };
 

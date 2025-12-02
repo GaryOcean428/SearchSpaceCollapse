@@ -55,9 +55,16 @@ const databaseUrl = getDatabaseUrl();
 
 if (databaseUrl) {
   try {
-    pool = new Pool({ connectionString: databaseUrl });
+    // Increase pool size for better concurrency (default is 1)
+    // This allows auth requests to run in parallel instead of queuing
+    pool = new Pool({ 
+      connectionString: databaseUrl,
+      max: 10, // Allow up to 10 concurrent connections
+      idleTimeoutMillis: 30000, // Close idle connections after 30s
+      connectionTimeoutMillis: 5000, // Fail fast if can't connect in 5s
+    });
     db = drizzle(pool, { schema });
-    console.log("[DB] Database connection initialized");
+    console.log("[DB] Database connection pool initialized (max: 10 connections)");
   } catch (err) {
     console.error("[DB] Failed to initialize database connection:", err);
     console.log("[DB] Running without database - Replit Auth will be unavailable");
