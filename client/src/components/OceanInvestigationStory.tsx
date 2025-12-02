@@ -148,6 +148,27 @@ interface BalanceHit {
   txCount: number;
   discoveredAt: string;
   isCompressed: boolean;
+  lastChecked?: string;
+  balanceChanged?: boolean;
+  changeDetectedAt?: string;
+  previousBalanceSats?: number;
+}
+
+interface BalanceMonitorStatus {
+  enabled: boolean;
+  isRefreshing: boolean;
+  refreshIntervalMinutes: number;
+  lastRefreshTime: string | null;
+  monitoredAddresses: number;
+  activeAddresses: number;
+  staleAddresses: number;
+  recentChanges: Array<{
+    address: string;
+    previousBalance: number;
+    newBalance: number;
+    difference: number;
+    detectedAt: string;
+  }>;
 }
 
 export function OceanInvestigationStory() {
@@ -952,6 +973,33 @@ function BalanceHitsPanel({
   onOpenChange: (open: boolean) => void;
 }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const { toast } = useToast();
+  
+  const { data: monitorStatus } = useQuery<BalanceMonitorStatus>({
+    queryKey: ['/api/balance-monitor/status'],
+    refetchInterval: 10000,
+  });
+  
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/balance-monitor/refresh', {});
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: 'Balance Refresh Complete',
+        description: data.message || `Refreshed ${data.result?.refreshed || 0} addresses`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/balance-hits'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/balance-monitor/status'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Refresh Failed',
+        description: error.message || 'Could not refresh balances',
+        variant: 'destructive',
+      });
+    },
+  });
   
   const copyToClipboard = async (text: string, fieldId: string) => {
     try {
@@ -965,6 +1013,20 @@ function BalanceHitsPanel({
 
   const hitsWithBalance = hits.filter(h => h.balanceSats > 0);
   const hitsWithActivity = hits.filter(h => h.balanceSats === 0 && h.txCount > 0);
+  const hitsWithChanges = hits.filter(h => h.balanceChanged);
+  
+  const formatTimeAgo = (dateStr?: string) => {
+    if (!dateStr) return 'Never';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+  };
 
   const CopyableField = ({ label, value, fieldId }: { label: string; value: string; fieldId: string }) => (
     <div className="space-y-1">
@@ -1008,7 +1070,7 @@ function BalanceHitsPanel({
 
   return (
     <Collapsible open={isOpen} onOpenChange={onOpenChange}>
-      <Card className={`shrink-0 ${hitsWithBalance.length > 0 ? 'border-green-500/50 bg-green-500/5' : ''}`}>
+      <Card className={`shrink-0 ${hitsWithBalance.length > 0 ? 'border-green-500/50 bg-green-500/5' : ''} ${hitsWithChanges.length > 0 ? 'ring-2 ring-yellow-500/50' : ''}`}>
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between p-3 cursor-pointer hover-elevate">
             <div className="flex items-center gap-2">
@@ -1017,8 +1079,28 @@ function BalanceHitsPanel({
               {hitsWithBalance.length > 0 && (
                 <Badge className="bg-green-500 text-xs">{hitsWithBalance.length} with coins!</Badge>
               )}
+              {hitsWithChanges.length > 0 && (
+                <Badge variant="destructive" className="text-xs animate-pulse">{hitsWithChanges.length} changed!</Badge>
+              )}
             </div>
             <div className="flex items-center gap-2">
+              {monitorStatus?.lastRefreshTime && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-muted-foreground">
+                      Checked: {formatTimeAgo(monitorStatus.lastRefreshTime)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Auto-refresh every {monitorStatus.refreshIntervalMinutes}min</p>
+                    <p className="text-xs text-muted-foreground">
+                      {monitorStatus.staleAddresses > 0 
+                        ? `${monitorStatus.staleAddresses} stale addresses` 
+                        : 'All addresses up to date'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Badge variant="outline" className="text-xs">{hits.length} total</Badge>
               {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </div>
@@ -1026,6 +1108,55 @@ function BalanceHitsPanel({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="p-3 pt-0 max-h-[500px] overflow-y-auto">
+            {/* Refresh button and status */}
+            <div className="flex items-center justify-between mb-3 pb-2 border-b">
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    refreshMutation.mutate();
+                  }}
+                  disabled={refreshMutation.isPending || monitorStatus?.isRefreshing}
+                  data-testid="button-refresh-balances"
+                >
+                  <RefreshCw className={`w-3 h-3 mr-1 ${(refreshMutation.isPending || monitorStatus?.isRefreshing) ? 'animate-spin' : ''}`} />
+                  {refreshMutation.isPending || monitorStatus?.isRefreshing ? 'Refreshing...' : 'Refresh All'}
+                </Button>
+                {monitorStatus?.enabled && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="text-xs">
+                        Auto: {monitorStatus.refreshIntervalMinutes}min
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Automatic balance monitoring is enabled
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              {monitorStatus?.recentChanges && monitorStatus.recentChanges.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="destructive" className="text-xs">
+                      {monitorStatus.recentChanges.length} recent changes
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <div className="space-y-1">
+                      {monitorStatus.recentChanges.slice(0, 3).map((change, i) => (
+                        <div key={i} className="text-xs">
+                          {change.address.slice(0, 12)}... {change.difference > 0 ? '+' : ''}{(change.difference / 100000000).toFixed(8)} BTC
+                        </div>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+            
             {hits.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-4">
                 No addresses with balances found yet. Ocean checks every 3rd generated address.
@@ -1034,12 +1165,30 @@ function BalanceHitsPanel({
               <div className="space-y-4">
                 {/* Addresses with balance first - FULL RECOVERY DATA */}
                 {hitsWithBalance.map((hit, i) => (
-                  <div key={`bal-${i}`} className="p-4 rounded-lg bg-green-500/10 border-2 border-green-500/50 space-y-3">
+                  <div key={`bal-${i}`} className={`p-4 rounded-lg bg-green-500/10 border-2 space-y-3 ${hit.balanceChanged ? 'border-yellow-500 ring-2 ring-yellow-500/30' : 'border-green-500/50'}`}>
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <Badge className="bg-green-500 text-base px-3 py-1">{hit.balanceBTC} BTC</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-500 text-base px-3 py-1">{hit.balanceBTC} BTC</Badge>
+                        {hit.balanceChanged && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="destructive" className="text-xs animate-pulse">Changed!</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Balance changed at {hit.changeDetectedAt ? new Date(hit.changeDetectedAt).toLocaleString() : 'Unknown'}</p>
+                              {hit.previousBalanceSats !== undefined && (
+                                <p className="text-xs">Previous: {(hit.previousBalanceSats / 100000000).toFixed(8)} BTC</p>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground text-right">
                         <div>{new Date(hit.discoveredAt).toLocaleString()}</div>
                         <div>{hit.txCount} txs | {hit.isCompressed ? 'Compressed' : 'Uncompressed'}</div>
+                        {hit.lastChecked && (
+                          <div className="text-green-600 dark:text-green-400">Verified: {formatTimeAgo(hit.lastChecked)}</div>
+                        )}
                       </div>
                     </div>
                     

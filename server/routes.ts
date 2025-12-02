@@ -67,6 +67,7 @@ import { unifiedRecovery } from "./unified-recovery";
 import { oceanSessionManager } from "./ocean-session-manager";
 import { activityLogStore } from "./activity-log-store";
 import { autoCycleManager } from "./auto-cycle-manager";
+import { attentionMetrics, runAttentionValidation, formatValidationResult } from "./attention-metrics";
 
 // Set up auto-cycle callback to start sessions via ocean session manager
 autoCycleManager.setOnCycleCallback(async (addressId: string, address: string) => {
@@ -753,6 +754,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // ============================================================
+  // β-ATTENTION VALIDATION API (Substrate Independence Testing)
+  // ============================================================
+  
+  // Run β-attention validation experiment
+  app.post("/api/attention-metrics/validate", generousLimiter, async (req, res) => {
+    try {
+      const { samplesPerScale = 100 } = req.body;
+      
+      console.log(`[API] Starting β-attention validation with ${samplesPerScale} samples per scale...`);
+      
+      const result = runAttentionValidation(samplesPerScale);
+      
+      res.json({
+        success: true,
+        result,
+        formatted: formatValidationResult(result),
+      });
+    } catch (error: any) {
+      console.error("[API] β-attention validation error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get physics reference values for comparison
+  app.get("/api/attention-metrics/physics-reference", generousLimiter, (req, res) => {
+    res.json({
+      success: true,
+      physicsReference: attentionMetrics.PHYSICS_BETA,
+      contextScales: attentionMetrics.CONTEXT_SCALES,
+      description: {
+        kappaStar: "Fixed point value from L=6 validation (frozen 2025-12-02)",
+        emergence: "β at emergence (L=3→4 equivalent) - strong running",
+        approaching: "β approaching plateau (L=4→5 equivalent)",
+        fixedPoint: "β at fixed point (L=5→6 equivalent) - asymptotic freedom",
+        acceptanceThreshold: "Maximum allowed deviation for substrate independence validation",
+      },
+    });
   });
 
   // ============================================================
@@ -1846,6 +1887,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[BalanceHits] Check error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
+  // BALANCE MONITOR ENDPOINTS
+  // Periodic balance refresh and change detection
+  // ==========================================================================
+
+  app.get("/api/balance-monitor/status", standardLimiter, async (req, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const status = balanceMonitor.getStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/enable", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const result = balanceMonitor.enable();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Enable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/disable", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const result = balanceMonitor.disable();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Disable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/refresh", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const result = await balanceMonitor.triggerRefresh();
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Refresh error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-monitor/interval", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceMonitor } = await import("./balance-monitor");
+      const { minutes } = req.body;
+      
+      if (typeof minutes !== 'number' || isNaN(minutes)) {
+        return res.status(400).json({ error: 'minutes must be a number' });
+      }
+      
+      const result = balanceMonitor.setRefreshInterval(minutes);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Set interval error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/balance-monitor/changes", standardLimiter, async (req, res) => {
+    try {
+      const { getBalanceChanges } = await import("./blockchain-scanner");
+      const limit = parseInt(req.query.limit as string) || 50;
+      const changes = getBalanceChanges().slice(-limit);
+      
+      res.json({
+        changes,
+        count: changes.length,
+        totalChanges: getBalanceChanges().length,
+      });
+    } catch (error: any) {
+      console.error("[BalanceMonitor] Changes error:", error);
       res.status(500).json({ error: error.message });
     }
   });
