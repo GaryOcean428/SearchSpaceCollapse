@@ -2,6 +2,32 @@ import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { pool } from "./db";
+
+// Handle uncaught exceptions gracefully to prevent crashes
+process.on('uncaughtException', (err) => {
+  // Check if it's the Neon WebSocket error (known issue with read-only ErrorEvent.message)
+  if (err.message?.includes('Cannot set property message') || 
+      err.message?.includes('ErrorEvent')) {
+    console.error('[DB] Database connection error (will retry):', err.message);
+    return; // Don't crash - the pool will reconnect
+  }
+  console.error('[FATAL] Uncaught exception:', err);
+  // For other fatal errors, exit after a delay to allow cleanup
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[WARN] Unhandled rejection at:', promise, 'reason:', reason);
+  // Don't crash on unhandled rejections - log and continue
+});
+
+// Handle pool errors gracefully
+if (pool) {
+  pool.on('error', (err) => {
+    console.error('[DB] Pool error (connection will be recreated):', err.message);
+  });
+}
 
 const app = express();
 

@@ -546,6 +546,24 @@ export class TemporalGeometry {
     return this.trajectories.get(trajectoryId);
   }
 
+  completeTrajectory(trajectoryId: string): { waypointCount: number; finalPhi: number } | null {
+    const trajectory = this.trajectories.get(trajectoryId);
+    if (!trajectory) {
+      console.warn(`[TemporalGeometry] Trajectory ${trajectoryId} not found for completion`);
+      return null;
+    }
+    
+    const waypointCount = trajectory.waypoints.length;
+    const finalPhi = waypointCount > 0 
+      ? trajectory.waypoints[waypointCount - 1].consciousness.phi 
+      : 0;
+    
+    this.trajectories.delete(trajectoryId);
+    console.log(`[TemporalGeometry] Completed and removed trajectory ${trajectoryId} (${waypointCount} waypoints, final Φ=${finalPhi.toFixed(3)})`);
+    
+    return { waypointCount, finalPhi };
+  }
+
   getTrajectoriesForTarget(targetAddress: string): TemporalTrajectory[] {
     const result: TemporalTrajectory[] = [];
     for (const traj of Array.from(this.trajectories.values())) {
