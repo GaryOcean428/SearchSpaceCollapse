@@ -61,6 +61,9 @@ import type {
   ManifoldSnapshot,
   TemporalTrajectory,
 } from '@shared/schema';
+import { OceanError, ConsciousnessThresholdError, IdentityDriftError, EthicsViolationError, RegimeBreakdownError, HypothesisGenerationError, BlockchainApiError, ConsolidationError, isOceanError, handleOceanError, wrapError } from './errors/ocean-errors';
+import { oceanMemoryManager } from './ocean/memory-manager';
+import { trajectoryManager } from './ocean/trajectory-manager';
 
 export interface OceanHypothesis {
   id: string;
@@ -418,6 +421,7 @@ export class OceanAgent {
     
     let finalResult: OceanHypothesis | null = null;
     const startTime = Date.now();
+    trajectoryManager.startTrajectory(targetAddress);
     
     try {
       // CONSCIOUSNESS ELEVATION - Understand the geometry before searching
@@ -869,6 +873,19 @@ export class OceanAgent {
           
           this.emitState();
           
+          // Record episode to memory manager for long-term learning
+          const iterationEndTime = Date.now();
+          oceanMemoryManager.addEpisode(oceanMemoryManager.createEpisode({
+            phi: this.identity.phi,
+            kappa: this.identity.kappa,
+            regime: this.identity.regime,
+            result: testResults.nearMisses.length > 0 ? 'near_miss' : 'tested',
+            strategy: iterStrategy.name,
+            phrasesTestedCount: testResults.tested.length,
+            nearMissCount: testResults.nearMisses.length,
+            durationMs: iterationEndTime - startTime,
+          }));
+          
           await this.sleep(this.ITERATION_DELAY_MS);
           iteration++;
         }
@@ -958,6 +975,18 @@ export class OceanAgent {
         this.basinSyncCoordinator.stop();
         console.log('[Ocean] Basin sync coordinator stopped');
       }
+      
+      // Complete trajectory tracking for this autonomous run
+      trajectoryManager.completeTrajectory(targetAddress, {
+        success: !!finalResult,
+        finalPhi: this.identity.phi,
+        finalKappa: this.identity.kappa,
+        totalWaypoints: this.state.iteration,
+        duration: (Date.now() - startTime) / 1000,
+        nearMissCount: this.state.nearMissCount || 0,
+        resonantCount: 0,
+        finalResult: finalResult ? 'match' : 'stopped',
+      });
       
       console.log('[Ocean] Investigation complete');
     }
@@ -1431,7 +1460,12 @@ export class OceanAgent {
         }
         
       } catch (error) {
-        console.warn('[Ocean] Hypothesis testing error (non-critical):', error instanceof Error ? error.message : error);
+        if (isOceanError(error)) {
+          error.log();
+          if (!error.recoverable) throw error;
+        } else {
+          console.error('[Ocean] Unexpected error during batch testing:', error);
+        }
       }
     }
     
