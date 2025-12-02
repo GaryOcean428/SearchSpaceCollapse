@@ -53,10 +53,15 @@ export class OceanMemoryManager {
   private compressedEpisodes: CompressedEpisode[] = [];
   private isDirty = false;
   private saveTimer: NodeJS.Timeout | null = null;
+  private readonly testMode: boolean;
 
-  constructor() {
-    this.load();
-    this.startAutoSave();
+  constructor(options?: { testMode?: boolean }) {
+    this.testMode = options?.testMode ?? false;
+    
+    if (!this.testMode) {
+      this.load();
+      this.startAutoSave();
+    }
   }
 
   addEpisode(episode: OceanEpisode): void {
