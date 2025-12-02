@@ -77,18 +77,16 @@ async function upsertUser(
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   };
-  await storage.upsertUser(userData);
-  return userData;
+  // Return the full user record from DB (includes createdAt/updatedAt)
+  const fullUser = await storage.upsertUser(userData);
+  return fullUser;
 }
 
 // Cache user profile data in the session to avoid DB lookups on every request
 function cacheUserInSession(user: any, userData: any) {
+  // Cache the complete user record, add cachedAt for TTL tracking
   user.cachedProfile = {
-    id: userData.id,
-    email: userData.email,
-    firstName: userData.firstName,
-    lastName: userData.lastName,
-    profileImageUrl: userData.profileImageUrl,
+    ...userData,
     cachedAt: Date.now(),
   };
 }

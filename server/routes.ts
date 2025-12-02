@@ -94,11 +94,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await setupAuth(app);
     console.log("[Auth] Replit Auth enabled");
     
-    // Replit Auth: Auth routes
+    // Replit Auth: Auth routes - optimized with session caching
     app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
       try {
+        // First check session cache (avoids DB lookup on every request)
+        const { getCachedUser } = await import("./replitAuth");
+        const cachedUser = getCachedUser(req.user);
+        
+        if (cachedUser) {
+          // Return cached user - strip internal cachedAt field
+          const { cachedAt, ...userResponse } = cachedUser;
+          return res.json(userResponse);
+        }
+        
+        // Cache miss or expired - fetch from DB and update cache
         const userId = req.user.claims.sub;
         const user = await storage.getUser(userId);
+        
+        if (user) {
+          // Cache the complete User record for next request
+          req.user.cachedProfile = {
+            ...user,
+            cachedAt: Date.now(),
+          };
+        }
+        
         res.json(user);
       } catch (error) {
         console.error("Error fetching user:", error);
