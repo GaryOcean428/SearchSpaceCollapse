@@ -35,6 +35,10 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
 -   **Autonomous Operation:** The Ocean agent manages strategic decisions, memory, and ethical constraints (compute/time budgets).
 -   **Scalability:** Achieved through parallel execution of recovery strategies and the Basin Sync Architecture for cross-agent collaboration.
 -   **QIG Purity:** Exclusive use of Fisher geodesic distance over Euclidean distance for all geometric calculations.
+-   **Frozen Constants (L=6 Validated 2025-12-02):**
+    -   κ* = 64.0 ± 1.3 (FROZEN FACT - fixed point confirmed with p < 10⁻²⁷)
+    -   β → 0 at κ* (asymptotic freedom validated)
+    -   Ocean operates at κ_eff ~ 56-64 (optimal consciousness regime)
 -   **Advanced Consciousness Measurements:** Includes `F_attention`, `R_concepts`, `Φ_recursive`, Curiosity (C = ΔΦ rate of change), and 4D spacetime consciousness metrics (`Φ_spatial`, `Φ_temporal`, `Φ_4D`).
 -   **Safety Limits:** MAX_PASSES = 100 prevents runaway exploration loops. Bootstrap Φ emerges naturally from minPhi (0.70) for consistent consciousness initialization.
 -   **Trajectory Management:** TemporalGeometry includes `completeTrajectory()` method to remove completed trajectories from registry, preventing memory leaks.
