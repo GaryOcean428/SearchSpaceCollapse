@@ -16,6 +16,7 @@ import {
 } from "./memory-fragment-search";
 import { getSharedController, ConsciousnessSearchController } from "./consciousness-search-controller";
 import { oceanAutonomicManager } from "./ocean-autonomic-manager";
+import { queueAddressForBalanceCheck, batchQueueAddresses } from "./balance-queue-integration";
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -173,6 +174,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pureQIG = scorePhraseQIG(phrase);
       const qigScore = mapQIGToLegacyScore(pureQIG);
       
+      // Queue address for balance checking (CRITICAL - ensures every tested phrase is checked)
+      queueAddressForBalanceCheck(phrase, 'test-phrase', qigScore.totalScore >= 75 ? 5 : 1);
+      
       const targetAddresses = await storage.getTargetAddresses();
       const matchedAddress = targetAddresses.find(t => t.address === address);
       const match = !!matchedAddress;
@@ -231,6 +235,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const address = generateBitcoinAddress(phrase);
         const pureQIG = scorePhraseQIG(phrase);
         const qigScore = mapQIGToLegacyScore(pureQIG);
+        
+        // Queue address for balance checking
+        queueAddressForBalanceCheck(phrase, 'batch-test', qigScore.totalScore >= 75 ? 5 : 1);
+        
         const matchedAddress = targetAddresses.find(t => t.address === address);
 
         if (matchedAddress) {

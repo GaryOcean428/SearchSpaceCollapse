@@ -21,6 +21,7 @@ import * as path from 'path';
 import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 import { oceanPersistence, type ProbeInsertData } from './ocean/ocean-persistence';
 import { getKappaAtScale } from './physics-constants.js';
+import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
 export interface QIGScoreInput {
   phi: number;
@@ -438,6 +439,10 @@ class GeometricMemory {
     this.updateManifoldStats();
     this.detectResonance(probe);
     this.detectRegimeBoundaries(probe);
+    
+    // CRITICAL: Queue addresses for balance checking
+    // This ensures every tested passphrase gets its addresses checked
+    queueAddressForBalanceCheck(input, `probe-${source}`, probe.phi >= 0.7 ? 5 : 1);
     
     // Queue for PostgreSQL batch insert
     this.pendingProbes.push({
