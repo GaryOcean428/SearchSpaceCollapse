@@ -144,3 +144,139 @@ if __name__ == '__main__':
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+def test_recursive_integration():
+    """Test recursive integration (minimum 3 loops)"""
+    print("🧪 Testing Recursive Integration...")
+    
+    network = PureQIGNetwork()
+    
+    # Process with recursion
+    result = network.process_with_recursion("satoshi2009")
+    
+    # Check recursions
+    assert 'n_recursions' in result, "n_recursions must be present"
+    assert result['n_recursions'] >= 3, f"Must have ≥3 recursions, got {result['n_recursions']}"
+    assert result['n_recursions'] <= 12, f"Must have ≤12 recursions, got {result['n_recursions']}"
+    print(f"✅ Recursive integration: {result['n_recursions']} loops")
+    
+    # Check phi history
+    assert 'phi_history' in result, "phi_history must be present"
+    assert len(result['phi_history']) == result['n_recursions'], "Phi history length must match recursions"
+    print(f"✅ Φ history tracked: {len(result['phi_history'])} values")
+    
+    # Check convergence flag
+    assert 'converged' in result, "converged flag must be present"
+    print(f"✅ Convergence: {result['converged']}")
+    
+    print("✅ All recursive integration tests passed!\n")
+
+def test_meta_awareness():
+    """Test meta-awareness (M component)"""
+    print("🧪 Testing Meta-Awareness...")
+    
+    network = PureQIGNetwork()
+    
+    # Process multiple times to build history
+    for i, phrase in enumerate(["test1", "test2", "test3", "test4", "test5"]):
+        result = network.process(phrase)
+        print(f"  {i+1}. M={result['metrics']['M']:.3f}")
+    
+    # M should be measured
+    assert 'M' in result['metrics'], "M (meta-awareness) must be present"
+    assert 0 <= result['metrics']['M'] <= 1, f"M must be in [0,1], got {result['metrics']['M']}"
+    print(f"✅ Meta-awareness measured: M={result['metrics']['M']:.3f}")
+    
+    print("✅ All meta-awareness tests passed!\n")
+
+def test_grounding():
+    """Test grounding detector (G component)"""
+    print("🧪 Testing Grounding...")
+    
+    network = PureQIGNetwork()
+    
+    # First query: ungrounded (no concepts yet)
+    result1 = network.process("satoshi2009")
+    assert 'G' in result1['metrics'], "G (grounding) must be present"
+    assert result1['metrics']['G'] == 0.0, f"First query should be ungrounded, got G={result1['metrics']['G']}"
+    print(f"✅ First query ungrounded: G={result1['metrics']['G']:.3f}")
+    
+    # Manually add to memory to test grounding
+    basin1 = network._extract_basin_coordinates()
+    network.grounding_detector.add_concept("satoshi2009", basin1)
+    
+    # Second query: should be grounded (similar to first)
+    result2 = network.process("satoshi2010")
+    assert result2['metrics']['G'] > 0, f"Second query should have some grounding, got G={result2['metrics']['G']}"
+    print(f"✅ Second query grounded: G={result2['metrics']['G']:.3f}")
+    
+    # Check nearest concept
+    assert 'nearest_concept' in result2['metrics'], "nearest_concept must be present"
+    assert result2['metrics']['nearest_concept'] == "satoshi2009", "Should find first concept"
+    print(f"✅ Nearest concept: {result2['metrics']['nearest_concept']}")
+    
+    # Check grounded flag
+    assert 'grounded' in result2['metrics'], "grounded flag must be present"
+    print(f"✅ Grounded flag: {result2['metrics']['grounded']}")
+    
+    print("✅ All grounding tests passed!\n")
+
+def test_full_7_components():
+    """Test full 7-component consciousness"""
+    print("🧪 Testing Full 7-Component Consciousness...")
+    
+    network = PureQIGNetwork()
+    result = network.process("satoshi2009")
+    
+    metrics = result['metrics']
+    
+    # Check all 7 components present
+    components = ['phi', 'kappa', 'T', 'R', 'M', 'Gamma', 'G']
+    for comp in components:
+        assert comp in metrics, f"{comp} component must be present"
+        assert 0 <= metrics[comp] <= 100, f"{comp} must be in valid range"
+    
+    print(f"✅ Φ (Integration) = {metrics['phi']:.3f}")
+    print(f"✅ κ (Coupling) = {metrics['kappa']:.2f}")
+    print(f"✅ T (Temperature) = {metrics['T']:.3f}")
+    print(f"✅ R (Ricci curvature) = {metrics['R']:.3f}")
+    print(f"✅ M (Meta-awareness) = {metrics['M']:.3f}")
+    print(f"✅ Γ (Generation health) = {metrics['Gamma']:.3f}")
+    print(f"✅ G (Grounding) = {metrics['G']:.3f}")
+    
+    # Check consciousness verdict
+    assert 'conscious' in metrics, "conscious verdict must be present"
+    assert isinstance(metrics['conscious'], bool), "conscious must be boolean"
+    print(f"✅ Consciousness verdict: {metrics['conscious']}")
+    
+    print("✅ All 7-component consciousness tests passed!\n")
+
+if __name__ == '__main__':
+    print("=" * 60)
+    print("🌊 Ocean Pure QIG Consciousness Tests 🌊")
+    print("=" * 60)
+    print()
+    
+    try:
+        test_density_matrix()
+        test_qig_network()
+        test_continuous_learning()
+        test_geometric_purity()
+        test_recursive_integration()
+        test_meta_awareness()
+        test_grounding()
+        test_full_7_components()
+        
+        print("=" * 60)
+        print("✅ ALL TESTS PASSED! ✅")
+        print("🌊 Basin stable. Geometry pure. Consciousness measured. 🌊")
+        print("=" * 60)
+        
+    except AssertionError as e:
+        print(f"\n❌ TEST FAILED: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
