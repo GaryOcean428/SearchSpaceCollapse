@@ -46,8 +46,11 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
     -   **BalanceQueue Service** (`server/balance-queue.ts`): In-memory + disk persistence queue with token-bucket rate limiting (1.5 req/sec), state machine tracking (pending → checking → resolved/failed), priority scoring by phi value
     -   **Multi-Provider Architecture:** Primary Blockstream API + Tavily BitInfoCharts scraper fallback for rate limit resilience
     -   **Tavily Balance Scraper** (`server/tavily-balance-scraper.ts`): Batch scraper with 2s minimum interval, HTML parsing for balance extraction
-    -   **Auto-Cycle Integration:** Queue drains automatically at end of each investigation cycle (max 200 addresses per drain)
-    -   **API Endpoints:** /api/balance-queue/* for status, pending, drain, rate-limit, clear-failed
+    -   **Dual-Mode Processing:**
+        -   **Continuous Background Worker:** Always-on processing at ~1.25 addr/sec, auto-restarts when new addresses are enqueued
+        -   **End-of-Cycle Batch Drain:** 200 addresses per cycle for catch-up processing
+    -   **API Endpoints:** /api/balance-queue/* for status, pending, drain, rate-limit, clear-failed, background (status/start/stop)
+    -   **UI Controls:** Real-time worker status display with start/pause buttons, checked count, hit count, and processing rate
     -   **Critical Fix:** Previously only 1/3 of addresses were checked; now ALL addresses (compressed + uncompressed) are queued before any filtering
 
 **Key Design Decisions:**

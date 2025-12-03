@@ -287,6 +287,11 @@ class BalanceQueueService {
     this.queue.set(id, item);
     this.scheduleSave();
     
+    // Auto-restart background worker if not running and we have addresses
+    if (!this.backgroundWorkerInterval && this.backgroundWorkerEnabled) {
+      this.startBackgroundWorker();
+    }
+    
     return true;
   }
 

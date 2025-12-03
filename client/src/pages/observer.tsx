@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw } from "lucide-react";
+import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -66,6 +66,14 @@ interface BalanceQueueStatus {
   isProcessing: boolean;
 }
 
+interface BackgroundWorkerStatus {
+  enabled: boolean;
+  checked: number;
+  hits: number;
+  rate: number;
+  pending: number;
+}
+
 export default function ObserverPage() {
   const { toast } = useToast();
   const [tierFilter, setTierFilter] = useState<string>("all");
@@ -119,6 +127,54 @@ export default function ObserverPage() {
   const { data: balanceQueueData, isLoading: balanceQueueLoading } = useQuery<BalanceQueueStatus>({
     queryKey: ['/api/balance-queue/status'],
     refetchInterval: 5000, // Poll every 5 seconds
+  });
+
+  // Query background worker status
+  const { data: bgWorkerData, isLoading: bgWorkerLoading } = useQuery<BackgroundWorkerStatus>({
+    queryKey: ['/api/balance-queue/background'],
+    refetchInterval: 2000, // Poll every 2 seconds for live updates
+  });
+
+  // Start background worker mutation
+  const startBgWorkerMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/balance-queue/background/start", undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/balance-queue/background'] });
+      toast({
+        title: "Worker Started",
+        description: "Background balance checking is now active",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start worker",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Stop background worker mutation
+  const stopBgWorkerMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/balance-queue/background/stop", undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/balance-queue/background'] });
+      toast({
+        title: "Worker Stopped",
+        description: "Background balance checking paused",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to stop worker",
+        variant: "destructive",
+      });
+    },
   });
 
   // Add target address mutation
@@ -241,15 +297,87 @@ export default function ObserverPage() {
         {/* Balance Queue Status */}
         <Card className="mb-8" data-testid="card-balance-queue-status">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Search className="w-5 h-5 text-primary" />
-              Balance Check Queue
-            </CardTitle>
-            <CardDescription>
-              All generated addresses are queued for balance verification
-            </CardDescription>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Search className="w-5 h-5 text-primary" />
+                  Balance Check Queue
+                </CardTitle>
+                <CardDescription>
+                  All generated addresses are queued for balance verification
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                {bgWorkerData?.enabled ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => stopBgWorkerMutation.mutate()}
+                    disabled={stopBgWorkerMutation.isPending}
+                    data-testid="button-stop-worker"
+                  >
+                    {stopBgWorkerMutation.isPending ? (
+                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Pause className="w-4 h-4 mr-2" />
+                    )}
+                    Pause Worker
+                  </Button>
+                ) : (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => startBgWorkerMutation.mutate()}
+                    disabled={startBgWorkerMutation.isPending}
+                    data-testid="button-start-worker"
+                  >
+                    {startBgWorkerMutation.isPending ? (
+                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Play className="w-4 h-4 mr-2" />
+                    )}
+                    Start Worker
+                  </Button>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
+            {/* Background Worker Status */}
+            <div className="mb-4 p-3 rounded-lg border bg-card">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {bgWorkerData?.enabled ? (
+                    <>
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-sm font-medium text-green-600" data-testid="text-worker-status">
+                        Background Worker Active
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                      <span className="text-sm font-medium text-muted-foreground" data-testid="text-worker-status">
+                        Background Worker Paused
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span data-testid="text-worker-checked">
+                    Checked: <strong className="text-foreground">{bgWorkerLoading ? "..." : bgWorkerData?.checked || 0}</strong>
+                  </span>
+                  <span data-testid="text-worker-hits">
+                    Hits: <strong className="text-green-600">{bgWorkerLoading ? "..." : bgWorkerData?.hits || 0}</strong>
+                  </span>
+                  <span data-testid="text-worker-rate">
+                    Rate: <strong className="text-foreground">{bgWorkerLoading ? "..." : (bgWorkerData?.rate?.toFixed(2) || "0.00")}/sec</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Queue Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold text-orange-500" data-testid="text-queue-pending">
