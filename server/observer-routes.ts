@@ -277,14 +277,36 @@ router.get("/addresses/dormant", async (req: Request, res: Response) => {
     }
     
     // Convert BigInt fields to strings for JSON serialization
-    const serializedAddresses = filteredAddresses.map(addr => ({
-      ...addr,
-      currentBalance: addr.currentBalance.toString(),
-      createdAt: addr.createdAt?.toISOString() || new Date().toISOString(),
-      updatedAt: addr.updatedAt?.toISOString() || new Date().toISOString(),
-      firstSeenTimestamp: addr.firstSeenTimestamp.toISOString(),
-      lastActivityTimestamp: addr.lastActivityTimestamp.toISOString(),
-    }));
+    // Also add frontend-expected field aliases for UI compatibility
+    const serializedAddresses = filteredAddresses.map(addr => {
+      const firstSeenIso = addr.firstSeenTimestamp.toISOString();
+      const lastSeenIso = addr.lastActivityTimestamp.toISOString();
+      
+      // Calculate dormancy years from last activity
+      const lastActivityDate = new Date(addr.lastActivityTimestamp);
+      const now = new Date();
+      const dormancyMs = now.getTime() - lastActivityDate.getTime();
+      const dormancyYears = dormancyMs / (1000 * 60 * 60 * 24 * 365.25);
+      
+      // Convert satoshis to BTC for display
+      const balanceSats = BigInt(addr.currentBalance);
+      const balanceBtc = Number(balanceSats) / 100000000;
+      
+      return {
+        ...addr,
+        // Original fields (keep for API compatibility)
+        currentBalance: addr.currentBalance.toString(),
+        firstSeenTimestamp: firstSeenIso,
+        lastActivityTimestamp: lastSeenIso,
+        createdAt: addr.createdAt?.toISOString() || new Date().toISOString(),
+        updatedAt: addr.updatedAt?.toISOString() || new Date().toISOString(),
+        // Frontend-expected aliases
+        balance: balanceBtc.toFixed(8),
+        firstSeenAt: firstSeenIso,
+        lastSeenAt: lastSeenIso,
+        dormancyYears: dormancyYears,
+      };
+    });
     
     res.json({
       addresses: serializedAddresses,
