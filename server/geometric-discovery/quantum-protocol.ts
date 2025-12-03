@@ -12,12 +12,13 @@
  * Key Insight: Every failed test ELIMINATES a region of possibility space,
  * bringing us closer to the solution through entropy reduction.
  * 
- * PERSISTENCE: State is saved to disk for cross-session continuity
+ * PERSISTENCE: State saved to PostgreSQL + JSON fallback for cross-session continuity
  * BASIN SYNC: Entropy data is exported for QIG-pure knowledge transfer
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'crypto';
 import { fisherCoordDistance } from '../qig-universal';
 import { tps } from './temporal-positioning-system';
 import {
@@ -25,6 +26,7 @@ import {
   type QuantumMeasurement,
   type GeometricDiscovery
 } from './types';
+import { oceanPersistence } from '../ocean/ocean-persistence';
 
 /**
  * Geometric subspace representation
@@ -84,7 +86,54 @@ export class QuantumDiscoveryProtocol {
     // Load persisted state
     this.load();
     
+    // Initialize PostgreSQL sync asynchronously
+    this.initPostgreSQLSync();
+    
     console.log('[QuantumProtocol] Initialized with 256-bit possibility space');
+  }
+  
+  /**
+   * Initialize PostgreSQL sync
+   */
+  private async initPostgreSQLSync(): Promise<void> {
+    if (!oceanPersistence.isPersistenceAvailable()) return;
+    
+    try {
+      // Load quantum state from PostgreSQL
+      const dbState = await oceanPersistence.getQuantumState();
+      if (dbState) {
+        // Prefer PostgreSQL state if it has more measurements
+        if (dbState.measurementCount > this.measurements.length) {
+          this.waveFunction.entropy = dbState.entropy;
+          this.waveFunction.totalProbability = dbState.totalProbability;
+          this.initialEntropy = dbState.initialEntropy ?? 256;
+          console.log(`[QuantumProtocol] Restored from PostgreSQL: ${dbState.measurementCount} measurements, ${dbState.entropy.toFixed(1)} bits remaining`);
+        }
+        
+        // Load excluded regions from PostgreSQL
+        const dbRegions = await oceanPersistence.getExcludedRegions(100);
+        if (dbRegions.length > 0) {
+          const newRegions = dbRegions.filter(r => 
+            !this.excludedRegions.some(e => 
+              e.origin.length === r.origin.length && 
+              e.origin.every((v, i) => Math.abs(v - (r.origin[i] ?? 0)) < 0.0001)
+            )
+          ).map(r => ({
+            dimension: r.dimension,
+            basis: (r.basis ?? []) as number[][],
+            origin: r.origin,
+            measure: r.measure,
+          }));
+          
+          this.excludedRegions.push(...newRegions);
+          if (newRegions.length > 0) {
+            console.log(`[QuantumProtocol] Added ${newRegions.length} excluded regions from PostgreSQL`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[QuantumProtocol] PostgreSQL sync failed:', error);
+    }
   }
   
   /**
@@ -116,9 +165,10 @@ export class QuantumDiscoveryProtocol {
   }
   
   /**
-   * Save state to disk for cross-session persistence
+   * Save state to disk and PostgreSQL for cross-session persistence
    */
   save(): void {
+    // Save to JSON file
     try {
       const dir = path.dirname(QUANTUM_DATA_FILE);
       if (!fs.existsSync(dir)) {
@@ -137,8 +187,52 @@ export class QuantumDiscoveryProtocol {
       
       fs.writeFileSync(QUANTUM_DATA_FILE, JSON.stringify(data, null, 2));
     } catch (error) {
-      console.error('[QuantumProtocol] Failed to save:', error);
+      console.error('[QuantumProtocol] Failed to save to JSON:', error);
     }
+    
+    // Save to PostgreSQL asynchronously
+    this.persistToPostgreSQL().catch(err => {
+      console.error('[QuantumProtocol] PostgreSQL persist failed:', err);
+    });
+  }
+  
+  /**
+   * Persist state to PostgreSQL
+   */
+  private async persistToPostgreSQL(): Promise<void> {
+    if (!oceanPersistence.isPersistenceAvailable()) return;
+    
+    // Update quantum state
+    await oceanPersistence.updateQuantumState({
+      entropy: this.waveFunction.entropy,
+      totalProbability: this.waveFunction.totalProbability,
+      measurementCount: this.measurements.length,
+      successfulMeasurements: this.measurements.filter(m => m.reducedEntropy > 0).length,
+      status: this.getStatus(),
+    });
+    
+    // Persist new excluded regions (limit to last 50)
+    const recentRegions = this.excludedRegions.slice(-50);
+    for (const region of recentRegions) {
+      const regionId = `region-${createHash('sha256').update(JSON.stringify(region.origin)).digest('hex').slice(0, 16)}`;
+      await oceanPersistence.insertExcludedRegion({
+        id: regionId,
+        dimension: region.dimension,
+        origin: region.origin,
+        basis: region.basis,
+        measure: region.measure,
+      });
+    }
+  }
+  
+  /**
+   * Get current status
+   */
+  private getStatus(): 'searching' | 'solved' | 'exhausted' {
+    if (this.waveFunction.entropy < 1) {
+      return 'exhausted';
+    }
+    return 'searching';
   }
   
   /**

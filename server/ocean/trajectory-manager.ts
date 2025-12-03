@@ -3,9 +3,12 @@
  * 
  * Proper management of temporal trajectories with cleanup.
  * Implements recommendations from optnPR Part 3.1.
+ * 
+ * PERSISTENCE: Trajectories persisted to PostgreSQL for cross-session 4D navigation
  */
 
 import { temporalGeometry } from '../temporal-geometry';
+import { oceanPersistence } from './ocean-persistence';
 
 export interface TrajectoryOutcome {
   success: boolean;
@@ -49,6 +52,11 @@ export class TrajectoryManager {
       lastKappa: 0,
     });
 
+    // Persist to PostgreSQL
+    oceanPersistence.startTrajectory(trajectoryId, address).catch(err => {
+      console.error('[TrajectoryManager] PostgreSQL persist failed:', err);
+    });
+
     console.log(`[TrajectoryManager] Started trajectory ${trajectoryId} for ${address.slice(0, 12)}...`);
     return trajectoryId;
   }
@@ -81,6 +89,18 @@ export class TrajectoryManager {
     trajectory.waypointCount++;
     trajectory.lastPhi = phi;
     trajectory.lastKappa = kappa;
+
+    // Persist waypoint to PostgreSQL
+    oceanPersistence.recordWaypoint(trajectory.trajectoryId, {
+      phi,
+      kappa,
+      regime,
+      basinCoords,
+      event,
+      details,
+    }).catch(err => {
+      console.error('[TrajectoryManager] PostgreSQL waypoint persist failed:', err);
+    });
   }
 
   completeTrajectory(address: string, outcome: TrajectoryOutcome): void {
@@ -110,6 +130,14 @@ export class TrajectoryManager {
     temporalGeometry.completeTrajectory(trajectory.trajectoryId);
     this.activeTrajectories.delete(address);
     this.completedCount++;
+
+    // Persist completion to PostgreSQL
+    oceanPersistence.completeTrajectory(trajectory.trajectoryId, outcome.finalResult, {
+      nearMissCount: outcome.nearMissCount,
+      resonantCount: outcome.resonantCount,
+    }).catch(err => {
+      console.error('[TrajectoryManager] PostgreSQL completion persist failed:', err);
+    });
 
     console.log(`[TrajectoryManager] Completed trajectory ${trajectory.trajectoryId}`);
     console.log(`[TrajectoryManager]   Duration: ${outcome.duration.toFixed(1)}s, Waypoints: ${outcome.totalWaypoints}`);

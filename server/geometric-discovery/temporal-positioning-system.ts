@@ -10,7 +10,7 @@
  * The passphrase exists at specific 68D coordinates.
  * We trilaterate to find it.
  * 
- * PERSISTENCE: Calibration data saved for cross-session continuity
+ * PERSISTENCE: Calibration data saved to PostgreSQL for cross-session continuity
  * BASIN SYNC: Geodesic paths exported for QIG-pure knowledge transfer
  */
 
@@ -28,6 +28,7 @@ import {
   BITCOIN_LANDMARKS,
   ERA_CULTURAL_PATTERNS
 } from './types';
+import { oceanPersistence } from '../ocean/ocean-persistence';
 
 const CULTURAL_DIM = 64;  // Full cultural manifold dimension
 
@@ -108,6 +109,68 @@ export class TemporalPositioningSystem {
   constructor() {
     this.landmarks = initializeLandmarks();
     console.log(`[TPS] Initialized with ${this.landmarks.length} spacetime landmarks`);
+    
+    // Initialize PostgreSQL persistence asynchronously
+    this.initPersistence();
+  }
+  
+  /**
+   * Initialize persistence - sync landmarks to PostgreSQL
+   */
+  private async initPersistence(): Promise<void> {
+    if (!oceanPersistence.isPersistenceAvailable()) return;
+    
+    try {
+      // Check if landmarks are already persisted
+      const dbLandmarks = await oceanPersistence.getLandmarks();
+      
+      if (dbLandmarks.length === 0) {
+        // First run - persist all landmarks
+        console.log('[TPS] Persisting landmarks to PostgreSQL...');
+        for (const lm of this.landmarks) {
+          await oceanPersistence.upsertLandmark({
+            eventId: lm.eventId,
+            description: lm.description,
+            era: lm.era,
+            spacetimeX: lm.coords.spacetime[0],
+            spacetimeY: lm.coords.spacetime[1],
+            spacetimeZ: lm.coords.spacetime[2],
+            spacetimeT: lm.coords.spacetime[3],
+            culturalCoords: lm.coords.cultural,
+            fisherSignature: { diagonal: lm.fisherSignature?.map((row, i) => row[i]) },
+            lightConePast: lm.lightCone.pastEvents,
+            lightConeFuture: lm.lightCone.futureEvents,
+          });
+        }
+        console.log(`[TPS] Persisted ${this.landmarks.length} landmarks to PostgreSQL`);
+      } else {
+        console.log(`[TPS] PostgreSQL: ${dbLandmarks.length} landmarks already persisted`);
+      }
+    } catch (error) {
+      console.error('[TPS] Persistence init failed:', error);
+    }
+  }
+  
+  /**
+   * Persist computed geodesic paths to PostgreSQL
+   */
+  async persistGeodesicPaths(): Promise<void> {
+    if (!oceanPersistence.isPersistenceAvailable()) return;
+    
+    try {
+      for (const path of this.computedPaths) {
+        const pathId = `path-${createHash('sha256').update(`${path.from}:${path.to}`).digest('hex').slice(0, 16)}`;
+        await oceanPersistence.insertTpsGeodesicPath({
+          id: pathId,
+          fromLandmark: path.from,
+          toLandmark: path.to,
+          distance: path.distance,
+        });
+      }
+      console.log(`[TPS] Persisted ${this.computedPaths.length} geodesic paths to PostgreSQL`);
+    } catch (error) {
+      console.error('[TPS] Geodesic path persistence failed:', error);
+    }
   }
   
   /**
