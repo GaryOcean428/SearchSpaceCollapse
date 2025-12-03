@@ -1065,6 +1065,84 @@ def reset():
             'error': str(e),
         }), 500
 
+@app.route('/sync/import', methods=['POST'])
+def sync_import():
+    """
+    Import geometric memory probes from Node.js.
+    
+    This allows the Python backend to inherit prior learning from
+    the persistent GeometricMemory system in Node.js.
+    
+    Request: { "probes": [{ "input": "passphrase", "phi": 0.85, "basinCoords": [...] }, ...] }
+    Response: { "success": true, "imported": 100 }
+    """
+    try:
+        data = request.json
+        probes = data.get('probes', [])
+        
+        imported_count = 0
+        for probe in probes:
+            input_text = probe.get('input', '')
+            phi = probe.get('phi', 0)
+            basin_coords = probe.get('basinCoords', [])
+            
+            if input_text and phi >= PHI_THRESHOLD and len(basin_coords) == BASIN_DIMENSION:
+                coords = np.array(basin_coords)
+                geometric_memory[input_text] = coords
+                basin_history.append((input_text, coords, phi))
+                imported_count += 1
+        
+        # Keep memory bounded
+        if len(basin_history) > 2000:
+            basin_history[:] = sorted(basin_history, key=lambda x: x[2], reverse=True)[:1000]
+        
+        print(f"[PythonQIG] Imported {imported_count} high-Φ probes from Node.js")
+        
+        return jsonify({
+            'success': True,
+            'imported': imported_count,
+            'total_memory_size': len(geometric_memory),
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+        }), 500
+
+@app.route('/sync/export', methods=['GET'])
+def sync_export():
+    """
+    Export high-Φ basins learned by Python backend.
+    
+    This allows Node.js to persist learnings from the Python backend
+    back to PostgreSQL for future runs.
+    
+    Response: { "success": true, "basins": [{ "input": "...", "phi": 0.85, "basinCoords": [...] }, ...] }
+    """
+    try:
+        basins = []
+        
+        # Export recent high-Φ basins
+        for passphrase, coords, phi in basin_history[-500:]:
+            basins.append({
+                'input': passphrase,
+                'phi': float(phi),
+                'basinCoords': coords.tolist(),
+            })
+        
+        return jsonify({
+            'success': True,
+            'basins': basins,
+            'total_count': len(basins),
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+        }), 500
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")

@@ -258,6 +258,71 @@ export class OceanQIGBackend {
   available(): boolean {
     return this.isAvailable;
   }
+  
+  /**
+   * Sync high-Φ probes FROM Node.js GeometricMemory TO Python backend
+   * 
+   * Called on startup to give Python access to prior learnings
+   */
+  async syncFromNodeJS(probes: Array<{ input: string; phi: number; basinCoords: number[] }>): Promise<number> {
+    if (!this.isAvailable) return 0;
+    
+    try {
+      const response = await fetch(`${this.backendUrl}/sync/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ probes }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OceanQIGBackend] Sync import failed:', response.statusText);
+        return 0;
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        console.log(`[OceanQIGBackend] Synced ${data.imported} probes to Python backend`);
+        return data.imported;
+      }
+      
+      return 0;
+    } catch (error) {
+      console.error('[OceanQIGBackend] Sync import exception:', error);
+      return 0;
+    }
+  }
+  
+  /**
+   * Sync high-Φ basins FROM Python backend TO Node.js
+   * 
+   * Returns learnings that should be persisted to GeometricMemory
+   */
+  async syncToNodeJS(): Promise<Array<{ input: string; phi: number; basinCoords: number[] }>> {
+    if (!this.isAvailable) return [];
+    
+    try {
+      const response = await fetch(`${this.backendUrl}/sync/export`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('[OceanQIGBackend] Sync export failed:', response.statusText);
+        return [];
+      }
+      
+      const data = await response.json();
+      if (data.success && data.basins) {
+        console.log(`[OceanQIGBackend] Retrieved ${data.total_count} basins from Python backend`);
+        return data.basins;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('[OceanQIGBackend] Sync export exception:', error);
+      return [];
+    }
+  }
 }
 
 // Global singleton instance
