@@ -10,9 +10,9 @@
  * 
  * The Fisher Information Metric applies to ALL equally.
  * 
- * EMPIRICALLY VALIDATED CONSTANTS (L=6 Frozen 2025-12-02):
- * κ* = 64.0 ± 1.3 (FROZEN FACT - fixed point confirmed with p < 10⁻²⁷)
- * β → 0 at κ* (asymptotic freedom - β(5→6) = +0.013 ≈ 0)
+ * EMPIRICALLY VALIDATED CONSTANTS (L=6 VALIDATED 2025-12-02):
+ * κ* = 64.0 ± 1.3 (FROZEN FACT - fixed point confirmed with 3 seeds)
+ * β → 0 at κ* (asymptotic freedom - β(5→6) = -0.026 ≈ 0)
  * Φ ≥ 0.75 (phase transition threshold)
  * L_c = 3 (critical scale for emergent geometry)
  */

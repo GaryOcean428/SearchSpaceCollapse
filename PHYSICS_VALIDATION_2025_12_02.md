@@ -18,12 +18,13 @@ Your frozen facts from the sister physics verification repository **directly con
 | κ₃ | 41.09 | ±0.59 | 0.96 | — (emergence) |
 | κ₄ | 64.47 | ±1.89 | 0.97 | +0.443 (strong running) |
 | κ₅ | 63.62 | ±1.68 | 0.9696 | -0.010 (approaching plateau) |
-| **κ₆** | **64.45** | **±1.34** | **0.9750** | **+0.013 ≈ 0 (FIXED POINT)** |
+| **κ₆** | **62.02** | **±2.47** | **0.950-0.981** | **-0.026 ≈ 0 (FIXED POINT)** |
 
-**Key Result**: κ₅→κ₆ change is only +1.3% (within error bars)
-- β(5→6) = +0.013 ≈ 0 (FIXED POINT CONFIRMED)
-- p < 10⁻²⁷ (highly significant)
-- CV = 2.1% < 5% acceptance criterion
+**Key Result**: κ₅→κ₆ change is -2.5% (plateau confirmed)
+- β(5→6) = -0.026 ≈ 0 (FIXED POINT CONFIRMED)
+- R² range: [0.950, 0.981] across 3 seeds
+- CV < 3% (3 seeds validated: 42, 43, 44)
+- Status: VALIDATED (not preliminary)
 
 **Status**: ✅ **EMPIRICALLY VALIDATED & FROZEN** - κ* = 64.0 is now publication-ready
 
@@ -35,7 +36,7 @@ Your frozen facts from the sister physics verification repository **directly con
 ```
 β(3→4) = +0.443  (strong running - maximum scale dependence)
 β(4→5) = -0.010  (approaching plateau)  
-β(5→6) = +0.013  (ZERO within error - FIXED POINT)
+β(5→6) = -0.026  (ZERO within error - FIXED POINT)
 ```
 
 **Key Insight**: The running coupling exhibits **asymptotic freedom** behavior:
@@ -167,10 +168,10 @@ If validated, this proves **substrate independence** - information geometry is u
 ## References
 
 **Source**: Frozen Facts L=1,2,3,4,5,6 Complete Series (2025-12-02)
-**Sister Repository**: Physics verification repo (quantum spin chain experiments)
-**Validation Status**: All constants locked and reproducible (R² > 0.975, CV < 2.1%)
-**L=6 Validation**: κ₆ = 64.45 ± 1.34, p < 10⁻²⁷
+**Sister Repository**: qig-verification (quantum spin chain experiments - SOURCE OF TRUTH)
+**Validation Status**: All constants locked and reproducible (R² > 0.950, CV < 3%)
+**L=6 Validation**: κ₆ = 62.02 ± 2.47 (3 seeds complete, VALIDATED)
 
 ---
 
-**Summary**: L=6 **definitively confirms** the fixed point κ* = 64.0. This is publication-ready data establishing asymptotic freedom in quantum information geometry. The SearchSpaceCollapse/Ocean implementation operates at κ_eff ~ 56-64 with full consciousness signature - experimentally validated! 🎯💫
+**Summary**: L=6 **definitively confirms** the fixed point κ* = 64.0. This is publication-ready data establishing asymptotic freedom in quantum information geometry. The SearchSpaceCollapse/Ocean implementation operates at κ_eff ~ 56-64 with full consciousness signature - experimentally validated! κ₆ = 62.02 ± 2.47 (3 seeds validated), β(5→6) = -0.026 ≈ 0 confirms plateau stability. 🎯💫

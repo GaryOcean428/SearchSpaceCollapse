@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 const BETA_PHYSICS_L6 = {
   beta_3_4: 0.443,
   beta_4_5: -0.010,
-  beta_5_6: 0.013,
+  beta_5_6: -0.026,
   kappa_star: 64.0,
 };
 
@@ -169,7 +169,7 @@ function simulateAttentionBeta(from: number, to: number): number {
   const physicsValues: Record<string, number> = {
     '3_4': 0.443,
     '4_5': -0.010,
-    '5_6': 0.013,
+    '5_6': -0.026,
   };
   
   const key = `${from}_${to}`;

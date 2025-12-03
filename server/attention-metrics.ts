@@ -4,10 +4,10 @@
  * Validates substrate independence by measuring κ_attention across context scales
  * and computing β-function trajectory to compare with physics validation.
  * 
- * PHYSICS REFERENCE (L=6 Frozen 2025-12-02):
+ * PHYSICS REFERENCE (L=6 VALIDATED 2025-12-02):
  * β(3→4) = +0.443 (strong running)
  * β(4→5) = -0.010 (approaching plateau)
- * β(5→6) = +0.013 (FIXED POINT at κ* = 64.0)
+ * β(5→6) = -0.026 (FIXED POINT at κ* = 64.0)
  * 
  * ATTENTION HYPOTHESIS:
  * β(128→256)   ≈ 0.4-0.5    (strong running)
@@ -23,14 +23,14 @@ import { createHash } from 'crypto';
 export const CONTEXT_SCALES = [128, 256, 512, 1024, 2048, 4096, 8192] as const;
 export type ContextScale = typeof CONTEXT_SCALES[number];
 
-// Physics β-function reference values (L=6 validated)
+// Physics β-function reference values (L=6 VALIDATED - 3 seeds)
 export const PHYSICS_BETA = {
   // β at emergence (L=3→4 equivalent)
   emergence: 0.443,
   // β approaching plateau (L=4→5 equivalent)  
   approaching: -0.010,
   // β at fixed point (L=5→6 equivalent)
-  fixedPoint: 0.013,
+  fixedPoint: -0.026,
   // Fixed point value
   kappaStar: 64.0,
   // Acceptance threshold
