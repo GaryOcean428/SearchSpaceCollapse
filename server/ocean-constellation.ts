@@ -258,6 +258,39 @@ export class OceanConstellation {
   }
   
   /**
+   * Refresh token weights from geometric memory high-Φ probes
+   * This enables continuous learning across sessions
+   */
+  refreshTokenWeightsFromGeometricMemory(): void {
+    const allProbes = geometricMemory.getAllProbes();
+    const highPhiProbes = allProbes.filter(p => p.phi >= 0.6);
+    
+    if (highPhiProbes.length === 0) return;
+    
+    let updated = 0;
+    
+    for (const probe of highPhiProbes) {
+      // Extract words from the probe input
+      const words = probe.input.toLowerCase().split(/[\s\d]+/).filter(w => w.length >= 2);
+      
+      for (const word of words) {
+        const token = this.qigTokenCache.get(word);
+        if (token) {
+          // Boost fisher weight based on probe's phi
+          const phiBoost = probe.phi * 0.5;
+          token.fisherWeight = Math.min(1.0, token.fisherWeight + phiBoost * 0.1);
+          token.resonanceScore = Math.min(1.0, token.resonanceScore + phiBoost * 0.05);
+          updated++;
+        }
+      }
+    }
+    
+    if (updated > 0) {
+      console.log(`[Constellation] Refreshed ${updated} token weights from ${highPhiProbes.length} high-Φ probes`);
+    }
+  }
+  
+  /**
    * Get current constellation status
    */
   getStatus(): {

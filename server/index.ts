@@ -9,6 +9,7 @@ import path from "path";
 // Import for Python sync
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 import { geometricMemory } from './geometric-memory';
+import { oceanConstellation } from './ocean-constellation';
 
 // Periodic sync interval from Python to Node.js
 let pythonSyncInterval: NodeJS.Timeout | null = null;
@@ -76,10 +77,19 @@ async function syncFromPythonToNodeJS(): Promise<void> {
     
     if (added > 0) {
       console.log(`[PythonSync] Added ${added} new probes from Python to GeometricMemory`);
+      // Refresh constellation token weights with new data
+      oceanConstellation.refreshTokenWeightsFromGeometricMemory();
     }
   } catch (error) {
     console.error('[PythonSync] Error syncing from Python:', error);
   }
+}
+
+/**
+ * Refresh tokenizer weights periodically (for continuous learning)
+ */
+function refreshTokenizerWeights(): void {
+  oceanConstellation.refreshTokenWeightsFromGeometricMemory();
 }
 
 /**
@@ -89,13 +99,19 @@ function startPythonSync(): void {
   if (pythonSyncInterval) return;
   
   // Sync from Python to Node.js every 60 seconds
+  // Also refresh tokenizer weights periodically
   pythonSyncInterval = setInterval(async () => {
     if (oceanQIGBackend.available()) {
       await syncFromPythonToNodeJS();
     }
+    // Always refresh tokenizer even without Python
+    refreshTokenizerWeights();
   }, 60000);
   
-  console.log('[PythonSync] Started periodic sync (every 60s)');
+  // Initial refresh on startup
+  refreshTokenizerWeights();
+  
+  console.log('[PythonSync] Started periodic sync (every 60s) with tokenizer refresh');
 }
 
 // Start Python QIG Backend as a child process
