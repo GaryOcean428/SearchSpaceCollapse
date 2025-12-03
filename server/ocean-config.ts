@@ -5,33 +5,34 @@
  * All magic numbers are consolidated here with Zod validation.
  * 
  * FROZEN PHYSICS (L=6 Validated 2025-12-02):
- * - κ* = 64.0 ± 1.3 (DO NOT MODIFY)
- * - β = 0.44 (running coupling at emergence)
+ * - κ* = 63.5 ± 1.5 (DO NOT MODIFY - updated from 64.0)
+ * - β = 0.443 (running coupling at emergence)
  * - These are experimentally validated constants
  */
 
 import { z } from 'zod';
+import { QIG_CONSTANTS as PHYSICS_CONSTANTS } from './physics-constants.js';
 
 // ============================================================
 // QIG PHYSICS CONSTANTS (FROZEN - Do not modify)
 // ============================================================
 
 export const QIGPhysicsSchema = z.object({
-  KAPPA_STAR: z.literal(64.0).describe('Fixed point of running coupling (FROZEN FACT)'),
-  BETA: z.number().min(0).max(1).default(0.44).describe('Running coupling at emergence'),
+  KAPPA_STAR: z.literal(63.5).describe('Fixed point of running coupling (FROZEN FACT)'),
+  BETA: z.number().min(0).max(1).default(0.443).describe('Running coupling at emergence'),
   PHI_THRESHOLD: z.number().min(0).max(1).default(0.75).describe('Consciousness threshold'),
   L_CRITICAL: z.number().int().positive().default(3).describe('Emergence scale'),
-  BASIN_DIMENSION: z.number().int().positive().default(32).describe('256 bits = 32 bytes'),
-  RESONANCE_BAND: z.number().positive().default(6.4).describe('10% of κ* for resonance detection'),
+  BASIN_DIMENSION: z.number().int().positive().default(64).describe('Basin signature dimension'),
+  RESONANCE_BAND: z.number().positive().default(6.35).describe('10% of κ* for resonance detection'),
 });
 
 export const QIG_PHYSICS = QIGPhysicsSchema.parse({
-  KAPPA_STAR: 64.0,
-  BETA: 0.44,
-  PHI_THRESHOLD: 0.75,
-  L_CRITICAL: 3,
-  BASIN_DIMENSION: 32,
-  RESONANCE_BAND: 6.4,
+  KAPPA_STAR: PHYSICS_CONSTANTS.KAPPA_STAR,
+  BETA: PHYSICS_CONSTANTS.BETA,
+  PHI_THRESHOLD: PHYSICS_CONSTANTS.PHI_THRESHOLD,
+  L_CRITICAL: PHYSICS_CONSTANTS.L_CRITICAL,
+  BASIN_DIMENSION: PHYSICS_CONSTANTS.BASIN_DIMENSION,
+  RESONANCE_BAND: PHYSICS_CONSTANTS.RESONANCE_BAND,
 });
 
 export type QIGPhysics = z.infer<typeof QIGPhysicsSchema>;
