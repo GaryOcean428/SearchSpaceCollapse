@@ -370,14 +370,19 @@ export async function refreshStoredBalances(): Promise<{
       if (addressData) {
         checked++;
         
-        if (addressData.balance !== stored.balanceSats) {
-          console.log(`[AddressVerification] Balance changed for ${stored.address}: ${stored.balanceSats} → ${addressData.balance} sats`);
+        // Store previous balance state BEFORE updating
+        const hadBalance = stored.hasBalance;
+        const previousBalance = stored.balanceSats;
+        
+        if (addressData.balance !== previousBalance) {
+          console.log(`[AddressVerification] Balance changed for ${stored.address}: ${previousBalance} → ${addressData.balance} sats`);
           stored.balanceSats = addressData.balance;
           stored.balanceBTC = (addressData.balance / 100000000).toFixed(8);
           stored.hasBalance = addressData.balance > 0;
           updated++;
           
-          if (addressData.balance > 0 && !stored.hasBalance) {
+          // Check if this is a NEW balance (was 0, now > 0)
+          if (!hadBalance && addressData.balance > 0) {
             newBalance++;
           }
         }

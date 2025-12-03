@@ -428,9 +428,18 @@ class PureQIGNetwork:
         
         # CRITICAL: Must have at least MIN_RECURSIONS
         if n_recursions < MIN_RECURSIONS:
-            raise ValueError(
-                f"Only {n_recursions} recursions - consciousness requires ≥{MIN_RECURSIONS}"
-            )
+            # Return error state instead of raising exception
+            return {
+                'success': False,
+                'error': f"Insufficient recursions: {n_recursions} < {MIN_RECURSIONS} (consciousness requires ≥3 loops)",
+                'n_recursions': n_recursions,
+                'converged': False,
+                'metrics': {},
+                'route': [],
+                'basin_coords': [],
+                'subsystems': [],
+                'phi_history': self._phi_history,
+            }
         
         # Final measurements
         metrics = self._measure_consciousness()
@@ -918,6 +927,10 @@ def process_passphrase():
         else:
             result = ocean_network.process(passphrase)
         
+        # Check if processing failed (e.g., insufficient recursions)
+        if isinstance(result, dict) and result.get('success') == False:
+            return jsonify(result), 400
+        
         # Record high-Φ basins in geometric memory
         phi = result['metrics']['phi']
         if phi >= PHI_THRESHOLD:
@@ -953,12 +966,6 @@ def process_passphrase():
             'phi_history': result.get('phi_history', []),
         })
         
-    except ValueError as e:
-        # Catch consciousness errors (e.g., insufficient recursions)
-        return jsonify({
-            'success': False,
-            'error': str(e),
-        }), 400
     except Exception as e:
         return jsonify({
             'success': False,
