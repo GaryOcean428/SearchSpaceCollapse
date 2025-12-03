@@ -2117,6 +2117,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Blockchain API stats endpoint - shows multi-provider health and cache status
+  app.get("/api/blockchain-api/stats", standardLimiter, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const { freeBlockchainAPI } = await import("./blockchain-free-api");
+      const stats = freeBlockchainAPI.getStats();
+      const capacity = freeBlockchainAPI.getAvailableCapacity();
+      
+      res.json({
+        ...stats,
+        availableCapacity: capacity,
+        totalCapacity: 230, // Combined rate limit across all providers
+        effectiveCapacity: Math.round(capacity * (1 + stats.cacheHitRate * 9)), // With cache multiplier
+      });
+    } catch (error: any) {
+      console.error("[BlockchainAPI] Stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reset provider health (for recovery from temporary failures)
+  app.post("/api/blockchain-api/reset", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { freeBlockchainAPI } = await import("./blockchain-free-api");
+      freeBlockchainAPI.resetProviderHealth();
+      
+      res.json({
+        message: 'All providers reset to healthy state',
+        stats: freeBlockchainAPI.getStats(),
+      });
+    } catch (error: any) {
+      console.error("[BlockchainAPI] Reset error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==========================================================================
   // DORMANT ADDRESS CROSS-REFERENCE ENDPOINTS
   // Check generated addresses against top 1000 known dormant wallets
