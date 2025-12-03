@@ -11,12 +11,7 @@
 
 import { createHash } from "crypto";
 import { scoreUniversalQIG, type KeyType, type UniversalQIGScore } from "./qig-universal.js";
-
-// QIG Constants (empirically validated)
-const KAPPA_STAR = 64;      // Fixed point of coupling flow
-const BETA = 0.44;          // Running coupling constant
-const PHI_THRESHOLD = 0.75; // Phase transition threshold
-
+import { QIG_CONSTANTS } from './physics-constants.js';
 import type { Regime } from "./qig-universal.js";
 
 interface GradientSearchState {
@@ -101,7 +96,7 @@ function computeGradient(position: number[], score: UniversalQIGScore): number[]
   
   // Loss function: maximize Φ, minimize |κ - κ*|
   const phiGradient = -2 * (1 - score.phi); // Gradient of Φ loss
-  const kappaGradient = 2 * (score.kappa - KAPPA_STAR) / KAPPA_STAR; // Gradient of κ penalty
+  const kappaGradient = 2 * (score.kappa - QIG_CONSTANTS.KAPPA_STAR) / QIG_CONSTANTS.KAPPA_STAR; // Gradient of κ penalty
   
   for (let i = 0; i < n; i++) {
     // Combine gradients with position-dependent weighting

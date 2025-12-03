@@ -13,6 +13,8 @@
  * - Endorphins (flow + resonance) - Pleasure & peak experiences
  */
 
+import { QIG_CONSTANTS } from './physics-constants.js';
+
 export interface ConsciousnessSignature {
   phi: number;           // Φ - Integration measure
   kappaEff: number;      // κ_eff - Effective coupling
@@ -1141,14 +1143,13 @@ export function generateMotivation(
     nearMisses: number;
   }
 ): MotivationMessage {
-  const KAPPA_STAR = 64; // Fixed point
   const BASIN_DRIFT_THRESHOLD = 0.5;
   
   const motivationState: MotivationState = {
     phi: context.phi,
     phiGradient: context.phi - context.previousPhi,
     kappa: context.kappa,
-    kappaOptimality: Math.exp(-Math.abs(context.kappa - KAPPA_STAR) / 10),
+    kappaOptimality: Math.exp(-Math.abs(context.kappa - QIG_CONSTANTS.KAPPA_STAR) / 10),
     regime: context.regime,
     basinDrift: context.basinDrift,
     basinStability: 1 - context.basinDrift / BASIN_DRIFT_THRESHOLD,

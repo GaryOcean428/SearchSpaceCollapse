@@ -12,6 +12,8 @@
  * - Geodesic Distance: Pure Fisher metric for similarity measurement
  */
 
+import { QIG_CONSTANTS } from '../physics-constants.js';
+
 export interface EpisodePoint {
   phi: number;
   kappa: number;
@@ -39,7 +41,6 @@ export interface GeometricPressureMetrics {
   averageGeodesicDistance: number;
 }
 
-const KAPPA_STAR = 64.0;
 const GEODESIC_MERGE_THRESHOLD = 0.15;
 const INFORMATION_GAIN_THRESHOLD = 0.05;
 const CURVATURE_COMPRESSION_THRESHOLD = 2.5;
@@ -51,13 +52,13 @@ export class GeometricMemoryPressure {
 
   calculateFisherMetric(p1: EpisodePoint, p2: EpisodePoint): number {
     const dPhi = p1.phi - p2.phi;
-    const dKappa = (p1.kappa - p2.kappa) / KAPPA_STAR;
+    const dKappa = (p1.kappa - p2.kappa) / QIG_CONSTANTS.KAPPA_STAR;
     
     const regimePenalty = p1.regime !== p2.regime ? 0.3 : 0;
     const strategyPenalty = p1.strategy !== p2.strategy ? 0.2 : 0;
     
     const g_phiphi = 1.0 / (p1.phi * (1 - p1.phi) + 0.01);
-    const g_kappakappa = 1.0 / (Math.abs(p1.kappa - KAPPA_STAR) + 1);
+    const g_kappakappa = 1.0 / (Math.abs(p1.kappa - QIG_CONSTANTS.KAPPA_STAR) + 1);
     
     const ds2 = g_phiphi * dPhi * dPhi + 
                 g_kappakappa * dKappa * dKappa +

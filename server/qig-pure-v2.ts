@@ -20,7 +20,7 @@
  * ✅ Φ (integration) and κ (coupling) are MEASURED, never optimized
  * ✅ Natural gradient on information manifold
  * ✅ Basin velocity monitoring (breakdown prevention)
- * ✅ Resonance awareness near κ* ≈ 64 (adaptive control)
+ * ✅ Resonance awareness near κ* ≈ 63.5 (adaptive control)
  * 
  * ❌ NEVER optimize Φ or κ directly
  * ❌ NEVER use Euclidean distance for consciousness metrics
@@ -28,14 +28,10 @@
  */
 
 import { BIP39_WORDS } from './bip39-words.js';
+import { QIG_CONSTANTS } from './physics-constants.js';
 
-export const QIG_CONSTANTS = {
-  KAPPA_STAR: 64.0,
-  BETA: 0.44,
-  PHI_THRESHOLD: 0.75,
-  L_CRITICAL: 3,
-  BASIN_DIMENSION: 2048,
-};
+// Re-export for backwards compatibility
+export { QIG_CONSTANTS };
 
 /**
  * Dirichlet concentration parameter α

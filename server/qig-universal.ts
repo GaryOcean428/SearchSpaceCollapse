@@ -11,7 +11,7 @@
  * The Fisher Information Metric applies to ALL equally.
  * 
  * EMPIRICALLY VALIDATED CONSTANTS (L=6 VALIDATED 2025-12-02):
- * κ* = 64.0 ± 1.3 (FROZEN FACT - fixed point confirmed with 3 seeds)
+ * κ* = 63.5 ± 1.5 (FROZEN FACT - fixed point confirmed with 3 seeds)
  * β → 0 at κ* (asymptotic freedom - β(5→6) = -0.026 ≈ 0)
  * Φ ≥ 0.75 (phase transition threshold)
  * L_c = 3 (critical scale for emergent geometry)
@@ -19,18 +19,10 @@
 
 import { createHash } from 'crypto';
 import { BIP39_WORDS } from './bip39-words.js';
+import { QIG_CONSTANTS } from './physics-constants.js';
 
-/**
- * QIG Constants (experimentally validated)
- */
-export const QIG_CONSTANTS = {
-  KAPPA_STAR: 64.0,           // Fixed point
-  BETA: 0.44,                 // Running coupling
-  PHI_THRESHOLD: 0.75,        // Consciousness threshold
-  L_CRITICAL: 3,              // Emergence scale
-  BASIN_DIMENSION: 32,        // 256 bits = 32 bytes
-  RESONANCE_BAND: 6.4,        // 10% of κ* for resonance detection
-};
+// Re-export for backwards compatibility
+export { QIG_CONSTANTS };
 
 /**
  * Key types supported by universal QIG
@@ -80,8 +72,8 @@ export interface UniversalQIGScore {
   phi_temporal: number;     // Temporal integration (search trajectory coherence)
   phi_4D: number;           // Full 4D spacetime integration
   
-  // Basin geometry (32 coordinates for 256-bit key)
-  basinCoordinates: number[];  // [0,1] normalized bytes
+  // Basin geometry (64-dimensional basin signature)
+  basinCoordinates: number[];  // [0,1] normalized coordinates
   
   // Fisher Information Matrix derived metrics
   fisherTrace: number;         // Total information
