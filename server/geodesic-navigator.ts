@@ -16,6 +16,7 @@ import {
 } from './cultural-manifold';
 import { scoreUniversalQIG } from './qig-universal';
 import { generateBitcoinAddress } from './crypto';
+import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
 export interface GeodesicSearchConfig {
   targetAddress: string;
@@ -185,6 +186,9 @@ export class GeodesicNavigator {
     try {
       const generatedAddress = generateBitcoinAddress(candidate.phrase);
       const matched = generatedAddress === targetAddress;
+
+      // Queue for balance checking
+      queueAddressForBalanceCheck(candidate.phrase, 'geodesic-navigator', 3);
 
       const qigScore = scoreUniversalQIG(candidate.phrase, 'arbitrary');
       

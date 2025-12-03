@@ -2156,6 +2156,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Queue integration stats - shows which sources are feeding addresses
+  app.get("/api/balance-queue/integration-stats", standardLimiter, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const { getQueueIntegrationStats } = await import("./balance-queue-integration");
+      const stats = getQueueIntegrationStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("[BalanceQueue] Integration stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Backfill stats - shows how many phrases are available to backfill
+  app.get("/api/balance-queue/backfill/stats", standardLimiter, async (req, res) => {
+    try {
+      const { getBackfillStats, getBackfillProgress } = await import("./balance-queue-backfill");
+      res.json({
+        available: getBackfillStats(),
+        progress: getBackfillProgress()
+      });
+    } catch (error: any) {
+      console.error("[Backfill] Stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Start backfill - queues all existing tested phrases
+  app.post("/api/balance-queue/backfill/start", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { startBackfill } = await import("./balance-queue-backfill");
+      const source = req.body.source || 'tested-phrases';
+      const batchSize = req.body.batchSize || 100;
+      
+      // Start backfill asynchronously
+      startBackfill({ source, batchSize }).then(result => {
+        console.log('[Backfill] Completed:', result);
+      });
+      
+      res.json({
+        message: `Backfill started from ${source}`,
+        status: 'running'
+      });
+    } catch (error: any) {
+      console.error("[Backfill] Start error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Blockchain API stats endpoint - shows multi-provider health and cache status
   app.get("/api/blockchain-api/stats", standardLimiter, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');

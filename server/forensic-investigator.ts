@@ -14,8 +14,9 @@
  */
 
 import { scoreUniversalQIG, UniversalQIGScore } from './qig-universal';
-import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex } from './crypto';
+import { generateBitcoinAddress, deriveBIP32Address, deriveBIP32PrivateKey, generateAddressFromHex } from './crypto';
 import { getBIP39Wordlist } from './bip39-words';
+import { queueAddressForBalanceCheck, queueAddressFromPrivateKey } from './balance-queue-integration';
 
 let cachedWordlist: string[] | null = null;
 
@@ -570,28 +571,57 @@ export class ForensicInvestigator {
    * Generate address for a hypothesis
    */
   private async generateAddress(hypo: ForensicHypothesis): Promise<string> {
+    let address: string;
+    
     try {
       switch (hypo.format) {
         case 'arbitrary':
-          return generateBitcoinAddress(hypo.phrase);
+          address = generateBitcoinAddress(hypo.phrase);
+          // Queue passphrase-based address
+          queueAddressForBalanceCheck(hypo.phrase, 'forensic-arbitrary', 4);
+          break;
         case 'bip39':
           if (hypo.derivationPath) {
-            return deriveBIP32Address(hypo.phrase, hypo.derivationPath);
+            address = deriveBIP32Address(hypo.phrase, hypo.derivationPath);
+            // For BIP39 with derivation path, use the derived private key
+            const bip39PrivKey = deriveBIP32PrivateKey(hypo.phrase, hypo.derivationPath);
+            queueAddressFromPrivateKey(bip39PrivKey, hypo.phrase, 'forensic-bip39', 4);
+          } else {
+            address = generateBitcoinAddress(hypo.phrase);
+            queueAddressForBalanceCheck(hypo.phrase, 'forensic-bip39', 4);
           }
-          return generateBitcoinAddress(hypo.phrase);
+          break;
         case 'hex':
-          return generateAddressFromHex(hypo.phrase);
+          address = generateAddressFromHex(hypo.phrase);
+          // For hex, the phrase IS the private key
+          if (hypo.phrase.length === 64) {
+            queueAddressFromPrivateKey(hypo.phrase, hypo.phrase, 'forensic-hex', 4);
+          }
+          break;
         case 'master':
-          const path = hypo.derivationPath || "m/44'/0'/0'/0/0";
-          return deriveBIP32Address(hypo.phrase, path);
+          const masterPath = hypo.derivationPath || "m/44'/0'/0'/0/0";
+          address = deriveBIP32Address(hypo.phrase, masterPath);
+          // Master uses passphrase as seed - get derived private key
+          const masterPrivKey = deriveBIP32PrivateKey(hypo.phrase, masterPath);
+          queueAddressFromPrivateKey(masterPrivKey, hypo.phrase, 'forensic-master', 4);
+          break;
         case 'derived':
-          return deriveBIP32Address(hypo.phrase, hypo.derivationPath || "m/0");
+          const derivedPath = hypo.derivationPath || "m/0";
+          address = deriveBIP32Address(hypo.phrase, derivedPath);
+          // Derived uses passphrase as seed - get derived private key
+          const derivedPrivKey = deriveBIP32PrivateKey(hypo.phrase, derivedPath);
+          queueAddressFromPrivateKey(derivedPrivKey, hypo.phrase, 'forensic-derived', 4);
+          break;
         default:
-          return generateBitcoinAddress(hypo.phrase);
+          address = generateBitcoinAddress(hypo.phrase);
+          queueAddressForBalanceCheck(hypo.phrase, 'forensic-default', 4);
       }
+      return address;
     } catch (err) {
       console.error(`[Forensic] Address generation error for ${hypo.format}: ${err}`);
-      return generateBitcoinAddress(hypo.phrase);
+      address = generateBitcoinAddress(hypo.phrase);
+      queueAddressForBalanceCheck(hypo.phrase, 'forensic-fallback', 4);
+      return address;
     }
   }
 
