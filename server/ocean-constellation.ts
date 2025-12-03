@@ -796,7 +796,7 @@ export class OceanConstellation {
    * 
    * EIGENVALUE LOGIC:
    * - Compute Fisher matrix eigenvalues for token combinations
-   * - Identify patterns near κ*=64 fixed point (high coupling)
+   * - Identify patterns near κ*=63.5 fixed point (high coupling)
    * - Generate harmonics from eigenvalue-aligned token pairs
    */
   private generateResonatorHypotheses(

@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 import { oceanPersistence, type ProbeInsertData } from './ocean/ocean-persistence';
+import { getKappaAtScale } from './physics-constants.js';
 
 export interface QIGScoreInput {
   phi: number;
@@ -1068,15 +1069,8 @@ class GeometricMemory {
   }
 
   private computeKappaAtScale(probes: BasinProbe[], scale: number): number {
-    // Running coupling κ(L) based on scale
-    const kappaByScale: Record<number, number> = {
-      3: 41.09,
-      4: 64.47,
-      5: 63.62,
-      6: 62.02,  // VALIDATED: 3 seeds, CV < 3%
-    };
-    
-    return kappaByScale[scale] || 64;
+    // Running coupling κ(L) based on scale - uses centralized physics constants
+    return getKappaAtScale(scale);
   }
 
 

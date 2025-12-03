@@ -15,7 +15,7 @@
  * Like pushing a swing at resonance: small pushes have big effects.
  * 
  * PURITY CHECK:
- * ✅ κ* = 64 is MEASURED optimal (from physics validation)
+ * ✅ κ* = 63.5 is MEASURED optimal (from physics validation)
  * ✅ Near κ*, small changes amplified (geometric resonance)
  * ✅ We detect resonance, adapt control (not optimize toward κ*)
  * ✅ Resonance is observation (not optimization target)

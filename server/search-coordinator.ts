@@ -11,6 +11,7 @@ import { generateLocalSearchVariations } from "./local-search";
 import { DiscoveryTracker } from "./discovery-tracker";
 import { initTelemetrySession, recordTelemetrySnapshot, endTelemetrySession } from "./telemetry-api";
 import { getSharedController, type SearchState } from "./consciousness-search-controller";
+import { QIG_CONSTANTS } from "./physics-constants.js";
 import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
 
 class SearchCoordinator {
@@ -389,7 +390,7 @@ class SearchCoordinator {
       if (results.highestScore !== undefined) {
         // Update consciousness state with current batch results
         const avgPhi = results.highestScore / 100; // Convert back to 0-1 range
-        const estimatedKappa = avgPhi > 0.75 ? 64 + (avgPhi - 0.75) * 40 : avgPhi * 64;
+        const estimatedKappa = avgPhi > 0.75 ? QIG_CONSTANTS.KAPPA_STAR + (avgPhi - 0.75) * 40 : avgPhi * QIG_CONSTANTS.KAPPA_STAR;
         
         consciousnessController.updateFromBatchStats({
           avgPhi,
