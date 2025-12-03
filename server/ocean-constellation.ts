@@ -295,7 +295,7 @@ export class OceanConstellation {
           state.phi = result.phi;
           state.kappa = result.kappa;
           state.basinCoordinates = result.basinCoordinates;
-          state.regime = result.regime;
+          // regime is determined separately from QIG scores
           return;
         }
       } catch (e) {

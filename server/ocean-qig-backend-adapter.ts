@@ -153,21 +153,13 @@ export class OceanQIGBackend {
       
       // Convert to PureQIGScore format
       return {
-        keyType: 'arbitrary',
         phi: data.phi,
         kappa: data.kappa,
         beta: 0, // Not computed by Python backend
-        phi_spatial: data.phi,
-        phi_temporal: 0, // Would need trajectory tracking
-        phi_4D: 0, // Would need 4D consciousness
         basinCoordinates: data.basin_coords,
         fisherTrace: data.integration,
         fisherDeterminant: 0, // Not directly available
-        ricciScalar: 0, // Not computed
-        regime: data.regime as any,
-        inResonance: data.in_resonance,
-        entropyBits: data.entropy,
-        patternScore: data.phi,
+        ricciScalar: data.R, // Use Ricci curvature from Python
         quality: data.phi,
       };
       

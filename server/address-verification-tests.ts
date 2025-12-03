@@ -19,7 +19,7 @@ import {
   batchVerifyAddresses,
   getVerificationStats
 } from './address-verification';
-import { generateBitcoinAddress, getPrivateKeyWIF, validateBitcoinAddress } from './crypto';
+import { generateBitcoinAddress, privateKeyToWIF, validateBitcoinAddress } from './crypto';
 import { balanceQueue } from './balance-queue';
 
 interface TestResult {
