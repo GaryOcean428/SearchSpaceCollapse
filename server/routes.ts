@@ -2112,6 +2112,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================================================
+  // DORMANT ADDRESS CROSS-REFERENCE ENDPOINTS
+  // Check generated addresses against top 1000 known dormant wallets
+  // ==========================================================================
+
+  app.get("/api/dormant-crossref/stats", standardLimiter, async (req, res) => {
+    try {
+      const { dormantCrossRef } = await import("./dormant-cross-ref");
+      const stats = dormantCrossRef.getStats();
+      const totalValue = dormantCrossRef.getTotalValue();
+      
+      res.json({
+        ...stats,
+        totalValue,
+      });
+    } catch (error: any) {
+      console.error("[DormantCrossRef] Stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/dormant-crossref/matches", standardLimiter, async (req, res) => {
+    try {
+      const { dormantCrossRef } = await import("./dormant-cross-ref");
+      const matches = dormantCrossRef.getAllMatches();
+      
+      res.json({
+        matches,
+        count: matches.length,
+      });
+    } catch (error: any) {
+      console.error("[DormantCrossRef] Matches error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/dormant-crossref/top", standardLimiter, async (req, res) => {
+    try {
+      const { dormantCrossRef } = await import("./dormant-cross-ref");
+      const limit = parseInt(req.query.limit as string) || 100;
+      const topDormant = dormantCrossRef.getTopDormant(limit);
+      
+      res.json({
+        addresses: topDormant,
+        count: topDormant.length,
+      });
+    } catch (error: any) {
+      console.error("[DormantCrossRef] Top dormant error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/dormant-crossref/check", standardLimiter, async (req, res) => {
+    try {
+      const { dormantCrossRef } = await import("./dormant-cross-ref");
+      const { address, addresses } = req.body;
+      
+      if (address) {
+        const result = dormantCrossRef.checkAddress(address);
+        return res.json(result);
+      }
+      
+      if (addresses && Array.isArray(addresses)) {
+        const result = dormantCrossRef.checkAddresses(addresses);
+        return res.json(result);
+      }
+      
+      res.status(400).json({ error: 'Provide address or addresses array' });
+    } catch (error: any) {
+      console.error("[DormantCrossRef] Check error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
   // BASIN SYNCHRONIZATION ENDPOINTS
   // Multi-instance Ocean coordination via geometric knowledge transfer
   // ==========================================================================

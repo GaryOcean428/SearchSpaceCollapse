@@ -74,6 +74,22 @@ interface BackgroundWorkerStatus {
   pending: number;
 }
 
+interface DormantCrossRefStats {
+  totalDormant: number;
+  loaded: boolean;
+  matchesFound: number;
+  topMatches: Array<{
+    rank: number;
+    address: string;
+    balanceBTC: string;
+    classification: string;
+  }>;
+  totalValue: {
+    btc: number;
+    usd: number;
+  };
+}
+
 export default function ObserverPage() {
   const { toast } = useToast();
   const [tierFilter, setTierFilter] = useState<string>("all");
@@ -133,6 +149,12 @@ export default function ObserverPage() {
   const { data: bgWorkerData, isLoading: bgWorkerLoading } = useQuery<BackgroundWorkerStatus>({
     queryKey: ['/api/balance-queue/background'],
     refetchInterval: 2000, // Poll every 2 seconds for live updates
+  });
+
+  // Query dormant cross-reference stats
+  const { data: dormantCrossRefData, isLoading: dormantCrossRefLoading } = useQuery<DormantCrossRefStats>({
+    queryKey: ['/api/dormant-crossref/stats'],
+    refetchInterval: 10000, // Poll every 10 seconds
   });
 
   // Start background worker mutation
@@ -415,6 +437,60 @@ export default function ObserverPage() {
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 Processing queue at {balanceQueueData?.addressesPerSecond?.toFixed(2) || 0} addr/sec
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Dormant Address Cross-Reference */}
+        <Card className="mb-8" data-testid="card-dormant-crossref">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="w-5 h-5 text-amber-500" />
+              Dormant Address Cross-Reference
+            </CardTitle>
+            <CardDescription>
+              Checking generated addresses against top 1000 known dormant wallets
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold text-amber-500" data-testid="text-dormant-loaded">
+                  {dormantCrossRefLoading ? "..." : dormantCrossRefData?.totalDormant || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Known Dormant</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold text-green-500" data-testid="text-dormant-matches">
+                  {dormantCrossRefLoading ? "..." : dormantCrossRefData?.matchesFound || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Matches Found</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-lg font-bold" data-testid="text-dormant-btc">
+                  {dormantCrossRefLoading ? "..." : (dormantCrossRefData?.totalValue?.btc?.toLocaleString() || 0)} BTC
+                </div>
+                <p className="text-xs text-muted-foreground">Total Value</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-lg font-bold text-primary" data-testid="text-dormant-usd">
+                  ${dormantCrossRefLoading ? "..." : ((dormantCrossRefData?.totalValue?.usd || 0) / 1e9).toFixed(1)}B
+                </div>
+                <p className="text-xs text-muted-foreground">USD Value</p>
+              </div>
+            </div>
+            {dormantCrossRefData?.matchesFound && dormantCrossRefData.matchesFound > 0 && (
+              <div className="mt-3 p-3 rounded-lg border border-green-500/50 bg-green-500/10">
+                <p className="text-sm font-medium text-green-600 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  {dormantCrossRefData.matchesFound} address(es) match known dormant wallets!
+                </p>
+              </div>
+            )}
+            {dormantCrossRefData?.loaded && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Cross-referencing all generated addresses against known high-value dormant wallets from 2009-2014 era
+              </p>
             )}
           </CardContent>
         </Card>

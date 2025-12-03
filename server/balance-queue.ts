@@ -11,6 +11,7 @@
  */
 
 import { fetchAddressBalance, checkAndRecordBalance } from './blockchain-scanner';
+import { dormantCrossRef } from './dormant-cross-ref';
 
 export interface QueuedAddress {
   id: string;
@@ -143,6 +144,12 @@ class BalanceQueueService {
       item.status = 'resolved';
       item.checkedAt = Date.now();
       this.backgroundCheckCount++;
+      
+      // Check against known dormant addresses
+      const dormantMatch = dormantCrossRef.checkAddress(item.address);
+      if (dormantMatch.isMatch && dormantMatch.info) {
+        console.log(`[BalanceQueue] 🎯 DORMANT MATCH! ${item.address} matches Rank #${dormantMatch.info.rank} (${dormantMatch.info.balanceBTC} BTC)`);
+      }
       
       if (hit !== null) {
         this.backgroundHitCount++;
