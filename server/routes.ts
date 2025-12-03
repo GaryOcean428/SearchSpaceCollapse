@@ -390,6 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/target-addresses", async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const addresses = await storage.getTargetAddresses();
       res.json(addresses);
     } catch (error: any) {
@@ -1035,6 +1036,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get investigation status for story-driven UI - uses OceanSessionManager for live telemetry
   app.get("/api/investigation/status", async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       // Use the OceanSessionManager for live status
       const status = oceanSessionManager.getInvestigationStatus();
       return res.json(status);
@@ -1200,6 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get auto-cycle status
   app.get("/api/auto-cycle/status", async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const status = autoCycleManager.getStatus();
       const position = autoCycleManager.getPositionString();
       res.json({ ...status, position });
@@ -1698,6 +1701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get cycle status and history
   app.get("/api/ocean/cycles", generousLimiter, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const { getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
       
       const recentCycles = oceanAutonomicManager.getRecentCycles(10);
@@ -1843,6 +1847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/balance-hits", standardLimiter, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const { getBalanceHits, getActiveBalanceHits } = await import("./blockchain-scanner");
       const activeOnly = req.query.active === 'true';
       
@@ -1898,6 +1903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/balance-monitor/status", standardLimiter, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const { balanceMonitor } = await import("./balance-monitor");
       const status = balanceMonitor.getStatus();
       res.json(status);
