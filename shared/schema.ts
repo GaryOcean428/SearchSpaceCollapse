@@ -197,6 +197,69 @@ export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
 // ============================================================================
+// BALANCE HITS AND TARGET ADDRESSES - User-associated recovery data
+// ============================================================================
+
+// Balance hits: Addresses discovered with historical activity or current balance
+export const balanceHits = pgTable("balance_hits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  address: varchar("address", { length: 62 }).notNull(),
+  passphrase: text("passphrase").notNull(),
+  wif: text("wif").notNull(),
+  balanceSats: bigint("balance_sats", { mode: "number" }).notNull().default(0),
+  balanceBtc: varchar("balance_btc", { length: 20 }).notNull().default("0.00000000"),
+  txCount: integer("tx_count").notNull().default(0),
+  isCompressed: boolean("is_compressed").notNull().default(true),
+  discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
+  lastChecked: timestamp("last_checked"),
+  previousBalanceSats: bigint("previous_balance_sats", { mode: "number" }),
+  balanceChanged: boolean("balance_changed").default(false),
+  changeDetectedAt: timestamp("change_detected_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_balance_hits_user").on(table.userId),
+  index("idx_balance_hits_address").on(table.address),
+  index("idx_balance_hits_balance").on(table.balanceSats),
+]);
+
+export type BalanceHit = typeof balanceHits.$inferSelect;
+export type InsertBalanceHit = typeof balanceHits.$inferInsert;
+
+// User's target addresses for recovery
+export const userTargetAddresses = pgTable("user_target_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  address: varchar("address", { length: 62 }).notNull(),
+  label: varchar("label", { length: 255 }),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_user_target_addresses_user").on(table.userId),
+]);
+
+export type UserTargetAddress = typeof userTargetAddresses.$inferSelect;
+export type InsertUserTargetAddress = typeof userTargetAddresses.$inferInsert;
+
+// Balance change events for monitoring
+export const balanceChangeEvents = pgTable("balance_change_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  balanceHitId: varchar("balance_hit_id").references(() => balanceHits.id),
+  address: varchar("address", { length: 62 }).notNull(),
+  previousBalanceSats: bigint("previous_balance_sats", { mode: "number" }).notNull(),
+  newBalanceSats: bigint("new_balance_sats", { mode: "number" }).notNull(),
+  deltaSats: bigint("delta_sats", { mode: "number" }).notNull(),
+  detectedAt: timestamp("detected_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_balance_change_events_hit").on(table.balanceHitId),
+  index("idx_balance_change_events_address").on(table.address),
+]);
+
+export type BalanceChangeEvent = typeof balanceChangeEvents.$inferSelect;
+export type InsertBalanceChangeEvent = typeof balanceChangeEvents.$inferInsert;
+
+// ============================================================================
 // OBSERVER ARCHAEOLOGY SYSTEM TABLES
 // ============================================================================
 
