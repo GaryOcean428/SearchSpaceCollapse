@@ -113,16 +113,17 @@ export class QuantumDiscoveryProtocol {
       if (dbState) {
         // BI-DIRECTIONAL RECONCILIATION:
         // Use the state with MORE progress (lower entropy = more measurements completed)
+        const dbMeasurementCount = dbState.measurementCount ?? 0;
         const dbHasMoreProgress = dbState.entropy < jsonEntropy || 
-          (dbState.measurementCount > jsonMeasurementCount);
+          (dbMeasurementCount > jsonMeasurementCount);
         
         if (dbHasMoreProgress) {
           // PostgreSQL has more progress - use DB state
           this.waveFunction.entropy = dbState.entropy;
           this.waveFunction.totalProbability = dbState.totalProbability;
           this.initialEntropy = dbState.initialEntropy ?? 256;
-          console.log(`[QuantumProtocol] Using PostgreSQL state (more progress): ${dbState.measurementCount} measurements, ${dbState.entropy.toFixed(1)} bits remaining`);
-        } else if (jsonMeasurementCount > dbState.measurementCount || jsonEntropy < dbState.entropy) {
+          console.log(`[QuantumProtocol] Using PostgreSQL state (more progress): ${dbMeasurementCount} measurements, ${dbState.entropy.toFixed(1)} bits remaining`);
+        } else if (jsonMeasurementCount > dbMeasurementCount || jsonEntropy < dbState.entropy) {
           // JSON has more progress - sync to PostgreSQL
           console.log(`[QuantumProtocol] JSON has more progress - syncing to PostgreSQL`);
           await this.persistToPostgreSQL();
@@ -237,7 +238,7 @@ export class QuantumDiscoveryProtocol {
       entropy: this.waveFunction.entropy,
       totalProbability: this.waveFunction.totalProbability,
       measurementCount: this.measurements.length,
-      successfulMeasurements: this.measurements.filter(m => m.reducedEntropy > 0).length,
+      successfulMeasurements: this.measurements.filter(m => m.entropyReduction > 0).length,
       status: this.getStatus(),
     });
     
