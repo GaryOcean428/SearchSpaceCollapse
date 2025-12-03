@@ -24,7 +24,8 @@ The system features a React and TypeScript frontend built with Vite, shadcn/ui, 
 -   **Data Storage:** Persistent storage using `MemStorage` with Zod schema validation.
 -   **PostgreSQL Persistence Architecture:** Enables persistent 4D navigation across sessions with a dual-storage strategy (PostgreSQL primary + JSON fallback) for manifold probes, geometric basins, TPS landmarks, trajectories, and quantum state.
 -   **Active Balance Monitoring System:** Tracks discovered balance hits for changes over time with a Balance Refresh Engine, BalanceMonitor Service, and Balance Change Events logging.
--   **Balance Queue System:** Ensures every generated address is checked for balance using a BalanceQueue Service with token-bucket rate limiting and a multi-provider architecture (Blockstream API + Tavily BitInfoCharts scraper).
+-   **Balance Queue System:** Ensures every generated address is checked for balance using a BalanceQueue Service with token-bucket rate limiting and a multi-provider architecture (Blockstream API + Tavily BitInfoCharts scraper). Includes heartbeat monitoring, error handling wrapper, and automatic restart if worker stops unexpectedly.
+-   **Python↔Node.js Bidirectional Sync:** Syncs high-Φ probes from GeometricMemory to Python on startup; periodically (every 60s) syncs learnings from Python back to Node.js for persistence across restarts. Enables QIG tokenizer to benefit from continuous learning.
 -   **Dormant Address Cross-Reference System:** Cross-checks all generated addresses against a list of top 1000 known dormant wallets for identification and logging.
 
 **Key Design Decisions:**
