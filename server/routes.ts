@@ -1208,14 +1208,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/recovery/stop", isAuthenticated, async (req: any, res) => {
     try {
       const status = oceanSessionManager.getInvestigationStatus();
+      console.log(`[Recovery] Stop requested. Current status: sessionId=${status.sessionId}, isRunning=${status.isRunning}`);
+      
+      // First disable auto-cycle to prevent new sessions from starting
+      const autoCycleResult = autoCycleManager.disable();
+      console.log(`[Recovery] Auto-cycle disabled: ${autoCycleResult.message}`);
       
       if (status.sessionId) {
         await oceanSessionManager.stopSession(status.sessionId);
+        console.log(`[Recovery] Session ${status.sessionId} stopped`);
+      } else {
+        console.log(`[Recovery] No active session to stop`);
       }
       
-      // Note: auto-cycle notification is now handled in oceanSessionManager.stopSession()
+      // Force stop any running investigation via autonomic manager
+      oceanAutonomicManager.stopInvestigation();
       
-      res.json({ message: "Investigation stopped" });
+      res.json({ success: true, message: "Investigation stopped" });
     } catch (error: any) {
       console.error("[Recovery] Stop error:", error);
       res.status(500).json({ error: error.message });
