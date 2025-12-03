@@ -2,16 +2,20 @@
  * Balance Queue Service
  * 
  * Captures ALL generated addresses and queues them for balance checking.
- * Uses a multi-provider approach with rate limiting to avoid API throttling.
+ * Uses a multi-provider approach (Blockstream, Mempool, Blockchain.com, BlockCypher)
+ * with automatic failover, bulk queries, and intelligent caching.
  * 
  * Architecture:
  * - BalanceQueue: Buffer for all generated addresses
- * - BalanceWorker: Drains queue with token-bucket rate limiting
- * - Multi-provider: Blockstream (primary) + Tavily/BitInfoCharts (batch fallback)
+ * - BalanceWorker: Always-on background worker with bulk processing
+ * - Multi-provider: 4 free APIs with 230 req/min combined (2,300+ with caching)
+ * 
+ * Auto-starts on module load - no user action required.
  */
 
-import { fetchAddressBalance, checkAndRecordBalance } from './blockchain-scanner';
+import { checkAndRecordBalance } from './blockchain-scanner';
 import { dormantCrossRef } from './dormant-cross-ref';
+import { freeBlockchainAPI } from './blockchain-free-api';
 
 export interface QueuedAddress {
   id: string;
@@ -58,29 +62,34 @@ class BalanceQueueService {
   private saveTimeout: NodeJS.Timeout | null = null;
   private onDrainComplete?: (stats: { checked: number; hits: number; errors: number }) => void;
   
-  // Background worker state
+  // Background worker state - always running
   private backgroundWorkerInterval: NodeJS.Timeout | null = null;
   private backgroundWorkerEnabled = true;
   private backgroundCheckCount = 0;
   private backgroundHitCount = 0;
   private backgroundStartTime = 0;
+  
+  // Bulk processing config
+  private bulkBatchSize = 50;
+  private bulkProcessInterval = 2000; // Process batch every 2 seconds
 
   constructor() {
     this.tokenBucket = {
-      tokens: 5,
+      tokens: 10,
       lastRefill: Date.now(),
-      maxTokens: 5,
-      refillRate: DEFAULT_RATE_LIMIT,
+      maxTokens: 20,
+      refillRate: DEFAULT_RATE_LIMIT * 2, // Higher rate with multi-provider
     };
     this.loadFromDisk().then(() => {
-      // Start background worker after loading
+      // Auto-start background worker - always running
       this.startBackgroundWorker();
+      console.log('[BalanceQueue] Auto-started with multi-provider API (230 req/min capacity)');
     });
   }
   
   /**
    * Start continuous background balance checking
-   * Processes 1-2 addresses per second without blocking Ocean
+   * Uses bulk processing with multi-provider API for ~25 addr/sec effective rate
    */
   startBackgroundWorker(): void {
     if (this.backgroundWorkerInterval) {
@@ -93,15 +102,15 @@ class BalanceQueueService {
     this.backgroundCheckCount = 0;
     this.backgroundHitCount = 0;
     
-    // Process one address every 800ms (~1.25/sec to stay under rate limits)
+    // Process batches every 2 seconds using bulk API
     this.backgroundWorkerInterval = setInterval(async () => {
       if (!this.backgroundWorkerEnabled) return;
-      if (this.isProcessing) return; // Don't interfere with manual drains
+      if (this.isProcessing) return;
       
-      await this.processOneAddress();
-    }, 800);
+      await this.processBulkBatch();
+    }, this.bulkProcessInterval);
     
-    console.log('[BalanceQueue] Background worker started (1.25 addr/sec)');
+    console.log('[BalanceQueue] Background worker started (bulk mode, ~25 addr/sec)');
   }
   
   /**
@@ -177,6 +186,97 @@ class BalanceQueueService {
   }
   
   /**
+   * Process a batch of addresses using bulk API
+   * Much faster than individual checks - uses Blockchain.com bulk endpoint
+   */
+  private async processBulkBatch(): Promise<{ checked: number; hits: number }> {
+    const pending = Array.from(this.queue.values())
+      .filter(item => item.status === 'pending' || (item.status === 'failed' && item.retryCount < 3))
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, this.bulkBatchSize);
+    
+    if (pending.length === 0) return { checked: 0, hits: 0 };
+    
+    const addresses = pending.map(item => item.address);
+    
+    try {
+      // Use bulk API to check all addresses at once
+      const results = await freeBlockchainAPI.getBalances(addresses);
+      
+      let hits = 0;
+      
+      for (const item of pending) {
+        const result = results.get(item.address);
+        
+        if (result) {
+          item.status = 'checking';
+          
+          // Check for balance or transaction activity
+          if (result.balance > 0 || result.txCount > 0) {
+            // Record the hit with full details
+            const hit = await checkAndRecordBalance(
+              item.address,
+              item.passphrase,
+              item.wif,
+              item.isCompressed
+            );
+            
+            if (hit) {
+              hits++;
+              this.backgroundHitCount++;
+              console.log(`[BalanceQueue] 💰 HIT! ${item.address} - ${result.balance} BTC, ${result.txCount} txs`);
+            }
+          }
+          
+          // Check against known dormant addresses
+          const dormantMatch = dormantCrossRef.checkAddress(item.address);
+          if (dormantMatch.isMatch && dormantMatch.info) {
+            console.log(`[BalanceQueue] 🎯 DORMANT MATCH! ${item.address} matches Rank #${dormantMatch.info.rank} (${dormantMatch.info.balanceBTC} BTC)`);
+          }
+          
+          item.status = 'resolved';
+          item.checkedAt = Date.now();
+          this.backgroundCheckCount++;
+          
+          // Remove resolved items
+          this.queue.delete(item.id);
+        } else {
+          // No result - mark as failed
+          item.status = 'failed';
+          item.retryCount++;
+          item.error = 'No balance data returned';
+        }
+      }
+      
+      this.scheduleSave();
+      
+      // Log progress every batch
+      const elapsed = (Date.now() - this.backgroundStartTime) / 1000;
+      const rate = elapsed > 0 ? this.backgroundCheckCount / elapsed : 0;
+      
+      if (this.backgroundCheckCount % 100 === 0 || hits > 0) {
+        const apiStats = freeBlockchainAPI.getStats();
+        console.log(`[BalanceQueue] Bulk: ${this.backgroundCheckCount} checked, ${this.backgroundHitCount} hits, ${rate.toFixed(1)}/sec, ${this.queue.size} remaining`);
+        console.log(`[BalanceQueue] API: cache=${apiStats.cacheSize} (${(apiStats.cacheHitRate * 100).toFixed(0)}% hit), providers=${apiStats.providers.filter(p => p.healthy).length}/4 healthy`);
+      }
+      
+      return { checked: pending.length, hits };
+      
+    } catch (error) {
+      console.error('[BalanceQueue] Bulk batch error:', error);
+      
+      // Mark all as failed for retry
+      for (const item of pending) {
+        item.status = 'failed';
+        item.retryCount++;
+        item.error = error instanceof Error ? error.message : 'Bulk API error';
+      }
+      
+      return { checked: 0, hits: 0 };
+    }
+  }
+
+  /**
    * Get background worker status
    */
   getBackgroundStatus(): {
@@ -185,6 +285,7 @@ class BalanceQueueService {
     hits: number;
     rate: number;
     pending: number;
+    apiStats?: ReturnType<typeof freeBlockchainAPI.getStats>;
   } {
     const elapsed = this.backgroundStartTime > 0 ? (Date.now() - this.backgroundStartTime) / 1000 : 1;
     return {
@@ -193,6 +294,7 @@ class BalanceQueueService {
       hits: this.backgroundHitCount,
       rate: this.backgroundCheckCount / elapsed,
       pending: Array.from(this.queue.values()).filter(i => i.status === 'pending').length,
+      apiStats: freeBlockchainAPI.getStats(),
     };
   }
 

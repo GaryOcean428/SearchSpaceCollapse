@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { type Candidate, type TargetAddress, type SearchJob, type User, type UpsertUser } from "@shared/schema";
+import { type Candidate, type TargetAddress, type SearchJob, type User, type UpsertUser, userTargetAddresses } from "@shared/schema";
 import { db } from "./db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -308,19 +308,60 @@ export class MemStorage implements IStorage {
   }
 
   async getTargetAddresses(): Promise<TargetAddress[]> {
+    // Use PostgreSQL if available, otherwise fall back to memory/JSON
+    if (db) {
+      try {
+        const rows = await db.select().from(userTargetAddresses);
+        return rows.map(row => ({
+          id: row.id,
+          address: row.address,
+          label: row.label || undefined,
+          addedAt: row.addedAt.toISOString(),
+        }));
+      } catch (error) {
+        console.error("[Storage] PostgreSQL getTargetAddresses failed, using memory:", error);
+      }
+    }
     return [...this.targetAddresses];
   }
 
   async addTargetAddress(address: TargetAddress): Promise<void> {
+    // Use PostgreSQL if available
+    if (db) {
+      try {
+        await db.insert(userTargetAddresses).values({
+          id: address.id,
+          address: address.address,
+          label: address.label || null,
+          addedAt: new Date(address.addedAt),
+        });
+        console.log(`[Storage] Target address saved to PostgreSQL: ${address.address}`);
+        return;
+      } catch (error) {
+        console.error("[Storage] PostgreSQL addTargetAddress failed, using memory:", error);
+      }
+    }
+    // Fallback to memory/JSON
     this.targetAddresses.push(address);
     this.saveTargetAddresses();
-    console.log(`[Storage] Target address saved: ${address.address}`);
+    console.log(`[Storage] Target address saved to JSON: ${address.address}`);
   }
 
   async removeTargetAddress(id: string): Promise<void> {
+    // Use PostgreSQL if available
+    if (db) {
+      try {
+        await db.delete(userTargetAddresses).where(eq(userTargetAddresses.id, id));
+        console.log(`[Storage] Target address removed from PostgreSQL: ${id}`);
+        return;
+      } catch (error) {
+        console.error("[Storage] PostgreSQL removeTargetAddress failed, using memory:", error);
+      }
+    }
+    // Fallback to memory/JSON
     this.targetAddresses = this.targetAddresses.filter(a => a.id !== id);
     this.saveTargetAddresses();
-    console.log(`[Storage] Target address removed: ${id}`);
+    console.log(`[Storage] Target address removed from JSON: ${id}`);
   }
 
   async getSearchJobs(): Promise<SearchJob[]> {

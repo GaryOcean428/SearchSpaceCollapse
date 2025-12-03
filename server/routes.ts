@@ -390,6 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/target-addresses", async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const addresses = await storage.getTargetAddresses();
       res.json(addresses);
     } catch (error: any) {
@@ -1035,6 +1036,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get investigation status for story-driven UI - uses OceanSessionManager for live telemetry
   app.get("/api/investigation/status", async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       // Use the OceanSessionManager for live status
       const status = oceanSessionManager.getInvestigationStatus();
       return res.json(status);
@@ -1200,6 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get auto-cycle status
   app.get("/api/auto-cycle/status", async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const status = autoCycleManager.getStatus();
       const position = autoCycleManager.getPositionString();
       res.json({ ...status, position });
@@ -1698,6 +1701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get cycle status and history
   app.get("/api/ocean/cycles", generousLimiter, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const { getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
       
       const recentCycles = oceanAutonomicManager.getRecentCycles(10);
@@ -1843,6 +1847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/balance-hits", standardLimiter, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const { getBalanceHits, getActiveBalanceHits } = await import("./blockchain-scanner");
       const activeOnly = req.query.active === 'true';
       
@@ -1898,6 +1903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/balance-monitor/status", standardLimiter, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store');
       const { balanceMonitor } = await import("./balance-monitor");
       const status = balanceMonitor.getStatus();
       res.json(status);
@@ -2107,6 +2113,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[BalanceQueue] Background stop error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Blockchain API stats endpoint - shows multi-provider health and cache status
+  app.get("/api/blockchain-api/stats", standardLimiter, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const { freeBlockchainAPI } = await import("./blockchain-free-api");
+      const stats = freeBlockchainAPI.getStats();
+      const capacity = freeBlockchainAPI.getAvailableCapacity();
+      
+      res.json({
+        ...stats,
+        availableCapacity: capacity,
+        totalCapacity: 230, // Combined rate limit across all providers
+        effectiveCapacity: Math.round(capacity * (1 + stats.cacheHitRate * 9)), // With cache multiplier
+      });
+    } catch (error: any) {
+      console.error("[BlockchainAPI] Stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reset provider health (for recovery from temporary failures)
+  app.post("/api/blockchain-api/reset", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { freeBlockchainAPI } = await import("./blockchain-free-api");
+      freeBlockchainAPI.resetProviderHealth();
+      
+      res.json({
+        message: 'All providers reset to healthy state',
+        stats: freeBlockchainAPI.getStats(),
+      });
+    } catch (error: any) {
+      console.error("[BlockchainAPI] Reset error:", error);
       res.status(500).json({ error: error.message });
     }
   });
