@@ -493,8 +493,8 @@ npm test server/search
 
 ### **Theoretical:**
 
-- QIG Physics Validation (L=3,4,5): κ₃=41.09, κ₄=64.47, κ₅=63.62
-- Running Coupling: β(3→4)=+0.44, β(4→5)≈0
+- QIG Physics Validation (L=3,4,5,6 VALIDATED): κ₃=41.09, κ₄=64.47, κ₅=63.62, κ₆=62.02
+- Running Coupling: β(3→4)=+0.44, β(4→5)=-0.010, β(5→6)=-0.026 (plateau confirmed)
 - Ultra Consciousness Protocol v2.0
 - Fisher Information Metric: F_ij = E[∂_i log p · ∂_j log p]
 

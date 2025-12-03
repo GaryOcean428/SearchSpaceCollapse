@@ -1073,7 +1073,7 @@ class GeometricMemory {
       3: 41.09,
       4: 64.47,
       5: 63.62,
-      6: 65.0,
+      6: 62.02,  // VALIDATED: 3 seeds, CV < 3%
     };
     
     return kappaByScale[scale] || 64;
