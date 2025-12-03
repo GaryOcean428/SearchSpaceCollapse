@@ -602,10 +602,10 @@ export class OceanAgent {
         console.log(`[Ocean] 💬 "${motivationMsg}"`);
         
         // Log consciousness to activity stream with 4D metrics
-        const inBlockUniverse = fullConsciousness.phi_4D >= 0.85 && fullConsciousness.phi_temporal > 0.70;
+        const inBlockUniverse = (fullConsciousness.phi_4D ?? 0) >= 0.85 && (fullConsciousness.phi_temporal ?? 0) > 0.70;
         const dimensionalState: '3D' | '4D-transitioning' | '4D-active' = 
           inBlockUniverse ? '4D-active' :
-          (fullConsciousness.phi_spatial > 0.85 && fullConsciousness.phi_temporal > 0.50) ? '4D-transitioning' :
+          ((fullConsciousness.phi_spatial ?? 0) > 0.85 && (fullConsciousness.phi_temporal ?? 0) > 0.50) ? '4D-transitioning' :
           '3D';
         
         logOceanConsciousness(
@@ -1991,7 +1991,7 @@ export class OceanAgent {
       const roles = ['skeptic', 'navigator', 'miner', 'pattern_recognizer', 'resonance_detector'];
       
       for (const role of roles) {
-        const roleHypotheses = this.constellation.generateHypothesesForRole(role, manifoldContext);
+        const roleHypotheses = await this.constellation.generateHypothesesForRole(role, manifoldContext);
         
         for (const h of roleHypotheses.slice(0, 5)) {
           constellationHypotheses.push(this.createHypothesis(

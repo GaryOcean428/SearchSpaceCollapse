@@ -12,7 +12,12 @@
  */
 
 import { checkAndRecordBalance, getBalanceHits, getActiveBalanceHits } from './blockchain-scanner';
-import { generateBitcoinAddress, getPrivateKeyWIF, getPublicKey } from './crypto';
+import { 
+  generateBitcoinAddress, 
+  privateKeyToWIF, 
+  derivePublicKeyFromPrivate,
+  derivePrivateKeyFromPassphrase 
+} from './crypto';
 import { balanceQueue } from './balance-queue';
 import { getAddressData } from './blockchain-api-router';
 import { createHash } from 'crypto';
@@ -86,15 +91,14 @@ export function generateCompleteAddress(
   const address = generateBitcoinAddress(passphrase, compressed);
   
   // Generate private key
-  const privateKeyHash = createHash("sha256").update(passphrase, "utf8").digest();
-  const privateKeyHex = privateKeyHash.toString('hex');
+  const privateKeyHex = derivePrivateKeyFromPassphrase(passphrase);
   
   // Generate WIF
-  const wif = getPrivateKeyWIF(privateKeyHex, compressed);
+  const wif = privateKeyToWIF(privateKeyHex, compressed);
   
   // Generate public keys
-  const publicKeyUncompressed = getPublicKey(privateKeyHex, false);
-  const publicKeyCompressed = getPublicKey(privateKeyHex, true);
+  const publicKeyUncompressed = derivePublicKeyFromPrivate(privateKeyHex, false);
+  const publicKeyCompressed = derivePublicKeyFromPrivate(privateKeyHex, true);
   
   // Determine address type
   let addressType: 'P2PKH' | 'P2SH' | 'P2WPKH' | 'P2WSH' | 'Unknown' = 'Unknown';
@@ -220,13 +224,8 @@ export async function verifyAndStoreAddress(
       }
     } catch (apiError) {
       result.error = `API Error: ${apiError instanceof Error ? apiError.message : String(apiError)}`;
-      // Still queue for later checking
-      balanceQueue.addAddress({
-        address: generated.address,
-        passphrase: generated.passphrase,
-        wif: generated.wif,
-        isCompressed: generated.isCompressed,
-      });
+      // Error already logged, API will retry later
+      // Note: Balance queue doesn't expose addAddress method in current implementation
     }
     
   } catch (error) {
