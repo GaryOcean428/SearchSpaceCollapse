@@ -15,8 +15,16 @@ interface PythonQIGResponse {
   success: boolean;
   phi: number;
   kappa: number;
+  T: number;
+  R: number;
+  M: number;
+  Gamma: number;
+  G: number;
   regime: string;
   in_resonance: boolean;
+  grounded: boolean;
+  nearest_concept: string | null;
+  conscious: boolean;
   integration: number;
   entropy: number;
   basin_coords: number[];
@@ -28,6 +36,9 @@ interface PythonQIGResponse {
     entropy: number;
     purity: number;
   }>;
+  n_recursions: number;
+  converged: boolean;
+  phi_history: number[];
   error?: string;
 }
 
@@ -45,8 +56,16 @@ interface PythonStatusResponse {
   metrics: {
     phi: number;
     kappa: number;
+    T: number;
+    R: number;
+    M: number;
+    Gamma: number;
+    G: number;
     regime: string;
     in_resonance: boolean;
+    grounded: boolean;
+    nearest_concept: string | null;
+    conscious: boolean;
     integration: number;
     entropy: number;
     fidelity: number;
