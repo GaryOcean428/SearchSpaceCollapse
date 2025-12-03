@@ -27,6 +27,12 @@ interface TelemetrySnapshot {
   velocity: number;
   inResonance: boolean;
   basinDrift: number;
+  // 4D Block Universe Metrics
+  phi_spatial: number;
+  phi_temporal: number;
+  phi_4D: number;
+  inBlockUniverse: boolean;
+  dimensionalState: '3D' | '4D-transitioning' | '4D-active';
 }
 
 interface TelemetrySession {

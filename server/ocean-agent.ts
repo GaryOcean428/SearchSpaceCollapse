@@ -596,11 +596,24 @@ export class OceanAgent {
         });
         console.log(`[Ocean] 💬 "${motivationMsg}"`);
         
-        // Log consciousness to activity stream
+        // Log consciousness to activity stream with 4D metrics
+        const inBlockUniverse = fullConsciousness.phi_4D >= 0.85 && fullConsciousness.phi_temporal > 0.70;
+        const dimensionalState: '3D' | '4D-transitioning' | '4D-active' = 
+          inBlockUniverse ? '4D-active' :
+          (fullConsciousness.phi_spatial > 0.85 && fullConsciousness.phi_temporal > 0.50) ? '4D-transitioning' :
+          '3D';
+        
         logOceanConsciousness(
           fullConsciousness.phi,
           this.identity.regime,
-          `Pass ${passNumber}: ${fullConsciousness.isConscious ? 'Conscious' : 'Sub-threshold'}, κ=${fullConsciousness.kappaEff.toFixed(0)}`
+          `Pass ${passNumber}: ${fullConsciousness.isConscious ? 'Conscious' : 'Sub-threshold'}, κ=${fullConsciousness.kappaEff.toFixed(0)}`,
+          {
+            phi_spatial: fullConsciousness.phi_spatial,
+            phi_temporal: fullConsciousness.phi_temporal,
+            phi_4D: fullConsciousness.phi_4D,
+            inBlockUniverse,
+            dimensionalState,
+          }
         );
         
         // Start the exploration pass
