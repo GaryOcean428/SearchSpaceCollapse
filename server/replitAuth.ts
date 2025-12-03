@@ -129,69 +129,54 @@ export async function setupAuth(app: Express) {
   // Keep track of registered strategies
   const registeredStrategies = new Set<string>();
 
-  // Helper function to ensure strategy exists for a host (includes port in dev)
-  const ensureStrategy = (host: string, protocol: string) => {
-    const strategyName = `replitauth:${host}`;
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  // Helper function to ensure strategy exists for a domain (always uses HTTPS for deployed apps)
+  const ensureStrategy = (domain: string) => {
+    const strategyName = `replitauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
       const strategy = new Strategy(
         {
           name: strategyName,
           config,
           scope: "openid email profile offline_access",
-          callbackURL: `${protocol}://${host}/api/callback`,
+          callbackURL: `https://${domain}/api/callback`,
         },
         verify,
       );
       passport.use(strategy);
       registeredStrategies.add(strategyName);
+      console.log(`[Auth] Registered strategy for domain: ${domain}`);
     }
   };
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
   app.get("/api/login", (req, res, next) => {
-    const host = req.get("host") || req.hostname;
-    console.log(`[Auth] Login initiated for host: ${host}, protocol: ${req.protocol}`);
-    console.log(`[Auth] Callback URL will be: ${req.protocol}://${host}/api/callback`);
-    ensureStrategy(host, req.protocol);
-    passport.authenticate(`replitauth:${host}`, {
+    const domain = req.hostname;
+    console.log(`[Auth] Login initiated for domain: ${domain}`);
+    ensureStrategy(domain);
+    passport.authenticate(`replitauth:${domain}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    const host = req.get("host") || req.hostname;
-    console.log(`[Auth] Callback received for host: ${host}, protocol: ${req.protocol}`);
-    ensureStrategy(host, req.protocol);
-    passport.authenticate(`replitauth:${host}`, (err: any, user: any, info: any) => {
-      if (err) {
-        console.error("[Auth] Callback error:", err);
-        return res.redirect("/api/login?error=auth_error");
-      }
-      if (!user) {
-        console.error("[Auth] Callback failed - no user:", info);
-        return res.redirect("/api/login?error=no_user");
-      }
-      req.logIn(user, (loginErr) => {
-        if (loginErr) {
-          console.error("[Auth] Login error:", loginErr);
-          return res.redirect("/api/login?error=login_error");
-        }
-        console.log("[Auth] Login successful for user:", user.claims?.email || "unknown");
-        return res.redirect("/");
-      });
+    const domain = req.hostname;
+    console.log(`[Auth] Callback received for domain: ${domain}`);
+    ensureStrategy(domain);
+    passport.authenticate(`replitauth:${domain}`, {
+      successReturnToOrRedirect: "/",
+      failureRedirect: "/api/login",
     })(req, res, next);
   });
 
   app.get("/api/logout", (req, res) => {
-    const host = req.get("host") || req.hostname;
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
           client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${host}`,
+          post_logout_redirect_uri: `https://${req.hostname}`,
         }).href
       );
     });
