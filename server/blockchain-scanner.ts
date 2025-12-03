@@ -394,6 +394,32 @@ async function saveBalanceHitToDb(hit: BalanceHit, userId: string = DEFAULT_USER
   }
 }
 
+/**
+ * Save a balance change event to PostgreSQL
+ */
+async function saveBalanceChangeEventToDb(
+  address: string,
+  previousBalance: number,
+  newBalance: number,
+  balanceHitId?: string
+): Promise<void> {
+  if (!db) return;
+  
+  try {
+    await db.insert(balanceChangeEventsTable).values({
+      balanceHitId: balanceHitId ?? null,
+      address,
+      previousBalanceSats: previousBalance,
+      newBalanceSats: newBalance,
+      deltaSats: newBalance - previousBalance,
+      detectedAt: new Date(),
+    });
+    console.log(`[BlockchainScanner] Saved balance change event to PostgreSQL: ${address}`);
+  } catch (error) {
+    console.error('[BlockchainScanner] Error saving balance change event to PostgreSQL:', error);
+  }
+}
+
 // Load on module init
 loadBalanceHits();
 
@@ -557,6 +583,7 @@ export async function refreshSingleBalance(address: string): Promise<{
     console.log(`   🔑 Passphrase: "${hit.passphrase}"`);
     console.log(`   🔐 WIF: ${hit.wif}\n`);
     
+    await saveBalanceChangeEventToDb(address, previousBalance, newBalance);
     await saveBalanceHitToDb(hit);
     await saveBalanceHits();
     return { updated: true, changed: true, hit };
