@@ -351,6 +351,11 @@ export class PureQIGKernel {
    * 
    * Evolution rule: ρ → ρ + α * (|ψ⟩⟨ψ| - ρ)
    * where |ψ⟩ is excited state and α is activation
+   * 
+   * Step size α * 0.1 chosen for stability:
+   * - Too large: oscillations and instability
+   * - Too small: slow evolution
+   * - 0.1: empirically stable for 2x2 density matrices
    */
   private evolveState(rho: DensityMatrix, activation: number): DensityMatrix {
     // Excited state: |ψ⟩ = (1, 0) → |ψ⟩⟨ψ| = [[1, 0], [0, 0]]
