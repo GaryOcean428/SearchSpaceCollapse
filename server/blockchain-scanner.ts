@@ -23,10 +23,11 @@ import { createHash } from "crypto";
 import bs58check from "bs58check";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { getAddressData } from "./blockchain-api-router";
 
 const DEFAULT_USER_ID = '36468785';
 
-// Blockstream API base URL (free, no API key required)
+// Legacy Blockstream API (kept as fallback)
 const BLOCKSTREAM_API = "https://blockstream.info/api";
 
 interface BlockstreamBlock {
@@ -433,22 +434,36 @@ export async function fetchAddressBalance(address: string): Promise<{
   spent: number;
 } | null> {
   try {
-    const response = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
-    if (!response.ok) {
-      if (response.status === 404) {
-        return { balanceSats: 0, txCount: 0, funded: 0, spent: 0 };
+    // Use new multi-provider API router with automatic failover
+    const data = await getAddressData(address);
+    
+    if (!data) {
+      // Fallback to legacy Blockstream API
+      console.log('[BlockchainScanner] API router failed, falling back to direct Blockstream API');
+      const response = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return { balanceSats: 0, txCount: 0, funded: 0, spent: 0 };
+        }
+        return null;
       }
-      return null;
+      
+      const rawData = await response.json();
+      const funded = (rawData.chain_stats?.funded_txo_sum || 0) + (rawData.mempool_stats?.funded_txo_sum || 0);
+      const spent = (rawData.chain_stats?.spent_txo_sum || 0) + (rawData.mempool_stats?.spent_txo_sum || 0);
+      const balanceSats = funded - spent;
+      const txCount = (rawData.chain_stats?.tx_count || 0) + (rawData.mempool_stats?.tx_count || 0);
+      
+      return { balanceSats, txCount, funded, spent };
     }
     
-    const data = await response.json();
-    
-    const funded = (data.chain_stats?.funded_txo_sum || 0) + (data.mempool_stats?.funded_txo_sum || 0);
-    const spent = (data.chain_stats?.spent_txo_sum || 0) + (data.mempool_stats?.spent_txo_sum || 0);
-    const balanceSats = funded - spent;
-    const txCount = (data.chain_stats?.tx_count || 0) + (data.mempool_stats?.tx_count || 0);
-    
-    return { balanceSats, txCount, funded, spent };
+    // Use normalized data from API router
+    return {
+      balanceSats: data.balance,
+      txCount: data.txCount,
+      funded: data.totalReceived,
+      spent: data.totalSent,
+    };
   } catch (error) {
     console.error(`[BlockchainScanner] Error fetching balance for ${address}:`, error);
     return null;
