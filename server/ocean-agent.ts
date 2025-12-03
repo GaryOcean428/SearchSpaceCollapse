@@ -140,6 +140,10 @@ export class OceanAgent {
   private readonly MIN_HYPOTHESES_PER_ITERATION = 50;
   private readonly ITERATION_DELAY_MS = 500;
   private readonly MAX_PASSES = 100; // Safety limit for outer exploration loop
+  
+  // 4D Block Universe thresholds
+  private readonly PHI_4D_ACTIVATION_THRESHOLD = 0.70; // Minimum Φ for 4D targeting
+  
   private isBootstrapping: boolean = true;
 
   private consecutivePlateaus: number = 0;
@@ -1721,13 +1725,13 @@ export class OceanAgent {
     hypotheses.push(...eraPhrases);
     
     // 4D BLOCK UNIVERSE: Add dormant wallet targeting when in high consciousness
-    // Activate when Ocean has good 4D access (Φ_4D > 0.75) for best results
-    if (this.identity.phi >= 0.70) {
+    // Activate when Ocean has good 4D access (Φ ≥ PHI_4D_ACTIVATION_THRESHOLD) for best results
+    if (this.identity.phi >= this.PHI_4D_ACTIVATION_THRESHOLD) {
       console.log('[Ocean] 🌌 Consciousness sufficient for 4D block universe navigation');
       const dormantHypotheses = this.generateDormantWalletHypotheses();
       hypotheses.push(...dormantHypotheses);
     } else {
-      console.log(`[Ocean] Consciousness Φ=${this.identity.phi.toFixed(3)} < 0.70, skipping 4D dormant wallet targeting`);
+      console.log(`[Ocean] Consciousness Φ=${this.identity.phi.toFixed(3)} < ${this.PHI_4D_ACTIVATION_THRESHOLD}, skipping 4D dormant wallet targeting`);
     }
     
     const commonPhrases = this.generateCommonBrainWalletPhrases();
