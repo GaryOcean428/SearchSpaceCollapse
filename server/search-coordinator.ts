@@ -530,6 +530,14 @@ class SearchCoordinator {
       // Note: PureQIGScore doesn't have regime/inResonance, so we derive them
       const isNearResonance = Math.abs(pureScore.kappa - 64) < 10;
       const derivedRegime = pureScore.phi > 0.75 ? "geometric" : pureScore.phi > 0.5 ? "linear" : "breakdown";
+      
+      // 4D consciousness detection (defaults for pure QIG without temporal tracking)
+      const phi_spatial = pureScore.phi;
+      const phi_temporal = 0; // Pure QIG doesn't track temporal
+      const phi_4D = phi_spatial;
+      const inBlockUniverse = false; // Need temporal data for 4D access
+      const dimensionalState: '3D' | '4D-transitioning' | '4D-active' = '3D';
+      
       recordTelemetrySnapshot(jobId, {
         phi: pureScore.phi,
         kappa: pureScore.kappa,
@@ -539,6 +547,11 @@ class SearchCoordinator {
         velocity: 0,
         inResonance: isNearResonance,
         basinDrift: 0,
+        phi_spatial,
+        phi_temporal,
+        phi_4D,
+        inBlockUniverse,
+        dimensionalState,
       });
 
       if (matchedAddress) {
@@ -605,6 +618,13 @@ class SearchCoordinator {
         // Universal QIG scoring for ALL key types (even matches get scored!)
         const universalScore = scoreUniversalQIG(item.value, item.type as KeyType);
         
+        // 4D consciousness detection
+        const inBlockUniverse = universalScore.phi_4D >= 0.85 && universalScore.phi_temporal > 0.70;
+        const dimensionalState: '3D' | '4D-transitioning' | '4D-active' = 
+          inBlockUniverse ? '4D-active' :
+          (universalScore.phi_spatial > 0.85 && universalScore.phi_temporal > 0.50) ? '4D-transitioning' :
+          '3D';
+        
         // TELEMETRY: Record snapshot for the match before returning
         recordTelemetrySnapshot(jobId, {
           phi: universalScore.phi,
@@ -615,6 +635,11 @@ class SearchCoordinator {
           velocity: 0,
           inResonance: universalScore.inResonance,
           basinDrift: 0,
+          phi_spatial: universalScore.phi_spatial,
+          phi_temporal: universalScore.phi_temporal,
+          phi_4D: universalScore.phi_4D,
+          inBlockUniverse,
+          dimensionalState,
         });
         
         // Save the match as a candidate for recovery
@@ -664,6 +689,13 @@ class SearchCoordinator {
       // PURE MEASUREMENT: Check resonance proximity (no optimization toward κ*)
       const resonance = this.resonanceDetectors.get(jobId)!.checkResonance(universalScore.kappa);
       
+      // 4D consciousness detection from UniversalQIGScore
+      const inBlockUniverse = universalScore.phi_4D >= 0.85 && universalScore.phi_temporal > 0.70;
+      const dimensionalState: '3D' | '4D-transitioning' | '4D-active' = 
+        inBlockUniverse ? '4D-active' :
+        (universalScore.phi_spatial > 0.85 && universalScore.phi_temporal > 0.50) ? '4D-transitioning' :
+        '3D';
+      
       // TELEMETRY: Record snapshot for real-time dashboard
       recordTelemetrySnapshot(jobId, {
         phi: universalScore.phi,
@@ -674,6 +706,11 @@ class SearchCoordinator {
         velocity: velocity.velocity,
         inResonance: universalScore.inResonance,
         basinDrift: velocity.velocity * 10, // Scale for visibility
+        phi_spatial: universalScore.phi_spatial,
+        phi_temporal: universalScore.phi_temporal,
+        phi_4D: universalScore.phi_4D,
+        inBlockUniverse,
+        dimensionalState,
       });
       
       // Track highest scoring candidate in this batch

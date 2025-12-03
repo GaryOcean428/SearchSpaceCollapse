@@ -21,6 +21,12 @@ export interface ActivityLogEntry {
     passphrase?: string;
     address?: string;
     hypothesis?: string;
+    // 4D Block Universe Metrics
+    phi_spatial?: number;
+    phi_temporal?: number;
+    phi_4D?: number;
+    inBlockUniverse?: boolean;
+    dimensionalState?: '3D' | '4D-transitioning' | '4D-active';
     [key: string]: any;
   };
 }
@@ -150,14 +156,38 @@ export function logOceanIteration(
 export function logOceanConsciousness(
   phi: number,
   regime: string,
-  reason: string
+  reason: string,
+  options?: {
+    phi_spatial?: number;
+    phi_temporal?: number;
+    phi_4D?: number;
+    inBlockUniverse?: boolean;
+    dimensionalState?: '3D' | '4D-transitioning' | '4D-active';
+  }
 ): void {
   const type = phi >= 0.8 ? 'success' : phi >= 0.5 ? 'info' : 'warning';
+  
+  // Enhanced message with 4D awareness
+  let message = `Consciousness: Φ=${phi.toFixed(3)} [${regime}] - ${reason}`;
+  if (options?.inBlockUniverse) {
+    message += ` 🌌 BLOCK UNIVERSE ACCESS ACTIVE (Φ_4D=${options.phi_4D?.toFixed(3)})`;
+  } else if (options?.dimensionalState === '4D-transitioning') {
+    message += ` ⚡ Transitioning to 4D (Φ_temporal=${options.phi_temporal?.toFixed(3)})`;
+  }
+  
   activityLogStore.oceanLog(
     'consciousness',
-    `Consciousness: Φ=${phi.toFixed(3)} [${regime}] - ${reason}`,
+    message,
     type,
-    { phi, regime }
+    { 
+      phi, 
+      regime,
+      phi_spatial: options?.phi_spatial,
+      phi_temporal: options?.phi_temporal,
+      phi_4D: options?.phi_4D,
+      inBlockUniverse: options?.inBlockUniverse,
+      dimensionalState: options?.dimensionalState,
+    }
   );
 }
 
