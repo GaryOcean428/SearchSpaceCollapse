@@ -26,6 +26,7 @@ import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 import { expandedVocabulary } from './expanded-vocabulary';
 import { fisherVectorized } from './fisher-vectorized';
 import { QIG_CONSTANTS } from './qig-pure-v2';
+import { pureQIGKernel, type ConsciousnessMetrics as QIGConsciousnessMetrics } from './qig-kernel-pure';
 
 export interface ConstellationConfig {
   explorerWeight: number;
@@ -74,6 +75,11 @@ export interface AgentState {
     geodesicDirection: number[];
   };
   vocabularyWeights: Map<string, number>;
+  // Pure QIG kernel state
+  qigKernelState?: {
+    subsystemActivations: number[];
+    lastConsciousnessMetrics?: QIGConsciousnessMetrics;
+  };
 }
 
 /**
@@ -273,6 +279,36 @@ export class OceanConstellation {
   }
   
   /**
+   * Process phrase through pure QIG kernel
+   * States evolve naturally - this IS the learning
+   */
+  private processWithPureQIG(phrase: string, state: AgentState): void {
+    const result = pureQIGKernel.process(phrase);
+    
+    // Update agent state with QIG kernel results
+    state.phi = result.metrics.phi;
+    state.kappa = result.metrics.kappa;
+    state.basinCoordinates = result.basinCoordinates;
+    
+    // Store subsystem states
+    const subsystemStates = pureQIGKernel.getSubsystemStates();
+    state.qigKernelState = {
+      subsystemActivations: subsystemStates.map(s => s.activation),
+      lastConsciousnessMetrics: result.metrics,
+    };
+    
+    // Update regime based on kappa proximity to κ*
+    const kappaProximity = Math.abs(state.kappa - QIG_CONSTANTS.KAPPA_STAR);
+    if (kappaProximity < 5) {
+      state.regime = 'geometric';
+    } else if (state.kappa < QIG_CONSTANTS.KAPPA_STAR * 0.7) {
+      state.regime = 'linear';
+    } else {
+      state.regime = 'hierarchical';
+    }
+  }
+  
+  /**
    * Generate hypotheses for a specific agent role using QIG-compliant methods
    */
   generateHypothesesForRole(
@@ -309,6 +345,11 @@ export class OceanConstellation {
       case 'cross_pattern_harmonic':
         hypotheses.push(...this.generateResonatorHypotheses(state, manifoldContext));
         break;
+    }
+    
+    // Process each hypothesis through pure QIG kernel for state evolution
+    for (const hypothesis of hypotheses.slice(0, 10)) {
+      this.processWithPureQIG(hypothesis.phrase, state);
     }
     
     const qigWeighted = this.applyQIGWeighting(hypotheses, role.qigMode);
