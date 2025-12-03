@@ -226,11 +226,25 @@ export function OceanInvestigationStory() {
   });
 
   const stopMutation = useMutation({
-    mutationFn: async () => apiRequest('POST', '/api/recovery/stop'),
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/recovery/stop');
+      if (!response.ok) {
+        throw new Error('Failed to stop investigation');
+      }
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/investigation/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/ocean/cycles'] });
-      toast({ title: 'Investigation Paused' });
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-cycle/status'] });
+      toast({ title: 'Investigation Stopped' });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: 'Failed to Stop', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
     },
   });
 
@@ -622,15 +636,28 @@ function ControlRow({
 
   const addAddressMutation = useMutation({
     mutationFn: async (address: string) => {
-      return apiRequest('POST', '/api/target-addresses', { 
+      const response = await apiRequest('POST', '/api/target-addresses', { 
         address, 
         label: `Custom ${new Date().toLocaleDateString()}` 
       });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add address');
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/target-addresses'] });
       setNewAddress('');
       setShowAddNew(false);
+      toast({ title: 'Address Added', description: 'New target address added successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: 'Error Adding Address', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
     },
   });
 
@@ -657,16 +684,14 @@ function ControlRow({
               </SelectContent>
             </Select>
             
-            {!isRunning && !autoCycleStatus?.enabled && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowAddNew(!showAddNew)}
-                data-testid="button-add-address"
-              >
-                {showAddNew ? 'Cancel' : '+ Add'}
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowAddNew(!showAddNew)}
+              data-testid="button-add-address"
+            >
+              {showAddNew ? 'Cancel' : '+ Add'}
+            </Button>
           </div>
 
           {/* Auto-Cycle Toggle */}

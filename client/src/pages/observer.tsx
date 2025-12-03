@@ -574,7 +574,8 @@ export default function ObserverPage() {
                         }
                         
                         // Basic Bitcoin address format validation
-                        if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/.test(address)) {
+                        // P2PKH (1...): 25-34 chars, P2SH (3...): 34 chars, Bech32 (bc1...): 42-62 chars
+                        if (!/^[13][a-km-zA-HJ-NP-Z1-9]{24,33}$|^bc1[a-z0-9]{39,59}$/.test(address)) {
                           toast({
                             title: "Invalid Address",
                             description: "Please enter a valid Bitcoin address format",
