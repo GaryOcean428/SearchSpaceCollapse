@@ -93,24 +93,42 @@ export class QuantumDiscoveryProtocol {
   }
   
   /**
-   * Initialize PostgreSQL sync
+   * Initialize PostgreSQL sync with bi-directional reconciliation
+   * 
+   * Merges JSON and PostgreSQL states, preferring the one with more progress
+   * (lower entropy = more measurements completed)
    */
   private async initPostgreSQLSync(): Promise<void> {
     if (!oceanPersistence.isPersistenceAvailable()) return;
     
     try {
+      // Store JSON state for comparison
+      const jsonEntropy = this.waveFunction.entropy;
+      const jsonMeasurementCount = this.measurements.length;
+      const jsonRegionCount = this.excludedRegions.length;
+      
       // Load quantum state from PostgreSQL
       const dbState = await oceanPersistence.getQuantumState();
+      
       if (dbState) {
-        // Prefer PostgreSQL state if it has more measurements
-        if (dbState.measurementCount > this.measurements.length) {
+        // BI-DIRECTIONAL RECONCILIATION:
+        // Use the state with MORE progress (lower entropy = more measurements completed)
+        const dbHasMoreProgress = dbState.entropy < jsonEntropy || 
+          (dbState.measurementCount > jsonMeasurementCount);
+        
+        if (dbHasMoreProgress) {
+          // PostgreSQL has more progress - use DB state
           this.waveFunction.entropy = dbState.entropy;
           this.waveFunction.totalProbability = dbState.totalProbability;
           this.initialEntropy = dbState.initialEntropy ?? 256;
-          console.log(`[QuantumProtocol] Restored from PostgreSQL: ${dbState.measurementCount} measurements, ${dbState.entropy.toFixed(1)} bits remaining`);
+          console.log(`[QuantumProtocol] Using PostgreSQL state (more progress): ${dbState.measurementCount} measurements, ${dbState.entropy.toFixed(1)} bits remaining`);
+        } else if (jsonMeasurementCount > dbState.measurementCount || jsonEntropy < dbState.entropy) {
+          // JSON has more progress - sync to PostgreSQL
+          console.log(`[QuantumProtocol] JSON has more progress - syncing to PostgreSQL`);
+          await this.persistToPostgreSQL();
         }
         
-        // Load excluded regions from PostgreSQL
+        // REGION MERGING: Always merge excluded regions from both sources
         const dbRegions = await oceanPersistence.getExcludedRegions(100);
         if (dbRegions.length > 0) {
           const newRegions = dbRegions.filter(r => 
@@ -127,12 +145,24 @@ export class QuantumDiscoveryProtocol {
           
           this.excludedRegions.push(...newRegions);
           if (newRegions.length > 0) {
-            console.log(`[QuantumProtocol] Added ${newRegions.length} excluded regions from PostgreSQL`);
+            console.log(`[QuantumProtocol] Merged ${newRegions.length} excluded regions from PostgreSQL (total: ${this.excludedRegions.length})`);
           }
         }
+        
+        // Sync any new JSON regions to PostgreSQL
+        if (jsonRegionCount > dbRegions.length) {
+          console.log(`[QuantumProtocol] JSON has ${jsonRegionCount - dbRegions.length} more regions - syncing to PostgreSQL`);
+          await this.persistToPostgreSQL();
+        }
+      } else {
+        // No PostgreSQL state yet - initialize from JSON
+        console.log(`[QuantumProtocol] No PostgreSQL state - initializing from JSON`);
+        await this.persistToPostgreSQL();
       }
+      
+      console.log(`[QuantumProtocol] Reconciliation complete: entropy=${this.waveFunction.entropy.toFixed(1)} bits, regions=${this.excludedRegions.length}`);
     } catch (error) {
-      console.error('[QuantumProtocol] PostgreSQL sync failed:', error);
+      console.error('[QuantumProtocol] PostgreSQL reconciliation failed, using JSON fallback:', error);
     }
   }
   
