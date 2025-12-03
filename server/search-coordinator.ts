@@ -528,6 +528,8 @@ class SearchCoordinator {
 
       // TELEMETRY: Record snapshot for every phrase tested
       // Note: PureQIGScore doesn't have regime/inResonance, so we derive them
+      // Pure QIG operates without temporal tracking (no search history buffer)
+      // so phi_temporal defaults to 0. For full 4D access, use UniversalQIG.
       const isNearResonance = Math.abs(pureScore.kappa - 64) < 10;
       const derivedRegime = pureScore.phi > 0.75 ? "geometric" : pureScore.phi > 0.5 ? "linear" : "breakdown";
       

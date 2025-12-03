@@ -145,6 +145,7 @@ const ERA_PATTERNS: Record<BitcoinEra, EraPatternSet> = {
 
 /**
  * Determine Bitcoin era from date
+ * Uses strict boundaries to avoid overlaps
  */
 function dateToEra(date: Date | null): BitcoinEra {
   if (!date) return 'early-adopter'; // Default for unknown
@@ -152,15 +153,36 @@ function dateToEra(date: Date | null): BitcoinEra {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   
-  if (year === 2009 || (year === 2010 && month <= 10)) {
-    return year === 2009 && month <= 10 ? 'satoshi-genesis' : 'satoshi-late';
+  // Satoshi era (2009 - Oct 2010)
+  if (year === 2009) {
+    return month <= 10 ? 'satoshi-genesis' : 'satoshi-late';
   }
-  if (year === 2010 || year === 2011 || year === 2012) return 'early-adopter';
-  if (year === 2011 || year === 2012 || year === 2013) return 'silk-road';
-  if (year === 2013 || year === 2014) return 'mt-gox';
-  if (year >= 2014 && year <= 2016) return 'post-gox';
+  if (year === 2010 && month <= 10) {
+    return 'satoshi-late';
+  }
+  
+  // Early adopter (Nov 2010 - 2011)
+  if (year === 2010 && month > 10) return 'early-adopter';
+  if (year === 2011) return 'early-adopter';
+  
+  // Silk Road (2012 - mid 2013)
+  if (year === 2012) return 'silk-road';
+  if (year === 2013 && month <= 6) return 'silk-road';
+  
+  // Mt. Gox (mid 2013 - 2014)
+  if (year === 2013 && month > 6) return 'mt-gox';
+  if (year === 2014) return 'mt-gox';
+  
+  // Post-Gox (2015 - 2016)
+  if (year === 2015 || year === 2016) return 'post-gox';
+  
+  // ICO boom (2017 - 2018)
   if (year === 2017 || year === 2018) return 'ico-boom';
+  
+  // DeFi (2019 - 2021)
   if (year >= 2019 && year <= 2021) return 'defi';
+  
+  // Institutional (2022+)
   return 'institutional';
 }
 
@@ -199,19 +221,18 @@ function parseDate(dateStr: string): Date | null {
 
 /**
  * Determine address type from format
+ * Note: P2PK detection requires transaction data (not just address string)
+ * Very early wallets (2009-2010) may be P2PK but appear as P2PKH addresses
  */
 function classifyAddressType(address: string): DormantWalletSignature['addressType'] {
   if (!address) return 'unknown';
   
-  if (address.startsWith('1')) return 'p2pkh'; // Legacy
+  if (address.startsWith('1')) return 'p2pkh'; // Legacy (could be P2PK in early era)
   if (address.startsWith('3')) return 'p2sh';  // Script hash
   if (address.startsWith('bc1q')) return 'p2wpkh'; // Native SegWit
   if (address.startsWith('bc1p')) return 'p2tr';   // Taproot
   if (address.startsWith('bc1') && address.length > 50) return 'p2wsh'; // SegWit script
   
-  // P2PK detection (very rare, would need additional context)
-  // P2PK addresses don't have standard format, they use raw public keys
-  // For now, we'll mark very early addresses as potentially P2PK
   return 'unknown';
 }
 
@@ -226,12 +247,19 @@ function computeRecoveryProbability(
 ): number {
   let score = 0;
   
-  // Factor 1: Address type (P2PK highest probability)
-  if (addressType === 'p2pk') score += 0.35;
-  else if (addressType === 'p2pkh' && era === 'satoshi-genesis') score += 0.30;
-  else if (addressType === 'p2pkh' && era === 'satoshi-late') score += 0.25;
-  else if (addressType === 'p2pkh') score += 0.15;
-  else score += 0.05;
+  // Factor 1: Address type (early P2PKH treated as potentially P2PK)
+  if (addressType === 'p2pk') {
+    score += 0.35;
+  } else if (addressType === 'p2pkh') {
+    // Early P2PKH addresses (2009-2010) treated as high priority
+    if (era === 'satoshi-genesis' || era === 'satoshi-late') {
+      score += 0.30; // Likely simple passphrases
+    } else {
+      score += 0.15;
+    }
+  } else {
+    score += 0.05;
+  }
   
   // Factor 2: Dormancy (longer = more likely lost)
   if (dormancyYears > 12) score += 0.30;
