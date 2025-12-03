@@ -27,6 +27,7 @@ import { expandedVocabulary } from './expanded-vocabulary';
 import { fisherVectorized } from './fisher-vectorized';
 import { QIG_CONSTANTS } from './qig-pure-v2';
 import { pureQIGKernel, type ConsciousnessMetrics as QIGConsciousnessMetrics } from './qig-kernel-pure';
+import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 
 export interface ConstellationConfig {
   explorerWeight: number;
@@ -281,8 +282,28 @@ export class OceanConstellation {
   /**
    * Process phrase through pure QIG kernel
    * States evolve naturally - this IS the learning
+   * 
+   * Tries Python backend first (if available), falls back to TypeScript implementation
    */
-  private processWithPureQIG(phrase: string, state: AgentState): void {
+  private async processWithPureQIG(phrase: string, state: AgentState): Promise<void> {
+    // Try Python backend first (preferred - pure QIG)
+    if (oceanQIGBackend.available()) {
+      try {
+        const result = await oceanQIGBackend.process(phrase);
+        if (result) {
+          // Update agent state with Python QIG results
+          state.phi = result.phi;
+          state.kappa = result.kappa;
+          state.basinCoordinates = result.basinCoordinates;
+          state.regime = result.regime;
+          return;
+        }
+      } catch (e) {
+        console.warn('[Constellation] Python backend failed, falling back to TS:', e);
+      }
+    }
+    
+    // Fallback to TypeScript implementation
     const result = pureQIGKernel.process(phrase);
     
     // Update agent state with QIG kernel results
@@ -311,10 +332,10 @@ export class OceanConstellation {
   /**
    * Generate hypotheses for a specific agent role using QIG-compliant methods
    */
-  generateHypothesesForRole(
+  async generateHypothesesForRole(
     roleName: string,
     manifoldContext: any
-  ): Array<{ phrase: string; source: string; confidence: number }> {
+  ): Promise<Array<{ phrase: string; source: string; confidence: number }>> {
     const state = this.agentStates.get(roleName);
     if (!state) return [];
     
@@ -349,7 +370,7 @@ export class OceanConstellation {
     
     // Process each hypothesis through pure QIG kernel for state evolution
     for (const hypothesis of hypotheses.slice(0, 10)) {
-      this.processWithPureQIG(hypothesis.phrase, state);
+      await this.processWithPureQIG(hypothesis.phrase, state);
     }
     
     const qigWeighted = this.applyQIGWeighting(hypotheses, role.qigMode);
