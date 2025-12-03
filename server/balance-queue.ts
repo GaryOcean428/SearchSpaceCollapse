@@ -105,6 +105,12 @@ class BalanceQueueService {
     return this._isReady;
   }
   
+  // Heartbeat for auto-restart
+  private lastHeartbeat = Date.now();
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private workerErrorCount = 0;
+  private maxWorkerErrors = 10;
+  
   /**
    * Start continuous background balance checking
    * Uses bulk processing with multi-provider API for ~25 addr/sec effective rate
@@ -119,16 +125,93 @@ class BalanceQueueService {
     this.backgroundStartTime = Date.now();
     this.backgroundCheckCount = 0;
     this.backgroundHitCount = 0;
+    this.workerErrorCount = 0;
+    this.lastHeartbeat = Date.now();
     
-    // Process batches every 2 seconds using bulk API
+    // Process batches every 2 seconds using bulk API with error protection
     this.backgroundWorkerInterval = setInterval(async () => {
       if (!this.backgroundWorkerEnabled) return;
       if (this.isProcessing) return;
       
-      await this.processBulkBatch();
+      try {
+        this.isProcessing = true;
+        this.lastHeartbeat = Date.now();
+        await this.processBulkBatch();
+        this.workerErrorCount = 0; // Reset error count on success
+      } catch (error) {
+        this.workerErrorCount++;
+        console.error(`[BalanceQueue] Worker error ${this.workerErrorCount}/${this.maxWorkerErrors}:`, error);
+        
+        if (this.workerErrorCount >= this.maxWorkerErrors) {
+          console.log('[BalanceQueue] Too many errors, pausing worker for 30s...');
+          this.workerErrorCount = 0;
+          // Wait 30 seconds before resuming
+          setTimeout(() => {
+            console.log('[BalanceQueue] Resuming worker after error cooldown');
+          }, 30000);
+        }
+      } finally {
+        this.isProcessing = false;
+      }
     }, this.bulkProcessInterval);
     
+    // Start heartbeat monitor to auto-restart if worker stops
+    this.startHeartbeatMonitor();
+    
     console.log('[BalanceQueue] Background worker started (bulk mode, ~25 addr/sec)');
+  }
+  
+  /**
+   * Heartbeat monitor - restarts worker if it stops unexpectedly
+   */
+  private startHeartbeatMonitor(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+    
+    this.heartbeatInterval = setInterval(() => {
+      if (!this.backgroundWorkerEnabled) return;
+      
+      const timeSinceLastBeat = Date.now() - this.lastHeartbeat;
+      const maxSilence = 60000; // 1 minute max silence
+      
+      if (timeSinceLastBeat > maxSilence) {
+        console.log('[BalanceQueue] Worker heartbeat missed, restarting...');
+        this.restartWorker();
+      }
+    }, 30000); // Check every 30 seconds
+  }
+  
+  /**
+   * Restart the background worker
+   */
+  private restartWorker(): void {
+    if (this.backgroundWorkerInterval) {
+      clearInterval(this.backgroundWorkerInterval);
+      this.backgroundWorkerInterval = null;
+    }
+    this.isProcessing = false;
+    
+    // Restart after a brief delay
+    setTimeout(() => {
+      if (this.backgroundWorkerEnabled) {
+        console.log('[BalanceQueue] Restarting background worker...');
+        this.backgroundWorkerInterval = setInterval(async () => {
+          if (!this.backgroundWorkerEnabled) return;
+          if (this.isProcessing) return;
+          
+          try {
+            this.isProcessing = true;
+            this.lastHeartbeat = Date.now();
+            await this.processBulkBatch();
+          } catch (error) {
+            console.error('[BalanceQueue] Worker error during restart:', error);
+          } finally {
+            this.isProcessing = false;
+          }
+        }, this.bulkProcessInterval);
+      }
+    }, 2000);
   }
   
   /**
@@ -139,8 +222,24 @@ class BalanceQueueService {
       clearInterval(this.backgroundWorkerInterval);
       this.backgroundWorkerInterval = null;
     }
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
     this.backgroundWorkerEnabled = false;
+    this.isProcessing = false;
     console.log('[BalanceQueue] Background worker stopped');
+  }
+  
+  /**
+   * Force restart the background worker (for manual intervention)
+   */
+  forceRestartWorker(): void {
+    console.log('[BalanceQueue] Force restarting background worker...');
+    this.stopBackgroundWorker();
+    setTimeout(() => {
+      this.startBackgroundWorker();
+    }, 1000);
   }
   
   /**
