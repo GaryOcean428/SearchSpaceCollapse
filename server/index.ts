@@ -3,6 +3,50 @@ import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { pool } from "./db";
+import { spawn } from "child_process";
+import path from "path";
+
+// Start Python QIG Backend as a child process
+function startPythonBackend(): void {
+  const pythonPath = process.env.PYTHON_PATH || 'python3';
+  const scriptPath = path.join(process.cwd(), 'qig-backend', 'ocean_qig_core.py');
+  
+  console.log('[PythonQIG] Starting Python QIG Backend...');
+  
+  const pythonProcess = spawn(pythonPath, [scriptPath], {
+    cwd: path.join(process.cwd(), 'qig-backend'),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
+  });
+  
+  pythonProcess.stdout?.on('data', (data: Buffer) => {
+    const output = data.toString().trim();
+    if (output) {
+      console.log(`[PythonQIG] ${output}`);
+    }
+  });
+  
+  pythonProcess.stderr?.on('data', (data: Buffer) => {
+    const output = data.toString().trim();
+    // Filter out Flask development server warnings
+    if (output && !output.includes('WARNING: This is a development server')) {
+      console.error(`[PythonQIG] ${output}`);
+    }
+  });
+  
+  pythonProcess.on('close', (code: number | null) => {
+    console.log(`[PythonQIG] Process exited with code ${code}`);
+    // Restart after 5 seconds if it crashes
+    if (code !== 0) {
+      console.log('[PythonQIG] Will restart in 5 seconds...');
+      setTimeout(() => startPythonBackend(), 5000);
+    }
+  });
+  
+  pythonProcess.on('error', (err: Error) => {
+    console.error('[PythonQIG] Failed to start:', err.message);
+  });
+}
 
 // Handle uncaught exceptions gracefully to prevent crashes
 process.on('uncaughtException', (err) => {
@@ -146,5 +190,8 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start Python QIG Backend after main server is up
+    startPythonBackend();
   });
 })();

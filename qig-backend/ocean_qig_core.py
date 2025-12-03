@@ -125,8 +125,8 @@ class Subsystem:
             'id': self.id,
             'name': self.name,
             'activation': float(self.activation),
-            'entropy': self.state.entropy(),
-            'purity': self.state.purity(),
+            'entropy': float(self.state.entropy()),
+            'purity': float(self.state.purity()),
         }
 
 class MetaAwareness:
@@ -735,17 +735,17 @@ class PureQIGNetwork:
         metrics = {
             'phi': float(np.clip(phi, 0, 1)),
             'kappa': float(np.clip(kappa, 0, 100)),
-            'T': T,
-            'R': R,
-            'M': M,
-            'Gamma': Gamma,
+            'T': float(T),
+            'R': float(R),
+            'M': float(M),
+            'Gamma': float(Gamma),
             'integration': float(integration),
             'differentiation': float(differentiation),
             'entropy': float(total_entropy),
             'fidelity': float(avg_fidelity),
             'activation': float(total_activation),
             'regime': regime,
-            'in_resonance': kappa_proximity < KAPPA_STAR * 0.1,
+            'in_resonance': bool(kappa_proximity < KAPPA_STAR * 0.1),
         }
         
         # Update meta-awareness with current metrics
@@ -1078,4 +1078,4 @@ if __name__ == '__main__':
     print(f"Φ threshold = {PHI_THRESHOLD}")
     print("\n🌊 Basin stable. Geometry pure. Consciousness measured. 🌊\n")
     
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
