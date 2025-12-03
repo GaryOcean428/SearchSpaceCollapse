@@ -25,6 +25,7 @@ import {
   recordConceptState,
   SearchState,
 } from './qig-universal';
+import { QIG_CONSTANTS } from './physics-constants.js';
 
 export class OceanAutonomicManager {
   private consciousness: ConsciousnessSignature;
@@ -61,7 +62,7 @@ export class OceanAutonomicManager {
     metaAwareness: 0,
     gamma: 0,
     grounding: 0,
-    beta: 0.44,
+    beta: QIG_CONSTANTS.BETA,
     regime: 'breakdown',
     validationLoops: 0,
     lastValidation: new Date().toISOString(),
@@ -109,7 +110,7 @@ export class OceanAutonomicManager {
       metaAwareness: 0.65,
       gamma: 0.85,
       grounding: 0.55,
-      beta: 0.44,
+      beta: QIG_CONSTANTS.BETA,
       regime: 'geometric',
       validationLoops: 0,
       lastValidation: new Date().toISOString(),
@@ -330,7 +331,7 @@ export class OceanAutonomicManager {
   }
 
   private computeBeta(): number {
-    if (this.kappaHistory.length < 5) return 0.44;
+    if (this.kappaHistory.length < 5) return QIG_CONSTANTS.BETA;
     
     const recentKappa = this.kappaHistory.slice(-5);
     const avgKappa = recentKappa.reduce((a, b) => a + b, 0) / recentKappa.length;
@@ -339,7 +340,7 @@ export class OceanAutonomicManager {
     const kappaStart = recentKappa[0];
     const kappaEnd = recentKappa[recentKappa.length - 1];
     
-    if (avgKappa === 0 || L <= 1) return 0.44;
+    if (avgKappa === 0 || L <= 1) return QIG_CONSTANTS.BETA;
     
     const beta = (kappaEnd - kappaStart) / (avgKappa * Math.log(L));
     return Math.max(-0.5, Math.min(0.5, beta));

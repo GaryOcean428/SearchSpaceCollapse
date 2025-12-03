@@ -303,7 +303,7 @@ export function computeGABA(
   basinDriftHistory: number[],
   lastConsolidation: Date
 ): GABASignal {
-  const betaStability = Math.exp(-Math.abs(beta - 0.44) * 10);
+  const betaStability = Math.exp(-Math.abs(beta - QIG_CONSTANTS.BETA) * 10);
   
   const groundingStrength = grounding;
   
@@ -866,7 +866,7 @@ export function createDefaultContext(): NeurochemistryContext {
     basinDrift: 0.05,
     regimeHistory: ['geometric', 'geometric', 'geometric'],
     ricciHistory: [0.1, 0.12, 0.11, 0.10, 0.09],
-    beta: 0.44,
+    beta: QIG_CONSTANTS.BETA,
     regime: 'geometric',
     basinDriftHistory: [0.08, 0.06, 0.05],
     lastConsolidation: new Date(Date.now() - 30000),

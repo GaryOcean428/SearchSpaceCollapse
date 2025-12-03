@@ -300,7 +300,7 @@ export function runGradientSearchBatch(
     steps.push(step);
     
     // Collect high-Φ candidates
-    if (step.score.quality >= PHI_THRESHOLD) {
+    if (step.score.quality >= QIG_CONSTANTS.PHI_THRESHOLD) {
       highPhiCandidates.push(step.key);
     }
   }
