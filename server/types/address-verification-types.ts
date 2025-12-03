@@ -117,8 +117,19 @@ export type BalanceCheckResponse = z.infer<typeof balanceCheckResponseSchema>;
 export function getAddressType(address: BitcoinAddress): AddressTypeValue {
   if (address.startsWith('1')) return 'P2PKH';
   if (address.startsWith('3')) return 'P2SH';
-  if (address.startsWith('bc1q')) return 'P2WPKH';
-  if (address.startsWith('bc1p')) return 'P2TR';
+  
+  // Bech32 addresses (SegWit)
+  if (address.startsWith('bc1')) {
+    // bc1q = P2WPKH (42 chars) or P2WSH (62 chars)
+    if (address.startsWith('bc1q')) {
+      return address.length === 42 ? 'P2WPKH' : 'P2WSH';
+    }
+    // bc1p = Taproot
+    if (address.startsWith('bc1p')) {
+      return 'P2TR';
+    }
+  }
+  
   return 'Unknown';
 }
 

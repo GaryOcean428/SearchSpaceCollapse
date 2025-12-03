@@ -300,7 +300,10 @@ export function validateSatoshis(amount: unknown): ValidationResult<Satoshi> {
   }
 
   // Max Bitcoin supply: 21 million BTC = 2.1 quadrillion satoshis
-  const MAX_SATOSHIS = 21_000_000 * 100_000_000;
+  const MAX_BITCOIN_SUPPLY = 21_000_000;
+  const SATOSHIS_PER_BTC = 100_000_000;
+  const MAX_SATOSHIS = MAX_BITCOIN_SUPPLY * SATOSHIS_PER_BTC;
+  
   if (amount > MAX_SATOSHIS) {
     return validationFailure('Amount exceeds maximum Bitcoin supply');
   }
@@ -532,6 +535,21 @@ export function validateArray<T>(
 // ============================================================================
 
 /**
+ * Characters to remove during sanitization:
+ * - \0: Null character
+ * - \x08: Backspace
+ * - \x09: Tab
+ * - \x1a: Substitute (Ctrl-Z)
+ * - \n: Newline
+ * - \r: Carriage return
+ * - ": Double quote (SQL injection)
+ * - ': Single quote (SQL injection)
+ * - \\: Backslash (escape sequences)
+ * - %: Percent (SQL LIKE patterns)
+ */
+const DANGEROUS_CHARACTERS = /[\0\x08\x09\x1a\n\r"'\\\%]/g;
+
+/**
  * Sanitize string input
  */
 export function sanitizeString(input: unknown): string {
@@ -540,7 +558,7 @@ export function sanitizeString(input: unknown): string {
   }
 
   return input
-    .replace(/[\0\x08\x09\x1a\n\r"'\\\%]/g, '') // Remove potentially harmful characters
+    .replace(DANGEROUS_CHARACTERS, '') // Remove potentially harmful characters
     .trim()
     .slice(0, 10000); // Limit length
 }
