@@ -1508,3 +1508,228 @@ export const strategyKnowledgeBusSchema = z.object({
 });
 
 export type StrategyKnowledgeBus = z.infer<typeof strategyKnowledgeBusSchema>;
+
+// ============================================================================
+// OCEAN 4D NAVIGATION PERSISTENCE TABLES
+// PostgreSQL schema for persistent 68D manifold navigation
+// ============================================================================
+
+/**
+ * MANIFOLD PROBES - Points measured on the QIG manifold
+ * Core storage for geometric memory with 64D basin coordinates
+ * Indexed by φ and κ for efficient range queries
+ */
+export const manifoldProbes = pgTable("manifold_probes", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  input: text("input").notNull(),
+  coordinates: doublePrecision("coordinates").array().notNull(), // 64D basin coordinates
+  phi: doublePrecision("phi").notNull(),
+  kappa: doublePrecision("kappa").notNull(),
+  regime: varchar("regime", { length: 32 }).notNull(), // linear, geometric, breakdown, hierarchical, etc.
+  ricciScalar: doublePrecision("ricci_scalar").default(0),
+  fisherTrace: doublePrecision("fisher_trace").default(0),
+  source: varchar("source", { length: 128 }), // Investigation that produced this probe
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_manifold_probes_phi").on(table.phi),
+  index("idx_manifold_probes_kappa").on(table.kappa),
+  index("idx_manifold_probes_phi_kappa").on(table.phi, table.kappa),
+  index("idx_manifold_probes_regime").on(table.regime),
+]);
+
+export type ManifoldProbe = typeof manifoldProbes.$inferSelect;
+export type InsertManifoldProbe = typeof manifoldProbes.$inferInsert;
+
+/**
+ * RESONANCE POINTS - High-Φ clusters detected on the manifold
+ */
+export const resonancePoints = pgTable("resonance_points", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  probeId: varchar("probe_id", { length: 64 }).notNull().references(() => manifoldProbes.id),
+  phi: doublePrecision("phi").notNull(),
+  kappa: doublePrecision("kappa").notNull(),
+  nearbyProbes: text("nearby_probes").array(), // Array of probe IDs
+  clusterStrength: doublePrecision("cluster_strength").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_resonance_points_phi").on(table.phi),
+  index("idx_resonance_points_cluster_strength").on(table.clusterStrength),
+]);
+
+export type ResonancePointRecord = typeof resonancePoints.$inferSelect;
+
+/**
+ * REGIME BOUNDARIES - Transitions between regimes on the manifold
+ */
+export const regimeBoundaries = pgTable("regime_boundaries", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  fromRegime: varchar("from_regime", { length: 32 }).notNull(),
+  toRegime: varchar("to_regime", { length: 32 }).notNull(),
+  probeIdFrom: varchar("probe_id_from", { length: 64 }).notNull(),
+  probeIdTo: varchar("probe_id_to", { length: 64 }).notNull(),
+  fisherDistance: doublePrecision("fisher_distance").notNull(),
+  midpointPhi: doublePrecision("midpoint_phi").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_regime_boundaries_from_to").on(table.fromRegime, table.toRegime),
+]);
+
+export type RegimeBoundaryRecord = typeof regimeBoundaries.$inferSelect;
+
+/**
+ * GEODESIC PATHS - Fisher-optimal paths between probes
+ */
+export const geodesicPaths = pgTable("geodesic_paths", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  fromProbeId: varchar("from_probe_id", { length: 64 }).notNull(),
+  toProbeId: varchar("to_probe_id", { length: 64 }).notNull(),
+  distance: doublePrecision("distance").notNull(),
+  waypoints: text("waypoints").array(), // Array of probe IDs along path
+  avgPhi: doublePrecision("avg_phi").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_geodesic_paths_from_to").on(table.fromProbeId, table.toProbeId),
+]);
+
+export type GeodesicPathRecord = typeof geodesicPaths.$inferSelect;
+
+/**
+ * TPS LANDMARKS - Fixed spacetime reference points for 68D navigation
+ * These are Bitcoin historical events used for trilateration
+ */
+export const tpsLandmarks = pgTable("tps_landmarks", {
+  eventId: varchar("event_id", { length: 64 }).primaryKey(),
+  description: text("description").notNull(),
+  era: varchar("era", { length: 32 }), // genesis, early_adoption, pizza_era, etc.
+  spacetimeX: doublePrecision("spacetime_x").default(0),
+  spacetimeY: doublePrecision("spacetime_y").default(0),
+  spacetimeZ: doublePrecision("spacetime_z").default(0),
+  spacetimeT: doublePrecision("spacetime_t").notNull(), // Unix timestamp
+  culturalCoords: doublePrecision("cultural_coords").array(), // 64D cultural signature
+  fisherSignature: jsonb("fisher_signature"), // Fisher information matrix (sparse)
+  lightConePast: text("light_cone_past").array(),
+  lightConeFuture: text("light_cone_future").array(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_tps_landmarks_era").on(table.era),
+  index("idx_tps_landmarks_timestamp").on(table.spacetimeT),
+]);
+
+export type TpsLandmarkRecord = typeof tpsLandmarks.$inferSelect;
+
+/**
+ * TPS GEODESIC PATHS - Computed paths between landmarks for navigation
+ */
+export const tpsGeodesicPaths = pgTable("tps_geodesic_paths", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  fromLandmark: varchar("from_landmark", { length: 64 }).notNull(),
+  toLandmark: varchar("to_landmark", { length: 64 }).notNull(),
+  distance: doublePrecision("distance").notNull(),
+  waypoints: jsonb("waypoints"), // Array of BlockUniverseMap positions
+  totalArcLength: doublePrecision("total_arc_length"),
+  avgCurvature: doublePrecision("avg_curvature"),
+  regimeTransitions: jsonb("regime_transitions"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_tps_geodesic_from_to").on(table.fromLandmark, table.toLandmark),
+]);
+
+export type TpsGeodesicPathRecord = typeof tpsGeodesicPaths.$inferSelect;
+
+/**
+ * OCEAN TRAJECTORIES - Active and completed navigation trajectories
+ * Used for 4D navigation resumption across sessions
+ */
+export const oceanTrajectories = pgTable("ocean_trajectories", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  address: varchar("address", { length: 64 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull().default("active"), // active, completed, abandoned
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  waypointCount: integer("waypoint_count").default(0),
+  lastPhi: doublePrecision("last_phi").default(0),
+  lastKappa: doublePrecision("last_kappa").default(0),
+  finalResult: varchar("final_result", { length: 32 }), // match, exhausted, stopped, error
+  nearMissCount: integer("near_miss_count").default(0),
+  resonantCount: integer("resonant_count").default(0),
+  durationSeconds: doublePrecision("duration_seconds"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ocean_trajectories_address").on(table.address),
+  index("idx_ocean_trajectories_status").on(table.status),
+  index("idx_ocean_trajectories_address_status").on(table.address, table.status),
+]);
+
+export type OceanTrajectoryRecord = typeof oceanTrajectories.$inferSelect;
+export type InsertOceanTrajectory = typeof oceanTrajectories.$inferInsert;
+
+/**
+ * OCEAN WAYPOINTS - Individual points along a trajectory
+ */
+export const oceanWaypoints = pgTable("ocean_waypoints", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  trajectoryId: varchar("trajectory_id", { length: 64 }).notNull().references(() => oceanTrajectories.id),
+  sequence: integer("sequence").notNull(),
+  phi: doublePrecision("phi").notNull(),
+  kappa: doublePrecision("kappa").notNull(),
+  regime: varchar("regime", { length: 32 }).notNull(),
+  basinCoords: doublePrecision("basin_coords").array(), // 64D coordinates
+  event: varchar("event", { length: 128 }),
+  details: text("details"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ocean_waypoints_trajectory").on(table.trajectoryId),
+  index("idx_ocean_waypoints_trajectory_seq").on(table.trajectoryId, table.sequence),
+]);
+
+export type OceanWaypointRecord = typeof oceanWaypoints.$inferSelect;
+export type InsertOceanWaypoint = typeof oceanWaypoints.$inferInsert;
+
+/**
+ * OCEAN QUANTUM STATE - Singleton table for wave function state
+ * Tracks entropy reduction and possibility space
+ */
+export const oceanQuantumState = pgTable("ocean_quantum_state", {
+  id: varchar("id", { length: 32 }).primaryKey().default("singleton"),
+  entropy: doublePrecision("entropy").notNull().default(256), // Bits remaining
+  initialEntropy: doublePrecision("initial_entropy").notNull().default(256),
+  totalProbability: doublePrecision("total_probability").notNull().default(1.0),
+  measurementCount: integer("measurement_count").default(0),
+  successfulMeasurements: integer("successful_measurements").default(0),
+  status: varchar("status", { length: 32 }).default("searching"), // searching, solved, exhausted
+  lastMeasurementAt: timestamp("last_measurement_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type OceanQuantumStateRecord = typeof oceanQuantumState.$inferSelect;
+
+/**
+ * OCEAN EXCLUDED REGIONS - Regions excluded from possibility space
+ * Each measurement that fails adds an excluded region
+ */
+export const oceanExcludedRegions = pgTable("ocean_excluded_regions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  dimension: integer("dimension").notNull(),
+  origin: doublePrecision("origin").array().notNull(), // Center point in manifold
+  basis: jsonb("basis"), // Orthonormal basis vectors
+  measure: doublePrecision("measure").notNull(), // "Volume" of excluded region
+  phi: doublePrecision("phi"),
+  regime: varchar("regime", { length: 32 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ocean_excluded_regions_measure").on(table.measure),
+]);
+
+export type OceanExcludedRegionRecord = typeof oceanExcludedRegions.$inferSelect;
+
+/**
+ * TESTED PHRASES INDEX - Fast lookup for already-tested phrases
+ * Prevents duplicate work across sessions
+ */
+export const testedPhrasesIndex = pgTable("tested_phrases_index", {
+  phraseHash: varchar("phrase_hash", { length: 64 }).primaryKey(), // SHA-256 hash
+  testedAt: timestamp("tested_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_tested_phrases_date").on(table.testedAt),
+]);
