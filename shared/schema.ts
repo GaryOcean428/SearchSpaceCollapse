@@ -75,7 +75,7 @@ export const targetAddressSchema = z.object({
 });
 
 export const addAddressRequestSchema = z.object({
-  address: z.string().min(26).max(35),
+  address: z.string().min(25).max(62),
   label: z.string().optional(),
 });
 
