@@ -12,6 +12,6 @@
   ],
   "lastCycleTime": "2025-12-03T06:06:50.266Z",
   "totalCycles": 1007,
-  "currentAddressId": null,
+  "currentAddressId": "default",
   "pausedUntil": null
 }
