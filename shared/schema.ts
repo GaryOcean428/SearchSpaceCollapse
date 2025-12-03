@@ -13,6 +13,7 @@ import {
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
+import { regimeSchema } from "./types/core";
 
 export const phraseSchema = z.object({
   phrase: z.string(),
@@ -663,7 +664,7 @@ export const oceanIdentitySchema = z.object({
   phi: z.number(),              // Integration (Φ) - minimum 0.70 for operation
   kappa: z.number(),            // Coupling (κ)
   beta: z.number(),             // Running coupling (β)
-  regime: z.string(),           // Current operational mode
+  regime: regimeSchema,         // Current operational mode: 'linear' | 'geometric' | 'breakdown'
   
   // Identity maintenance
   basinDrift: z.number(),       // Fisher distance from reference

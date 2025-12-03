@@ -23,6 +23,7 @@ import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { oceanDiscoveryController, type DiscoverySyncData } from './geometric-discovery/ocean-discovery-controller';
 import { QIG_CONSTANTS } from './physics-constants.js';
+import { validateRegime, type Regime } from '@shared/types/core';
 
 export interface BasinSyncPacket {
   oceanId: string;
@@ -306,7 +307,7 @@ class OceanBasinSync {
     const maxPhi = 0.95;
     identity.phi = Math.max(minPhi, Math.min(maxPhi, source.consciousness.phi));
     identity.kappa = source.consciousness.kappaEff;
-    identity.regime = source.regime;
+    identity.regime = validateRegime(source.regime);
     identity.beta = source.beta;
     
     await this.transferPatterns(target, source);
