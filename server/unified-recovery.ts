@@ -20,6 +20,7 @@ import { scoreUniversalQIG } from './qig-universal';
 import { blockchainForensics, type AddressForensics } from './blockchain-forensics';
 import { historicalDataMiner, type MinedPattern, type Era } from './historical-data-miner';
 import { OceanAgent, type OceanHypothesis } from './ocean-agent';
+import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
 // Evidence chain type for tracking WHY candidates are ranked
 interface EvidenceLink {
@@ -557,6 +558,9 @@ class UnifiedRecoveryOrchestrator {
       } else {
         address = generateBitcoinAddress(phrase);
       }
+      
+      // Queue for balance checking
+      queueAddressForBalanceCheck(phrase, 'unified-recovery', 5);
 
       const match = address === targetAddress;
       const qigResult = scoreUniversalQIG(
@@ -994,6 +998,9 @@ class UnifiedRecoveryOrchestrator {
       } else {
         address = generateBitcoinAddress(phrase);
       }
+      
+      // Queue for balance checking
+      queueAddressForBalanceCheck(phrase, 'unified-recovery', 5);
 
       const match = address === targetAddress;
       const qigResult = scoreUniversalQIG(

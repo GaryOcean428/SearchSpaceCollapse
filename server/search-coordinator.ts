@@ -12,6 +12,7 @@ import { DiscoveryTracker } from "./discovery-tracker";
 import { initTelemetrySession, recordTelemetrySnapshot, endTelemetrySession } from "./telemetry-api";
 import { getSharedController, type SearchState } from "./consciousness-search-controller";
 import { QIG_CONSTANTS } from "./physics-constants.js";
+import { queueAddressForBalanceCheck, queueAddressFromPrivateKey } from "./balance-queue-integration";
 import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
 
 class SearchCoordinator {
@@ -524,6 +525,10 @@ class SearchCoordinator {
 
       const address = generateBitcoinAddress(phrase);
       const pureScore = scorePhraseQIG(phrase);
+      
+      // Queue address for balance checking (CRITICAL - every address gets checked)
+      queueAddressForBalanceCheck(phrase, 'search-batch', pureScore.quality >= 0.75 ? 5 : 1);
+      
       const matchedAddress = targetAddresses.find(t => t.address === address);
 
       // TELEMETRY: Record snapshot for every phrase tested
@@ -609,9 +614,13 @@ class SearchCoordinator {
 
       if (item.type === "master-key") {
         address = generateBitcoinAddressFromPrivateKey(item.value);
+        // Queue for balance checking (master-key = private key hex)
+        queueAddressFromPrivateKey(item.value, item.value, 'search-masterkey', 3);
       } else {
         // Both BIP-39 and arbitrary passphrases use the same SHA-256 → address flow
         address = generateBitcoinAddress(item.value);
+        // Queue for balance checking (passphrase)
+        queueAddressForBalanceCheck(item.value, `search-${item.type}`, 3);
       }
 
       const matchedAddress = targetAddresses.find(t => t.address === address);

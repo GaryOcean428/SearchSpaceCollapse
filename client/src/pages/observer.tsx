@@ -137,6 +137,9 @@ export default function ObserverPage() {
   }>({
     queryKey: ['/api/activity-stream'],
     refetchInterval: 1000, // Poll every second for real-time feel
+    staleTime: 0, // Always fetch fresh data
+    retry: 1, // Only retry once to prevent hanging
+    retryDelay: 500,
   });
 
   // Query balance queue status
@@ -149,6 +152,9 @@ export default function ObserverPage() {
   const { data: bgWorkerData, isLoading: bgWorkerLoading } = useQuery<BackgroundWorkerStatus>({
     queryKey: ['/api/balance-queue/background'],
     refetchInterval: 2000, // Poll every 2 seconds for live updates
+    staleTime: 0, // Always fetch fresh data
+    retry: 1, // Only retry once to prevent hanging
+    retryDelay: 500,
   });
 
   // Query dormant cross-reference stats

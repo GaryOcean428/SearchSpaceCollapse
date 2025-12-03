@@ -413,6 +413,7 @@ export class OceanDiscoveryController {
   
   /**
    * Test a hypothesis against target address
+   * Also queues addresses for balance checking
    */
   private async testHypothesis(
     hypothesis: string,
@@ -420,19 +421,30 @@ export class OceanDiscoveryController {
   ): Promise<{ success: boolean; wifKey?: string; address?: string }> {
     try {
       // Import crypto functions dynamically to avoid circular deps
-      const { generateBitcoinAddress, derivePrivateKeyFromPassphrase, privateKeyToWIF } = 
+      const { generateBitcoinAddress, generateBothAddresses, derivePrivateKeyFromPassphrase, privateKeyToWIF } = 
         await import('../crypto');
+      const { queueAddressForBalanceCheck } = await import('../balance-queue-integration');
       
-      // Derive address from hypothesis
+      // Derive address from hypothesis (passphrase)
+      // NOTE: generateBitcoinAddress takes passphrase, NOT private key hex
+      const addresses = generateBothAddresses(hypothesis);
       const privateKey = derivePrivateKeyFromPassphrase(hypothesis);
-      const address = generateBitcoinAddress(privateKey);
       
-      if (address === targetAddress) {
-        const wifKey = privateKeyToWIF(privateKey);
-        return { success: true, wifKey, address };
+      // Queue BOTH addresses for balance checking (critical!)
+      queueAddressForBalanceCheck(hypothesis, 'ocean-discovery', 3);
+      
+      // Check both compressed and uncompressed against target
+      if (addresses.compressed === targetAddress) {
+        const wifKey = privateKeyToWIF(privateKey, true);
+        return { success: true, wifKey, address: addresses.compressed };
       }
       
-      return { success: false, address };
+      if (addresses.uncompressed === targetAddress) {
+        const wifKey = privateKeyToWIF(privateKey, false);
+        return { success: true, wifKey, address: addresses.uncompressed };
+      }
+      
+      return { success: false, address: addresses.compressed };
     } catch (error) {
       return { success: false };
     }

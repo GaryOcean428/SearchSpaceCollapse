@@ -2,6 +2,7 @@ import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { historicalDataMiner, type Era } from './historical-data-miner';
+import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
 export interface EvidenceLink {
   source: string;
@@ -267,6 +268,9 @@ export class InvestigationAgent {
         } else {
           hypo.address = generateBitcoinAddress(hypo.phrase);
         }
+        
+        // Queue for balance checking
+        queueAddressForBalanceCheck(hypo.phrase, 'investigation-agent', 4);
         
         hypo.match = (hypo.address === this.targetAddress);
         hypo.testedAt = new Date();
