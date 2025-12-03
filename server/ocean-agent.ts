@@ -876,10 +876,13 @@ export class OceanAgent {
           
           // Record episode to memory manager for long-term learning
           const iterationEndTime = Date.now();
+          const regimeForMemory = ['linear', 'geometric', 'breakdown'].includes(this.identity.regime) 
+            ? this.identity.regime as 'linear' | 'geometric' | 'breakdown'
+            : 'linear';
           oceanMemoryManager.addEpisode(oceanMemoryManager.createEpisode({
             phi: this.identity.phi,
             kappa: this.identity.kappa,
-            regime: this.identity.regime,
+            regime: regimeForMemory,
             result: testResults.nearMisses.length > 0 ? 'near_miss' : 'tested',
             strategy: iterStrategy.name,
             phrasesTestedCount: testResults.tested.length,
@@ -1312,7 +1315,7 @@ export class OceanAgent {
             hypo.phrase,
             compressedWif,
             uncompressedWif,
-            { cycleId: `cycle-${this.state.passNumber}`, priority: hypo.qigScore?.phi || 1 }
+            { cycleId: `cycle-${Date.now()}`, priority: hypo.qigScore?.phi || 1 }
           );
         }
         
