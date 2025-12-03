@@ -9,13 +9,22 @@
  * - Graph: transaction relationships, address clusters, miner patterns
  * - Value: amounts, coinbase rewards, transaction patterns
  * - Script: P2PKH/P2SH types, software fingerprints
+ * 
+ * Data Storage:
+ * - Primary: PostgreSQL (balance_hits table, user-associated)
+ * - Backup: JSON file (data/balance-hits.json)
  */
 
 import type { Address, Block, Transaction } from "@shared/schema";
+import { balanceHits as balanceHitsTable, balanceChangeEvents as balanceChangeEventsTable } from "@shared/schema";
 import { observerStorage } from "./observer-storage";
 import { updateAddressDormancy } from "./dormancy-updater";
 import { createHash } from "crypto";
 import bs58check from "bs58check";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+
+const DEFAULT_USER_ID = '36468785';
 
 // Blockstream API base URL (free, no API key required)
 const BLOCKSTREAM_API = "https://blockstream.info/api";
@@ -278,14 +287,40 @@ async function saveBalanceChanges(): Promise<void> {
 // Load changes on init
 loadBalanceChanges();
 
-// In-memory storage for balance hits (persisted to disk)
+// In-memory storage for balance hits (synced with PostgreSQL as primary, JSON as backup)
 const balanceHits: BalanceHit[] = [];
 const BALANCE_HITS_FILE = 'data/balance-hits.json';
 
 /**
- * Load balance hits from disk on startup
+ * Load balance hits from PostgreSQL (primary) or disk (fallback)
  */
 async function loadBalanceHits(): Promise<void> {
+  try {
+    if (db) {
+      const rows = await db.select().from(balanceHitsTable);
+      for (const row of rows) {
+        balanceHits.push({
+          address: row.address,
+          passphrase: row.passphrase,
+          wif: row.wif,
+          balanceSats: row.balanceSats,
+          balanceBTC: row.balanceBtc,
+          txCount: row.txCount,
+          discoveredAt: row.discoveredAt.toISOString(),
+          isCompressed: row.isCompressed,
+          lastChecked: row.lastChecked?.toISOString(),
+          previousBalanceSats: row.previousBalanceSats ?? undefined,
+          balanceChanged: row.balanceChanged ?? undefined,
+          changeDetectedAt: row.changeDetectedAt?.toISOString(),
+        });
+      }
+      console.log(`[BlockchainScanner] Loaded ${balanceHits.length} balance hits from PostgreSQL`);
+      return;
+    }
+  } catch (error) {
+    console.error('[BlockchainScanner] Error loading from PostgreSQL, falling back to JSON:', error);
+  }
+  
   try {
     const fs = await import('fs/promises');
     const data = await fs.readFile(BALANCE_HITS_FILE, 'utf-8');
@@ -298,16 +333,64 @@ async function loadBalanceHits(): Promise<void> {
 }
 
 /**
- * Save balance hits to disk
+ * Save balance hits to PostgreSQL (primary) and disk (backup)
  */
 async function saveBalanceHits(): Promise<void> {
   try {
     const fs = await import('fs/promises');
     await fs.mkdir('data', { recursive: true });
     await fs.writeFile(BALANCE_HITS_FILE, JSON.stringify(balanceHits, null, 2));
-    console.log(`[BlockchainScanner] Saved ${balanceHits.length} balance hits to disk`);
+    console.log(`[BlockchainScanner] Saved ${balanceHits.length} balance hits to disk backup`);
   } catch (error) {
-    console.error('[BlockchainScanner] Error saving balance hits:', error);
+    console.error('[BlockchainScanner] Error saving balance hits to disk:', error);
+  }
+}
+
+/**
+ * Save a single balance hit to PostgreSQL
+ */
+async function saveBalanceHitToDb(hit: BalanceHit, userId: string = DEFAULT_USER_ID): Promise<void> {
+  if (!db) return;
+  
+  try {
+    const existing = await db.select()
+      .from(balanceHitsTable)
+      .where(eq(balanceHitsTable.address, hit.address))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      await db.update(balanceHitsTable)
+        .set({
+          balanceSats: hit.balanceSats,
+          balanceBtc: hit.balanceBTC,
+          txCount: hit.txCount,
+          lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+          previousBalanceSats: hit.previousBalanceSats ?? null,
+          balanceChanged: hit.balanceChanged ?? false,
+          changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(balanceHitsTable.address, hit.address));
+    } else {
+      await db.insert(balanceHitsTable).values({
+        userId,
+        address: hit.address,
+        passphrase: hit.passphrase,
+        wif: hit.wif,
+        balanceSats: hit.balanceSats,
+        balanceBtc: hit.balanceBTC,
+        txCount: hit.txCount,
+        isCompressed: hit.isCompressed,
+        discoveredAt: new Date(hit.discoveredAt),
+        lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+        previousBalanceSats: hit.previousBalanceSats ?? null,
+        balanceChanged: hit.balanceChanged ?? false,
+        changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+      });
+      console.log(`[BlockchainScanner] Saved balance hit to PostgreSQL: ${hit.address}`);
+    }
+  } catch (error) {
+    console.error('[BlockchainScanner] Error saving to PostgreSQL:', error);
   }
 }
 
@@ -349,6 +432,7 @@ export async function fetchAddressBalance(address: string): Promise<{
 /**
  * Check if a generated address has any balance and record it
  * Stores full recovery data (passphrase + WIF) for any addresses with activity
+ * Primary storage: PostgreSQL, Backup: JSON file
  */
 export async function checkAndRecordBalance(
   address: string,
@@ -377,6 +461,8 @@ export async function checkAndRecordBalance(
     const existing = balanceHits.find(h => h.address === address);
     if (!existing) {
       balanceHits.push(hit);
+      
+      await saveBalanceHitToDb(hit);
       await saveBalanceHits();
       
       if (balanceInfo.balanceSats > 0) {
@@ -471,11 +557,13 @@ export async function refreshSingleBalance(address: string): Promise<{
     console.log(`   🔑 Passphrase: "${hit.passphrase}"`);
     console.log(`   🔐 WIF: ${hit.wif}\n`);
     
+    await saveBalanceHitToDb(hit);
     await saveBalanceHits();
     return { updated: true, changed: true, hit };
   }
   
   hit.balanceChanged = false;
+  await saveBalanceHitToDb(hit);
   await saveBalanceHits();
   return { updated: true, changed: false, hit };
 }
