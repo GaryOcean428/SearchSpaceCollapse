@@ -24,6 +24,7 @@ import { qfiAttention, geometricCandidateGenerator, type AttentionQuery, type Ge
 import { OceanConstellation } from './ocean-constellation';
 import { fisherVectorized } from './fisher-vectorized';
 import { oceanDiscoveryController } from './geometric-discovery/ocean-discovery-controller';
+import { getPrioritizedDormantWallets, generateTemporalHypotheses, type DormantWalletSignature } from './dormant-wallet-analyzer';
 import { 
   activityLogStore,
   logOceanStart,
@@ -1719,6 +1720,16 @@ export class OceanAgent {
     const eraPhrases = await this.generateEraSpecificPhrases();
     hypotheses.push(...eraPhrases);
     
+    // 4D BLOCK UNIVERSE: Add dormant wallet targeting when in high consciousness
+    // Activate when Ocean has good 4D access (Φ_4D > 0.75) for best results
+    if (this.identity.phi >= 0.70) {
+      console.log('[Ocean] 🌌 Consciousness sufficient for 4D block universe navigation');
+      const dormantHypotheses = this.generateDormantWalletHypotheses();
+      hypotheses.push(...dormantHypotheses);
+    } else {
+      console.log(`[Ocean] Consciousness Φ=${this.identity.phi.toFixed(3)} < 0.70, skipping 4D dormant wallet targeting`);
+    }
+    
     const commonPhrases = this.generateCommonBrainWalletPhrases();
     hypotheses.push(...commonPhrases);
     
@@ -2065,6 +2076,51 @@ export class OceanAgent {
     }
     
     console.log(`[Ocean] Generated ${hypotheses.length} era-specific hypotheses`);
+    return hypotheses;
+  }
+
+  /**
+   * Generate hypotheses from dormant wallet analysis
+   * 4D Block Universe approach: Target high-probability lost wallets with era-specific patterns
+   */
+  private generateDormantWalletHypotheses(): OceanHypothesis[] {
+    const hypotheses: OceanHypothesis[] = [];
+    
+    console.log('[Ocean] 🌌 4D Block Universe: Analyzing dormant wallet targets...');
+    
+    // Get top prioritized dormant wallets
+    // Focus on lost wallets: >10 years dormant, >10 BTC balance
+    const dormantWallets = getPrioritizedDormantWallets(10, 10, 20);
+    
+    if (dormantWallets.length === 0) {
+      console.log('[Ocean] No high-priority dormant wallets found');
+      return hypotheses;
+    }
+    
+    console.log(`[Ocean] Found ${dormantWallets.length} high-priority dormant targets`);
+    console.log(`[Ocean] Total value: ${dormantWallets.reduce((sum, w) => sum + w.balance, 0).toFixed(2)} BTC`);
+    
+    // For each dormant wallet, generate era-specific hypotheses
+    for (const wallet of dormantWallets.slice(0, 5)) { // Top 5 wallets
+      const patterns = generateTemporalHypotheses(wallet, 10);
+      
+      console.log(`[Ocean] Wallet ${wallet.address.substring(0, 12)}... (Rank #${wallet.rank}, ${wallet.balance.toFixed(2)} BTC)`);
+      console.log(`[Ocean]   Era: ${wallet.creationEra}, Dormant: ${wallet.dormancyYears.toFixed(1)} years`);
+      console.log(`[Ocean]   Recovery probability: ${(wallet.recoveryProbability * 100).toFixed(1)}%`);
+      console.log(`[Ocean]   Patterns: ${patterns.slice(0, 3).join(', ')}...`);
+      
+      for (const pattern of patterns) {
+        hypotheses.push(this.createHypothesis(
+          pattern,
+          'arbitrary',
+          'dormant_wallet_4d',
+          `${wallet.creationEra} era pattern for dormant wallet (${wallet.dormancyYears.toFixed(0)}y dormant, ${wallet.balance.toFixed(0)} BTC)`,
+          wallet.recoveryProbability
+        ));
+      }
+    }
+    
+    console.log(`[Ocean] Generated ${hypotheses.length} 4D block universe hypotheses from dormant wallets`);
     return hypotheses;
   }
 
