@@ -56,6 +56,16 @@ interface ActivityLog {
   timestamp: string;
 }
 
+interface BalanceQueueStatus {
+  pending: number;
+  checking: number;
+  resolved: number;
+  failed: number;
+  total: number;
+  addressesPerSecond: number;
+  isProcessing: boolean;
+}
+
 export default function ObserverPage() {
   const { toast } = useToast();
   const [tierFilter, setTierFilter] = useState<string>("all");
@@ -103,6 +113,12 @@ export default function ObserverPage() {
   }>({
     queryKey: ['/api/activity-stream'],
     refetchInterval: 1000, // Poll every second for real-time feel
+  });
+
+  // Query balance queue status
+  const { data: balanceQueueData, isLoading: balanceQueueLoading } = useQuery<BalanceQueueStatus>({
+    queryKey: ['/api/balance-queue/status'],
+    refetchInterval: 5000, // Poll every 5 seconds
   });
 
   // Add target address mutation
@@ -221,6 +237,59 @@ export default function ObserverPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Balance Queue Status */}
+        <Card className="mb-8" data-testid="card-balance-queue-status">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Search className="w-5 h-5 text-primary" />
+              Balance Check Queue
+            </CardTitle>
+            <CardDescription>
+              All generated addresses are queued for balance verification
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold text-orange-500" data-testid="text-queue-pending">
+                  {balanceQueueLoading ? "..." : balanceQueueData?.pending || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Pending</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold text-blue-500" data-testid="text-queue-checking">
+                  {balanceQueueLoading ? "..." : balanceQueueData?.checking || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Checking</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold text-green-500" data-testid="text-queue-resolved">
+                  {balanceQueueLoading ? "..." : balanceQueueData?.resolved || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Resolved</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold text-destructive" data-testid="text-queue-failed">
+                  {balanceQueueLoading ? "..." : balanceQueueData?.failed || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Failed</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-2xl font-bold" data-testid="text-queue-total">
+                  {balanceQueueLoading ? "..." : balanceQueueData?.total || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+            {balanceQueueData?.isProcessing && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-primary">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Processing queue at {balanceQueueData?.addressesPerSecond?.toFixed(2) || 0} addr/sec
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="catalog" className="space-y-4">
