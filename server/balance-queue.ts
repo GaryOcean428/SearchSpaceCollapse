@@ -56,6 +56,13 @@ class BalanceQueueService {
   private processStartTime = 0;
   private saveTimeout: NodeJS.Timeout | null = null;
   private onDrainComplete?: (stats: { checked: number; hits: number; errors: number }) => void;
+  
+  // Background worker state
+  private backgroundWorkerInterval: NodeJS.Timeout | null = null;
+  private backgroundWorkerEnabled = true;
+  private backgroundCheckCount = 0;
+  private backgroundHitCount = 0;
+  private backgroundStartTime = 0;
 
   constructor() {
     this.tokenBucket = {
@@ -64,7 +71,122 @@ class BalanceQueueService {
       maxTokens: 5,
       refillRate: DEFAULT_RATE_LIMIT,
     };
-    this.loadFromDisk();
+    this.loadFromDisk().then(() => {
+      // Start background worker after loading
+      this.startBackgroundWorker();
+    });
+  }
+  
+  /**
+   * Start continuous background balance checking
+   * Processes 1-2 addresses per second without blocking Ocean
+   */
+  startBackgroundWorker(): void {
+    if (this.backgroundWorkerInterval) {
+      console.log('[BalanceQueue] Background worker already running');
+      return;
+    }
+    
+    this.backgroundWorkerEnabled = true;
+    this.backgroundStartTime = Date.now();
+    this.backgroundCheckCount = 0;
+    this.backgroundHitCount = 0;
+    
+    // Process one address every 800ms (~1.25/sec to stay under rate limits)
+    this.backgroundWorkerInterval = setInterval(async () => {
+      if (!this.backgroundWorkerEnabled) return;
+      if (this.isProcessing) return; // Don't interfere with manual drains
+      
+      await this.processOneAddress();
+    }, 800);
+    
+    console.log('[BalanceQueue] Background worker started (1.25 addr/sec)');
+  }
+  
+  /**
+   * Stop background worker
+   */
+  stopBackgroundWorker(): void {
+    if (this.backgroundWorkerInterval) {
+      clearInterval(this.backgroundWorkerInterval);
+      this.backgroundWorkerInterval = null;
+    }
+    this.backgroundWorkerEnabled = false;
+    console.log('[BalanceQueue] Background worker stopped');
+  }
+  
+  /**
+   * Process a single address from the queue
+   */
+  private async processOneAddress(): Promise<boolean> {
+    const pending = Array.from(this.queue.values())
+      .filter(item => item.status === 'pending' || (item.status === 'failed' && item.retryCount < 3))
+      .sort((a, b) => b.priority - a.priority);
+    
+    if (pending.length === 0) return false;
+    
+    const item = pending[0];
+    
+    try {
+      const canProceed = await this.consumeToken();
+      if (!canProceed) return false;
+      
+      item.status = 'checking';
+      
+      const hit = await checkAndRecordBalance(
+        item.address,
+        item.passphrase,
+        item.wif,
+        item.isCompressed
+      );
+      
+      item.status = 'resolved';
+      item.checkedAt = Date.now();
+      this.backgroundCheckCount++;
+      
+      if (hit !== null) {
+        this.backgroundHitCount++;
+        console.log(`[BalanceQueue] 💰 HIT! ${item.address} has balance!`);
+      }
+      
+      // Remove resolved items
+      this.queue.delete(item.id);
+      this.scheduleSave();
+      
+      // Log progress every 50 addresses
+      if (this.backgroundCheckCount % 50 === 0) {
+        const elapsed = (Date.now() - this.backgroundStartTime) / 1000;
+        const rate = this.backgroundCheckCount / elapsed;
+        console.log(`[BalanceQueue] Background: ${this.backgroundCheckCount} checked, ${this.backgroundHitCount} hits, ${rate.toFixed(2)}/sec, ${this.queue.size} remaining`);
+      }
+      
+      return hit !== null;
+    } catch (error) {
+      item.status = 'failed';
+      item.retryCount++;
+      item.error = error instanceof Error ? error.message : 'Unknown error';
+      return false;
+    }
+  }
+  
+  /**
+   * Get background worker status
+   */
+  getBackgroundStatus(): {
+    enabled: boolean;
+    checked: number;
+    hits: number;
+    rate: number;
+    pending: number;
+  } {
+    const elapsed = this.backgroundStartTime > 0 ? (Date.now() - this.backgroundStartTime) / 1000 : 1;
+    return {
+      enabled: this.backgroundWorkerEnabled,
+      checked: this.backgroundCheckCount,
+      hits: this.backgroundHitCount,
+      rate: this.backgroundCheckCount / elapsed,
+      pending: Array.from(this.queue.values()).filter(i => i.status === 'pending').length,
+    };
   }
 
   private async loadFromDisk(): Promise<void> {

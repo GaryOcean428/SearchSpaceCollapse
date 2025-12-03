@@ -2073,6 +2073,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/balance-queue/background", standardLimiter, async (req, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      res.json(balanceQueue.getBackgroundStatus());
+    } catch (error: any) {
+      console.error("[BalanceQueue] Background status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-queue/background/start", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      balanceQueue.startBackgroundWorker();
+      res.json({
+        message: 'Background worker started',
+        status: balanceQueue.getBackgroundStatus(),
+      });
+    } catch (error: any) {
+      console.error("[BalanceQueue] Background start error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-queue/background/stop", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      balanceQueue.stopBackgroundWorker();
+      res.json({
+        message: 'Background worker stopped',
+        status: balanceQueue.getBackgroundStatus(),
+      });
+    } catch (error: any) {
+      console.error("[BalanceQueue] Background stop error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==========================================================================
   // BASIN SYNCHRONIZATION ENDPOINTS
   // Multi-instance Ocean coordination via geometric knowledge transfer
