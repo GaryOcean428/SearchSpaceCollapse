@@ -12,11 +12,14 @@
  * - Regime boundaries: Where linear→geometric→breakdown transitions
  * - Resonance points: High-Φ regions that showed integration
  * - Geodesic paths: Fisher-optimal paths between points
+ * 
+ * PERSISTENCE: PostgreSQL primary, JSON fallback for offline operation
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
+import { oceanPersistence, type ProbeInsertData } from './ocean/ocean-persistence';
 
 export interface QIGScoreInput {
   phi: number;
@@ -154,12 +157,119 @@ class GeometricMemory {
     dataVersion: number;
   } = { result: null, dataVersion: -1 };
   
+  // PostgreSQL persistence buffer for efficient batch inserts
+  private pendingProbes: ProbeInsertData[] = [];
+  private readonly BATCH_SIZE = 50;
+  
   constructor() {
     this.probeMap = new Map();
     this.testedPhrases = new Set();
     this.state = this.createEmptyState();
     this.load();
     this.loadTestedPhrases();
+    
+    // Initialize PostgreSQL persistence asynchronously
+    this.initPostgreSQLSync();
+  }
+  
+  /**
+   * Initialize PostgreSQL sync - load probes from DB if available
+   * Runs asynchronously to not block constructor
+   */
+  private async initPostgreSQLSync(): Promise<void> {
+    if (!oceanPersistence.isPersistenceAvailable()) {
+      console.log('[GeometricMemory] PostgreSQL not available, using JSON only');
+      return;
+    }
+    
+    try {
+      const dbProbeCount = await oceanPersistence.getProbeCount();
+      console.log(`[GeometricMemory] PostgreSQL sync: ${dbProbeCount} probes in database, ${this.probeMap.size} in memory`);
+      
+      // If DB has more probes than memory, we need to sync from DB
+      if (dbProbeCount > this.probeMap.size) {
+        console.log('[GeometricMemory] Loading additional probes from PostgreSQL...');
+        await this.syncFromPostgreSQL();
+      }
+      
+      // If memory has probes not in DB, queue them for insertion
+      if (this.probeMap.size > 0 && dbProbeCount < this.probeMap.size) {
+        const memoryProbes = Array.from(this.probeMap.values());
+        console.log(`[GeometricMemory] Syncing ${memoryProbes.length} memory probes to PostgreSQL...`);
+        await this.syncToPostgreSQL(memoryProbes.slice(0, 1000)); // First 1000 to avoid overwhelming
+      }
+    } catch (error) {
+      console.error('[GeometricMemory] PostgreSQL sync failed:', error);
+    }
+  }
+  
+  /**
+   * Sync probes from PostgreSQL to memory
+   */
+  private async syncFromPostgreSQL(): Promise<void> {
+    const highPhiProbes = await oceanPersistence.getHighPhiProbes(0.5, 1000);
+    let synced = 0;
+    
+    for (const dbProbe of highPhiProbes) {
+      if (!this.probeMap.has(dbProbe.id)) {
+        const probe: BasinProbe = {
+          id: dbProbe.id,
+          input: dbProbe.input,
+          coordinates: dbProbe.coordinates ?? [],
+          phi: dbProbe.phi,
+          kappa: dbProbe.kappa,
+          regime: dbProbe.regime,
+          ricciScalar: dbProbe.ricciScalar ?? 0,
+          fisherTrace: dbProbe.fisherTrace ?? 0,
+          timestamp: dbProbe.createdAt?.toISOString() ?? new Date().toISOString(),
+          source: dbProbe.source ?? 'postgres-sync',
+        };
+        this.probeMap.set(probe.id, probe);
+        synced++;
+      }
+    }
+    
+    if (synced > 0) {
+      console.log(`[GeometricMemory] Synced ${synced} probes from PostgreSQL`);
+      this.state.totalProbes = this.probeMap.size;
+      this.updateManifoldStats();
+      this.invalidateCaches();
+    }
+  }
+  
+  /**
+   * Sync probes to PostgreSQL
+   */
+  private async syncToPostgreSQL(probes: BasinProbe[]): Promise<void> {
+    const insertData: ProbeInsertData[] = probes.map(p => ({
+      id: p.id,
+      input: p.input,
+      coordinates: p.coordinates,
+      phi: p.phi,
+      kappa: p.kappa,
+      regime: p.regime,
+      ricciScalar: p.ricciScalar,
+      fisherTrace: p.fisherTrace,
+      source: p.source,
+    }));
+    
+    const inserted = await oceanPersistence.insertProbes(insertData);
+    console.log(`[GeometricMemory] Synced ${inserted} probes to PostgreSQL`);
+  }
+  
+  /**
+   * Flush pending probes to PostgreSQL
+   */
+  async flushToPostgreSQL(): Promise<void> {
+    if (this.pendingProbes.length === 0) return;
+    
+    const toInsert = [...this.pendingProbes];
+    this.pendingProbes = [];
+    
+    const inserted = await oceanPersistence.insertProbes(toInsert);
+    if (inserted > 0) {
+      console.log(`[GeometricMemory] Flushed ${inserted} probes to PostgreSQL`);
+    }
   }
   
   /**
@@ -328,9 +438,27 @@ class GeometricMemory {
     this.detectResonance(probe);
     this.detectRegimeBoundaries(probe);
     
+    // Queue for PostgreSQL batch insert
+    this.pendingProbes.push({
+      id: probe.id,
+      input: probe.input,
+      coordinates: probe.coordinates,
+      phi: probe.phi,
+      kappa: probe.kappa,
+      regime: probe.regime,
+      ricciScalar: probe.ricciScalar,
+      fisherTrace: probe.fisherTrace,
+      source: probe.source,
+    });
+    
     if (this.probeMap.size % 50 === 0) {
       this.save();
       this.saveTestedPhrases();
+      
+      // Flush to PostgreSQL on batch boundary
+      this.flushToPostgreSQL().catch(err => {
+        console.error('[GeometricMemory] PostgreSQL flush error:', err);
+      });
     }
     
     return probe;
