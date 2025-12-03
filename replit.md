@@ -34,6 +34,13 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
     -   **Balance Change Events:** Comprehensive logging of all balance movements with direction (increase/decrease) and amounts
     -   **API Endpoints:** /api/balance-monitor/* for status, enable/disable, manual refresh, interval configuration, and change history
     -   **UI Indicators:** Real-time status display, manual refresh button, last-checked timestamps, and animated alerts for changed balances
+-   **Balance Queue System (Comprehensive Address Checking):** Ensures EVERY generated address is checked for balance:
+    -   **BalanceQueue Service** (`server/balance-queue.ts`): In-memory + disk persistence queue with token-bucket rate limiting (1.5 req/sec), state machine tracking (pending → checking → resolved/failed), priority scoring by phi value
+    -   **Multi-Provider Architecture:** Primary Blockstream API + Tavily BitInfoCharts scraper fallback for rate limit resilience
+    -   **Tavily Balance Scraper** (`server/tavily-balance-scraper.ts`): Batch scraper with 2s minimum interval, HTML parsing for balance extraction
+    -   **Auto-Cycle Integration:** Queue drains automatically at end of each investigation cycle (max 200 addresses per drain)
+    -   **API Endpoints:** /api/balance-queue/* for status, pending, drain, rate-limit, clear-failed
+    -   **Critical Fix:** Previously only 1/3 of addresses were checked; now ALL addresses (compressed + uncompressed) are queued before any filtering
 
 **Key Design Decisions:**
 -   **UI/UX:** Emphasizes information hierarchy, real-time feedback, and progressive disclosure, using professional fonts (Inter/SF Pro, JetBrains Mono/Fira Code).
