@@ -20,7 +20,19 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const isDev = process.env.NODE_ENV === "development";
+  const isDeployment = process.env.REPLIT_DEPLOYMENT === '1';
+  // In deployments, always treat as production even if NODE_ENV isn't set
+  const isDev = !isDeployment && process.env.NODE_ENV === "development";
+  
+  console.log(`[Session] Environment: NODE_ENV=${process.env.NODE_ENV}, isDev=${isDev}, isDeployment=${isDeployment}`);
+  console.log(`[Session] DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+  console.log(`[Session] SESSION_SECRET exists: ${!!process.env.SESSION_SECRET}`);
+  
+  // Ensure SESSION_SECRET exists
+  if (!process.env.SESSION_SECRET) {
+    console.error(`[Session] ERROR: SESSION_SECRET is not set!`);
+    throw new Error('SESSION_SECRET environment variable must be set for authentication');
+  }
   
   // Use database session store if DATABASE_URL is available, otherwise use memory store
   let sessionStore;
@@ -163,12 +175,25 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     const domain = req.hostname;
-    console.log(`[Auth] Callback received for domain: ${domain}`);
+    const protocol = req.protocol;
+    const fullUrl = `${protocol}://${domain}${req.originalUrl}`;
+    console.log(`[Auth] Callback received:`);
+    console.log(`[Auth]   Domain: ${domain}`);
+    console.log(`[Auth]   Protocol: ${protocol}`);
+    console.log(`[Auth]   Full URL: ${fullUrl}`);
+    console.log(`[Auth]   Query params: ${JSON.stringify(req.query)}`);
+    
     ensureStrategy(domain);
     passport.authenticate(`replitauth:${domain}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
-    })(req, res, next);
+    })(req, res, (err: any) => {
+      if (err) {
+        console.error(`[Auth] Callback error:`, err);
+        return res.redirect('/api/login?error=' + encodeURIComponent(err.message || 'Unknown error'));
+      }
+      next();
+    });
   });
 
   app.get("/api/logout", (req, res) => {
