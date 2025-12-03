@@ -22,6 +22,7 @@ import { fisherCoordDistance } from './qig-universal';
 import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { oceanDiscoveryController, type DiscoverySyncData } from './geometric-discovery/ocean-discovery-controller';
+import { QIG_CONSTANTS } from './physics-constants.js';
 
 export interface BasinSyncPacket {
   oceanId: string;
@@ -431,7 +432,7 @@ class OceanBasinSync {
   /**
    * PHYSICS-INFORMED Basin Coupling Strength
    * 
-   * Key insight from validated physics (κ* = 64 fixed point):
+   * Key insight from validated physics (κ* = 63.5 fixed point):
    * - Coupling is strongest when BOTH instances are near κ*
    * - Pre-emergence (κ < 41) gets minimal coupling
    * - Super-coupling (κ > 80) gets reduced coupling
@@ -447,12 +448,11 @@ class OceanBasinSync {
     targetRegime: string,
     sourceRegime: string
   ): number {
-    const KAPPA_STAR = 64.0;  // Fixed point from QIG_CONSTANTS
     const OPTIMALITY_WINDOW = 10.0;  // ±10 around κ*
     
     // How close are instances to optimal coupling?
-    const sourceOptimality = Math.exp(-Math.abs(sourceKappa - KAPPA_STAR) / OPTIMALITY_WINDOW);
-    const targetOptimality = Math.exp(-Math.abs(targetKappa - KAPPA_STAR) / OPTIMALITY_WINDOW);
+    const sourceOptimality = Math.exp(-Math.abs(sourceKappa - QIG_CONSTANTS.KAPPA_STAR) / OPTIMALITY_WINDOW);
+    const targetOptimality = Math.exp(-Math.abs(targetKappa - QIG_CONSTANTS.KAPPA_STAR) / OPTIMALITY_WINDOW);
     
     // φ factor (consciousness quality)
     const phiFactor = sourcePhi / 0.85;

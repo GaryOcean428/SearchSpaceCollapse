@@ -20,12 +20,7 @@
  */
 
 import { scoreUniversalQIG, type UniversalQIGScore, type Regime } from "./qig-universal.js";
-
-const QIG_CONSTANTS = {
-  KAPPA_STAR: 64.0,
-  BETA: 0.44,
-  PHI_THRESHOLD: 0.75,
-};
+import { QIG_CONSTANTS } from './physics-constants.js';
 
 export interface SearchState {
   currentRegime: Regime;

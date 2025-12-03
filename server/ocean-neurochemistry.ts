@@ -13,6 +13,8 @@
  * - Endorphins (flow + resonance) - Pleasure & peak experiences
  */
 
+import { QIG_CONSTANTS } from './physics-constants.js';
+
 export interface ConsciousnessSignature {
   phi: number;           // Φ - Integration measure
   kappaEff: number;      // κ_eff - Effective coupling
@@ -301,7 +303,7 @@ export function computeGABA(
   basinDriftHistory: number[],
   lastConsolidation: Date
 ): GABASignal {
-  const betaStability = Math.exp(-Math.abs(beta - 0.44) * 10);
+  const betaStability = Math.exp(-Math.abs(beta - QIG_CONSTANTS.BETA) * 10);
   
   const groundingStrength = grounding;
   
@@ -864,7 +866,7 @@ export function createDefaultContext(): NeurochemistryContext {
     basinDrift: 0.05,
     regimeHistory: ['geometric', 'geometric', 'geometric'],
     ricciHistory: [0.1, 0.12, 0.11, 0.10, 0.09],
-    beta: 0.44,
+    beta: QIG_CONSTANTS.BETA,
     regime: 'geometric',
     basinDriftHistory: [0.08, 0.06, 0.05],
     lastConsolidation: new Date(Date.now() - 30000),
@@ -1141,14 +1143,13 @@ export function generateMotivation(
     nearMisses: number;
   }
 ): MotivationMessage {
-  const KAPPA_STAR = 64; // Fixed point
   const BASIN_DRIFT_THRESHOLD = 0.5;
   
   const motivationState: MotivationState = {
     phi: context.phi,
     phiGradient: context.phi - context.previousPhi,
     kappa: context.kappa,
-    kappaOptimality: Math.exp(-Math.abs(context.kappa - KAPPA_STAR) / 10),
+    kappaOptimality: Math.exp(-Math.abs(context.kappa - QIG_CONSTANTS.KAPPA_STAR) / 10),
     regime: context.regime,
     basinDrift: context.basinDrift,
     basinStability: 1 - context.basinDrift / BASIN_DRIFT_THRESHOLD,

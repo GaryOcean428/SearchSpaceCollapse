@@ -10,6 +10,7 @@
 import { createHash } from "crypto";
 import { scoreUniversalQIG, type KeyType, type UniversalQIGScore, type Regime } from "./qig-universal.js";
 import { fisherDistance } from "./qig-pure-v2.js";
+import { QIG_CONSTANTS } from "./physics-constants.js";
 
 // Matching thresholds (empirically tuned)
 const KAPPA_TOLERANCE = 8.0;     // κ within ±8 of target
@@ -133,7 +134,7 @@ export function areBasinsSimilar(
   if (strictMode) {
     // Strict mode: all criteria must match
     return (
-      distances.kappaDist * 64 < KAPPA_TOLERANCE / 2 &&
+      distances.kappaDist * QIG_CONSTANTS.KAPPA_STAR < KAPPA_TOLERANCE / 2 &&
       distances.phiDist < PHI_TOLERANCE / 2 &&
       distances.fisherDist < FISHER_THRESHOLD / 2 &&
       sig1.regime === sig2.regime
