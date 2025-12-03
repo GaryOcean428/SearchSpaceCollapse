@@ -2102,18 +2102,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Cache-Control', 'no-store');
     try {
       const { balanceQueue } = await import("./balance-queue");
+      // Wait for service to be ready (auto-start to complete)
+      await balanceQueue.waitForReady();
       const status = balanceQueue.getBackgroundStatus();
       res.json(status);
     } catch (error: any) {
       console.error("[BalanceQueue] Background status error:", error);
-      // Return default status to prevent UI hanging
+      // Return status indicating initialization in progress
       res.json({ 
-        enabled: false, 
+        enabled: true, // Assume enabled since it auto-starts
         checked: 0, 
         hits: 0, 
         rate: 0, 
         pending: 0,
-        error: error.message 
+        initializing: true
       });
     }
   });

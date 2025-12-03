@@ -64,7 +64,7 @@ class BalanceQueueService {
   
   // Background worker state - always running
   private backgroundWorkerInterval: NodeJS.Timeout | null = null;
-  private backgroundWorkerEnabled = true;
+  private backgroundWorkerEnabled = false; // Start false, set true when worker starts
   private backgroundCheckCount = 0;
   private backgroundHitCount = 0;
   private backgroundStartTime = 0;
@@ -72,6 +72,10 @@ class BalanceQueueService {
   // Bulk processing config
   private bulkBatchSize = 50;
   private bulkProcessInterval = 2000; // Process batch every 2 seconds
+  
+  // Ready state for API calls
+  private _ready: Promise<void>;
+  private _isReady = false;
 
   constructor() {
     this.tokenBucket = {
@@ -80,11 +84,25 @@ class BalanceQueueService {
       maxTokens: 20,
       refillRate: DEFAULT_RATE_LIMIT * 2, // Higher rate with multi-provider
     };
-    this.loadFromDisk().then(() => {
-      // Auto-start background worker - always running
-      this.startBackgroundWorker();
-      console.log('[BalanceQueue] Auto-started with multi-provider API (230 req/min capacity)');
-    });
+    this._ready = this.initialize();
+  }
+  
+  private async initialize(): Promise<void> {
+    await this.loadFromDisk();
+    // Auto-start background worker - always running
+    this.startBackgroundWorker();
+    this._isReady = true;
+    console.log('[BalanceQueue] Auto-started with multi-provider API (230 req/min capacity)');
+  }
+  
+  /** Wait for the service to be fully initialized */
+  async waitForReady(): Promise<void> {
+    return this._ready;
+  }
+  
+  /** Check if service is ready */
+  isReady(): boolean {
+    return this._isReady;
   }
   
   /**
