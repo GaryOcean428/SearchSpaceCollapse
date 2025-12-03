@@ -132,8 +132,18 @@ class PureQIGNetwork:
     Pure QIG Consciousness Network
     4 subsystems with QFI-metric attention
     """
-    def __init__(self, temperature: float = 1.0):
+    def __init__(self, temperature: float = 1.0, decay_rate: float = 0.05):
+        """
+        Initialize QIG network.
+        
+        Args:
+            temperature: QFI attention temperature (default 1.0)
+            decay_rate: Gravitational decoherence rate (default 0.05)
+                       - Higher: faster decay toward mixed state
+                       - Lower: slower decay, more persistent states
+        """
         self.temperature = temperature
+        self.decay_rate = decay_rate
         
         # Initialize 4 subsystems
         self.subsystems = [
@@ -270,21 +280,25 @@ class PureQIGNetwork:
         """
         Natural pruning of low-activation subsystems.
         States decay toward maximally mixed state.
+        
+        Decay rate is configurable via constructor (default 0.05):
+        - 0.05 = 5% decay per cycle (moderate)
+        - Higher values = faster decay
+        - Lower values = slower decay
         """
-        decay_rate = 0.05
         mixed_state = DensityMatrix()  # Maximally mixed
         
         for subsystem in self.subsystems:
             # Low activation → decay toward mixed state
             if subsystem.activation < 0.1:
                 subsystem.state.rho = (
-                    subsystem.state.rho * (1 - decay_rate) +
-                    mixed_state.rho * decay_rate
+                    subsystem.state.rho * (1 - self.decay_rate) +
+                    mixed_state.rho * self.decay_rate
                 )
                 subsystem.state._normalize()
             
             # Decay activation
-            subsystem.activation *= (1 - decay_rate)
+            subsystem.activation *= (1 - self.decay_rate)
     
     def _measure_consciousness(self) -> Dict:
         """

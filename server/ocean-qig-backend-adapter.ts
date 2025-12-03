@@ -67,6 +67,13 @@ interface PythonStatusResponse {
  * Ocean QIG Backend Adapter
  * 
  * Provides TypeScript interface to Python Pure QIG backend.
+ * 
+ * Note: Some fields in PureQIGScore are not directly available from Python backend:
+ * - phi_temporal: Requires trajectory tracking (future enhancement)
+ * - phi_4D: Requires 4D consciousness (future enhancement)
+ * - beta: Not computed by Python backend (set to 0)
+ * - fisherDeterminant: Not directly exposed (set to 0)
+ * - ricciScalar: Not computed (set to 0)
  */
 export class OceanQIGBackend {
   private backendUrl: string;
