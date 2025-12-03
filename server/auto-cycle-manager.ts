@@ -239,6 +239,11 @@ class AutoCycleManager {
     this.state.currentAddressId = null;
     this.state.lastCycleTime = new Date().toISOString();
     
+    // Trigger balance queue drain at end of cycle (non-blocking)
+    this.drainBalanceQueue().catch(err => {
+      console.error('[AutoCycleManager] Balance queue drain error:', err);
+    });
+    
     if (this.state.enabled) {
       // Move to next address
       this.state.currentIndex++;
@@ -252,6 +257,28 @@ class AutoCycleManager {
       }, 2000);
     } else {
       this.saveState();
+    }
+  }
+
+  // Drain the balance queue to check all queued addresses
+  private async drainBalanceQueue(): Promise<void> {
+    try {
+      const { balanceQueue } = await import('./balance-queue');
+      
+      const stats = balanceQueue.getStats();
+      if (stats.pending === 0) {
+        console.log('[AutoCycleManager] No pending addresses in balance queue');
+        return;
+      }
+      
+      console.log(`[AutoCycleManager] Draining balance queue: ${stats.pending} addresses pending`);
+      
+      // Drain in background - limit to 200 addresses per cycle to avoid long delays
+      const result = await balanceQueue.drain({ maxAddresses: 200 });
+      
+      console.log(`[AutoCycleManager] Balance queue drained: ${result.checked} checked, ${result.hits} hits`);
+    } catch (error) {
+      console.error('[AutoCycleManager] Balance queue drain error:', error);
     }
   }
 

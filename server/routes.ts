@@ -1975,6 +1975,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================================================
+  // BALANCE QUEUE ENDPOINTS
+  // Comprehensive address checking with rate-limited parallel processing
+  // ==========================================================================
+  
+  app.get("/api/balance-queue/status", standardLimiter, async (req, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      const stats = balanceQueue.getStats();
+      res.json({
+        ...stats,
+        isProcessing: balanceQueue.isWorkerRunning(),
+      });
+    } catch (error: any) {
+      console.error("[BalanceQueue] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/balance-queue/pending", standardLimiter, async (req, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      const limit = parseInt(req.query.limit as string) || 100;
+      const addresses = balanceQueue.getPendingAddresses(limit);
+      res.json({
+        addresses,
+        count: addresses.length,
+        stats: balanceQueue.getStats(),
+      });
+    } catch (error: any) {
+      console.error("[BalanceQueue] Pending error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-queue/drain", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      
+      if (balanceQueue.isWorkerRunning()) {
+        return res.status(409).json({ error: 'Queue drain already in progress' });
+      }
+      
+      const maxAddresses = parseInt(req.body.maxAddresses) || undefined;
+      
+      // Start drain in background and return immediately
+      const drainPromise = balanceQueue.drain({ maxAddresses });
+      
+      res.json({
+        message: 'Queue drain started',
+        stats: balanceQueue.getStats(),
+      });
+      
+      // Log result when complete
+      drainPromise.then(result => {
+        console.log(`[BalanceQueue] Drain completed: ${result.checked} checked, ${result.hits} hits, ${result.errors} errors`);
+      }).catch(err => {
+        console.error('[BalanceQueue] Drain error:', err);
+      });
+    } catch (error: any) {
+      console.error("[BalanceQueue] Drain error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-queue/rate-limit", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      const { requestsPerSecond } = req.body;
+      
+      if (typeof requestsPerSecond !== 'number' || isNaN(requestsPerSecond)) {
+        return res.status(400).json({ error: 'requestsPerSecond must be a number' });
+      }
+      
+      balanceQueue.setRateLimit(requestsPerSecond);
+      res.json({
+        message: `Rate limit set to ${requestsPerSecond} req/sec`,
+        stats: balanceQueue.getStats(),
+      });
+    } catch (error: any) {
+      console.error("[BalanceQueue] Rate limit error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/balance-queue/clear-failed", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { balanceQueue } = await import("./balance-queue");
+      const cleared = balanceQueue.clearFailed();
+      res.json({
+        cleared,
+        stats: balanceQueue.getStats(),
+      });
+    } catch (error: any) {
+      console.error("[BalanceQueue] Clear failed error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
   // BASIN SYNCHRONIZATION ENDPOINTS
   // Multi-instance Ocean coordination via geometric knowledge transfer
   // ==========================================================================
