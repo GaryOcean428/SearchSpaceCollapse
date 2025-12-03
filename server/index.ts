@@ -6,6 +6,98 @@ import { pool } from "./db";
 import { spawn } from "child_process";
 import path from "path";
 
+// Import for Python sync
+import { oceanQIGBackend } from './ocean-qig-backend-adapter';
+import { geometricMemory } from './geometric-memory';
+
+// Periodic sync interval from Python to Node.js
+let pythonSyncInterval: NodeJS.Timeout | null = null;
+
+/**
+ * Sync high-Φ probes from Node.js GeometricMemory to Python backend
+ * This gives Python access to prior learnings for better generation
+ */
+async function syncProbesToPython(): Promise<void> {
+  try {
+    const allProbes = geometricMemory.getAllProbes();
+    const highPhiProbes = allProbes
+      .filter(p => p.phi >= 0.5)
+      .sort((a, b) => b.phi - a.phi)
+      .slice(0, 500);
+    
+    if (highPhiProbes.length === 0) {
+      console.log('[PythonSync] No high-Φ probes to sync');
+      return;
+    }
+    
+    const probesForPython = highPhiProbes.map(p => ({
+      input: p.input,
+      phi: p.phi,
+      basinCoords: p.coordinates,
+    }));
+    
+    const imported = await oceanQIGBackend.syncFromNodeJS(probesForPython);
+    console.log(`[PythonSync] Synced ${imported}/${highPhiProbes.length} probes to Python`);
+  } catch (error) {
+    console.error('[PythonSync] Error syncing to Python:', error);
+  }
+}
+
+/**
+ * Sync learnings from Python backend back to Node.js GeometricMemory
+ * This persists Python's discoveries for future runs
+ */
+async function syncFromPythonToNodeJS(): Promise<void> {
+  try {
+    const basins = await oceanQIGBackend.syncToNodeJS();
+    
+    if (basins.length === 0) return;
+    
+    let added = 0;
+    for (const basin of basins) {
+      // Add to geometric memory if not already present
+      const existing = geometricMemory.getAllProbes().find(p => p.input === basin.input);
+      if (!existing && basin.phi >= 0.5 && basin.basinCoords.length > 0) {
+        geometricMemory.recordProbe(
+          basin.input,
+          {
+            phi: basin.phi,
+            kappa: basin.phi * 64, // approximate kappa
+            regime: basin.phi > 0.7 ? 'geometric' : 'linear',
+            basinCoordinates: basin.basinCoords,
+            ricciScalar: 0,
+            fisherTrace: basin.phi,
+          },
+          'python-qig'
+        );
+        added++;
+      }
+    }
+    
+    if (added > 0) {
+      console.log(`[PythonSync] Added ${added} new probes from Python to GeometricMemory`);
+    }
+  } catch (error) {
+    console.error('[PythonSync] Error syncing from Python:', error);
+  }
+}
+
+/**
+ * Start periodic sync between Python and Node.js
+ */
+function startPythonSync(): void {
+  if (pythonSyncInterval) return;
+  
+  // Sync from Python to Node.js every 60 seconds
+  pythonSyncInterval = setInterval(async () => {
+    if (oceanQIGBackend.available()) {
+      await syncFromPythonToNodeJS();
+    }
+  }, 60000);
+  
+  console.log('[PythonSync] Started periodic sync (every 60s)');
+}
+
 // Start Python QIG Backend as a child process
 function startPythonBackend(): void {
   const pythonPath = process.env.PYTHON_PATH || 'python3';
@@ -46,6 +138,16 @@ function startPythonBackend(): void {
   pythonProcess.on('error', (err: Error) => {
     console.error('[PythonQIG] Failed to start:', err.message);
   });
+  
+  // Wait for Python to be ready, then sync probes
+  setTimeout(async () => {
+    const isAvailable = await oceanQIGBackend.checkHealth();
+    if (isAvailable) {
+      console.log('[PythonQIG] Backend ready, syncing geometric memory...');
+      await syncProbesToPython();
+      startPythonSync();
+    }
+  }, 5000);
 }
 
 // Handle uncaught exceptions gracefully to prevent crashes
