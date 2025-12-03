@@ -549,7 +549,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/activity-stream", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
-      const jobs = await storage.getSearchJobs();
       
       // Collect all logs from all jobs with job context
       const allLogs: Array<{
@@ -559,6 +558,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: string;
         timestamp: string;
       }> = [];
+      
+      // Get search jobs with timeout protection (don't hang if DB is slow)
+      let jobs: any[] = [];
+      try {
+        const jobsPromise = storage.getSearchJobs();
+        const timeoutPromise = new Promise<any[]>((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 2000)
+        );
+        jobs = await Promise.race([jobsPromise, timeoutPromise]);
+      } catch (e) {
+        // If DB times out, continue with empty jobs - Ocean logs still available
+        console.log('[ActivityStream] Search jobs fetch timed out, using Ocean logs only');
+      }
       
       // Add search job logs
       for (const job of jobs) {
@@ -573,7 +585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Add Ocean agent logs from the activity log store
+      // Add Ocean agent logs from the activity log store (in-memory, always fast)
       const oceanLogs = activityLogStore.getLogs({ limit: limit * 2 }); // Get more to ensure good coverage
       for (const oceanLog of oceanLogs) {
         allLogs.push({
@@ -599,7 +611,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         oceanActive: isOceanActive,
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      // Even on error, return empty data so UI doesn't hang
+      console.error('[ActivityStream] Error:', error.message);
+      res.json({ 
+        logs: [],
+        activeJobs: 0,
+        totalJobs: 0,
+        oceanActive: false,
+      });
     }
   });
 
@@ -2080,12 +2099,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/balance-queue/background", standardLimiter, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     try {
       const { balanceQueue } = await import("./balance-queue");
-      res.json(balanceQueue.getBackgroundStatus());
+      const status = balanceQueue.getBackgroundStatus();
+      res.json(status);
     } catch (error: any) {
       console.error("[BalanceQueue] Background status error:", error);
-      res.status(500).json({ error: error.message });
+      // Return default status to prevent UI hanging
+      res.json({ 
+        enabled: false, 
+        checked: 0, 
+        hits: 0, 
+        rate: 0, 
+        pending: 0,
+        error: error.message 
+      });
     }
   });
 
