@@ -205,9 +205,10 @@ export function OceanInvestigationStory() {
     refetchInterval: 5000,
   });
 
-  const { data: balanceHitsData } = useQuery<{ hits: BalanceHit[]; count: number; activeCount: number }>({
+  const { data: balanceHitsData, isLoading: balanceHitsLoading } = useQuery<{ hits: BalanceHit[]; count: number; activeCount: number }>({
     queryKey: ['/api/balance-hits'],
     refetchInterval: 10000,
+    staleTime: 0, // Always fetch fresh data
   });
   const balanceHits = balanceHitsData?.hits || [];
 
@@ -523,6 +524,7 @@ export function OceanInvestigationStory() {
           {/* Balance Hits - Addresses with coins/activity */}
           <BalanceHitsPanel 
             hits={balanceHits} 
+            isLoading={balanceHitsLoading}
             isOpen={balanceHitsOpen}
             onOpenChange={setBalanceHitsOpen}
           />
@@ -965,10 +967,12 @@ function ActivityCompact({
 
 function BalanceHitsPanel({
   hits,
+  isLoading,
   isOpen,
   onOpenChange
 }: {
   hits: BalanceHit[];
+  isLoading?: boolean;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -1157,7 +1161,12 @@ function BalanceHitsPanel({
               )}
             </div>
             
-            {hits.length === 0 ? (
+            {isLoading ? (
+              <div className="text-sm text-muted-foreground text-center py-4 flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Loading balance data...
+              </div>
+            ) : hits.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-4">
                 No addresses with balances found yet. Ocean checks every 3rd generated address.
               </div>
