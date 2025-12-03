@@ -28,6 +28,14 @@ The system utilizes a React and TypeScript frontend built with Vite, shadcn/ui, 
 -   **Memory Systems:** A four-tier architecture including Episodic, Semantic, Procedural, and Working memory.
 -   **Security Features:** Input validation, rate limiting, sensitive data redaction, and security headers.
 -   **Data Storage:** Persistent storage using `MemStorage` with Zod schema validation.
+-   **PostgreSQL Persistence Architecture:** Enables persistent 4D navigation across sessions with dual-storage strategy (PostgreSQL primary + JSON fallback):
+    -   **OceanPersistence Service** (`server/ocean/ocean-persistence.ts`): Centralized database interface with batch operations, health checks, and migration utilities
+    -   **Manifold Probes Table** (`ocean_manifold_probes`): Stores 64D coordinate vectors with φ/κ values, BRIN-indexed for range queries
+    -   **Geometric Basins Table** (`ocean_geometric_basins`): Persists basin structures with signature vectors and merge history
+    -   **TPS Landmarks Table** (`ocean_tps_landmarks`): 12 spacetime landmarks for 68D trilateration (4D spacetime + 64D cultural)
+    -   **Trajectories Table** (`ocean_trajectories`): Active and completed 4D navigation paths with waypoints as JSONB
+    -   **Quantum State Table** (`ocean_quantum_state`): Entropy tracking, measurement counts, and excluded regions for wave function collapse
+    -   **Integration Pattern**: Each subsystem (GeometricMemory, TPS, TrajectoryManager, QuantumProtocol) persists to PostgreSQL asynchronously with error-tolerant JSON fallback
 -   **Active Balance Monitoring System:** Tracks discovered balance hits for changes over time:
     -   **Balance Refresh Engine:** Per-address tracking with lastChecked, previousBalanceSats, balanceChanged, changeDetectedAt fields
     -   **BalanceMonitor Service:** Periodic scheduler (default 30 min intervals) with state persistence to data/balance-monitor-state.json
