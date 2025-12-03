@@ -2228,6 +2228,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================================================
+  // BLOCKCHAIN API ROUTER ENDPOINTS
+  // Multi-provider free blockchain API with automatic failover
+  // ==========================================================================
+  
+  app.get("/api/blockchain-api/stats", standardLimiter, async (req, res) => {
+    try {
+      const { getProviderStats, getCombinedCapacity } = await import("./blockchain-api-router");
+      const stats = getProviderStats();
+      const capacity = getCombinedCapacity();
+      
+      res.json({
+        providers: stats,
+        totalProviders: stats.length,
+        enabledProviders: stats.filter(p => p.enabled).length,
+        combinedCapacity: `${capacity} req/min`,
+        cost: '$0/month (100% FREE)',
+      });
+    } catch (error: any) {
+      console.error("[BlockchainAPI] Stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/blockchain-api/reset/:provider", standardLimiter, async (req, res) => {
+    try {
+      const { resetProvider } = await import("./blockchain-api-router");
+      const providerName = req.params.provider;
+      resetProvider(providerName);
+      
+      res.json({
+        message: `Provider ${providerName} reset successfully`,
+      });
+    } catch (error: any) {
+      console.error("[BlockchainAPI] Reset error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
   // BASIN SYNCHRONIZATION ENDPOINTS
   // Multi-instance Ocean coordination via geometric knowledge transfer
   // ==========================================================================
