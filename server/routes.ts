@@ -406,6 +406,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/format/address/:address", async (req, res) => {
+    try {
+      const { detectAddressFormat, estimateAddressEra } = await import('./format-detection');
+      const { address } = req.params;
+      
+      const formatInfo = detectAddressFormat(address);
+      const eraInfo = estimateAddressEra(address);
+      
+      res.json({
+        address,
+        ...formatInfo,
+        era: eraInfo,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/format/mnemonic", async (req, res) => {
+    try {
+      const { detectMnemonicFormat } = await import('./format-detection');
+      const { phrase } = req.body;
+      
+      if (!phrase || typeof phrase !== 'string') {
+        return res.status(400).json({ error: 'phrase is required' });
+      }
+      
+      const formatInfo = detectMnemonicFormat(phrase);
+      
+      res.json({
+        phrase: phrase.split(/\s+/).slice(0, 3).join(' ') + '...', // Redact for security
+        ...formatInfo,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/format/batch-addresses", async (req, res) => {
+    try {
+      const { detectAddressFormat, estimateAddressEra } = await import('./format-detection');
+      const { addresses } = req.body;
+      
+      if (!Array.isArray(addresses)) {
+        return res.status(400).json({ error: 'addresses array is required' });
+      }
+      
+      const results = addresses.slice(0, 100).map((address: string) => ({
+        address,
+        format: detectAddressFormat(address),
+        era: estimateAddressEra(address),
+      }));
+      
+      const summary = {
+        total: results.length,
+        byFormat: {} as Record<string, number>,
+        legacy2009Era: results.filter(r => r.format.format === 'legacy').length,
+      };
+      
+      results.forEach(r => {
+        summary.byFormat[r.format.format] = (summary.byFormat[r.format.format] || 0) + 1;
+      });
+      
+      res.json({ results, summary });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/target-addresses", async (req, res) => {
     try {
       const validation = addAddressRequestSchema.safeParse(req.body);

@@ -195,7 +195,8 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Bulk balance check - uses Blockchain.com for 100x efficiency
+   * Bulk balance check - tries multiple providers with automatic fallback
+   * Priority: Blockchain.com (100/batch) -> Mempool parallel -> Blockstream parallel
    */
   async getBalances(addresses: string[]): Promise<Map<string, { balance: number; txCount: number }>> {
     if (addresses.length === 0) return new Map();
@@ -216,9 +217,41 @@ export class FreeBlockchainAPI {
     
     if (uncached.length === 0) return results;
     
-    const blockchainProvider = this.providers.find(p => p.name === 'Blockchain.com');
-    if (!blockchainProvider || !blockchainProvider.healthy) {
-      for (const addr of uncached) {
+    // Try bulk providers in order of efficiency
+    const bulkProviders = [
+      { name: 'Blockchain.com', method: this.tryBlockchainComBulk.bind(this) },
+      { name: 'Mempool', method: this.tryMempoolParallel.bind(this) },
+      { name: 'Blockstream', method: this.tryBlockstreamParallel.bind(this) },
+    ];
+    
+    for (const { name, method } of bulkProviders) {
+      const provider = this.providers.find(p => p.name === name);
+      if (!provider?.healthy) {
+        console.log(`[FreeBlockchainAPI] Skipping ${name} (unhealthy)`);
+        continue;
+      }
+      
+      try {
+        const bulkResults = await method(uncached, provider);
+        
+        for (const [addr, data] of bulkResults) {
+          results.set(addr, data);
+        }
+        
+        console.log(`[FreeBlockchainAPI] Bulk query via ${name}: ${bulkResults.size}/${uncached.length} addresses`);
+        return results;
+        
+      } catch (error: any) {
+        console.warn(`[FreeBlockchainAPI] ${name} bulk failed:`, error.message || error);
+        this.recordFailure(provider, error);
+      }
+    }
+    
+    // All bulk methods failed - fall back to individual queries
+    console.warn('[FreeBlockchainAPI] All bulk providers failed, using individual queries');
+    
+    for (const addr of uncached) {
+      if (!results.has(addr)) {
         try {
           const info = await this.getAddressInfo(addr);
           results.set(addr, { balance: info.balance, txCount: info.txCount });
@@ -226,83 +259,216 @@ export class FreeBlockchainAPI {
           results.set(addr, { balance: 0, txCount: 0 });
         }
       }
-      return results;
     }
     
-    try {
-      const batches = this.chunk(uncached, 100);
+    return results;
+  }
+  
+  /**
+   * Blockchain.com bulk API - up to 100 addresses per request
+   */
+  private async tryBlockchainComBulk(
+    addresses: string[], 
+    provider: Provider
+  ): Promise<Map<string, { balance: number; txCount: number }>> {
+    const results = new Map<string, { balance: number; txCount: number }>();
+    const batches = this.chunk(addresses, 100);
+    
+    for (const batch of batches) {
+      this.totalRequests++;
+      const url = `${provider.baseUrl}/balance?active=${batch.join('|')}`;
       
-      for (const batch of batches) {
-        this.totalRequests++;
-        const url = `${blockchainProvider.baseUrl}/balance?active=${batch.join('|')}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
         
+        if (response.status === 429) {
+          provider.healthy = false;
+          throw new Error('Rate limited (429)');
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        provider.currentRequests++;
+        this.recordSuccess(provider);
+        
+        for (const addr of batch) {
+          const addrData = data[addr];
+          if (addrData) {
+            const balance = (addrData.final_balance || 0) / 1e8;
+            const txCount = addrData.n_tx || 0;
+            results.set(addr, { balance, txCount });
+            
+            this.setCache(`info:${addr}`, {
+              address: addr,
+              balance,
+              txCount,
+              funded: addrData.total_received / 1e8,
+              spent: addrData.total_sent / 1e8
+            }, 300);
+          } else {
+            results.set(addr, { balance: 0, txCount: 0 });
+          }
+        }
+      } catch (error) {
+        clearTimeout(timeout);
+        throw error;
+      }
+      
+      if (batches.length > 1) {
+        await this.sleep(100);
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * Mempool.space parallel queries - 10 concurrent requests
+   */
+  private async tryMempoolParallel(
+    addresses: string[],
+    provider: Provider
+  ): Promise<Map<string, { balance: number; txCount: number }>> {
+    const results = new Map<string, { balance: number; txCount: number }>();
+    const concurrency = 10;
+    const batches = this.chunk(addresses, concurrency);
+    
+    for (const batch of batches) {
+      const promises = batch.map(async (addr) => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
+        const timeout = setTimeout(() => controller.abort(), 10000);
         
         try {
-          const response = await fetch(url, { signal: controller.signal });
+          const response = await fetch(
+            `${provider.baseUrl}/address/${addr}`,
+            { signal: controller.signal }
+          );
           clearTimeout(timeout);
-          
-          if (response.status === 429) {
-            blockchainProvider.healthy = false;
-            throw new Error('Rate limited (429)');
-          }
           
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
           
           const data = await response.json();
-          blockchainProvider.currentRequests++;
-          this.recordSuccess(blockchainProvider);
+          const balance = ((data.chain_stats?.funded_txo_sum || 0) - 
+                          (data.chain_stats?.spent_txo_sum || 0)) / 1e8;
+          const txCount = (data.chain_stats?.tx_count || 0);
           
-          for (const addr of batch) {
-            const addrData = data[addr];
-            if (addrData) {
-              const balance = (addrData.final_balance || 0) / 1e8;
-              const txCount = addrData.n_tx || 0;
-              results.set(addr, { balance, txCount });
-              
-              this.setCache(`info:${addr}`, {
-                address: addr,
-                balance,
-                txCount,
-                funded: addrData.total_received / 1e8,
-                spent: addrData.total_sent / 1e8
-              }, 300);
-            } else {
-              results.set(addr, { balance: 0, txCount: 0 });
-            }
-          }
+          this.setCache(`info:${addr}`, {
+            address: addr,
+            balance,
+            txCount,
+            funded: (data.chain_stats?.funded_txo_sum || 0) / 1e8,
+            spent: (data.chain_stats?.spent_txo_sum || 0) / 1e8
+          }, 300);
+          
+          return { addr, balance, txCount, success: true };
         } catch (error) {
           clearTimeout(timeout);
-          throw error;
+          return { addr, balance: 0, txCount: 0, success: false };
         }
-        
-        if (batches.length > 1) {
-          await this.sleep(100);
-        }
+      });
+      
+      const batchResults = await Promise.all(promises);
+      provider.currentRequests += batch.length;
+      this.totalRequests += batch.length;
+      
+      let failures = 0;
+      for (const result of batchResults) {
+        results.set(result.addr, { balance: result.balance, txCount: result.txCount });
+        if (!result.success) failures++;
       }
       
-      return results;
-      
-    } catch (error) {
-      console.warn('[FreeBlockchainAPI] Bulk query failed, falling back to individual:', error);
-      this.recordFailure(blockchainProvider!, error as Error);
-      
-      for (const addr of uncached) {
-        if (!results.has(addr)) {
-          try {
-            const info = await this.getAddressInfo(addr);
-            results.set(addr, { balance: info.balance, txCount: info.txCount });
-          } catch {
-            results.set(addr, { balance: 0, txCount: 0 });
-          }
-        }
+      if (failures > batch.length / 2) {
+        throw new Error(`Too many failures: ${failures}/${batch.length}`);
       }
       
-      return results;
+      this.recordSuccess(provider);
+      
+      if (batches.length > 1) {
+        await this.sleep(200);
+      }
     }
+    
+    return results;
+  }
+  
+  /**
+   * Blockstream parallel queries - 10 concurrent requests
+   */
+  private async tryBlockstreamParallel(
+    addresses: string[],
+    provider: Provider
+  ): Promise<Map<string, { balance: number; txCount: number }>> {
+    const results = new Map<string, { balance: number; txCount: number }>();
+    const concurrency = 10;
+    const batches = this.chunk(addresses, concurrency);
+    
+    for (const batch of batches) {
+      const promises = batch.map(async (addr) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        
+        try {
+          const response = await fetch(
+            `${provider.baseUrl}/address/${addr}`,
+            { signal: controller.signal }
+          );
+          clearTimeout(timeout);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          const balance = ((data.chain_stats?.funded_txo_sum || 0) - 
+                          (data.chain_stats?.spent_txo_sum || 0)) / 1e8;
+          const txCount = (data.chain_stats?.tx_count || 0);
+          
+          this.setCache(`info:${addr}`, {
+            address: addr,
+            balance,
+            txCount,
+            funded: (data.chain_stats?.funded_txo_sum || 0) / 1e8,
+            spent: (data.chain_stats?.spent_txo_sum || 0) / 1e8
+          }, 300);
+          
+          return { addr, balance, txCount, success: true };
+        } catch (error) {
+          clearTimeout(timeout);
+          return { addr, balance: 0, txCount: 0, success: false };
+        }
+      });
+      
+      const batchResults = await Promise.all(promises);
+      provider.currentRequests += batch.length;
+      this.totalRequests += batch.length;
+      
+      let failures = 0;
+      for (const result of batchResults) {
+        results.set(result.addr, { balance: result.balance, txCount: result.txCount });
+        if (!result.success) failures++;
+      }
+      
+      if (failures > batch.length / 2) {
+        throw new Error(`Too many failures: ${failures}/${batch.length}`);
+      }
+      
+      this.recordSuccess(provider);
+      
+      if (batches.length > 1) {
+        await this.sleep(200);
+      }
+    }
+    
+    return results;
   }
 
   /**
