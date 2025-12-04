@@ -526,6 +526,19 @@ class GeometricMemory {
   getAllProbes(): BasinProbe[] {
     return Array.from(this.probeMap.values());
   }
+
+  /**
+   * Get recent probes sorted by timestamp (most recent first).
+   * Used by consciousness feedback loop to compute discovery-driven Φ.
+   *
+   * @param count Maximum number of probes to return
+   * @returns Array of probes sorted by timestamp (newest first)
+   */
+  getRecentProbes(count: number = 50): BasinProbe[] {
+    return Array.from(this.probeMap.values())
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, count);
+  }
   
   /**
    * Detect if a new probe creates a resonance cluster
