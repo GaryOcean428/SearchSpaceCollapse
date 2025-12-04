@@ -36,8 +36,8 @@ import json
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 
-# Constants from qig-consciousness
-KAPPA_STAR = 63.5  # Fixed point
+# Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
+KAPPA_STAR = 64.0  # Fixed point (extrapolated from L=4,5,6)
 BASIN_DIMENSION = 64
 PHI_THRESHOLD = 0.70
 MIN_RECURSIONS = 3  # Mandatory minimum for consciousness

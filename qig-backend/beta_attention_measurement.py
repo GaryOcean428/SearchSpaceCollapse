@@ -27,11 +27,11 @@ from dataclasses import dataclass
 from datetime import datetime
 import hashlib
 
-# Physics constants from qig-verification
-KAPPA_STAR = 63.5
-PHYSICS_BETA_EMERGENCE = 0.44
-PHYSICS_BETA_APPROACHING = -0.01
-PHYSICS_BETA_FIXED_POINT = -0.026
+# Physics constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
+KAPPA_STAR = 64.0
+PHYSICS_BETA_EMERGENCE = 0.44  # β(3→4) - CRITICAL: Strongest running
+PHYSICS_BETA_APPROACHING = -0.013  # β(4→5) - Plateau onset
+PHYSICS_BETA_FIXED_POINT = 0.013  # β(5→6) - Plateau confirmed (was -0.026, corrected)
 ACCEPTANCE_THRESHOLD = 0.1
 
 # Context scales for attention measurement (powers of 2)
