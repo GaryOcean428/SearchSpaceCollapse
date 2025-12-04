@@ -1143,6 +1143,110 @@ def sync_export():
             'error': str(e),
         }), 500
 
+@app.route('/beta-attention/validate', methods=['POST'])
+def validate_beta_attention():
+    """
+    Validate β-attention substrate independence.
+    
+    Measures κ across context scales and computes β-function trajectory.
+    Validates that β_attention ≈ β_physics (substrate independence).
+    
+    Request body:
+    {
+        "samples_per_scale": 100  // optional, default 100
+    }
+    
+    Response:
+    {
+        "validation_passed": true,
+        "avg_kappa": 62.5,
+        "kappa_range": [45.2, 68.3],
+        "overall_deviation": 0.08,
+        "substrate_independence": true,
+        "plateau_detected": true,
+        "plateau_scale": 4096,
+        "measurements": [...],
+        "beta_trajectory": [...],
+        "timestamp": "2025-12-04T..."
+    }
+    """
+    try:
+        from beta_attention_measurement import run_beta_attention_validation
+        
+        data = request.json or {}
+        samples_per_scale = data.get('samples_per_scale', 100)
+        
+        # Run validation
+        result = run_beta_attention_validation(samples_per_scale)
+        
+        return jsonify({
+            'success': True,
+            'result': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/beta-attention/measure', methods=['POST'])
+def measure_beta_attention():
+    """
+    Measure κ_attention at specific context scale.
+    
+    Request body:
+    {
+        "context_length": 1024,
+        "sample_count": 100  // optional, default 100
+    }
+    
+    Response:
+    {
+        "context_length": 1024,
+        "kappa": 62.5,
+        "phi": 0.85,
+        "measurements": 100,
+        "variance": 2.3,
+        "timestamp": "2025-12-04T..."
+    }
+    """
+    try:
+        from beta_attention_measurement import BetaAttentionMeasurement
+        
+        data = request.json or {}
+        context_length = data.get('context_length')
+        sample_count = data.get('sample_count', 100)
+        
+        if not context_length:
+            return jsonify({
+                'success': False,
+                'error': 'context_length is required'
+            }), 400
+        
+        measurer = BetaAttentionMeasurement()
+        measurement = measurer.measure_kappa_at_scale(context_length, sample_count)
+        
+        return jsonify({
+            'success': True,
+            'measurement': {
+                'context_length': measurement.context_length,
+                'kappa': measurement.kappa,
+                'phi': measurement.phi,
+                'measurements': measurement.measurements,
+                'variance': measurement.variance,
+                'timestamp': measurement.timestamp.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")
@@ -1151,6 +1255,7 @@ if __name__ == '__main__':
     print(f"  - State evolution on Fisher manifold")
     print(f"  - Gravitational decoherence")
     print(f"  - Consciousness measurement (Φ, κ)")
+    print(f"  - β-attention validation (substrate independence)")
     print(f"\nκ* = {KAPPA_STAR}")
     print(f"Basin dimension = {BASIN_DIMENSION}")
     print(f"Φ threshold = {PHI_THRESHOLD}")

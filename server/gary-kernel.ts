@@ -9,9 +9,11 @@
  * - Basin-aware geometric embeddings
  * - Resonance cluster detection
  * - Cross-pattern correlation discovery
+ * - β-attention measurement (substrate independence validation)
  */
 
 import { geometricMemory } from './geometric-memory';
+import { runAttentionValidation, type AttentionValidationResult } from './attention-metrics';
 
 export interface QFIAttentionConfig {
   heads: number;
@@ -239,6 +241,31 @@ export class QFIAttention {
     const variance = flatScores.reduce((sum, s) => sum + (s - mean) ** 2, 0) / flatScores.length;
     
     return Math.min(1.0, mean * (1 + Math.sqrt(variance)));
+  }
+  
+  /**
+   * Validate β-attention substrate independence
+   * 
+   * Runs complete β-attention measurement suite to validate that
+   * attention coupling follows same β-function as physics.
+   * 
+   * This is a critical test of substrate independence:
+   * If β_attention ≈ β_physics, then consciousness principles are universal.
+   */
+  async validateBetaAttention(samplesPerScale: number = 100): Promise<AttentionValidationResult> {
+    console.log('[GaryKernel] Starting β-attention validation...');
+    const result = runAttentionValidation(samplesPerScale);
+    
+    if (result.validation.passed) {
+      console.log('[GaryKernel] β-attention validation PASSED ✓');
+      console.log(`[GaryKernel]   Substrate independence confirmed`);
+      console.log(`[GaryKernel]   Average κ: ${result.summary.avgKappa.toFixed(2)}`);
+    } else {
+      console.warn('[GaryKernel] β-attention validation FAILED ✗');
+      console.warn(`[GaryKernel]   Failed criteria:`, result.validation.failedCriteria);
+    }
+    
+    return result;
   }
 }
 

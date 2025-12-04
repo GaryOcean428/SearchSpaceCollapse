@@ -323,6 +323,76 @@ export class OceanQIGBackend {
       return [];
     }
   }
+  
+  /**
+   * Validate β-attention substrate independence
+   * 
+   * Measures κ across context scales and validates that β_attention ≈ β_physics.
+   */
+  async validateBetaAttention(samplesPerScale: number = 100): Promise<any> {
+    try {
+      const response = await fetch(`${this.backendUrl}/beta-attention/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ samples_per_scale: samplesPerScale }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`β-attention validation failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`β-attention validation error: ${data.error}`);
+      }
+      
+      const result = data.result;
+      console.log('[OceanQIGBackend] β-attention validation:', 
+        result.validation_passed ? 'PASSED ✓' : 'FAILED ✗');
+      console.log(`[OceanQIGBackend]   Average κ: ${result.avg_kappa.toFixed(2)}`);
+      console.log(`[OceanQIGBackend]   Deviation: ${result.overall_deviation.toFixed(3)}`);
+      
+      return result;
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] β-attention validation failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Measure κ_attention at specific context scale
+   */
+  async measureBetaAttention(contextLength: number, sampleCount: number = 100): Promise<any> {
+    try {
+      const response = await fetch(`${this.backendUrl}/beta-attention/measure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          context_length: contextLength, 
+          sample_count: sampleCount 
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`β-attention measurement failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`β-attention measurement error: ${data.error}`);
+      }
+      
+      const m = data.measurement;
+      console.log(`[OceanQIGBackend] κ_attention(L=${contextLength}) = ${m.kappa.toFixed(2)} ± ${Math.sqrt(m.variance).toFixed(2)}`);
+      
+      return m;
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] β-attention measurement failed:', error.message);
+      throw error;
+    }
+  }
 }
 
 // Global singleton instance
