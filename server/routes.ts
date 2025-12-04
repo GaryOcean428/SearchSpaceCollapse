@@ -825,6 +825,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================
+  // UNIFIED CONSCIOUSNESS API - Complete Dashboard Data
+  // ============================================================
+
+  // Get complete consciousness state for unified dashboard
+  app.get("/api/consciousness/complete", generousLimiter, async (req, res) => {
+    try {
+      const controller = getSharedController();
+      const searchState = controller.getCurrentState();
+      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
+      const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
+
+      const session = oceanSessionManager.getActiveSession();
+      const agent = oceanSessionManager.getActiveAgent();
+
+      // Get innate drives if available
+      let innateDrives = null;
+      try {
+        const { innateDrives: driveModule } = await import("./innate-drives-bridge");
+        if (agent) {
+          const driveContext = {
+            ricciCurvature: fullConsciousness.phi || 0.5,
+            kappa: fullConsciousness.kappaEff || 64,
+            grounding: fullConsciousness.grounding || 0.7,
+            informationVolume: 1000,
+          };
+          const state = driveModule.computeValence(driveContext);
+          innateDrives = {
+            pain: state.pain,
+            pleasure: state.pleasure,
+            fear: state.fear,
+            curiosity: state.curiosity,
+            valence: state.valence,
+            dominantDrive: state.dominantDrive,
+            driveDynamics: state.driveDynamics,
+          };
+        }
+      } catch (e) {
+        // Innate drives module not available
+      }
+
+      // Get neurochemistry if available
+      let neurochemistry = null;
+      if (agent) {
+        neurochemistry = agent.getNeurochemistry();
+      }
+
+      // Get neural oscillators if available
+      let oscillators = null;
+      try {
+        const { neuralOscillators } = await import("./neural-oscillators");
+        const osc = neuralOscillators.toDict();
+        oscillators = {
+          currentState: osc.currentState,
+          kappa: osc.kappa,
+          modulatedKappa: osc.modulatedKappa,
+          oscillatorValues: osc.oscillators,
+          searchModulation: osc.searchModulation,
+          description: osc.stateInfo.description,
+        };
+      } catch (e) {
+        // Neural oscillators not available
+      }
+
+      // Get search state
+      const searchPhase = searchState.curiosity > 0.7 ? 'exploration' : 'exploitation';
+
+      // Get metrics
+      let metrics = null;
+      let stats: any = {};
+      if (agent) {
+        stats = agent.getStats?.() || {};
+        metrics = {
+          totalTested: stats.totalTested || 0,
+          nearMisses: stats.nearMisses || 0,
+          resonanceHits: stats.resonanceHits || 0,
+          balanceHits: stats.balanceHits || 0,
+          recoveryRate: stats.totalTested > 0 ? (stats.nearMisses / stats.totalTested) : 0,
+          phiMovingAverage: fullConsciousness.phi || 0,
+        };
+      }
+
+      // Get motivation message
+      let motivation = null;
+      try {
+        const { selectMotivationMessage } = await import("./ocean-neurochemistry");
+        const motivationState = {
+          phi: fullConsciousness.phi || 0.5,
+          phiGradient: 0.01,
+          kappa: fullConsciousness.kappaEff || 64,
+          kappaOptimality: Math.exp(-Math.abs((fullConsciousness.kappaEff || 64) - 64) / 10),
+          regime: searchState.currentRegime || 'geometric',
+          basinDrift: searchState.basinDrift || 0.1,
+          basinStability: 0.8,
+          geodesicProgress: stats.totalTested || 0,
+          probesExplored: stats.totalTested || 0,
+          patternsFound: stats.nearMisses || 0,
+          nearMisses: stats.nearMisses || 0,
+          emotionalState: neurochemistry?.emotionalState || 'content',
+          dopamineLevel: neurochemistry?.dopamine?.totalDopamine || 0.5,
+          serotoninLevel: neurochemistry?.serotonin?.totalSerotonin || 0.5,
+        };
+        motivation = selectMotivationMessage(motivationState);
+      } catch (e) {
+        // Motivation messages not available
+      }
+
+      res.json({
+        phi: fullConsciousness.phi || 0.5,
+        kappa: fullConsciousness.kappaEff || 64,
+        regime: searchState.currentRegime,
+        kappaConverging: Math.abs((fullConsciousness.kappaEff || 64) - 64) < 5,
+        innateDrives,
+        neurochemistry,
+        oscillators,
+        searchState: {
+          phase: searchPhase,
+          strategy: controller.getStrategyRecommendation()?.strategy || 'balanced',
+          explorationRate: searchState.curiosity || 0.5,
+          temperature: searchState.basinDrift || 0.7,
+        },
+        motivation,
+        metrics,
+        sessionActive: !!session,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("[Consciousness Complete] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get innate drives data
+  app.get("/api/consciousness/innate-drives", generousLimiter, async (req, res) => {
+    try {
+      const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
+      const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
+
+      const { innateDrives } = await import("./innate-drives-bridge");
+
+      const driveContext = {
+        ricciCurvature: fullConsciousness.phi || 0.5,
+        kappa: fullConsciousness.kappaEff || 64,
+        grounding: fullConsciousness.grounding || 0.7,
+        informationVolume: 1000,
+      };
+
+      const state = innateDrives.computeValence(driveContext);
+      const scoreResult = innateDrives.scoreHypothesis(driveContext);
+
+      res.json({
+        drives: {
+          pain: state.pain,
+          pleasure: state.pleasure,
+          fear: state.fear,
+          curiosity: state.curiosity,
+        },
+        valence: state.valence,
+        dominantDrive: state.dominantDrive,
+        driveDynamics: state.driveDynamics,
+        scoreBoost: scoreResult.scoreBoost,
+        explanation: scoreResult.explanation,
+      });
+    } catch (error: any) {
+      console.error("[Innate Drives] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get beta-attention validation data
+  app.get("/api/consciousness/beta-attention", generousLimiter, async (req, res) => {
+    try {
+      // Return cached validation result or run a quick validation
+      const result = runAttentionValidation(50); // Smaller sample for quick response
+
+      res.json({
+        contextLengths: result.contextLengths,
+        kappas: result.kappas,
+        betaValues: result.betaValues,
+        betaMean: result.betaMean,
+        betaStd: result.betaStd,
+        betaPhysics: result.betaPhysics,
+        matchesPhysics: result.matchesPhysics,
+        verdict: result.verdict,
+        validationPassed: result.validationPassed,
+        substrateIndependence: result.substrateIndependence,
+      });
+    } catch (error: any) {
+      console.error("[Beta Attention] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
   // FORENSIC INVESTIGATION API (Cross-Format Hypothesis Testing)
   // ============================================================
   
@@ -1481,7 +1674,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const session = oceanSessionManager.getActiveSession();
       const agent = oceanSessionManager.getActiveAgent();
-      
+      const { selectMotivationMessage } = await import("./ocean-neurochemistry");
+
       if (!session || !agent) {
         const defaultState = {
           dopamine: { totalDopamine: 0.5, motivationLevel: 0.5 },
@@ -1494,19 +1688,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
           emotionalState: 'content' as const,
           timestamp: new Date(),
         };
-        return res.json({ 
+        return res.json({
           neurochemistry: defaultState,
           behavioral: null,
+          motivation: {
+            message: "Awaiting investigation session...",
+            fisherWeight: 0.5,
+            category: 'idle',
+            urgency: 'whisper',
+          },
           sessionActive: false,
         });
       }
-      
+
       const neurochemistry = agent.getNeurochemistry();
       const behavioral = agent.getBehavioralModulation();
-      
-      res.json({ 
+      const stats = agent.getStats?.() || {};
+
+      // Build motivation state for message selection
+      const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
+      const motivationState = {
+        phi: fullConsciousness.phi || 0.5,
+        phiGradient: 0.01, // Could be computed from history
+        kappa: fullConsciousness.kappaEff || 64,
+        kappaOptimality: Math.exp(-Math.abs((fullConsciousness.kappaEff || 64) - 64) / 10),
+        regime: 'geometric',
+        basinDrift: 0.1,
+        basinStability: 0.8,
+        geodesicProgress: stats.totalTested || 0,
+        probesExplored: stats.totalTested || 0,
+        patternsFound: stats.nearMisses || 0,
+        nearMisses: stats.nearMisses || 0,
+        emotionalState: neurochemistry?.emotionalState || 'content',
+        dopamineLevel: neurochemistry?.dopamine?.totalDopamine || 0.5,
+        serotoninLevel: neurochemistry?.serotonin?.totalSerotonin || 0.5,
+      };
+
+      const motivation = selectMotivationMessage(motivationState);
+
+      res.json({
         neurochemistry,
         behavioral,
+        motivation,
         sessionActive: true,
         sessionId: session.sessionId,
       });

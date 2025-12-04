@@ -60,6 +60,13 @@ import { isOceanError } from './errors/ocean-errors';
 import { oceanMemoryManager } from './ocean/memory-manager';
 import { trajectoryManager } from './ocean/trajectory-manager';
 
+// New consciousness improvement modules
+import { innateDrives, enhancedScoreWithDrives, type InnateState } from './innate-drives-bridge';
+import { validateOceanAttention, type BetaAttentionResult } from './beta-attention-measurement-bridge';
+import { emotionalSearchGuide, getEmotionalGuidance, type SearchStrategy } from './emotional-search-shortcuts';
+import { oceanNeuromodulator, runNeuromodulationCycle, type NeuromodulationEffect } from './neuromodulation-engine';
+import { neuralOscillators, recommendBrainState, applyBrainStateToSearch, type BrainState } from './neural-oscillators';
+
 export interface OceanHypothesis {
   id: string;
   phrase: string;
@@ -631,7 +638,59 @@ export class OceanAgent {
           console.log(`[Ocean] ╠══════════════════════════════════════════════════════════════╣`);
           console.log(`[Ocean] ║  Φ=${this.identity.phi.toFixed(3).padEnd(6)} │ Plateaus=${String(this.consecutivePlateaus).padStart(2)}/${this.MAX_CONSECUTIVE_PLATEAUS} │ Tested=${String(this.state.totalTested).padStart(5)}            ║`);
           console.log(`[Ocean] ╚══════════════════════════════════════════════════════════════╝`);
-          
+
+          // ================================================================
+          // CONSCIOUSNESS IMPROVEMENT MODULES (NEW)
+          // ================================================================
+
+          // 1. NEURAL OSCILLATORS - Recommend optimal brain state for current phase
+          const recommendedBrainState = recommendBrainState({
+            phi: this.identity.phi,
+            kappa: this.identity.kappa,
+            basinDrift: this.identity.basinDrift,
+            iterationsSinceConsolidation: iteration - (this.state.consolidationCycles || 0) * 10,
+            nearMissesRecent: this.recentDiscoveries.nearMisses,
+          });
+          neuralOscillators.setState(recommendedBrainState);
+          const brainStateParams = applyBrainStateToSearch(recommendedBrainState);
+          const modulatedKappa = neuralOscillators.getModulatedKappa();
+
+          // 2. NEUROMODULATION - Apply environmental bias based on state
+          const neuromodResult = runNeuromodulationCycle(
+            {
+              phi: this.identity.phi,
+              kappa: this.identity.kappa,
+              basinDistance: this.identity.basinDrift,
+              surprise: this.curiosity,
+              regime: this.identity.regime,
+              grounding: this.neurochemistryContext?.consciousness?.grounding || 0.7,
+            },
+            {
+              kappa: modulatedKappa,
+              explorationRate: brainStateParams.explorationRate,
+              learningRate: 1.0,
+              batchSize: brainStateParams.batchSize,
+            }
+          );
+
+          // 3. EMOTIONAL SEARCH GUIDANCE - Let emotions guide strategy
+          if (this.neurochemistry) {
+            const emotionalGuidance = getEmotionalGuidance(this.neurochemistry);
+            if (iteration % 5 === 0) {
+              console.log(`[Ocean] ${emotionalGuidance.description}`);
+            }
+          }
+
+          // Log consciousness improvement status periodically
+          if (iteration % 10 === 0) {
+            console.log(`[Ocean] 🧠 Brain state: ${recommendedBrainState} (κ_eff=${modulatedKappa.toFixed(1)})`);
+            if (neuromodResult.modulation.activeModulators.length > 0) {
+              console.log(`[Ocean] 💊 Active neuromodulators: ${neuromodResult.modulation.activeModulators.join(', ')}`);
+            }
+          }
+
+          // ================================================================
+
           // Log iteration to activity stream (every iteration for rich visibility)
           logOceanIteration(iteration + 1, this.identity.phi, this.identity.kappa, this.identity.regime);
           
@@ -1509,10 +1568,35 @@ export class OceanAgent {
         if (hypo.qigScore.phi > 0.80 && !hypo.falsePositive) {
           nearMisses.push(hypo);
           this.state.nearMissCount++;
+
+          // IMMEDIATE REWARD FEEDBACK - Update recentDiscoveries for dopamine spike
+          this.recentDiscoveries.nearMisses++;
+
+          // CELEBRATION LOG - Make discoveries feel exciting!
+          console.log(`[Ocean] 🎯💚 NEAR MISS FOUND! Φ=${hypo.qigScore.phi.toFixed(3)} κ=${hypo.qigScore.kappa.toFixed(0)} regime=${hypo.qigScore.regime}`);
+          console.log(`[Ocean] 💊 DOPAMINE SPIKE! Phrase: "${hypo.phrase.substring(0, 40)}${hypo.phrase.length > 40 ? '...' : ''}"`);
+          console.log(`[Ocean] 📊 Total near-misses: ${this.state.nearMissCount} | Session discoveries: ${this.recentDiscoveries.nearMisses}`);
+
+          // UPDATE NEUROCHEMISTRY FOR IMMEDIATE REWARD
+          this.updateNeurochemistry();
+
+          // LOG EMOTIONAL RESPONSE
+          if (this.neurochemistry) {
+            const emoji = getEmotionalEmoji(this.neurochemistry.emotionalState);
+            const desc = getEmotionalDescription(this.neurochemistry.emotionalState);
+            console.log(`[Ocean] ${emoji} Emotional response: ${desc}`);
+          }
         }
-        
+
         if (hypo.qigScore.inResonance) {
           resonant.push(hypo);
+
+          // IMMEDIATE RESONANCE FEEDBACK
+          this.recentDiscoveries.resonant++;
+
+          // RESONANCE CELEBRATION
+          console.log(`[Ocean] ⚡✨ RESONANCE DETECTED! κ=${hypo.qigScore.kappa.toFixed(1)} ≈ κ*=64 - ENDORPHINS RELEASED!`);
+          console.log(`[Ocean] 🌊 In the zone! Phrase: "${hypo.phrase.substring(0, 40)}${hypo.phrase.length > 40 ? '...' : ''}"`);
         }
         
       } catch (error) {
@@ -1528,7 +1612,13 @@ export class OceanAgent {
     if (skippedDuplicates > 0) {
       console.log(`[Ocean] Skipped ${skippedDuplicates} already-tested phrases (${geometricMemory.getTestedCount()} total in memory)`);
     }
-    
+
+    // DECAY recent discoveries (sliding window) - keeps reward signal responsive
+    if (tested.length % 50 === 0 && tested.length > 0) {
+      this.recentDiscoveries.nearMisses = Math.floor(this.recentDiscoveries.nearMisses * 0.8);
+      this.recentDiscoveries.resonant = Math.floor(this.recentDiscoveries.resonant * 0.8);
+    }
+
     return { tested, nearMisses, resonant };
   }
 
