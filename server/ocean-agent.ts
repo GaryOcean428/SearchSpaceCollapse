@@ -956,7 +956,7 @@ export class OceanAgent {
       try {
         const { oceanBasinSync } = await import('./ocean-basin-sync');
         const packet = oceanBasinSync.exportBasin(this);
-        oceanBasinSync.saveBasinSnapshot(packet);
+        if (process.env.BASIN_SYNC_PERSIST === 'true') oceanBasinSync.saveBasinSnapshot(packet); else console.log(`[Ocean] Basin packet ready (${JSON.stringify(packet).length} bytes, in-memory only)`);
         console.log(`[Ocean] Basin snapshot saved: ${packet.oceanId} (${JSON.stringify(packet).length} bytes)`);
       } catch (basinErr) {
         console.log('[Ocean] Basin sync save skipped:', (basinErr as Error).message);

@@ -93,12 +93,35 @@ export interface BasinSyncResult {
   completedAt: string;
 }
 
+interface BasinSyncConfig {
+  persistToDisk: boolean;
+  maxSnapshotsToKeep: number;
+  snapshotIntervalMs: number;
+  autoCleanup: boolean;
+}
+
 class OceanBasinSync {
   private syncDir = path.join(process.cwd(), 'data', 'basin-sync');
   private version = '1.0.0';
+  private lastSnapshotTime = 0;
+  
+  private config: BasinSyncConfig = {
+    persistToDisk: process.env.NODE_ENV === 'development',
+    maxSnapshotsToKeep: 10,
+    snapshotIntervalMs: 300000,
+    autoCleanup: true,
+  };
   
   constructor() {
     this.ensureSyncDirectory();
+    if (this.config.autoCleanup) {
+      this.cleanupOldSnapshots();
+    }
+  }
+  
+  configure(config: Partial<BasinSyncConfig>): void {
+    this.config = { ...this.config, ...config };
+    console.log('[BasinSync] Configuration updated:', this.config);
   }
   
   private ensureSyncDirectory(): void {
@@ -731,16 +754,72 @@ class OceanBasinSync {
     return basis;
   }
   
-  saveBasinSnapshot(packet: BasinSyncPacket): string {
+  saveBasinSnapshot(packet: BasinSyncPacket, force = false): string | null {
+    if (!force && !this.config.persistToDisk) {
+      console.log('[BasinSync] File persistence disabled - packet in memory only');
+      return null;
+    }
+    
+    const now = Date.now();
+    if (!force && now - this.lastSnapshotTime < this.config.snapshotIntervalMs) {
+      const remaining = Math.ceil((this.config.snapshotIntervalMs - (now - this.lastSnapshotTime)) / 1000);
+      console.log(`[BasinSync] Snapshot rate limited - wait ${remaining}s`);
+      return null;
+    }
+    
     this.ensureSyncDirectory();
     
     const filename = `basin-${packet.oceanId}-${Date.now()}.json`;
     const filepath = path.join(this.syncDir, filename);
     
-    fs.writeFileSync(filepath, JSON.stringify(packet, null, 2));
-    console.log(`[BasinSync] Saved basin snapshot: ${filepath}`);
-    
-    return filepath;
+    try {
+      fs.writeFileSync(filepath, JSON.stringify(packet, null, 2));
+      this.lastSnapshotTime = now;
+      console.log(`[BasinSync] Saved basin snapshot: ${filepath}`);
+      
+      if (this.config.autoCleanup) {
+        this.cleanupOldSnapshots();
+      }
+      
+      return filepath;
+    } catch (error) {
+      console.error('[BasinSync] Failed to save snapshot:', error);
+      return null;
+    }
+  }
+  
+  private cleanupOldSnapshots(): void {
+    try {
+      const files = fs.readdirSync(this.syncDir)
+        .filter(f => f.startsWith('basin-') && f.endsWith('.json'))
+        .map(f => ({
+          name: f,
+          path: path.join(this.syncDir, f),
+          mtime: fs.statSync(path.join(this.syncDir, f)).mtime,
+        }))
+        .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+      
+      if (files.length <= this.config.maxSnapshotsToKeep) {
+        return;
+      }
+      
+      const toDelete = files.slice(this.config.maxSnapshotsToKeep);
+      
+      for (const file of toDelete) {
+        try {
+          fs.unlinkSync(file.path);
+          console.log(`[BasinSync] Cleaned up: ${file.name}`);
+        } catch (err) {
+          console.error(`[BasinSync] Failed to delete ${file.name}:`, err);
+        }
+      }
+      
+      if (toDelete.length > 0) {
+        console.log(`[BasinSync] Cleanup: deleted ${toDelete.length}, kept ${this.config.maxSnapshotsToKeep}`);
+      }
+    } catch (error) {
+      console.error('[BasinSync] Cleanup error:', error);
+    }
   }
   
   loadLatestBasin(oceanIdPrefix?: string): BasinSyncPacket | null {
