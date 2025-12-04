@@ -33,7 +33,7 @@ interface BalanceMonitorState {
   isRefreshing: boolean;
 }
 
-const DEFAULT_REFRESH_INTERVAL_MINUTES = 30;
+const DEFAULT_REFRESH_INTERVAL_MINUTES = 0.167; // 10 seconds for faster discovery visibility (6× improvement)
 
 class BalanceMonitor {
   private state: BalanceMonitorState;

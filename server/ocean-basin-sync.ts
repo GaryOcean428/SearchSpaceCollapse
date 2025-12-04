@@ -97,6 +97,10 @@ class OceanBasinSync {
   private syncDir = path.join(process.cwd(), 'data', 'basin-sync');
   private version = '1.0.0';
   
+  // File retention policy: keep only latest N snapshots per oceanId
+  private readonly MAX_SNAPSHOTS_PER_OCEAN = 5;
+  private readonly MAX_TOTAL_SNAPSHOTS = 50;
+  
   constructor() {
     this.ensureSyncDirectory();
   }
@@ -731,6 +735,85 @@ class OceanBasinSync {
     return basis;
   }
   
+  /**
+   * Clean up old basin snapshots to prevent file accumulation.
+   * Keeps only the latest MAX_SNAPSHOTS_PER_OCEAN files per oceanId
+   * and enforces MAX_TOTAL_SNAPSHOTS across all oceanIds.
+   */
+  private cleanupOldSnapshots(currentOceanId: string): void {
+    try {
+      const files = fs.readdirSync(this.syncDir)
+        .filter(f => f.startsWith('basin-') && f.endsWith('.json'))
+        .map(filename => {
+          const filepath = path.join(this.syncDir, filename);
+          const stats = fs.statSync(filepath);
+          // Extract oceanId from filename: basin-{oceanId}-{timestamp}.json
+          const match = filename.match(/^basin-([^-]+)-(\d+)\.json$/);
+          return {
+            filename,
+            filepath,
+            oceanId: match ? match[1] : 'unknown',
+            timestamp: match ? parseInt(match[2]) : 0,
+            mtime: stats.mtime.getTime(),
+          };
+        })
+        .sort((a, b) => b.timestamp - a.timestamp); // Newest first
+      
+      if (files.length === 0) return;
+      
+      // Group files by oceanId
+      const filesByOceanId = new Map<string, typeof files>();
+      for (const file of files) {
+        if (!filesByOceanId.has(file.oceanId)) {
+          filesByOceanId.set(file.oceanId, []);
+        }
+        filesByOceanId.get(file.oceanId)!.push(file);
+      }
+      
+      const filesToDelete: string[] = [];
+      
+      // Clean up per-oceanId (keep only latest MAX_SNAPSHOTS_PER_OCEAN)
+      const oceanEntries = Array.from(filesByOceanId.entries());
+      for (const [oceanId, oceanFiles] of oceanEntries) {
+        if (oceanFiles.length > this.MAX_SNAPSHOTS_PER_OCEAN) {
+          const toDelete = oceanFiles.slice(this.MAX_SNAPSHOTS_PER_OCEAN);
+          filesToDelete.push(...toDelete.map((f: { filepath: string }) => f.filepath));
+          console.log(`[BasinSync] Cleaning up ${toDelete.length} old snapshots for ${oceanId}`);
+        }
+      }
+      
+      // Enforce global limit (keep only latest MAX_TOTAL_SNAPSHOTS)
+      if (files.length > this.MAX_TOTAL_SNAPSHOTS) {
+        const excessFiles = files.slice(this.MAX_TOTAL_SNAPSHOTS);
+        const excessPaths = excessFiles.map(f => f.filepath);
+        // Only add if not already in filesToDelete
+        for (const path of excessPaths) {
+          if (!filesToDelete.includes(path)) {
+            filesToDelete.push(path);
+          }
+        }
+        console.log(`[BasinSync] Enforcing global limit: removing ${excessPaths.length} oldest snapshots`);
+      }
+      
+      // Delete files
+      let deletedCount = 0;
+      for (const filepath of filesToDelete) {
+        try {
+          fs.unlinkSync(filepath);
+          deletedCount++;
+        } catch (error) {
+          console.error(`[BasinSync] Failed to delete ${filepath}:`, error);
+        }
+      }
+      
+      if (deletedCount > 0) {
+        console.log(`[BasinSync] Cleanup complete: deleted ${deletedCount} old snapshots, ${files.length - deletedCount} remaining`);
+      }
+    } catch (error) {
+      console.error('[BasinSync] Error during cleanup:', error);
+    }
+  }
+  
   saveBasinSnapshot(packet: BasinSyncPacket): string {
     this.ensureSyncDirectory();
     
@@ -739,6 +822,9 @@ class OceanBasinSync {
     
     fs.writeFileSync(filepath, JSON.stringify(packet, null, 2));
     console.log(`[BasinSync] Saved basin snapshot: ${filepath}`);
+    
+    // Auto-cleanup old snapshots to prevent file accumulation
+    this.cleanupOldSnapshots(packet.oceanId);
     
     return filepath;
   }
