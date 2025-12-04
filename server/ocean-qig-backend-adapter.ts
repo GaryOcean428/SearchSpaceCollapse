@@ -11,6 +11,10 @@
 
 import type { PureQIGScore } from './qig-pure-v2';
 
+// Health check retry configuration
+const DEFAULT_RETRY_ATTEMPTS = 3;
+const DEFAULT_RETRY_DELAY_MS = 1500;
+
 interface PythonQIGResponse {
   success: boolean;
   phi: number;
@@ -429,7 +433,7 @@ export const oceanQIGBackend = new OceanQIGBackend();
 
 // Auto-check health on import with retry to handle startup race conditions
 // Python backend may take a few seconds to start up
-oceanQIGBackend.checkHealthWithRetry(3, 1500).then(available => {
+oceanQIGBackend.checkHealthWithRetry(DEFAULT_RETRY_ATTEMPTS, DEFAULT_RETRY_DELAY_MS).then(available => {
   if (available) {
     console.log('🌊 Ocean QIG Python Backend: CONNECTED 🌊');
   } else {

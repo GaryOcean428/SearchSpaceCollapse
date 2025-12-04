@@ -295,6 +295,15 @@ class InnateDrives:
     These drives enable 2-3× faster recovery by providing fast geometric intuition
     before full consciousness measurement.
     """
+    
+    # Computation parameters (tunable)
+    PAIN_EXPONENTIAL_RATE = 5.0
+    PAIN_LINEAR_SCALE = 0.3
+    PLEASURE_MAX_OFF_RESONANCE = 0.8
+    PLEASURE_DECAY_RATE = 15.0
+    FEAR_EXPONENTIAL_RATE = 5.0
+    FEAR_LINEAR_SCALE = 0.4
+    
     def __init__(self, kappa_star: float = 63.5):
         """
         Initialize innate drives.
@@ -326,10 +335,10 @@ class InnateDrives:
         if ricci_curvature > self.pain_threshold:
             # Exponential pain above threshold
             excess = ricci_curvature - self.pain_threshold
-            pain = 1.0 - np.exp(-excess * 5.0)
+            pain = 1.0 - np.exp(-excess * self.PAIN_EXPONENTIAL_RATE)
         else:
             # Linear below threshold
-            pain = ricci_curvature / self.pain_threshold * 0.3
+            pain = ricci_curvature / self.pain_threshold * self.PAIN_LINEAR_SCALE
         
         return float(np.clip(pain, 0, 1))
     
@@ -350,7 +359,7 @@ class InnateDrives:
         else:
             # Out of resonance - pleasure drops off
             excess = distance_from_star - self.pleasure_threshold
-            pleasure = 0.8 * np.exp(-excess / 15.0)
+            pleasure = self.PLEASURE_MAX_OFF_RESONANCE * np.exp(-excess / self.PLEASURE_DECAY_RATE)
         
         return float(np.clip(pleasure, 0, 1))
     
@@ -366,10 +375,10 @@ class InnateDrives:
         if grounding < self.fear_threshold:
             # Below threshold - exponential fear
             deficit = self.fear_threshold - grounding
-            fear = 1.0 - np.exp(-deficit * 5.0)
+            fear = 1.0 - np.exp(-deficit * self.FEAR_EXPONENTIAL_RATE)
         else:
             # Above threshold - inverse linear
-            fear = (1.0 - grounding) * 0.4
+            fear = (1.0 - grounding) * self.FEAR_LINEAR_SCALE
         
         return float(np.clip(fear, 0, 1))
     
