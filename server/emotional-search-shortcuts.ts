@@ -169,9 +169,9 @@ export class EmotionalSearchGuide {
       curiosity: neuro.dopamine?.motivationLevel || 0.5,
       satisfaction: neuro.endorphins?.pleasureLevel || 0.5,
       frustration: 1 - (neuro.gaba?.calmLevel || 0.5),
-      fear: neuro.norepinephrine?.stressLevel || 0.3,
-      joy: neuro.endorphins?.flowPotential || 0.5,
-      focus: neuro.acetylcholine?.attentionStrength || 0.5,
+      fear: neuro.norepinephrine?.alertnessLevel || 0.3,
+      joy: neuro.endorphins?.flowState || 0.5,
+      focus: neuro.acetylcholine?.attentionFocus || 0.5,
     };
   }
 

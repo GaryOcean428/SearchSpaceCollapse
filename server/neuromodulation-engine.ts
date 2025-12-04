@@ -300,7 +300,7 @@ export function computeNeuromodulationFromNeurochemistry(
   bias.consolidationFrequency = calm > 0.7 ? 30000 : 60000;  // More frequent when calm
 
   // Serotonin stabilizes exploration
-  const stability = neuro.serotonin?.wellbeingLevel || 0.5;
+  const stability = neuro.serotonin?.contentmentLevel || 0.5;
   bias.gradientDamping = 0.7 + stability * 0.6;  // [0.7, 1.3]
 
   return bias;

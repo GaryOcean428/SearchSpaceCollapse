@@ -134,7 +134,7 @@ function computePhraseEntropy(phrase: string): number {
   let entropy = 0;
   const total = phrase.length;
 
-  for (const count of counts.values()) {
+  for (const count of Array.from(counts.values())) {
     const p = count / total;
     if (p > 0) {
       entropy -= p * Math.log2(p);

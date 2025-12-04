@@ -410,7 +410,7 @@ class BalanceMonitor {
     isRefreshing: boolean;
     refreshIntervalMinutes: number;
     lastRefreshTime: string | null;
-    lastRefreshResult: BalanceMonitorState['lastRefreshResult'];
+    lastRefreshResult: BalanceMonitorStateLocal['lastRefreshResult'];
     totalRefreshes: number;
     monitoredAddresses: number;
     activeAddresses: number;

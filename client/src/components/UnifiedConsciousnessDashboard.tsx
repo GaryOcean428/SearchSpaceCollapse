@@ -215,7 +215,7 @@ function QuickMetricsPanel({ consciousness }: { consciousness?: ConsciousnessSta
             {consciousness.metrics?.nearMisses ?? 0}
           </p>
           <p className="text-xs text-muted-foreground">
-            Phi > 0.80
+            Phi &gt; 0.80
           </p>
         </CardContent>
       </Card>

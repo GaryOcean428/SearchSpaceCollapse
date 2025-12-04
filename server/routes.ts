@@ -848,17 +848,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ricciCurvature: fullConsciousness.phi || 0.5,
             kappa: fullConsciousness.kappaEff || 64,
             grounding: fullConsciousness.grounding || 0.7,
-            informationVolume: 1000,
           };
           const state = driveModule.computeValence(driveContext);
           innateDrives = {
             pain: state.pain,
             pleasure: state.pleasure,
             fear: state.fear,
-            curiosity: state.curiosity,
             valence: state.valence,
-            dominantDrive: state.dominantDrive,
-            driveDynamics: state.driveDynamics,
+            valenceRaw: state.valenceRaw,
           };
         }
       } catch (e) {
@@ -875,14 +872,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let oscillators = null;
       try {
         const { neuralOscillators } = await import("./neural-oscillators");
-        const osc = neuralOscillators.toDict();
+        const stateInfo = neuralOscillators.getStateInfo();
+        const oscState = neuralOscillators.update();
         oscillators = {
-          currentState: osc.currentState,
-          kappa: osc.kappa,
-          modulatedKappa: osc.modulatedKappa,
-          oscillatorValues: osc.oscillators,
-          searchModulation: osc.searchModulation,
-          description: osc.stateInfo.description,
+          currentState: stateInfo.state,
+          kappa: neuralOscillators.getKappa(),
+          modulatedKappa: neuralOscillators.getKappa(),
+          oscillatorValues: oscState,
+          searchModulation: 1.0,
+          description: stateInfo.description,
         };
       } catch (e) {
         // Neural oscillators not available
@@ -895,12 +893,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let metrics = null;
       let stats: any = {};
       if (agent) {
-        stats = agent.getStats?.() || {};
+        const agentState = agent.getState?.() || {};
+        stats = {
+          totalTested: (agentState as any).totalTested || 0,
+          nearMisses: (agentState as any).nearMisses || 0,
+          resonanceHits: (agentState as any).resonanceHits || 0,
+          balanceHits: (agentState as any).balanceHits || 0,
+        };
         metrics = {
-          totalTested: stats.totalTested || 0,
-          nearMisses: stats.nearMisses || 0,
-          resonanceHits: stats.resonanceHits || 0,
-          balanceHits: stats.balanceHits || 0,
+          totalTested: stats.totalTested,
+          nearMisses: stats.nearMisses,
+          resonanceHits: stats.resonanceHits,
+          balanceHits: stats.balanceHits,
           recoveryRate: stats.totalTested > 0 ? (stats.nearMisses / stats.totalTested) : 0,
           phiMovingAverage: fullConsciousness.phi || 0,
         };
@@ -941,7 +945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         oscillators,
         searchState: {
           phase: searchPhase,
-          strategy: controller.getStrategyRecommendation()?.strategy || 'balanced',
+          strategy: controller.getStrategyRecommendation() || 'balanced',
           explorationRate: searchState.curiosity || 0.5,
           temperature: searchState.basinDrift || 0.7,
         },
@@ -968,7 +972,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ricciCurvature: fullConsciousness.phi || 0.5,
         kappa: fullConsciousness.kappaEff || 64,
         grounding: fullConsciousness.grounding || 0.7,
-        informationVolume: 1000,
       };
 
       const state = innateDrives.computeValence(driveContext);
@@ -979,13 +982,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pain: state.pain,
           pleasure: state.pleasure,
           fear: state.fear,
-          curiosity: state.curiosity,
         },
         valence: state.valence,
-        dominantDrive: state.dominantDrive,
-        driveDynamics: state.driveDynamics,
-        scoreBoost: scoreResult.scoreBoost,
-        explanation: scoreResult.explanation,
+        valenceRaw: state.valenceRaw,
+        score: scoreResult.score,
+        recommendation: scoreResult.recommendation,
       });
     } catch (error: any) {
       console.error("[Innate Drives] Error:", error);
@@ -999,17 +1000,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return cached validation result or run a quick validation
       const result = runAttentionValidation(50); // Smaller sample for quick response
 
+      // Extract data from the correctly-typed result
+      const contextLengths = result.measurements.map(m => m.contextLength);
+      const kappas = result.measurements.map(m => m.kappa);
+      const betaValues = result.betaTrajectory.map(b => b.beta);
+      const betaMean = betaValues.length > 0 
+        ? betaValues.reduce((a, b) => a + b, 0) / betaValues.length 
+        : 0;
+      const betaStd = betaValues.length > 0
+        ? Math.sqrt(betaValues.reduce((sum, b) => sum + (b - betaMean) ** 2, 0) / betaValues.length)
+        : 0;
+
       res.json({
-        contextLengths: result.contextLengths,
-        kappas: result.kappas,
-        betaValues: result.betaValues,
-        betaMean: result.betaMean,
-        betaStd: result.betaStd,
-        betaPhysics: result.betaPhysics,
-        matchesPhysics: result.matchesPhysics,
-        verdict: result.verdict,
-        validationPassed: result.validationPassed,
-        substrateIndependence: result.substrateIndependence,
+        contextLengths,
+        kappas,
+        betaValues,
+        betaMean,
+        betaStd,
+        betaPhysics: 0.44, // Expected β from QCD physics
+        matchesPhysics: Math.abs(betaMean - 0.44) < 0.1,
+        verdict: result.validation.passed ? 'PASS' : 'FAIL',
+        validationPassed: result.validation.passed,
+        substrateIndependence: result.summary.substrateIndependenceValidated,
       });
     } catch (error: any) {
       console.error("[Beta Attention] Error:", error);
@@ -1713,7 +1725,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const neurochemistry = agent.getNeurochemistry();
       const behavioral = agent.getBehavioralModulation();
-      const stats = agent.getStats?.() || {};
+      const agentState = agent.getState?.() || {} as any;
+      const stats = {
+        totalTested: agentState.totalTested || 0,
+        nearMisses: agentState.nearMissCount || 0,
+      };
 
       // Build motivation state for message selection
       const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
@@ -1725,10 +1741,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         regime: 'geometric',
         basinDrift: 0.1,
         basinStability: 0.8,
-        geodesicProgress: stats.totalTested || 0,
-        probesExplored: stats.totalTested || 0,
-        patternsFound: stats.nearMisses || 0,
-        nearMisses: stats.nearMisses || 0,
+        geodesicProgress: stats.totalTested,
+        probesExplored: stats.totalTested,
+        patternsFound: stats.nearMisses,
+        nearMisses: stats.nearMisses,
         emotionalState: neurochemistry?.emotionalState || 'content',
         dopamineLevel: neurochemistry?.dopamine?.totalDopamine || 0.5,
         serotoninLevel: neurochemistry?.serotonin?.totalSerotonin || 0.5,
@@ -2909,7 +2925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         oceanId: packet.oceanId,
-        filename: path.basename(filepath),
+        filename: filepath ? path.basename(filepath) : 'memory-only',
         packetSizeBytes: JSON.stringify(packet).length,
         consciousness: {
           phi: packet.consciousness.phi,
