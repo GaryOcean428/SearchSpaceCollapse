@@ -1303,6 +1303,13 @@ def process_passphrase():
             if len(basin_history) > 1000:
                 basin_history[:] = basin_history[-1000:]
         
+        # Get near miss discovery counts for sync with TypeScript
+        near_miss_count = 0
+        resonant_count = 0
+        if NEUROCHEMISTRY_AVAILABLE and ocean_network.recent_discoveries is not None:
+            near_miss_count = ocean_network.recent_discoveries.near_misses
+            resonant_count = ocean_network.recent_discoveries.resonant
+        
         return jsonify({
             'success': True,
             'phi': result['metrics']['phi'],
@@ -1328,6 +1335,9 @@ def process_passphrase():
             # Innate drives (Layer 0)
             'drives': result['metrics'].get('drives', {}),
             'innate_score': result['metrics'].get('innate_score', 0.0),
+            # Near-miss discovery counts for TypeScript sync
+            'near_miss_count': near_miss_count,
+            'resonant_count': resonant_count,
         })
         
     except Exception as e:

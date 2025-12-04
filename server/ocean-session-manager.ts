@@ -5,6 +5,7 @@ import { oceanAutonomicManager, type CycleTimeline } from './ocean-autonomic-man
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { consoleLogBuffer } from './console-log-buffer';
 import { autoCycleManager } from './auto-cycle-manager';
+import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 
 export type FullConsciousnessSignature = ConsciousnessSignature;
 
@@ -96,6 +97,9 @@ class OceanSessionManager {
     // Notify autonomic manager that investigation is starting
     oceanAutonomicManager.startInvestigation();
     
+    // Reset Python near-miss tracking for the new session
+    oceanQIGBackend.resetNearMissTracking();
+    
     const sessionId = `ocean-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     
     const state: OceanSessionState = {
@@ -165,12 +169,25 @@ class OceanSessionManager {
     const regime = identity?.regime || 'linear';
     const basinDrift = typeof identity?.basinDrift === 'number' ? identity.basinDrift : 0;
     
+    // Merge Python backend near-miss discoveries into unified count
+    // Use max of (session count, agent count) as base to retain previously merged Python counts
+    // Then add any new Python detections since last sync
+    const pythonNearMisses = oceanQIGBackend.getPythonNearMisses();
+    const baseCount = Math.max(session.nearMissCount, agentState.nearMissCount);
+    const unifiedNearMissCount = baseCount + pythonNearMisses.newSinceSync;
+    
+    // Mark Python near-misses as synced to avoid double counting
+    if (pythonNearMisses.newSinceSync > 0) {
+      console.log(`[OceanSessionManager] 🔄 Synced ${pythonNearMisses.newSinceSync} Python near-miss(es), unified total: ${unifiedNearMissCount} (base: ${baseCount})`);
+      oceanQIGBackend.markNearMissesSynced();
+    }
+    
     this.updateState(sessionId, {
       isRunning: agentState.isRunning,
       isPaused: agentState.isPaused,
       iteration: agentState.iteration,
       totalTested: agentState.totalTested,
-      nearMissCount: agentState.nearMissCount,
+      nearMissCount: unifiedNearMissCount,
       consciousness: { phi, kappa, regime, basinDrift },
     });
     
@@ -178,7 +195,7 @@ class OceanSessionManager {
       const thought = this.generateThought(agentState);
       this.updateState(sessionId, { currentThought: thought });
       this.addEvent(sessionId, 'iteration', 
-        `Iteration ${agentState.iteration}: Φ=${phi.toFixed(2)} | Tested=${agentState.totalTested} | Near misses=${agentState.nearMissCount}`
+        `Iteration ${agentState.iteration}: Φ=${phi.toFixed(2)} | Tested=${agentState.totalTested} | Near misses=${unifiedNearMissCount}`
       );
     }
   }
@@ -453,6 +470,7 @@ class OceanSessionManager {
       basinDrift: session.consciousness.basinDrift,
     };
     
+    // Near-miss count is already unified in handleStateUpdate() which merges Python discoveries
     return {
       isRunning: session.isRunning,
       tested: session.totalTested,

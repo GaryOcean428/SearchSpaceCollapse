@@ -16,7 +16,9 @@ import {
   Lock,
   Wallet,
   Database,
-  CheckCircle2
+  CheckCircle2,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -644,13 +646,13 @@ export default function RecoveryResults() {
     queryKey: ['/api/recoveries'],
   });
 
-  const { data: balanceData, isLoading: balanceLoading, error: balanceError, refetch: refetchBalance } = useQuery<BalanceAddressesData>({
+  const { data: balanceData, isLoading: balanceLoading, isFetching: balanceFetching, error: balanceError, refetch: refetchBalance } = useQuery<BalanceAddressesData>({
     queryKey: ['/api/balance-addresses'],
     refetchInterval: 10000, // 10s for real-time balance updates
   });
 
   // All recovered wallets from balance hits (includes recovery type tracking)
-  const { data: balanceHitsData, isLoading: hitsLoading, refetch: refetchHits } = useQuery<BalanceHitsResponse>({
+  const { data: balanceHitsData, isLoading: hitsLoading, isFetching: hitsFetching, refetch: refetchHits } = useQuery<BalanceHitsResponse>({
     queryKey: ['/api/balance-hits'],
     refetchInterval: 30000,
   });
@@ -789,11 +791,16 @@ export default function RecoveryResults() {
               variant="outline"
               size="sm"
               onClick={() => refetchHits()}
+              disabled={hitsFetching}
               className="gap-2"
               data-testid="button-refresh-hits"
             >
-              <Download className="h-4 w-4" />
-              Refresh
+              {hitsFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {hitsFetching ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
 
@@ -875,10 +882,15 @@ export default function RecoveryResults() {
               variant="outline"
               size="sm"
               onClick={() => refetchBalance()}
+              disabled={balanceFetching}
               className="gap-2"
             >
-              <Download className="h-4 w-4" />
-              Refresh
+              {balanceFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {balanceFetching ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
 

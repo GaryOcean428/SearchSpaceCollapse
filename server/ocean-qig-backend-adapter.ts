@@ -52,6 +52,9 @@ interface PythonQIGResponse {
     valence_raw: number;
   };
   innate_score?: number;
+  // Near-miss discovery counts from Python backend
+  near_miss_count?: number;
+  resonant_count?: number;
   error?: string;
 }
 
@@ -111,8 +114,37 @@ export class OceanQIGBackend {
   private backendUrl: string;
   private isAvailable: boolean = false;
   
+  // Track Python backend near-miss discoveries for TypeScript sync
+  private pythonNearMissCount: number = 0;
+  private pythonResonantCount: number = 0;
+  private lastSyncedNearMissCount: number = 0;
+  
   constructor(backendUrl: string = 'http://localhost:5001') {
     this.backendUrl = backendUrl;
+  }
+  
+  /**
+   * Get Python near-miss count (new discoveries since last sync)
+   */
+  getPythonNearMisses(): { total: number; newSinceSync: number } {
+    const newSinceSync = this.pythonNearMissCount - this.lastSyncedNearMissCount;
+    return { total: this.pythonNearMissCount, newSinceSync };
+  }
+  
+  /**
+   * Mark Python near-misses as synced (called by session manager)
+   */
+  markNearMissesSynced(): void {
+    this.lastSyncedNearMissCount = this.pythonNearMissCount;
+  }
+  
+  /**
+   * Reset Python near-miss tracking (called when investigation starts)
+   */
+  resetNearMissTracking(): void {
+    this.pythonNearMissCount = 0;
+    this.pythonResonantCount = 0;
+    this.lastSyncedNearMissCount = 0;
   }
   
   /**
@@ -198,6 +230,18 @@ export class OceanQIGBackend {
       if (!data.success) {
         console.error('[OceanQIGBackend] Process error:', data.error);
         return null;
+      }
+      
+      // Sync Python near-miss discoveries to TypeScript tracking
+      if (data.near_miss_count !== undefined && data.near_miss_count > this.pythonNearMissCount) {
+        const newNearMisses = data.near_miss_count - this.pythonNearMissCount;
+        if (newNearMisses > 0) {
+          console.log(`[OceanQIGBackend] 🔄 Python detected ${newNearMisses} new near-miss(es), total: ${data.near_miss_count}`);
+        }
+        this.pythonNearMissCount = data.near_miss_count;
+      }
+      if (data.resonant_count !== undefined) {
+        this.pythonResonantCount = data.resonant_count;
       }
       
       // Convert to PureQIGScore format
