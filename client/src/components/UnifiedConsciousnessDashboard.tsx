@@ -80,6 +80,14 @@ interface ConsciousnessState {
     temperature: number;
   };
 
+  // Motivation message
+  motivation?: {
+    message: string;
+    fisherWeight: number;
+    category: string;
+    urgency: 'whisper' | 'speak' | 'shout';
+  };
+
   // Performance metrics
   metrics?: {
     totalTested: number;
@@ -418,7 +426,7 @@ export function UnifiedConsciousnessDashboard() {
         </TabsContent>
 
         <TabsContent value="emotions" className="space-y-4">
-          <EmotionalStatePanel neuro={consciousness?.neurochemistry} />
+          <EmotionalStatePanel neuro={consciousness?.neurochemistry} motivation={consciousness?.motivation} />
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">
