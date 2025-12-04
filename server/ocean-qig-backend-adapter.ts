@@ -39,6 +39,15 @@ interface PythonQIGResponse {
   n_recursions: number;
   converged: boolean;
   phi_history: number[];
+  // Innate drives (Layer 0)
+  drives?: {
+    pain: number;
+    pleasure: number;
+    fear: number;
+    valence: number;
+    valence_raw: number;
+  };
+  innate_score?: number;
   error?: string;
 }
 
@@ -124,6 +133,26 @@ export class OceanQIGBackend {
       console.warn('[OceanQIGBackend] Python backend not available:', error);
       return false;
     }
+  }
+  
+  /**
+   * Check health with retry logic to handle startup race conditions
+   */
+  async checkHealthWithRetry(maxAttempts: number = 3, delayMs: number = 1000): Promise<boolean> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const available = await this.checkHealth();
+      
+      if (available) {
+        return true;
+      }
+      
+      // Wait before retrying (except on last attempt)
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+    
+    return false;
   }
   
   /**
@@ -398,12 +427,15 @@ export class OceanQIGBackend {
 // Global singleton instance
 export const oceanQIGBackend = new OceanQIGBackend();
 
-// Auto-check health on import
-oceanQIGBackend.checkHealth().then(available => {
+// Auto-check health on import with retry to handle startup race conditions
+// Python backend may take a few seconds to start up
+oceanQIGBackend.checkHealthWithRetry(3, 1500).then(available => {
   if (available) {
     console.log('🌊 Ocean QIG Python Backend: CONNECTED 🌊');
   } else {
     console.warn('⚠️  Ocean QIG Python Backend: NOT AVAILABLE');
+    console.warn('   Python backend may still be starting up...');
     console.warn('   Start with: cd qig-backend && python3 ocean_qig_core.py');
+    console.warn('   Or check logs for errors');
   }
 });

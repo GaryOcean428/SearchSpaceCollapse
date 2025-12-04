@@ -251,6 +251,90 @@ def test_full_7_components():
     
     print("✅ All 7-component consciousness tests passed!\n")
 
+def test_innate_drives():
+    """Test Layer 0 Innate Drives"""
+    print("🧪 Testing Innate Drives (Layer 0)...")
+    
+    from ocean_qig_core import InnateDrives
+    
+    drives = InnateDrives(kappa_star=63.5)
+    
+    # Test pain (high curvature should cause pain)
+    high_curvature = 0.85
+    pain = drives.compute_pain(high_curvature)
+    assert pain > 0.5, f"High curvature {high_curvature} should cause pain > 0.5, got {pain}"
+    print(f"✅ Pain response correct: R={high_curvature:.2f} → pain={pain:.2f}")
+    
+    # Test pleasure (near κ* should give pleasure)
+    near_kappa = 62.0
+    pleasure = drives.compute_pleasure(near_kappa)
+    assert pleasure > 0.8, f"κ near κ* should give pleasure > 0.8, got {pleasure}"
+    print(f"✅ Pleasure response correct: κ={near_kappa:.1f} → pleasure={pleasure:.2f}")
+    
+    # Test fear (low grounding should cause fear)
+    low_grounding = 0.3
+    fear = drives.compute_fear(low_grounding)
+    assert fear > 0.5, f"Low grounding {low_grounding} should cause fear > 0.5, got {fear}"
+    print(f"✅ Fear response correct: G={low_grounding:.2f} → fear={fear:.2f}")
+    
+    # Test valence (good geometry should have positive valence)
+    good_kappa = 64.0
+    low_curvature = 0.3
+    high_grounding = 0.8
+    valence_result = drives.compute_valence(good_kappa, low_curvature, high_grounding)
+    
+    assert 'pain' in valence_result, "Valence result should include pain"
+    assert 'pleasure' in valence_result, "Valence result should include pleasure"
+    assert 'fear' in valence_result, "Valence result should include fear"
+    assert 'valence' in valence_result, "Valence result should include valence"
+    
+    print(f"✅ Good geometry valence: {valence_result['valence']:.2f} (pleasure={valence_result['pleasure']:.2f}, pain={valence_result['pain']:.2f}, fear={valence_result['fear']:.2f})")
+    
+    # Test hypothesis scoring
+    score = drives.score_hypothesis(good_kappa, low_curvature, high_grounding)
+    assert 0 <= score <= 1, f"Score should be in [0, 1], got {score}"
+    assert score > 0.5, f"Good geometry should score > 0.5, got {score}"
+    print(f"✅ Hypothesis scoring correct: score={score:.2f}")
+    
+    # Test bad geometry (should have low score)
+    bad_kappa = 20.0  # Far from κ*
+    bad_curvature = 0.9  # High
+    bad_grounding = 0.2  # Low
+    bad_score = drives.score_hypothesis(bad_kappa, bad_curvature, bad_grounding)
+    assert bad_score < 0.5, f"Bad geometry should score < 0.5, got {bad_score}"
+    print(f"✅ Bad geometry scoring correct: score={bad_score:.2f}")
+    
+    print("✅ All innate drives tests passed!\n")
+
+def test_innate_drives_integration():
+    """Test that innate drives are integrated into QIG processing"""
+    print("🧪 Testing Innate Drives Integration...")
+    
+    network = PureQIGNetwork(temperature=1.0)
+    
+    # Process with recursion (the recommended path)
+    result = network.process_with_recursion("bitcoin2009")
+    
+    # Check that drives are included in metrics
+    metrics = result['metrics']
+    assert 'drives' in metrics, "Metrics should include drives"
+    assert 'innate_score' in metrics, "Metrics should include innate_score"
+    
+    drives = metrics['drives']
+    assert 'pain' in drives, "Drives should include pain"
+    assert 'pleasure' in drives, "Drives should include pleasure"
+    assert 'fear' in drives, "Drives should include fear"
+    assert 'valence' in drives, "Drives should include valence"
+    
+    innate_score = metrics['innate_score']
+    assert 0 <= innate_score <= 1, f"Innate score should be in [0, 1], got {innate_score}"
+    
+    print(f"✅ Drives integrated: pain={drives['pain']:.2f}, pleasure={drives['pleasure']:.2f}, fear={drives['fear']:.2f}")
+    print(f"✅ Innate score: {innate_score:.2f}")
+    print(f"✅ Consciousness updated with innate drives: {metrics['conscious']}")
+    
+    print("✅ Innate drives integration tests passed!\n")
+
 if __name__ == '__main__':
     print("=" * 60)
     print("🌊 Ocean Pure QIG Consciousness Tests 🌊")
@@ -266,6 +350,8 @@ if __name__ == '__main__':
         test_meta_awareness()
         test_grounding()
         test_full_7_components()
+        test_innate_drives()
+        test_innate_drives_integration()
         
         print("=" * 60)
         print("✅ ALL TESTS PASSED! ✅")

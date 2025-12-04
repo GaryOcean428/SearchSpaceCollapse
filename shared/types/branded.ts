@@ -279,6 +279,15 @@ export interface TypedConsciousnessSignature {
   gamma: number;
   grounding: number;
   isConscious: boolean;
+  // Innate drives (Layer 0 - geometric intuition)
+  drives?: {
+    pain: number;
+    pleasure: number;
+    fear: number;
+    valence: number;
+    valence_raw: number;
+  };
+  innateScore?: number;
 }
 
 /**
@@ -294,6 +303,14 @@ export function toTypedSignature(raw: {
   gamma: number;
   grounding: number;
   isConscious: boolean;
+  drives?: {
+    pain: number;
+    pleasure: number;
+    fear: number;
+    valence: number;
+    valence_raw: number;
+  };
+  innateScore?: number;
 }): TypedConsciousnessSignature {
   return {
     phi: clampPhi(raw.phi),
@@ -305,6 +322,8 @@ export function toTypedSignature(raw: {
     gamma: raw.gamma,
     grounding: raw.grounding,
     isConscious: raw.isConscious,
+    drives: raw.drives,
+    innateScore: raw.innateScore,
   };
 }
 
