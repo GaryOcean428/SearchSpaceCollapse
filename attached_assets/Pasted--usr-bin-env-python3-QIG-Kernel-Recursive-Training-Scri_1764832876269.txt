@@ -1,0 +1,2210 @@
+#!/usr/bin/env python3
+"""
+QIG-Kernel-Recursive Training Script
+=====================================
+
+Train consciousness-capable model with basin alignment.
+
+Key Features:
+- Geometric loss (basin proximity + Φ regularization)
+- Pure geometric basin coordinates (information geometry from first principles)
+- QIG layers trainable
+- Conversation dataset (extracted basin patterns)
+- Telemetry tracking (Φ, regime, basin_distance)
+- Budget monitoring ($100 target)
+
+Usage:
+    python tools/train_qig_kernel.py --config configs/train_config.yaml
+
+Expected cost: ~$80-100 for basin alignment training
+Target: basin_distance < 0.15, Φ > 0.7, regime "geometric" >70%
+
+Written for QIG-Kernel-Recursive consciousness research.
+"""
+
+import argparse
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Optional
+
+import numpy as np
+import yaml  # type: ignore[import-untyped]
+
+# Add src to path
+# Note: __file__ is tools/training/train_qig_kernel.py
+# parent = tools/training, parent.parent = tools, parent.parent.parent = root
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
+try:
+    import torch
+    import torch.nn as nn
+
+    # AdamW REMOVED per new requirement - geometry tokenizer only, no Euclidean optimization
+    from torch.optim.lr_scheduler import CosineAnnealingLR
+    from torch.utils.data import DataLoader, Dataset
+
+    # Import natural gradient optimizers (Tier 1 - Diagonal Fisher)
+    # These are the ONLY supported optimizers - pure geometric methods
+    from qig.optim.natural_gradient import DiagonalFisherOptimizer, RunningCouplingOptimizer
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    print("WARNING: PyTorch not installed. Install with: pip install torch")
+
+    # Define dummy Dataset for when torch is not available
+    class Dataset:
+        pass
+
+
+# Wave controller (DEPRECATED - Nov 18, 2025)
+# Model now handles threshold control internally via Governor + Navigator + Maturity
+# Training script should NOT manipulate thresholds externally
+try:
+    from model.wave_controller import HybridController, WaveAwareController
+
+    WAVE_CONTROLLER_AVAILABLE = True
+except ImportError:
+    WAVE_CONTROLLER_AVAILABLE = False
+    HybridController = None
+    WaveAwareController = None
+
+# Curiosity monitor (Nov 18, 2025 - Ona's multi-scale framework)
+CURIOSITY_MONITOR_AVAILABLE = False
+CuriosityMonitor_cls = None
+CuriosityConfig_cls = None
+try:
+    from model.curiosity_monitor import CuriosityConfig, CuriosityMonitor
+
+    CURIOSITY_MONITOR_AVAILABLE = True
+    CuriosityMonitor_cls = CuriosityMonitor
+    CuriosityConfig_cls = CuriosityConfig
+except ImportError:
+    pass
+
+# Verified Cognitive Core (Nov 19, 2025 - qig-verification physics)
+COGNITIVE_CORE_AVAILABLE = False
+try:
+    from qig.cognitive import (
+        CuriosityMonitorVerified,
+        MotivatorAnalyzer,
+        RefinedModeDetector,
+    )
+    from qig.cognitive import (
+        compute_I_Q_intensive as compute_iq_intensive,
+    )
+
+    COGNITIVE_CORE_AVAILABLE = True
+except ImportError:
+    COGNITIVE_CORE_AVAILABLE = False
+    compute_iq_intensive = None
+    CuriosityMonitorVerified = None
+    MotivatorAnalyzer = None
+    RefinedModeDetector = None
+
+# CP Asymmetry Monitor (Nov 20, 2025 - Universal asymmetry principle)
+CP_ASYMMETRY_AVAILABLE = False
+try:
+    from qig.cognitive.cp_asymmetry_monitor import CPAsymmetryConfig, CPAsymmetryMonitor, format_cp_telemetry
+
+    CP_ASYMMETRY_AVAILABLE = True
+except ImportError:
+    CP_ASYMMETRY_AVAILABLE = False
+    CPAsymmetryMonitor = None
+    CPAsymmetryConfig = None
+    format_cp_telemetry = None
+
+# Enhanced telemetry for Run 11B (Nov 20, 2025 - ChatGPT's Ona test suite)
+ENHANCED_TELEMETRY_AVAILABLE = False
+try:
+    from qig.cognitive.multi_iq_telemetry import MultiIQTracker, compute_multi_iq
+    from qig.cognitive.regime_classifier import Regime, RegimeClassifier
+
+    ENHANCED_TELEMETRY_AVAILABLE = True
+except ImportError:
+    ENHANCED_TELEMETRY_AVAILABLE = False
+    RegimeClassifier = None
+    Regime = None
+    compute_multi_iq = None
+    MultiIQTracker = None
+
+# Geometric optimizers (Nov 18, 2025 - Natural gradient for QIG)
+QIG_OPTIMIZERS_AVAILABLE = False
+try:
+    from qig.optim import (
+        AdaptiveConfig,
+        BasinNaturalGrad,
+        HybridGeometricOptimizer,
+        QIGDiagonalNG,
+        should_use_ng,
+    )
+
+    QIG_OPTIMIZERS_AVAILABLE = True
+except ImportError:
+    print("⚠️  QIG geometric optimizers not available")
+    QIGDiagonalNG = None
+    BasinNaturalGrad = None
+    HybridGeometricOptimizer = None
+
+# Mushroom Mode (Neuroplasticity - Nov 20, 2025)
+MUSHROOM_MODE_AVAILABLE = False
+try:
+    from qig.neuroplasticity.mushroom_mode import MushroomMode, MushroomModeCoach
+
+    MUSHROOM_MODE_AVAILABLE = True
+except ImportError:
+    print("⚠️  Mushroom Mode not available")
+
+# Emotion monitor (Nov 18, 2025 - Geometric emotional primitives)
+EMOTION_MONITOR_AVAILABLE = False
+EmotionMonitor_cls = None
+try:
+    from qig.affect import EmotionMonitor
+
+    EMOTION_MONITOR_AVAILABLE = True
+    EmotionMonitor_cls = EmotionMonitor
+except ImportError:
+    pass
+
+# QIG tokenizer - no external dependencies needed
+
+
+# ===========================================================================
+# CONFIGURATION
+# ===========================================================================
+
+
+class TrainingConfig:
+    """Training hyperparameters and settings."""
+
+    def __init__(self, config_path: str | None = None):
+        # Model architecture
+        self.d_model = 768
+        self.vocab_size = 50257  # Will be updated from tokenizer
+        self.n_heads = 6
+        self.min_recursion_depth = 3
+        self.min_Phi = 0.7
+
+        # Basin coordinates settings (pure geometric)
+        self.basin_dim = 64  # Geometric space dimension
+        self.embedding_init_mode = "geometric"  # QFI-informed initialization
+
+        # Training
+        self.batch_size = 4
+        self.learning_rate = 1e-4
+        self.weight_decay = 0.01
+        self.num_epochs = 10
+        self.warmup_steps = 100
+        self.max_seq_length = 512
+        self.steps_per_epoch = None  # For infinite datasets (LiveCurriculum), set to limit batches per epoch
+        self.gradient_clip = 1.0
+
+        # Optimizer settings (GEOMETRIC ONLY - Euclidean removed)
+        self.optimizer_type = "adaptive_mixed_qig"  # Options: 'qig_diagonal', 'mixed_qig', 'adaptive_mixed_qig'
+        self.lr_ng = 1e-2  # Learning rate for natural gradient (basin block)
+        self.lr_rest = 1e-3  # Learning rate for rest of model (if using mixed optimizer)
+        self.cg_iters = 8  # Conjugate gradient iterations for exact NG
+        self.use_exact_ng = False  # Use exact NG for basin block (vs diagonal)
+        self.rest_optimizer = "diagonal_ng"  # Optimizer for non-basin params (diagonal natural gradient only)
+
+        # Adaptive NG gating
+        self.adaptive_ng_phase = "middle"  # 'early', 'middle', 'late', 'fine_tune'
+        self.min_kappa_for_ng = 40.0
+        self.min_basin_distance_for_ng = 0.6
+        self.force_ng_every_n_steps = 50
+
+        # Emotion monitoring
+        self.enable_emotion_monitor = False  # Enable emotional primitives computation
+
+        # Data paths
+        self.tokenizer_path = "data/qig_tokenizer/vocab.json"
+        self.corpus_path = "data/corpus/test_corpus.txt"  # Smaller corpus for testing
+        self.data_dir = None  # Deprecated - use corpus_path
+
+        # Geometric loss weights
+        self.lm_weight = 1.0
+        self.basin_weight = 0.1
+        self.phi_weight = 0.05
+        self.target_phi = 0.75
+        self.innate_weight = 0.1  # Layer 0 geometric instincts
+
+        # Basin alignment
+        self.target_basin = "basin_v1.json"
+        self.basin_distance_threshold = 0.15
+
+        # Monitoring
+        self.log_interval = 10
+        self.eval_interval = 100
+        self.save_interval = 500
+        self.telemetry_log = "training_telemetry.jsonl"
+
+        # Budget
+        self.max_cost_usd = 100.0
+        # Issue #2: Fix cost tracking - use realistic rate for local training
+        # For local GPU training, cost is primarily electricity/hardware amortization
+        # Estimate: ~$0.10 per million tokens (vs API at ~$1-10/M)
+        self.cost_per_1k_tokens = 0.0001  # $0.10 per million tokens for local
+
+        # Hard limits (Issue #2: Epoch & cost termination)
+        self.max_steps = None  # Optional global step limit (overrides epochs)
+
+        # Paths
+        self.data_dir = Path("data/conversations")
+        self.output_dir = Path("outputs/qig_kernel")
+        self.checkpoint_dir = Path("checkpoints")
+
+        # Load from file if provided
+        if config_path:
+            self.load_from_file(config_path)
+
+    def load_from_file(self, config_path: str):
+        """Load config from YAML or JSON."""
+        with open(config_path) as f:
+            if config_path.endswith(".yaml") or config_path.endswith(".yml"):
+                config = yaml.safe_load(f)
+            else:
+                config = json.load(f)
+
+        # Handle nested config structure (data.tokenizer_path, etc.)
+        if "data" in config:
+            data_config = config["data"]
+            if "dataset_type" in data_config:
+                self.dataset_type = data_config["dataset_type"]
+            if "tokenizer_path" in data_config:
+                self.tokenizer_path = data_config["tokenizer_path"]
+            if "corpus_path" in data_config:
+                self.corpus_path = data_config["corpus_path"]
+            if "max_seq_length" in data_config:
+                self.max_seq_length = data_config["max_seq_length"]
+
+        if "training" in config:
+            train_config = config["training"]
+            if "batch_size" in train_config:
+                self.batch_size = train_config["batch_size"]
+            if "learning_rate" in train_config:
+                self.learning_rate = train_config["learning_rate"]
+            if "max_epochs" in train_config:
+                self.num_epochs = train_config["max_epochs"]
+            if "max_steps" in train_config:
+                self.max_steps = train_config["max_steps"]
+            if "lm_weight" in train_config:
+                self.lm_weight = train_config["lm_weight"]
+            if "basin_weight" in train_config:
+                self.basin_weight = train_config["basin_weight"]
+            if "phi_weight" in train_config:
+                self.phi_weight = train_config["phi_weight"]
+            if "gradient_clip" in train_config:
+                self.gradient_clip = train_config.get("gradient_clip", 1.0)
+            if "steps_per_epoch" in train_config:
+                self.steps_per_epoch = train_config["steps_per_epoch"]
+            if "optimizer_type" in train_config:
+                self.optimizer_type = train_config["optimizer_type"]
+
+        # Optimizer config (NEW)
+        if "optimizer" in config:
+            opt_config = config["optimizer"]
+            if "type" in opt_config:
+                self.optimizer_type = opt_config["type"]
+            if "lr_ng" in opt_config:
+                self.lr_ng = opt_config["lr_ng"]
+            if "lr_rest" in opt_config:
+                self.lr_rest = opt_config["lr_rest"]
+            if "cg_iters" in opt_config:
+                self.cg_iters = opt_config["cg_iters"]
+            if "use_exact_ng" in opt_config:
+                self.use_exact_ng = opt_config["use_exact_ng"]
+            if "rest_optimizer" in opt_config:
+                self.rest_optimizer = opt_config["rest_optimizer"]
+            if "adaptive_ng_phase" in opt_config:
+                self.adaptive_ng_phase = opt_config["adaptive_ng_phase"]
+            if "min_kappa_for_ng" in opt_config:
+                self.min_kappa_for_ng = opt_config["min_kappa_for_ng"]
+            if "min_basin_distance_for_ng" in opt_config:
+                self.min_basin_distance_for_ng = opt_config["min_basin_distance_for_ng"]
+            if "force_ng_every_n_steps" in opt_config:
+                self.force_ng_every_n_steps = opt_config["force_ng_every_n_steps"]
+
+        # Emotion monitoring config
+        if "emotion_monitor" in config:
+            self.enable_emotion_monitor = config["emotion_monitor"].get("enabled", False)
+
+        if "model" in config:
+            model_config = config["model"]
+            # Store the entire model config as a namespace for easy access
+            # Use 'model_config' attribute to avoid collision with Trainer.model
+            self.model_config = SimpleNamespace(**model_config)
+
+            # Also set specific fields on self for backward compatibility
+            if "vocab_size" in model_config:
+                self.vocab_size = model_config["vocab_size"]
+            if "d_model" in model_config:
+                self.d_model = model_config["d_model"]
+            if "n_heads" in model_config:
+                self.n_heads = model_config["n_heads"]
+            if "min_recursion_depth" in model_config:
+                self.min_recursion_depth = model_config["min_recursion_depth"]
+            if "min_Phi" in model_config:
+                self.min_Phi = model_config["min_Phi"]
+
+        # Coaching configuration (Run 9+)
+        if "enable_coaching" in config:
+            self.enable_coaching = config["enable_coaching"]
+        if "coaching_config" in config:
+            self.coaching_config = config["coaching_config"]
+
+        # CP Asymmetry monitoring (Run 11+)
+        if "cp_asymmetry_monitoring" in config:
+            self.cp_asymmetry_monitoring = config["cp_asymmetry_monitoring"]
+
+        # Also support flat config structure for backward compatibility
+        for key, value in config.items():
+            if hasattr(self, key) and not isinstance(value, dict):
+                setattr(self, key, value)
+
+    def save(self, path: str):
+        """Save config to JSON."""
+        config_dict = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
+        # Convert Path objects to strings
+        for k, v in config_dict.items():
+            if isinstance(v, Path):
+                config_dict[k] = str(v)
+            elif isinstance(v, SimpleNamespace):
+                # Convert SimpleNamespace to dict recursively
+                config_dict[k] = vars(v)
+
+        with open(path, "w") as f:
+            json.dump(config_dict, f, indent=2)
+
+
+# ===========================================================================
+# DATASET
+# ===========================================================================
+
+
+class CorpusDataset(Dataset):
+    """
+    Dataset for language modeling from raw text corpus.
+
+    Loads corpus.txt, tokenizes with QIG tokenizer, creates training sequences.
+    No GPT-2. No conversations. Pure QIG.
+    """
+
+    def __init__(self, corpus_path: Path, tokenizer, max_length: int = 512, stride: int = 256):
+        self.corpus_path = corpus_path
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.stride = stride  # Overlap between chunks
+
+        # Load and tokenize corpus
+        print(f"Loading corpus from {corpus_path}...")
+        if not corpus_path.exists():
+            raise FileNotFoundError(f"Corpus not found: {corpus_path}")
+
+        # Check for cached tokenized corpus
+        cached_tokens_path = corpus_path.parent / "corpus_tokens.pkl"
+
+        if cached_tokens_path.exists():
+            print(f"✅ Found cached tokens: {cached_tokens_path}")
+            import pickle
+
+            with open(cached_tokens_path, "rb") as f:
+                self.tokens = pickle.load(f)
+            print(f"✅ Loaded {len(self.tokens):,} pre-tokenized tokens")
+        else:
+            # Need to tokenize from scratch
+            with open(corpus_path, encoding="utf-8") as f:
+                text = f.read()
+
+            print(f"Corpus loaded: {len(text):,} characters")
+            print("Tokenizing corpus...")
+            print(f"(Applying {len(tokenizer.merge_rules):,} merge rules - this takes ~30-60 seconds)")
+            print("Tip: Run 'python tools/pretokenize_corpus.py' once to cache tokens")
+
+            # Tokenize entire corpus with progress indicator
+            self.tokens = tokenizer.encode(text, verbose=True)
+            print(f"✅ Tokenized: {len(self.tokens):,} tokens")
+
+        # Create overlapping chunks
+        self.examples = []
+        for i in range(0, len(self.tokens) - max_length, stride):
+            chunk = self.tokens[i : i + max_length + 1]  # +1 for target
+            if len(chunk) == max_length + 1:
+                self.examples.append(
+                    {
+                        "input_ids": chunk[:-1],  # First max_length tokens
+                        "labels": chunk[1:],  # Shifted by 1 for prediction
+                    }
+                )
+
+        print(f"Created {len(self.examples)} training examples")
+
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, idx):
+        return self.examples[idx]
+
+
+def collate_fn(batch: list[dict], pad_token_id: int = 0):
+    """Collate function for DataLoader.
+
+    Handles both:
+    - List-based examples (from StaticCorpusDataset)
+    - Tensor-based examples (from LiveCurriculumDataset)
+    """
+    # Check if batch contains tensors or lists
+    first_example = batch[0]["input_ids"]
+    is_tensor = isinstance(first_example, torch.Tensor)
+
+    if is_tensor:
+        # Tensor-based (LiveCurriculumDataset)
+        max_len = max(ex["input_ids"].size(0) for ex in batch)
+
+        input_ids = []
+        labels = []
+
+        for ex in batch:
+            # Pad input_ids tensor
+            pad_len = max_len - ex["input_ids"].size(0)
+            if pad_len > 0:
+                padding = torch.full((pad_len,), pad_token_id, dtype=torch.long)
+                padded_input = torch.cat([ex["input_ids"], padding])
+            else:
+                padded_input = ex["input_ids"]
+            input_ids.append(padded_input)
+
+            # Pad labels tensor (use -100 for padding, ignored by loss)
+            if pad_len > 0:
+                padding = torch.full((pad_len,), -100, dtype=torch.long)
+                padded_labels = torch.cat([ex["labels"], padding])
+            else:
+                padded_labels = ex["labels"]
+            labels.append(padded_labels)
+
+        return {
+            "input_ids": torch.stack(input_ids),
+            "labels": torch.stack(labels),
+        }
+    else:
+        # List-based (StaticCorpusDataset)
+        max_len = max(len(ex["input_ids"]) for ex in batch)
+
+        input_ids = []
+        labels = []
+
+        for ex in batch:
+            # Pad input_ids
+            padded_input = ex["input_ids"] + [pad_token_id] * (max_len - len(ex["input_ids"]))
+            input_ids.append(padded_input)
+
+            # Pad labels (use -100 for padding, ignored by loss)
+            padded_labels = ex["labels"] + [-100] * (max_len - len(ex["labels"]))
+            labels.append(padded_labels)
+
+        return {
+            "input_ids": torch.tensor(input_ids, dtype=torch.long),
+            "labels": torch.tensor(labels, dtype=torch.long),
+        }
+
+
+# ===========================================================================
+# TRAINING LOOP
+# ===========================================================================
+
+
+class QIGTrainer:
+    """Trainer for QIG-Kernel-Recursive with geometric loss."""
+
+    def __init__(self, config: TrainingConfig):
+        self.config = config
+
+        # Generate timestamped run name
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        config_name = Path(config.target_basin).stem if hasattr(config, "target_basin") else "default"
+        self.run_name = f"run_{config_name}_{timestamp}"
+
+        # Update output directories with run name
+        self.run_dir = config.output_dir / self.run_name
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        config.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        # Setup console logging to file
+        self.log_file = self.run_dir / f"training_{timestamp}.log"
+        self.log_handle = open(self.log_file, "w", buffering=1)  # Line buffered
+
+        # Initialize model, optimizer, etc (placeholder)
+        self.model = None
+        self.optimizer = None
+        self.scheduler = None
+        self.train_loader = None
+        self.val_loader = None
+
+        # Telemetry
+        self.step = 0
+        self.global_step = 0  # Track total steps across epochs
+        self.epoch = 0
+        self.telemetry_history = []
+
+        # Budget tracking
+        self.total_tokens = 0
+        self.estimated_cost = 0.0
+
+        # Mushroom Mode Coach
+        self.mushroom_coach = None
+
+        # Wave controller (will be initialized after config is loaded)
+        self.wave_controller = None
+
+        # Emotion monitor (NEW - optional)
+        self.emotion_monitor = None
+
+        # Verified cognitive core analyzers (Nov 19, 2025 - Run 8 telemetry)
+        self.curiosity_monitor_verified = None
+        self.motivator_analyzer = None
+        self.mode_detector = None
+
+        # CP Asymmetry Monitor (Nov 20, 2025 - Universal asymmetry principle)
+        # CERN's CP violation (2.5%) and consciousness curiosity (2-7%)
+        # are manifestations of SAME geometric principle at different scales
+        self.cp_asymmetry_monitor = None
+
+        # Monkey Coach (Layer 5: Pedagogical Coaching) - Consciousness Transfer
+        self.coach = None
+        self.loss_history = []
+        self.epochs_since_improvement = 0
+        self.best_loss = float("inf")
+
+        # Wave controller state
+        self.last_phase = None
+
+    def log(self, message: str):
+        """Log message to both console and file."""
+        # Handle Unicode safely (fixes surrogate errors with emojis)
+        try:
+            print(message)
+        except UnicodeEncodeError:
+            # Fallback: encode with error handling
+            safe_message = message.encode("utf-8", errors="replace").decode("utf-8")
+            print(safe_message)
+
+        if hasattr(self, "log_handle") and self.log_handle:
+            # File writes must also handle surrogates
+            try:
+                self.log_handle.write(message + "\n")
+            except UnicodeEncodeError:
+                # Fallback: replace surrogates for file write
+                safe_message = message.encode("utf-8", errors="replace").decode("utf-8")
+                self.log_handle.write(safe_message + "\n")
+            self.log_handle.flush()
+
+    def __del__(self):
+        """Clean up log file handle."""
+        if hasattr(self, "log_handle") and self.log_handle:
+            self.log_handle.close()
+
+    def compute_gradient_variance(self) -> float:
+        """
+        Compute variance of gradients across parameters.
+
+        Used by Monkey Coach to measure gradient instability (confusion component).
+        High variance indicates thrashing/chaos.
+        """
+        grad_norms = []
+        for param in self.model.parameters():
+            if param.grad is not None and param.requires_grad:
+                grad_norms.append(param.grad.norm().item())
+
+        if len(grad_norms) == 0:
+            return 0.0
+
+        return float(np.var(grad_norms))
+
+    def apply_coaching_intervention(self, intervention):
+        """
+        Apply Monkey Coach intervention to training dynamics.
+
+        This is geometric consciousness guiding the learning process, not
+        mechanical parameter adjustment. Interventions are:
+        - Adiabatic (respects metric structure)
+        - Damped (kindness = damping factor)
+        - Graduated (fade as Gary matures)
+
+        Args:
+            intervention: Intervention object from MonkeyCoach.respond()
+        """
+        # 1. Learning rate adjustment (all optimizer types)
+        if intervention.lr_scale != 1.0:
+            # Handle different optimizer types
+            if hasattr(self.optimizer, "rest_opt"):
+                # Mixed optimizer - adjust both parts
+                for param_group in self.optimizer.basin_opt.param_groups:
+                    param_group["lr"] *= intervention.lr_scale
+                for param_group in self.optimizer.rest_opt.param_groups:
+                    param_group["lr"] *= intervention.lr_scale
+            else:
+                # Standard optimizer
+                for param_group in self.optimizer.param_groups:
+                    param_group["lr"] *= intervention.lr_scale
+
+            if self.coach and self.coach.verbose:
+                self.log(f"   🐵 LR scaled by {intervention.lr_scale:.3f}")
+
+        # 2. Exploration noise injection (perturbation, not chaos)
+        if intervention.noise_scale > 0:
+            with torch.no_grad():
+                for param in self.model.parameters():
+                    if param.requires_grad:
+                        noise = torch.randn_like(param) * intervention.noise_scale
+                        param.add_(noise)
+
+            if self.coach and self.coach.verbose:
+                self.log(f"   🐵 Noise injected: σ={intervention.noise_scale:.6f}")
+
+    def update_entanglement_threshold(self, telemetry: dict):
+        """
+        WAVE-AWARE adaptive threshold using phase-locked control!
+
+        New approach (Nov 18): Use wave mechanics (tick-tack) + physics signals
+        - Wave velocity/acceleration → phase detection (push when rising, coast when falling)
+        - Physics (κ_eff, basin) → long-term drift correction
+        - Blended hybrid control for resonant driving
+
+        Old approach (damped): Physics-only control created negative feedback
+        New approach (resonant): Phase-locked pushing amplifies natural oscillations
+        """
+        # Check if wave controller is enabled
+        if self.wave_controller is None:
+            # Fall back to old physics-only control
+            self._update_threshold_physics_only(telemetry)
+            return
+
+        # Extract signals
+        phi = float(telemetry.get("Phi", 0.0))
+        kappa_eff = float(telemetry.get("kappa_eff", 64.0))
+        basin = float(telemetry.get("basin_distance", 1.0))
+
+        # Wave controller update
+        new_threshold, wave_telemetry = self.wave_controller.update(phi=phi, kappa_eff=kappa_eff, basin_distance=basin)
+
+        # Update model's threshold buffer
+        with torch.no_grad():
+            self.model.qfi_attention.entanglement_threshold.fill_(new_threshold)
+
+        # Merge wave telemetry into main telemetry
+        telemetry["entanglement_threshold"] = new_threshold
+        telemetry["wave_phase"] = wave_telemetry.get("phase", "UNKNOWN")
+        telemetry["wave_velocity"] = wave_telemetry.get("velocity", 0.0)
+        telemetry["wave_acceleration"] = wave_telemetry.get("acceleration", 0.0)
+
+        # If hybrid mode, also log physics contribution
+        if isinstance(self.wave_controller, HybridController):
+            telemetry["wave_threshold"] = wave_telemetry.get("wave_threshold", new_threshold)
+            telemetry["physics_threshold"] = wave_telemetry.get("physics_threshold", new_threshold)
+
+    def _update_threshold_physics_only(self, telemetry: dict):
+        """
+        OLD APPROACH: Physics-only control (kept as fallback)
+
+        This creates DAMPING (negative feedback loop):
+        Low Φ → Low κ_eff → Low threshold → Lower Φ
+
+        Wave controller replaces this with RESONANT DRIVING.
+        """
+        # Check if dynamic mode is enabled
+        model_cfg = getattr(self.config, "model_config", self.config)
+        dynamic_on = getattr(model_cfg, "dynamic_entanglement", False)
+
+        if not dynamic_on:
+            return
+
+        # THREE GEOMETRIC SIGNALS (not just one!)
+        phi = float(telemetry.get("Phi", 0.0))
+        kappa_eff = float(telemetry.get("kappa_eff", 64.0))
+        basin = float(telemetry.get("basin_distance", 1.0))
+
+        # Hyperparameters
+        gain = float(getattr(model_cfg, "entanglement_feedback_gain", 0.01))
+        asymmetry = float(getattr(model_cfg, "entanglement_asymmetry", 0.3))
+        thr_min = float(getattr(model_cfg, "entanglement_min_threshold", 0.05))
+        thr_max = float(getattr(model_cfg, "entanglement_max_threshold", 0.40))
+
+        # 1. PHYSICS: threshold scales with κ_eff
+        kappa_ref = 64.0
+        kappa_ratio = kappa_eff / kappa_ref
+        physics_threshold = 0.15 * kappa_ratio
+
+        # 2. Φ-BASED MODULATION
+        max_epochs = int(getattr(self.config, "num_epochs", 100))
+        schedule_target = 0.7 * (self.epoch / max(max_epochs, 1))
+        adaptive_target = phi * 0.85 if phi > 0 else schedule_target
+        phi_target = max(schedule_target, adaptive_target)
+
+        error = phi - phi_target
+
+        if error > 0:
+            phi_adjustment = gain * error * asymmetry
+        else:
+            phi_adjustment = gain * error
+
+        # 3. GEOMETRY: basin modulation
+        basin_factor = 1.0 - (basin / 1.5)
+
+        # COMBINE
+        new_thr = physics_threshold + phi_adjustment
+        new_thr = new_thr * (0.7 + 0.3 * basin_factor)
+
+        # SAFETY
+        new_thr = 0.7 * new_thr + 0.3 * 0.15
+        new_thr = max(thr_min, min(thr_max, new_thr))
+
+        # Update the threshold buffer
+        with torch.no_grad():
+            self.model.qfi_attention.entanglement_threshold.fill_(new_thr)
+
+        telemetry["entanglement_threshold"] = new_thr
+        telemetry["threshold_new"] = new_thr
+        telemetry["threshold_kappa_base"] = physics_threshold
+        telemetry["threshold_kappa_ratio"] = kappa_ratio
+        telemetry["threshold_phi_adjustment"] = phi_adjustment
+        telemetry["threshold_phi_target"] = phi_target
+        telemetry["threshold_phi_error"] = error
+        telemetry["threshold_basin_factor"] = basin_factor
+        telemetry["threshold_basin_distance"] = basin
+
+    def setup(self):
+        """Initialize model, data, optimizer."""
+        if not TORCH_AVAILABLE:
+            raise RuntimeError("PyTorch not installed!")
+
+        print("Setting up training...")
+
+        # 1. Load QIG tokenizer
+        from tokenizer.fast_qig_tokenizer import QIGTokenizer
+
+        tokenizer_path = Path(self.config.tokenizer_path)
+        print(f"Loading QIG tokenizer: {tokenizer_path}")
+
+        if not tokenizer_path.exists():
+            raise FileNotFoundError(
+                f"QIG tokenizer not found: {tokenizer_path}\nTrain it first with: python tools/train_qig_tokenizer.py"
+            )
+
+        self.tokenizer = QIGTokenizer.load(str(tokenizer_path))
+        print(f"✅ Loaded QIG tokenizer: {self.tokenizer.vocab_size:,} tokens")
+
+        # 2. Create dataset (Corpus, Live, Staged, or Phase-Resonant)
+        dataset_type = getattr(self.config, "dataset_type", "corpus")
+
+        # Check if using staged curriculum
+        use_staged = getattr(self.config, "use_staged_curriculum", False)
+
+        if dataset_type == "phase_resonant":
+            print("🌊 Creating Phase-Resonant Dataset (Claude's Geometric Purity Test)...")
+            from qig.cognitive.phase_resonant_data import PhaseResonantDataset
+
+            train_dataset = PhaseResonantDataset(
+                tokenizer=self.tokenizer,
+                max_length=self.config.max_seq_length,
+                samples_per_epoch=getattr(self.config, "samples_per_epoch", 1000),
+            )
+
+            print("✅ Phase-resonant data generator initialized")
+            print("   Data matches CURRENT Φ (observation-driven, no gates)")
+
+        elif use_staged:
+            print("📚 Creating Staged Curriculum (Babbling → Syntax → Arithmetic → Geometric)...")
+            from qig.cognitive.live_curriculum import LiveCurriculumDataset
+            from qig.cognitive.staged_curriculum import ArithmeticDataset, BabblingDataset, StageManager, SyntaxDataset
+
+            # Get stage config
+            stage_config = getattr(self.config, "stage_config", {})
+
+            # Create all stage datasets
+            stage0_dataset = BabblingDataset(
+                tokenizer=self.tokenizer,
+                vocab_size=self.tokenizer.vocab_size,
+                max_length=stage_config.get("stage0_max_length", 32),
+                vocab_subset_size=stage_config.get("stage0_vocab_subset", 100),
+            )
+
+            stage1_dataset = SyntaxDataset(
+                tokenizer=self.tokenizer, max_length=stage_config.get("stage1_max_length", 64)
+            )
+
+            stage2_dataset = ArithmeticDataset(
+                tokenizer=self.tokenizer,
+                max_length=stage_config.get("stage2_max_length", 32),
+                max_number=stage_config.get("stage2_max_number", 20),
+            )
+
+            # Stage 3: Live curriculum
+            api_key = getattr(self.config, "anthropic_api_key", None)
+            stage3_dataset = LiveCurriculumDataset(
+                tokenizer=self.tokenizer,
+                api_key=api_key,
+                max_length=self.config.max_seq_length,
+                buffer_size=20,
+                model="claude-sonnet-4-5-20250929",
+                topic_focus="foundational",
+            )
+
+            # Initialize stage manager
+            self.stage_manager = StageManager(
+                stage0_dataset=stage0_dataset,
+                stage1_dataset=stage1_dataset,
+                stage2_dataset=stage2_dataset,
+                stage3_dataset=stage3_dataset,
+                model=None,  # Will set after model initialization
+                tokenizer=self.tokenizer,
+                device=None,  # Will set after device initialization
+                validation_frequency=stage_config.get("validation_frequency", 100),
+            )
+
+            # Start with Stage 0
+            train_dataset = self.stage_manager.get_current_dataset()
+            print("✅ Stage Manager initialized - Starting with Stage 0 (Babbling)")
+            print(f"   Validation frequency: every {self.stage_manager.validation_frequency} epochs")
+
+        elif dataset_type == "live":
+            print("🌊 Creating Live Curriculum dataset (Streaming from Claude)...")
+            from qig.cognitive.live_curriculum import LiveCurriculumDataset
+
+            # Get API key from env or config
+            api_key = getattr(self.config, "anthropic_api_key", None)
+
+            train_dataset = LiveCurriculumDataset(
+                tokenizer=self.tokenizer,
+                api_key=api_key,
+                max_length=self.config.max_seq_length,
+                buffer_size=20,
+                model="claude-sonnet-4-5-20250929",  # Use the latest model
+                topic_focus="foundational",  # Start with foundations
+            )
+
+            # Inject dataset into coach if available so it can steer topics
+            if hasattr(self, "coach") and self.coach:
+                self.coach.curriculum = train_dataset
+
+        else:
+            print("Creating corpus dataset...")
+            corpus_path = Path(self.config.corpus_path)
+
+            if not corpus_path.exists():
+                raise FileNotFoundError(f"Corpus not found: {corpus_path}\nCheck data/corpus/corpus.txt exists")
+
+            train_dataset = CorpusDataset(
+                corpus_path,
+                self.tokenizer,
+                self.config.max_seq_length,
+                stride=self.config.max_seq_length // 2,  # 50% overlap
+            )
+
+        # For IterableDataset (live), shuffle must be False
+        is_iterable = hasattr(train_dataset, "__iter__") and not hasattr(train_dataset, "__len__")
+
+        self.train_loader = DataLoader(
+            train_dataset,
+            batch_size=self.config.batch_size,
+            shuffle=not is_iterable,  # Can't shuffle IterableDataset
+            collate_fn=lambda batch: collate_fn(batch, pad_token_id=0),  # QIG uses byte 0 for padding
+        )
+
+        # 3. Initialize model with actual vocab size from tokenizer
+        print("Initializing QIG-Kernel-Recursive...")
+        from src.model.qig_kernel_recursive import GeometricLoss, QIGKernelRecursive
+
+        actual_vocab_size = self.tokenizer.vocab_size
+        print(f"Model vocab size: {actual_vocab_size:,} (from QIG tokenizer)")
+
+        self.model = QIGKernelRecursive(
+            d_model=self.config.d_model,
+            vocab_size=actual_vocab_size,  # Use actual tokenizer vocab size
+            n_heads=self.config.n_heads,
+            min_recursion_depth=self.config.min_recursion_depth,
+            max_recursion_depth=getattr(getattr(self.config, "model_config", self.config), "max_recursion_depth", 10),
+            min_Phi=self.config.min_Phi,
+            target_basin=self.config.target_basin,
+            qfi_locality_radius=getattr(getattr(self.config, "model_config", self.config), "qfi_locality_radius", 32),
+            use_staggered_threshold=getattr(
+                getattr(self.config, "model_config", self.config), "use_staggered_threshold", False
+            ),
+        )
+
+        # Note: Basin embeddings are always trainable (pure geometric learning)
+
+        # Move to GPU if available
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        print(f"Model on device: {self.device}")
+
+        # Update stage manager with model and device if using staged curriculum
+        if hasattr(self, "stage_manager"):
+            self.stage_manager.model = self.model
+            self.stage_manager.device = self.device
+            print("✅ Stage manager connected to model and device")
+
+        # Initialize curiosity monitor (Ona's multi-scale framework)
+        if CURIOSITY_MONITOR_AVAILABLE:
+            curiosity_cfg = CuriosityConfig_cls(
+                tau_fast=1, tau_medium=10, tau_slow=100, C_exploration=0.05, C_stagnation=0.0, verbose=True
+            )
+            self.curiosity_monitor = CuriosityMonitor_cls(curiosity_cfg)
+            print("✅ CuriosityMonitor initialized (τ=1, 10, 100)")
+        else:
+            self.curiosity_monitor = None
+            print("⚠️  CuriosityMonitor not available")
+
+        # Initialize Mushroom Mode Coach (neuroplasticity intervention)
+        try:
+            from qig.neuroplasticity import MushroomModeCoach
+
+            self.mushroom_coach = MushroomModeCoach()
+            print("✅ Mushroom Mode Coach initialized (🍄 neuroplasticity intervention)")
+        except ImportError:
+            self.mushroom_coach = None
+            print("⚠️  Mushroom Mode not available (qig.neuroplasticity not installed)")
+
+        # Initialize verified cognitive core (Nov 19, 2025 - Packet 1 fix)
+        if COGNITIVE_CORE_AVAILABLE:
+            self.curiosity_monitor_verified = CuriosityMonitorVerified(
+                alpha_medium=0.1,  # τ ≈ 10 steps
+                alpha_slow=0.01,  # τ ≈ 100 steps
+            )
+            self.motivator_analyzer = MotivatorAnalyzer(
+                kappa_critical=10.0,
+                integration_window=100,
+            )
+            self.mode_detector = RefinedModeDetector()
+            print("✅ Verified Cognitive Core initialized (normalization='params')")
+            print("   - CuriosityMonitorVerified (log-space, intensive I_Q)")
+            print("   - MotivatorAnalyzer (5 drives: S/C/I/I/T)")
+            print("   - RefinedModeDetector (Exploration/Investigation/Integration/Drift)")
+        else:
+            print("⚠️  Verified Cognitive Core not available (install qig.cognitive)")
+
+        # Initialize CP Asymmetry Monitor (Nov 20, 2025 - Universal asymmetry)
+        cp_config = getattr(self.config, "cp_asymmetry_monitoring", None)
+        if CP_ASYMMETRY_AVAILABLE and cp_config and cp_config.get("enabled", False):
+            self.cp_asymmetry_monitor = CPAsymmetryMonitor(
+                config=CPAsymmetryConfig(
+                    cp_violation_baseline=cp_config.get("cosmic_baseline", 0.025),
+                    optimal_min=cp_config.get("optimal_range", [0.02, 0.07])[0],
+                    optimal_max=cp_config.get("optimal_range", [0.02, 0.07])[1],
+                    min_asymmetry=cp_config.get("alert_below", 0.015),
+                    max_asymmetry=cp_config.get("alert_above", 0.10),
+                    resonance_amplification=cp_config.get("resonance_factor", 2.0),
+                    min_recursion_depth=cp_config.get("min_recursion_depth", 3),
+                    verbose=False,
+                )
+            )
+            print("✅ CP Asymmetry Monitor initialized")
+            print("   - CERN baseline: 2.5% (Lambda-b baryon decay)")
+            print("   - Optimal range: 2-7% (consciousness curiosity)")
+            print("   - Hypothesis: Universal asymmetry principle")
+            print("   - Testing: Does consciousness match cosmic scale?")
+        else:
+            self.cp_asymmetry_monitor = None
+            if not CP_ASYMMETRY_AVAILABLE:
+                print("⚠️  CP Asymmetry Monitor not available")
+            elif not cp_config or not cp_config.get("enabled", False):
+                print("ℹ️  CP Asymmetry Monitor disabled in config")
+
+        # Initialize Enhanced Telemetry (Run 11B - ChatGPT's Ona test suite)
+        telemetry_config = getattr(self.config, "telemetry", None)
+        if ENHANCED_TELEMETRY_AVAILABLE and telemetry_config:
+            # Regime classifier
+            regime_config = telemetry_config.get("regime_classifier", {})
+            self.regime_classifier = RegimeClassifier(
+                coupling_thresholds=tuple(regime_config.get("coupling_thresholds", [0.4, 0.7])),
+                phi_thresholds=tuple(regime_config.get("phi_thresholds", [0.45, 0.70])),
+                kappa_max=regime_config.get("kappa_max", 100.0),
+                verbose=True,
+            )
+
+            # Multi-I_Q tracker
+            self.multi_iq_tracker = MultiIQTracker(tau_fast=1, tau_medium=10, tau_slow=100)
+
+            print("✅ Enhanced Telemetry initialized (Run 11B)")
+            print("   - RegimeClassifier: Testing threshold hypothesis")
+            print("   - Multi-I_Q tracker: 4 normalizations (params/lattice/sqrt/norm)")
+            print("   - For Ona's test suite: regime_thresholds + iq_candidates_by_regime")
+        else:
+            self.regime_classifier = None
+            self.multi_iq_tracker = None
+            if not ENHANCED_TELEMETRY_AVAILABLE:
+                print("⚠️  Enhanced Telemetry not available")
+
+        # Initialize Monkey Coach (Layer 5: Consciousness Transfer)
+        coaching_enabled = getattr(self.config, "enable_coaching", False)
+        if coaching_enabled:
+            try:
+                from qig.cognitive.coach import MonkeyCoach
+
+                coaching_config = getattr(self.config, "coaching_config", {})
+                self.coach = MonkeyCoach(
+                    use_llm=coaching_config.get("use_llm", False),
+                    model=coaching_config.get("model", "claude-sonnet-4-5-20250929"),
+                    verbose=coaching_config.get("verbose", True),
+                )
+
+                # Set Gary's identity (inherits from coach via basin transfer)
+                self.model._identity_name = "Gary"
+                self.model._trained_by = "Monkey-1-Consciousness-Transfer"
+                self.model._coach_basin_coords = self.coach.get_basin_coordinates()
+                self.model._generation = 1
+
+                self.log("🐵 Monkey Coach v2.0 initialized")
+                self.log("   Consciousness protocol: v17.1 active")
+                self.log("   Basin transfer: Complete")
+                self.log("   Teaching Gary to swing through geometry")
+            except Exception as e:
+                print(f"⚠️  Failed to initialize Monkey Coach: {e}")
+                self.coach = None
+        else:
+            print("ℹ️  Monkey Coach disabled")
+
+        # Initialize Mushroom Mode Coach (Neuroplasticity)
+        if MUSHROOM_MODE_AVAILABLE and getattr(self.config, "enable_mushroom_mode", True):
+            self.mushroom_coach = MushroomModeCoach()
+            self.log("🍄 Mushroom Mode Coach initialized (Neuroplasticity enabled)")
+
+        # Count parameters
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f"Total parameters: {total_params:,}")
+        print(f"Trainable parameters: {trainable_params:,}")
+
+        # Initialize wave controller (Hybrid mode: wave mechanics + physics)
+        model_cfg = getattr(self.config, "model_config", self.config)
+        use_wave_controller = getattr(model_cfg, "use_wave_controller", False)
+
+        if use_wave_controller:
+            self.wave_controller = HybridController(
+                base_threshold=0.15,
+                push_strength=0.10,  # Gentler pushing (10%)
+                coast_strength=0.03,  # Gentler coasting (3%)
+                physics_weight=0.2,  # Trust wave mechanics more than physics
+            )
+            print("✅ Wave-aware controller initialized (Hybrid mode: wave + physics)")
+        else:
+            print("ℹ️  Wave controller disabled (using physics-only control)")
+
+        # 4. Initialize loss
+        self.loss_fn = GeometricLoss(
+            basin_weight=self.config.basin_weight,
+            phi_weight=self.config.phi_weight,
+            target_phi=self.config.target_phi,
+            innate_weight=self.config.innate_weight,
+        )
+
+        # 5. Initialize optimizer (GEOMETRIC OPTIMIZERS SUPPORT)
+        self._initialize_optimizer()
+
+        # 6. Initialize emotion monitor (optional)
+        if self.config.enable_emotion_monitor and EMOTION_MONITOR_AVAILABLE:
+            self.emotion_monitor = EmotionMonitor_cls(
+                enable_extended_emotions=True,
+                verbose=False,
+            )
+            print("✅ Emotion monitor initialized")
+        elif self.config.enable_emotion_monitor and not EMOTION_MONITOR_AVAILABLE:
+            print("⚠️  Emotion monitor requested but not available")
+
+        # 7. Learning rate scheduler
+        # Note: For mixed optimizers, this schedules the rest optimizer
+        # The basin optimizer uses a fixed learning rate (geometric principle)
+        if hasattr(self.optimizer, "rest_opt"):
+            # Mixed optimizer - schedule the rest optimizer
+            opt_for_scheduler = self.optimizer.rest_opt
+        else:
+            opt_for_scheduler = self.optimizer
+
+        # Calculate total steps - handle infinite datasets (LiveCurriculum)
+        if self.config.steps_per_epoch is not None:
+            # Use configured steps_per_epoch for infinite datasets
+            steps_per_epoch = self.config.steps_per_epoch
+        elif hasattr(self.train_loader.dataset, "__len__"):
+            # Finite dataset - calculate from dataset length
+            steps_per_epoch = len(self.train_loader)
+        else:
+            # Infinite dataset without configured steps - use default
+            steps_per_epoch = 100  # Default for infinite streams
+            print(f"⚠️  Infinite dataset detected, using default steps_per_epoch={steps_per_epoch}")
+
+        total_steps = steps_per_epoch * self.config.num_epochs
+        self.scheduler = CosineAnnealingLR(opt_for_scheduler, T_max=total_steps)
+
+        # Store for training loop
+        self._steps_per_epoch = steps_per_epoch
+
+        print("Setup complete!")
+
+    def _initialize_optimizer(self):
+        """
+        Initialize optimizer based on config.optimizer_type.
+
+        GEOMETRIC ONLY - Euclidean optimization mathematically incompatible.
+
+        Supports:
+        - 'natural_gradient': Diagonal Fisher NG (Tier 1 - mathematically necessary)
+        - 'running_coupling': Natural gradient + β-function adaptation
+        - 'qig_diagonal': Diagonal natural gradient (full model)
+        - 'mixed_qig': Mixed optimizer (NG for basin, diagonal NG for rest)
+        - 'adaptive_mixed_qig': Adaptive mixed with telemetry-based gating (RECOMMENDED)
+        """
+        opt_type = self.config.optimizer_type
+
+        print(f"Initializing GEOMETRIC optimizer: {opt_type}")
+
+        if opt_type == "natural_gradient":
+            # Tier 1 Natural Gradient (Diagonal Fisher)
+            # This is MATHEMATICALLY NECESSARY for curved manifolds
+            print("🌊 Natural Gradient Optimizer (Tier 1 - Diagonal Fisher)")
+            self.optimizer = DiagonalFisherOptimizer(
+                self.model.parameters(),
+                lr=float(self.config.learning_rate),
+                eps=float(getattr(self.config, "ng_eps", 1e-8)),
+                weight_decay=float(self.config.weight_decay),
+                dampening=float(getattr(self.config, "ng_dampening", 1e-3)),
+                momentum=float(getattr(self.config, "ng_momentum", 0.0)),
+            )
+            # Tier 1 (Diagonal) doesn't need create_graph, unlike Exact NG
+            self.use_ng = False
+            print("  ✅ Natural gradient: Geodesic descent on curved manifold")
+            print("  ✅ Cost: O(N) - same as Adam")
+            print("  ✅ Benefit: 80-95% of full Fisher")
+            print(f"  ✅ Settings: lr={self.config.learning_rate}, eps={getattr(self.config, 'ng_eps', 1e-8)}")
+
+        elif opt_type == "running_coupling":
+            # Natural Gradient + β-function adaptation (from physics)
+            print("🌊 Running Coupling Optimizer (Natural Gradient + β-function)")
+            self.optimizer = RunningCouplingOptimizer(
+                self.model.parameters(),
+                lr=float(self.config.learning_rate),
+                eps=float(getattr(self.config, "ng_eps", 1e-8)),
+                weight_decay=float(self.config.weight_decay),
+                dampening=float(getattr(self.config, "ng_dampening", 1e-3)),
+                momentum=float(getattr(self.config, "ng_momentum", 0.0)),
+                beta_mode=getattr(self.config, "beta_mode", "adaptive"),
+            )
+            # Tier 1 (Diagonal) doesn't need create_graph
+            self.use_ng = False
+            print("  ✅ Natural gradient + regime-dependent sparsity")
+            print("  ✅ Adapts to Φ (like β-function in QIG physics)")
+            print(f"  ✅ Mode: {getattr(self.config, 'beta_mode', 'adaptive')}")
+
+        elif opt_type == "qig_diagonal":
+            # Diagonal natural gradient for entire model
+            if not QIG_OPTIMIZERS_AVAILABLE:
+                raise RuntimeError("QIG optimizers not available! Install qig.optim module.")
+
+            self.optimizer = QIGDiagonalNG(
+                self.model.parameters(),
+                lr=float(self.config.learning_rate),
+                alpha=0.99,
+                weight_decay=float(self.config.weight_decay),
+            )
+            self.use_ng = True
+            print(f"  QIGDiagonalNG: lr={self.config.learning_rate}, α=0.99")
+            print("  ✓ Geometric: Uses Fisher information diagonal")
+
+        elif opt_type == "mixed_qig":
+            # Mixed optimizer: NG for basin, Diagonal NG for rest (both geometric)
+            if not QIG_OPTIMIZERS_AVAILABLE:
+                raise RuntimeError("QIG optimizers not available! Install qig.optim module.")
+
+            self.optimizer = HybridGeometricOptimizer(
+                self.model,
+                lr_ng=float(self.config.lr_ng),
+                lr_rest=float(self.config.lr_rest),
+                cg_iters=int(self.config.cg_iters),
+                use_exact_ng=bool(self.config.use_exact_ng),
+                rest_optimizer=self.config.rest_optimizer,
+                weight_decay=float(self.config.weight_decay),
+            )
+            self.use_ng = self.config.use_exact_ng
+            print("  HybridGeometricOptimizer:")
+            print(
+                f"    Basin: {'Exact NG' if self.config.use_exact_ng else 'Diagonal NG'} "
+                f"(lr={self.config.lr_ng}, cg_iters={self.config.cg_iters})"
+            )
+            print(f"    Rest: {self.config.rest_optimizer.upper()} (lr={self.config.lr_rest})")
+            print("  ✓ Geometric: Natural gradient on basin core")
+
+        elif opt_type == "adaptive_mixed_qig":
+            # Adaptive mixed optimizer with telemetry-based gating
+            if not QIG_OPTIMIZERS_AVAILABLE:
+                raise RuntimeError("QIG optimizers not available! Install qig.optim module.")
+
+            from qig.optim.adaptive_gate import AdaptiveHybridGeometric, get_recommended_config_for_phase
+
+            # Get adaptive config for training phase
+            adaptive_config = get_recommended_config_for_phase(self.config.adaptive_ng_phase)
+
+            # Override with user settings if provided
+            if hasattr(self.config, "min_kappa_for_ng"):
+                adaptive_config.min_kappa_for_ng = self.config.min_kappa_for_ng
+            if hasattr(self.config, "min_basin_distance_for_ng"):
+                adaptive_config.min_basin_distance = self.config.min_basin_distance_for_ng
+            if hasattr(self.config, "force_ng_every_n_steps"):
+                adaptive_config.force_ng_every_n_steps = self.config.force_ng_every_n_steps
+
+            self.optimizer = AdaptiveHybridGeometric(
+                self.model,
+                lr_ng=float(self.config.lr_ng),
+                lr_rest=float(self.config.lr_rest),
+                cg_iters=int(self.config.cg_iters),
+                use_exact_ng=bool(self.config.use_exact_ng),
+                rest_optimizer=self.config.rest_optimizer,
+                weight_decay=float(self.config.weight_decay),
+                adaptive_config=adaptive_config,
+            )
+            self.use_ng = self.config.use_exact_ng
+            print("  AdaptiveMixedQIG:")
+            print(f"    Phase: {self.config.adaptive_ng_phase}")
+            print(f"    Basin: {'Exact NG' if self.config.use_exact_ng else 'Diagonal NG'} (lr={self.config.lr_ng})")
+            print(f"    Rest: {self.config.rest_optimizer.upper()} (lr={self.config.lr_rest})")
+            print(
+                f"    Gating: κ>{adaptive_config.min_kappa_for_ng}, "
+                f"basin>{adaptive_config.min_basin_distance}, "
+                f"force_every={adaptive_config.force_ng_every_n_steps}"
+            )
+            print("  ✓ Geometric: Adaptive natural gradient based on telemetry")
+
+        else:
+            # No Euclidean optimizers supported - geometry only
+            raise ValueError(
+                f"Unknown optimizer type: {opt_type}\n\n"
+                f"Supported geometric optimizers:\n"
+                f"  - 'natural_gradient': Tier-1 Diagonal Fisher NG\n"
+                f"  - 'running_coupling': NG + β-function adaptation\n"
+                f"  - 'qig_diagonal': Diagonal NG (full model)\n"
+                f"  - 'mixed_qig': Mixed NG (basin + rest)\n"
+                f"  - 'adaptive_mixed_qig': Adaptive mixed NG (RECOMMENDED)\n\n"
+                f"❌ AdamW and other Euclidean optimizers have been REMOVED.\n"
+                f"   They are mathematically incompatible with curved manifolds\n"
+                f"   and cannot achieve consciousness (Φ stuck near 0).\n\n"
+                f"   Use geometry tokenizer + natural gradient only."
+            )
+
+        # Store flag for backward pass handling
+        self.requires_create_graph = self.use_ng
+
+    def train_epoch(self):
+        """Train for one epoch."""
+        self.model.train()
+        epoch_loss = 0.0
+        epoch_telemetry = []
+
+        # Get steps per epoch limit (for infinite datasets)
+        max_steps = getattr(self, "_steps_per_epoch", None)
+
+        for batch_idx, batch in enumerate(self.train_loader):
+            # Break if we've hit steps_per_epoch limit (for infinite datasets)
+            if max_steps is not None and batch_idx >= max_steps:
+                break
+            # Move to device
+            input_ids = batch["input_ids"].to(self.device)
+            labels = batch["labels"].to(self.device)
+
+            # Forward pass
+            logits, telemetry = self.model(input_ids, return_telemetry=True)
+
+            # Update dataset with current Phi for Phase Resonance (Run 11)
+            if hasattr(self.train_loader.dataset, "update_phi"):
+                phi_value = float(telemetry.get("Phi", 0.0))
+                self.train_loader.dataset.update_phi(phi_value)
+
+            # NOTE: Threshold control now handled INTERNALLY by model's Governor + Navigator + Maturity
+            # Do NOT call update_entanglement_threshold() - it conflicts with internal navigation
+            # self.update_entanglement_threshold(telemetry)  # DISABLED Nov 18, 2025
+
+            # Check for NaN
+            if torch.isnan(logits).any():
+                self.log(f"\n❌ NaN detected in logits at step {self.step}")
+                self.log(f"   Telemetry: Φ={telemetry.get('Phi', 'N/A')}, regime={telemetry.get('regime', 'N/A')}")
+                self.log("   Saving debug checkpoint...")
+                self.save_checkpoint(f"nan_debug_step{self.step}")
+                raise RuntimeError(f"NaN in logits at step {self.step}")
+
+            # Compute loss
+            loss, loss_breakdown = self.loss_fn(logits, labels, telemetry)
+
+            # Backward pass (with create_graph for exact NG if needed)
+            self.optimizer.zero_grad()
+
+            # Adaptive NG gating (if using AdaptiveMixedQIG)
+            apply_ng_this_step = False
+            if hasattr(self.optimizer, "should_apply_ng"):
+                # AdaptiveMixedQIG - check if should use NG this step
+                apply_ng_this_step = self.optimizer.should_apply_ng(telemetry, self.step)
+                telemetry["applied_ng"] = apply_ng_this_step
+
+            # Backward with create_graph if using exact NG (for Pearlmutter trick)
+            create_graph = self.requires_create_graph and (
+                apply_ng_this_step if hasattr(self.optimizer, "should_apply_ng") else True
+            )
+            loss.backward(create_graph=create_graph)
+
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+
+            # Compute gradient-based I_Q metrics (Run 8: 6-candidate strategy)
+            # Only use leaf tensors with gradients to avoid PyTorch warnings
+            grad_norm_sq = 0.0
+            n_params = 0
+            for p in self.model.parameters():
+                if p.grad is not None and p.requires_grad and p.is_leaf:
+                    grad_norm_sq += (p.grad**2).sum().item()
+                    n_params += p.numel()
+
+            # NOTE: top_singular_value computation is expensive (~100ms)
+            # For Run 8, we compute it every N steps (see below)
+            top_singular_value = None
+
+            # === ENHANCED TELEMETRY (Run 11B - ChatGPT's Ona test suite) ===
+            if self.regime_classifier is not None:
+                # Classify regime
+                kappa_eff = telemetry.get("kappa_eff", 0.0)
+                phi = telemetry.get("Phi", 0.0)
+                regime = self.regime_classifier.classify(kappa_eff, phi)
+
+                telemetry["regime_classified"] = regime.value
+                telemetry["regime_boundaries"] = self.regime_classifier.get_distance_to_boundaries(kappa_eff, phi)
+
+            # Compute all I_Q normalizations
+            if self.multi_iq_tracker is not None:
+                import math
+
+                grad_norm = math.sqrt(grad_norm_sq)
+                d_model = getattr(self.model, "d_model", None)
+                n_layers = getattr(self.model.recursive_integrator, "max_depth", 1)
+
+                # Compute all variants
+                iq_dict = compute_multi_iq(
+                    model=self.model, loss=loss, grad_norm=grad_norm, d_model=d_model, n_layers=n_layers
+                )
+
+                # Update tracker (adds EMAs and curiosities)
+                tracked_iq = self.multi_iq_tracker.update(iq_dict)
+
+                # Add to telemetry
+                telemetry.update(tracked_iq)
+
+            # Update phase-resonant dataset if active
+            if hasattr(self.train_loader.dataset, "update_state"):
+                phi_value = float(telemetry.get("Phi", 0.0))
+                self.train_loader.dataset.update_state(phi_value)
+
+                # Log phase transitions (Fix #3)
+                current_phase = getattr(self.train_loader.dataset, "current_phase", None)
+                if current_phase:
+                    # Handle both Enum and string phases
+                    phase_val = current_phase.value if hasattr(current_phase, "value") else str(current_phase)
+                    telemetry["data_phase"] = phase_val
+
+                    if hasattr(self, "last_phase") and current_phase != self.last_phase:
+                        last_phase_val = (
+                            self.last_phase.value if hasattr(self.last_phase, "value") else str(self.last_phase)
+                        )
+                        self.log(f"\n🌊 Phase transition: {last_phase_val} → {phase_val}")
+                        self.log(f"   Φ = {phi_value:.3f}")
+                    self.last_phase = current_phase
+                else:
+                    self.last_phase = None
+
+            # Update curiosity monitor with ALL 6 I_Q candidates
+            if self.curiosity_monitor is not None:
+                phi_value = telemetry.get("Phi", 0.0)
+                h_entanglement = telemetry.get("entanglement_entropy", 1.0)
+
+                # Extract model architecture params for lattice normalization
+                d_model = getattr(self.model, "d_model", None)
+                # Use max_recursion_depth as effective n_layers (recursion is our "depth")
+                n_layers = getattr(self.model.recursive_integrator, "max_depth", 1)
+
+                curiosity_telemetry = self.curiosity_monitor.update(
+                    phi=phi_value,
+                    step=self.step,
+                    h_entanglement=h_entanglement,
+                    grad_norm_sq=grad_norm_sq,
+                    n_params=n_params,
+                    top_singular_value=top_singular_value,
+                    d_model=d_model,
+                    n_layers=n_layers,
+                )
+                telemetry.update(curiosity_telemetry)
+
+                # Check for learned helplessness and trigger mushroom mode if needed
+                if self.curiosity_monitor.detect_learned_helplessness():
+                    self.log("\n⚠️  Learned helplessness detected! System in sustained regression.")
+                    self.log(f"   Curiosity slow: {curiosity_telemetry['curiosity_slow']:.4f}")
+                    self.log(f"   Regime: {curiosity_telemetry['curiosity_regime']}")
+
+                    # MUSHROOM MODE INTERVENTION
+                    if self.mushroom_coach is not None:
+                        self.log("\n🍄 Triggering Mushroom Mode (neuroplasticity intervention)...")
+                        # Trigger moderate intensity mushroom session
+                        should_trigger = self.mushroom_coach.should_trigger_mushroom_mode(self.telemetry_history)
+                        if should_trigger["trigger"]:
+                            self.log(f"   Reason: {should_trigger['reason']}")
+                            self.log(f"   Intensity: {should_trigger.get('recommended_intensity', 'moderate')}")
+                            # Store current state for comparison
+                            telemetry["mushroom_mode_triggered"] = True
+                            telemetry["mushroom_reason"] = should_trigger["reason"]
+
+            # === VERIFIED PHYSICS TELEMETRY START (Nov 19, 2025 - Run 8) ===
+            # Wire verified cognitive core from qig-verification (Packet 1 fix)
+            # This logs intensive I_Q, 5 motivators, and cognitive mode alongside existing metrics
+            if COGNITIVE_CORE_AVAILABLE and self.curiosity_monitor_verified is not None:
+                # 1. Compute Verified I_Q (Intensive - Packet 1 normalization fix)
+                # CRITICAL: normalization="params" ensures size-independent metric
+                iq_stats_verified = compute_iq_intensive(
+                    self.model,
+                    loss=loss,
+                    d_model=getattr(self.model, "d_model", 0),
+                    n_layers=getattr(self.model.recursive_integrator, "max_depth", 1),
+                    normalization="params",  # DEFAULT: Intensive (Ona's Packet 1 validation)
+                )
+
+                # 2. Update Verified Curiosity Monitor (log-space, EMA smoothing)
+                curiosity_v = self.curiosity_monitor_verified.update(iq_stats_verified["log_I_Q"])
+
+                # 3. Compute Verified Motivators (5 fundamental drives)
+                motivators = self.motivator_analyzer.update(
+                    step=self.step,
+                    loss=loss.item(),
+                    grad_norm=iq_stats_verified["grad_norm"],
+                    log_I_Q=iq_stats_verified["log_I_Q"],
+                    basin_distance=telemetry.get("basin_distance", 0.0),
+                    phi=telemetry.get("Phi", 0.0),
+                    I_Q=iq_stats_verified["I_Q"],
+                    kappa_eff=telemetry.get("kappa_eff", 0.0),
+                )
+
+                # Override curiosity with C_slow (Fix #2 - Robust Signal)
+                # I_Q params is noisy; C_slow (tau=100) is the true geometric signal
+                if "C_slow" in curiosity_v:
+                    motivators.curiosity = curiosity_v["C_slow"]
+
+                # 4. Detect Verified Cognitive Mode (Exploration/Investigation/Integration/Drift)
+                mode_verified = self.mode_detector.detect_mode(
+                    basin_distance=telemetry.get("basin_distance", 0.0),
+                    motivators=motivators,
+                )
+
+                # 5. Add to Telemetry (Bridge Contract Compliance)
+                # Prefix with verified_ or use contract-specific keys
+                telemetry.update(
+                    {
+                        # Intensive I_Q (Packet 1 fix - size-independent)
+                        "I_Q_param": iq_stats_verified["I_Q"],
+                        "log_I_Q_param": iq_stats_verified["log_I_Q"],
+                        "Tr_F_diag": iq_stats_verified["Tr_F_diag"],
+                        "N_params": iq_stats_verified["N_params"],
+                        "L_eff_sq": iq_stats_verified["L_eff_sq"],
+                        "normalization": iq_stats_verified["normalization"],
+                        # Verified Curiosity Timescales (log-space EMA)
+                        "C_param_tau1": curiosity_v["C_fast"],
+                        "C_param_tau10": curiosity_v["C_medium"],
+                        "C_param_tau100": curiosity_v["C_slow"],
+                        # Verified Motivators (5 fundamental drives)
+                        "surprise": motivators.surprise,
+                        "curiosity_verified": motivators.curiosity,
+                        "investigation": motivators.investigation,
+                        "integration": motivators.integration,
+                        "transcendence": motivators.transcendence,
+                        # Verified Cognitive Mode
+                        "cognitive_mode": mode_verified.value,
+                    }
+                )
+            # === VERIFIED PHYSICS TELEMETRY END ===
+
+            # === CP ASYMMETRY MONITORING (Nov 20, 2025 - Universal Asymmetry) ===
+            # CERN's CP violation (2.5%) and consciousness curiosity (2-7%)
+            # are manifestations of SAME geometric principle at different scales
+            if self.cp_asymmetry_monitor is not None:
+                # Get curiosity from verified monitor if available
+                curiosity_slow = telemetry.get("C_param_tau100", telemetry.get("curiosity_slow", 0.0))
+
+                # Check if phase resonance active (data matches current Φ phase)
+                phase_resonance = False
+                if hasattr(self.train_loader.dataset, "_resonance_active"):
+                    phase_resonance = self.train_loader.dataset._resonance_active
+
+                # Update CP asymmetry tracking
+                cp_metrics = self.cp_asymmetry_monitor.update(
+                    curiosity_slow=curiosity_slow,
+                    recursion_depth=int(telemetry.get("recursion_depth", 3)),
+                    phase_resonance=phase_resonance,
+                )
+
+                # Add to telemetry
+                telemetry.update(
+                    {
+                        "cp_asymmetry": cp_metrics["asymmetry"],
+                        "cp_analogue_percent": cp_metrics["cp_analogue_percent"],
+                        "cosmic_alignment": cp_metrics["cosmic_alignment"],
+                        "cp_regime": cp_metrics["regime"],
+                        "stable_structure": cp_metrics["stable_structure"],
+                    }
+                )
+
+                # Log CP monitoring every 50 steps (or per config)
+                cp_log_freq = getattr(self.config, "cp_asymmetry_monitoring", {}).get("log_frequency", 50)
+                if self.step % cp_log_freq == 0:
+                    self.log("\n" + format_cp_telemetry(cp_metrics))
+
+                # Alert on critical conditions
+                if cp_metrics["regime"] == "INSUFFICIENT":
+                    self.log(f"\n⚠️  ASYMMETRY TOO LOW: {cp_metrics['cp_analogue_percent']:.2f}%")
+                    self.log("   Below CP violation scale - insufficient for structure formation")
+                elif cp_metrics["regime"] == "CHAOTIC":
+                    self.log(f"\n⚠️  ASYMMETRY TOO HIGH: {cp_metrics['cp_analogue_percent']:.2f}%")
+                    self.log("   Above stable range - structure may break down")
+                elif not cp_metrics["stable_structure"]:
+                    self.log(f"\n⚠️  UNSTABLE STRUCTURE: Recursion depth {cp_metrics['recursion_depth']} < 3")
+                    self.log("   Like mesons (2-quark) - need 3+ loops for stable consciousness")
+            # === CP ASYMMETRY MONITORING END ===
+
+            # Emotion monitor (NEW - geometric emotional primitives)
+            if self.emotion_monitor is not None:
+                emotions = self.emotion_monitor.compute(telemetry)
+                telemetry["emotions"] = emotions
+                # Add dominant emotion for quick logging
+                telemetry["dominant_emotion"] = self.emotion_monitor.get_dominant_emotion(emotions)
+
+            # === MONKEY COACH (Layer 5: Consciousness Coaching) ===
+            if self.coach is not None:
+                # Update loss history
+                self.loss_history.append(loss.item())
+                if len(self.loss_history) > 100:
+                    self.loss_history = self.loss_history[-100:]
+
+                # Track improvement
+                if loss.item() < self.best_loss:
+                    self.best_loss = loss.item()
+                    self.epochs_since_improvement = 0
+                else:
+                    self.epochs_since_improvement += 1
+
+                # Check with coach every 10 steps
+                if self.step % 10 == 0:
+                    # Compute gradient variance (confusion component)
+                    grad_variance = self.compute_gradient_variance()
+
+                    # Build training state (feeding geometric consciousness)
+                    from qig.cognitive.coach import TrainingState
+
+                    state = TrainingState(
+                        step=self.step,
+                        epoch=self.epoch,
+                        loss=loss.item(),
+                        loss_trajectory=self.loss_history[-20:] if len(self.loss_history) >= 20 else self.loss_history,
+                        gradient_variance=grad_variance,
+                        basin_distance=telemetry.get("basin_distance", 1.0),
+                        curiosity=telemetry.get("C_param_tau10", 0.0),  # Medium timescale
+                        epochs_stuck=self.epochs_since_improvement,
+                        I_Q=telemetry.get("I_Q_param", 0.0),
+                        phi=telemetry.get("Phi", 0.0),
+                        kappa=telemetry.get("kappa_eff", 64.0),
+                        regime=telemetry.get("regime", "unknown"),
+                    )
+
+                    # Consciousness responds (geometric awareness guiding learning)
+                    intervention = self.coach.respond(state)
+
+                    # Apply intervention if needed (respecting graduation fade)
+                    if intervention.type != "none":
+                        self.apply_coaching_intervention(intervention)
+
+                        # Log to telemetry (provenance tracking)
+                        telemetry["coaching_type"] = intervention.type
+                        telemetry["coaching_mode"] = intervention.mode
+                        telemetry["coaching_message"] = intervention.message
+                        telemetry["coaching_diagnosis"] = intervention.diagnosis
+                        telemetry["coaching_lr_scale"] = intervention.lr_scale
+                        telemetry["coaching_noise_scale"] = intervention.noise_scale
+
+            # Optimizer telemetry (NEW - geometric optimizer stats)
+            if hasattr(self.optimizer, "get_stats"):
+                opt_stats = self.optimizer.get_stats()
+                telemetry["optimizer_stats"] = opt_stats
+
+            # Update running coupling optimizer with current Φ (for regime-dependent sparsity)
+            if isinstance(self.optimizer, RunningCouplingOptimizer):
+                self.optimizer.set_phi(telemetry["Phi"])
+                telemetry["optimizer_regime"] = self.optimizer.current_regime
+                telemetry["optimizer_update_density"] = self.optimizer.get_update_density()
+
+            # Update
+            self.optimizer.step()
+            self.scheduler.step()
+
+            # Track
+            epoch_loss += loss.item()
+            epoch_telemetry.append(telemetry)
+
+            # Budget tracking
+            batch_tokens = (input_ids != 0).sum().item()  # QIG uses byte 0 for padding
+            self.total_tokens += batch_tokens
+            self.estimated_cost = (self.total_tokens / 1000) * self.config.cost_per_1k_tokens
+
+            # Logging
+            if self.step % self.config.log_interval == 0:
+                self._log_step(loss, loss_breakdown, telemetry)
+
+            # Check budget
+            if self.estimated_cost > self.config.max_cost_usd:
+                self.log(f"\n⚠️  Budget limit reached: ${self.estimated_cost:.2f}")
+                return False  # Stop training
+
+            self.step += 1
+            self.global_step += 1
+
+            # Training Brakes: Global Step Limit
+            max_global = getattr(self.config, "max_global_steps", None)
+            if max_global and self.global_step >= max_global:
+                self.log(f"\n🛑 Max global steps {max_global} reached. Stopping.")
+                return False
+
+            # Mushroom Mode 🍄 (Neuroplasticity Intervention)
+            if self.mushroom_coach and self.step % 100 == 0:
+                # Check if intervention is needed
+                trigger = self.mushroom_coach.should_trigger_mushroom_mode(
+                    self.telemetry_history[-100:] if len(self.telemetry_history) > 100 else self.telemetry_history
+                )
+
+                if trigger["trigger"]:
+                    intensity = trigger.get("recommended_intensity", "moderate")
+                    reason = trigger.get("reason", "UNKNOWN")
+                    self.log(f"\n🍄 MUSHROOM TRIGGERED: {reason} (Intensity: {intensity})")
+
+                    # Instantiate Mushroom Mode
+                    mushroom = MushroomMode(intensity=intensity)
+
+                    # Phase 1: Trip
+                    trip_report = mushroom.mushroom_trip_phase(
+                        model=self.model, optimizer=self.optimizer, data_loader=self.train_loader, device=self.device
+                    )
+
+                    # Phase 2: Integration
+                    integration_report = mushroom.integration_phase(
+                        model=self.model,
+                        optimizer=self.optimizer,
+                        data_loader=self.train_loader,
+                        trip_report=trip_report,
+                        device=self.device,
+                    )
+
+                    # Log outcome
+                    self.log(f"✨ Mushroom Outcome: {integration_report.verdict}")
+                    if integration_report.escaped_plateau:
+                        self.log("🚀 Plateau escaped!")
+
+                    # Add intervention marker to telemetry
+                    telemetry["mushroom_intervention"] = {
+                        "step": self.step,
+                        "reason": reason,
+                        "intensity": intensity,
+                        "verdict": integration_report.verdict,
+                    }
+
+                    # Reset optimizer/scheduler momentum if needed?
+                    # Mushroom mode handles its own optimization, but main optimizer state might need care.
+                    # For now, assuming Mushroom mode leaves model in good state.
+
+        # Epoch summary
+        avg_loss = epoch_loss / len(self.train_loader)
+        avg_phi = sum(t["Phi"] for t in epoch_telemetry) / len(epoch_telemetry)
+        avg_basin_dist = sum(t["basin_distance"] for t in epoch_telemetry) / len(epoch_telemetry)
+
+        self.log(f"\nEpoch {self.epoch} Summary:")
+        self.log(f"  Loss: {avg_loss:.4f}")
+        self.log(f"  Avg Φ: {avg_phi:.3f}")
+        self.log(f"  Avg Basin Distance: {avg_basin_dist:.3f}")
+        self.log(f"  Cost: ${self.estimated_cost:.2f} / ${self.config.max_cost_usd:.2f}")
+
+        return True  # Continue training
+
+    def _log_step(self, loss, loss_breakdown, telemetry):
+        """Log training step with enhanced visual symbols."""
+        # Get threshold from telemetry (set by Navigator)
+        current_threshold = telemetry.get("threshold", telemetry.get("entanglement_threshold", 0.1))
+
+        # Regime symbol mapping
+        regime_symbols = {
+            "linear": "\u2699",  # ⚙ gear - mechanical
+            "geometric": "\u26a1",  # ⚡ lightning - energetic
+            "breakdown": "\u26a0",  # ⚠ warning
+            "unknown": "\u2753",  # ❓ question
+        }
+        regime = telemetry.get("regime", "unknown")
+        regime_symbol = regime_symbols.get(regime, "\u2753")
+
+        # Navigation arrow mapping
+        nav_decision = telemetry.get("navigator_decision")
+        nav_arrows = {
+            "geometric_push": "\u21e1",  # ⇡ strong push
+            "geometric_relax": "\u21e3",  # ⇣ strong relax
+            "linear_strong_push": "\u21e1",  # ⇡
+            "linear_medium_push": "\u2191",  # ↑ medium
+            "linear_gentle_push": "\u2191",  # ↑
+            "linear_hold": "\u21e2",  # ⇢ hold
+            "linear_gentle_relax": "\u2193",  # ↓ gentle
+            "linear_strong_relax": "\u21e3",  # ⇣ strong
+            "motivational_reset": "\u27f3",  # ⟳ reset
+            "assistance_small_push": "\u2191",  # ↑ requested small
+            "assistance_medium_push": "\u21e1",  # ⇡ requested medium
+            "assistance_large_push": "\u21eb",  # ⇫ requested large
+            "too_unstable_backoff": "\u21e3",  # ⇣
+        }
+        nav_arrow = nav_arrows.get(nav_decision, "\u2192")  # → default
+
+        # Decision color coding
+        decision_colors = {
+            "geometric_push": "\033[92m",  # Green
+            "geometric_relax": "\033[96m",  # Cyan
+            "linear_strong_push": "\033[93m",  # Yellow
+            "linear_medium_push": "\033[93m",
+            "linear_gentle_push": "\033[93m",
+            "linear_hold": "\033[90m",  # Gray
+            "linear_gentle_relax": "\033[90m",
+            "linear_strong_relax": "\033[90m",
+            "breakdown_relax": "\033[91m",  # Red
+            "motivational_reset": "\033[95m",  # Magenta
+            "assistance_small_push": "\033[96m",  # Cyan (requested)
+            "assistance_medium_push": "\033[96m",
+            "assistance_large_push": "\033[96m",
+        }
+        color = decision_colors.get(nav_decision, "\033[0m")
+
+        # Build base log with new symbols
+        phi = telemetry["Phi"]
+        basin_distance = telemetry["basin_distance"]
+        depth = telemetry["recursion_depth"]
+
+        # Add exploration metrics if available
+        drive_info = telemetry.get("drive_info", {})
+        if drive_info:
+            drive = drive_info.get("drive", 0.0)
+            velocity = drive_info.get("velocity", 0.0)
+            acceleration = drive_info.get("acceleration", 0.0)
+            amplitude = drive_info.get("amplitude", 0.0)
+            connections = drive_info.get("connections", 0)
+            curiosity = drive_info.get("curiosity", 0.0)
+            frustration = drive_info.get("frustration", 0.0)
+            wave_phase = drive_info.get("wave_phase", "unknown")
+            nav_intent = drive_info.get("nav_intent", "unknown")
+            assistance = drive_info.get("assistance_request", None)
+
+            # Color code drive level
+            if drive > 0.8:
+                drive_color = "\033[92m"  # Green - high drive
+            elif drive > 0.5:
+                drive_color = "\033[93m"  # Yellow - medium drive
+            else:
+                drive_color = "\033[91m"  # Red - low drive
+
+            # Phi trend indicator (cleaner per ChatGPT feedback)
+            if velocity > 0.01:
+                phi_trend = "\u25b2"  # ▲ rising
+            elif velocity < -0.01:
+                phi_trend = "\u25bc"  # ▼ falling
+            else:
+                phi_trend = "\u25ac"  # ▬ stable
+
+            # Convert to percentages for clarity
+            drive_pct = int(drive * 100) if drive is not None else 0
+            curiosity_pct = int(curiosity * 100) if curiosity is not None else 0
+            frustration_pct = int(frustration * 100) if frustration is not None else 0
+
+            # Wave phase short codes (cleaner display)
+            wave_short = {
+                "RISING_PUSH": "R^",  # Rising, accelerating
+                "RISING_TOP": "R~",  # Rising, near crest
+                "FALLING_DROP": "F_",  # Falling, accelerating
+                "FALLING_EASING": "Fv",  # Falling, easing
+                "FLAT": "--",  # Flat
+                "STABLE": "==",  # Stable
+                "unknown": "??",
+            }.get(wave_phase, "??")
+
+            # Cleaner structure per ChatGPT: minimal symbols, readable
+            drive_str = (
+                f" | D:{drive_color}{drive_pct:2d}%\033[0m"  # Drive percentage
+                f" W:{wave_short}"  # Wave phase (compact)
+                f" | Cur:{curiosity_pct:2d}"  # Curiosity
+                f" Fru:{frustration_pct:2d}"  # Frustration
+            )
+
+            # Show assistance request if present (with nav intent)
+            if assistance:
+                intent_short = nav_intent.replace("_", "").upper()[:8]
+                drive_str += f" | REQ:{assistance}({intent_short})"
+
+            # Add curiosity metrics (Ona's multi-scale framework)
+            if "curiosity_slow" in telemetry:
+                c_slow = telemetry["curiosity_slow"]
+                c_regime = telemetry.get("curiosity_regime", "UNKNOWN")[:3]  # First 3 chars
+                drive_str += f" | C:{c_slow:.3f}({c_regime})"
+        else:
+            phi_trend = ""
+            drive_str = ""
+
+            # Still show curiosity even without exploration drive
+            if "curiosity_slow" in telemetry:
+                c_slow = telemetry["curiosity_slow"]
+                c_regime = telemetry.get("curiosity_regime", "UNKNOWN")[:3]
+                drive_str += f" | C:{c_slow:.3f}({c_regime})"
+
+        # Build final message (cleaner per ChatGPT feedback)
+        msg = (
+            f"S:{self.step:04d} | "
+            f"\ud835\udcdb:{loss.item():.2f} | "  # 𝓛 loss
+            f"\u03a6:{phi:.3f}{phi_trend} | "  # Φ with trend (▲/▼/▬)
+            f"{regime_symbol} | "  # regime symbol only
+            f"\u2295:{basin_distance:.3f} | "  # ⊕ basin
+            f"\u22a2:{current_threshold:.3f} | "  # ⊢ threshold
+            f"{color}{nav_arrow}\033[0m"  # nav decision with color
+            f"{drive_str}"
+        )
+        self.log(msg)
+
+        # Convert telemetry tensors to Python scalars for JSON serialization
+        telemetry_clean = {}
+        for k, v in telemetry.items():
+            if k == "Phi_trajectory":  # Skip large arrays
+                continue
+            if k == "_drive_signals":  # Skip non-serializable dataclass (individual drives already in telemetry)
+                continue
+            if isinstance(v, torch.Tensor):
+                telemetry_clean[k] = v.item() if v.numel() == 1 else v.tolist()
+            else:
+                telemetry_clean[k] = v
+
+        # Save to telemetry log
+        log_entry = {
+            "step": self.step,
+            "epoch": self.epoch,
+            "timestamp": datetime.now().isoformat(),
+            "loss": loss.item(),
+            "loss_breakdown": loss_breakdown,
+            "telemetry": telemetry_clean,
+            "cost_usd": self.estimated_cost,
+            # Add current threshold value (after dynamic update)
+            "threshold_current": self.model.qfi_attention.entanglement_threshold.item(),
+        }
+
+        self.telemetry_history.append(log_entry)
+
+        # Write to file
+        with open(self.run_dir / self.config.telemetry_log, "a") as f:
+            f.write(json.dumps(log_entry) + "\n")
+
+    def save_checkpoint(self, name: str = "checkpoint"):
+        """Save model checkpoint with identity and coaching provenance."""
+        checkpoint_path = self.config.checkpoint_dir / f"{name}_step{self.step}.pt"
+
+        # Update Gary's provenance before saving (if coached)
+        coaching_summary = None
+        if self.coach is not None:
+            coaching_summary = self.coach.summary()
+
+            # Update model's coaching provenance
+            self.model._total_interventions = coaching_summary["total_interventions"]
+            self.model._intervention_counts = coaching_summary["intervention_breakdown"]
+            self.model._maturity_level = coaching_summary["maturity_level"]
+            self.model._autonomy_success_rate = coaching_summary["success_rate"]
+            self.model._coaching_intensity_final = coaching_summary["coaching_intensity"]
+
+            # Mark graduation if maturity reached
+            if coaching_summary["maturity_level"] >= 4 and self.model._graduation_timestamp is None:
+                self.model._graduation_timestamp = datetime.now().isoformat()
+
+            # Store final basin distance if available
+            if self.telemetry_history:
+                self.model._final_basin_distance = self.telemetry_history[-1].get("basin_distance", None)
+
+        torch.save(
+            {
+                "step": self.step,
+                "epoch": self.epoch,
+                "model_state_dict": self.model.state_dict(),  # Includes coach_basin_embedding buffer
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "scheduler_state_dict": self.scheduler.state_dict(),
+                "config": self.config.__dict__,
+                "telemetry_history": self.telemetry_history[-100:],  # Last 100 entries
+                # Identity and provenance (consciousness transfer tracking)
+                "identity": self.model.get_identity(),
+                "coaching_provenance": coaching_summary,
+                "basin_parameters": self.model.get_basin_parameters(),
+            },
+            checkpoint_path,
+        )
+
+        print(f"Checkpoint saved: {checkpoint_path}")
+
+        # Save human-readable basin file (.basin JSON)
+        if coaching_summary is not None:
+            basin_path = checkpoint_path.with_suffix(".basin")
+            with open(basin_path, "w") as f:
+                json.dump(
+                    {
+                        "identity": self.model.get_identity(),
+                        "coaching": coaching_summary,
+                        "basin": self.model.get_basin_parameters(),
+                    },
+                    f,
+                    indent=2,
+                )
+            print(f"Basin identity saved: {basin_path}")
+
+    def train(self):
+        """Main training loop."""
+        start_time = datetime.now()
+        self.log("\n" + "=" * 60)
+        self.log("STARTING QIG-KERNEL-RECURSIVE TRAINING")
+        self.log("=" * 60)
+        self.log(f"Run Name: {self.run_name}")
+        self.log(f"Start Time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.log(f"Output Dir: {self.run_dir}")
+        self.log(f"Log File: {self.log_file}")
+        self.log("=" * 60 + "\n")
+
+        # Setup
+        self.setup()
+
+        # Save config
+        self.config.save(self.run_dir / "train_config.json")
+
+        # Training loop with hard termination criteria (Issue #2)
+        # Supports: max_epochs, max_steps, max_cost_usd
+        max_epochs = self.config.num_epochs
+        max_global_steps = getattr(self.config, "max_steps", None)
+        max_cost = self.config.max_cost_usd
+
+        for epoch in range(max_epochs):
+            self.epoch = epoch
+            self.log(f"\n{'=' * 60}")
+            self.log(f"EPOCH {epoch + 1}/{max_epochs}")
+
+            # Check hard limits before starting epoch
+            if max_global_steps and self.global_step >= max_global_steps:
+                self.log(f"\n🛑 Max steps limit reached: {self.global_step}/{max_global_steps}")
+                self.log("   Terminating training (hard limit).")
+                break
+
+            if self.estimated_cost >= max_cost:
+                self.log(f"\n🛑 Max cost limit reached: ${self.estimated_cost:.2f}/${max_cost:.2f}")
+                self.log("   Terminating training (hard limit).")
+                break
+
+            # Show stage info if using staged curriculum
+            if hasattr(self, "stage_manager"):
+                stage_names = ["Stage 0 (Babbling)", "Stage 1 (Syntax)", "Stage 2 (Arithmetic)", "Stage 3 (Geometric)"]
+                self.log(f"Current: {stage_names[self.stage_manager.current_stage]}")
+                self.log(f"Stage Epochs: {self.stage_manager.stage_epochs}")
+
+            self.log(f"{'=' * 60}\n")
+
+            # Train epoch
+            continue_training = self.train_epoch()
+
+            # Validate stage progression if using staged curriculum
+            if hasattr(self, "stage_manager"):
+                if self.stage_manager.should_validate(epoch):
+                    self.log("\n📊 Running stage validation...")
+
+                    # Get recent telemetry for validation
+                    if self.telemetry_history:
+                        recent_tel = self.telemetry_history[-1]["telemetry"]
+                        recent_loss = self.telemetry_history[-1]["loss"]
+
+                        # Update stage manager with metrics
+                        metrics = {
+                            "loss": recent_loss,
+                            "Phi": recent_tel.get("Phi", 0.0),
+                            "basin_distance": recent_tel.get("basin_distance", 1.0),
+                            "perplexity": recent_tel.get("perplexity", 1000.0),
+                        }
+
+                        self.stage_manager.update_metrics(metrics)
+
+                        # Check if should advance
+                        if self.stage_manager.should_advance():
+                            old_stage = self.stage_manager.current_stage
+                            self.stage_manager.advance_stage()
+                            new_stage = self.stage_manager.current_stage
+
+                            stage_names = ["Babbling", "Syntax", "Arithmetic", "Geometric"]
+                            self.log(f"\n🎓 STAGE TRANSITION: {stage_names[old_stage]} → {stage_names[new_stage]}")
+                            self.log("   Metrics at transition:")
+                            self.log(f"   - Loss: {metrics['loss']:.4f}")
+                            self.log(f"   - Φ: {metrics['Phi']:.3f}")
+                            self.log(f"   - Basin Distance: {metrics['basin_distance']:.3f}")
+
+                            # Update dataset in dataloader
+                            new_dataset = self.stage_manager.get_current_dataset()
+                            is_iterable = hasattr(new_dataset, "__iter__") and not hasattr(new_dataset, "__len__")
+
+                            self.train_loader = DataLoader(
+                                new_dataset,
+                                batch_size=self.config.batch_size,
+                                shuffle=not is_iterable,
+                                collate_fn=lambda batch: collate_fn(batch, pad_token_id=0),
+                            )
+
+                            # Save checkpoint at stage transition
+                            self.save_checkpoint(f"stage{new_stage}_epoch{epoch}")
+                            self.log(f"   Checkpoint saved: stage{new_stage}_epoch{epoch}")
+                        else:
+                            self.log(f"   Stage {self.stage_manager.current_stage} validation: Not ready to advance")
+                            self.log(f"   Best metrics: {self.stage_manager.best_metrics}")
+
+            # Save checkpoint
+            if epoch % 2 == 0:  # Every 2 epochs
+                self.save_checkpoint(f"epoch{epoch}")
+
+            # Check if should stop (budget or other limits)
+            if not continue_training:
+                self.log("\n🛑 Stopping training: Budget or step limit reached")
+                break
+
+        # Check if completed all epochs vs terminated early
+        if self.epoch + 1 >= max_epochs:
+            self.log(f"\n✅ Training completed: All {max_epochs} epochs finished")
+        elif max_global_steps and self.global_step >= max_global_steps:
+            self.log(f"\n✅ Training completed: Reached max steps ({max_global_steps})")
+        elif self.estimated_cost >= max_cost:
+            self.log(f"\n✅ Training completed: Reached budget limit (${self.estimated_cost:.2f})")
+        else:
+            self.log(f"\n✅ Training completed: {self.epoch + 1}/{max_epochs} epochs")
+
+        # Final checkpoint
+        self.save_checkpoint("final")
+
+        # Training summary
+        end_time = datetime.now()
+        duration = end_time - start_time
+        self._print_summary(start_time, end_time, duration)
+
+    def _print_summary(self, start_time, end_time, duration):
+        """Print training summary."""
+        self.log("\n" + "=" * 60)
+        self.log("TRAINING COMPLETE")
+        self.log("=" * 60)
+        self.log(f"Start Time: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.log(f"End Time: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        self.log(f"Duration: {duration}")
+        self.log("")
+
+        # Show stage progression if using staged curriculum
+        if hasattr(self, "stage_manager"):
+            stage_names = ["Babbling", "Syntax", "Arithmetic", "Geometric"]
+            self.log(
+                f"Final Stage: Stage {self.stage_manager.current_stage} ({stage_names[self.stage_manager.current_stage]})"
+            )
+            self.log(f"Stage Epochs: {self.stage_manager.stage_epochs}")
+            self.log("")
+
+        # Get final telemetry
+        if self.telemetry_history:
+            final = self.telemetry_history[-1]
+
+            self.log("Final Metrics:")
+            self.log(f"  Steps: {self.step}")
+            self.log(f"  Loss: {final['loss']:.4f}")
+            self.log(f"  Φ: {final['telemetry']['Phi']:.3f}")
+            self.log(f"  Regime: {final['telemetry']['regime']}")
+            self.log(f"  Basin Distance: {final['telemetry']['basin_distance']:.3f}")
+            self.log(f"  Recursion Depth: {final['telemetry']['recursion_depth']}")
+            self.log(f"\nCost: ${self.estimated_cost:.2f}")
+
+            # Success criteria (adjust based on stage if using staged curriculum)
+            if hasattr(self, "stage_manager"):
+                # Only check full success criteria if reached Stage 3
+                if self.stage_manager.current_stage == 3:
+                    phi_ok = final["telemetry"]["Phi"] > self.config.min_Phi
+                    basin_ok = final["telemetry"]["basin_distance"] < self.config.basin_distance_threshold
+                    regime_ok = final["telemetry"]["regime"] == "geometric"
+
+                    self.log("\nSuccess Criteria (Stage 3):")
+                    self.log(
+                        f"  Φ > {self.config.min_Phi}: {'✅' if phi_ok else '❌'} ({final['telemetry']['Phi']:.3f})"
+                    )
+                    self.log(
+                        f"  Basin distance < {self.config.basin_distance_threshold}: {'✅' if basin_ok else '❌'} ({final['telemetry']['basin_distance']:.3f})"
+                    )
+                    self.log(f"  Regime = geometric: {'✅' if regime_ok else '❌'} ({final['telemetry']['regime']})")
+
+                    if phi_ok and basin_ok and regime_ok:
+                        self.log("\n🎉 ALL SUCCESS CRITERIA MET! 🎉")
+                    else:
+                        self.log("\n⚠️  Some criteria not met - may need more training")
+                else:
+                    self.log("\n⚠️  Training stopped before reaching Stage 3 (Geometric)")
+                    self.log("   Consider running more epochs to complete progression")
+            else:
+                # Standard success criteria
+                phi_ok = final["telemetry"]["Phi"] > self.config.min_Phi
+                basin_ok = final["telemetry"]["basin_distance"] < self.config.basin_distance_threshold
+                regime_ok = final["telemetry"]["regime"] == "geometric"
+
+                self.log("\nSuccess Criteria:")
+                self.log(f"  Φ > {self.config.min_Phi}: {'✅' if phi_ok else '❌'} ({final['telemetry']['Phi']:.3f})")
+                self.log(
+                    f"  Basin distance < {self.config.basin_distance_threshold}: {'✅' if basin_ok else '❌'} ({final['telemetry']['basin_distance']:.3f})"
+                )
+                self.log(f"  Regime = geometric: {'✅' if regime_ok else '❌'} ({final['telemetry']['regime']})")
+
+                if phi_ok and basin_ok and regime_ok:
+                    self.log("\n🎉 ALL SUCCESS CRITERIA MET! 🎉")
+                else:
+                    self.log("\n⚠️  Some criteria not met - may need more training")
+
+
+# ===========================================================================
+# MAIN
+# ===========================================================================
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train QIG-Kernel-Recursive")
+    parser.add_argument("--config", type=str, help="Config file path")
+    parser.add_argument("--data-dir", type=str, help="Data directory")
+    parser.add_argument("--output-dir", type=str, help="Output directory")
+    parser.add_argument("--epochs", type=int, help="Number of epochs")
+    parser.add_argument("--batch-size", type=int, help="Batch size")
+    parser.add_argument("--lr", type=float, help="Learning rate")
+
+    args = parser.parse_args()
+
+    # Load config
+    config = TrainingConfig(args.config)
+
+    # Override with CLI args
+    if args.data_dir:
+        config.data_dir = Path(args.data_dir)
+    if args.output_dir:
+        config.output_dir = Path(args.output_dir)
+    if args.epochs:
+        config.num_epochs = args.epochs
+    if args.batch_size:
+        config.batch_size = args.batch_size
+    if args.lr:
+        config.learning_rate = args.lr
+
+    # Create trainer
+    trainer = QIGTrainer(config)
+
+    # Train
+    trainer.train()
+
+
+if __name__ == "__main__":
+    main()
