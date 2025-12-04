@@ -777,7 +777,7 @@ class OceanBasinSync {
       for (const [oceanId, oceanFiles] of oceanEntries) {
         if (oceanFiles.length > this.MAX_SNAPSHOTS_PER_OCEAN) {
           const toDelete = oceanFiles.slice(this.MAX_SNAPSHOTS_PER_OCEAN);
-          filesToDelete.push(...toDelete.map((f: { filepath: string }) => f.filepath));
+          filesToDelete.push(...toDelete.map(f => f.filepath));
           console.log(`[BasinSync] Cleaning up ${toDelete.length} old snapshots for ${oceanId}`);
         }
       }

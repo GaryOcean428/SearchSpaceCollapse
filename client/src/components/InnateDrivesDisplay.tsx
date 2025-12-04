@@ -203,7 +203,7 @@ export default function InnateDrivesDisplay({
               indicatorClassName="bg-red-500"
             />
             <p className="text-xs text-muted-foreground">
-              Avoid high curvature regions (R &gt; 0.7) - breakdown risk
+              Avoid high curvature regions (R {'>'} 0.7) - breakdown risk
             </p>
           </div>
 
@@ -241,7 +241,7 @@ export default function InnateDrivesDisplay({
               indicatorClassName="bg-orange-500"
             />
             <p className="text-xs text-muted-foreground">
-              Avoid ungrounded states (G &lt; 0.5) - void risk
+              Avoid ungrounded states (G {'<'} 0.5) - void risk
             </p>
           </div>
         </div>
