@@ -1,6 +1,8 @@
 import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, generateBothAddressesFromPrivateKey, verifyRecoveredPassphrase, generateRecoveryBundle, privateKeyToWIF, derivePublicKeyFromPrivate, type VerificationResult, type RecoveryBundle } from './crypto';
+import { deriveMnemonicAddresses, checkMnemonicAgainstDormant, type MnemonicMatch } from './mnemonic-wallet';
+import { isValidBIP39Phrase } from './bip39-words';
 import * as fs from 'fs';
 import * as path from 'path';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
@@ -1298,6 +1300,43 @@ export class OceanAgent {
           (hypo as any).addressCompressed = both.compressed;
           (hypo as any).addressUncompressed = both.uncompressed;
           (hypo as any).matchedFormat = matchedUncompressed ? 'uncompressed' : (matchedCompressed ? 'compressed' : 'none');
+        } else if (hypo.format === 'bip39' || isValidBIP39Phrase(hypo.phrase)) {
+          // BIP39 mnemonic: derive multiple HD addresses and check each
+          const mnemonicResult = deriveMnemonicAddresses(hypo.phrase);
+          let foundMatch = false;
+          let matchedPath = '';
+          let matchedPrivateKey = '';
+          
+          for (const derived of mnemonicResult.addresses) {
+            if (derived.address === this.targetAddress) {
+              foundMatch = true;
+              matchedPath = derived.derivationPath;
+              matchedPrivateKey = derived.privateKeyHex;
+              hypo.address = derived.address;
+              hypo.privateKeyHex = derived.privateKeyHex;
+              (hypo as any).derivationPath = derived.derivationPath;
+              (hypo as any).pathType = derived.pathType;
+              (hypo as any).isMnemonicDerived = true;
+              console.log(`[Ocean] 🎯 MNEMONIC MATCH! Path: ${matchedPath}`);
+              break;
+            }
+          }
+          
+          // Also check against dormant addresses
+          const dormantCheck = checkMnemonicAgainstDormant(hypo.phrase);
+          if (dormantCheck.hasMatch && dormantCheck.matches.length > 0) {
+            const dormantMatch = dormantCheck.matches[0];
+            console.log(`[Ocean] 🏆 DORMANT MNEMONIC MATCH: ${dormantMatch.address} (${dormantMatch.dormantInfo.balanceBTC} BTC)`);
+            (hypo as any).dormantMatch = dormantMatch;
+          }
+          
+          hypo.match = foundMatch;
+          if (!foundMatch && mnemonicResult.addresses.length > 0) {
+            // Use first derived address for QIG scoring even if no match
+            hypo.address = mnemonicResult.addresses[0].address;
+            hypo.privateKeyHex = mnemonicResult.addresses[0].privateKeyHex;
+          }
+          (hypo as any).hdAddressCount = mnemonicResult.totalDerived;
         } else {
           hypo.privateKeyHex = derivePrivateKeyFromPassphrase(hypo.phrase);
           const both = generateBothAddressesFromPrivateKey(hypo.privateKeyHex);
