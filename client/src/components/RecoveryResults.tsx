@@ -702,21 +702,3 @@ export default function RecoveryResults() {
     </div>
   );
 }
-        </h3>
-        <Badge variant="secondary">{data.count} total</Badge>
-      </div>
-      
-      <ScrollArea className="h-[400px]">
-        <div className="space-y-3 pr-4">
-          {data.recoveries.map((recovery) => (
-            <RecoveryCard
-              key={recovery.filename}
-              recovery={recovery}
-              onSelect={() => setSelectedFilename(recovery.filename)}
-            />
-          ))}
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}
