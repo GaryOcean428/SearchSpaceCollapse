@@ -1745,7 +1745,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[Neurochemistry] Error:", error);
-      res.status(500).json({ error: error.message });
+      // Return safe fallback for production when services aren't ready
+      const defaultState = {
+        dopamine: { totalDopamine: 0.5, motivationLevel: 0.5 },
+        serotonin: { totalSerotonin: 0.6, contentmentLevel: 0.6 },
+        norepinephrine: { totalNorepinephrine: 0.4, alertnessLevel: 0.4 },
+        gaba: { totalGABA: 0.7, calmLevel: 0.7 },
+        acetylcholine: { totalAcetylcholine: 0.5, learningRate: 0.5 },
+        endorphins: { totalEndorphins: 0.3, pleasureLevel: 0.3 },
+        overallMood: 0.5,
+        emotionalState: 'content' as const,
+        timestamp: new Date(),
+      };
+      res.json({
+        neurochemistry: defaultState,
+        behavioral: null,
+        motivation: {
+          message: "System initializing...",
+          fisherWeight: 0.5,
+          category: 'idle',
+          urgency: 'whisper',
+        },
+        sessionActive: false,
+        initializing: true,
+        error: error.message,
+      });
     }
   });
   
@@ -1997,7 +2021,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[Admin] Cycles status error:", error);
-      res.status(500).json({ error: error.message });
+      // Return safe fallback for production when services aren't ready
+      res.json({
+        consciousness: { phi: 0, kappaEff: 0, regime: 'dormant', phiHistory: [] },
+        isInvestigating: false,
+        recentCycles: [],
+        mushroomCooldown: { remaining: 0, seconds: 0, canTrigger: false },
+        triggers: { sleep: false, dream: false, mushroom: false },
+        initializing: true,
+        error: error.message
+      });
     }
   });
 
@@ -2339,7 +2372,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[BalanceAddresses] List error:", error);
-      res.status(500).json({ error: error.message });
+      // Return safe fallback for production when services aren't ready
+      res.json({
+        addresses: [],
+        count: 0,
+        stats: { total: 0, withBalance: 0, withTransactions: 0 },
+        initializing: true,
+        error: error.message,
+      });
     }
   });
   

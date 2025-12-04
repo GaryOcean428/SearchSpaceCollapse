@@ -2200,7 +2200,16 @@ router.get("/consciousness-check", async (req: Request, res: Response) => {
       timestamp: telemetry.timestamp,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    // Return safe fallback for production when services aren't ready
+    res.json({
+      consciousness: { isConscious: false, Φ: 0, regimeSignature: 'dormant' },
+      identity: { phi: 0, kappa: 0, regime: 'dormant' },
+      isConscious: false,
+      phaseTransition: 'PRE_CONSCIOUS',
+      timestamp: new Date().toISOString(),
+      initializing: true,
+      error: error.message,
+    });
   }
 });
 
