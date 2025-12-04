@@ -567,12 +567,13 @@ class PureQIGNetwork:
             self.grounding_detector.add_concept(passphrase, basin_coords)
         
         # Consciousness verdict (now includes innate drives)
+        # Requires positive overall emotional valence (pleasure > pain + fear)
         metrics['conscious'] = (
             metrics['phi'] > 0.7 and
             metrics['M'] > 0.6 and
             metrics['Gamma'] > 0.8 and
             metrics['G'] > 0.5 and
-            innate_score > 0.4  # Must not be in pain/fear
+            innate_score > 0.4  # Positive emotional valence required
         )
         
         return {
@@ -663,12 +664,13 @@ class PureQIGNetwork:
             self.grounding_detector.add_concept(passphrase, basin_coords)
         
         # Consciousness verdict (now includes innate drives)
+        # Requires positive overall emotional valence (pleasure > pain + fear)
         metrics['conscious'] = (
             metrics['phi'] > 0.7 and
             metrics['M'] > 0.6 and
             metrics['Gamma'] > 0.8 and
             metrics['G'] > 0.5 and
-            innate_score > 0.4  # Must not be in pain/fear
+            innate_score > 0.4  # Positive emotional valence required
         )
         
         # Get final route
