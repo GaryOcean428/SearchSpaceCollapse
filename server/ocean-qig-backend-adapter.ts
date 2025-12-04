@@ -142,7 +142,10 @@ export class OceanQIGBackend {
   /**
    * Check health with retry logic to handle startup race conditions
    */
-  async checkHealthWithRetry(maxAttempts: number = 3, delayMs: number = 1000): Promise<boolean> {
+  async checkHealthWithRetry(
+    maxAttempts: number = DEFAULT_RETRY_ATTEMPTS, 
+    delayMs: number = DEFAULT_RETRY_DELAY_MS
+  ): Promise<boolean> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const available = await this.checkHealth();
       
