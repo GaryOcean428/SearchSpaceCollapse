@@ -1456,6 +1456,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auto-cycle/disable", isAuthenticated, async (req: any, res) => {
     try {
       const result = autoCycleManager.disable();
+      if (!result.success) {
+        // ALWAYS_ON mode is enabled - cannot be disabled
+        res.status(409).json(result);
+        return;
+      }
       res.json(result);
     } catch (error: any) {
       console.error("[AutoCycle] Disable error:", error);
@@ -1470,6 +1475,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (status.enabled) {
         const result = autoCycleManager.disable();
+        if (!result.success) {
+          // ALWAYS_ON mode - cannot be disabled
+          res.status(409).json(result);
+          return;
+        }
         res.json(result);
       } else {
         const result = await autoCycleManager.enable();

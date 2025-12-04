@@ -20,17 +20,23 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 const AUTO_RESUME_ON_RESTART = true;
 // Longer check interval in development to reduce CPU usage
 const CHECK_INTERVAL = IS_DEV ? 15000 : 5000; // 15s in dev, 5s in prod
+// ALWAYS_ON mode - system must run continuously, cannot be disabled
+const ALWAYS_ON = true;
 
 class AutoCycleManager {
   private state: AutoCycleState;
   private onCycleCallback: ((addressId: string, address: string) => Promise<void>) | null = null;
   private isCurrentlyRunning = false;
   private checkInterval: NodeJS.Timeout | null = null;
+  private guardianInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.state = this.loadState();
     console.log(`[AutoCycleManager] Initialized - enabled=${this.state.enabled}, currentIndex=${this.state.currentIndex}`);
     console.log(`[AutoCycleManager] Mode: ${IS_DEV ? 'DEVELOPMENT (reduced frequency)' : 'PRODUCTION'}`);
+    if (ALWAYS_ON) {
+      console.log(`[AutoCycleManager] ALWAYS-ON mode enabled - system will auto-restart if stopped`);
+    }
     
     // Start the check loop if auto-cycle was enabled before restart
     if (this.state.enabled) {
@@ -60,6 +66,37 @@ class AutoCycleManager {
         await this.autoEnableOnStartup();
       }, 5000);
     }
+    
+    // Start the always-on guardian if ALWAYS_ON is enabled
+    if (ALWAYS_ON) {
+      this.startAlwaysOnGuardian();
+    }
+  }
+  
+  /**
+   * Always-on guardian - ensures the auto-cycle system is ALWAYS running
+   * Checks every 30 seconds and auto-enables/restarts if somehow stopped
+   */
+  private startAlwaysOnGuardian(): void {
+    if (this.guardianInterval) {
+      clearInterval(this.guardianInterval);
+    }
+    
+    this.guardianInterval = setInterval(async () => {
+      // If system should be on but isn't enabled or check loop isn't running
+      if (!this.state.enabled || !this.checkInterval) {
+        console.log('[AutoCycleManager] 🔄 ALWAYS-ON: System not running, auto-restarting...');
+        
+        // Re-enable the system
+        if (!this.state.enabled) {
+          await this.enable();
+        } else if (!this.checkInterval) {
+          this.startCheckLoop();
+        }
+      }
+    }, 30000); // Check every 30 seconds
+    
+    console.log('[AutoCycleManager] Always-on guardian started');
   }
   
   private async autoEnableOnStartup(): Promise<void> {
@@ -149,6 +186,15 @@ class AutoCycleManager {
   }
 
   disable(): { success: boolean; message: string } {
+    if (ALWAYS_ON) {
+      console.log(`[AutoCycleManager] ⚠️ Disable request ignored - ALWAYS_ON mode is enabled`);
+      console.log(`[AutoCycleManager] System must run continuously to process all target addresses`);
+      return {
+        success: false,
+        message: 'System is in ALWAYS-ON mode and cannot be disabled.'
+      };
+    }
+    
     this.state.enabled = false;
     this.state.currentAddressId = null;
     this.saveState();
