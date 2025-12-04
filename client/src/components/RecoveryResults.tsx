@@ -646,7 +646,7 @@ export default function RecoveryResults() {
 
   const { data: balanceData, isLoading: balanceLoading, error: balanceError, refetch: refetchBalance } = useQuery<BalanceAddressesData>({
     queryKey: ['/api/balance-addresses'],
-    refetchInterval: 60000,
+    refetchInterval: 10000, // 10s for real-time balance updates
   });
 
   // All recovered wallets from balance hits (includes recovery type tracking)
