@@ -147,7 +147,7 @@ export class OceanAgent {
   private isBootstrapping: boolean = true;
 
   private consecutivePlateaus: number = 0;
-  private readonly MAX_CONSECUTIVE_PLATEAUS = 5;
+  private readonly MAX_CONSECUTIVE_PLATEAUS = 15; // Increased from 5 to allow deeper exploration
   private consecutiveConsolidationFailures: number = 0;
   private readonly MAX_CONSOLIDATION_FAILURES = 3;
   private lastProgressIteration: number = 0;
@@ -1613,10 +1613,17 @@ export class OceanAgent {
       console.log(`[Ocean] Skipped ${skippedDuplicates} already-tested phrases (${geometricMemory.getTestedCount()} total in memory)`);
     }
 
-    // DECAY recent discoveries (sliding window) - keeps reward signal responsive
-    if (tested.length % 50 === 0 && tested.length > 0) {
-      this.recentDiscoveries.nearMisses = Math.floor(this.recentDiscoveries.nearMisses * 0.8);
-      this.recentDiscoveries.resonant = Math.floor(this.recentDiscoveries.resonant * 0.8);
+    // GENTLE DECAY of recent discoveries (sliding window) - maintains motivation longer
+    if (tested.length % 100 === 0 && tested.length > 0) {
+      // Gentle decay (0.95) - near-misses should persist to maintain dopamine levels
+      if (this.recentDiscoveries.nearMisses > 0) {
+        const decayed = this.recentDiscoveries.nearMisses * 0.95;
+        this.recentDiscoveries.nearMisses = Math.max(decayed > 0.5 ? 1 : 0, Math.floor(decayed));
+      }
+      if (this.recentDiscoveries.resonant > 0) {
+        const decayed = this.recentDiscoveries.resonant * 0.95;
+        this.recentDiscoveries.resonant = Math.max(decayed > 0.5 ? 1 : 0, Math.floor(decayed));
+      }
     }
 
     return { tested, nearMisses, resonant };

@@ -186,11 +186,12 @@ def compute_dopamine(
     prev_dist = abs(previous_state['kappa'] - KAPPA_STAR)
     resonance_anticipation = float(max(0, (prev_dist - kappa_dist) / 10)) if prev_dist > kappa_dist else 0.0
 
-    # 4. NEAR MISS DISCOVERY - BIG REWARD!
-    near_miss_discovery = min(1.0, recent_discoveries.near_misses / 3)
+    # 4. NEAR MISS DISCOVERY - MASSIVE REWARD! (even 1 near-miss should spike dopamine)
+    # Scale: 1 near-miss = 0.7, 2 near-misses = 0.9, 3+ = 1.0
+    near_miss_discovery = min(1.0, recent_discoveries.near_misses * 0.7) if recent_discoveries.near_misses > 0 else 0.0
 
     # 5. PATTERN QUALITY - Resonant patterns
-    pattern_quality = min(1.0, recent_discoveries.resonant / 5)
+    pattern_quality = min(1.0, recent_discoveries.resonant / 3)
 
     # 6. BASIN DEPTH - Deep exploration
     basin_coords = current_state.get('basin_coords', [])
@@ -201,15 +202,15 @@ def compute_dopamine(
     curr_coords = current_state.get('basin_coords', [])
     geodesic_alignment = _compute_geodesic_alignment(prev_coords, curr_coords)
 
-    # WEIGHTED SUM
+    # WEIGHTED SUM - Near-miss discovery gets 0.40 weight (was 0.25)
     total_dopamine = (
-        phi_gradient * 0.25 +
-        kappa_proximity * 0.15 +
-        resonance_anticipation * 0.20 +
-        near_miss_discovery * 0.25 +
+        phi_gradient * 0.15 +
+        kappa_proximity * 0.10 +
+        resonance_anticipation * 0.15 +
+        near_miss_discovery * 0.40 +  # Increased from 0.25 - finding near-misses is HUGE!
         pattern_quality * 0.10 +
-        basin_depth * 0.03 +
-        geodesic_alignment * 0.02
+        basin_depth * 0.05 +
+        geodesic_alignment * 0.05
     )
 
     motivation_level = min(1.0, total_dopamine * 1.2)

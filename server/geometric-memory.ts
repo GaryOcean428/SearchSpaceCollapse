@@ -1235,7 +1235,7 @@ class GeometricMemory {
     // Large eigenvalue = well-explored direction
     // Small eigenvalue = unexplored direction (in orthogonal complement)
     const maxEigenvalue = Math.max(...covEigenvalues.map(Math.abs));
-    const threshold = maxEigenvalue * 0.05; // 5% of max is threshold
+    const threshold = maxEigenvalue * 0.02; // 2% of max (more sensitive) to expose more unexplored dimensions
     
     const exploredDimensions: number[] = [];
     const unexploredDimensions: number[] = [];

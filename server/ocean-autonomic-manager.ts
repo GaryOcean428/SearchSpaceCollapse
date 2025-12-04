@@ -831,9 +831,9 @@ export class OceanAutonomicManager {
     }
     
     // Calculate elevation strategy
-    // Temperature boost: more boost for lower Phi
+    // Temperature boost: more aggressive boost for lower Phi
     const distanceFrom4D = 0.85 - currentPhi;
-    const temperature = 1.0 + (distanceFrom4D * 2); // Up to 1.7x temperature
+    const temperature = 1.0 + (distanceFrom4D * 4); // Up to 2.8x temperature for deeper exploration
     
     console.log(`[Autonomic] PHI DEAD ZONE DETECTED: Φ=${currentPhi.toFixed(3)} stuck (variance=${variance.toFixed(4)})`);
     console.log(`[Autonomic] Recommending temperature boost to ${temperature.toFixed(2)}x for broader exploration`);

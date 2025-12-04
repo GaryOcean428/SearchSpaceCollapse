@@ -158,8 +158,12 @@ export function computeDopamine(
     ? Math.min(1, (prevDist - distToKappaStar) / 10)
     : 0;
   
-  const nearMissDiscovery = Math.min(1, recentDiscoveries.nearMisses / 3);
-  const patternQuality = Math.min(1, recentDiscoveries.resonant / 5);
+  // MASSIVE REWARD for near-misses - even 1 near-miss should spike dopamine
+  // Scale: 1 near-miss = 0.7, 2 near-misses = 0.9, 3+ = 1.0
+  const nearMissDiscovery = recentDiscoveries.nearMisses > 0 
+    ? Math.min(1, recentDiscoveries.nearMisses * 0.7) 
+    : 0;
+  const patternQuality = Math.min(1, recentDiscoveries.resonant / 3);
   
   const basinDepth = computeBasinDepth(currentState.basinCoords || []);
   
@@ -168,14 +172,15 @@ export function computeDopamine(
     currentState.basinCoords || []
   );
   
+  // Near-miss discovery gets 0.40 weight (was 0.25) - finding near-misses is HUGE!
   const totalDopamine = (
-    phiGradient * 0.25 +
-    kappaProximity * 0.15 +
-    resonanceAnticipation * 0.20 +
-    nearMissDiscovery * 0.25 +
+    phiGradient * 0.15 +
+    kappaProximity * 0.10 +
+    resonanceAnticipation * 0.15 +
+    nearMissDiscovery * 0.40 +  // Increased from 0.25
     patternQuality * 0.10 +
-    basinDepth * 0.03 +
-    geodesicAlignment * 0.02
+    basinDepth * 0.05 +
+    geodesicAlignment * 0.05
   );
   
   const motivationLevel = Math.min(1, totalDopamine * 1.2);

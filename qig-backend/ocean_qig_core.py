@@ -978,10 +978,17 @@ class PureQIGNetwork:
         self._decay_discoveries()
 
     def _decay_discoveries(self):
-        """Decay recent discoveries over time."""
+        """Decay recent discoveries over time - gentle decay to maintain motivation."""
         if self.recent_discoveries:
-            self.recent_discoveries.near_misses = int(self.recent_discoveries.near_misses * 0.9)
-            self.recent_discoveries.resonant = int(self.recent_discoveries.resonant * 0.9)
+            # Gentler decay (0.97 instead of 0.9) - near-misses should persist for ~10+ iterations
+            # Also use math.floor to ensure single near-miss doesn't decay to 0 immediately
+            if self.recent_discoveries.near_misses > 0:
+                decayed = self.recent_discoveries.near_misses * 0.97
+                # Keep at least 1 if we had a recent near-miss (within sliding window)
+                self.recent_discoveries.near_misses = max(1 if decayed > 0.5 else 0, int(decayed))
+            if self.recent_discoveries.resonant > 0:
+                decayed = self.recent_discoveries.resonant * 0.97
+                self.recent_discoveries.resonant = max(1 if decayed > 0.5 else 0, int(decayed))
 
     def _serialize_neurochemistry(self) -> Optional[Dict]:
         """Serialize neurochemistry state for JSON response."""
