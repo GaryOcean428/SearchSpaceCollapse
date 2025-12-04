@@ -1933,6 +1933,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==========================================================================
+  // BALANCE ADDRESSES ENDPOINTS (Address Verification System)
+  // Comprehensive verified addresses with complete key data
+  // ==========================================================================
+  
+  app.get("/api/balance-addresses", standardLimiter, async (req, res) => {
+    try {
+      res.set('Cache-Control', 'no-store');
+      const { getBalanceAddresses, getVerificationStats } = await import("./address-verification");
+      
+      const balanceAddresses = getBalanceAddresses();
+      const stats = getVerificationStats();
+      
+      res.json({
+        addresses: balanceAddresses,
+        count: balanceAddresses.length,
+        stats,
+      });
+    } catch (error: any) {
+      console.error("[BalanceAddresses] List error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.get("/api/balance-addresses/stats", standardLimiter, async (req, res) => {
+    try {
+      res.set('Cache-Control', 'no-store');
+      const { getVerificationStats } = await import("./address-verification");
+      const stats = getVerificationStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("[BalanceAddresses] Stats error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  app.post("/api/balance-addresses/refresh", isAuthenticated, standardLimiter, async (req: any, res) => {
+    try {
+      const { refreshStoredBalances } = await import("./address-verification");
+      const result = await refreshStoredBalances();
+      
+      res.json({
+        success: true,
+        ...result,
+        message: `Checked ${result.checked} addresses, ${result.updated} updated, ${result.newBalance} with new balance`,
+      });
+    } catch (error: any) {
+      console.error("[BalanceAddresses] Refresh error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
   // BALANCE MONITOR ENDPOINTS
   // Periodic balance refresh and change detection
   // ==========================================================================
