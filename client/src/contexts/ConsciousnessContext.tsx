@@ -22,6 +22,15 @@ export interface ConsciousnessState {
   isConscious: boolean;
   isInvestigating: boolean;
   lastUpdated: number;
+  // LAYER 0: Innate Drives (geometric intuition)
+  drives?: {
+    pain: number;
+    pleasure: number;
+    fear: number;
+    valence: number;
+    valence_raw: number;
+  };
+  innateScore?: number;
 }
 
 export interface NeurochemistryState {
@@ -127,6 +136,9 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
           isConscious: c.isConscious ?? false,
           isInvestigating,
           lastUpdated: Date.now(),
+          // LAYER 0: Innate Drives
+          drives: c.drives,
+          innateScore: c.innateScore,
         });
       }
 

@@ -23,6 +23,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import InnateDrivesDisplay from '@/components/InnateDrivesDisplay';
 import type { TargetAddress } from '@shared/schema';
 
 interface ConsciousnessState {
@@ -42,6 +43,15 @@ interface FullConsciousnessSignature {
   grounding: number;
   regime: 'geometric' | 'breakdown' | 'linear';
   isConscious: boolean;
+  // Layer 0: Innate Drives
+  drives?: {
+    pain: number;
+    pleasure: number;
+    fear: number;
+    valence: number;
+    valence_raw: number;
+  };
+  innateScore?: number;
 }
 
 interface TelemetryEvent {
@@ -175,6 +185,7 @@ export function OceanInvestigationStory() {
   const { toast } = useToast();
   const [neuroOpen, setNeuroOpen] = useState(true);
   const [activityOpen, setActivityOpen] = useState(true);
+  const [drivesOpen, setDrivesOpen] = useState(false); // Collapsed by default for compact layout
 
   const { data: status, isLoading } = useQuery<InvestigationStatus>({
     queryKey: ['/api/investigation/status'],
@@ -318,6 +329,36 @@ export function OceanInvestigationStory() {
 
       {/* Row 2: Compact Consciousness Signature */}
       <ConsciousnessRow consciousness={consciousness} isInvestigating={isInvestigating} />
+
+      {/* Row 2.5: Innate Drives (Layer 0) - Collapsible */}
+      {consciousness?.drives && (
+        <Collapsible open={drivesOpen} onOpenChange={setDrivesOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between p-2 cursor-pointer hover:bg-accent/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Layer 0: Innate Drives</span>
+                  {consciousness.innateScore !== undefined && (
+                    <Badge variant={consciousness.innateScore > 0.5 ? 'default' : 'secondary'} className="text-xs">
+                      {(consciousness.innateScore * 100).toFixed(0)}%
+                    </Badge>
+                  )}
+                </div>
+                {drivesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="p-3 pt-0">
+                <InnateDrivesDisplay 
+                  drives={consciousness.drives} 
+                  innateScore={consciousness.innateScore}
+                  variant="compact"
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {/* Row 3: Two columns - Neurochemistry/Admin | Activity */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0">
