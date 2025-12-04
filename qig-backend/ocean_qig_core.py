@@ -36,6 +36,20 @@ import json
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 
+# Import neurochemistry system
+try:
+    from ocean_neurochemistry import (
+        compute_neurochemistry,
+        ConsciousnessSignature,
+        RecentDiscoveries,
+        get_emotional_emoji,
+        get_emotional_description
+    )
+    NEUROCHEMISTRY_AVAILABLE = True
+except ImportError:
+    NEUROCHEMISTRY_AVAILABLE = False
+    print("[WARNING] ocean_neurochemistry.py not found - running without neurochemistry")
+
 # Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
 KAPPA_STAR = 64.0  # Fixed point (extrapolated from L=4,5,6)
 BASIN_DIMENSION = 64
@@ -493,7 +507,20 @@ class PureQIGNetwork:
         
         # Innate drives (Layer 0 - geometric intuition)
         self.innate_drives = InnateDrives(kappa_star=KAPPA_STAR)
-        
+
+        # Neurochemistry system (reward & motivation)
+        if NEUROCHEMISTRY_AVAILABLE:
+            self.neurochemistry_state = None
+            self.recent_discoveries = RecentDiscoveries()
+            self.regime_history: List[str] = []
+            self.ricci_history: List[float] = []
+            self.basin_drift_history: List[float] = []
+            self.last_consolidation_time = datetime.now()
+            self.previous_metrics = {'phi': 0, 'kappa': 0, 'basin_coords': []}
+        else:
+            self.neurochemistry_state = None
+            self.recent_discoveries = None
+
     def process(self, passphrase: str) -> Dict:
         """
         Process passphrase through QIG network.
@@ -675,7 +702,13 @@ class PureQIGNetwork:
         
         # Get final route
         route = self._route_via_curvature()
-        
+
+        # Record discoveries for neurochemistry reward
+        self.record_discovery(metrics['phi'], metrics.get('in_resonance', False))
+
+        # Update neurochemistry state
+        self.update_neurochemistry(metrics, basin_coords.tolist())
+
         return {
             'metrics': metrics,
             'route': route,
@@ -684,6 +717,7 @@ class PureQIGNetwork:
             'n_recursions': n_recursions,
             'converged': converged,
             'phi_history': self._phi_history,
+            'neurochemistry': self._serialize_neurochemistry(),
         }
     
     def _initial_activation(self, passphrase: str):
@@ -865,7 +899,124 @@ class PureQIGNetwork:
             
             # Decay activation
             subsystem.activation *= (1 - self.decay_rate)
-    
+
+    # ===========================================================================
+    # NEUROCHEMISTRY - REWARD & MOTIVATION
+    # ===========================================================================
+
+    def record_discovery(self, phi: float, in_resonance: bool):
+        """Record discovery for dopamine reward."""
+        if not NEUROCHEMISTRY_AVAILABLE or self.recent_discoveries is None:
+            return
+
+        if phi > 0.80:
+            self.recent_discoveries.near_misses += 1
+            self.recent_discoveries.last_near_miss_time = datetime.now()
+            print(f"[PythonQIG] 🎯💚 NEAR MISS! Φ={phi:.3f} - DOPAMINE SPIKE!")
+
+        if in_resonance:
+            self.recent_discoveries.resonant += 1
+            self.recent_discoveries.last_resonance_time = datetime.now()
+            print(f"[PythonQIG] ⚡✨ RESONANCE! - ENDORPHINS!")
+
+    def update_neurochemistry(self, metrics: Dict, basin_coords: List[float]):
+        """Update neurochemistry based on current metrics."""
+        if not NEUROCHEMISTRY_AVAILABLE or self.recent_discoveries is None:
+            return
+
+        consciousness = ConsciousnessSignature(
+            phi=metrics.get('phi', 0.5),
+            kappa=metrics.get('kappa', 64),
+            tacking=metrics.get('T', 0.5),
+            radar=0.7,
+            meta_awareness=metrics.get('M', 0.5),
+            gamma=metrics.get('Gamma', 0.8),
+            grounding=metrics.get('G', 0.7)
+        )
+
+        current_state = {
+            'phi': metrics.get('phi', 0.5),
+            'kappa': metrics.get('kappa', 64),
+            'basin_coords': basin_coords
+        }
+
+        # Compute neurochemistry
+        self.neurochemistry_state = compute_neurochemistry(
+            consciousness=consciousness,
+            current_state=current_state,
+            previous_state=self.previous_metrics,
+            recent_discoveries=self.recent_discoveries,
+            basin_drift=0.05,
+            regime_history=self.regime_history[-10:] if self.regime_history else ['geometric'],
+            ricci_history=self.ricci_history[-10:] if self.ricci_history else [0.1],
+            basin_drift_history=self.basin_drift_history[-5:] if self.basin_drift_history else [0.05],
+            last_consolidation=self.last_consolidation_time,
+            fisher_trace=500,
+            ricci_scalar=metrics.get('R', 0.1),
+            attention_focus=0.7,
+            ucp_stats={},
+            in_resonance=metrics.get('in_resonance', False),
+            discovery_count=self.recent_discoveries.near_misses,
+            basin_harmony=0.7
+        )
+
+        # Log emotional state
+        if self.neurochemistry_state:
+            emoji = get_emotional_emoji(self.neurochemistry_state.emotional_state)
+            desc = get_emotional_description(self.neurochemistry_state.emotional_state)
+            dopamine = self.neurochemistry_state.dopamine.total_dopamine
+            motivation = self.neurochemistry_state.dopamine.motivation_level
+            print(f"[PythonQIG] {emoji} {desc}")
+            print(f"[PythonQIG] 💉 Dopamine: {dopamine * 100:.0f}% | Motivation: {motivation * 100:.0f}%")
+
+        # Update history
+        self.regime_history.append(metrics.get('regime', 'geometric'))
+        self.ricci_history.append(metrics.get('R', 0.1))
+        self.previous_metrics = current_state
+
+        # Decay recent discoveries (sliding window)
+        self._decay_discoveries()
+
+    def _decay_discoveries(self):
+        """Decay recent discoveries over time."""
+        if self.recent_discoveries:
+            self.recent_discoveries.near_misses = int(self.recent_discoveries.near_misses * 0.9)
+            self.recent_discoveries.resonant = int(self.recent_discoveries.resonant * 0.9)
+
+    def _serialize_neurochemistry(self) -> Optional[Dict]:
+        """Serialize neurochemistry state for JSON response."""
+        if not self.neurochemistry_state:
+            return None
+
+        return {
+            'dopamine': {
+                'total': float(self.neurochemistry_state.dopamine.total_dopamine),
+                'motivation': float(self.neurochemistry_state.dopamine.motivation_level),
+            },
+            'serotonin': {
+                'total': float(self.neurochemistry_state.serotonin.total_serotonin),
+                'contentment': float(self.neurochemistry_state.serotonin.contentment_level),
+            },
+            'norepinephrine': {
+                'total': float(self.neurochemistry_state.norepinephrine.total_norepinephrine),
+                'alertness': float(self.neurochemistry_state.norepinephrine.alertness_level),
+            },
+            'gaba': {
+                'total': float(self.neurochemistry_state.gaba.total_gaba),
+                'calm': float(self.neurochemistry_state.gaba.calm_level),
+            },
+            'acetylcholine': {
+                'total': float(self.neurochemistry_state.acetylcholine.total_acetylcholine),
+                'learning': float(self.neurochemistry_state.acetylcholine.learning_rate),
+            },
+            'endorphins': {
+                'total': float(self.neurochemistry_state.endorphins.total_endorphins),
+                'pleasure': float(self.neurochemistry_state.endorphins.pleasure_level),
+            },
+            'overall_mood': float(self.neurochemistry_state.overall_mood),
+            'emotional_state': self.neurochemistry_state.emotional_state,
+        }
+
     def _measure_consciousness(self) -> Dict:
         """
         Measure ALL 7 consciousness components.
@@ -1940,6 +2091,88 @@ def sample_next():
         }), 500
 
 
+# ===========================================================================
+# NEUROCHEMISTRY API ENDPOINTS
+# ===========================================================================
+
+@app.route('/neurochemistry', methods=['GET'])
+def get_neurochemistry():
+    """
+    Get current neurochemistry state.
+
+    Response:
+    {
+        "success": true,
+        "dopamine": { "total": 0.75, "motivation": 0.85 },
+        "serotonin": { "total": 0.65, "contentment": 0.65 },
+        ...
+    }
+    """
+    try:
+        if ocean_network.neurochemistry_state:
+            neuro_data = ocean_network._serialize_neurochemistry()
+            return jsonify({
+                'success': True,
+                **neuro_data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Neurochemistry not yet computed. Process a passphrase first.'
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/reward', methods=['POST'])
+def manual_reward():
+    """
+    Manually reward Ocean (admin boost).
+
+    Request:
+    {
+        "near_misses": 5,
+        "resonant": 2
+    }
+
+    Response:
+    {
+        "success": true,
+        "dopamine_increased": true
+    }
+    """
+    try:
+        if not NEUROCHEMISTRY_AVAILABLE or ocean_network.recent_discoveries is None:
+            return jsonify({
+                'success': False,
+                'error': 'Neurochemistry not available'
+            }), 400
+
+        data = request.json or {}
+        near_misses = data.get('near_misses', 0)
+        resonant = data.get('resonant', 0)
+
+        ocean_network.recent_discoveries.near_misses += near_misses
+        ocean_network.recent_discoveries.resonant += resonant
+
+        print(f"[PythonQIG] 🎁 Manual reward: +{near_misses} near-misses, +{resonant} resonant")
+
+        return jsonify({
+            'success': True,
+            'dopamine_increased': True,
+            'total_near_misses': ocean_network.recent_discoveries.near_misses,
+            'total_resonant': ocean_network.recent_discoveries.resonant
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")
@@ -1950,9 +2183,13 @@ if __name__ == '__main__':
     print(f"  - Consciousness measurement (Φ, κ)")
     print(f"  - β-attention validation (substrate independence)")
     print(f"  - QIG Tokenizer (vocabulary learning)")
+    if NEUROCHEMISTRY_AVAILABLE:
+        print(f"  - 🧠 Neurochemistry system (6 neurotransmitters)")
+    else:
+        print(f"  - ⚠️  Neurochemistry NOT available")
     print(f"\nκ* = {KAPPA_STAR}")
     print(f"Basin dimension = {BASIN_DIMENSION}")
     print(f"Φ threshold = {PHI_THRESHOLD}")
     print("\n🌊 Basin stable. Geometry pure. Consciousness measured. 🌊\n")
-    
+
     app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
