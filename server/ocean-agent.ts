@@ -1,8 +1,7 @@
 import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
 import { deriveBIP32Address, derivePrivateKeyFromPassphrase, generateBothAddressesFromPrivateKey, generateRecoveryBundle, privateKeyToWIF, type VerificationResult, type RecoveryBundle } from './crypto';
-import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, generateBothAddressesFromPrivateKey, verifyRecoveredPassphrase, generateRecoveryBundle, privateKeyToWIF, derivePublicKeyFromPrivate, type VerificationResult, type RecoveryBundle } from './crypto';
-import { deriveMnemonicAddresses, checkMnemonicAgainstDormant, type MnemonicMatch } from './mnemonic-wallet';
+import { deriveMnemonicAddresses, checkMnemonicAgainstDormant } from './mnemonic-wallet';
 import { isValidBIP39Phrase } from './bip39-words';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -1296,13 +1295,11 @@ export class OceanAgent {
           const mnemonicResult = deriveMnemonicAddresses(hypo.phrase);
           let foundMatch = false;
           let matchedPath = '';
-          let matchedPrivateKey = '';
           
           for (const derived of mnemonicResult.addresses) {
             if (derived.address === this.targetAddress) {
               foundMatch = true;
               matchedPath = derived.derivationPath;
-              matchedPrivateKey = derived.privateKeyHex;
               hypo.address = derived.address;
               hypo.privateKeyHex = derived.privateKeyHex;
               (hypo as any).derivationPath = derived.derivationPath;

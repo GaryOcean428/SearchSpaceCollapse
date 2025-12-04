@@ -19,7 +19,7 @@
  * Total: 50 addresses per mnemonic
  */
 
-import { deriveBIP32Address, deriveBIP32PrivateKey, privateKeyToWIF, generateBitcoinAddressFromPrivateKey } from './crypto';
+import { deriveBIP32PrivateKey, privateKeyToWIF, generateBitcoinAddressFromPrivateKey } from './crypto';
 import { dormantCrossRef, type DormantAddressInfo } from './dormant-cross-ref';
 import { isValidBIP39Phrase } from './bip39-words';
 
@@ -68,6 +68,10 @@ const DERIVATION_PATHS = {
   BIP44_ACCOUNT_COUNT: 3,
   // Legacy paths (pre-BIP44) used by early wallets
   LEGACY_COUNT: 10,
+  // BIP49 (P2SH-P2WPKH) SegWit compatibility  
+  BIP49_COUNT: 10,
+  // BIP84 (P2WPKH) Native SegWit
+  BIP84_COUNT: 10,
 };
 
 function generateBIP44ReceivePath(index: number, account: number = 0): string {
@@ -84,6 +88,28 @@ function generateLegacyPath(index: number): string {
 }
 
 /**
+ * BIP49: P2WPKH-nested-in-P2SH (SegWit compatibility)
+ * Purpose: 49' (0x80000031)
+ * Coin type: 0' (Bitcoin)
+ * Account: 0'
+ * Change: 0 (receive) / 1 (change)
+ */
+function generateBIP49Path(index: number, account: number = 0, change: number = 0): string {
+  return `m/49'/0'/${account}'/${change}/${index}`;
+}
+
+/**
+ * BIP84: P2WPKH (Native SegWit)
+ * Purpose: 84' (0x80000054)
+ * Coin type: 0' (Bitcoin)
+ * Account: 0'
+ * Change: 0 (receive) / 1 (change)
+ */
+function generateBIP84Path(index: number, account: number = 0, change: number = 0): string {
+  return `m/84'/0'/${account}'/${change}/${index}`;
+}
+
+/**
  * Derive a single P2PKH address from mnemonic with full key information
  * All dormant 2009-era addresses are P2PKH format (starting with 1)
  */
@@ -91,7 +117,7 @@ function deriveAddressWithKeys(mnemonic: string, path: string, index: number, pa
   const privateKeyHex = deriveBIP32PrivateKey(mnemonic, path);
   // Generate both compressed and uncompressed P2PKH addresses
   const addressCompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, true);
-  const addressUncompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
+  generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
   const privateKeyWIF = privateKeyToWIF(privateKeyHex, false);
   const privateKeyWIFCompressed = privateKeyToWIF(privateKeyHex, true);
   
@@ -269,6 +295,7 @@ export function getStandardDerivationPaths(): Array<{
     });
   }
   
+  // BIP49 (P2WPKH-nested-in-P2SH) - SegWit compatibility addresses
   for (let i = 0; i < DERIVATION_PATHS.BIP49_COUNT; i++) {
     paths.push({
       path: generateBIP49Path(i),
@@ -277,6 +304,7 @@ export function getStandardDerivationPaths(): Array<{
     });
   }
   
+  // BIP84 (P2WPKH) - Native SegWit addresses
   for (let i = 0; i < DERIVATION_PATHS.BIP84_COUNT; i++) {
     paths.push({
       path: generateBIP84Path(i),
@@ -299,9 +327,9 @@ export function getMnemonicStats(): {
   bip84Paths: number;
 } {
   return {
-    totalPathsPerMnemonic: 
+    totalPathsPerMnemonic:
       DERIVATION_PATHS.BIP44_RECEIVE_COUNT + 
-      DERIVATION_PATHS.BIP44_CHANGE_COUNT + 
+      DERIVATION_PATHS.BIP44_CHANGE_COUNT +
       DERIVATION_PATHS.BIP49_COUNT + 
       DERIVATION_PATHS.BIP84_COUNT,
     bip44ReceivePaths: DERIVATION_PATHS.BIP44_RECEIVE_COUNT,
