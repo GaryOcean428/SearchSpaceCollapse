@@ -116,9 +116,9 @@ export class OceanQIGBackend {
   }
   
   /**
-   * Check if Python backend is available
+   * Check if Python backend is available (silent mode for retries)
    */
-  async checkHealth(): Promise<boolean> {
+  async checkHealth(silent: boolean = false): Promise<boolean> {
     try {
       const response = await fetch(`${this.backendUrl}/health`, {
         method: 'GET',
@@ -134,23 +134,35 @@ export class OceanQIGBackend {
       return false;
     } catch (error) {
       this.isAvailable = false;
-      console.warn('[OceanQIGBackend] Python backend not available:', error);
+      if (!silent) {
+        console.warn('[OceanQIGBackend] Python backend not available:', error);
+      }
       return false;
     }
   }
   
   /**
-   * Check health with retry logic to handle startup race conditions
+   * Check health with retry logic to handle startup race conditions.
+   * Uses silent mode for retries to avoid spamming logs during expected startup delays.
    */
   async checkHealthWithRetry(
     maxAttempts: number = DEFAULT_RETRY_ATTEMPTS, 
     delayMs: number = DEFAULT_RETRY_DELAY_MS
   ): Promise<boolean> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const available = await this.checkHealth();
+      // Silent mode for all attempts - we only care about final result
+      const available = await this.checkHealth(true);
       
       if (available) {
+        if (attempt > 1) {
+          console.log(`[OceanQIGBackend] Connected after ${attempt} attempts`);
+        }
         return true;
+      }
+      
+      // Log progress during startup
+      if (attempt === 1) {
+        console.log(`[OceanQIGBackend] Waiting for Python backend to start...`);
       }
       
       // Wait before retrying (except on last attempt)
@@ -159,6 +171,7 @@ export class OceanQIGBackend {
       }
     }
     
+    console.warn(`[OceanQIGBackend] Python backend not available after ${maxAttempts} attempts`);
     return false;
   }
   

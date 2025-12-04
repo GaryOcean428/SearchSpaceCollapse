@@ -856,8 +856,15 @@ class GeometricMemory {
     let logVolume = 0;
     
     for (let d = 0; d < dims; d++) {
-      const values = withCoords.map(p => p.coordinates[d] || 0);
-      const range = Math.max(...values) - Math.min(...values);
+      // Use reduce instead of spread to avoid stack overflow with large arrays
+      let minVal = Infinity;
+      let maxVal = -Infinity;
+      for (const p of withCoords) {
+        const val = p.coordinates[d] || 0;
+        if (val < minVal) minVal = val;
+        if (val > maxVal) maxVal = val;
+      }
+      const range = maxVal - minVal;
       logVolume += Math.log(Math.max(range, 0.001));
     }
     
@@ -905,11 +912,18 @@ class GeometricMemory {
     const distances = new Array(dims).fill(0);
     
     for (let d = 0; d < dims; d++) {
-      const values = withCoords.map(p => p.coordinates[d] || 0);
       const center = attractor[d];
+      // Use loops instead of spread to avoid stack overflow with large arrays
+      let minVal = Infinity;
+      let maxVal = -Infinity;
+      for (const p of withCoords) {
+        const val = p.coordinates[d] || 0;
+        if (val < minVal) minVal = val;
+        if (val > maxVal) maxVal = val;
+      }
       distances[d] = Math.max(
-        Math.abs(Math.max(...values) - center),
-        Math.abs(Math.min(...values) - center)
+        Math.abs(maxVal - center),
+        Math.abs(minVal - center)
       );
     }
     

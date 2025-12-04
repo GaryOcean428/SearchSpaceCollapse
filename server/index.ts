@@ -155,15 +155,18 @@ function startPythonBackend(): void {
     console.error('[PythonQIG] Failed to start:', err.message);
   });
   
-  // Wait for Python to be ready, then sync probes
+  // Wait for Python to be ready with retry logic, then sync probes
   setTimeout(async () => {
-    const isAvailable = await oceanQIGBackend.checkHealth();
+    // Use retry logic to handle startup race condition
+    const isAvailable = await oceanQIGBackend.checkHealthWithRetry(5, 2000);
     if (isAvailable) {
       console.log('[PythonQIG] Backend ready, syncing geometric memory...');
       await syncProbesToPython();
       startPythonSync();
+    } else {
+      console.warn('[PythonQIG] Backend not available after retries - will retry on next sync cycle');
     }
-  }, 5000);
+  }, 3000);
 }
 
 // Handle uncaught exceptions gracefully to prevent crashes
