@@ -20,11 +20,11 @@
     },
     {
       "word": "bitcoin",
-      "frequency": 86,
-      "avgPhi": 0.403456026349093,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 92,
+      "avgPhi": 0.43888336819962026,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-11-29T09:32:03.926Z",
-      "lastSeen": "2025-12-02T06:18:47.282Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "2010 bitcoin",
         "2009 bitcoin",
@@ -212,11 +212,11 @@
     },
     {
       "word": "bitcoins",
-      "frequency": 2,
-      "avgPhi": 0.9343676123959272,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 8,
+      "avgPhi": 0.9428188577030714,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:36:19.501Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "bitcoins"
       ]
@@ -234,121 +234,121 @@
     },
     {
       "word": "billion",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 2,
+      "avgPhi": 0.9390820535396874,
+      "maxPhi": 0.9426584937851471,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:18:47.282Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
       "contexts": [
         "billion"
       ]
     },
     {
       "word": "dollars",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 5,
+      "avgPhi": 0.9424711171752393,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:18:47.282Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "dollars"
       ]
     },
     {
       "word": "related",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 3,
+      "avgPhi": 0.9478419605512675,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:18:47.282Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "related"
       ]
     },
     {
       "word": "answers",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 3,
+      "avgPhi": 0.9478419605512675,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:18:47.282Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "answers"
       ]
     },
     {
       "word": "section",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 3,
+      "avgPhi": 0.9478419605512675,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:18:47.282Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "section"
       ]
     },
     {
       "word": "account",
-      "frequency": 2,
-      "avgPhi": 0.9343676123959272,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 3,
+      "avgPhi": 0.9387374503918283,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:36:19.501Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "account"
       ]
     },
     {
       "word": "connect",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 2,
+      "avgPhi": 0.9414913698389291,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-02T06:18:47.282Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "connect"
       ]
     },
     {
       "word": "communities",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 2,
+      "avgPhi": 0.9414913698389291,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:18:47.283Z",
-      "lastSeen": "2025-12-02T06:18:47.283Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "communities"
       ]
     },
     {
       "word": "comment",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 2,
+      "avgPhi": 0.9414913698389291,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:18:47.283Z",
-      "lastSeen": "2025-12-02T06:18:47.283Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "comment"
       ]
     },
     {
       "word": "community",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 3,
+      "avgPhi": 0.9418804111543352,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:18:47.283Z",
-      "lastSeen": "2025-12-02T06:18:47.283Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "community"
       ]
     },
     {
       "word": "bitcoinicon",
-      "frequency": 1,
-      "avgPhi": 0.9355056132942278,
-      "maxPhi": 0.9355056132942278,
+      "frequency": 2,
+      "avgPhi": 0.9414913698389291,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:18:47.283Z",
-      "lastSeen": "2025-12-02T06:18:47.283Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "bitcoinicon"
       ]
@@ -982,11 +982,11 @@
     },
     {
       "word": "seemore",
-      "frequency": 2,
-      "avgPhi": 0.9171209613119569,
-      "maxPhi": 0.9171209613119569,
+      "frequency": 3,
+      "avgPhi": 0.9235548149662388,
+      "maxPhi": 0.9364225222748028,
       "firstSeen": "2025-12-02T06:24:47.114Z",
-      "lastSeen": "2025-12-02T06:30:36.593Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
       "contexts": [
         "seemore"
       ]
@@ -1015,22 +1015,22 @@
     },
     {
       "word": "million",
-      "frequency": 1,
-      "avgPhi": 0.9332296114976268,
-      "maxPhi": 0.9332296114976268,
+      "frequency": 4,
+      "avgPhi": 0.9399469384853018,
+      "maxPhi": 0.9474771263836305,
       "firstSeen": "2025-12-02T06:36:19.501Z",
-      "lastSeen": "2025-12-02T06:36:19.501Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
       "contexts": [
         "million"
       ]
     },
     {
       "word": "digital",
-      "frequency": 1,
-      "avgPhi": 0.9332296114976268,
-      "maxPhi": 0.9332296114976268,
+      "frequency": 2,
+      "avgPhi": 0.9468863767367854,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:36:19.501Z",
-      "lastSeen": "2025-12-02T06:36:19.501Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
       "contexts": [
         "digital"
       ]
@@ -1048,11 +1048,11 @@
     },
     {
       "word": "transactions",
-      "frequency": 1,
-      "avgPhi": 0.9332296114976268,
-      "maxPhi": 0.9332296114976268,
+      "frequency": 2,
+      "avgPhi": 0.9468863767367854,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:36:19.501Z",
-      "lastSeen": "2025-12-02T06:36:19.501Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
       "contexts": [
         "transactions"
       ]
@@ -1092,11 +1092,11 @@
     },
     {
       "word": "september",
-      "frequency": 1,
-      "avgPhi": 0.9332296114976268,
-      "maxPhi": 0.9332296114976268,
+      "frequency": 2,
+      "avgPhi": 0.9468863767367854,
+      "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:36:19.501Z",
-      "lastSeen": "2025-12-02T06:36:19.501Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
       "contexts": [
         "september"
       ]
@@ -1125,11 +1125,11 @@
     },
     {
       "word": "immediately",
-      "frequency": 1,
-      "avgPhi": 0.9332296114976268,
-      "maxPhi": 0.9332296114976268,
+      "frequency": 2,
+      "avgPhi": 0.9348260668862148,
+      "maxPhi": 0.9364225222748028,
       "firstSeen": "2025-12-02T06:36:19.501Z",
-      "lastSeen": "2025-12-02T06:36:19.501Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
       "contexts": [
         "immediately"
       ]
@@ -1154,6 +1154,2206 @@
       "lastSeen": "2025-12-02T06:36:19.501Z",
       "contexts": [
         "trickle"
+      ]
+    },
+    {
+      "word": "between",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "between"
+      ]
+    },
+    {
+      "word": "additional",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "additional"
+      ]
+    },
+    {
+      "word": "crashing",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "crashing"
+      ]
+    },
+    {
+      "word": "betweenjune",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "betweenjune"
+      ]
+    },
+    {
+      "word": "juneand",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "juneand"
+      ]
+    },
+    {
+      "word": "andjune",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "andjune"
+      ]
+    },
+    {
+      "word": "juneadditional",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "juneadditional"
+      ]
+    },
+    {
+      "word": "additionalone",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "additionalone"
+      ]
+    },
+    {
+      "word": "onemillion",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "onemillion"
+      ]
+    },
+    {
+      "word": "millionbitcoins",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "millionbitcoins"
+      ]
+    },
+    {
+      "word": "bitcoinswere",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "bitcoinswere"
+      ]
+    },
+    {
+      "word": "weresent",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "weresent"
+      ]
+    },
+    {
+      "word": "sentmtgox",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.144Z",
+      "lastSeen": "2025-12-04T04:32:38.144Z",
+      "contexts": [
+        "sentmtgox"
+      ]
+    },
+    {
+      "word": "mtgoxand",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "mtgoxand"
+      ]
+    },
+    {
+      "word": "andimmediately",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "andimmediately"
+      ]
+    },
+    {
+      "word": "immediatelysold",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "immediatelysold"
+      ]
+    },
+    {
+      "word": "soldcrashing",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "soldcrashing"
+      ]
+    },
+    {
+      "word": "crashingthe",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "crashingthe"
+      ]
+    },
+    {
+      "word": "theprice",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "theprice"
+      ]
+    },
+    {
+      "word": "priceback",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "priceback"
+      ]
+    },
+    {
+      "word": "backwas",
+      "frequency": 1,
+      "avgPhi": 0.9364225222748028,
+      "maxPhi": 0.9364225222748028,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "backwas"
+      ]
+    },
+    {
+      "word": "representation",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "representation"
+      ]
+    },
+    {
+      "word": "original",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "original"
+      ]
+    },
+    {
+      "word": "wallets",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "wallets"
+      ]
+    },
+    {
+      "word": "received",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "received"
+      ]
+    },
+    {
+      "word": "represent",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "represent"
+      ]
+    },
+    {
+      "word": "sequence",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "sequence"
+      ]
+    },
+    {
+      "word": "through",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "through"
+      ]
+    },
+    {
+      "word": "several",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "several"
+      ]
+    },
+    {
+      "word": "indicate",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "indicate"
+      ]
+    },
+    {
+      "word": "picture",
+      "frequency": 2,
+      "avgPhi": 0.9516008178805456,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "picture"
+      ]
+    },
+    {
+      "word": "location",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "location"
+      ]
+    },
+    {
+      "word": "investigating",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "investigating"
+      ]
+    },
+    {
+      "word": "silkroad",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "silkroad"
+      ]
+    },
+    {
+      "word": "currently",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "currently"
+      ]
+    },
+    {
+      "word": "transferred",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "transferred"
+      ]
+    },
+    {
+      "word": "binance",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "binance"
+      ]
+    },
+    {
+      "word": "aggregate",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "aggregate"
+      ]
+    },
+    {
+      "word": "originated",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "originated"
+      ]
+    },
+    {
+      "word": "bitfinex",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "bitfinex"
+      ]
+    },
+    {
+      "word": "discussed",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "discussed"
+      ]
+    },
+    {
+      "word": "fundamentally",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "fundamentally"
+      ]
+    },
+    {
+      "word": "changing",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "changing"
+      ]
+    },
+    {
+      "word": "finance",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "finance"
+      ]
+    },
+    {
+      "word": "traditional",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "traditional"
+      ]
+    },
+    {
+      "word": "financial",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "financial"
+      ]
+    },
+    {
+      "word": "systems",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "systems"
+      ]
+    },
+    {
+      "word": "perspectives",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "perspectives"
+      ]
+    },
+    {
+      "word": "redditors",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "redditors"
+      ]
+    },
+    {
+      "word": "belowyou",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "belowyou"
+      ]
+    },
+    {
+      "word": "youwill",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "youwill"
+      ]
+    },
+    {
+      "word": "willfind",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "willfind"
+      ]
+    },
+    {
+      "word": "findgraph",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "findgraph"
+      ]
+    },
+    {
+      "word": "graphrepresentation",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "graphrepresentation"
+      ]
+    },
+    {
+      "word": "representationthe",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "representationthe"
+      ]
+    },
+    {
+      "word": "thetransactions",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "thetransactions"
+      ]
+    },
+    {
+      "word": "transactionssent",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "transactionssent"
+      ]
+    },
+    {
+      "word": "sentover",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "sentover"
+      ]
+    },
+    {
+      "word": "overtime",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "overtime"
+      ]
+    },
+    {
+      "word": "timefrom",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "timefrom"
+      ]
+    },
+    {
+      "word": "fromthe",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "fromthe"
+      ]
+    },
+    {
+      "word": "theoriginal",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "theoriginal"
+      ]
+    },
+    {
+      "word": "original111",
+      "frequency": 1,
+      "avgPhi": 0.9605431419759441,
+      "maxPhi": 0.9605431419759441,
+      "firstSeen": "2025-12-04T04:32:38.145Z",
+      "lastSeen": "2025-12-04T04:32:38.145Z",
+      "contexts": [
+        "original111"
+      ]
+    },
+    {
+      "word": "sausage",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "sausage"
+      ]
+    },
+    {
+      "word": "mushrooms",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "mushrooms"
+      ]
+    },
+    {
+      "word": "tomatoes",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "tomatoes"
+      ]
+    },
+    {
+      "word": "pepperoni",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "pepperoni"
+      ]
+    },
+    {
+      "word": "standard",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "standard"
+      ]
+    },
+    {
+      "word": "topping",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "topping"
+      ]
+    },
+    {
+      "word": "anything",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "anything"
+      ]
+    },
+    {
+      "word": "regular",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "regular"
+      ]
+    },
+    {
+      "word": "cheaper",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "cheaper"
+      ]
+    },
+    {
+      "word": "otherwise",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "otherwise"
+      ]
+    },
+    {
+      "word": "acquire",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "acquire"
+      ]
+    },
+    {
+      "word": "interested",
+      "frequency": 3,
+      "avgPhi": 0.9431242820661129,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "interested"
+      ]
+    },
+    {
+      "word": "successfully",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "successfully"
+      ]
+    },
+    {
+      "word": "pictures",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "pictures"
+      ]
+    },
+    {
+      "word": "purchased",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "purchased"
+      ]
+    },
+    {
+      "word": "hanyecz",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "hanyecz"
+      ]
+    },
+    {
+      "word": "confirm",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "confirm"
+      ]
+    },
+    {
+      "word": "information",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "information"
+      ]
+    },
+    {
+      "word": "frequent",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "frequent"
+      ]
+    },
+    {
+      "word": "members",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "members"
+      ]
+    },
+    {
+      "word": "confirmations",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "confirmations"
+      ]
+    },
+    {
+      "word": "frequenting",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "frequenting"
+      ]
+    },
+    {
+      "word": "archived",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "archived"
+      ]
+    },
+    {
+      "word": "transaction",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "transaction"
+      ]
+    },
+    {
+      "word": "address",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "address"
+      ]
+    },
+    {
+      "word": "usually",
+      "frequency": 3,
+      "avgPhi": 0.9431242820661129,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "usually"
+      ]
+    },
+    {
+      "word": "exchange",
+      "frequency": 4,
+      "avgPhi": 0.9442124931454923,
+      "maxPhi": 0.9474771263836305,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "exchange"
+      ]
+    },
+    {
+      "word": "favorable",
+      "frequency": 3,
+      "avgPhi": 0.9431242820661129,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "favorable"
+      ]
+    },
+    {
+      "word": "because",
+      "frequency": 4,
+      "avgPhi": 0.9430078349958715,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "because"
+      ]
+    },
+    {
+      "word": "likeonions",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "likeonions"
+      ]
+    },
+    {
+      "word": "onionspeppers",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "onionspeppers"
+      ]
+    },
+    {
+      "word": "pepperssausage",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "pepperssausage"
+      ]
+    },
+    {
+      "word": "sausagemushrooms",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "sausagemushrooms"
+      ]
+    },
+    {
+      "word": "mushroomstomatoes",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "mushroomstomatoes"
+      ]
+    },
+    {
+      "word": "tomatoespepperoni",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "tomatoespepperoni"
+      ]
+    },
+    {
+      "word": "pepperonietc",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "pepperonietc"
+      ]
+    },
+    {
+      "word": "etcjust",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.579Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "etcjust"
+      ]
+    },
+    {
+      "word": "juststandard",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "juststandard"
+      ]
+    },
+    {
+      "word": "standardstuff",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "standardstuff"
+      ]
+    },
+    {
+      "word": "stuffweird",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "stuffweird"
+      ]
+    },
+    {
+      "word": "weirdfish",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "weirdfish"
+      ]
+    },
+    {
+      "word": "fishtopping",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "fishtopping"
+      ]
+    },
+    {
+      "word": "toppinganything",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "toppinganything"
+      ]
+    },
+    {
+      "word": "anythinglike",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "anythinglike"
+      ]
+    },
+    {
+      "word": "likethat",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "likethat"
+      ]
+    },
+    {
+      "word": "thatalso",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "thatalso"
+      ]
+    },
+    {
+      "word": "alsolike",
+      "frequency": 2,
+      "avgPhi": 0.9467970985319398,
+      "maxPhi": 0.9467970985319398,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "alsolike"
+      ]
+    },
+    {
+      "word": "developers",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "developers"
+      ]
+    },
+    {
+      "word": "everything",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "everything"
+      ]
+    },
+    {
+      "word": "regrets",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "regrets"
+      ]
+    },
+    {
+      "word": "lightning",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "lightning"
+      ]
+    },
+    {
+      "word": "network",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "network"
+      ]
+    },
+    {
+      "word": "payment",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "payment"
+      ]
+    },
+    {
+      "word": "another",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "another"
+      ]
+    },
+    {
+      "word": "historic",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "historic"
+      ]
+    },
+    {
+      "word": "distinction",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "distinction"
+      ]
+    },
+    {
+      "word": "expensive",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "expensive"
+      ]
+    },
+    {
+      "word": "history",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "history"
+      ]
+    },
+    {
+      "word": "importantly",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "importantly"
+      ]
+    },
+    {
+      "word": "kickstarted",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "kickstarted"
+      ]
+    },
+    {
+      "word": "absolutely",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "absolutely"
+      ]
+    },
+    {
+      "word": "understand",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "understand"
+      ]
+    },
+    {
+      "word": "popularity",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "popularity"
+      ]
+    },
+    {
+      "word": "bullied",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "bullied"
+      ]
+    },
+    {
+      "word": "sturdivant",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "sturdivant"
+      ]
+    },
+    {
+      "word": "swapping",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "swapping"
+      ]
+    },
+    {
+      "word": "blockchain",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "blockchain"
+      ]
+    },
+    {
+      "word": "quote2010",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "quote2010"
+      ]
+    },
+    {
+      "word": "2010laszlo",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "2010laszlo"
+      ]
+    },
+    {
+      "word": "laszlowas",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "laszlowas"
+      ]
+    },
+    {
+      "word": "onebitcoin",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "onebitcoin"
+      ]
+    },
+    {
+      "word": "bitcoinmost",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "bitcoinmost"
+      ]
+    },
+    {
+      "word": "mostactive",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "mostactive"
+      ]
+    },
+    {
+      "word": "activedevelopers",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "activedevelopers"
+      ]
+    },
+    {
+      "word": "developersthen",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "developersthen"
+      ]
+    },
+    {
+      "word": "thenlife",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "thenlife"
+      ]
+    },
+    {
+      "word": "lifegot",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "lifegot"
+      ]
+    },
+    {
+      "word": "wayspent",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "wayspent"
+      ]
+    },
+    {
+      "word": "spenteverything",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "spenteverything"
+      ]
+    },
+    {
+      "word": "everythingmined",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "everythingmined"
+      ]
+    },
+    {
+      "word": "minedand",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "minedand"
+      ]
+    },
+    {
+      "word": "andleft",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "andleft"
+      ]
+    },
+    {
+      "word": "leftthe",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "leftthe"
+      ]
+    },
+    {
+      "word": "thecommunity",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "thecommunity"
+      ]
+    },
+    {
+      "word": "communityimage",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.581Z",
+      "lastSeen": "2025-12-04T04:32:43.581Z",
+      "contexts": [
+        "communityimage"
+      ]
+    },
+    {
+      "word": "imagequote",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "imagequote"
+      ]
+    },
+    {
+      "word": "quotelaslzo",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "quotelaslzo"
+      ]
+    },
+    {
+      "word": "laslzohas",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "laslzohas"
+      ]
+    },
+    {
+      "word": "hasregrets",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "hasregrets"
+      ]
+    },
+    {
+      "word": "regretsthough",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "regretsthough"
+      ]
+    },
+    {
+      "word": "though2018",
+      "frequency": 1,
+      "avgPhi": 0.9426584937851471,
+      "maxPhi": 0.9426584937851471,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "though2018"
+      ]
+    },
+    {
+      "word": "offline",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "offline"
+      ]
+    },
+    {
+      "word": "activity",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "activity"
+      ]
+    },
+    {
+      "word": "profileimage",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "profileimage"
+      ]
+    },
+    {
+      "word": "10pizza",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "10pizza"
+      ]
+    },
+    {
+      "word": "krogothmanhattan",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "krogothmanhattan"
+      ]
+    },
+    {
+      "word": "fillippone",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "fillippone"
+      ]
+    },
+    {
+      "word": "nutildah",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "nutildah"
+      ]
+    },
+    {
+      "word": "ognasty",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "ognasty"
+      ]
+    },
+    {
+      "word": "vapourminer",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "vapourminer"
+      ]
+    },
+    {
+      "word": "blackhatcoiner",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "blackhatcoiner"
+      ]
+    },
+    {
+      "word": "seccour",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "seccour"
+      ]
+    },
+    {
+      "word": "symmetrick",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "symmetrick"
+      ]
+    },
+    {
+      "word": "bitmover",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "bitmover"
+      ]
+    },
+    {
+      "word": "hugeblack",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "hugeblack"
+      ]
+    },
+    {
+      "word": "alani123",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "alani123"
+      ]
+    },
+    {
+      "word": "onurgozupek",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "onurgozupek"
+      ]
+    },
+    {
+      "word": "getting",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "getting"
+      ]
+    },
+    {
+      "word": "enforcer",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "enforcer"
+      ]
+    },
+    {
+      "word": "notsatoshinakamoto",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "notsatoshinakamoto"
+      ]
+    },
+    {
+      "word": "fullmember",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "fullmember"
+      ]
+    },
+    {
+      "word": "memberimage",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "memberimage"
+      ]
+    },
+    {
+      "word": "image105",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "image105"
+      ]
+    },
+    {
+      "word": "105image",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "105image"
+      ]
+    },
+    {
+      "word": "image106",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "image106"
+      ]
+    },
+    {
+      "word": "106image",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "106image"
+      ]
+    },
+    {
+      "word": "image107",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "image107"
+      ]
+    },
+    {
+      "word": "107image",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "107image"
+      ]
+    },
+    {
+      "word": "image108",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "image108"
+      ]
+    },
+    {
+      "word": "108offline",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "108offline"
+      ]
+    },
+    {
+      "word": "offlineoffline",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "offlineoffline"
+      ]
+    },
+    {
+      "word": "offlineactivity",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "offlineactivity"
+      ]
+    },
+    {
+      "word": "activity199",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "activity199"
+      ]
+    },
+    {
+      "word": "199merit",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "199merit"
+      ]
+    },
+    {
+      "word": "merit2583",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "merit2583"
+      ]
+    },
+    {
+      "word": "2583image",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "2583image"
+      ]
+    },
+    {
+      "word": "image109",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "image109"
+      ]
+    },
+    {
+      "word": "109view",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "109view"
+      ]
+    },
+    {
+      "word": "viewprofileimage",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "viewprofileimage"
+      ]
+    },
+    {
+      "word": "profileimage110re",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "profileimage110re"
+      ]
+    },
+    {
+      "word": "110repizza",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "110repizza"
+      ]
+    },
+    {
+      "word": "pizzafor",
+      "frequency": 2,
+      "avgPhi": 0.9416278877590447,
+      "maxPhi": 0.9474771263836305,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "pizzafor"
+      ]
+    },
+    {
+      "word": "forbitcoins",
+      "frequency": 1,
+      "avgPhi": 0.9357786491344591,
+      "maxPhi": 0.9357786491344591,
+      "firstSeen": "2025-12-04T04:32:43.582Z",
+      "lastSeen": "2025-12-04T04:32:43.582Z",
+      "contexts": [
+        "forbitcoins"
+      ]
+    },
+    {
+      "word": "iconthe",
+      "frequency": 1,
+      "avgPhi": 0.9474771263836305,
+      "maxPhi": 0.9474771263836305,
+      "firstSeen": "2025-12-04T04:32:48.821Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "iconthe"
+      ]
+    },
+    {
+      "word": "whobought",
+      "frequency": 1,
+      "avgPhi": 0.9474771263836305,
+      "maxPhi": 0.9474771263836305,
+      "firstSeen": "2025-12-04T04:32:48.821Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "whobought"
+      ]
+    },
+    {
+      "word": "boughtpizza",
+      "frequency": 1,
+      "avgPhi": 0.9474771263836305,
+      "maxPhi": 0.9474771263836305,
+      "firstSeen": "2025-12-04T04:32:48.821Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "boughtpizza"
+      ]
+    },
+    {
+      "word": "forbitcoin",
+      "frequency": 1,
+      "avgPhi": 0.9474771263836305,
+      "maxPhi": 0.9474771263836305,
+      "firstSeen": "2025-12-04T04:32:48.821Z",
+      "lastSeen": "2025-12-04T04:32:48.821Z",
+      "contexts": [
+        "forbitcoin"
       ]
     }
   ],
@@ -1533,5 +3733,5 @@
       "efficiencyGain": 31
     }
   ],
-  "savedAt": "2025-12-02T06:36:19.503Z"
+  "savedAt": "2025-12-04T04:32:48.822Z"
 }
