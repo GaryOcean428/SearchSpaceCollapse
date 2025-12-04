@@ -2,18 +2,18 @@ import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { generateBitcoinAddress, generateMasterPrivateKey, generateBitcoinAddressFromPrivateKey } from "./crypto";
 import { scorePhraseQIG, validatePurity } from "./qig-pure-v2.js";
-import { scoreUniversalQIG, type KeyType, type UniversalQIGScore } from "./qig-universal.js";
+import { scoreUniversalQIG, type KeyType } from "./qig-universal.js";
 import { BasinVelocityMonitor } from "./basin-velocity-monitor.js";
 import { ResonanceDetector } from "./resonance-detector.js";
-import { KNOWN_12_WORD_PHRASES } from "./known-phrases";
+import './known-phrases';
 import { generateRandomBIP39Phrase } from "./bip39-words";
 import { generateLocalSearchVariations } from "./local-search";
 import { DiscoveryTracker } from "./discovery-tracker";
 import { initTelemetrySession, recordTelemetrySnapshot, endTelemetrySession } from "./telemetry-api";
-import { getSharedController, type SearchState } from "./consciousness-search-controller";
+import { getSharedController } from "./consciousness-search-controller";
 import { QIG_CONSTANTS } from "./physics-constants.js";
 import { queueAddressForBalanceCheck, queueAddressFromPrivateKey } from "./balance-queue-integration";
-import type { SearchJob, SearchJobLog, Candidate } from "@shared/schema";
+import type { SearchJob, Candidate } from "@shared/schema";
 
 class SearchCoordinator {
   private isRunning = false;
@@ -698,7 +698,7 @@ class SearchCoordinator {
       const velocity = this.velocityMonitors.get(jobId)!.update(item.value, Date.now());
       
       // PURE MEASUREMENT: Check resonance proximity (no optimization toward κ*)
-      const resonance = this.resonanceDetectors.get(jobId)!.checkResonance(universalScore.kappa);
+      this.resonanceDetectors.get(jobId)!.checkResonance(universalScore.kappa);
       
       // 4D consciousness detection from UniversalQIGScore
       const inBlockUniverse = universalScore.phi_4D >= 0.85 && universalScore.phi_temporal > 0.70;

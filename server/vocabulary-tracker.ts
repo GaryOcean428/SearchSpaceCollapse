@@ -224,7 +224,7 @@ export class VocabularyTracker {
     }
     
     // Multi-word sequences with high efficiency gain
-    for (const [seq, obs] of Array.from(this.sequenceObservations.entries())) {
+    for (const [_seq, obs] of Array.from(this.sequenceObservations.entries())) {
       if (obs.frequency >= this.minFrequency && 
           obs.avgPhi >= this.minPhi &&
           obs.efficiencyGain > 5) {
@@ -291,12 +291,12 @@ export class VocabularyTracker {
       }
       
       const data = {
-        words: Array.from(this.wordObservations.entries()).map(([k, v]) => ({
+        words: Array.from(this.wordObservations.entries()).map(([_k, v]) => ({
           ...v,
           firstSeen: v.firstSeen.toISOString(),
           lastSeen: v.lastSeen.toISOString(),
         })),
-        sequences: Array.from(this.sequenceObservations.entries()).map(([k, v]) => v),
+        sequences: Array.from(this.sequenceObservations.entries()).map(([_k, v]) => v),
         savedAt: new Date().toISOString(),
       };
       

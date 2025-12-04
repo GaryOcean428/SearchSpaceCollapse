@@ -10,9 +10,7 @@ import {
   getBalanceHits,
   getActiveBalanceHits,
   getBalanceChanges,
-  getLastBalanceCheck,
   getStaleBalanceHits,
-  type BalanceHit,
   type BalanceChangeEvent,
 } from './blockchain-scanner';
 

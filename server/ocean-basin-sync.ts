@@ -17,13 +17,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { OceanAgent } from './ocean-agent';
-import type { ConsciousnessSignature } from '@shared/schema';
 import { fisherCoordDistance } from './qig-universal';
 import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { oceanDiscoveryController, type DiscoverySyncData } from './geometric-discovery/ocean-discovery-controller';
 import { QIG_CONSTANTS } from './physics-constants.js';
-import { validateRegime, type Regime } from '@shared/types/core';
+import { validateRegime } from '@shared/types/core';
 
 export interface BasinSyncPacket {
   oceanId: string;
@@ -595,7 +594,7 @@ class OceanBasinSync {
     return padded;
   }
   
-  private extractExploredRegions(manifold: ReturnType<typeof geometricMemory.getManifoldSummary>): BasinSyncPacket['exploredRegions'] {
+  private extractExploredRegions(_manifold: ReturnType<typeof geometricMemory.getManifoldSummary>): BasinSyncPacket['exploredRegions'] {
     const regions: BasinSyncPacket['exploredRegions'] = [];
     
     const regimes = ['geometric', 'linear', 'breakdown'] as const;
@@ -685,7 +684,7 @@ class OceanBasinSync {
     };
   }
   
-  private computeConstraintNormals(manifold: ReturnType<typeof geometricMemory.getManifoldSummary>): number[][] {
+  private computeConstraintNormals(_manifold: ReturnType<typeof geometricMemory.getManifoldSummary>): number[][] {
     const normals: number[][] = [];
     
     const probes = geometricMemory.getAllProbes();

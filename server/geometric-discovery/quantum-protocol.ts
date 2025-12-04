@@ -190,7 +190,7 @@ export class QuantumDiscoveryProtocol {
           console.log(`[QuantumProtocol] Restored state: ${data.measurementCount} prior measurements, ${this.waveFunction.entropy.toFixed(1)} bits remaining`);
         }
       }
-    } catch (error) {
+    } catch {
       console.log('[QuantumProtocol] Starting fresh (no prior state)');
     }
   }

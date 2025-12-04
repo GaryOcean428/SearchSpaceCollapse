@@ -12,7 +12,7 @@
 
 import { createHash } from 'crypto';
 import bs58check from 'bs58check';
-import { HistoricalDataMiner, type Era, ERA_FORMAT_WEIGHTS, type KeyFormat } from './historical-data-miner';
+import './historical-data-miner';
 
 const BLOCKSTREAM_API = 'https://blockstream.info/api';
 const BLOCKCHAIN_INFO_API = 'https://blockchain.info';
@@ -73,7 +73,7 @@ export interface GitHubRepo {
 
 // Cache for API responses
 const addressCache = new Map<string, AddressForensics>();
-const TX_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+const _TX_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
 // Rate limiting state for blockchain.info API
 let lastBlockchainInfoCall = 0;
@@ -163,11 +163,10 @@ export class BlockchainForensics {
       
       // Extract first and last transaction data
       let firstTx = null;
-      let lastTx = null;
       
       if (bcInfo.txs && bcInfo.txs.length > 0) {
         // blockchain.info returns newest first, so last in array is oldest
-        lastTx = bcInfo.txs[0];
+        bcInfo.txs[0];
         
         // For oldest tx, we need to fetch with offset (only if using blockchain.info)
         // If we're using Blockstream fallback, we already have all available transactions
@@ -244,7 +243,7 @@ export class BlockchainForensics {
     try {
       const response = await rateLimitedFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`);
       return response.json();
-    } catch (error) {
+    } catch {
       console.log(`[BlockchainForensics] blockchain.info failed, falling back to Blockstream for ${address}`);
       
       // Fallback to Blockstream API

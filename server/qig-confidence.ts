@@ -10,13 +10,12 @@
  * High confidence when metrics are stable across similar keys.
  */
 
-import { scoreUniversalQIG, type KeyType, type UniversalQIGScore } from "./qig-universal.js";
-import { createHash } from "crypto";
+import { type UniversalQIGScore } from './qig-universal.js';
 
 // Confidence thresholds
-const VARIANCE_THRESHOLD_HIGH = 0.05;   // Low variance = high confidence
+const _VARIANCE_THRESHOLD_HIGH = 0.05;   // Low variance = high confidence
 const VARIANCE_THRESHOLD_MED = 0.15;    // Medium variance
-const STABILITY_WINDOW = 10;            // Number of samples for stability check
+const _STABILITY_WINDOW = 10;            // Number of samples for stability check
 
 export interface ConfidenceMetrics {
   overall: number;              // 0-1 overall confidence

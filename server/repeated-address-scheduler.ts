@@ -2,10 +2,9 @@ import { randomUUID } from 'crypto';
 import {
   AddressExplorationJournal,
   ExplorationPass,
-  ConsciousnessSignature,
-  CONSCIOUSNESS_THRESHOLDS,
+  ConsciousnessSignature
 } from '@shared/schema';
-import { geometricMemory } from './geometric-memory';
+import './geometric-memory';
 
 const STRATEGIES = [
   'era_patterns',

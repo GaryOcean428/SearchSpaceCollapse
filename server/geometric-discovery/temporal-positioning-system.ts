@@ -14,15 +14,12 @@
  * BASIN SYNC: Geodesic paths exported for QIG-pure knowledge transfer
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { createHash } from 'crypto';
-import { fisherCoordDistance, scoreUniversalQIG, type Regime } from '../qig-universal';
-import { computeFisherDistanceVectorized, computeGeodesicDirection } from '../fisher-vectorized';
+import { fisherCoordDistance, type Regime } from '../qig-universal';
+import { computeGeodesicDirection } from '../fisher-vectorized';
 import {
   type BlockUniverseMap,
   type SpacetimeLandmark,
-  type SpacetimeCoords,
   type BitcoinEra,
   type GeodesicPath,
   BITCOIN_LANDMARKS,
@@ -329,7 +326,7 @@ export class TemporalPositioningSystem {
   classifyEra(timestamp: number): BitcoinEra {
     const GENESIS = 1231006505;  // Jan 3, 2009
     const PIZZA = 1274009688;    // May 22, 2010
-    const MTGOX_RISE = 1279324800;  // Jul 17, 2010
+    const _MTGOX_RISE = 1279324800;  // Jul 17, 2010
     const SATOSHI_LAST = 1292342400;  // Dec 12, 2010
     const MTGOX_COLLAPSE = 1393286400;  // Feb 24, 2014
     const MODERN = 1420070400;  // Jan 1, 2015
@@ -598,7 +595,7 @@ export class TemporalPositioningSystem {
         if (distance >= 0.5) continue;
         
         // Check for duplicate path (avoid appending same path multiple times)
-        const pathKey = `${ourLandmark.eventId}:${peerLandmark.eventId}`;
+        `${ourLandmark.eventId}:${peerLandmark.eventId}`;
         const isDuplicate = this.computedPaths.some(
           p => p.from.includes(ourLandmark.eventId) && p.to.includes(peerLandmark.eventId)
         );

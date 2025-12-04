@@ -11,16 +11,15 @@
  * 7. Stress tested verification logic
  */
 
-import { checkAndRecordBalance, getBalanceHits, getActiveBalanceHits } from './blockchain-scanner';
+import { checkAndRecordBalance } from './blockchain-scanner';
 import { 
   generateBitcoinAddress, 
   privateKeyToWIF, 
   derivePublicKeyFromPrivate,
   derivePrivateKeyFromPassphrase 
 } from './crypto';
-import { balanceQueue } from './balance-queue';
+import './balance-queue';
 import { getAddressData } from './blockchain-api-router';
-import { createHash } from 'crypto';
 
 export interface AddressGenerationResult {
   address: string;

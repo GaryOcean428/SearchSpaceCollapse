@@ -205,7 +205,7 @@ export function verifyBrainWallet(): { success: boolean; testAddress?: string; e
     const address = generateBitcoinAddress(testPhrase);
     
     const knownPhrase = "correct horse battery staple";
-    const knownAddress = generateBitcoinAddress(knownPhrase);
+    generateBitcoinAddress(knownPhrase);
     
     return {
       success: true,

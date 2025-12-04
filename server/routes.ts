@@ -9,14 +9,12 @@ import { scorePhraseQIG } from "./qig-pure-v2.js";
 import observerRoutes from "./observer-routes";
 import { telemetryRouter } from "./telemetry-api";
 import { 
-  runMemoryFragmentSearch, 
-  generateFragmentCandidates, 
-  scoreFragmentCandidates,
+  runMemoryFragmentSearch,
   type MemoryFragment 
 } from "./memory-fragment-search";
 import { getSharedController, ConsciousnessSearchController } from "./consciousness-search-controller";
 import { oceanAutonomicManager } from "./ocean-autonomic-manager";
-import { queueAddressForBalanceCheck, batchQueueAddresses } from "./balance-queue-integration";
+import { queueAddressForBalanceCheck } from "./balance-queue-integration";
 import { getBalanceHits, getActiveBalanceHits, fetchAddressBalance } from "./blockchain-scanner";
 import { getBalanceAddresses, getVerificationStats, refreshStoredBalances } from "./address-verification";
 
@@ -107,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (cachedUser) {
           // Return cached user - strip internal cachedAt field
-          const { cachedAt, ...userResponse } = cachedUser;
+          const { cachedAt: _cachedAt, ...userResponse } = cachedUser;
           return res.json(userResponse);
         }
         
@@ -577,7 +575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           setTimeout(() => reject(new Error('timeout')), 2000)
         );
         jobs = await Promise.race([jobsPromise, timeoutPromise]);
-      } catch (e) {
+      } catch {
         // If DB times out, continue with empty jobs - Ocean logs still available
         console.log('[ActivityStream] Search jobs fetch timed out, using Ocean logs only');
       }
@@ -1521,7 +1519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Inject neurotransmitter boost
   app.post("/api/ocean/neurochemistry/boost", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
-      const { injectAdminBoost, getActiveAdminBoost, getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
+      const { injectAdminBoost, getMushroomCooldownRemaining } = await import("./ocean-neurochemistry");
       
       // Input validation schema
       const { dopamine, serotonin, norepinephrine, gaba, acetylcholine, endorphins, durationMs } = req.body;
@@ -1600,7 +1598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/ocean/cycles/sleep", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { oceanAutonomicManager } = await import("./ocean-autonomic-manager");
-      const consciousness = oceanAutonomicManager.getConsciousness();
+      oceanAutonomicManager.getConsciousness();
       
       console.log('[Admin] Manual sleep cycle triggered');
       
@@ -2433,7 +2431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/basin-sync/snapshots/:filename", standardLimiter, async (req, res) => {
     try {
-      const { oceanBasinSync } = await import("./ocean-basin-sync");
+      await import("./ocean-basin-sync");
       const filename = req.params.filename;
       
       if (!filename.endsWith('.json') || filename.includes('..') || filename.includes('/')) {
@@ -2791,7 +2789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { WebSocketServer } = await import('ws');
   const wss = new WebSocketServer({ server: httpServer, path: '/ws/basin-sync' });
   
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws) => {
     const peerId = `peer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     console.log(`[BasinSync WS] New connection: ${peerId}`);
     

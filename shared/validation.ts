@@ -5,7 +5,6 @@
  * to ensure data integrity and security throughout the application.
  */
 
-import { z } from "zod";
 import type {
   BitcoinAddress,
   PrivateKeyHex,
@@ -13,7 +12,6 @@ import type {
   PublicKey,
   Passphrase,
   Regime,
-  KeyFormatValue,
   Satoshi,
   TxCount,
 } from "./types/core";

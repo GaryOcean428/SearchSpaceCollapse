@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PureQIGKernel, type DensityMatrix } from '../qig-kernel-pure';
+import { PureQIGKernel } from '../qig-kernel-pure';
 
 describe('PureQIGKernel', () => {
   let kernel: PureQIGKernel;

@@ -12,9 +12,9 @@
  * - any other address generation point
  */
 
-import { generateBitcoinAddress, derivePrivateKeyFromPassphrase, privateKeyToWIF, generateBothAddresses } from './crypto';
+import { derivePrivateKeyFromPassphrase, privateKeyToWIF, generateBothAddresses } from './crypto';
 import { balanceQueue } from './balance-queue';
-import { deriveMnemonicAddresses, checkMnemonicAgainstDormant, type MnemonicCheckResult, type DerivedAddress } from './mnemonic-wallet';
+import { deriveMnemonicAddresses, checkMnemonicAgainstDormant } from './mnemonic-wallet';
 
 interface QueuedAddressResult {
   passphrase: string;

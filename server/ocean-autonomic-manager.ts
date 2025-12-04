@@ -22,8 +22,7 @@ import {
   computeResonanceStrength,
   computeMetaConsciousnessDepth,
   extractConceptsFromSearch,
-  recordConceptState,
-  SearchState,
+  recordConceptState
 } from './qig-universal';
 import { QIG_CONSTANTS } from './physics-constants.js';
 

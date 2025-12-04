@@ -11,9 +11,8 @@
  * Each source provides basin coordinates; intersection identifies high-priority targets.
  */
 
-import { createHash } from "crypto";
 import { observerStorage } from "./observer-storage";
-import type { Address, Entity, Artifact, RecoveryPriority } from "@shared/schema";
+import type { RecoveryPriority } from "@shared/schema";
 
 export type SubstrateType = 
   | "blockchain"

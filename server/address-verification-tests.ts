@@ -13,14 +13,13 @@
  */
 
 import { 
-  addressVerification,
   generateCompleteAddress,
   verifyAndStoreAddress,
   batchVerifyAddresses,
   getVerificationStats
 } from './address-verification';
-import { generateBitcoinAddress, privateKeyToWIF, validateBitcoinAddress } from './crypto';
-import { balanceQueue } from './balance-queue';
+import { validateBitcoinAddress } from './crypto';
+import './balance-queue';
 
 interface TestResult {
   test: string;

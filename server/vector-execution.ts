@@ -42,7 +42,7 @@ export interface EstateVectorState {
  */
 export async function executeEstateResearch(
   workflow: RecoveryWorkflow,
-  priority: RecoveryPriority
+  _priority: RecoveryPriority
 ): Promise<{ entities: Entity[], artifacts: Artifact[], recommendations: string[] }> {
   const recommendations: string[] = [];
   
@@ -401,7 +401,7 @@ async function executeEstateVector(
 
 async function executeSocialVector(
   workflow: RecoveryWorkflow,
-  priority: RecoveryPriority
+  _priority: RecoveryPriority
 ): Promise<VectorExecutionResult> {
   const findings: string[] = [];
   const recommendations: string[] = [];
@@ -451,7 +451,7 @@ async function executeSocialVector(
 
 async function executeTemporalVector(
   workflow: RecoveryWorkflow,
-  priority: RecoveryPriority
+  _priority: RecoveryPriority
 ): Promise<VectorExecutionResult> {
   const findings: string[] = [];
   const recommendations: string[] = [];

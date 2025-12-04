@@ -11,8 +11,7 @@ import { randomUUID } from "crypto";
 import { 
   fetchBlockByHeight, 
   scanEarlyEraBlocks, 
-  parseBlock, 
-  parseTransaction,
+  parseBlock,
   computeKappaRecovery 
 } from "./blockchain-scanner";
 import { observerStorage } from "./observer-storage";

@@ -5,7 +5,7 @@
  * Target: |β_attention - β_physics| < 0.1
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 const BETA_PHYSICS_L6 = {
   beta_3_4: 0.443,

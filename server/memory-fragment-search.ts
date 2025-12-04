@@ -12,7 +12,6 @@
  * - QIG-guided prioritization (Φ × confidence × resonance)
  */
 
-import { createHash } from "crypto";
 import { scoreUniversalQIG, type UniversalQIGScore } from "./qig-universal.js";
 
 export interface MemoryFragment {
@@ -302,7 +301,7 @@ export function generateFragmentCandidates(
  */
 export function scoreFragmentCandidates(
   candidates: FragmentCandidate[],
-  targetAddress: string
+  _targetAddress: string
 ): FragmentCandidate[] {
   const scored = candidates.map(c => {
     const qigScore = scoreUniversalQIG(c.phrase, "arbitrary");

@@ -140,16 +140,20 @@ class BalanceQueueService {
         this.workerErrorCount = 0; // Reset error count on success
       } catch (error) {
         this.workerErrorCount++;
-        console.error(`[BalanceQueue] Worker error ${this.workerErrorCount}/${this.maxWorkerErrors}:`, error);
+        console.error(`[BalanceQueue] Worker error ${this.workerErrorCount}/${this.maxWorkerErrors} (NEVER-STOP mode):`, error);
+        
+        // Update heartbeat even on error to signal worker is alive
+        this.lastHeartbeat = Date.now();
         
         if (this.workerErrorCount >= this.maxWorkerErrors) {
-          console.log('[BalanceQueue] Too many errors, pausing worker for 30s...');
+          console.log('[BalanceQueue] High error rate, pausing worker for 30s to allow API recovery...');
           this.workerErrorCount = 0;
-          // Wait 30 seconds before resuming
+          // Wait 30 seconds before resuming - worker continues after cooldown
           setTimeout(() => {
-            console.log('[BalanceQueue] Resuming worker after error cooldown');
+            console.log('[BalanceQueue] Resuming worker after error cooldown - NEVER-STOP');
           }, 30000);
         }
+        // Worker NEVER stops, even with errors
       } finally {
         this.isProcessing = false;
       }
@@ -158,7 +162,7 @@ class BalanceQueueService {
     // Start heartbeat monitor to auto-restart if worker stops
     this.startHeartbeatMonitor();
     
-    console.log('[BalanceQueue] Background worker started (bulk mode, ~25 addr/sec)');
+    console.log('[BalanceQueue] Background worker started (NEVER-STOP mode, bulk processing ~25 addr/sec)');
   }
   
   /**
@@ -305,90 +309,120 @@ class BalanceQueueService {
   /**
    * Process a batch of addresses using bulk API
    * Much faster than individual checks - uses Blockchain.com bulk endpoint
+   * NEVER-STOP: All errors are caught and logged, worker continues
    */
   private async processBulkBatch(): Promise<{ checked: number; hits: number }> {
-    const pending = Array.from(this.queue.values())
-      .filter(item => item.status === 'pending' || (item.status === 'failed' && item.retryCount < 3))
-      .sort((a, b) => b.priority - a.priority)
-      .slice(0, this.bulkBatchSize);
-    
-    if (pending.length === 0) return { checked: 0, hits: 0 };
-    
-    const addresses = pending.map(item => item.address);
-    
     try {
-      // Use bulk API to check all addresses at once
-      const results = await freeBlockchainAPI.getBalances(addresses);
+      const pending = Array.from(this.queue.values())
+        .filter(item => item.status === 'pending' || (item.status === 'failed' && item.retryCount < 3))
+        .sort((a, b) => b.priority - a.priority)
+        .slice(0, this.bulkBatchSize);
       
-      let hits = 0;
+      if (pending.length === 0) return { checked: 0, hits: 0 };
       
-      for (const item of pending) {
-        const result = results.get(item.address);
+      const addresses = pending.map(item => item.address);
+      
+      try {
+        // Use bulk API to check all addresses at once
+        const results = await freeBlockchainAPI.getBalances(addresses);
         
-        if (result) {
-          item.status = 'checking';
-          
-          // Check for balance or transaction activity
-          if (result.balance > 0 || result.txCount > 0) {
-            // Record the hit with full details
-            const hit = await checkAndRecordBalance(
-              item.address,
-              item.passphrase,
-              item.wif,
-              item.isCompressed
-            );
+        let hits = 0;
+        
+        for (const item of pending) {
+          try {
+            const result = results.get(item.address);
             
-            if (hit) {
-              hits++;
-              this.backgroundHitCount++;
-              console.log(`[BalanceQueue] 💰 HIT! ${item.address} - ${result.balance} BTC, ${result.txCount} txs`);
+            if (result) {
+              item.status = 'checking';
+              
+              // Check for balance or transaction activity
+              if (result.balance > 0 || result.txCount > 0) {
+                // Record the hit with full details
+                try {
+                  const hit = await checkAndRecordBalance(
+                    item.address,
+                    item.passphrase,
+                    item.wif,
+                    item.isCompressed
+                  );
+                  
+                  if (hit) {
+                    hits++;
+                    this.backgroundHitCount++;
+                    console.log(`[BalanceQueue] 💰 HIT! ${item.address} - ${result.balance} BTC, ${result.txCount} txs`);
+                  }
+                } catch (recordError) {
+                  console.error(`[BalanceQueue] Error recording hit for ${item.address}:`, recordError);
+                  // Continue processing other addresses
+                }
+              }
+              
+              // Check against known dormant addresses
+              try {
+                const dormantMatch = dormantCrossRef.checkAddress(item.address);
+                if (dormantMatch.isMatch && dormantMatch.info) {
+                  console.log(`[BalanceQueue] 🎯 DORMANT MATCH! ${item.address} matches Rank #${dormantMatch.info.rank} (${dormantMatch.info.balanceBTC} BTC)`);
+                }
+              } catch (dormantError) {
+                console.error(`[BalanceQueue] Error checking dormant for ${item.address}:`, dormantError);
+                // Continue processing
+              }
+              
+              item.status = 'resolved';
+              item.checkedAt = Date.now();
+              this.backgroundCheckCount++;
+              
+              // Remove resolved items
+              this.queue.delete(item.id);
+            } else {
+              // No result - mark as failed
+              item.status = 'failed';
+              item.retryCount++;
+              item.error = 'No balance data returned';
             }
+          } catch (itemError) {
+            console.error(`[BalanceQueue] Error processing item ${item.address}:`, itemError);
+            item.status = 'failed';
+            item.retryCount++;
+            item.error = itemError instanceof Error ? itemError.message : 'Item processing error';
+            // Continue with next item
           }
-          
-          // Check against known dormant addresses
-          const dormantMatch = dormantCrossRef.checkAddress(item.address);
-          if (dormantMatch.isMatch && dormantMatch.info) {
-            console.log(`[BalanceQueue] 🎯 DORMANT MATCH! ${item.address} matches Rank #${dormantMatch.info.rank} (${dormantMatch.info.balanceBTC} BTC)`);
+        }
+        
+        this.scheduleSave();
+        
+        // Log progress every batch
+        const elapsed = (Date.now() - this.backgroundStartTime) / 1000;
+        const rate = elapsed > 0 ? this.backgroundCheckCount / elapsed : 0;
+        
+        if (this.backgroundCheckCount % 100 === 0 || hits > 0) {
+          try {
+            const apiStats = freeBlockchainAPI.getStats();
+            console.log(`[BalanceQueue] Bulk: ${this.backgroundCheckCount} checked, ${this.backgroundHitCount} hits, ${rate.toFixed(1)}/sec, ${this.queue.size} remaining`);
+            console.log(`[BalanceQueue] API: cache=${apiStats.cacheSize} (${(apiStats.cacheHitRate * 100).toFixed(0)}% hit), providers=${apiStats.providers.filter(p => p.healthy).length}/4 healthy`);
+          } catch (logError) {
+            // Even logging errors shouldn't stop the worker
+            console.error('[BalanceQueue] Error logging stats:', logError);
           }
-          
-          item.status = 'resolved';
-          item.checkedAt = Date.now();
-          this.backgroundCheckCount++;
-          
-          // Remove resolved items
-          this.queue.delete(item.id);
-        } else {
-          // No result - mark as failed
+        }
+        
+        return { checked: pending.length, hits };
+        
+      } catch (apiError) {
+        console.error('[BalanceQueue] Bulk API error (will retry):', apiError);
+        
+        // Mark all as failed for retry - but don't throw
+        for (const item of pending) {
           item.status = 'failed';
           item.retryCount++;
-          item.error = 'No balance data returned';
+          item.error = apiError instanceof Error ? apiError.message : 'Bulk API error';
         }
+        
+        return { checked: 0, hits: 0 };
       }
-      
-      this.scheduleSave();
-      
-      // Log progress every batch
-      const elapsed = (Date.now() - this.backgroundStartTime) / 1000;
-      const rate = elapsed > 0 ? this.backgroundCheckCount / elapsed : 0;
-      
-      if (this.backgroundCheckCount % 100 === 0 || hits > 0) {
-        const apiStats = freeBlockchainAPI.getStats();
-        console.log(`[BalanceQueue] Bulk: ${this.backgroundCheckCount} checked, ${this.backgroundHitCount} hits, ${rate.toFixed(1)}/sec, ${this.queue.size} remaining`);
-        console.log(`[BalanceQueue] API: cache=${apiStats.cacheSize} (${(apiStats.cacheHitRate * 100).toFixed(0)}% hit), providers=${apiStats.providers.filter(p => p.healthy).length}/4 healthy`);
-      }
-      
-      return { checked: pending.length, hits };
-      
-    } catch (error) {
-      console.error('[BalanceQueue] Bulk batch error:', error);
-      
-      // Mark all as failed for retry
-      for (const item of pending) {
-        item.status = 'failed';
-        item.retryCount++;
-        item.error = error instanceof Error ? error.message : 'Bulk API error';
-      }
-      
+    } catch (outerError) {
+      // Catastrophic error - log and return, worker will continue on next cycle
+      console.error('[BalanceQueue] CRITICAL: Catastrophic error in processBulkBatch (worker continues):', outerError);
       return { checked: 0, hits: 0 };
     }
   }
