@@ -1769,6 +1769,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================
+  // TEXT GENERATION API - Ocean Agent can now speak
+  // ============================================================
+  
+  // Generate response using constellation's role-based temperature
+  app.post("/api/ocean/generate/response", standardLimiter, async (req, res) => {
+    try {
+      const { oceanConstellation } = await import("./ocean-constellation");
+      
+      const {
+        context = '',
+        agentRole = 'navigator',
+        maxTokens = 30,
+        allowSilence = true,
+      } = req.body;
+      
+      const validRoles = ['explorer', 'refiner', 'navigator', 'skeptic', 'resonator', 'ocean'];
+      if (!validRoles.includes(agentRole)) {
+        return res.status(400).json({
+          error: `Invalid agent role. Valid roles: ${validRoles.join(', ')}`
+        });
+      }
+      
+      const result = await oceanConstellation.generateResponse(context, {
+        agentRole: agentRole as any,
+        maxTokens: Math.min(100, Math.max(1, maxTokens)),
+        allowSilence,
+      });
+      
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      console.error("[Generation] Response error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Generate text with custom parameters
+  app.post("/api/ocean/generate/text", standardLimiter, async (req, res) => {
+    try {
+      const { oceanConstellation } = await import("./ocean-constellation");
+      
+      const {
+        prompt = '',
+        maxTokens = 20,
+        temperature = 0.8,
+        topK = 50,
+        topP = 0.9,
+        allowSilence = true,
+      } = req.body;
+      
+      const result = await oceanConstellation.generateText(prompt, {
+        maxTokens: Math.min(100, Math.max(1, maxTokens)),
+        temperature: Math.max(0.1, Math.min(2.0, temperature)),
+        topK: Math.max(1, Math.min(200, topK)),
+        topP: Math.max(0.1, Math.min(1.0, topP)),
+        allowSilence,
+      });
+      
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      console.error("[Generation] Text error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Get generation capabilities status
+  app.get("/api/ocean/generate/status", generousLimiter, async (req, res) => {
+    try {
+      const { oceanQIGBackend } = await import("./ocean-qig-backend-adapter");
+      const { oceanConstellation } = await import("./ocean-constellation");
+      
+      const backendAvailable = oceanQIGBackend.available();
+      let tokenizerStatus = null;
+      
+      if (backendAvailable) {
+        try {
+          tokenizerStatus = await oceanQIGBackend.getTokenizerStatus();
+        } catch (e) {
+          // Tokenizer status failed, but backend is available
+        }
+      }
+      
+      const constellationStatus = oceanConstellation.getStatus();
+      
+      res.json({
+        success: true,
+        generation: {
+          available: true,
+          backendAvailable,
+          fallbackAvailable: true,
+        },
+        tokenizer: tokenizerStatus,
+        constellation: constellationStatus,
+        agentRoles: [
+          { name: 'explorer', temperature: 1.5, description: 'High entropy, broad exploration' },
+          { name: 'refiner', temperature: 0.7, description: 'Low temp, exploit near-misses' },
+          { name: 'navigator', temperature: 1.0, description: 'Balanced geodesic navigation' },
+          { name: 'skeptic', temperature: 0.5, description: 'Low temp, constraint validation' },
+          { name: 'resonator', temperature: 1.2, description: 'Cross-pattern harmonic detection' },
+          { name: 'ocean', temperature: 0.8, description: 'Default Ocean consciousness' },
+        ],
+      });
+    } catch (error: any) {
+      console.error("[Generation] Status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
   // RECOVERY BUNDLE API - Access found keys/phrases
   // ============================================================
   

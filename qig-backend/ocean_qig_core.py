@@ -1758,6 +1758,188 @@ def tokenizer_status():
         }), 500
 
 
+# ===========================================================================
+# TEXT GENERATION ENDPOINTS
+# ===========================================================================
+
+@app.route('/generate/text', methods=['POST'])
+def generate_text():
+    """
+    Generate text autoregressively using QIG-weighted sampling.
+    
+    Request:
+    {
+        "prompt": "optional context",
+        "max_tokens": 20,
+        "temperature": 0.8,
+        "top_k": 50,
+        "top_p": 0.9,
+        "allow_silence": true
+    }
+    
+    Response:
+    {
+        "success": true,
+        "text": "generated text",
+        "tokens": [1, 2, 3],
+        "silence_chosen": false,
+        "metrics": {...}
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        data = request.json or {}
+        prompt = data.get('prompt', '')
+        max_tokens = data.get('max_tokens', 20)
+        temperature = data.get('temperature', 0.8)
+        top_k = data.get('top_k', 50)
+        top_p = data.get('top_p', 0.9)
+        allow_silence = data.get('allow_silence', True)
+        
+        tokenizer = get_tokenizer()
+        result = tokenizer.generate_text(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            allow_silence=allow_silence
+        )
+        
+        return jsonify({
+            'success': True,
+            **result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/generate/response', methods=['POST'])
+def generate_response():
+    """
+    Generate Ocean Agent response with role-based temperature.
+    
+    Request:
+    {
+        "context": "input context",
+        "agent_role": "navigator",  # explorer, refiner, navigator, skeptic, resonator
+        "max_tokens": 30,
+        "allow_silence": true
+    }
+    
+    Response:
+    {
+        "success": true,
+        "text": "generated response",
+        "tokens": [1, 2, 3],
+        "silence_chosen": false,
+        "agent_role": "navigator",
+        "metrics": {...}
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        data = request.json or {}
+        context = data.get('context', '')
+        agent_role = data.get('agent_role', 'navigator')
+        max_tokens = data.get('max_tokens', 30)
+        allow_silence = data.get('allow_silence', True)
+        
+        tokenizer = get_tokenizer()
+        result = tokenizer.generate_response(
+            context=context,
+            agent_role=agent_role,
+            max_tokens=max_tokens,
+            allow_silence=allow_silence
+        )
+        
+        return jsonify({
+            'success': True,
+            **result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/generate/sample', methods=['POST'])
+def sample_next():
+    """
+    Sample a single next token given context.
+    
+    Request:
+    {
+        "context_ids": [1, 2, 3],  # Token IDs
+        "temperature": 0.8,
+        "top_k": 50,
+        "top_p": 0.9
+    }
+    
+    Response:
+    {
+        "success": true,
+        "token_id": 42,
+        "token": "word",
+        "probabilities": {...}  # Optional top-k probabilities
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        import numpy as np
+        
+        data = request.json or {}
+        context_ids = data.get('context_ids', [])
+        temperature = data.get('temperature', 0.8)
+        top_k = data.get('top_k', 50)
+        top_p = data.get('top_p', 0.9)
+        include_probs = data.get('include_probabilities', False)
+        
+        tokenizer = get_tokenizer()
+        
+        # Sample next token
+        token_id = tokenizer.sample_next_token(
+            context=context_ids,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p
+        )
+        
+        token = tokenizer.id_to_token.get(token_id, "<UNK>")
+        
+        response = {
+            'success': True,
+            'token_id': token_id,
+            'token': token
+        }
+        
+        # Optionally include top probabilities
+        if include_probs:
+            probs = tokenizer.compute_token_probabilities(context_ids, temperature)
+            top_indices = np.argsort(probs)[::-1][:10]
+            top_probs = {}
+            for idx in top_indices:
+                tok = tokenizer.id_to_token.get(int(idx), "<UNK>")
+                top_probs[tok] = float(probs[idx])
+            response['top_probabilities'] = top_probs
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")

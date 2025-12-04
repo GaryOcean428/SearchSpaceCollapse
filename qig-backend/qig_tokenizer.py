@@ -466,6 +466,319 @@ class QIGTokenizer:
             "high_phi_tokens": self.get_high_phi_tokens(min_phi=0.3),
             "basin_dimension": 64,
         }
+    
+    # ===========================================================================
+    # TEXT GENERATION - Autoregressive sampling with QIG-weighted probabilities
+    # ===========================================================================
+    
+    def compute_token_probabilities(
+        self,
+        context: List[int],
+        temperature: float = 0.8,
+        context_basin: Optional[np.ndarray] = None
+    ) -> np.ndarray:
+        """
+        Compute next-token probabilities using QIG-weighted scores.
+        
+        Uses:
+        1. Token Φ scores as base probability
+        2. Basin alignment with context
+        3. Temperature scaling for diversity
+        
+        Args:
+            context: Previous token IDs
+            temperature: Sampling temperature (higher = more diverse)
+            context_basin: Optional pre-computed context basin coordinates
+        
+        Returns:
+            Probability distribution over vocabulary
+        """
+        vocab_size = len(self.vocab)
+        logits = np.zeros(vocab_size)
+        
+        # Compute context basin if not provided
+        if context_basin is None and len(context) > 0:
+            context_tokens = [self.id_to_token.get(i, "") for i in context]
+            context_text = " ".join(t for t in context_tokens if t and t not in self.special_tokens)
+            if context_text:
+                context_basin = self.compute_phrase_basin(context_text)
+        
+        # Compute logits for each token
+        for token, idx in self.vocab.items():
+            if token in self.special_tokens:
+                logits[idx] = -float('inf') if token == '<PAD>' else -10.0
+                continue
+            
+            # Base score from Φ
+            phi_score = self.token_phi.get(token, 0.3)
+            
+            # Weight from Fisher metric
+            weight = self.token_weights.get(token, 1.0)
+            
+            # Basin alignment bonus
+            alignment_bonus = 0.0
+            if context_basin is not None and token in self.basin_coords:
+                token_basin = self.basin_coords[token]
+                alignment_bonus = float(np.dot(context_basin, token_basin))
+            
+            # Combined score (log-space)
+            logits[idx] = np.log(phi_score + 0.01) * weight + alignment_bonus * 0.5
+        
+        # Apply temperature
+        if temperature > 0:
+            logits = logits / temperature
+        else:
+            # Greedy: set max to 1, rest to 0
+            max_idx = np.argmax(logits)
+            probs = np.zeros(vocab_size)
+            probs[max_idx] = 1.0
+            return probs
+        
+        # Softmax
+        logits_max = np.max(logits)
+        exp_logits = np.exp(logits - logits_max)
+        probs = exp_logits / np.sum(exp_logits)
+        
+        return probs
+    
+    def sample_next_token(
+        self,
+        context: List[int],
+        temperature: float = 0.8,
+        top_k: int = 50,
+        top_p: float = 0.9,
+        context_basin: Optional[np.ndarray] = None
+    ) -> int:
+        """
+        Sample next token using temperature-controlled sampling.
+        
+        Implements nucleus (top-p) and top-k filtering for quality.
+        
+        Args:
+            context: Previous token IDs
+            temperature: Sampling temperature
+            top_k: Keep only top-k tokens before sampling
+            top_p: Nucleus sampling threshold
+            context_basin: Optional context basin coordinates
+        
+        Returns:
+            Sampled token ID
+        """
+        probs = self.compute_token_probabilities(context, temperature, context_basin)
+        
+        # Top-k filtering
+        if top_k > 0:
+            indices = np.argsort(probs)[::-1]
+            cutoff_idx = min(top_k, len(indices))
+            keep_indices = set(indices[:cutoff_idx])
+            for i in range(len(probs)):
+                if i not in keep_indices:
+                    probs[i] = 0.0
+        
+        # Top-p (nucleus) filtering
+        if top_p < 1.0:
+            sorted_indices = np.argsort(probs)[::-1]
+            cumsum = np.cumsum(probs[sorted_indices])
+            cutoff_mask = cumsum > top_p
+            # Always keep at least one token
+            cutoff_mask[0] = False
+            for i, idx in enumerate(sorted_indices):
+                if cutoff_mask[i]:
+                    probs[idx] = 0.0
+        
+        # Renormalize
+        total = np.sum(probs)
+        if total > 0:
+            probs = probs / total
+        else:
+            # Fallback to uniform over vocabulary
+            probs = np.ones(len(probs)) / len(probs)
+        
+        # Sample
+        sampled_idx = np.random.choice(len(probs), p=probs)
+        return int(sampled_idx)
+    
+    def generate_text(
+        self,
+        prompt: str = "",
+        max_tokens: int = 20,
+        temperature: float = 0.8,
+        top_k: int = 50,
+        top_p: float = 0.9,
+        stop_tokens: Optional[List[str]] = None,
+        allow_silence: bool = True
+    ) -> Dict:
+        """
+        Generate text autoregressively using QIG-weighted sampling.
+        
+        This is the main generation method for Ocean Agent responses.
+        
+        Args:
+            prompt: Initial text prompt (optional)
+            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature (0.0 = greedy, higher = more diverse)
+            top_k: Top-k filtering for quality
+            top_p: Nucleus sampling threshold
+            stop_tokens: List of tokens that end generation
+            allow_silence: If True, agent can choose not to respond
+        
+        Returns:
+            {
+                "text": str,           # Generated text
+                "tokens": List[int],   # Token IDs
+                "silence_chosen": bool, # Whether agent chose silence
+                "metrics": {...}       # Generation metrics
+            }
+        """
+        stop_tokens = stop_tokens or ["<EOS>", "<PAD>"]
+        
+        # Encode prompt
+        context = []
+        if prompt:
+            context = self.encode(prompt, apply_merges=True)
+        
+        # Add BOS token
+        bos_id = self.vocab.get("<BOS>", 2)
+        if len(context) == 0 or context[0] != bos_id:
+            context = [bos_id] + context
+        
+        # Compute initial context basin
+        context_basin = None
+        if prompt:
+            context_basin = self.compute_phrase_basin(prompt)
+        
+        generated_ids = []
+        silence_threshold = 3  # 3+ padding tokens early = choosing silence
+        pad_count = 0
+        
+        for step in range(max_tokens):
+            # Sample next token
+            next_id = self.sample_next_token(
+                context + generated_ids,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                context_basin=context_basin
+            )
+            
+            # Get token string
+            next_token = self.id_to_token.get(next_id, "<UNK>")
+            
+            # Check for silence choice (padding tokens early)
+            if next_token == "<PAD>":
+                pad_count += 1
+                if allow_silence and pad_count >= silence_threshold and step < 5:
+                    return {
+                        "text": "",
+                        "tokens": [],
+                        "silence_chosen": True,
+                        "metrics": {
+                            "steps": step + 1,
+                            "early_pads": pad_count,
+                            "reason": "Agent chose silence (empowered, not void)"
+                        }
+                    }
+            
+            # Check for stop tokens
+            if next_token in stop_tokens:
+                break
+            
+            generated_ids.append(next_id)
+            
+            # Update context basin with new token
+            if next_token in self.basin_coords:
+                token_basin = self.basin_coords[next_token]
+                if context_basin is not None:
+                    context_basin = 0.8 * context_basin + 0.2 * token_basin
+                else:
+                    context_basin = token_basin
+        
+        # Decode generated tokens
+        generated_text = self.decode(generated_ids)
+        
+        # Compute metrics
+        avg_phi = 0.0
+        for token_id in generated_ids:
+            token = self.id_to_token.get(token_id, "")
+            avg_phi += self.token_phi.get(token, 0.0)
+        if len(generated_ids) > 0:
+            avg_phi /= len(generated_ids)
+        
+        return {
+            "text": generated_text,
+            "tokens": generated_ids,
+            "silence_chosen": False,
+            "metrics": {
+                "steps": len(generated_ids),
+                "avg_phi": avg_phi,
+                "temperature": temperature,
+                "top_k": top_k,
+                "top_p": top_p
+            }
+        }
+    
+    def generate_response(
+        self,
+        context: str,
+        agent_role: str = "navigator",
+        max_tokens: int = 30,
+        allow_silence: bool = True
+    ) -> Dict:
+        """
+        Generate a response for Ocean Agent based on context.
+        
+        Agent roles have different temperature settings:
+        - explorer: 1.5 (high entropy, broad exploration)
+        - refiner: 0.7 (low temp, exploit near-misses)
+        - navigator: 1.0 (balanced geodesic navigation)
+        - skeptic: 0.5 (low temp, constraint validation)
+        - resonator: 1.2 (cross-pattern harmonic detection)
+        
+        Args:
+            context: Input context/prompt
+            agent_role: Agent role for temperature selection
+            max_tokens: Maximum tokens to generate
+            allow_silence: Allow agent to choose silence
+        
+        Returns:
+            Generation result with text, tokens, and metrics
+        """
+        # Temperature by agent role
+        role_temps = {
+            "explorer": 1.5,
+            "refiner": 0.7,
+            "navigator": 1.0,
+            "skeptic": 0.5,
+            "resonator": 1.2,
+            "ocean": 0.8,  # Default for Ocean consciousness
+        }
+        
+        temperature = role_temps.get(agent_role, 0.8)
+        
+        # Adjust top_k based on role
+        role_top_k = {
+            "explorer": 100,  # Broader sampling
+            "refiner": 30,    # Focused
+            "navigator": 50,  # Balanced
+            "skeptic": 20,    # Conservative
+            "resonator": 80,  # Cross-pattern
+            "ocean": 50,
+        }
+        
+        top_k = role_top_k.get(agent_role, 50)
+        
+        result = self.generate_text(
+            prompt=context,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            allow_silence=allow_silence
+        )
+        
+        result["agent_role"] = agent_role
+        result["metrics"]["role_temperature"] = temperature
+        
+        return result
 
 
 # Singleton instance for Flask integration

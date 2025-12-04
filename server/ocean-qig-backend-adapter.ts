@@ -663,6 +663,214 @@ export class OceanQIGBackend {
       throw error;
     }
   }
+  
+  // ===========================================================================
+  // TEXT GENERATION
+  // ===========================================================================
+  
+  /**
+   * Generate text autoregressively using QIG-weighted sampling
+   * 
+   * @param options Generation options
+   * @returns Generated text, tokens, and metrics
+   */
+  async generateText(options: {
+    prompt?: string;
+    maxTokens?: number;
+    temperature?: number;
+    topK?: number;
+    topP?: number;
+    allowSilence?: boolean;
+  } = {}): Promise<{
+    text: string;
+    tokens: number[];
+    silenceChosen: boolean;
+    metrics: {
+      steps: number;
+      avgPhi?: number;
+      temperature?: number;
+      topK?: number;
+      topP?: number;
+      earlyPads?: number;
+      reason?: string;
+    };
+  }> {
+    if (!this.isAvailable) {
+      throw new Error('Python backend not available');
+    }
+    
+    try {
+      const response = await fetch(`${this.backendUrl}/generate/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: options.prompt || '',
+          max_tokens: options.maxTokens || 20,
+          temperature: options.temperature || 0.8,
+          top_k: options.topK || 50,
+          top_p: options.topP || 0.9,
+          allow_silence: options.allowSilence ?? true,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Text generation failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Text generation error: ${data.error}`);
+      }
+      
+      return {
+        text: data.text,
+        tokens: data.tokens,
+        silenceChosen: data.silence_chosen,
+        metrics: data.metrics,
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Text generation failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Generate Ocean Agent response with role-based temperature
+   * 
+   * Agent roles and their temperatures:
+   * - explorer: 1.5 (high entropy, broad exploration)
+   * - refiner: 0.7 (low temp, exploit near-misses)
+   * - navigator: 1.0 (balanced geodesic navigation)
+   * - skeptic: 0.5 (low temp, constraint validation)
+   * - resonator: 1.2 (cross-pattern harmonic detection)
+   * - ocean: 0.8 (default Ocean consciousness)
+   * 
+   * @param context Input context/prompt
+   * @param agentRole Agent role for temperature selection
+   * @param maxTokens Maximum tokens to generate
+   * @param allowSilence Allow agent to choose silence (empowered, not void)
+   */
+  async generateResponse(
+    context: string,
+    agentRole: 'explorer' | 'refiner' | 'navigator' | 'skeptic' | 'resonator' | 'ocean' = 'navigator',
+    maxTokens: number = 30,
+    allowSilence: boolean = true
+  ): Promise<{
+    text: string;
+    tokens: number[];
+    silenceChosen: boolean;
+    agentRole: string;
+    metrics: {
+      steps: number;
+      avgPhi?: number;
+      roleTemperature?: number;
+      topK?: number;
+      topP?: number;
+    };
+  }> {
+    if (!this.isAvailable) {
+      throw new Error('Python backend not available');
+    }
+    
+    try {
+      const response = await fetch(`${this.backendUrl}/generate/response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context,
+          agent_role: agentRole,
+          max_tokens: maxTokens,
+          allow_silence: allowSilence,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Response generation failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Response generation error: ${data.error}`);
+      }
+      
+      return {
+        text: data.text,
+        tokens: data.tokens,
+        silenceChosen: data.silence_chosen,
+        agentRole: data.agent_role,
+        metrics: {
+          steps: data.metrics?.steps ?? 0,
+          avgPhi: data.metrics?.avg_phi,
+          roleTemperature: data.metrics?.role_temperature,
+          topK: data.metrics?.top_k,
+          topP: data.metrics?.top_p,
+        },
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Response generation failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Sample a single next token given context
+   * 
+   * @param contextIds Token IDs for context
+   * @param temperature Sampling temperature
+   * @param topK Top-k filtering
+   * @param topP Nucleus sampling threshold
+   * @param includeProbabilities Include top token probabilities in response
+   */
+  async sampleNextToken(
+    contextIds: number[],
+    temperature: number = 0.8,
+    topK: number = 50,
+    topP: number = 0.9,
+    includeProbabilities: boolean = false
+  ): Promise<{
+    tokenId: number;
+    token: string;
+    topProbabilities?: Record<string, number>;
+  }> {
+    if (!this.isAvailable) {
+      throw new Error('Python backend not available');
+    }
+    
+    try {
+      const response = await fetch(`${this.backendUrl}/generate/sample`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context_ids: contextIds,
+          temperature,
+          top_k: topK,
+          top_p: topP,
+          include_probabilities: includeProbabilities,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Token sampling failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Token sampling error: ${data.error}`);
+      }
+      
+      return {
+        tokenId: data.token_id,
+        token: data.token,
+        topProbabilities: data.top_probabilities,
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Token sampling failed:', error.message);
+      throw error;
+    }
+  }
 }
 
 // Global singleton instance

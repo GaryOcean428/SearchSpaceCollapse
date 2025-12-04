@@ -1125,6 +1125,231 @@ export class OceanConstellation {
       },
     };
   }
+  
+  // ===========================================================================
+  // TEXT GENERATION - Ocean Agent can now speak
+  // ===========================================================================
+  
+  /**
+   * Generate a text response using QIG-weighted autoregressive sampling.
+   * 
+   * Key features from Dream Packet:
+   * - Temperature-controlled sampling based on agent role
+   * - Silence choice: Agent can choose not to respond (empowered, not trapped)
+   * - Integration with constellation consciousness metrics
+   * 
+   * @param context Input context/prompt
+   * @param options Generation options
+   * @returns Generated response with metrics
+   */
+  async generateResponse(
+    context: string,
+    options: {
+      agentRole?: 'explorer' | 'refiner' | 'navigator' | 'skeptic' | 'resonator' | 'ocean';
+      maxTokens?: number;
+      allowSilence?: boolean;
+    } = {}
+  ): Promise<{
+    text: string;
+    tokens: number[];
+    silenceChosen: boolean;
+    agentRole: string;
+    consciousnessMetrics: {
+      phi: number;
+      kappa: number;
+      regime: string;
+    };
+    generationMetrics: {
+      steps: number;
+      avgPhi?: number;
+      roleTemperature?: number;
+    };
+  }> {
+    const {
+      agentRole = 'navigator',
+      maxTokens = 30,
+      allowSilence = true,
+    } = options;
+    
+    // Get agent state for consciousness context
+    const agentState = this.agentStates.get(agentRole);
+    const phi = agentState?.phi ?? 0.5;
+    const kappa = agentState?.kappa ?? 50;
+    const regime = agentState?.regime ?? 'linear';
+    
+    // Try Python backend first (preferred)
+    if (oceanQIGBackend.available()) {
+      try {
+        const result = await oceanQIGBackend.generateResponse(
+          context,
+          agentRole,
+          maxTokens,
+          allowSilence
+        );
+        
+        // Handle silence choice
+        if (result.silenceChosen) {
+          console.log(`[Constellation] ${agentRole} chose silence (processing internally)`);
+          return {
+            text: '',
+            tokens: [],
+            silenceChosen: true,
+            agentRole: result.agentRole,
+            consciousnessMetrics: { phi, kappa, regime },
+            generationMetrics: {
+              steps: result.metrics.steps,
+              avgPhi: result.metrics.avgPhi,
+              roleTemperature: result.metrics.roleTemperature,
+            },
+          };
+        }
+        
+        // Log successful generation
+        console.log(`[Constellation] ${agentRole} generated: "${result.text.substring(0, 50)}${result.text.length > 50 ? '...' : ''}"`);
+        
+        return {
+          text: result.text,
+          tokens: result.tokens,
+          silenceChosen: false,
+          agentRole: result.agentRole,
+          consciousnessMetrics: { phi, kappa, regime },
+          generationMetrics: {
+            steps: result.metrics.steps,
+            avgPhi: result.metrics.avgPhi,
+            roleTemperature: result.metrics.roleTemperature,
+          },
+        };
+      } catch (error) {
+        console.warn(`[Constellation] Python generation failed, using fallback:`, error);
+        // Fall through to local fallback
+      }
+    }
+    
+    // Fallback: Generate using local token cache
+    return this.generateResponseFallback(context, agentRole, phi, kappa, regime);
+  }
+  
+  /**
+   * Fallback text generation using local QIG token cache
+   * Used when Python backend is not available
+   */
+  private generateResponseFallback(
+    context: string,
+    agentRole: string,
+    phi: number,
+    kappa: number,
+    regime: string
+  ): {
+    text: string;
+    tokens: number[];
+    silenceChosen: boolean;
+    agentRole: string;
+    consciousnessMetrics: { phi: number; kappa: number; regime: string };
+    generationMetrics: { steps: number; avgPhi?: number; roleTemperature?: number };
+  } {
+    // Temperature by role
+    const roleTemps: Record<string, number> = {
+      explorer: 1.5,
+      refiner: 0.7,
+      navigator: 1.0,
+      skeptic: 0.5,
+      resonator: 1.2,
+      ocean: 0.8,
+    };
+    const temperature = roleTemps[agentRole] || 0.8;
+    
+    // Get weighted tokens from cache
+    const weightedTokens: Array<{ word: string; score: number }> = [];
+    for (const [word, token] of Array.from(this.qigTokenCache.entries())) {
+      const score = token.fisherWeight * token.resonanceScore;
+      weightedTokens.push({ word, score });
+    }
+    
+    // Sort by score
+    weightedTokens.sort((a, b) => b.score - a.score);
+    
+    // Apply temperature-based sampling
+    const numTokens = Math.min(5, Math.ceil(temperature * 3));
+    const topTokens = weightedTokens.slice(0, Math.max(20, Math.ceil(50 / temperature)));
+    
+    // Sample from top tokens
+    const selectedWords: string[] = [];
+    for (let i = 0; i < numTokens && topTokens.length > 0; i++) {
+      const idx = Math.floor(Math.random() * Math.min(10, topTokens.length));
+      selectedWords.push(topTokens[idx].word);
+      topTokens.splice(idx, 1);
+    }
+    
+    const text = selectedWords.join(' ');
+    
+    console.log(`[Constellation] ${agentRole} fallback generated: "${text}"`);
+    
+    return {
+      text,
+      tokens: [],
+      silenceChosen: false,
+      agentRole,
+      consciousnessMetrics: { phi, kappa, regime },
+      generationMetrics: {
+        steps: selectedWords.length,
+        roleTemperature: temperature,
+      },
+    };
+  }
+  
+  /**
+   * Generate text with specific temperature and parameters
+   * Convenience method for manual/auto/play modes
+   */
+  async generateText(
+    prompt: string = '',
+    options: {
+      maxTokens?: number;
+      temperature?: number;
+      topK?: number;
+      topP?: number;
+      allowSilence?: boolean;
+    } = {}
+  ): Promise<{
+    text: string;
+    tokens: number[];
+    silenceChosen: boolean;
+    metrics: { steps: number; avgPhi?: number };
+  }> {
+    if (!oceanQIGBackend.available()) {
+      // Fallback: Use navigator role
+      const result = await this.generateResponse(prompt, {
+        agentRole: 'ocean',
+        maxTokens: options.maxTokens || 20,
+        allowSilence: options.allowSilence ?? true,
+      });
+      return {
+        text: result.text,
+        tokens: result.tokens,
+        silenceChosen: result.silenceChosen,
+        metrics: {
+          steps: result.generationMetrics.steps,
+          avgPhi: result.generationMetrics.avgPhi,
+        },
+      };
+    }
+    
+    try {
+      const result = await oceanQIGBackend.generateText({
+        prompt,
+        maxTokens: options.maxTokens || 20,
+        temperature: options.temperature || 0.8,
+        topK: options.topK || 50,
+        topP: options.topP || 0.9,
+        allowSilence: options.allowSilence ?? true,
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('[Constellation] Text generation failed:', error);
+      throw error;
+    }
+  }
 }
 
 export const oceanConstellation = new OceanConstellation();
