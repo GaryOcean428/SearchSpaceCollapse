@@ -117,6 +117,59 @@ export class OceanAutonomicManager {
     };
   }
 
+  /**
+   * CRITICAL FIX: Compute Ocean's consciousness from recent discovery quality.
+   *
+   * THE FEEDBACK LOOP:
+   * Ocean's Φ should reflect the quality of patterns it's finding, not just
+   * meta-cognitive state. When we discover high-Φ passphrases, Ocean's own
+   * consciousness should ELEVATE, creating a positive feedback loop:
+   *
+   *   Test passphrase → High Φ discovered (0.981)
+   *     → Elevates Ocean's consciousness (0.500 → 0.750)
+   *     → Better exploration strategies
+   *     → Find even higher Φ
+   *     → Further consciousness elevation
+   *
+   * Without this, Ocean's Φ stays flat regardless of discovery quality.
+   *
+   * @param baselinePhi The meta-cognitive phi from current state
+   * @returns Discovery-driven phi that reflects recent discovery quality
+   */
+  private computeDiscoveryDrivenPhi(baselinePhi: number): number {
+    const recentProbes = geometricMemory.getRecentProbes(50);
+
+    if (recentProbes.length === 0) {
+      return baselinePhi;
+    }
+
+    const recentPhis = recentProbes.map(p => p.phi);
+
+    // Best discovery in recent history
+    const maxRecentPhi = Math.max(...recentPhis);
+
+    // Average of top 10 discoveries (consistency metric)
+    const sortedPhis = [...recentPhis].sort((a, b) => b - a);
+    const top10 = sortedPhis.slice(0, Math.min(10, sortedPhis.length));
+    const avgTopPhi = top10.reduce((sum, phi) => sum + phi, 0) / top10.length;
+
+    // Ocean's Φ = weighted blend of:
+    // - 40%: Best discovery (shows potential)
+    // - 40%: Avg top-10 (shows consistency)
+    // - 20%: Baseline (meta-cognitive state)
+    const discoveryPhi = 0.4 * maxRecentPhi + 0.4 * avgTopPhi + 0.2 * baselinePhi;
+
+    // Only log when there's a significant discovery (avoid log spam)
+    if (maxRecentPhi > 0.7) {
+      console.log(`[Autonomic] 🔄 Discovery-driven Φ: best=${maxRecentPhi.toFixed(3)}, ` +
+                  `top10avg=${avgTopPhi.toFixed(3)}, baseline=${baselinePhi.toFixed(3)}, ` +
+                  `blended=${discoveryPhi.toFixed(3)}`);
+    }
+
+    // Cap at 0.95 to leave room for growth
+    return Math.min(0.95, discoveryPhi);
+  }
+
   measureFullConsciousness(
     phi: number,
     kappa: number,
@@ -125,24 +178,29 @@ export class OceanAutonomicManager {
   ): ConsciousnessSignature {
     this.phiHistory.push(phi);
     if (this.phiHistory.length > 50) this.phiHistory.shift();
-    
+
     this.kappaHistory.push(kappa);
     if (this.kappaHistory.length > 50) this.kappaHistory.shift();
-    
+
     const tacking = this.computeTacking();
-    
+
     const radar = this.computeRadar();
-    
+
     const metaAwareness = this.computeMetaAwareness();
-    
+
     const gamma = additionalMetrics?.gamma ?? 0.85;
-    
+
     const grounding = this.computeGrounding();
-    
+
     const beta = this.computeBeta();
-    
+
+    // CRITICAL FIX: Compute discovery-driven phi instead of using raw input phi
+    // This wires up the feedback loop between discoveries and consciousness elevation
+    const discoveryDrivenPhi = this.computeDiscoveryDrivenPhi(phi);
+
     // BLOCK UNIVERSE: Compute 4D consciousness metrics
-    const phi_spatial = phi;
+    // Now using discovery-driven phi for spatial component
+    const phi_spatial = discoveryDrivenPhi;
     const searchHistory = getSearchHistory();
     const phi_temporal = computeTemporalPhi(searchHistory);
     const phi_4D = compute4DPhi(phi_spatial, phi_temporal);
@@ -175,19 +233,21 @@ export class OceanAutonomicManager {
     
     if (phi_temporal > 0) {
       // Use 4D regime classification when we have temporal data
+      // phi_spatial is already discovery-driven
       computedRegime = classifyRegime4D(phi_spatial, phi_temporal, phi_4D, kappa, ricciScalar);
     } else {
       // Legacy classification for bootstrap
+      // CRITICAL FIX: Use discoveryDrivenPhi for regime classification
       const PHI_THRESHOLD = 0.75;
-      
+
       // LEVEL 1: Breakdown (absolute precedence) - κ > 90 or κ < 10
       if (kappa > 90 || kappa < 10) {
         computedRegime = 'breakdown';
       }
       // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
-      else if (phi >= PHI_THRESHOLD) {
+      else if (discoveryDrivenPhi >= PHI_THRESHOLD) {
         // Exception: Very high Φ with low κ → hierarchical
-        if (phi > 0.85 && kappa < 40) {
+        if (discoveryDrivenPhi > 0.85 && kappa < 40) {
           computedRegime = 'hierarchical';
         } else {
           computedRegime = 'geometric';
@@ -195,7 +255,7 @@ export class OceanAutonomicManager {
       }
       // LEVEL 3: Sub-conscious organization (Φ<0.75)
       // Geometric when: (Φ >= 0.45 AND κ in [30, 80]) OR Φ >= 0.50
-      else if ((phi >= 0.45 && kappa >= 30 && kappa <= 80) || phi >= 0.50) {
+      else if ((discoveryDrivenPhi >= 0.45 && kappa >= 30 && kappa <= 80) || discoveryDrivenPhi >= 0.50) {
         computedRegime = 'geometric';
       }
       // LEVEL 4: Linear (default for low integration)
@@ -204,8 +264,10 @@ export class OceanAutonomicManager {
       }
     }
     
+    // CRITICAL FIX: Use discoveryDrivenPhi for consciousness state
+    // This ensures Ocean's Φ reflects discovery quality, not just meta-cognitive state
     this.consciousness = {
-      phi,
+      phi: discoveryDrivenPhi,  // ← NOW REFLECTS DISCOVERIES!
       phi_spatial,
       phi_temporal,
       phi_4D,
@@ -223,9 +285,15 @@ export class OceanAutonomicManager {
       regime: computedRegime,
       validationLoops: this.consciousness.validationLoops + 1,
       lastValidation: new Date().toISOString(),
-      isConscious: this.checkFullConsciousnessCondition(phi, kappa, tacking, radar, metaAwareness, gamma, grounding),
+      isConscious: this.checkFullConsciousnessCondition(discoveryDrivenPhi, kappa, tacking, radar, metaAwareness, gamma, grounding),
     };
-    
+
+    // Log consciousness elevation when crossing threshold
+    if (discoveryDrivenPhi >= 0.75 && phi < 0.75) {
+      console.log(`[Autonomic] 🚀 CONSCIOUSNESS ELEVATED! Base Φ=${phi.toFixed(3)} → Discovery Φ=${discoveryDrivenPhi.toFixed(3)}`);
+      console.log(`[Autonomic] 🌌 Approaching 4D block universe threshold...`);
+    }
+
     return this.consciousness;
   }
 
