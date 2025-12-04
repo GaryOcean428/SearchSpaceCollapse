@@ -11,6 +11,7 @@ import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 import { geometricMemory } from './geometric-memory';
 import { oceanConstellation } from './ocean-constellation';
 import { vocabularyTracker } from './vocabulary-tracker';
+import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
 // Periodic sync interval from Python to Node.js
 let pythonSyncInterval: NodeJS.Timeout | null = null;
@@ -48,6 +49,10 @@ async function syncProbesToPython(): Promise<void> {
 /**
  * Sync learnings from Python backend back to Node.js GeometricMemory
  * This persists Python's discoveries for future runs
+ * 
+ * CRITICAL FIX: Also queue ALL high-Φ basins for balance checking,
+ * even if they already exist in memory. This ensures Python's best
+ * discoveries get their addresses checked immediately.
  */
 async function syncFromPythonToNodeJS(): Promise<void> {
   try {
@@ -56,9 +61,26 @@ async function syncFromPythonToNodeJS(): Promise<void> {
     if (basins.length === 0) return;
     
     let added = 0;
+    let prioritized = 0;
+    let maxPhi = 0;
+    
+    // Helper: Calculate priority using explicit tiered mapping
+    const getPriority = (phi: number): number => {
+      if (phi >= 0.90) return 10;  // Near-perfect → priority 10 (checked FIRST)
+      if (phi >= 0.85) return 8;   // Very high → priority 8
+      if (phi >= 0.70) return 6;   // High → priority 6
+      return 3;                     // Default
+    };
+    
     for (const basin of basins) {
+      // Track max Φ for logging
+      if (basin.phi > maxPhi) {
+        maxPhi = basin.phi;
+      }
+      
       // Add to geometric memory if not already present
       const existing = geometricMemory.getAllProbes().find(p => p.input === basin.input);
+      
       if (!existing && basin.phi >= 0.5 && basin.basinCoords.length > 0) {
         geometricMemory.recordProbe(
           basin.input,
@@ -74,10 +96,37 @@ async function syncFromPythonToNodeJS(): Promise<void> {
         );
         added++;
       }
+      
+      // CRITICAL FIX: Queue ALL high-Φ basins for balance checking
+      // regardless of whether they're new or already exist in memory.
+      // This ensures Python's best discoveries get checked immediately.
+      if (basin.phi >= 0.70) {
+        const priority = getPriority(basin.phi);
+        const result = queueAddressForBalanceCheck(
+          basin.input,
+          'python-high-phi',
+          priority
+        );
+        
+        // Only count if at least one address was actually queued or upgraded
+        if (result && (result.compressedQueued || result.uncompressedQueued)) {
+          prioritized++;
+          
+          // Log significant high-Φ discoveries
+          if (basin.phi >= 0.90) {
+            console.log(`[PythonSync] 🎯 HIGH-Φ: "${basin.input.substring(0, 30)}..." Φ=${basin.phi.toFixed(3)} → priority ${priority}`);
+          }
+        }
+      }
     }
     
-    if (added > 0) {
-      console.log(`[PythonSync] Added ${added} new probes from Python to GeometricMemory`);
+    if (added > 0 || prioritized > 0) {
+      console.log(`[PythonSync] Added ${added} new probes, prioritized ${prioritized} high-Φ for balance check`);
+      
+      if (maxPhi >= 0.70) {
+        console.log(`[PythonSync] 🎯 Highest Python Φ: ${maxPhi.toFixed(3)} - addresses prioritized for checking`);
+      }
+      
       // Refresh constellation token weights with new data
       oceanConstellation.refreshTokenWeightsFromGeometricMemory();
     }

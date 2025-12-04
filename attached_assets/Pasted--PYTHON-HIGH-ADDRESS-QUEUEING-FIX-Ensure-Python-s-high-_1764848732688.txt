@@ -1,0 +1,345 @@
+# PYTHON HIGH-Φ ADDRESS QUEUEING FIX
+**Ensure Python's high-Φ discoveries get addresses checked immediately**
+
+---
+
+## THE PROBLEM
+
+**Current Flow:**
+```
+Python: Φ=0.981 found! → Export basin
+   ↓
+TypeScript: Basin already in memory → SKIP
+   ↓
+Address never queued for balance check → WASTED DISCOVERY!
+```
+
+**From Logs:**
+```
+[PythonQIG] 🎯💚 NEAR MISS! Φ=0.981 - DOPAMINE SPIKE!
+[OceanQIGBackend] Retrieved 500 basins from Python backend
+[PythonSync] Added 2 new probes from Python to GeometricMemory
+                                  ↑
+                             498 basins IGNORED!
+```
+
+---
+
+## THE FIX
+
+### **Solution 1: Re-Queue High-Φ with Higher Priority** (Recommended)
+
+**File:** `server/index.ts`
+
+**Current Code (lines ~59-78):**
+```typescript
+async function syncFromPythonToNodeJS(): Promise<void> {
+  try {
+    const basins = await oceanQIGBackend.syncToNodeJS();
+    
+    if (basins.length === 0) return;
+    
+    let added = 0;
+    for (const basin of basins) {
+      const existing = geometricMemory.getAllProbes()
+        .find(p => p.input === basin.input);
+      
+      if (!existing && basin.phi >= 0.5 && basin.basinCoords.length > 0) {
+        geometricMemory.recordProbe(basin.input, {
+          phi: basin.phi,
+          kappa: basin.phi * 64,
+          regime: basin.phi > 0.7 ? 'geometric' : 'linear',
+          basinCoordinates: basin.basinCoords,
+          ricciScalar: 0,
+          fisherTrace: basin.phi,
+        }, 'python-qig');
+        added++;
+      }
+    }
+    
+    if (added > 0) {
+      console.log(`[PythonSync] Added ${added} new probes from Python`);
+    }
+  } catch (error) {
+    console.error('[PythonSync] Error syncing from Python:', error);
+  }
+}
+```
+
+**NEW CODE:**
+```typescript
+import { queueAddressForBalanceCheck } from './balance-queue-integration';
+
+async function syncFromPythonToNodeJS(): Promise<void> {
+  try {
+    const basins = await oceanQIGBackend.syncToNodeJS();
+    
+    if (basins.length === 0) return;
+    
+    let added = 0;
+    let requeued = 0;
+    const highPhiBasins: typeof basins = [];
+    
+    for (const basin of basins) {
+      const existing = geometricMemory.getAllProbes()
+        .find(p => p.input === basin.input);
+      
+      // Track high-Φ basins regardless of whether they're new
+      if (basin.phi >= 0.70) {
+        highPhiBasins.push(basin);
+      }
+      
+      if (!existing && basin.phi >= 0.5 && basin.basinCoords.length > 0) {
+        geometricMemory.recordProbe(basin.input, {
+          phi: basin.phi,
+          kappa: basin.phi * 64,
+          regime: basin.phi > 0.7 ? 'geometric' : 'linear',
+          basinCoordinates: basin.basinCoords,
+          ricciScalar: 0,
+          fisherTrace: basin.phi,
+        }, 'python-qig');
+        added++;
+      }
+      // CRITICAL FIX: Even if basin already exists, if Φ is very high,
+      // re-queue the address with HIGH PRIORITY for immediate checking
+      else if (existing && basin.phi >= 0.80) {
+        // Calculate priority based on Φ (higher Φ = higher priority)
+        const priority = Math.floor(basin.phi * 10); // 0.80 → 8, 0.98 → 9
+        
+        queueAddressForBalanceCheck(
+          basin.input,
+          'python-high-phi-requeue',
+          priority
+        );
+        requeued++;
+      }
+    }
+    
+    // Also: Immediately queue ALL high-Φ basins (even duplicates)
+    // This ensures Python's discoveries get checked ASAP
+    for (const basin of highPhiBasins) {
+      const priority = basin.phi >= 0.90 ? 10 : // Near-perfect → priority 10
+                      basin.phi >= 0.85 ? 8 :  // Very high → priority 8
+                      basin.phi >= 0.70 ? 6 :  // High → priority 6
+                      3;                        // Default
+      
+      queueAddressForBalanceCheck(
+        basin.input,
+        'python-high-phi',
+        priority
+      );
+    }
+    
+    if (added > 0 || requeued > 0 || highPhiBasins.length > 0) {
+      console.log(`[PythonSync] Added ${added} new probes, ` +
+                  `requeued ${requeued} high-Φ, ` +
+                  `prioritized ${highPhiBasins.length} Python discoveries`);
+      
+      if (highPhiBasins.length > 0) {
+        const maxPhi = Math.max(...highPhiBasins.map(b => b.phi));
+        console.log(`[PythonSync] 🎯 Highest Python Φ: ${maxPhi.toFixed(3)} - addresses prioritized for checking`);
+      }
+      
+      // Refresh constellation token weights with new data
+      oceanConstellation.refreshTokenWeightsFromGeometricMemory();
+    }
+  } catch (error) {
+    console.error('[PythonSync] Error syncing from Python:', error);
+  }
+}
+```
+
+**What This Does:**
+1. **Tracks ALL high-Φ basins** (Φ ≥ 0.70) from Python, even duplicates
+2. **Re-queues existing high-Φ** (Φ ≥ 0.80) with elevated priority
+3. **Immediately queues ALL Python high-Φ discoveries** for balance checking
+4. **Priority scaling:** Φ=0.98 → priority 10 (checked FIRST)
+
+**Expected Logs After Fix:**
+```
+[PythonQIG] 🎯💚 NEAR MISS! Φ=0.981 - DOPAMINE SPIKE!
+[OceanQIGBackend] Retrieved 500 basins from Python backend
+[PythonSync] Added 2 new probes, requeued 47 high-Φ, prioritized 125 Python discoveries
+[PythonSync] 🎯 Highest Python Φ: 0.981 - addresses prioritized for checking
+[BalanceQueue] High-priority check: 1A2b3C... (priority=10, source=python-high-phi)
+```
+
+---
+
+### **Solution 2: Dedicated High-Φ Endpoint** (Additional)
+
+**File:** `qig-backend/ocean_qig_core.py`
+
+Add new endpoint for HIGH-Φ discoveries only:
+
+```python
+@app.route('/high_phi_discoveries', methods=['GET'])
+def get_high_phi_discoveries():
+    """
+    Export only high-Φ discoveries (Φ ≥ 0.80) for immediate checking.
+    This is separate from basin sync to avoid duplicate filtering.
+    """
+    high_phi = []
+    
+    for passphrase, metrics in recent_high_phi.items():  # Add a cache
+        if metrics['phi'] >= 0.80:
+            high_phi.append({
+                'passphrase': passphrase,
+                'phi': metrics['phi'],
+                'kappa': metrics['kappa'],
+                'timestamp': metrics['timestamp']
+            })
+    
+    # Sort by Φ (highest first)
+    high_phi.sort(key=lambda x: x['phi'], reverse=True)
+    
+    return jsonify({
+        'success': True,
+        'discoveries': high_phi[:50]  # Top 50
+    })
+```
+
+**File:** `server/index.ts`
+
+Add to sync function:
+
+```typescript
+async function syncHighPhiFromPython(): Promise<void> {
+  try {
+    const response = await fetch('http://localhost:5001/high_phi_discoveries');
+    const data = await response.json();
+    
+    if (data.success && data.discoveries.length > 0) {
+      console.log(`[PythonSync] 🎯 ${data.discoveries.length} high-Φ discoveries from Python`);
+      
+      for (const discovery of data.discoveries) {
+        const priority = Math.floor(discovery.phi * 10);
+        queueAddressForBalanceCheck(
+          discovery.passphrase,
+          'python-high-phi-discovery',
+          priority
+        );
+      }
+      
+      const maxPhi = Math.max(...data.discoveries.map(d => d.phi));
+      console.log(`[PythonSync] ⚡ Max Φ: ${maxPhi.toFixed(3)} queued for immediate checking`);
+    }
+  } catch (error) {
+    console.error('[PythonSync] Error fetching high-Φ discoveries:', error);
+  }
+}
+
+// Add to sync interval:
+pythonSyncInterval = setInterval(async () => {
+  if (oceanQIGBackend.available()) {
+    await syncFromPythonToNodeJS();
+    await syncHighPhiFromPython();  // ← NEW!
+    await syncVocabularyToPython();
+  }
+  refreshTokenizerWeights();
+}, 60000);
+```
+
+---
+
+## TESTING THE FIX
+
+### **Test 1: Verify Re-Queueing Works**
+
+```bash
+# Watch logs for Python high-Φ
+tail -f logs/ocean.log | grep -E "(PythonSync|BalanceQueue|priority)"
+
+# Should see:
+# [PythonSync] 🎯 Highest Python Φ: 0.981 - addresses prioritized
+# [BalanceQueue] Enqueued: 1A2b... (priority=10, source=python-high-phi)
+```
+
+### **Test 2: Verify Balance Checks Happen**
+
+```bash
+# Check queue status
+curl http://localhost:5000/api/balance-queue/stats | jq
+
+# Should show:
+# {
+#   "queueSize": 1234,
+#   "highPriorityCount": 47,  ← Python high-Φ addresses
+#   "processingRate": 4.8
+# }
+```
+
+### **Test 3: Monitor Integration**
+
+```typescript
+// Add to balance-queue.ts (for debugging)
+enqueue(address: string, passphrase: string, wif: string, 
+        compressed: boolean, options: { priority?: number } = {}): boolean {
+  
+  if (options.priority && options.priority >= 8) {
+    console.log(`[BalanceQueue] 🎯 HIGH-PRIORITY: ${address.substring(0, 8)}... ` +
+                `(Φ~${options.priority/10}, source=${options.source || 'unknown'})`);
+  }
+  
+  // ... rest of enqueue logic
+}
+```
+
+---
+
+## VERIFICATION CHECKLIST
+
+After implementing fixes:
+
+- [ ] Python high-Φ discoveries logged
+- [ ] Addresses queued with priority 8-10
+- [ ] Balance queue processes high-priority first
+- [ ] TypeScript console shows "🎯" for Python discoveries
+- [ ] BalanceQueue stats show `highPriorityCount > 0`
+- [ ] Ocean's Φ updates when Python finds high-Φ
+- [ ] Dopamine increases when high-Φ addresses queued
+
+---
+
+## EXPECTED IMPACT
+
+**Before Fix:**
+```
+Python: 500 basins → 2 new → 498 WASTED
+Addresses checked: Only from Ocean's own generation
+Python discoveries: Lost in sync filter
+```
+
+**After Fix:**
+```
+Python: 500 basins → 2 new → 125 high-Φ PRIORITIZED
+Addresses checked: Python high-Φ checked FIRST
+Python discoveries: Immediately sent to balance queue
+Queue priority: Φ=0.98 → priority 10 (top of queue!)
+```
+
+**Result:** Every Python high-Φ discovery gets its address checked within seconds!
+
+---
+
+## SUMMARY
+
+**The Issue:**
+- Python finds Φ=0.981 passphrases
+- But 498 out of 500 basins ignored during sync
+- Addresses never queued for balance check
+- Discoveries wasted!
+
+**The Fix:**
+- Re-queue ALL high-Φ passphrases (even duplicates)
+- Use priority queue (higher Φ = higher priority)
+- Python Φ=0.98 → priority 10 (checked FIRST)
+- Dedicated high-Φ endpoint for real-time sync
+
+**Expected Outcome:**
+- Python's best discoveries checked immediately
+- No more wasted high-Φ finds
+- Balance queue knows about every near-miss
+- Ocean gets rewarded properly for Python's work
+
+🌊💚📐⚡

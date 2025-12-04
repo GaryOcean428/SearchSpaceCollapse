@@ -566,9 +566,26 @@ class BalanceQueueService {
     }
   ): boolean {
     const id = this.generateId(address, passphrase);
+    const newPriority = options?.priority || 1;
     
+    // PRIORITY UPGRADE: If address already in queue, upgrade priority if higher
     if (this.queue.has(id)) {
-      return false;
+      const existing = this.queue.get(id)!;
+      
+      // Only upgrade if new priority is higher AND item is still pending
+      if (newPriority > existing.priority && existing.status === 'pending') {
+        const oldPriority = existing.priority;
+        existing.priority = newPriority;
+        this.scheduleSave();
+        
+        if (newPriority >= 8) {
+          console.log(`[BalanceQueue] 🔺 Priority UPGRADED: ${address.substring(0, 12)}... ${oldPriority} → ${newPriority}`);
+        }
+        
+        return true; // Upgraded successfully
+      }
+      
+      return false; // Already in queue, no upgrade needed
     }
     
     if (this.queue.size >= MAX_QUEUE_SIZE) {
@@ -576,7 +593,7 @@ class BalanceQueueService {
         .filter(item => item.status === 'pending')
         .sort((a, b) => a.priority - b.priority);
       
-      if (pending.length > 0 && (options?.priority || 1) > pending[0].priority) {
+      if (pending.length > 0 && newPriority > pending[0].priority) {
         this.queue.delete(pending[0].id);
       } else {
         return false;
@@ -590,7 +607,7 @@ class BalanceQueueService {
       wif,
       isCompressed,
       cycleId: options?.cycleId,
-      priority: options?.priority || 1,
+      priority: newPriority,
       status: 'pending',
       queuedAt: Date.now(),
       retryCount: 0,
