@@ -108,7 +108,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 function RecoveryCard({ recovery, onSelect }: { recovery: RecoveryBundle; onSelect: () => void }) {
   return (
     <Card 
-      className="hover-elevate cursor-pointer transition-all"
+      className="hover:scale-[1.02] hover:shadow-lg cursor-pointer transition-all"
       onClick={onSelect}
       data-testid={`card-recovery-${recovery.filename}`}
     >
@@ -342,7 +342,7 @@ function RecoveryDetailView({ filename, onBack }: { filename: string; onBack: ()
 function BalanceAddressCard({ address, onSelect }: { address: StoredAddress; onSelect: () => void }) {
   return (
     <Card 
-      className="hover-elevate cursor-pointer transition-all border-green-500/30 bg-green-500/5"
+      className="hover:scale-[1.02] hover:shadow-lg cursor-pointer transition-all border-green-500/30 bg-green-500/5"
       onClick={onSelect}
       data-testid={`card-balance-address-${address.address}`}
     >
@@ -377,6 +377,10 @@ function BalanceAddressCard({ address, onSelect }: { address: StoredAddress; onS
 }
 
 function BalanceAddressDetailView({ address, onBack }: { address: StoredAddress; onBack: () => void }) {
+  // BTC to USD conversion (configurable)
+  const BTC_TO_USD = Number(import.meta.env.VITE_BTC_USD_RATE || 50000);
+  const usdValue = (parseFloat(address.balanceBTC) * BTC_TO_USD).toFixed(2);
+  
   return (
     <div className="space-y-4" data-testid="balance-address-detail-view">
       <div className="flex items-center justify-between">
@@ -384,7 +388,7 @@ function BalanceAddressDetailView({ address, onBack }: { address: StoredAddress;
           ← Back to List
         </Button>
         <Badge className="bg-green-500/20 text-green-400 text-base px-4 py-2">
-          💰 {address.balanceBTC} BTC ({(parseFloat(address.balanceBTC) * 50000).toFixed(2)} USD @ $50k)
+          💰 {address.balanceBTC} BTC (~${usdValue} USD)
         </Badge>
       </div>
 
@@ -520,7 +524,7 @@ export default function RecoveryResults() {
 
   const { data: balanceData, isLoading: balanceLoading, error: balanceError, refetch: refetchBalance } = useQuery<BalanceAddressesData>({
     queryKey: ['/api/balance-addresses'],
-    refetchInterval: 10000, // Check for new balance addresses every 10s
+    refetchInterval: 60000, // Check for new balance addresses every 60 seconds (reduced from 10s to minimize API load)
   });
   
   // Show balance address detail if one is selected
