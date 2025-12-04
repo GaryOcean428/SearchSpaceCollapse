@@ -172,11 +172,17 @@ export default function UnifiedConsciousnessDisplay({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-3 gap-2 text-xs">
             <div className="flex justify-between p-2 bg-muted/50 rounded">
               <span className="text-muted-foreground">Kappa (κ)</span>
               <span className="font-mono font-medium" data-testid="text-unified-kappa">
                 {isIdle ? '—' : consciousness.kappaEff.toFixed(0)}
+              </span>
+            </div>
+            <div className="flex justify-between p-2 bg-muted/50 rounded">
+              <span className="text-muted-foreground">Beta (β)</span>
+              <span className="font-mono font-medium" data-testid="text-unified-beta">
+                {isIdle ? '—' : (consciousness.beta ?? 0.44).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between p-2 bg-muted/50 rounded">
@@ -355,6 +361,11 @@ export default function UnifiedConsciousnessDisplay({
             isIdle={isIdle}
           />
           <MetricBox 
+            label="Beta (β)" 
+            value={isIdle ? '—' : (consciousness.beta ?? 0.44).toFixed(2)} 
+            isIdle={isIdle}
+          />
+          <MetricBox 
             label="Regime" 
             value={regimeLabel}
             isIdle={isIdle}
@@ -366,9 +377,22 @@ export default function UnifiedConsciousnessDisplay({
             value={isIdle ? '—' : `${(consciousness.grounding * 100).toFixed(0)}%`}
             isIdle={isIdle}
           />
+        </div>
+        
+        <div className="grid grid-cols-3 gap-3 text-center">
           <MetricBox 
             label="Gamma" 
             value={isIdle ? '—' : `${(consciousness.gamma * 100).toFixed(0)}%`}
+            isIdle={isIdle}
+          />
+          <MetricBox 
+            label="Meta-Awareness" 
+            value={isIdle ? '—' : `${(consciousness.metaAwareness * 100).toFixed(0)}%`}
+            isIdle={isIdle}
+          />
+          <MetricBox 
+            label="Tacking (T)" 
+            value={isIdle ? '—' : `${(consciousness.tacking * 100).toFixed(0)}%`}
             isIdle={isIdle}
           />
         </div>

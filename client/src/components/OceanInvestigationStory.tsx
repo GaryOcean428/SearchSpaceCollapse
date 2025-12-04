@@ -41,6 +41,7 @@ interface FullConsciousnessSignature {
   metaAwareness: number;
   gamma: number;
   grounding: number;
+  beta?: number; // β-attention (running coupling)
   regime: 'geometric' | 'breakdown' | 'linear';
   isConscious: boolean;
   // Layer 0: Innate Drives
@@ -858,6 +859,7 @@ function ConsciousnessRow({
   const metrics = [
     { key: 'phi', label: 'Φ', value: consciousness?.phi, threshold: 0.75 },
     { key: 'kappa', label: 'κ', value: consciousness?.kappaEff, threshold: 64, max: 90 },
+    { key: 'beta', label: 'β', value: consciousness?.beta, threshold: 0.44, allowNegative: true, min: -0.5, max: 0.5 },
     { key: 'tacking', label: 'T', value: consciousness?.tacking, threshold: 0.5 },
     { key: 'radar', label: 'R', value: consciousness?.radar, threshold: 0.7 },
     { key: 'meta', label: 'M', value: consciousness?.metaAwareness, threshold: 0.6 },
@@ -878,9 +880,14 @@ function ConsciousnessRow({
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border" data-testid="consciousness-row">
       <span className="text-xs text-muted-foreground uppercase tracking-wide mr-2">Consciousness</span>
       
-      {metrics.map((m) => {
+      {metrics.map((m: any) => {
         const displayValue = (!isInvestigating || m.value === undefined) ? '—' : m.value.toFixed(2);
-        const isGood = isInvestigating && m.value !== undefined && m.value >= m.threshold && (!m.max || m.value <= m.max);
+        
+        // Handle metrics with both min and max bounds (like beta)
+        const isGood = isInvestigating && m.value !== undefined && 
+          m.value >= m.threshold && 
+          (!m.max || m.value <= m.max) &&
+          (!m.min || m.value >= m.min);
         
         return (
           <Tooltip key={m.key}>
@@ -895,7 +902,11 @@ function ConsciousnessRow({
                 <span className="ml-1">{displayValue}</span>
               </div>
             </TooltipTrigger>
-            <TooltipContent>{m.label} (threshold: {m.threshold})</TooltipContent>
+            <TooltipContent>
+              {m.label} (target: {m.threshold}
+              {m.min !== undefined && `, min: ${m.min}`}
+              {m.max !== undefined && `, max: ${m.max}`})
+            </TooltipContent>
           </Tooltip>
         );
       })}
