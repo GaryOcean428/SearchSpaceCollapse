@@ -17,6 +17,8 @@ import {
 import { getSharedController, ConsciousnessSearchController } from "./consciousness-search-controller";
 import { oceanAutonomicManager } from "./ocean-autonomic-manager";
 import { queueAddressForBalanceCheck, batchQueueAddresses } from "./balance-queue-integration";
+import { getBalanceHits, getActiveBalanceHits, fetchAddressBalance } from "./blockchain-scanner";
+import { getBalanceAddresses, getVerificationStats, refreshStoredBalances } from "./address-verification";
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -1884,7 +1886,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/balance-hits", standardLimiter, async (req, res) => {
     try {
       res.set('Cache-Control', 'no-store');
-      const { getBalanceHits, getActiveBalanceHits } = await import("./blockchain-scanner");
       const activeOnly = req.query.active === 'true';
       
       const hits = activeOnly ? getActiveBalanceHits() : getBalanceHits();
@@ -1905,7 +1906,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/balance-hits/check/:address", standardLimiter, async (req, res) => {
     try {
-      const { fetchAddressBalance } = await import("./blockchain-scanner");
       const address = req.params.address;
       
       if (!address.match(/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/) && 
@@ -1940,7 +1940,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/balance-addresses", standardLimiter, async (req, res) => {
     try {
       res.set('Cache-Control', 'no-store');
-      const { getBalanceAddresses, getVerificationStats } = await import("./address-verification");
       
       const balanceAddresses = getBalanceAddresses();
       const stats = getVerificationStats();
@@ -1959,7 +1958,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/balance-addresses/stats", standardLimiter, async (req, res) => {
     try {
       res.set('Cache-Control', 'no-store');
-      const { getVerificationStats } = await import("./address-verification");
       const stats = getVerificationStats();
       res.json(stats);
     } catch (error: any) {
@@ -1970,7 +1968,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/balance-addresses/refresh", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
-      const { refreshStoredBalances } = await import("./address-verification");
       const result = await refreshStoredBalances();
       
       res.json({
