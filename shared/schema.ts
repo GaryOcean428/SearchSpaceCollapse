@@ -288,6 +288,47 @@ export const balanceChangeEvents = pgTable("balance_change_events", {
 export type BalanceChangeEvent = typeof balanceChangeEvents.$inferSelect;
 export type InsertBalanceChangeEvent = typeof balanceChangeEvents.$inferInsert;
 
+// Balance monitor state for persistent monitoring configuration
+export const balanceMonitorState = pgTable("balance_monitor_state", {
+  id: varchar("id").primaryKey().default("default"),
+  enabled: boolean("enabled").notNull().default(false),
+  refreshIntervalMinutes: integer("refresh_interval_minutes").notNull().default(60),
+  lastRefreshTime: timestamp("last_refresh_time"),
+  lastRefreshTotal: integer("last_refresh_total").default(0),
+  lastRefreshUpdated: integer("last_refresh_updated").default(0),
+  lastRefreshChanged: integer("last_refresh_changed").default(0),
+  lastRefreshErrors: integer("last_refresh_errors").default(0),
+  totalRefreshes: integer("total_refreshes").notNull().default(0),
+  isRefreshing: boolean("is_refreshing").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type BalanceMonitorState = typeof balanceMonitorState.$inferSelect;
+export type InsertBalanceMonitorState = typeof balanceMonitorState.$inferInsert;
+
+// Vocabulary observations for persistent learning across sessions
+export const vocabularyObservations = pgTable("vocabulary_observations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  word: varchar("word", { length: 100 }).notNull().unique(),
+  type: varchar("type", { length: 20 }).notNull().default("word"), // word, sequence, pattern
+  frequency: integer("frequency").notNull().default(1),
+  avgPhi: doublePrecision("avg_phi").notNull().default(0),
+  maxPhi: doublePrecision("max_phi").notNull().default(0),
+  efficiencyGain: doublePrecision("efficiency_gain").default(0),
+  contexts: text("contexts").array(), // Sample phrases containing this word
+  firstSeen: timestamp("first_seen").defaultNow(),
+  lastSeen: timestamp("last_seen").defaultNow(),
+  isIntegrated: boolean("is_integrated").default(false), // True if integrated into kernel
+  integratedAt: timestamp("integrated_at"),
+}, (table) => [
+  index("idx_vocabulary_observations_phi").on(table.maxPhi),
+  index("idx_vocabulary_observations_integrated").on(table.isIntegrated),
+]);
+
+export type VocabularyObservation = typeof vocabularyObservations.$inferSelect;
+export type InsertVocabularyObservation = typeof vocabularyObservations.$inferInsert;
+
 // ============================================================================
 // OBSERVER ARCHAEOLOGY SYSTEM TABLES
 // ============================================================================

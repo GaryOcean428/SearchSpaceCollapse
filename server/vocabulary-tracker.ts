@@ -3,6 +3,7 @@
  * 
  * Tracks words and patterns from high-Φ discoveries for vocabulary expansion.
  * Implements continuous learning by observing successful search results.
+ * Uses PostgreSQL for persistent storage.
  * 
  * Based on Fisher Manifold vocabulary learning principles:
  * - Track word frequencies from high-Φ results
@@ -13,6 +14,9 @@
 import { geometricMemory, type BasinProbe } from './geometric-memory';
 import { expandedVocabulary } from './expanded-vocabulary';
 import { vocabDecisionEngine, type WordContext } from './vocabulary-decision';
+import { db } from './db';
+import { vocabularyObservations } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 
@@ -54,6 +58,7 @@ export class VocabularyTracker {
   private minFrequency: number;
   private minPhi: number;
   private maxSequenceLength: number;
+  private dataLoaded: Promise<void>;
   
   constructor(options: {
     minFrequency?: number;
@@ -66,12 +71,14 @@ export class VocabularyTracker {
     this.minPhi = options.minPhi || 0.35;  // Lowered from 0.5 to capture more learning data
     this.maxSequenceLength = options.maxSequenceLength || 5;
     
-    this.loadFromDisk();
-    
-    // Bootstrap from existing geometric memory if we have no data
-    if (this.wordObservations.size === 0) {
-      setTimeout(() => this.bootstrapFromGeometricMemory(), 2000);
-    }
+    // Start async loading
+    this.dataLoaded = this.loadFromStorage();
+    this.dataLoaded.then(() => {
+      // Bootstrap from existing geometric memory if we have no data
+      if (this.wordObservations.size === 0) {
+        setTimeout(() => this.bootstrapFromGeometricMemory(), 2000);
+      }
+    });
   }
   
   /**
@@ -281,9 +288,81 @@ export class VocabularyTracker {
   }
   
   /**
-   * Save to disk
+   * Save to PostgreSQL (async) with JSON fallback
+   */
+  async saveToStorage(): Promise<void> {
+    // Try PostgreSQL first
+    if (db) {
+      try {
+        // Upsert word observations
+        for (const [word, obs] of this.wordObservations.entries()) {
+          await db.insert(vocabularyObservations).values({
+            word,
+            type: 'word',
+            frequency: obs.frequency,
+            avgPhi: obs.avgPhi,
+            maxPhi: obs.maxPhi,
+            efficiencyGain: 0,
+            firstSeen: obs.firstSeen,
+            lastSeen: obs.lastSeen,
+            contexts: obs.contexts.slice(0, 10), // Limit contexts
+          }).onConflictDoUpdate({
+            target: vocabularyObservations.word,
+            set: {
+              frequency: obs.frequency,
+              avgPhi: obs.avgPhi,
+              maxPhi: obs.maxPhi,
+              lastSeen: obs.lastSeen,
+              contexts: obs.contexts.slice(0, 10),
+            }
+          });
+        }
+        
+        // Upsert sequence observations
+        for (const [seq, obs] of this.sequenceObservations.entries()) {
+          await db.insert(vocabularyObservations).values({
+            word: seq,
+            type: 'sequence',
+            frequency: obs.frequency,
+            avgPhi: obs.avgPhi,
+            maxPhi: obs.maxPhi,
+            efficiencyGain: obs.efficiencyGain,
+            firstSeen: new Date(),
+            lastSeen: new Date(),
+            contexts: [obs.sequence],
+          }).onConflictDoUpdate({
+            target: vocabularyObservations.word,
+            set: {
+              frequency: obs.frequency,
+              avgPhi: obs.avgPhi,
+              maxPhi: obs.maxPhi,
+              efficiencyGain: obs.efficiencyGain,
+              lastSeen: new Date(),
+            }
+          });
+        }
+        console.log(`[VocabularyTracker] Saved ${this.wordObservations.size} words, ${this.sequenceObservations.size} sequences to PostgreSQL`);
+        return;
+      } catch (error) {
+        console.error('[VocabularyTracker] PostgreSQL save error, falling back to JSON:', error);
+      }
+    }
+    
+    // Fallback to JSON
+    this.saveToDiskFallback();
+  }
+  
+  /**
+   * Legacy save to disk (fallback)
    */
   saveToDisk(): void {
+    // Fire and forget async save
+    this.saveToStorage().catch(err => {
+      console.error('[VocabularyTracker] Save failed:', err);
+    });
+  }
+  
+  private saveToDiskFallback(): void {
     try {
       const dir = path.dirname(DATA_FILE);
       if (!fs.existsSync(dir)) {
@@ -301,16 +380,66 @@ export class VocabularyTracker {
       };
       
       fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-      console.log(`[VocabularyTracker] Saved ${this.wordObservations.size} words, ${this.sequenceObservations.size} sequences`);
+      console.log(`[VocabularyTracker] Saved ${this.wordObservations.size} words, ${this.sequenceObservations.size} sequences to JSON`);
     } catch (error) {
       console.error('[VocabularyTracker] Failed to save:', error);
     }
   }
   
   /**
-   * Load from disk
+   * Load from PostgreSQL with JSON migration
    */
-  private loadFromDisk(): void {
+  private async loadFromStorage(): Promise<void> {
+    // Try PostgreSQL first
+    if (db) {
+      try {
+        const rows = await db.select().from(vocabularyObservations);
+        if (rows.length > 0) {
+          for (const row of rows) {
+            if (row.type === 'word') {
+              this.wordObservations.set(row.word, {
+                word: row.word,
+                frequency: row.frequency,
+                avgPhi: row.avgPhi,
+                maxPhi: row.maxPhi,
+                firstSeen: row.firstSeen,
+                lastSeen: row.lastSeen,
+                contexts: row.contexts || [],
+              });
+            } else if (row.type === 'sequence') {
+              this.sequenceObservations.set(row.word, {
+                sequence: row.word,
+                words: row.word.split(' '),
+                frequency: row.frequency,
+                avgPhi: row.avgPhi,
+                maxPhi: row.maxPhi,
+                efficiencyGain: row.efficiencyGain || 0,
+              });
+            }
+          }
+          console.log(`[VocabularyTracker] Loaded ${this.wordObservations.size} words, ${this.sequenceObservations.size} sequences from PostgreSQL`);
+          return;
+        }
+        console.log(`[VocabularyTracker] No PostgreSQL data found, checking JSON...`);
+      } catch (error) {
+        console.error('[VocabularyTracker] PostgreSQL load error:', error);
+      }
+    }
+    
+    // Load from JSON and migrate
+    this.loadFromDiskLegacy();
+    
+    // Migrate to PostgreSQL if we have data
+    if (db && (this.wordObservations.size > 0 || this.sequenceObservations.size > 0)) {
+      console.log(`[VocabularyTracker] Migrating ${this.wordObservations.size} words to PostgreSQL...`);
+      await this.saveToStorage();
+    }
+  }
+  
+  /**
+   * Legacy load from disk
+   */
+  private loadFromDiskLegacy(): void {
     try {
       if (!fs.existsSync(DATA_FILE)) {
         console.log('[VocabularyTracker] No saved data found, starting fresh');

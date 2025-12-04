@@ -21,8 +21,8 @@ The system features a React and TypeScript frontend built with Vite, shadcn/ui, 
 -   **Recovery Output System:** Generates complete recovery bundles (WIF, Private Key Hex, Public Key, Recovery Instructions).
 -   **Memory Systems:** A four-tier architecture including Episodic, Semantic, Procedural, and Working memory.
 -   **Security Features:** Input validation, rate limiting, sensitive data redaction, and security headers.
--   **Data Storage:** Persistent storage using `MemStorage` with Zod schema validation.
--   **PostgreSQL Persistence Architecture:** Enables persistent 4D navigation across sessions with a dual-storage strategy (PostgreSQL primary + JSON fallback) for manifold probes, geometric basins, TPS landmarks, trajectories, and quantum state.
+-   **Data Storage:** PostgreSQL-first persistence with JSON fallback. All critical data (target addresses, balance hits, vocabulary observations, monitor state) stored in PostgreSQL with automatic one-time JSON migration.
+-   **PostgreSQL Persistence Architecture:** Comprehensive dual-storage strategy (PostgreSQL primary + JSON fallback) covering: manifold probes, geometric basins, TPS landmarks, trajectories, quantum state, target addresses (user_target_addresses table), balance monitor state (balance_monitor_state table), and vocabulary observations (vocabulary_observations table with unique word constraint).
 -   **Active Balance Monitoring System:** Tracks discovered balance hits for changes over time with a Balance Refresh Engine, BalanceMonitor Service, and Balance Change Events logging.
 -   **Balance Queue System:** Ensures every generated address is checked for balance using a BalanceQueue Service with token-bucket rate limiting and a multi-provider architecture (Blockstream API + Tavily BitInfoCharts scraper). Includes heartbeat monitoring, error handling wrapper, and automatic restart if worker stops unexpectedly.
 -   **Python↔Node.js Bidirectional Sync:** Syncs high-Φ probes from GeometricMemory to Python on startup; periodically (every 60s) syncs learnings from Python back to Node.js for persistence across restarts. Enables QIG tokenizer to benefit from continuous learning.

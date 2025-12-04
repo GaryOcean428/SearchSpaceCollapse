@@ -3,6 +3,7 @@
  * 
  * Provides periodic balance refresh for all tracked addresses.
  * Detects balance changes and sends notifications.
+ * Uses PostgreSQL for persistent state storage.
  */
 
 import {
@@ -14,11 +15,15 @@ import {
   type BalanceChangeEvent,
 } from './blockchain-scanner';
 
+import { db } from './db';
+import { balanceMonitorState } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 import * as fs from 'fs';
 
 const STATE_FILE = 'data/balance-monitor-state.json';
+const STATE_ID = 'default';
 
-interface BalanceMonitorState {
+interface BalanceMonitorStateLocal {
   enabled: boolean;
   refreshIntervalMinutes: number;
   lastRefreshTime: string | null;
@@ -36,45 +41,151 @@ interface BalanceMonitorState {
 const DEFAULT_REFRESH_INTERVAL_MINUTES = 30;
 
 class BalanceMonitor {
-  private state: BalanceMonitorState;
+  private state: BalanceMonitorStateLocal;
   private refreshInterval: NodeJS.Timeout | null = null;
   private isCurrentlyRefreshing = false;
+  private stateLoaded: Promise<void>;
 
   constructor() {
-    this.state = this.loadState();
-    console.log(`[BalanceMonitor] Initialized - enabled=${this.state.enabled}, interval=${this.state.refreshIntervalMinutes}min`);
-    
-    if (this.state.enabled) {
-      this.startRefreshLoop();
-    }
-  }
-
-  private loadState(): BalanceMonitorState {
-    try {
-      if (fs.existsSync(STATE_FILE)) {
-        const data = fs.readFileSync(STATE_FILE, 'utf-8');
-        const parsed = JSON.parse(data);
-        console.log(`[BalanceMonitor] Loaded state from disk: enabled=${parsed.enabled}`);
-        return {
-          ...parsed,
-          isRefreshing: false, // Always start as not refreshing
-        };
-      }
-    } catch (error) {
-      console.error('[BalanceMonitor] Error loading state:', error);
-    }
-    
-    return {
-      enabled: true, // Default to enabled
+    // Initialize with defaults, then load from DB/JSON
+    this.state = {
+      enabled: true,
       refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
       lastRefreshTime: null,
       lastRefreshResult: null,
       totalRefreshes: 0,
       isRefreshing: false,
     };
+    this.stateLoaded = this.loadState();
+    this.stateLoaded.then(() => {
+      console.log(`[BalanceMonitor] Initialized - enabled=${this.state.enabled}, interval=${this.state.refreshIntervalMinutes}min`);
+      if (this.state.enabled) {
+        this.startRefreshLoop();
+      }
+    });
   }
 
-  private saveState(): void {
+  private async loadState(): Promise<void> {
+    // Try PostgreSQL first
+    if (db) {
+      try {
+        const rows = await db.select().from(balanceMonitorState).where(eq(balanceMonitorState.id, STATE_ID));
+        if (rows.length > 0) {
+          const row = rows[0];
+          this.state = {
+            enabled: row.enabled,
+            refreshIntervalMinutes: row.refreshIntervalMinutes,
+            lastRefreshTime: row.lastRefreshTime?.toISOString() || null,
+            lastRefreshResult: row.lastRefreshTotal !== null ? {
+              total: row.lastRefreshTotal || 0,
+              refreshed: row.lastRefreshUpdated || 0,
+              changed: row.lastRefreshChanged || 0,
+              errors: row.lastRefreshErrors || 0,
+              duration: 0,
+            } : null,
+            totalRefreshes: row.totalRefreshes,
+            isRefreshing: false,
+          };
+          console.log(`[BalanceMonitor] Loaded state from PostgreSQL: enabled=${this.state.enabled}`);
+          return;
+        }
+        console.log(`[BalanceMonitor] No PostgreSQL state found, checking JSON...`);
+      } catch (error) {
+        console.error('[BalanceMonitor] PostgreSQL load error:', error);
+      }
+    }
+
+    // Try JSON file for migration
+    try {
+      if (fs.existsSync(STATE_FILE)) {
+        const data = fs.readFileSync(STATE_FILE, 'utf-8');
+        const parsed = JSON.parse(data);
+        this.state = {
+          ...parsed,
+          isRefreshing: false,
+        };
+        console.log(`[BalanceMonitor] Loaded state from JSON: enabled=${this.state.enabled}`);
+        
+        // Migrate to PostgreSQL
+        if (db) {
+          try {
+            await db.insert(balanceMonitorState).values({
+              id: STATE_ID,
+              enabled: this.state.enabled,
+              refreshIntervalMinutes: this.state.refreshIntervalMinutes,
+              lastRefreshTime: this.state.lastRefreshTime ? new Date(this.state.lastRefreshTime) : null,
+              lastRefreshTotal: this.state.lastRefreshResult?.total || 0,
+              lastRefreshUpdated: this.state.lastRefreshResult?.refreshed || 0,
+              lastRefreshChanged: this.state.lastRefreshResult?.changed || 0,
+              lastRefreshErrors: this.state.lastRefreshResult?.errors || 0,
+              totalRefreshes: this.state.totalRefreshes,
+              isRefreshing: false,
+            }).onConflictDoNothing();
+            console.log(`[BalanceMonitor] Migrated state to PostgreSQL`);
+          } catch (error) {
+            console.error('[BalanceMonitor] Failed to migrate state to PostgreSQL:', error);
+          }
+        }
+        return;
+      }
+    } catch (error) {
+      console.error('[BalanceMonitor] Error loading JSON state:', error);
+    }
+    
+    // Default state - insert into PostgreSQL
+    if (db) {
+      try {
+        await db.insert(balanceMonitorState).values({
+          id: STATE_ID,
+          enabled: this.state.enabled,
+          refreshIntervalMinutes: this.state.refreshIntervalMinutes,
+          totalRefreshes: 0,
+          isRefreshing: false,
+        }).onConflictDoNothing();
+        console.log(`[BalanceMonitor] Created default state in PostgreSQL`);
+      } catch (error) {
+        console.error('[BalanceMonitor] Failed to create default state:', error);
+      }
+    }
+  }
+
+  private async saveState(): Promise<void> {
+    // Save to PostgreSQL using upsert
+    if (db) {
+      try {
+        await db.insert(balanceMonitorState).values({
+          id: STATE_ID,
+          enabled: this.state.enabled,
+          refreshIntervalMinutes: this.state.refreshIntervalMinutes,
+          lastRefreshTime: this.state.lastRefreshTime ? new Date(this.state.lastRefreshTime) : null,
+          lastRefreshTotal: this.state.lastRefreshResult?.total || 0,
+          lastRefreshUpdated: this.state.lastRefreshResult?.refreshed || 0,
+          lastRefreshChanged: this.state.lastRefreshResult?.changed || 0,
+          lastRefreshErrors: this.state.lastRefreshResult?.errors || 0,
+          totalRefreshes: this.state.totalRefreshes,
+          isRefreshing: this.state.isRefreshing,
+        }).onConflictDoUpdate({
+          target: balanceMonitorState.id,
+          set: {
+            enabled: this.state.enabled,
+            refreshIntervalMinutes: this.state.refreshIntervalMinutes,
+            lastRefreshTime: this.state.lastRefreshTime ? new Date(this.state.lastRefreshTime) : null,
+            lastRefreshTotal: this.state.lastRefreshResult?.total || 0,
+            lastRefreshUpdated: this.state.lastRefreshResult?.refreshed || 0,
+            lastRefreshChanged: this.state.lastRefreshResult?.changed || 0,
+            lastRefreshErrors: this.state.lastRefreshResult?.errors || 0,
+            totalRefreshes: this.state.totalRefreshes,
+            isRefreshing: this.state.isRefreshing,
+            updatedAt: new Date(),
+          }
+        });
+        return;
+      } catch (error) {
+        console.error('[BalanceMonitor] PostgreSQL save error, falling back to JSON:', error);
+      }
+    }
+    
+    // Fallback to JSON
     try {
       if (!fs.existsSync('data')) {
         fs.mkdirSync('data', { recursive: true });

@@ -34,11 +34,13 @@ export class MemStorage implements IStorage {
   private candidates: Candidate[] = [];
   private targetAddresses: TargetAddress[] = [];
   private searchJobs: SearchJob[] = [];
+  private targetAddressesLoaded: Promise<void>;
 
   constructor() {
     this.loadJobs();
     this.loadCandidates();
-    this.loadTargetAddresses();
+    // Start async loading - callers can await targetAddressesLoaded if needed
+    this.targetAddressesLoaded = this.loadTargetAddresses();
   }
 
   private loadJobs(): void {
@@ -205,7 +207,7 @@ export class MemStorage implements IStorage {
     }
   }
 
-  private loadTargetAddresses(): void {
+  private async loadTargetAddresses(): Promise<void> {
     const defaultAddress: TargetAddress = {
       id: "default",
       address: "15BKWJjL5YWXtaP449WAYqVYZQE1szicTn",
@@ -213,13 +215,34 @@ export class MemStorage implements IStorage {
       addedAt: new Date().toISOString(),
     };
 
+    // Try to load from PostgreSQL first
+    if (db) {
+      try {
+        const rows = await db.select().from(userTargetAddresses);
+        if (rows.length > 0) {
+          this.targetAddresses = rows.map(row => ({
+            id: row.id,
+            address: row.address,
+            label: row.label || undefined,
+            addedAt: row.addedAt.toISOString(),
+          }));
+          console.log(`[Storage] Loaded ${this.targetAddresses.length} target addresses from PostgreSQL`);
+          return;
+        }
+        // DB is empty - try to migrate from JSON
+        console.log(`[Storage] PostgreSQL empty, checking for JSON migration...`);
+      } catch (error) {
+        console.error("[Storage] PostgreSQL load failed:", error);
+      }
+    }
+
+    // Load from JSON and migrate to PostgreSQL
     try {
       if (existsSync(TARGET_ADDRESSES_FILE)) {
         const data = readFileSync(TARGET_ADDRESSES_FILE, "utf-8").trim();
         if (data.length > 0) {
           const parsed = JSON.parse(data);
           if (Array.isArray(parsed)) {
-            // Validate each address has required fields
             const validAddresses: TargetAddress[] = [];
             for (const item of parsed) {
               if (
@@ -230,17 +253,31 @@ export class MemStorage implements IStorage {
                 typeof item.addedAt === "string"
               ) {
                 validAddresses.push(item as TargetAddress);
-              } else {
-                console.warn(`[Storage] Skipping invalid target address entry:`, item);
               }
             }
             this.targetAddresses = validAddresses;
-            console.log(`[Storage] Loaded ${this.targetAddresses.length} target addresses from disk`);
+            console.log(`[Storage] Loaded ${this.targetAddresses.length} target addresses from JSON`);
             
             // Ensure default address always exists
             if (!this.targetAddresses.find(a => a.id === "default")) {
               this.targetAddresses.unshift(defaultAddress);
-              this.saveTargetAddresses();
+            }
+            
+            // Migrate to PostgreSQL if available
+            if (db && this.targetAddresses.length > 0) {
+              try {
+                for (const addr of this.targetAddresses) {
+                  await db.insert(userTargetAddresses).values({
+                    id: addr.id,
+                    address: addr.address,
+                    label: addr.label || null,
+                    addedAt: new Date(addr.addedAt),
+                  }).onConflictDoNothing();
+                }
+                console.log(`[Storage] Migrated ${this.targetAddresses.length} target addresses to PostgreSQL`);
+              } catch (error) {
+                console.error("[Storage] Failed to migrate target addresses to PostgreSQL:", error);
+              }
             }
             return;
           }
@@ -252,6 +289,18 @@ export class MemStorage implements IStorage {
     
     // If no file exists or loading failed, start with default
     this.targetAddresses = [defaultAddress];
+    if (db) {
+      try {
+        await db.insert(userTargetAddresses).values({
+          id: defaultAddress.id,
+          address: defaultAddress.address,
+          label: defaultAddress.label || null,
+          addedAt: new Date(defaultAddress.addedAt),
+        }).onConflictDoNothing();
+      } catch (error) {
+        console.error("[Storage] Failed to save default address to PostgreSQL:", error);
+      }
+    }
     this.saveTargetAddresses();
   }
 
