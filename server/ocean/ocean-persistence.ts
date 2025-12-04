@@ -29,13 +29,9 @@ import {
   type InsertManifoldProbe,
   type ResonancePointRecord,
   type RegimeBoundaryRecord,
-  type GeodesicPathRecord,
   type TpsLandmarkRecord,
-  type TpsGeodesicPathRecord,
   type OceanTrajectoryRecord,
-  type InsertOceanTrajectory,
   type OceanWaypointRecord,
-  type InsertOceanWaypoint,
   type OceanQuantumStateRecord,
   type OceanExcludedRegionRecord,
 } from '@shared/schema';

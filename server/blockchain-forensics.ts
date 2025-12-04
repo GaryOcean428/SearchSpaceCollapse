@@ -163,11 +163,10 @@ export class BlockchainForensics {
       
       // Extract first and last transaction data
       let firstTx = null;
-      let lastTx = null;
       
       if (bcInfo.txs && bcInfo.txs.length > 0) {
         // blockchain.info returns newest first, so last in array is oldest
-        const _lastTx = bcInfo.txs[0];
+        bcInfo.txs[0];
         
         // For oldest tx, we need to fetch with offset (only if using blockchain.info)
         // If we're using Blockstream fallback, we already have all available transactions

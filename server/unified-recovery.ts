@@ -8,8 +8,7 @@
 import { 
   UnifiedRecoverySession, 
   RecoveryCandidate, 
-  StrategyRun, 
-  EvidenceArtifact,
+  StrategyRun,
   RecoveryStrategyType,
   recoveryStrategyTypes,
   OceanAgentState,
@@ -17,8 +16,8 @@ import {
 } from '@shared/schema';
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { scoreUniversalQIG } from './qig-universal';
-import { blockchainForensics, type AddressForensics } from './blockchain-forensics';
-import { historicalDataMiner, type MinedPattern, type Era } from './historical-data-miner';
+import { blockchainForensics } from './blockchain-forensics';
+import { historicalDataMiner, type Era } from './historical-data-miner';
 import { OceanAgent, type OceanHypothesis } from './ocean-agent';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
@@ -224,7 +223,7 @@ class UnifiedRecoveryOrchestrator {
           extractedFragments: [],
           discoveredAt: new Date().toISOString(),
         });
-      } catch (error) {
+      } catch {
         console.log(`[UnifiedRecovery] Blockchain analysis failed, continuing with defaults`);
         session.blockchainAnalysis = {
           era: 'pre-bip39',
@@ -394,7 +393,7 @@ class UnifiedRecoveryOrchestrator {
 
   private generatePhrasesForStrategy(
     type: RecoveryStrategyType,
-    era?: 'pre-bip39' | 'post-bip39' | 'unknown'
+    _era?: 'pre-bip39' | 'post-bip39' | 'unknown'
   ): Array<{
     phrase: string;
     format: 'arbitrary' | 'bip39' | 'master' | 'hex';
@@ -597,7 +596,7 @@ class UnifiedRecoveryOrchestrator {
       }
 
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -1040,7 +1039,7 @@ class UnifiedRecoveryOrchestrator {
       }
 
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -1175,7 +1174,7 @@ class UnifiedRecoveryOrchestrator {
           }],
         });
       }
-    } catch (e) {
+    } catch {
       console.log('[Ocean] Historical mining failed, continuing with existing candidates');
     }
     

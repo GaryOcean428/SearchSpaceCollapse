@@ -12,9 +12,9 @@
  * - Preserves basin distance relationships
  */
 
-import { geometricMemory, type BasinProbe } from './geometric-memory';
+import { geometricMemory } from './geometric-memory';
 import { scoreUniversalQIG, type UniversalQIGScore as QIGScore, type Regime } from './qig-universal';
-import { vocabularyTracker, type VocabularyCandidate } from './vocabulary-tracker';
+import { vocabularyTracker } from './vocabulary-tracker';
 import { expandedVocabulary } from './expanded-vocabulary';
 import fs from 'fs';
 import path from 'path';
@@ -234,7 +234,7 @@ export class GeometricVocabularyExpander {
         // Score the candidate to get coordinates
         const score = await scoreUniversalQIG(candidate.text, 'arbitrary');
         
-        const word = this.addWord(candidate.text, score, {
+        this.addWord(candidate.text, score, {
           components: candidate.components,
           source: candidate.reasoning,
         });

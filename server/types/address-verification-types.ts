@@ -24,11 +24,9 @@ import {
   btcAmountSchema,
   timestampSchema,
   uuidSchema,
-  keyFormatSchema,
   derivationPathSchema,
   satoshisToBTC,
 } from "../../shared/types/core";
-import type { ValidationResult } from "../../shared/validation";
 
 // ADDRESS GENERATION RESULT SCHEMA
 export const addressGenerationResultSchema = z.object({

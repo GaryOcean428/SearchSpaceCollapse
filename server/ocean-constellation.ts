@@ -571,7 +571,7 @@ export class OceanConstellation {
    */
   private generateExplorerHypotheses(
     state: AgentState,
-    manifoldContext: any
+    _manifoldContext: any
   ): Array<{ phrase: string; source: string; confidence: number }> {
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     
@@ -676,7 +676,7 @@ export class OceanConstellation {
    */
   private generateNavigatorHypotheses(
     state: AgentState,
-    manifoldContext: any
+    _manifoldContext: any
   ): Array<{ phrase: string; source: string; confidence: number }> {
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     
@@ -692,7 +692,7 @@ export class OceanConstellation {
           confidence: 0.5 + result.geometricScore * 0.2 + resonanceBoost,
         });
       }
-    } catch (e) {
+    } catch {
     }
     
     const highResonanceTokens = Array.from(this.qigTokenCache.values())
@@ -779,7 +779,7 @@ export class OceanConstellation {
     for (const contradiction of highConfContradictions.slice(0, 10)) {
       const coords = this.wordToBasinCoordinates(contradiction.pattern);
       const fisherResult = fisherVectorized.computeMatrix(coords.slice(0, 32));
-      const metrics = fisherVectorized.computeMetrics(fisherResult);
+      fisherVectorized.computeMetrics(fisherResult);
       
       const orthogonalDir = fisherVectorized.computeGeodesicDirection(
         state.basinCoordinates.slice(0, 32),

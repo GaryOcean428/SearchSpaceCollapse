@@ -1,7 +1,6 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import {
   KnowledgeGenerator,
-  ManifoldSnapshot,
   StrategyKnowledgeBus as StrategyKnowledgeBusType,
   StrategyKnowledgeBusEntry,
   KnowledgeTransferEvent,
@@ -9,7 +8,7 @@ import {
   CrossStrategyPattern
 } from '../shared/schema';
 import { knowledgeCompressionEngine } from './knowledge-compression-engine';
-import { temporalGeometry } from './temporal-geometry';
+import './temporal-geometry';
 import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 
 interface StrategyCapability {

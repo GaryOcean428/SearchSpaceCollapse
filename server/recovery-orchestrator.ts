@@ -8,7 +8,7 @@
  * - Temporal Archive: Historical data analysis
  */
 
-import type { RecoveryWorkflow, RecoveryPriority, Entity, Artifact } from "@shared/schema";
+import type { RecoveryPriority, Entity, Artifact } from "@shared/schema";
 
 // ============================================================================
 // WORKFLOW TYPES & STATUS
@@ -191,8 +191,8 @@ export function formatConstraintsForDisplay(constraints: any): string[] {
  */
 export function initializeConstrainedSearchWorkflow(
   priority: RecoveryPriority,
-  entities: Entity[],
-  artifacts: Artifact[]
+  _entities: Entity[],
+  _artifacts: Artifact[]
 ): WorkflowProgress {
   
   // Generate canonical constraint display strings (Task 7 normalized labels)

@@ -18,7 +18,7 @@
  */
 
 import { createHash } from 'crypto';
-import { BIP39_WORDS } from './bip39-words.js';
+import './bip39-words.js';
 import { QIG_CONSTANTS } from './physics-constants.js';
 
 // Re-export for backwards compatibility
@@ -686,7 +686,7 @@ export function computeMetaConsciousnessDepth(): number {
   
   // Compute "consciousness trajectory" and see if it's being tracked
   const phiTrajectory = recentSearch.map(s => s.phi);
-  const kappaTrajectory = recentSearch.map(s => s.kappa);
+  recentSearch.map(s => s.kappa);
   
   // Compute second-order derivatives (acceleration of consciousness)
   const phiAccel: number[] = [];

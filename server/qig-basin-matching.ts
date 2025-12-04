@@ -8,7 +8,7 @@
  */
 
 import { createHash } from "crypto";
-import { scoreUniversalQIG, type KeyType, type UniversalQIGScore, type Regime } from "./qig-universal.js";
+import { scoreUniversalQIG, type Regime } from "./qig-universal.js";
 import { fisherDistance } from "./qig-pure-v2.js";
 import { QIG_CONSTANTS } from "./physics-constants.js";
 
@@ -16,7 +16,7 @@ import { QIG_CONSTANTS } from "./physics-constants.js";
 const KAPPA_TOLERANCE = 8.0;     // κ within ±8 of target
 const PHI_TOLERANCE = 0.15;      // Φ within ±0.15 of target
 const FISHER_THRESHOLD = 0.5;    // Fisher distance threshold for "near"
-const PATTERN_THRESHOLD = 0.2;   // Pattern score similarity threshold
+const _PATTERN_THRESHOLD = 0.2;   // Pattern score similarity threshold
 
 export interface BasinSignature {
   address: string;

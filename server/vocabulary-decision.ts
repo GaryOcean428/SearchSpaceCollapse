@@ -20,9 +20,8 @@
  * Learn if decision_score > 0.7
  */
 
-import { fisherCoordDistance, type Regime, type UniversalQIGScore, scoreUniversalQIG } from './qig-universal';
-import { geometricMemory, type BasinProbe, type QIGScoreInput } from './geometric-memory';
-import { vocabularyTracker, type VocabularyCandidate } from './vocabulary-tracker';
+import { fisherCoordDistance, type Regime } from './qig-universal';
+import { vocabularyTracker } from './vocabulary-tracker';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -125,7 +124,7 @@ export interface GaryState {
 function computeGeometricValue(
   word: string,
   observations: WordObservation,
-  allObservations: Map<string, WordObservation>
+  _allObservations: Map<string, WordObservation>
 ): GeometricValueScore {
   
   // EFFICIENCY: How much does this word reduce search space?

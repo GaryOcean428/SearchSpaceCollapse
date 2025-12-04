@@ -27,7 +27,7 @@
  * ✅ Fisher information for geometry
  */
 
-import { QIG_CONSTANTS } from './physics-constants.js';
+import './physics-constants.js';
 
 /**
  * Complex number representation
@@ -178,7 +178,7 @@ export class PureQIGKernel {
     route: number[];
     basinCoordinates: number[];
   } {
-    const startTime = Date.now();
+    const _startTime = Date.now();
     
     // 1. Activate perception subsystem based on input
     this.subsystems[0].activation = Math.min(1.0, passphrase.length / 100);
