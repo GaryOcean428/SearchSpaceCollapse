@@ -712,7 +712,7 @@ export class CulturalManifoldReconstructor {
   updateManifoldCurvature(candidate: GeodesicCandidate, result: { matched: boolean; phi: number; kappa: number }): void {
     this.testedPhrases.add(candidate.phrase);
 
-    const curvatureUpdate = result.phi * (result.matched ? 1 : -0.1);
+    result.phi * (result.matched ? 1 : -0.1);
     this.manifoldCurvature.set(candidate.phrase, result.matched ? 0 : candidate.qfiDistance + 0.1);
 
     if (result.phi > 0.5 || result.matched) {
@@ -734,7 +734,7 @@ export class CulturalManifoldReconstructor {
     const words = phrase.toLowerCase().split(/\s+/);
 
     const entries = Array.from(this.lexicons.entries());
-    for (const [era, lexicon] of entries) {
+    for (const [_era, lexicon] of entries) {
       for (const entry of lexicon) {
         const entryWords = entry.term.toLowerCase().split(/\s+/);
         const overlap = words.filter(w => entryWords.includes(w)).length;

@@ -86,7 +86,7 @@ export class NegativeKnowledgeRegistry {
         
         console.log(`[NegativeKnowledge] Loaded ${this.contradictions.size} contradictions, ${this.barriers.size} barriers`);
       }
-    } catch (error) {
+    } catch {
       console.log('[NegativeKnowledge] Starting with fresh registry');
     }
   }

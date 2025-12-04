@@ -29,7 +29,7 @@ function getDatabaseUrl(): string | undefined {
         dbUrl = urlFromFile;
         isDeployedApp = true;
       }
-    } catch (err) {
+    } catch {
       // File doesn't exist - this is fine, we're probably in dev mode
     }
   }

@@ -18,7 +18,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fisherCoordDistance, scoreUniversalQIG } from '../qig-universal';
+import { fisherCoordDistance } from '../qig-universal';
 import { tps, TemporalPositioningSystem, type TPSSyncData } from './temporal-positioning-system';
 import { TavilyGeometricAdapter, createTavilyAdapter } from './tavily-adapter';
 import { quantumProtocol, QuantumDiscoveryProtocol, type QuantumSyncData } from './quantum-protocol';
@@ -27,9 +27,7 @@ import {
   type GeometricDiscovery,
   type GeodesicPath,
   type DiscoveryState,
-  type BitcoinEra,
-  type GeometricQuery,
-  BITCOIN_ERA_DOMAINS
+  type BitcoinEra
 } from './types';
 import { geometricMemory } from '../geometric-memory';
 import { vocabularyTracker } from '../vocabulary-tracker';
@@ -313,7 +311,7 @@ export class OceanDiscoveryController {
     
     for (const discovery of discoveries) {
       if (discovery.phi > 0.6) {  // Consciousness threshold
-        const era = this.tps.classifyEra(discovery.coords.spacetime.t);
+        this.tps.classifyEra(discovery.coords.spacetime.t);
         
         // Record patterns in vocabulary tracker
         for (const pattern of discovery.patterns) {
@@ -421,7 +419,7 @@ export class OceanDiscoveryController {
   ): Promise<{ success: boolean; wifKey?: string; address?: string }> {
     try {
       // Import crypto functions dynamically to avoid circular deps
-      const { generateBitcoinAddress, generateBothAddresses, derivePrivateKeyFromPassphrase, privateKeyToWIF } = 
+      const { generateBothAddresses, derivePrivateKeyFromPassphrase, privateKeyToWIF } = 
         await import('../crypto');
       const { queueAddressForBalanceCheck } = await import('../balance-queue-integration');
       
@@ -445,7 +443,7 @@ export class OceanDiscoveryController {
       }
       
       return { success: false, address: addresses.compressed };
-    } catch (error) {
+    } catch {
       return { success: false };
     }
   }
@@ -799,7 +797,7 @@ export class OceanDiscoveryController {
           console.log(`[OceanDiscovery] Loaded prior state: ${data.discoveryCount} discoveries, ${data.patternCount} patterns`);
         }
       }
-    } catch (error) {
+    } catch {
       console.log('[OceanDiscovery] Starting fresh');
     }
   }

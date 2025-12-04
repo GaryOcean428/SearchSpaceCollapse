@@ -10,10 +10,10 @@
  * Uses QIG to find geometric correlations across all substrates.
  */
 
-import { ForensicInvestigator, ForensicHypothesis, MemoryFragment, forensicInvestigator } from './forensic-investigator';
-import { BlockchainForensics, AddressForensics, blockchainForensics } from './blockchain-forensics';
-import { scoreUniversalQIG, UniversalQIGScore } from './qig-universal';
-import { findSimilarBasins, computeBasinSignature, BasinSignature } from './qig-basin-matching';
+import { forensicInvestigator } from './forensic-investigator';
+import { blockchainForensics } from './blockchain-forensics';
+import './qig-universal';
+import './qig-basin-matching';
 
 export interface EvidenceSource {
   type: 'memory' | 'blockchain' | 'social' | 'temporal' | 'geometric';

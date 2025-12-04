@@ -1,10 +1,9 @@
 import { nanoid } from 'nanoid';
-import { scoreUniversalQIG } from './qig-universal';
+import './qig-universal';
 import type { 
   KnowledgeGenerator, 
   Contradiction, 
-  NegativeKnowledgeRegistry,
-  BasinTopology,
+  NegativeKnowledgeRegistry
 } from '@shared/schema';
 
 export interface GeneratorOutput {
@@ -335,7 +334,7 @@ export class KnowledgeCompressionEngine {
       }
     }
 
-    for (const [patternClass, data] of Object.entries(this.negativeKnowledge.falsePatternClasses)) {
+    for (const [_patternClass, data] of Object.entries(this.negativeKnowledge.falsePatternClasses)) {
       if (data.examples.some(ex => hypothesis.toLowerCase().includes(ex.toLowerCase()))) {
         return true;
       }
@@ -446,7 +445,7 @@ export class KnowledgeCompressionEngine {
   private lowPhiPatternCounts: Map<string, number> = new Map();
   private readonly LOW_PHI_THRESHOLD = 5;
 
-  private recordLowPhiPattern(pattern: string, phi: number): void {
+  private recordLowPhiPattern(pattern: string, _phi: number): void {
     const count = (this.lowPhiPatternCounts.get(pattern) || 0) + 1;
     this.lowPhiPatternCounts.set(pattern, count);
     

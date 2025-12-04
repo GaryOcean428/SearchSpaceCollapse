@@ -123,7 +123,7 @@ export class FreeBlockchainAPI {
   }
 
   private async _getBalanceWithFailover(address: string): Promise<number> {
-    const startIndex = this.currentIndex;
+    const _startIndex = this.currentIndex;
     let attempts = 0;
     
     while (attempts < this.providers.length) {
