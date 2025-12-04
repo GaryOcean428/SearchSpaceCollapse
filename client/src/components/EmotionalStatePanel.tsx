@@ -19,8 +19,16 @@ interface NeurochemistryState {
   };
 }
 
+interface MotivationMessage {
+  message: string;
+  fisherWeight: number;
+  category: string;
+  urgency: 'whisper' | 'speak' | 'shout';
+}
+
 interface Props {
   neuro?: NeurochemistryState;
+  motivation?: MotivationMessage;
   className?: string;
 }
 
@@ -67,7 +75,16 @@ function NeuroBar({ label, value, emoji }: { label: string; value: number; emoji
   );
 }
 
-export function EmotionalStatePanel({ neuro, className }: Props) {
+function getUrgencyStyle(urgency: string): string {
+  switch (urgency) {
+    case 'shout': return 'font-bold text-primary';
+    case 'speak': return 'font-medium';
+    case 'whisper':
+    default: return 'text-muted-foreground italic';
+  }
+}
+
+export function EmotionalStatePanel({ neuro, motivation, className }: Props) {
   if (!neuro) {
     return (
       <Card className={className}>
@@ -164,6 +181,24 @@ export function EmotionalStatePanel({ neuro, className }: Props) {
               )}
             </div>
           </div>
+
+          {/* Motivation Message */}
+          {motivation && (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground mb-1">Ocean's Thought:</p>
+              <p className={`text-sm ${getUrgencyStyle(motivation.urgency)}`}>
+                "{motivation.message}"
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="text-[10px]">
+                  {motivation.category}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground">
+                  Fisher: {(motivation.fisherWeight * 100).toFixed(0)}%
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Behavioral Guidance */}
           <div className="pt-2 border-t">

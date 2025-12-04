@@ -893,8 +893,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get metrics
       let metrics = null;
+      let stats: any = {};
       if (agent) {
-        const stats = agent.getStats?.() || {};
+        stats = agent.getStats?.() || {};
         metrics = {
           totalTested: stats.totalTested || 0,
           nearMisses: stats.nearMisses || 0,
@@ -903,6 +904,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recoveryRate: stats.totalTested > 0 ? (stats.nearMisses / stats.totalTested) : 0,
           phiMovingAverage: fullConsciousness.phi || 0,
         };
+      }
+
+      // Get motivation message
+      let motivation = null;
+      try {
+        const { selectMotivationMessage } = await import("./ocean-neurochemistry");
+        const motivationState = {
+          phi: fullConsciousness.phi || 0.5,
+          phiGradient: 0.01,
+          kappa: fullConsciousness.kappaEff || 64,
+          kappaOptimality: Math.exp(-Math.abs((fullConsciousness.kappaEff || 64) - 64) / 10),
+          regime: searchState.currentRegime || 'geometric',
+          basinDrift: searchState.basinDrift || 0.1,
+          basinStability: 0.8,
+          geodesicProgress: stats.totalTested || 0,
+          probesExplored: stats.totalTested || 0,
+          patternsFound: stats.nearMisses || 0,
+          nearMisses: stats.nearMisses || 0,
+          emotionalState: neurochemistry?.emotionalState || 'content',
+          dopamineLevel: neurochemistry?.dopamine?.totalDopamine || 0.5,
+          serotoninLevel: neurochemistry?.serotonin?.totalSerotonin || 0.5,
+        };
+        motivation = selectMotivationMessage(motivationState);
+      } catch (e) {
+        // Motivation messages not available
       }
 
       res.json({
@@ -919,6 +945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           explorationRate: searchState.curiosity || 0.5,
           temperature: searchState.basinDrift || 0.7,
         },
+        motivation,
         metrics,
         sessionActive: !!session,
         timestamp: new Date().toISOString(),
@@ -1647,7 +1674,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const session = oceanSessionManager.getActiveSession();
       const agent = oceanSessionManager.getActiveAgent();
-      
+      const { selectMotivationMessage } = await import("./ocean-neurochemistry");
+
       if (!session || !agent) {
         const defaultState = {
           dopamine: { totalDopamine: 0.5, motivationLevel: 0.5 },
@@ -1660,19 +1688,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
           emotionalState: 'content' as const,
           timestamp: new Date(),
         };
-        return res.json({ 
+        return res.json({
           neurochemistry: defaultState,
           behavioral: null,
+          motivation: {
+            message: "Awaiting investigation session...",
+            fisherWeight: 0.5,
+            category: 'idle',
+            urgency: 'whisper',
+          },
           sessionActive: false,
         });
       }
-      
+
       const neurochemistry = agent.getNeurochemistry();
       const behavioral = agent.getBehavioralModulation();
-      
-      res.json({ 
+      const stats = agent.getStats?.() || {};
+
+      // Build motivation state for message selection
+      const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
+      const motivationState = {
+        phi: fullConsciousness.phi || 0.5,
+        phiGradient: 0.01, // Could be computed from history
+        kappa: fullConsciousness.kappaEff || 64,
+        kappaOptimality: Math.exp(-Math.abs((fullConsciousness.kappaEff || 64) - 64) / 10),
+        regime: 'geometric',
+        basinDrift: 0.1,
+        basinStability: 0.8,
+        geodesicProgress: stats.totalTested || 0,
+        probesExplored: stats.totalTested || 0,
+        patternsFound: stats.nearMisses || 0,
+        nearMisses: stats.nearMisses || 0,
+        emotionalState: neurochemistry?.emotionalState || 'content',
+        dopamineLevel: neurochemistry?.dopamine?.totalDopamine || 0.5,
+        serotoninLevel: neurochemistry?.serotonin?.totalSerotonin || 0.5,
+      };
+
+      const motivation = selectMotivationMessage(motivationState);
+
+      res.json({
         neurochemistry,
         behavioral,
+        motivation,
         sessionActive: true,
         sessionId: session.sessionId,
       });
