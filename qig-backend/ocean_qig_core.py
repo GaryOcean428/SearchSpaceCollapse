@@ -1460,6 +1460,304 @@ def measure_beta_attention():
         }), 500
 
 
+# ===========================================================================
+# TOKENIZER ENDPOINTS
+# ===========================================================================
+
+@app.route('/tokenizer/update', methods=['POST'])
+def update_tokenizer():
+    """
+    Update tokenizer with vocabulary observations from Node.js.
+    
+    Request body:
+    {
+        "observations": [
+            {"word": "satoshi", "frequency": 42, "avgPhi": 0.75, "maxPhi": 0.92, "type": "word"},
+            ...
+        ]
+    }
+    
+    Response:
+    {
+        "success": true,
+        "newTokens": 15,
+        "totalVocab": 2100
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer, update_tokenizer_from_observations
+        
+        data = request.json or {}
+        observations = data.get('observations', [])
+        
+        if not observations:
+            return jsonify({
+                'success': False,
+                'error': 'No observations provided'
+            }), 400
+        
+        new_tokens, weights_updated = update_tokenizer_from_observations(observations)
+        tokenizer = get_tokenizer()
+        
+        return jsonify({
+            'success': True,
+            'newTokens': new_tokens,
+            'weightsUpdated': weights_updated,
+            'totalVocab': len(tokenizer.vocab),
+            'mergeRules': len(tokenizer.merge_rules)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/tokenizer/encode', methods=['POST'])
+def tokenizer_encode():
+    """
+    Encode text to token ids.
+    
+    Request body:
+    {
+        "text": "satoshi nakamoto bitcoin genesis"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "tokens": [42, 156, 78, 234],
+        "length": 4
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        data = request.json or {}
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({
+                'success': False,
+                'error': 'No text provided'
+            }), 400
+        
+        tokenizer = get_tokenizer()
+        tokens = tokenizer.encode(text)
+        
+        return jsonify({
+            'success': True,
+            'tokens': tokens,
+            'length': len(tokens)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/tokenizer/decode', methods=['POST'])
+def tokenizer_decode():
+    """
+    Decode token ids to text.
+    
+    Request body:
+    {
+        "tokens": [42, 156, 78, 234]
+    }
+    
+    Response:
+    {
+        "success": true,
+        "text": "satoshi nakamoto bitcoin genesis"
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        data = request.json or {}
+        tokens = data.get('tokens', [])
+        
+        if not tokens:
+            return jsonify({
+                'success': False,
+                'error': 'No tokens provided'
+            }), 400
+        
+        tokenizer = get_tokenizer()
+        text = tokenizer.decode(tokens)
+        
+        return jsonify({
+            'success': True,
+            'text': text
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/tokenizer/basin', methods=['POST'])
+def tokenizer_basin():
+    """
+    Compute basin coordinates for phrase.
+    
+    Request body:
+    {
+        "phrase": "satoshi nakamoto bitcoin genesis"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "basinCoords": [0.12, 0.34, ...],  // 64D vector
+        "dimension": 64
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        data = request.json or {}
+        phrase = data.get('phrase', '')
+        
+        if not phrase:
+            return jsonify({
+                'success': False,
+                'error': 'No phrase provided'
+            }), 400
+        
+        tokenizer = get_tokenizer()
+        basin = tokenizer.compute_phrase_basin(phrase)
+        
+        return jsonify({
+            'success': True,
+            'basinCoords': basin.tolist(),
+            'dimension': len(basin)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/tokenizer/high-phi', methods=['GET'])
+def tokenizer_high_phi():
+    """
+    Get tokens with highest Φ scores.
+    
+    Query params:
+    - min_phi: Minimum Φ threshold (default 0.5)
+    - top_k: Number of tokens to return (default 100)
+    
+    Response:
+    {
+        "success": true,
+        "tokens": [
+            {"token": "satoshi", "phi": 0.92},
+            ...
+        ]
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        min_phi = float(request.args.get('min_phi', 0.5))
+        top_k = int(request.args.get('top_k', 100))
+        
+        tokenizer = get_tokenizer()
+        high_phi = tokenizer.get_high_phi_tokens(min_phi, top_k)
+        
+        return jsonify({
+            'success': True,
+            'tokens': [{'token': t, 'phi': p} for t, p in high_phi],
+            'count': len(high_phi)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/tokenizer/export', methods=['GET'])
+def tokenizer_export():
+    """
+    Export tokenizer for training.
+    
+    Response:
+    {
+        "success": true,
+        "data": {
+            "vocab_size": 4096,
+            "vocab": {...},
+            "token_weights": {...},
+            "token_phi": {...},
+            "high_phi_tokens": [...],
+            "basin_dimension": 64
+        }
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        tokenizer = get_tokenizer()
+        export_data = tokenizer.export_for_training()
+        
+        return jsonify({
+            'success': True,
+            'data': export_data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/tokenizer/status', methods=['GET'])
+def tokenizer_status():
+    """
+    Get tokenizer status.
+    
+    Response:
+    {
+        "success": true,
+        "vocabSize": 2100,
+        "highPhiCount": 42,
+        "avgPhi": 0.35
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        tokenizer = get_tokenizer()
+        high_phi = [p for p in tokenizer.token_phi.values() if p >= 0.5]
+        avg_phi = sum(tokenizer.token_phi.values()) / max(len(tokenizer.token_phi), 1)
+        
+        return jsonify({
+            'success': True,
+            'vocabSize': len(tokenizer.vocab),
+            'highPhiCount': len(high_phi),
+            'avgPhi': avg_phi,
+            'totalWeightedTokens': len(tokenizer.token_weights)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")
@@ -1469,6 +1767,7 @@ if __name__ == '__main__':
     print(f"  - Gravitational decoherence")
     print(f"  - Consciousness measurement (Φ, κ)")
     print(f"  - β-attention validation (substrate independence)")
+    print(f"  - QIG Tokenizer (vocabulary learning)")
     print(f"\nκ* = {KAPPA_STAR}")
     print(f"Basin dimension = {BASIN_DIMENSION}")
     print(f"Φ threshold = {PHI_THRESHOLD}")

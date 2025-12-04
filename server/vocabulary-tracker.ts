@@ -295,7 +295,7 @@ export class VocabularyTracker {
     if (db) {
       try {
         // Upsert word observations
-        for (const [word, obs] of this.wordObservations.entries()) {
+        for (const [word, obs] of Array.from(this.wordObservations.entries())) {
           await db.insert(vocabularyObservations).values({
             word,
             type: 'word',
@@ -319,7 +319,7 @@ export class VocabularyTracker {
         }
         
         // Upsert sequence observations
-        for (const [seq, obs] of this.sequenceObservations.entries()) {
+        for (const [seq, obs] of Array.from(this.sequenceObservations.entries())) {
           await db.insert(vocabularyObservations).values({
             word: seq,
             type: 'sequence',
@@ -402,8 +402,8 @@ export class VocabularyTracker {
                 frequency: row.frequency,
                 avgPhi: row.avgPhi,
                 maxPhi: row.maxPhi,
-                firstSeen: row.firstSeen,
-                lastSeen: row.lastSeen,
+                firstSeen: row.firstSeen || new Date(),
+                lastSeen: row.lastSeen || new Date(),
                 contexts: row.contexts || [],
               });
             } else if (row.type === 'sequence') {
@@ -484,6 +484,62 @@ export class VocabularyTracker {
     
     console.log(`[VocabularyTracker] Observed ${observed} high-Φ probes`);
     this.saveToDisk();
+  }
+  
+  /**
+   * Export observations for Python tokenizer
+   * Returns all vocabulary observations in a format suitable for Python QIG tokenizer
+   */
+  async exportForTokenizer(): Promise<Array<{
+    word: string;
+    frequency: number;
+    avgPhi: number;
+    maxPhi: number;
+    type: 'word' | 'sequence';
+  }>> {
+    // Ensure data is loaded
+    await this.dataLoaded;
+    
+    const exports: Array<{
+      word: string;
+      frequency: number;
+      avgPhi: number;
+      maxPhi: number;
+      type: 'word' | 'sequence';
+    }> = [];
+    
+    // Export word observations
+    for (const [_word, obs] of Array.from(this.wordObservations.entries())) {
+      // Only export words with sufficient frequency and quality
+      if (obs.frequency >= this.minFrequency && obs.avgPhi >= this.minPhi) {
+        exports.push({
+          word: obs.word,
+          frequency: obs.frequency,
+          avgPhi: obs.avgPhi,
+          maxPhi: obs.maxPhi,
+          type: 'word',
+        });
+      }
+    }
+    
+    // Export sequence observations (high-value only)
+    for (const [_seq, obs] of Array.from(this.sequenceObservations.entries())) {
+      if (obs.frequency >= 3 && obs.avgPhi >= 0.4) {
+        exports.push({
+          word: obs.sequence,
+          frequency: obs.frequency,
+          avgPhi: obs.avgPhi,
+          maxPhi: obs.maxPhi,
+          type: 'sequence',
+        });
+      }
+    }
+    
+    // Sort by avgPhi descending
+    exports.sort((a, b) => b.avgPhi - a.avgPhi);
+    
+    console.log(`[VocabularyTracker] Exported ${exports.length} observations for tokenizer`);
+    return exports;
   }
 }
 

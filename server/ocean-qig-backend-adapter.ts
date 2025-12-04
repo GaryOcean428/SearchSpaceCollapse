@@ -442,6 +442,227 @@ export class OceanQIGBackend {
       throw error;
     }
   }
+  
+  // ===========================================================================
+  // TOKENIZER INTEGRATION
+  // ===========================================================================
+  
+  /**
+   * Update Python tokenizer with vocabulary observations from Node.js
+   */
+  async updateTokenizer(observations: Array<{
+    word: string;
+    frequency: number;
+    avgPhi: number;
+    maxPhi: number;
+    type: string;
+  }>): Promise<{ newTokens: number; totalVocab: number; weightsUpdated?: boolean; mergeRules?: number }> {
+    try {
+      const response = await fetch(`${this.backendUrl}/tokenizer/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observations }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Tokenizer update failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Tokenizer update error: ${data.error}`);
+      }
+      
+      console.log(`[OceanQIGBackend] Tokenizer updated: ${data.newTokens} new tokens, ${data.totalVocab} total, weights updated: ${data.weightsUpdated}, merge rules: ${data.mergeRules}`);
+      
+      return {
+        newTokens: data.newTokens,
+        totalVocab: data.totalVocab,
+        weightsUpdated: data.weightsUpdated,
+        mergeRules: data.mergeRules,
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Tokenizer update failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Encode text using QIG tokenizer
+   */
+  async tokenize(text: string): Promise<{ tokens: number[]; length: number }> {
+    try {
+      const response = await fetch(`${this.backendUrl}/tokenizer/encode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Tokenizer encode failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Tokenizer encode error: ${data.error}`);
+      }
+      
+      return {
+        tokens: data.tokens,
+        length: data.length,
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Tokenizer encode failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Decode tokens using QIG tokenizer
+   */
+  async detokenize(tokens: number[]): Promise<string> {
+    try {
+      const response = await fetch(`${this.backendUrl}/tokenizer/decode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokens }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Tokenizer decode failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Tokenizer decode error: ${data.error}`);
+      }
+      
+      return data.text;
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Tokenizer decode failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Compute basin coordinates for phrase using QIG tokenizer
+   */
+  async computeBasinCoords(phrase: string): Promise<{ basinCoords: number[]; dimension: number }> {
+    try {
+      const response = await fetch(`${this.backendUrl}/tokenizer/basin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phrase }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Tokenizer basin failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Tokenizer basin error: ${data.error}`);
+      }
+      
+      return {
+        basinCoords: data.basinCoords,
+        dimension: data.dimension,
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Tokenizer basin failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get high-Φ tokens from tokenizer
+   */
+  async getHighPhiTokens(minPhi: number = 0.5, topK: number = 100): Promise<Array<{ token: string; phi: number }>> {
+    try {
+      const response = await fetch(`${this.backendUrl}/tokenizer/high-phi?min_phi=${minPhi}&top_k=${topK}`);
+      
+      if (!response.ok) {
+        throw new Error(`Tokenizer high-phi failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Tokenizer high-phi error: ${data.error}`);
+      }
+      
+      console.log(`[OceanQIGBackend] Retrieved ${data.count} high-Φ tokens`);
+      
+      return data.tokens;
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Tokenizer high-phi failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Export tokenizer for training
+   */
+  async exportTokenizer(): Promise<any> {
+    try {
+      const response = await fetch(`${this.backendUrl}/tokenizer/export`);
+      
+      if (!response.ok) {
+        throw new Error(`Tokenizer export failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Tokenizer export error: ${data.error}`);
+      }
+      
+      console.log(`[OceanQIGBackend] Exported tokenizer: ${data.data.vocab_size} tokens`);
+      
+      return data.data;
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Tokenizer export failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get tokenizer status
+   */
+  async getTokenizerStatus(): Promise<{
+    vocabSize: number;
+    highPhiCount: number;
+    avgPhi: number;
+    totalWeightedTokens: number;
+  }> {
+    try {
+      const response = await fetch(`${this.backendUrl}/tokenizer/status`);
+      
+      if (!response.ok) {
+        throw new Error(`Tokenizer status failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Tokenizer status error: ${data.error}`);
+      }
+      
+      return {
+        vocabSize: data.vocabSize,
+        highPhiCount: data.highPhiCount,
+        avgPhi: data.avgPhi,
+        totalWeightedTokens: data.totalWeightedTokens,
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Tokenizer status failed:', error.message);
+      throw error;
+    }
+  }
 }
 
 // Global singleton instance

@@ -22,6 +22,7 @@ import json
 import re
 import os
 from collections import defaultdict
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
@@ -53,10 +54,12 @@ class QIGTokenizer:
         self,
         vocab_size: int = 4096,
         min_frequency: int = 2,
+        phi_threshold: float = 0.7,
         special_tokens: Optional[List[str]] = None,
     ):
         self.vocab_size = vocab_size
         self.min_frequency = min_frequency
+        self.phi_threshold = phi_threshold
         
         # Special tokens
         self.special_tokens = special_tokens or ["<PAD>", "<UNK>", "<BOS>", "<EOS>"]
@@ -65,8 +68,9 @@ class QIGTokenizer:
         self.vocab: Dict[str, int] = {}
         self.id_to_token: Dict[int, str] = {}
         
-        # Merge rules: (token1, token2) -> merged_token
+        # Merge rules: (token1, token2) -> merged_token with Φ score
         self.merge_rules: List[Tuple[str, str]] = []
+        self.merge_scores: Dict[Tuple[str, str], float] = {}  # Φ-weighted merge scores
         
         # Geometric weights from vocabulary tracker
         self.token_weights: Dict[str, float] = {}
@@ -133,7 +137,7 @@ class QIGTokenizer:
     def add_vocabulary_observations(
         self,
         observations: List[Dict],
-    ) -> int:
+    ) -> Tuple[int, bool]:
         """
         Add vocabulary observations from Node.js vocabulary tracker.
         
@@ -141,9 +145,11 @@ class QIGTokenizer:
             observations: List of {word, frequency, avg_phi, max_phi, type}
         
         Returns:
-            Number of new tokens added
+            Tuple of (new_tokens_count, weights_updated)
         """
         new_tokens = 0
+        weights_updated = False
+        sequences_processed = []
         
         for obs in observations:
             word = obs.get('word', '')
@@ -155,8 +161,9 @@ class QIGTokenizer:
             if not word or frequency < self.min_frequency:
                 continue
             
-            # Skip sequences for now (handle separately)
-            if obs_type == 'sequence':
+            # Collect sequences for merge learning
+            if obs_type == 'sequence' and avg_phi >= self.phi_threshold:
+                sequences_processed.append((word, avg_phi, frequency))
                 continue
             
             # Add to vocabulary if not exists
@@ -168,7 +175,15 @@ class QIGTokenizer:
                     new_tokens += 1
             
             # Update weights based on Φ
+            old_weight = self.token_weights.get(word, 0.0)
+            old_phi = self.token_phi.get(word, 0.0)
+            
             phi_weight = 1.0 + avg_phi * 2.0  # Higher weight for high-Φ tokens
+            
+            # Track if weights changed significantly
+            if abs(phi_weight - old_weight) > 0.01 or abs(avg_phi - old_phi) > 0.01:
+                weights_updated = True
+            
             self.token_weights[word] = phi_weight
             self.token_phi[word] = avg_phi
             self.token_frequency[word] = frequency
@@ -177,17 +192,147 @@ class QIGTokenizer:
             idx = self.vocab.get(word, 0)
             self.basin_coords[word] = self._compute_basin_coord(word, idx)
         
-        print(f"[QIGTokenizer] Added {new_tokens} new tokens from vocabulary tracker")
-        return new_tokens
+        # Process high-Φ sequences for merge learning
+        if sequences_processed:
+            self._learn_merges_from_sequences(sequences_processed)
+            weights_updated = True
+        
+        print(f"[QIGTokenizer] Added {new_tokens} new tokens, updated {len(observations)} weights, processed {len(sequences_processed)} sequences")
+        return new_tokens, weights_updated
     
-    def encode(self, text: str, verbose: bool = False) -> List[int]:
+    def _learn_merges_from_sequences(self, sequences: List[Tuple[str, float, int]]) -> int:
+        """
+        Learn BPE merge rules from high-Φ sequences.
+        Uses Φ-weighted scoring to prioritize high-value merges.
+        
+        Args:
+            sequences: List of (sequence, phi, frequency) tuples
+            
+        Returns:
+            Number of new merge rules learned
+        """
+        new_merges = 0
+        pair_phi_scores: Dict[Tuple[str, str], List[float]] = {}
+        
+        for sequence, phi, frequency in sequences:
+            words = sequence.lower().strip().split()
+            if len(words) < 2:
+                continue
+            
+            # Collect all bigram pairs with their Φ scores
+            for i in range(len(words) - 1):
+                a, b = words[i], words[i + 1]
+                pair = (a, b)
+                
+                # Only consider pairs where both tokens exist in vocab
+                if a in self.vocab and b in self.vocab:
+                    if pair not in pair_phi_scores:
+                        pair_phi_scores[pair] = []
+                    pair_phi_scores[pair].append(phi)
+        
+        # Score and add merges - use underscore separator for valid token names
+        for pair, phi_list in pair_phi_scores.items():
+            a, b = pair
+            
+            # Compute aggregate Φ score (average)
+            avg_phi = sum(phi_list) / len(phi_list)
+            
+            # Update merge score if higher
+            existing_score = self.merge_scores.get(pair, 0.0)
+            if avg_phi > existing_score:
+                self.merge_scores[pair] = avg_phi
+            
+            # Only add merge rule if not already present
+            if pair not in self.merge_rules:
+                # Use underscore separator for merged token (valid identifier)
+                merged = f"{a}_{b}"
+                
+                # Add merged token if not exists and have room
+                if merged not in self.vocab and len(self.vocab) < self.vocab_size:
+                    new_id = len(self.vocab)
+                    self.vocab[merged] = new_id
+                    self.id_to_token[new_id] = merged
+                    self.merge_rules.append(pair)
+                    new_merges += 1
+                    
+                    # Set Φ weight based on component tokens and sequence Φ
+                    a_phi = self.token_phi.get(a, 0.0)
+                    b_phi = self.token_phi.get(b, 0.0)
+                    merged_phi = max(a_phi, b_phi, avg_phi)  # Take max for merged token
+                    self.token_phi[merged] = merged_phi
+                    self.token_weights[merged] = 1.0 + merged_phi * 2.0
+                    self.token_frequency[merged] = len(phi_list)
+                    self.basin_coords[merged] = self._compute_basin_coord(merged, new_id)
+        
+        if new_merges > 0:
+            print(f"[QIGTokenizer] Learned {new_merges} new merge rules, total: {len(self.merge_rules)}")
+        
+        return new_merges
+    
+    def _apply_merges(self, words: List[str]) -> List[str]:
+        """
+        Apply BPE merge rules to a list of words.
+        Processes merges in descending Φ priority order.
+        """
+        if not self.merge_rules:
+            return words
+        
+        # Sort merge rules by Φ score (highest first)
+        sorted_merges = sorted(
+            self.merge_rules,
+            key=lambda pair: self.merge_scores.get(pair, 0.0),
+            reverse=True
+        )
+        
+        # Iteratively apply merges in priority order until no more can be applied
+        changed = True
+        while changed and len(words) > 1:
+            changed = False
+            
+            # Find the best (highest Φ) merge that can be applied
+            best_merge = None
+            best_position = -1
+            
+            for pair in sorted_merges:
+                a, b = pair
+                # Find first occurrence of this pair
+                for i in range(len(words) - 1):
+                    if words[i] == a and words[i + 1] == b:
+                        merged = f"{a}_{b}"
+                        if merged in self.vocab:
+                            best_merge = pair
+                            best_position = i
+                            break
+                if best_merge:
+                    break
+            
+            # Apply the best merge if found
+            if best_merge and best_position >= 0:
+                a, b = best_merge
+                merged = f"{a}_{b}"
+                new_words = words[:best_position] + [merged] + words[best_position + 2:]
+                words = new_words
+                changed = True
+        
+        return words
+    
+    def encode(self, text: str, verbose: bool = False, apply_merges: bool = True) -> List[int]:
         """
         Encode text to token ids.
+        
+        Args:
+            text: Input text to encode
+            verbose: Print encoding statistics
+            apply_merges: Apply learned BPE merge rules
         
         Uses character-level fallback for unknown words.
         """
         tokens = []
         words = text.lower().strip().split()
+        
+        # Apply BPE merge rules if enabled
+        if apply_merges and self.merge_rules:
+            words = self._apply_merges(words)
         
         for word in words:
             if word in self.vocab:
@@ -198,18 +343,26 @@ class QIGTokenizer:
         
         if verbose and len(words) > 0:
             coverage = sum(1 for w in words if w in self.vocab) / len(words)
-            print(f"[QIGTokenizer] Encoded {len(words)} words, coverage: {coverage:.1%}")
+            merged_count = sum(1 for w in words if '_' in w)
+            print(f"[QIGTokenizer] Encoded {len(words)} tokens ({merged_count} merged), coverage: {coverage:.1%}")
         
         return tokens
     
     def decode(self, ids: List[int]) -> str:
-        """Decode token ids to text."""
+        """
+        Decode token ids to text.
+        Handles merged tokens by replacing underscores with spaces.
+        """
         tokens = []
         for id in ids:
             if id in self.id_to_token:
                 token = self.id_to_token[id]
                 if token not in self.special_tokens:
-                    tokens.append(token)
+                    # Convert merged tokens back to space-separated
+                    if '_' in token and token not in {'<PAD>', '<UNK>', '<BOS>', '<EOS>'}:
+                        tokens.append(token.replace('_', ' '))
+                    else:
+                        tokens.append(token)
         return " ".join(tokens)
     
     def get_token_weight(self, token: str) -> float:
@@ -317,6 +470,7 @@ class QIGTokenizer:
 
 # Singleton instance for Flask integration
 _tokenizer_instance: Optional[QIGTokenizer] = None
+TOKENIZER_PERSIST_PATH = os.path.join(os.path.dirname(__file__), "data", "qig_tokenizer_state.json")
 
 
 def get_tokenizer() -> QIGTokenizer:
@@ -324,10 +478,95 @@ def get_tokenizer() -> QIGTokenizer:
     global _tokenizer_instance
     if _tokenizer_instance is None:
         _tokenizer_instance = QIGTokenizer()
+        # Try to load persisted state
+        _load_tokenizer_state(_tokenizer_instance)
     return _tokenizer_instance
 
 
-def update_tokenizer_from_observations(observations: List[Dict]) -> int:
+def _load_tokenizer_state(tokenizer: QIGTokenizer) -> None:
+    """Load persisted tokenizer state from disk."""
+    if os.path.exists(TOKENIZER_PERSIST_PATH):
+        try:
+            with open(TOKENIZER_PERSIST_PATH, 'r') as f:
+                data = json.load(f)
+            
+            # Restore learned tokens
+            for token, weight in data.get('token_weights', {}).items():
+                tokenizer.token_weights[token] = weight
+            for token, phi in data.get('token_phi', {}).items():
+                tokenizer.token_phi[token] = phi
+            for token, freq in data.get('token_frequency', {}).items():
+                tokenizer.token_frequency[token] = freq
+            
+            # Restore vocabulary if not in base vocab
+            for token, idx in data.get('learned_vocab', {}).items():
+                if token not in tokenizer.vocab:
+                    tokenizer.vocab[token] = idx
+                    tokenizer.id_to_token[idx] = token
+                    tokenizer.basin_coords[token] = tokenizer._compute_basin_coord(token, idx)
+            
+            # Restore merge rules and scores
+            merge_rules_data = data.get('merge_rules', [])
+            for rule in merge_rules_data:
+                if isinstance(rule, list) and len(rule) >= 2:
+                    pair = (rule[0], rule[1])
+                    if pair not in tokenizer.merge_rules:
+                        tokenizer.merge_rules.append(pair)
+            
+            merge_scores_data = data.get('merge_scores', {})
+            for key, score in merge_scores_data.items():
+                # Key is stored as "a|b" string
+                parts = key.split('|')
+                if len(parts) == 2:
+                    tokenizer.merge_scores[(parts[0], parts[1])] = score
+            
+            learned_count = len(data.get('learned_vocab', {}))
+            merge_count = len(tokenizer.merge_rules)
+            print(f"[QIGTokenizer] Loaded state: {learned_count} learned tokens, {merge_count} merge rules")
+        except Exception as e:
+            print(f"[QIGTokenizer] Failed to load state: {e}")
+
+
+def _save_tokenizer_state(tokenizer: QIGTokenizer) -> None:
+    """Save tokenizer state to disk."""
+    try:
+        os.makedirs(os.path.dirname(TOKENIZER_PERSIST_PATH), exist_ok=True)
+        
+        # Only save learned tokens (not base BIP39)
+        base_vocab_size = len(tokenizer.special_tokens) + 2048  # specials + BIP39
+        learned_vocab = {k: v for k, v in tokenizer.vocab.items() if v >= base_vocab_size}
+        
+        # Convert merge rules to serializable format
+        merge_rules_data = [[a, b] for a, b in tokenizer.merge_rules]
+        
+        # Convert merge scores to serializable format (tuple keys -> string keys)
+        merge_scores_data = {f"{a}|{b}": score for (a, b), score in tokenizer.merge_scores.items()}
+        
+        data = {
+            'token_weights': tokenizer.token_weights,
+            'token_phi': tokenizer.token_phi,
+            'token_frequency': tokenizer.token_frequency,
+            'learned_vocab': learned_vocab,
+            'merge_rules': merge_rules_data,
+            'merge_scores': merge_scores_data,
+            'saved_at': datetime.now().isoformat(),
+        }
+        
+        with open(TOKENIZER_PERSIST_PATH, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        print(f"[QIGTokenizer] Saved state: {len(learned_vocab)} learned tokens, {len(merge_rules_data)} merge rules")
+    except Exception as e:
+        print(f"[QIGTokenizer] Failed to save state: {e}")
+
+
+def update_tokenizer_from_observations(observations: List[Dict]) -> Tuple[int, bool]:
     """Update tokenizer with vocabulary observations."""
     tokenizer = get_tokenizer()
-    return tokenizer.add_vocabulary_observations(observations)
+    new_tokens, weights_updated = tokenizer.add_vocabulary_observations(observations)
+    
+    # Persist after any meaningful update (new tokens or weight changes)
+    if new_tokens > 0 or weights_updated:
+        _save_tokenizer_state(tokenizer)
+    
+    return new_tokens, weights_updated

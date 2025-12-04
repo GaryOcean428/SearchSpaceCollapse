@@ -10,6 +10,7 @@ import path from "path";
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 import { geometricMemory } from './geometric-memory';
 import { oceanConstellation } from './ocean-constellation';
+import { vocabularyTracker } from './vocabulary-tracker';
 
 // Periodic sync interval from Python to Node.js
 let pythonSyncInterval: NodeJS.Timeout | null = null;
@@ -93,6 +94,46 @@ function refreshTokenizerWeights(): void {
 }
 
 /**
+ * Sync vocabulary observations from Node.js to Python QIG tokenizer
+ * This feeds learned words into the tokenizer for kernel training
+ */
+async function syncVocabularyToPython(): Promise<void> {
+  try {
+    // Verify Python backend is available before syncing
+    if (!oceanQIGBackend.available()) {
+      console.log('[PythonSync] Skipping vocabulary sync - Python backend not available');
+      return;
+    }
+    
+    const observations = await vocabularyTracker.exportForTokenizer();
+    
+    if (observations.length === 0) {
+      console.log('[PythonSync] No vocabulary observations to sync');
+      return;
+    }
+    
+    const result = await oceanQIGBackend.updateTokenizer(observations);
+    
+    // Verify sync was successful
+    if (result.totalVocab > 0) {
+      console.log(`[PythonSync] Vocabulary synced: ${result.newTokens} new tokens, ${result.totalVocab} total`);
+      
+      // Get tokenizer status for verification
+      try {
+        const status = await oceanQIGBackend.getTokenizerStatus();
+        console.log(`[PythonSync] Tokenizer status: ${status.vocabSize} vocab, ${status.highPhiCount} high-Φ tokens, avg Φ=${status.avgPhi.toFixed(3)}`);
+      } catch (statusError) {
+        console.warn('[PythonSync] Could not get tokenizer status for verification');
+      }
+    } else {
+      console.warn('[PythonSync] Vocabulary sync returned empty result - tokenizer may not be ready');
+    }
+  } catch (error: any) {
+    console.error('[PythonSync] Error syncing vocabulary to Python:', error?.message || error);
+  }
+}
+
+/**
  * Start periodic sync between Python and Node.js
  */
 function startPythonSync(): void {
@@ -103,6 +144,8 @@ function startPythonSync(): void {
   pythonSyncInterval = setInterval(async () => {
     if (oceanQIGBackend.available()) {
       await syncFromPythonToNodeJS();
+      // Also sync vocabulary to Python tokenizer
+      await syncVocabularyToPython();
     }
     // Always refresh tokenizer even without Python
     refreshTokenizerWeights();
@@ -111,7 +154,14 @@ function startPythonSync(): void {
   // Initial refresh on startup
   refreshTokenizerWeights();
   
-  console.log('[PythonSync] Started periodic sync (every 60s) with tokenizer refresh');
+  // Initial vocabulary sync after a brief delay
+  setTimeout(async () => {
+    if (oceanQIGBackend.available()) {
+      await syncVocabularyToPython();
+    }
+  }, 5000);
+  
+  console.log('[PythonSync] Started periodic sync (every 60s) with tokenizer refresh and vocabulary sync');
 }
 
 // Start Python QIG Backend as a child process

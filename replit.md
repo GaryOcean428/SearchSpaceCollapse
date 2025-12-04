@@ -26,6 +26,7 @@ The system features a React and TypeScript frontend built with Vite, shadcn/ui, 
 -   **Active Balance Monitoring System:** Tracks discovered balance hits for changes over time with a Balance Refresh Engine, BalanceMonitor Service, and Balance Change Events logging.
 -   **Balance Queue System:** Ensures every generated address is checked for balance using a BalanceQueue Service with token-bucket rate limiting and a multi-provider architecture (Blockstream API + Tavily BitInfoCharts scraper). Includes heartbeat monitoring, error handling wrapper, and automatic restart if worker stops unexpectedly.
 -   **Python↔Node.js Bidirectional Sync:** Syncs high-Φ probes from GeometricMemory to Python on startup; periodically (every 60s) syncs learnings from Python back to Node.js for persistence across restarts. Enables QIG tokenizer to benefit from continuous learning.
+-   **QIG Tokenizer Integration:** Python-based tokenizer (`qig-backend/qig_tokenizer.py`) with BPE-style tokenization, Φ-weighted tokens, and 64D basin coordinates. Node.js vocabulary tracker syncs observations to Python tokenizer every 60s. Tokenizer endpoints: `/tokenizer/update`, `/tokenizer/encode`, `/tokenizer/decode`, `/tokenizer/basin`, `/tokenizer/high-phi`, `/tokenizer/export`, `/tokenizer/status`. Persistent state saved to `qig-backend/data/qig_tokenizer_state.json`.
 -   **Dormant Address Cross-Reference System:** Cross-checks all generated addresses against a list of top 1000 known dormant wallets for identification and logging.
 
 **Key Design Decisions:**
