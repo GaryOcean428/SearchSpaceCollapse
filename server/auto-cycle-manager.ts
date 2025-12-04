@@ -16,10 +16,10 @@ const DATA_FILE = path.join(process.cwd(), 'data', 'auto-cycle-state.json');
 
 // Development mode detection
 const IS_DEV = process.env.NODE_ENV === 'development';
-// In development, don't auto-resume on restart to reduce server load
-const AUTO_RESUME_ON_RESTART = !IS_DEV;
+// ALWAYS auto-resume on restart - user requested always-on behavior
+const AUTO_RESUME_ON_RESTART = true;
 // Longer check interval in development to reduce CPU usage
-const CHECK_INTERVAL = IS_DEV ? 30000 : 5000; // 30s in dev, 5s in prod
+const CHECK_INTERVAL = IS_DEV ? 15000 : 5000; // 15s in dev, 5s in prod
 
 class AutoCycleManager {
   private state: AutoCycleState;
@@ -43,23 +43,39 @@ class AutoCycleManager {
         this.saveState();
       }
       
-      // In development, don't auto-resume on server restart to reduce load
-      if (AUTO_RESUME_ON_RESTART) {
-        this.startCheckLoop();
-        
-        // Trigger the cycle to resume after a short delay (allow server to initialize)
-        setTimeout(async () => {
-          if (this.state.enabled && !this.isCurrentlyRunning) {
-            console.log(`[AutoCycleManager] Resuming auto-cycle after server restart`);
-            await this.triggerNextCycle();
-          }
-        }, 3000);
+      // Always auto-resume on server restart
+      this.startCheckLoop();
+      
+      // Trigger the cycle to resume after a short delay (allow server to initialize)
+      setTimeout(async () => {
+        if (this.state.enabled && !this.isCurrentlyRunning) {
+          console.log(`[AutoCycleManager] Resuming auto-cycle after server restart`);
+          await this.triggerNextCycle();
+        }
+      }, 3000);
+    } else {
+      // If not enabled, try to auto-enable on first startup
+      console.log(`[AutoCycleManager] Auto-cycle not yet enabled, will auto-enable on startup...`);
+      setTimeout(async () => {
+        await this.autoEnableOnStartup();
+      }, 5000);
+    }
+  }
+  
+  private async autoEnableOnStartup(): Promise<void> {
+    try {
+      const result = await this.enable();
+      if (result.success) {
+        console.log(`[AutoCycleManager] Auto-enabled on startup: ${result.message}`);
+        // Trigger first cycle
+        if (!this.isCurrentlyRunning) {
+          await this.triggerNextCycle();
+        }
       } else {
-        console.log(`[AutoCycleManager] Auto-resume disabled in development mode`);
-        console.log(`[AutoCycleManager] Use "Enable Auto-Cycle" button to start manually`);
-        // Still start check loop but don't trigger immediately
-        this.startCheckLoop();
+        console.log(`[AutoCycleManager] Could not auto-enable: ${result.message}`);
       }
+    } catch (error) {
+      console.error('[AutoCycleManager] Error during auto-enable:', error);
     }
   }
 
