@@ -1,0 +1,27 @@
+investigation:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+investigation:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+investigation:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+investigation:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+investigation:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+investigation:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+api/ocean/neurochemistry:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/balance-addresses:1  Failed to load resource: the server responded with a status of 500 ()
+api/observer/consciousness-check:1  Failed to load resource: the server responded with a status of 500 ()
+observer:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+observer:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+api/observer/workflows/1198134a-c48b-453a-af62-01c7f7cba21a/search-progress:1  Failed to load resource: the server responded with a status of 404 ()
+api/ocean/neurochemistry:1  Failed to load resource: the server responded with a status of 500 ()
+api/balance-queue/background:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/neurochemistry:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/neurochemistry:1  Failed to load resource: the server responded with a status of 500 ()
+api/ocean/neurochemistry:1  Failed to load resource: the server responded with a status of 500 ()
+recovery:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+api/ocean/cycles:1  Failed to load resource: the server responded with a status of 500 ()
+api/observer/workflows/1198134a-c48b-453a-af62-01c7f7cba21a/search-progress:1  Failed to load resource: the server responded with a status of 404 ()

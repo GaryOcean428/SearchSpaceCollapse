@@ -91,8 +91,34 @@ class BalanceQueueService {
     await this.loadFromDisk();
     // Auto-start background worker - always running
     this.startBackgroundWorker();
+    // Start the always-on guardian that ensures worker never stops
+    this.startAlwaysOnGuardian();
     this._isReady = true;
     console.log('[BalanceQueue] Auto-started with multi-provider API (230 req/min capacity)');
+    console.log('[BalanceQueue] ALWAYS-ON mode enabled - worker will auto-restart if stopped');
+  }
+  
+  /**
+   * Always-on guardian - ensures worker is ALWAYS running
+   * Checks every 30 seconds and restarts if somehow stopped
+   */
+  private startAlwaysOnGuardian(): void {
+    if (this.autoRestartInterval) {
+      clearInterval(this.autoRestartInterval);
+    }
+    
+    this.autoRestartInterval = setInterval(() => {
+      if (!this.ALWAYS_ON) return;
+      
+      // If worker should be on but isn't running, restart it
+      if (!this.backgroundWorkerEnabled || !this.backgroundWorkerInterval) {
+        console.log('[BalanceQueue] 🔄 ALWAYS-ON: Worker not running, auto-restarting...');
+        this.backgroundWorkerEnabled = false; // Reset state
+        this.startBackgroundWorker();
+      }
+    }, 30000); // Check every 30 seconds
+    
+    console.log('[BalanceQueue] Always-on guardian started');
   }
   
   /** Wait for the service to be fully initialized */
@@ -110,6 +136,10 @@ class BalanceQueueService {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private workerErrorCount = 0;
   private maxWorkerErrors = 10;
+  
+  // Auto-restart interval - ensures worker is ALWAYS running
+  private autoRestartInterval: NodeJS.Timeout | null = null;
+  private readonly ALWAYS_ON = true; // Worker must always run
   
   /**
    * Start continuous background balance checking
@@ -220,8 +250,15 @@ class BalanceQueueService {
   
   /**
    * Stop background worker
+   * Note: In ALWAYS_ON mode, this will be ignored and worker will auto-restart
    */
-  stopBackgroundWorker(): void {
+  stopBackgroundWorker(): boolean {
+    if (this.ALWAYS_ON) {
+      console.log('[BalanceQueue] ⚠️ Stop request ignored - ALWAYS_ON mode is enabled');
+      console.log('[BalanceQueue] Worker must run continuously to process the backlog');
+      return false; // Indicate stop was not executed
+    }
+    
     if (this.backgroundWorkerInterval) {
       clearInterval(this.backgroundWorkerInterval);
       this.backgroundWorkerInterval = null;
@@ -233,14 +270,29 @@ class BalanceQueueService {
     this.backgroundWorkerEnabled = false;
     this.isProcessing = false;
     console.log('[BalanceQueue] Background worker stopped');
+    return true;
   }
   
   /**
    * Force restart the background worker (for manual intervention)
+   * This bypasses ALWAYS_ON for maintenance purposes
    */
   forceRestartWorker(): void {
     console.log('[BalanceQueue] Force restarting background worker...');
-    this.stopBackgroundWorker();
+    
+    // Directly clear intervals without going through stopBackgroundWorker
+    // This allows maintenance restarts even in ALWAYS_ON mode
+    if (this.backgroundWorkerInterval) {
+      clearInterval(this.backgroundWorkerInterval);
+      this.backgroundWorkerInterval = null;
+    }
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    this.isProcessing = false;
+    // Keep backgroundWorkerEnabled true so guardian doesn't trigger during restart
+    
     setTimeout(() => {
       this.startBackgroundWorker();
     }, 1000);

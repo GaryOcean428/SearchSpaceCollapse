@@ -2581,7 +2581,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/balance-queue/background/stop", isAuthenticated, standardLimiter, async (req: any, res) => {
     try {
       const { balanceQueue } = await import("./balance-queue");
-      balanceQueue.stopBackgroundWorker();
+      const stopped = balanceQueue.stopBackgroundWorker();
+      
+      if (!stopped) {
+        // ALWAYS_ON mode is enabled - worker cannot be stopped
+        // Return 409 Conflict to indicate the request was understood but not executed
+        res.status(409).json({
+          message: 'Worker is in ALWAYS-ON mode and cannot be stopped',
+          alwaysOn: true,
+          status: balanceQueue.getBackgroundStatus(),
+        });
+        return;
+      }
+      
       res.json({
         message: 'Background worker stopped',
         status: balanceQueue.getBackgroundStatus(),

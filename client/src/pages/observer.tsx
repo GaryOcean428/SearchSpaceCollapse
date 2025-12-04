@@ -336,37 +336,9 @@ export default function ObserverPage() {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                {bgWorkerData?.enabled ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => stopBgWorkerMutation.mutate()}
-                    disabled={stopBgWorkerMutation.isPending}
-                    data-testid="button-stop-worker"
-                  >
-                    {stopBgWorkerMutation.isPending ? (
-                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Pause className="w-4 h-4 mr-2" />
-                    )}
-                    Pause Worker
-                  </Button>
-                ) : (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => startBgWorkerMutation.mutate()}
-                    disabled={startBgWorkerMutation.isPending}
-                    data-testid="button-start-worker"
-                  >
-                    {startBgWorkerMutation.isPending ? (
-                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Play className="w-4 h-4 mr-2" />
-                    )}
-                    Start Worker
-                  </Button>
-                )}
+                <Badge variant="outline" className="text-green-600 border-green-600/30 bg-green-600/5">
+                  Always On
+                </Badge>
               </div>
             </div>
           </CardHeader>
@@ -375,21 +347,10 @@ export default function ObserverPage() {
             <div className="mb-4 p-3 rounded-lg border bg-card">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
-                  {bgWorkerData?.enabled ? (
-                    <>
-                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-sm font-medium text-green-600" data-testid="text-worker-status">
-                        Background Worker Active
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                      <span className="text-sm font-medium text-muted-foreground" data-testid="text-worker-status">
-                        Background Worker Paused
-                      </span>
-                    </>
-                  )}
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-sm font-medium text-green-600" data-testid="text-worker-status">
+                    Background Worker Active (Always On)
+                  </span>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span data-testid="text-worker-checked">
