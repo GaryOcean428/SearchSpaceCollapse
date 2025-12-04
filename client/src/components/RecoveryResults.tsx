@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { 
   Download, 
   Key, 
@@ -13,9 +14,12 @@ import {
   Check,
   FileText,
   Lock,
-  Wallet
+  Wallet,
+  Database,
+  CheckCircle2
 } from "lucide-react";
 import { useState } from "react";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface RecoveryBundle {
   filename: string;
@@ -83,6 +87,44 @@ interface BalanceAddressesData {
   };
 }
 
+// Balance hit from /api/balance-hits - tracks ALL recovered wallets
+interface BalanceHitData {
+  address: string;
+  passphrase: string;
+  wif: string;
+  balanceSats: number;
+  balanceBTC: string;
+  txCount: number;
+  discoveredAt: string;
+  isCompressed: boolean;
+  lastChecked?: string;
+  recoveryType?: 'bip39_mnemonic' | 'brain_wallet' | 'wif' | 'xprv' | 'hex_private_key' | 'master_key' | 'unknown';
+  isDormantConfirmed?: boolean;
+  dormantConfirmedAt?: string;
+  originalInput?: string;
+  derivationPath?: string;
+  mnemonicWordCount?: number;
+}
+
+interface BalanceHitsResponse {
+  hits: BalanceHitData[];
+  count: number;
+  activeCount: number;
+  totalBalanceSats: number;
+  totalBalanceBTC: string;
+}
+
+// Recovery type badge colors and labels
+const RECOVERY_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+  'bip39_mnemonic': { label: 'BIP39', color: 'bg-blue-500/20 text-blue-400' },
+  'brain_wallet': { label: 'Brain', color: 'bg-purple-500/20 text-purple-400' },
+  'wif': { label: 'WIF', color: 'bg-green-500/20 text-green-400' },
+  'xprv': { label: 'xprv', color: 'bg-orange-500/20 text-orange-400' },
+  'hex_private_key': { label: 'Hex', color: 'bg-red-500/20 text-red-400' },
+  'master_key': { label: 'Master', color: 'bg-cyan-500/20 text-cyan-400' },
+  'unknown': { label: 'Unknown', color: 'bg-gray-500/20 text-gray-400' },
+};
+
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
   
@@ -102,6 +144,86 @@ function CopyButton({ text, label }: { text: string; label: string }) {
     >
       {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
     </Button>
+  );
+}
+
+function BalanceHitCard({ 
+  hit, 
+  onDormantToggle 
+}: { 
+  hit: BalanceHitData; 
+  onDormantToggle: (address: string, isDormant: boolean) => void;
+}) {
+  const recoveryConfig = RECOVERY_TYPE_CONFIG[hit.recoveryType || 'unknown'];
+  
+  return (
+    <Card 
+      className={`transition-all ${hit.isDormantConfirmed ? 'border-yellow-500/50 bg-yellow-500/5' : ''}`}
+      data-testid={`card-balance-hit-${hit.address.slice(0, 8)}`}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-mono truncate max-w-[180px]">
+              {hit.address}
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className={recoveryConfig.color}>
+              {recoveryConfig.label}
+            </Badge>
+            {hit.balanceSats > 0 && (
+              <Badge className="bg-green-500/20 text-green-400">
+                {hit.balanceBTC} BTC
+              </Badge>
+            )}
+          </div>
+        </div>
+        <CardDescription className="text-xs">
+          Found: {new Date(hit.discoveredAt).toLocaleString()}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="text-muted-foreground">Balance:</span>{' '}
+            <span className="font-mono">{hit.balanceSats} sats</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Txs:</span>{' '}
+            <span className="font-mono">{hit.txCount}</span>
+          </div>
+        </div>
+        
+        {hit.passphrase && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground font-mono truncate max-w-[250px]">
+              {hit.passphrase}
+            </p>
+            <CopyButton text={hit.passphrase} label="passphrase" />
+          </div>
+        )}
+        
+        {hit.derivationPath && (
+          <p className="text-xs text-muted-foreground">
+            Path: <span className="font-mono">{hit.derivationPath}</span>
+          </p>
+        )}
+        
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className={`h-4 w-4 ${hit.isDormantConfirmed ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+            <span className="text-xs text-muted-foreground">Dormant Target</span>
+          </div>
+          <Switch
+            checked={hit.isDormantConfirmed || false}
+            onCheckedChange={(checked) => onDormantToggle(hit.address, checked)}
+            data-testid={`switch-dormant-${hit.address.slice(0, 8)}`}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -516,7 +638,7 @@ function BalanceAddressDetailView({ address, onBack }: { address: StoredAddress;
 export default function RecoveryResults() {
   const [selectedFilename, setSelectedFilename] = useState<string | null>(null);
   const [selectedBalanceAddress, setSelectedBalanceAddress] = useState<StoredAddress | null>(null);
-  const [activeView, setActiveView] = useState<'balance' | 'file'>('balance');
+  const [activeView, setActiveView] = useState<'hits' | 'balance' | 'file'>('hits');
   
   const { data, isLoading, error } = useQuery<{ recoveries: RecoveryBundle[]; count: number }>({
     queryKey: ['/api/recoveries'],
@@ -524,8 +646,28 @@ export default function RecoveryResults() {
 
   const { data: balanceData, isLoading: balanceLoading, error: balanceError, refetch: refetchBalance } = useQuery<BalanceAddressesData>({
     queryKey: ['/api/balance-addresses'],
-    refetchInterval: 60000, // Check for new balance addresses every 60 seconds (reduced from 10s to minimize API load)
+    refetchInterval: 60000,
   });
+
+  // All recovered wallets from balance hits (includes recovery type tracking)
+  const { data: balanceHitsData, isLoading: hitsLoading, refetch: refetchHits } = useQuery<BalanceHitsResponse>({
+    queryKey: ['/api/balance-hits'],
+    refetchInterval: 30000,
+  });
+
+  // Mutation for updating dormant confirmation
+  const dormantMutation = useMutation({
+    mutationFn: async ({ address, isDormant }: { address: string; isDormant: boolean }) => {
+      return await apiRequest('PATCH', `/api/balance-hits/${address}/dormant`, { isDormantConfirmed: isDormant });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/balance-hits'] });
+    },
+  });
+
+  const handleDormantToggle = (address: string, isDormant: boolean) => {
+    dormantMutation.mutate({ address, isDormant });
+  };
   
   // Show balance address detail if one is selected
   if (selectedBalanceAddress) {
@@ -549,8 +691,9 @@ export default function RecoveryResults() {
   
   const hasBalanceAddresses = (balanceData?.addresses?.length ?? 0) > 0;
   const hasFileRecoveries = (data?.recoveries?.length ?? 0) > 0;
+  const hasBalanceHits = (balanceHitsData?.hits?.length ?? 0) > 0;
   
-  if (isLoading || balanceLoading) {
+  if (isLoading || balanceLoading || hitsLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-24 w-full" />
@@ -570,7 +713,7 @@ export default function RecoveryResults() {
   }
   
   // No results at all
-  if (!hasBalanceAddresses && !hasFileRecoveries) {
+  if (!hasBalanceAddresses && !hasFileRecoveries && !hasBalanceHits) {
     return (
       <Card data-testid="empty-recoveries">
         <CardContent className="pt-6 text-center">
@@ -591,8 +734,18 @@ export default function RecoveryResults() {
   return (
     <div className="space-y-4" data-testid="recovery-results">
       {/* View Selector Tabs */}
-      {hasBalanceAddresses && hasFileRecoveries && (
-        <div className="flex gap-2 border-b">
+      <div className="flex gap-2 border-b flex-wrap">
+        <Button
+          variant={activeView === 'hits' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveView('hits')}
+          className="gap-2"
+          data-testid="tab-all-recovered"
+        >
+          <Database className="h-4 w-4" />
+          All Recovered ({balanceHitsData?.count ?? 0})
+        </Button>
+        {hasBalanceAddresses && (
           <Button
             variant={activeView === 'balance' ? 'default' : 'ghost'}
             size="sm"
@@ -600,8 +753,10 @@ export default function RecoveryResults() {
             className="gap-2"
           >
             <Wallet className="h-4 w-4" />
-            Balance Addresses ({balanceData?.count ?? 0})
+            Verified ({balanceData?.count ?? 0})
           </Button>
+        )}
+        {hasFileRecoveries && (
           <Button
             variant={activeView === 'file' ? 'default' : 'ghost'}
             size="sm"
@@ -609,13 +764,100 @@ export default function RecoveryResults() {
             className="gap-2"
           >
             <FileText className="h-4 w-4" />
-            File Recoveries ({data?.count ?? 0})
+            Target Matches ({data?.count ?? 0})
           </Button>
+        )}
+      </div>
+
+      {/* All Recovered Wallets View (Balance Hits) */}
+      {activeView === 'hits' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                All Recovered Wallets
+              </h3>
+              {balanceHitsData && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {balanceHitsData.totalBalanceBTC} BTC total across {balanceHitsData.count} wallet{balanceHitsData.count !== 1 ? 's' : ''}
+                  {' '}({balanceHitsData.activeCount} with balance)
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchHits()}
+              className="gap-2"
+              data-testid="button-refresh-hits"
+            >
+              <Download className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+
+          {balanceHitsData && balanceHitsData.count > 0 && (
+            <Card className="mb-4 bg-primary/5 border-primary/30">
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Total</div>
+                    <div className="text-xl font-bold">{balanceHitsData.count}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">With Balance</div>
+                    <div className="text-xl font-bold text-green-400">{balanceHitsData.activeCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Total BTC</div>
+                    <div className="text-xl font-bold text-green-400">{balanceHitsData.totalBalanceBTC}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Dormant Confirmed</div>
+                    <div className="text-xl font-bold text-yellow-400">
+                      {balanceHitsData.hits.filter(h => h.isDormantConfirmed).length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Recovery Types</div>
+                    <div className="text-xl font-bold">
+                      {new Set(balanceHitsData.hits.map(h => h.recoveryType || 'unknown')).size}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!hasBalanceHits ? (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
+                <p className="font-medium text-muted-foreground">No wallets recovered yet</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Recovered wallets from any input type (BIP39, WIF, xprv, brain wallet, etc.) will appear here.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <ScrollArea className="h-[500px]">
+              <div className="space-y-3">
+                {balanceHitsData?.hits.map((hit) => (
+                  <BalanceHitCard
+                    key={hit.address}
+                    hit={hit}
+                    onDormantToggle={handleDormantToggle}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          )}
         </div>
       )}
 
       {/* Balance Addresses View */}
-      {(activeView === 'balance' || !hasFileRecoveries) && hasBalanceAddresses && (
+      {activeView === 'balance' && hasBalanceAddresses && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -680,7 +922,7 @@ export default function RecoveryResults() {
       )}
 
       {/* File Recoveries View */}
-      {(activeView === 'file' || !hasBalanceAddresses) && hasFileRecoveries && (
+      {activeView === 'file' && hasFileRecoveries && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">

@@ -1930,6 +1930,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update dormant confirmation status for a balance hit
+  app.patch("/api/balance-hits/:address/dormant", standardLimiter, async (req, res) => {
+    try {
+      const address = req.params.address;
+      const { isDormantConfirmed } = req.body;
+      
+      if (typeof isDormantConfirmed !== 'boolean') {
+        return res.status(400).json({ error: 'isDormantConfirmed must be a boolean' });
+      }
+      
+      // Update in PostgreSQL
+      if (db) {
+        const { balanceHits: balanceHitsTable } = await import("@shared/schema");
+        const { eq } = await import("drizzle-orm");
+        
+        const result = await db.update(balanceHitsTable)
+          .set({
+            isDormantConfirmed,
+            dormantConfirmedAt: isDormantConfirmed ? new Date() : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(balanceHitsTable.address, address))
+          .returning();
+        
+        if (result.length === 0) {
+          return res.status(404).json({ error: 'Balance hit not found' });
+        }
+        
+        res.json({
+          success: true,
+          address,
+          isDormantConfirmed,
+          dormantConfirmedAt: result[0].dormantConfirmedAt,
+        });
+      } else {
+        res.status(500).json({ error: 'Database not available' });
+      }
+    } catch (error: any) {
+      console.error("[BalanceHits] Dormant update error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==========================================================================
   // BALANCE ADDRESSES ENDPOINTS (Address Verification System)
   // Comprehensive verified addresses with complete key data

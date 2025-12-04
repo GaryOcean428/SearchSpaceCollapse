@@ -201,6 +201,19 @@ export type User = typeof users.$inferSelect;
 // BALANCE HITS AND TARGET ADDRESSES - User-associated recovery data
 // ============================================================================
 
+// Recovery input types for tracking wallet origin
+export const recoveryInputTypes = [
+  'bip39_mnemonic',    // 12/15/18/21/24-word BIP39 mnemonic phrase
+  'brain_wallet',       // Arbitrary text converted to private key via SHA256
+  'wif',                // Wallet Import Format private key
+  'xprv',               // Extended private key (BIP32)
+  'hex_private_key',    // Raw 256-bit hex private key
+  'master_key',         // 256-bit random master key
+  'unknown',            // Legacy or untracked
+] as const;
+
+export type RecoveryInputType = typeof recoveryInputTypes[number];
+
 // Balance hits: Addresses discovered with historical activity or current balance
 export const balanceHits = pgTable("balance_hits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -224,11 +237,20 @@ export const balanceHits = pgTable("balance_hits", {
   derivationPath: varchar("derivation_path", { length: 64 }), // e.g., m/44'/0'/0'/0/0
   isMnemonicDerived: boolean("is_mnemonic_derived").default(false),
   mnemonicWordCount: integer("mnemonic_word_count"), // 12, 15, 18, 21, or 24
+  // Recovery tracking - tracks the INPUT TYPE that produced this address
+  recoveryType: varchar("recovery_type", { length: 32 }).default("unknown"), // bip39_mnemonic, wif, xprv, brain_wallet, hex_private_key, master_key
+  // Dormant confirmation - user manually confirms if address is from dormant target list
+  isDormantConfirmed: boolean("is_dormant_confirmed").default(false),
+  dormantConfirmedAt: timestamp("dormant_confirmed_at"),
+  // Original input (for non-brain wallets, stores raw input like mnemonic words)
+  originalInput: text("original_input"),
 }, (table) => [
   index("idx_balance_hits_user").on(table.userId),
   index("idx_balance_hits_address").on(table.address),
   index("idx_balance_hits_balance").on(table.balanceSats),
   index("idx_balance_hits_wallet_type").on(table.walletType),
+  index("idx_balance_hits_recovery_type").on(table.recoveryType),
+  index("idx_balance_hits_dormant").on(table.isDormantConfirmed),
 ]);
 
 export type BalanceHit = typeof balanceHits.$inferSelect;

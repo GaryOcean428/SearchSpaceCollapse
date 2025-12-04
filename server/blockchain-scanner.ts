@@ -222,6 +222,18 @@ function extractMinerFingerprint(coinbaseTx: BlockstreamTransaction): string | n
 }
 
 /**
+ * Recovery input types for tracking wallet origin
+ */
+export type RecoveryInputType = 
+  | 'bip39_mnemonic'    // 12/15/18/21/24-word BIP39 mnemonic phrase
+  | 'brain_wallet'       // Arbitrary text converted to private key via SHA256
+  | 'wif'                // Wallet Import Format private key
+  | 'xprv'               // Extended private key (BIP32)
+  | 'hex_private_key'    // Raw 256-bit hex private key
+  | 'master_key'         // 256-bit random master key
+  | 'unknown';           // Legacy or untracked
+
+/**
  * Balance check result for a generated address
  * Stores full recovery data for any addresses with activity
  */
@@ -238,6 +250,13 @@ export interface BalanceHit {
   previousBalanceSats?: number;
   balanceChanged?: boolean;
   changeDetectedAt?: string;
+  // Recovery tracking
+  recoveryType?: RecoveryInputType;
+  isDormantConfirmed?: boolean;
+  dormantConfirmedAt?: string;
+  originalInput?: string;
+  derivationPath?: string;
+  mnemonicWordCount?: number;
 }
 
 /**
@@ -370,6 +389,13 @@ async function saveBalanceHitToDb(hit: BalanceHit, userId: string = DEFAULT_USER
           balanceChanged: hit.balanceChanged ?? false,
           changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
           updatedAt: new Date(),
+          // Update recovery metadata if provided
+          recoveryType: hit.recoveryType ?? existing[0].recoveryType ?? 'unknown',
+          isDormantConfirmed: hit.isDormantConfirmed ?? existing[0].isDormantConfirmed ?? false,
+          dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : existing[0].dormantConfirmedAt,
+          originalInput: hit.originalInput ?? existing[0].originalInput,
+          derivationPath: hit.derivationPath ?? existing[0].derivationPath,
+          mnemonicWordCount: hit.mnemonicWordCount ?? existing[0].mnemonicWordCount,
         })
         .where(eq(balanceHitsTable.address, hit.address));
     } else {
@@ -387,8 +413,15 @@ async function saveBalanceHitToDb(hit: BalanceHit, userId: string = DEFAULT_USER
         previousBalanceSats: hit.previousBalanceSats ?? null,
         balanceChanged: hit.balanceChanged ?? false,
         changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+        // Recovery tracking fields
+        recoveryType: hit.recoveryType ?? 'unknown',
+        isDormantConfirmed: hit.isDormantConfirmed ?? false,
+        dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : null,
+        originalInput: hit.originalInput ?? null,
+        derivationPath: hit.derivationPath ?? null,
+        mnemonicWordCount: hit.mnemonicWordCount ?? null,
       });
-      console.log(`[BlockchainScanner] Saved balance hit to PostgreSQL: ${hit.address}`);
+      console.log(`[BlockchainScanner] Saved balance hit to PostgreSQL: ${hit.address} (type: ${hit.recoveryType ?? 'unknown'})`);
     }
   } catch (error) {
     console.error('[BlockchainScanner] Error saving to PostgreSQL:', error);
@@ -471,17 +504,46 @@ export async function fetchAddressBalance(address: string): Promise<{
 }
 
 /**
+ * Options for recording a balance hit with full recovery metadata
+ */
+export interface RecordBalanceOptions {
+  address: string;
+  passphrase: string;
+  wif: string;
+  isCompressed?: boolean;
+  recoveryType?: RecoveryInputType;
+  originalInput?: string;
+  derivationPath?: string;
+  mnemonicWordCount?: number;
+}
+
+/**
  * Check if a generated address has any balance and record it
  * Stores full recovery data (passphrase + WIF) for any addresses with activity
  * Primary storage: PostgreSQL, Backup: JSON file
  */
 export async function checkAndRecordBalance(
-  address: string,
-  passphrase: string,
-  wif: string,
-  isCompressed: boolean = true
+  addressOrOptions: string | RecordBalanceOptions,
+  passphrase?: string,
+  wif?: string,
+  isCompressed: boolean = true,
+  recoveryType: RecoveryInputType = 'brain_wallet'
 ): Promise<BalanceHit | null> {
-  const balanceInfo = await fetchAddressBalance(address);
+  // Support both old signature and new options object
+  let opts: RecordBalanceOptions;
+  if (typeof addressOrOptions === 'string') {
+    opts = {
+      address: addressOrOptions,
+      passphrase: passphrase!,
+      wif: wif!,
+      isCompressed,
+      recoveryType,
+    };
+  } else {
+    opts = addressOrOptions;
+  }
+
+  const balanceInfo = await fetchAddressBalance(opts.address);
   
   if (!balanceInfo) {
     return null;
@@ -489,31 +551,38 @@ export async function checkAndRecordBalance(
   
   if (balanceInfo.balanceSats > 0 || balanceInfo.txCount > 0) {
     const hit: BalanceHit = {
-      address,
-      passphrase,
-      wif,
+      address: opts.address,
+      passphrase: opts.passphrase,
+      wif: opts.wif,
       balanceSats: balanceInfo.balanceSats,
       balanceBTC: (balanceInfo.balanceSats / 100000000).toFixed(8),
       txCount: balanceInfo.txCount,
       discoveredAt: new Date().toISOString(),
-      isCompressed,
+      isCompressed: opts.isCompressed ?? true,
+      recoveryType: opts.recoveryType ?? 'brain_wallet',
+      originalInput: opts.originalInput,
+      derivationPath: opts.derivationPath,
+      mnemonicWordCount: opts.mnemonicWordCount,
     };
     
-    const existing = balanceHits.find(h => h.address === address);
+    const existing = balanceHits.find(h => h.address === opts.address);
     if (!existing) {
       balanceHits.push(hit);
       
       await saveBalanceHitToDb(hit);
       await saveBalanceHits();
       
+      const typeLabel = opts.recoveryType ? `[${opts.recoveryType}]` : '';
       if (balanceInfo.balanceSats > 0) {
-        console.log(`\n🎯 [BALANCE HIT] ${address}`);
+        console.log(`\n🎯 [BALANCE HIT] ${typeLabel} ${opts.address}`);
         console.log(`   💰 Balance: ${hit.balanceBTC} BTC (${hit.balanceSats} sats)`);
-        console.log(`   🔑 Passphrase: "${passphrase}"`);
-        console.log(`   🔐 WIF: ${wif}`);
-        console.log(`   📊 TX Count: ${hit.txCount}\n`);
+        console.log(`   🔑 Passphrase: "${opts.passphrase}"`);
+        console.log(`   🔐 WIF: ${opts.wif}`);
+        console.log(`   📊 TX Count: ${hit.txCount}`);
+        if (opts.derivationPath) console.log(`   📍 Path: ${opts.derivationPath}`);
+        console.log('');
       } else {
-        console.log(`[BlockchainScanner] Historical activity: ${address} (${hit.txCount} txs, 0 balance)`);
+        console.log(`[BlockchainScanner] Historical activity ${typeLabel}: ${opts.address} (${hit.txCount} txs, 0 balance)`);
       }
     }
     
