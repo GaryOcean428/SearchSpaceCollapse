@@ -12512,11 +12512,11 @@
     },
     {
       "word": "realize",
-      "frequency": 8,
-      "avgPhi": 0.9342550586524057,
+      "frequency": 9,
+      "avgPhi": 0.9300058809733426,
       "maxPhi": 0.9342550586524054,
       "firstSeen": "2025-12-04T04:45:32.283Z",
-      "lastSeen": "2025-12-04T05:37:25.424Z",
+      "lastSeen": "2025-12-04T06:43:22.935Z",
       "contexts": [
         "realize"
       ]
@@ -13788,11 +13788,11 @@
     },
     {
       "word": "already",
-      "frequency": 4,
-      "avgPhi": 0.9407707226215434,
+      "frequency": 5,
+      "avgPhi": 0.9318190700054023,
       "maxPhi": 0.9407707226215434,
       "firstSeen": "2025-12-04T05:34:50.073Z",
-      "lastSeen": "2025-12-04T05:45:13.807Z",
+      "lastSeen": "2025-12-04T06:43:22.948Z",
       "contexts": [
         "already"
       ]
@@ -19135,5 +19135,5 @@
       "efficiencyGain": 31
     }
   ],
-  "savedAt": "2025-12-04T05:59:12.636Z"
+  "savedAt": "2025-12-04T06:43:22.952Z"
 }
