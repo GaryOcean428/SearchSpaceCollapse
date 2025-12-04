@@ -219,10 +219,16 @@ export const balanceHits = pgTable("balance_hits", {
   changeDetectedAt: timestamp("change_detected_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  // Mnemonic/HD wallet derivation metadata
+  walletType: varchar("wallet_type", { length: 32 }).default("brain"), // brain, bip39-hd, mnemonic
+  derivationPath: varchar("derivation_path", { length: 64 }), // e.g., m/44'/0'/0'/0/0
+  isMnemonicDerived: boolean("is_mnemonic_derived").default(false),
+  mnemonicWordCount: integer("mnemonic_word_count"), // 12, 15, 18, 21, or 24
 }, (table) => [
   index("idx_balance_hits_user").on(table.userId),
   index("idx_balance_hits_address").on(table.address),
   index("idx_balance_hits_balance").on(table.balanceSats),
+  index("idx_balance_hits_wallet_type").on(table.walletType),
 ]);
 
 export type BalanceHit = typeof balanceHits.$inferSelect;

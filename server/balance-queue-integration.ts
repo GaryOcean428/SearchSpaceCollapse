@@ -14,6 +14,7 @@
 
 import { derivePrivateKeyFromPassphrase, privateKeyToWIF, generateBothAddresses } from './crypto';
 import { balanceQueue } from './balance-queue';
+import { deriveMnemonicAddresses, checkMnemonicAgainstDormant, type MnemonicCheckResult, type DerivedAddress } from './mnemonic-wallet';
 
 interface QueuedAddressResult {
   passphrase: string;
@@ -188,4 +189,159 @@ export function batchQueueAddresses(
   console.log(`[BalanceQueueIntegration] Batch queued ${queued} passphrases from ${source}, ${failed} failed`);
   
   return { queued, failed };
+}
+
+/**
+ * Result of queueing a mnemonic for balance checking
+ */
+export interface QueuedMnemonicResult {
+  mnemonic: string;
+  totalAddresses: number;
+  queuedAddresses: number;
+  failedAddresses: number;
+  dormantMatches: number;
+  derivedAddresses: Array<{
+    address: string;
+    path: string;
+    queued: boolean;
+    isDormant: boolean;
+  }>;
+}
+
+/**
+ * Queue ALL derived addresses from a BIP39 mnemonic for balance checking
+ * 
+ * This is the proper way to check mnemonic-based wallets:
+ * 1. Derives 50+ addresses using standard HD paths (BIP44/49/84)
+ * 2. Checks each against dormant target addresses
+ * 3. Queues each for blockchain balance verification
+ * 
+ * @param mnemonic - BIP39 mnemonic phrase (12-24 words)
+ * @param source - Tracking source for metrics
+ * @param priority - Queue priority (higher = checked first)
+ * @returns Details about all derived and queued addresses
+ */
+export function queueMnemonicForBalanceCheck(
+  mnemonic: string,
+  source: string = 'mnemonic',
+  priority: number = 2
+): QueuedMnemonicResult | null {
+  try {
+    if (!mnemonic || typeof mnemonic !== 'string' || mnemonic.trim().length === 0) {
+      return null;
+    }
+    
+    const derivationResult = deriveMnemonicAddresses(mnemonic);
+    
+    if (derivationResult.totalDerived === 0) {
+      console.warn(`[BalanceQueueIntegration] No addresses derived from mnemonic`);
+      return null;
+    }
+    
+    const dormantCheckResult = checkMnemonicAgainstDormant(mnemonic);
+    
+    let queuedCount = 0;
+    let failedCount = 0;
+    const derivedAddresses: QueuedMnemonicResult['derivedAddresses'] = [];
+    
+    for (const derived of derivationResult.addresses) {
+      const isDormant = dormantCheckResult.matches.some(m => m.address === derived.address);
+      
+      const result = balanceQueue.enqueue(
+        derived.address,
+        mnemonic,
+        derived.privateKeyWIFCompressed,
+        true,
+        { priority: isDormant ? priority + 10 : priority }
+      );
+      
+      const queued = result;
+      if (queued) {
+        queuedCount++;
+      } else {
+        failedCount++;
+      }
+      
+      derivedAddresses.push({
+        address: derived.address,
+        path: derived.derivationPath,
+        queued,
+        isDormant,
+      });
+    }
+    
+    stats.totalQueued += queuedCount;
+    stats.lastQueueTime = Date.now();
+    const mnemonicSource = `${source}-mnemonic`;
+    stats.sourceBreakdown[mnemonicSource] = (stats.sourceBreakdown[mnemonicSource] || 0) + queuedCount;
+    
+    if (dormantCheckResult.hasMatch) {
+      console.log(`[BalanceQueueIntegration] 🎯 MNEMONIC HAS DORMANT MATCHES!`);
+      console.log(`[BalanceQueueIntegration]   Mnemonic: ${mnemonic.substring(0, 40)}...`);
+      console.log(`[BalanceQueueIntegration]   Matches: ${dormantCheckResult.matches.length}`);
+      for (const match of dormantCheckResult.matches) {
+        console.log(`[BalanceQueueIntegration]   - ${match.address} @ ${match.derivationPath} (${match.dormantInfo.balanceBTC} BTC)`);
+      }
+    }
+    
+    if (queuedCount > 0 && (stats.totalQueued % 500 === 0 || dormantCheckResult.hasMatch)) {
+      console.log(`[BalanceQueueIntegration] Mnemonic: ${queuedCount}/${derivationResult.totalDerived} addresses queued from ${source}`);
+    }
+    
+    return {
+      mnemonic,
+      totalAddresses: derivationResult.totalDerived,
+      queuedAddresses: queuedCount,
+      failedAddresses: failedCount,
+      dormantMatches: dormantCheckResult.matches.length,
+      derivedAddresses,
+    };
+  } catch (error) {
+    console.error('[BalanceQueueIntegration] Error queuing mnemonic:', error);
+    return null;
+  }
+}
+
+/**
+ * Batch queue multiple mnemonics for balance checking
+ * Each mnemonic expands to 50+ addresses
+ */
+export function batchQueueMnemonics(
+  mnemonics: string[],
+  source: string = 'batch-mnemonic',
+  priority: number = 2
+): {
+  totalMnemonics: number;
+  successfulMnemonics: number;
+  failedMnemonics: number;
+  totalAddressesQueued: number;
+  dormantMatchesFound: number;
+} {
+  let successfulMnemonics = 0;
+  let failedMnemonics = 0;
+  let totalAddressesQueued = 0;
+  let dormantMatchesFound = 0;
+  
+  for (const mnemonic of mnemonics) {
+    const result = queueMnemonicForBalanceCheck(mnemonic, source, priority);
+    if (result) {
+      successfulMnemonics++;
+      totalAddressesQueued += result.queuedAddresses;
+      dormantMatchesFound += result.dormantMatches;
+    } else {
+      failedMnemonics++;
+    }
+  }
+  
+  console.log(`[BalanceQueueIntegration] Batch mnemonic queue: ${successfulMnemonics}/${mnemonics.length} mnemonics processed`);
+  console.log(`[BalanceQueueIntegration]   Total addresses queued: ${totalAddressesQueued}`);
+  console.log(`[BalanceQueueIntegration]   Dormant matches: ${dormantMatchesFound}`);
+  
+  return {
+    totalMnemonics: mnemonics.length,
+    successfulMnemonics,
+    failedMnemonics,
+    totalAddressesQueued,
+    dormantMatchesFound,
+  };
 }
