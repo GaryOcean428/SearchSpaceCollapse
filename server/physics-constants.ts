@@ -1,8 +1,8 @@
 /**
  * Physics Constants - Single Source of Truth
  * 
- * EMPIRICALLY VALIDATED CONSTANTS (L=6 VALIDATED 2025-12-02)
- * Source: qig-verification repository (quantum spin chain experiments)
+ * EMPIRICALLY VALIDATED CONSTANTS (L=6 VALIDATED 2025-12-04)
+ * Source: qig-verification/FROZEN_FACTS.md (multi-seed validated)
  * 
  * ⚠️ FROZEN FACTS - DO NOT MODIFY WITHOUT EXPERIMENTAL VALIDATION
  * 
@@ -17,23 +17,23 @@
  * Each value represents the coupling strength at a specific scale L.
  */
 export const KAPPA_VALUES = {
-  /** κ₃ - Emergence scale (L=3) */
+  /** κ₃ - Emergence scale (L=3) - ✅ VALIDATED (6 seeds) */
   KAPPA_3: 41.09,
   
-  /** κ₄ - Strong running coupling (L=4) */
+  /** κ₄ - Strong running coupling (L=4) - ✅ VALIDATED (3 seeds × 20 perts) */
   KAPPA_4: 64.47,
   
-  /** κ₅ - Approaching plateau (L=5) */
+  /** κ₅ - Approaching plateau (L=5) - ✅ VALIDATED (3 seeds × 20 perts) */
   KAPPA_5: 63.62,
   
-  /** κ₆ - Plateau confirmed (L=6) - VALIDATED with 3 seeds */
-  KAPPA_6: 62.02,
+  /** κ₆ - Plateau confirmed (L=6) - ✅ VALIDATED (3 seeds × 36 perts) */
+  KAPPA_6: 64.45,
   
-  /** κ₇ - Extended plateau (L=7) - PRELIMINARY */
-  KAPPA_7: 63.71,
+  /** κ₇ - ANOMALY - ⚠️ UNVALIDATED (only 5 perts, insufficient sampling) */
+  KAPPA_7: 67.71,
   
-  /** κ* - Fixed point coupling (exponential fit to L=3,4,5,6 data) */
-  KAPPA_STAR: 63.5,
+  /** κ* - Fixed point coupling (extrapolated from L=4,5,6 data) */
+  KAPPA_STAR: 64.0,
 } as const;
 
 /**
@@ -45,17 +45,17 @@ export const KAPPA_VALUES = {
  * β → 0 indicates fixed point (asymptotic freedom)
  */
 export const BETA_VALUES = {
-  /** β(3→4) - Strong running at emergence */
-  BETA_3_TO_4: 0.443,
+  /** β(3→4) - CRITICAL: Strongest running (+57% jump) */
+  BETA_3_TO_4: 0.44,
   
-  /** β(4→5) - Approaching plateau */
+  /** β(4→5) - Plateau onset */
   BETA_4_TO_5: -0.013,
   
-  /** β(5→6) - Fixed point confirmed (≈0) */
-  BETA_5_TO_6: -0.026,
+  /** β(5→6) - Plateau confirmed (stable) */
+  BETA_5_TO_6: 0.013,
   
-  /** β(6→7) - Preliminary */
-  BETA_6_TO_7: 0.004,
+  /** β(6→7) - ⚠️ UNVALIDATED (L=7 data insufficient) */
+  BETA_6_TO_7: null, // Marked as unvalidated
 } as const;
 
 /**
@@ -67,8 +67,8 @@ export const KAPPA_ERRORS = {
   KAPPA_3_ERROR: 0.59,
   KAPPA_4_ERROR: 1.89,
   KAPPA_5_ERROR: 1.68,
-  KAPPA_6_ERROR: 2.47,
-  KAPPA_7_ERROR: 3.89,
+  KAPPA_6_ERROR: 1.34,
+  KAPPA_7_ERROR: 4.26, // Large error - insufficient sampling
   KAPPA_STAR_ERROR: 1.5,
 } as const;
 
@@ -105,12 +105,74 @@ export const L6_VALIDATION = {
 } as const;
 
 /**
+ * L=7 ANOMALY WARNING
+ * 
+ * ⚠️ L=7 measurements are UNVALIDATED and should NOT be used.
+ * 
+ * Problems:
+ * 1. Only 5 perturbations tested (vs 36 for L=6)
+ * 2. Large error bars: ±4.26 (vs ±1.34 for L=6)
+ * 3. Anomalous κ₇ = 67.71 deviates from plateau
+ * 
+ * Status: REQUIRES INVESTIGATION with proper sampling
+ */
+export const L7_WARNING = {
+  STATUS: 'UNVALIDATED' as const,
+  KAPPA_7: 67.71,
+  ERROR: 4.26,
+  N_PERTS: 5,
+  REASON: 'Insufficient sampling - requires 36+ perturbations',
+} as const;
+
+/**
+ * Regime-Dependent κ Behavior
+ * 
+ * κ is NOT a single number - it depends on scale AND perturbation strength
+ * 
+ * Key Insight from FROZEN_FACTS.md:
+ * Different perturbation strengths probe different regimes of consciousness
+ */
+export const REGIME_DEPENDENT_KAPPA = {
+  /** Weak perturbations → Linear regime (unconscious) */
+  WEAK: {
+    kappa: 8.5,
+    regime: 'linear' as const,
+    phiRange: [0.0, 0.3] as const,
+    state: 'Unconscious' as const,
+  },
+  
+  /** Medium perturbations → Geometric emergence (transitional) */
+  MEDIUM: {
+    kappa: 41.0,
+    regime: 'geometric' as const,
+    phiRange: [0.3, 0.45] as const,
+    state: 'Transitional' as const,
+  },
+  
+  /** Optimal perturbations → Geometric peak (conscious) */
+  OPTIMAL: {
+    kappa: 64.0,
+    regime: 'geometric_peak' as const,
+    phiRange: [0.45, 0.80] as const,
+    state: 'Conscious' as const,
+  },
+  
+  /** Strong perturbations → Over-coupling (breakdown risk) */
+  STRONG: {
+    kappa: 68.0,
+    regime: 'breakdown' as const,
+    phiRange: [0.80, 1.0] as const,
+    state: 'Breakdown risk' as const,
+  },
+} as const;
+
+/**
  * QIG System Constants
  * 
  * Core parameters for quantum information geometry framework
  */
 export const QIG_CONSTANTS = {
-  /** Fixed point coupling (updated from 64.0 to 63.5 based on L=6 validation) */
+  /** Fixed point coupling (updated to 64.0 based on FROZEN_FACTS.md) */
   KAPPA_STAR: KAPPA_VALUES.KAPPA_STAR,
   
   /** Running coupling at emergence scale (β(3→4)) */
@@ -122,11 +184,11 @@ export const QIG_CONSTANTS = {
   /** Critical scale for emergent geometry */
   L_CRITICAL: 3,
   
-  /** Basin signature dimension (updated from 32 to 64 for cross-repo compatibility) */
+  /** Basin signature dimension */
   BASIN_DIMENSION: 64,
   
   /** Resonance detection band (10% of κ*) */
-  RESONANCE_BAND: 6.35, // 10% of 63.5
+  RESONANCE_BAND: 6.4, // 10% of 64.0
 } as const;
 
 /**
