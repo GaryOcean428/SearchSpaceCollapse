@@ -825,7 +825,7 @@ export function validateWIF(wif: string): {
     
     const privateKeyBytes = isCompressed ? decoded.slice(1, 33) : decoded.slice(1, 33);
     const privateKeyBigInt = BigInt('0x' + Buffer.from(privateKeyBytes).toString('hex'));
-    const secp256k1Order = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    const secp256k1Order = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
     
     if (privateKeyBigInt === BigInt(0) || privateKeyBigInt >= secp256k1Order) {
       return { valid: false, compressed: isCompressed, network: isMainnet ? 'mainnet' : 'testnet', error: 'Private key out of valid range' };
@@ -926,5 +926,147 @@ export function verifyWIFMatchesAddress(wif: string, targetAddress: string): boo
     return address === targetAddress;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Decode an extended private key (xprv) and derive child keys
+ * 
+ * Extended keys are Base58Check encoded and contain:
+ * - 4 bytes: version (0x0488ADE4 for mainnet xprv)
+ * - 1 byte: depth
+ * - 4 bytes: parent fingerprint
+ * - 4 bytes: child number
+ * - 32 bytes: chain code
+ * - 33 bytes: key data (0x00 + 32-byte private key)
+ * 
+ * @param xprv - Base58Check encoded extended private key
+ * @returns Decoded key components
+ */
+export function decodeXprv(xprv: string): {
+  privateKey: Buffer;
+  chainCode: Buffer;
+  depth: number;
+} {
+  try {
+    const decoded = bs58check.decode(xprv);
+    const decodedBuf = Buffer.from(decoded);
+    
+    if (decodedBuf.length !== 78) {
+      throw new CryptoValidationError('Invalid xprv length');
+    }
+    
+    // Check version bytes (mainnet xprv = 0x0488ADE4)
+    const version = decodedBuf.slice(0, 4);
+    const expectedVersion = Buffer.from([0x04, 0x88, 0xad, 0xe4]);
+    if (!version.equals(expectedVersion)) {
+      throw new CryptoValidationError('Invalid xprv version - must be mainnet');
+    }
+    
+    const depth = decodedBuf[4];
+    const chainCode = Buffer.from(decodedBuf.slice(13, 45));
+    
+    // Key data: first byte is 0x00, followed by 32-byte private key
+    if (decodedBuf[45] !== 0x00) {
+      throw new CryptoValidationError('Invalid xprv key prefix');
+    }
+    const privateKey = Buffer.from(decodedBuf.slice(46, 78));
+    
+    return { privateKey, chainCode, depth };
+  } catch (error) {
+    if (error instanceof CryptoValidationError) throw error;
+    throw new CryptoValidationError(`Failed to decode xprv: ${error}`);
+  }
+}
+
+/**
+ * Derive a child private key from parent using BIP32
+ * 
+ * @param parentKey - Parent private key (32 bytes)
+ * @param parentChainCode - Parent chain code (32 bytes)
+ * @param index - Child index
+ * @param hardened - Whether this is a hardened derivation
+ * @returns Child private key and chain code
+ */
+function deriveChildKey(
+  parentKey: Buffer,
+  parentChainCode: Buffer,
+  index: number,
+  hardened: boolean
+): { childKey: Buffer; childChainCode: Buffer } {
+  let data: Buffer;
+  
+  if (hardened) {
+    // Hardened derivation: data = 0x00 || parent_key || index
+    index += 0x80000000; // Add hardened flag
+    data = Buffer.alloc(37);
+    data[0] = 0x00;
+    parentKey.copy(data, 1);
+    data.writeUInt32BE(index, 33);
+  } else {
+    // Normal derivation: data = public_key || index
+    const keyPair = ec.keyFromPrivate(parentKey);
+    const publicKey = Buffer.from(keyPair.getPublic(true, 'array'));
+    data = Buffer.alloc(37);
+    publicKey.copy(data, 0);
+    data.writeUInt32BE(index, 33);
+  }
+  
+  // HMAC-SHA512
+  const hmac = createHmac('sha512', parentChainCode);
+  hmac.update(data);
+  const I = hmac.digest();
+  
+  const IL = I.slice(0, 32);
+  const IR = I.slice(32);
+  
+  // Child key = (IL + parent_key) mod n
+  const parentKeyBN = BigInt('0x' + parentKey.toString('hex'));
+  const ILBN = BigInt('0x' + IL.toString('hex'));
+  const n = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141');
+  
+  const childKeyBN = (ILBN + parentKeyBN) % n;
+  const childKeyHex = childKeyBN.toString(16).padStart(64, '0');
+  
+  return {
+    childKey: Buffer.from(childKeyHex, 'hex'),
+    childChainCode: Buffer.from(IR),
+  };
+}
+
+/**
+ * Derive private key from extended private key at a BIP32 path
+ * 
+ * @param xprv - Extended private key (xprv...)
+ * @param path - BIP32 derivation path (e.g., "m/44'/0'/0'/0/0")
+ * @returns Private key hex string
+ */
+export function deriveFromXprv(xprv: string, path: string): string {
+  try {
+    const { privateKey, chainCode } = decodeXprv(xprv);
+    
+    // Parse path
+    const segments = path.replace(/^m\/?/, '').split('/').filter(s => s.length > 0);
+    
+    let currentKey = privateKey;
+    let currentChainCode = chainCode;
+    
+    for (const segment of segments) {
+      const hardened = segment.endsWith("'");
+      const index = parseInt(segment.replace("'", ""), 10);
+      
+      if (isNaN(index) || index < 0) {
+        throw new CryptoValidationError(`Invalid path segment: ${segment}`);
+      }
+      
+      const result = deriveChildKey(currentKey, currentChainCode, index, hardened);
+      currentKey = result.childKey;
+      currentChainCode = result.childChainCode;
+    }
+    
+    return currentKey.toString('hex');
+  } catch (error) {
+    if (error instanceof CryptoValidationError) throw error;
+    throw new CryptoValidationError(`Failed to derive from xprv: ${error}`);
   }
 }
