@@ -2,13 +2,14 @@ import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
 import { deriveBIP32Address, derivePrivateKeyFromPassphrase, generateBothAddressesFromPrivateKey, generateRecoveryBundle, privateKeyToWIF, type VerificationResult, type RecoveryBundle } from './crypto';
 import { deriveMnemonicAddresses, checkMnemonicAgainstDormant } from './mnemonic-wallet';
-import { isValidBIP39Phrase } from './bip39-words';
+import { isValidBIP39Phrase, generateRandomBIP39Phrase } from './bip39-words';
 import * as fs from 'fs';
 import * as path from 'path';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
 import { BlockchainForensics } from './blockchain-forensics';
 import './blockchain-scanner';
 import { balanceQueue } from './balance-queue';
+import { queueMnemonicForBalanceCheck } from './balance-queue-integration';
 import { geometricMemory } from './geometric-memory';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { vocabularyExpander } from './vocabulary-expander';
@@ -1345,7 +1346,11 @@ export class OceanAgent {
         
         // Queue ALL generated addresses for balance checking
         // The BalanceQueue handles rate limiting internally with token bucket
-        if (hypo.address && hypo.privateKeyHex) {
+        if (hypo.format === 'bip39' || isValidBIP39Phrase(hypo.phrase)) {
+          // BIP-39 mnemonic: Queue ALL 50+ HD-derived addresses
+          queueMnemonicForBalanceCheck(hypo.phrase, 'ocean-bip39', hypo.qigScore?.phi || 1);
+          console.log(`[Ocean] Queued BIP-39 mnemonic "${hypo.phrase.substring(0, 30)}..." for HD balance check`);
+        } else if (hypo.address && hypo.privateKeyHex) {
           const compressedAddr = (hypo as any).addressCompressed || hypo.address;
           const uncompressedAddr = (hypo as any).addressUncompressed;
           
@@ -2477,9 +2482,14 @@ export class OceanAgent {
       const modifier = modifiers[Math.floor(Math.random() * modifiers.length)];
       const randNum = Math.floor(Math.random() * 10000);
       
-      if (i % 3 === 0) {
+      // 25% BIP-39 12-word mnemonics, 50% arbitrary, 25% master key style
+      if (i % 4 === 0) {
+        // Generate proper BIP-39 12-word mnemonic
+        const bip39Phrase = generateRandomBIP39Phrase(12);
+        phrases.push({ text: bip39Phrase, format: 'bip39' });
+      } else if (i % 4 === 1) {
         phrases.push({ text: `${modifier}${base}${randNum}`, format: 'arbitrary' });
-      } else if (i % 3 === 1) {
+      } else if (i % 4 === 2) {
         phrases.push({ text: `${base} ${modifier} ${randNum}`, format: 'arbitrary' });
       } else {
         phrases.push({ text: `${modifier} ${base}`, format: 'master' });
