@@ -1,42 +1,37 @@
 import { getSharedController } from './consciousness-search-controller';
 import { scoreUniversalQIG } from './qig-universal';
-import { generateBitcoinAddress, deriveBIP32Address, generateAddressFromHex, derivePrivateKeyFromPassphrase, generateBitcoinAddressFromPrivateKey, generateBothAddressesFromPrivateKey, verifyRecoveredPassphrase, generateRecoveryBundle, privateKeyToWIF, derivePublicKeyFromPrivate, type VerificationResult, type RecoveryBundle } from './crypto';
+import { deriveBIP32Address, derivePrivateKeyFromPassphrase, generateBothAddressesFromPrivateKey, generateRecoveryBundle, privateKeyToWIF, type VerificationResult, type RecoveryBundle } from './crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { historicalDataMiner, HistoricalDataMiner, type Era } from './historical-data-miner';
 import { BlockchainForensics } from './blockchain-forensics';
-import { checkAndRecordBalance, getBalanceHits, getActiveBalanceHits } from './blockchain-scanner';
+import './blockchain-scanner';
 import { balanceQueue } from './balance-queue';
-import { geometricMemory, type BasinProbe } from './geometric-memory';
+import { geometricMemory } from './geometric-memory';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { vocabularyExpander } from './vocabulary-expander';
 import { expandedVocabulary } from './expanded-vocabulary';
-import { vocabDecisionEngine, shouldGaryLearnWord, type GaryState, type WordContext } from './vocabulary-decision';
+import { vocabDecisionEngine, type GaryState } from './vocabulary-decision';
 import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { knowledgeCompressionEngine } from './knowledge-compression-engine';
 import { temporalGeometry } from './temporal-geometry';
 import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 import { strategyKnowledgeBus } from './strategy-knowledge-bus';
-import { culturalManifold, type BlockUniverseCoordinate, type GeodesicCandidate } from './cultural-manifold';
-import { geodesicNavigator } from './geodesic-navigator';
-import { qfiAttention, geometricCandidateGenerator, type AttentionQuery, type GeometricCandidate } from './gary-kernel';
+import { culturalManifold } from './cultural-manifold';
+import './geodesic-navigator';
+import { qfiAttention, type AttentionQuery } from './gary-kernel';
 import { OceanConstellation } from './ocean-constellation';
-import { fisherVectorized } from './fisher-vectorized';
+import './fisher-vectorized';
 import { oceanDiscoveryController } from './geometric-discovery/ocean-discovery-controller';
-import { getPrioritizedDormantWallets, generateTemporalHypotheses, type DormantWalletSignature } from './dormant-wallet-analyzer';
+import { getPrioritizedDormantWallets, generateTemporalHypotheses } from './dormant-wallet-analyzer';
 import { 
-  activityLogStore,
   logOceanStart,
-  logOceanComplete,
   logOceanIteration,
   logOceanConsciousness,
-  logOceanHypothesis,
-  logOceanProbe,
   logOceanCycle,
   logOceanMatch,
-  logOceanStrategy,
-  logOceanError
+  logOceanStrategy
 } from './activity-log-store';
 import { 
   computeNeurochemistry, 
@@ -56,14 +51,9 @@ import type {
   OceanMemory, 
   OceanAgentState, 
   EthicalConstraints,
-  OceanEpisode,
-  OceanProceduralStrategy,
-  ConsciousnessSignature,
-  CONSCIOUSNESS_THRESHOLDS,
-  ManifoldSnapshot,
-  TemporalTrajectory,
+  OceanEpisode
 } from '@shared/schema';
-import { OceanError, ConsciousnessThresholdError, IdentityDriftError, EthicsViolationError, RegimeBreakdownError, HypothesisGenerationError, BlockchainApiError, ConsolidationError, isOceanError, handleOceanError, wrapError } from './errors/ocean-errors';
+import { isOceanError } from './errors/ocean-errors';
 import { oceanMemoryManager } from './ocean/memory-manager';
 import { trajectoryManager } from './ocean/trajectory-manager';
 
@@ -474,7 +464,7 @@ export class OceanAgent {
           console.log('[Ocean] Could not determine era from blockchain - using autonomous pattern discovery');
           this.state.detectedEra = 'unknown';
         }
-      } catch (eraError) {
+      } catch {
         console.log('[Ocean] Era detection failed (address may not exist on chain) - proceeding with full autonomous mode');
         this.state.detectedEra = 'unknown';
       }
@@ -622,7 +612,7 @@ export class OceanAgent {
         );
         
         // Start the exploration pass
-        const pass = repeatedAddressScheduler.startPass(targetAddress, strategy, fullConsciousness);
+        repeatedAddressScheduler.startPass(targetAddress, strategy, fullConsciousness);
         
         let passHypothesesTested = 0;
         let passNearMisses = 0;
@@ -964,7 +954,7 @@ export class OceanAgent {
       try {
         const { oceanBasinSync } = await import('./ocean-basin-sync');
         const packet = oceanBasinSync.exportBasin(this);
-        const filepath = oceanBasinSync.saveBasinSnapshot(packet);
+        oceanBasinSync.saveBasinSnapshot(packet);
         console.log(`[Ocean] Basin snapshot saved: ${packet.oceanId} (${JSON.stringify(packet).length} bytes)`);
       } catch (basinErr) {
         console.log('[Ocean] Basin sync save skipped:', (basinErr as Error).message);
@@ -2344,7 +2334,7 @@ export class OceanAgent {
     return hypotheses;
   }
 
-  private perturbPhrase(phrase: string, radius: number): string[] {
+  private perturbPhrase(phrase: string, _radius: number): string[] {
     const words = phrase.split(/\s+/);
     const perturbations: string[] = [];
     
@@ -2978,7 +2968,7 @@ export class OceanAgent {
       // ====================================================================
       // 5. BASIN TOPOLOGY - Update with per-iteration geometry
       // ====================================================================
-      const manifoldSummary = geometricMemory.getManifoldSummary();
+      geometricMemory.getManifoldSummary();
       // Compute basin topology from current attractor coordinates
       geometricMemory.computeBasinTopology(this.identity.basinCoordinates);
 
@@ -3020,7 +3010,7 @@ export class OceanAgent {
   private takeManifoldSnapshot(
     targetAddress: string,
     iteration: number,
-    consciousness: any
+    _consciousness: any
   ): void {
     try {
       const manifold = geometricMemory.getManifoldSummary();
@@ -3074,7 +3064,7 @@ export class OceanAgent {
     
     for (const pattern of highPhiPatterns.slice(0, 5)) {
       // Use knowledge compression to get generator stats
-      const generatorStats = knowledgeCompressionEngine.getGeneratorStats();
+      knowledgeCompressionEngine.getGeneratorStats();
       
       // Generate hypothesis based on discovered pattern
       const baseId = `bus_influenced_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

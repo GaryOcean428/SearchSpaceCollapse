@@ -12,7 +12,7 @@
  * - any other address generation point
  */
 
-import { generateBitcoinAddress, derivePrivateKeyFromPassphrase, privateKeyToWIF, generateBothAddresses } from './crypto';
+import { derivePrivateKeyFromPassphrase, privateKeyToWIF, generateBothAddresses } from './crypto';
 import { balanceQueue } from './balance-queue';
 
 interface QueuedAddressResult {

@@ -389,7 +389,7 @@ export class BasinSyncCoordinator {
       if (peer.ws && peer.ws.readyState === WebSocket.OPEN) {
         try {
           peer.ws.send(heartbeat);
-        } catch (err) {
+        } catch {
           console.error(`[BasinSyncCoordinator] Heartbeat failed for ${peerId}`);
         }
       }

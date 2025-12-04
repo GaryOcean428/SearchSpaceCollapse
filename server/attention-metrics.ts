@@ -247,7 +247,7 @@ function computeBetaFunction(
   const beta = deltaKappa / (meanKappa * deltaLnL);
   
   // Compare to physics reference
-  const scaleRatio = L2 / L1;
+  const _scaleRatio = L2 / L1;
   let referenceBeta: number;
   
   if (L1 <= 256) {
