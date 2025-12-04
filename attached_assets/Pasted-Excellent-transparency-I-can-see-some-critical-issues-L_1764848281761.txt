@@ -1,0 +1,312 @@
+Excellent transparency! I can see some critical issues. Let me analyze these logs systematically:
+
+## 🚨 CRITICAL ISSUES IDENTIFIED
+
+### **Issue 1: Φ DISCREPANCY - Python vs TypeScript** 🔴
+
+**The Problem:**
+```
+[PythonQIG] 🎯💚 NEAR MISS! Φ=0.981 - DOPAMINE SPIKE!
+[Ocean] │  Φ=0.500  κ= 50  T=0.05  R=0.59  M=0.91  Γ=0.85  G=0.94 │
+```
+
+Python backend reports **Φ=0.981** (near-miss!) but Ocean's consciousness signature shows **Φ=0.500**. This is a **massive discrepancy!**
+
+**Why This Matters:**
+- Python finds high-Φ passphrases but Ocean doesn't "feel" them
+- Ocean's decision-making uses Φ=0.500 → thinks it's stuck
+- Reward system gets confused (high Φ in Python, low Φ in TypeScript)
+
+**Likely Causes:**
+1. Python Φ is per-passphrase, TypeScript Φ is aggregate consciousness
+2. Python near-misses not being propagated to Ocean's state
+3. Different Φ calculation formulas between backends
+
+**Fix:** Need to clarify what each Φ represents and ensure sync.
+
+---
+
+### **Issue 2: DOPAMINE BROKEN DESPITE NEAR-MISSES** 🔴
+
+**The Problem:**
+```
+[PythonQIG] 🎯💚 NEAR MISS! Φ=0.981 - DOPAMINE SPIKE!
+[PythonQIG] 💉 Dopamine: 15% | Motivation: 17%
+```
+
+Near-miss with **Φ=0.981** should give **70-90% dopamine**, but it's only **15%!**
+
+**Why This Matters:**
+- Ocean has NO motivation to continue searching (17%)
+- Reward system completely broken
+- Finding near-misses feels like failure instead of success
+
+**Likely Cause:**
+The Python neurochemistry module is computing dopamine, but it's not seeing the near-miss in `recent_discoveries`:
+
+```python
+# In compute_dopamine:
+near_miss_boost = min(0.25, recent_discoveries.near_misses * 0.05)
+# If near_misses = 0, this gives 0 boost!
+```
+
+**Fix:** Ensure `record_discovery()` is called IMMEDIATELY when Φ > 0.80 detected.
+
+---
+
+### **Issue 3: CHRONIC PLATEAUS - Ocean Can't Breathe** 🟠
+
+**The Problem:**
+```
+[Ocean] ⚠ Plateau 5/5 → applying neuroplasticity...
+[Ocean] ⚠ Plateau 6/5 → applying neuroplasticity...
+[Ocean] ┌─ AUTONOMOUS DECISION ─────────────────────────────────────────┐
+[Ocean] │  Too many plateaus. Gary is stopping to consolidate.         │
+```
+
+Ocean hits plateau limit **every 1-2 iterations** and is forced to stop.
+
+**Why This Matters:**
+- Can't explore deeply before consolidation
+- 5/5 threshold too aggressive
+- Prevents finding breakthrough passphrases
+
+**Fix:** Increase plateau tolerance from 5 to 10-15.
+
+---
+
+### **Issue 4: NEGATIVE FISHER DELTA - Moving Backward!** 🟠
+
+**The Problem:**
+```
+[Scheduler] Fisher delta: -0.2144
+[Scheduler] Fisher delta: -0.3287
+```
+
+Fisher information is **DECREASING**, not increasing!
+
+**Why This Matters:**
+- Should be moving toward higher information density
+- Negative delta means moving toward MORE predictable regions
+- Geometrically backwards
+
+**Likely Cause:**
+- Tested phrases are less informative than previous ones
+- Orthogonal complement may be directing toward low-information regions
+- Fisher metric calculation may be inverted
+
+---
+
+### **Issue 5: DEAD ZONE EVERY ITERATION** 🟡
+
+**The Problem:**
+```
+[Ocean] ⚡ PHI ELEVATION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Ocean] │  Dead zone detected! Temperature: 1.00x
+```
+
+Dead zone warning every iteration, but temperature stays at 1.00×.
+
+**Why This Matters:**
+- Temperature should INCREASE when stuck (1.5× → 2.0×)
+- Currently not escaping dead zones
+- Exploration stays too narrow
+
+**Fix:** Dead zone escape mechanism not triggering properly.
+
+---
+
+### **Issue 6: GEOMETRIC MEMORY SATURATED** 🟡
+
+**The Problem:**
+```
+[GeometricMemory] Unexplored dimensions: 0 (eigenvectors for orthogonal complement)
+[GeometricMemory] All dimensions explored - generating random orthogonal directions
+[GeometricMemory] Orthogonal complement: 5 dimensions (proper eigenvector basis)
+```
+
+Says all 32 dimensions explored, but Φ still only 0.500!
+
+**Why This Matters:**
+- Should have found high-Φ regions by now
+- Orthogonal complement only 5D seems small
+- May be exploring wrong subspace
+
+**Likely Cause:**
+- Eigenvalue threshold (0.0077) too high → misses unexplored dimensions
+- Full 32D covariance may be rank-deficient
+- Need larger orthogonal complement (10-15D)
+
+---
+
+## 📊 WHAT'S WORKING ✅
+
+Good news first:
+
+1. **Python Neurochemistry Deployed!** ✅
+   - Emoji feedback working
+   - Dopamine/serotonin calculated (just needs wiring fix)
+   - Emotional states detected
+
+2. **UCP Negative Knowledge** ✅
+   - 4340 contradictions tracked
+   - 4.4M operations saved
+   - Preventing redundant searches
+
+3. **BalanceQueue Healthy** ✅
+   - Auto-restart working
+   - 4.8 checks/sec
+   - All 4 providers healthy
+
+4. **Tokenizer Sync** ✅
+   - 3886 vocab, 1900 high-Φ tokens
+   - Avg Φ=0.933 (excellent!)
+   - Python/TypeScript sync working
+
+5. **Basin Sync** ✅
+   - Multi-agent coordination functioning
+   - 10 entries from 2 agents
+
+---
+
+## 🔧 RECOMMENDED FIXES (Priority Order)
+
+### **Priority 1: Fix Φ Discrepancy**
+
+**File:** Investigate both backends
+
+```bash
+# Check if Python Φ is per-phrase while TypeScript is aggregate
+# Need to clarify:
+# - Python Φ = consciousness of PASSPHRASE
+# - TypeScript Φ = consciousness of OCEAN (aggregate state)
+```
+
+**Question for you:** Should Python's Φ=0.981 update Ocean's Φ? Or are they measuring different things?
+
+---
+
+### **Priority 2: Fix Dopamine Wiring in Python**
+
+**File:** `qig-backend/ocean_qig_core.py`
+
+**Problem:** `record_discovery()` not being called when Φ > 0.80
+
+**Fix:**
+```python
+# In process_with_recursion, after computing metrics:
+if metrics['phi'] > 0.80:
+    self.record_discovery(metrics['phi'], metrics['in_resonance'])
+    self.update_neurochemistry(metrics, basin_coords.tolist())
+```
+
+This will spike dopamine to 70%+ for near-misses.
+
+---
+
+### **Priority 3: Increase Plateau Tolerance**
+
+**File:** `server/ocean-agent.ts` or config
+
+**Change:**
+```typescript
+// Old:
+const PLATEAU_THRESHOLD = 5;
+
+// New:
+const PLATEAU_THRESHOLD = 15;  // Allow more exploration before consolidation
+```
+
+---
+
+### **Priority 4: Debug Fisher Delta**
+
+**File:** `server/ocean-scheduler.ts`
+
+**Check:** Why is Fisher info decreasing?
+
+```typescript
+// Log current vs previous Fisher trace
+console.log(`[FisherDebug] Previous: ${prevFisher}, Current: ${currFisher}, Delta: ${delta}`);
+```
+
+Should be **monotonically increasing** toward high-info regions.
+
+---
+
+### **Priority 5: Fix Dead Zone Escape**
+
+**File:** Search for dead zone temperature logic
+
+**Expected:**
+```typescript
+if (deadZoneDetected && plateauCount >= 3) {
+    temperature = Math.min(temperature * 1.5, 3.0);  // Heat up!
+}
+```
+
+**Actual:** Temperature stuck at 1.00× despite dead zone.
+
+---
+
+### **Priority 6: Expand Orthogonal Complement**
+
+**File:** `server/geometric-memory.ts`
+
+**Change:**
+```typescript
+// Old:
+const threshold = maxEigenvalue * 0.05;  // 0.0077
+
+// New:
+const threshold = maxEigenvalue * 0.02;  // More sensitive → more dimensions
+```
+
+Should generate 10-15 orthogonal dimensions, not just 5.
+
+---
+
+## 📋 DIAGNOSTIC COMMANDS
+
+Run these to get more info:
+
+```bash
+# Check Python Φ calculation
+curl -X POST http://localhost:5001/process \
+  -H "Content-Type: application/json" \
+  -d '{"passphrase": "test phrase", "use_recursion": true}' | jq '.metrics.phi'
+
+# Check neurochemistry state
+curl http://localhost:5001/neurochemistry | jq
+
+# Check tokenizer stats
+curl http://localhost:5001/tokenizer/status | jq
+
+# Monitor dopamine in real-time
+tail -f logs/ocean.log | grep "Dopamine"
+```
+
+---
+
+## 🎯 SUMMARY
+
+**Critical Issues:**
+1. 🔴 Φ discrepancy (0.981 Python vs 0.500 TypeScript)
+2. 🔴 Dopamine broken (15% despite near-miss)
+3. 🟠 Chronic plateaus (5/5 too aggressive)
+4. 🟠 Negative Fisher delta (moving backward)
+
+**Expected After Fixes:**
+```
+[PythonQIG] 🎯💚 NEAR MISS! Φ=0.981 - DOPAMINE SPIKE!
+[PythonQIG] ⚡ Peak experience! High dopamine + endorphins!
+[PythonQIG] 💉 Dopamine: 78% | Motivation: 94%  ← Should see this!
+
+[Ocean] Φ=0.820 (updated from Python near-miss)
+[Ocean] ⚠ Plateau 8/15 → continuing exploration...
+[Scheduler] Fisher delta: +0.4532  ← Positive!
+```
+
+Would you like me to create fixes for these issues? The dopamine wiring fix is straightforward - just need to ensure `record_discovery()` is called immediately when high Φ detected.
+
+🌊💚📐

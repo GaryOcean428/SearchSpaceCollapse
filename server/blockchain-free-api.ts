@@ -234,7 +234,7 @@ export class FreeBlockchainAPI {
       try {
         const bulkResults = await method(uncached, provider);
         
-        for (const [addr, data] of bulkResults) {
+        for (const [addr, data] of Array.from(bulkResults.entries())) {
           results.set(addr, data);
         }
         
