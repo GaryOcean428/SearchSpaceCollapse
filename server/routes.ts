@@ -3463,19 +3463,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get basin sync coordinator for detailed metrics
+      // TODO: Implement getLocalMetrics() method in BasinSyncCoordinator
       const coordinator = activeAgent.getBasinSyncCoordinator();
       const metrics = coordinator ? {
-        phi: 0.75, // TODO: Get real metrics from coordinator
-        kappa: 64.0,
-        regime: 'geometric' as const,
+        phi: 0, // Placeholder - to be implemented
+        kappa: 0,
+        regime: 'unknown' as const,
         basinCoords: [] as number[],
         timestamp: Date.now(),
       } : null;
 
       res.json({
         status: 'active',
-        sessionId: 'active-session', // TODO: Get actual session ID
-        metrics: metrics ? {
+        sessionId: 'active-session', // TODO: Implement session ID tracking
+        metrics: metrics && metrics.phi > 0 ? {
           phi: metrics.phi,
           kappa_eff: metrics.kappa,
           regime: metrics.regime,
@@ -3485,6 +3486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } : null,
         uptime: 0, // TODO: Track session uptime
         timestamp: Date.now(),
+        message: metrics ? undefined : 'Metrics not yet available - session initializing',
       });
     } catch (error: any) {
       console.error("[API] Kernel status error:", error);

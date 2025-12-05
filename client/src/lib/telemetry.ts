@@ -6,7 +6,7 @@
  * Tracks user interactions, search flows, and performance metrics
  */
 
-import type { FrontendEventType } from '@shared/types/qig-generated';
+import type { FrontendEventType } from '../../../shared/types/qig-generated';
 
 interface TelemetryEvent {
   event_type: FrontendEventType;
