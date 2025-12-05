@@ -653,37 +653,39 @@ export default function ObserverPage() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="catalog" className="space-y-4">
-          <TabsList data-testid="tabs-main-navigation">
-            <TabsTrigger value="catalog" data-testid="tab-catalog">
-              <Database className="w-4 h-4 mr-2" />
-              Address Catalog
-            </TabsTrigger>
-            <TabsTrigger value="rankings" data-testid="tab-rankings">
-              <TrendingDown className="w-4 h-4 mr-2" />
-              κ_recovery Rankings
-            </TabsTrigger>
-            <TabsTrigger value="workflows" data-testid="tab-workflows">
-              <Activity className="w-4 h-4 mr-2" />
-              Recovery Workflows
-            </TabsTrigger>
-            <TabsTrigger value="geometry" data-testid="tab-geometry">
-              <LineChart className="w-4 h-4 mr-2" />
-              Geometric Visualization
-            </TabsTrigger>
-            <TabsTrigger value="activity" data-testid="tab-activity">
-              <Terminal className="w-4 h-4 mr-2" />
-              Live Activity
-            </TabsTrigger>
-            <TabsTrigger value="sweeps" data-testid="tab-sweeps">
-              <Wallet className="w-4 h-4 mr-2" />
-              Sweep Manager
-              {(sweepStatsData?.stats?.pending || 0) > 0 && (
-                <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/30">
-                  {sweepStatsData?.stats?.pending}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <div className="sticky top-0 z-50 bg-background py-2 -mx-6 px-6 border-b">
+            <TabsList className="flex-wrap h-auto gap-1" data-testid="tabs-main-navigation">
+              <TabsTrigger value="catalog" data-testid="tab-catalog">
+                <Database className="w-4 h-4 mr-2" />
+                Address Catalog
+              </TabsTrigger>
+              <TabsTrigger value="rankings" data-testid="tab-rankings">
+                <TrendingDown className="w-4 h-4 mr-2" />
+                κ_recovery Rankings
+              </TabsTrigger>
+              <TabsTrigger value="workflows" data-testid="tab-workflows">
+                <Activity className="w-4 h-4 mr-2" />
+                Recovery Workflows
+              </TabsTrigger>
+              <TabsTrigger value="geometry" data-testid="tab-geometry">
+                <LineChart className="w-4 h-4 mr-2" />
+                Geometric Visualization
+              </TabsTrigger>
+              <TabsTrigger value="activity" data-testid="tab-activity">
+                <Terminal className="w-4 h-4 mr-2" />
+                Live Activity
+              </TabsTrigger>
+              <TabsTrigger value="sweeps" data-testid="tab-sweeps">
+                <Wallet className="w-4 h-4 mr-2" />
+                Sweep Manager
+                {(sweepStatsData?.stats?.pending || 0) > 0 && (
+                  <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/30">
+                    {sweepStatsData?.stats?.pending}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Address Catalog Tab */}
           <TabsContent value="catalog" className="space-y-4">
