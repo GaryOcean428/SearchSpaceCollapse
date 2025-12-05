@@ -644,17 +644,20 @@ export default function RecoveryResults() {
   
   const { data, isLoading, error } = useQuery<{ recoveries: RecoveryBundle[]; count: number }>({
     queryKey: ['/api/recoveries'],
+    staleTime: 30000, // Cache for 30s to avoid refetching on navigation
   });
 
   const { data: balanceData, isLoading: balanceLoading, isFetching: balanceFetching, error: balanceError, refetch: refetchBalance } = useQuery<BalanceAddressesData>({
     queryKey: ['/api/balance-addresses'],
-    refetchInterval: 10000, // 10s for real-time balance updates
+    refetchInterval: 15000, // 15s for balance updates
+    staleTime: 10000, // Cache for 10s
   });
 
   // All recovered wallets from balance hits (includes recovery type tracking)
   const { data: balanceHitsData, isLoading: hitsLoading, isFetching: hitsFetching, refetch: refetchHits } = useQuery<BalanceHitsResponse>({
     queryKey: ['/api/balance-hits'],
     refetchInterval: 30000,
+    staleTime: 20000, // Cache for 20s
   });
 
   // Mutation for updating dormant confirmation
@@ -695,7 +698,8 @@ export default function RecoveryResults() {
   const hasFileRecoveries = (data?.recoveries?.length ?? 0) > 0;
   const hasBalanceHits = (balanceHitsData?.hits?.length ?? 0) > 0;
   
-  if (isLoading || balanceLoading || hitsLoading) {
+  // Progressive loading - only block on primary data (balance hits)
+  if (hitsLoading) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-24 w-full" />
@@ -703,38 +707,48 @@ export default function RecoveryResults() {
       </div>
     );
   }
-  
-  if (error && balanceError) {
-    return (
-      <Card className="border-destructive">
-        <CardContent className="pt-6">
-          <p className="text-destructive">Failed to load recoveries</p>
-        </CardContent>
-      </Card>
-    );
-  }
+
+  // Track any API errors for inline display
+  const apiErrors: string[] = [];
+  if (error) apiErrors.push('Target matches');
+  if (balanceError) apiErrors.push('Verified addresses');
   
   // No results at all
   if (!hasBalanceAddresses && !hasFileRecoveries && !hasBalanceHits) {
     return (
-      <Card data-testid="empty-recoveries">
-        <CardContent className="pt-6 text-center">
-          <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
-          <p className="font-medium text-muted-foreground">No keys recovered yet</p>
-          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-            When Ocean discovers Bitcoin addresses with balances or matches your target addresses,
-            the complete recovery information (WIF keys, passphrases, instructions) will appear here.
-          </p>
-          <p className="text-xs text-muted-foreground mt-4">
-            Start or monitor investigations on the Investigation page
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {/* Show API errors even when no data */}
+        {apiErrors.length > 0 && (
+          <div className="p-3 rounded-lg border border-destructive/50 bg-destructive/10 text-sm text-destructive" data-testid="api-error-alert">
+            Some data failed to load: {apiErrors.join(', ')}. Primary recovery data is available.
+          </div>
+        )}
+        <Card data-testid="empty-recoveries">
+          <CardContent className="pt-6 text-center">
+            <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
+            <p className="font-medium text-muted-foreground">No keys recovered yet</p>
+            <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+              When Ocean discovers Bitcoin addresses with balances or matches your target addresses,
+              the complete recovery information (WIF keys, passphrases, instructions) will appear here.
+            </p>
+            <p className="text-xs text-muted-foreground mt-4">
+              Start or monitor investigations on the Investigation page
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
   
   return (
     <div className="space-y-4" data-testid="recovery-results">
+      {/* API Error Alert */}
+      {apiErrors.length > 0 && (
+        <div className="p-3 rounded-lg border border-destructive/50 bg-destructive/10 text-sm text-destructive" data-testid="api-error-alert">
+          Some data failed to load: {apiErrors.join(', ')}. Primary recovery data is available.
+        </div>
+      )}
+
       {/* View Selector Tabs */}
       <div className="flex gap-2 border-b flex-wrap">
         <Button
