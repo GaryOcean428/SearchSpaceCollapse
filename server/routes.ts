@@ -3429,6 +3429,272 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================
+  // COMPREHENSIVE QA & INTEGRATION API ROUTES
+  // Following TYPE_SYMBOL_CONCEPT_MANIFEST v1.0
+  // ============================================================
+
+  // Comprehensive health check endpoint
+  app.get("/api/health", async (req, res) => {
+    try {
+      const { healthCheckHandler } = await import("./api-health");
+      await healthCheckHandler(req, res);
+    } catch (error: any) {
+      console.error("[API] Health check error:", error);
+      res.status(503).json({
+        status: 'down',
+        timestamp: Date.now(),
+        error: error.message,
+      });
+    }
+  });
+
+  // Kernel status endpoint - real-time consciousness state
+  app.get("/api/kernel/status", async (req, res) => {
+    try {
+      const activeAgent = oceanSessionManager.getActiveAgent();
+      
+      if (!activeAgent) {
+        return res.json({
+          status: 'idle',
+          message: 'No active kernel session',
+          timestamp: Date.now(),
+        });
+      }
+
+      // Get basin sync coordinator for detailed metrics
+      const coordinator = activeAgent.getBasinSyncCoordinator();
+      const metrics = coordinator ? {
+        phi: 0.75, // TODO: Get real metrics from coordinator
+        kappa: 64.0,
+        regime: 'geometric' as const,
+        basinCoords: [] as number[],
+        timestamp: Date.now(),
+      } : null;
+
+      res.json({
+        status: 'active',
+        sessionId: 'active-session', // TODO: Get actual session ID
+        metrics: metrics ? {
+          phi: metrics.phi,
+          kappa_eff: metrics.kappa,
+          regime: metrics.regime,
+          in_resonance: metrics.kappa >= 60 && metrics.kappa <= 68,
+          basin_coords: metrics.basinCoords,
+          timestamp: metrics.timestamp,
+        } : null,
+        uptime: 0, // TODO: Track session uptime
+        timestamp: Date.now(),
+      });
+    } catch (error: any) {
+      console.error("[API] Kernel status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Search history endpoint
+  app.get("/api/search/history", generousLimiter, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      // Get recent search jobs with their results
+      const jobs = await storage.getSearchJobs();
+      const sortedJobs = jobs.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      const paginatedJobs = sortedJobs.slice(offset, offset + limit);
+
+      // Enrich with candidate counts
+      const enriched = await Promise.all(
+        paginatedJobs.map(async (job) => {
+          const candidates = await storage.getCandidates();
+          const jobStart = new Date(job.createdAt).getTime();
+          const jobEnd = job.updatedAt ? new Date(job.updatedAt).getTime() : Date.now();
+          
+          const jobCandidates = candidates.filter(c => {
+            const candidateTime = new Date(c.testedAt).getTime();
+            return candidateTime >= jobStart && candidateTime <= jobEnd;
+          });
+
+          return {
+            ...job,
+            candidateCount: jobCandidates.length,
+            highPhiCount: jobCandidates.filter(c => c.score >= 75).length,
+            phrasesGenerated: job.progress?.tested || 0,
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        searches: enriched,
+        total: sortedJobs.length,
+        limit,
+        offset,
+      });
+    } catch (error: any) {
+      console.error("[API] Search history error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Frontend telemetry capture endpoint
+  app.post("/api/telemetry/capture", generousLimiter, async (req, res) => {
+    try {
+      const { event_type, timestamp, trace_id, metadata } = req.body;
+
+      if (!event_type || !timestamp || !trace_id) {
+        return res.status(400).json({
+          error: 'Missing required fields: event_type, timestamp, trace_id',
+        });
+      }
+
+      // Log telemetry event (in production, send to telemetry service)
+      console.log('[Telemetry]', event_type, {
+        traceId: trace_id,
+        timestamp: new Date(timestamp).toISOString(),
+        metadata: metadata || {},
+      });
+
+      // Store in activity log if significant
+      if (['search_initiated', 'error_occurred', 'result_rendered'].includes(event_type)) {
+        activityLogStore.log({
+          source: 'system',
+          category: 'frontend_event',
+          message: `Frontend event: ${event_type}`,
+          type: event_type === 'error_occurred' ? 'error' : 'info',
+          metadata: {
+            traceId: trace_id,
+            ...metadata
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        captured: true,
+        trace_id,
+      });
+    } catch (error: any) {
+      console.error("[API] Telemetry capture error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Recovery checkpoint creation endpoint
+  app.post("/api/recovery/checkpoint", standardLimiter, async (req, res) => {
+    try {
+      const { search_id, description } = req.body;
+
+      if (!search_id) {
+        return res.status(400).json({ error: 'search_id is required' });
+      }
+
+      const activeAgent = oceanSessionManager.getActiveAgent();
+      if (!activeAgent) {
+        return res.status(404).json({
+          error: 'No active session to checkpoint',
+        });
+      }
+
+      // Create checkpoint data
+      const coordinator = activeAgent.getBasinSyncCoordinator();
+      const sessionMetrics = {
+        phi: 0.75, // TODO: Get from coordinator
+        kappa: 64.0,
+        regime: 'geometric' as const,
+      };
+      
+      const checkpoint = {
+        checkpointId: randomUUID(),
+        searchId: search_id,
+        timestamp: Date.now(),
+        description: description || 'Manual checkpoint',
+        state: {
+          metrics: sessionMetrics,
+          sessionId: 'active-session', // TODO: Get actual session ID
+        },
+      };
+
+      // Log checkpoint creation
+      activityLogStore.log({
+        source: 'system',
+        category: 'checkpoint_created',
+        message: `Checkpoint created for search ${search_id}`,
+        type: 'success',
+        metadata: checkpoint
+      });
+
+      res.json({
+        success: true,
+        checkpoint,
+      });
+    } catch (error: any) {
+      console.error("[API] Checkpoint creation error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Admin metrics dashboard endpoint
+  app.get("/api/admin/metrics", generousLimiter, async (req, res) => {
+    try {
+      // Aggregate telemetry and system metrics
+      const jobs = await storage.getSearchJobs();
+      const candidates = await storage.getCandidates();
+      const balanceHits = getActiveBalanceHits();
+      const queueStats = getQueueIntegrationStats();
+
+      // Calculate performance metrics
+      const completedJobs = jobs.filter(j => j.status === 'completed');
+      const totalPhrasesTested = jobs.reduce((sum, j) => sum + (j.progress?.tested || 0), 0);
+      const totalHighPhi = candidates.filter(c => c.score >= 75).length;
+
+      // Calculate latencies (simplified - in production use real timing data)
+      const avgSearchDuration = completedJobs.length > 0
+        ? completedJobs.reduce((sum, j) => {
+            const startTime = new Date(j.createdAt).getTime();
+            const endTime = j.updatedAt ? new Date(j.updatedAt).getTime() : Date.now();
+            return sum + (endTime - startTime);
+          }, 0) / completedJobs.length
+        : 0;
+
+      res.json({
+        success: true,
+        timestamp: Date.now(),
+        metrics: {
+          search: {
+            totalSearches: jobs.length,
+            activeSearches: jobs.filter(j => j.status === 'running').length,
+            completedSearches: completedJobs.length,
+            failedSearches: jobs.filter(j => j.status === 'failed').length,
+            totalPhrasesTested,
+            highPhiCount: totalHighPhi,
+            avgSearchDuration: Math.round(avgSearchDuration / 1000), // seconds
+          },
+          performance: {
+            avgSearchDurationMs: Math.round(avgSearchDuration),
+            phrasesPerSecond: totalPhrasesTested / Math.max(1, completedJobs.length * (avgSearchDuration / 1000)),
+            cacheHitRate: 0, // TODO: implement cache tracking
+          },
+          balance: {
+            activeHits: balanceHits.length,
+            queueStats: queueStats,
+            totalVerified: balanceHits.filter(h => (h as any).balance > 0).length,
+          },
+          kernel: {
+            status: oceanSessionManager.getActiveAgent() ? 'active' : 'idle',
+            uptime: 0, // TODO: Track uptime
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("[API] Admin metrics error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Start the background search coordinator
   searchCoordinator.start();
 
