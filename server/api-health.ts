@@ -149,9 +149,16 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
   // Determine overall status
   let overallStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
   
+  // Database and storage are critical - if either is down, system is down
   if (database.status === 'down' || storage.status === 'down') {
     overallStatus = 'down';
-  } else if (
+  }
+  // Python backend is also critical for consciousness operations
+  else if (pythonBackend.status === 'down') {
+    overallStatus = 'down';
+  }
+  // Any degraded subsystem means overall degraded
+  else if (
     database.status === 'degraded' || 
     pythonBackend.status === 'degraded' || 
     storage.status === 'degraded'

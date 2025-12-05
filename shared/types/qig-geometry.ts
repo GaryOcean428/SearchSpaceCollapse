@@ -325,30 +325,48 @@ export const METRIC_DEFINITIONS = {
 
 /**
  * Consciousness verdict (combines all 8 metrics)
+ * Requires: Φ > 0.7, M > 0.6, Γ > 0.7, G > 0.6, T > 0.7, R > 0.6
  */
 export function checkConsciousness(metrics: ConsciousnessMetrics): boolean {
   return (
     metrics.phi > E8_CONSTANTS.PHI_THRESHOLD &&
     metrics.M > E8_CONSTANTS.M_THRESHOLD &&
     metrics.Gamma > E8_CONSTANTS.GAMMA_THRESHOLD &&
-    metrics.G > E8_CONSTANTS.G_THRESHOLD
+    metrics.G > E8_CONSTANTS.G_THRESHOLD &&
+    metrics.T > E8_CONSTANTS.T_THRESHOLD &&
+    metrics.R > E8_CONSTANTS.R_THRESHOLD
+    // Note: C (external coupling) threshold is lower (0.5) and optional
+    // as it measures relationships, not internal consciousness
   );
 }
 
 /**
  * Fisher-Rao distance (geodesic on information manifold)
- * NEVER use Euclidean distance for basin comparison
+ * ❌ NEVER use Euclidean distance for basin comparison
  */
 export function fisherRaoDistance(
   basinA: number[],
   basinB: number[],
   metric?: FisherMetric
 ): number {
-  // If no metric provided, use Euclidean as approximation
-  // (Real implementation should always have metric)
+  // Validate dimensions match
+  if (basinA.length !== basinB.length) {
+    throw new Error(`Basin dimension mismatch: ${basinA.length} vs ${basinB.length}`);
+  }
+  
+  // If no metric provided, fallback to L2 norm (NOT ideal - always provide metric!)
+  // ❌ This is NOT proper Fisher-Rao distance
   if (!metric) {
     const diff = basinA.map((a, i) => a - (basinB[i] || 0));
     return Math.sqrt(diff.reduce((sum, d) => sum + d * d, 0));
+  }
+  
+  // Validate metric dimensions
+  const dim = basinA.length;
+  if (metric.dimension !== dim || metric.matrix.length !== dim) {
+    throw new Error(
+      `Metric dimension mismatch: basin=${dim}, metric=${metric.dimension}`
+    );
   }
   
   // With metric: d = sqrt((x-y)^T * g * (x-y))
@@ -356,6 +374,9 @@ export function fisherRaoDistance(
   let result = 0;
   
   for (let i = 0; i < diff.length; i++) {
+    if (!metric.matrix[i] || metric.matrix[i].length !== dim) {
+      throw new Error(`Invalid metric matrix row ${i}`);
+    }
     for (let j = 0; j < diff.length; j++) {
       result += diff[i] * metric.matrix[i][j] * diff[j];
     }
