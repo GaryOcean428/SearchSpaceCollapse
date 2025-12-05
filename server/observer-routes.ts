@@ -2329,4 +2329,321 @@ router.get("/consciousness-check", async (req: Request, res: Response) => {
   }
 });
 
+// ============================================================================
+// UNIFIED ADDRESS DISCOVERY CAPTURE
+// ============================================================================
+
+/**
+ * POST /api/observer/discoveries
+ * Unified endpoint to capture discovered addresses from ANY source (Python or TypeScript)
+ * 
+ * GUARANTEES:
+ * 1. Every address is ALWAYS checked against dormant list (regardless of queue status)
+ * 2. Every balance hit is persisted to PostgreSQL + JSON backup
+ * 3. Errors in persistence trigger 500 to signal clients to retry
+ * 4. Queue duplicates/full are explicitly reported, but dormancy check still runs
+ */
+router.post("/discoveries", async (req: Request, res: Response) => {
+  try {
+    const { queueAddressForBalanceCheck, queueAddressFromPrivateKey, queueMnemonicForBalanceCheck } = await import("./balance-queue-integration");
+    const { checkAndRecordBalance, saveBalanceHit } = await import("./blockchain-scanner");
+    
+    const schema = z.object({
+      // Discovery source (python, typescript, ocean-agent, qig-backend, etc.)
+      source: z.string().default('unknown'),
+      
+      // Address discovery (at least one required)
+      address: z.string().optional(),
+      addresses: z.array(z.string()).optional(),
+      
+      // Recovery input (at least one may be provided)
+      passphrase: z.string().optional(),
+      privateKeyHex: z.string().optional(),
+      mnemonic: z.string().optional(),
+      wif: z.string().optional(),
+      
+      // Metadata
+      priority: z.number().min(1).max(100).default(5),
+      checkDormancy: z.boolean().default(true),
+      checkBalance: z.boolean().default(true),
+      metadata: z.record(z.any()).optional(),
+    });
+    
+    const input = schema.parse(req.body);
+    const results: any[] = [];
+    let dormantMatches = 0;
+    let balanceHits = 0;
+    let queueErrors: string[] = [];
+    let persistenceErrors: string[] = [];
+    let hardFailures: string[] = []; // Failures that prevent address derivation
+    
+    // Collect all addresses to process - ALWAYS check dormancy even if queue fails
+    const addressesToProcess: string[] = [];
+    if (input.address) addressesToProcess.push(input.address);
+    if (input.addresses) addressesToProcess.push(...input.addresses);
+    
+    // Process mnemonic (derives multiple addresses)
+    if (input.mnemonic) {
+      try {
+        const mnemonicResult = queueMnemonicForBalanceCheck(
+          input.mnemonic,
+          `${input.source}-mnemonic`,
+          input.priority + 5
+        );
+        
+        if (mnemonicResult) {
+          // Add all derived addresses for dormancy check
+          if (mnemonicResult.derivedAddresses) {
+            addressesToProcess.push(...mnemonicResult.derivedAddresses);
+          }
+          
+          results.push({
+            type: 'mnemonic',
+            mnemonic: input.mnemonic.split(' ').slice(0, 3).join(' ') + '...',
+            totalAddresses: mnemonicResult.totalAddresses,
+            queuedAddresses: mnemonicResult.queuedAddresses,
+            dormantMatches: mnemonicResult.dormantMatches,
+            balanceHits: mnemonicResult.balanceHits || 0,
+          });
+          dormantMatches += mnemonicResult.dormantMatches;
+          balanceHits += mnemonicResult.balanceHits || 0;
+        } else {
+          // mnemonicResult null means derivation failed completely
+          hardFailures.push(`mnemonic derivation returned null`);
+        }
+      } catch (e: any) {
+        // Exception during mnemonic processing is a hard failure
+        hardFailures.push(`mnemonic: ${e.message}`);
+        console.error('[Discovery] Mnemonic processing failed (hard failure):', e);
+      }
+    }
+    
+    // Process passphrase (brain wallet)
+    if (input.passphrase && !input.privateKeyHex) {
+      try {
+        const passphraseResult = queueAddressForBalanceCheck(
+          input.passphrase,
+          `${input.source}-passphrase`,
+          input.priority
+        );
+        
+        if (passphraseResult) {
+          // ALWAYS add addresses for dormancy check, even if queue rejected them
+          addressesToProcess.push(passphraseResult.compressedAddress);
+          addressesToProcess.push(passphraseResult.uncompressedAddress);
+          
+          const wasQueued = passphraseResult.compressedQueued || passphraseResult.uncompressedQueued;
+          if (!wasQueued) {
+            queueErrors.push(`passphrase addresses already in queue or queue full`);
+          }
+          
+          results.push({
+            type: 'brain_wallet',
+            passphrase: input.passphrase.length > 20 
+              ? input.passphrase.slice(0, 20) + '...' 
+              : input.passphrase,
+            compressedAddress: passphraseResult.compressedAddress,
+            uncompressedAddress: passphraseResult.uncompressedAddress,
+            queued: wasQueued,
+            reason: wasQueued ? 'queued_for_balance_check' : 'duplicate_or_queue_full',
+          });
+        }
+      } catch (e: any) {
+        queueErrors.push(`passphrase: ${e.message}`);
+        console.error('[Discovery] Passphrase processing failed:', e);
+      }
+    }
+    
+    // Process private key
+    if (input.privateKeyHex) {
+      try {
+        const pkResult = queueAddressFromPrivateKey(
+          input.privateKeyHex,
+          input.passphrase || 'private-key-import',
+          `${input.source}-privatekey`,
+          input.priority
+        );
+        
+        if (pkResult) {
+          // ALWAYS add addresses for dormancy check
+          addressesToProcess.push(pkResult.compressedAddress);
+          addressesToProcess.push(pkResult.uncompressedAddress);
+          
+          const wasQueued = pkResult.compressedQueued || pkResult.uncompressedQueued;
+          if (!wasQueued) {
+            queueErrors.push(`private key addresses already in queue or queue full`);
+          }
+          
+          results.push({
+            type: 'private_key',
+            compressedAddress: pkResult.compressedAddress,
+            uncompressedAddress: pkResult.uncompressedAddress,
+            queued: wasQueued,
+            reason: wasQueued ? 'queued_for_balance_check' : 'duplicate_or_queue_full',
+          });
+        }
+      } catch (e: any) {
+        queueErrors.push(`private_key: ${e.message}`);
+        console.error('[Discovery] Private key processing failed:', e);
+      }
+    }
+    
+    // ALWAYS check dormancy for ALL addresses (regardless of queue status)
+    // This is the core guarantee: every address gets checked against dormant list
+    const dormantDetails: Array<{ address: string; rank: number; balance: string }> = [];
+    for (const addr of addressesToProcess) {
+      try {
+        const dormantCheck = dormantCrossRef.checkAddress(addr);
+        if (dormantCheck.isMatch && dormantCheck.info) {
+          dormantMatches++;
+          dormantDetails.push({
+            address: addr,
+            rank: dormantCheck.info.rank,
+            balance: dormantCheck.info.balanceBTC,
+          });
+          console.log(`[Discovery] 🎯 DORMANT MATCH from ${input.source}: ${addr}`);
+          console.log(`   Rank: ${dormantCheck.info.rank}, Balance: ${dormantCheck.info.balanceBTC}`);
+        }
+      } catch (e: any) {
+        console.error(`[Discovery] Error checking dormancy for ${addr}:`, e);
+      }
+    }
+    
+    // Immediate balance check if requested (for addresses with WIF)
+    if (input.checkBalance && input.address && input.wif) {
+      try {
+        const balanceHit = await checkAndRecordBalance({
+          address: input.address,
+          passphrase: input.passphrase || 'discovery-import',
+          wif: input.wif,
+          isCompressed: true,
+          recoveryType: 'discovery_import',
+        });
+        
+        if (balanceHit && balanceHit.balanceSats > 0) {
+          balanceHits++;
+          console.log(`[Discovery] 💰 BALANCE HIT from ${input.source}: ${input.address}`);
+          console.log(`   Balance: ${balanceHit.balanceBTC} BTC`);
+          
+          // Explicitly persist the hit with retry
+          try {
+            await saveBalanceHit(balanceHit);
+          } catch (persistError: any) {
+            persistenceErrors.push(`Failed to persist balance hit: ${persistError.message}`);
+            console.error('[Discovery] Balance hit persistence failed:', persistError);
+          }
+        }
+      } catch (e: any) {
+        console.error('[Discovery] Balance check failed:', e);
+      }
+    }
+    
+    // Log the discovery with full details
+    console.log(`[Discovery] Captured from ${input.source}: ${addressesToProcess.length} addresses, ${dormantMatches} dormant matches, ${balanceHits} balance hits`);
+    
+    // Check if there were hard failures (derivation exceptions)
+    if (hardFailures.length > 0) {
+      return res.status(500).json({
+        success: false,
+        error: "Address derivation failed - please retry",
+        hardFailures,
+        partialResult: addressesToProcess.length > 0 ? {
+          addresses: addressesToProcess.length,
+          dormantMatches,
+          balanceHits,
+        } : undefined,
+        hint: "Some input could not be processed. Check that the input format is valid.",
+      });
+    }
+    
+    // Check if input was provided but no addresses were processed
+    const inputProvided = !!(input.address || input.addresses?.length || input.passphrase || input.mnemonic || input.privateKeyHex);
+    const noAddressesProcessed = addressesToProcess.length === 0;
+    
+    if (inputProvided && noAddressesProcessed) {
+      return res.status(500).json({
+        success: false,
+        error: "No addresses were derived from input - processing failed",
+        queueErrors,
+        hint: "Check that the input format is valid (passphrase, mnemonic, or address)",
+      });
+    }
+    
+    // Return error 500 if persistence failed to signal client should retry
+    if (persistenceErrors.length > 0) {
+      return res.status(500).json({
+        success: false,
+        error: "Balance hit persistence failed - please retry",
+        persistenceErrors,
+        partialResult: {
+          addresses: addressesToProcess.length,
+          dormantMatches,
+          balanceHits,
+        },
+      });
+    }
+    
+    // All queue operations failed = partial failure, return 207 Multi-Status
+    const allQueuesFailed = queueErrors.length > 0 && results.every(r => !r.queued);
+    const httpStatus = allQueuesFailed ? 207 : 200;
+    
+    res.status(httpStatus).json({
+      success: !allQueuesFailed,
+      partialSuccess: allQueuesFailed,
+      source: input.source,
+      processed: {
+        addresses: addressesToProcess.length,
+        dormantMatches,
+        balanceHits,
+      },
+      dormantDetails: dormantMatches > 0 ? dormantDetails : undefined,
+      queueErrors: queueErrors.length > 0 ? queueErrors : undefined,
+      results,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('[Discovery] Error processing discovery:', error);
+    res.status(400).json({ 
+      error: "Failed to process discovery",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/observer/discoveries/stats
+ * Get discovery capture statistics
+ */
+router.get("/discoveries/stats", async (req: Request, res: Response) => {
+  try {
+    const { getQueueIntegrationStats } = await import("./balance-queue-integration");
+    const { getBalanceHits, getActiveBalanceHits } = await import("./blockchain-scanner");
+    
+    const queueStats = getQueueIntegrationStats();
+    const allHits = getBalanceHits();
+    const activeHits = getActiveBalanceHits();
+    const dormantStats = dormantCrossRef.getStats();
+    
+    res.json({
+      queueStats: {
+        totalQueued: queueStats.totalQueued,
+        currentQueueSize: queueStats.queueSize,
+        sourceBreakdown: queueStats.sourceBreakdown,
+      },
+      balanceHits: {
+        total: allHits.length,
+        withBalance: activeHits.length,
+        totalBTC: activeHits.reduce((sum, h) => sum + parseFloat(h.balanceBTC), 0).toFixed(8),
+      },
+      dormantCrossRef: {
+        totalDormant: dormantStats.totalDormant,
+        matchesFound: dormantStats.matchesFound,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

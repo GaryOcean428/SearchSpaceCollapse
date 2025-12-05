@@ -314,14 +314,20 @@ const balanceHits: BalanceHit[] = [];
 const BALANCE_HITS_FILE = 'data/balance-hits.json';
 
 /**
- * Load balance hits from PostgreSQL (primary) or disk (fallback)
+ * Load balance hits from PostgreSQL (primary) AND merge with JSON (for entries that failed DB write)
+ * This ensures no balance hits are lost even if PostgreSQL was temporarily unavailable
+ * Uses deduplication before populating in-memory array to prevent duplicate entries
  */
 async function loadBalanceHits(): Promise<void> {
+  const dbHitsMap = new Map<string, BalanceHit>();
+  const jsonHitsMap = new Map<string, BalanceHit>();
+  
+  // Load from PostgreSQL first
   try {
     if (db) {
       const rows = await db.select().from(balanceHitsTable);
       for (const row of rows) {
-        balanceHits.push({
+        dbHitsMap.set(row.address, {
           address: row.address,
           passphrase: row.passphrase,
           wif: row.wif,
@@ -336,22 +342,71 @@ async function loadBalanceHits(): Promise<void> {
           changeDetectedAt: row.changeDetectedAt?.toISOString(),
         });
       }
-      console.log(`[BlockchainScanner] Loaded ${balanceHits.length} balance hits from PostgreSQL`);
-      return;
+      console.log(`[BlockchainScanner] Loaded ${dbHitsMap.size} balance hits from PostgreSQL`);
     }
   } catch (error) {
-    console.error('[BlockchainScanner] Error loading from PostgreSQL, falling back to JSON:', error);
+    console.error('[BlockchainScanner] Error loading from PostgreSQL:', error);
   }
   
+  // Load from JSON backup to capture any entries that failed DB write
   try {
     const fs = await import('fs/promises');
     const data = await fs.readFile(BALANCE_HITS_FILE, 'utf-8');
-    const saved = JSON.parse(data);
-    balanceHits.push(...saved);
-    console.log(`[BlockchainScanner] Loaded ${balanceHits.length} balance hits from disk`);
+    const saved = JSON.parse(data) as BalanceHit[];
+    for (const hit of saved) {
+      jsonHitsMap.set(hit.address, hit);
+    }
+    console.log(`[BlockchainScanner] Loaded ${jsonHitsMap.size} balance hits from JSON backup`);
   } catch {
-    console.log('[BlockchainScanner] No saved balance hits found, starting fresh');
+    // File doesn't exist yet, that's fine
   }
+  
+  // Dedupe and merge: DB takes priority, then add JSON-only entries
+  const mergedMap = new Map<string, BalanceHit>();
+  
+  // Add all DB entries (these are authoritative)
+  for (const [addr, hit] of dbHitsMap) {
+    mergedMap.set(addr, hit);
+  }
+  
+  // Find and track JSON-only entries for sync
+  const missingInDb: BalanceHit[] = [];
+  for (const [addr, hit] of jsonHitsMap) {
+    if (!mergedMap.has(addr)) {
+      mergedMap.set(addr, hit);
+      missingInDb.push(hit);
+    }
+  }
+  
+  // Populate in-memory array (now deduplicated)
+  balanceHits.length = 0; // Clear any existing entries
+  balanceHits.push(...mergedMap.values());
+  
+  // Sync JSON-only entries to PostgreSQL (best effort, single attempt with backoff)
+  if (missingInDb.length > 0 && db) {
+    console.log(`[BlockchainScanner] Found ${missingInDb.length} balance hits in JSON but not DB - syncing...`);
+    let synced = 0;
+    let failed = 0;
+    
+    for (const hit of missingInDb) {
+      try {
+        await saveBalanceHitToDb(hit);
+        synced++;
+      } catch (syncError) {
+        failed++;
+        console.error(`[BlockchainScanner] Failed to sync ${hit.address} to PostgreSQL:`, syncError);
+      }
+    }
+    
+    if (synced > 0) {
+      console.log(`[BlockchainScanner] Synced ${synced} JSON-only balance hits to PostgreSQL`);
+    }
+    if (failed > 0) {
+      console.warn(`[BlockchainScanner] WARNING: ${failed} balance hits failed to sync to PostgreSQL - will retry on next restart`);
+    }
+  }
+  
+  console.log(`[BlockchainScanner] Total balance hits loaded: ${balanceHits.length} (${dbHitsMap.size} from DB, ${missingInDb.length} recovered from JSON)`);
 }
 
 /**
@@ -628,6 +683,108 @@ export function getActiveBalanceHits(): BalanceHit[] {
  */
 export function getBalanceChanges(): BalanceChangeEvent[] {
   return [...balanceChanges];
+}
+
+/**
+ * Save a balance hit to both PostgreSQL and JSON backup
+ * Used by discovery endpoint to persist balance hits with retry guarantee
+ * THROWS on failure so callers can catch and return 500
+ */
+export async function saveBalanceHit(hit: BalanceHit): Promise<void> {
+  // Add to in-memory array if not already present
+  const existingIndex = balanceHits.findIndex(h => h.address === hit.address);
+  if (existingIndex >= 0) {
+    balanceHits[existingIndex] = hit;
+  } else {
+    balanceHits.push(hit);
+  }
+  
+  let dbError: Error | null = null;
+  let jsonError: Error | null = null;
+  
+  // Save to PostgreSQL (primary) - capture any error
+  try {
+    await saveBalanceHitToDbStrict(hit);
+  } catch (e: any) {
+    dbError = e;
+    console.error('[BlockchainScanner] PostgreSQL save failed, will try JSON fallback:', e);
+  }
+  
+  // Always try JSON backup (even if DB succeeded, for redundancy)
+  try {
+    await saveBalanceHits();
+  } catch (e: any) {
+    jsonError = e;
+    console.error('[BlockchainScanner] JSON backup save failed:', e);
+  }
+  
+  // If both failed, throw so caller can return 500
+  if (dbError && jsonError) {
+    throw new Error(`Balance hit persistence failed: DB: ${dbError.message}, JSON: ${jsonError.message}`);
+  }
+  
+  // If only DB failed but JSON succeeded, log warning but don't throw
+  if (dbError && !jsonError) {
+    console.warn('[BlockchainScanner] Balance hit saved to JSON but PostgreSQL failed - will retry on next load');
+  }
+}
+
+/**
+ * Strict version of saveBalanceHitToDb that throws on failure
+ */
+async function saveBalanceHitToDbStrict(hit: BalanceHit, userId: string = DEFAULT_USER_ID): Promise<void> {
+  if (!db) {
+    throw new Error('Database not connected');
+  }
+  
+  const existing = await db.select()
+    .from(balanceHitsTable)
+    .where(eq(balanceHitsTable.address, hit.address))
+    .limit(1);
+  
+  if (existing.length > 0) {
+    await db.update(balanceHitsTable)
+      .set({
+        balanceSats: hit.balanceSats,
+        balanceBtc: hit.balanceBTC,
+        txCount: hit.txCount,
+        lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+        previousBalanceSats: hit.previousBalanceSats ?? null,
+        balanceChanged: hit.balanceChanged ?? false,
+        changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+        updatedAt: new Date(),
+        recoveryType: hit.recoveryType ?? existing[0].recoveryType ?? 'unknown',
+        isDormantConfirmed: hit.isDormantConfirmed ?? existing[0].isDormantConfirmed ?? false,
+        dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : existing[0].dormantConfirmedAt,
+        originalInput: hit.originalInput ?? existing[0].originalInput,
+        derivationPath: hit.derivationPath ?? existing[0].derivationPath,
+        mnemonicWordCount: hit.mnemonicWordCount ?? existing[0].mnemonicWordCount,
+      })
+      .where(eq(balanceHitsTable.address, hit.address));
+  } else {
+    await db.insert(balanceHitsTable).values({
+      userId,
+      address: hit.address,
+      passphrase: hit.passphrase,
+      wif: hit.wif,
+      balanceSats: hit.balanceSats,
+      balanceBtc: hit.balanceBTC,
+      txCount: hit.txCount,
+      isCompressed: hit.isCompressed,
+      discoveredAt: new Date(hit.discoveredAt),
+      lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+      previousBalanceSats: hit.previousBalanceSats ?? null,
+      balanceChanged: hit.balanceChanged ?? false,
+      changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+      recoveryType: hit.recoveryType ?? 'unknown',
+      isDormantConfirmed: hit.isDormantConfirmed ?? false,
+      dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : null,
+      originalInput: hit.originalInput ?? null,
+      derivationPath: hit.derivationPath ?? null,
+      mnemonicWordCount: hit.mnemonicWordCount ?? null,
+    });
+    console.log(`[BlockchainScanner] Saved balance hit to PostgreSQL: ${hit.address} (type: ${hit.recoveryType ?? 'unknown'})`);
+  }
 }
 
 /**
