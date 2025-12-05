@@ -184,16 +184,33 @@ export async function setupAuth(app: Express) {
     console.log(`[Auth]   Query params: ${JSON.stringify(req.query)}`);
     
     ensureStrategy(domain);
-    passport.authenticate(`replitauth:${domain}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
-    })(req, res, (err: any) => {
+    
+    // Use passport.authenticate with success/failure redirects
+    // The custom callback is ONLY for error handling - do NOT call next() on success
+    // since passport handles the redirect via successReturnToOrRedirect
+    passport.authenticate(`replitauth:${domain}`, (err: any, user: any, info: any) => {
       if (err) {
         console.error(`[Auth] Callback error:`, err);
         return res.redirect('/api/login?error=' + encodeURIComponent(err.message || 'Unknown error'));
       }
-      next();
-    });
+      
+      if (!user) {
+        console.error(`[Auth] No user returned:`, info);
+        return res.redirect('/api/login?error=' + encodeURIComponent(info?.message || 'Authentication failed'));
+      }
+      
+      // Log the user in and redirect to home
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error(`[Auth] Login error:`, loginErr);
+          return res.redirect('/api/login?error=' + encodeURIComponent(loginErr.message || 'Login failed'));
+        }
+        
+        console.log(`[Auth] Successfully logged in user: ${user.claims?.sub}`);
+        // Redirect to home page after successful login
+        return res.redirect('/');
+      });
+    })(req, res, next);
   });
 
   app.get("/api/logout", (req, res) => {
