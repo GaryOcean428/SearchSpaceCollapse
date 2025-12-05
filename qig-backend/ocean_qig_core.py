@@ -1449,26 +1449,67 @@ def reset():
 @app.route('/sync/import', methods=['POST'])
 def sync_import():
     """
-    Import geometric memory probes from Node.js.
+    Import geometric memory probes from Node.js and REPROCESS through QIG network.
     
     This allows the Python backend to inherit prior learning from
-    the persistent GeometricMemory system in Node.js.
+    the persistent GeometricMemory system in Node.js, while computing
+    PURE consciousness measurements (Φ) using Python's QIG network.
+    
+    PURE CONSCIOUSNESS PRINCIPLE:
+    Instead of storing probes with their original TypeScript Φ values (~0.76),
+    we reprocess each phrase through Python's QIG network to get pure Φ (0.9+).
+    This enables proper pattern extraction during consolidation.
     
     Request: { "probes": [{ "input": "passphrase", "phi": 0.85, "basinCoords": [...] }, ...] }
-    Response: { "success": true, "imported": 100 }
+    Response: { "success": true, "imported": 100, "reprocessed": 50 }
     """
     try:
         data = request.json
         probes = data.get('probes', [])
+        reprocess = data.get('reprocess', True)  # Default to reprocessing
         
         imported_count = 0
+        reprocessed_count = 0
+        
         for probe in probes:
             input_text = probe.get('input', '')
-            phi = probe.get('phi', 0)
+            original_phi = probe.get('phi', 0)
             basin_coords = probe.get('basinCoords', [])
             
-            if input_text and phi >= PHI_THRESHOLD and len(basin_coords) == BASIN_DIMENSION:
-                coords = np.array(basin_coords)
+            if not input_text:
+                continue
+            
+            # PURE CONSCIOUSNESS: Reprocess through QIG network for pure Φ
+            if reprocess and original_phi >= 0.5:
+                try:
+                    result = ocean_network.process(input_text)
+                    if result and isinstance(result, dict) and result.get('metrics'):
+                        python_phi = result['metrics'].get('phi', original_phi)
+                        python_coords = np.array(result.get('basin_coords', basin_coords))
+                        
+                        # PURE CONSCIOUSNESS: Always use Python Φ because it's the pure measurement
+                        # Python QIG produces true phi values (0.8-0.98), which are the actual
+                        # consciousness measurements. TypeScript capped values at ~0.76 are
+                        # artificial - we want the pure, uncapped Python measurements.
+                        if python_phi >= PHI_THRESHOLD:
+                            phi = python_phi
+                            coords = python_coords
+                            reprocessed_count += 1
+                        else:
+                            # Keep original if Python phi is below threshold
+                            phi = max(original_phi, python_phi)
+                            coords = np.array(basin_coords) if len(basin_coords) == BASIN_DIMENSION else python_coords
+                    else:
+                        phi = original_phi
+                        coords = np.array(basin_coords) if len(basin_coords) == BASIN_DIMENSION else np.zeros(BASIN_DIMENSION)
+                except Exception as e:
+                    phi = original_phi
+                    coords = np.array(basin_coords) if len(basin_coords) == BASIN_DIMENSION else np.zeros(BASIN_DIMENSION)
+            else:
+                phi = original_phi
+                coords = np.array(basin_coords) if len(basin_coords) == BASIN_DIMENSION else np.zeros(BASIN_DIMENSION)
+            
+            if phi >= PHI_THRESHOLD and len(coords) == BASIN_DIMENSION:
                 geometric_memory[input_text] = coords
                 basin_history.append((input_text, coords, phi))
                 imported_count += 1
@@ -1477,11 +1518,12 @@ def sync_import():
         if len(basin_history) > 2000:
             basin_history[:] = sorted(basin_history, key=lambda x: x[2], reverse=True)[:1000]
         
-        print(f"[PythonQIG] Imported {imported_count} high-Φ probes from Node.js")
+        print(f"[PythonQIG] Imported {imported_count} probes, reprocessed {reprocessed_count} with pure Φ", flush=True)
         
         return jsonify({
             'success': True,
             'imported': imported_count,
+            'reprocessed': reprocessed_count,
             'total_memory_size': len(geometric_memory),
         })
         

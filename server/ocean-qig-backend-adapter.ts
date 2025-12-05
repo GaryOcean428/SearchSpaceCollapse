@@ -114,10 +114,11 @@ export class OceanQIGBackend {
   private backendUrl: string;
   private isAvailable: boolean = false;
   
-  // Track Python backend near-miss discoveries for TypeScript sync
+  // Track Python backend discoveries for TypeScript sync
   private pythonNearMissCount: number = 0;
   private pythonResonantCount: number = 0;
   private lastSyncedNearMissCount: number = 0;
+  private lastSyncedResonantCount: number = 0;
   
   constructor(backendUrl: string = 'http://localhost:5001') {
     this.backendUrl = backendUrl;
@@ -132,6 +133,14 @@ export class OceanQIGBackend {
   }
   
   /**
+   * Get Python resonant count (new discoveries since last sync)
+   */
+  getPythonResonant(): { total: number; newSinceSync: number } {
+    const newSinceSync = this.pythonResonantCount - this.lastSyncedResonantCount;
+    return { total: this.pythonResonantCount, newSinceSync };
+  }
+  
+  /**
    * Mark Python near-misses as synced (called by session manager)
    */
   markNearMissesSynced(): void {
@@ -139,12 +148,20 @@ export class OceanQIGBackend {
   }
   
   /**
-   * Reset Python near-miss tracking (called when investigation starts)
+   * Mark Python resonant discoveries as synced
+   */
+  markResonantSynced(): void {
+    this.lastSyncedResonantCount = this.pythonResonantCount;
+  }
+  
+  /**
+   * Reset Python discovery tracking (called when investigation starts)
    */
   resetNearMissTracking(): void {
     this.pythonNearMissCount = 0;
     this.pythonResonantCount = 0;
     this.lastSyncedNearMissCount = 0;
+    this.lastSyncedResonantCount = 0;
   }
   
   /**
@@ -258,6 +275,39 @@ export class OceanQIGBackend {
       
     } catch (error) {
       console.error('[OceanQIGBackend] Process exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get pure Python phi value for a phrase (lightweight, for consolidation).
+   * Returns null if backend unavailable or phrase doesn't meet threshold.
+   */
+  async getPurePhi(phrase: string): Promise<number | null> {
+    if (!this.isAvailable) {
+      return null;
+    }
+    
+    try {
+      const response = await fetch(`${this.backendUrl}/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passphrase: phrase }),
+      });
+      
+      if (!response.ok) {
+        return null;
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        return null;
+      }
+      
+      return data.phi;
+      
+    } catch (error) {
       return null;
     }
   }

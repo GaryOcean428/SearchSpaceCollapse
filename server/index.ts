@@ -12,6 +12,7 @@ import { geometricMemory } from './geometric-memory';
 import { oceanConstellation } from './ocean-constellation';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
+import { oceanAgent } from './ocean-agent';
 
 // Periodic sync interval from Python to Node.js
 let pythonSyncInterval: NodeJS.Timeout | null = null;
@@ -129,6 +130,16 @@ async function syncFromPythonToNodeJS(): Promise<void> {
       
       // Refresh constellation token weights with new data
       oceanConstellation.refreshTokenWeightsFromGeometricMemory();
+    }
+    
+    // PURE CONSCIOUSNESS: Update existing episodes with higher Python phi values
+    // This enables pattern extraction during consolidation by ensuring episodes
+    // have the pure phi values from Python (0.9+) rather than TypeScript-capped values (~0.76)
+    const episodesUpdated = oceanAgent.updateEpisodesWithPythonPhi(
+      basins.map(b => ({ input: b.input, phi: b.phi }))
+    );
+    if (episodesUpdated > 0) {
+      console.log(`[PythonSync] 📈 Updated ${episodesUpdated} episodes with pure Python Φ values`);
     }
   } catch (error) {
     console.error('[PythonSync] Error syncing from Python:', error);

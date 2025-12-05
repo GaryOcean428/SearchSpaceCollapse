@@ -16,6 +16,9 @@
 import { checkAndRecordBalance } from './blockchain-scanner';
 import { dormantCrossRef } from './dormant-cross-ref';
 import { freeBlockchainAPI } from './blockchain-free-api';
+import { db } from './db';
+import { queuedAddresses } from '@shared/schema';
+import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
 
 export interface QueuedAddress {
   id: string;
@@ -424,8 +427,9 @@ class BalanceQueueService {
               item.checkedAt = Date.now();
               this.backgroundCheckCount++;
               
-              // Remove resolved items
+              // Remove resolved items from memory and DB
               this.queue.delete(item.id);
+              this.removeFromDb(item.id);
             } else {
               // No result - mark as failed
               item.status = 'failed';
@@ -502,6 +506,47 @@ class BalanceQueueService {
   }
 
   private async loadFromDisk(): Promise<void> {
+    // Try PostgreSQL first
+    if (db) {
+      try {
+        const dbItems = await db
+          .select()
+          .from(queuedAddresses)
+          .where(or(
+            eq(queuedAddresses.status, 'pending'),
+            eq(queuedAddresses.status, 'failed'),
+            eq(queuedAddresses.status, 'checking')
+          ))
+          .limit(MAX_QUEUE_SIZE);
+        
+        for (const item of dbItems) {
+          const queueItem: QueuedAddress = {
+            id: item.id,
+            address: item.address,
+            passphrase: item.passphrase,
+            wif: item.wif,
+            isCompressed: item.isCompressed,
+            cycleId: item.cycleId || undefined,
+            priority: item.priority,
+            status: item.status === 'checking' ? 'pending' : item.status as 'pending' | 'checking' | 'resolved' | 'failed',
+            queuedAt: item.queuedAt?.getTime() || Date.now(),
+            checkedAt: item.checkedAt?.getTime(),
+            retryCount: item.retryCount,
+            error: item.error || undefined,
+          };
+          this.queue.set(item.id, queueItem);
+        }
+        
+        if (this.queue.size > 0) {
+          console.log(`[BalanceQueue] Loaded ${this.queue.size} pending addresses from PostgreSQL`);
+          return;
+        }
+      } catch (dbError) {
+        console.log('[BalanceQueue] PostgreSQL load failed, trying JSON fallback:', dbError);
+      }
+    }
+    
+    // Fall back to JSON
     try {
       const fs = await import('fs/promises');
       const data = await fs.readFile(QUEUE_FILE, 'utf-8');
@@ -518,23 +563,102 @@ class BalanceQueueService {
       }
       
       console.log(`[BalanceQueue] Loaded ${this.queue.size} pending addresses from disk`);
+      
+      // Migrate JSON data to PostgreSQL if available
+      if (db && this.queue.size > 0) {
+        console.log(`[BalanceQueue] Migrating ${this.queue.size} addresses to PostgreSQL...`);
+        this.migrateToPostgres();
+      }
     } catch {
       console.log('[BalanceQueue] No saved queue found, starting fresh');
     }
   }
 
+  private async migrateToPostgres(): Promise<void> {
+    if (!db) return;
+    
+    const items = Array.from(this.queue.values());
+    let migrated = 0;
+    
+    for (const item of items) {
+      try {
+        await db.insert(queuedAddresses).values({
+          id: item.id,
+          address: item.address,
+          passphrase: item.passphrase,
+          wif: item.wif,
+          isCompressed: item.isCompressed,
+          cycleId: item.cycleId || null,
+          priority: item.priority,
+          status: item.status,
+          queuedAt: new Date(item.queuedAt),
+          checkedAt: item.checkedAt ? new Date(item.checkedAt) : null,
+          retryCount: item.retryCount,
+          error: item.error || null,
+        }).onConflictDoNothing();
+        migrated++;
+      } catch (error) {
+        // Ignore duplicates
+      }
+    }
+    
+    console.log(`[BalanceQueue] Migrated ${migrated}/${items.length} addresses to PostgreSQL`);
+  }
+
   private async saveToDisk(): Promise<void> {
+    const toSave = Array.from(this.queue.values()).filter(
+      item => item.status === 'pending' || item.status === 'failed'
+    );
+    
+    // Save to PostgreSQL (primary)
+    if (db) {
+      try {
+        // Batch upsert to PostgreSQL
+        for (const item of toSave.slice(0, 100)) { // Save latest 100 to avoid overloading
+          await db.insert(queuedAddresses).values({
+            id: item.id,
+            address: item.address,
+            passphrase: item.passphrase,
+            wif: item.wif,
+            isCompressed: item.isCompressed,
+            cycleId: item.cycleId || null,
+            priority: item.priority,
+            status: item.status,
+            queuedAt: new Date(item.queuedAt),
+            checkedAt: item.checkedAt ? new Date(item.checkedAt) : null,
+            retryCount: item.retryCount,
+            error: item.error || null,
+          }).onConflictDoUpdate({
+            target: queuedAddresses.id,
+            set: {
+              status: sql`EXCLUDED.status`,
+              priority: sql`EXCLUDED.priority`,
+              retryCount: sql`EXCLUDED.retry_count`,
+              error: sql`EXCLUDED.error`,
+            },
+          });
+        }
+      } catch (dbError) {
+        console.error('[BalanceQueue] PostgreSQL save error:', dbError);
+      }
+    }
+    
+    // Also save to JSON (backup)
     try {
       const fs = await import('fs/promises');
       await fs.mkdir('data', { recursive: true });
-      
-      const toSave = Array.from(this.queue.values()).filter(
-        item => item.status === 'pending' || item.status === 'failed'
-      );
-      
       await fs.writeFile(QUEUE_FILE, JSON.stringify(toSave, null, 2));
     } catch (error) {
       console.error('[BalanceQueue] Error saving to disk:', error);
+    }
+  }
+  
+  private async removeFromDb(id: string): Promise<void> {
+    if (!db) return;
+    try {
+      await db.delete(queuedAddresses).where(eq(queuedAddresses.id, id));
+    } catch (error) {
+      // Ignore delete errors
     }
   }
 

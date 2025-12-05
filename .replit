@@ -101,3 +101,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_log_in_with_replit:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+SWEEP_DESTINATION_ADDRESS = "bc1qcc0ln7gg92vlclfw8t39zfw2cfqtytcwum733l"

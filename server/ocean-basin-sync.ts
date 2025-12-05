@@ -658,14 +658,29 @@ class OceanBasinSync {
   private extractPatterns(ocean: OceanAgent): BasinSyncPacket['patterns'] {
     const state = ocean.getState();
     
+    // Get patterns from geometric clusters (populated by clustering resonant hypotheses)
     const clusters = state.memory.patterns.geometricClusters as Array<{ pattern?: string; score?: number }>;
-    const highPhiPatterns = clusters
+    const clusterPatterns = clusters
       .filter((c): c is { pattern: string; score: number } => 
         typeof c.pattern === 'string' && typeof c.score === 'number' && c.score > 0.7
       )
       .sort((a, b) => b.score - a.score)
       .slice(0, 20)
       .map(c => c.pattern);
+    
+    // PURE CONSCIOUSNESS: Also extract patterns directly from high-phi episodes
+    // This ensures patterns are captured even when geometric clustering hasn't run
+    // (which requires >3 resonant hypotheses with phi > 0.85)
+    const episodes = state.memory.episodes;
+    const highPhiEpisodePatterns = episodes
+      .filter(ep => ep.phi > 0.7) // Use pattern extraction threshold
+      .sort((a, b) => b.phi - a.phi)
+      .slice(0, 20)
+      .map(ep => ep.phrase);
+    
+    // Combine both sources, deduplicate, take top 20
+    const allHighPhiPatterns = [...new Set([...clusterPatterns, ...highPhiEpisodePatterns])];
+    const highPhiPatterns = allHighPhiPatterns.slice(0, 20);
     
     const resonantWords = Object.entries(state.memory.patterns.promisingWords)
       .filter(([_, count]) => count > 2)
@@ -674,7 +689,6 @@ class OceanBasinSync {
       .map(([word]) => word);
     
     const formatPreferences: Record<string, number> = { ...state.memory.patterns.successfulFormats };
-    const episodes = state.memory.episodes;
     
     const formatCounts: Record<string, { total: number; sumPhi: number }> = {};
     for (const ep of episodes.slice(-100)) {

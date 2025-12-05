@@ -14,9 +14,11 @@ import {
 } from "./memory-fragment-search";
 import { getSharedController, ConsciousnessSearchController } from "./consciousness-search-controller";
 import { oceanAutonomicManager } from "./ocean-autonomic-manager";
-import { queueAddressForBalanceCheck } from "./balance-queue-integration";
+import { queueAddressForBalanceCheck, getQueueIntegrationStats } from "./balance-queue-integration";
 import { getBalanceHits, getActiveBalanceHits, fetchAddressBalance } from "./blockchain-scanner";
 import { getBalanceAddresses, getVerificationStats, refreshStoredBalances } from "./address-verification";
+import { sweepApprovalService } from "./sweep-approval";
+import { balanceQueue } from "./balance-queue";
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -2583,9 +2585,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Comprehensive address checking with rate-limited parallel processing
   // ==========================================================================
   
-  app.get("/api/balance-queue/status", standardLimiter, async (req, res) => {
+  app.get("/api/balance-queue/status", standardLimiter, (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     try {
-      const { balanceQueue } = await import("./balance-queue");
+      // Don't block if service isn't ready - return defaults
+      if (!balanceQueue.isReady()) {
+        res.json({
+          pending: 0,
+          checking: 0,
+          resolved: 0,
+          failed: 0,
+          total: 0,
+          addressesPerSecond: 0,
+          isProcessing: false,
+          initializing: true
+        });
+        return;
+      }
+      
       const stats = balanceQueue.getStats();
       res.json({
         ...stats,
@@ -2597,9 +2614,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/balance-queue/pending", standardLimiter, async (req, res) => {
+  app.get("/api/balance-queue/pending", standardLimiter, (req, res) => {
     try {
-      const { balanceQueue } = await import("./balance-queue");
       const limit = parseInt(req.query.limit as string) || 100;
       const addresses = balanceQueue.getPendingAddresses(limit);
       res.json({
@@ -2613,10 +2629,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/balance-queue/drain", isAuthenticated, standardLimiter, async (req: any, res) => {
+  app.post("/api/balance-queue/drain", isAuthenticated, standardLimiter, (req: any, res) => {
     try {
-      const { balanceQueue } = await import("./balance-queue");
-      
       if (balanceQueue.isWorkerRunning()) {
         return res.status(409).json({ error: 'Queue drain already in progress' });
       }
@@ -2643,9 +2657,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/balance-queue/rate-limit", isAuthenticated, standardLimiter, async (req: any, res) => {
+  app.post("/api/balance-queue/rate-limit", isAuthenticated, standardLimiter, (req: any, res) => {
     try {
-      const { balanceQueue } = await import("./balance-queue");
       const { requestsPerSecond } = req.body;
       
       if (typeof requestsPerSecond !== 'number' || isNaN(requestsPerSecond)) {
@@ -2663,9 +2676,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/balance-queue/clear-failed", isAuthenticated, standardLimiter, async (req: any, res) => {
+  app.post("/api/balance-queue/clear-failed", isAuthenticated, standardLimiter, (req: any, res) => {
     try {
-      const { balanceQueue } = await import("./balance-queue");
       const cleared = balanceQueue.clearFailed();
       res.json({
         cleared,
@@ -2677,12 +2689,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/balance-queue/background", standardLimiter, async (req, res) => {
+  app.get("/api/balance-queue/background", standardLimiter, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      const { balanceQueue } = await import("./balance-queue");
-      // Wait for service to be ready (auto-start to complete)
-      await balanceQueue.waitForReady();
+      // Don't block on waitForReady - check if ready and respond immediately
+      if (!balanceQueue.isReady()) {
+        // Service still initializing - return immediate response with initializing flag
+        res.json({ 
+          enabled: true,
+          checked: 0, 
+          hits: 0, 
+          rate: 0, 
+          pending: 0,
+          initializing: true
+        });
+        return;
+      }
+      
       const status = balanceQueue.getBackgroundStatus();
       res.json(status);
     } catch (error: any) {
@@ -2699,9 +2722,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/balance-queue/background/start", isAuthenticated, standardLimiter, async (req: any, res) => {
+  app.post("/api/balance-queue/background/start", isAuthenticated, standardLimiter, (req: any, res) => {
     try {
-      const { balanceQueue } = await import("./balance-queue");
       balanceQueue.startBackgroundWorker();
       res.json({
         message: 'Background worker started',
@@ -2713,9 +2735,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/balance-queue/background/stop", isAuthenticated, standardLimiter, async (req: any, res) => {
+  app.post("/api/balance-queue/background/stop", isAuthenticated, standardLimiter, (req: any, res) => {
     try {
-      const { balanceQueue } = await import("./balance-queue");
       const stopped = balanceQueue.stopBackgroundWorker();
       
       if (!stopped) {
@@ -2740,10 +2761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Queue integration stats - shows which sources are feeding addresses
-  app.get("/api/balance-queue/integration-stats", standardLimiter, async (req, res) => {
+  app.get("/api/balance-queue/integration-stats", standardLimiter, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      const { getQueueIntegrationStats } = await import("./balance-queue-integration");
       const stats = getQueueIntegrationStats();
       res.json(stats);
     } catch (error: any) {
@@ -3306,6 +3326,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount Telemetry API
   app.use("/api/telemetry", telemetryRouter);
+
+  // ============================================================================
+  // SWEEP APPROVAL API - Manual approval for Bitcoin sweeps
+  // ============================================================================
+
+  app.get("/api/sweeps", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const sweeps = await sweepApprovalService.getPendingSweeps(status as any);
+      res.json({ success: true, sweeps });
+    } catch (error: any) {
+      console.error("[API] Error getting sweeps:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/sweeps/stats", async (req, res) => {
+    try {
+      const stats = await sweepApprovalService.getStats();
+      res.json({ success: true, stats });
+    } catch (error: any) {
+      console.error("[API] Error getting sweep stats:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/sweeps/:id", async (req, res) => {
+    try {
+      const sweep = await sweepApprovalService.getSweepById(req.params.id);
+      if (!sweep) {
+        return res.status(404).json({ success: false, error: "Sweep not found" });
+      }
+      res.json({ success: true, sweep });
+    } catch (error: any) {
+      console.error("[API] Error getting sweep:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/sweeps/:id/approve", isAuthenticated, async (req: any, res) => {
+    try {
+      const approvedBy = req.user?.email || req.user?.id || "operator";
+      const result = await sweepApprovalService.approveSweep(req.params.id, approvedBy);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error("[API] Error approving sweep:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/sweeps/:id/broadcast", isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await sweepApprovalService.broadcastSweep(req.params.id);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error("[API] Error broadcasting sweep:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/sweeps/:id/reject", isAuthenticated, async (req: any, res) => {
+    try {
+      const { reason } = req.body;
+      const result = await sweepApprovalService.rejectSweep(req.params.id, reason || "Manual rejection");
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      res.json(result);
+    } catch (error: any) {
+      console.error("[API] Error rejecting sweep:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/sweeps/:id/refresh", async (req, res) => {
+    try {
+      const result = await sweepApprovalService.refreshBalance(req.params.id);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[API] Error refreshing sweep balance:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/sweeps/audit/:sweepId?", async (req, res) => {
+    try {
+      const auditLog = await sweepApprovalService.getAuditLog(req.params.sweepId);
+      res.json({ success: true, auditLog });
+    } catch (error: any) {
+      console.error("[API] Error getting audit log:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
 
   // Start the background search coordinator
   searchCoordinator.start();

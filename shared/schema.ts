@@ -330,6 +330,102 @@ export type VocabularyObservation = typeof vocabularyObservations.$inferSelect;
 export type InsertVocabularyObservation = typeof vocabularyObservations.$inferInsert;
 
 // ============================================================================
+// SWEEP APPROVAL AND BALANCE QUEUE TABLES
+// ============================================================================
+
+// Sweep status types
+export const sweepStatusTypes = [
+  'pending',      // Awaiting manual approval
+  'approved',     // Approved, ready to broadcast
+  'broadcasting', // Transaction being broadcast
+  'completed',    // Successfully swept
+  'failed',       // Sweep failed
+  'rejected',     // Manually rejected
+  'expired',      // Balance no longer available
+] as const;
+
+export type SweepStatus = typeof sweepStatusTypes[number];
+
+// Pending sweeps: Addresses with balance that need manual approval before sweeping
+export const pendingSweeps = pgTable("pending_sweeps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: varchar("address", { length: 62 }).notNull(),
+  passphrase: text("passphrase").notNull(),
+  wif: text("wif").notNull(),
+  isCompressed: boolean("is_compressed").notNull().default(true),
+  balanceSats: bigint("balance_sats", { mode: "number" }).notNull(),
+  balanceBtc: varchar("balance_btc", { length: 20 }).notNull(),
+  estimatedFeeSats: bigint("estimated_fee_sats", { mode: "number" }),
+  netAmountSats: bigint("net_amount_sats", { mode: "number" }),
+  utxoCount: integer("utxo_count").default(0),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  source: varchar("source", { length: 50 }).default("typescript"), // typescript, python, manual
+  recoveryType: varchar("recovery_type", { length: 32 }),
+  txHex: text("tx_hex"),
+  txId: varchar("tx_id", { length: 64 }),
+  destinationAddress: varchar("destination_address", { length: 62 }),
+  errorMessage: text("error_message"),
+  discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  approvedBy: varchar("approved_by", { length: 100 }),
+  broadcastAt: timestamp("broadcast_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_pending_sweeps_address").on(table.address),
+  index("idx_pending_sweeps_status").on(table.status),
+  index("idx_pending_sweeps_balance").on(table.balanceSats),
+  index("idx_pending_sweeps_discovered").on(table.discoveredAt),
+]);
+
+export type PendingSweep = typeof pendingSweeps.$inferSelect;
+export type InsertPendingSweep = typeof pendingSweeps.$inferInsert;
+
+// Sweep audit log: Tracks all sweep actions for accountability
+export const sweepAuditLog = pgTable("sweep_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sweepId: varchar("sweep_id").references(() => pendingSweeps.id),
+  action: varchar("action", { length: 50 }).notNull(), // created, approved, rejected, broadcast, completed, failed
+  previousStatus: varchar("previous_status", { length: 20 }),
+  newStatus: varchar("new_status", { length: 20 }),
+  actor: varchar("actor", { length: 100 }).default("system"),
+  details: text("details"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sweep_audit_log_sweep").on(table.sweepId),
+  index("idx_sweep_audit_log_action").on(table.action),
+  index("idx_sweep_audit_log_timestamp").on(table.timestamp),
+]);
+
+export type SweepAuditLog = typeof sweepAuditLog.$inferSelect;
+export type InsertSweepAuditLog = typeof sweepAuditLog.$inferInsert;
+
+// Queued addresses: PostgreSQL-backed balance check queue (migrated from JSON)
+export const queuedAddresses = pgTable("queued_addresses", {
+  id: varchar("id").primaryKey(),
+  address: varchar("address", { length: 62 }).notNull(),
+  passphrase: text("passphrase").notNull(),
+  wif: text("wif").notNull(),
+  isCompressed: boolean("is_compressed").notNull().default(true),
+  cycleId: varchar("cycle_id", { length: 100 }),
+  source: varchar("source", { length: 50 }).default("typescript"), // typescript, python
+  priority: integer("priority").notNull().default(1),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, checking, resolved, failed
+  queuedAt: timestamp("queued_at").notNull().defaultNow(),
+  checkedAt: timestamp("checked_at"),
+  retryCount: integer("retry_count").notNull().default(0),
+  error: text("error"),
+}, (table) => [
+  index("idx_queued_addresses_status").on(table.status),
+  index("idx_queued_addresses_priority").on(table.priority),
+  index("idx_queued_addresses_source").on(table.source),
+]);
+
+export type QueuedAddress = typeof queuedAddresses.$inferSelect;
+export type InsertQueuedAddress = typeof queuedAddresses.$inferInsert;
+
+// ============================================================================
 // OBSERVER ARCHAEOLOGY SYSTEM TABLES
 // ============================================================================
 
@@ -869,6 +965,7 @@ export const oceanAgentStateSchema = z.object({
   iteration: z.number(),
   totalTested: z.number(),
   nearMissCount: z.number(),
+  resonantCount: z.number().optional(),
   
   // Consolidation
   consolidationCycles: z.number(),

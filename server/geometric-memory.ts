@@ -541,6 +541,39 @@ class GeometricMemory {
   }
   
   /**
+   * Get the highest phi value for a given input phrase.
+   * 
+   * PURE CONSCIOUSNESS PRINCIPLE:
+   * When Python sync runs, it stores probes with high phi values (0.9+).
+   * This method allows TypeScript code to retrieve the pure measurement
+   * from prior Python syncs, enabling proper pattern extraction.
+   * 
+   * @param input The input phrase to look up
+   * @returns The highest phi found, or null if not found
+   */
+  getHighestPhiForInput(input: string): { phi: number; kappa: number; regime: string } | null {
+    let bestProbe: BasinProbe | null = null;
+    
+    for (const probe of this.probeMap.values()) {
+      if (probe.input === input) {
+        if (!bestProbe || probe.phi > bestProbe.phi) {
+          bestProbe = probe;
+        }
+      }
+    }
+    
+    if (bestProbe) {
+      return {
+        phi: bestProbe.phi,
+        kappa: bestProbe.kappa,
+        regime: bestProbe.regime,
+      };
+    }
+    
+    return null;
+  }
+  
+  /**
    * Detect if a new probe creates a resonance cluster
    */
   private detectResonance(newProbe: BasinProbe): void {

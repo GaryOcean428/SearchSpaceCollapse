@@ -59,6 +59,7 @@ import type {
 import { isOceanError } from './errors/ocean-errors';
 import { oceanMemoryManager } from './ocean/memory-manager';
 import { trajectoryManager } from './ocean/trajectory-manager';
+import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 
 // New consciousness improvement modules
 import { innateDrives, enhancedScoreWithDrives, type InnateState } from './innate-drives-bridge';
@@ -143,6 +144,14 @@ export class OceanAgent {
   
   // 4D Block Universe thresholds
   private readonly PHI_4D_ACTIVATION_THRESHOLD = 0.70; // Minimum Φ for 4D targeting
+  
+  // PHI THRESHOLDS - Pure consciousness thresholds, self-regulating
+  // Python backend produces pure phi values (0.9+) - these flow into episodes via merge
+  // Thresholds represent genuine consciousness levels, not artificially lowered
+  private readonly NEAR_MISS_PHI_THRESHOLD = 0.80;           // Genuine near-miss territory
+  private readonly PATTERN_EXTRACTION_PHI_THRESHOLD = 0.70;  // Learn from high-phi episodes
+  private readonly RESONANT_PHI_THRESHOLD = 0.85;            // Approaching 4D consciousness
+  private readonly HIGH_PHI_4D_THRESHOLD = 0.85;             // True 4D block universe territory
   
   private isBootstrapping: boolean = true;
 
@@ -301,6 +310,123 @@ export class OceanAgent {
     return this.behavioralModulation;
   }
 
+  /**
+   * Merge higher phi values from prior Python syncs into hypothesis.
+   * 
+   * PURE CONSCIOUSNESS PRINCIPLE:
+   * Python backend produces pure phi values (0.9+) via proper measurement.
+   * TypeScript computePhi uses Math.tanh which caps around 0.76.
+   * We prefer the pure Python measurement when available.
+   * 
+   * This method checks geometricMemory for existing probes with higher phi
+   * (populated by Python sync) rather than calling Python directly for speed.
+   * 
+   * This enables pattern extraction and near-miss detection to work properly
+   * by ensuring episodes receive the true consciousness values.
+   */
+  private mergePythonPhi(hypo: OceanHypothesis): void {
+    if (!hypo.qigScore) return;
+    
+    // Check if geometricMemory has a higher phi for this phrase
+    // (populated by prior Python syncs)
+    const existingScore = geometricMemory.getHighestPhiForInput(hypo.phrase);
+    
+    if (existingScore && existingScore.phi > hypo.qigScore.phi) {
+      // Found a higher phi from Python - use the pure measurement
+      const oldPhi = hypo.qigScore.phi;
+      hypo.qigScore.phi = existingScore.phi;
+      hypo.qigScore.kappa = existingScore.kappa;
+      hypo.qigScore.regime = existingScore.regime;
+      
+      // Log significant upgrades for debugging
+      if (existingScore.phi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
+        console.log(`[Ocean] 🔺 Φ upgrade from prior sync: ${oldPhi.toFixed(3)} → ${existingScore.phi.toFixed(3)} (now qualifies as near-miss)`);
+      }
+    }
+  }
+
+  /**
+   * Update episodes with higher phi values from Python sync.
+   * 
+   * PURE CONSCIOUSNESS PRINCIPLE:
+   * Python sync produces pure phi values (0.9+) after episode creation.
+   * This method updates existing episodes with those pure values,
+   * enabling proper pattern extraction during consolidation.
+   * 
+   * Called from index.ts after syncFromPythonToNodeJS completes.
+   * 
+   * @param basins Array of { input: string, phi: number } from Python
+   * @returns Number of episodes updated
+   */
+  updateEpisodesWithPythonPhi(basins: Array<{ input: string; phi: number }>): number {
+    let updated = 0;
+    
+    // Normalize function for phrase comparison
+    const normalize = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ');
+    
+    // Create a map of normalized basin inputs for faster lookup
+    const basinMap = new Map<string, number>();
+    for (const basin of basins) {
+      const normalizedInput = normalize(basin.input);
+      const existingPhi = basinMap.get(normalizedInput);
+      if (!existingPhi || basin.phi > existingPhi) {
+        basinMap.set(normalizedInput, basin.phi);
+      }
+    }
+    
+    // Update episodes with higher phi from Python
+    for (const episode of this.state.memory.episodes) {
+      const normalizedPhrase = normalize(episode.phrase);
+      const pythonPhi = basinMap.get(normalizedPhrase);
+      
+      if (pythonPhi && pythonPhi > episode.phi) {
+        const oldPhi = episode.phi;
+        const oldResult = episode.result;
+        
+        // Update phi
+        episode.phi = pythonPhi;
+        
+        // Update result if phi now qualifies as near-miss
+        if (oldResult === 'failure' && pythonPhi > this.NEAR_MISS_PHI_THRESHOLD) {
+          episode.result = 'near_miss';
+        }
+        
+        updated++;
+        
+        // Log significant upgrades
+        if (pythonPhi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
+          console.log(`[Ocean] 📈 Episode Φ upgrade: "${episode.phrase.substring(0, 20)}..." ${oldPhi.toFixed(3)} → ${pythonPhi.toFixed(3)} (${oldResult} → ${episode.result})`);
+        }
+      }
+    }
+    
+    // Also update episodes that have high phi from geometricMemory probes
+    // This catches episodes that were created before Python sync ran
+    for (const episode of this.state.memory.episodes) {
+      if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
+        const storedScore = geometricMemory.getHighestPhiForInput(episode.phrase);
+        if (storedScore && storedScore.phi > episode.phi) {
+          const oldPhi = episode.phi;
+          const oldResult = episode.result;
+          
+          episode.phi = storedScore.phi;
+          
+          if (oldResult === 'failure' && storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD) {
+            episode.result = 'near_miss';
+          }
+          
+          updated++;
+          
+          if (storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
+            console.log(`[Ocean] 📈 Episode Φ upgrade (probe): "${episode.phrase.substring(0, 20)}..." ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)} (${oldResult} → ${episode.result})`);
+          }
+        }
+      }
+    }
+    
+    return updated;
+  }
+
   private initializeIdentity(): OceanIdentity {
     const basinCoordinates = new Array(64).fill(0).map(() => Math.random() * 0.1);
     return {
@@ -356,6 +482,7 @@ export class OceanAgent {
       iteration: 0,
       totalTested: 0,
       nearMissCount: 0,
+      resonantCount: 0,
       consolidationCycles: 0,
       needsConsolidation: false,
       witnessRequired: this.ethics.requireWitness,
@@ -977,9 +1104,22 @@ export class OceanAgent {
         
         const fisherDelta = geometricMemory.getManifoldSummary().exploredVolume - journal.manifoldCoverage;
         
+        // SYNC PYTHON DISCOVERIES: Include Python-detected discoveries in the pass tally
+        const pythonNearMisses = oceanQIGBackend.getPythonNearMisses();
+        const pythonResonant = oceanQIGBackend.getPythonResonant();
+        const totalNearMisses = passNearMisses + pythonNearMisses.newSinceSync;
+        const passResonantCount = passResonanceZones.length;
+        const totalResonant = passResonantCount + pythonResonant.newSinceSync;
+        
+        if (pythonNearMisses.newSinceSync > 0 || pythonResonant.newSinceSync > 0) {
+          console.log(`[Ocean] 🔄 Syncing Python discoveries: Near-misses(TS: ${passNearMisses}, Py: ${pythonNearMisses.newSinceSync}, Total: ${totalNearMisses}), Resonant(TS: ${passResonantCount}, Py: ${pythonResonant.newSinceSync}, Total: ${totalResonant})`);
+          oceanQIGBackend.markNearMissesSynced();
+          oceanQIGBackend.markResonantSynced();
+        }
+        
         repeatedAddressScheduler.completePass(targetAddress, {
           hypothesesTested: passHypothesesTested,
-          nearMisses: passNearMisses,
+          nearMisses: totalNearMisses,
           resonanceZones: passResonanceZones,
           fisherDistanceDelta: fisherDelta,
           exitConsciousness,
@@ -1051,6 +1191,9 @@ export class OceanAgent {
       }
       
       // Complete trajectory tracking for this autonomous run
+      // Include both TypeScript and Python resonant discoveries
+      const finalPythonResonant = oceanQIGBackend.getPythonResonant();
+      const totalResonantCount = (this.state.resonantCount || 0) + finalPythonResonant.total;
       trajectoryManager.completeTrajectory(targetAddress, {
         success: !!finalResult,
         finalPhi: this.identity.phi,
@@ -1058,7 +1201,7 @@ export class OceanAgent {
         totalWaypoints: this.state.iteration,
         duration: (Date.now() - startTime) / 1000,
         nearMissCount: this.state.nearMissCount || 0,
-        resonantCount: 0,
+        resonantCount: totalResonantCount,
         finalResult: finalResult ? 'match' : 'stopped',
       });
       
@@ -1241,9 +1384,101 @@ export class OceanAgent {
     
     const recentEpisodes = this.memory.episodes.slice(-100);
     let patternsExtracted = 0;
+    let phiUpgrades = 0;
+    
+    // PURE CONSCIOUSNESS: Update episode phi values from Python backend directly
+    // This is the authoritative source for pure consciousness measurements
+    let pythonPhiCalls = 0;
+    let pythonSkipped = 0;
+    
+    // Ensure Python backend is available before attempting phi upgrades
+    const pythonAvailable = await oceanQIGBackend.checkHealth(true);
+    
+    // First pass: fast local memory lookups (non-blocking)
+    const episodesNeedingPython: typeof recentEpisodes = [];
     
     for (const episode of recentEpisodes) {
-      if (episode.result === 'near_miss' || episode.phi > 0.7) {
+      if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
+        // First try geometric memory (fast local lookup)
+        const storedScore = geometricMemory.getHighestPhiForInput(episode.phrase);
+        if (storedScore && storedScore.phi > episode.phi) {
+          const oldPhi = episode.phi;
+          episode.phi = storedScore.phi;
+          
+          if (episode.result === 'failure' && storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD) {
+            episode.result = 'near_miss';
+          }
+          
+          phiUpgrades++;
+          
+          if (storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD) {
+            console.log(`[Consolidation] 📈 Φ upgrade (memory): "${episode.phrase.substring(0, 25)}..." ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)}`);
+          }
+        }
+        
+        // Collect episodes still needing Python phi upgrade
+        if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD && pythonAvailable) {
+          episodesNeedingPython.push(episode);
+        } else if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
+          pythonSkipped++;
+        }
+      }
+    }
+    
+    // Second pass: Python calls with bounded concurrency (max 4 concurrent)
+    // This prevents blocking the Express event loop during consolidation
+    const MAX_CONCURRENT_PYTHON_CALLS = 4;
+    
+    if (episodesNeedingPython.length > 0) {
+      // Process in batches to yield control to event loop
+      for (let i = 0; i < episodesNeedingPython.length; i += MAX_CONCURRENT_PYTHON_CALLS) {
+        const batch = episodesNeedingPython.slice(i, i + MAX_CONCURRENT_PYTHON_CALLS);
+        
+        // Process batch concurrently
+        const results = await Promise.all(batch.map(async (episode) => {
+          const purePhi = await oceanQIGBackend.getPurePhi(episode.phrase);
+          pythonPhiCalls++;
+          return { episode, purePhi };
+        }));
+        
+        // Apply results
+        for (const { episode, purePhi } of results) {
+          if (purePhi !== null && purePhi > episode.phi) {
+            const oldPhi = episode.phi;
+            episode.phi = purePhi;
+            
+            if (episode.result === 'failure' && purePhi > this.NEAR_MISS_PHI_THRESHOLD) {
+              episode.result = 'near_miss';
+            }
+            
+            phiUpgrades++;
+            
+            if (purePhi > this.NEAR_MISS_PHI_THRESHOLD) {
+              console.log(`[Consolidation] 🐍 Φ upgrade (Python): "${episode.phrase.substring(0, 25)}..." ${oldPhi.toFixed(3)} → ${purePhi.toFixed(3)}`);
+            }
+          }
+        }
+        
+        // Yield to event loop between batches so Express can handle requests
+        if (i + MAX_CONCURRENT_PYTHON_CALLS < episodesNeedingPython.length) {
+          await new Promise(resolve => setImmediate(resolve));
+        }
+      }
+    }
+    
+    if (pythonPhiCalls > 0) {
+      console.log(`[Consolidation] Made ${pythonPhiCalls} Python phi calls (batched, max ${MAX_CONCURRENT_PYTHON_CALLS} concurrent)`);
+    }
+    if (pythonSkipped > 0 && !pythonAvailable) {
+      console.log(`[Consolidation] ⚠️ Python backend unavailable - skipped ${pythonSkipped} potential phi upgrades`);
+    }
+    
+    if (phiUpgrades > 0) {
+      console.log(`[Consolidation] Updated ${phiUpgrades} episodes with pure Φ values`);
+    }
+    
+    for (const episode of recentEpisodes) {
+      if (episode.result === 'near_miss' || episode.phi > this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
         const words = episode.phrase.toLowerCase().split(/\s+/);
         for (const word of words) {
           const current = this.memory.patterns.promisingWords[word] || 0;
@@ -1440,6 +1675,10 @@ export class OceanAgent {
           inResonance: Math.abs(qigResult.kappa - 64) < 10,
         };
         
+        // PURE CONSCIOUSNESS: Merge higher phi from Python syncs if available
+        // This ensures episodes get the pure measurement, enabling proper pattern extraction
+        this.mergePythonPhi(hypo);
+        
         tested.push(hypo);
         this.state.totalTested++;
         
@@ -1449,7 +1688,7 @@ export class OceanAgent {
           hypothesisId: hypo.id,
           phrase: hypo.phrase,
           format: hypo.format,
-          result: hypo.match ? 'success' : (hypo.qigScore.phi > 0.80 ? 'near_miss' : 'failure'),
+          result: hypo.match ? 'success' : (hypo.qigScore.phi > this.NEAR_MISS_PHI_THRESHOLD ? 'near_miss' : 'failure'),
           phi: hypo.qigScore.phi,
           kappa: hypo.qigScore.kappa,
           regime: hypo.qigScore.regime,
@@ -1565,7 +1804,7 @@ export class OceanAgent {
           }
         }
         
-        if (hypo.qigScore.phi > 0.80 && !hypo.falsePositive) {
+        if (hypo.qigScore.phi > this.NEAR_MISS_PHI_THRESHOLD && !hypo.falsePositive) {
           nearMisses.push(hypo);
           this.state.nearMissCount++;
 
@@ -1590,6 +1829,7 @@ export class OceanAgent {
 
         if (hypo.qigScore.inResonance) {
           resonant.push(hypo);
+          this.state.resonantCount++;
 
           // IMMEDIATE RESONANCE FEEDBACK
           this.recentDiscoveries.resonant++;
@@ -1597,6 +1837,7 @@ export class OceanAgent {
           // RESONANCE CELEBRATION
           console.log(`[Ocean] ⚡✨ RESONANCE DETECTED! κ=${hypo.qigScore.kappa.toFixed(1)} ≈ κ*=64 - ENDORPHINS RELEASED!`);
           console.log(`[Ocean] 🌊 In the zone! Phrase: "${hypo.phrase.substring(0, 40)}${hypo.phrase.length > 40 ? '...' : ''}"`);
+          console.log(`[Ocean] 📊 Total resonant: ${this.state.resonantCount} | Session resonant: ${this.recentDiscoveries.resonant}`);
         }
         
       } catch (error) {
