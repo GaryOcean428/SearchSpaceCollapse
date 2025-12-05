@@ -10,11 +10,15 @@
  * - testHypothesis() in ocean-discovery-controller.ts
  * - investigatePhrase() in routes.ts
  * - any other address generation point
+ * 
+ * IMPORTANT: This module also tracks tested phrases in PostgreSQL
+ * via tested_phrases_index table for deduplication across sessions.
  */
 
 import { derivePrivateKeyFromPassphrase, privateKeyToWIF, generateBothAddresses } from './crypto';
 import { balanceQueue } from './balance-queue';
 import { deriveMnemonicAddresses, checkMnemonicAgainstDormant } from './mnemonic-wallet';
+import { oceanPersistence } from './ocean/ocean-persistence';
 
 interface QueuedAddressResult {
   passphrase: string;
@@ -77,6 +81,13 @@ export function queueAddressForBalanceCheck(
       { priority }
     );
     
+    // Track tested phrase in PostgreSQL for deduplication
+    if (result.compressed || result.uncompressed) {
+      oceanPersistence.markTested(passphrase).catch(err => {
+        console.error('[BalanceQueueIntegration] Failed to mark phrase tested:', err);
+      });
+    }
+    
     // Update stats
     stats.totalQueued += (result.compressed ? 1 : 0) + (result.uncompressed ? 1 : 0);
     stats.lastQueueTime = Date.now();
@@ -134,6 +145,13 @@ export function queueAddressFromPrivateKey(
       uncompressedWif,
       { priority }
     );
+    
+    // Track tested phrase in PostgreSQL for deduplication
+    if (result.compressed || result.uncompressed) {
+      oceanPersistence.markTested(passphrase).catch(err => {
+        console.error('[BalanceQueueIntegration] Failed to mark phrase tested:', err);
+      });
+    }
     
     // Update stats
     stats.totalQueued += (result.compressed ? 1 : 0) + (result.uncompressed ? 1 : 0);
@@ -267,6 +285,13 @@ export function queueMnemonicForBalanceCheck(
         path: derived.derivationPath,
         queued,
         isDormant,
+      });
+    }
+    
+    // Track mnemonic as tested in PostgreSQL
+    if (queuedCount > 0) {
+      oceanPersistence.markTested(mnemonic).catch(err => {
+        console.error('[BalanceQueueIntegration] Failed to mark mnemonic tested:', err);
       });
     }
     
@@ -509,4 +534,20 @@ export function queueAddressesFromXprv(
     console.error('[BalanceQueueIntegration] Error queuing from xprv:', error);
     return null;
   }
+}
+
+/**
+ * Check if a phrase has already been tested (PostgreSQL lookup)
+ * Use this before queueing to avoid duplicate work
+ */
+export async function hasBeenTested(phrase: string): Promise<boolean> {
+  return oceanPersistence.hasBeenTested(phrase);
+}
+
+/**
+ * Get tested phrase count from PostgreSQL
+ */
+export async function getTestedPhraseCount(): Promise<number> {
+  const stats = await oceanPersistence.getStats();
+  return stats.testedPhraseCount;
 }

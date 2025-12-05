@@ -11,6 +11,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { regimeSchema } from "./types/core";
@@ -257,6 +258,11 @@ export type BalanceHit = typeof balanceHits.$inferSelect;
 export type InsertBalanceHit = typeof balanceHits.$inferInsert;
 
 // User's target addresses for recovery
+// NOTE: This is DISTINCT from the `addresses` table!
+// - userTargetAddresses: Simple user watchlist (address + label) linked to userId for auth
+// - addresses: Heavy blockchain metadata (signatures, dormancy, chain analysis data)
+// Use userTargetAddresses for user-facing target management
+// Use addresses for deep forensic chain analysis (when available)
 export const userTargetAddresses = pgTable("user_target_addresses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
@@ -471,7 +477,12 @@ export const transactions = pgTable("transactions", {
   index("idx_transactions_timestamp").on(table.blockTimestamp),
 ]);
 
-// Bitcoin addresses with full geometric signatures
+// Bitcoin addresses with full geometric signatures (BLOCKCHAIN ANALYSIS DATA)
+// NOTE: This is DISTINCT from the `userTargetAddresses` table!
+// - addresses: Heavy blockchain metadata from chain analysis (signatures, dormancy, tx history)
+// - userTargetAddresses: Simple user watchlist (just address + label) for UI/auth
+// This table is populated by blockchain-scanner.ts when cataloging dormant addresses
+// Use this for κ_recovery calculations and forensic QIG analysis
 export const addresses = pgTable("addresses", {
   address: varchar("address", { length: 35 }).primaryKey(),
   
@@ -598,7 +609,7 @@ export const recoveryPriorities = pgTable("recovery_priorities", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  index("idx_recovery_priorities_address").on(table.address),
+  uniqueIndex("idx_recovery_priorities_address_unique").on(table.address),
   index("idx_recovery_priorities_kappa").on(table.kappaRecovery),
   index("idx_recovery_priorities_rank").on(table.rank),
   index("idx_recovery_priorities_status").on(table.recoveryStatus),
