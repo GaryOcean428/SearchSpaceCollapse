@@ -165,6 +165,17 @@ class DormantCrossRef {
     return sorted.slice(0, limit);
   }
 
+  /**
+   * Get ALL addresses from the top dormant wallets list (no classification filter)
+   * This returns all ~999 addresses from the imported data
+   */
+  getAllDormantAddresses(limit: number = 1000): DormantAddressInfo[] {
+    const sorted = Array.from(this.addressMap.values())
+      .sort((a, b) => a.rank - b.rank);
+    
+    return sorted.slice(0, limit);
+  }
+
   getTotalValue(): { btc: number; usd: number } {
     let btc = 0;
     let usd = 0;
