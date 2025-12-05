@@ -653,7 +653,7 @@ export default function ObserverPage() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="catalog" className="space-y-4">
-          <div className="sticky top-0 z-50 bg-background py-2 -mx-6 px-6 border-b">
+          <div className="sticky top-0 z-50 bg-background py-2 border-b">
             <TabsList className="flex-wrap h-auto gap-1" data-testid="tabs-main-navigation">
               <TabsTrigger value="catalog" data-testid="tab-catalog">
                 <Database className="w-4 h-4 mr-2" />

@@ -2689,16 +2689,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/balance-queue/background", standardLimiter, (req, res) => {
+  app.get("/api/balance-queue/background", standardLimiter, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
+      // Use PostgreSQL count as single source of truth for hits
+      // This ensures consistency with /api/balance-hits endpoint
+      const dbHits = getBalanceHits();
+      const dbHitCount = dbHits.length;
+      
       // Don't block on waitForReady - check if ready and respond immediately
       if (!balanceQueue.isReady()) {
         // Service still initializing - return immediate response with initializing flag
         res.json({ 
           enabled: true,
           checked: 0, 
-          hits: 0, 
+          hits: dbHitCount, // Use DB count even during initialization
           rate: 0, 
           pending: 0,
           initializing: true
@@ -2707,7 +2712,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const status = balanceQueue.getBackgroundStatus();
-      res.json(status);
+      
+      // Build response explicitly to ensure DB count is used
+      res.json({
+        enabled: status.enabled,
+        checked: status.checked,
+        hits: dbHitCount, // PostgreSQL count - single source of truth
+        rate: status.rate,
+        pending: status.pending,
+        apiStats: status.apiStats,
+        sessionHits: status.hits, // Keep session counter for debugging only
+      });
     } catch (error: any) {
       console.error("[BalanceQueue] Background status error:", error);
       // Return status indicating initialization in progress
