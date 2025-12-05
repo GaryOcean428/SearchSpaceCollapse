@@ -348,6 +348,39 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
+// CORS Configuration - validate FRONTEND_URL
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:5000',
+  'http://localhost:3000',
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Allow requests with no origin (mobile apps, Postman, etc)
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Trace-ID');
+    res.setHeader('Access-Control-Expose-Headers', 'X-Trace-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset');
+    
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+  } else {
+    console.warn(`[CORS] Blocked request from origin: ${origin}`);
+  }
+  
+  next();
+});
+
+// Add trace ID middleware for distributed tracing
+import { traceIdMiddleware } from './trace-middleware';
+app.use(traceIdMiddleware);
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;

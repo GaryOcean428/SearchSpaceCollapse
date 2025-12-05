@@ -1266,12 +1266,55 @@ basin_history: List[Tuple[str, np.ndarray, float]] = []
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
+    """
+    Enhanced health check endpoint
+    Follows: TYPE_SYMBOL_CONCEPT_MANIFEST v1.0
+    Returns detailed subsystem health status
+    """
+    import time
+    start_time = time.time()
+    
+    # Check kernel status
+    kernel_status = 'healthy'
+    kernel_message = 'QIG kernel operational'
+    
+    try:
+        # Test kernel instantiation
+        test_kernel = OceanKernel()
+        kernel_message = f'Kernel: {len(test_kernel.subsystems)} subsystems, κ*={KAPPA_STAR}'
+    except Exception as e:
+        kernel_status = 'degraded'
+        kernel_message = f'Kernel initialization warning: {str(e)}'
+    
+    latency = (time.time() - start_time) * 1000  # ms
+    
     return jsonify({
-        'status': 'ok',
+        'status': 'healthy' if kernel_status == 'healthy' else 'degraded',
         'service': 'ocean-qig-backend',
+        'version': '1.0.0',
         'timestamp': datetime.now().isoformat(),
+        'latency_ms': round(latency, 2),
+        'subsystems': {
+            'kernel': {
+                'status': kernel_status,
+                'message': kernel_message,
+                'details': {
+                    'kappa_star': KAPPA_STAR,
+                    'basin_dimension': BASIN_DIMENSION,
+                    'phi_threshold': PHI_THRESHOLD,
+                    'min_recursions': MIN_RECURSIONS,
+                    'neurochemistry_available': NEUROCHEMISTRY_AVAILABLE,
+                }
+            }
+        },
+        'constants': {
+            'E8_RANK': 8,
+            'E8_ROOTS': 240,
+            'KAPPA_STAR': KAPPA_STAR,
+            'PHI_THRESHOLD': PHI_THRESHOLD,
+        }
     })
+
 
 @app.route('/process', methods=['POST'])
 def process_passphrase():
