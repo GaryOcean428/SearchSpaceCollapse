@@ -8,7 +8,7 @@
     "txCount": 4,
     "discoveredAt": "2025-11-29T07:26:08.931Z",
     "isCompressed": false,
-    "lastChecked": "2025-12-05T09:28:51.610Z",
+    "lastChecked": "2025-12-05T10:50:01.520Z",
     "previousBalanceSats": 0,
     "balanceChanged": false
   },
@@ -151,9 +151,30 @@
     "txCount": 2,
     "discoveredAt": "2025-12-05T09:27:05.527Z",
     "isCompressed": false,
-    "recoveryType": "brain_wallet",
     "lastChecked": "2025-12-05T09:35:05.466Z",
     "previousBalanceSats": 0,
     "balanceChanged": false
+  },
+  {
+    "address": "1FQJmVrFE868GcHfAiY8oubGgwkJWFWCoD",
+    "passphrase": "artificial",
+    "wif": "5JQGaVrLAhadokqsvQs2XjwRyi6QD1chvAm9CYW4o9a89ATkNhS",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-12-05T10:20:45.818Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "19tjZDWfmC8ra2rdCXi3nUiAj7H37LukHi",
+    "passphrase": "intelligence",
+    "wif": "5K2XrovLUdwtmefKbqFZV7LJ2dg1kCNNYREBFN92xmRGPuB97cE",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-12-05T10:20:46.604Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
   }
 ]
