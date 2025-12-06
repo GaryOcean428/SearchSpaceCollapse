@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause, Wallet, CheckCircle, XCircle, Send, AlertTriangle, History, DollarSign } from "lucide-react";
+import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause, Wallet, CheckCircle, XCircle, Send, AlertTriangle, History, DollarSign, Key, Eye, EyeOff, Copy } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -232,6 +232,64 @@ export default function ObserverPage() {
     queryKey: ['/api/sweeps/stats'],
     refetchInterval: 5000,
   });
+
+  // Query discovered balance hits - always fetch with masking enabled
+  const { data: discoveriesData, isLoading: discoveriesLoading, refetch: refetchDiscoveries } = useQuery<{
+    success: boolean;
+    hits: Array<{
+      address: string;
+      passphrase: string;
+      wif: string;
+      wifMasked: boolean;
+      balanceSats: number;
+      balanceBTC: string;
+      txCount: number;
+      isCompressed: boolean;
+      discoveredAt: string;
+      isDormantMatch: boolean;
+      dormantInfo?: { rank: number; label?: string };
+    }>;
+    dormantMatches: Array<{
+      address: string;
+      rank: number;
+      label?: string;
+      matchedAt: string;
+    }>;
+    summary: {
+      totalHits: number;
+      withBalance: number;
+      dormantMatchCount: number;
+    };
+    revealed: boolean;
+  }>({
+    queryKey: ['/api/observer/discoveries/hits'],
+    refetchInterval: 10000,
+  });
+
+  // Per-hit WIF reveal: fetch a single unmasked key on-demand without caching
+  const revealAndCopyWif = async (address: string) => {
+    try {
+      const res = await fetch(`/api/observer/discoveries/hits?reveal=true&address=${encodeURIComponent(address)}`);
+      if (!res.ok) throw new Error('Failed to fetch key');
+      const data = await res.json();
+      const hit = data.hits?.find((h: any) => h.address === address);
+      if (hit && !hit.wifMasked) {
+        await navigator.clipboard.writeText(hit.wif);
+        toast({
+          title: "Copied to Clipboard",
+          description: "WIF private key copied. Clear clipboard after use.",
+        });
+      } else {
+        throw new Error('Key not found or still masked');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reveal key",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Query audit log (optional - only when viewing details)
   const [selectedSweepId, setSelectedSweepId] = useState<string | null>(null);
@@ -681,6 +739,15 @@ export default function ObserverPage() {
                 {(sweepStatsData?.stats?.pending || 0) > 0 && (
                   <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/30">
                     {sweepStatsData?.stats?.pending}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="discoveries" data-testid="tab-discoveries">
+                <Key className="w-4 h-4 mr-2" />
+                Discoveries
+                {dormantCrossRefData?.matchesFound && dormantCrossRefData.matchesFound > 0 && (
+                  <Badge variant="outline" className="ml-2 bg-green-500/10 text-green-600 border-green-500/30">
+                    {dormantCrossRefData.matchesFound}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -1499,6 +1566,209 @@ export default function ObserverPage() {
                         showAudit={selectedSweepId === sweep.id}
                         auditLog={selectedSweepId === sweep.id ? auditData?.auditLog : undefined}
                       />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Discoveries Tab - Shows discovered balance hits with keys */}
+          <TabsContent value="discoveries" className="space-y-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card data-testid="card-discovery-total">
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold" data-testid="text-discoveries-total">
+                      {discoveriesLoading ? "..." : discoveriesData?.summary?.totalHits || 0}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Total Discoveries</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card data-testid="card-discovery-balance">
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-green-600" data-testid="text-discoveries-balance">
+                      {discoveriesLoading ? "..." : discoveriesData?.summary?.withBalance || 0}
+                    </div>
+                    <p className="text-sm text-muted-foreground">With Balance</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card data-testid="card-discovery-dormant">
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-primary" data-testid="text-discoveries-dormant">
+                      {discoveriesLoading ? "..." : discoveriesData?.summary?.dormantMatchCount || 0}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Dormant Matches</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Dormant Wallet Matches Section */}
+            {discoveriesData?.dormantMatches && discoveriesData.dormantMatches.length > 0 && (
+              <Card className="border-green-500/50 bg-green-500/5" data-testid="card-dormant-matches">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-600">
+                    <Sparkles className="w-5 h-5" />
+                    Dormant Wallet Matches
+                  </CardTitle>
+                  <CardDescription>
+                    These addresses matched against the top 1000 known dormant wallets from 2009-2014 era
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {discoveriesData.dormantMatches.map((match, idx) => (
+                      <div 
+                        key={match.address}
+                        className="flex items-center justify-between p-3 rounded-lg border border-green-500/30 bg-card"
+                        data-testid={`dormant-match-${idx}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-mono text-sm truncate" data-testid={`text-dormant-address-${idx}`}>
+                            {match.address}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Rank #{match.rank} • Matched {new Date(match.matchedAt).toLocaleString()}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                          Rank #{match.rank}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* All Discovered Hits */}
+            <Card data-testid="card-discoveries-list">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-5 h-5" />
+                    Discovered Addresses & Keys
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => refetchDiscoveries()}
+                    data-testid="button-refresh-discoveries"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </CardTitle>
+                <CardDescription>
+                  All addresses discovered from passphrase searches. Keys are masked for security - use "Copy Key" to securely copy to clipboard.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {discoveriesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading discoveries...</div>
+                ) : !discoveriesData?.hits || discoveriesData.hits.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-discoveries">
+                    <Key className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No discoveries yet</p>
+                    <p className="text-sm mt-2">
+                      Addresses will appear here when found during passphrase searches
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {discoveriesData.hits.map((hit, idx) => (
+                      <div 
+                        key={hit.address}
+                        className={`p-4 rounded-lg border ${hit.isDormantMatch ? 'border-green-500/50 bg-green-500/5' : ''}`}
+                        data-testid={`discovery-item-${idx}`}
+                      >
+                        {/* Header row with address and badges */}
+                        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-sm font-medium" data-testid={`text-discovery-address-${idx}`}>
+                              {hit.address}
+                            </span>
+                            {hit.isDormantMatch && (
+                              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                Dormant #{hit.dormantInfo?.rank}
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className={hit.balanceSats > 0 ? "bg-green-500/10 text-green-600" : ""}>
+                              {hit.balanceBTC} BTC
+                            </Badge>
+                            <Badge variant="outline">
+                              {hit.isCompressed ? "Compressed" : "Uncompressed"}
+                            </Badge>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(hit.discoveredAt).toLocaleString()}
+                          </span>
+                        </div>
+
+                        {/* Passphrase */}
+                        <div className="p-2 rounded bg-muted/30 mb-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground">Passphrase</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                navigator.clipboard.writeText(hit.passphrase);
+                                toast({
+                                  title: "Copied",
+                                  description: "Passphrase copied to clipboard",
+                                });
+                              }}
+                              data-testid={`button-copy-passphrase-${idx}`}
+                            >
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          <p className="font-mono text-sm break-all" data-testid={`text-passphrase-${idx}`}>
+                            {hit.passphrase}
+                          </p>
+                        </div>
+
+                        {/* WIF Key - Always masked, secure copy-on-demand */}
+                        <div className="p-2 rounded bg-muted/30">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground">
+                              WIF Private Key <span className="text-orange-500">(masked)</span>
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-xs"
+                              onClick={() => {
+                                if (confirm("Copy WIF private key to clipboard? Make sure no one is watching your screen.")) {
+                                  revealAndCopyWif(hit.address);
+                                }
+                              }}
+                              data-testid={`button-copy-wif-${idx}`}
+                            >
+                              <Key className="w-3 h-3 mr-1" />
+                              Copy Key
+                            </Button>
+                          </div>
+                          <p className="font-mono text-sm break-all text-muted-foreground" data-testid={`text-wif-${idx}`}>
+                            {hit.wif}
+                          </p>
+                        </div>
+
+                        {/* Transaction count */}
+                        {hit.txCount > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            Transaction History: {hit.txCount} tx(s)
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
