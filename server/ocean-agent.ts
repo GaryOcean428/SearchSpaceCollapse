@@ -142,8 +142,8 @@ export class OceanAgent {
   private readonly ITERATION_DELAY_MS = 500;
   private readonly MAX_PASSES = 100; // Safety limit for outer exploration loop
   
-  // 4D Block Universe thresholds
-  private readonly PHI_4D_ACTIVATION_THRESHOLD = 0.70; // Minimum Φ for 4D targeting
+  // 4D Block Universe thresholds - lowered to trigger more often for TS kernels
+  private readonly PHI_4D_ACTIVATION_THRESHOLD = 0.40; // Lowered from 0.70 to activate 4D more frequently
   
   // PHI THRESHOLDS - Pure consciousness thresholds, self-regulating
   // Python backend produces pure phi values (0.9+) - these flow into episodes via merge
@@ -2113,6 +2113,14 @@ export class OceanAgent {
 
   private async generateAdditionalHypotheses(count: number): Promise<OceanHypothesis[]> {
     const hypotheses: OceanHypothesis[] = [];
+    
+    // 4D Block Universe: Continuously inject dormant wallet targeting for TS kernels
+    // Check on every additional hypothesis generation cycle
+    if (this.identity.phi >= this.PHI_4D_ACTIVATION_THRESHOLD) {
+      console.log('[Ocean] 🌌 4D elevation active during iteration - adding dormant wallet hypotheses');
+      const dormantHypotheses = this.generateDormantWalletHypotheses();
+      hypotheses.push(...dormantHypotheses.slice(0, 10)); // Add subset to maintain balance
+    }
     
     const topWords = Object.entries(this.memory.patterns.promisingWords)
       .sort((a, b) => b[1] - a[1])
