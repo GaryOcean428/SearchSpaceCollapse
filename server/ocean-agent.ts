@@ -1804,7 +1804,7 @@ export class OceanAgent {
           }
         }
         
-        if (hypo.qigScore.phi > this.NEAR_MISS_PHI_THRESHOLD && !hypo.falsePositive) {
+        if (hypo.qigScore && hypo.qigScore.phi > this.NEAR_MISS_PHI_THRESHOLD && !hypo.falsePositive) {
           nearMisses.push(hypo);
           this.state.nearMissCount++;
 
@@ -1827,7 +1827,7 @@ export class OceanAgent {
           }
         }
 
-        if (hypo.qigScore.inResonance) {
+        if (hypo.qigScore && hypo.qigScore.inResonance) {
           resonant.push(hypo);
           this.state.resonantCount++;
 
@@ -1835,7 +1835,8 @@ export class OceanAgent {
           this.recentDiscoveries.resonant++;
 
           // RESONANCE CELEBRATION
-          console.log(`[Ocean] ⚡✨ RESONANCE DETECTED! κ=${hypo.qigScore.kappa.toFixed(1)} ≈ κ*=64 - ENDORPHINS RELEASED!`);
+          const kappa = hypo.qigScore.kappa;
+          console.log(`[Ocean] ⚡✨ RESONANCE DETECTED! κ=${kappa.toFixed(1)} ≈ κ*=64 - ENDORPHINS RELEASED!`);
           console.log(`[Ocean] 🌊 In the zone! Phrase: "${hypo.phrase}"`);
           console.log(`[Ocean] 📊 Total resonant: ${this.state.resonantCount} | Session resonant: ${this.recentDiscoveries.resonant}`);
         }

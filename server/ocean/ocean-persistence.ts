@@ -73,6 +73,15 @@ export interface TrajectoryWaypoint {
 export class OceanPersistence {
   private isAvailable: boolean;
   
+  // Batching system for markTested to prevent connection pool exhaustion
+  private testedPhraseBuffer: Set<string> = new Set(); // Use Set for deduplication
+  private readonly BATCH_SIZE = 100;
+  private flushTimer: NodeJS.Timeout | null = null;
+  private readonly FLUSH_INTERVAL_MS = 5000; // Flush every 5 seconds if not full
+  private isFlushingTested = false;
+  private consecutiveFailures = 0;
+  private readonly MAX_CONSECUTIVE_FAILURES = 10;
+  
   constructor() {
     this.isAvailable = db !== null;
     if (this.isAvailable) {
@@ -80,6 +89,106 @@ export class OceanPersistence {
     } else {
       console.log('[OceanPersistence] Database not available - using in-memory fallback');
     }
+    
+    // Start periodic flush timer
+    this.startFlushTimer();
+    
+    // Register shutdown hook to flush remaining data
+    process.on('beforeExit', () => this.shutdown());
+    process.on('SIGINT', () => this.shutdown());
+    process.on('SIGTERM', () => this.shutdown());
+  }
+  
+  /**
+   * Graceful shutdown - flush all pending data
+   */
+  async shutdown(): Promise<void> {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+    
+    if (this.testedPhraseBuffer.size > 0) {
+      console.log(`[OceanPersistence] Shutdown: flushing ${this.testedPhraseBuffer.size} pending phrases...`);
+      await this.flushTestedPhrases();
+    }
+  }
+  
+  /**
+   * Start the periodic flush timer for tested phrases
+   */
+  private startFlushTimer(): void {
+    if (this.flushTimer) clearInterval(this.flushTimer);
+    this.flushTimer = setInterval(() => {
+      this.flushTestedPhrases().catch(err => {
+        console.error('[OceanPersistence] Periodic flush error:', err);
+      });
+    }, this.FLUSH_INTERVAL_MS);
+  }
+  
+  /**
+   * Flush all buffered tested phrases to the database with retry logic
+   */
+  async flushTestedPhrases(): Promise<number> {
+    if (this.testedPhraseBuffer.size === 0 || this.isFlushingTested) return 0;
+    
+    // Check for persistent failures - back off if too many
+    if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
+      console.warn('[OceanPersistence] Too many consecutive failures, waiting for next cycle');
+      return 0;
+    }
+    
+    this.isFlushingTested = true;
+    const toFlush = Array.from(this.testedPhraseBuffer);
+    this.testedPhraseBuffer.clear();
+    
+    let retries = 3;
+    let delay = 100;
+    const maxDelay = 2000; // Cap at 2 seconds
+    
+    while (retries > 0) {
+      try {
+        const count = await this.batchMarkTestedDirect(toFlush);
+        this.isFlushingTested = false;
+        this.consecutiveFailures = 0; // Reset on success
+        return count;
+      } catch (error: any) {
+        retries--;
+        if (retries === 0) {
+          this.consecutiveFailures++;
+          console.error(`[OceanPersistence] Failed to flush ${toFlush.length} phrases after 3 retries (consecutive failures: ${this.consecutiveFailures}):`, error.message);
+          // Re-add failed phrases to buffer for next attempt
+          toFlush.forEach(p => this.testedPhraseBuffer.add(p));
+          this.isFlushingTested = false;
+          return 0;
+        }
+        console.log(`[OceanPersistence] Flush retry in ${delay}ms (${retries} left)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay = Math.min(delay * 2, maxDelay); // Exponential backoff with cap
+      }
+    }
+    
+    this.isFlushingTested = false;
+    return 0;
+  }
+  
+  /**
+   * Internal direct batch write (no buffering)
+   */
+  private async batchMarkTestedDirect(phrases: string[]): Promise<number> {
+    if (!db || phrases.length === 0) return 0;
+    
+    // Deduplicate and hash (using Array.from for ES5 compat)
+    const uniquePhrases = Array.from(new Set(phrases));
+    const uniqueHashes = uniquePhrases.map(p => ({
+      phraseHash: crypto.createHash('sha256').update(p).digest('hex'),
+    }));
+    
+    await db.insert(testedPhrasesIndex)
+      .values(uniqueHashes)
+      .onConflictDoNothing();
+    
+    return uniqueHashes.length;
   }
   
   /**
@@ -805,43 +914,49 @@ export class OceanPersistence {
   }
   
   /**
-   * Mark a phrase as tested
+   * Mark a phrase as tested (BUFFERED - no immediate DB write)
+   * Uses internal buffer to batch writes and prevent connection pool exhaustion
    */
   async markTested(phrase: string): Promise<boolean> {
     if (!db) return false;
     
-    try {
-      const hash = crypto.createHash('sha256').update(phrase).digest('hex');
-      await db.insert(testedPhrasesIndex)
-        .values({ phraseHash: hash })
-        .onConflictDoNothing();
-      return true;
-    } catch (error) {
-      console.error('[OceanPersistence] Failed to mark phrase as tested:', error);
-      return false;
+    // Add to buffer (Set handles deduplication)
+    this.testedPhraseBuffer.add(phrase);
+    
+    // Auto-flush when buffer is full
+    if (this.testedPhraseBuffer.size >= this.BATCH_SIZE) {
+      // Don't await - let it flush in background to not block caller
+      this.flushTestedPhrases().catch(err => {
+        console.error('[OceanPersistence] Background flush error:', err);
+      });
     }
+    
+    return true;
   }
   
   /**
-   * Batch mark phrases as tested
+   * Batch mark phrases as tested (BUFFERED)
+   * Adds to internal buffer for efficient batched writes
    */
   async batchMarkTested(phrases: string[]): Promise<number> {
     if (!db || phrases.length === 0) return 0;
     
-    try {
-      const hashes = phrases.map(p => ({
-        phraseHash: crypto.createHash('sha256').update(p).digest('hex'),
-      }));
-      
-      await db.insert(testedPhrasesIndex)
-        .values(hashes)
-        .onConflictDoNothing();
-      
-      return phrases.length;
-    } catch (error) {
-      console.error('[OceanPersistence] Failed to batch mark tested:', error);
-      return 0;
+    // Add all to buffer (Set handles deduplication)
+    phrases.forEach(p => this.testedPhraseBuffer.add(p));
+    
+    // Flush if buffer exceeds threshold
+    if (this.testedPhraseBuffer.size >= this.BATCH_SIZE) {
+      await this.flushTestedPhrases();
     }
+    
+    return phrases.length;
+  }
+  
+  /**
+   * Get current buffer size (for monitoring)
+   */
+  getTestedPhraseBufferSize(): number {
+    return this.testedPhraseBuffer.size;
   }
   
   // ============================================================================
