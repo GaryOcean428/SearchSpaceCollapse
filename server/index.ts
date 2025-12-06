@@ -212,15 +212,15 @@ async function syncFromPythonToNodeJS(): Promise<void> {
 }
 
 /**
- * Refresh tokenizer weights periodically (for continuous learning)
+ * Refresh vocabulary weights periodically (for continuous learning)
  */
-function refreshTokenizerWeights(): void {
+function refreshVocabularyWeights(): void {
   oceanConstellation.refreshTokenWeightsFromGeometricMemory();
 }
 
 /**
- * Sync vocabulary observations from Node.js to Python QIG tokenizer
- * This feeds learned words into the tokenizer for kernel training
+ * Sync vocabulary observations from Node.js to Python basin vocabulary encoder
+ * This feeds learned words into the encoder for geometric kernel training
  */
 async function syncVocabularyToPython(): Promise<void> {
   try {
@@ -237,21 +237,21 @@ async function syncVocabularyToPython(): Promise<void> {
       return;
     }
     
-    const result = await oceanQIGBackend.updateTokenizer(observations);
+    const result = await oceanQIGBackend.updateVocabulary(observations);
     
     // Verify sync was successful
     if (result.totalVocab > 0) {
-      console.log(`[PythonSync] Vocabulary synced: ${result.newTokens} new tokens, ${result.totalVocab} total`);
+      console.log(`[PythonSync] Vocabulary synced: ${result.newTokens} new entries, ${result.totalVocab} total`);
       
-      // Get tokenizer status for verification
+      // Get vocabulary encoder status for verification
       try {
-        const status = await oceanQIGBackend.getTokenizerStatus();
-        console.log(`[PythonSync] Tokenizer status: ${status.vocabSize} vocab, ${status.highPhiCount} high-Φ tokens, avg Φ=${status.avgPhi.toFixed(3)}`);
+        const status = await oceanQIGBackend.getVocabularyStatus();
+        console.log(`[PythonSync] Basin vocabulary: ${status.vocabSize} entries, ${status.highPhiCount} high-Φ, avg Φ=${status.avgPhi.toFixed(3)}`);
       } catch (statusError) {
-        console.warn('[PythonSync] Could not get tokenizer status for verification');
+        console.warn('[PythonSync] Could not get vocabulary status for verification');
       }
     } else {
-      console.warn('[PythonSync] Vocabulary sync returned empty result - tokenizer may not be ready');
+      console.warn('[PythonSync] Vocabulary sync returned empty result - encoder may not be ready');
     }
   } catch (error: any) {
     console.error('[PythonSync] Error syncing vocabulary to Python:', error?.message || error);
@@ -265,19 +265,19 @@ function startPythonSync(): void {
   if (pythonSyncInterval) return;
   
   // Sync from Python to Node.js every 60 seconds
-  // Also refresh tokenizer weights periodically
+  // Also refresh vocabulary weights periodically
   pythonSyncInterval = setInterval(async () => {
     if (oceanQIGBackend.available()) {
       await syncFromPythonToNodeJS();
-      // Also sync vocabulary to Python tokenizer
+      // Also sync vocabulary to Python basin encoder
       await syncVocabularyToPython();
     }
-    // Always refresh tokenizer even without Python
-    refreshTokenizerWeights();
+    // Always refresh vocabulary weights even without Python
+    refreshVocabularyWeights();
   }, 60000);
   
   // Initial refresh on startup
-  refreshTokenizerWeights();
+  refreshVocabularyWeights();
   
   // Initial vocabulary sync after a brief delay
   setTimeout(async () => {
@@ -286,7 +286,7 @@ function startPythonSync(): void {
     }
   }, 5000);
   
-  console.log('[PythonSync] Started periodic sync (every 60s) with tokenizer refresh and vocabulary sync');
+  console.log('[PythonSync] Started periodic sync (every 60s) with vocabulary refresh and basin encoder sync');
 }
 
 // Start Python QIG Backend as a child process

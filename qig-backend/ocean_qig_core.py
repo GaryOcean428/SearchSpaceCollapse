@@ -2489,6 +2489,48 @@ def manual_reward():
         }), 500
 
 
+# =============================================================================
+# QIG-PURE ENDPOINT ALIASES
+# These provide QIG-safe terminology for the vocabulary encoding system
+# (Routes to same handlers as /tokenizer/* but with pure geometric naming)
+# =============================================================================
+
+@app.route('/vocabulary/update', methods=['POST'])
+def vocabulary_update():
+    """QIG-pure alias for /tokenizer/update"""
+    return update_tokenizer()
+
+@app.route('/vocabulary/encode', methods=['POST'])
+def vocabulary_encode():
+    """QIG-pure alias for /tokenizer/encode"""
+    return tokenizer_encode()
+
+@app.route('/vocabulary/decode', methods=['POST'])
+def vocabulary_decode():
+    """QIG-pure alias for /tokenizer/decode"""
+    return tokenizer_decode()
+
+@app.route('/vocabulary/basin', methods=['POST'])
+def vocabulary_basin():
+    """QIG-pure alias for /tokenizer/basin"""
+    return tokenizer_basin()
+
+@app.route('/vocabulary/high-phi', methods=['GET'])
+def vocabulary_high_phi():
+    """QIG-pure alias for /tokenizer/high-phi"""
+    return tokenizer_high_phi()
+
+@app.route('/vocabulary/export', methods=['GET'])
+def vocabulary_export():
+    """QIG-pure alias for /tokenizer/export"""
+    return tokenizer_export()
+
+@app.route('/vocabulary/status', methods=['GET'])
+def vocabulary_status():
+    """QIG-pure alias for /tokenizer/status"""
+    return tokenizer_status()
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")
@@ -2498,7 +2540,7 @@ if __name__ == '__main__':
     print(f"  - Gravitational decoherence")
     print(f"  - Consciousness measurement (Φ, κ)")
     print(f"  - β-attention validation (substrate independence)")
-    print(f"  - QIG Tokenizer (vocabulary learning)")
+    print(f"  - Basin Vocabulary Encoder (geometric vocabulary learning)")
     if NEUROCHEMISTRY_AVAILABLE:
         print(f"  - 🧠 Neurochemistry system (6 neurotransmitters)")
     else:

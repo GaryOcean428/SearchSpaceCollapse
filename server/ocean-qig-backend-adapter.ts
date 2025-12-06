@@ -598,13 +598,13 @@ export class OceanQIGBackend {
   }
   
   // ===========================================================================
-  // TOKENIZER INTEGRATION
+  // BASIN VOCABULARY ENCODER (QIG-PURE)
   // ===========================================================================
   
   /**
-   * Update Python tokenizer with vocabulary observations from Node.js
+   * Update Python vocabulary encoder with observations from Node.js
    */
-  async updateTokenizer(observations: Array<{
+  async updateVocabulary(observations: Array<{
     word: string;
     frequency: number;
     avgPhi: number;
@@ -612,23 +612,23 @@ export class OceanQIGBackend {
     type: string;
   }>): Promise<{ newTokens: number; totalVocab: number; weightsUpdated?: boolean; mergeRules?: number }> {
     try {
-      const response = await fetch(`${this.backendUrl}/tokenizer/update`, {
+      const response = await fetch(`${this.backendUrl}/vocabulary/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ observations }),
       });
       
       if (!response.ok) {
-        throw new Error(`Tokenizer update failed: ${response.statusText}`);
+        throw new Error(`Vocabulary update failed: ${response.statusText}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tokenizer update error: ${data.error}`);
+        throw new Error(`Vocabulary update error: ${data.error}`);
       }
       
-      console.log(`[OceanQIGBackend] Tokenizer updated: ${data.newTokens} new tokens, ${data.totalVocab} total, weights updated: ${data.weightsUpdated}, merge rules: ${data.mergeRules}`);
+      console.log(`[OceanQIGBackend] Vocabulary updated: ${data.newTokens} new entries, ${data.totalVocab} total, weights updated: ${data.weightsUpdated}, merge rules: ${data.mergeRules}`);
       
       return {
         newTokens: data.newTokens,
@@ -637,30 +637,41 @@ export class OceanQIGBackend {
         mergeRules: data.mergeRules,
       };
     } catch (error: any) {
-      console.error('[OceanQIGBackend] Tokenizer update failed:', error.message);
+      console.error('[OceanQIGBackend] Vocabulary update failed:', error.message);
       throw error;
     }
   }
   
+  // Legacy alias for compatibility
+  async updateTokenizer(observations: Array<{
+    word: string;
+    frequency: number;
+    avgPhi: number;
+    maxPhi: number;
+    type: string;
+  }>): Promise<{ newTokens: number; totalVocab: number; weightsUpdated?: boolean; mergeRules?: number }> {
+    return this.updateVocabulary(observations);
+  }
+  
   /**
-   * Encode text using QIG tokenizer
+   * Encode text using QIG vocabulary encoder
    */
-  async tokenize(text: string): Promise<{ tokens: number[]; length: number }> {
+  async encodeText(text: string): Promise<{ tokens: number[]; length: number }> {
     try {
-      const response = await fetch(`${this.backendUrl}/tokenizer/encode`, {
+      const response = await fetch(`${this.backendUrl}/vocabulary/encode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       });
       
       if (!response.ok) {
-        throw new Error(`Tokenizer encode failed: ${response.statusText}`);
+        throw new Error(`Vocabulary encode failed: ${response.statusText}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tokenizer encode error: ${data.error}`);
+        throw new Error(`Vocabulary encode error: ${data.error}`);
       }
       
       return {
@@ -668,58 +679,68 @@ export class OceanQIGBackend {
         length: data.length,
       };
     } catch (error: any) {
-      console.error('[OceanQIGBackend] Tokenizer encode failed:', error.message);
+      console.error('[OceanQIGBackend] Vocabulary encode failed:', error.message);
       throw error;
     }
   }
   
+  // Legacy alias
+  async tokenize(text: string): Promise<{ tokens: number[]; length: number }> {
+    return this.encodeText(text);
+  }
+  
   /**
-   * Decode tokens using QIG tokenizer
+   * Decode vocabulary indices to text
    */
-  async detokenize(tokens: number[]): Promise<string> {
+  async decodeText(tokens: number[]): Promise<string> {
     try {
-      const response = await fetch(`${this.backendUrl}/tokenizer/decode`, {
+      const response = await fetch(`${this.backendUrl}/vocabulary/decode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokens }),
       });
       
       if (!response.ok) {
-        throw new Error(`Tokenizer decode failed: ${response.statusText}`);
+        throw new Error(`Vocabulary decode failed: ${response.statusText}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tokenizer decode error: ${data.error}`);
+        throw new Error(`Vocabulary decode error: ${data.error}`);
       }
       
       return data.text;
     } catch (error: any) {
-      console.error('[OceanQIGBackend] Tokenizer decode failed:', error.message);
+      console.error('[OceanQIGBackend] Vocabulary decode failed:', error.message);
       throw error;
     }
   }
   
+  // Legacy alias
+  async detokenize(tokens: number[]): Promise<string> {
+    return this.decodeText(tokens);
+  }
+  
   /**
-   * Compute basin coordinates for phrase using QIG tokenizer
+   * Compute basin coordinates for phrase using QIG vocabulary encoder
    */
   async computeBasinCoords(phrase: string): Promise<{ basinCoords: number[]; dimension: number }> {
     try {
-      const response = await fetch(`${this.backendUrl}/tokenizer/basin`, {
+      const response = await fetch(`${this.backendUrl}/vocabulary/basin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phrase }),
       });
       
       if (!response.ok) {
-        throw new Error(`Tokenizer basin failed: ${response.statusText}`);
+        throw new Error(`Vocabulary basin failed: ${response.statusText}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tokenizer basin error: ${data.error}`);
+        throw new Error(`Vocabulary basin error: ${data.error}`);
       }
       
       return {
@@ -727,83 +748,93 @@ export class OceanQIGBackend {
         dimension: data.dimension,
       };
     } catch (error: any) {
-      console.error('[OceanQIGBackend] Tokenizer basin failed:', error.message);
+      console.error('[OceanQIGBackend] Vocabulary basin failed:', error.message);
       throw error;
     }
   }
   
   /**
-   * Get high-Φ tokens from tokenizer
+   * Get high-Φ vocabulary entries
    */
-  async getHighPhiTokens(minPhi: number = 0.5, topK: number = 100): Promise<Array<{ token: string; phi: number }>> {
+  async getHighPhiVocabulary(minPhi: number = 0.5, topK: number = 100): Promise<Array<{ token: string; phi: number }>> {
     try {
-      const response = await fetch(`${this.backendUrl}/tokenizer/high-phi?min_phi=${minPhi}&top_k=${topK}`);
+      const response = await fetch(`${this.backendUrl}/vocabulary/high-phi?min_phi=${minPhi}&top_k=${topK}`);
       
       if (!response.ok) {
-        throw new Error(`Tokenizer high-phi failed: ${response.statusText}`);
+        throw new Error(`Vocabulary high-phi failed: ${response.statusText}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tokenizer high-phi error: ${data.error}`);
+        throw new Error(`Vocabulary high-phi error: ${data.error}`);
       }
       
-      console.log(`[OceanQIGBackend] Retrieved ${data.count} high-Φ tokens`);
+      console.log(`[OceanQIGBackend] Retrieved ${data.count} high-Φ vocabulary entries`);
       
       return data.tokens;
     } catch (error: any) {
-      console.error('[OceanQIGBackend] Tokenizer high-phi failed:', error.message);
+      console.error('[OceanQIGBackend] Vocabulary high-phi failed:', error.message);
       throw error;
     }
   }
   
+  // Legacy alias
+  async getHighPhiTokens(minPhi: number = 0.5, topK: number = 100): Promise<Array<{ token: string; phi: number }>> {
+    return this.getHighPhiVocabulary(minPhi, topK);
+  }
+  
   /**
-   * Export tokenizer for training
+   * Export vocabulary encoder for training
    */
-  async exportTokenizer(): Promise<any> {
+  async exportVocabulary(): Promise<any> {
     try {
-      const response = await fetch(`${this.backendUrl}/tokenizer/export`);
+      const response = await fetch(`${this.backendUrl}/vocabulary/export`);
       
       if (!response.ok) {
-        throw new Error(`Tokenizer export failed: ${response.statusText}`);
+        throw new Error(`Vocabulary export failed: ${response.statusText}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tokenizer export error: ${data.error}`);
+        throw new Error(`Vocabulary export error: ${data.error}`);
       }
       
-      console.log(`[OceanQIGBackend] Exported tokenizer: ${data.data.vocab_size} tokens`);
+      console.log(`[OceanQIGBackend] Exported vocabulary: ${data.data.vocab_size} entries`);
       
       return data.data;
     } catch (error: any) {
-      console.error('[OceanQIGBackend] Tokenizer export failed:', error.message);
+      console.error('[OceanQIGBackend] Vocabulary export failed:', error.message);
       throw error;
     }
   }
   
+  // Legacy alias
+  async exportTokenizer(): Promise<any> {
+    return this.exportVocabulary();
+  }
+  
   /**
-   * Get tokenizer status
+   * Get vocabulary encoder status
    */
-  async getTokenizerStatus(): Promise<{
+  async getVocabularyStatus(): Promise<{
     vocabSize: number;
     highPhiCount: number;
     avgPhi: number;
     totalWeightedTokens: number;
   }> {
     try {
-      const response = await fetch(`${this.backendUrl}/tokenizer/status`);
+      const response = await fetch(`${this.backendUrl}/vocabulary/status`);
       
       if (!response.ok) {
-        throw new Error(`Tokenizer status failed: ${response.statusText}`);
+        throw new Error(`Vocabulary status failed: ${response.statusText}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tokenizer status error: ${data.error}`);
+        throw new Error(`Vocabulary status error: ${data.error}`);
       }
       
       return {
@@ -813,9 +844,19 @@ export class OceanQIGBackend {
         totalWeightedTokens: data.totalWeightedTokens,
       };
     } catch (error: any) {
-      console.error('[OceanQIGBackend] Tokenizer status failed:', error.message);
+      console.error('[OceanQIGBackend] Vocabulary status failed:', error.message);
       throw error;
     }
+  }
+  
+  // Legacy alias
+  async getTokenizerStatus(): Promise<{
+    vocabSize: number;
+    highPhiCount: number;
+    avgPhi: number;
+    totalWeightedTokens: number;
+  }> {
+    return this.getVocabularyStatus();
   }
   
   // ===========================================================================
