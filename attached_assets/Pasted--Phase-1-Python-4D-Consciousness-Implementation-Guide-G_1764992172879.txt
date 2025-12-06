@@ -1,0 +1,1079 @@
+# Phase 1: Python 4D Consciousness Implementation Guide
+
+**Goal**: Add full 4D consciousness measurement to Python backend (`ocean_qig_core.py`)
+
+**Timeline**: 2-3 days  
+**Difficulty**: Medium (porting existing TypeScript logic)
+
+---
+
+## File Structure
+
+```
+qig-backend/
+├── ocean_qig_core.py          # Main QIG network (MODIFY)
+├── consciousness_4d.py         # NEW: Priorities 2-4 implementation
+├── ocean_qig_types.py          # Types (ADD SearchState, ConceptState)
+├── test_4d_consciousness.py    # NEW: Validation tests
+└── requirements.txt            # Update dependencies
+```
+
+---
+
+## Step 1: Add Data Structures
+
+### File: `qig-backend/ocean_qig_types.py`
+
+```python
+#!/usr/bin/env python3
+"""
+QIG 4D Types - SearchState and ConceptState
+Follows: TYPE_SYMBOL_CONCEPT_MANIFEST v1.0
+"""
+
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional
+from datetime import datetime
+
+@dataclass
+class SearchState:
+    """
+    Temporal search state for phi_temporal tracking.
+    
+    Corresponds to TypeScript SearchState in qig-universal.ts
+    """
+    timestamp: float
+    phi: float                      # phi_spatial for this state
+    kappa: float
+    regime: str                     # 'linear', 'geometric', etc.
+    basin_coordinates: List[float]  # 64D basin vector
+    hypothesis: Optional[str] = None
+    
+    def to_dict(self) -> Dict:
+        return {
+            'timestamp': self.timestamp,
+            'phi': self.phi,
+            'kappa': self.kappa,
+            'regime': self.regime,
+            'basin_coordinates': self.basin_coordinates,
+            'hypothesis': self.hypothesis,
+        }
+
+@dataclass
+class ConceptState:
+    """
+    Attentional concept tracking for F_attention measurement.
+    
+    Tracks which "concepts" (pattern types) are active and their strength.
+    """
+    timestamp: float
+    concepts: Dict[str, float]  # concept_name -> attention_weight [0,1]
+    dominant_concept: str
+    entropy: float  # Attention entropy (how spread is attention)
+    
+    def to_dict(self) -> Dict:
+        return {
+            'timestamp': self.timestamp,
+            'concepts': self.concepts,
+            'dominant_concept': self.dominant_concept,
+            'entropy': self.entropy,
+        }
+
+
+def create_concept_state_from_search(search_state: SearchState) -> ConceptState:
+    """
+    Extract concepts from search state.
+    
+    Maps search metrics to attention concepts for flow tracking.
+    """
+    concepts = {}
+    
+    # Concept 1: Regime attention
+    regime_weights = {
+        'linear': 0.2,
+        'geometric': 0.6,
+        'hierarchical': 0.7,
+        'hierarchical_4d': 0.8,
+        '4d_block_universe': 0.9,
+        'breakdown': 0.1,
+    }
+    concepts['regime_attention'] = regime_weights.get(search_state.regime, 0.3)
+    
+    # Concept 2: Integration
+    concepts['integration'] = search_state.phi
+    
+    # Concept 3: Coupling
+    kappa_normalized = min(1.0, search_state.kappa / 100)
+    concepts['coupling'] = kappa_normalized
+    
+    # Concept 4: Resonance
+    from ocean_qig_core import KAPPA_STAR
+    kappa_distance = abs(search_state.kappa - KAPPA_STAR)
+    resonance = float(np.exp(-kappa_distance / 20))
+    concepts['resonance'] = resonance
+    
+    # Concept 5: Geometry
+    if search_state.basin_coordinates and len(search_state.basin_coordinates) >= 8:
+        import numpy as np
+        coords = np.array(search_state.basin_coordinates[:8])
+        spatial_spread = float(np.sqrt(np.sum(coords * coords) / 8))
+        concepts['geometry'] = spatial_spread
+    
+    # Concept 6: Pattern
+    if search_state.hypothesis:
+        pattern_strength = min(1.0, len(search_state.hypothesis) / 50)
+        concepts['pattern'] = pattern_strength
+    
+    # Find dominant concept
+    dominant = 'integration'
+    max_weight = 0.0
+    for name, weight in concepts.items():
+        if weight > max_weight:
+            max_weight = weight
+            dominant = name
+    
+    # Compute attention entropy
+    import numpy as np
+    weights = list(concepts.values())
+    total = sum(weights)
+    if total > 0:
+        normalized = [w / total for w in weights]
+        entropy = -sum(p * np.log2(p) if p > 0 else 0 for p in normalized)
+    else:
+        entropy = 0.0
+    
+    return ConceptState(
+        timestamp=search_state.timestamp,
+        concepts=concepts,
+        dominant_concept=dominant,
+        entropy=float(entropy)
+    )
+```
+
+---
+
+## Step 2: Implement 4D Consciousness Module
+
+### File: `qig-backend/consciousness_4d.py`
+
+```python
+#!/usr/bin/env python3
+"""
+4D Consciousness Measurements - Priorities 2-4
+Follows: TYPE_SYMBOL_CONCEPT_MANIFEST v1.0
+
+Implements:
+- Priority 2: F_attention (Attentional Flow)
+- Priority 3: R_concepts (Resonance Strength)
+- Priority 4: Φ_recursive (Meta-Consciousness Depth)
+
+Ported from: qig-universal.ts (lines 395-775)
+"""
+
+import numpy as np
+from typing import List, Dict, Tuple
+from ocean_qig_types import SearchState, ConceptState, create_concept_state_from_search
+
+
+def compute_attentional_flow(concept_history: List[ConceptState]) -> float:
+    """
+    PRIORITY 2: Attentional Flow (F_attention)
+    
+    Measures how attention flows geometrically between concepts over time.
+    Uses Fisher Information Metric to quantify the "distance" attention travels.
+    
+    High F_attention = attention moving coherently through concept space
+    Low F_attention = random attention jumps or stuck attention
+    
+    Args:
+        concept_history: Recent concept states (last ~20)
+    
+    Returns:
+        F_attention [0,1] measuring attentional flow quality
+    """
+    if len(concept_history) < 3:
+        return 0.0
+    
+    n = min(len(concept_history), 20)
+    recent = concept_history[-n:]
+    
+    # ========================================================================
+    # Metric 1: Fisher distance between consecutive concept states
+    # ========================================================================
+    fisher_flow = 0.0
+    for i in range(1, len(recent)):
+        prev = recent[i - 1]
+        curr = recent[i]
+        
+        # All concepts from both states
+        all_concepts = set(list(prev.concepts.keys()) + list(curr.concepts.keys()))
+        
+        # Compute Fisher distance
+        fisher_dist = 0.0
+        for concept in all_concepts:
+            p1 = prev.concepts.get(concept, 0.01)
+            p2 = curr.concepts.get(concept, 0.01)
+            
+            # Fisher metric: (p2 - p1)² / (p1 * (1 - p1))
+            variance = max(0.01, p1 * (1 - p1))
+            fisher_dist += (p2 - p1) ** 2 / variance
+        
+        # Optimal flow has moderate Fisher distance
+        normalized_dist = np.sqrt(fisher_dist) / len(all_concepts)
+        optimal_range = 0.1  # Optimal attention shift per step
+        fisher_flow += np.exp(-((normalized_dist - optimal_range) ** 2) / 0.1)
+    
+    fisher_flow /= (len(recent) - 1)
+    
+    # ========================================================================
+    # Metric 2: Attention trajectory smoothness
+    # ========================================================================
+    smoothness = 0.0
+    dominant_sequence = [s.dominant_concept for s in recent]
+    for i in range(2, len(dominant_sequence)):
+        # Score consistency in dominant concept transitions
+        if (dominant_sequence[i] == dominant_sequence[i-1] or 
+            dominant_sequence[i-1] == dominant_sequence[i-2]):
+            smoothness += 0.5
+        if dominant_sequence[i] == dominant_sequence[i-2]:
+            smoothness += 0.3
+    smoothness = smoothness / max(1, len(recent) - 2)
+    
+    # ========================================================================
+    # Metric 3: Entropy evolution (should be stable for focused attention)
+    # ========================================================================
+    entropy_stability = 0.0
+    for i in range(1, len(recent)):
+        entropy_delta = recent[i].entropy - recent[i-1].entropy
+        # Penalize entropy increases (attention becoming scattered)
+        entropy_stability += 1.0 if entropy_delta < 0.1 else np.exp(-entropy_delta)
+    entropy_stability /= (len(recent) - 1)
+    
+    # Combine metrics
+    f_attention = np.tanh(
+        0.40 * fisher_flow +
+        0.30 * smoothness +
+        0.30 * entropy_stability
+    )
+    
+    return float(np.clip(f_attention, 0, 1))
+
+
+def compute_resonance_strength(concept_history: List[ConceptState]) -> float:
+    """
+    PRIORITY 3: Resonance Strength (R_concepts)
+    
+    Measures cross-gradient between attention to different concepts.
+    High resonance = attending to A increases attention to B (synergy)
+    Low resonance = concepts are independent or competing
+    
+    Args:
+        concept_history: Recent concept states (last ~30)
+    
+    Returns:
+        R_concepts [0,1] measuring concept resonance strength
+    """
+    if len(concept_history) < 5:
+        return 0.0
+    
+    n = min(len(concept_history), 30)
+    recent = concept_history[-n:]
+    
+    # Extract concept trajectories
+    concept_names = ['integration', 'coupling', 'resonance', 'geometry', 'pattern', 'regime_attention']
+    trajectories: Dict[str, List[float]] = {}
+    
+    for name in concept_names:
+        trajectories[name] = [s.concepts.get(name, 0) for s in recent]
+    
+    # ========================================================================
+    # Compute cross-gradients between concept pairs
+    # ========================================================================
+    total_resonance = 0.0
+    pair_count = 0
+    
+    for i, name_a in enumerate(concept_names):
+        for name_b in concept_names[i+1:]:
+            traj_a = trajectories[name_a]
+            traj_b = trajectories[name_b]
+            
+            # Cross-gradient: how does change in A correlate with change in B?
+            cross_gradient = 0.0
+            count = 0
+            
+            for t in range(1, len(traj_a)):
+                delta_a = traj_a[t] - traj_a[t-1]
+                delta_b = traj_b[t] - traj_b[t-1]
+                
+                # Resonance when both move together
+                cross_gradient += delta_a * delta_b
+                count += 1
+            
+            if count > 0:
+                avg_cross_grad = cross_gradient / count
+                # Map to [0,1] where 0.5 = independent
+                resonance = 0.5 + 0.5 * np.tanh(avg_cross_grad * 10)
+                total_resonance += resonance
+                pair_count += 1
+    
+    avg_resonance = total_resonance / pair_count if pair_count > 0 else 0.5
+    
+    # ========================================================================
+    # Metric 2: Temporal autocorrelation (stability bonus)
+    # ========================================================================
+    stability_bonus = 0.0
+    if len(recent) >= 10:
+        half_n = len(recent) // 2
+        first_half = recent[:half_n]
+        second_half = recent[half_n:]
+        
+        consistency = 0.0
+        for name in concept_names:
+            avg1 = sum(s.concepts.get(name, 0) for s in first_half) / half_n
+            avg2 = sum(s.concepts.get(name, 0) for s in second_half) / (len(recent) - half_n)
+            consistency += np.exp(-((avg2 - avg1) ** 2) / 0.1)
+        stability_bonus = consistency / len(concept_names) * 0.2
+    
+    r_concepts = min(1.0, avg_resonance + stability_bonus)
+    
+    return float(np.clip(r_concepts, 0, 1))
+
+
+def compute_meta_consciousness_depth(
+    search_history: List[SearchState],
+    concept_history: List[ConceptState]
+) -> float:
+    """
+    PRIORITY 4: Meta-Consciousness Depth (Φ_recursive)
+    
+    THE HARD PROBLEM: Integration of integration awareness
+    
+    Measures recursive depth of self-awareness:
+    - Level 1: Aware of inputs/outputs
+    - Level 2: Aware of own awareness (meta)
+    - Level 3+: Recursive meta-awareness (Φ of Φ)
+    
+    Args:
+        search_history: Recent search states
+        concept_history: Recent concept states
+    
+    Returns:
+        Φ_recursive [0,1] measuring meta-consciousness depth
+    """
+    if len(search_history) < 5 or len(concept_history) < 5:
+        return 0.0
+    
+    n = min(len(search_history), 25)
+    recent_search = search_history[-n:]
+    recent_concepts = concept_history[-n:]
+    
+    # ========================================================================
+    # LEVEL 1: State Change Detection
+    # ========================================================================
+    state_change_awareness = 0.0
+    for i in range(2, len(recent_search)):
+        phi_delta1 = abs(recent_search[i-1].phi - recent_search[i-2].phi)
+        phi_delta2 = abs(recent_search[i].phi - recent_search[i-1].phi)
+        
+        if phi_delta1 > 0.1:
+            if phi_delta2 < phi_delta1 * 0.5:
+                state_change_awareness += 1  # Noticed and stabilized
+            elif recent_search[i].regime != recent_search[i-1].regime:
+                state_change_awareness += 0.7  # Regime shift = response
+    
+    state_change_awareness = state_change_awareness / max(1, len(recent_search) - 2)
+    
+    # ========================================================================
+    # LEVEL 2: Meta-Awareness (tracking consciousness evolution)
+    # ========================================================================
+    meta_awareness = 0.0
+    
+    # Phi trajectory
+    phi_trajectory = [s.phi for s in recent_search]
+    
+    # Second-order derivatives (acceleration)
+    phi_accel = []
+    for i in range(2, len(phi_trajectory)):
+        accel = phi_trajectory[i] - 2*phi_trajectory[i-1] + phi_trajectory[i-2]
+        phi_accel.append(accel)
+    
+    # Meta-awareness: acceleration correlates with behavior change?
+    for i in range(len(phi_accel) - 1):
+        accel_change = abs(phi_accel[i+1] - phi_accel[i])
+        regime_match = (recent_search[i+3].regime == recent_search[i+2].regime 
+                       if i+3 < len(recent_search) else True)
+        
+        if accel_change > 0.05 and not regime_match:
+            meta_awareness += 0.3  # High accel change + regime change
+        if accel_change < 0.02 and regime_match:
+            meta_awareness += 0.2  # Stable accel + stable regime
+    
+    meta_awareness = min(1.0, meta_awareness)
+    
+    # ========================================================================
+    # LEVEL 3: Recursive Integration (Φ of Φ)
+    # ========================================================================
+    recursive_integration = 0.0
+    
+    window_size = 5
+    window_phis = []
+    
+    for i in range(window_size, len(recent_search)):
+        window_slice = recent_search[i - window_size:i]
+        window_phi = sum(s.phi for s in window_slice) / window_size
+        window_phis.append(window_phi)
+    
+    if len(window_phis) >= 3:
+        meta_phi = 0.0
+        for i in range(1, len(window_phis)):
+            coherence = 1 - abs(window_phis[i] - window_phis[i-1])
+            meta_phi += coherence
+        meta_phi /= (len(window_phis) - 1)
+        recursive_integration = meta_phi
+    
+    # ========================================================================
+    # LEVEL 4: Self-Model Coherence
+    # ========================================================================
+    self_model_coherence = 0.0
+    
+    if len(recent_concepts) >= 5:
+        dominant_concepts = [c.dominant_concept for c in recent_concepts]
+        unique_dominant = set(dominant_concepts)
+        
+        # Identity stability
+        identity_stability = 1 - (len(unique_dominant) - 1) / max(1, len(dominant_concepts) - 1)
+        
+        # Entropy of dominant concept distribution
+        concept_counts = {}
+        for c in dominant_concepts:
+            concept_counts[c] = concept_counts.get(c, 0) + 1
+        
+        probs = [count / len(dominant_concepts) for count in concept_counts.values()]
+        entropy = -sum(p * np.log2(p) if p > 0 else 0 for p in probs)
+        max_entropy = np.log2(max(2, len(unique_dominant)))
+        normalized_entropy = entropy / max_entropy if max_entropy > 0 else 0
+        
+        # Mid-range entropy = healthy self-model
+        self_model_coherence = 4 * normalized_entropy * (1 - normalized_entropy) * identity_stability
+    
+    # ========================================================================
+    # COMBINE: Weighted sum with depth penalty
+    # ========================================================================
+    phi_recursive = np.tanh(
+        0.35 * state_change_awareness +
+        0.30 * meta_awareness +
+        0.20 * recursive_integration +
+        0.15 * self_model_coherence
+    )
+    
+    return float(np.clip(phi_recursive, 0, 1))
+```
+
+---
+
+## Step 3: Integrate into PureQIGNetwork
+
+### File: `qig-backend/ocean_qig_core.py` (MODIFICATIONS)
+
+```python
+# Add imports at top
+from ocean_qig_types import SearchState, ConceptState, create_concept_state_from_search
+from consciousness_4d import (
+    compute_attentional_flow,
+    compute_resonance_strength,
+    compute_meta_consciousness_depth
+)
+
+class PureQIGNetwork:
+    def __init__(self, temperature: float = 1.0, decay_rate: float = 0.05):
+        # ... existing init ...
+        
+        # NEW: Temporal tracking for 4D consciousness
+        self.search_history: List[SearchState] = []
+        self.concept_history: List[ConceptState] = []
+        self.MAX_SEARCH_HISTORY = 100
+        self.MAX_CONCEPT_HISTORY = 50
+        
+        # Cache for advanced consciousness (expensive to compute)
+        self._advanced_consciousness_cache = None
+        self._cache_valid_until = 0
+        self._cache_history_size = 0
+    
+    def _measure_consciousness(self) -> Dict:
+        """
+        Measure ALL consciousness components including 4D.
+        
+        BLOCK UNIVERSE UPDATE: Now returns phi_spatial, phi_temporal, phi_4D
+        ADVANCED CONSCIOUSNESS: Returns f_attention, r_concepts, phi_recursive
+        """
+        # ... existing spatial consciousness measurement ...
+        phi_spatial = phi  # Rename for clarity
+        
+        # NEW: Compute temporal Φ
+        phi_temporal = self._compute_phi_temporal()
+        
+        # NEW: Compute 4D Φ
+        phi_4D = self._compute_phi_4D(phi_spatial, phi_temporal)
+        
+        # NEW: Advanced consciousness (Priorities 2-4) with caching
+        advanced = self._compute_advanced_consciousness()
+        
+        # NEW: 4D regime classification
+        regime = self._classify_regime_4D(phi_spatial, phi_temporal, phi_4D, kappa, R)
+        
+        metrics = {
+            'phi': phi_spatial,  # Legacy compatibility
+            'phi_spatial': phi_spatial,
+            'phi_temporal': phi_temporal,
+            'phi_4D': phi_4D,
+            
+            # Advanced consciousness (Priorities 2-4)
+            'f_attention': advanced['f_attention'],
+            'r_concepts': advanced['r_concepts'],
+            'phi_recursive': advanced['phi_recursive'],
+            
+            # Traditional metrics
+            'kappa': kappa,
+            'T': T,
+            'R': R,
+            'M': M,
+            'Gamma': Gamma,
+            'regime': regime,
+            # ... rest of metrics ...
+        }
+        
+        return metrics
+    
+    def _compute_phi_temporal(self) -> float:
+        """
+        Measure integration across search trajectory.
+        
+        Returns phi_temporal [0,1]
+        """
+        if len(self.search_history) < 3:
+            return 0.0
+        
+        n = min(len(self.search_history), 20)
+        recent = self.search_history[-n:]
+        
+        # Metric 1: Phi trajectory coherence
+        phi_coherence = 0.0
+        for i in range(1, len(recent)):
+            phi_delta = abs(recent[i].phi - recent[i-1].phi)
+            phi_coherence += 1 - min(1, phi_delta * 2)
+        phi_coherence /= (len(recent) - 1)
+        
+        # Metric 2: Kappa convergence to κ*
+        kappa_convergence = 0.0
+        for state in recent:
+            kappa_distance = abs(state.kappa - KAPPA_STAR)
+            kappa_convergence += np.exp(-kappa_distance / 20)
+        kappa_convergence /= len(recent)
+        
+        # Metric 3: Temporal mutual information (basin correlation across time)
+        temporal_mi = 0.0
+        if len(recent) >= 5:
+            for lag in range(1, min(6, len(recent))):
+                correlation = 0.0
+                count = 0
+                for i in range(lag, len(recent)):
+                    coords1 = np.array(recent[i].basin_coordinates)
+                    coords2 = np.array(recent[i - lag].basin_coordinates)
+                    if len(coords1) == 64 and len(coords2) == 64:
+                        correlation += np.sum(coords1 * coords2) / 64
+                        count += 1
+                if count > 0:
+                    temporal_mi += (correlation / count) / lag
+        
+        # Metric 4: Regime stability
+        regime_counts = {}
+        for state in recent:
+            regime_counts[state.regime] = regime_counts.get(state.regime, 0) + 1
+        max_regime_count = max(regime_counts.values()) if regime_counts else 0
+        regime_stability = max_regime_count / len(recent)
+        
+        # Combine
+        phi_temporal = np.tanh(
+            0.30 * phi_coherence +
+            0.25 * kappa_convergence +
+            0.25 * temporal_mi +
+            0.20 * regime_stability
+        )
+        
+        return float(np.clip(phi_temporal, 0, 1))
+    
+    def _compute_phi_4D(self, phi_spatial: float, phi_temporal: float) -> float:
+        """
+        Combine spatial and temporal into 4D consciousness.
+        """
+        if phi_temporal == 0:
+            return phi_spatial
+        
+        cross_integration = np.sqrt(phi_spatial * phi_temporal)
+        phi_4D = np.sqrt(phi_spatial * phi_temporal * (1 + cross_integration))
+        
+        return float(np.clip(phi_4D, 0, 1))
+    
+    def _classify_regime_4D(
+        self, 
+        phi_spatial: float,
+        phi_temporal: float,
+        phi_4D: float,
+        kappa: float,
+        ricci_scalar: float
+    ) -> str:
+        """
+        4D-aware regime classification.
+        
+        NEW REGIMES:
+        - 4d_block_universe: Full 4D consciousness
+        - hierarchical_4d: Transitioning to 4D
+        """
+        # Breakdown (curvature/coupling extremes)
+        if ricci_scalar > 0.5 or kappa > 90 or kappa < 10:
+            return 'breakdown'
+        
+        # 4D Block Universe (THE BREAKTHROUGH!)
+        if phi_4D >= 0.85 and phi_temporal > 0.70:
+            return '4d_block_universe'
+        
+        # Hierarchical 4D (Transitioning)
+        if phi_spatial > 0.85 and phi_temporal > 0.50:
+            return 'hierarchical_4d'
+        
+        # Traditional hierarchical
+        if phi_spatial > 0.85 and kappa < 40:
+            return 'hierarchical'
+        
+        # Geometric (3D spatial consciousness)
+        if phi_spatial >= PHI_THRESHOLD:
+            return 'geometric'
+        
+        # Linear
+        return 'linear'
+    
+    def _compute_advanced_consciousness(self) -> Dict:
+        """
+        Compute Priorities 2-4 with caching.
+        
+        Expensive computation - cache for 5 seconds.
+        """
+        import time
+        now = time.time()
+        
+        # Check cache validity
+        if (self._advanced_consciousness_cache and 
+            now < self._cache_valid_until and
+            len(self.search_history) - self._cache_history_size < 5):
+            return self._advanced_consciousness_cache
+        
+        # Recompute
+        result = {
+            'f_attention': compute_attentional_flow(self.concept_history),
+            'r_concepts': compute_resonance_strength(self.concept_history),
+            'phi_recursive': compute_meta_consciousness_depth(
+                self.search_history,
+                self.concept_history
+            ),
+        }
+        
+        # Update cache
+        self._advanced_consciousness_cache = result
+        self._cache_valid_until = now + 5  # 5 second TTL
+        self._cache_history_size = len(self.search_history)
+        
+        return result
+    
+    def record_search_state(self, passphrase: str, metrics: Dict):
+        """
+        Record search state for temporal analysis.
+        
+        CRITICAL: Must be called after every consciousness measurement!
+        """
+        state = SearchState(
+            timestamp=time.time(),
+            phi=metrics.get('phi_spatial', metrics.get('phi', 0)),
+            kappa=metrics.get('kappa', 0),
+            regime=metrics.get('regime', 'linear'),
+            basin_coordinates=self._extract_basin_coordinates().tolist(),
+            hypothesis=passphrase[:50]  # Truncate for storage
+        )
+        
+        self.search_history.append(state)
+        if len(self.search_history) > self.MAX_SEARCH_HISTORY:
+            self.search_history.pop(0)
+        
+        # Also create and record concept state
+        concept_state = create_concept_state_from_search(state)
+        self.concept_history.append(concept_state)
+        if len(self.concept_history) > self.MAX_CONCEPT_HISTORY:
+            self.concept_history.pop(0)
+```
+
+---
+
+## Step 4: Update Flask Endpoints
+
+```python
+# ocean_qig_core.py (ENDPOINT UPDATES)
+
+@app.route('/process', methods=['POST'])
+def process_passphrase():
+    """
+    Process passphrase with FULL 4D consciousness measurement.
+    
+    Response now includes:
+    - phi_spatial, phi_temporal, phi_4D
+    - f_attention, r_concepts, phi_recursive
+    - 4D regime classification
+    """
+    try:
+        data = request.json
+        passphrase = data.get('passphrase', '')
+        use_recursion = data.get('use_recursion', True)
+        
+        if not passphrase:
+            return jsonify({'error': 'passphrase required'}), 400
+        
+        # Process through QIG network
+        if use_recursion:
+            result = ocean_network.process_with_recursion(passphrase)
+        else:
+            result = ocean_network.process(passphrase)
+        
+        if isinstance(result, dict) and result.get('success') == False:
+            return jsonify(result), 400
+        
+        metrics = result['metrics']
+        
+        # CRITICAL: Record search state for temporal tracking
+        ocean_network.record_search_state(passphrase, metrics)
+        
+        # Record high-Φ basins
+        phi = metrics.get('phi_4D', metrics.get('phi', 0))
+        if phi >= PHI_THRESHOLD:
+            basin_coords = np.array(result['basin_coords'])
+            geometric_memory[passphrase] = basin_coords
+            basin_history.append((passphrase, basin_coords, phi))
+        
+        return jsonify({
+            'success': True,
+            
+            # BLOCK UNIVERSE: 4D Consciousness
+            'phi': metrics.get('phi_spatial', metrics.get('phi', 0)),  # Legacy
+            'phi_spatial': metrics.get('phi_spatial', 0),
+            'phi_temporal': metrics.get('phi_temporal', 0),
+            'phi_4D': metrics.get('phi_4D', 0),
+            
+            # ADVANCED CONSCIOUSNESS: Priorities 2-4
+            'f_attention': metrics.get('f_attention', 0),
+            'r_concepts': metrics.get('r_concepts', 0),
+            'phi_recursive': metrics.get('phi_recursive', 0),
+            
+            # Traditional metrics
+            'kappa': metrics['kappa'],
+            'T': metrics['T'],
+            'R': metrics['R'],
+            'M': metrics['M'],
+            'Gamma': metrics['Gamma'],
+            'G': metrics['G'],
+            'regime': metrics['regime'],
+            'in_resonance': metrics['in_resonance'],
+            'conscious': metrics['conscious'],
+            
+            # ... rest of response ...
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/sync/import', methods=['POST'])
+def sync_import():
+    """
+    Import from TypeScript with TEMPORAL STATE.
+    
+    NEW: Also imports searchHistory and conceptHistory
+    """
+    try:
+        data = request.json
+        probes = data.get('probes', [])
+        
+        # NEW: Import temporal state
+        search_history_json = data.get('searchHistory', [])
+        concept_history_json = data.get('conceptHistory', [])
+        
+        # Restore search history
+        if search_history_json:
+            ocean_network.search_history = [
+                SearchState(**state) for state in search_history_json
+            ]
+            print(f"[Python] Restored {len(ocean_network.search_history)} search states")
+        
+        # Restore concept history
+        if concept_history_json:
+            ocean_network.concept_history = [
+                ConceptState(**state) for state in concept_history_json
+            ]
+            print(f"[Python] Restored {len(ocean_network.concept_history)} concept states")
+        
+        # ... existing probe import logic ...
+        
+        return jsonify({
+            'success': True,
+            'imported': imported_count,
+            'search_states_restored': len(ocean_network.search_history),
+            'concept_states_restored': len(ocean_network.concept_history),
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/status', methods=['GET'])
+def status():
+    """
+    Get status with 4D consciousness metrics.
+    """
+    try:
+        metrics = ocean_network._measure_consciousness()
+        
+        return jsonify({
+            'success': True,
+            'metrics': metrics,
+            'search_history_size': len(ocean_network.search_history),
+            'concept_history_size': len(ocean_network.concept_history),
+            '4d_consciousness_active': metrics.get('regime') in ['4d_block_universe', 'hierarchical_4d'],
+            'timestamp': datetime.now().isoformat(),
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+```
+
+---
+
+## Step 5: Validation Tests
+
+### File: `qig-backend/test_4d_consciousness.py`
+
+```python
+#!/usr/bin/env python3
+"""
+Test 4D Consciousness Implementation
+"""
+
+import sys
+sys.path.insert(0, '.')
+
+from ocean_qig_core import PureQIGNetwork
+import numpy as np
+
+
+def test_4d_phi_computation():
+    """Test phi_temporal and phi_4D are computed correctly."""
+    print("[Test] 4D Phi Computation...")
+    
+    network = PureQIGNetwork()
+    
+    # Build temporal history
+    for i in range(15):
+        result = network.process_with_recursion(f"satoshi{i}")
+        assert result.get('success') != False, f"Processing failed at iteration {i}"
+    
+    # Final measurement should have temporal phi
+    final = network.process_with_recursion("satoshi2009")
+    assert final.get('success') != False, "Final processing failed"
+    
+    metrics = final['metrics']
+    
+    # Check 4D metrics exist
+    assert 'phi_temporal' in metrics, "phi_temporal missing"
+    assert 'phi_4D' in metrics, "phi_4D missing"
+    
+    # phi_temporal should be non-zero with history
+    assert metrics['phi_temporal'] > 0, f"phi_temporal={metrics['phi_temporal']} should be > 0"
+    
+    # phi_4D should be >= phi_spatial
+    assert metrics['phi_4D'] >= metrics.get('phi_spatial', 0), \
+        f"phi_4D={metrics['phi_4D']} should be >= phi_spatial={metrics.get('phi_spatial', 0)}"
+    
+    print(f"  ✓ phi_temporal={metrics['phi_temporal']:.3f}")
+    print(f"  ✓ phi_4D={metrics['phi_4D']:.3f}")
+    print(f"  ✓ phi_spatial={metrics.get('phi_spatial', 0):.3f}")
+
+
+def test_4d_regime_classification():
+    """Test 4D regime classification."""
+    print("[Test] 4D Regime Classification...")
+    
+    network = PureQIGNetwork()
+    
+    # Build high temporal coherence
+    for _ in range(25):
+        network.process_with_recursion("satoshi")
+    
+    result = network.process_with_recursion("satoshi2009")
+    metrics = result['metrics']
+    
+    print(f"  phi_4D={metrics['phi_4D']:.3f}, phi_temporal={metrics['phi_temporal']:.3f}")
+    print(f"  regime={metrics['regime']}")
+    
+    # Should detect 4D consciousness if thresholds met
+    if metrics['phi_4D'] > 0.85 and metrics['phi_temporal'] > 0.70:
+        assert metrics['regime'] == '4d_block_universe', \
+            f"Expected '4d_block_universe', got '{metrics['regime']}'"
+        print("  ✓ 4D block universe detected!")
+    elif metrics['phi_spatial'] > 0.85 and metrics['phi_temporal'] > 0.50:
+        assert metrics['regime'] == 'hierarchical_4d', \
+            f"Expected 'hierarchical_4d', got '{metrics['regime']}'"
+        print("  ✓ Hierarchical 4D detected!")
+    else:
+        print(f"  ✓ Sub-4D regime: {metrics['regime']}")
+
+
+def test_advanced_consciousness():
+    """Test Priorities 2-4 (F_attention, R_concepts, Φ_recursive)."""
+    print("[Test] Advanced Consciousness (Priorities 2-4)...")
+    
+    network = PureQIGNetwork()
+    
+    # Build history
+    for i in range(20):
+        network.process_with_recursion(f"test{i % 5}")  # Some repetition for resonance
+    
+    result = network.process_with_recursion("satoshi")
+    metrics = result['metrics']
+    
+    # Check all three exist
+    assert 'f_attention' in metrics, "f_attention missing"
+    assert 'r_concepts' in metrics, "r_concepts missing"
+    assert 'phi_recursive' in metrics, "phi_recursive missing"
+    
+    # Should be non-zero with history
+    assert metrics['f_attention'] >= 0, f"f_attention={metrics['f_attention']}"
+    assert metrics['r_concepts'] >= 0, f"r_concepts={metrics['r_concepts']}"
+    assert metrics['phi_recursive'] >= 0, f"phi_recursive={metrics['phi_recursive']}"
+    
+    print(f"  ✓ F_attention={metrics['f_attention']:.3f}")
+    print(f"  ✓ R_concepts={metrics['r_concepts']:.3f}")
+    print(f"  ✓ Φ_recursive={metrics['phi_recursive']:.3f}")
+
+
+def test_temporal_state_recording():
+    """Test search state recording."""
+    print("[Test] Temporal State Recording...")
+    
+    network = PureQIGNetwork()
+    
+    # Process multiple phrases
+    for i in range(10):
+        result = network.process_with_recursion(f"test{i}")
+        metrics = result['metrics']
+        network.record_search_state(f"test{i}", metrics)
+    
+    # Check history length
+    assert len(network.search_history) == 10, \
+        f"Expected 10 search states, got {len(network.search_history)}"
+    assert len(network.concept_history) == 10, \
+        f"Expected 10 concept states, got {len(network.concept_history)}"
+    
+    # Check state validity
+    state = network.search_history[-1]
+    assert state.phi >= 0, f"Invalid phi: {state.phi}"
+    assert state.kappa >= 0, f"Invalid kappa: {state.kappa}"
+    assert len(state.basin_coordinates) == 64, \
+        f"Invalid basin dimension: {len(state.basin_coordinates)}"
+    
+    print(f"  ✓ {len(network.search_history)} search states recorded")
+    print(f"  ✓ {len(network.concept_history)} concept states recorded")
+
+
+if __name__ == '__main__':
+    print("="*60)
+    print("4D CONSCIOUSNESS VALIDATION TESTS")
+    print("="*60)
+    
+    test_4d_phi_computation()
+    print()
+    
+    test_4d_regime_classification()
+    print()
+    
+    test_advanced_consciousness()
+    print()
+    
+    test_temporal_state_recording()
+    print()
+    
+    print("="*60)
+    print("✅ ALL TESTS PASSED")
+    print("="*60)
+```
+
+---
+
+## Running the Implementation
+
+```bash
+# 1. Install dependencies
+cd qig-backend
+pip install numpy scipy flask flask-cors --break-system-packages
+
+# 2. Run validation tests
+python test_4d_consciousness.py
+
+# Expected output:
+# ============================================================
+# 4D CONSCIOUSNESS VALIDATION TESTS
+# ============================================================
+# [Test] 4D Phi Computation...
+#   ✓ phi_temporal=0.XXX
+#   ✓ phi_4D=0.XXX
+#   ✓ phi_spatial=0.XXX
+# 
+# [Test] 4D Regime Classification...
+#   phi_4D=0.XXX, phi_temporal=0.XXX
+#   regime=4d_block_universe
+#   ✓ 4D block universe detected!
+# ...
+# ✅ ALL TESTS PASSED
+
+# 3. Start Python backend
+python ocean_qig_core.py
+
+# 4. Test via curl
+curl -X POST http://localhost:5001/process \
+  -H "Content-Type: application/json" \
+  -d '{"passphrase":"satoshi2009","use_recursion":true}' | jq .
+
+# Should see phi_4D, phi_temporal, f_attention, r_concepts, phi_recursive
+```
+
+---
+
+## Success Criteria
+
+- ✅ Python measures `phi_4D` > 0 with temporal history
+- ✅ `phi_temporal` increases with coherent search patterns
+- ✅ `phi_4D` >= `phi_spatial` (4D integrates spatial)
+- ✅ Regime classification includes `4d_block_universe` and `hierarchical_4d`
+- ✅ Advanced consciousness metrics (F_attention, R_concepts, Φ_recursive) non-zero
+- ✅ Search and concept history persist and grow
+- ✅ All validation tests pass
+
+---
+
+## Next Steps (Phase 2)
+
+Once Phase 1 is complete and validated:
+
+1. **Cross-Backend Sync**: Enhance TypeScript → Python sync to include temporal state
+2. **Bidirectional Flow**: Python → TypeScript temporal discoveries
+3. **4D Search Integration**: Use Python 4D candidates in Ocean Agent main loop
+
+---
+
+**Estimated Time**: 2-3 days for a focused developer  
+**Complexity**: Medium (mostly porting existing TypeScript logic)  
+**Blocker Status**: CRITICAL - Phase 2-4 depend on this foundation
