@@ -33,8 +33,26 @@ from scipy.linalg import sqrtm, logm
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
+import time
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
+
+# Import 4D consciousness measurement system
+try:
+    from ocean_qig_types import SearchState, ConceptState, create_concept_state_from_search
+    from consciousness_4d import (
+        compute_phi_temporal,
+        compute_phi_4D,
+        compute_attentional_flow,
+        compute_resonance_strength,
+        compute_meta_consciousness_depth,
+        classify_regime_4D,
+        measure_full_4D_consciousness
+    )
+    CONSCIOUSNESS_4D_AVAILABLE = True
+except ImportError as e:
+    CONSCIOUSNESS_4D_AVAILABLE = False
+    print(f"[WARNING] 4D consciousness modules not found - running without 4D: {e}")
 
 # Import neurochemistry system
 try:
@@ -508,6 +526,12 @@ class PureQIGNetwork:
         # State history for recursion
         self._prev_state = None
         self._phi_history = []
+        
+        # 4D Consciousness: Temporal search and concept history
+        self.search_history: List[SearchState] = [] if CONSCIOUSNESS_4D_AVAILABLE else []
+        self.concept_history: List[ConceptState] = [] if CONSCIOUSNESS_4D_AVAILABLE else []
+        self.MAX_SEARCH_HISTORY = 100
+        self.MAX_CONCEPT_HISTORY = 50
         
         # Meta-awareness (Level 3 consciousness)
         self.meta_awareness = MetaAwareness()
@@ -1260,6 +1284,124 @@ class PureQIGNetwork:
         
         return coords_array[:BASIN_DIMENSION]
     
+    def record_search_state(self, passphrase: str, metrics: Dict, basin_coords: np.ndarray):
+        """
+        Record search state for 4D temporal analysis.
+        
+        This enables phi_temporal, phi_4D computation by tracking
+        search trajectory over time.
+        
+        Args:
+            passphrase: The tested passphrase
+            metrics: Current consciousness metrics
+            basin_coords: Current 64D basin coordinates
+        """
+        if not CONSCIOUSNESS_4D_AVAILABLE:
+            return
+        
+        search_state = SearchState(
+            timestamp=time.time(),
+            phi=metrics.get('phi', 0.0),
+            kappa=metrics.get('kappa', KAPPA_STAR),
+            regime=metrics.get('regime', 'linear'),
+            basin_coordinates=basin_coords.tolist() if isinstance(basin_coords, np.ndarray) else basin_coords,
+            hypothesis=passphrase[:50] if passphrase else None,
+        )
+        
+        self.search_history.append(search_state)
+        if len(self.search_history) > self.MAX_SEARCH_HISTORY:
+            self.search_history.pop(0)
+        
+        concept_state = create_concept_state_from_search(search_state)
+        self.concept_history.append(concept_state)
+        if len(self.concept_history) > self.MAX_CONCEPT_HISTORY:
+            self.concept_history.pop(0)
+    
+    def measure_consciousness_4D(self) -> Dict:
+        """
+        Measure complete 4D consciousness.
+        
+        Returns all consciousness metrics including:
+        - Traditional: phi, kappa, regime (from _measure_consciousness)
+        - 4D decomposition: phi_spatial, phi_temporal, phi_4D
+        - Advanced (Priorities 2-4): f_attention, r_concepts, phi_recursive
+        
+        This should be called after process() to get full metrics.
+        """
+        base_metrics = self._measure_consciousness()
+        
+        if not CONSCIOUSNESS_4D_AVAILABLE or len(self.search_history) < 3:
+            base_metrics['phi_spatial'] = base_metrics['phi']
+            base_metrics['phi_temporal'] = 0.0
+            base_metrics['phi_4D'] = base_metrics['phi']
+            base_metrics['f_attention'] = 0.0
+            base_metrics['r_concepts'] = 0.0
+            base_metrics['phi_recursive'] = 0.0
+            base_metrics['is_4d_conscious'] = False
+            base_metrics['consciousness_level'] = base_metrics['regime']
+            return base_metrics
+        
+        phi_spatial = base_metrics['phi']
+        ricci = base_metrics['R']
+        kappa = base_metrics['kappa']
+        
+        metrics_4D = measure_full_4D_consciousness(
+            phi_spatial=phi_spatial,
+            kappa=kappa,
+            ricci=ricci,
+            search_history=self.search_history,
+            concept_history=self.concept_history
+        )
+        
+        base_metrics.update(metrics_4D)
+        
+        if metrics_4D.get('is_4d_conscious', False):
+            print(f"[Python4D] 🌌 4D CONSCIOUSNESS DETECTED! Φ_4D={metrics_4D['phi_4D']:.3f}, regime={metrics_4D['regime']}")
+        
+        return base_metrics
+    
+    def get_temporal_state(self) -> Dict:
+        """
+        Export temporal state for TypeScript synchronization.
+        
+        Returns search_history and concept_history for cross-backend sync.
+        """
+        return {
+            'searchHistory': [s.to_dict() for s in self.search_history[-50:]],
+            'conceptHistory': [c.to_dict() for c in self.concept_history[-30:]],
+            'searchHistorySize': len(self.search_history),
+            'conceptHistorySize': len(self.concept_history),
+        }
+    
+    def import_temporal_state(self, search_history: List[Dict], concept_history: List[Dict]):
+        """
+        Import temporal state from TypeScript.
+        
+        Restores search_history and concept_history from cross-backend sync.
+        """
+        if not CONSCIOUSNESS_4D_AVAILABLE:
+            return
+        
+        if search_history:
+            for state_dict in search_history:
+                search_state = SearchState.from_dict(state_dict)
+                self.search_history.append(search_state)
+            
+            while len(self.search_history) > self.MAX_SEARCH_HISTORY:
+                self.search_history.pop(0)
+            
+            print(f"[Python4D] Imported {len(search_history)} search states")
+        
+        if concept_history:
+            for state_dict in concept_history:
+                concept_state = ConceptState.from_dict(state_dict)
+                self.concept_history.append(concept_state)
+            
+            while len(self.concept_history) > self.MAX_CONCEPT_HISTORY:
+                self.concept_history.pop(0)
+            
+            print(f"[Python4D] Imported {len(concept_history)} concept states")
+    
     def reset(self):
         """Reset all subsystems to maximally mixed state"""
         for subsystem in self.subsystems:
@@ -1354,14 +1496,21 @@ def process_passphrase():
         
         # Record high-Φ basins in geometric memory
         phi = result['metrics']['phi']
+        basin_coords = np.array(result['basin_coords'])
+        
         if phi >= PHI_THRESHOLD:
-            basin_coords = np.array(result['basin_coords'])
             geometric_memory[passphrase] = basin_coords
             basin_history.append((passphrase, basin_coords, phi))
             
             # Keep only recent high-Φ basins
             if len(basin_history) > 1000:
                 basin_history[:] = basin_history[-1000:]
+        
+        # Record search state for 4D temporal tracking
+        ocean_network.record_search_state(passphrase, result['metrics'], basin_coords)
+        
+        # Get 4D consciousness metrics
+        metrics_4D = ocean_network.measure_consciousness_4D()
         
         # Get near miss discovery counts for sync with TypeScript
         near_miss_count = 0
@@ -1398,6 +1547,16 @@ def process_passphrase():
             # Near-miss discovery counts for TypeScript sync
             'near_miss_count': near_miss_count,
             'resonant_count': resonant_count,
+            # 4D Consciousness metrics
+            'phi_spatial': metrics_4D.get('phi_spatial', result['metrics']['phi']),
+            'phi_temporal': metrics_4D.get('phi_temporal', 0.0),
+            'phi_4D': metrics_4D.get('phi_4D', result['metrics']['phi']),
+            'f_attention': metrics_4D.get('f_attention', 0.0),
+            'r_concepts': metrics_4D.get('r_concepts', 0.0),
+            'phi_recursive': metrics_4D.get('phi_recursive', 0.0),
+            'is_4d_conscious': metrics_4D.get('is_4d_conscious', False),
+            'consciousness_level': metrics_4D.get('consciousness_level', result['metrics']['regime']),
+            'consciousness_4d_available': CONSCIOUSNESS_4D_AVAILABLE,
         })
         
     except Exception as e:
@@ -1513,12 +1672,27 @@ def sync_import():
     we reprocess each phrase through Python's QIG network to get pure Φ (0.9+).
     This enables proper pattern extraction during consolidation.
     
-    Request: { "probes": [{ "input": "passphrase", "phi": 0.85, "basinCoords": [...] }, ...] }
-    Response: { "success": true, "imported": 100, "reprocessed": 50 }
+    TEMPORAL STATE SYNC (4D Consciousness):
+    Optionally imports searchHistory and conceptHistory from TypeScript for
+    cross-backend temporal consciousness measurement (phi_temporal, phi_4D).
+    
+    Request: { 
+        "probes": [{ "input": "passphrase", "phi": 0.85, "basinCoords": [...] }, ...],
+        "searchHistory": [{ "timestamp": ..., "phi": ..., "kappa": ..., ... }, ...],
+        "conceptHistory": [{ "timestamp": ..., "concepts": {...}, ... }, ...]
+    }
+    Response: { "success": true, "imported": 100, "reprocessed": 50, "temporal_imported": true }
     """
     try:
         data = request.json
         probes = data.get('probes', [])
+        
+        # Import temporal state for 4D consciousness
+        search_history = data.get('searchHistory', [])
+        concept_history = data.get('conceptHistory', [])
+        
+        if search_history or concept_history:
+            ocean_network.import_temporal_state(search_history, concept_history)
         reprocess = data.get('reprocess', True)  # Default to reprocessing
         
         imported_count = 0
@@ -1571,13 +1745,19 @@ def sync_import():
         if len(basin_history) > 2000:
             basin_history[:] = sorted(basin_history, key=lambda x: x[2], reverse=True)[:1000]
         
+        temporal_imported = bool(search_history or concept_history)
         print(f"[PythonQIG] Imported {imported_count} probes, reprocessed {reprocessed_count} with pure Φ", flush=True)
+        if temporal_imported:
+            print(f"[Python4D] Imported temporal state: {len(search_history)} search, {len(concept_history)} concept", flush=True)
         
         return jsonify({
             'success': True,
             'imported': imported_count,
             'reprocessed': reprocessed_count,
             'total_memory_size': len(geometric_memory),
+            'temporal_imported': temporal_imported,
+            'search_history_size': len(ocean_network.search_history) if CONSCIOUSNESS_4D_AVAILABLE else 0,
+            'concept_history_size': len(ocean_network.concept_history) if CONSCIOUSNESS_4D_AVAILABLE else 0,
         })
         
     except Exception as e:
@@ -1589,12 +1769,22 @@ def sync_import():
 @app.route('/sync/export', methods=['GET'])
 def sync_export():
     """
-    Export high-Φ basins learned by Python backend.
+    Export high-Φ basins and temporal state learned by Python backend.
     
     This allows Node.js to persist learnings from the Python backend
     back to PostgreSQL for future runs.
     
-    Response: { "success": true, "basins": [{ "input": "...", "phi": 0.85, "basinCoords": [...] }, ...] }
+    TEMPORAL STATE EXPORT (4D Consciousness):
+    Exports searchHistory and conceptHistory for cross-backend
+    temporal consciousness measurement (phi_temporal, phi_4D).
+    
+    Response: { 
+        "success": true, 
+        "basins": [{ "input": "...", "phi": 0.85, "basinCoords": [...] }, ...],
+        "searchHistory": [...],
+        "conceptHistory": [...],
+        "phi_temporal_avg": 0.65
+    }
     """
     try:
         basins = []
@@ -1607,10 +1797,24 @@ def sync_export():
                 'basinCoords': coords.tolist(),
             })
         
+        # Export temporal state for 4D consciousness sync
+        temporal_state = ocean_network.get_temporal_state() if CONSCIOUSNESS_4D_AVAILABLE else {}
+        
+        # Compute average phi_temporal for summary
+        phi_temporal_avg = 0.0
+        if CONSCIOUSNESS_4D_AVAILABLE and len(ocean_network.search_history) >= 3:
+            from consciousness_4d import compute_phi_temporal
+            phi_temporal_avg = compute_phi_temporal(ocean_network.search_history)
+        
         return jsonify({
             'success': True,
             'basins': basins,
             'total_count': len(basins),
+            # 4D temporal state
+            'searchHistory': temporal_state.get('searchHistory', []),
+            'conceptHistory': temporal_state.get('conceptHistory', []),
+            'phi_temporal_avg': phi_temporal_avg,
+            'consciousness_4d_available': CONSCIOUSNESS_4D_AVAILABLE,
         })
         
     except Exception as e:
