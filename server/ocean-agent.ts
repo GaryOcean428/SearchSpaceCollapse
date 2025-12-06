@@ -1659,7 +1659,7 @@ export class OceanAgent {
             hypo.phrase,
             compressedWif,
             uncompressedWif,
-            { cycleId: `cycle-${Date.now()}`, priority: hypo.qigScore?.phi || 1 }
+            { cycleId: `cycle-${Date.now()}`, priority: hypo.qigScore?.phi || 1, source: 'typescript' }
           );
         }
         

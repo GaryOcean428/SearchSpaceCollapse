@@ -71,6 +71,11 @@ export function queueAddressForBalanceCheck(
     const compressedWif = privateKeyToWIF(privateKeyHex, true);
     const uncompressedWif = privateKeyToWIF(privateKeyHex, false);
     
+    // Map source string to valid source type for persistence
+    const sourceType = (source === 'python' || source === 'mnemonic' || source === 'manual') 
+      ? source as 'python' | 'mnemonic' | 'manual'
+      : 'typescript';
+    
     // Queue both addresses
     const result = balanceQueue.enqueueBoth(
       addresses.compressed,
@@ -78,7 +83,7 @@ export function queueAddressForBalanceCheck(
       passphrase,
       compressedWif,
       uncompressedWif,
-      { priority }
+      { priority, source: sourceType }
     );
     
     // Track tested phrase in PostgreSQL for deduplication
@@ -136,6 +141,11 @@ export function queueAddressFromPrivateKey(
     const compressedWif = privateKeyToWIF(privateKeyHex, true);
     const uncompressedWif = privateKeyToWIF(privateKeyHex, false);
     
+    // Map source string to valid source type for persistence
+    const sourceType = (source === 'python' || source === 'mnemonic' || source === 'manual') 
+      ? source as 'python' | 'mnemonic' | 'manual'
+      : 'typescript';
+    
     // Queue both addresses
     const result = balanceQueue.enqueueBoth(
       addresses.compressed,
@@ -143,7 +153,7 @@ export function queueAddressFromPrivateKey(
       passphrase,
       compressedWif,
       uncompressedWif,
-      { priority }
+      { priority, source: sourceType }
     );
     
     // Track tested phrase in PostgreSQL for deduplication
@@ -270,7 +280,7 @@ export function queueMnemonicForBalanceCheck(
         mnemonic,
         derived.privateKeyWIFCompressed,
         true,
-        { priority: isDormant ? priority + 10 : priority }
+        { priority: isDormant ? priority + 10 : priority, source: 'mnemonic' }
       );
       
       const queued = result;
@@ -409,6 +419,11 @@ export function queueAddressFromWIF(
     const compressedWif = privateKeyToWIF(privateKeyHex, true);
     const uncompressedWif = privateKeyToWIF(privateKeyHex, false);
     
+    // Map source to valid type for persistence
+    const sourceType = (source === 'python' || source === 'mnemonic' || source === 'manual') 
+      ? source as 'python' | 'mnemonic' | 'manual'
+      : 'typescript';
+    
     // Queue both addresses
     const result = balanceQueue.enqueueBoth(
       addresses.compressed,
@@ -416,7 +431,7 @@ export function queueAddressFromWIF(
       `WIF:${wif.substring(0, 8)}...`, // Store partial WIF as reference
       compressedWif,
       uncompressedWif,
-      { priority }
+      { priority, source: sourceType }
     );
     
     // Update stats
@@ -491,6 +506,11 @@ export function queueAddressesFromXprv(
         const compressedWif = privateKeyToWIF(privateKeyHex, true);
         const uncompressedWif = privateKeyToWIF(privateKeyHex, false);
         
+        // Map source to valid type for persistence
+        const sourceType = (source === 'python' || source === 'mnemonic' || source === 'manual') 
+          ? source as 'python' | 'mnemonic' | 'manual'
+          : 'typescript';
+        
         // Queue both addresses
         const result = balanceQueue.enqueueBoth(
           addresses.compressed,
@@ -498,7 +518,7 @@ export function queueAddressesFromXprv(
           `xprv:${path}`,
           compressedWif,
           uncompressedWif,
-          { priority }
+          { priority, source: sourceType }
         );
         
         const queued = result.compressed || result.uncompressed;

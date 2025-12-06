@@ -27,6 +27,7 @@ export interface QueuedAddress {
   wif: string;
   isCompressed: boolean;
   cycleId?: string;
+  source: 'typescript' | 'python' | 'mnemonic' | 'manual';
   priority: number;
   status: 'pending' | 'checking' | 'resolved' | 'failed';
   queuedAt: number;
@@ -527,6 +528,7 @@ class BalanceQueueService {
             wif: item.wif,
             isCompressed: item.isCompressed,
             cycleId: item.cycleId || undefined,
+            source: (item.source as 'typescript' | 'python' | 'mnemonic' | 'manual') || 'typescript',
             priority: item.priority,
             status: item.status === 'checking' ? 'pending' : item.status as 'pending' | 'checking' | 'resolved' | 'failed',
             queuedAt: item.queuedAt?.getTime() || Date.now(),
@@ -556,6 +558,9 @@ class BalanceQueueService {
         if (item.status === 'checking') {
           item.status = 'pending';
           item.retryCount = (item.retryCount || 0) + 1;
+        }
+        if (!item.source) {
+          item.source = 'typescript';
         }
         if (item.status === 'pending' || item.status === 'failed') {
           this.queue.set(item.id, item);
@@ -589,6 +594,7 @@ class BalanceQueueService {
           wif: item.wif,
           isCompressed: item.isCompressed,
           cycleId: item.cycleId || null,
+          source: item.source || 'typescript',
           priority: item.priority,
           status: item.status,
           queuedAt: new Date(item.queuedAt),
@@ -622,6 +628,7 @@ class BalanceQueueService {
             wif: item.wif,
             isCompressed: item.isCompressed,
             cycleId: item.cycleId || null,
+            source: item.source || 'typescript',
             priority: item.priority,
             status: item.status,
             queuedAt: new Date(item.queuedAt),
@@ -687,10 +694,12 @@ class BalanceQueueService {
     options?: {
       cycleId?: string;
       priority?: number;
+      source?: 'typescript' | 'python' | 'mnemonic' | 'manual';
     }
   ): boolean {
     const id = this.generateId(address, passphrase);
     const newPriority = options?.priority || 1;
+    const source = options?.source || 'typescript';
     
     // PRIORITY UPGRADE: If address already in queue, upgrade priority if higher
     if (this.queue.has(id)) {
@@ -731,6 +740,7 @@ class BalanceQueueService {
       wif,
       isCompressed,
       cycleId: options?.cycleId,
+      source,
       priority: newPriority,
       status: 'pending',
       queuedAt: Date.now(),
@@ -760,6 +770,7 @@ class BalanceQueueService {
     options?: {
       cycleId?: string;
       priority?: number;
+      source?: 'typescript' | 'python' | 'mnemonic' | 'manual';
     }
   ): { compressed: boolean; uncompressed: boolean } {
     const compressed = this.enqueue(compressedAddr, passphrase, compressedWif, true, options);
