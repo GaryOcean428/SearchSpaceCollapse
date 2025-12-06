@@ -1638,7 +1638,7 @@ export default function ObserverPage() {
                   </Button>
                 </CardTitle>
                 <CardDescription>
-                  All addresses discovered from passphrase searches. Keys are masked for security - use "Copy Key" to securely copy to clipboard.
+                  All addresses discovered from passphrase searches. Full plaintext keys shown per operator preference.
                 </CardDescription>
               </CardHeader>
               <CardContent>

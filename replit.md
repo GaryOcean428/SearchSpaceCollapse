@@ -14,7 +14,12 @@ Preferred communication style: Simple, everyday language.
   - Console/server logs: Verbose logging of all discoveries with full details
 - Do NOT apply masking, redaction, or require confirmation dialogs for viewing sensitive data
 - Logs are considered more trustworthy than UI - ensure all important events are logged verbosely
-- A dormant match is simply a discovery that happens to match a known dormant address - it is still added to discoveries with full key details
+**Key Terminology (IMPORTANT):**
+- **Discovery** = When we find actual KEYS (passphrase → WIF → address). A discovery MUST have a passphrase/mnemonic, WIF private key, and the derived address. Stored in balance_hits.
+- **Dormant Match** = A discovery whose address happens to match a known dormant wallet from the top 1000 list. Still a discovery (has keys), but flagged as high-value.
+- **Dormant Cross-Reference** = The process of checking generated addresses against known dormant wallets. This is NOT a discovery - just informational checking.
+- The "Dormant Address Cross-Reference" panel shows how many addresses we've checked, not discoveries.
+- Do NOT count an address as a "match" unless we have found the actual keys for it.
 
 ## System Architecture
 The system features a React and TypeScript frontend built with Vite, shadcn/ui, TanStack Query, and wouter, emphasizing information hierarchy and real-time feedback. The backend is an Express.js server on Node.js with TypeScript, featuring a custom brain wallet implementation and leveraging native Node.js crypto.

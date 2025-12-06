@@ -2394,7 +2394,7 @@ router.post("/discoveries", async (req: Request, res: Response) => {
         if (mnemonicResult) {
           // Add all derived addresses for dormancy check
           if (mnemonicResult.derivedAddresses) {
-            addressesToProcess.push(...mnemonicResult.derivedAddresses);
+            addressesToProcess.push(...mnemonicResult.derivedAddresses.map(d => d.address));
           }
           
           results.push({
@@ -2403,10 +2403,9 @@ router.post("/discoveries", async (req: Request, res: Response) => {
             totalAddresses: mnemonicResult.totalAddresses,
             queuedAddresses: mnemonicResult.queuedAddresses,
             dormantMatches: mnemonicResult.dormantMatches,
-            balanceHits: mnemonicResult.balanceHits || 0,
+            balanceHits: 0,
           });
           dormantMatches += mnemonicResult.dormantMatches;
-          balanceHits += mnemonicResult.balanceHits || 0;
         } else {
           // mnemonicResult null means derivation failed completely
           hardFailures.push(`mnemonic derivation returned null`);
@@ -2517,7 +2516,7 @@ router.post("/discoveries", async (req: Request, res: Response) => {
           passphrase: input.passphrase || 'discovery-import',
           wif: input.wif,
           isCompressed: true,
-          recoveryType: 'discovery_import',
+          recoveryType: 'wif',
         });
         
         if (balanceHit && balanceHit.balanceSats > 0) {
@@ -2692,7 +2691,7 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
         isDormantMatch,
         dormantInfo: dormantInfo ? {
           rank: dormantInfo.rank,
-          label: dormantInfo.label,
+          label: dormantInfo.walletLabel,
         } : null,
       };
     });
@@ -2717,7 +2716,7 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
       dormantMatches: dormantMatches.map((m: any) => ({
         address: m.address,
         rank: m.rank,
-        label: m.label,
+        label: m.walletLabel,
         matchedAt: m.matchedAt,
       })),
       summary: {
