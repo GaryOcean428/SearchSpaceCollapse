@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause, Wallet, CheckCircle, XCircle, Send, AlertTriangle, History, DollarSign, Key, Eye, EyeOff, Copy } from "lucide-react";
+import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause, Wallet, CheckCircle, XCircle, Send, AlertTriangle, History, DollarSign, Key, Eye, EyeOff, Copy, Building, Landmark } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -237,6 +237,7 @@ export default function ObserverPage() {
   const { data: discoveriesData, isLoading: discoveriesLoading, refetch: refetchDiscoveries } = useQuery<{
     success: boolean;
     hits: Array<{
+      id?: string;
       address: string;
       passphrase: string;
       wif: string;
@@ -247,6 +248,9 @@ export default function ObserverPage() {
       discoveredAt: string;
       isDormantMatch: boolean;
       dormantInfo?: { rank: number; label?: string };
+      entityType?: 'personal' | 'exchange' | 'institution' | 'unknown';
+      entityName?: string | null;
+      entityConfidence?: 'pending' | 'confirmed';
     }>;
     dormantMatches: Array<{
       address: string;
@@ -1239,7 +1243,7 @@ export default function ObserverPage() {
                       </ResponsiveContainer>
                     </div>
 
-                    {/* Legend */}
+                    {/* Recovery Tier Legend */}
                     <div className="flex flex-wrap gap-4 justify-center text-sm">
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded-full bg-destructive/60"></div>
@@ -1263,6 +1267,36 @@ export default function ObserverPage() {
                           <span className="font-semibold">Selected Address</span>
                         </div>
                       )}
+                    </div>
+
+                    {/* Address Entity Type Legend */}
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-xs text-muted-foreground text-center mb-3">Address Entity Types (from Tavily classification)</p>
+                      <div className="flex flex-wrap gap-4 justify-center text-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-gray-500/10 text-gray-600 border-gray-500/30">
+                            Personal
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">Individual wallet</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+                            <Building className="w-3 h-3 mr-1" />
+                            Exchange
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">Trading platform</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
+                            <Landmark className="w-3 h-3 mr-1" />
+                            Institution
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">Corporate/Government</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        Note: Nothing is truly "unrecoverable" - exchanges/institutions require different recovery approaches
+                      </p>
                     </div>
 
                     {/* Geometric Interpretation */}
@@ -1671,6 +1705,61 @@ export default function ObserverPage() {
                                 <Sparkles className="w-3 h-3 mr-1" />
                                 Dormant #{hit.dormantInfo?.rank}{hit.dormantInfo?.label ? ` (${hit.dormantInfo.label})` : ''}
                               </Badge>
+                            )}
+                            {/* Address Type Badge - Exchange/Institution/Personal */}
+                            {hit.entityType && hit.entityType !== 'unknown' && (
+                              <Badge 
+                                variant="outline" 
+                                className={
+                                  hit.entityType === 'exchange' 
+                                    ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                                    : hit.entityType === 'institution'
+                                    ? "bg-purple-500/10 text-purple-600 border-purple-500/30"
+                                    : "bg-gray-500/10 text-gray-600 border-gray-500/30"
+                                }
+                                data-testid={`badge-entity-type-${idx}`}
+                              >
+                                {hit.entityType === 'exchange' && <Building className="w-3 h-3 mr-1" />}
+                                {hit.entityType === 'institution' && <Landmark className="w-3 h-3 mr-1" />}
+                                {hit.entityName || hit.entityType.charAt(0).toUpperCase() + hit.entityType.slice(1)}
+                                {hit.entityConfidence === 'pending' && (
+                                  <span className="ml-1 text-xs opacity-70">(pending)</span>
+                                )}
+                              </Badge>
+                            )}
+                            {hit.entityType === 'unknown' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-xs"
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch('/api/observer/classify-address', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ address: hit.address, balanceHitId: hit.id })
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                      toast({
+                                        title: "Classification Complete",
+                                        description: `${hit.address.slice(0, 12)}... classified as ${data.classification.entityType}${data.classification.entityName ? ` (${data.classification.entityName})` : ''}`,
+                                      });
+                                      refetchDiscoveries();
+                                    }
+                                  } catch (error) {
+                                    toast({
+                                      title: "Classification Failed",
+                                      description: "Could not classify address",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                data-testid={`button-classify-${idx}`}
+                              >
+                                <Search className="w-3 h-3 mr-1" />
+                                Classify
+                              </Button>
                             )}
                             <Badge variant="outline" className={hit.balanceSats > 0 ? "bg-green-500/10 text-green-600" : ""}>
                               {hit.balanceBTC} BTC

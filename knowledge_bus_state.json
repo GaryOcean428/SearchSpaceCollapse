@@ -1,0 +1,228 @@
+{
+  "strategies": [
+    [
+      "era_patterns",
+      {
+        "id": "era_patterns",
+        "name": "Era Pattern Analysis",
+        "generatorTypes": [
+          "temporal",
+          "grammatical"
+        ],
+        "compressionMethods": [
+          "era_clustering",
+          "temporal_entropy"
+        ],
+        "resonanceRange": [
+          0.3,
+          0.7
+        ],
+        "preferredRegimes": [
+          "linear",
+          "geometric"
+        ]
+      }
+    ],
+    [
+      "brain_wallet_dict",
+      {
+        "id": "brain_wallet_dict",
+        "name": "Brain Wallet Dictionary",
+        "generatorTypes": [
+          "grammatical",
+          "structural"
+        ],
+        "compressionMethods": [
+          "dictionary_hash",
+          "frequency_encode"
+        ],
+        "resonanceRange": [
+          0.4,
+          0.9
+        ],
+        "preferredRegimes": [
+          "linear"
+        ]
+      }
+    ],
+    [
+      "bitcoin_terms",
+      {
+        "id": "bitcoin_terms",
+        "name": "Bitcoin Terminology",
+        "generatorTypes": [
+          "grammatical",
+          "cross_format"
+        ],
+        "compressionMethods": [
+          "term_graph",
+          "semantic_embed"
+        ],
+        "resonanceRange": [
+          0.5,
+          0.95
+        ],
+        "preferredRegimes": [
+          "geometric"
+        ]
+      }
+    ],
+    [
+      "linguistic",
+      {
+        "id": "linguistic",
+        "name": "Linguistic Patterns",
+        "generatorTypes": [
+          "grammatical",
+          "structural"
+        ],
+        "compressionMethods": [
+          "ngram_compress",
+          "phonetic_hash"
+        ],
+        "resonanceRange": [
+          0.2,
+          0.8
+        ],
+        "preferredRegimes": [
+          "linear",
+          "geometric"
+        ]
+      }
+    ],
+    [
+      "qig_basin_search",
+      {
+        "id": "qig_basin_search",
+        "name": "QIG Basin Search",
+        "generatorTypes": [
+          "geometric",
+          "structural"
+        ],
+        "compressionMethods": [
+          "basin_topology",
+          "curvature_encode"
+        ],
+        "resonanceRange": [
+          0.6,
+          1
+        ],
+        "preferredRegimes": [
+          "geometric",
+          "breakdown"
+        ]
+      }
+    ],
+    [
+      "historical_autonomous",
+      {
+        "id": "historical_autonomous",
+        "name": "Historical Autonomous",
+        "generatorTypes": [
+          "temporal",
+          "cross_format"
+        ],
+        "compressionMethods": [
+          "archive_chain",
+          "temporal_graph"
+        ],
+        "resonanceRange": [
+          0.3,
+          0.85
+        ],
+        "preferredRegimes": [
+          "linear",
+          "geometric"
+        ]
+      }
+    ],
+    [
+      "cross_format",
+      {
+        "id": "cross_format",
+        "name": "Cross Format Analysis",
+        "generatorTypes": [
+          "cross_format",
+          "geometric"
+        ],
+        "compressionMethods": [
+          "format_bridge",
+          "universal_hash"
+        ],
+        "resonanceRange": [
+          0.4,
+          0.95
+        ],
+        "preferredRegimes": [
+          "geometric",
+          "breakdown"
+        ]
+      }
+    ]
+  ],
+  "sharedKnowledge": [
+    [
+      "kb_1765013383974_y3jhurcxj",
+      {
+        "id": "kb_1765013383974_y3jhurcxj",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765013382118-ixoq",
+        "pattern": "XiZ9JuQoJ",
+        "phi": 0.9814375,
+        "kappaEff": 62.812,
+        "regime": "geometric",
+        "sharedAt": "2025-12-06T09:29:43.974Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765013502732_6e5bzf61a",
+      {
+        "id": "kb_1765013502732_6e5bzf61a",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765013500977-1a18",
+        "pattern": "XiZ9JuQoJ",
+        "phi": 0.9814375,
+        "kappaEff": 62.812,
+        "regime": "geometric",
+        "sharedAt": "2025-12-06T09:31:42.732Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765013612257_c9r7mmedu",
+      {
+        "id": "kb_1765013612257_c9r7mmedu",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765013610526-4vj1",
+        "pattern": "XiZ9JuQoJ",
+        "phi": 0.9814375,
+        "kappaEff": 62.812,
+        "regime": "geometric",
+        "sharedAt": "2025-12-06T09:33:32.257Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765013651203_t2d1kunsc",
+      {
+        "id": "kb_1765013651203_t2d1kunsc",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765013649525-y6rb",
+        "pattern": "XiZ9JuQoJ",
+        "phi": 0.9814375,
+        "kappaEff": 62.812,
+        "regime": "geometric",
+        "sharedAt": "2025-12-06T09:34:11.203Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ]
+  ],
+  "crossStrategyPatterns": [],
+  "transferHistory": [],
+  "scaleMappings": []
+}

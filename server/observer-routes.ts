@@ -2677,6 +2677,7 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
         : null;
       
       return {
+        id: (hit as any).id, // Include ID for entity classification updates
         address: hit.address,
         passphrase: hit.passphrase,
         wif: hit.wif, // Full WIF - no masking
@@ -2694,6 +2695,10 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
           rank: dormantInfo.rank,
           label: dormantInfo.walletLabel,
         } : null,
+        // Entity classification fields
+        entityType: (hit as any).addressEntityType || 'unknown',
+        entityName: (hit as any).entityTypeName || null,
+        entityConfidence: (hit as any).entityTypeConfidence || 'pending',
       };
     });
     
@@ -2728,6 +2733,145 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/observer/classify-address
+ * Classify an address as personal/exchange/institution using Tavily search
+ */
+router.post("/classify-address", async (req: Request, res: Response) => {
+  try {
+    const { address, balanceHitId } = req.body;
+    
+    if (!address) {
+      return res.status(400).json({ error: "Address is required" });
+    }
+    
+    const { addressEntityClassifier } = await import("./address-entity-classifier");
+    const classification = await addressEntityClassifier.classifyAddress(address);
+    
+    // If balanceHitId provided, update the database record
+    if (balanceHitId) {
+      await addressEntityClassifier.updateBalanceHitClassification(balanceHitId, classification);
+    }
+    
+    console.log(`[EntityClassify] ${address.slice(0, 12)}...: ${classification.entityType} (${classification.entityName || 'N/A'}) - ${classification.confidence}`);
+    
+    res.json({
+      success: true,
+      address,
+      classification: {
+        entityType: classification.entityType,
+        entityName: classification.entityName,
+        confidence: classification.confidence,
+        sources: classification.sources,
+        searchResults: classification.searchResults
+      }
+    });
+  } catch (error: any) {
+    console.error("[EntityClassify] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/observer/confirm-entity-type
+ * Manually confirm an entity classification
+ */
+router.post("/confirm-entity-type", async (req: Request, res: Response) => {
+  try {
+    const { balanceHitId, entityType, entityName } = req.body;
+    
+    if (!balanceHitId || !entityType) {
+      return res.status(400).json({ error: "balanceHitId and entityType are required" });
+    }
+    
+    if (!['personal', 'exchange', 'institution'].includes(entityType)) {
+      return res.status(400).json({ error: "entityType must be personal, exchange, or institution" });
+    }
+    
+    const { addressEntityClassifier } = await import("./address-entity-classifier");
+    await addressEntityClassifier.confirmClassification(balanceHitId, entityType, entityName);
+    
+    console.log(`[EntityConfirm] Balance hit ${balanceHitId}: confirmed as ${entityType} (${entityName || 'N/A'})`);
+    
+    res.json({
+      success: true,
+      balanceHitId,
+      entityType,
+      entityName,
+      confidence: 'confirmed'
+    });
+  } catch (error: any) {
+    console.error("[EntityConfirm] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/observer/sweep/confirm
+ * Require explicit confirmation before sweeping to exchange/institution addresses
+ * This adds an extra safety layer for potentially contested funds
+ */
+router.post("/sweep/confirm", async (req: Request, res: Response) => {
+  try {
+    const { 
+      sourceAddress, 
+      destinationAddress,
+      entityType,
+      entityName,
+      confirmationCode,
+      acknowledgeRisks 
+    } = req.body;
+    
+    if (!sourceAddress || !destinationAddress) {
+      return res.status(400).json({ error: "sourceAddress and destinationAddress are required" });
+    }
+    
+    // Check if destination is exchange/institution and requires confirmation
+    const isHighRisk = entityType === 'exchange' || entityType === 'institution';
+    
+    if (isHighRisk && !acknowledgeRisks) {
+      console.log(`[SweepConfirm] WARNING: Attempted sweep to ${entityType} (${entityName || 'unknown'}) without acknowledgment`);
+      return res.status(400).json({
+        error: "Risk acknowledgment required",
+        requiresAcknowledgment: true,
+        warning: `This address belongs to ${entityName || 'an ' + entityType}. ` +
+                 `Sending funds to ${entityType} addresses may result in complications. ` +
+                 `Please confirm you understand the risks.`,
+        entityType,
+        entityName
+      });
+    }
+    
+    // Generate confirmation code if not provided
+    if (isHighRisk && !confirmationCode) {
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      console.log(`[SweepConfirm] Generated confirmation code ${code} for ${entityType} sweep`);
+      return res.json({
+        success: false,
+        requiresConfirmation: true,
+        confirmationCode: code,
+        message: `Type "${code}" to confirm sweep to ${entityName || entityType}`,
+        expiresIn: 300 // 5 minutes
+      });
+    }
+    
+    console.log(`[SweepConfirm] Sweep confirmed: ${sourceAddress.slice(0, 12)}... → ${destinationAddress.slice(0, 12)}... (${entityType || 'personal'})`);
+    
+    res.json({
+      success: true,
+      confirmed: true,
+      sourceAddress,
+      destinationAddress,
+      entityType: entityType || 'personal',
+      entityName,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error("[SweepConfirm] Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
