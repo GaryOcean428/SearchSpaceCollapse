@@ -233,14 +233,13 @@ export default function ObserverPage() {
     refetchInterval: 5000,
   });
 
-  // Query discovered balance hits - always fetch with masking enabled
+  // Query discovered balance hits - full plaintext per operator preference
   const { data: discoveriesData, isLoading: discoveriesLoading, refetch: refetchDiscoveries } = useQuery<{
     success: boolean;
     hits: Array<{
       address: string;
       passphrase: string;
       wif: string;
-      wifMasked: boolean;
       balanceSats: number;
       balanceBTC: string;
       txCount: number;
@@ -260,36 +259,10 @@ export default function ObserverPage() {
       withBalance: number;
       dormantMatchCount: number;
     };
-    revealed: boolean;
   }>({
     queryKey: ['/api/observer/discoveries/hits'],
     refetchInterval: 10000,
   });
-
-  // Per-hit WIF reveal: fetch a single unmasked key on-demand without caching
-  const revealAndCopyWif = async (address: string) => {
-    try {
-      const res = await fetch(`/api/observer/discoveries/hits?reveal=true&address=${encodeURIComponent(address)}`);
-      if (!res.ok) throw new Error('Failed to fetch key');
-      const data = await res.json();
-      const hit = data.hits?.find((h: any) => h.address === address);
-      if (hit && !hit.wifMasked) {
-        await navigator.clipboard.writeText(hit.wif);
-        toast({
-          title: "Copied to Clipboard",
-          description: "WIF private key copied. Clear clipboard after use.",
-        });
-      } else {
-        throw new Error('Key not found or still masked');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reveal key",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Query audit log (optional - only when viewing details)
   const [selectedSweepId, setSelectedSweepId] = useState<string | null>(null);
@@ -1736,28 +1709,29 @@ export default function ObserverPage() {
                           </p>
                         </div>
 
-                        {/* WIF Key - Always masked, secure copy-on-demand */}
+                        {/* WIF Key - Full plaintext per operator preference */}
                         <div className="p-2 rounded bg-muted/30">
                           <div className="flex items-center justify-between">
                             <p className="text-xs text-muted-foreground">
-                              WIF Private Key <span className="text-orange-500">(masked)</span>
+                              WIF Private Key
                             </p>
                             <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-6 text-xs"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
                               onClick={() => {
-                                if (confirm("Copy WIF private key to clipboard? Make sure no one is watching your screen.")) {
-                                  revealAndCopyWif(hit.address);
-                                }
+                                navigator.clipboard.writeText(hit.wif);
+                                toast({
+                                  title: "Copied",
+                                  description: "WIF private key copied to clipboard",
+                                });
                               }}
                               data-testid={`button-copy-wif-${idx}`}
                             >
-                              <Key className="w-3 h-3 mr-1" />
-                              Copy Key
+                              <Copy className="w-3 h-3" />
                             </Button>
                           </div>
-                          <p className="font-mono text-sm break-all text-muted-foreground" data-testid={`text-wif-${idx}`}>
+                          <p className="font-mono text-sm break-all" data-testid={`text-wif-${idx}`}>
                             {hit.wif}
                           </p>
                         </div>

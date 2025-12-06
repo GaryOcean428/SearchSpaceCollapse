@@ -6,6 +6,16 @@ The Observer Archaeology System is a Bitcoin lost coin recovery platform focusin
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+**Data Visibility Policy (MANDATORY):**
+- **NO MASKING** of any sensitive data - this is a personal single-operator system
+- All recovery artifacts (addresses, passphrases, mnemonics, WIFs, private keys) must be displayed in FULL PLAINTEXT everywhere:
+  - API responses: Return complete unmasked data
+  - UI components: Display all secrets without hiding or reveal buttons
+  - Console/server logs: Verbose logging of all discoveries with full details
+- Do NOT apply masking, redaction, or require confirmation dialogs for viewing sensitive data
+- Logs are considered more trustworthy than UI - ensure all important events are logged verbosely
+- A dormant match is simply a discovery that happens to match a known dormant address - it is still added to discoveries with full key details
+
 ## System Architecture
 The system features a React and TypeScript frontend built with Vite, shadcn/ui, TanStack Query, and wouter, emphasizing information hierarchy and real-time feedback. The backend is an Express.js server on Node.js with TypeScript, featuring a custom brain wallet implementation and leveraging native Node.js crypto.
 

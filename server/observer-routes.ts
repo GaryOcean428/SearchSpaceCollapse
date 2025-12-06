@@ -2649,19 +2649,14 @@ router.get("/discoveries/stats", async (req: Request, res: Response) => {
 /**
  * GET /api/observer/discoveries/hits
  * Get all discovered balance hits with their details
- * WIF keys are masked by default for security
+ * NO MASKING - operator preference for full plaintext visibility
  * Query params:
- * - reveal=true: Show unmasked WIF keys (requires address param for security)
- * - address=<addr>: Filter to specific address (required when reveal=true)
+ * - address=<addr>: Optional filter to specific address
  */
 router.get("/discoveries/hits", async (req: Request, res: Response) => {
   try {
     const { getBalanceHits } = await import("./blockchain-scanner");
-    const reveal = req.query.reveal === "true";
     const filterAddress = req.query.address as string | undefined;
-    
-    // Security: reveal only works with a specific address filter
-    const shouldReveal = reveal && filterAddress;
     
     let hits = getBalanceHits();
     const dormantMatches = dormantCrossRef.getAllMatches();
@@ -2674,21 +2669,17 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
     // Create a set of dormant addresses for quick lookup
     const dormantAddressSet = new Set(dormantMatches.map((m: any) => m.address));
     
-    // Format hits with masking (only reveal for specific address when requested)
+    // Format hits - NO MASKING per operator preference
     const formattedHits = hits.map(hit => {
       const isDormantMatch = dormantAddressSet.has(hit.address);
       const dormantInfo = isDormantMatch 
         ? dormantMatches.find((m: any) => m.address === hit.address)
         : null;
       
-      // Only reveal if specifically requested for this address
-      const revealThisKey = shouldReveal && hit.address === filterAddress;
-      
       return {
         address: hit.address,
         passphrase: hit.passphrase,
-        wif: revealThisKey ? hit.wif : maskSensitive(hit.wif),
-        wifMasked: !revealThisKey,
+        wif: hit.wif, // Full WIF - no masking
         balanceSats: hit.balanceSats,
         balanceBTC: hit.balanceBTC,
         txCount: hit.txCount,
@@ -2706,6 +2697,20 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
       };
     });
     
+    // Log discoveries for verbose output
+    if (formattedHits.length > 0) {
+      console.log(`[Discoveries] Returning ${formattedHits.length} balance hits:`);
+      formattedHits.forEach((h, i) => {
+        console.log(`  [${i + 1}] Address: ${h.address}`);
+        console.log(`      Passphrase: "${h.passphrase}"`);
+        console.log(`      WIF: ${h.wif}`);
+        console.log(`      Balance: ${h.balanceBTC} BTC (${h.txCount} txs)`);
+        if (h.isDormantMatch) {
+          console.log(`      ⭐ DORMANT MATCH: Rank #${h.dormantInfo?.rank} - ${h.dormantInfo?.label || 'Unknown'}`);
+        }
+      });
+    }
+    
     res.json({
       success: true,
       hits: formattedHits,
@@ -2716,24 +2721,15 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
         matchedAt: m.matchedAt,
       })),
       summary: {
-        totalHits: getBalanceHits().length, // Always use full count
+        totalHits: getBalanceHits().length,
         withBalance: getBalanceHits().filter(h => h.balanceSats > 0).length,
         dormantMatchCount: dormantMatches.length,
       },
-      revealed: !!shouldReveal,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
-
-/**
- * Helper to mask sensitive data like WIF keys
- */
-function maskSensitive(value: string): string {
-  if (!value || value.length < 8) return "****";
-  return value.slice(0, 4) + "..." + value.slice(-4);
-}
 
 export default router;
