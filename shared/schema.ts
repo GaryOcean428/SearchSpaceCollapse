@@ -243,6 +243,11 @@ export const balanceHits = pgTable("balance_hits", {
   // Dormant confirmation - user manually confirms if address is from dormant target list
   isDormantConfirmed: boolean("is_dormant_confirmed").default(false),
   dormantConfirmedAt: timestamp("dormant_confirmed_at"),
+  // Address entity classification - identifies if address belongs to exchange/institution
+  addressEntityType: varchar("address_entity_type", { length: 32 }).default("unknown"), // personal, exchange, institution, unknown
+  entityTypeConfidence: varchar("entity_type_confidence", { length: 16 }).default("pending"), // pending, confirmed
+  entityTypeName: varchar("entity_type_name", { length: 128 }), // e.g., "Binance", "Coinbase", "Mt.Gox Trustee"
+  entityTypeConfirmedAt: timestamp("entity_type_confirmed_at"),
   // Original input (for non-brain wallets, stores raw input like mnemonic words)
   originalInput: text("original_input"),
 }, (table) => [
@@ -252,6 +257,7 @@ export const balanceHits = pgTable("balance_hits", {
   index("idx_balance_hits_wallet_type").on(table.walletType),
   index("idx_balance_hits_recovery_type").on(table.recoveryType),
   index("idx_balance_hits_dormant").on(table.isDormantConfirmed),
+  index("idx_balance_hits_entity_type").on(table.addressEntityType),
 ]);
 
 export type BalanceHit = typeof balanceHits.$inferSelect;
@@ -592,7 +598,7 @@ export const recoveryPriorities = pgTable("recovery_priorities", {
   
   // Ranking
   rank: integer("rank"),
-  tier: varchar("tier", { length: 50 }), // 'high', 'medium', 'low', 'unrecoverable'
+  tier: varchar("tier", { length: 50 }), // 'high', 'medium', 'low', 'challenging'
   
   // Recovery vector recommendation
   recommendedVector: varchar("recommended_vector", { length: 100 }), // 'estate', 'constrained_search', 'social', 'temporal'

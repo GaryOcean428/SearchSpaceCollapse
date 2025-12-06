@@ -25,7 +25,7 @@ interface DormantAddress {
 interface RecoveryPriority {
   address: string;
   kappaRecovery: number;
-  tier: 'high' | 'medium' | 'low' | 'unrecoverable';
+  tier: 'high' | 'medium' | 'low' | 'challenging';
   recommendedVector: 'estate' | 'constrained_search' | 'social' | 'temporal';
   constraints: any;
   entropy: any;
@@ -945,7 +945,7 @@ export default function ObserverPage() {
                       <SelectItem value="high">High Priority</SelectItem>
                       <SelectItem value="medium">Medium Priority</SelectItem>
                       <SelectItem value="low">Low Priority</SelectItem>
-                      <SelectItem value="unrecoverable">Unrecoverable</SelectItem>
+                      <SelectItem value="challenging">Challenging</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1255,7 +1255,7 @@ export default function ObserverPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded-full bg-muted-foreground/30"></div>
-                        <span>Unrecoverable (κ ≥ 100)</span>
+                        <span>Challenging (κ ≥ 100)</span>
                       </div>
                       {selectedAddress && (
                         <div className="flex items-center gap-2">
@@ -1273,7 +1273,7 @@ export default function ObserverPage() {
                         </CardHeader>
                         <CardContent>
                           <p className="text-xs text-muted-foreground">
-                            Low Φ, Low H - Minimal constraints and entropy. Unrecoverable without external data.
+                            Low Φ, Low H - Minimal constraints and entropy. Requires entity research or sibling analysis.
                           </p>
                         </CardContent>
                       </Card>
@@ -1851,10 +1851,10 @@ function TierBadge({ tier }: { tier: string }) {
     high: { label: "High", className: "bg-destructive/10 text-destructive border-destructive/20" },
     medium: { label: "Medium", className: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
     low: { label: "Low", className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-    unrecoverable: { label: "Unrecoverable", className: "bg-muted text-muted-foreground border-muted" },
+    challenging: { label: "Challenging", className: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
   };
 
-  const cfg = config[tier as keyof typeof config] || config.unrecoverable;
+  const cfg = config[tier as keyof typeof config] || config.challenging;
 
   return (
     <Badge variant="outline" className={cfg.className} data-testid={`badge-tier-${tier}`}>

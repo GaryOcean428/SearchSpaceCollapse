@@ -167,7 +167,7 @@ function BalanceHitCard({
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Key className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-mono truncate max-w-[180px]">
+            <CardTitle className="text-sm font-mono break-all">
               {hit.address}
             </CardTitle>
           </div>
@@ -199,8 +199,8 @@ function BalanceHitCard({
         </div>
         
         {hit.passphrase && (
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground font-mono truncate max-w-[250px]">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs text-muted-foreground font-mono break-all flex-1">
               {hit.passphrase}
             </p>
             <CopyButton text={hit.passphrase} label="passphrase" />
@@ -240,7 +240,7 @@ function RecoveryCard({ recovery, onSelect }: { recovery: RecoveryBundle; onSele
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Key className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-mono truncate max-w-[180px]">
+            <CardTitle className="text-sm font-mono break-all">
               {recovery.address}
             </CardTitle>
           </div>
@@ -256,7 +256,7 @@ function RecoveryCard({ recovery, onSelect }: { recovery: RecoveryBundle; onSele
       </CardHeader>
       <CardContent className="pt-0">
         {recovery.passphrase && (
-          <p className="text-xs text-muted-foreground font-mono truncate">
+          <p className="text-xs text-muted-foreground font-mono break-all">
             Phrase: {recovery.passphrase}
           </p>
         )}
@@ -474,7 +474,7 @@ function BalanceAddressCard({ address, onSelect }: { address: StoredAddress; onS
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-green-500" />
-            <CardTitle className="text-sm font-mono truncate max-w-[180px]">
+            <CardTitle className="text-sm font-mono break-all">
               {address.address}
             </CardTitle>
           </div>
@@ -487,7 +487,7 @@ function BalanceAddressCard({ address, onSelect }: { address: StoredAddress; onS
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
-        <p className="text-xs text-muted-foreground font-mono truncate">
+        <p className="text-xs text-muted-foreground font-mono break-all">
           Phrase: {address.passphrase}
         </p>
         {address.txCount > 0 && (
@@ -663,10 +663,16 @@ export default function RecoveryResults() {
   // Mutation for updating dormant confirmation
   const dormantMutation = useMutation({
     mutationFn: async ({ address, isDormant }: { address: string; isDormant: boolean }) => {
-      return await apiRequest('PATCH', `/api/balance-hits/${address}/dormant`, { isDormantConfirmed: isDormant });
+      // URL encode the address to handle special characters
+      const encodedAddress = encodeURIComponent(address);
+      return await apiRequest('PATCH', `/api/balance-hits/${encodedAddress}/dormant`, { isDormantConfirmed: isDormant });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/balance-hits'] });
+      // Show success feedback (imported useToast at top)
+    },
+    onError: (error: Error) => {
+      console.error('[DormantToggle] Failed:', error.message);
     },
   });
 

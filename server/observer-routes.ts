@@ -791,7 +791,7 @@ router.get("/artifacts", async (req: Request, res: Response) => {
 router.get("/priorities", async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      tier: z.enum(["high", "medium", "low", "unrecoverable"]).optional(),
+      tier: z.enum(["high", "medium", "low", "challenging"]).optional(),
       minKappa: z.coerce.number().optional(),
       limit: z.coerce.number().min(1).max(1000).default(100),
       offset: z.coerce.number().min(0).default(0),
@@ -1138,7 +1138,7 @@ router.post("/recovery/compute", async (req: Request, res: Response) => {
         high: rankedResults.filter(r => r.tier === 'high').length,
         medium: rankedResults.filter(r => r.tier === 'medium').length,
         low: rankedResults.filter(r => r.tier === 'low').length,
-        unrecoverable: rankedResults.filter(r => r.tier === 'unrecoverable').length,
+        challenging: rankedResults.filter(r => r.tier === 'challenging').length,
       },
     });
   } catch (error: any) {
@@ -1158,7 +1158,7 @@ router.post("/recovery/compute", async (req: Request, res: Response) => {
 router.get("/recovery/priorities", async (req: Request, res: Response) => {
   try {
     const schema = z.object({
-      tier: z.enum(['high', 'medium', 'low', 'unrecoverable']).optional(),
+      tier: z.enum(['high', 'medium', 'low', 'challenging']).optional(),
       status: z.string().optional(),
       minKappa: z.coerce.number().optional(),
       maxKappa: z.coerce.number().optional(),
@@ -1204,7 +1204,7 @@ router.get("/recovery/priorities", async (req: Request, res: Response) => {
         // Personal/lost wallets are potentially recoverable with lower κ
         // Exchange/institutional wallets have higher κ (harder to recover)
         let kappa: number;
-        let tier: 'high' | 'medium' | 'low' | 'unrecoverable';
+        let tier: 'high' | 'medium' | 'low' | 'challenging';
         
         // Check classification for recovery likelihood
         const isLikelyRecoverable = wallet.classification.includes('Lost') || 
@@ -1228,9 +1228,10 @@ router.get("/recovery/priorities", async (req: Request, res: Response) => {
             tier = 'low';
           }
         } else {
-          // Exchange/institutional/inaccessible - likely unrecoverable
+          // Exchange/institutional - challenging but not impossible
+          // These require different vectors: entity research, sibling analysis
           kappa = 40 + seededRandom(randSeed + 4) * 40; // κ = 40-80
-          tier = 'unrecoverable';
+          tier = 'challenging';
         }
         
         // Adjust based on wallet label hints
@@ -1245,7 +1246,7 @@ router.get("/recovery/priorities", async (req: Request, res: Response) => {
           'high': 'constrained_search',
           'medium': 'social',
           'low': 'temporal',
-          'unrecoverable': 'estate',
+          'challenging': 'estate', // Challenging addresses may need estate/entity research
         };
         
         return {

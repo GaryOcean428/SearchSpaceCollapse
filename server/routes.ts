@@ -2400,7 +2400,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update dormant confirmation status for a balance hit
   app.patch("/api/balance-hits/:address/dormant", standardLimiter, async (req, res) => {
     try {
-      const address = req.params.address;
+      // URL decode the address in case it was encoded by the client
+      const address = decodeURIComponent(req.params.address);
       const { isDormantConfirmed } = req.body;
       
       if (typeof isDormantConfirmed !== 'boolean') {

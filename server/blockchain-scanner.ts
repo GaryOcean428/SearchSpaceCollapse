@@ -1226,8 +1226,8 @@ export function computeKappaRecovery(address: Partial<Address>): {
   // κ_recovery = Φ_constraints / H_creation
   const kappaRecovery = phiConstraints / hCreation;
   
-  // Tier classification
-  let tier = "unrecoverable";
+  // Tier classification - nothing is truly unrecoverable
+  let tier = "challenging";
   if (kappaRecovery > 0.5) tier = "high";
   else if (kappaRecovery > 0.2) tier = "medium";
   else if (kappaRecovery > 0.1) tier = "low";

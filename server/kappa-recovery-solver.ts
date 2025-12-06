@@ -218,7 +218,7 @@ export interface KappaRecoveryResult {
   kappa: number; // κ_recovery = Φ / H
   phi: number; // Φ_constraints
   h: number; // H_creation
-  tier: 'high' | 'medium' | 'low' | 'unrecoverable';
+  tier: 'high' | 'medium' | 'low' | 'challenging';
   recommendedVector: 'estate' | 'constrained_search' | 'social' | 'temporal';
   constraints: ConstraintBreakdown;
   entropy: EntropyBreakdown;
@@ -247,15 +247,16 @@ export function computeKappaRecovery(
   
   // Determine tier based on κ_recovery
   // Lower κ = easier to recover (high priority)
-  let tier: 'high' | 'medium' | 'low' | 'unrecoverable';
+  // Note: Nothing is truly unrecoverable - 'challenging' just means more effort required
+  let tier: 'high' | 'medium' | 'low' | 'challenging';
   if (kappa >= 2.0) {
-    tier = 'high'; // High constraints, low entropy
+    tier = 'high'; // High constraints, low entropy - best candidates
   } else if (kappa >= 1.0) {
-    tier = 'medium';
+    tier = 'medium'; // Moderate constraints
   } else if (kappa >= 0.3) {
-    tier = 'low';
+    tier = 'low'; // Lower priority but still actionable
   } else {
-    tier = 'unrecoverable'; // Very low constraints, high entropy
+    tier = 'challenging'; // Requires more investigation vectors
   }
   
   // Recommend recovery vector
@@ -301,7 +302,7 @@ export interface RankedRecoveryResult {
   kappa: number;
   phi: number;
   h: number;
-  tier: 'high' | 'medium' | 'low' | 'unrecoverable';
+  tier: 'high' | 'medium' | 'low' | 'challenging';
   recommendedVector: 'estate' | 'constrained_search' | 'social' | 'temporal';
   constraints: ConstraintBreakdown;
   entropy: EntropyBreakdown;

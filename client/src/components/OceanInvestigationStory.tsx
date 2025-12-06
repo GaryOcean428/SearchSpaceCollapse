@@ -320,9 +320,9 @@ export function OceanInvestigationStory() {
       <ConsciousnessRow consciousness={consciousness} isInvestigating={isInvestigating} />
 
       {/* Row 3: Two columns - Neurochemistry/Admin | Activity */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 min-h-0 overflow-hidden">
         {/* Left Column: Neurochemistry + Admin */}
-        <div className="flex flex-col gap-3 min-h-0">
+        <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
           <Collapsible open={neuroOpen} onOpenChange={setNeuroOpen}>
             <Card className="flex-1 min-h-0 overflow-hidden">
               <CollapsibleTrigger asChild>
@@ -478,8 +478,8 @@ export function OceanInvestigationStory() {
           </Card>
         </div>
 
-        {/* Right Column: Activity + Candidates */}
-        <div className="flex flex-col gap-3 min-h-0">
+        {/* Right Column: Activity + Candidates + Balance Hits */}
+        <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
           <Collapsible open={activityOpen} onOpenChange={setActivityOpen} className="flex-1 min-h-0">
             <Card className="h-full flex flex-col min-h-0 overflow-hidden">
               <CollapsibleTrigger asChild>
