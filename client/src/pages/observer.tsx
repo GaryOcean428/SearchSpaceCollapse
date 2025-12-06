@@ -710,18 +710,18 @@ export default function ObserverPage() {
                 <Wallet className="w-4 h-4 mr-2" />
                 Sweep Manager
                 {(sweepStatsData?.stats?.pending || 0) > 0 && (
-                  <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/30">
+                  <span className="ml-2 inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold bg-orange-500/10 text-orange-600 border-orange-500/30">
                     {sweepStatsData?.stats?.pending}
-                  </Badge>
+                  </span>
                 )}
               </TabsTrigger>
               <TabsTrigger value="discoveries" data-testid="tab-discoveries">
                 <Key className="w-4 h-4 mr-2" />
                 Discoveries
                 {dormantCrossRefData?.matchesFound && dormantCrossRefData.matchesFound > 0 && (
-                  <Badge variant="outline" className="ml-2 bg-green-500/10 text-green-600 border-green-500/30">
+                  <span className="ml-2 inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold bg-green-500/10 text-green-600 border-green-500/30">
                     {dormantCrossRefData.matchesFound}
-                  </Badge>
+                  </span>
                 )}
               </TabsTrigger>
             </TabsList>
