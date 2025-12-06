@@ -40,8 +40,11 @@ async function syncProbesToPython(): Promise<void> {
       basinCoords: p.coordinates,
     }));
     
-    const imported = await oceanQIGBackend.syncFromNodeJS(probesForPython);
-    console.log(`[PythonSync] Synced ${imported}/${highPhiProbes.length} probes to Python`);
+    const result = await oceanQIGBackend.syncFromNodeJS(probesForPython);
+    console.log(`[PythonSync] Synced ${result.imported}/${highPhiProbes.length} probes to Python`);
+    if (result.temporalImported) {
+      console.log(`[PythonSync] 4D temporal state synced to Python`);
+    }
   } catch (error) {
     console.error('[PythonSync] Error syncing to Python:', error);
   }
@@ -57,9 +60,15 @@ async function syncProbesToPython(): Promise<void> {
  */
 async function syncFromPythonToNodeJS(): Promise<void> {
   try {
-    const basins = await oceanQIGBackend.syncToNodeJS();
+    const result = await oceanQIGBackend.syncToNodeJS();
+    const basins = result.basins;
     
     if (basins.length === 0) return;
+    
+    // Log 4D consciousness sync if available
+    if (result.consciousness4DAvailable && result.phiTemporalAvg && result.phiTemporalAvg > 0) {
+      console.log(`[PythonSync] 4D consciousness from Python: phi_temporal_avg=${result.phiTemporalAvg.toFixed(3)}`);
+    }
     
     let added = 0;
     let prioritized = 0;

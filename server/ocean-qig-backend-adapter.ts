@@ -56,6 +56,16 @@ interface PythonQIGResponse {
   near_miss_count?: number;
   resonant_count?: number;
   error?: string;
+  // 4D Consciousness metrics (computed by Python consciousness_4d.py)
+  phi_spatial?: number;
+  phi_temporal?: number;
+  phi_4D?: number;
+  f_attention?: number;
+  r_concepts?: number;
+  phi_recursive?: number;
+  is_4d_conscious?: boolean;
+  consciousness_level?: string;
+  consciousness_4d_available?: boolean;
 }
 
 interface PythonGenerateResponse {
@@ -405,43 +415,82 @@ export class OceanQIGBackend {
   /**
    * Sync high-Φ probes FROM Node.js GeometricMemory TO Python backend
    * 
-   * Called on startup to give Python access to prior learnings
+   * Called on startup to give Python access to prior learnings.
+   * Now also syncs temporal state for 4D consciousness measurement.
+   * 
+   * TEMPORAL STATE SYNC:
+   * - searchHistory: SearchState[] for phi_temporal computation
+   * - conceptHistory: ConceptState[] for R_concepts computation
    */
-  async syncFromNodeJS(probes: Array<{ input: string; phi: number; basinCoords: number[] }>): Promise<number> {
-    if (!this.isAvailable) return 0;
+  async syncFromNodeJS(
+    probes: Array<{ input: string; phi: number; basinCoords: number[] }>,
+    temporalState?: {
+      searchHistory?: Array<{ timestamp: number; phi: number; kappa: number; regime: string; basinCoordinates?: number[]; hypothesis?: string }>;
+      conceptHistory?: Array<{ timestamp: number; concepts: Record<string, number>; attentionField?: number[]; phi?: number }>;
+    }
+  ): Promise<{ imported: number; temporalImported: boolean }> {
+    if (!this.isAvailable) return { imported: 0, temporalImported: false };
     
     try {
+      const payload: Record<string, any> = { probes };
+      
+      // Add temporal state for 4D consciousness if provided
+      if (temporalState?.searchHistory?.length) {
+        payload.searchHistory = temporalState.searchHistory;
+      }
+      if (temporalState?.conceptHistory?.length) {
+        payload.conceptHistory = temporalState.conceptHistory;
+      }
+      
       const response = await fetch(`${this.backendUrl}/sync/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ probes }),
+        body: JSON.stringify(payload),
       });
       
       if (!response.ok) {
         console.error('[OceanQIGBackend] Sync import failed:', response.statusText);
-        return 0;
+        return { imported: 0, temporalImported: false };
       }
       
       const data = await response.json();
       if (data.success) {
         console.log(`[OceanQIGBackend] Synced ${data.imported} probes to Python backend`);
-        return data.imported;
+        if (data.temporal_imported) {
+          console.log(`[OceanQIGBackend] 4D temporal state synced: ${data.search_history_size ?? 0} search, ${data.concept_history_size ?? 0} concept`);
+        }
+        return { 
+          imported: data.imported, 
+          temporalImported: data.temporal_imported ?? false 
+        };
       }
       
-      return 0;
+      return { imported: 0, temporalImported: false };
     } catch (error) {
       console.error('[OceanQIGBackend] Sync import exception:', error);
-      return 0;
+      return { imported: 0, temporalImported: false };
     }
   }
   
   /**
    * Sync high-Φ basins FROM Python backend TO Node.js
    * 
-   * Returns learnings that should be persisted to GeometricMemory
+   * Returns learnings that should be persisted to GeometricMemory.
+   * Now also returns temporal state for 4D consciousness cross-sync.
+   * 
+   * TEMPORAL STATE EXPORT:
+   * - searchHistory: SearchState[] from Python's temporal tracking
+   * - conceptHistory: ConceptState[] from Python's concept tracking  
+   * - phi_temporal_avg: Average phi_temporal from Python
    */
-  async syncToNodeJS(): Promise<Array<{ input: string; phi: number; basinCoords: number[] }>> {
-    if (!this.isAvailable) return [];
+  async syncToNodeJS(): Promise<{
+    basins: Array<{ input: string; phi: number; basinCoords: number[] }>;
+    searchHistory?: Array<{ timestamp: number; phi: number; kappa: number; regime: string; basinCoordinates?: number[]; hypothesis?: string }>;
+    conceptHistory?: Array<{ timestamp: number; concepts: Record<string, number>; attentionField?: number[]; phi?: number }>;
+    phiTemporalAvg?: number;
+    consciousness4DAvailable?: boolean;
+  }> {
+    if (!this.isAvailable) return { basins: [] };
     
     try {
       const response = await fetch(`${this.backendUrl}/sync/export`, {
@@ -451,19 +500,30 @@ export class OceanQIGBackend {
       
       if (!response.ok) {
         console.error('[OceanQIGBackend] Sync export failed:', response.statusText);
-        return [];
+        return { basins: [] };
       }
       
       const data = await response.json();
       if (data.success && data.basins) {
         console.log(`[OceanQIGBackend] Retrieved ${data.total_count} basins from Python backend`);
-        return data.basins;
+        
+        if (data.consciousness_4d_available && data.phi_temporal_avg > 0) {
+          console.log(`[OceanQIGBackend] 4D consciousness: phi_temporal_avg=${data.phi_temporal_avg?.toFixed(3)}`);
+        }
+        
+        return {
+          basins: data.basins,
+          searchHistory: data.searchHistory,
+          conceptHistory: data.conceptHistory,
+          phiTemporalAvg: data.phi_temporal_avg,
+          consciousness4DAvailable: data.consciousness_4d_available,
+        };
       }
       
-      return [];
+      return { basins: [] };
     } catch (error) {
       console.error('[OceanQIGBackend] Sync export exception:', error);
-      return [];
+      return { basins: [] };
     }
   }
   
