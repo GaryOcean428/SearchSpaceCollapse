@@ -308,22 +308,10 @@ const app = express();
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// Disable CSP entirely - this is a single-user personal system
+// Recharts and other libraries require eval() which CSP blocks
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "ws:", "wss:", "https:", "https://blockstream.info", "https://api.bitinfocharts.com", "https://mempool.space", "https://api.tavily.com", "https://replit.com"],
-      workerSrc: ["'self'", "blob:"],
-      frameSrc: ["'self'", "https://replit.com"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-    },
-  },
+  contentSecurityPolicy: false,  // Disabled - recharts requires eval()
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: false,
   crossOriginResourcePolicy: false,
