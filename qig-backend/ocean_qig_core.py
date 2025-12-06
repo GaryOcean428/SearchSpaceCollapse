@@ -98,11 +98,21 @@ class DensityMatrix:
         Quantum fidelity F(ρ1, ρ2)
         F = Tr(sqrt(sqrt(ρ1) ρ2 sqrt(ρ1)))²
         """
-        sqrt_rho1 = sqrtm(self.rho)
-        product = sqrt_rho1 @ other.rho @ sqrt_rho1
-        sqrt_product = sqrtm(product)
-        fidelity = np.real(np.trace(sqrt_product)) ** 2
-        return float(np.clip(fidelity, 0, 1))
+        try:
+            # Add small regularization to avoid singular matrices
+            eps = 1e-10
+            rho1_reg = self.rho + eps * np.eye(2, dtype=complex)
+            rho2_reg = other.rho + eps * np.eye(2, dtype=complex)
+            
+            sqrt_rho1 = sqrtm(rho1_reg)
+            product = sqrt_rho1 @ rho2_reg @ sqrt_rho1
+            sqrt_product = sqrtm(product)
+            fidelity = np.real(np.trace(sqrt_product)) ** 2
+            return float(np.clip(fidelity, 0, 1))
+        except (np.linalg.LinAlgError, ValueError):
+            # Fallback: use trace overlap as approximation
+            overlap = np.real(np.trace(self.rho @ other.rho))
+            return float(np.clip(overlap, 0, 1))
     
     def bures_distance(self, other: 'DensityMatrix') -> float:
         """
