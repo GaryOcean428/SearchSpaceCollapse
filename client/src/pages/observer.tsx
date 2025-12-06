@@ -1669,7 +1669,7 @@ export default function ObserverPage() {
                             {hit.isDormantMatch && (
                               <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
                                 <Sparkles className="w-3 h-3 mr-1" />
-                                Dormant #{hit.dormantInfo?.rank}
+                                Dormant #{hit.dormantInfo?.rank}{hit.dormantInfo?.label ? ` (${hit.dormantInfo.label})` : ''}
                               </Badge>
                             )}
                             <Badge variant="outline" className={hit.balanceSats > 0 ? "bg-green-500/10 text-green-600" : ""}>
