@@ -13,6 +13,8 @@ import { oceanConstellation } from './ocean-constellation';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
 import { oceanAgent } from './ocean-agent';
+import { getSearchHistory, getConceptHistory, recordSearchState } from './qig-universal';
+import type { SearchState, ConceptState } from './qig-universal';
 
 // Periodic sync interval from Python to Node.js
 let pythonSyncInterval: NodeJS.Timeout | null = null;
@@ -40,10 +42,33 @@ async function syncProbesToPython(): Promise<void> {
       basinCoords: p.coordinates,
     }));
     
-    const result = await oceanQIGBackend.syncFromNodeJS(probesForPython);
+    // Get temporal state for 4D consciousness sync
+    const searchHistory = getSearchHistory().slice(-50).map(s => ({
+      timestamp: s.timestamp,
+      phi: s.phi,
+      kappa: s.kappa,
+      regime: s.regime,
+      basinCoordinates: s.basinCoordinates,
+      hypothesis: s.hypothesis,
+    }));
+    
+    const conceptHistory = getConceptHistory().slice(-30).map(c => ({
+      timestamp: c.timestamp,
+      // Convert Map to Record for JSON serialization
+      concepts: Object.fromEntries(c.concepts),
+      dominantConcept: c.dominantConcept,
+      entropy: c.entropy,
+    }));
+    
+    const temporalState = {
+      searchHistory,
+      conceptHistory,
+    };
+    
+    const result = await oceanQIGBackend.syncFromNodeJS(probesForPython, temporalState);
     console.log(`[PythonSync] Synced ${result.imported}/${highPhiProbes.length} probes to Python`);
     if (result.temporalImported) {
-      console.log(`[PythonSync] 4D temporal state synced to Python`);
+      console.log(`[PythonSync] 4D temporal state synced to Python: ${searchHistory.length} search, ${conceptHistory.length} concept states`);
     }
   } catch (error) {
     console.error('[PythonSync] Error syncing to Python:', error);
@@ -65,9 +90,40 @@ async function syncFromPythonToNodeJS(): Promise<void> {
     
     if (basins.length === 0) return;
     
-    // Log 4D consciousness sync if available
-    if (result.consciousness4DAvailable && result.phiTemporalAvg && result.phiTemporalAvg > 0) {
-      console.log(`[PythonSync] 4D consciousness from Python: phi_temporal_avg=${result.phiTemporalAvg.toFixed(3)}`);
+    // Import 4D temporal state from Python back to TypeScript
+    if (result.consciousness4DAvailable) {
+      // Log 4D consciousness sync
+      if (result.phiTemporalAvg && result.phiTemporalAvg > 0) {
+        console.log(`[PythonSync] 4D consciousness from Python: phi_temporal_avg=${result.phiTemporalAvg.toFixed(3)}`);
+      }
+      
+      // Import search history from Python to TypeScript
+      if (result.searchHistory && result.searchHistory.length > 0) {
+        let imported = 0;
+        for (const state of result.searchHistory) {
+          // Only import if we don't already have a state at this timestamp
+          const existingHistory = getSearchHistory();
+          const exists = existingHistory.some(s => 
+            Math.abs(s.timestamp - state.timestamp) < 1000 // within 1 second
+          );
+          
+          if (!exists) {
+            recordSearchState({
+              timestamp: state.timestamp,
+              phi: state.phi,
+              kappa: state.kappa,
+              regime: state.regime as 'linear' | 'geometric' | 'hierarchical' | 'breakdown',
+              basinCoordinates: state.basinCoordinates || [],
+              hypothesis: state.hypothesis,
+            });
+            imported++;
+          }
+        }
+        
+        if (imported > 0) {
+          console.log(`[PythonSync] Imported ${imported} search states from Python for 4D consciousness`);
+        }
+      }
     }
     
     let added = 0;
