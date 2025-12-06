@@ -17,13 +17,12 @@ const DATA_FILE = path.join(process.cwd(), 'data', 'auto-cycle-state.json');
 // Development mode detection
 const IS_DEV = process.env.NODE_ENV === 'development';
 // ALWAYS auto-resume on restart - user requested always-on behavior
-// TEMPORARILY DISABLED for API testing
-const AUTO_RESUME_ON_RESTART = false;
+const AUTO_RESUME_ON_RESTART = true;
 // Longer check interval in development to reduce CPU usage
 const CHECK_INTERVAL = IS_DEV ? 15000 : 5000; // 15s in dev, 5s in prod
 // ALWAYS_ON mode - system must run continuously, cannot be disabled
-// TEMPORARILY DISABLED for API testing - blocking event loop issue
-const ALWAYS_ON = false;
+// Ensures the system auto-restarts if somehow stopped
+const ALWAYS_ON = true;
 
 class AutoCycleManager {
   private state: AutoCycleState;
@@ -62,12 +61,11 @@ class AutoCycleManager {
         }
       }, 3000);
     } else {
-      // TEMPORARILY DISABLED - auto-enable on startup was blocking API requests
       // If not enabled, try to auto-enable on first startup
-      console.log(`[AutoCycleManager] Auto-cycle not enabled (STARTUP DISABLED for testing)`);
-      // setTimeout(async () => {
-      //   await this.autoEnableOnStartup();
-      // }, 5000);
+      console.log(`[AutoCycleManager] Auto-cycle not enabled - will auto-enable on startup`);
+      setTimeout(async () => {
+        await this.autoEnableOnStartup();
+      }, 5000);
     }
     
     // Start the always-on guardian if ALWAYS_ON is enabled
