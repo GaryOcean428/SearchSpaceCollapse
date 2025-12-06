@@ -348,18 +348,29 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
-// CORS Configuration - validate FRONTEND_URL
+// CORS Configuration - allow Replit domains and localhost variants
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   'http://localhost:5000',
   'http://localhost:3000',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
 ];
+
+// Helper to check if origin is from Replit
+function isReplitOrigin(origin: string): boolean {
+  return origin.endsWith('.replit.dev') || 
+         origin.endsWith('.repl.co') ||
+         origin.includes('.picard.replit.dev');
+}
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
   // Allow requests with no origin (mobile apps, Postman, etc)
-  if (!origin || allowedOrigins.includes(origin)) {
+  // Also allow all Replit domains dynamically
+  if (!origin || allowedOrigins.includes(origin) || isReplitOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');

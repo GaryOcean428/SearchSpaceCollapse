@@ -1,0 +1,67 @@
+[OceanQIGBackend] Connected after 2 attempts
+[PythonQIG] Backend ready, syncing geometric memory...
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:21.375Z] [b088992a-b416-4099-ad9e-4a0f6cf33914] GET /@react-refresh
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:21.663Z] [061d9ac7-741d-4230-9726-1987e0c5b5f4] GET /@fs/home/runner/workspace/node_modules/vite/dist/client/env.mjs
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:21.720Z] [185f6d4e-163f-42ab-a081-ab555b58bd9a] GET /src/App.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:22.019Z] [d9605482-b219-4472-98a7-c1e867a97721] GET /src/index.css
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:22.069Z] [09db9264-ec1c-493b-bd28-3a27e3b1c556] GET /src/styles/ocean-consciousness.css
+[PythonQIG] [PythonQIG] Imported 500 probes, reprocessed 492 with pure Φ
+[PythonQIG] 127.0.0.1 - - [06/Dec/2025 00:21:22] "POST /sync/import HTTP/1.1" 200 -
+[OceanQIGBackend] Synced 500 probes to Python backend
+[PythonSync] Synced 500/500 probes to Python
+[Constellation] Refreshed 14 token weights from 1986 high-Φ probes
+[PythonSync] Started periodic sync (every 60s) with tokenizer refresh and vocabulary sync
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:22.466Z] [ca0f4494-10f6-4114-b3c8-7631f0f61539] GET /src/lib/queryClient.ts
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:22.813Z] [b7483104-6d98-4fe4-84a8-e64d8df5ddc2] GET /src/components/ui/toaster.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:22.816Z] [ee1fca33-80c1-4dd8-8b37-06880bb1bb91] GET /src/components/ui/tooltip.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:23.157Z] [f49ef679-76ad-417e-9bed-fd1ba0f47698] GET /src/components/ui/sidebar.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:23.159Z] [f40343b5-4002-491d-889f-e1765b50bf17] GET /src/contexts/ConsciousnessContext.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:23.502Z] [198ca536-3a98-4b19-8271-e355723a45c9] GET /src/components/ErrorBoundary.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:23.504Z] [683a81d8-baff-42bb-8baf-43d1085162f4] GET /src/hooks/useAuth.ts
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:23.846Z] [87c6aa77-9b53-4ad9-a30e-f18982249ab3] GET /src/components/app-sidebar.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:23.848Z] [63f711d5-e001-4805-a7d0-156b5a924c90] GET /src/pages/recovery.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:24.191Z] [894aa759-9488-4112-a22e-6904e8ee31c7] GET /src/pages/landing.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:24.192Z] [fe3c213a-7cfa-4193-9f02-ee5500885c3d] GET /src/pages/home.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:24.536Z] [a8d6da8f-75b0-4a6a-8954-75f8df8c95ff] GET /src/pages/observer.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:24.537Z] [eae15c9b-458e-48ad-a62e-befcbcbb2166] GET /src/pages/investigation.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:24.877Z] [d26e60c3-6597-4678-9f64-1caa66271434] GET /src/pages/not-found.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:24.886Z] [6286b15c-d422-426f-9975-386da6ce0a2b] GET /src/hooks/use-toast.ts
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:25.231Z] [2ea708c1-ae1d-4d25-8593-f24a141f1319] GET /src/components/ui/toast.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:25.236Z] [faa4a5f1-4b52-4810-b11b-0bf3087e5441] GET /src/lib/utils.ts
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:25.583Z] [452125ce-46f4-4c6c-9814-b76304bc14d5] GET /src/hooks/use-mobile.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:25.611Z] [e1609626-b7fc-46dd-bc82-38065a20b170] GET /src/components/ui/button.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:25.952Z] [407cd46a-c14c-424d-a75c-8d44243ccebc] GET /src/components/ui/input.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:25.977Z] [1aee8bf3-7848-4b09-ae79-0645efa5f348] GET /src/components/ui/separator.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:26.296Z] [6907080e-772d-444c-88af-cb8b5067692a] GET /src/components/ui/sheet.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:26.317Z] [c8c33972-6d60-481f-a4cc-784e346c725a] GET /src/components/ui/skeleton.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
+[2025-12-06T00:21:26.645Z] [0f57cc9a-8375-4936-9b96-5528800ae2f3] GET /src/components/ui/card.tsx
+[CORS] Blocked request from origin: https://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev
