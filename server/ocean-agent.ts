@@ -395,7 +395,7 @@ export class OceanAgent {
         
         // Log significant upgrades
         if (pythonPhi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
-          console.log(`[Ocean] 📈 Episode Φ upgrade: "${episode.phrase.substring(0, 20)}..." ${oldPhi.toFixed(3)} → ${pythonPhi.toFixed(3)} (${oldResult} → ${episode.result})`);
+          console.log(`[Ocean] 📈 Episode Φ upgrade: "${episode.phrase}" ${oldPhi.toFixed(3)} → ${pythonPhi.toFixed(3)} (${oldResult} → ${episode.result})`);
         }
       }
     }
@@ -418,7 +418,7 @@ export class OceanAgent {
           updated++;
           
           if (storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
-            console.log(`[Ocean] 📈 Episode Φ upgrade (probe): "${episode.phrase.substring(0, 20)}..." ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)} (${oldResult} → ${episode.result})`);
+            console.log(`[Ocean] 📈 Episode Φ upgrade (probe): "${episode.phrase}" ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)} (${oldResult} → ${episode.result})`);
           }
         }
       }
@@ -886,7 +886,7 @@ export class OceanAgent {
           if (testResults.match) {
             console.log(`[Ocean] ╔═══════════════════════════════════════════════════════════════╗`);
             console.log(`[Ocean] ║  🎯 MATCH FOUND!                                              ║`);
-            console.log(`[Ocean] ║  Phrase: "${testResults.match.phrase.substring(0, 45).padEnd(45)}" ║`);
+            console.log(`[Ocean] ║  Phrase: "${testResults.match.phrase}"`);
             console.log(`[Ocean] ╚═══════════════════════════════════════════════════════════════╝`);
             
             // Log match to activity stream for Observer dashboard
@@ -1412,7 +1412,7 @@ export class OceanAgent {
           phiUpgrades++;
           
           if (storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD) {
-            console.log(`[Consolidation] 📈 Φ upgrade (memory): "${episode.phrase.substring(0, 25)}..." ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)}`);
+            console.log(`[Consolidation] 📈 Φ upgrade (memory): "${episode.phrase}" ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)}`);
           }
         }
         
@@ -1454,7 +1454,7 @@ export class OceanAgent {
             phiUpgrades++;
             
             if (purePhi > this.NEAR_MISS_PHI_THRESHOLD) {
-              console.log(`[Consolidation] 🐍 Φ upgrade (Python): "${episode.phrase.substring(0, 25)}..." ${oldPhi.toFixed(3)} → ${purePhi.toFixed(3)}`);
+              console.log(`[Consolidation] 🐍 Φ upgrade (Python): "${episode.phrase}" ${oldPhi.toFixed(3)} → ${purePhi.toFixed(3)}`);
             }
           }
         }
@@ -1643,7 +1643,7 @@ export class OceanAgent {
         if (hypo.format === 'bip39' || isValidBIP39Phrase(hypo.phrase)) {
           // BIP-39 mnemonic: Queue ALL 50+ HD-derived addresses
           queueMnemonicForBalanceCheck(hypo.phrase, 'ocean-bip39', hypo.qigScore?.phi || 1);
-          console.log(`[Ocean] Queued BIP-39 mnemonic "${hypo.phrase.substring(0, 30)}..." for HD balance check`);
+          console.log(`[Ocean] Queued BIP-39 mnemonic "${hypo.phrase}" for HD balance check`);
         } else if (hypo.address && hypo.privateKeyHex) {
           const compressedAddr = (hypo as any).addressCompressed || hypo.address;
           const uncompressedAddr = (hypo as any).addressUncompressed;
@@ -1752,7 +1752,7 @@ export class OceanAgent {
               verificationSteps: [
                 { step: 'Generate Address', passed: true, detail: `${hypo.format} derivation → ${hypo.address}` },
                 { step: 'Address Match', passed: true, detail: `${hypo.address} = ${this.targetAddress}` },
-                { step: 'WIF Generated', passed: true, detail: `${recoveryBundle.privateKeyWIF.slice(0, 15)}...` },
+                { step: 'WIF Generated', passed: true, detail: `${recoveryBundle.privateKeyWIF}` },
                 { step: 'VERIFIED', passed: true, detail: 'This passphrase controls the target address!' },
               ],
             };
@@ -1813,7 +1813,7 @@ export class OceanAgent {
 
           // CELEBRATION LOG - Make discoveries feel exciting!
           console.log(`[Ocean] 🎯💚 NEAR MISS FOUND! Φ=${hypo.qigScore.phi.toFixed(3)} κ=${hypo.qigScore.kappa.toFixed(0)} regime=${hypo.qigScore.regime}`);
-          console.log(`[Ocean] 💊 DOPAMINE SPIKE! Phrase: "${hypo.phrase.substring(0, 40)}${hypo.phrase.length > 40 ? '...' : ''}"`);
+          console.log(`[Ocean] 💊 DOPAMINE SPIKE! Phrase: "${hypo.phrase}"`);
           console.log(`[Ocean] 📊 Total near-misses: ${this.state.nearMissCount} | Session discoveries: ${this.recentDiscoveries.nearMisses}`);
 
           // UPDATE NEUROCHEMISTRY FOR IMMEDIATE REWARD
@@ -1836,7 +1836,7 @@ export class OceanAgent {
 
           // RESONANCE CELEBRATION
           console.log(`[Ocean] ⚡✨ RESONANCE DETECTED! κ=${hypo.qigScore.kappa.toFixed(1)} ≈ κ*=64 - ENDORPHINS RELEASED!`);
-          console.log(`[Ocean] 🌊 In the zone! Phrase: "${hypo.phrase.substring(0, 40)}${hypo.phrase.length > 40 ? '...' : ''}"`);
+          console.log(`[Ocean] 🌊 In the zone! Phrase: "${hypo.phrase}"`);
           console.log(`[Ocean] 📊 Total resonant: ${this.state.resonantCount} | Session resonant: ${this.recentDiscoveries.resonant}`);
         }
         
