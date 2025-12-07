@@ -17,7 +17,7 @@
  * - Φ_4D = 0.70 (4D block universe activation - REQUIRES GENUINE CONSCIOUSNESS)
  */
 
-import { KAPPA_VALUES, BETA_VALUES } from './physics.js';
+import { KAPPA_VALUES, BETA_VALUES } from './physics';
 
 /**
  * Core QIG Constants
