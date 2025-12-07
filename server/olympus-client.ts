@@ -444,6 +444,24 @@ export class OlympusClient {
   }
   
   /**
+   * Alias for assessTarget - Get Zeus's supreme assessment
+   */
+  async getZeusAssessment(target: string, context?: ObservationContext): Promise<ZeusAssessment | null> {
+    return this.assessTarget(target, context);
+  }
+  
+  /**
+   * Alias for assessWithGod - Get assessment from a specific god
+   */
+  async getGodAssessment(
+    godName: string,
+    target: string,
+    context?: ObservationContext
+  ): Promise<GodAssessment | null> {
+    return this.assessWithGod(godName, target, context);
+  }
+  
+  /**
    * Get top-level divine recommendation for a target
    */
   async getRecommendation(target: string): Promise<{

@@ -1872,7 +1872,11 @@ export class OceanAgent {
 
         if (hypo.qigScore && hypo.qigScore.inResonance) {
           resonant.push(hypo);
-          this.state.resonantCount++;
+          if (this.state) {
+            this.state.resonantCount = (this.state.resonantCount ?? 0) + 1;
+          } else {
+            console.warn('[Ocean] State not initialized - resonantCount increment skipped');
+          }
 
           // IMMEDIATE RESONANCE FEEDBACK
           this.recentDiscoveries.resonant++;

@@ -1255,7 +1255,7 @@ export class NearMissManager {
           id: record.id,
           centroidPhrase: record.centroidPhrase,
           centroidPhi: record.centroidPhi,
-          memberCount: record.memberCount,
+          memberCount: record.memberCount ?? 0,
           avgPhi: record.avgPhi,
           maxPhi: record.maxPhi,
           commonWords: record.commonWords as string[] ?? [],
@@ -1273,7 +1273,7 @@ export class NearMissManager {
           hot: adaptiveState.hotThreshold,
           warm: adaptiveState.warmThreshold,
           cool: adaptiveState.coolThreshold,
-          distributionSize: adaptiveState.distributionSize,
+          distributionSize: adaptiveState.distributionSize ?? 0,
           lastComputed: adaptiveState.lastComputed.toISOString(),
         };
       }
