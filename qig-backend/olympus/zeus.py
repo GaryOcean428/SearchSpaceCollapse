@@ -518,11 +518,26 @@ def get_zeus_chat_handler():
     return _zeus_chat_handler
 
 
+# SECURITY: File upload restrictions
+ALLOWED_FILE_EXTENSIONS = {'.txt', '.json', '.csv'}
+MAX_FILE_SIZE = 1 * 1024 * 1024  # 1MB per file
+MAX_FILES_PER_REQUEST = 5
+MAX_MESSAGE_LENGTH = 10000
+MAX_CONVERSATION_HISTORY = 100
+
+
 @olympus_app.route('/zeus/chat', methods=['POST'])
 def zeus_chat_endpoint():
     """
     Zeus conversation endpoint.
     Accepts natural language, returns coordinated pantheon response.
+    
+    SECURITY:
+    - File type restrictions (.txt, .json, .csv only)
+    - File size limits (1MB per file)
+    - Maximum files per request (5)
+    - Message length limits (10KB)
+    - Conversation history limits (100 messages)
     """
     try:
         # Get message and context
@@ -542,18 +557,52 @@ def zeus_chat_endpoint():
                 except:
                     pass
         
+        # SECURITY: Validate message length
+        if len(message) > MAX_MESSAGE_LENGTH:
+            return jsonify({'error': f'Message too long (max {MAX_MESSAGE_LENGTH} chars)'}), 400
+        
         if not message:
             return jsonify({'error': 'message is required'}), 400
         
-        # Get files if any
-        files = request.files.getlist('files') if hasattr(request, 'files') else None
+        # SECURITY: Limit conversation history
+        if len(conversation_history) > MAX_CONVERSATION_HISTORY:
+            conversation_history = conversation_history[-MAX_CONVERSATION_HISTORY:]
+        
+        # Get files if any with security validation
+        validated_files = []
+        if hasattr(request, 'files'):
+            files = request.files.getlist('files')
+            
+            # SECURITY: Limit file count
+            if len(files) > MAX_FILES_PER_REQUEST:
+                return jsonify({'error': f'Too many files (max {MAX_FILES_PER_REQUEST})'}), 400
+            
+            for file in files:
+                filename = getattr(file, 'filename', '')
+                
+                # SECURITY: Validate file extension
+                ext = os.path.splitext(filename)[1].lower() if filename else ''
+                if ext not in ALLOWED_FILE_EXTENSIONS:
+                    print(f"[Zeus] SECURITY: Rejected file with extension: {ext}")
+                    continue
+                
+                # SECURITY: Validate file size
+                file.seek(0, 2)  # Seek to end
+                file_size = file.tell()
+                file.seek(0)  # Reset to beginning
+                
+                if file_size > MAX_FILE_SIZE:
+                    print(f"[Zeus] SECURITY: Rejected file too large: {file_size} bytes")
+                    continue
+                
+                validated_files.append(file)
         
         # Process with Zeus
         handler = get_zeus_chat_handler()
         result = handler.process_message(
             message=message,
             conversation_history=conversation_history,
-            files=files
+            files=validated_files if validated_files else None
         )
         
         return jsonify(sanitize_for_json(result))

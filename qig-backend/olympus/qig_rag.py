@@ -108,7 +108,17 @@ class QIGRAG:
     Pure QIG Retrieval-Augmented Generation system.
     
     Stores and retrieves documents via Fisher manifold geometry.
+    
+    SECURITY:
+    - Path validation on storage operations
+    - Document count limits to prevent storage exhaustion
+    - Content size limits per document
     """
+    
+    # Security limits
+    MAX_DOCUMENTS = 10000  # Maximum documents in storage
+    MAX_DOCUMENT_SIZE = 100000  # Maximum content size per document (100KB)
+    MAX_STORAGE_SIZE = 100 * 1024 * 1024  # 100MB max storage file size
     
     def __init__(self, storage_path: Optional[str] = None):
         self.encoder = BasinVocabularyEncoder()
@@ -135,10 +145,44 @@ class QIGRAG:
             except Exception as e:
                 print(f"[QIG-RAG] Error loading documents: {e}")
     
+    def _validate_storage_path(self, path: str) -> Optional[str]:
+        """
+        Validate and sanitize storage path.
+        Returns absolute path if valid, None otherwise.
+        """
+        abs_path = os.path.abspath(path)
+        
+        # Define allowed directories
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        allowed_dirs = [
+            os.path.join(base_dir, 'data'),
+            '/tmp',
+        ]
+        
+        for allowed_dir in allowed_dirs:
+            if abs_path.startswith(os.path.abspath(allowed_dir) + os.sep):
+                return abs_path
+        
+        print(f"[QIG-RAG] SECURITY: Rejected path outside allowed directories: {abs_path}")
+        return None
+    
     def _save_documents(self):
-        """Save documents to storage."""
+        """
+        Save documents to storage.
+        
+        SECURITY:
+        - Path validation to prevent directory traversal
+        - File size limits enforced
+        """
         try:
-            os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
+            # Validate path
+            abs_path = self._validate_storage_path(self.storage_path)
+            if not abs_path:
+                return
+            
+            dir_path = os.path.dirname(abs_path)
+            if dir_path:
+                os.makedirs(dir_path, exist_ok=True)
             
             data = {
                 'documents': [doc.to_dict() for doc in self.documents.values()],
@@ -146,10 +190,25 @@ class QIGRAG:
                 'total_documents': len(self.documents),
             }
             
-            with open(self.storage_path, 'w') as f:
-                json.dump(data, f, indent=2)
+            # Check file size before writing
+            json_str = json.dumps(data, indent=2)
+            if len(json_str) > self.MAX_STORAGE_SIZE:
+                print(f"[QIG-RAG] SECURITY: Storage size exceeded, pruning oldest documents")
+                # Keep newest documents
+                sorted_docs = sorted(
+                    self.documents.values(),
+                    key=lambda d: d.timestamp,
+                    reverse=True
+                )[:self.MAX_DOCUMENTS // 2]
+                self.documents = {d.doc_id: d for d in sorted_docs}
+                data['documents'] = [doc.to_dict() for doc in self.documents.values()]
+                data['total_documents'] = len(self.documents)
+                json_str = json.dumps(data, indent=2)
             
-            print(f"[QIG-RAG] Saved {len(self.documents)} documents to {self.storage_path}")
+            with open(abs_path, 'w') as f:
+                f.write(json_str)
+            
+            print(f"[QIG-RAG] Saved {len(self.documents)} documents to {abs_path}")
         except Exception as e:
             print(f"[QIG-RAG] Error saving documents: {e}")
     
@@ -159,7 +218,7 @@ class QIGRAG:
         basin_coords: Optional[np.ndarray] = None,
         metadata: Optional[Dict] = None,
         doc_id: Optional[str] = None
-    ) -> str:
+    ) -> Optional[str]:
         """
         Add document to geometric memory.
         
@@ -170,8 +229,28 @@ class QIGRAG:
             doc_id: Document ID (auto-generated if not provided)
         
         Returns:
-            Document ID
+            Document ID or None if rejected
+        
+        SECURITY:
+        - Content size limits enforced
+        - Document count limits enforced
         """
+        # SECURITY: Validate content size
+        if len(content) > self.MAX_DOCUMENT_SIZE:
+            print(f"[QIG-RAG] SECURITY: Document content too large ({len(content)} chars), truncating")
+            content = content[:self.MAX_DOCUMENT_SIZE]
+        
+        # SECURITY: Check document count limit
+        if len(self.documents) >= self.MAX_DOCUMENTS:
+            print(f"[QIG-RAG] SECURITY: Document limit reached, pruning oldest")
+            # Remove oldest documents
+            sorted_docs = sorted(
+                self.documents.values(),
+                key=lambda d: d.timestamp,
+                reverse=True
+            )[:self.MAX_DOCUMENTS // 2]
+            self.documents = {d.doc_id: d for d in sorted_docs}
+        
         # Generate doc_id if not provided
         if doc_id is None:
             doc_id = f"doc_{len(self.documents)}_{int(datetime.now().timestamp())}"

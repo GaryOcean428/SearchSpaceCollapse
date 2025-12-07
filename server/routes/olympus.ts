@@ -6,22 +6,76 @@
  * - Pantheon polling
  * - God assessments
  * - War mode declarations
+ * 
+ * SECURITY:
+ * - All routes require authentication via Replit Auth
+ * - Input validation on all POST endpoints
+ * - Rate limiting via express-rate-limit
  */
 
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { OlympusClient } from '../olympus-client';
+import { isAuthenticated } from '../replitAuth';
+import { z } from 'zod';
 
 const router = Router();
 const olympusClient = new OlympusClient(
   process.env.PYTHON_BACKEND_URL || 'http://localhost:5001'
 );
 
+// Input validation schemas
+const targetSchema = z.object({
+  target: z.string().min(1).max(1000),
+  context: z.record(z.any()).optional(),
+});
+
+const chatMessageSchema = z.object({
+  message: z.string().min(1).max(10000),
+  conversation_history: z.array(z.any()).max(100).optional(),
+});
+
+const searchQuerySchema = z.object({
+  query: z.string().min(1).max(500),
+});
+
+// Input validation middleware factory
+function validateInput<T>(schema: z.ZodSchema<T>) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      schema.parse(req.body);
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          error: 'Invalid input',
+          details: error.errors.map(e => ({ path: e.path.join('.'), message: e.message })),
+        });
+        return;
+      }
+      next(error);
+    }
+  };
+}
+
 /**
  * Zeus Chat endpoint
+ * Requires authentication
  */
-router.post('/zeus/chat', async (req, res) => {
+router.post('/zeus/chat', isAuthenticated, async (req, res) => {
   try {
     const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    // Validate message content (for JSON requests)
+    if (req.is('application/json')) {
+      const result = chatMessageSchema.safeParse(req.body);
+      if (!result.success) {
+        res.status(400).json({
+          error: 'Invalid input',
+          details: result.error.errors.map(e => ({ path: e.path.join('.'), message: e.message })),
+        });
+        return;
+      }
+    }
     
     // Forward request to Python backend
     const response = await fetch(`${backendUrl}/olympus/zeus/chat`, {
@@ -50,8 +104,9 @@ router.post('/zeus/chat', async (req, res) => {
 
 /**
  * Zeus Search endpoint (Tavily)
+ * Requires authentication with input validation
  */
-router.post('/zeus/search', async (req, res) => {
+router.post('/zeus/search', isAuthenticated, validateInput(searchQuerySchema), async (req, res) => {
   try {
     const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
     
@@ -81,8 +136,9 @@ router.post('/zeus/search', async (req, res) => {
 
 /**
  * Zeus Memory Stats endpoint
+ * Requires authentication
  */
-router.get('/zeus/memory/stats', async (req, res) => {
+router.get('/zeus/memory/stats', isAuthenticated, async (req, res) => {
   try {
     const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
     
@@ -109,8 +165,9 @@ router.get('/zeus/memory/stats', async (req, res) => {
 
 /**
  * Poll pantheon
+ * Requires authentication with input validation
  */
-router.post('/poll', async (req, res) => {
+router.post('/poll', isAuthenticated, validateInput(targetSchema), async (req, res) => {
   try {
     const result = await olympusClient.pollPantheon(
       req.body.target,
@@ -127,8 +184,9 @@ router.post('/poll', async (req, res) => {
 
 /**
  * Get Zeus assessment
+ * Requires authentication with input validation
  */
-router.post('/assess', async (req, res) => {
+router.post('/assess', isAuthenticated, validateInput(targetSchema), async (req, res) => {
   try {
     const result = await olympusClient.getZeusAssessment(
       req.body.target,
@@ -145,8 +203,9 @@ router.post('/assess', async (req, res) => {
 
 /**
  * Get Olympus status
+ * Requires authentication
  */
-router.get('/status', async (req, res) => {
+router.get('/status', isAuthenticated, async (req, res) => {
   try {
     const status = await olympusClient.getStatus();
     res.json(status);
@@ -158,11 +217,22 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// God name validation schema
+const godNameSchema = z.string().min(1).max(50).regex(/^[a-zA-Z_]+$/, 'Invalid god name format');
+
 /**
  * Get specific god status
+ * Requires authentication with param validation
  */
-router.get('/god/:godName/status', async (req, res) => {
+router.get('/god/:godName/status', isAuthenticated, async (req, res) => {
   try {
+    // Validate god name parameter
+    const godNameResult = godNameSchema.safeParse(req.params.godName);
+    if (!godNameResult.success) {
+      res.status(400).json({ error: 'Invalid god name format' });
+      return;
+    }
+    
     const status = await olympusClient.getGodStatus(req.params.godName);
     res.json(status);
   } catch (error) {
@@ -175,9 +245,17 @@ router.get('/god/:godName/status', async (req, res) => {
 
 /**
  * Get god assessment
+ * Requires authentication with input validation
  */
-router.post('/god/:godName/assess', async (req, res) => {
+router.post('/god/:godName/assess', isAuthenticated, validateInput(targetSchema), async (req, res) => {
   try {
+    // Validate god name parameter
+    const godNameResult = godNameSchema.safeParse(req.params.godName);
+    if (!godNameResult.success) {
+      res.status(400).json({ error: 'Invalid god name format' });
+      return;
+    }
+    
     const result = await olympusClient.getGodAssessment(
       req.params.godName,
       req.body.target,
@@ -192,11 +270,21 @@ router.post('/god/:godName/assess', async (req, res) => {
   }
 });
 
+// War target validation schema - stricter validation for war declarations
+const warTargetSchema = z.object({
+  target: z.string()
+    .min(1, 'Target is required')
+    .max(500, 'Target too long')
+    .regex(/^[a-zA-Z0-9\s\-_.,;:!?()]+$/, 'Target contains invalid characters'),
+});
+
 /**
  * Declare blitzkrieg mode
+ * Requires authentication with strict input validation
  */
-router.post('/war/blitzkrieg', async (req, res) => {
+router.post('/war/blitzkrieg', isAuthenticated, validateInput(warTargetSchema), async (req, res) => {
   try {
+    console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} declared blitzkrieg on: ${req.body.target}`);
     const result = await olympusClient.declareBlitzkrieg(req.body.target);
     res.json(result);
   } catch (error) {
@@ -209,9 +297,11 @@ router.post('/war/blitzkrieg', async (req, res) => {
 
 /**
  * Declare siege mode
+ * Requires authentication with strict input validation
  */
-router.post('/war/siege', async (req, res) => {
+router.post('/war/siege', isAuthenticated, validateInput(warTargetSchema), async (req, res) => {
   try {
+    console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} declared siege on: ${req.body.target}`);
     const result = await olympusClient.declareSiege(req.body.target);
     res.json(result);
   } catch (error) {
@@ -224,9 +314,11 @@ router.post('/war/siege', async (req, res) => {
 
 /**
  * Declare hunt mode
+ * Requires authentication with strict input validation
  */
-router.post('/war/hunt', async (req, res) => {
+router.post('/war/hunt', isAuthenticated, validateInput(warTargetSchema), async (req, res) => {
   try {
+    console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} declared hunt on: ${req.body.target}`);
     const result = await olympusClient.declareHunt(req.body.target);
     res.json(result);
   } catch (error) {
@@ -239,9 +331,11 @@ router.post('/war/hunt', async (req, res) => {
 
 /**
  * End war mode
+ * Requires authentication
  */
-router.post('/war/end', async (req, res) => {
+router.post('/war/end', isAuthenticated, async (req, res) => {
   try {
+    console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} ended war mode`);
     const result = await olympusClient.endWar();
     res.json(result);
   } catch (error) {

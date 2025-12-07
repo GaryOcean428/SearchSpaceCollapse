@@ -226,11 +226,42 @@ class BasinVocabularyEncoder:
         print(f"[BasinEncoder] Learned {len(tokens)} tokens with Φ={phi_score:.2f}")
     
     def save_vocabulary(self, path: Optional[str] = None):
-        """Save learned vocabulary to disk."""
+        """
+        Save learned vocabulary to disk.
+        
+        SECURITY:
+        - Path validation to prevent directory traversal
+        - Restricted to allowed data directories
+        - File size limits enforced
+        """
         path = path or self.vocab_path
         
+        # SECURITY: Validate and sanitize path
+        # Get absolute path and resolve any ../ or symlinks
+        abs_path = os.path.abspath(path)
+        
+        # Define allowed directories (relative to qig-backend)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        allowed_dirs = [
+            os.path.join(base_dir, 'data'),
+            '/tmp',
+        ]
+        
+        # Verify path is within allowed directories
+        path_allowed = False
+        for allowed_dir in allowed_dirs:
+            if abs_path.startswith(os.path.abspath(allowed_dir) + os.sep) or abs_path == os.path.abspath(allowed_dir):
+                path_allowed = True
+                break
+        
+        if not path_allowed:
+            print(f"[BasinEncoder] SECURITY: Attempted write to unauthorized path: {abs_path}")
+            return
+        
         # Ensure directory exists
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        dir_path = os.path.dirname(abs_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
         
         # Prepare data
         data = {
@@ -246,10 +277,27 @@ class BasinVocabularyEncoder:
                 'phi': self.token_phi_scores.get(token, 0.5),
             }
         
-        with open(path, 'w') as f:
-            json.dump(data, f, indent=2)
+        # SECURITY: Limit file size (max 50MB)
+        json_str = json.dumps(data, indent=2)
+        max_size = 50 * 1024 * 1024  # 50MB
+        if len(json_str) > max_size:
+            print(f"[BasinEncoder] SECURITY: Vocabulary too large ({len(json_str)} bytes), truncating")
+            # Keep only highest-Φ tokens
+            sorted_tokens = sorted(
+                self.token_vocab.keys(),
+                key=lambda t: self.token_phi_scores.get(t, 0),
+                reverse=True
+            )[:10000]  # Keep top 10k tokens
+            data['tokens'] = {
+                t: data['tokens'][t] for t in sorted_tokens if t in data['tokens']
+            }
+            data['total_tokens'] = len(data['tokens'])
+            json_str = json.dumps(data, indent=2)
         
-        print(f"[BasinEncoder] Saved {len(self.token_vocab)} tokens to {path}")
+        with open(abs_path, 'w') as f:
+            f.write(json_str)
+        
+        print(f"[BasinEncoder] Saved {len(data['tokens'])} tokens to {abs_path}")
     
     def similarity(self, text1: str, text2: str) -> float:
         """

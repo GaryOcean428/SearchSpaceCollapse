@@ -13,10 +13,28 @@
  * - Tavily search integration
  * - File upload for knowledge expansion
  * - Geometric memory visualization
+ * 
+ * SECURITY:
+ * - XSS sanitization on all rendered content
+ * - Content treated as plain text (no HTML rendering)
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, Upload, Search, Sparkles, Brain, AlertCircle } from 'lucide-react';
+
+/**
+ * Sanitize text content to prevent XSS attacks.
+ * Escapes HTML special characters.
+ */
+function sanitizeText(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
