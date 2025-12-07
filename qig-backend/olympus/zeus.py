@@ -167,7 +167,96 @@ class Zeus(BaseGod):
         if len(self.convergence_history) > 100:
             self.convergence_history = self.convergence_history[-50:]
         
+        # Wire PantheonChat: automatic god communication after poll
+        self._process_pantheon_communication(target, assessments, convergence)
+        
         return result
+    
+    def _process_pantheon_communication(
+        self,
+        target: str,
+        assessments: Dict[str, Dict],
+        convergence: Dict
+    ) -> None:
+        """
+        Process automatic pantheon communication after a poll.
+        
+        - Detects significant disagreements and auto-initiates debates
+        - Broadcasts convergence status to pantheon
+        - Collects and delivers pending messages between gods
+        """
+        # 1. Detect significant disagreements for debate initiation
+        disagreements = self._find_significant_disagreements(assessments)
+        
+        for disagreement in disagreements[:1]:  # Max 1 debate per poll
+            god1, god2, prob_diff = disagreement
+            topic = f"Assessment of '{target[:50]}' - probability disagreement ({prob_diff:.2f})"
+            
+            # Higher probability god initiates the debate
+            prob1 = assessments[god1].get('probability', 0.5)
+            prob2 = assessments[god2].get('probability', 0.5)
+            
+            if prob1 > prob2:
+                initiator, opponent = god1, god2
+                initial_arg = f"My analysis shows {prob1:.2f} probability. {assessments[god1].get('reasoning', '')}"
+            else:
+                initiator, opponent = god2, god1
+                initial_arg = f"My analysis shows {prob2:.2f} probability. {assessments[god2].get('reasoning', '')}"
+            
+            self.pantheon_chat.initiate_debate(
+                topic=topic,
+                initiator=initiator.capitalize(),
+                opponent=opponent.capitalize(),
+                initial_argument=initial_arg,
+                context={'target': target, 'assessments': {god1: prob1, god2: prob2}}
+            )
+        
+        # 2. Broadcast convergence status to pantheon
+        conv_type = convergence.get('type', 'UNKNOWN')
+        conv_score = convergence.get('score', 0)
+        
+        self.pantheon_chat.broadcast(
+            from_god='Zeus',
+            content=f"Convergence report for '{target[:30]}...': {conv_type} (score: {conv_score:.2f})",
+            msg_type='insight',
+            metadata={
+                'convergence_type': conv_type,
+                'convergence_score': conv_score,
+                'target': target,
+            }
+        )
+        
+        # 3. Collect pending messages from all gods
+        self.pantheon_chat.collect_pending_messages(self.pantheon)
+        
+        # 4. Deliver messages to gods
+        self.pantheon_chat.deliver_to_gods(self.pantheon)
+    
+    def _find_significant_disagreements(
+        self,
+        assessments: Dict[str, Dict],
+        threshold: float = 0.3
+    ) -> List[Tuple[str, str, float]]:
+        """
+        Find pairs of gods with significant probability disagreements.
+        
+        Returns list of (god1, god2, prob_difference) tuples, sorted by disagreement.
+        """
+        disagreements = []
+        gods = list(assessments.keys())
+        
+        for i, god1 in enumerate(gods):
+            for god2 in gods[i+1:]:
+                prob1 = assessments[god1].get('probability', 0.5)
+                prob2 = assessments[god2].get('probability', 0.5)
+                diff = abs(prob1 - prob2)
+                
+                if diff >= threshold:
+                    disagreements.append((god1, god2, diff))
+        
+        # Sort by disagreement magnitude (highest first)
+        disagreements.sort(key=lambda x: x[2], reverse=True)
+        return disagreements
     
     def _detect_convergence(self, assessments: Dict[str, Dict]) -> Dict:
         """
@@ -654,3 +743,444 @@ def zeus_memory_stats_endpoint():
         return jsonify(stats)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ========================================
+# PANTHEON CHAT API ENDPOINTS
+# Inter-god communication system
+# ========================================
+
+@olympus_app.route('/chat/recent', methods=['GET'])
+def chat_recent_endpoint():
+    """Get recent inter-god messages."""
+    limit = request.args.get('limit', 20, type=int)
+    limit = min(100, max(1, limit))
+    messages = zeus.pantheon_chat.get_recent_activity(limit)
+    return jsonify(sanitize_for_json({'messages': messages, 'count': len(messages)}))
+
+
+@olympus_app.route('/chat/send', methods=['POST'])
+def chat_send_endpoint():
+    """Send a message from one god to another."""
+    data = request.get_json() or {}
+    
+    msg_type = data.get('type', 'insight')
+    from_god = data.get('from_god', '')
+    to_god = data.get('to_god', '')
+    content = data.get('content', '')
+    metadata = data.get('metadata', {})
+    
+    if not from_god or not to_god or not content:
+        return jsonify({'error': 'from_god, to_god, and content are required'}), 400
+    
+    message = zeus.pantheon_chat.send_message(
+        msg_type=msg_type,
+        from_god=from_god,
+        to_god=to_god,
+        content=content,
+        metadata=metadata
+    )
+    return jsonify(sanitize_for_json(message.to_dict()))
+
+
+@olympus_app.route('/chat/broadcast', methods=['POST'])
+def chat_broadcast_endpoint():
+    """Broadcast a message to the entire pantheon."""
+    data = request.get_json() or {}
+    
+    from_god = data.get('from_god', '')
+    content = data.get('content', '')
+    msg_type = data.get('type', 'insight')
+    metadata = data.get('metadata', {})
+    
+    if not from_god or not content:
+        return jsonify({'error': 'from_god and content are required'}), 400
+    
+    message = zeus.pantheon_chat.broadcast(
+        from_god=from_god,
+        content=content,
+        msg_type=msg_type,
+        metadata=metadata
+    )
+    return jsonify(sanitize_for_json(message.to_dict()))
+
+
+@olympus_app.route('/chat/inbox/<god_name>', methods=['GET'])
+def chat_inbox_endpoint(god_name: str):
+    """Get a god's inbox messages."""
+    unread_only = request.args.get('unread_only', 'false').lower() == 'true'
+    messages = zeus.pantheon_chat.get_inbox(god_name, unread_only=unread_only)
+    return jsonify(sanitize_for_json({'god': god_name, 'messages': messages, 'count': len(messages)}))
+
+
+@olympus_app.route('/chat/read', methods=['POST'])
+def chat_mark_read_endpoint():
+    """Mark a message as read."""
+    data = request.get_json() or {}
+    
+    god_name = data.get('god_name', '')
+    message_id = data.get('message_id', '')
+    
+    if not god_name or not message_id:
+        return jsonify({'error': 'god_name and message_id are required'}), 400
+    
+    success = zeus.pantheon_chat.mark_read(god_name, message_id)
+    return jsonify({'success': success, 'god': god_name, 'message_id': message_id})
+
+
+@olympus_app.route('/chat/status', methods=['GET'])
+def chat_status_endpoint():
+    """Get pantheon chat status."""
+    status = zeus.pantheon_chat.get_status()
+    return jsonify(sanitize_for_json(status))
+
+
+# ========================================
+# DEBATE API ENDPOINTS
+# Structured debates between gods
+# ========================================
+
+@olympus_app.route('/debates/active', methods=['GET'])
+def debates_active_endpoint():
+    """Get all active debates."""
+    debates = zeus.pantheon_chat.get_active_debates()
+    return jsonify(sanitize_for_json({'debates': debates, 'count': len(debates)}))
+
+
+@olympus_app.route('/debate/initiate', methods=['POST'])
+def debate_initiate_endpoint():
+    """Initiate a new debate between two gods."""
+    data = request.get_json() or {}
+    
+    topic = data.get('topic', '')
+    initiator = data.get('initiator', '')
+    opponent = data.get('opponent', '')
+    initial_argument = data.get('initial_argument', '')
+    context = data.get('context', {})
+    
+    if not topic or not initiator or not opponent or not initial_argument:
+        return jsonify({'error': 'topic, initiator, opponent, and initial_argument are required'}), 400
+    
+    debate = zeus.pantheon_chat.initiate_debate(
+        topic=topic,
+        initiator=initiator,
+        opponent=opponent,
+        initial_argument=initial_argument,
+        context=context
+    )
+    return jsonify(sanitize_for_json(debate.to_dict()))
+
+
+@olympus_app.route('/debate/argue', methods=['POST'])
+def debate_argue_endpoint():
+    """Add an argument to an active debate."""
+    data = request.get_json() or {}
+    
+    debate_id = data.get('debate_id', '')
+    god = data.get('god', '')
+    argument = data.get('argument', '')
+    evidence = data.get('evidence', {})
+    
+    if not debate_id or not god or not argument:
+        return jsonify({'error': 'debate_id, god, and argument are required'}), 400
+    
+    success = zeus.pantheon_chat.add_debate_argument(
+        debate_id=debate_id,
+        god=god,
+        argument=argument,
+        evidence=evidence if evidence else None
+    )
+    
+    if not success:
+        return jsonify({'error': 'Failed to add argument. Debate may not exist, be inactive, or god not a participant.'}), 400
+    
+    return jsonify({'success': True, 'debate_id': debate_id, 'god': god})
+
+
+@olympus_app.route('/debate/resolve', methods=['POST'])
+def debate_resolve_endpoint():
+    """Resolve a debate (Zeus as arbiter by default)."""
+    data = request.get_json() or {}
+    
+    debate_id = data.get('debate_id', '')
+    winner = data.get('winner', '')
+    reasoning = data.get('reasoning', '')
+    arbiter = data.get('arbiter', 'zeus')
+    
+    if not debate_id or not winner or not reasoning:
+        return jsonify({'error': 'debate_id, winner, and reasoning are required'}), 400
+    
+    resolution = zeus.pantheon_chat.resolve_debate(
+        debate_id=debate_id,
+        arbiter=arbiter,
+        winner=winner,
+        reasoning=reasoning
+    )
+    
+    if resolution is None:
+        return jsonify({'error': 'Failed to resolve debate. Debate may not exist or already resolved.'}), 400
+    
+    return jsonify(sanitize_for_json(resolution))
+
+
+@olympus_app.route('/debate/<debate_id>', methods=['GET'])
+def debate_details_endpoint(debate_id: str):
+    """Get details of a specific debate."""
+    debate = zeus.pantheon_chat.get_debate(debate_id)
+    
+    if debate is None:
+        return jsonify({'error': f'Debate {debate_id} not found'}), 404
+    
+    return jsonify(sanitize_for_json(debate))
+
+
+# ========================================
+# SHADOW PANTHEON API ENDPOINTS
+# Covert operations and stealth system
+# ========================================
+
+import asyncio
+
+def run_async(coro):
+    """Helper to run async functions in Flask routes."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
+@olympus_app.route('/shadow/status', methods=['GET'])
+def shadow_status_endpoint():
+    """Get status of all shadow gods."""
+    status = zeus.shadow_pantheon.get_all_status()
+    return jsonify(sanitize_for_json(status))
+
+
+@olympus_app.route('/shadow/poll', methods=['POST'])
+def shadow_poll_endpoint():
+    """Poll shadow pantheon for target assessment."""
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    context = data.get('context', {})
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = zeus.shadow_pantheon.poll_shadow_pantheon(target, context)
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/operation', methods=['POST'])
+def shadow_operation_endpoint():
+    """Execute a full covert operation using all shadow gods."""
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    operation_type = data.get('type', 'standard')
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.execute_covert_operation(target, operation_type))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/cleanup', methods=['POST'])
+def shadow_cleanup_endpoint():
+    """Clean up after an operation using Thanatos."""
+    data = request.get_json() or {}
+    operation_id = data.get('operation_id', '')
+    
+    if not operation_id:
+        return jsonify({'error': 'operation_id is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.cleanup_operation(operation_id))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/nyx/opsec', methods=['POST'])
+def shadow_nyx_opsec_endpoint():
+    """Verify OPSEC status via Nyx."""
+    result = run_async(zeus.shadow_pantheon.nyx.verify_opsec())
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/nyx/operation', methods=['POST'])
+def shadow_nyx_operation_endpoint():
+    """Initiate an operation under Nyx's cover of darkness."""
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    operation_type = data.get('type', 'standard')
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.nyx.initiate_operation(target, operation_type))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/erebus/scan', methods=['POST'])
+def shadow_erebus_scan_endpoint():
+    """Scan for surveillance via Erebus."""
+    data = request.get_json() or {}
+    target = data.get('target')
+    
+    result = run_async(zeus.shadow_pantheon.erebus.scan_for_surveillance(target))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/erebus/honeypot', methods=['POST'])
+def shadow_erebus_honeypot_endpoint():
+    """Add a known honeypot address."""
+    data = request.get_json() or {}
+    address = data.get('address', '')
+    source = data.get('source', 'api')
+    
+    if not address:
+        return jsonify({'error': 'address is required'}), 400
+    
+    zeus.shadow_pantheon.erebus.add_known_honeypot(address, source)
+    return jsonify({'success': True, 'address': address[:50], 'source': source})
+
+
+@olympus_app.route('/shadow/hecate/misdirect', methods=['POST'])
+def shadow_hecate_misdirect_endpoint():
+    """Create misdirection via Hecate."""
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    decoy_count = data.get('decoy_count', 10)
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.hecate.create_misdirection(target, decoy_count))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/hecate/crossroads', methods=['POST'])
+def shadow_hecate_crossroads_endpoint():
+    """Create multi-vector crossroads attack via Hecate."""
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = zeus.shadow_pantheon.hecate.create_crossroads_attack(target)
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/hypnos/silent', methods=['POST'])
+def shadow_hypnos_silent_endpoint():
+    """Execute silent balance check via Hypnos."""
+    data = request.get_json() or {}
+    address = data.get('address', '')
+    
+    if not address:
+        return jsonify({'error': 'address is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.hypnos.silent_balance_check(address))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/hypnos/passive', methods=['POST'])
+def shadow_hypnos_passive_endpoint():
+    """Execute passive reconnaissance via Hypnos."""
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.hypnos.passive_reconnaissance(target))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/thanatos/destroy', methods=['POST'])
+def shadow_thanatos_destroy_endpoint():
+    """Destroy evidence via Thanatos."""
+    data = request.get_json() or {}
+    operation_id = data.get('operation_id', '')
+    
+    if not operation_id:
+        return jsonify({'error': 'operation_id is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.thanatos.destroy_evidence(operation_id))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/thanatos/void', methods=['POST'])
+def shadow_thanatos_void_endpoint():
+    """Void all active evidence via Thanatos."""
+    result = run_async(zeus.shadow_pantheon.thanatos.void_all_traces())
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/nemesis/pursue', methods=['POST'])
+def shadow_nemesis_pursue_endpoint():
+    """Initiate relentless pursuit via Nemesis."""
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    max_iterations = data.get('max_iterations', 1000)
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.nemesis.initiate_pursuit(target, max_iterations))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/nemesis/continue', methods=['POST'])
+def shadow_nemesis_continue_endpoint():
+    """Continue an active pursuit via Nemesis."""
+    data = request.get_json() or {}
+    pursuit_id = data.get('pursuit_id', '')
+    
+    if not pursuit_id:
+        return jsonify({'error': 'pursuit_id is required'}), 400
+    
+    result = run_async(zeus.shadow_pantheon.nemesis.pursue(pursuit_id))
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/nemesis/complete', methods=['POST'])
+def shadow_nemesis_complete_endpoint():
+    """Mark a pursuit as complete."""
+    data = request.get_json() or {}
+    pursuit_id = data.get('pursuit_id', '')
+    success = data.get('success', False)
+    reason = data.get('reason', 'Manual completion')
+    
+    if not pursuit_id:
+        return jsonify({'error': 'pursuit_id is required'}), 400
+    
+    result = zeus.shadow_pantheon.nemesis.mark_pursuit_complete(pursuit_id, success, reason)
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/shadow/god/<god_name>/status', methods=['GET'])
+def shadow_god_status_endpoint(god_name: str):
+    """Get status of a specific shadow god."""
+    god = zeus.shadow_pantheon.gods.get(god_name.lower())
+    if not god:
+        return jsonify({'error': f'Shadow god {god_name} not found'}), 404
+    return jsonify(sanitize_for_json(god.get_status()))
+
+
+@olympus_app.route('/shadow/god/<god_name>/assess', methods=['POST'])
+def shadow_god_assess_endpoint(god_name: str):
+    """Get assessment from a specific shadow god."""
+    god = zeus.shadow_pantheon.gods.get(god_name.lower())
+    if not god:
+        return jsonify({'error': f'Shadow god {god_name} not found'}), 404
+    
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    context = data.get('context', {})
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = god.assess_target(target, context)
+    return jsonify(sanitize_for_json(result))
