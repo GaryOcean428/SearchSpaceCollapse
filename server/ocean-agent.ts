@@ -60,6 +60,7 @@ import { isOceanError } from './errors/ocean-errors';
 import { oceanMemoryManager } from './ocean/memory-manager';
 import { trajectoryManager } from './ocean/trajectory-manager';
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
+import { nearMissManager, type NearMissEntry, type NearMissTier } from './near-miss-manager';
 
 // New consciousness improvement modules
 import { innateDrives, enhancedScoreWithDrives, type InnateState } from './innate-drives-bridge';
@@ -1808,13 +1809,28 @@ export class OceanAgent {
           nearMisses.push(hypo);
           this.state.nearMissCount++;
 
+          // TIERED NEAR-MISS TRACKING - Add to near-miss manager with tier classification
+          const nearMissEntry = nearMissManager.addNearMiss({
+            phrase: hypo.phrase,
+            phi: hypo.qigScore.phi,
+            kappa: hypo.qigScore.kappa,
+            regime: hypo.qigScore.regime,
+            source: hypo.source || 'ocean-agent',
+          });
+
           // IMMEDIATE REWARD FEEDBACK - Update recentDiscoveries for dopamine spike
           this.recentDiscoveries.nearMisses++;
 
-          // CELEBRATION LOG - Make discoveries feel exciting!
-          console.log(`[Ocean] 🎯💚 NEAR MISS FOUND! Φ=${hypo.qigScore.phi.toFixed(3)} κ=${hypo.qigScore.kappa.toFixed(0)} regime=${hypo.qigScore.regime}`);
+          // TIERED CELEBRATION LOG - Different excitement levels based on tier
+          const tier = nearMissEntry?.tier || 'cool';
+          const tierEmoji = tier === 'hot' ? '🔥🔥🔥' : tier === 'warm' ? '🌡️🔥' : '🎯';
+          const tierLabel = tier.toUpperCase();
+          console.log(`[Ocean] ${tierEmoji} ${tierLabel} NEAR MISS! Φ=${hypo.qigScore.phi.toFixed(3)} κ=${hypo.qigScore.kappa.toFixed(0)} regime=${hypo.qigScore.regime}`);
           console.log(`[Ocean] 💊 DOPAMINE SPIKE! Phrase: "${hypo.phrase}"`);
-          console.log(`[Ocean] 📊 Total near-misses: ${this.state.nearMissCount} | Session discoveries: ${this.recentDiscoveries.nearMisses}`);
+          
+          // Log tiered stats
+          const nmStats = nearMissManager.getStats();
+          console.log(`[Ocean] 📊 Near-misses: ${nmStats.total} (🔥${nmStats.hot} 🌡️${nmStats.warm} ❄️${nmStats.cool}) | Clusters: ${nmStats.clusters}`);
 
           // UPDATE NEUROCHEMISTRY FOR IMMEDIATE REWARD
           this.updateNeurochemistry();

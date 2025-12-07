@@ -197,6 +197,42 @@ export const MEMORY_CONFIG = MemoryConfigSchema.parse({
 export type MemoryConfig = z.infer<typeof MemoryConfigSchema>;
 
 // ============================================================
+// NEAR-MISS TIERED CONFIGURATION
+// ============================================================
+
+export const NearMissConfigSchema = z.object({
+  HOT_THRESHOLD: z.number().min(0).max(1).default(0.92)
+    .describe('Φ threshold for HOT tier (immediate exploration)'),
+  WARM_THRESHOLD: z.number().min(0).max(1).default(0.85)
+    .describe('Φ threshold for WARM tier (priority queue)'),
+  COOL_THRESHOLD: z.number().min(0).max(1).default(0.80)
+    .describe('Φ threshold for COOL tier (standard handling)'),
+  DECAY_RATE_PER_HOUR: z.number().min(0).max(1).default(0.02)
+    .describe('Temporal decay rate per hour'),
+  MAX_ENTRIES: z.number().int().positive().default(1000)
+    .describe('Maximum near-miss entries to retain'),
+  MAX_CLUSTERS: z.number().int().positive().default(50)
+    .describe('Maximum near-miss clusters'),
+  CLUSTER_SIMILARITY_THRESHOLD: z.number().min(0).max(1).default(0.6)
+    .describe('Minimum similarity for cluster membership'),
+  STALE_THRESHOLD_HOURS: z.number().positive().default(24)
+    .describe('Hours before a near-miss is considered stale'),
+});
+
+export const NEAR_MISS_CONFIG = NearMissConfigSchema.parse({
+  HOT_THRESHOLD: 0.92,
+  WARM_THRESHOLD: 0.85,
+  COOL_THRESHOLD: 0.80,
+  DECAY_RATE_PER_HOUR: 0.02,
+  MAX_ENTRIES: 1000,
+  MAX_CLUSTERS: 50,
+  CLUSTER_SIMILARITY_THRESHOLD: 0.6,
+  STALE_THRESHOLD_HOURS: 24,
+});
+
+export type NearMissConfig = z.infer<typeof NearMissConfigSchema>;
+
+// ============================================================
 // REGIME CLASSIFICATION THRESHOLDS
 // ============================================================
 

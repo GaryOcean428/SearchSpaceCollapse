@@ -71,6 +71,7 @@ import { oceanSessionManager } from "./ocean-session-manager";
 import { activityLogStore } from "./activity-log-store";
 import { autoCycleManager } from "./auto-cycle-manager";
 import { attentionMetrics, runAttentionValidation, formatValidationResult } from "./attention-metrics";
+import { nearMissManager } from "./near-miss-manager";
 
 // Set up auto-cycle callback to start sessions via ocean session manager
 autoCycleManager.setOnCycleCallback(async (addressId: string, address: string) => {
@@ -1096,6 +1097,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("[Beta Attention] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============================================================
+  // TIERED NEAR-MISS API
+  // ============================================================
+
+  // Get tiered near-miss statistics and entries
+  app.get("/api/near-misses", generousLimiter, async (req, res) => {
+    try {
+      const stats = nearMissManager.getStats();
+      const tier = req.query.tier as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      let entries;
+      if (tier === 'hot') {
+        entries = nearMissManager.getHotEntries(limit);
+      } else if (tier === 'warm') {
+        entries = nearMissManager.getWarmEntries(limit);
+      } else if (tier === 'cool') {
+        entries = nearMissManager.getCoolEntries(limit);
+      } else {
+        entries = nearMissManager.getPrioritizedEntries(limit);
+      }
+
+      const clusters = nearMissManager.getClusters().slice(0, 10);
+
+      res.json({
+        stats,
+        entries: entries.map(e => ({
+          id: e.id,
+          phrase: e.phrase.slice(0, 50) + (e.phrase.length > 50 ? '...' : ''),
+          phi: e.phi,
+          kappa: e.kappa,
+          tier: e.tier,
+          regime: e.regime,
+          discoveredAt: e.discoveredAt,
+          explorationCount: e.explorationCount,
+          clusterId: e.clusterId,
+        })),
+        clusters: clusters.map(c => ({
+          id: c.id,
+          memberCount: c.memberCount,
+          avgPhi: c.avgPhi,
+          maxPhi: c.maxPhi,
+          commonWords: c.commonWords.slice(0, 5),
+          structuralPattern: c.structuralPattern,
+        })),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("[Near-Miss API] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Apply temporal decay to near-misses
+  app.post("/api/near-misses/decay", generousLimiter, async (req, res) => {
+    try {
+      const result = nearMissManager.applyDecay();
+      const stats = nearMissManager.getStats();
+
+      res.json({
+        ...result,
+        stats,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("[Near-Miss Decay] Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
