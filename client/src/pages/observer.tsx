@@ -285,16 +285,17 @@ export default function ObserverPage() {
   // Near-miss tier filter state
   const [nearMissTierFilter, setNearMissTierFilter] = useState<string>("all");
 
-  // Query near-miss data
-  const { data: nearMissData, isLoading: nearMissLoading } = useQuery<NearMissData>({
-    queryKey: ['/api/near-misses', nearMissTierFilter],
-    queryFn: async () => {
-      const url = nearMissTierFilter === 'all' ? '/api/near-misses' : `/api/near-misses?tier=${nearMissTierFilter}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch near-misses');
-      return res.json();
-    },
+  // Build near-miss query URL with tier filter
+  const nearMissUrl = nearMissTierFilter === 'all' 
+    ? '/api/near-misses' 
+    : `/api/near-misses?tier=${nearMissTierFilter}`;
+
+  // Query near-miss data using default fetcher
+  const { data: nearMissData, isLoading: nearMissLoading, error: nearMissError } = useQuery<NearMissData>({
+    queryKey: [nearMissUrl],
     refetchInterval: 5000, // Poll every 5 seconds
+    retry: 2,
+    staleTime: 2000,
   });
 
   // Start QIG search mutation
@@ -2091,6 +2092,17 @@ export default function ObserverPage() {
 
           {/* Near-Misses Tab */}
           <TabsContent value="near-misses" className="space-y-4">
+            {/* Error State */}
+            {nearMissError && (
+              <Card className="border-destructive/50">
+                <CardContent className="p-4 text-center">
+                  <AlertTriangle className="w-6 h-6 text-destructive mx-auto mb-2" />
+                  <p className="text-sm text-destructive">Failed to load near-miss data</p>
+                  <p className="text-xs text-muted-foreground mt-1">Will retry automatically</p>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Near-Miss Stats Overview */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <Card data-testid="card-near-miss-stat-total">
