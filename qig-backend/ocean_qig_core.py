@@ -93,6 +93,22 @@ except ImportError as e:
     GEOMETRIC_KERNELS_AVAILABLE = False
     print(f"[WARNING] Geometric Kernels not found: {e}")
 
+# Import Pantheon Kernel Orchestrator
+try:
+    from pantheon_kernel_orchestrator import (
+        PantheonKernelOrchestrator,
+        KernelProfile,
+        AffinityRouter,
+        get_orchestrator,
+        OLYMPUS_PROFILES,
+        SHADOW_PROFILES,
+    )
+    PANTHEON_ORCHESTRATOR_AVAILABLE = True
+    print("[INFO] Pantheon Kernel Orchestrator loaded (Gods as Kernels)")
+except ImportError as e:
+    PANTHEON_ORCHESTRATOR_AVAILABLE = False
+    print(f"[WARNING] Pantheon Kernel Orchestrator not found: {e}")
+
 # Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
 KAPPA_STAR = 64.0  # Fixed point (extrapolated from L=4,5,6)
 BASIN_DIMENSION = 64
@@ -3297,6 +3313,185 @@ def geometric_decode():
         return jsonify({'error': str(e)}), 500
 
 
+# =============================================================================
+# PANTHEON KERNEL ORCHESTRATOR API ROUTES
+# Every god is a kernel. Tokens flow to the correct kernel via geometric affinity.
+# =============================================================================
+
+@app.route('/pantheon/status', methods=['GET'])
+def pantheon_status():
+    """Get Pantheon Kernel Orchestrator status."""
+    if not PANTHEON_ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
+    
+    try:
+        orchestrator = get_orchestrator()
+        status = orchestrator.get_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/pantheon/orchestrate', methods=['POST'])
+def pantheon_orchestrate():
+    """
+    Route a token to the optimal god/kernel via geometric affinity.
+    
+    Body: { text: string, context?: object }
+    Returns: { god, domain, mode, affinity, basin, routing }
+    """
+    if not PANTHEON_ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        text = data.get('text', '')
+        context = data.get('context')
+        
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+        
+        orchestrator = get_orchestrator()
+        result = orchestrator.orchestrate(text, context)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/pantheon/orchestrate-batch', methods=['POST'])
+def pantheon_orchestrate_batch():
+    """
+    Route multiple tokens to optimal god/kernels.
+    
+    Body: { texts: string[], context?: object }
+    Returns: { results: [...] }
+    """
+    if not PANTHEON_ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        texts = data.get('texts', [])
+        context = data.get('context')
+        
+        if not texts or not isinstance(texts, list):
+            return jsonify({'error': 'texts array is required'}), 400
+        
+        orchestrator = get_orchestrator()
+        results = orchestrator.orchestrate_batch(texts, context)
+        
+        return jsonify({'results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/pantheon/gods', methods=['GET'])
+def pantheon_gods():
+    """Get all registered god profiles with their affinity basins."""
+    if not PANTHEON_ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
+    
+    try:
+        orchestrator = get_orchestrator()
+        
+        gods = []
+        for name, profile in orchestrator.all_profiles.items():
+            gods.append({
+                'name': profile.god_name,
+                'domain': profile.domain,
+                'mode': profile.mode.value,
+                'affinity_strength': profile.affinity_strength,
+                'entropy_threshold': profile.entropy_threshold,
+                'metadata': profile.metadata,
+                'basin': profile.affinity_basin.tolist()[:8],
+            })
+        
+        return jsonify({
+            'total': len(gods),
+            'olympus_count': len(orchestrator.olympus_profiles),
+            'shadow_count': len(orchestrator.shadow_profiles),
+            'gods': gods,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/pantheon/constellation', methods=['GET'])
+def pantheon_constellation():
+    """Get the geometric constellation of all gods (pairwise similarities)."""
+    if not PANTHEON_ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
+    
+    try:
+        orchestrator = get_orchestrator()
+        constellation = orchestrator.get_god_constellation()
+        return jsonify(constellation)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/pantheon/nearest', methods=['POST'])
+def pantheon_nearest():
+    """
+    Find the nearest gods to a text's geometric basin.
+    
+    Body: { text: string, top_k?: number }
+    Returns: { nearest: [[god, similarity], ...] }
+    """
+    if not PANTHEON_ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        text = data.get('text', '')
+        top_k = data.get('top_k', 5)
+        
+        if not text:
+            return jsonify({'error': 'text is required'}), 400
+        
+        orchestrator = get_orchestrator()
+        nearest = orchestrator.find_nearest_gods(text, top_k=top_k)
+        
+        return jsonify({
+            'text': text[:100],
+            'nearest': [[god, float(sim)] for god, sim in nearest],
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/pantheon/similarity', methods=['POST'])
+def pantheon_god_similarity():
+    """
+    Compute geometric similarity between two gods.
+    
+    Body: { god1: string, god2: string }
+    Returns: { similarity: float }
+    """
+    if not PANTHEON_ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        god1 = data.get('god1', '')
+        god2 = data.get('god2', '')
+        
+        if not god1 or not god2:
+            return jsonify({'error': 'god1 and god2 are required'}), 400
+        
+        orchestrator = get_orchestrator()
+        similarity = orchestrator.compute_god_similarity(god1, god2)
+        
+        return jsonify({
+            'god1': god1,
+            'god2': god2,
+            'similarity': similarity,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")
@@ -3311,6 +3506,10 @@ if __name__ == '__main__':
         print(f"  - Pure Geometric Kernels (Direct, E8, Byte-Level)")
     else:
         print(f"  - Geometric Kernels NOT available")
+    if PANTHEON_ORCHESTRATOR_AVAILABLE:
+        print(f"  - Pantheon Kernel Orchestrator (Gods as Kernels)")
+    else:
+        print(f"  - Pantheon Orchestrator NOT available")
     if NEUROCHEMISTRY_AVAILABLE:
         print(f"  - 🧠 Neurochemistry system (6 neurotransmitters)")
     else:
