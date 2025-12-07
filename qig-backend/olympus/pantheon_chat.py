@@ -126,6 +126,13 @@ class PantheonChat:
     - Challenge routing and tracking
     """
     
+    # Canonical roster of all Olympian gods for broadcast targeting
+    OLYMPIAN_ROSTER = [
+        'Zeus', 'Athena', 'Ares', 'Apollo', 'Artemis', 'Hermes',
+        'Hephaestus', 'Demeter', 'Dionysus', 'Poseidon', 'Hades',
+        'Hera', 'Aphrodite'
+    ]
+    
     def __init__(self):
         self.messages: List[PantheonMessage] = []
         self.debates: Dict[str, Debate] = {}
@@ -137,6 +144,10 @@ class PantheonChat:
         
         self.message_limit = 1000
         self.debate_limit = 100
+        
+        # Initialize inboxes for all gods in roster
+        for god in self.OLYMPIAN_ROSTER:
+            self.god_inboxes[god]  # Creates empty list via defaultdict
     
     def send_message(
         self,
@@ -161,8 +172,9 @@ class PantheonChat:
         self.messages.append(message)
         
         if to_god == 'pantheon':
-            for god_name in self.god_inboxes.keys():
-                if god_name != from_god:
+            # Use canonical roster to ensure broadcasts reach all gods
+            for god_name in self.OLYMPIAN_ROSTER:
+                if god_name.lower() != from_god.lower():
                     self.god_inboxes[god_name].append(message)
         else:
             self.god_inboxes[to_god].append(message)
