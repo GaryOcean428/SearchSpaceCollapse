@@ -545,3 +545,160 @@ oceanRouter.get("/generate/status", generousLimiter, async (req: Request, res: R
     res.status(500).json({ error: error.message });
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Φ TEMPORAL TRENDS ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+oceanRouter.get("/temporal-trends", isAuthenticated, generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { nearMissManager } = await import("../near-miss-manager");
+    
+    const trends = nearMissManager.getPhiTemporalTrends();
+    const stats = nearMissManager.getStats();
+    
+    res.json({
+      success: true,
+      trends,
+      nearMissStats: {
+        total: stats.total,
+        hot: stats.hot,
+        warm: stats.warm,
+        cool: stats.cool,
+        avgPhi: stats.avgPhi,
+      },
+      actionRequired: trends.resetTriggerActive,
+    });
+  } catch (error: any) {
+    console.error("[Trends] Temporal trends error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+oceanRouter.post("/temporal-trends/acknowledge-reset", isAuthenticated, standardLimiter, async (req: Request, res: Response) => {
+  try {
+    const { nearMissManager } = await import("../near-miss-manager");
+    
+    const wasActive = nearMissManager.isResetTriggerActive();
+    nearMissManager.acknowledgeResetTrigger();
+    
+    console.log(`[Trends] Reset trigger acknowledged by user, was active: ${wasActive}`);
+    
+    res.json({
+      success: true,
+      message: wasActive ? 'Reset trigger acknowledged - plateau counter cleared' : 'No active reset trigger',
+      wasActive,
+      trends: nearMissManager.getPhiTemporalTrends(),
+    });
+  } catch (error: any) {
+    console.error("[Trends] Acknowledge reset error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+oceanRouter.post("/temporal-trends/record-sample", standardLimiter, async (req: Request, res: Response) => {
+  try {
+    const { nearMissManager } = await import("../near-miss-manager");
+    
+    const { phi } = req.body;
+    
+    if (typeof phi !== 'number' || phi <= 0 || phi > 1) {
+      return res.status(400).json({ 
+        error: 'Invalid phi value',
+        hint: 'Provide a phi value between 0 and 1 (exclusive of 0)'
+      });
+    }
+    
+    nearMissManager.recordPhiTemporalSample(phi);
+    
+    res.json({
+      success: true,
+      message: `Recorded Φ sample: ${phi.toFixed(4)}`,
+      trends: nearMissManager.getPhiTemporalTrends(),
+    });
+  } catch (error: any) {
+    console.error("[Trends] Record sample error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+oceanRouter.get("/near-misses/success-rates", isAuthenticated, generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { nearMissManager } = await import("../near-miss-manager");
+    
+    const successRates = nearMissManager.getTierSuccessRates();
+    const stats = nearMissManager.getStats();
+    
+    const insights: string[] = [];
+    
+    if (successRates.overall.tierValidation === 'validated') {
+      insights.push('Tier system validated: HOT tier converts at higher rate than WARM/COOL');
+    } else if (successRates.overall.tierValidation === 'tier_inversion') {
+      insights.push('WARNING: Tier inversion detected - lower tiers converting better than HOT');
+      insights.push('Consider adjusting tier thresholds or Φ scoring');
+    } else {
+      insights.push('Insufficient conversion data - need more discoveries to validate tiers');
+    }
+    
+    if (successRates.hot.avgTimeToConversion > 0) {
+      insights.push(`HOT tier avg time to conversion: ${successRates.hot.avgTimeToConversion.toFixed(1)} hours`);
+    }
+    
+    res.json({
+      success: true,
+      successRates,
+      insights,
+      stats: {
+        total: stats.total,
+        hot: stats.hot,
+        warm: stats.warm,
+        cool: stats.cool,
+      },
+    });
+  } catch (error: any) {
+    console.error("[NearMiss] Success rates error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+oceanRouter.post("/near-misses/conversion", isAuthenticated, standardLimiter, async (req: Request, res: Response) => {
+  try {
+    const { nearMissManager } = await import("../near-miss-manager");
+    
+    const { phrase, entryId, matchAddress } = req.body;
+    
+    if (!phrase && !entryId) {
+      return res.status(400).json({ 
+        error: 'Must provide either phrase or entryId',
+        hint: 'POST with { phrase: "..." } or { entryId: "..." }'
+      });
+    }
+    
+    let record;
+    if (entryId) {
+      record = nearMissManager.recordConversion(entryId, matchAddress);
+    } else {
+      record = nearMissManager.recordConversionByPhrase(phrase, matchAddress);
+    }
+    
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        error: 'Near-miss entry not found',
+        hint: phrase ? `No entry found for phrase: "${phrase.slice(0, 50)}..."` : `No entry found for ID: ${entryId}`,
+      });
+    }
+    
+    console.log(`[NearMiss] Conversion recorded: ${record.tier} tier, Φ=${record.phi.toFixed(4)}`);
+    
+    res.json({
+      success: true,
+      record,
+      message: `Recorded ${record.tier.toUpperCase()} tier conversion`,
+      successRates: nearMissManager.getTierSuccessRates(),
+    });
+  } catch (error: any) {
+    console.error("[NearMiss] Conversion recording error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});

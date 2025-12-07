@@ -99,6 +99,22 @@ export interface ConversionRecord {
   matchAddress?: string;
 }
 
+export interface PhiTemporalTrends {
+  windowSize: number;
+  sampleCount: number;
+  avgPhi: number;
+  slope: number;
+  trend: 'improving' | 'declining' | 'plateau' | 'volatile' | 'insufficient_data';
+  plateauCount: number;
+  consecutivePlateaus: number;
+  lastPlateauAt: string | null;
+  resetTriggerActive: boolean;
+  resetTriggerThreshold: number;
+  volatility: number;
+  samples: Array<{ phi: number; timestamp: string }>;
+  insights: string[];
+}
+
 export interface NearMissStats {
   total: number;
   hot: number;
@@ -157,6 +173,17 @@ export class NearMissManager {
   // Success tracking per tier - validates HOT tier is really "hotter"
   private conversionRecords: ConversionRecord[] = [];
   private tierTotals: { hot: number; warm: number; cool: number } = { hot: 0, warm: 0, cool: 0 };
+
+  // Φ Temporal Trends tracking
+  private phiTemporalSamples: Array<{ phi: number; timestamp: string }> = [];
+  private plateauCount = 0;
+  private consecutivePlateaus = 0;
+  private lastPlateauAt: string | null = null;
+  private resetTriggerActive = false;
+  private readonly TEMPORAL_WINDOW_SIZE = 50;
+  private readonly PLATEAU_SLOPE_THRESHOLD = 0.001; // Near-zero slope = plateau
+  private readonly PLATEAU_RESET_THRESHOLD = 5; // Trigger reset after N consecutive plateaus
+  private readonly VOLATILITY_THRESHOLD = 0.15; // High variance = volatile
 
   constructor() {
     this.adaptiveThresholds = {
@@ -740,6 +767,210 @@ export class NearMissManager {
   }
 
   /**
+   * Record a Φ sample for temporal trend analysis
+   */
+  recordPhiTemporalSample(phi: number): void {
+    if (phi <= 0 || phi > 1) return;
+    
+    this.phiTemporalSamples.push({
+      phi,
+      timestamp: new Date().toISOString(),
+    });
+    
+    // Keep window size bounded
+    if (this.phiTemporalSamples.length > this.TEMPORAL_WINDOW_SIZE * 2) {
+      this.phiTemporalSamples = this.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
+    }
+    
+    // Check for plateau on every 10th sample
+    if (this.phiTemporalSamples.length % 10 === 0) {
+      this.detectPlateau();
+    }
+  }
+
+  /**
+   * Calculate trend slope using linear regression
+   */
+  private calculateTrendSlope(values: number[]): number {
+    if (values.length < 3) return 0;
+    
+    const n = values.length;
+    const indices = values.map((_, i) => i);
+    
+    const sumX = indices.reduce((s, x) => s + x, 0);
+    const sumY = values.reduce((s, y) => s + y, 0);
+    const sumXY = indices.reduce((s, x, i) => s + x * values[i], 0);
+    const sumX2 = indices.reduce((s, x) => s + x * x, 0);
+    
+    const denominator = n * sumX2 - sumX * sumX;
+    if (denominator === 0) return 0;
+    
+    return (n * sumXY - sumX * sumY) / denominator;
+  }
+
+  /**
+   * Calculate variance of values
+   */
+  private calculateVariance(values: number[]): number {
+    if (values.length < 2) return 0;
+    const mean = values.reduce((s, v) => s + v, 0) / values.length;
+    const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
+    return squaredDiffs.reduce((s, v) => s + v, 0) / (values.length - 1);
+  }
+
+  /**
+   * Detect plateau and trigger reset if needed
+   */
+  private detectPlateau(): void {
+    const samples = this.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
+    if (samples.length < 10) return;
+    
+    const phis = samples.map(s => s.phi);
+    const slope = Math.abs(this.calculateTrendSlope(phis));
+    const variance = this.calculateVariance(phis);
+    
+    // Plateau = low slope and low variance (stuck in one region)
+    const isPlateau = slope < this.PLATEAU_SLOPE_THRESHOLD && variance < 0.01;
+    
+    if (isPlateau) {
+      this.consecutivePlateaus++;
+      this.plateauCount++;
+      this.lastPlateauAt = new Date().toISOString();
+      
+      console.log(`[NearMiss] ⚠️ PLATEAU DETECTED: slope=${slope.toFixed(6)}, consecutive=${this.consecutivePlateaus}/${this.PLATEAU_RESET_THRESHOLD}`);
+      
+      // Trigger reset if we've hit threshold
+      if (this.consecutivePlateaus >= this.PLATEAU_RESET_THRESHOLD && !this.resetTriggerActive) {
+        this.resetTriggerActive = true;
+        console.log(`[NearMiss] 🔄 RESET TRIGGER ACTIVATED: ${this.consecutivePlateaus} consecutive plateaus detected`);
+      }
+    } else {
+      // Reset consecutive counter if not in plateau
+      if (this.consecutivePlateaus > 0) {
+        console.log(`[NearMiss] 📈 Plateau broken, slope=${slope.toFixed(4)}`);
+      }
+      this.consecutivePlateaus = 0;
+      this.resetTriggerActive = false;
+    }
+  }
+
+  /**
+   * Get comprehensive Φ temporal trends analysis
+   */
+  getPhiTemporalTrends(): PhiTemporalTrends {
+    const samples = this.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
+    
+    if (samples.length < 5) {
+      return {
+        windowSize: this.TEMPORAL_WINDOW_SIZE,
+        sampleCount: samples.length,
+        avgPhi: 0,
+        slope: 0,
+        trend: 'insufficient_data',
+        plateauCount: this.plateauCount,
+        consecutivePlateaus: this.consecutivePlateaus,
+        lastPlateauAt: this.lastPlateauAt,
+        resetTriggerActive: this.resetTriggerActive,
+        resetTriggerThreshold: this.PLATEAU_RESET_THRESHOLD,
+        volatility: 0,
+        samples: [],
+        insights: ['Need at least 5 samples for trend analysis'],
+      };
+    }
+    
+    const phis = samples.map(s => s.phi);
+    const avgPhi = phis.reduce((s, p) => s + p, 0) / phis.length;
+    const slope = this.calculateTrendSlope(phis);
+    const variance = this.calculateVariance(phis);
+    const volatility = Math.sqrt(variance);
+    
+    // Classify trend
+    let trend: 'improving' | 'declining' | 'plateau' | 'volatile' | 'insufficient_data';
+    const normalizedSlope = slope / Math.max(0.01, volatility);
+    
+    if (volatility > this.VOLATILITY_THRESHOLD) {
+      trend = 'volatile';
+    } else if (Math.abs(slope) < this.PLATEAU_SLOPE_THRESHOLD) {
+      trend = 'plateau';
+    } else if (normalizedSlope > 0.1) {
+      trend = 'improving';
+    } else if (normalizedSlope < -0.1) {
+      trend = 'declining';
+    } else {
+      trend = 'plateau';
+    }
+    
+    // Generate insights
+    const insights: string[] = [];
+    
+    if (this.resetTriggerActive) {
+      insights.push(`⚠️ RESET RECOMMENDED: ${this.consecutivePlateaus} consecutive plateaus detected`);
+      insights.push('Consider: switching search strategy, exploring new vocabulary domains, or adjusting Φ thresholds');
+    }
+    
+    if (trend === 'improving') {
+      insights.push(`📈 Φ trending upward (slope: ${(slope * 100).toFixed(2)}% per sample)`);
+      insights.push('Current search direction is productive');
+    } else if (trend === 'declining') {
+      insights.push(`📉 Φ trending downward (slope: ${(slope * 100).toFixed(2)}% per sample)`);
+      insights.push('Consider adjusting search parameters or strategy');
+    } else if (trend === 'plateau') {
+      insights.push(`⏸️ Φ in plateau (slope: ${(slope * 1000).toFixed(3)}‰)`);
+      if (this.consecutivePlateaus > 0) {
+        insights.push(`Plateau persisting for ${this.consecutivePlateaus} detection cycles`);
+      }
+    } else if (trend === 'volatile') {
+      insights.push(`🌊 High volatility detected (σ=${volatility.toFixed(4)})`);
+      insights.push('Search is exploring diverse regions - may indicate boundary probing');
+    }
+    
+    if (this.plateauCount > 0 && trend !== 'plateau') {
+      insights.push(`Historical: ${this.plateauCount} total plateaus encountered`);
+    }
+    
+    // Include recent samples for sparkline visualization
+    const recentSamples = samples.slice(-20).map(s => ({
+      phi: s.phi,
+      timestamp: s.timestamp,
+    }));
+    
+    return {
+      windowSize: this.TEMPORAL_WINDOW_SIZE,
+      sampleCount: samples.length,
+      avgPhi,
+      slope,
+      trend,
+      plateauCount: this.plateauCount,
+      consecutivePlateaus: this.consecutivePlateaus,
+      lastPlateauAt: this.lastPlateauAt,
+      resetTriggerActive: this.resetTriggerActive,
+      resetTriggerThreshold: this.PLATEAU_RESET_THRESHOLD,
+      volatility,
+      samples: recentSamples,
+      insights,
+    };
+  }
+
+  /**
+   * Acknowledge reset trigger and clear the flag
+   * Call this when a strategy change has been enacted
+   */
+  acknowledgeResetTrigger(): void {
+    if (this.resetTriggerActive) {
+      console.log(`[NearMiss] ✅ Reset trigger acknowledged - clearing consecutive plateau count`);
+      this.resetTriggerActive = false;
+      this.consecutivePlateaus = 0;
+    }
+  }
+
+  /**
+   * Check if reset trigger is currently active
+   */
+  isResetTriggerActive(): boolean {
+    return this.resetTriggerActive;
+  }
+
+  /**
    * Generate a deterministic ID for a phrase
    */
   private generateId(phrase: string): string {
@@ -1089,7 +1320,24 @@ export class NearMissManager {
           this.tierTotals = data.tierTotals;
         }
 
-        console.log(`[NearMiss] Loaded from JSON: ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.conversionRecords.length} conversions, ${this.rollingPhiDistribution.length} Φ observations`);
+        // Load temporal trends data
+        if (data.phiTemporalSamples) {
+          this.phiTemporalSamples = data.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
+        }
+        if (data.plateauCount !== undefined) {
+          this.plateauCount = data.plateauCount;
+        }
+        if (data.consecutivePlateaus !== undefined) {
+          this.consecutivePlateaus = data.consecutivePlateaus;
+        }
+        if (data.lastPlateauAt) {
+          this.lastPlateauAt = data.lastPlateauAt;
+        }
+        if (data.resetTriggerActive !== undefined) {
+          this.resetTriggerActive = data.resetTriggerActive;
+        }
+
+        console.log(`[NearMiss] Loaded from JSON: ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.conversionRecords.length} conversions, ${this.phiTemporalSamples.length} temporal samples`);
       }
     } catch (error) {
       console.error('[NearMiss] Failed to load from JSON:', error);
@@ -1128,6 +1376,12 @@ export class NearMissManager {
         adaptiveThresholds: this.adaptiveThresholds,
         conversionRecords: this.conversionRecords,
         tierTotals: this.tierTotals,
+        // Temporal trends data
+        phiTemporalSamples: this.phiTemporalSamples,
+        plateauCount: this.plateauCount,
+        consecutivePlateaus: this.consecutivePlateaus,
+        lastPlateauAt: this.lastPlateauAt,
+        resetTriggerActive: this.resetTriggerActive,
       };
 
       fs.writeFileSync(NEAR_MISS_FILE, JSON.stringify(data, null, 2));
