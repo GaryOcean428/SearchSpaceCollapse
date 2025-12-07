@@ -325,7 +325,7 @@ export default function ZeusChat() {
                   )}
                   
                   <div className="whitespace-pre-wrap break-words">
-                    {msg.content}
+                    {sanitizeText(msg.content)}
                   </div>
                   
                   {msg.role === 'zeus' && formatMetadata(msg)}

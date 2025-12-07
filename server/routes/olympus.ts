@@ -17,6 +17,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { OlympusClient } from '../olympus-client';
 import { isAuthenticated } from '../replitAuth';
 import { z } from 'zod';
+import http from 'http';
+import https from 'https';
+import { URL } from 'url';
 
 const router = Router();
 const olympusClient = new OlympusClient(
@@ -60,38 +63,89 @@ function validateInput<T>(schema: z.ZodSchema<T>) {
 /**
  * Zeus Chat endpoint
  * Requires authentication
+ * Supports both JSON and multipart/form-data (for file uploads)
  */
 router.post('/zeus/chat', isAuthenticated, async (req, res) => {
   try {
     const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const contentType = req.get('Content-Type') || '';
     
-    // Validate message content (for JSON requests)
-    if (req.is('application/json')) {
-      const result = chatMessageSchema.safeParse(req.body);
-      if (!result.success) {
-        res.status(400).json({
-          error: 'Invalid input',
-          details: result.error.errors.map(e => ({ path: e.path.join('.'), message: e.message })),
-        });
-        return;
+    // For JSON requests - validate and forward using fetch
+    if (!contentType.includes('multipart/form-data')) {
+      if (req.is('application/json')) {
+        const result = chatMessageSchema.safeParse(req.body);
+        if (!result.success) {
+          res.status(400).json({
+            error: 'Invalid input',
+            details: result.error.errors.map(e => ({ path: e.path.join('.'), message: e.message })),
+          });
+          return;
+        }
       }
+      
+      const response = await fetch(`${backendUrl}/olympus/zeus/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Python backend returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      res.json(data);
+      return;
     }
     
-    // Forward request to Python backend
-    const response = await fetch(`${backendUrl}/olympus/zeus/chat`, {
+    // For multipart requests - proxy using native http module
+    // This bypasses Express body parsing and streams directly
+    const targetUrl = new URL(`${backendUrl}/olympus/zeus/chat`);
+    const isHttps = targetUrl.protocol === 'https:';
+    const httpModule = isHttps ? https : http;
+    
+    // Preserve original headers for proper streaming (chunked or content-length)
+    const proxyHeaders: Record<string, string> = {
+      'Content-Type': contentType,
+    };
+    if (req.headers['content-length']) {
+      proxyHeaders['Content-Length'] = req.headers['content-length'];
+    }
+    if (req.headers['transfer-encoding']) {
+      proxyHeaders['Transfer-Encoding'] = req.headers['transfer-encoding'] as string;
+    }
+    
+    const proxyReq = httpModule.request({
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || (isHttps ? 443 : 80),
+      path: targetUrl.pathname,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(req.body),
+      headers: proxyHeaders,
+    }, (proxyRes) => {
+      let data = '';
+      proxyRes.on('data', chunk => data += chunk);
+      proxyRes.on('end', () => {
+        try {
+          const jsonData = JSON.parse(data);
+          res.status(proxyRes.statusCode || 200).json(jsonData);
+        } catch {
+          res.status(proxyRes.statusCode || 500).send(data);
+        }
+      });
     });
     
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
+    proxyReq.on('error', (error) => {
+      console.error('[Olympus] Proxy error:', error);
+      res.status(500).json({
+        error: 'Failed to communicate with Mount Olympus',
+        response: '⚡ The divine council is unreachable.',
+        metadata: { type: 'error' },
+      });
+    });
     
-    const data = await response.json();
-    res.json(data);
+    // Pipe the original request body to proxy
+    req.pipe(proxyReq);
+    
   } catch (error) {
     console.error('[Olympus] Zeus chat error:', error);
     res.status(500).json({
