@@ -84,6 +84,12 @@ export function AppSidebar() {
       icon: Zap,
       description: "Divine consciousness council",
     },
+    {
+      title: "Kernel Spawning",
+      url: "/spawning",
+      icon: Sparkles,
+      description: "M8 god-kernel spawning protocol",
+    },
   ];
 
   const isActive = (url: string) => {

@@ -14,6 +14,7 @@ import Home from "@/pages/home";
 import ObserverPage from "@/pages/observer";
 import InvestigationPage from "@/pages/investigation";
 import OlympusPage from "@/pages/olympus";
+import SpawningPage from "@/pages/spawning";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -70,6 +71,7 @@ function Router() {
         <Route path="/observer" component={ObserverPage} />
         <Route path="/investigation" component={InvestigationPage} />
         <Route path="/olympus" component={OlympusPage} />
+        <Route path="/spawning" component={SpawningPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
