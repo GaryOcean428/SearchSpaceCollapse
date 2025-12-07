@@ -185,6 +185,25 @@ export interface BasinHeatmapData {
   timestamp: string;
 }
 
+/**
+ * Live Φ Sparkline Data - Real-Time Trend Visibility
+ * 
+ * Provides time-series Φ data for visualization as sparklines.
+ * Shows recent Φ values, trend direction, and volatility.
+ */
+export interface PhiSparklineData {
+  values: number[];        // Recent Φ samples (oldest to newest)
+  timestamps: string[];    // ISO timestamps for each sample
+  trend: 'rising' | 'falling' | 'stable';  // Overall trend direction
+  volatility: number;      // Standard deviation of values (0-1)
+  min: number;             // Minimum Φ in window
+  max: number;             // Maximum Φ in window
+  avgPhi: number;          // Average Φ in window
+  sampleCount: number;     // Number of samples returned
+  slope: number;           // Trend slope (positive = rising)
+  lastTimestamp: string;   // Most recent timestamp
+}
+
 export interface GeometricMemoryState {
   version: string;
   lastUpdated: string;
@@ -631,6 +650,82 @@ class GeometricMemory {
     }
     
     return null;
+  }
+  
+  /**
+   * Get Φ sparkline data for real-time trend visualization.
+   * 
+   * Returns recent Φ values with trend analysis suitable for sparkline rendering.
+   * 
+   * @param sampleCount Number of recent samples to include (default 50, max 500)
+   * @returns PhiSparklineData with values, trend, and statistics
+   */
+  getPhiSparkline(sampleCount: number = 50): PhiSparklineData {
+    const count = Math.min(500, Math.max(1, sampleCount));
+    
+    const recentProbes = this.getRecentProbes(count);
+    
+    if (recentProbes.length === 0) {
+      return {
+        values: [],
+        timestamps: [],
+        trend: 'stable',
+        volatility: 0,
+        min: 0,
+        max: 0,
+        avgPhi: 0,
+        sampleCount: 0,
+        slope: 0,
+        lastTimestamp: new Date().toISOString(),
+      };
+    }
+    
+    const orderedProbes = [...recentProbes].reverse();
+    
+    const values = orderedProbes.map(p => p.phi);
+    const timestamps = orderedProbes.map(p => p.timestamp);
+    
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const avgPhi = values.reduce((sum, v) => sum + v, 0) / values.length;
+    
+    const variance = values.reduce((sum, v) => sum + Math.pow(v - avgPhi, 2), 0) / values.length;
+    const volatility = Math.sqrt(variance);
+    
+    let slope = 0;
+    if (values.length >= 2) {
+      const n = values.length;
+      const sumX = (n * (n - 1)) / 2;
+      const sumY = values.reduce((sum, v) => sum + v, 0);
+      const sumXY = values.reduce((sum, v, i) => sum + i * v, 0);
+      const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6;
+      
+      slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    }
+    
+    let trend: 'rising' | 'falling' | 'stable';
+    const slopeThreshold = 0.001;
+    
+    if (slope > slopeThreshold) {
+      trend = 'rising';
+    } else if (slope < -slopeThreshold) {
+      trend = 'falling';
+    } else {
+      trend = 'stable';
+    }
+    
+    return {
+      values,
+      timestamps,
+      trend,
+      volatility,
+      min,
+      max,
+      avgPhi,
+      sampleCount: values.length,
+      slope,
+      lastTimestamp: timestamps[timestamps.length - 1] || new Date().toISOString(),
+    };
   }
   
   /**

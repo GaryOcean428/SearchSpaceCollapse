@@ -714,6 +714,52 @@ oceanRouter.get("/basin-heatmap", generousLimiter, async (req: Request, res: Res
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LIVE Φ SPARKLINE ENDPOINT
+// ═══════════════════════════════════════════════════════════════════════════
+
+oceanRouter.get("/phi-sparkline", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { geometricMemory } = await import("../geometric-memory");
+    
+    const count = Math.min(500, Math.max(1, parseInt(req.query.count as string) || 50));
+    
+    const sparkline = geometricMemory.getPhiSparkline(count);
+    
+    res.json({
+      success: true,
+      sparkline,
+      summary: {
+        trend: sparkline.trend,
+        trendIcon: sparkline.trend === 'rising' ? 'trending-up' : sparkline.trend === 'falling' ? 'trending-down' : 'minus',
+        samples: sparkline.sampleCount,
+        range: `${sparkline.min.toFixed(4)} - ${sparkline.max.toFixed(4)}`,
+        avgPhi: sparkline.avgPhi.toFixed(4),
+        volatility: sparkline.volatility.toFixed(4),
+        slope: sparkline.slope.toFixed(6),
+      },
+      insights: [
+        sparkline.sampleCount === 0 
+          ? 'No probe data yet - start exploration to see Φ trends'
+          : `Tracking ${sparkline.sampleCount} recent Φ samples`,
+        sparkline.trend === 'rising' 
+          ? 'Φ is rising - current search direction shows promise'
+          : sparkline.trend === 'falling'
+            ? 'Φ is declining - consider changing exploration strategy'
+            : 'Φ is stable - steady state exploration',
+        sparkline.volatility > 0.2
+          ? 'High volatility - exploring diverse regions'
+          : sparkline.volatility > 0.05
+            ? 'Moderate volatility - balanced exploration'
+            : 'Low volatility - focused search area',
+      ],
+    });
+  } catch (error: any) {
+    console.error("[Sparkline] Phi sparkline error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 oceanRouter.post("/near-misses/conversion", isAuthenticated, standardLimiter, async (req: Request, res: Response) => {
   try {
     const { nearMissManager } = await import("../near-miss-manager");
