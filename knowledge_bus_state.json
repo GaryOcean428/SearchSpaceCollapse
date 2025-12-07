@@ -220,6 +220,21 @@
         "consumedBy": [],
         "transformations": []
       }
+    ],
+    [
+      "kb_1765118023961_160bfzacc",
+      {
+        "id": "kb_1765118023961_160bfzacc",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765118022042-f1r1",
+        "pattern": "Z3V1ZeZeJ",
+        "phi": 0.9814375,
+        "kappaEff": 62.812,
+        "regime": "geometric",
+        "sharedAt": "2025-12-07T14:33:43.961Z",
+        "consumedBy": [],
+        "transformations": []
+      }
     ]
   ],
   "crossStrategyPatterns": [],
