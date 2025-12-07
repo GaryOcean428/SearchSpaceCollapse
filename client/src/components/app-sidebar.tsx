@@ -147,7 +147,7 @@ export function AppSidebar() {
                     isActive={isActive(item.url)}
                     tooltip={item.description}
                   >
-                    <Link href={item.url}>
+                    <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                       {item.badge && (
