@@ -2172,18 +2172,140 @@ export class OceanAgent {
     
     switch (strategy.name) {
       case 'exploit_near_miss':
-        const seedWords = strategy.params.seedWords?.slice(0, 8) || [];
-        for (const word of seedWords) {
-          const variants = this.generateWordVariations(word);
-          for (const variant of variants) {
-            newHypotheses.push(this.createHypothesis(variant, 'arbitrary', 'near_miss_variation', `Variation of high-Φ word: ${word}`, 0.75));
+        // TIERED NEAR-MISS EXPLOITATION
+        // Prioritize HOT entries (Φ > 0.92), then WARM (Φ > 0.85), then COOL (Φ > 0.80)
+        const hotEntries = nearMissManager.getHotEntries(5);
+        const warmEntries = nearMissManager.getWarmEntries(10);
+        const coolEntries = nearMissManager.getCoolEntries(5);
+        const hasNearMissEntries = hotEntries.length > 0 || warmEntries.length > 0 || coolEntries.length > 0;
+        
+        console.log(`[Ocean] Near-miss exploitation: ${hotEntries.length} HOT, ${warmEntries.length} WARM, ${coolEntries.length} COOL`);
+        
+        // Collect all mutations for deduplication
+        const allMutations = new Set<string>();
+        
+        // HOT entries get intensive mutation treatment
+        for (const entry of hotEntries) {
+          nearMissManager.markAccessed(entry.id);
+          const words = entry.phrase.split(/\s+/);
+          
+          // Full phrase mutations
+          const phraseMutations = this.generateCharacterMutations(entry.phrase);
+          for (const mutation of phraseMutations.slice(0, 10)) {
+            if (!allMutations.has(mutation)) {
+              allMutations.add(mutation);
+              newHypotheses.push(this.createHypothesis(mutation, 'arbitrary', 'hot_near_miss_mutation', 
+                `HOT (Φ=${entry.phi.toFixed(3)}) char mutation: ${entry.phrase.slice(0, 20)}...`, 0.90));
+            }
+          }
+          
+          // Phonetic variations of full phrase
+          const phoneticVars = this.generatePhoneticVariations(entry.phrase);
+          for (const variant of phoneticVars.slice(0, 5)) {
+            if (!allMutations.has(variant)) {
+              allMutations.add(variant);
+              newHypotheses.push(this.createHypothesis(variant, 'arbitrary', 'hot_near_miss_phonetic',
+                `HOT (Φ=${entry.phi.toFixed(3)}) phonetic: ${entry.phrase.slice(0, 20)}...`, 0.88));
+            }
+          }
+          
+          // Individual word variations
+          for (const word of words.slice(0, 3)) {
+            const variants = this.generateWordVariations(word);
+            for (const variant of variants.slice(0, 5)) {
+              if (!allMutations.has(variant)) {
+                allMutations.add(variant);
+                newHypotheses.push(this.createHypothesis(variant, 'arbitrary', 'hot_word_variation',
+                  `HOT word variation from: ${word}`, 0.85));
+              }
+            }
           }
         }
         
-        for (let i = 0; i < seedWords.length - 1; i++) {
-          for (let j = i + 1; j < seedWords.length; j++) {
-            newHypotheses.push(this.createHypothesis(`${seedWords[i]} ${seedWords[j]}`, 'arbitrary', 'near_miss_combo', 'Combination of high-Φ words', 0.8));
-            newHypotheses.push(this.createHypothesis(`${seedWords[j]} ${seedWords[i]}`, 'arbitrary', 'near_miss_combo', 'Reverse combination', 0.8));
+        // WARM entries get moderate mutation treatment
+        for (const entry of warmEntries) {
+          nearMissManager.markAccessed(entry.id);
+          const words = entry.phrase.split(/\s+/);
+          
+          // Character mutations on phrase
+          const mutations = this.generateCharacterMutations(entry.phrase).slice(0, 5);
+          for (const mutation of mutations) {
+            if (!allMutations.has(mutation)) {
+              allMutations.add(mutation);
+              newHypotheses.push(this.createHypothesis(mutation, 'arbitrary', 'warm_near_miss_mutation',
+                `WARM (Φ=${entry.phi.toFixed(3)}) mutation: ${entry.phrase.slice(0, 20)}...`, 0.80));
+            }
+          }
+          
+          // Word-level variations
+          for (const word of words.slice(0, 2)) {
+            const variants = this.generateWordVariations(word).slice(0, 3);
+            for (const variant of variants) {
+              if (!allMutations.has(variant)) {
+                allMutations.add(variant);
+                newHypotheses.push(this.createHypothesis(variant, 'arbitrary', 'warm_word_variation',
+                  `WARM word variation from: ${word}`, 0.78));
+              }
+            }
+          }
+        }
+        
+        // COOL entries get basic treatment
+        for (const entry of coolEntries) {
+          nearMissManager.markAccessed(entry.id);
+          const words = entry.phrase.split(/\s+/);
+          
+          for (const word of words.slice(0, 2)) {
+            const variants = this.generateWordVariations(word).slice(0, 2);
+            for (const variant of variants) {
+              if (!allMutations.has(variant)) {
+                allMutations.add(variant);
+                newHypotheses.push(this.createHypothesis(variant, 'arbitrary', 'cool_word_variation',
+                  `COOL word variation from: ${word}`, 0.75));
+              }
+            }
+          }
+        }
+        
+        // ALWAYS use legacy seedWords (critical fallback when nearMissManager is empty)
+        const seedWords = strategy.params.seedWords?.slice(0, 8) || [];
+        for (const word of seedWords) {
+          const variants = this.generateWordVariations(word);
+          for (const variant of variants.slice(0, 5)) {
+            if (!allMutations.has(variant)) {
+              allMutations.add(variant);
+              newHypotheses.push(this.createHypothesis(variant, 'arbitrary', 'near_miss_variation', `Variation of high-Φ word: ${word}`, 0.75));
+            }
+          }
+        }
+        
+        // If no hypotheses generated yet, ensure we at least produce some candidates
+        if (newHypotheses.length === 0 && seedWords.length > 0) {
+          console.log(`[Ocean] Near-miss fallback: using seedWords directly`);
+          for (const word of seedWords) {
+            newHypotheses.push(this.createHypothesis(word, 'arbitrary', 'near_miss_seed', `Direct seed word`, 0.70));
+          }
+        }
+        
+        // Word combinations from all near-miss sources
+        const allWords = [
+          ...hotEntries.flatMap(e => e.phrase.split(/\s+/).slice(0, 2)),
+          ...warmEntries.flatMap(e => e.phrase.split(/\s+/).slice(0, 1)),
+          ...seedWords
+        ].filter(Boolean).slice(0, 10);
+        
+        for (let i = 0; i < allWords.length - 1; i++) {
+          for (let j = i + 1; j < Math.min(allWords.length, i + 3); j++) {
+            const combo1 = `${allWords[i]} ${allWords[j]}`;
+            const combo2 = `${allWords[j]} ${allWords[i]}`;
+            if (!allMutations.has(combo1)) {
+              allMutations.add(combo1);
+              newHypotheses.push(this.createHypothesis(combo1, 'arbitrary', 'near_miss_combo', 'Combination of high-Φ words', 0.8));
+            }
+            if (!allMutations.has(combo2)) {
+              allMutations.add(combo2);
+              newHypotheses.push(this.createHypothesis(combo2, 'arbitrary', 'near_miss_combo', 'Reverse combination', 0.8));
+            }
           }
         }
         break;
@@ -2586,6 +2708,7 @@ export class OceanAgent {
     const variations: string[] = [word, word.toLowerCase(), word.toUpperCase()];
     variations.push(word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
     
+    // L33t speak variations
     const l33t: Record<string, string> = { 'a': '4', 'e': '3', 'i': '1', 'o': '0', 's': '5', 't': '7' };
     let l33tWord = word.toLowerCase();
     for (const [char, replacement] of Object.entries(l33t)) {
@@ -2593,11 +2716,174 @@ export class OceanAgent {
     }
     if (l33tWord !== word.toLowerCase()) variations.push(l33tWord);
     
-    for (let i = 0; i <= 99; i++) {
+    // Character mutations
+    const charMutations = this.generateCharacterMutations(word);
+    variations.push(...charMutations);
+    
+    // Phonetic variations
+    const phoneticVars = this.generatePhoneticVariations(word);
+    variations.push(...phoneticVars);
+    
+    // Number suffixes (reduced to make room for mutations)
+    for (let i = 0; i <= 20; i++) {
       variations.push(`${word}${i}`);
     }
     
-    return variations.slice(0, 50);
+    // Deduplicate and return
+    return [...new Set(variations)].slice(0, 80);
+  }
+
+  /**
+   * Generate character mutations for near-miss exploitation
+   * Includes: swap adjacent letters, double letters, omit letters, keyboard proximity
+   */
+  private generateCharacterMutations(word: string): string[] {
+    const mutations: string[] = [];
+    const lowerWord = word.toLowerCase();
+    
+    // Swap adjacent letters (common typos)
+    for (let i = 0; i < lowerWord.length - 1; i++) {
+      const swapped = lowerWord.slice(0, i) + lowerWord[i + 1] + lowerWord[i] + lowerWord.slice(i + 2);
+      mutations.push(swapped);
+    }
+    
+    // Double letters (common in passwords)
+    for (let i = 0; i < lowerWord.length; i++) {
+      const doubled = lowerWord.slice(0, i + 1) + lowerWord[i] + lowerWord.slice(i + 1);
+      mutations.push(doubled);
+    }
+    
+    // Omit single letters (typos or intentional)
+    for (let i = 0; i < lowerWord.length; i++) {
+      const omitted = lowerWord.slice(0, i) + lowerWord.slice(i + 1);
+      if (omitted.length >= 2) mutations.push(omitted);
+    }
+    
+    // Keyboard proximity substitutions (common typos)
+    const keyboardProximity: Record<string, string[]> = {
+      'a': ['s', 'q', 'z'],
+      'b': ['v', 'n', 'g', 'h'],
+      'c': ['x', 'v', 'd', 'f'],
+      'd': ['s', 'f', 'e', 'r', 'c', 'x'],
+      'e': ['w', 'r', 'd', 's'],
+      'f': ['d', 'g', 'r', 't', 'v', 'c'],
+      'g': ['f', 'h', 't', 'y', 'b', 'v'],
+      'h': ['g', 'j', 'y', 'u', 'n', 'b'],
+      'i': ['u', 'o', 'k', 'j'],
+      'j': ['h', 'k', 'u', 'i', 'm', 'n'],
+      'k': ['j', 'l', 'i', 'o', 'm'],
+      'l': ['k', 'o', 'p'],
+      'm': ['n', 'j', 'k'],
+      'n': ['b', 'm', 'h', 'j'],
+      'o': ['i', 'p', 'k', 'l'],
+      'p': ['o', 'l'],
+      'q': ['w', 'a'],
+      'r': ['e', 't', 'd', 'f'],
+      's': ['a', 'd', 'w', 'e', 'z', 'x'],
+      't': ['r', 'y', 'f', 'g'],
+      'u': ['y', 'i', 'h', 'j'],
+      'v': ['c', 'b', 'f', 'g'],
+      'w': ['q', 'e', 'a', 's'],
+      'x': ['z', 'c', 's', 'd'],
+      'y': ['t', 'u', 'g', 'h'],
+      'z': ['a', 'x', 's'],
+    };
+    
+    // Generate keyboard proximity mutations (limit to first few chars to control explosion)
+    for (let i = 0; i < Math.min(lowerWord.length, 4); i++) {
+      const char = lowerWord[i];
+      const proximate = keyboardProximity[char];
+      if (proximate) {
+        for (const replacement of proximate.slice(0, 2)) {
+          const mutated = lowerWord.slice(0, i) + replacement + lowerWord.slice(i + 1);
+          mutations.push(mutated);
+        }
+      }
+    }
+    
+    return mutations;
+  }
+
+  /**
+   * Generate phonetic variations using soundex-like transformations
+   * Captures common phonetic confusions in passwords
+   */
+  private generatePhoneticVariations(word: string): string[] {
+    const variations: string[] = [];
+    const lowerWord = word.toLowerCase();
+    
+    // Handle short words - return original with basic variations
+    if (lowerWord.length < 3) {
+      variations.push(lowerWord);
+      variations.push(lowerWord + lowerWord); // doubled
+      return variations;
+    }
+    
+    // Phonetic substitution groups (sounds that are commonly confused)
+    const phoneticGroups: Array<[RegExp, string[]]> = [
+      [/ph/g, ['f']],
+      [/f/g, ['ph']],
+      [/ck/g, ['k', 'c']],
+      [/k/g, ['c', 'ck']],
+      [/c(?=[eiy])/g, ['s']],  // soft c
+      [/c/g, ['k']],
+      [/gh/g, ['f', 'g']],
+      [/qu/g, ['kw', 'q']],
+      [/x/g, ['ks', 'z']],
+      [/z/g, ['s']],
+      [/s/g, ['z']],
+      [/tion/g, ['shun', 'sion']],
+      [/sion/g, ['tion', 'shun']],
+      [/ough/g, ['off', 'uff', 'ow']],
+      [/ee/g, ['ea', 'ie', 'i']],
+      [/ea/g, ['ee', 'e']],
+      [/ie/g, ['y', 'ee']],
+      [/y$/g, ['ie', 'ey']],
+      [/ey$/g, ['y', 'ie']],
+      [/er$/g, ['or', 'ur', 'ar']],
+      [/or$/g, ['er', 'our']],
+      [/our$/g, ['or', 'er']],
+      [/oo/g, ['u', 'ew']],
+      [/ew/g, ['oo', 'u']],
+      [/ai/g, ['ay', 'a']],
+      [/ay/g, ['ai', 'a']],
+      [/ou/g, ['ow']],
+      [/ow/g, ['ou']],
+      [/th/g, ['t', 'd']],
+      [/wh/g, ['w']],
+      [/wr/g, ['r']],
+      [/kn/g, ['n']],
+      [/gn/g, ['n']],
+      [/mb$/g, ['m']],
+      [/mn/g, ['m', 'n']],
+    ];
+    
+    // Apply phonetic substitutions
+    for (const [pattern, replacements] of phoneticGroups) {
+      if (pattern.test(lowerWord)) {
+        for (const replacement of replacements) {
+          const varied = lowerWord.replace(pattern, replacement);
+          if (varied !== lowerWord) {
+            variations.push(varied);
+          }
+        }
+      }
+    }
+    
+    // Common word-ending transformations
+    if (lowerWord.endsWith('ing')) {
+      variations.push(lowerWord.slice(0, -3));  // remove -ing
+      variations.push(lowerWord.slice(0, -3) + 'in');  // -in (dropped g)
+    }
+    if (lowerWord.endsWith('ed')) {
+      variations.push(lowerWord.slice(0, -2));  // remove -ed
+      variations.push(lowerWord.slice(0, -1));  // remove just -d
+    }
+    if (lowerWord.endsWith('s') && !lowerWord.endsWith('ss')) {
+      variations.push(lowerWord.slice(0, -1));  // remove plural s
+    }
+    
+    return variations;
   }
 
   private generateExploratoryPhrases(): string[] {
