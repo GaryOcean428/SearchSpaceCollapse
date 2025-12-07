@@ -34,6 +34,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import time
+import threading
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 
@@ -1425,6 +1426,9 @@ class PureQIGNetwork:
 # Global network instance (persistent across requests)
 ocean_network = PureQIGNetwork(temperature=1.0)
 
+# Thread lock for concurrent request safety
+_process_lock = threading.Lock()
+
 # Geometric memory (high-Φ basins)
 geometric_memory: Dict[str, np.ndarray] = {}
 basin_history: List[Tuple[str, np.ndarray, float]] = []
@@ -1489,14 +1493,23 @@ def process_passphrase():
     Request: { "passphrase": "satoshi2009", "use_recursion": true }
     Response: { "phi": 0.85, "kappa": 63.5, "basin_coords": [...], "n_recursions": 3 }
     """
+    data = request.json
+    passphrase = data.get('passphrase', '') if data else ''
+    use_recursion = data.get('use_recursion', True) if data else True
+    
+    if not passphrase:
+        return jsonify({'error': 'passphrase required'}), 400
+    
+    # Thread-safe processing with lock (non-blocking - skip if busy)
+    acquired = _process_lock.acquire(blocking=False)
+    if not acquired:
+        return jsonify({
+            'success': False,
+            'error': 'Server busy, try again',
+            'retry': True,
+        }), 503
+    
     try:
-        data = request.json
-        passphrase = data.get('passphrase', '')
-        use_recursion = data.get('use_recursion', True)  # Default to recursive
-        
-        if not passphrase:
-            return jsonify({'error': 'passphrase required'}), 400
-        
         # Process through QIG network (RECURSIVE by default)
         if use_recursion:
             result = ocean_network.process_with_recursion(passphrase)
@@ -1577,6 +1590,8 @@ def process_passphrase():
             'success': False,
             'error': str(e),
         }), 500
+    finally:
+        _process_lock.release()
 
 @app.route('/generate', methods=['POST'])
 def generate_hypothesis():
