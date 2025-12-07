@@ -57,7 +57,8 @@ class QIGDocument:
         # Compute density matrix for Bures distance
         self.density_matrix = self._basin_to_density_matrix(basin_coords)
     
-    def _basin_to_density_matrix(self, basin: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def _basin_to_density_matrix(basin: np.ndarray) -> np.ndarray:
         """
         Convert basin coordinates to 2x2 density matrix.
         
@@ -263,7 +264,7 @@ class QIGRAG:
         
         # Compute query density matrix for Bures
         if metric == 'bures':
-            query_rho = QIGDocument._basin_to_density_matrix(None, query_basin)
+            query_rho = QIGDocument._basin_to_density_matrix(query_basin)
         
         # Compute distances to all documents
         results = []
