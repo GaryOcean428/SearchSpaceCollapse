@@ -10,6 +10,15 @@ export type SpawnReason = 'domain_gap' | 'overload' | 'specialization' | 'emerge
 export type ConsensusType = 'unanimous' | 'supermajority' | 'majority' | 'quorum';
 export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'spawned';
 
+export interface M8Position {
+  m8_octant: number;
+  m8_coordinates: number[];
+  m8_angles: number[];
+  m8_radial: number;
+  m8_position_name: string;
+  m8_relative_position: string | null;
+}
+
 export interface SpawnProposal {
   proposal_id: string;
   proposed_name: string;
@@ -39,6 +48,7 @@ export interface SpawnedKernel {
   genesis_votes: Record<string, string>;
   basin_lineage: Record<string, number>;
   metadata: Record<string, unknown>;
+  m8_position?: M8Position;
 }
 
 export interface M8Status {

@@ -45,8 +45,8 @@ import {
   type WarMode,
   type WarOutcome,
 } from '@/hooks/use-m8-spawning';
-import type { SpawnProposal, SpawnedKernel, SpawnReason, ProposalStatus } from '@/lib/m8-kernel-spawning';
-import { Swords, Target, Timer, Trophy, AlertTriangle, Activity } from 'lucide-react';
+import type { SpawnProposal, SpawnedKernel, SpawnReason, ProposalStatus, M8Position } from '@/lib/m8-kernel-spawning';
+import { Swords, Target, Timer, Trophy, AlertTriangle, Activity, Compass, MapPin } from 'lucide-react';
 
 const ELEMENT_ICONS: Record<string, typeof Sparkles> = {
   fire: Flame,
@@ -219,6 +219,7 @@ function KernelCard({ kernel }: { kernel: SpawnedKernel }) {
   const element = (kernel.metadata?.element as string)?.toLowerCase() || 'aether';
   const ElementIcon = ELEMENT_ICONS[element] || Sparkles;
   const elementColor = ELEMENT_COLORS[element] || 'text-primary';
+  const m8 = kernel.m8_position;
 
   return (
     <Card className="hover-elevate" data-testid={`card-kernel-${kernel.kernel_id || 'unknown'}`}>
@@ -237,6 +238,40 @@ function KernelCard({ kernel }: { kernel: SpawnedKernel }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">{(kernel.metadata?.role as string) || 'No role specified'}</p>
+        
+        {m8 && (
+          <div className="rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-2" data-testid={`panel-m8-position-${kernel.kernel_id}`}>
+            <div className="flex items-center gap-2">
+              <Compass className="h-4 w-4 text-indigo-400" />
+              <span className="text-sm font-medium text-indigo-300">M8 Geometric Position</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-xs text-muted-foreground">Position Name</span>
+                <div className="font-mono font-medium text-indigo-300" data-testid={`text-m8-name-${kernel.kernel_id}`}>
+                  {m8.m8_position_name}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Octant</span>
+                <div className="font-mono font-medium text-indigo-400" data-testid={`text-m8-octant-${kernel.kernel_id}`}>
+                  {m8.m8_octant} (0x{m8.m8_octant.toString(16).toUpperCase().padStart(2, '0')})
+                </div>
+              </div>
+            </div>
+            {m8.m8_relative_position && (
+              <div className="flex items-center gap-2 pt-1">
+                <MapPin className="h-3 w-3 text-indigo-400" />
+                <span className="text-xs text-indigo-300" data-testid={`text-m8-relative-${kernel.kernel_id}`}>
+                  {m8.m8_relative_position}
+                </span>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground">
+              Radial: <span className="font-mono text-indigo-400">{m8.m8_radial.toFixed(3)}</span>
+            </div>
+          </div>
+        )}
         
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>

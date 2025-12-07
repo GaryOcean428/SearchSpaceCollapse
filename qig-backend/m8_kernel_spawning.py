@@ -133,9 +133,13 @@ def compute_m8_position(basin: np.ndarray, parent_basins: List[np.ndarray] = Non
             pm8 = np.array([pb[i * 8] for i in range(min(8, len(pb) // 8))])
             while len(pm8) < 8:
                 pm8 = np.append(pm8, 0.0)
+            # Apply same normalization as child coordinates
+            pm8_norm = np.linalg.norm(pm8)
+            if pm8_norm > 1e-10:
+                pm8 = pm8 / pm8_norm * math.sqrt(8)
             parent_m8_coords.append(pm8)
         
-        # Calculate centroid of parents
+        # Calculate centroid of parents (now properly normalized)
         parent_centroid = np.mean(parent_m8_coords, axis=0)
         
         # Displacement from parent centroid
