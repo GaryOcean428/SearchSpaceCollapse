@@ -201,7 +201,8 @@ function PantheonGrid({ gods }: { gods: Record<string, GodStatus> }) {
 }
 
 function ChatActivity({ messages }: { messages: ChatMessage[] }) {
-  if (!messages || messages.length === 0) {
+  const safeMessages = Array.isArray(messages) ? messages : [];
+  if (safeMessages.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8">
         <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -213,7 +214,7 @@ function ChatActivity({ messages }: { messages: ChatMessage[] }) {
   return (
     <ScrollArea className="h-[400px]">
       <div className="space-y-2 pr-4">
-        {messages.map((msg) => {
+        {safeMessages.map((msg) => {
           const FromIcon = GOD_ICONS[msg.from.toLowerCase()] || Sparkles;
           const fromColor = GOD_COLORS[msg.from.toLowerCase()] || 'text-primary';
           
@@ -241,7 +242,8 @@ function ChatActivity({ messages }: { messages: ChatMessage[] }) {
 }
 
 function DebateViewer({ debates }: { debates: Debate[] }) {
-  if (!debates || debates.length === 0) {
+  const safeDebates = Array.isArray(debates) ? debates : [];
+  if (safeDebates.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8">
         <Sword className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -254,7 +256,7 @@ function DebateViewer({ debates }: { debates: Debate[] }) {
   return (
     <ScrollArea className="h-[400px]">
       <div className="space-y-4 pr-4">
-        {debates.map((debate) => {
+        {safeDebates.map((debate) => {
           const InitiatorIcon = GOD_ICONS[debate.initiator.toLowerCase()] || Sparkles;
           const OpponentIcon = GOD_ICONS[debate.opponent.toLowerCase()] || Sparkles;
           

@@ -418,10 +418,12 @@ router.get('/chat/recent', isAuthenticated, async (req, res) => {
     }
     
     const data = await response.json();
-    res.json(data);
+    // Return array directly - extract from object if needed
+    res.json(Array.isArray(data) ? data : (data.messages || []));
   } catch (error) {
     console.error('[Olympus] Recent chat error:', error);
-    res.json({ messages: [], error: 'Failed to fetch recent messages' });
+    // Return empty array directly on error
+    res.json([]);
   }
 });
 
@@ -443,10 +445,12 @@ router.get('/debates/active', isAuthenticated, async (req, res) => {
     }
     
     const data = await response.json();
-    res.json(data);
+    // Return array directly - extract from object if needed
+    res.json(Array.isArray(data) ? data : (data.debates || []));
   } catch (error) {
     console.error('[Olympus] Active debates error:', error);
-    res.json({ debates: [], error: 'Failed to fetch active debates' });
+    // Return empty array directly on error
+    res.json([]);
   }
 });
 
