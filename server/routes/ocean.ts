@@ -760,6 +760,45 @@ oceanRouter.get("/phi-sparkline", generousLimiter, async (req: Request, res: Res
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// STRATEGY PERFORMANCE DASHBOARD ENDPOINT
+// ═══════════════════════════════════════════════════════════════════════════
+
+oceanRouter.get("/strategy-performance", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { geometricMemory } = await import("../geometric-memory");
+    
+    const dashboard = geometricMemory.getStrategyPerformanceDashboard();
+    
+    res.json({
+      success: true,
+      dashboard,
+      summary: {
+        totalStrategies: dashboard.strategies.length,
+        totalProbes: dashboard.totalProbes,
+        overallAvgPhi: dashboard.overallAvgPhi.toFixed(4),
+        overallMaxPhi: dashboard.overallMaxPhi.toFixed(4),
+        topStrategy: dashboard.topStrategy,
+        recommendationCount: dashboard.recommendations.length,
+      },
+      strategyBreakdown: dashboard.strategies.map(s => ({
+        name: s.strategyName,
+        tests: s.testsPerformed,
+        avgPhi: s.avgPhi.toFixed(4),
+        maxPhi: s.maxPhi.toFixed(4),
+        nearMisses: s.nearMisses,
+        nearMissRate: (s.nearMissRate * 100).toFixed(1) + '%',
+        effectiveness: (s.effectivenessScore * 100).toFixed(1) + '%',
+        trend: s.recentTrend,
+        trendIcon: s.recentTrend === 'rising' ? 'trending-up' : s.recentTrend === 'falling' ? 'trending-down' : 'minus',
+      })),
+    });
+  } catch (error: any) {
+    console.error("[Strategy] Performance dashboard error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 oceanRouter.post("/near-misses/conversion", isAuthenticated, standardLimiter, async (req: Request, res: Response) => {
   try {
     const { nearMissManager } = await import("../near-miss-manager");

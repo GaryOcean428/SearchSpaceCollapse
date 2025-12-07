@@ -204,6 +204,43 @@ export interface PhiSparklineData {
   lastTimestamp: string;   // Most recent timestamp
 }
 
+/**
+ * Strategy Performance Metrics - Per-Strategy Analytics
+ * 
+ * Tracks performance metrics for each recovery strategy to compare effectiveness.
+ */
+export interface StrategyMetrics {
+  strategyName: string;              // Canonical strategy name
+  testsPerformed: number;            // Number of probes from this strategy
+  avgPhi: number;                    // Average Φ across all probes
+  maxPhi: number;                    // Maximum Φ achieved
+  minPhi: number;                    // Minimum Φ observed
+  nearMisses: number;                // Count of probes with Φ >= 0.7
+  hotHits: number;                   // Count of probes with Φ >= 0.85
+  nearMissRate: number;              // Ratio of near-misses to total
+  probesPerHour: number;             // Efficiency metric
+  timeSpanMs: number;                // Time span of activity
+  regimeDistribution: Record<string, number>; // Regime breakdown
+  consistencyScore: number;          // 0-1 score for Φ consistency
+  effectivenessScore: number;        // 0-1 weighted overall score
+  recentTrend: 'rising' | 'falling' | 'stable'; // Recent Φ trend
+}
+
+/**
+ * Strategy Performance Dashboard - Comparative Analysis
+ * 
+ * Provides comparative analysis of all recovery strategies with recommendations.
+ */
+export interface StrategyPerformanceDashboard {
+  strategies: StrategyMetrics[];     // Sorted by effectiveness score
+  totalProbes: number;               // Total probes across all strategies
+  overallAvgPhi: number;             // Overall average Φ
+  overallMaxPhi: number;             // Overall maximum Φ
+  recommendations: string[];         // Prioritization recommendations
+  topStrategy: string | null;        // Best performing strategy name
+  timestamp: string;                 // ISO timestamp
+}
+
 export interface GeometricMemoryState {
   version: string;
   lastUpdated: string;
@@ -1787,6 +1824,295 @@ class GeometricMemory {
       geodesicRecommendation,
       nextSearchPriority,
     };
+  }
+
+  /**
+   * Get Strategy Performance Dashboard data.
+   * 
+   * Analyzes probe data grouped by strategy/source to compare:
+   * - Tests performed per strategy
+   * - Average and max Φ per strategy
+   * - Near-miss counts (high-Φ probes)
+   * - Efficiency metrics
+   * - Recommendations for which strategy to prioritize
+   * 
+   * @returns StrategyPerformanceDashboard with per-strategy metrics and recommendations
+   */
+  getStrategyPerformanceDashboard(): StrategyPerformanceDashboard {
+    const probes = Array.from(this.probeMap.values());
+    
+    if (probes.length === 0) {
+      return {
+        strategies: [],
+        totalProbes: 0,
+        overallAvgPhi: 0,
+        overallMaxPhi: 0,
+        recommendations: ['No probes yet - start exploring to generate strategy data'],
+        topStrategy: null,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Group probes by strategy/source
+    const strategyMap = new Map<string, BasinProbe[]>();
+    
+    for (const probe of probes) {
+      // Normalize source to strategy category
+      const strategy = this.normalizeStrategySource(probe.source);
+      const existing = strategyMap.get(strategy) || [];
+      existing.push(probe);
+      strategyMap.set(strategy, existing);
+    }
+
+    // Compute metrics for each strategy
+    const strategyMetrics: StrategyMetrics[] = [];
+    
+    for (const [strategyName, strategyProbes] of strategyMap) {
+      // Use reduce instead of spread to avoid stack overflow with large arrays
+      let sumPhi = 0;
+      let maxPhi = -Infinity;
+      let minPhi = Infinity;
+      let nearMisses = 0;
+      let hotHits = 0;
+      let firstTimestamp = Infinity;
+      let lastTimestamp = -Infinity;
+      const regimeDistribution: Record<string, number> = {};
+      
+      for (const probe of strategyProbes) {
+        sumPhi += probe.phi;
+        if (probe.phi > maxPhi) maxPhi = probe.phi;
+        if (probe.phi < minPhi) minPhi = probe.phi;
+        if (probe.phi >= 0.7) nearMisses++;
+        if (probe.phi >= 0.85) hotHits++;
+        
+        const ts = new Date(probe.timestamp).getTime();
+        if (ts < firstTimestamp) firstTimestamp = ts;
+        if (ts > lastTimestamp) lastTimestamp = ts;
+        
+        regimeDistribution[probe.regime] = (regimeDistribution[probe.regime] || 0) + 1;
+      }
+      
+      const avgPhi = sumPhi / strategyProbes.length;
+      const timeSpanMs = lastTimestamp - firstTimestamp;
+      
+      // Calculate efficiency: probes per hour
+      const hoursSpent = Math.max(timeSpanMs / (1000 * 60 * 60), 0.01);
+      const probesPerHour = strategyProbes.length / hoursSpent;
+      
+      // Compute Φ variance for consistency score (second pass)
+      let sumSquaredDiff = 0;
+      for (const probe of strategyProbes) {
+        sumSquaredDiff += Math.pow(probe.phi - avgPhi, 2);
+      }
+      const phiVariance = sumSquaredDiff / strategyProbes.length;
+      const consistencyScore = Math.max(0, 1 - Math.sqrt(phiVariance) * 2);
+      
+      // Compute overall effectiveness score (weighted combination)
+      const effectivenessScore = (
+        avgPhi * 0.3 +           // Average Φ contribution
+        (maxPhi / 1) * 0.2 +    // Max Φ contribution
+        (nearMisses / strategyProbes.length) * 0.3 + // Near-miss rate
+        consistencyScore * 0.2   // Consistency
+      );
+      
+      strategyMetrics.push({
+        strategyName,
+        testsPerformed: strategyProbes.length,
+        avgPhi,
+        maxPhi,
+        minPhi,
+        nearMisses,
+        hotHits,
+        nearMissRate: nearMisses / strategyProbes.length,
+        probesPerHour,
+        timeSpanMs,
+        regimeDistribution,
+        consistencyScore,
+        effectivenessScore,
+        recentTrend: this.computeStrategyTrend(strategyProbes),
+      });
+    }
+
+    // Sort by effectiveness score
+    strategyMetrics.sort((a, b) => b.effectivenessScore - a.effectivenessScore);
+    
+    // Generate recommendations
+    const recommendations = this.generateStrategyRecommendations(strategyMetrics);
+    
+    // Overall stats - use iterative approach to avoid stack overflow with large arrays
+    let overallSumPhi = 0;
+    let overallMaxPhi = 0;
+    for (const probe of probes) {
+      overallSumPhi += probe.phi;
+      if (probe.phi > overallMaxPhi) overallMaxPhi = probe.phi;
+    }
+    const overallAvgPhi = probes.length > 0 ? overallSumPhi / probes.length : 0;
+    
+    return {
+      strategies: strategyMetrics,
+      totalProbes: probes.length,
+      overallAvgPhi,
+      overallMaxPhi,
+      recommendations,
+      topStrategy: strategyMetrics.length > 0 ? strategyMetrics[0].strategyName : null,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Normalize probe source to a strategy category.
+   * Maps various source strings to canonical strategy names.
+   */
+  private normalizeStrategySource(source: string): string {
+    const lowerSource = source.toLowerCase();
+    
+    // Estate strategy
+    if (lowerSource.includes('estate') || lowerSource.includes('heir') || 
+        lowerSource.includes('legacy') || lowerSource.includes('inheritance')) {
+      return 'Estate';
+    }
+    
+    // QIG/Constrained Search strategy
+    if (lowerSource.includes('qig') || lowerSource.includes('geometric') || 
+        lowerSource.includes('basin') || lowerSource.includes('fisher') ||
+        lowerSource.includes('geodesic') || lowerSource.includes('constrained')) {
+      return 'Constrained Search (QIG)';
+    }
+    
+    // Social Outreach strategy
+    if (lowerSource.includes('social') || lowerSource.includes('forum') || 
+        lowerSource.includes('bitcointalk') || lowerSource.includes('community') ||
+        lowerSource.includes('outreach')) {
+      return 'Social Outreach';
+    }
+    
+    // Temporal Archive strategy
+    if (lowerSource.includes('temporal') || lowerSource.includes('archive') || 
+        lowerSource.includes('historical') || lowerSource.includes('wayback') ||
+        lowerSource.includes('2009') || lowerSource.includes('2010') || lowerSource.includes('2011')) {
+      return 'Temporal Archive';
+    }
+    
+    // Ocean agent strategies
+    if (lowerSource.includes('ocean') || lowerSource.includes('constellation') ||
+        lowerSource.includes('consciousness')) {
+      return 'Ocean Agent';
+    }
+    
+    // BIP39/Mnemonic strategies
+    if (lowerSource.includes('bip39') || lowerSource.includes('mnemonic') ||
+        lowerSource.includes('seed')) {
+      return 'BIP39 Mnemonic';
+    }
+    
+    // Brain wallet / arbitrary
+    if (lowerSource.includes('brain') || lowerSource.includes('arbitrary') ||
+        lowerSource.includes('passphrase')) {
+      return 'Brain Wallet';
+    }
+    
+    // User-provided
+    if (lowerSource.includes('user') || lowerSource.includes('manual') ||
+        lowerSource.includes('input')) {
+      return 'User Input';
+    }
+    
+    // Vocabulary / pattern strategies
+    if (lowerSource.includes('vocabulary') || lowerSource.includes('pattern') ||
+        lowerSource.includes('expander')) {
+      return 'Pattern Expansion';
+    }
+    
+    // Auto-cycle
+    if (lowerSource.includes('auto') || lowerSource.includes('cycle')) {
+      return 'Auto Cycle';
+    }
+    
+    // Default: use source as-is or categorize as Other
+    if (source.length > 0 && source.length < 30) {
+      return source;
+    }
+    
+    return 'Other';
+  }
+
+  /**
+   * Compute recent trend for a strategy based on its probes.
+   */
+  private computeStrategyTrend(probes: BasinProbe[]): 'rising' | 'falling' | 'stable' {
+    if (probes.length < 5) return 'stable';
+    
+    // Sort by timestamp
+    const sorted = [...probes].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    // Take last 20% of probes
+    const recentCount = Math.max(3, Math.floor(sorted.length * 0.2));
+    const recentProbes = sorted.slice(-recentCount);
+    const olderProbes = sorted.slice(0, sorted.length - recentCount);
+    
+    if (olderProbes.length === 0) return 'stable';
+    
+    const recentAvg = recentProbes.reduce((sum, p) => sum + p.phi, 0) / recentProbes.length;
+    const olderAvg = olderProbes.reduce((sum, p) => sum + p.phi, 0) / olderProbes.length;
+    
+    const diff = recentAvg - olderAvg;
+    
+    if (diff > 0.02) return 'rising';
+    if (diff < -0.02) return 'falling';
+    return 'stable';
+  }
+
+  /**
+   * Generate strategy recommendations based on metrics.
+   */
+  private generateStrategyRecommendations(metrics: StrategyMetrics[]): string[] {
+    const recommendations: string[] = [];
+    
+    if (metrics.length === 0) {
+      return ['Start exploring to generate strategy performance data'];
+    }
+    
+    // Top strategy recommendation
+    const top = metrics[0];
+    recommendations.push(
+      `Prioritize "${top.strategyName}" - highest effectiveness score (${(top.effectivenessScore * 100).toFixed(1)}%)`
+    );
+    
+    // High near-miss rate strategies
+    const highNearMiss = metrics.filter(m => m.nearMissRate > 0.1);
+    if (highNearMiss.length > 0) {
+      const names = highNearMiss.slice(0, 2).map(m => m.strategyName).join(', ');
+      recommendations.push(`High near-miss rate in: ${names} - intensify exploration here`);
+    }
+    
+    // Rising trend strategies
+    const rising = metrics.filter(m => m.recentTrend === 'rising');
+    if (rising.length > 0) {
+      const names = rising.slice(0, 2).map(m => m.strategyName).join(', ');
+      recommendations.push(`Rising Φ trends in: ${names} - momentum building`);
+    }
+    
+    // Underperforming strategies
+    const falling = metrics.filter(m => m.recentTrend === 'falling' && m.testsPerformed > 100);
+    if (falling.length > 0) {
+      recommendations.push(`Consider pausing "${falling[0].strategyName}" - declining effectiveness`);
+    }
+    
+    // Underexplored strategies
+    const underexplored = metrics.filter(m => m.testsPerformed < 50 && m.avgPhi > 0.5);
+    if (underexplored.length > 0) {
+      recommendations.push(`"${underexplored[0].strategyName}" shows promise with limited data - increase sampling`);
+    }
+    
+    // Consistency recommendations
+    const inconsistent = metrics.filter(m => m.consistencyScore < 0.5 && m.testsPerformed > 50);
+    if (inconsistent.length > 0) {
+      recommendations.push(`"${inconsistent[0].strategyName}" shows high variance - refine search parameters`);
+    }
+    
+    return recommendations.slice(0, 5); // Limit to 5 recommendations
   }
 }
 
