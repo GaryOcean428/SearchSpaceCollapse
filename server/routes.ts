@@ -30,6 +30,7 @@ import {
   geometricDiscoveryRouter,
   sweepsRouter,
   adminRouter,
+  olympusRouter,
 } from "./routes/index";
 
 import { queueAddressForBalanceCheck } from "./balance-queue-integration";
@@ -156,6 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/geometric-discovery", geometricDiscoveryRouter);
   app.use("/api/sweeps", sweepsRouter);
   app.use("/api", adminRouter);
+  app.use("/api/olympus", olympusRouter);
   
   // Mount observer and telemetry routers
   app.use("/api/observer", observerRoutes);

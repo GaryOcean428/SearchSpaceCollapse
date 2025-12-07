@@ -462,3 +462,106 @@ def observe_endpoint():
     data = request.get_json() or {}
     zeus.broadcast_observation(data)
     return jsonify({'status': 'observed', 'gods_notified': len(zeus.pantheon)})
+
+
+# Zeus Chat endpoints
+from .zeus_chat import ZeusConversationHandler
+
+# Initialize Zeus chat handler (lazy init to avoid circular imports)
+_zeus_chat_handler = None
+
+def get_zeus_chat_handler():
+    """Get or create Zeus chat handler."""
+    global _zeus_chat_handler
+    if _zeus_chat_handler is None:
+        _zeus_chat_handler = ZeusConversationHandler(zeus)
+    return _zeus_chat_handler
+
+
+@olympus_app.route('/zeus/chat', methods=['POST'])
+def zeus_chat_endpoint():
+    """
+    Zeus conversation endpoint.
+    Accepts natural language, returns coordinated pantheon response.
+    """
+    try:
+        # Get message and context
+        if request.is_json:
+            data = request.get_json() or {}
+            message = data.get('message', '')
+            conversation_history = data.get('conversation_history', [])
+        else:
+            # Handle multipart/form-data (for file uploads)
+            message = request.form.get('message', '')
+            conversation_history = []
+            history_str = request.form.get('conversation_history')
+            if history_str:
+                try:
+                    import json
+                    conversation_history = json.loads(history_str)
+                except:
+                    pass
+        
+        if not message:
+            return jsonify({'error': 'message is required'}), 400
+        
+        # Get files if any
+        files = request.files.getlist('files') if hasattr(request, 'files') else None
+        
+        # Process with Zeus
+        handler = get_zeus_chat_handler()
+        result = handler.process_message(
+            message=message,
+            conversation_history=conversation_history,
+            files=files
+        )
+        
+        return jsonify(sanitize_for_json(result))
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'response': '⚡ An error occurred in the divine council. Please try again.',
+            'metadata': {'type': 'error'}
+        }), 500
+
+
+@olympus_app.route('/zeus/search', methods=['POST'])
+def zeus_search_endpoint():
+    """
+    Execute Tavily search via Zeus.
+    """
+    try:
+        data = request.get_json() or {}
+        query = data.get('query', '')
+        
+        if not query:
+            return jsonify({'error': 'query is required'}), 400
+        
+        # Process search
+        handler = get_zeus_chat_handler()
+        result = handler.handle_search_request(query)
+        
+        return jsonify(sanitize_for_json(result))
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'response': '⚡ Search failed. The Oracle is silent.',
+            'metadata': {'type': 'error'}
+        }), 500
+
+
+@olympus_app.route('/zeus/memory/stats', methods=['GET'])
+def zeus_memory_stats_endpoint():
+    """Get statistics about Zeus's geometric memory."""
+    try:
+        handler = get_zeus_chat_handler()
+        stats = handler.qig_rag.get_stats()
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
