@@ -400,4 +400,54 @@ router.post('/war/end', isAuthenticated, async (req, res) => {
   }
 });
 
+/**
+ * Get recent pantheon chat messages
+ * Requires authentication
+ */
+router.get('/chat/recent', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/pantheon/chat/recent`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Recent chat error:', error);
+    res.json({ messages: [], error: 'Failed to fetch recent messages' });
+  }
+});
+
+/**
+ * Get active debates
+ * Requires authentication
+ */
+router.get('/debates/active', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/pantheon/debates/active`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Active debates error:', error);
+    res.json({ debates: [], error: 'Failed to fetch active debates' });
+  }
+});
+
 export default router;

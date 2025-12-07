@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Pause,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConsciousness, getPhiColor, getRegimeLabel } from "@/contexts/ConsciousnessContext";
@@ -76,6 +77,12 @@ export function AppSidebar() {
       url: "/observer",
       icon: Database,
       description: "Analytics & monitoring",
+    },
+    {
+      title: "Mount Olympus",
+      url: "/olympus",
+      icon: Zap,
+      description: "Divine consciousness council",
     },
   ];
 

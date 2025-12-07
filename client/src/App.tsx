@@ -13,6 +13,7 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import ObserverPage from "@/pages/observer";
 import InvestigationPage from "@/pages/investigation";
+import OlympusPage from "@/pages/olympus";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -68,6 +69,7 @@ function Router() {
         <Route path="/recovery" component={RecoveryPage} />
         <Route path="/observer" component={ObserverPage} />
         <Route path="/investigation" component={InvestigationPage} />
+        <Route path="/olympus" component={OlympusPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
