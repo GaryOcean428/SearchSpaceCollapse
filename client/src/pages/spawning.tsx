@@ -39,8 +39,14 @@ import {
   useVoteOnProposal,
   useSpawnKernel,
   useSpawnDirect,
+  useWarHistory,
+  useActiveWar,
+  type WarHistoryRecord,
+  type WarMode,
+  type WarOutcome,
 } from '@/hooks/use-m8-spawning';
 import type { SpawnProposal, SpawnedKernel, SpawnReason, ProposalStatus } from '@/lib/m8-kernel-spawning';
+import { Swords, Target, Timer, Trophy, AlertTriangle, Activity } from 'lucide-react';
 
 const ELEMENT_ICONS: Record<string, typeof Sparkles> = {
   fire: Flame,
@@ -67,6 +73,25 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   approved: 'bg-green-500/20 text-green-400',
   rejected: 'bg-red-500/20 text-red-400',
   spawned: 'bg-purple-500/20 text-purple-400',
+};
+
+const WAR_MODE_ICONS: Record<WarMode, typeof Swords> = {
+  BLITZKRIEG: Zap,
+  SIEGE: Shield,
+  HUNT: Target,
+};
+
+const WAR_MODE_COLORS: Record<WarMode, string> = {
+  BLITZKRIEG: 'text-yellow-400',
+  SIEGE: 'text-orange-500',
+  HUNT: 'text-red-500',
+};
+
+const WAR_OUTCOME_COLORS: Record<WarOutcome, string> = {
+  success: 'bg-green-500/20 text-green-400',
+  partial_success: 'bg-yellow-500/20 text-yellow-400',
+  failure: 'bg-red-500/20 text-red-400',
+  aborted: 'bg-gray-500/20 text-gray-400',
 };
 
 const spawnFormSchema = z.object({
@@ -240,6 +265,96 @@ function KernelCard({ kernel }: { kernel: SpawnedKernel }) {
         <div className="text-xs text-muted-foreground pt-1">
           <Clock className="h-3 w-3 inline mr-1" />
           {new Date(kernel.spawned_at).toLocaleString()}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WarCard({ war, isActive }: { war: WarHistoryRecord; isActive?: boolean }) {
+  const ModeIcon = WAR_MODE_ICONS[war.mode] || Swords;
+  const modeColor = WAR_MODE_COLORS[war.mode] || 'text-primary';
+  const outcomeColor = war.outcome ? WAR_OUTCOME_COLORS[war.outcome] : 'bg-blue-500/20 text-blue-400';
+  
+  const duration = war.endedAt 
+    ? Math.round((new Date(war.endedAt).getTime() - new Date(war.declaredAt).getTime()) / 1000 / 60)
+    : null;
+
+  return (
+    <Card className={`hover-elevate ${isActive ? 'border-amber-500/50' : ''}`} data-testid={`card-war-${war.id}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ModeIcon className={`h-5 w-5 ${modeColor}`} />
+            <CardTitle className="text-lg">{war.mode}</CardTitle>
+          </div>
+          {isActive ? (
+            <Badge className="bg-amber-500/20 text-amber-400 animate-pulse">
+              <Activity className="h-3 w-3 mr-1" />
+              ACTIVE
+            </Badge>
+          ) : war.outcome && (
+            <Badge className={outcomeColor}>
+              {war.outcome === 'success' && <Trophy className="h-3 w-3 mr-1" />}
+              {war.outcome === 'failure' && <AlertTriangle className="h-3 w-3 mr-1" />}
+              {war.outcome.replace('_', ' ')}
+            </Badge>
+          )}
+        </div>
+        <CardDescription className="text-sm font-mono">{war.target}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {war.strategy && (
+          <p className="text-sm text-muted-foreground">{war.strategy}</p>
+        )}
+        
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div>
+            <span className="text-xs text-muted-foreground">Phrases</span>
+            <div className="font-mono font-medium text-cyan-400" data-testid={`text-war-phrases-${war.id}`}>
+              {war.phrasesTestedDuringWar !== undefined && war.phrasesTestedDuringWar !== null
+                ? war.phrasesTestedDuringWar.toLocaleString()
+                : '—'}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">Discoveries</span>
+            <div className="font-mono font-medium text-green-400" data-testid={`text-war-discoveries-${war.id}`}>
+              {war.discoveriesDuringWar !== undefined && war.discoveriesDuringWar !== null
+                ? war.discoveriesDuringWar
+                : '—'}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">Convergence</span>
+            <div className="font-mono font-medium text-purple-400" data-testid={`text-war-convergence-${war.id}`}>
+              {war.convergenceScore !== undefined && war.convergenceScore !== null
+                ? war.convergenceScore.toFixed(3)
+                : '—'}
+            </div>
+          </div>
+        </div>
+
+        {war.godsEngaged && war.godsEngaged.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground">Gods:</span>
+            {war.godsEngaged.map(god => (
+              <Badge key={god} variant="outline" className="text-xs capitalize">{god}</Badge>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+          <div data-testid={`text-war-declared-${war.id}`}>
+            <Clock className="h-3 w-3 inline mr-1" />
+            {new Date(war.declaredAt).toLocaleString()}
+          </div>
+          {duration !== null && (
+            <div data-testid={`text-war-duration-${war.id}`}>
+              <Timer className="h-3 w-3 inline mr-1" />
+              {duration} min
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -453,6 +568,8 @@ export default function SpawningPage() {
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useM8Status();
   const { data: proposals, isLoading: proposalsLoading, refetch: refetchProposals } = useListProposals();
   const { data: kernels, isLoading: kernelsLoading, refetch: refetchKernels } = useListSpawnedKernels();
+  const { data: warHistory, isLoading: warHistoryLoading, refetch: refetchWarHistory } = useWarHistory(50);
+  const { data: activeWar, refetch: refetchActiveWar } = useActiveWar();
   
   const voteMutation = useVoteOnProposal();
   const spawnMutation = useSpawnKernel();
@@ -495,6 +612,8 @@ export default function SpawningPage() {
     refetchStatus();
     refetchProposals();
     refetchKernels();
+    refetchWarHistory();
+    refetchActiveWar();
   };
 
   return (
@@ -557,6 +676,10 @@ export default function SpawningPage() {
             <Crown className="h-4 w-4 mr-2" />
             Spawned Kernels ({kernels?.total || 0})
           </TabsTrigger>
+          <TabsTrigger value="war-intel" data-testid="tab-war-intel">
+            <Swords className="h-4 w-4 mr-2" />
+            War Intel {activeWar && <span className="ml-1 text-amber-400">(ACTIVE)</span>}
+          </TabsTrigger>
           <TabsTrigger value="spawn" data-testid="tab-spawn">
             <Plus className="h-4 w-4 mr-2" />
             Spawn New
@@ -614,6 +737,49 @@ export default function SpawningPage() {
               <p className="text-sm">Approved proposals can be spawned into new god-kernels</p>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="war-intel" className="mt-4">
+          <div className="space-y-6">
+            {activeWar && (
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-amber-400 animate-pulse" />
+                  Active War
+                </h3>
+                <WarCard war={activeWar} isActive />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Swords className="h-5 w-5 text-muted-foreground" />
+                War History
+              </h3>
+              {warHistoryLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="text-muted-foreground">Loading war history...</p>
+                </div>
+              ) : warHistory && warHistory.length > 0 ? (
+                <ScrollArea className="h-[500px]">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
+                    {warHistory
+                      .filter(war => war.id !== activeWar?.id)
+                      .map(war => (
+                        <WarCard key={war.id} war={war} />
+                      ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <div className="text-center text-muted-foreground py-12">
+                  <Swords className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">No war history yet</p>
+                  <p className="text-sm">Wars declared via BLITZKRIEG, SIEGE, or HUNT will appear here</p>
+                </div>
+              )}
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="spawn" className="mt-4">

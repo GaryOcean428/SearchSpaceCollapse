@@ -28,7 +28,30 @@ const M8_KEYS = {
   proposal: ['m8', 'proposal'] as const,
   kernels: ['m8', 'kernels'] as const,
   kernel: ['m8', 'kernel'] as const,
+  warHistory: ['m8', 'warHistory'] as const,
+  activeWar: ['m8', 'activeWar'] as const,
 };
+
+export type WarMode = 'BLITZKRIEG' | 'SIEGE' | 'HUNT';
+export type WarOutcome = 'success' | 'partial_success' | 'failure' | 'aborted';
+export type WarStatus = 'active' | 'completed' | 'aborted';
+
+export interface WarHistoryRecord {
+  id: string;
+  mode: WarMode;
+  target: string;
+  status: WarStatus;
+  outcome?: WarOutcome | null;
+  strategy?: string | null;
+  godsEngaged?: string[] | null;
+  declaredAt: string;
+  endedAt?: string | null;
+  convergenceScore?: number | null;
+  phrasesTestedDuringWar?: number;
+  discoveriesDuringWar?: number;
+  kernelsSpawnedDuringWar?: number;
+  metadata?: Record<string, unknown> | null;
+}
 
 export function useM8Status() {
   return useQuery<M8Status>({
@@ -160,4 +183,36 @@ export function useM8Spawning(): M8SpawningHook {
     spawn,
     spawnDirect,
   };
+}
+
+export function useWarHistory(limit: number = 50) {
+  return useQuery<WarHistoryRecord[]>({
+    queryKey: [...M8_KEYS.warHistory, limit],
+    queryFn: async () => {
+      const response = await fetch(`/api/olympus/war/history?limit=${limit}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch war history');
+      }
+      const data = await response.json();
+      return data.history || [];
+    },
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
+}
+
+export function useActiveWar() {
+  return useQuery<WarHistoryRecord | null>({
+    queryKey: M8_KEYS.activeWar,
+    queryFn: async () => {
+      const response = await fetch('/api/olympus/war/active');
+      if (!response.ok) {
+        throw new Error('Failed to fetch active war');
+      }
+      const data = await response.json();
+      return data.war || null;
+    },
+    staleTime: 10000,
+    refetchInterval: 15000,
+  });
 }
