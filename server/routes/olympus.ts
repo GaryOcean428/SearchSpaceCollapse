@@ -600,7 +600,7 @@ router.get('/chat/recent', isAuthenticated, async (req, res) => {
   try {
     const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
     
-    const response = await fetch(`${backendUrl}/olympus/pantheon/chat/recent`, {
+    const response = await fetch(`${backendUrl}/olympus/chat/messages`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -627,7 +627,7 @@ router.get('/debates/active', isAuthenticated, async (req, res) => {
   try {
     const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
     
-    const response = await fetch(`${backendUrl}/olympus/pantheon/debates/active`, {
+    const response = await fetch(`${backendUrl}/olympus/chat/debates/active`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
