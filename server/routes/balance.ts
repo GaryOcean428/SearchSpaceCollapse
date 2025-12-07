@@ -169,38 +169,62 @@ balanceRouter.get("/queue/stats", standardLimiter, async (req: Request, res: Res
   }
 });
 
-balanceRouter.get("/queue/recent", standardLimiter, async (req: Request, res: Response) => {
+balanceRouter.get("/queue/pending", standardLimiter, async (req: Request, res: Response) => {
   try {
     res.set('Cache-Control', 'no-store');
-    const limit = parseInt(req.query.limit as string) || 10;
-    const recent = balanceQueue.getRecentResults(limit);
+    const limit = parseInt(req.query.limit as string) || 100;
+    const addresses = balanceQueue.getPendingAddresses(limit);
     
     res.json({
-      recent,
-      count: recent.length,
+      addresses,
+      count: addresses.length,
+      stats: balanceQueue.getStats(),
     });
   } catch (error: any) {
-    console.error("[BalanceQueue] Recent error:", error);
+    console.error("[BalanceQueue] Pending error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-balanceRouter.post("/queue/pause", isAuthenticated, standardLimiter, async (req: any, res: Response) => {
+balanceRouter.get("/queue/status", standardLimiter, async (req: Request, res: Response) => {
   try {
-    balanceQueue.pause();
-    res.json({ success: true, message: 'Queue paused' });
+    res.set('Cache-Control', 'no-store');
+    const status = balanceQueue.getBackgroundStatus();
+    
+    res.json({
+      ...status,
+      stats: balanceQueue.getStats(),
+    });
   } catch (error: any) {
-    console.error("[BalanceQueue] Pause error:", error);
+    console.error("[BalanceQueue] Status error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-balanceRouter.post("/queue/resume", isAuthenticated, standardLimiter, async (req: any, res: Response) => {
+balanceRouter.post("/queue/start", isAuthenticated, standardLimiter, async (req: any, res: Response) => {
   try {
-    balanceQueue.resume();
-    res.json({ success: true, message: 'Queue resumed' });
+    balanceQueue.startBackgroundWorker();
+    res.json({ 
+      success: true, 
+      message: 'Background worker started',
+      status: balanceQueue.getBackgroundStatus(),
+    });
   } catch (error: any) {
-    console.error("[BalanceQueue] Resume error:", error);
+    console.error("[BalanceQueue] Start error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+balanceRouter.post("/queue/stop", isAuthenticated, standardLimiter, async (req: any, res: Response) => {
+  try {
+    const stopped = balanceQueue.stopBackgroundWorker();
+    res.json({ 
+      success: stopped, 
+      message: stopped ? 'Background worker stopped' : 'Worker was not running',
+      status: balanceQueue.getBackgroundStatus(),
+    });
+  } catch (error: any) {
+    console.error("[BalanceQueue] Stop error:", error);
     res.status(500).json({ error: error.message });
   }
 });
