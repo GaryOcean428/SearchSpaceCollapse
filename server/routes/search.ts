@@ -317,12 +317,13 @@ searchRouter.get("/activity-stream", async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 100;
     
-    const allLogs: Array<{
-      jobId: string;
-      jobStrategy: string;
-      message: string;
+    const allEvents: Array<{
+      id: string;
       type: string;
+      identity: string;
+      details: string;
       timestamp: string;
+      metadata?: Record<string, unknown>;
     }> = [];
     
     let jobs: any[] = [];
@@ -338,34 +339,36 @@ searchRouter.get("/activity-stream", async (req: Request, res: Response) => {
     
     for (const job of jobs) {
       for (const log of job.logs) {
-        allLogs.push({
-          jobId: job.id,
-          jobStrategy: job.strategy,
-          message: log.message,
-          type: log.type,
+        allEvents.push({
+          id: `${job.id}-${log.timestamp}`,
+          type: log.type || 'info',
+          identity: job.strategy || 'Search',
+          details: log.message,
           timestamp: log.timestamp,
+          metadata: { jobId: job.id },
         });
       }
     }
     
     const oceanLogs = activityLogStore.getLogs({ limit: limit * 2 });
     for (const oceanLog of oceanLogs) {
-      allLogs.push({
-        jobId: oceanLog.id,
-        jobStrategy: `Ocean:${oceanLog.category}`,
-        message: oceanLog.message,
-        type: oceanLog.type,
+      allEvents.push({
+        id: oceanLog.id,
+        type: oceanLog.type || 'info',
+        identity: oceanLog.category || 'Ocean',
+        details: oceanLog.message,
         timestamp: oceanLog.timestamp,
+        metadata: oceanLog.metadata,
       });
     }
     
-    allLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     
     const oceanStatus = oceanSessionManager.getInvestigationStatus();
     const isOceanActive = oceanStatus?.isRunning || false;
     
     res.json({ 
-      logs: allLogs.slice(0, limit),
+      events: allEvents.slice(0, limit),
       activeJobs: jobs.filter(j => j.status === "running").length + (isOceanActive ? 1 : 0),
       totalJobs: jobs.length + (oceanLogs.length > 0 ? 1 : 0),
       oceanActive: isOceanActive,
@@ -373,7 +376,7 @@ searchRouter.get("/activity-stream", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('[ActivityStream] Error:', error.message);
     res.json({ 
-      logs: [],
+      events: [],
       activeJobs: 0,
       totalJobs: 0,
       oceanActive: false,
