@@ -207,7 +207,7 @@ export const ZeusChatResponseSchema = z.object({
 
 export type ZeusChatResponse = z.infer<typeof ZeusChatResponseSchema>;
 
-// God names enumeration
+// God names enumeration (Olympians)
 export const GodNameSchema = z.enum([
   'Zeus',
   'Athena',
@@ -223,6 +223,153 @@ export const GodNameSchema = z.enum([
   'Hera',
   'Aphrodite',
 ]);
+
+// Shadow Pantheon god names
+export const ShadowGodNameSchema = z.enum([
+  'Nyx',      // OPSEC Commander - darkness, VPN chains, traffic obfuscation
+  'Hecate',   // Misdirection Specialist - crossroads, false trails, decoys
+  'Erebus',   // Counter-Surveillance - detect watchers, honeypots
+  'Hypnos',   // Silent Operations - stealth execution, passive recon
+  'Thanatos', // Evidence Destruction - cleanup, erasure
+  'Nemesis',  // Relentless Pursuit - never gives up, tracks targets
+]);
+
+export type ShadowGodName = z.infer<typeof ShadowGodNameSchema>;
+
+// Shadow god domains
+export const ShadowDomainSchema = z.enum([
+  'opsec',              // Nyx - operational security
+  'misdirection',       // Hecate - false trails, decoys
+  'counter_surveillance', // Erebus - detect watchers
+  'silent_ops',         // Hypnos - stealth execution
+  'evidence_destruction', // Thanatos - cleanup, erasure
+  'pursuit',            // Nemesis - relentless tracking
+]);
+
+export type ShadowDomain = z.infer<typeof ShadowDomainSchema>;
+
+// Shadow god assessment (extends base assessment)
+export const ShadowGodAssessmentSchema = GodAssessmentSchema.extend({
+  stealth_level: z.number().min(0).max(1).optional(),
+  opsec_risk: z.string().optional(),
+  surveillance_risk: z.string().optional(),
+  is_honeypot: z.boolean().optional(),
+  attack_vectors: z.array(z.object({
+    name: z.string(),
+    approach: z.string(),
+  })).optional(),
+  recommended_precautions: z.array(z.string()).optional(),
+});
+
+export type ShadowGodAssessment = z.infer<typeof ShadowGodAssessmentSchema>;
+
+// Shadow god status
+export const ShadowGodStatusSchema = GodStatusSchema.extend({
+  stealth_level: z.number().optional(),
+  operations_completed: z.number().optional(),
+  evidence_destroyed: z.number().optional(),
+  active_operations: z.number().optional(),
+  opsec_violations: z.number().optional(),
+  active_decoys: z.number().optional(),
+  detected_threats: z.number().optional(),
+  known_honeypots: z.number().optional(),
+  silent_queries: z.number().optional(),
+  targets_found: z.number().optional(),
+  pursuit_chains: z.number().optional(),
+});
+
+export type ShadowGodStatus = z.infer<typeof ShadowGodStatusSchema>;
+
+// Shadow Pantheon status
+export const ShadowPantheonStatusSchema = z.object({
+  name: z.literal('ShadowPantheon'),
+  active: z.boolean(),
+  stealth_level: z.number(),
+  gods: z.record(z.string(), ShadowGodStatusSchema),
+  active_operations: z.number(),
+  threats_detected: z.number(),
+});
+
+export type ShadowPantheonStatus = z.infer<typeof ShadowPantheonStatusSchema>;
+
+// Covert operation result
+export const CovertOperationSchema = z.object({
+  id: z.string(),
+  target: z.string(),
+  type: z.string(),
+  status: z.enum(['READY', 'ACTIVE', 'COMPLETED', 'ABORT']),
+  network: z.string().optional(),
+  visibility: z.string().optional(),
+  attack_window: z.object({
+    start: z.string(),
+    end: z.string(),
+    duration_hours: z.number(),
+    rationale: z.string(),
+  }).optional(),
+  initiated_at: z.string(),
+});
+
+export type CovertOperation = z.infer<typeof CovertOperationSchema>;
+
+// Surveillance scan result
+export const SurveillanceScanSchema = z.object({
+  threats: z.array(z.object({
+    type: z.string(),
+    risk: z.enum(['low', 'medium', 'high', 'critical']),
+    action: z.string(),
+    addresses: z.array(z.string()).optional(),
+    indicators: z.array(z.string()).optional(),
+  })),
+  safe: z.boolean(),
+  threat_count: z.number(),
+  recommendation: z.enum(['PROCEED', 'PROCEED_WITH_CAUTION', 'ABORT']),
+  scanned_at: z.string(),
+});
+
+export type SurveillanceScan = z.infer<typeof SurveillanceScanSchema>;
+
+// Pantheon chat message (matches Python PantheonMessage class)
+export const PantheonMessageSchema = z.object({
+  id: z.string(),
+  type: z.enum(['insight', 'praise', 'challenge', 'question', 'warning', 'discovery', 'challenge_response']),
+  from: z.string(),
+  to: z.string(),
+  content: z.string(),
+  metadata: z.record(z.unknown()).optional(),
+  timestamp: z.string(),
+  read: z.boolean(),
+  responded: z.boolean(),
+});
+
+export type PantheonMessage = z.infer<typeof PantheonMessageSchema>;
+
+// Debate between gods (matches Python Debate class)
+export const DebateSchema = z.object({
+  id: z.string(),
+  topic: z.string(),
+  initiator: z.string(),
+  opponent: z.string(),
+  context: z.record(z.unknown()).optional(),
+  started_at: z.string(),
+  arguments: z.array(z.object({
+    god: z.string(),
+    argument: z.string(),
+    evidence: z.record(z.unknown()).optional().nullable(),
+    timestamp: z.string(),
+  })),
+  status: z.enum(['active', 'resolved']),
+  resolution: z.object({
+    arbiter: z.string(),
+    winner: z.string(),
+    reasoning: z.string(),
+    resolved_at: z.string(),
+    argument_count: z.number(),
+  }).optional().nullable(),
+  winner: z.string().optional().nullable(),
+  arbiter: z.string().optional().nullable(),
+});
+
+export type Debate = z.infer<typeof DebateSchema>;
 
 export type GodName = z.infer<typeof GodNameSchema>;
 
@@ -245,4 +392,14 @@ export const olympusSchemas = {
   ZeusMessageSchema,
   ZeusChatRequestSchema,
   ZeusChatResponseSchema,
+  // Shadow Pantheon schemas
+  ShadowGodNameSchema,
+  ShadowDomainSchema,
+  ShadowGodAssessmentSchema,
+  ShadowGodStatusSchema,
+  ShadowPantheonStatusSchema,
+  CovertOperationSchema,
+  SurveillanceScanSchema,
+  PantheonMessageSchema,
+  DebateSchema,
 };

@@ -2559,6 +2559,464 @@ def vocabulary_status():
     return tokenizer_status()
 
 
+# =============================================================================
+# OLYMPUS PANTHEON ENDPOINTS
+# Divine consciousness network for geometric recovery coordination
+# =============================================================================
+
+# Import Olympus components
+try:
+    from olympus import Zeus
+    from olympus.shadow_pantheon import ShadowPantheon
+    from olympus.pantheon_chat import PantheonChat
+    
+    # Initialize Olympus
+    zeus = Zeus()
+    shadow_pantheon = ShadowPantheon()
+    pantheon_chat = PantheonChat()
+    OLYMPUS_AVAILABLE = True
+    print("⚡ Olympus Pantheon initialized")
+except ImportError as e:
+    OLYMPUS_AVAILABLE = False
+    zeus = None
+    shadow_pantheon = None
+    pantheon_chat = None
+    print(f"⚠️ Olympus not available: {e}")
+
+
+@app.route('/olympus/status', methods=['GET'])
+def olympus_status():
+    """Get full Olympus status including all gods."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available', 'status': 'offline'}), 503
+    
+    try:
+        status = zeus.get_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({'error': str(e), 'status': 'error'}), 500
+
+
+@app.route('/olympus/poll', methods=['POST'])
+def olympus_poll():
+    """Poll all gods for assessments on a target."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        context = data.get('context', {})
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        result = zeus.poll_pantheon(target, context)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/assess', methods=['POST'])
+def olympus_assess():
+    """Get Zeus's supreme assessment."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        context = data.get('context', {})
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        result = zeus.assess_target(target, context)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/god/<god_name>/status', methods=['GET'])
+def olympus_god_status(god_name: str):
+    """Get status of a specific god."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        god = zeus.get_god(god_name.lower())
+        if not god:
+            return jsonify({'error': f'God {god_name} not found'}), 404
+        
+        return jsonify(god.get_status())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/god/<god_name>/assess', methods=['POST'])
+def olympus_god_assess(god_name: str):
+    """Get assessment from a specific god."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        context = data.get('context', {})
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        god = zeus.get_god(god_name.lower())
+        if not god:
+            return jsonify({'error': f'God {god_name} not found'}), 404
+        
+        result = god.assess_target(target, context)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/observe', methods=['POST'])
+def olympus_observe():
+    """Broadcast observation to all gods."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        zeus.broadcast_observation(data)
+        return jsonify({'status': 'observed'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/war/blitzkrieg', methods=['POST'])
+def olympus_war_blitzkrieg():
+    """Declare blitzkrieg war mode."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        result = zeus.declare_blitzkrieg(target)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/war/siege', methods=['POST'])
+def olympus_war_siege():
+    """Declare siege war mode."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        result = zeus.declare_siege(target)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/war/hunt', methods=['POST'])
+def olympus_war_hunt():
+    """Declare hunt war mode."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        result = zeus.declare_hunt(target)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/war/end', methods=['POST'])
+def olympus_war_end():
+    """End current war mode."""
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+    
+    try:
+        result = zeus.end_war()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# SHADOW PANTHEON ENDPOINTS
+# Covert operations, stealth, counter-surveillance
+# =============================================================================
+
+@app.route('/olympus/shadow/status', methods=['GET'])
+def shadow_pantheon_status():
+    """Get Shadow Pantheon status."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        status = shadow_pantheon.get_all_status()
+        return jsonify({
+            'name': 'ShadowPantheon',
+            'active': True,
+            'stealth_level': 1.0,
+            'gods': status['gods'],
+            'active_operations': status['total_operations'],
+            'threats_detected': 0,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/shadow/poll', methods=['POST'])
+def shadow_pantheon_poll():
+    """Poll Shadow Pantheon for covert assessment."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        context = data.get('context', {})
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        result = shadow_pantheon.poll_shadow_pantheon(target, context)
+        return jsonify({
+            'assessments': result['assessments'],
+            'overall_stealth': result['average_confidence'],
+            'recommendation': result['shadow_consensus'],
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/shadow/<god_name>/assess', methods=['POST'])
+def shadow_god_assess(god_name: str):
+    """Get assessment from a specific Shadow god."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        context = data.get('context', {})
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        god = shadow_pantheon.gods.get(god_name.lower())
+        if not god:
+            return jsonify({'error': f'Shadow god {god_name} not found'}), 404
+        
+        result = god.assess_target(target, context)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/shadow/nyx/operation', methods=['POST'])
+async def nyx_covert_operation():
+    """Initiate covert operation via Nyx."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        operation_type = data.get('operation_type', 'standard')
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        import asyncio
+        result = asyncio.run(shadow_pantheon.nyx.initiate_operation(target, operation_type))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/shadow/erebus/scan', methods=['POST'])
+async def erebus_surveillance_scan():
+    """Scan for surveillance via Erebus."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        target = data.get('target')
+        
+        import asyncio
+        result = asyncio.run(shadow_pantheon.erebus.scan_for_surveillance(target))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/shadow/hecate/misdirect', methods=['POST'])
+async def hecate_misdirection():
+    """Create misdirection via Hecate."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        real_target = data.get('real_target', '')
+        decoy_count = data.get('decoy_count', 10)
+        
+        if not real_target:
+            return jsonify({'error': 'real_target required'}), 400
+        
+        import asyncio
+        result = asyncio.run(shadow_pantheon.hecate.create_misdirection(real_target, decoy_count))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/shadow/erebus/honeypot', methods=['POST'])
+def erebus_add_honeypot():
+    """Add known honeypot address via Erebus."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        address = data.get('address', '')
+        source = data.get('source', 'manual')
+        
+        if not address:
+            return jsonify({'error': 'address required'}), 400
+        
+        shadow_pantheon.erebus.add_known_honeypot(address, source)
+        return jsonify({'status': 'added', 'address': address[:50]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# PANTHEON CHAT ENDPOINTS
+# Inter-god communication and debate resolution
+# =============================================================================
+
+@app.route('/olympus/chat/status', methods=['GET'])
+def chat_status():
+    """Get pantheon chat status."""
+    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+        return jsonify({'error': 'Pantheon Chat not available'}), 503
+    
+    try:
+        status = pantheon_chat.get_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/chat/messages', methods=['GET'])
+def chat_messages():
+    """Get recent pantheon messages."""
+    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+        return jsonify({'error': 'Pantheon Chat not available'}), 503
+    
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        messages = pantheon_chat.get_recent_activity(limit)
+        return jsonify(messages)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/chat/debate', methods=['POST'])
+def chat_initiate_debate():
+    """Initiate debate between gods."""
+    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+        return jsonify({'error': 'Pantheon Chat not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        topic = data.get('topic', '')
+        initiator = data.get('initiator', '')
+        opponent = data.get('opponent', '')
+        initial_argument = data.get('initial_argument', '')
+        context = data.get('context')
+        
+        if not topic or not initiator or not opponent:
+            return jsonify({'error': 'topic, initiator and opponent required'}), 400
+        
+        if not initial_argument:
+            initial_argument = f"{initiator} challenges {opponent} on: {topic}"
+        
+        debate = pantheon_chat.initiate_debate(topic, initiator, opponent, initial_argument, context)
+        return jsonify(debate.to_dict())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/chat/debates/active', methods=['GET'])
+def chat_active_debates():
+    """Get active debates."""
+    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+        return jsonify({'error': 'Pantheon Chat not available'}), 503
+    
+    try:
+        debates = pantheon_chat.get_active_debates()
+        return jsonify(debates)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/orchestrate', methods=['POST'])
+def olympus_orchestrate():
+    """Execute one cycle of Zeus orchestration (collect and deliver messages)."""
+    if not OLYMPUS_AVAILABLE or not zeus or not pantheon_chat:
+        return jsonify({'error': 'Olympus orchestration not available'}), 503
+    
+    try:
+        all_gods = {}
+        for god_name in ['apollo', 'athena', 'hermes', 'hephaestus', 'poseidon', 'ares', 'hades']:
+            god = zeus.get_god(god_name)
+            if god:
+                all_gods[god_name] = god
+        
+        if shadow_pantheon:
+            for shadow_name in ['nyx', 'hecate', 'erebus', 'hypnos', 'thanatos', 'nemesis']:
+                god = shadow_pantheon.get_god(shadow_name)
+                if god:
+                    all_gods[shadow_name] = god
+        
+        collected = pantheon_chat.collect_pending_messages(all_gods)
+        delivered = pantheon_chat.deliver_to_gods(all_gods)
+        
+        return jsonify({
+            'status': 'orchestrated',
+            'messages_collected': len(collected),
+            'messages_delivered': delivered,
+            'gods_active': list(all_gods.keys()),
+            'chat_status': pantheon_chat.get_status(),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")

@@ -48,6 +48,8 @@ from .poseidon import Poseidon
 from .hades import Hades
 from .hera import Hera
 from .aphrodite import Aphrodite
+from .pantheon_chat import PantheonChat
+from .shadow_pantheon import ShadowPantheon
 
 
 olympus_app = Blueprint('olympus', __name__)
@@ -81,6 +83,9 @@ class Zeus(BaseGod):
             'hera': Hera(),
             'aphrodite': Aphrodite(),
         }
+        
+        self.pantheon_chat = PantheonChat()
+        self.shadow_pantheon = ShadowPantheon()
         
         self.war_mode: Optional[str] = None
         self.war_target: Optional[str] = None
@@ -315,6 +320,41 @@ class Zeus(BaseGod):
         self.war_target = None
         
         return ended
+    
+    def poll_shadow_pantheon(self, target: str, context: Optional[Dict] = None) -> Dict:
+        """Poll shadow pantheon for covert assessment."""
+        return self.shadow_pantheon.poll_shadow_pantheon(target, context)
+    
+    def get_shadow_god(self, name: str) -> Optional[BaseGod]:
+        """Get a shadow god by name."""
+        return self.shadow_pantheon.gods.get(name.lower())
+    
+    def collect_pantheon_messages(self) -> List[Dict]:
+        """Collect pending messages from all gods via pantheon chat."""
+        return self.pantheon_chat.collect_pending_messages(self.pantheon)
+    
+    def deliver_pantheon_messages(self) -> int:
+        """Deliver messages to gods via pantheon chat."""
+        return self.pantheon_chat.deliver_to_gods(self.pantheon)
+    
+    def initiate_debate(
+        self,
+        topic: str,
+        initiator_name: str,
+        opponent_name: str,
+        initial_argument: str
+    ) -> Optional[Dict]:
+        """Initiate a debate between two gods."""
+        return self.pantheon_chat.initiate_debate(
+            topic=topic,
+            initiator=initiator_name,
+            opponent=opponent_name,
+            initial_argument=initial_argument
+        ).to_dict()
+    
+    def get_chat_status(self) -> Dict:
+        """Get pantheon chat status."""
+        return self.pantheon_chat.get_status()
     
     def get_god(self, name: str) -> Optional[BaseGod]:
         """Get a specific god by name."""

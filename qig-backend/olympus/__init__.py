@@ -29,6 +29,11 @@ from .poseidon import Poseidon
 from .hades import Hades
 from .hera import Hera
 from .aphrodite import Aphrodite
+from .pantheon_chat import PantheonChat, PantheonMessage, Debate
+from .shadow_pantheon import (
+    ShadowPantheon, ShadowGod,
+    Nyx, Hecate, Erebus, Hypnos, Thanatos, Nemesis
+)
 
 __all__ = [
     'Zeus',
@@ -47,4 +52,15 @@ __all__ = [
     'Hades',
     'Hera',
     'Aphrodite',
+    'PantheonChat',
+    'PantheonMessage',
+    'Debate',
+    'ShadowPantheon',
+    'ShadowGod',
+    'Nyx',
+    'Hecate',
+    'Erebus',
+    'Hypnos',
+    'Thanatos',
+    'Nemesis',
 ]

@@ -21,6 +21,14 @@ import type {
   OlympusStatus,
   ObservationContext,
   WarMode,
+  ShadowGodName,
+  ShadowGodAssessment,
+  ShadowGodStatus,
+  ShadowPantheonStatus,
+  CovertOperation,
+  SurveillanceScan,
+  PantheonMessage,
+  Debate,
 } from '@shared/types/olympus';
 
 // Re-export types for consumers
@@ -35,6 +43,14 @@ export type {
   OlympusStatus,
   ObservationContext,
   WarMode,
+  ShadowGodName,
+  ShadowGodAssessment,
+  ShadowGodStatus,
+  ShadowPantheonStatus,
+  CovertOperation,
+  SurveillanceScan,
+  PantheonMessage,
+  Debate,
 };
 
 const DEFAULT_RETRY_ATTEMPTS = 3;
@@ -448,6 +464,328 @@ export class OlympusClient {
       warMode: assessment.war_mode,
       convergence: assessment.convergence,
     };
+  }
+  
+  // ==================== SHADOW PANTHEON METHODS ====================
+  
+  /**
+   * Get Shadow Pantheon status
+   */
+  async getShadowPantheonStatus(): Promise<ShadowPantheonStatus | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/shadow/status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Shadow status failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json() as ShadowPantheonStatus;
+    } catch (error) {
+      console.error('[OlympusClient] Shadow status exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Poll Shadow Pantheon for covert assessment
+   */
+  async pollShadowPantheon(target: string, context?: ObservationContext): Promise<{
+    assessments: Record<string, ShadowGodAssessment>;
+    overall_stealth: number;
+    recommendation: string;
+  } | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/shadow/poll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, context: context || {} }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Shadow poll failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('[OlympusClient] Shadow poll exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get assessment from a specific Shadow god
+   */
+  async assessWithShadowGod(
+    godName: string,
+    target: string,
+    context?: ObservationContext
+  ): Promise<ShadowGodAssessment | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/shadow/${godName.toLowerCase()}/assess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, context: context || {} }),
+      });
+      
+      if (!response.ok) {
+        console.error(`[OlympusClient] Shadow god ${godName} assess failed:`, response.statusText);
+        return null;
+      }
+      
+      return await response.json() as ShadowGodAssessment;
+    } catch (error) {
+      console.error(`[OlympusClient] Shadow god ${godName} assess exception:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Initiate covert operation (via Nyx)
+   */
+  async initiateCovertOperation(target: string, operationType: string = 'standard'): Promise<CovertOperation | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/shadow/nyx/operation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, operation_type: operationType }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Covert operation failed:', response.statusText);
+        return null;
+      }
+      
+      const data = await response.json();
+      console.log(`[OlympusClient] Covert operation initiated: ${data.id}`);
+      return data as CovertOperation;
+    } catch (error) {
+      console.error('[OlympusClient] Covert operation exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Scan for surveillance (via Erebus)
+   */
+  async scanForSurveillance(target?: string): Promise<SurveillanceScan | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/shadow/erebus/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Surveillance scan failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json() as SurveillanceScan;
+    } catch (error) {
+      console.error('[OlympusClient] Surveillance scan exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Create misdirection (via Hecate)
+   */
+  async createMisdirection(realTarget: string, decoyCount: number = 10): Promise<{
+    real_target: string;
+    decoy_count: number;
+    total_targets: number;
+    observer_confusion: string;
+  } | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/shadow/hecate/misdirect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ real_target: realTarget, decoy_count: decoyCount }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Misdirection failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('[OlympusClient] Misdirection exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Add known honeypot address (via Erebus)
+   */
+  async addKnownHoneypot(address: string, source: string = 'manual'): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/shadow/erebus/honeypot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, source }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Add honeypot failed:', response.statusText);
+        return false;
+      }
+      
+      console.log(`[OlympusClient] Honeypot added: ${address.substring(0, 20)}...`);
+      return true;
+    } catch (error) {
+      console.error('[OlympusClient] Add honeypot exception:', error);
+      return false;
+    }
+  }
+  
+  // ==================== PANTHEON CHAT METHODS ====================
+  
+  /**
+   * Get pantheon chat status
+   */
+  async getChatStatus(): Promise<{
+    total_messages: number;
+    unread_messages: number;
+    active_debates: number;
+    resolved_debates: number;
+  } | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/chat/status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Chat status failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('[OlympusClient] Chat status exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Initiate debate between gods
+   */
+  async initiateDebate(
+    topic: string, 
+    initiator: string, 
+    opponent: string,
+    initialArgument?: string,
+    context?: Record<string, unknown>
+  ): Promise<Debate | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/chat/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          topic, 
+          initiator, 
+          opponent,
+          initial_argument: initialArgument,
+          context,
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Initiate debate failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json() as Debate;
+    } catch (error) {
+      console.error('[OlympusClient] Initiate debate exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get recent pantheon messages
+   */
+  async getPantheonMessages(limit: number = 50): Promise<PantheonMessage[] | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/chat/messages?limit=${limit}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Get messages failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json() as PantheonMessage[];
+    } catch (error) {
+      console.error('[OlympusClient] Get messages exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get active debates
+   */
+  async getActiveDebates(): Promise<Debate[] | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/chat/debates/active`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Get debates failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json() as Debate[];
+    } catch (error) {
+      console.error('[OlympusClient] Get debates exception:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Execute one cycle of Zeus orchestration (collect and deliver messages)
+   * This pumps messages between gods to enable learning/reputation exchanges
+   */
+  async orchestrate(): Promise<{
+    status: string;
+    messages_collected: number;
+    messages_delivered: number;
+    gods_active: string[];
+    chat_status: {
+      total_messages: number;
+      active_debates: number;
+      resolved_debates: number;
+      knowledge_transfers: number;
+      registered_gods: string[];
+      message_types_handled: string[];
+    };
+  } | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/orchestrate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Orchestrate failed:', response.statusText);
+        return null;
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('[OlympusClient] Orchestrate exception:', error);
+      return null;
+    }
   }
 }
 
