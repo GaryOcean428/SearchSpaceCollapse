@@ -1,0 +1,141 @@
+2025-12-08 03:41:48.23
+60b34c23
+User
+at async BalanceQueueService.removeFromDb (file:///home/runner/workspace/dist/index.js:9484:9)
+2025-12-08 03:41:48.33
+60b34c23
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-12-08 03:41:52.63
+60b34c23
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2025-12-08 03:41:52.63
+60b34c23
+User
+[DB] BalanceQueue.removeFromDb failed (exhausted retries, 2 attempts): Error: timeout exceeded when trying to connect
+2025-12-08 03:41:52.63
+60b34c23
+User
+at async BalanceQueueService.removeFromDb (file:///home/runner/workspace/dist/index.js:9484:9)
+2025-12-08 03:41:52.63
+60b34c23
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2025-12-08 03:41:52.63
+60b34c23
+User
+at async file:///home/runner/workspace/dist/index.js:9486:13
+2025-12-08 03:41:52.63
+60b34c23
+User
+at listOnTimeout (node:internal/timers:545:9)
+2025-12-08 03:41:52.63
+60b34c23
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-12-08 03:41:52.63
+60b34c23
+User
+at process.processTimers (node:internal/timers:519:7)
+2025-12-08 03:41:52.63
+60b34c23
+User
+at async BalanceQueueService.removeFromDb (file:///home/runner/workspace/dist/index.js:9484:9)
+2025-12-08 03:41:52.63
+60b34c23
+User
+at async withDbRetry (file:///home/runner/workspace/dist/index.js:2084:14)
+2025-12-08 03:41:52.63
+60b34c23
+User
+[DB] BalanceQueue.removeFromDb failed (exhausted retries, 2 attempts): Error: timeout exceeded when trying to connect
+2025-12-08 03:41:52.83
+60b34c23
+User
+at async withDbRetry (file:///home/runner/workspace/dist/index.js:2084:14)
+2025-12-08 03:41:52.83
+60b34c23
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2025-12-08 03:41:52.83
+60b34c23
+User
+at async file:///home/runner/workspace/dist/index.js:9486:13
+2025-12-08 03:41:52.83
+60b34c23
+User
+at process.processTimers (node:internal/timers:519:7)
+2025-12-08 03:41:52.83
+60b34c23
+User
+[DB] BalanceQueue.removeFromDb failed (exhausted retries, 2 attempts): Error: timeout exceeded when trying to connect
+2025-12-08 03:41:52.83
+60b34c23
+User
+at async BalanceQueueService.removeFromDb (file:///home/runner/workspace/dist/index.js:9484:9)
+2025-12-08 03:41:52.93
+60b34c23
+User
+at process.processTimers (node:internal/timers:519:7)
+2025-12-08 03:41:52.93
+60b34c23
+User
+at async file:///home/runner/workspace/dist/index.js:9486:13
+2025-12-08 03:41:52.93
+60b34c23
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-12-08 03:41:53.13
+60b34c23
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-12-08 03:41:53.13
+60b34c23
+User
+[DB] BalanceQueue.removeFromDb failed (exhausted retries, 2 attempts): Error: timeout exceeded when trying to connect
+2025-12-08 03:41:53.13
+60b34c23
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2025-12-08 03:41:58.44
+60b34c23
+User
+[FreeBlockchainAPI] Blockchain.com bulk failed: This operation was aborted
+
+2025-12-08 03:41:58.44
+60b34c23
+User
+[DB] Database connection error (will retry): Cannot set property message of # which has only a getter
+2025-12-08 03:42:13.83
+60b34c23
+User
+[DB] Database connection error (will retry): Cannot set property message of # which has only a getter
+2025-12-08 03:42:13.93
+60b34c23
+User
+[DB] Database connection error (will retry): Cannot set property message of # which has only a getter
+2025-12-08 03:42:20.34
+60b34c23
+User
+[FreeBlockchainAPI] Mempool bulk failed: Too many failures: 10/10
+2025-12-08 03:42:57.13
+60b34c23
+User
+[FreeBlockchainAPI] Blockstream bulk failed: Too many failures: 10/10
+2025-12-08 03:42:57.43
+60b34c23
+User
+[FreeBlockchainAPI] All bulk providers failed, using individual queries
+2025-12-08 03:42:57.64
+60b34c23
+User
+[FreeBlockchainAPI] Blockchain.com marked unhealthy after 3 failures: This operation was aborted
+2025-12-08 03:42:57.73
+60b34c23
+User
+[DB] Database connection error (will retry): Cannot set property message of # which has only a getter
+2025-12-08 03:43:09.83
+60b34c23
+User
+[FreeBlockchainAPI] Blockstream marked unhealthy after 3 failures: This operation was aborted

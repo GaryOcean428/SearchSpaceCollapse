@@ -383,6 +383,7 @@ class BalanceQueueService {
         const results = await freeBlockchainAPI.getBalances(addresses);
         
         let hits = 0;
+        const resolvedIds: string[] = []; // Collect IDs for batch DB delete
         
         for (const item of pending) {
           try {
@@ -428,9 +429,9 @@ class BalanceQueueService {
               item.checkedAt = Date.now();
               this.backgroundCheckCount++;
               
-              // Remove resolved items from memory and DB
+              // Remove from memory, collect ID for batch DB delete
               this.queue.delete(item.id);
-              this.removeFromDb(item.id);
+              resolvedIds.push(item.id);
             } else {
               // No result - mark as failed
               item.status = 'failed';
@@ -444,6 +445,12 @@ class BalanceQueueService {
             item.error = itemError instanceof Error ? itemError.message : 'Item processing error';
             // Continue with next item
           }
+        }
+        
+        // Batch delete all resolved items from DB in a single operation
+        // This prevents connection pool exhaustion from 50 concurrent deletes
+        if (resolvedIds.length > 0) {
+          await this.removeFromDbBatch(resolvedIds);
         }
         
         this.scheduleSave();
@@ -667,14 +674,36 @@ class BalanceQueueService {
   
   private async removeFromDb(id: string): Promise<void> {
     if (!db) return;
-    await withDbRetry(
+    const result = await withDbRetry(
       async () => {
         await db!.delete(queuedAddresses).where(eq(queuedAddresses.id, id));
         return true;
       },
       'BalanceQueue.removeFromDb',
-      2
+      3
     );
+    if (result === null) {
+      console.warn(`[BalanceQueue] Failed to remove ${id} from DB after retries - may be orphaned`);
+    }
+  }
+  
+  /**
+   * Batch remove multiple items from DB in a single operation
+   * Much more efficient than individual deletes - prevents connection pool exhaustion
+   */
+  private async removeFromDbBatch(ids: string[]): Promise<void> {
+    if (!db || ids.length === 0) return;
+    const result = await withDbRetry(
+      async () => {
+        await db!.delete(queuedAddresses).where(inArray(queuedAddresses.id, ids));
+        return ids.length;
+      },
+      'BalanceQueue.removeFromDbBatch',
+      3
+    );
+    if (result === null) {
+      console.warn(`[BalanceQueue] Failed to batch remove ${ids.length} items from DB after retries`);
+    }
   }
 
   private scheduleSave(): void {

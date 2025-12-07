@@ -1,44 +1,5 @@
 [
   {
-    "address": "16tMcGRKSnaCxhQgeQM841PhkvvFgj4LUF",
-    "passphrase": "timestamp",
-    "wif": "5JCQHEf9WnRknCvnEV4aoDreNF1PSfB5p9Ruuf2AfUzpnTC7PLL",
-    "balanceSats": 0,
-    "balanceBTC": "0.00000000",
-    "txCount": 2,
-    "discoveredAt": "2025-11-29T08:03:34.176Z",
-    "isCompressed": false,
-    "lastChecked": "2025-12-07T12:18:15.532Z",
-    "previousBalanceSats": 0,
-    "balanceChanged": false
-  },
-  {
-    "address": "1HUBHMij46Hae75JPdWjeZ5Q7KaL7EFRSD",
-    "passphrase": "a",
-    "wif": "5KMWWy2d3Mjc8LojNoj8Lcz9B1aWu8bRofUgGwQk959Dw5h2iyw",
-    "balanceSats": 0,
-    "balanceBTC": "0.00000000",
-    "txCount": 20,
-    "discoveredAt": "2025-11-29T08:02:25.077Z",
-    "isCompressed": false,
-    "lastChecked": "2025-12-07T12:19:45.414Z",
-    "previousBalanceSats": 0,
-    "balanceChanged": false
-  },
-  {
-    "address": "13jHQ8p9nHygZ6ThR5NdCsgpTw1zHt8AUq",
-    "passphrase": "distributed",
-    "wif": "5JEoswevAS9bXNKBDJUhpYd7SxeAykKkUBtvnJQ8n6QLJqawqJx",
-    "balanceSats": 0,
-    "balanceBTC": "0.00000000",
-    "txCount": 2,
-    "discoveredAt": "2025-11-29T09:37:45.121Z",
-    "isCompressed": false,
-    "lastChecked": "2025-12-07T12:20:49.508Z",
-    "previousBalanceSats": 0,
-    "balanceChanged": false
-  },
-  {
     "address": "19zUqQJsaML2ooowV6dRZwwCq8aZpxHZnm",
     "passphrase": "btc",
     "wif": "L4rxZjLNGPS9yDKYXDM2TdhN3YKketb8rZTwHLyV993AGB88niDv",
@@ -130,6 +91,45 @@
     "balanceChanged": false
   },
   {
+    "address": "16tMcGRKSnaCxhQgeQM841PhkvvFgj4LUF",
+    "passphrase": "timestamp",
+    "wif": "5JCQHEf9WnRknCvnEV4aoDreNF1PSfB5p9Ruuf2AfUzpnTC7PLL",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-11-29T08:03:34.176Z",
+    "isCompressed": false,
+    "lastChecked": "2025-12-07T12:18:15.532Z",
+    "previousBalanceSats": 0,
+    "balanceChanged": false
+  },
+  {
+    "address": "1HUBHMij46Hae75JPdWjeZ5Q7KaL7EFRSD",
+    "passphrase": "a",
+    "wif": "5KMWWy2d3Mjc8LojNoj8Lcz9B1aWu8bRofUgGwQk959Dw5h2iyw",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 20,
+    "discoveredAt": "2025-11-29T08:02:25.077Z",
+    "isCompressed": false,
+    "lastChecked": "2025-12-07T12:19:45.414Z",
+    "previousBalanceSats": 0,
+    "balanceChanged": false
+  },
+  {
+    "address": "13jHQ8p9nHygZ6ThR5NdCsgpTw1zHt8AUq",
+    "passphrase": "distributed",
+    "wif": "5JEoswevAS9bXNKBDJUhpYd7SxeAykKkUBtvnJQ8n6QLJqawqJx",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-11-29T09:37:45.121Z",
+    "isCompressed": false,
+    "lastChecked": "2025-12-07T12:20:49.508Z",
+    "previousBalanceSats": 0,
+    "balanceChanged": false
+  },
+  {
     "address": "1BrivNETM3QAKBSG7kvBAVWzoUwLhY3m3B",
     "passphrase": "anarchist",
     "wif": "5JTe34ncQMdiu7bRshsPgvp9QqXaH1TFgegHfsLrNhb1AdjYKo9",
@@ -206,5 +206,16 @@
     "lastChecked": "2025-12-07T11:39:30.799Z",
     "previousBalanceSats": 0,
     "balanceChanged": false
+  },
+  {
+    "address": "1EasbzumogSDFGvFomwc5XDwMQ7uG6a9g2",
+    "passphrase": "travel",
+    "wif": "5HqBbNWhYapV4Q4MyZzJ1aF8FpGSfEnbqmgnnetc4756MpLMikF",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 36007,
+    "discoveredAt": "2025-12-07T21:22:03.585Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
   }
 ]
