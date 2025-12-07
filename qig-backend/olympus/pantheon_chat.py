@@ -145,9 +145,13 @@ class PantheonChat:
         self.message_limit = 1000
         self.debate_limit = 100
         
-        # Initialize inboxes for all gods in roster
+        # Initialize inboxes for all gods in roster (using lowercase canonical keys)
         for god in self.OLYMPIAN_ROSTER:
-            self.god_inboxes[god]  # Creates empty list via defaultdict
+            self.god_inboxes[god.lower()]  # Creates empty list via defaultdict
+    
+    def _normalize_god_name(self, name: str) -> str:
+        """Normalize god name to lowercase for consistent inbox key lookup."""
+        return name.lower() if name else name
     
     def send_message(
         self,
@@ -172,12 +176,12 @@ class PantheonChat:
         self.messages.append(message)
         
         if to_god == 'pantheon':
-            # Use canonical roster to ensure broadcasts reach all gods
+            # Use canonical roster to ensure broadcasts reach all gods (normalized keys)
             for god_name in self.OLYMPIAN_ROSTER:
                 if god_name.lower() != from_god.lower():
-                    self.god_inboxes[god_name].append(message)
+                    self.god_inboxes[self._normalize_god_name(god_name)].append(message)
         else:
-            self.god_inboxes[to_god].append(message)
+            self.god_inboxes[self._normalize_god_name(to_god)].append(message)
         
         self._trigger_handlers(msg_type, message)
         
@@ -203,7 +207,8 @@ class PantheonChat:
     
     def get_inbox(self, god_name: str, unread_only: bool = False) -> List[Dict]:
         """Get messages for a specific god."""
-        messages = self.god_inboxes.get(god_name, [])
+        normalized_name = self._normalize_god_name(god_name)
+        messages = self.god_inboxes.get(normalized_name, [])
         
         if unread_only:
             messages = [m for m in messages if not m.read]
@@ -212,7 +217,8 @@ class PantheonChat:
     
     def mark_read(self, god_name: str, message_id: str) -> bool:
         """Mark a message as read."""
-        for message in self.god_inboxes.get(god_name, []):
+        normalized_name = self._normalize_god_name(god_name)
+        for message in self.god_inboxes.get(normalized_name, []):
             if message.id == message_id:
                 message.read = True
                 return True
@@ -418,7 +424,8 @@ class PantheonChat:
         delivered = 0
         
         for god_name, god in gods.items():
-            inbox = self.god_inboxes.get(god_name, [])
+            normalized_name = self._normalize_god_name(god_name)
+            inbox = self.god_inboxes.get(normalized_name, [])
             unread = [m for m in inbox if not m.read]
             
             for message in unread:
