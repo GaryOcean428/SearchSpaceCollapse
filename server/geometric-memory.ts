@@ -241,6 +241,45 @@ export interface StrategyPerformanceDashboard {
   timestamp: string;                 // ISO timestamp
 }
 
+/**
+ * Cluster Evolution Frame - Single Animation Frame
+ * 
+ * Represents a snapshot of cluster state at a specific time window.
+ * Used to animate how probe clusters evolve over time.
+ */
+export interface ClusterData {
+  id: string;                        // Cluster identifier
+  centerX: number;                   // 2D projected center X (0-1)
+  centerY: number;                   // 2D projected center Y (0-1)
+  radius: number;                    // Normalized cluster radius
+  memberCount: number;               // Number of probes in cluster
+  avgPhi: number;                    // Average Φ in cluster
+  maxPhi: number;                    // Maximum Φ in cluster
+  dominantRegime: string;            // Most common regime
+  intensity: number;                 // 0-1 normalized intensity (based on avgPhi)
+}
+
+export interface ClusterEvolutionFrame {
+  frameIndex: number;                // Animation frame index
+  timestamp: string;                 // Start of time window (ISO)
+  windowEnd: string;                 // End of time window (ISO)
+  clusters: ClusterData[];           // Clusters at this time
+  totalProbes: number;               // Total probes in this frame
+  avgPhi: number;                    // Average Φ across all clusters
+  frameLabel: string;                // Human-readable label (e.g., "Hour 1")
+}
+
+export interface ClusterEvolutionAnimation {
+  frames: ClusterEvolutionFrame[];   // Animation frames in chronological order
+  totalFrames: number;               // Total number of frames
+  timeSpanMs: number;                // Total time span covered
+  windowSizeMs: number;              // Size of each time window
+  totalProbes: number;               // Total probes across all frames
+  avgClustersPerFrame: number;       // Average clusters per frame
+  maxClustersInFrame: number;        // Maximum clusters in any frame
+  timestamp: string;                 // ISO timestamp when generated
+}
+
 export interface GeometricMemoryState {
   version: string;
   lastUpdated: string;
@@ -2062,6 +2101,253 @@ class GeometricMemory {
     if (diff > 0.02) return 'rising';
     if (diff < -0.02) return 'falling';
     return 'stable';
+  }
+
+  /**
+   * Get Cluster Evolution Animation Frames.
+   * 
+   * Groups probes by time windows and clusters them by basin coordinates,
+   * returning animation frames showing how clusters evolve over time.
+   * 
+   * @param windowSizeMs Size of each time window in milliseconds (default 1 hour)
+   * @param maxFrames Maximum number of frames to return (default 24)
+   * @param clusterThreshold Distance threshold for clustering (default 0.3)
+   */
+  getClusterEvolutionFrames(
+    windowSizeMs: number = 60 * 60 * 1000,
+    maxFrames: number = 24,
+    clusterThreshold: number = 0.3
+  ): ClusterEvolutionAnimation {
+    const probes = Array.from(this.probeMap.values());
+    
+    if (probes.length === 0) {
+      return {
+        frames: [],
+        totalFrames: 0,
+        timeSpanMs: 0,
+        windowSizeMs,
+        totalProbes: 0,
+        avgClustersPerFrame: 0,
+        maxClustersInFrame: 0,
+        timestamp: new Date().toISOString(),
+      };
+    }
+    
+    // Sort probes by timestamp
+    const sortedProbes = [...probes].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    // Find time bounds using iterative approach (avoid stack overflow)
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    for (const probe of sortedProbes) {
+      const ts = new Date(probe.timestamp).getTime();
+      if (ts < minTime) minTime = ts;
+      if (ts > maxTime) maxTime = ts;
+    }
+    
+    const timeSpanMs = maxTime - minTime;
+    
+    // Calculate number of frames - ensure we cover the entire time span
+    const potentialFrames = Math.max(1, Math.ceil(timeSpanMs / windowSizeMs));
+    const frameCount = Math.min(potentialFrames, maxFrames);
+    // Adjust window size to cover the full time span evenly
+    const adjustedWindowSize = frameCount > 0 ? (timeSpanMs + 1) / frameCount : windowSizeMs;
+    
+    const frames: ClusterEvolutionFrame[] = [];
+    let totalClusters = 0;
+    let maxClustersInFrame = 0;
+    
+    for (let i = 0; i < frameCount; i++) {
+      const windowStart = minTime + i * adjustedWindowSize;
+      // Last frame includes all remaining probes (use maxTime + 1 to be inclusive)
+      const windowEnd = i === frameCount - 1 ? maxTime + 1 : windowStart + adjustedWindowSize;
+      
+      // Get probes in this time window
+      const windowProbes = sortedProbes.filter(p => {
+        const ts = new Date(p.timestamp).getTime();
+        return ts >= windowStart && ts < windowEnd;
+      });
+      
+      if (windowProbes.length === 0) {
+        continue;
+      }
+      
+      // Cluster probes by 2D-projected basin coordinates
+      const clusters = this.clusterProbesForAnimation(windowProbes, clusterThreshold);
+      
+      // Calculate frame stats
+      let framePhiSum = 0;
+      for (const probe of windowProbes) {
+        framePhiSum += probe.phi;
+      }
+      const frameAvgPhi = windowProbes.length > 0 ? framePhiSum / windowProbes.length : 0;
+      
+      const frame: ClusterEvolutionFrame = {
+        frameIndex: frames.length,
+        timestamp: new Date(windowStart).toISOString(),
+        windowEnd: new Date(windowEnd).toISOString(),
+        clusters,
+        totalProbes: windowProbes.length,
+        avgPhi: frameAvgPhi,
+        frameLabel: this.generateFrameLabel(i, frameCount, windowStart, adjustedWindowSize),
+      };
+      
+      frames.push(frame);
+      totalClusters += clusters.length;
+      if (clusters.length > maxClustersInFrame) {
+        maxClustersInFrame = clusters.length;
+      }
+    }
+    
+    return {
+      frames,
+      totalFrames: frames.length,
+      timeSpanMs,
+      windowSizeMs: adjustedWindowSize,
+      totalProbes: probes.length,
+      avgClustersPerFrame: frames.length > 0 ? totalClusters / frames.length : 0,
+      maxClustersInFrame,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Cluster probes for animation using simple distance-based clustering.
+   * Projects 32D coordinates to 2D using first two principal components.
+   */
+  private clusterProbesForAnimation(probes: BasinProbe[], threshold: number): ClusterData[] {
+    if (probes.length === 0) return [];
+    
+    // Project to 2D using dimension 0 and 1 (simple projection)
+    const projectedProbes = probes.map(p => ({
+      probe: p,
+      x: p.coordinates.length > 0 ? p.coordinates[0] : Math.random(),
+      y: p.coordinates.length > 1 ? p.coordinates[1] : Math.random(),
+    }));
+    
+    // Normalize coordinates to 0-1 range
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    for (const pp of projectedProbes) {
+      if (pp.x < minX) minX = pp.x;
+      if (pp.x > maxX) maxX = pp.x;
+      if (pp.y < minY) minY = pp.y;
+      if (pp.y > maxY) maxY = pp.y;
+    }
+    
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+    
+    for (const pp of projectedProbes) {
+      pp.x = (pp.x - minX) / rangeX;
+      pp.y = (pp.y - minY) / rangeY;
+    }
+    
+    // Simple clustering: assign to nearest cluster or create new
+    const clusterAssignments: Map<number, typeof projectedProbes> = new Map();
+    let nextClusterId = 0;
+    
+    for (const pp of projectedProbes) {
+      let assignedCluster = -1;
+      let minDist = Infinity;
+      
+      // Find nearest existing cluster center
+      for (const [clusterId, members] of clusterAssignments) {
+        let sumX = 0, sumY = 0;
+        for (const m of members) {
+          sumX += m.x;
+          sumY += m.y;
+        }
+        const centerX = sumX / members.length;
+        const centerY = sumY / members.length;
+        
+        const dist = Math.sqrt(Math.pow(pp.x - centerX, 2) + Math.pow(pp.y - centerY, 2));
+        if (dist < minDist && dist < threshold) {
+          minDist = dist;
+          assignedCluster = clusterId;
+        }
+      }
+      
+      if (assignedCluster >= 0) {
+        clusterAssignments.get(assignedCluster)!.push(pp);
+      } else {
+        clusterAssignments.set(nextClusterId++, [pp]);
+      }
+    }
+    
+    // Convert to ClusterData
+    const clusters: ClusterData[] = [];
+    
+    for (const [clusterId, members] of clusterAssignments) {
+      let sumX = 0, sumY = 0;
+      let sumPhi = 0, maxPhi = 0;
+      const regimeCounts: Record<string, number> = {};
+      
+      for (const m of members) {
+        sumX += m.x;
+        sumY += m.y;
+        sumPhi += m.probe.phi;
+        if (m.probe.phi > maxPhi) maxPhi = m.probe.phi;
+        regimeCounts[m.probe.regime] = (regimeCounts[m.probe.regime] || 0) + 1;
+      }
+      
+      const centerX = sumX / members.length;
+      const centerY = sumY / members.length;
+      const avgPhi = sumPhi / members.length;
+      
+      // Calculate radius as max distance from center
+      let maxDist = 0;
+      for (const m of members) {
+        const dist = Math.sqrt(Math.pow(m.x - centerX, 2) + Math.pow(m.y - centerY, 2));
+        if (dist > maxDist) maxDist = dist;
+      }
+      
+      // Find dominant regime
+      let dominantRegime = 'unknown';
+      let maxCount = 0;
+      for (const [regime, count] of Object.entries(regimeCounts)) {
+        if (count > maxCount) {
+          maxCount = count;
+          dominantRegime = regime;
+        }
+      }
+      
+      clusters.push({
+        id: `cluster-${clusterId}`,
+        centerX,
+        centerY,
+        radius: Math.max(0.02, maxDist), // Minimum radius for visibility
+        memberCount: members.length,
+        avgPhi,
+        maxPhi,
+        dominantRegime,
+        intensity: avgPhi, // Use avgPhi as intensity (0-1)
+      });
+    }
+    
+    // Sort by member count descending
+    clusters.sort((a, b) => b.memberCount - a.memberCount);
+    
+    return clusters;
+  }
+
+  /**
+   * Generate human-readable frame label.
+   */
+  private generateFrameLabel(index: number, totalFrames: number, startTime: number, windowMs: number): string {
+    const hoursPerWindow = windowMs / (1000 * 60 * 60);
+    
+    if (hoursPerWindow >= 24) {
+      return `Day ${index + 1}`;
+    } else if (hoursPerWindow >= 1) {
+      return `Hour ${index + 1}`;
+    } else if (hoursPerWindow >= 1/60) {
+      return `Min ${index + 1}`;
+    } else {
+      return `Frame ${index + 1}`;
+    }
   }
 
   /**

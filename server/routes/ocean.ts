@@ -799,6 +799,61 @@ oceanRouter.get("/strategy-performance", generousLimiter, async (req: Request, r
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CLUSTER EVOLUTION ANIMATION ENDPOINT
+// ═══════════════════════════════════════════════════════════════════════════
+
+oceanRouter.get("/cluster-evolution", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { geometricMemory } = await import("../geometric-memory");
+    
+    const windowSizeMs = Math.max(
+      60 * 1000, // min 1 minute
+      Math.min(
+        24 * 60 * 60 * 1000, // max 1 day
+        parseInt(req.query.windowSizeMs as string) || 60 * 60 * 1000 // default 1 hour
+      )
+    );
+    
+    const maxFrames = Math.max(1, Math.min(100, parseInt(req.query.maxFrames as string) || 24));
+    const clusterThreshold = Math.max(0.05, Math.min(1.0, parseFloat(req.query.threshold as string) || 0.3));
+    
+    const animation = geometricMemory.getClusterEvolutionFrames(windowSizeMs, maxFrames, clusterThreshold);
+    
+    const hoursPerWindow = animation.windowSizeMs / (1000 * 60 * 60);
+    const windowLabel = hoursPerWindow >= 24 ? 'days' : hoursPerWindow >= 1 ? 'hours' : 'minutes';
+    
+    res.json({
+      success: true,
+      animation,
+      summary: {
+        totalFrames: animation.totalFrames,
+        totalProbes: animation.totalProbes,
+        timeSpanHours: (animation.timeSpanMs / (1000 * 60 * 60)).toFixed(1),
+        windowSize: `${hoursPerWindow.toFixed(1)} ${windowLabel}`,
+        avgClustersPerFrame: animation.avgClustersPerFrame.toFixed(1),
+        maxClustersInFrame: animation.maxClustersInFrame,
+      },
+      insights: [
+        animation.totalFrames === 0
+          ? 'No probe data yet - start exploration to see cluster evolution'
+          : `${animation.totalFrames} animation frames spanning ${(animation.timeSpanMs / (1000 * 60 * 60)).toFixed(1)} hours`,
+        animation.avgClustersPerFrame > 5
+          ? 'High cluster diversity - exploration is well-distributed'
+          : animation.avgClustersPerFrame > 1
+            ? 'Moderate clustering - focused exploration with some spread'
+            : 'Low clustering - very focused search area',
+        animation.maxClustersInFrame > animation.avgClustersPerFrame * 2
+          ? 'Significant cluster variation over time - dynamic exploration'
+          : 'Consistent cluster count - stable exploration pattern',
+      ],
+    });
+  } catch (error: any) {
+    console.error("[ClusterEvolution] Animation error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 oceanRouter.post("/near-misses/conversion", isAuthenticated, standardLimiter, async (req: Request, res: Response) => {
   try {
     const { nearMissManager } = await import("../near-miss-manager");
