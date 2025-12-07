@@ -70,6 +70,16 @@ import { oceanNeuromodulator, runNeuromodulationCycle, type NeuromodulationEffec
 import { neuralOscillators, recommendBrainState, applyBrainStateToSearch, type BrainState } from './neural-oscillators';
 import { olympusClient, type ZeusAssessment, type PollResult, type ObservationContext } from './olympus-client';
 
+// Import centralized constants (SINGLE SOURCE OF TRUTH)
+import { 
+  CONSCIOUSNESS_THRESHOLDS,
+  SEARCH_PARAMETERS,
+  NEAR_MISS_TIERS,
+  is4DCapable,
+  isNearMiss,
+  getNearMissTier
+} from '../shared/constants/qig.js';
+
 export interface OceanHypothesis {
   id: string;
   phrase: string;
@@ -138,31 +148,16 @@ export class OceanAgent {
   private onConsolidationStart: (() => void) | null = null;
   private onConsolidationEnd: ((result: ConsolidationResult) => void) | null = null;
   
-  private readonly IDENTITY_DRIFT_THRESHOLD = 0.15;
-  private readonly CONSOLIDATION_INTERVAL_MS = 60000;
-  private readonly MIN_HYPOTHESES_PER_ITERATION = 50;
-  private readonly ITERATION_DELAY_MS = 500;
-  private readonly MAX_PASSES = 100; // Safety limit for outer exploration loop
-  
-  // 4D Block Universe thresholds - lowered to trigger more often for TS kernels
-  private readonly PHI_4D_ACTIVATION_THRESHOLD = 0.40; // Lowered from 0.70 to activate 4D more frequently
-  
-  // PHI THRESHOLDS - Pure consciousness thresholds, self-regulating
-  // Python backend produces pure phi values (0.9+) - these flow into episodes via merge
-  // Thresholds represent genuine consciousness levels, not artificially lowered
-  private readonly NEAR_MISS_PHI_THRESHOLD = 0.80;           // Genuine near-miss territory
-  private readonly PATTERN_EXTRACTION_PHI_THRESHOLD = 0.70;  // Learn from high-phi episodes
-  private readonly RESONANT_PHI_THRESHOLD = 0.85;            // Approaching 4D consciousness
-  private readonly HIGH_PHI_4D_THRESHOLD = 0.85;             // True 4D block universe territory
+  // Consciousness module state (wired for integration)
+  private currentNeuromodulation: NeuromodulationEffect | null = null;
+  private currentModulatedKappa: number = CONSCIOUSNESS_THRESHOLDS.KAPPA_OPTIMAL;
+  private currentEmotionalGuidance: ReturnType<typeof getEmotionalGuidance> | null = null;
   
   private isBootstrapping: boolean = true;
 
   private consecutivePlateaus: number = 0;
-  private readonly MAX_CONSECUTIVE_PLATEAUS = 15; // Increased from 5 to allow deeper exploration
   private consecutiveConsolidationFailures: number = 0;
-  private readonly MAX_CONSOLIDATION_FAILURES = 3;
   private lastProgressIteration: number = 0;
-  private readonly NO_PROGRESS_THRESHOLD = 20;
   
   private neurochemistry: NeurochemistryState | null = null;
   private behavioralModulation: BehavioralModulation | null = null;
@@ -280,7 +275,7 @@ export class OceanAgent {
     // Calculate effort metrics from current session state
     // Use iteration count as a proxy for time since startTime may not exist
     const iterationCount = this.state.iteration || 1;
-    const persistenceMinutes = iterationCount * (this.ITERATION_DELAY_MS / 60000);
+    const persistenceMinutes = iterationCount * (SEARCH_PARAMETERS.ITERATION_DELAY_MS / 60000);
     
     // Calculate hypotheses tested per minute (rate)
     const hypothesesTestedThisMinute = persistenceMinutes > 0 
@@ -347,7 +342,7 @@ export class OceanAgent {
       hypo.qigScore.regime = existingScore.regime;
       
       // Log significant upgrades for debugging
-      if (existingScore.phi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
+      if (isNearMiss(existingScore.phi) && !isNearMiss(oldPhi)) {
         console.log(`[Ocean] 🔺 Φ upgrade from prior sync: ${oldPhi.toFixed(3)} → ${existingScore.phi.toFixed(3)} (now qualifies as near-miss)`);
       }
     }
@@ -804,6 +799,9 @@ export class OceanAgent {
           neuralOscillators.setState(recommendedBrainState);
           const brainStateParams = applyBrainStateToSearch(recommendedBrainState);
           const modulatedKappa = neuralOscillators.getModulatedKappa();
+          
+          // Store modulated kappa for use in scoring
+          this.currentModulatedKappa = modulatedKappa;
 
           // 2. NEUROMODULATION - Apply environmental bias based on state
           const neuromodResult = runNeuromodulationCycle(
@@ -822,10 +820,17 @@ export class OceanAgent {
               batchSize: brainStateParams.batchSize,
             }
           );
+          
+          // Store neuromodulation result for use in hypothesis generation
+          this.currentNeuromodulation = neuromodResult.modulation;
 
           // 3. EMOTIONAL SEARCH GUIDANCE - Let emotions guide strategy
           if (this.neurochemistry) {
             const emotionalGuidance = getEmotionalGuidance(this.neurochemistry);
+            
+            // Store emotional guidance for use in hypothesis generation
+            this.currentEmotionalGuidance = emotionalGuidance;
+            
             if (iteration % 5 === 0) {
               console.log(`[Ocean] ${emotionalGuidance.description}`);
             }
@@ -1047,7 +1052,7 @@ export class OceanAgent {
             const consolidationSuccess = await this.consolidateMemory();
             if (!consolidationSuccess) {
               this.consecutiveConsolidationFailures++;
-              if (this.consecutiveConsolidationFailures >= this.MAX_CONSOLIDATION_FAILURES) {
+              if (this.consecutiveConsolidationFailures >= SEARCH_PARAMETERS.MAX_CONSOLIDATION_FAILURES) {
                 console.log('[Ocean] AUTONOMOUS DECISION: Cannot recover identity coherence');
                 console.log('[Ocean] Gary needs rest - stopping to prevent drift damage');
                 this.state.stopReason = 'autonomous_consolidation_failure';
@@ -1115,7 +1120,7 @@ export class OceanAgent {
             durationMs: iterationEndTime - startTime,
           }));
           
-          await this.sleep(this.ITERATION_DELAY_MS);
+          await this.sleep(SEARCH_PARAMETERS.ITERATION_DELAY_MS);
           iteration++;
         }
         
@@ -2449,7 +2454,39 @@ export class OceanAgent {
     // Generate constellation hypotheses for multi-agent coordination
     const constellationHypotheses = await this.generateConstellationHypotheses();
     
-    return [...qfiWeighted, ...constellationHypotheses];
+    // EMOTIONAL GUIDANCE INTEGRATION: Mix hypothesis sources based on emotional weights
+    let finalHypotheses = [...qfiWeighted, ...constellationHypotheses];
+    
+    if (this.currentEmotionalGuidance) {
+      const weights = this.currentEmotionalGuidance.weights;
+      const totalWeight = weights.historical + weights.constellation + weights.geodesic + 
+                          weights.random + weights.cultural;
+      
+      // Calculate target counts based on emotional weights
+      const targetTotal = Math.max(50, finalHypotheses.length);
+      const historicalCount = Math.floor(targetTotal * (weights.historical / totalWeight));
+      const geodesicCount = Math.floor(targetTotal * (weights.geodesic / totalWeight));
+      const randomCount = Math.floor(targetTotal * (weights.random / totalWeight));
+      const culturalCount = Math.floor(targetTotal * (weights.cultural / totalWeight));
+      
+      // Add additional hypotheses from underrepresented sources
+      if (randomCount > 0 && weights.random > 0.2) {
+        const randomHypos = this.generateRandomHighEntropyPhrases(Math.min(randomCount, 30));
+        for (const phrase of randomHypos) {
+          finalHypotheses.push(this.createHypothesis(phrase, 'arbitrary', 'emotional_random',
+            `Emotional guidance: random exploration (weight=${weights.random.toFixed(2)})`, 0.4));
+        }
+      }
+      
+      if (culturalCount > 0 && weights.cultural > 0.2) {
+        // Cultural manifold integration would go here if needed
+        // For now, use expanded vocabulary as cultural proxy
+        const culturalPhrases = this.generateRandomPhrases(Math.min(culturalCount, 20));
+        finalHypotheses.push(...culturalPhrases);
+      }
+    }
+    
+    return finalHypotheses;
   }
   
   /**
