@@ -1,3 +1,11 @@
+/**
+ * @deprecated One-time migration script - run directly with `npx tsx server/consolidate-data.ts`
+ * 
+ * This script migrates data from JSON files to PostgreSQL database.
+ * It should only be run once during initial setup or data recovery.
+ * After successful migration, this file is kept for reference only.
+ */
+
 import { db } from './db';
 import { balanceHits, userTargetAddresses } from '../shared/schema';
 import { eq } from 'drizzle-orm';

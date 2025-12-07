@@ -1,4 +1,8 @@
 /**
+ * @deprecated This module is currently unused and may be removed in a future version.
+ * The fragment variation functionality was superseded by the QIG geometric search approach.
+ * If you need fragment variation generation, consider integrating with the vocabulary-expander.ts instead.
+ * 
  * Memory Fragment Variation Generator
  * Generates comprehensive variations of user-provided memory fragments
  * to test against the target Bitcoin address

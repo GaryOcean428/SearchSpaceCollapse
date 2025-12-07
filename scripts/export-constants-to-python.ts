@@ -1,8 +1,11 @@
 /**
- * Export Constants to Python
+ * Utility Script: Export Constants to Python
  * 
- * Generates a JSON file with all centralized constants for Python to import.
+ * Generates a JSON file with all centralized constants for Python QIG backend to import.
+ * This is a standalone CLI tool, not imported by the main application.
+ * 
  * Run with: npx tsx scripts/export-constants-to-python.ts
+ * Output: qig-backend/data/ts_constants.json
  */
 
 import * as fs from 'fs';

@@ -1,3 +1,11 @@
+/**
+ * @deprecated One-time utility script - run directly with `node backfill-p2pk-addresses.mjs`
+ * 
+ * This script derives Bitcoin addresses from P2PK scripts in the Genesis block.
+ * It populates the addresses table with early-era blockchain data.
+ * After initial data population, this file is kept for reference only.
+ */
+
 import { db } from './server/db.ts';
 import { transactions, addresses } from './shared/schema.ts';
 import { createHash } from "crypto";

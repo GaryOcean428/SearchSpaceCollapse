@@ -1,4 +1,9 @@
 /**
+ * @deprecated This module is currently unused. The active Tavily balance scraper is located at:
+ * server/geometric-discovery/tavily-adapter.ts
+ * 
+ * This file is kept for reference but may be removed in a future cleanup.
+ * 
  * Tavily BitInfoCharts Balance Scraper
  * 
  * Uses Tavily web scraping API to batch check Bitcoin address balances

@@ -1,3 +1,11 @@
+/**
+ * @deprecated One-time test script - run directly with `node test-observer-workflow.mjs`
+ * 
+ * This script tests the observer workflow by computing recovery metrics
+ * for dormant addresses and creating recovery workflows.
+ * It is kept for debugging and reference purposes only.
+ */
+
 import { observerStorage } from './server/observer-storage.ts';
 import { computeKappaRecovery } from './server/kappa-recovery-solver.ts';
 
