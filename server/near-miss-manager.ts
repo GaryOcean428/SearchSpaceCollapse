@@ -95,6 +95,21 @@ export interface AdaptiveThresholds {
   lastComputed: string;
 }
 
+export interface ClusterAgingAnalytics {
+  id: string;
+  ageHours: number;
+  memberCount: number;
+  avgPhi: number;
+  maxPhi: number;
+  explorationFrequency: number;
+  decayRate: number;
+  priorityScore: number;
+  explorationCadence: 'immediate' | 'priority' | 'standard' | 'deferred';
+  commonWords: string[];
+  structuralPattern: string;
+  lastUpdatedAt: string;
+}
+
 const DATA_DIR = path.join(process.cwd(), 'data');
 const NEAR_MISS_FILE = path.join(DATA_DIR, 'near-miss-state.json');
 
@@ -380,6 +395,73 @@ export class NearMissManager {
         ageHours: (now - new Date(c.createdAt).getTime()) / (1000 * 60 * 60),
       }))
       .sort((a, b) => b.avgPhi - a.avgPhi);
+  }
+
+  /**
+   * Get cluster aging analytics for exploration cadence decisions
+   * Returns clusters with aging metrics, decay rates, and priority scores
+   */
+  getClusterAnalytics(): ClusterAgingAnalytics[] {
+    const now = Date.now();
+    const analytics: ClusterAgingAnalytics[] = [];
+
+    for (const cluster of this.clusters.values()) {
+      const members = this.getClusterMembers(cluster.id);
+      const ageHours = (now - new Date(cluster.createdAt).getTime()) / (1000 * 60 * 60);
+      
+      const totalExplorations = members.reduce((sum, m) => sum + m.explorationCount, 0);
+      const explorationFrequency = ageHours > 0 ? totalExplorations / ageHours : 0;
+      
+      const escalatingCount = members.filter(m => m.isEscalating).length;
+      const escalationRatio = members.length > 0 ? escalatingCount / members.length : 0;
+      
+      const decayRate = Math.exp(-NEAR_MISS_CONFIG.DECAY_RATE_PER_HOUR * ageHours);
+      
+      const priorityScore = 
+        cluster.avgPhi * 10 * 
+        decayRate * 
+        (1 + escalationRatio) * 
+        Math.log2(2 + cluster.memberCount);
+      
+      let explorationCadence: 'immediate' | 'priority' | 'standard' | 'deferred';
+      if (priorityScore >= 5 || escalationRatio >= 0.5) {
+        explorationCadence = 'immediate';
+      } else if (priorityScore >= 2 || ageHours < 1) {
+        explorationCadence = 'priority';
+      } else if (ageHours < 24) {
+        explorationCadence = 'standard';
+      } else {
+        explorationCadence = 'deferred';
+      }
+
+      analytics.push({
+        id: cluster.id,
+        ageHours,
+        memberCount: cluster.memberCount,
+        avgPhi: cluster.avgPhi,
+        maxPhi: cluster.maxPhi,
+        explorationFrequency,
+        decayRate,
+        priorityScore,
+        explorationCadence,
+        commonWords: cluster.commonWords,
+        structuralPattern: cluster.structuralPattern,
+        lastUpdatedAt: cluster.lastUpdatedAt,
+      });
+    }
+
+    return analytics.sort((a, b) => b.priorityScore - a.priorityScore);
+  }
+
+  /**
+   * Get clusters ready for immediate exploration based on aging analytics
+   */
+  getClustersForExploration(cadence?: 'immediate' | 'priority' | 'standard' | 'deferred'): ClusterAgingAnalytics[] {
+    const analytics = this.getClusterAnalytics();
+    if (!cadence) {
+      return analytics.filter(a => a.explorationCadence === 'immediate' || a.explorationCadence === 'priority');
+    }
+    return analytics.filter(a => a.explorationCadence === cadence);
   }
 
   /**

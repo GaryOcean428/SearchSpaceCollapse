@@ -1171,6 +1171,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get cluster aging analytics for exploration cadence
+  app.get("/api/near-misses/cluster-analytics", generousLimiter, async (req, res) => {
+    try {
+      const cadence = req.query.cadence as 'immediate' | 'priority' | 'standard' | 'deferred' | undefined;
+      
+      let analytics;
+      if (cadence) {
+        analytics = nearMissManager.getClustersForExploration(cadence);
+      } else {
+        analytics = nearMissManager.getClusterAnalytics();
+      }
+
+      const summary = {
+        totalClusters: analytics.length,
+        immediate: analytics.filter(a => a.explorationCadence === 'immediate').length,
+        priority: analytics.filter(a => a.explorationCadence === 'priority').length,
+        standard: analytics.filter(a => a.explorationCadence === 'standard').length,
+        deferred: analytics.filter(a => a.explorationCadence === 'deferred').length,
+        avgPriorityScore: analytics.length > 0 
+          ? analytics.reduce((sum, a) => sum + a.priorityScore, 0) / analytics.length 
+          : 0,
+        avgAgeHours: analytics.length > 0
+          ? analytics.reduce((sum, a) => sum + a.ageHours, 0) / analytics.length
+          : 0,
+      };
+
+      res.json({
+        analytics,
+        summary,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("[Near-Miss Cluster Analytics] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============================================================
   // FORENSIC INVESTIGATION API (Cross-Format Hypothesis Testing)
   // ============================================================
