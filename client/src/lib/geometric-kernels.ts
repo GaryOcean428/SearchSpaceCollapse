@@ -9,6 +9,8 @@
  * All approaches use the Fisher Information Metric and maintain geometric purity.
  */
 
+import CryptoJS from 'crypto-js';
+
 export const BASIN_DIM = 64;
 export const E8_ROOTS_COUNT = 240;
 export const BYTE_VOCAB_SIZE = 260;
@@ -31,34 +33,55 @@ export interface SimilarityResult {
   distance: number;
 }
 
-async function sha256(message: string): Promise<Uint8Array> {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  return new Uint8Array(hashBuffer);
+/**
+ * Convert Uint8Array to CryptoJS WordArray with correct byte packing.
+ * Each 4 bytes become one 32-bit word (big-endian).
+ */
+function uint8ArrayToWordArray(bytes: Uint8Array): CryptoJS.lib.WordArray {
+  const words: number[] = [];
+  for (let i = 0; i < bytes.length; i += 4) {
+    const word = ((bytes[i] || 0) << 24) |
+                 ((bytes[i + 1] || 0) << 16) |
+                 ((bytes[i + 2] || 0) << 8) |
+                 (bytes[i + 3] || 0);
+    words.push(word);
+  }
+  return CryptoJS.lib.WordArray.create(words, bytes.length);
 }
 
-async function hashToBytes(data: string, length: number = 256): Promise<Uint8Array> {
-  /**
-   * Generate deterministic bytes from string using SHA-256 chain.
-   * Matches Python: hashlib.sha256(seed + result).digest() chained.
-   */
+/**
+ * Synchronous SHA-256 chain matching Python's hashlib implementation exactly.
+ * Uses crypto-js for synchronous hashing with exact parity to backend.
+ */
+function hashToBytesSync(data: string, length: number = 256): Uint8Array {
   const result = new Uint8Array(length);
   const seed = new TextEncoder().encode(data);
   let offset = 0;
   
   while (offset < length) {
-    // Combine seed + accumulated result (like Python: seed + result)
+    // Combine seed + accumulated result (matches Python: seed + result)
     const combined = new Uint8Array(seed.length + offset);
     combined.set(seed, 0);
     if (offset > 0) {
       combined.set(result.slice(0, offset), seed.length);
     }
     
-    // SHA-256 hash of combined data
-    const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
-    const hashBytes = new Uint8Array(hashBuffer);
+    // SHA-256 hash using crypto-js with proper byte packing
+    const wordArray = uint8ArrayToWordArray(combined);
+    const hash = CryptoJS.SHA256(wordArray);
+    const hashWords = hash.words;
     
-    // Append 32 bytes to result
+    // Convert WordArray to bytes (32 bytes from 8 x 32-bit words)
+    const hashBytes = new Uint8Array(32);
+    for (let i = 0; i < 8; i++) {
+      const word = hashWords[i] >>> 0; // Unsigned
+      hashBytes[i * 4] = (word >>> 24) & 0xFF;
+      hashBytes[i * 4 + 1] = (word >>> 16) & 0xFF;
+      hashBytes[i * 4 + 2] = (word >>> 8) & 0xFF;
+      hashBytes[i * 4 + 3] = word & 0xFF;
+    }
+    
+    // Append to result
     const bytesToCopy = Math.min(32, length - offset);
     result.set(hashBytes.slice(0, bytesToCopy), offset);
     offset += 32;
@@ -67,30 +90,28 @@ async function hashToBytes(data: string, length: number = 256): Promise<Uint8Arr
   return result;
 }
 
-// Synchronous version using pre-computed hash table for performance
-// Uses deterministic PRNG seeded by string hash
-function hashToBytesSyncFallback(data: string, length: number = 256): Uint8Array {
+async function hashToBytesAsync(data: string, length: number = 256): Promise<Uint8Array> {
   /**
-   * Synchronous fallback when async isn't available.
-   * Uses FNV-1a hash + Mulberry32 PRNG for determinism.
+   * Async version using Web Crypto API.
+   * Matches Python: hashlib.sha256(seed + result).digest() chained.
    */
   const result = new Uint8Array(length);
+  const seed = new TextEncoder().encode(data);
+  let offset = 0;
   
-  // FNV-1a hash of input string for seed
-  let hash = 2166136261;
-  for (let i = 0; i < data.length; i++) {
-    hash ^= data.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  
-  // Mulberry32 PRNG seeded by hash
-  let seed = hash >>> 0;
-  for (let i = 0; i < length; i++) {
-    seed += 0x6D2B79F5;
-    let t = seed;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    result[i] = ((t ^ (t >>> 14)) >>> 0) & 0xFF;
+  while (offset < length) {
+    const combined = new Uint8Array(seed.length + offset);
+    combined.set(seed, 0);
+    if (offset > 0) {
+      combined.set(result.slice(0, offset), seed.length);
+    }
+    
+    const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
+    const hashBytes = new Uint8Array(hashBuffer);
+    
+    const bytesToCopy = Math.min(32, length - offset);
+    result.set(hashBytes.slice(0, bytesToCopy), offset);
+    offset += 32;
   }
   
   return result;
@@ -202,9 +223,8 @@ export class DirectGeometricEncoder {
       return this.segmentCache.get(chunk)!;
     }
     
-    // Use sync fallback for deterministic local encoding
-    // For exact backend parity, use API mode
-    const hashBytes = hashToBytesSyncFallback(chunk, this.basinDim * 4);
+    // Use synchronous SHA-256 chain matching Python backend exactly
+    const hashBytes = hashToBytesSync(chunk, this.basinDim * 4);
     
     const coords: number[] = [];
     for (let i = 0; i < this.basinDim; i++) {
@@ -219,11 +239,11 @@ export class DirectGeometricEncoder {
   }
   
   /**
-   * Async version that matches Python backend exactly (SHA-256 chain).
-   * Use this when exact parity with API is needed.
+   * Async version using Web Crypto API (SHA-256 chain).
+   * Both sync and async now match Python backend exactly.
    */
   async hashToManifoldAsync(chunk: string): Promise<number[]> {
-    const hashBytes = await hashToBytes(chunk, this.basinDim * 4);
+    const hashBytes = await hashToBytesAsync(chunk, this.basinDim * 4);
     
     const coords: number[] = [];
     for (let i = 0; i < this.basinDim; i++) {
@@ -310,8 +330,8 @@ export class ByteLevelGeometric {
   }
   
   private hashToBasin(seed: string): number[] {
-    // Use sync fallback for deterministic local encoding
-    const hashBytes = hashToBytesSyncFallback(seed, this.basinDim * 4);
+    // Use synchronous SHA-256 chain matching Python backend exactly
+    const hashBytes = hashToBytesSync(seed, this.basinDim * 4);
     const coords: number[] = [];
     for (let i = 0; i < this.basinDim; i++) {
       const val = (hashBytes[i * 4] << 24 | hashBytes[i * 4 + 1] << 16 |
