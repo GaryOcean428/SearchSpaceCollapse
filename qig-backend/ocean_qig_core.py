@@ -109,6 +109,20 @@ except ImportError as e:
     PANTHEON_ORCHESTRATOR_AVAILABLE = False
     print(f"[WARNING] Pantheon Kernel Orchestrator not found: {e}")
 
+# Import M8 Kernel Spawning Protocol
+M8_SPAWNER_AVAILABLE = False
+try:
+    from m8_kernel_spawning import (
+        M8KernelSpawner,
+        SpawnReason,
+        ConsensusType,
+        get_spawner,
+    )
+    M8_SPAWNER_AVAILABLE = True
+    print("[INFO] M8 Kernel Spawning Protocol loaded (Dynamic Kernel Genesis)")
+except ImportError as e:
+    print(f"[WARNING] M8 Kernel Spawning not found: {e}")
+
 # Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
 KAPPA_STAR = 64.0  # Fixed point (extrapolated from L=4,5,6)
 BASIN_DIMENSION = 64
@@ -3488,6 +3502,271 @@ def pantheon_god_similarity():
             'god2': god2,
             'similarity': similarity,
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# M8 KERNEL SPAWNING PROTOCOL ENDPOINTS
+# Dynamic kernel genesis through pantheon consensus
+# =============================================================================
+
+@app.route('/m8/status', methods=['GET'])
+def m8_spawner_status():
+    """
+    Get M8 Kernel Spawner status.
+    
+    Returns: { consensus_type, total_proposals, spawned_kernels, ... }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        spawner = get_spawner()
+        status = spawner.get_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/propose', methods=['POST'])
+def m8_create_proposal():
+    """
+    Create a spawn proposal for a new kernel.
+    
+    Body: {
+        name: string,
+        domain: string,
+        element: string,
+        role: string,
+        reason?: "domain_gap" | "overload" | "specialization" | "emergence" | "user_request",
+        parent_gods?: string[]
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        
+        name = data.get('name', '')
+        domain = data.get('domain', '')
+        element = data.get('element', '')
+        role = data.get('role', '')
+        
+        if not all([name, domain, element, role]):
+            return jsonify({'error': 'name, domain, element, and role are required'}), 400
+        
+        reason_str = data.get('reason', 'emergence')
+        reason_map = {
+            'domain_gap': SpawnReason.DOMAIN_GAP,
+            'overload': SpawnReason.OVERLOAD,
+            'specialization': SpawnReason.SPECIALIZATION,
+            'emergence': SpawnReason.EMERGENCE,
+            'user_request': SpawnReason.USER_REQUEST,
+        }
+        reason = reason_map.get(reason_str, SpawnReason.EMERGENCE)
+        
+        parent_gods = data.get('parent_gods', None)
+        
+        spawner = get_spawner()
+        proposal = spawner.create_proposal(
+            name=name,
+            domain=domain,
+            element=element,
+            role=role,
+            reason=reason,
+            parent_gods=parent_gods,
+        )
+        
+        return jsonify(spawner.get_proposal(proposal.proposal_id))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/vote/<proposal_id>', methods=['POST'])
+def m8_vote_proposal(proposal_id: str):
+    """
+    Conduct voting on a proposal.
+    
+    Body: { auto_vote?: boolean }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        auto_vote = data.get('auto_vote', True)
+        
+        spawner = get_spawner()
+        result = spawner.vote_on_proposal(proposal_id, auto_vote=auto_vote)
+        
+        if 'error' in result:
+            return jsonify(result), 404
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/spawn/<proposal_id>', methods=['POST'])
+def m8_spawn_kernel(proposal_id: str):
+    """
+    Spawn a new kernel from an approved proposal.
+    
+    Body: { force?: boolean }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        force = data.get('force', False)
+        
+        spawner = get_spawner()
+        result = spawner.spawn_kernel(proposal_id, force=force)
+        
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/spawn-direct', methods=['POST'])
+def m8_spawn_direct():
+    """
+    Complete spawn flow: propose, vote, and spawn in one call.
+    
+    Body: {
+        name: string,
+        domain: string,
+        element: string,
+        role: string,
+        reason?: string,
+        parent_gods?: string[],
+        force?: boolean
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        
+        name = data.get('name', '')
+        domain = data.get('domain', '')
+        element = data.get('element', '')
+        role = data.get('role', '')
+        
+        if not all([name, domain, element, role]):
+            return jsonify({'error': 'name, domain, element, and role are required'}), 400
+        
+        reason_str = data.get('reason', 'emergence')
+        reason_map = {
+            'domain_gap': SpawnReason.DOMAIN_GAP,
+            'overload': SpawnReason.OVERLOAD,
+            'specialization': SpawnReason.SPECIALIZATION,
+            'emergence': SpawnReason.EMERGENCE,
+            'user_request': SpawnReason.USER_REQUEST,
+        }
+        reason = reason_map.get(reason_str, SpawnReason.EMERGENCE)
+        
+        parent_gods = data.get('parent_gods', None)
+        force = data.get('force', False)
+        
+        spawner = get_spawner()
+        result = spawner.propose_and_spawn(
+            name=name,
+            domain=domain,
+            element=element,
+            role=role,
+            reason=reason,
+            parent_gods=parent_gods,
+            force=force,
+        )
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/proposals', methods=['GET'])
+def m8_list_proposals():
+    """
+    List all proposals, optionally filtered by status.
+    
+    Query: ?status=pending|approved|rejected|spawned
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        status = request.args.get('status', None)
+        
+        spawner = get_spawner()
+        proposals = spawner.list_proposals(status=status)
+        
+        return jsonify({
+            'proposals': proposals,
+            'count': len(proposals),
+            'filter': status,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/proposal/<proposal_id>', methods=['GET'])
+def m8_get_proposal(proposal_id: str):
+    """Get details of a specific proposal."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        spawner = get_spawner()
+        proposal = spawner.get_proposal(proposal_id)
+        
+        if not proposal:
+            return jsonify({'error': f'Proposal {proposal_id} not found'}), 404
+        
+        return jsonify(proposal)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernels', methods=['GET'])
+def m8_list_spawned_kernels():
+    """List all spawned kernels."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        spawner = get_spawner()
+        kernels = spawner.list_spawned_kernels()
+        
+        return jsonify({
+            'kernels': kernels,
+            'count': len(kernels),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernel/<kernel_id>', methods=['GET'])
+def m8_get_spawned_kernel(kernel_id: str):
+    """Get details of a specific spawned kernel."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+    
+    try:
+        spawner = get_spawner()
+        kernel = spawner.get_spawned_kernel(kernel_id)
+        
+        if not kernel:
+            return jsonify({'error': f'Kernel {kernel_id} not found'}), 404
+        
+        return jsonify(kernel)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
