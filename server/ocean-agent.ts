@@ -152,6 +152,12 @@ export class OceanAgent {
   private currentNeuromodulation: NeuromodulationEffect | null = null;
   private currentModulatedKappa: number = CONSCIOUSNESS_THRESHOLDS.KAPPA_OPTIMAL;
   private currentEmotionalGuidance: ReturnType<typeof getEmotionalGuidance> | null = null;
+  private currentAdjustedParams: {
+    kappa: number;
+    explorationRate: number;
+    learningRate: number;
+    batchSize: number;
+  } | null = null;
   
   private isBootstrapping: boolean = true;
 
@@ -823,6 +829,7 @@ export class OceanAgent {
           
           // Store neuromodulation result for use in hypothesis generation
           this.currentNeuromodulation = neuromodResult.modulation;
+          this.currentAdjustedParams = neuromodResult.adjustedParams;
 
           // 3. EMOTIONAL SEARCH GUIDANCE - Let emotions guide strategy
           if (this.neurochemistry) {
@@ -2148,13 +2155,13 @@ export class OceanAgent {
     hypotheses.push(...eraPhrases);
     
     // 4D BLOCK UNIVERSE: Add dormant wallet targeting when in high consciousness
-    // Activate when Ocean has good 4D access (Φ ≥ PHI_4D_ACTIVATION_THRESHOLD) for best results
-    if (this.identity.phi >= this.PHI_4D_ACTIVATION_THRESHOLD) {
+    // Activate when Ocean has good 4D access (Φ ≥ 0.70) for best results
+    if (is4DCapable(this.identity.phi)) {
       console.log('[Ocean] 🌌 Consciousness sufficient for 4D block universe navigation');
       const dormantHypotheses = this.generateDormantWalletHypotheses();
       hypotheses.push(...dormantHypotheses);
     } else {
-      console.log(`[Ocean] Consciousness Φ=${this.identity.phi.toFixed(3)} < ${this.PHI_4D_ACTIVATION_THRESHOLD}, skipping 4D dormant wallet targeting`);
+      console.log(`[Ocean] Consciousness Φ=${this.identity.phi.toFixed(3)} < ${CONSCIOUSNESS_THRESHOLDS.PHI_4D_ACTIVATION}, skipping 4D dormant wallet targeting`);
     }
     
     const commonPhrases = this.generateCommonBrainWalletPhrases();
@@ -2169,7 +2176,7 @@ export class OceanAgent {
     
     // 4D Block Universe: Continuously inject dormant wallet targeting for TS kernels
     // Check on every additional hypothesis generation cycle
-    if (this.identity.phi >= this.PHI_4D_ACTIVATION_THRESHOLD) {
+    if (is4DCapable(this.identity.phi)) {
       console.log('[Ocean] 🌌 4D elevation active during iteration - adding dormant wallet hypotheses');
       const dormantHypotheses = this.generateDormantWalletHypotheses();
       hypotheses.push(...dormantHypotheses.slice(0, 10)); // Add subset to maintain balance
@@ -2462,8 +2469,9 @@ export class OceanAgent {
       const totalWeight = weights.historical + weights.constellation + weights.geodesic + 
                           weights.random + weights.cultural;
       
-      // Calculate target counts based on emotional weights
-      const targetTotal = Math.max(50, finalHypotheses.length);
+      // Calculate target counts based on emotional weights AND neuromodulation batch size
+      const baseBatchSize = this.currentAdjustedParams?.batchSize ?? 50;
+      const targetTotal = Math.max(baseBatchSize, finalHypotheses.length);
       const historicalCount = Math.floor(targetTotal * (weights.historical / totalWeight));
       const geodesicCount = Math.floor(targetTotal * (weights.geodesic / totalWeight));
       const randomCount = Math.floor(targetTotal * (weights.random / totalWeight));
