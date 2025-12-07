@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "crypto";
 import { storage } from "../storage";
+import { storageFacade } from "../persistence";
 import { KNOWN_12_WORD_PHRASES } from "../known-phrases";
 import { generateRandomBIP39Phrase, getBIP39Wordlist } from "../bip39-words";
 import { searchCoordinator } from "../search-coordinator";
@@ -37,7 +38,7 @@ searchRouter.get("/known-phrases", generousLimiter, (req: Request, res: Response
 
 searchRouter.get("/candidates", generousLimiter, async (req: Request, res: Response) => {
   try {
-    const candidates = await storage.getCandidates();
+    const candidates = await storageFacade.candidates.getCandidates();
     res.json(candidates);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -46,7 +47,7 @@ searchRouter.get("/candidates", generousLimiter, async (req: Request, res: Respo
 
 searchRouter.get("/analytics", generousLimiter, async (req: Request, res: Response) => {
   try {
-    const candidates = await storage.getCandidates();
+    const candidates = await storageFacade.candidates.getCandidates();
     
     const scores = candidates.map(c => c.score);
     const mean = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
@@ -238,7 +239,7 @@ searchRouter.post("/search-jobs", async (req: Request, res: Response) => {
       updatedAt: new Date().toISOString(),
     };
 
-    await storage.addSearchJob(job);
+    await storageFacade.searchJobs.addSearchJob(job);
     res.json(job);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -247,7 +248,7 @@ searchRouter.post("/search-jobs", async (req: Request, res: Response) => {
 
 searchRouter.get("/search-jobs", async (req: Request, res: Response) => {
   try {
-    const jobs = await storage.getSearchJobs();
+    const jobs = await storageFacade.searchJobs.getSearchJobs();
     res.json(jobs);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -257,7 +258,7 @@ searchRouter.get("/search-jobs", async (req: Request, res: Response) => {
 searchRouter.get("/search-jobs/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const job = await storage.getSearchJob(id);
+    const job = await storageFacade.searchJobs.getSearchJob(id);
     
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
@@ -273,7 +274,7 @@ searchRouter.get("/search-jobs/:id/logs", async (req: Request, res: Response) =>
   try {
     const { id } = req.params;
     const limit = parseInt(req.query.limit as string) || 50;
-    const job = await storage.getSearchJob(id);
+    const job = await storageFacade.searchJobs.getSearchJob(id);
     
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
@@ -291,7 +292,7 @@ searchRouter.post("/search-jobs/:id/stop", async (req: Request, res: Response) =
     const { id } = req.params;
     await searchCoordinator.stopJob(id);
     
-    const job = await storage.getSearchJob(id);
+    const job = await storageFacade.searchJobs.getSearchJob(id);
     if (!job) {
       return res.status(404).json({ error: "Job not found" });
     }
@@ -305,7 +306,7 @@ searchRouter.post("/search-jobs/:id/stop", async (req: Request, res: Response) =
 searchRouter.delete("/search-jobs/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await storage.deleteSearchJob(id);
+    await storageFacade.searchJobs.deleteSearchJob(id);
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -326,7 +327,7 @@ searchRouter.get("/activity-stream", async (req: Request, res: Response) => {
     
     let jobs: any[] = [];
     try {
-      const jobsPromise = storage.getSearchJobs();
+      const jobsPromise = storageFacade.searchJobs.getSearchJobs();
       const timeoutPromise = new Promise<any[]>((_, reject) => 
         setTimeout(() => reject(new Error('timeout')), 2000)
       );
