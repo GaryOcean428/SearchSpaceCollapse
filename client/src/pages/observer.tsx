@@ -137,6 +137,20 @@ interface SweepAuditEntry {
   timestamp: string;
 }
 
+interface QIGSearchSession {
+  sessionId: string;
+  targetAddress: string;
+  status: 'running' | 'paused' | 'completed' | 'error';
+  startedAt: string;
+  phrasesTestedTotal: number;
+  phrasesTestedSinceStart: number;
+  highPhiCount: number;
+  discoveryCount: number;
+  lastPhiScore: number;
+  lastPhrasesTested: string[];
+  errorMessage?: string;
+}
+
 const HARDCODED_DESTINATION = "bc1qcc0ln7gg92vlclfw8t39zfw2cfqtytcwum733l";
 
 export default function ObserverPage() {
@@ -210,6 +224,71 @@ export default function ObserverPage() {
   const { data: dormantCrossRefData, isLoading: dormantCrossRefLoading } = useQuery<DormantCrossRefStats>({
     queryKey: ['/api/dormant-crossref/stats'],
     refetchInterval: 10000, // Poll every 10 seconds
+  });
+
+  // Query active QIG searches
+  const { data: activeQIGSearches, refetch: refetchQIGSearches } = useQuery<{
+    success: boolean;
+    count: number;
+    sessions: Array<QIGSearchSession & { address: string }>;
+  }>({
+    queryKey: ['/api/observer/qig-search/active'],
+    refetchInterval: 2000, // Poll every 2 seconds for real-time progress
+  });
+
+  // Track which addresses have active or error searches (including error sessions for visibility)
+  const allSearchSessions = activeQIGSearches?.sessions || [];
+  const activeSearchAddresses = new Set(
+    allSearchSessions.filter(s => s.status === 'running' || s.status === 'error').map(s => s.targetAddress)
+  );
+
+  // Start QIG search mutation
+  const startQIGSearchMutation = useMutation({
+    mutationFn: async ({ address, kappaRecovery, tier }: { 
+      address: string; 
+      kappaRecovery: number; 
+      tier: string;
+    }) => {
+      const res = await fetch('/api/observer/qig-search/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, kappaRecovery, tier })
+      });
+      if (!res.ok) throw new Error('Failed to start QIG search');
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "QIG Search Started",
+        description: data.message || "Targeted search initiated",
+      });
+      refetchQIGSearches();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Search Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Stop QIG search mutation  
+  const stopQIGSearchMutation = useMutation({
+    mutationFn: async (address: string) => {
+      const res = await fetch(`/api/observer/qig-search/stop/${encodeURIComponent(address)}`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error('Failed to stop QIG search');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Search Stopped",
+        description: "QIG search paused",
+      });
+      refetchQIGSearches();
+    }
   });
 
   // Sweep status filter state
@@ -968,32 +1047,139 @@ export default function ObserverPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {prioritiesData?.priorities.slice(0, 50).map((priority) => (
-                      <div
-                        key={priority.address}
-                        className="flex items-center justify-between p-4 rounded-lg border hover-elevate active-elevate-2 cursor-pointer"
-                        onClick={() => setSelectedAddress(priority.address)}
-                        data-testid={`priority-item-${priority.address}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono text-sm font-medium truncate">
-                              {priority.address}
-                            </span>
-                            <TierBadge tier={priority.tier} />
-                            <VectorBadge vector={priority.recommendedVector} />
+                    {prioritiesData?.priorities.slice(0, 50).map((priority) => {
+                      const isSearching = activeSearchAddresses.has(priority.address);
+                      const searchSession = allSearchSessions.find(
+                        s => s.targetAddress === priority.address
+                      );
+                      
+                      return (
+                        <div
+                          key={priority.address}
+                          className={`p-4 rounded-lg border ${isSearching ? 'border-primary/50 bg-primary/5' : ''}`}
+                          data-testid={`priority-item-${priority.address}`}
+                        >
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span 
+                                  className="font-mono text-sm font-medium cursor-pointer hover:text-primary"
+                                  onClick={() => setSelectedAddress(priority.address)}
+                                >
+                                  {priority.address}
+                                </span>
+                                <TierBadge tier={priority.tier} />
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                κ_recovery = {priority.kappaRecovery.toFixed(2)}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-right mr-2">
+                                <div className="text-2xl font-bold font-mono">
+                                  {priority.kappaRecovery.toFixed(1)}
+                                </div>
+                              </div>
+                              {priority.recommendedVector === 'constrained_search' ? (
+                                isSearching ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      stopQIGSearchMutation.mutate(priority.address);
+                                    }}
+                                    disabled={stopQIGSearchMutation.isPending || startQIGSearchMutation.isPending}
+                                    className="border-primary text-primary"
+                                    data-testid={`button-stop-qig-${priority.address.slice(0, 8)}`}
+                                  >
+                                    {stopQIGSearchMutation.isPending ? (
+                                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Pause className="w-3 h-3 mr-1" />
+                                    )}
+                                    {stopQIGSearchMutation.isPending ? "Stopping..." : "Stop"}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startQIGSearchMutation.mutate({
+                                        address: priority.address,
+                                        kappaRecovery: priority.kappaRecovery,
+                                        tier: priority.tier
+                                      });
+                                    }}
+                                    disabled={startQIGSearchMutation.isPending || stopQIGSearchMutation.isPending}
+                                    data-testid={`button-start-qig-${priority.address.slice(0, 8)}`}
+                                  >
+                                    {startQIGSearchMutation.isPending ? (
+                                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Play className="w-3 h-3 mr-1" />
+                                    )}
+                                    {startQIGSearchMutation.isPending ? "Starting..." : "QIG Search"}
+                                  </Button>
+                                )
+                              ) : (
+                                <VectorBadge vector={priority.recommendedVector} />
+                              )}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            κ_recovery = {priority.kappaRecovery.toFixed(2)}
-                          </div>
+                          
+                          {/* Show search progress when active */}
+                          {isSearching && searchSession && (
+                            <div className="mt-3 pt-3 border-t">
+                              {searchSession.status === 'error' ? (
+                                <div className="p-2 rounded bg-destructive/10 text-destructive text-sm flex items-center gap-2">
+                                  <AlertTriangle className="w-4 h-4" />
+                                  <span>Search error: {searchSession.errorMessage || 'Unknown error'}</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="grid grid-cols-4 gap-2 text-center">
+                                    <div className="p-2 rounded bg-muted/50">
+                                      <div className="text-lg font-bold font-mono text-primary">
+                                        {searchSession.phrasesTestedSinceStart.toLocaleString()}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">Tested</div>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/50">
+                                      <div className="text-lg font-bold font-mono text-green-500">
+                                        {searchSession.highPhiCount}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">High-Φ</div>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/50">
+                                      <div className="text-lg font-bold font-mono">
+                                        {searchSession.lastPhiScore.toFixed(3)}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">Last Φ</div>
+                                    </div>
+                                    <div className="p-2 rounded bg-muted/50">
+                                      <div className="text-lg font-bold font-mono text-amber-500">
+                                        {searchSession.discoveryCount}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">Discoveries</div>
+                                    </div>
+                                  </div>
+                                  {searchSession.lastPhrasesTested.length > 0 && (
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                      <span className="font-medium">Recent: </span>
+                                      {searchSession.lastPhrasesTested.slice(0, 3).map((p, i) => (
+                                        <span key={i} className="font-mono mr-2">"{p.slice(0, 15)}..."</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold font-mono">
-                            {priority.kappaRecovery.toFixed(1)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

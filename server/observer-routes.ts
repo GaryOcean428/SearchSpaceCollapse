@@ -2876,4 +2876,338 @@ router.post("/sweep/confirm", async (req: Request, res: Response) => {
   }
 });
 
+// ============================================================================
+// TARGETED QIG SEARCH
+// ============================================================================
+
+/**
+ * Active QIG search sessions tracking
+ */
+interface QIGSearchSession {
+  sessionId: string;
+  targetAddress: string;
+  status: 'running' | 'paused' | 'completed' | 'error';
+  startedAt: string;
+  phrasesTestedTotal: number;
+  phrasesTestedSinceStart: number;
+  highPhiCount: number; // Φ ≥ 0.40
+  discoveryCount: number;
+  lastPhiScore: number;
+  lastPhrasesTested: string[];
+  errorMessage?: string;
+}
+
+const activeQIGSearches: Map<string, QIGSearchSession> = new Map();
+
+/**
+ * POST /api/observer/qig-search/start
+ * Start a targeted QIG search for a specific address
+ * Uses Python QIG backend for Φ scoring and hypothesis generation
+ */
+router.post("/qig-search/start", async (req: Request, res: Response) => {
+  try {
+    const { address, kappaRecovery, tier } = req.body;
+    
+    if (!address) {
+      return res.status(400).json({ error: "Address is required" });
+    }
+    
+    // Check if already searching this address
+    const existingSession = activeQIGSearches.get(address);
+    if (existingSession && existingSession.status === 'running') {
+      return res.json({
+        success: true,
+        alreadyRunning: true,
+        session: existingSession,
+        message: `QIG search already active for ${address.slice(0, 12)}...`
+      });
+    }
+    
+    const sessionId = randomUUID();
+    const session: QIGSearchSession = {
+      sessionId,
+      targetAddress: address,
+      status: 'running',
+      startedAt: new Date().toISOString(),
+      phrasesTestedTotal: 0,
+      phrasesTestedSinceStart: 0,
+      highPhiCount: 0,
+      discoveryCount: 0,
+      lastPhiScore: 0,
+      lastPhrasesTested: []
+    };
+    
+    activeQIGSearches.set(address, session);
+    
+    console.log(`[QIGSearch] 🎯 Starting targeted search for ${address}`);
+    console.log(`[QIGSearch] κ_recovery=${kappaRecovery?.toFixed(2) || 'N/A'}, tier=${tier || 'unknown'}`);
+    
+    // Start async search process
+    runTargetedQIGSearch(address, kappaRecovery || 10, session).catch(err => {
+      console.error(`[QIGSearch] Error in search for ${address}:`, err);
+      session.status = 'error';
+      session.errorMessage = err.message;
+    });
+    
+    res.json({
+      success: true,
+      sessionId,
+      targetAddress: address,
+      message: `QIG search initiated for ${address.slice(0, 12)}...`,
+      session
+    });
+  } catch (error: any) {
+    console.error("[QIGSearch] Start error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/qig-search/status/:address
+ * Get status of a targeted QIG search
+ */
+router.get("/qig-search/status/:address", async (req: Request, res: Response) => {
+  try {
+    const address = decodeURIComponent(req.params.address);
+    const session = activeQIGSearches.get(address);
+    
+    if (!session) {
+      return res.json({
+        success: true,
+        active: false,
+        message: "No active search for this address"
+      });
+    }
+    
+    res.json({
+      success: true,
+      active: session.status === 'running',
+      session
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/observer/qig-search/stop/:address
+ * Stop a targeted QIG search
+ */
+router.post("/qig-search/stop/:address", async (req: Request, res: Response) => {
+  try {
+    const address = decodeURIComponent(req.params.address);
+    const session = activeQIGSearches.get(address);
+    
+    if (!session) {
+      return res.status(404).json({ error: "No active search for this address" });
+    }
+    
+    session.status = 'paused';
+    console.log(`[QIGSearch] ⏹ Stopped search for ${address.slice(0, 12)}...`);
+    
+    res.json({
+      success: true,
+      message: `Search stopped for ${address.slice(0, 12)}...`,
+      session
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/qig-search/active
+ * Get all active QIG searches
+ */
+router.get("/qig-search/active", async (req: Request, res: Response) => {
+  try {
+    // Include running and error sessions (error sessions are kept for visibility)
+    const activeSessions = Array.from(activeQIGSearches.entries())
+      .filter(([_, s]) => s.status === 'running' || s.status === 'error')
+      .map(([addr, session]) => ({
+        address: addr,
+        ...session
+      }));
+    
+    res.json({
+      success: true,
+      count: activeSessions.length,
+      sessions: activeSessions
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Run targeted QIG search using Python backend
+ * Generates hypotheses and tests them against the target address
+ */
+async function runTargetedQIGSearch(
+  targetAddress: string, 
+  kappaRecovery: number,
+  session: QIGSearchSession
+): Promise<void> {
+  const { OceanQIGBackend } = await import("./ocean-qig-backend-adapter");
+  const { getBalanceHits } = await import("./blockchain-scanner");
+  const { queueAddressForBalanceCheck } = await import("./balance-queue-integration");
+  
+  const pythonBackend = new OceanQIGBackend('http://localhost:5001');
+  
+  // Check Python backend health
+  const backendAvailable = await pythonBackend.checkHealthWithRetry(3, 1000);
+  if (!backendAvailable) {
+    console.log(`[QIGSearch] Python backend not available, using local generation`);
+  }
+  
+  console.log(`[QIGSearch] 🔬 Beginning targeted search iterations for ${targetAddress.slice(0, 12)}...`);
+  
+  // Generate search patterns based on κ_recovery (lower = more constrained)
+  const searchPatterns = generateSearchPatterns(kappaRecovery);
+  
+  let iteration = 0;
+  const maxIterations = 500; // Run for max 500 iterations
+  const batchSize = 10;
+  
+  while (session.status === 'running' && iteration < maxIterations) {
+    const batch: string[] = [];
+    
+    // Generate a batch of hypotheses
+    for (let i = 0; i < batchSize; i++) {
+      let hypothesis: string;
+      
+      if (backendAvailable && Math.random() > 0.3) {
+        // Use Python backend for geodesic generation
+        const result = await pythonBackend.generateHypothesis();
+        hypothesis = result?.hypothesis || generateLocalHypothesis(searchPatterns, iteration);
+      } else {
+        hypothesis = generateLocalHypothesis(searchPatterns, iteration);
+      }
+      
+      batch.push(hypothesis);
+    }
+    
+    // Process batch through Python QIG for Φ scoring
+    for (const phrase of batch) {
+      if (session.status !== 'running') break;
+      
+      try {
+        // Get Φ score from Python backend
+        let phiScore = 0;
+        if (backendAvailable) {
+          const score = await pythonBackend.process(phrase);
+          phiScore = score?.phi || 0;
+        }
+        
+        session.phrasesTestedTotal++;
+        session.phrasesTestedSinceStart++;
+        session.lastPhiScore = phiScore;
+        
+        // Track last phrases tested (keep last 5)
+        session.lastPhrasesTested.unshift(phrase);
+        if (session.lastPhrasesTested.length > 5) {
+          session.lastPhrasesTested.pop();
+        }
+        
+        // High Φ threshold (≥ 0.40)
+        if (phiScore >= 0.40) {
+          session.highPhiCount++;
+          console.log(`[QIGSearch] 🎯 High-Φ: "${phrase.slice(0, 20)}..." Φ=${phiScore.toFixed(3)} → queuing for balance check`);
+          
+          // Queue for balance check with high priority
+          queueAddressForBalanceCheck(phrase, `qig-search-${targetAddress.slice(0, 8)}`, 10);
+        }
+        
+        // Check for discovery after each batch
+        if (session.phrasesTestedSinceStart % batchSize === 0) {
+          const hits = getBalanceHits();
+          const newDiscoveries = hits.filter(h => 
+            h.discoveredAt && 
+            new Date(h.discoveredAt) > new Date(session.startedAt)
+          );
+          session.discoveryCount = newDiscoveries.length;
+        }
+      } catch (err) {
+        // Continue on individual phrase errors
+        console.warn(`[QIGSearch] Error processing phrase:`, err);
+      }
+    }
+    
+    iteration++;
+    
+    // Log progress every 50 iterations
+    if (iteration % 50 === 0) {
+      console.log(`[QIGSearch] Progress: ${session.phrasesTestedSinceStart} phrases, ${session.highPhiCount} high-Φ, ${session.discoveryCount} discoveries`);
+    }
+    
+    // Small delay to prevent CPU overload
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  if (session.status === 'running') {
+    session.status = 'completed';
+    console.log(`[QIGSearch] ✓ Search complete for ${targetAddress.slice(0, 12)}...`);
+    console.log(`[QIGSearch] Final: ${session.phrasesTestedSinceStart} phrases, ${session.highPhiCount} high-Φ, ${session.discoveryCount} discoveries`);
+  }
+}
+
+/**
+ * Generate search patterns based on κ_recovery difficulty
+ * Lower κ = more constrained patterns, higher κ = broader exploration
+ */
+function generateSearchPatterns(kappaRecovery: number): string[] {
+  const basePatterns = [
+    'satoshi', 'bitcoin', 'genesis', 'key', 'wallet', 'secret', 
+    'password', 'crypto', 'hash', 'block', 'chain', 'miner',
+    'nakamoto', 'freedom', 'money', 'btc', 'coin', 'digital'
+  ];
+  
+  // Lower κ = tighter focus on common 2009-era patterns
+  if (kappaRecovery < 10) {
+    return [
+      ...basePatterns,
+      '2009', '2010', 'january', 'october', 'november',
+      'first', 'early', 'original', 'founder', 'pioneer'
+    ];
+  }
+  
+  // Medium κ = add temporal and numeric patterns
+  if (kappaRecovery < 30) {
+    return [
+      ...basePatterns,
+      '2009', '2010', '2011', 'test', 'demo', 'trial',
+      'my', 'the', 'new', 'old', 'seed', 'private'
+    ];
+  }
+  
+  // Higher κ = broader exploration
+  return [
+    ...basePatterns,
+    'love', 'hope', 'peace', 'faith', 'dream', 'power',
+    'alpha', 'beta', 'gamma', 'delta', 'omega', 'zen'
+  ];
+}
+
+/**
+ * Generate local hypothesis using search patterns
+ */
+function generateLocalHypothesis(patterns: string[], iteration: number): string {
+  const pattern1 = patterns[Math.floor(Math.random() * patterns.length)];
+  const pattern2 = patterns[Math.floor(Math.random() * patterns.length)];
+  
+  const variations = [
+    `${pattern1}${Math.floor(Math.random() * 1000)}`,
+    `${pattern1} ${pattern2}`,
+    `${pattern1}${pattern2}${iteration % 100}`,
+    `${pattern1}_${Math.floor(Math.random() * 10000)}`,
+    `my${pattern1}${Math.floor(Math.random() * 100)}`,
+    `the${pattern1}${pattern2}`,
+    `${pattern1}2009`,
+    `${pattern1}2010`,
+    `${pattern2}${pattern1}`,
+  ];
+  
+  return variations[Math.floor(Math.random() * variations.length)];
+}
+
 export default router;
