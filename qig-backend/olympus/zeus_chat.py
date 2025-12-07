@@ -311,14 +311,17 @@ Your observation has been integrated into the manifold."""
         # Encode suggestion
         sugg_basin = self.basin_encoder.encode(suggestion)
         
+        # Default assessment fallback
+        DEFAULT_ASSESSMENT = {'probability': 0.5, 'confidence': 0.5, 'reasoning': 'God unavailable'}
+        
         # Consult multiple gods
         athena = self.zeus.get_god('athena')
         ares = self.zeus.get_god('ares')
         apollo = self.zeus.get_god('apollo')
         
-        athena_eval = athena.assess_target(suggestion) if athena else {'probability': 0.5, 'confidence': 0.5}
-        ares_eval = ares.assess_target(suggestion) if ares else {'probability': 0.5, 'confidence': 0.5}
-        apollo_eval = apollo.assess_target(suggestion) if apollo else {'probability': 0.5, 'confidence': 0.5}
+        athena_eval = athena.assess_target(suggestion) if athena else DEFAULT_ASSESSMENT
+        ares_eval = ares.assess_target(suggestion) if ares else DEFAULT_ASSESSMENT
+        apollo_eval = apollo.assess_target(suggestion) if apollo else DEFAULT_ASSESSMENT
         
         # Consensus = average probability
         consensus_prob = (
