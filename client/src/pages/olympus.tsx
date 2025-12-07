@@ -121,9 +121,10 @@ function GodCard({ name, god }: { name: string; god: GodStatus }) {
   const Icon = GOD_ICONS[name.toLowerCase()] || Sparkles;
   const colorClass = GOD_COLORS[name.toLowerCase()] || 'text-primary';
   
-  const reputationColor = god.reputation >= 1.5 
+  const reputation = god?.reputation ?? 1.0;
+  const reputationColor = reputation >= 1.5 
     ? 'text-green-400' 
-    : god.reputation >= 1.0 
+    : reputation >= 1.0 
       ? 'text-yellow-400' 
       : 'text-red-400';
 
@@ -134,25 +135,25 @@ function GodCard({ name, god }: { name: string; god: GodStatus }) {
           <Icon className={`h-5 w-5 ${colorClass}`} />
           <CardTitle className="text-sm capitalize">{name}</CardTitle>
         </div>
-        <CardDescription className="text-xs">{god.domain}</CardDescription>
+        <CardDescription className="text-xs">{god?.domain || 'Unknown domain'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">Reputation</span>
           <span className={`text-sm font-mono ${reputationColor}`}>
-            {god.reputation.toFixed(2)}
+            {reputation.toFixed(2)}
           </span>
         </div>
-        {god.pending_messages !== undefined && god.pending_messages > 0 && (
+        {god?.pending_messages !== undefined && god.pending_messages > 0 && (
           <Badge variant="secondary" className="text-xs">
             {god.pending_messages} pending
           </Badge>
         )}
-        {Object.keys(god.skills || {}).length > 0 && (
+        {Object.keys(god?.skills || {}).length > 0 && (
           <div className="flex flex-wrap gap-1">
             {Object.entries(god.skills).slice(0, 3).map(([skill, level]) => (
               <Badge key={skill} variant="outline" className="text-xs">
-                {skill}: {(level as number).toFixed(1)}
+                {skill}: {typeof level === 'number' ? level.toFixed(1) : level}
               </Badge>
             ))}
           </div>
