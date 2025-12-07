@@ -6,95 +6,36 @@
  * - TypeScript: Orchestration (asks Python gods, executes actions)
  * 
  * This client connects to the Python Olympus backend running on port 5001.
+ * 
+ * Types are imported from shared/types/olympus.ts for cross-system consistency.
  */
 
-export interface GodAssessment {
-  probability: number;
-  confidence: number;
-  phi?: number;
-  kappa?: number;
-  reasoning?: string;
-  god: string;
-  timestamp?: string;
-  error?: string;
-}
+import type {
+  GodAssessment,
+  ConvergenceInfo,
+  PollResult,
+  ZeusAssessment,
+  WarDeclaration,
+  WarEnded,
+  GodStatus,
+  OlympusStatus,
+  ObservationContext,
+  WarMode,
+} from '@shared/types/olympus';
 
-export interface ConvergenceInfo {
-  type: 'STRONG_ATTACK' | 'MODERATE_OPPORTUNITY' | 'COUNCIL_CONSENSUS' | 'ALIGNED' | 'DIVIDED';
-  score: number;
-  athena_ares_agreement?: number;
-  full_convergence?: number;
-  high_probability_gods?: number;
-}
-
-export interface PollResult {
-  assessments: Record<string, GodAssessment>;
-  convergence: string;
-  convergence_score: number;
-  consensus_probability: number;
-  recommended_action: string;
-  timestamp: string;
-}
-
-export interface ZeusAssessment {
-  probability: number;
-  confidence: number;
-  phi: number;
-  kappa: number;
-  convergence: string;
-  convergence_score: number;
-  war_mode: string | null;
-  god_assessments: Record<string, GodAssessment>;
-  recommended_action: string;
-  reasoning: string;
-  god: string;
-  timestamp: string;
-}
-
-export interface WarDeclaration {
-  mode: 'BLITZKRIEG' | 'SIEGE' | 'HUNT';
-  target: string;
-  declared_at: string;
-  strategy: string;
-  gods_engaged: string[];
-}
-
-export interface WarEnded {
-  previous_mode: string | null;
-  previous_target: string | null;
-  ended_at: string;
-}
-
-export interface GodStatus {
-  name: string;
-  domain: string;
-  last_assessment?: string;
-  observations_count: number;
-  status: string;
-  error?: string;
-}
-
-export interface OlympusStatus {
-  name: string;
-  domain: string;
-  war_mode: string | null;
-  war_target: string | null;
-  gods: Record<string, GodStatus>;
-  convergence_history_size: number;
-  divine_decisions: number;
-  last_assessment: string | null;
-  status: string;
-}
-
-export interface ObservationContext {
-  target?: string;
-  phi?: number;
-  kappa?: number;
-  regime?: string;
-  source?: string;
-  timestamp?: number;
-  [key: string]: unknown;
-}
+// Re-export types for consumers
+export type {
+  GodAssessment,
+  ConvergenceInfo,
+  PollResult,
+  ZeusAssessment,
+  WarDeclaration,
+  WarEnded,
+  GodStatus,
+  OlympusStatus,
+  ObservationContext,
+  WarMode,
+};
 
 const DEFAULT_RETRY_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 1500;
@@ -341,7 +282,7 @@ export class OlympusClient {
         return null;
       }
       
-      console.log(`[OlympusClient] ⚡ BLITZKRIEG declared on: ${target}`);
+      console.log(`[OlympusClient] BLITZKRIEG declared on: ${target}`);
       return data as WarDeclaration;
     } catch (error) {
       console.error('[OlympusClient] Blitzkrieg exception:', error);
@@ -372,7 +313,7 @@ export class OlympusClient {
         return null;
       }
       
-      console.log(`[OlympusClient] 🏰 SIEGE declared on: ${target}`);
+      console.log(`[OlympusClient] SIEGE declared on: ${target}`);
       return data as WarDeclaration;
     } catch (error) {
       console.error('[OlympusClient] Siege exception:', error);
@@ -403,7 +344,7 @@ export class OlympusClient {
         return null;
       }
       
-      console.log(`[OlympusClient] 🎯 HUNT declared on: ${target}`);
+      console.log(`[OlympusClient] HUNT declared on: ${target}`);
       return data as WarDeclaration;
     } catch (error) {
       console.error('[OlympusClient] Hunt exception:', error);
@@ -427,7 +368,7 @@ export class OlympusClient {
       }
       
       const data = await response.json();
-      console.log(`[OlympusClient] 🕊️ War ended. Previous mode: ${data.previous_mode || 'none'}`);
+      console.log(`[OlympusClient] War ended. Previous mode: ${data.previous_mode || 'none'}`);
       return data as WarEnded;
     } catch (error) {
       console.error('[OlympusClient] End war exception:', error);

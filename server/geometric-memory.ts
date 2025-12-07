@@ -1906,7 +1906,7 @@ class GeometricMemory {
     // Compute metrics for each strategy
     const strategyMetrics: StrategyMetrics[] = [];
     
-    for (const [strategyName, strategyProbes] of strategyMap) {
+    for (const [strategyName, strategyProbes] of Array.from(strategyMap.entries())) {
       // Use reduce instead of spread to avoid stack overflow with large arrays
       let sumPhi = 0;
       let maxPhi = -Infinity;
@@ -2254,7 +2254,7 @@ class GeometricMemory {
       let minDist = Infinity;
       
       // Find nearest existing cluster center
-      for (const [clusterId, members] of clusterAssignments) {
+      for (const [clusterId, members] of Array.from(clusterAssignments.entries())) {
         let sumX = 0, sumY = 0;
         for (const m of members) {
           sumX += m.x;
@@ -2280,7 +2280,7 @@ class GeometricMemory {
     // Convert to ClusterData
     const clusters: ClusterData[] = [];
     
-    for (const [clusterId, members] of clusterAssignments) {
+    for (const [clusterId, members] of Array.from(clusterAssignments.entries())) {
       let sumX = 0, sumY = 0;
       let sumPhi = 0, maxPhi = 0;
       const regimeCounts: Record<string, number> = {};
