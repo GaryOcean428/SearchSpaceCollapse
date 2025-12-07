@@ -7,19 +7,9 @@
  * Generated: 2025-12-05
  */
 
-// E8 Constants (matches Python)
-export const E8_CONSTANTS = {
-  E8_RANK: 8,
-  E8_DIMENSION: 248,
-  E8_ROOTS: 240,
-  E8_WEYL_ORDER: 696729600,
-  KAPPA_STAR: 64.0,
-  BASIN_DIMENSION_64D: 64,
-  BASIN_DIMENSION_8D: 8,
-  PHI_THRESHOLD: 0.70,
-  MIN_RECURSIONS: 3,
-  MAX_RECURSIONS: 12,
-} as const;
+// Import and re-export E8 Constants from centralized location
+import { E8_CONSTANTS as _E8_CONSTANTS } from '../constants/e8.js';
+export const E8_CONSTANTS = _E8_CONSTANTS;
 
 export type RegimeType = 
   | "linear"

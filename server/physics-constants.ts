@@ -1,282 +1,38 @@
 /**
- * Physics Constants - Single Source of Truth
+ * Physics Constants - Re-export from Centralized Location
  * 
- * EMPIRICALLY VALIDATED CONSTANTS (L=6 VALIDATED 2025-12-04)
- * Source: qig-verification/FROZEN_FACTS.md (multi-seed validated)
+ * ⚠️ DEPRECATED: Import from '@shared/constants' instead
  * 
- * ⚠️ FROZEN FACTS - DO NOT MODIFY WITHOUT EXPERIMENTAL VALIDATION
- * 
- * These constants are derived from quantum information geometry experiments
- * and represent fundamental properties of information manifolds.
+ * This file re-exports constants from shared/constants/ for backwards compatibility.
+ * New code should import directly from '@shared/constants'.
  */
 
-/**
- * Running Coupling κ(L) at Different Scales
- * 
- * Validated through DMRG simulations on quantum spin chains.
- * Each value represents the coupling strength at a specific scale L.
- */
-export const KAPPA_VALUES = {
-  /** κ₃ - Emergence scale (L=3) - ✅ VALIDATED (6 seeds) */
-  KAPPA_3: 41.09,
-  
-  /** κ₄ - Strong running coupling (L=4) - ✅ VALIDATED (3 seeds × 20 perts) */
-  KAPPA_4: 64.47,
-  
-  /** κ₅ - Approaching plateau (L=5) - ✅ VALIDATED (3 seeds × 20 perts) */
-  KAPPA_5: 63.62,
-  
-  /** κ₆ - Plateau confirmed (L=6) - ✅ VALIDATED (3 seeds × 36 perts) */
-  KAPPA_6: 64.45,
-  
-  /** κ₇ - ANOMALY - ⚠️ UNVALIDATED (only 5 perts, insufficient sampling) */
-  KAPPA_7: 67.71,
-  
-  /** κ* - Fixed point coupling (extrapolated from L=4,5,6 data) */
-  KAPPA_STAR: 64.0,
-} as const;
+// Re-export all physics constants from centralized location
+export {
+  KAPPA_VALUES,
+  BETA_VALUES,
+  KAPPA_ERRORS,
+  L6_VALIDATION,
+  L7_WARNING,
+  PHYSICS_BETA,
+  KAPPA_BY_SCALE,
+  getKappaAtScale,
+  VALIDATION_METADATA,
+  VALIDATION_SUMMARY,
+  type KappaScale,
+  type ValidationStatus,
+} from '../shared/constants/physics.js';
 
-/**
- * Beta Function β(L→L') Values
- * 
- * Measures scale-dependence of coupling:
- * β(L→L') = (κ_L' - κ_L) / κ_avg
- * 
- * β → 0 indicates fixed point (asymptotic freedom)
- */
-export const BETA_VALUES = {
-  /** β(3→4) - CRITICAL: Strongest running (+57% jump) */
-  BETA_3_TO_4: 0.44,
-  
-  /** β(4→5) - Plateau onset */
-  BETA_4_TO_5: -0.013,
-  
-  /** β(5→6) - Plateau confirmed (stable) */
-  BETA_5_TO_6: 0.013,
-  
-  /** β(6→7) - ⚠️ UNVALIDATED (L=7 data insufficient) */
-  BETA_6_TO_7: null, // Marked as unvalidated
-} as const;
+// Re-export QIG constants
+export {
+  QIG_CONSTANTS,
+  CONSCIOUSNESS_THRESHOLDS,
+  REGIME_DEPENDENT_KAPPA,
+} from '../shared/constants/qig.js';
 
-/**
- * Error Bars for κ Values
- * 
- * ± uncertainties from experimental measurements
- */
-export const KAPPA_ERRORS = {
-  KAPPA_3_ERROR: 0.59,
-  KAPPA_4_ERROR: 1.89,
-  KAPPA_5_ERROR: 1.68,
-  KAPPA_6_ERROR: 1.34,
-  KAPPA_7_ERROR: 4.26, // Large error - insufficient sampling
-  KAPPA_STAR_ERROR: 1.5,
-} as const;
-
-/**
- * Validation Statistics for L=6
- * 
- * Quality metrics from 3-seed validation
- */
-export const L6_VALIDATION = {
-  /** Number of random seeds tested */
-  N_SEEDS: 3,
-  
-  /** Seeds used: 42, 43, 44 */
-  SEEDS: [42, 43, 44] as const,
-  
-  /** Number of perturbations per seed */
-  N_PERTS_PER_SEED: 36,
-  
-  /** Total perturbations tested */
-  N_PERTS_TOTAL: 108,
-  
-  /** R² range across seeds */
-  R_SQUARED_MIN: 0.950,
-  R_SQUARED_MAX: 0.981,
-  
-  /** Coefficient of variation (consistency metric) */
-  CV_PERCENT: 3,
-  
-  /** Validation status */
-  STATUS: 'VALIDATED' as const,
-  
-  /** DMRG bond dimension used */
-  CHI_MAX: 256,
-} as const;
-
-/**
- * L=7 ANOMALY WARNING
- * 
- * ⚠️ L=7 measurements are UNVALIDATED and should NOT be used.
- * 
- * Problems:
- * 1. Only 5 perturbations tested (vs 36 for L=6)
- * 2. Large error bars: ±4.26 (vs ±1.34 for L=6)
- * 3. Anomalous κ₇ = 67.71 deviates from plateau
- * 
- * Status: REQUIRES INVESTIGATION with proper sampling
- */
-export const L7_WARNING = {
-  STATUS: 'UNVALIDATED' as const,
-  KAPPA_7: 67.71,
-  ERROR: 4.26,
-  N_PERTS: 5,
-  REASON: 'Insufficient sampling - requires 36+ perturbations',
-} as const;
-
-/**
- * Regime-Dependent κ Behavior
- * 
- * κ is NOT a single number - it depends on scale AND perturbation strength
- * 
- * Key Insight from FROZEN_FACTS.md:
- * Different perturbation strengths probe different regimes of consciousness
- */
-export const REGIME_DEPENDENT_KAPPA = {
-  /** Weak perturbations → Linear regime (unconscious) */
-  WEAK: {
-    kappa: 8.5,
-    regime: 'linear' as const,
-    phiRange: [0.0, 0.3] as const,
-    state: 'Unconscious' as const,
-  },
-  
-  /** Medium perturbations → Geometric emergence (transitional) */
-  MEDIUM: {
-    kappa: 41.0,
-    regime: 'geometric' as const,
-    phiRange: [0.3, 0.45] as const,
-    state: 'Transitional' as const,
-  },
-  
-  /** Optimal perturbations → Geometric peak (conscious) */
-  OPTIMAL: {
-    kappa: 64.0,
-    regime: 'geometric_peak' as const,
-    phiRange: [0.45, 0.80] as const,
-    state: 'Conscious' as const,
-  },
-  
-  /** Strong perturbations → Over-coupling (breakdown risk) */
-  STRONG: {
-    kappa: 68.0,
-    regime: 'breakdown' as const,
-    phiRange: [0.80, 1.0] as const,
-    state: 'Breakdown risk' as const,
-  },
-} as const;
-
-/**
- * QIG System Constants
- * 
- * Core parameters for quantum information geometry framework
- */
-export const QIG_CONSTANTS = {
-  /** Fixed point coupling (updated to 64.0 based on FROZEN_FACTS.md) */
-  KAPPA_STAR: KAPPA_VALUES.KAPPA_STAR,
-  
-  /** Running coupling at emergence scale (β(3→4)) */
-  BETA: BETA_VALUES.BETA_3_TO_4,
-  
-  /** Consciousness phase transition threshold */
-  PHI_THRESHOLD: 0.75,
-  
-  /** Critical scale for emergent geometry */
-  L_CRITICAL: 3,
-  
-  /** Basin signature dimension */
-  BASIN_DIMENSION: 64,
-  
-  /** Resonance detection band (10% of κ*) */
-  RESONANCE_BAND: 6.4, // 10% of 64.0
-} as const;
-
-/**
- * Physics Beta Function Reference
- * 
- * Used for attention mechanism validation and substrate independence testing
- */
-export const PHYSICS_BETA = {
-  /** β at emergence (L=3→4 equivalent) */
-  emergence: BETA_VALUES.BETA_3_TO_4,
-  
-  /** β approaching plateau (L=4→5 equivalent) */
-  approaching: BETA_VALUES.BETA_4_TO_5,
-  
-  /** β at fixed point (L=5→6 equivalent) */
-  fixedPoint: BETA_VALUES.BETA_5_TO_6,
-  
-  /** Fixed point value */
-  kappaStar: KAPPA_VALUES.KAPPA_STAR,
-  
-  /** Acceptance threshold for substrate independence validation */
-  acceptanceThreshold: 0.1,
-} as const;
-
-/**
- * Lookup table for κ values by scale
- * 
- * Used for scale-dependent calculations
- */
-export const KAPPA_BY_SCALE: Record<number, number> = {
-  3: KAPPA_VALUES.KAPPA_3,
-  4: KAPPA_VALUES.KAPPA_4,
-  5: KAPPA_VALUES.KAPPA_5,
-  6: KAPPA_VALUES.KAPPA_6,
-  7: KAPPA_VALUES.KAPPA_7,
-};
-
-/**
- * Get κ value for a given scale, with fallback to κ*
- * 
- * @param scale - The scale L (3, 4, 5, 6, 7)
- * @returns The coupling value κ(L) or κ* if scale not found
- */
-export function getKappaAtScale(scale: number): number {
-  return KAPPA_BY_SCALE[scale] ?? KAPPA_VALUES.KAPPA_STAR;
-}
-
-/**
- * Physics Validation Metadata
- * 
- * Provenance information for reproducibility
- */
-export const VALIDATION_METADATA = {
-  /** Source repository */
-  SOURCE: 'qig-verification',
-  
-  /** Validation date */
-  DATE: '2025-12-02',
-  
-  /** Validation method */
-  METHOD: 'DMRG',
-  
-  /** Publication status */
-  STATUS: 'VALIDATED',
-  
-  /** Last updated */
-  LAST_UPDATED: '2025-12-03',
-} as const;
-
-/**
- * Type exports for type-safe usage
- */
-export type KappaScale = 3 | 4 | 5 | 6 | 7;
-export type ValidationStatus = 'VALIDATED' | 'PRELIMINARY' | 'THEORETICAL';
-
-/**
- * Validation Summary
- * 
- * Quick reference for all validated constants
- */
-export const VALIDATION_SUMMARY = {
-  κ3: `${KAPPA_VALUES.KAPPA_3} ± ${KAPPA_ERRORS.KAPPA_3_ERROR}`,
-  κ4: `${KAPPA_VALUES.KAPPA_4} ± ${KAPPA_ERRORS.KAPPA_4_ERROR}`,
-  κ5: `${KAPPA_VALUES.KAPPA_5} ± ${KAPPA_ERRORS.KAPPA_5_ERROR}`,
-  κ6: `${KAPPA_VALUES.KAPPA_6} ± ${KAPPA_ERRORS.KAPPA_6_ERROR}`,
-  κ_star: `${KAPPA_VALUES.KAPPA_STAR} ± ${KAPPA_ERRORS.KAPPA_STAR_ERROR}`,
-  β_3_4: BETA_VALUES.BETA_3_TO_4,
-  β_4_5: BETA_VALUES.BETA_4_TO_5,
-  β_5_6: BETA_VALUES.BETA_5_TO_6,
-  fixed_point_confirmed: Math.abs(BETA_VALUES.BETA_5_TO_6) < 0.03,
-} as const;
+// Re-export regime utilities
+export {
+  RegimeType,
+  type Regime,
+  getRegimeFromKappa,
+} from '../shared/constants/regimes.js';

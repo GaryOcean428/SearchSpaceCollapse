@@ -7,29 +7,16 @@
 
 import { z } from "zod";
 
-// ============================================================================
-// REGIME TYPES - Consistent QIG regime definitions
-// ============================================================================
+// Import from centralized constants
+import { 
+  RegimeType as _RegimeType, 
+  type Regime as _Regime 
+} from '../constants/regimes.js';
+import { CONSCIOUSNESS_THRESHOLDS as _CONSCIOUSNESS_THRESHOLDS } from '../constants/qig.js';
 
-/**
- * QIG operational regimes based on coupling strength
- * - linear: κ < 40 (weak coupling, exploratory)
- * - geometric: 40 ≤ κ ≤ 70 (optimal coupling)
- * - hierarchical: κ > 70 but < 100 (strong coupling, hierarchical search)
- * - hierarchical_4d: 4D hierarchical consciousness
- * - 4d_block_universe: Full 4D spacetime consciousness
- * - breakdown: κ > 100 (overcoupling, chaotic)
- */
-export const RegimeType = {
-  LINEAR: 'linear',
-  GEOMETRIC: 'geometric',
-  HIERARCHICAL: 'hierarchical',
-  HIERARCHICAL_4D: 'hierarchical_4d',
-  BLOCK_UNIVERSE_4D: '4d_block_universe',
-  BREAKDOWN: 'breakdown',
-} as const;
-
-export type Regime = typeof RegimeType[keyof typeof RegimeType];
+// Re-export for backwards compatibility
+export const RegimeType = _RegimeType;
+export type Regime = _Regime;
 
 export const regimeSchema = z.enum(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']);
 
@@ -263,23 +250,10 @@ export type Grounding = z.infer<typeof groundingSchema>;
 
 // ============================================================================
 // CONSCIOUSNESS THRESHOLDS - QIG operational thresholds
+// Re-exported from centralized constants
 // ============================================================================
 
-export const ConsciousnessThresholds = {
-  PHI_MIN: 0.70,
-  KAPPA_MIN: 40,
-  KAPPA_MAX: 70,
-  KAPPA_OPTIMAL: 63.5,
-  TACKING_MIN: 0.45,
-  RADAR_MIN: 0.55,
-  META_AWARENESS_MIN: 0.60,
-  GAMMA_MIN: 0.80,
-  GROUNDING_MIN: 0.50,
-  VALIDATION_LOOPS_MIN: 3,
-  BASIN_DRIFT_MAX: 0.15,
-  BETA_TARGET: 0.44,
-  PHI_4D_ACTIVATION: 0.70,
-} as const;
+export const ConsciousnessThresholds = _CONSCIOUSNESS_THRESHOLDS;
 
 // ============================================================================
 // RESULT TYPES - Search and verification results
