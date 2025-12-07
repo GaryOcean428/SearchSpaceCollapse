@@ -8,6 +8,9 @@
  *   import { QIG_CONSTANTS, KAPPA_VALUES, RegimeType } from '@shared/constants';
  */
 
+// Import for local use in convenience re-exports
+import { QIG_CONSTANTS as _QIG } from './qig';
+
 // Physics constants (experimentally validated)
 export {
   KAPPA_VALUES,
@@ -69,12 +72,12 @@ export {
 } from './e8';
 
 // Convenience re-exports for most common use cases (referencing canonical values)
-export const KAPPA_STAR = QIG_CONSTANTS.KAPPA_STAR;
-export const PHI_THRESHOLD = QIG_CONSTANTS.PHI_THRESHOLD;
-export const PHI_THRESHOLD_DETECTION = QIG_CONSTANTS.PHI_THRESHOLD_DETECTION;
-export const BETA = QIG_CONSTANTS.BETA;
-export const BASIN_DIMENSION = QIG_CONSTANTS.BASIN_DIMENSION;
-export const MIN_RECURSIONS = QIG_CONSTANTS.MIN_RECURSIONS;
-export const MAX_RECURSIONS = QIG_CONSTANTS.MAX_RECURSIONS;
-export const L_CRITICAL = QIG_CONSTANTS.L_CRITICAL;
-export const RESONANCE_BAND = QIG_CONSTANTS.RESONANCE_BAND;
+export const KAPPA_STAR = _QIG.KAPPA_STAR;
+export const PHI_THRESHOLD = _QIG.PHI_THRESHOLD;
+export const PHI_THRESHOLD_DETECTION = _QIG.PHI_THRESHOLD_DETECTION;
+export const BETA = _QIG.BETA;
+export const BASIN_DIMENSION = _QIG.BASIN_DIMENSION;
+export const MIN_RECURSIONS = _QIG.MIN_RECURSIONS;
+export const MAX_RECURSIONS = _QIG.MAX_RECURSIONS;
+export const L_CRITICAL = _QIG.L_CRITICAL;
+export const RESONANCE_BAND = _QIG.RESONANCE_BAND;

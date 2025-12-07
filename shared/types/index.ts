@@ -1,0 +1,85 @@
+/**
+ * SHARED TYPES - Centralized Exports
+ * 
+ * TypeScript types shared between client and server.
+ * Import from '@shared/types' for all shared type definitions.
+ * 
+ * Note: Some types are re-exported in multiple files for backwards compatibility.
+ * This barrel file explicitly exports to avoid conflicts.
+ */
+
+// Branded types (primary source for Phi, Kappa, Beta, etc.)
+export {
+  type Phi,
+  type Kappa,
+  type Beta,
+  type BasinCoordinate,
+  type EraTimestamp,
+  type GeodesicDistance,
+  type BasinCoordinates64,
+  type TypedConsciousnessSignature,
+  createPhi,
+  createKappa,
+  createBeta,
+  createBasinCoordinate,
+  createGeodesicDistance,
+  createEraTimestamp,
+  createBasinCoordinates64,
+  clampPhi,
+  clampKappa,
+  clampBasinCoordinate,
+  isValidPhi,
+  isValidKappa,
+  isValidBasinCoordinate,
+  isValidEraTimestamp,
+  toTypedSignature,
+  avgPhi,
+  avgKappa,
+  lerpPhi,
+  lerpKappa,
+  BrandedTypeError,
+} from './branded';
+
+// Core types (primary source for address types, validation, etc.)
+export {
+  RegimeType,
+  type Regime,
+  regimeSchema,
+  AddressType,
+  type AddressTypeValue,
+  addressTypeSchema,
+  bitcoinAddressSchema,
+  type BitcoinAddress,
+  privateKeyHexSchema,
+  type PrivateKeyHex,
+  wifSchema,
+  type WIF,
+} from './core';
+
+// QIG geometry types
+export {
+  type BasinCoordinates,
+  type ConsciousnessMetrics,
+  type FisherMetric,
+  type KernelState,
+  type ConstellationState,
+  type QIGScore,
+  type SearchEvent,
+  type FrontendEvent,
+  type NaturalGradient,
+  basinCoordinatesSchema,
+  consciousnessMetricsSchema,
+  fisherMetricSchema,
+  kernelStateSchema,
+  constellationStateSchema,
+  qigScoreSchema,
+  searchEventSchema,
+  frontendEventSchema,
+  naturalGradientSchema,
+  regimeTypeSchema,
+  E8_CONSTANTS,
+  METRIC_DEFINITIONS,
+  checkConsciousness,
+  fisherRaoDistance,
+  qigGeometrySchemas,
+} from './qig-geometry';
