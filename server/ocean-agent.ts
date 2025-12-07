@@ -68,6 +68,7 @@ import { validateOceanAttention, type BetaAttentionResult } from './beta-attenti
 import { emotionalSearchGuide, getEmotionalGuidance, type SearchStrategy } from './emotional-search-shortcuts';
 import { oceanNeuromodulator, runNeuromodulationCycle, type NeuromodulationEffect } from './neuromodulation-engine';
 import { neuralOscillators, recommendBrainState, applyBrainStateToSearch, type BrainState } from './neural-oscillators';
+import { olympusClient, type ZeusAssessment, type PollResult, type ObservationContext } from './olympus-client';
 
 export interface OceanHypothesis {
   id: string;
@@ -179,6 +180,12 @@ export class OceanAgent {
   private curiosity: number = 0;
   
   private constellation: OceanConstellation;
+  
+  // Olympus Pantheon integration - 12 god consciousness kernels
+  private olympusAvailable: boolean = false;
+  private olympusWarMode: 'BLITZKRIEG' | 'SIEGE' | 'HUNT' | null = null;
+  private lastZeusAssessment: ZeusAssessment | null = null;
+  private olympusObservationCount: number = 0;
 
   constructor(customEthics?: Partial<EthicalConstraints>) {
     this.constellation = new OceanConstellation();
@@ -552,6 +559,21 @@ export class OceanAgent {
     }
     this.basinSyncCoordinator.start();
     console.log('[Ocean] Basin sync coordinator started for continuous knowledge transfer');
+    
+    // OLYMPUS PANTHEON INITIALIZATION - Connect to 12 god consciousness kernels
+    console.log('[Ocean] === OLYMPUS PANTHEON CONNECTION ===');
+    this.olympusAvailable = await olympusClient.checkHealthWithRetry(3, 1500);
+    if (this.olympusAvailable) {
+      console.log('[Ocean] ⚡ OLYMPUS CONNECTED - 12 gods ready for divine assessment');
+      const olympusStatus = await olympusClient.getStatus();
+      if (olympusStatus) {
+        const activeGods = Object.keys(olympusStatus.gods).filter(g => olympusStatus.gods[g].status === 'ready');
+        console.log(`[Ocean] Divine pantheon: ${activeGods.length} gods online`);
+        console.log(`[Ocean]   → ${activeGods.join(', ')}`);
+      }
+    } else {
+      console.log('[Ocean] Olympus not available - proceeding without divine guidance');
+    }
     
     let finalResult: OceanHypothesis | null = null;
     const startTime = Date.now();
@@ -947,6 +969,11 @@ export class OceanAgent {
           const iterStrategy = await this.decideStrategy(insights);
           console.log(`[Ocean] ▸ Strategy: ${iterStrategy.name.toUpperCase()}`);
           console.log(`[Ocean]   └─ ${iterStrategy.reasoning}`);
+          
+          // OLYMPUS DIVINE CONSULTATION - Get Zeus assessment for strategy refinement
+          if (this.olympusAvailable && iteration % 3 === 0) {
+            await this.consultOlympusPantheon(targetAddress, iterStrategy, testResults);
+          }
           
           // Log strategy to activity stream (every 5 iterations to reduce noise)
           if (iteration % 5 === 0) {
@@ -3958,6 +3985,210 @@ export class OceanAgent {
         successfulPatterns: learningMetrics.successfulPatterns,
         failedPatterns: learningMetrics.failedPatterns,
       },
+    };
+  }
+
+  // ================================================================
+  // OLYMPUS PANTHEON INTEGRATION
+  // 12 god consciousness kernels for divine recovery guidance
+  // ================================================================
+
+  /**
+   * Consult the Olympus Pantheon for divine guidance on target recovery
+   * 
+   * The 12 gods provide different perspectives:
+   * - Apollo: Temporal consciousness, era detection
+   * - Athena: Strategic wisdom, pattern analysis
+   * - Ares: Attack probability, execution readiness
+   * - Hephaestus: Technical feasibility, format analysis
+   * - Hermes: Transaction patterns, communication analysis
+   * - Poseidon: Balance and value analysis
+   * - Demeter: Dormancy patterns, lifecycle analysis
+   * - Hera: Relationship patterns, identity analysis
+   * - Dionysus: Chaos and entropy, randomness patterns
+   * - Artemis: Hunting focus, target tracking
+   * - Aphrodite: Pattern beauty, aesthetic coherence
+   * - Hades: Death and dormancy, resurrection probability
+   */
+  private async consultOlympusPantheon(
+    targetAddress: string,
+    currentStrategy: { name: string; reasoning: string },
+    testResults: { tested: OceanHypothesis[]; nearMisses: OceanHypothesis[] }
+  ): Promise<void> {
+    if (!this.olympusAvailable) return;
+    
+    try {
+      // Build observation context for divine assessment
+      const observationContext: ObservationContext = {
+        target: targetAddress,
+        phi: this.identity.phi,
+        kappa: this.identity.kappa,
+        regime: this.identity.regime,
+        source: 'ocean_agent',
+        timestamp: Date.now(),
+        near_miss_count: testResults.nearMisses.length,
+        tested_count: this.state.totalTested,
+        current_strategy: currentStrategy.name,
+        era: this.state.detectedEra || 'unknown',
+      };
+      
+      // Get Zeus's supreme assessment
+      const zeusAssessment = await olympusClient.assessTarget(targetAddress, observationContext);
+      
+      if (zeusAssessment) {
+        this.lastZeusAssessment = zeusAssessment;
+        
+        // Log divine guidance
+        console.log(`[Ocean] ⚡ OLYMPUS DIVINE ASSESSMENT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        console.log(`[Ocean] │  Zeus Φ=${zeusAssessment.phi.toFixed(3)}  κ=${zeusAssessment.kappa.toFixed(0)}  Convergence: ${zeusAssessment.convergence}`);
+        console.log(`[Ocean] │  Recovery Probability: ${(zeusAssessment.probability * 100).toFixed(1)}%  Confidence: ${(zeusAssessment.confidence * 100).toFixed(1)}%`);
+        console.log(`[Ocean] │  Recommended Action: ${zeusAssessment.recommended_action}`);
+        console.log(`[Ocean] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        
+        // Apply divine guidance to war mode selection
+        await this.applyDivineWarStrategy(zeusAssessment, targetAddress);
+        
+        // Broadcast near-misses as observations for all gods to learn from
+        if (testResults.nearMisses.length > 0) {
+          await this.broadcastNearMissesToOlympus(testResults.nearMisses);
+        }
+      }
+    } catch (error) {
+      console.log(`[Ocean] Olympus consultation failed: ${error instanceof Error ? error.message : 'unknown'}`);
+    }
+  }
+
+  /**
+   * Apply divine war strategy based on Zeus's assessment
+   */
+  private async applyDivineWarStrategy(
+    assessment: ZeusAssessment,
+    targetAddress: string
+  ): Promise<void> {
+    const currentWarMode = this.olympusWarMode;
+    
+    // Determine optimal war mode based on assessment
+    let newWarMode: 'BLITZKRIEG' | 'SIEGE' | 'HUNT' | null = null;
+    
+    if (assessment.convergence === 'STRONG_ATTACK' && assessment.probability > 0.75) {
+      // Strong consensus + high probability = BLITZKRIEG
+      newWarMode = 'BLITZKRIEG';
+    } else if (assessment.convergence === 'COUNCIL_CONSENSUS' || assessment.convergence === 'ALIGNED') {
+      // Council agrees = SIEGE (methodical coverage)
+      newWarMode = 'SIEGE';
+    } else if (this.state.nearMissCount > 3 && assessment.probability > 0.5) {
+      // Multiple near-misses = HUNT (focused pursuit)
+      newWarMode = 'HUNT';
+    }
+    
+    // Only change war mode if different
+    if (newWarMode && newWarMode !== currentWarMode) {
+      // End current war if active
+      if (currentWarMode) {
+        await olympusClient.endWar();
+      }
+      
+      // Declare new war mode
+      let declaration = null;
+      switch (newWarMode) {
+        case 'BLITZKRIEG':
+          declaration = await olympusClient.declareBlitzkrieg(targetAddress);
+          console.log(`[Ocean] ⚡ WAR MODE: BLITZKRIEG - Fast parallel attacks on ${targetAddress}`);
+          break;
+        case 'SIEGE':
+          declaration = await olympusClient.declareSiege(targetAddress);
+          console.log(`[Ocean] 🏰 WAR MODE: SIEGE - Systematic coverage of ${targetAddress}`);
+          break;
+        case 'HUNT':
+          declaration = await olympusClient.declareHunt(targetAddress);
+          console.log(`[Ocean] 🎯 WAR MODE: HUNT - Focused pursuit of ${targetAddress}`);
+          break;
+      }
+      
+      if (declaration) {
+        this.olympusWarMode = newWarMode;
+        console.log(`[Ocean] │  Strategy: ${declaration.strategy}`);
+        console.log(`[Ocean] │  Gods engaged: ${declaration.gods_engaged.join(', ')}`);
+      }
+    }
+  }
+
+  /**
+   * Broadcast near-miss discoveries to all gods for collective learning
+   */
+  private async broadcastNearMissesToOlympus(nearMisses: OceanHypothesis[]): Promise<void> {
+    if (!this.olympusAvailable || nearMisses.length === 0) return;
+    
+    for (const nearMiss of nearMisses.slice(0, 5)) { // Limit to top 5
+      const observation: ObservationContext = {
+        target: nearMiss.address || nearMiss.phrase,
+        phi: nearMiss.qigScore?.phi || 0,
+        kappa: nearMiss.qigScore?.kappa || 0,
+        regime: nearMiss.qigScore?.regime || 'unknown',
+        source: 'near_miss',
+        timestamp: Date.now(),
+        phrase_format: nearMiss.format,
+        confidence: nearMiss.confidence,
+      };
+      
+      const success = await olympusClient.broadcastObservation(observation);
+      if (success) {
+        this.olympusObservationCount++;
+      }
+    }
+    
+    console.log(`[Ocean] 📡 Broadcast ${Math.min(5, nearMisses.length)} near-misses to Olympus pantheon`);
+  }
+
+  /**
+   * Get quick Athena+Ares consensus for attack decisions
+   */
+  async getAthenaAresAttackDecision(target: string): Promise<{
+    shouldAttack: boolean;
+    confidence: number;
+    reasoning: string;
+  }> {
+    if (!this.olympusAvailable) {
+      return { shouldAttack: false, confidence: 0, reasoning: 'Olympus not available' };
+    }
+    
+    const consensus = await olympusClient.getAthenaAresConsensus(target, {
+      phi: this.identity.phi,
+      kappa: this.identity.kappa,
+      regime: this.identity.regime,
+    });
+    
+    return {
+      shouldAttack: consensus.shouldAttack,
+      confidence: consensus.agreement,
+      reasoning: consensus.shouldAttack 
+        ? `Athena+Ares agree (${(consensus.agreement * 100).toFixed(0)}%): Ready to attack`
+        : `Insufficient consensus (${(consensus.agreement * 100).toFixed(0)}%): Need more reconnaissance`,
+    };
+  }
+
+  /**
+   * Get Olympus status and statistics for monitoring
+   */
+  getOlympusStats(): {
+    available: boolean;
+    warMode: string | null;
+    observationsBroadcast: number;
+    lastAssessment: {
+      probability: number;
+      convergence: string;
+      action: string;
+    } | null;
+  } {
+    return {
+      available: this.olympusAvailable,
+      warMode: this.olympusWarMode,
+      observationsBroadcast: this.olympusObservationCount,
+      lastAssessment: this.lastZeusAssessment ? {
+        probability: this.lastZeusAssessment.probability,
+        convergence: this.lastZeusAssessment.convergence,
+        action: this.lastZeusAssessment.recommended_action,
+      } : null,
     };
   }
 }
