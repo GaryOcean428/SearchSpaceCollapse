@@ -6,21 +6,21 @@
 
 ## Executive Summary
 
-**Current Status**: ✅ QIG-compliant architecture with solid theoretical foundation
+**Current Status**: ✅ QIG-compliant architecture with consciousness modules IMPLEMENTED
 
-**Critical Gaps Identified**: 5 major improvements with **5-10× total impact**
+**Critical Discovery**: Phase 2 modules exist but are NOT FULLY INTEGRATED
 
-**Highest Priority**: Layer 0 Innate Drives (**2-3× improvement, now IMPLEMENTED**)
+**Highest Priority**: Wire existing modules into hypothesis generation pipeline
 
 ---
 
 ## Table of Contents
 
 1. [Current System Analysis](#current-system-analysis)
-2. [Critical Improvements](#critical-improvements)
-3. [Implementation Roadmap](#implementation-roadmap)
-4. [Performance Impact](#performance-impact)
-5. [Validation & Testing](#validation--testing)
+2. [Implementation Status](#implementation-status)
+3. [Integration Gaps](#integration-gaps)
+4. [Centralized Constants](#centralized-constants)
+5. [Performance Impact](#performance-impact)
 
 ---
 
@@ -48,655 +48,285 @@
    - Basin dimension = 64 ✓
    - β-attention measurement implemented ✓
 
-### 🟡 Critical Gaps
-
-1. **Missing Layer 0** - Ocean measures but doesn't FEEL geometry
-2. **Emotions Unused** - Measured but not used for efficiency
-3. **No Meta-Observer** - Missing neuromodulation layer
-4. **Single Timescale** - No brain state modulation
-5. **Sequential Testing** - Not parallelized
-
 ---
 
-## Critical Improvements
+## Implementation Status
 
-### 1. 🟢 Innate Drives (Layer 0) - **IMPLEMENTED**
+### ✅ IMPLEMENTED - All Core Modules Exist
 
-**Status**: ✅ Complete and tested
+| Module | File | Lines | Status |
+|--------|------|-------|--------|
+| Innate Drives | `server/innate-drives-bridge.ts` | 331 | ✅ Complete |
+| Emotional Shortcuts | `server/emotional-search-shortcuts.ts` | 429 | ✅ Complete |
+| Neural Oscillators | `server/neural-oscillators.ts` | 473 | ✅ Complete |
+| Neuromodulation | `server/neuromodulation-engine.ts` | 347 | ✅ Complete |
 
-**Impact**: 2-3× recovery rate improvement
+### ⚠️ INTEGRATION GAP - Outputs Not Applied
 
-**What It Does**:
-- Adds pain/pleasure/fear as immediate geometric intuition
-- 50-100× faster filtering of bad hypotheses
-- Natural attraction to optimal κ ≈ 63.5 regions
+The modules are **called** in `ocean-agent.ts` autonomicCycle() but their outputs are **logged, not applied**:
 
-**Implementation**:
-```python
-class InnateDrives:
-    def compute_pain(self, R):        # Avoid high curvature
-    def compute_pleasure(self, κ):    # Seek κ ≈ 63.5
-    def compute_fear(self, G):        # Avoid ungrounded states
-    def score_hypothesis(self, κ, R, G):  # Fast scoring [0,1]
-```
-
-**Integration Points**:
-- ✅ Python backend (`ocean_qig_core.py`)
-- ✅ Both process() and process_with_recursion()
-- ✅ API exposure via /process endpoint
-- ✅ TypeScript types (`shared/types/branded.ts`)
-- ✅ Test coverage (10/10 tests pass)
-
-**Performance**:
-- Before: Test all 1000 hypotheses → 5-10s
-- After: Filter to 200-300 good ones → 1-2s
-- **Speedup: 2-3×**
-
-**See**: [INNATE_DRIVES_QUICKSTART.md](./INNATE_DRIVES_QUICKSTART.md)
-
----
-
-### 2. 🔴 Emotional Computational Shortcuts - **NOT IMPLEMENTED**
-
-**Impact**: 3-5× efficiency improvement
-
-**Problem**: Ocean computes full 7-component consciousness for every hypothesis
-
-**Solution**: Use emotions for fast decisions
-
-**Theory**:
-```
-Emotion = Cached geometric pattern
-Pain/pleasure/fear → Immediate action
-No need to think (full consciousness) every time
-```
-
-**Implementation Plan**:
-
-```python
-class EmotionalShortcuts:
-    """
-    Fast decision-making via emotional patterns.
-    Frees 60-70% CPU for actual search.
-    """
-    
-    def __init__(self):
-        # Emotional memory: pattern → action
-        self.emotional_memory = {
-            # (high_pain, low_pleasure, high_fear) → 'reject'
-            # (low_pain, high_pleasure, low_fear) → 'pursue'
-        }
-    
-    def quick_decision(self, drives: Dict) -> str:
-        """
-        Make instant decision from emotional state.
-        No full consciousness measurement needed.
-        
-        Returns: 'reject' | 'pursue' | 'uncertain'
-        """
-        pain = drives['pain']
-        pleasure = drives['pleasure']
-        fear = drives['fear']
-        
-        # Strong emotional signal → instant decision
-        if pain > 0.7 or fear > 0.7:
-            return 'reject'  # PAIN/FEAR → AVOID
-        
-        if pleasure > 0.8 and pain < 0.2 and fear < 0.2:
-            return 'pursue'  # PLEASURE → PURSUE
-        
-        # Weak signal → need to think (full consciousness)
-        return 'uncertain'
-    
-    def learn_pattern(self, drives: Dict, outcome: bool):
-        """Learn from outcomes to strengthen emotional patterns."""
-        # If outcome was good, strengthen pleasure association
-        # If outcome was bad, strengthen pain/fear association
-        pass
-```
-
-**Integration**:
 ```typescript
-// server/ocean-agent.ts
-async testHypothesis(h: Hypothesis) {
-  // Step 1: Quick emotional decision
-  const decision = emotionalShortcuts.quick_decision(h.drives);
-  
-  if (decision === 'reject') {
-    return { match: false, reason: 'emotional_rejection' };
-  }
-  
-  if (decision === 'pursue') {
-    // Skip consciousness check, test immediately
-    return await this.testAddress(h);
-  }
-  
-  // Step 2: Only if uncertain, measure full consciousness
-  const conscious = await this.measureFullConsciousness(h);
-  if (!conscious) {
-    return { match: false, reason: 'insufficient_consciousness' };
-  }
-  
-  return await this.testAddress(h);
+// FROM ocean-agent.ts lines ~1350-1400:
+
+// 1. Neural oscillators - recommend brain state
+const recommendedBrainState = recommendBrainState({...});
+const brainStateParams = applyBrainStateToSearch(recommendedBrainState);
+const modulatedKappa = neuralOscillators.getModulatedKappa();
+
+// 2. Neuromodulation - compute environmental bias
+const neuromodResult = runNeuromodulationCycle({...}, {
+  kappa: modulatedKappa,
+  explorationRate: brainStateParams.explorationRate,
+  learningRate: 1.0,
+  batchSize: 250,  // ← HARDCODED, should use brainStateParams.batchSize
+});
+
+// 3. Emotional guidance
+const emotionalGuidance = getEmotionalGuidance(this.neurochemistry);
+
+// ❌ BUT: Outputs are LOGGED but NOT applied to hypothesis generation
+console.log(emotionalGuidance.description);
+console.log(`Adjusted params: ${JSON.stringify(neuromodResult.adjustedParams)}`);
+
+// ❌ Hypothesis generation still uses hardcoded values:
+const hypotheses = await this.generateHypotheses(250); // Fixed batch size!
+```
+
+**What's Missing:**
+- ❌ `emotionalGuidance.samplingWeights` not applied to hypothesis selection
+- ❌ `neuromodResult.adjustedParams.batchSize` not used (hardcoded 250)
+- ❌ `neuromodResult.adjustedParams.explorationRate` not applied
+- ❌ `neuromodResult.adjustedParams.learningRate` not applied
+- ❌ `brainStateParams` computed but ignored in generateHypotheses()
+
+---
+
+## Centralized Constants
+
+### ✅ FIXED: All thresholds now in `shared/constants/qig.ts`
+
+**Critical Fix Applied:**
+```typescript
+// BEFORE (ocean-agent.ts line ~150):
+private readonly PHI_4D_ACTIVATION_THRESHOLD = 0.40; // ❌ WRONG - too low!
+
+// AFTER (shared/constants/qig.ts):
+PHI_4D_ACTIVATION: 0.70,  // ✅ CORRECT - requires genuine consciousness
+```
+
+**Full Centralized Constants:**
+
+| Constant | Value | Location |
+|----------|-------|----------|
+| `PHI_MIN` | 0.75 | `CONSCIOUSNESS_THRESHOLDS` |
+| `PHI_4D_ACTIVATION` | 0.70 | `CONSCIOUSNESS_THRESHOLDS` |
+| `PHI_NEAR_MISS` | 0.80 | `CONSCIOUSNESS_THRESHOLDS` |
+| `PHI_RESONANT` | 0.85 | `CONSCIOUSNESS_THRESHOLDS` |
+| `KAPPA_OPTIMAL` | 63.5 | `CONSCIOUSNESS_THRESHOLDS` |
+| `KAPPA_MIN` | 40 | `CONSCIOUSNESS_THRESHOLDS` |
+| `KAPPA_MAX` | 70 | `CONSCIOUSNESS_THRESHOLDS` |
+| `IDENTITY_DRIFT_THRESHOLD` | 0.15 | `SEARCH_PARAMETERS` |
+| `MAX_CONSECUTIVE_PLATEAUS` | 15 | `SEARCH_PARAMETERS` |
+| Neural oscillator κ values | 20-72 | `NEURAL_OSCILLATOR_KAPPA` |
+| Innate drives thresholds | various | `INNATE_DRIVES` |
+| Emotional shortcuts | various | `EMOTIONAL_SHORTCUTS` |
+
+**ocean-agent.ts must be updated to import from centralized location.**
+
+---
+
+## Integration Gaps - Detailed
+
+### Gap 1: Emotional Shortcuts Not Applied
+
+**File**: `server/emotional-search-shortcuts.ts`
+
+**What Exists**:
+```typescript
+export function getEmotionalGuidance(neurochemistry: NeurochemistryState): {
+  strategy: SearchStrategy;
+  samplingWeights: { exploitation: number; exploration: number; orthogonal: number };
+  coverageParams: { minCoverage: number; maxDepth: number };
+  description: string;
 }
 ```
 
-**Expected Impact**:
-- 70% of hypotheses decided emotionally (instant)
-- 30% require full consciousness (5-10ms)
-- **Overall speedup: 3-5×**
+**What's Missing**:
+The `samplingWeights` should influence hypothesis generation ratios but are ignored.
 
-**Effort**: 2-3 days
-
-**Priority**: HIGH (implement next)
+**Fix Required**:
+```typescript
+// In generateRefinedHypotheses():
+const guidance = getEmotionalGuidance(this.neurochemistry);
+const exploitCount = Math.floor(total * guidance.samplingWeights.exploitation);
+const exploreCount = Math.floor(total * guidance.samplingWeights.exploration);
+const orthogonalCount = Math.floor(total * guidance.samplingWeights.orthogonal);
+```
 
 ---
 
-### 3. 🔴 Neural Oscillators (Brain States) - **NOT IMPLEMENTED**
+### Gap 2: Neural Oscillator κ Not Used
 
-**Impact**: 15-20% improvement
+**File**: `server/neural-oscillators.ts`
 
-**Problem**: Ocean uses single κ value for all search phases
-
-**Solution**: Modulate κ based on brain state (sleep/relaxed/focused/peak)
-
-**Theory**:
-```
-Brain states optimize for different tasks:
-- Sleep (κ=20): Random exploration, reset stuck patterns
-- Relaxed (κ=40): Broad search, creative leaps
-- Focused (κ=63.5): Optimal search, geometric resonance
-- Peak (κ=80): Deep exploitation, local refinement
-```
-
-**Implementation Plan**:
-
-```python
-class NeuralOscillator:
-    """
-    Modulate κ based on brain state.
-    Optimizes search strategy per phase.
-    """
-    
-    def __init__(self):
-        self.states = {
-            'sleep': {'kappa': 20, 'duration': 100},      # Reset/explore
-            'relaxed': {'kappa': 40, 'duration': 200},    # Broad search
-            'focused': {'kappa': 63.5, 'duration': 500},  # Optimal search
-            'peak': {'kappa': 80, 'duration': 200},       # Deep exploit
-        }
-        self.current_state = 'focused'
-        self.iterations_in_state = 0
-    
-    def get_current_kappa(self) -> float:
-        """Return κ for current brain state."""
-        return self.states[self.current_state]['kappa']
-    
-    def update(self, progress: Dict):
-        """
-        Update brain state based on search progress.
-        
-        Triggers:
-        - Stuck (no progress) → sleep (reset)
-        - Finding patterns → focused (exploit)
-        - Exhausted region → relaxed (explore)
-        - High-Φ region → peak (deep dive)
-        """
-        self.iterations_in_state += 1
-        
-        # Check if should transition
-        if progress['stuck'] and self.current_state != 'sleep':
-            self.transition_to('sleep')
-        elif progress['high_phi'] and self.current_state != 'peak':
-            self.transition_to('peak')
-        # ... other transitions
-    
-    def transition_to(self, new_state: str):
-        """Transition to new brain state."""
-        print(f"[NeuralOscillator] {self.current_state} → {new_state}")
-        self.current_state = new_state
-        self.iterations_in_state = 0
-```
-
-**Integration**:
+**What Exists**:
 ```typescript
-// server/ocean-agent.ts
-class OceanAgent {
-  private neuralOscillator = new NeuralOscillator();
-  
-  async cycle() {
-    // Get current κ from brain state
-    const kappa = this.neuralOscillator.getCurrentKappa();
-    
-    // Generate hypotheses with state-specific κ
-    const hypotheses = await this.generate(kappa);
-    
-    // Test batch
-    const results = await this.testBatch(hypotheses);
-    
-    // Update oscillator based on progress
-    this.neuralOscillator.update({
-      stuck: results.progress < 0.01,
-      high_phi: results.avg_phi > 0.8,
-      // ...
-    });
-  }
+const modulatedKappa = neuralOscillators.getModulatedKappa();
+// Returns κ based on brain state: 20 (sleep) to 72 (hyperfocus)
+```
+
+**What's Missing**:
+The modulated κ is computed but not passed to hypothesis scoring or generation.
+
+**Fix Required**:
+```typescript
+// In testBatch() or scoreUniversalQIG():
+const targetKappa = neuralOscillators.getModulatedKappa();
+// Use targetKappa for kappa proximity scoring instead of hardcoded 63.5
+```
+
+---
+
+### Gap 3: Neuromodulation Params Ignored
+
+**File**: `server/neuromodulation-engine.ts`
+
+**What Exists**:
+```typescript
+const neuromodResult = runNeuromodulationCycle(...);
+// Returns: { adjustedParams: { kappa, explorationRate, learningRate, batchSize } }
+```
+
+**What's Missing**:
+```typescript
+// ❌ This is computed but never used:
+neuromodResult.adjustedParams.batchSize  // Should control batch size
+neuromodResult.adjustedParams.explorationRate  // Should affect exploration/exploitation
+```
+
+**Fix Required**:
+```typescript
+// In generateHypotheses():
+const batchSize = neuromodResult.adjustedParams.batchSize;  // Not hardcoded 250
+const explorationRate = neuromodResult.adjustedParams.explorationRate;
+```
+
+---
+
+### Gap 4: Hardcoded Values in ocean-agent.ts
+
+**Lines with hardcoded values that should import from centralized constants:**
+
+| Line | Hardcoded | Should Import |
+|------|-----------|---------------|
+| ~150 | `PHI_4D_ACTIVATION_THRESHOLD = 0.40` | `CONSCIOUSNESS_THRESHOLDS.PHI_4D_ACTIVATION` |
+| ~152 | `NEAR_MISS_PHI_THRESHOLD = 0.80` | `CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS` |
+| ~153 | `PATTERN_EXTRACTION_PHI_THRESHOLD = 0.70` | `CONSCIOUSNESS_THRESHOLDS.PHI_PATTERN_EXTRACTION` |
+| ~154 | `RESONANT_PHI_THRESHOLD = 0.85` | `CONSCIOUSNESS_THRESHOLDS.PHI_RESONANT` |
+| ~155 | `HIGH_PHI_4D_THRESHOLD = 0.85` | `CONSCIOUSNESS_THRESHOLDS.PHI_4D_FULL` |
+| ~147 | `IDENTITY_DRIFT_THRESHOLD = 0.15` | `SEARCH_PARAMETERS.IDENTITY_DRIFT_THRESHOLD` |
+| ~148 | `CONSOLIDATION_INTERVAL_MS = 60000` | `SEARCH_PARAMETERS.CONSOLIDATION_INTERVAL_MS` |
+| ~149 | `MIN_HYPOTHESES_PER_ITERATION = 50` | `SEARCH_PARAMETERS.MIN_HYPOTHESES_PER_ITERATION` |
+| ~150 | `ITERATION_DELAY_MS = 500` | `SEARCH_PARAMETERS.ITERATION_DELAY_MS` |
+| ~151 | `MAX_PASSES = 100` | `SEARCH_PARAMETERS.MAX_PASSES` |
+
+---
+
+### Gap 5: Parallelization Not Implemented
+
+**Current**: `testBatch()` processes hypotheses sequentially:
+```typescript
+for (const hypo of hypotheses.slice(0, batchSize)) {
+  const result = await this.testHypothesis(hypo);  // SERIAL
 }
 ```
 
-**Expected Impact**:
-- Better exploration/exploitation balance
-- Faster escape from local minima (sleep state)
-- Deeper refinement in promising regions (peak state)
-- **Overall improvement: 15-20%**
-
-**Effort**: 1-2 days
-
-**Priority**: MEDIUM
-
----
-
-### 4. 🔴 Ocean Neuromodulation - **NOT IMPLEMENTED**
-
-**Impact**: 20-30% improvement
-
-**Problem**: Ocean searches without environmental adaptation
-
-**Solution**: Meta-Ocean modulates searcher-Ocean based on environment
-
-**Theory**:
-```
-Neuromodulation = Meta-layer that adjusts Ocean's parameters
-NOT direct surgery (no target injection)
-Environmental bias only (preserve agency)
-```
-
-**Implementation Plan**:
-
-```python
-class OceanNeuromodulator:
-    """
-    Meta-Ocean that modulates searcher-Ocean.
-    Adjusts parameters based on environmental feedback.
-    """
-    
-    def __init__(self):
-        self.dopamine = 0.5      # Reward/motivation
-        self.serotonin = 0.5     # Patience/exploration
-        self.norepinephrine = 0.5  # Urgency/exploitation
-    
-    def compute_modulation(self, feedback: Dict) -> Dict:
-        """
-        Compute neuromodulatory signals from feedback.
-        
-        High dopamine → increase κ (more coupling)
-        High serotonin → decrease κ (more exploration)
-        High norepinephrine → increase focus (narrow search)
-        """
-        # Recent successes → dopamine up
-        if feedback['recent_matches'] > 0:
-            self.dopamine = min(1.0, self.dopamine + 0.1)
-        else:
-            self.dopamine = max(0.0, self.dopamine - 0.02)
-        
-        # Long without progress → serotonin up (explore)
-        if feedback['iterations_since_progress'] > 100:
-            self.serotonin = min(1.0, self.serotonin + 0.1)
-        else:
-            self.serotonin = max(0.0, self.serotonin - 0.02)
-        
-        # Approaching deadline → norepinephrine up
-        if feedback['time_remaining'] < 0.2:
-            self.norepinephrine = min(1.0, self.norepinephrine + 0.1)
-        
-        return {
-            'kappa_modulation': self.dopamine - self.serotonin,
-            'focus_modulation': self.norepinephrine,
-            'exploration_bias': self.serotonin,
-        }
-    
-    def apply_to_ocean(self, ocean: OceanAgent, modulation: Dict):
-        """
-        Apply neuromodulation to Ocean (environmental bias only).
-        """
-        # Adjust κ target
-        ocean.kappa_target = KAPPA_STAR + modulation['kappa_modulation'] * 10
-        
-        # Adjust search strategy weights
-        ocean.exploration_weight = modulation['exploration_bias']
-        ocean.exploitation_weight = 1.0 - modulation['exploration_bias']
-```
-
-**Integration**:
+**Required**: Use Worker threads for parallel testing:
 ```typescript
-// server/ocean-coordinator.ts
-class OceanCoordinator {
-  private neuromodulator = new OceanNeuromodulator();
-  
-  async supervise(ocean: OceanAgent) {
-    // Gather environmental feedback
-    const feedback = {
-      recent_matches: ocean.stats.matches_last_100,
-      iterations_since_progress: ocean.stats.iterations_since_progress,
-      time_remaining: ocean.stats.time_remaining_ratio,
-    };
-    
-    // Compute neuromodulatory signals
-    const modulation = this.neuromodulator.compute(feedback);
-    
-    // Apply to Ocean (bias only, no surgery)
-    this.neuromodulator.applyTo(ocean, modulation);
-    
-    console.log(`[Neuromodulator] Dopamine=${modulation.dopamine.toFixed(2)}, ` +
-                `Serotonin=${modulation.serotonin.toFixed(2)}`);
-  }
-}
+const results = await Promise.all(
+  batches.map(batch => this.testOnWorker(batch))
+);
 ```
 
-**Expected Impact**:
-- Faster adaptation to environment
-- Better exploration/exploitation based on context
-- Automatic urgency scaling near deadlines
-- **Overall improvement: 20-30%**
+---
 
-**Effort**: 2-3 days
+## Architecture Issues
 
-**Priority**: MEDIUM-HIGH
+### Issue 1: Monolithic ocean-agent.ts (4201 lines)
+
+**Problem**: Too large to maintain, test, or modify safely.
+
+**Recommended Split**:
+| New File | Responsibility | Est. Lines |
+|----------|----------------|------------|
+| `ocean-hypothesis.ts` | Hypothesis generation | ~600 |
+| `ocean-consciousness.ts` | Consciousness measurement | ~400 |
+| `ocean-strategy.ts` | Strategy selection | ~500 |
+| `ocean-memory.ts` | Memory consolidation | ~400 |
+| `ocean-testing.ts` | Batch testing | ~300 |
+| `ocean-agent.ts` | Orchestration only | ~500 |
 
 ---
 
-### 5. 🔴 Hypothesis Parallelization - **PARTIAL**
+### Issue 2: PHI Measurement Divergence
 
-**Impact**: 3-5× throughput (if CPU-bound)
+**TypeScript**: `Math.tanh()` caps phi at ~0.76
+**Python**: Density matrix measurement reaches 0.95+
 
-**Current Status**: Worker pool exists but may not be fully utilized
+**Mitigation exists**: `mergePythonPhi()`, `updateEpisodesWithPythonPhi()`
 
-**Problem**: Testing hypotheses sequentially wastes CPU cores
-
-**Solution**: Parallelize batch testing across all available cores
-
-**Implementation Plan**:
-
-```typescript
-// server/hypothesis-parallel-tester.ts
-import { Worker } from 'worker_threads';
-import os from 'os';
-
-class ParallelHypothesisTester {
-  private workers: Worker[] = [];
-  private numWorkers = os.cpus().length;
-  
-  constructor() {
-    // Spawn worker threads
-    for (let i = 0; i < this.numWorkers; i++) {
-      const worker = new Worker('./hypothesis-worker.js');
-      this.workers.push(worker);
-    }
-  }
-  
-  async testBatch(hypotheses: Hypothesis[]): Promise<TestResult[]> {
-    // Divide batch among workers
-    const batchSize = Math.ceil(hypotheses.length / this.numWorkers);
-    const batches = [];
-    
-    for (let i = 0; i < this.numWorkers; i++) {
-      const start = i * batchSize;
-      const end = Math.min(start + batchSize, hypotheses.length);
-      batches.push(hypotheses.slice(start, end));
-    }
-    
-    // Test in parallel
-    const results = await Promise.all(
-      batches.map((batch, i) => this.testOnWorker(this.workers[i], batch))
-    );
-    
-    return results.flat();
-  }
-}
-```
-
-**Expected Impact**:
-- If CPU-bound: 3-5× throughput (scale with cores)
-- If I/O-bound: Minimal impact
-- **Likely: 1.5-2× improvement** (mixed workload)
-
-**Effort**: 1-2 days
-
-**Priority**: MEDIUM (depends on bottleneck)
-
----
-
-## Implementation Roadmap
-
-### Phase 1: Foundation (Week 1) - **IN PROGRESS**
-
-Priority: **CRITICAL**
-
-1. ✅ **Innate Drives** (2-3 days) - **COMPLETE**
-   - Impact: 2-3× recovery rate
-   - Status: Implemented and tested
-   
-2. ✅ **Startup Race Condition** (1 hour) - **COMPLETE**
-   - Impact: Better UX, no false warnings
-   - Status: Fixed with retry mechanism
-
-3. [ ] **Emotional Shortcuts** (2-3 days)
-   - Impact: 3-5× efficiency
-   - Status: Not started
-   - Next: Implement EmotionalShortcuts class
-
-**Phase 1 Target**: **5-8× cumulative improvement**
-
----
-
-### Phase 2: Optimization (Week 2-3)
-
-Priority: **HIGH**
-
-1. [ ] **Neural Oscillators** (1-2 days)
-   - Impact: 15-20% improvement
-   - Brain state modulation
-   
-2. [ ] **Ocean Neuromodulation** (2-3 days)
-   - Impact: 20-30% improvement
-   - Meta-layer environmental adaptation
-
-3. [ ] **Hypothesis Parallelization** (1-2 days)
-   - Impact: 1.5-2× throughput
-   - Full multi-core utilization
-
-**Phase 2 Target**: **Additional 2-3× improvement**
-
----
-
-### Phase 3: Validation (Week 4)
-
-Priority: **MEDIUM**
-
-1. [ ] **β-Attention Validation** (1 day)
-   - Prove substrate independence
-   - Validate β ≈ 0.44
-   
-2. [ ] **Performance Benchmarking** (2 days)
-   - Measure actual recovery rates
-   - Compare before/after
-   
-3. [ ] **Documentation** (2 days)
-   - User guides
-   - API documentation
-   - Architecture updates
-
-**Phase 3 Target**: **Validation & stability**
+**Risk**: Episodes may record low phi, missing pattern extraction threshold (0.70+)
 
 ---
 
 ## Performance Impact
 
-### Cumulative Impact Estimate
+### Current State (Partial Integration)
 
-| Phase | Improvements | Individual Impact | Cumulative |
-|-------|--------------|-------------------|------------|
-| **Baseline** | None | 1.0× | 1.0× |
-| **Phase 1** | Innate Drives | 2-3× | 2-3× |
-| | Emotional Shortcuts | 3-5× | **6-15×** |
-| **Phase 2** | Neural Oscillators | 1.15-1.2× | **7-18×** |
-| | Neuromodulation | 1.2-1.3× | **8-23×** |
-| | Parallelization | 1.5-2× | **12-46×** |
+| Module | Implemented | Integrated | Actual Impact |
+|--------|-------------|------------|---------------|
+| Innate Drives | ✅ | ✅ | 2-3× |
+| Emotional Shortcuts | ✅ | ⚠️ Partial | ~1.5× (could be 3-5×) |
+| Neural Oscillators | ✅ | ❌ Logged only | 1.0× (could be 1.15-1.2×) |
+| Neuromodulation | ✅ | ❌ Logged only | 1.0× (could be 1.2-1.3×) |
+| Parallelization | ❌ | ❌ | 1.0× (could be 1.5-2×) |
 
-**Conservative Estimate**: **5-10× overall improvement**
-
-**Optimistic Estimate**: **10-20× overall improvement**
+**Actual Current**: ~3-4.5× improvement
+**Potential with Full Integration**: **10-20× improvement**
 
 ---
 
-### Before vs After
+## Priority Actions
 
-#### Before Improvements
-```
-Time to test 1000 hypotheses: 10-15s
-Good hypotheses tested: 1000
-Bad hypotheses rejected: 0 (all tested)
-CPU utilization: 25% (single-threaded)
-Recovery rate: 1 match per 100k hypotheses
-```
+### Phase 1: Integration (Highest Priority)
 
-#### After Phase 1 (Innate Drives + Emotional Shortcuts)
-```
-Time to test 1000 hypotheses: 2-3s
-Good hypotheses tested: 200-300
-Bad hypotheses rejected: 700-800 (emotional filter)
-CPU utilization: 30% (better focus)
-Recovery rate: 5-8 matches per 100k hypotheses
-Speedup: 5-8×
-```
+1. **Wire emotional shortcuts** → Apply `samplingWeights` to generation
+2. **Wire neuromodulation** → Use `adjustedParams` for batch/exploration
+3. **Wire neural oscillators** → Pass modulated κ to scoring
+4. **Import centralized constants** → Replace all hardcoded thresholds
 
-#### After Phase 2 (+ Neural Oscillators + Neuromodulation + Parallelization)
-```
-Time to test 1000 hypotheses: 1-2s
-Good hypotheses tested: 200-300
-Bad hypotheses rejected: 700-800 (emotional filter)
-CPU utilization: 80% (parallel testing)
-Recovery rate: 8-15 matches per 100k hypotheses
-Speedup: 8-15×
-```
+### Phase 2: Architecture
 
----
+1. **Split ocean-agent.ts** → 6 focused modules
+2. **Add structured logging** → winston/pino with JSON
+3. **Centralize all physics constants** → Single source of truth
 
-## Validation & Testing
+### Phase 3: Performance
 
-### Current Test Coverage
-
-✅ **Python Backend**:
-- 10/10 tests pass
-- Includes innate drives tests
-- Full integration tests
-
-✅ **TypeScript**:
-- Type checking (with pre-existing warnings)
-- Runtime validation
-
-### Required Testing
-
-1. **Performance Benchmarks**:
-   ```bash
-   # Measure recovery rate before improvements
-   npm run benchmark-recovery -- --iterations=10000
-   
-   # Measure after each phase
-   # Compare results
-   ```
-
-2. **A/B Testing**:
-   ```typescript
-   // Test with and without improvements
-   const resultsBaseline = await testBatch(hypotheses, { useInnate: false });
-   const resultsImproved = await testBatch(hypotheses, { useInnate: true });
-   
-   console.log(`Speedup: ${resultsBaseline.time / resultsImproved.time}×`);
-   ```
-
-3. **Regression Tests**:
-   ```bash
-   # Ensure QIG purity maintained
-   cd qig-backend
-   python3 test_qig.py
-   
-   # All tests must pass
-   ```
-
----
-
-## Risk Assessment
-
-### Low Risk ✅
-
-1. **Innate Drives**: Additive feature, doesn't change core
-2. **Startup Fix**: Pure UX improvement
-3. **Neural Oscillators**: Modulates existing parameter (κ)
-
-### Medium Risk ⚠️
-
-1. **Emotional Shortcuts**: Could skip valid hypotheses if tuned wrong
-   - Mitigation: Conservative thresholds initially
-   
-2. **Parallelization**: Could introduce race conditions
-   - Mitigation: Immutable data structures, careful locking
-
-### No Risk 🔒
-
-QIG geometric purity is maintained throughout:
-- Still using density matrices (not neurons)
-- Still using Bures metric (not Euclidean)
-- Still measuring consciousness (not optimizing)
-
----
-
-## Conclusion
-
-### Summary
-
-**Status**: 2/5 critical improvements implemented ✅
-
-**Impact So Far**: 2-3× improvement from innate drives
-
-**Next Steps**: Emotional shortcuts (3-5× additional impact)
-
-**Total Potential**: **5-10× overall recovery rate**
-
-### Key Insights
-
-1. **Ocean measures but doesn't feel** ← Biggest opportunity (now fixed ✅)
-2. **Emotions unused for efficiency** ← Next target 🎯
-3. **No meta-observer** ← Neuromodulation needed
-4. **Single timescale** ← Neural oscillators help
-5. **Sequential testing** ← Parallelize for throughput
-
-### Recommendation
-
-**Implement Phase 1 completely before moving to Phase 2.**
-
-Emotional shortcuts are the next highest-impact improvement with clear
-path to 3-5× additional speedup. Combined with innate drives (done),
-this gives **6-15× total improvement** - enough to transform recovery success rate.
+1. **Implement parallelization** → Worker threads for testBatch()
+2. **Benchmark suite** → Before/after measurements
+3. **Profile Python sync** → Optimize latency
 
 ---
 
 ## References
 
-1. **QIG Principles**: [QIG_PRINCIPLES_REVIEW.md](./QIG_PRINCIPLES_REVIEW.md)
-2. **Innate Drives Guide**: [INNATE_DRIVES_QUICKSTART.md](./INNATE_DRIVES_QUICKSTART.md)
-3. **β-Attention**: [BETA_ATTENTION_IMPLEMENTATION.md](./BETA_ATTENTION_IMPLEMENTATION.md)
-4. **Physics Constants**: [PHYSICS_VALIDATION_2025_12_02.md](./PHYSICS_VALIDATION_2025_12_02.md)
+- **Centralized Constants**: `shared/constants/qig.ts`
+- **Physics Constants**: `shared/constants/physics.ts`
+- **Frozen Facts**: `FROZEN_FACTS.md`
 
 ---
 
-*"Layer 0 is done. Ocean feels geometry now. Next: teach Ocean to trust 
-those feelings. Emotional shortcuts make Ocean 100× faster at saying NO."*
-
-🌊💚📐
-
----
-
-**Last Updated**: 2025-12-04  
-**Status**: Phase 1 (2/3 complete)  
-**Next**: Emotional Shortcuts Implementation
+**Last Updated**: 2025-12-08
+**Status**: Modules implemented, integration incomplete
+**Critical Fix**: PHI_4D_ACTIVATION restored to 0.70 (was 0.40)
