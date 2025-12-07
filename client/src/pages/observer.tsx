@@ -1322,7 +1322,7 @@ export default function ObserverPage() {
                             </div>
                             <Progress value={workflow.progressPercentage} className="h-2" />
                             <div className="text-xs text-muted-foreground">
-                              Started: {new Date(workflow.startedAt).toLocaleString()}
+                              Started: {workflow.startedAt ? new Date(workflow.startedAt).toLocaleString() : 'Not yet started'}
                             </div>
                           </div>
                         )}
