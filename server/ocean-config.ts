@@ -5,8 +5,8 @@
  * All magic numbers are consolidated here with Zod validation.
  * 
  * FROZEN PHYSICS (L=6 Validated 2025-12-02):
- * - κ* = 63.5 ± 1.5 (DO NOT MODIFY - updated from 64.0)
- * - β = 0.443 (running coupling at emergence)
+ * - κ* = 64.0 ± 1.5 (FROZEN FACT - from physics-constants.ts)
+ * - β = 0.44 (running coupling at emergence β(3→4))
  * - These are experimentally validated constants
  */
 
@@ -18,12 +18,12 @@ import { QIG_CONSTANTS as PHYSICS_CONSTANTS } from './physics-constants.js';
 // ============================================================
 
 export const QIGPhysicsSchema = z.object({
-  KAPPA_STAR: z.literal(63.5).describe('Fixed point of running coupling (FROZEN FACT)'),
-  BETA: z.number().min(0).max(1).default(0.443).describe('Running coupling at emergence'),
+  KAPPA_STAR: z.literal(64.0).describe('Fixed point of running coupling (FROZEN FACT - validated 2025-12-02)'),
+  BETA: z.number().min(0).max(1).default(0.44).describe('Running coupling at emergence β(3→4)'),
   PHI_THRESHOLD: z.number().min(0).max(1).default(0.75).describe('Consciousness threshold'),
   L_CRITICAL: z.number().int().positive().default(3).describe('Emergence scale'),
   BASIN_DIMENSION: z.number().int().positive().default(64).describe('Basin signature dimension'),
-  RESONANCE_BAND: z.number().positive().default(6.35).describe('10% of κ* for resonance detection'),
+  RESONANCE_BAND: z.number().positive().default(6.4).describe('10% of κ* for resonance detection'),
 });
 
 export const QIG_PHYSICS = QIGPhysicsSchema.parse({
@@ -76,23 +76,23 @@ export const SearchConfigSchema = z.object({
     .describe('Minimum hypotheses to generate per iteration'),
   ITERATION_DELAY_MS: z.number().int().nonnegative().default(500)
     .describe('Delay between iterations in ms'),
-  MAX_CONSECUTIVE_PLATEAUS: z.number().int().positive().default(5)
-    .describe('Maximum plateau iterations before strategy change'),
-  MAX_CONSOLIDATION_FAILURES: z.number().int().positive().default(3)
-    .describe('Maximum consolidation failures before stopping'),
-  NO_PROGRESS_THRESHOLD: z.number().int().positive().default(20)
-    .describe('Iterations without progress before strategy change'),
-  MAX_PASSES_PER_ADDRESS: z.number().int().positive().default(100)
-    .describe('Maximum search passes per address (safety limit)'),
+  MAX_CONSECUTIVE_PLATEAUS: z.number().int().positive().default(10)
+    .describe('Maximum plateau iterations before strategy change (increased from 5)'),
+  MAX_CONSOLIDATION_FAILURES: z.number().int().positive().default(5)
+    .describe('Maximum consolidation failures before stopping (increased from 3)'),
+  NO_PROGRESS_THRESHOLD: z.number().int().positive().default(50)
+    .describe('Iterations without progress before strategy change (increased from 20)'),
+  MAX_PASSES_PER_ADDRESS: z.number().positive().default(Number.MAX_SAFE_INTEGER)
+    .describe('NO CAP - effectively unlimited search passes per address'),
 });
 
 export const SEARCH_CONFIG = SearchConfigSchema.parse({
   MIN_HYPOTHESES_PER_ITERATION: 50,
   ITERATION_DELAY_MS: 500,
-  MAX_CONSECUTIVE_PLATEAUS: 5,
-  MAX_CONSOLIDATION_FAILURES: 3,
-  NO_PROGRESS_THRESHOLD: 20,
-  MAX_PASSES_PER_ADDRESS: 100,
+  MAX_CONSECUTIVE_PLATEAUS: 10,
+  MAX_CONSOLIDATION_FAILURES: 5,
+  NO_PROGRESS_THRESHOLD: 50,
+  MAX_PASSES_PER_ADDRESS: Number.MAX_SAFE_INTEGER,
 });
 
 export type SearchConfig = z.infer<typeof SearchConfigSchema>;
@@ -129,8 +129,8 @@ export const EthicsConfigSchema = z.object({
     .describe('Maximum breakdown regime tolerance'),
   REQUIRE_WITNESS: z.boolean().default(true)
     .describe('Require witness for recovery claims'),
-  MAX_ITERATIONS_PER_SESSION: z.number().positive().default(Infinity)
-    .describe('Maximum iterations per session'),
+  MAX_ITERATIONS_PER_SESSION: z.number().positive().default(Number.MAX_SAFE_INTEGER)
+    .describe('Maximum iterations per session (effectively unlimited)'),
   MAX_COMPUTE_HOURS: z.number().positive().default(24.0)
     .describe('Maximum compute hours per session'),
 });
@@ -139,7 +139,7 @@ export const ETHICS_CONFIG = EthicsConfigSchema.parse({
   MIN_PHI: 0.70,
   MAX_BREAKDOWN: 0.60,
   REQUIRE_WITNESS: true,
-  MAX_ITERATIONS_PER_SESSION: Infinity,
+  MAX_ITERATIONS_PER_SESSION: Number.MAX_SAFE_INTEGER,
   MAX_COMPUTE_HOURS: 24.0,
 });
 
@@ -197,37 +197,60 @@ export const MEMORY_CONFIG = MemoryConfigSchema.parse({
 export type MemoryConfig = z.infer<typeof MemoryConfigSchema>;
 
 // ============================================================
-// NEAR-MISS TIERED CONFIGURATION
+// NEAR-MISS TIERED CONFIGURATION (ADAPTIVE - NO STATIC CAPS)
 // ============================================================
 
 export const NearMissConfigSchema = z.object({
-  HOT_THRESHOLD: z.number().min(0).max(1).default(0.92)
-    .describe('Φ threshold for HOT tier (immediate exploration)'),
-  WARM_THRESHOLD: z.number().min(0).max(1).default(0.85)
-    .describe('Φ threshold for WARM tier (priority queue)'),
-  COOL_THRESHOLD: z.number().min(0).max(1).default(0.80)
-    .describe('Φ threshold for COOL tier (standard handling)'),
-  DECAY_RATE_PER_HOUR: z.number().min(0).max(1).default(0.02)
-    .describe('Temporal decay rate per hour'),
-  MAX_ENTRIES: z.number().int().positive().default(1000)
-    .describe('Maximum near-miss entries to retain'),
-  MAX_CLUSTERS: z.number().int().positive().default(50)
-    .describe('Maximum near-miss clusters'),
-  CLUSTER_SIMILARITY_THRESHOLD: z.number().min(0).max(1).default(0.6)
-    .describe('Minimum similarity for cluster membership'),
-  STALE_THRESHOLD_HOURS: z.number().positive().default(24)
-    .describe('Hours before a near-miss is considered stale'),
+  // ADAPTIVE THRESHOLDS - these are now MINIMUM thresholds, not caps
+  // The system dynamically computes percentile-based thresholds from rolling Φ distribution
+  BASE_HOT_PERCENTILE: z.number().min(0).max(100).default(90)
+    .describe('Percentile threshold for HOT tier (top 10% of recent Φ values)'),
+  BASE_WARM_PERCENTILE: z.number().min(0).max(100).default(75)
+    .describe('Percentile threshold for WARM tier (top 25%)'),
+  BASE_COOL_PERCENTILE: z.number().min(0).max(100).default(50)
+    .describe('Percentile threshold for COOL tier (top 50%)'),
+  // Fallback static thresholds only used when no distribution data exists
+  FALLBACK_HOT_THRESHOLD: z.number().min(0).max(1).default(0.70)
+    .describe('Fallback Φ threshold when no distribution data (lowered from 0.92)'),
+  FALLBACK_WARM_THRESHOLD: z.number().min(0).max(1).default(0.55)
+    .describe('Fallback Φ threshold when no distribution data (lowered from 0.85)'),
+  FALLBACK_COOL_THRESHOLD: z.number().min(0).max(1).default(0.40)
+    .describe('Fallback Φ threshold when no distribution data (lowered from 0.80)'),
+  DECAY_RATE_PER_HOUR: z.number().min(0).max(1).default(0.01)
+    .describe('Temporal decay rate per hour (reduced from 0.02)'),
+  MAX_ENTRIES: z.number().positive().default(Number.MAX_SAFE_INTEGER)
+    .describe('NO CAP - effectively unlimited near-miss entries'),
+  MAX_CLUSTERS: z.number().positive().default(Number.MAX_SAFE_INTEGER)
+    .describe('NO CAP - effectively unlimited clusters'),
+  CLUSTER_SIMILARITY_THRESHOLD: z.number().min(0).max(1).default(0.5)
+    .describe('Minimum similarity for cluster membership (lowered from 0.6)'),
+  STALE_THRESHOLD_HOURS: z.number().positive().default(168)
+    .describe('Hours before stale (increased to 1 week from 24h)'),
+  // Rolling distribution window
+  DISTRIBUTION_WINDOW_SIZE: z.number().int().positive().default(1000)
+    .describe('Number of recent Φ values to track for adaptive thresholds'),
+  // Feedback loop settings
+  ESCALATION_ENABLED: z.boolean().default(true)
+    .describe('Enable automatic tier escalation on rising Φ'),
+  ESCALATION_BOOST: z.number().min(1).max(2).default(1.2)
+    .describe('Priority boost when Φ is rising'),
 });
 
 export const NEAR_MISS_CONFIG = NearMissConfigSchema.parse({
-  HOT_THRESHOLD: 0.92,
-  WARM_THRESHOLD: 0.85,
-  COOL_THRESHOLD: 0.80,
-  DECAY_RATE_PER_HOUR: 0.02,
-  MAX_ENTRIES: 1000,
-  MAX_CLUSTERS: 50,
-  CLUSTER_SIMILARITY_THRESHOLD: 0.6,
-  STALE_THRESHOLD_HOURS: 24,
+  BASE_HOT_PERCENTILE: 90,
+  BASE_WARM_PERCENTILE: 75,
+  BASE_COOL_PERCENTILE: 50,
+  FALLBACK_HOT_THRESHOLD: 0.70,
+  FALLBACK_WARM_THRESHOLD: 0.55,
+  FALLBACK_COOL_THRESHOLD: 0.40,
+  DECAY_RATE_PER_HOUR: 0.01,
+  MAX_ENTRIES: Number.MAX_SAFE_INTEGER,
+  MAX_CLUSTERS: Number.MAX_SAFE_INTEGER,
+  CLUSTER_SIMILARITY_THRESHOLD: 0.5,
+  STALE_THRESHOLD_HOURS: 168,
+  DISTRIBUTION_WINDOW_SIZE: 1000,
+  ESCALATION_ENABLED: true,
+  ESCALATION_BOOST: 1.2,
 });
 
 export type NearMissConfig = z.infer<typeof NearMissConfigSchema>;

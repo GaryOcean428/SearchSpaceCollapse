@@ -46,15 +46,24 @@ const stats: QueueStats = {
  * Queue BOTH compressed and uncompressed addresses for a passphrase
  * This is the SINGLE entry point for all address generation
  * 
+ * TIER-WEIGHTED PRIORITY:
+ * - Priority is now dynamically computed based on near-miss tier and Φ value
+ * - HOT tier entries get priority 10+, WARM 5+, COOL 1+
+ * - Escalating entries get additional boost
+ * 
  * @param passphrase - The passphrase to generate addresses from
  * @param source - Where this address came from (for metrics)
- * @param priority - Higher priority = checked first
+ * @param priority - Base priority (will be boosted by tier weight)
+ * @param nearMissTier - Optional tier from near-miss manager
+ * @param phi - Optional Φ value for priority computation
  * @returns The generated addresses and whether they were queued
  */
 export function queueAddressForBalanceCheck(
   passphrase: string,
   source: string = 'unknown',
-  priority: number = 1
+  priority: number = 1,
+  nearMissTier?: 'hot' | 'warm' | 'cool',
+  phi?: number
 ): QueuedAddressResult | null {
   try {
     if (!passphrase || typeof passphrase !== 'string' || passphrase.length === 0) {
@@ -76,6 +85,14 @@ export function queueAddressForBalanceCheck(
       ? source as 'python' | 'mnemonic' | 'manual'
       : 'typescript';
     
+    // Compute tier-weighted priority
+    let effectivePriority = priority;
+    if (nearMissTier) {
+      const tierBoost = nearMissTier === 'hot' ? 10 : nearMissTier === 'warm' ? 5 : 1;
+      const phiBoost = phi ? Math.round(phi * 10) : 0;
+      effectivePriority = priority + tierBoost + phiBoost;
+    }
+    
     // Queue both addresses
     const result = balanceQueue.enqueueBoth(
       addresses.compressed,
@@ -83,7 +100,7 @@ export function queueAddressForBalanceCheck(
       passphrase,
       compressedWif,
       uncompressedWif,
-      { priority, source: sourceType }
+      { priority: effectivePriority, source: sourceType }
     );
     
     // Track tested phrase in PostgreSQL for deduplication

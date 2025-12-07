@@ -1,23 +1,27 @@
 /**
- * Near-Miss Manager
+ * Near-Miss Manager - ADAPTIVE VERSION
  * 
  * Tiered classification and intelligent management of near-miss discoveries.
  * Near-misses are high-Φ candidates that didn't match but indicate promising areas.
  * 
- * TIER SYSTEM:
- * - HOT (Φ > 0.92): Immediate intensive exploration
- * - WARM (Φ > 0.85): Priority queue for next batch
- * - COOL (Φ > 0.80): Standard near-miss handling
+ * ADAPTIVE TIER SYSTEM (NO STATIC CAPS):
+ * - HOT: Top 10% of rolling Φ distribution (immediate intensive exploration)
+ * - WARM: Top 25% of rolling Φ distribution (priority queue for next batch)
+ * - COOL: Top 50% of rolling Φ distribution (standard near-miss handling)
+ * - ALL entries above minimum threshold are kept (no artificial caps)
  * 
  * Features:
- * - Tiered classification with different handling strategies
+ * - Adaptive percentile-based thresholds using rolling Φ distribution
  * - Temporal decay with recency weighting
- * - Pattern clustering by structure/semantics
- * - Cross-session persistence
+ * - Pattern clustering by structure/semantics (unlimited clusters)
+ * - Cross-session persistence via oceanPersistence
+ * - Φ feedback loop with automatic tier escalation
+ * - Tier-weighted balance queue priority
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { NEAR_MISS_CONFIG } from './ocean-config';
 
 export type NearMissTier = 'hot' | 'warm' | 'cool';
 
@@ -34,6 +38,9 @@ export interface NearMissEntry {
   source: string;
   clusterId?: string;
   structuralSignature?: StructuralSignature;
+  phiHistory?: number[];
+  isEscalating?: boolean;
+  queuePriority?: number;
 }
 
 export interface StructuralSignature {
@@ -57,6 +64,7 @@ export interface NearMissCluster {
   structuralPattern: string;
   createdAt: string;
   lastUpdatedAt: string;
+  ageHours?: number;
 }
 
 export interface NearMissStats {
@@ -69,29 +77,22 @@ export interface NearMissStats {
   maxPhi: number;
   recentDiscoveries: number;
   staleCount: number;
+  adaptiveThresholds: {
+    hot: number;
+    warm: number;
+    cool: number;
+    distributionSize: number;
+  };
+  escalatingCount: number;
 }
 
-export interface TieredNearMissConfig {
-  hotThreshold: number;
-  warmThreshold: number;
-  coolThreshold: number;
-  decayRatePerHour: number;
-  maxEntries: number;
-  maxClusters: number;
-  clusterSimilarityThreshold: number;
-  staleThresholdHours: number;
+export interface AdaptiveThresholds {
+  hot: number;
+  warm: number;
+  cool: number;
+  distributionSize: number;
+  lastComputed: string;
 }
-
-const DEFAULT_CONFIG: TieredNearMissConfig = {
-  hotThreshold: 0.92,
-  warmThreshold: 0.85,
-  coolThreshold: 0.80,
-  decayRatePerHour: 0.02,
-  maxEntries: 1000,
-  maxClusters: 50,
-  clusterSimilarityThreshold: 0.6,
-  staleThresholdHours: 24,
-};
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const NEAR_MISS_FILE = path.join(DATA_DIR, 'near-miss-state.json');
@@ -99,28 +100,109 @@ const NEAR_MISS_FILE = path.join(DATA_DIR, 'near-miss-state.json');
 export class NearMissManager {
   private entries: Map<string, NearMissEntry> = new Map();
   private clusters: Map<string, NearMissCluster> = new Map();
-  private config: TieredNearMissConfig;
   private isDirty = false;
   private saveTimer: NodeJS.Timeout | null = null;
+  
+  private rollingPhiDistribution: number[] = [];
+  private adaptiveThresholds: AdaptiveThresholds;
 
-  constructor(config: Partial<TieredNearMissConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor() {
+    this.adaptiveThresholds = {
+      hot: NEAR_MISS_CONFIG.FALLBACK_HOT_THRESHOLD,
+      warm: NEAR_MISS_CONFIG.FALLBACK_WARM_THRESHOLD,
+      cool: NEAR_MISS_CONFIG.FALLBACK_COOL_THRESHOLD,
+      distributionSize: 0,
+      lastComputed: new Date().toISOString(),
+    };
     this.load();
     this.startAutoSave();
+    this.recomputeAdaptiveThresholds();
   }
 
   /**
-   * Classify a phi value into a tier
+   * Add a Φ value to the rolling distribution for adaptive threshold computation
    */
-  classifyTier(phi: number): NearMissTier | null {
-    if (phi > this.config.hotThreshold) return 'hot';
-    if (phi > this.config.warmThreshold) return 'warm';
-    if (phi > this.config.coolThreshold) return 'cool';
-    return null;
+  recordPhiObservation(phi: number): void {
+    if (phi > 0 && phi <= 1) {
+      this.rollingPhiDistribution.push(phi);
+      if (this.rollingPhiDistribution.length > NEAR_MISS_CONFIG.DISTRIBUTION_WINDOW_SIZE) {
+        this.rollingPhiDistribution.shift();
+      }
+      if (this.rollingPhiDistribution.length % 100 === 0) {
+        this.recomputeAdaptiveThresholds();
+      }
+    }
   }
 
   /**
-   * Add a new near-miss entry with automatic tiering
+   * Recompute adaptive thresholds from rolling Φ distribution
+   */
+  recomputeAdaptiveThresholds(): void {
+    if (this.rollingPhiDistribution.length < 10) {
+      return;
+    }
+
+    const sorted = [...this.rollingPhiDistribution].sort((a, b) => b - a);
+    const len = sorted.length;
+
+    const hotIdx = Math.floor(len * (1 - NEAR_MISS_CONFIG.BASE_HOT_PERCENTILE / 100));
+    const warmIdx = Math.floor(len * (1 - NEAR_MISS_CONFIG.BASE_WARM_PERCENTILE / 100));
+    const coolIdx = Math.floor(len * (1 - NEAR_MISS_CONFIG.BASE_COOL_PERCENTILE / 100));
+
+    this.adaptiveThresholds = {
+      hot: sorted[hotIdx] || NEAR_MISS_CONFIG.FALLBACK_HOT_THRESHOLD,
+      warm: sorted[warmIdx] || NEAR_MISS_CONFIG.FALLBACK_WARM_THRESHOLD,
+      cool: sorted[coolIdx] || NEAR_MISS_CONFIG.FALLBACK_COOL_THRESHOLD,
+      distributionSize: len,
+      lastComputed: new Date().toISOString(),
+    };
+
+    console.log(`[NearMiss] Adaptive thresholds updated: HOT≥${this.adaptiveThresholds.hot.toFixed(3)} WARM≥${this.adaptiveThresholds.warm.toFixed(3)} COOL≥${this.adaptiveThresholds.cool.toFixed(3)} (n=${len})`);
+  }
+
+  /**
+   * Get current adaptive thresholds
+   */
+  getAdaptiveThresholds(): AdaptiveThresholds {
+    return { ...this.adaptiveThresholds };
+  }
+
+  /**
+   * Classify a phi value into a tier using adaptive thresholds
+   * Returns tier for ANY positive Φ (no minimum cutoff)
+   */
+  classifyTier(phi: number): NearMissTier {
+    if (phi >= this.adaptiveThresholds.hot) return 'hot';
+    if (phi >= this.adaptiveThresholds.warm) return 'warm';
+    return 'cool';
+  }
+
+  /**
+   * Compute tier-weighted priority for balance queue
+   */
+  computeQueuePriority(entry: NearMissEntry): number {
+    const tierBase = entry.tier === 'hot' ? 10 : entry.tier === 'warm' ? 5 : 1;
+    const phiBoost = entry.phi * 10;
+    const escalationBoost = entry.isEscalating && NEAR_MISS_CONFIG.ESCALATION_ENABLED 
+      ? NEAR_MISS_CONFIG.ESCALATION_BOOST 
+      : 1;
+    const recencyBoost = this.computeRecencyFactor(entry);
+    
+    return Math.round((tierBase + phiBoost) * escalationBoost * recencyBoost);
+  }
+
+  /**
+   * Compute recency factor (1.0 for fresh, decays over time)
+   */
+  private computeRecencyFactor(entry: NearMissEntry): number {
+    const now = Date.now();
+    const discoveredAt = new Date(entry.discoveredAt).getTime();
+    const hoursAgo = (now - discoveredAt) / (1000 * 60 * 60);
+    return Math.exp(-NEAR_MISS_CONFIG.DECAY_RATE_PER_HOUR * hoursAgo);
+  }
+
+  /**
+   * Add a new near-miss entry with automatic tiering and feedback loop
    */
   addNearMiss(data: {
     phrase: string;
@@ -129,20 +211,32 @@ export class NearMissManager {
     regime: string;
     source: string;
   }): NearMissEntry | null {
-    const tier = this.classifyTier(data.phi);
-    if (!tier) return null;
+    if (!data.phrase || data.phi <= 0) return null;
 
+    this.recordPhiObservation(data.phi);
+    
+    const tier = this.classifyTier(data.phi);
     const id = this.generateId(data.phrase);
     const existing = this.entries.get(id);
 
     if (existing) {
-      if (data.phi > existing.phi) {
-        existing.phi = data.phi;
-        existing.tier = tier;
+      const isEscalating = data.phi > existing.phi;
+      existing.phiHistory = existing.phiHistory || [];
+      existing.phiHistory.push(data.phi);
+      if (existing.phiHistory.length > 20) existing.phiHistory.shift();
+
+      if (isEscalating || data.phi >= existing.phi) {
+        existing.phi = Math.max(existing.phi, data.phi);
+        existing.tier = this.classifyTier(existing.phi);
+        existing.isEscalating = isEscalating;
         existing.lastAccessedAt = new Date().toISOString();
         existing.explorationCount++;
+        existing.queuePriority = this.computeQueuePriority(existing);
         this.isDirty = true;
-        console.log(`[NearMiss] 📈 Upgraded: "${data.phrase.slice(0, 30)}..." → ${tier.toUpperCase()} (Φ=${data.phi.toFixed(3)})`);
+        
+        if (isEscalating) {
+          console.log(`[NearMiss] 📈 ESCALATING: "${data.phrase.slice(0, 30)}..." → ${existing.tier.toUpperCase()} (Φ=${data.phi.toFixed(4)} ↑)`);
+        }
       }
       return existing;
     }
@@ -159,21 +253,24 @@ export class NearMissManager {
       explorationCount: 1,
       source: data.source,
       structuralSignature: this.computeStructuralSignature(data.phrase),
+      phiHistory: [data.phi],
+      isEscalating: false,
+      queuePriority: 1,
     };
-
+    
+    entry.queuePriority = this.computeQueuePriority(entry);
     this.entries.set(id, entry);
     this.isDirty = true;
 
     this.assignToCluster(entry);
-    this.enforceLimit();
 
-    console.log(`[NearMiss] 🎯 ${tier.toUpperCase()}: "${data.phrase.slice(0, 30)}..." (Φ=${data.phi.toFixed(3)})`);
+    console.log(`[NearMiss] 🎯 ${tier.toUpperCase()}: "${data.phrase.slice(0, 30)}..." (Φ=${data.phi.toFixed(4)}, priority=${entry.queuePriority})`);
 
     return entry;
   }
 
   /**
-   * Get entries by tier with optional recency weighting
+   * Get entries by tier with recency weighting
    */
   getByTier(tier: NearMissTier, limit?: number): NearMissEntry[] {
     const entries = Array.from(this.entries.values())
@@ -190,99 +287,97 @@ export class NearMissManager {
   /**
    * Get all hot entries for immediate exploration
    */
-  getHotEntries(limit = 10): NearMissEntry[] {
+  getHotEntries(limit?: number): NearMissEntry[] {
     return this.getByTier('hot', limit);
   }
 
   /**
    * Get warm entries for priority queuing
    */
-  getWarmEntries(limit = 25): NearMissEntry[] {
+  getWarmEntries(limit?: number): NearMissEntry[] {
     return this.getByTier('warm', limit);
   }
 
   /**
    * Get cool entries for background processing
    */
-  getCoolEntries(limit = 50): NearMissEntry[] {
+  getCoolEntries(limit?: number): NearMissEntry[] {
     return this.getByTier('cool', limit);
+  }
+
+  /**
+   * Get all escalating entries (Φ is rising)
+   */
+  getEscalatingEntries(): NearMissEntry[] {
+    return Array.from(this.entries.values())
+      .filter(e => e.isEscalating)
+      .sort((a, b) => b.phi - a.phi);
   }
 
   /**
    * Get entries prioritized by recency-weighted score
    */
-  getPrioritizedEntries(limit = 20): NearMissEntry[] {
-    return Array.from(this.entries.values())
+  getPrioritizedEntries(limit?: number): NearMissEntry[] {
+    const all = Array.from(this.entries.values())
       .map(e => ({
         entry: e,
         score: this.computeRecencyScore(e),
       }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map(x => x.entry);
+      .sort((a, b) => b.score - a.score);
+    
+    return limit ? all.slice(0, limit).map(x => x.entry) : all.map(x => x.entry);
   }
 
   /**
    * Compute recency-weighted score for prioritization
    */
   private computeRecencyScore(entry: NearMissEntry): number {
-    const now = Date.now();
-    const discoveredAt = new Date(entry.discoveredAt).getTime();
-    const hoursAgo = (now - discoveredAt) / (1000 * 60 * 60);
+    const tierWeight = entry.tier === 'hot' ? 2.0 : entry.tier === 'warm' ? 1.5 : 1.0;
+    const decay = this.computeRecencyFactor(entry);
+    const explorationPenalty = 1 / (1 + entry.explorationCount * 0.05);
+    const escalationBoost = entry.isEscalating ? NEAR_MISS_CONFIG.ESCALATION_BOOST : 1.0;
 
-    const tierWeight = entry.tier === 'hot' ? 1.5 : entry.tier === 'warm' ? 1.2 : 1.0;
-    const decay = Math.exp(-this.config.decayRatePerHour * hoursAgo);
-    const explorationPenalty = 1 / (1 + entry.explorationCount * 0.1);
-
-    return entry.phi * tierWeight * decay * explorationPenalty;
+    return entry.phi * tierWeight * decay * explorationPenalty * escalationBoost;
   }
 
   /**
-   * Apply temporal decay to all entries
+   * Apply temporal decay and re-tier all entries
    */
-  applyDecay(): { promoted: number; demoted: number; expired: number } {
+  applyDecay(): { promoted: number; demoted: number; escalating: number } {
     let promoted = 0;
     let demoted = 0;
-    let expired = 0;
-    const toRemove: string[] = [];
+    let escalating = 0;
 
-    for (const [id, entry] of this.entries) {
-      const score = this.computeRecencyScore(entry);
-      const effectivePhi = entry.phi * score / entry.phi;
+    for (const entry of this.entries.values()) {
+      const oldTier = entry.tier;
+      entry.tier = this.classifyTier(entry.phi);
+      entry.queuePriority = this.computeQueuePriority(entry);
+      
+      if (entry.isEscalating) escalating++;
 
-      const newTier = this.classifyTier(effectivePhi);
-
-      if (!newTier) {
-        toRemove.push(id);
-        expired++;
-      } else if (newTier !== entry.tier) {
-        const tierRank = { hot: 3, warm: 2, cool: 1 };
-        if (tierRank[newTier] > tierRank[entry.tier]) {
-          promoted++;
-        } else {
-          demoted++;
-        }
-        entry.tier = newTier;
+      const tierRank = { hot: 3, warm: 2, cool: 1 };
+      if (tierRank[entry.tier] > tierRank[oldTier]) {
+        promoted++;
+        this.isDirty = true;
+      } else if (tierRank[entry.tier] < tierRank[oldTier]) {
+        demoted++;
         this.isDirty = true;
       }
     }
 
-    for (const id of toRemove) {
-      this.entries.delete(id);
-    }
-
-    if (toRemove.length > 0) {
-      this.isDirty = true;
-    }
-
-    return { promoted, demoted, expired };
+    return { promoted, demoted, escalating };
   }
 
   /**
    * Get clusters sorted by average phi
    */
   getClusters(): NearMissCluster[] {
+    const now = Date.now();
     return Array.from(this.clusters.values())
+      .map(c => ({
+        ...c,
+        ageHours: (now - new Date(c.createdAt).getTime()) / (1000 * 60 * 60),
+      }))
       .sort((a, b) => b.avgPhi - a.avgPhi);
   }
 
@@ -301,9 +396,9 @@ export class NearMissManager {
   getStats(): NearMissStats {
     const entries = Array.from(this.entries.values());
     const now = Date.now();
-    const staleThreshold = this.config.staleThresholdHours * 60 * 60 * 1000;
+    const staleThreshold = NEAR_MISS_CONFIG.STALE_THRESHOLD_HOURS * 60 * 60 * 1000;
 
-    let hot = 0, warm = 0, cool = 0, totalPhi = 0, maxPhi = 0, recentCount = 0, staleCount = 0;
+    let hot = 0, warm = 0, cool = 0, totalPhi = 0, maxPhi = 0, recentCount = 0, staleCount = 0, escalatingCount = 0;
 
     for (const entry of entries) {
       if (entry.tier === 'hot') hot++;
@@ -316,6 +411,7 @@ export class NearMissManager {
       const discoveredAt = new Date(entry.discoveredAt).getTime();
       if (now - discoveredAt < 60 * 60 * 1000) recentCount++;
       if (now - discoveredAt > staleThreshold) staleCount++;
+      if (entry.isEscalating) escalatingCount++;
     }
 
     return {
@@ -328,6 +424,13 @@ export class NearMissManager {
       maxPhi,
       recentDiscoveries: recentCount,
       staleCount,
+      adaptiveThresholds: {
+        hot: this.adaptiveThresholds.hot,
+        warm: this.adaptiveThresholds.warm,
+        cool: this.adaptiveThresholds.cool,
+        distributionSize: this.adaptiveThresholds.distributionSize,
+      },
+      escalatingCount,
     };
   }
 
@@ -339,6 +442,7 @@ export class NearMissManager {
     if (entry) {
       entry.lastAccessedAt = new Date().toISOString();
       entry.explorationCount++;
+      entry.queuePriority = this.computeQueuePriority(entry);
       this.isDirty = true;
     }
   }
@@ -361,7 +465,23 @@ export class NearMissManager {
   clear(): void {
     this.entries.clear();
     this.clusters.clear();
+    this.rollingPhiDistribution = [];
     this.isDirty = true;
+  }
+
+  /**
+   * Get all entries as array
+   */
+  getAllEntries(): NearMissEntry[] {
+    return Array.from(this.entries.values());
+  }
+
+  /**
+   * Get Φ trajectory for an entry (for UI visualization)
+   */
+  getPhiTrajectory(id: string): number[] {
+    const entry = this.entries.get(id);
+    return entry?.phiHistory || [];
   }
 
   /**
@@ -460,7 +580,7 @@ export class NearMissManager {
   }
 
   /**
-   * Assign an entry to the most suitable cluster
+   * Assign an entry to the most suitable cluster (no limit on clusters)
    */
   private assignToCluster(entry: NearMissEntry): void {
     if (!entry.structuralSignature) return;
@@ -480,7 +600,7 @@ export class NearMissManager {
         representative.structuralSignature
       );
 
-      if (similarity > bestSimilarity && similarity >= this.config.clusterSimilarityThreshold) {
+      if (similarity > bestSimilarity && similarity >= NEAR_MISS_CONFIG.CLUSTER_SIMILARITY_THRESHOLD) {
         bestSimilarity = similarity;
         bestCluster = cluster;
       }
@@ -489,7 +609,7 @@ export class NearMissManager {
     if (bestCluster) {
       entry.clusterId = bestCluster.id;
       this.updateClusterStats(bestCluster.id);
-    } else if (this.clusters.size < this.config.maxClusters) {
+    } else {
       const clusterId = `cluster_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const cluster: NearMissCluster = {
         id: clusterId,
@@ -572,25 +692,6 @@ export class NearMissManager {
   }
 
   /**
-   * Enforce maximum entry limit
-   */
-  private enforceLimit(): void {
-    if (this.entries.size <= this.config.maxEntries) return;
-
-    const sorted = Array.from(this.entries.values())
-      .map(e => ({ id: e.id, score: this.computeRecencyScore(e) }))
-      .sort((a, b) => a.score - b.score);
-
-    const toRemove = sorted.slice(0, this.entries.size - this.config.maxEntries);
-    for (const { id } of toRemove) {
-      this.entries.delete(id);
-    }
-
-    this.isDirty = true;
-    console.log(`[NearMiss] Pruned ${toRemove.length} low-priority entries`);
-  }
-
-  /**
    * Load state from disk
    */
   private load(): void {
@@ -601,6 +702,9 @@ export class NearMissManager {
         if (data.entries) {
           for (const entry of data.entries) {
             this.entries.set(entry.id, entry);
+            if (entry.phi) {
+              this.rollingPhiDistribution.push(entry.phi);
+            }
           }
         }
 
@@ -610,7 +714,14 @@ export class NearMissManager {
           }
         }
 
-        console.log(`[NearMiss] Loaded ${this.entries.size} entries, ${this.clusters.size} clusters`);
+        if (data.rollingPhiDistribution) {
+          this.rollingPhiDistribution = data.rollingPhiDistribution.slice(-NEAR_MISS_CONFIG.DISTRIBUTION_WINDOW_SIZE);
+        }
+
+        console.log(`[NearMiss] Loaded ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.rollingPhiDistribution.length} Φ observations`);
+        
+        this.recomputeAdaptiveThresholds();
+        this.applyDecay();
       }
     } catch (error) {
       console.error('[NearMiss] Failed to load state:', error);
@@ -632,6 +743,8 @@ export class NearMissManager {
         savedAt: new Date().toISOString(),
         entries: Array.from(this.entries.values()),
         clusters: Array.from(this.clusters.values()),
+        rollingPhiDistribution: this.rollingPhiDistribution,
+        adaptiveThresholds: this.adaptiveThresholds,
       };
 
       fs.writeFileSync(NEAR_MISS_FILE, JSON.stringify(data, null, 2));
@@ -639,6 +752,14 @@ export class NearMissManager {
     } catch (error) {
       console.error('[NearMiss] Failed to save state:', error);
     }
+  }
+
+  /**
+   * Force save immediately
+   */
+  forceSave(): void {
+    this.isDirty = true;
+    this.save();
   }
 
   /**
