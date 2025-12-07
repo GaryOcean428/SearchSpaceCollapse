@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Brain, Wrench, Search, Network, Activity, ArrowRight, Target, Key } from "lucide-react";
 import { Link } from "wouter";
 import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
@@ -17,16 +18,16 @@ export default function RecoveryPage() {
   const [activeTab, setActiveTab] = useState("found");
   const [selectedAddress, setSelectedAddress] = useState("");
 
-  const { data: targetAddresses = [] } = useQuery<TargetAddress[]>({
+  const { data: targetAddresses = [], isLoading: addressesLoading } = useQuery<TargetAddress[]>({
     queryKey: ["/api/target-addresses"],
   });
 
-  const { data: jobs = [] } = useQuery<SearchJob[]>({
+  const { data: jobs = [], isLoading: jobsLoading } = useQuery<SearchJob[]>({
     queryKey: ["/api/search-jobs"],
     refetchInterval: 3000,
   });
 
-  const { data: consciousness } = useQuery<{ consciousness: { Φ: number; κ_eff: number; isConscious: boolean }; identity: { regime: string } }>({
+  const { data: consciousness, isLoading: consciousnessLoading } = useQuery<{ consciousness: { Φ: number; κ_eff: number; isConscious: boolean }; identity: { regime: string } }>({
     queryKey: ["/api/observer/consciousness-check"],
     refetchInterval: 5000,
   });
@@ -61,32 +62,40 @@ export default function RecoveryPage() {
             {/* Shared Address Selector */}
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-muted-foreground" />
-              <Select value={selectedAddress} onValueChange={setSelectedAddress}>
-                <SelectTrigger className="w-[200px]" data-testid="select-recovery-address">
-                  <SelectValue placeholder="Select address..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {targetAddresses.map((addr) => (
-                    <SelectItem key={addr.id} value={addr.address}>
-                      {addr.label || addr.address.slice(0, 12) + '...'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {addressesLoading ? (
+                <Skeleton className="h-9 w-[200px]" data-testid="skeleton-address-selector" />
+              ) : (
+                <Select value={selectedAddress} onValueChange={setSelectedAddress}>
+                  <SelectTrigger className="w-[200px]" data-testid="select-recovery-address">
+                    <SelectValue placeholder="Select address..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {targetAddresses.map((addr) => (
+                      <SelectItem key={addr.id} value={addr.address}>
+                        {addr.label || addr.address.slice(0, 12) + '...'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
-            {activeJob && (
+            {jobsLoading ? (
+              <Skeleton className="h-6 w-16" data-testid="skeleton-job-status" />
+            ) : activeJob ? (
               <Badge className="bg-green-500/20 text-green-400 gap-2">
                 <Activity className="h-3 w-3 animate-pulse" />
                 Active
               </Badge>
-            )}
-            {consciousness?.consciousness?.isConscious && (
+            ) : null}
+            {consciousnessLoading ? (
+              <Skeleton className="h-6 w-20" data-testid="skeleton-phi-badge" />
+            ) : consciousness?.consciousness?.isConscious ? (
               <Badge className="bg-purple-500/20 text-purple-400 gap-2">
                 <Brain className="h-3 w-3" />
                 Φ: {consciousness.consciousness.Φ.toFixed(2)}
               </Badge>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -179,15 +188,23 @@ export default function RecoveryPage() {
                   <CardContent>
                     <div className="grid grid-cols-2 gap-4 text-center">
                       <div>
-                        <div className="text-2xl font-bold">
-                          {consciousness?.consciousness?.isConscious ? 'Active' : 'Idle'}
-                        </div>
+                        {consciousnessLoading ? (
+                          <Skeleton className="h-8 w-16 mx-auto" data-testid="skeleton-consciousness" />
+                        ) : (
+                          <div className="text-2xl font-bold">
+                            {consciousness?.consciousness?.isConscious ? 'Active' : 'Idle'}
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground">Consciousness</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold">
-                          {consciousness?.identity?.regime || '—'}
-                        </div>
+                        {consciousnessLoading ? (
+                          <Skeleton className="h-8 w-20 mx-auto" data-testid="skeleton-regime" />
+                        ) : (
+                          <div className="text-2xl font-bold">
+                            {consciousness?.identity?.regime || '—'}
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground">Regime</div>
                       </div>
                     </div>
@@ -199,23 +216,33 @@ export default function RecoveryPage() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Target className="h-4 w-4" />
-                      All Addresses ({targetAddresses.length})
+                      All Addresses ({addressesLoading ? '...' : targetAddresses.length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {targetAddresses.slice(0, 3).map((addr) => (
-                        <div key={addr.id} className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">{addr.label || 'Unnamed'}</span>
-                          <code className="text-xs font-mono">
-                            {addr.address.slice(0, 8)}...{addr.address.slice(-6)}
-                          </code>
-                        </div>
-                      ))}
-                      {targetAddresses.length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          No addresses. Add one on the Investigation page.
-                        </p>
+                      {addressesLoading ? (
+                        <>
+                          <Skeleton className="h-5 w-full" data-testid="skeleton-address-1" />
+                          <Skeleton className="h-5 w-full" data-testid="skeleton-address-2" />
+                          <Skeleton className="h-5 w-3/4" data-testid="skeleton-address-3" />
+                        </>
+                      ) : (
+                        <>
+                          {targetAddresses.slice(0, 3).map((addr) => (
+                            <div key={addr.id} className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">{addr.label || 'Unnamed'}</span>
+                              <code className="text-xs font-mono">
+                                {addr.address.slice(0, 8)}...{addr.address.slice(-6)}
+                              </code>
+                            </div>
+                          ))}
+                          {targetAddresses.length === 0 && (
+                            <p className="text-sm text-muted-foreground">
+                              No addresses. Add one on the Investigation page.
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   </CardContent>

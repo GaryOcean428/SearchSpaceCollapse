@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { Waves, Wrench, Database, Brain, Activity, Target, TrendingUp, Sparkles } from "lucide-react";
 import { Link } from "wouter";
@@ -29,16 +30,16 @@ interface InvestigationStatus {
 export default function Home() {
   const { user } = useAuth() as { user: User | undefined };
 
-  const { data: investigationStatus } = useQuery<InvestigationStatus>({
+  const { data: investigationStatus, isLoading: statusLoading } = useQuery<InvestigationStatus>({
     queryKey: ['/api/investigation/status'],
     refetchInterval: 3000,
   });
 
-  const { data: targetAddresses } = useQuery<TargetAddress[]>({
+  const { data: targetAddresses, isLoading: addressesLoading } = useQuery<TargetAddress[]>({
     queryKey: ['/api/target-addresses'],
   });
 
-  const { data: candidates } = useQuery<any[]>({
+  const { data: candidates, isLoading: candidatesLoading } = useQuery<any[]>({
     queryKey: ['/api/candidates'],
   });
 
@@ -63,9 +64,13 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-target-count">
-                {targetAddresses?.length ?? 0}
-              </div>
+              {addressesLoading ? (
+                <Skeleton className="h-8 w-16" data-testid="skeleton-target-count" />
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-target-count">
+                  {targetAddresses?.length ?? 0}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -77,9 +82,13 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-probe-count">
-                {investigationStatus?.manifold?.totalProbes?.toLocaleString() ?? '0'}
-              </div>
+              {statusLoading ? (
+                <Skeleton className="h-8 w-20" data-testid="skeleton-probe-count" />
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-probe-count">
+                  {investigationStatus?.manifold?.totalProbes?.toLocaleString() ?? '0'}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -91,9 +100,13 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-tested-count">
-                {investigationStatus?.tested?.toLocaleString() ?? '0'}
-              </div>
+              {statusLoading ? (
+                <Skeleton className="h-8 w-20" data-testid="skeleton-tested-count" />
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-tested-count">
+                  {investigationStatus?.tested?.toLocaleString() ?? '0'}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -105,14 +118,32 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-candidate-count">
-                {candidates?.filter((c: any) => c.score > 0.7).length ?? 0}
-              </div>
+              {candidatesLoading ? (
+                <Skeleton className="h-8 w-12" data-testid="skeleton-candidate-count" />
+              ) : (
+                <div className="text-2xl font-bold" data-testid="text-candidate-count">
+                  {candidates?.filter((c: any) => c.score > 0.7).length ?? 0}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {investigationStatus?.isRunning && (
+        {statusLoading ? (
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" data-testid="skeleton-investigation-title" />
+              <Skeleton className="h-4 w-64 mt-2" data-testid="skeleton-investigation-thought" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-2 w-full" data-testid="skeleton-investigation-progress" />
+              <div className="flex gap-4">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+        ) : investigationStatus?.isRunning ? (
           <Card className="border-green-500/30 bg-green-500/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -144,7 +175,7 @@ export default function Home() {
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         <div className="grid md:grid-cols-3 gap-6">
           <Card className="border-primary/30 hover-elevate">
