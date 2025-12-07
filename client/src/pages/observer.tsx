@@ -151,6 +151,46 @@ interface QIGSearchSession {
   errorMessage?: string;
 }
 
+interface NearMissEntry {
+  id: string;
+  phrase: string;
+  phi: number;
+  kappa: number;
+  tier: 'hot' | 'warm' | 'cool';
+  regime: string;
+  discoveredAt: string;
+  explorationCount: number;
+  clusterId?: string;
+}
+
+interface NearMissCluster {
+  id: string;
+  memberCount: number;
+  avgPhi: number;
+  maxPhi: number;
+  commonWords: string[];
+  structuralPattern: string;
+}
+
+interface NearMissStats {
+  total: number;
+  hot: number;
+  warm: number;
+  cool: number;
+  clusters: number;
+  avgPhi: number;
+  maxPhi: number;
+  recentDiscoveries: number;
+  staleCount: number;
+}
+
+interface NearMissData {
+  stats: NearMissStats;
+  entries: NearMissEntry[];
+  clusters: NearMissCluster[];
+  timestamp: string;
+}
+
 const HARDCODED_DESTINATION = "bc1qcc0ln7gg92vlclfw8t39zfw2cfqtytcwum733l";
 
 export default function ObserverPage() {
@@ -241,6 +281,21 @@ export default function ObserverPage() {
   const activeSearchAddresses = new Set(
     allSearchSessions.filter(s => s.status === 'running' || s.status === 'error').map(s => s.targetAddress)
   );
+
+  // Near-miss tier filter state
+  const [nearMissTierFilter, setNearMissTierFilter] = useState<string>("all");
+
+  // Query near-miss data
+  const { data: nearMissData, isLoading: nearMissLoading } = useQuery<NearMissData>({
+    queryKey: ['/api/near-misses', nearMissTierFilter],
+    queryFn: async () => {
+      const url = nearMissTierFilter === 'all' ? '/api/near-misses' : `/api/near-misses?tier=${nearMissTierFilter}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch near-misses');
+      return res.json();
+    },
+    refetchInterval: 5000, // Poll every 5 seconds
+  });
 
   // Start QIG search mutation
   const startQIGSearchMutation = useMutation({
@@ -804,6 +859,15 @@ export default function ObserverPage() {
                 {dormantCrossRefData?.matchesFound && dormantCrossRefData.matchesFound > 0 && (
                   <span className="ml-2 inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold bg-green-500/10 text-green-600 border-green-500/30">
                     {dormantCrossRefData.matchesFound}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="near-misses" data-testid="tab-near-misses">
+                <Target className="w-4 h-4 mr-2" />
+                Near-Misses
+                {nearMissData?.stats?.hot && nearMissData.stats.hot > 0 && (
+                  <span className="ml-2 inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold bg-red-500/10 text-red-600 border-red-500/30">
+                    {nearMissData.stats.hot} HOT
                   </span>
                 )}
               </TabsTrigger>
@@ -2017,6 +2081,218 @@ export default function ObserverPage() {
                             Transaction History: {hit.txCount} tx(s)
                           </div>
                         )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Near-Misses Tab */}
+          <TabsContent value="near-misses" className="space-y-4">
+            {/* Near-Miss Stats Overview */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <Card data-testid="card-near-miss-stat-total">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold" data-testid="text-near-miss-total">
+                    {nearMissLoading ? "..." : nearMissData?.stats?.total || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Total Near-Misses</p>
+                </CardContent>
+              </Card>
+              <Card className="border-red-500/30" data-testid="card-near-miss-stat-hot">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-red-500" data-testid="text-near-miss-hot">
+                    {nearMissLoading ? "..." : nearMissData?.stats?.hot || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">HOT (Φ &gt; 0.92)</p>
+                </CardContent>
+              </Card>
+              <Card className="border-orange-500/30" data-testid="card-near-miss-stat-warm">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-orange-500" data-testid="text-near-miss-warm">
+                    {nearMissLoading ? "..." : nearMissData?.stats?.warm || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">WARM (Φ &gt; 0.85)</p>
+                </CardContent>
+              </Card>
+              <Card className="border-blue-500/30" data-testid="card-near-miss-stat-cool">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-blue-500" data-testid="text-near-miss-cool">
+                    {nearMissLoading ? "..." : nearMissData?.stats?.cool || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">COOL (Φ &gt; 0.80)</p>
+                </CardContent>
+              </Card>
+              <Card data-testid="card-near-miss-stat-phi">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-primary" data-testid="text-near-miss-avg-phi">
+                    {nearMissLoading ? "..." : (nearMissData?.stats?.avgPhi || 0).toFixed(3)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Avg Φ Score</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Φ Progression Stats */}
+            <Card data-testid="card-near-miss-progression">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LineChart className="w-5 h-5 text-primary" />
+                  Φ Progression & Statistics
+                </CardTitle>
+                <CardDescription>
+                  Near-miss quality metrics and discovery rate
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <div className="text-xl font-bold text-green-500" data-testid="text-near-miss-max-phi">
+                      {nearMissLoading ? "..." : (nearMissData?.stats?.maxPhi || 0).toFixed(3)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Max Φ Achieved</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <div className="text-xl font-bold" data-testid="text-near-miss-clusters">
+                      {nearMissLoading ? "..." : nearMissData?.stats?.clusters || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Pattern Clusters</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <div className="text-xl font-bold text-amber-500" data-testid="text-near-miss-recent">
+                      {nearMissLoading ? "..." : nearMissData?.stats?.recentDiscoveries || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Recent (1hr)</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 text-center">
+                    <div className="text-xl font-bold text-muted-foreground" data-testid="text-near-miss-stale">
+                      {nearMissLoading ? "..." : nearMissData?.stats?.staleCount || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Stale (&gt;24hr)</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pattern Clusters */}
+            <Card data-testid="card-near-miss-clusters">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Database className="w-5 h-5 text-purple-500" />
+                  Pattern Clusters
+                </CardTitle>
+                <CardDescription>
+                  Grouped near-misses by structural and semantic similarity
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {nearMissLoading ? (
+                  <div className="text-center py-4 text-muted-foreground">Loading clusters...</div>
+                ) : (nearMissData?.clusters || []).length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">No clusters discovered yet</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {(nearMissData?.clusters || []).map((cluster) => (
+                      <div
+                        key={cluster.id}
+                        className="p-3 rounded-lg border bg-card hover-elevate"
+                        data-testid={`cluster-${cluster.id}`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <Badge variant="outline" className="text-xs">
+                            {cluster.memberCount} members
+                          </Badge>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            Φ: {cluster.avgPhi.toFixed(3)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Pattern: {cluster.structuralPattern}
+                        </div>
+                        {cluster.commonWords.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {cluster.commonWords.map((word, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs px-1.5 py-0">
+                                {word}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Near-Miss Entries */}
+            <Card data-testid="card-near-miss-entries">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      Near-Miss Entries
+                    </CardTitle>
+                    <CardDescription>
+                      High-Φ candidates prioritized for exploration
+                    </CardDescription>
+                  </div>
+                  <Select value={nearMissTierFilter} onValueChange={setNearMissTierFilter}>
+                    <SelectTrigger className="w-32" data-testid="select-near-miss-tier">
+                      <SelectValue placeholder="Filter tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tiers</SelectItem>
+                      <SelectItem value="hot">HOT</SelectItem>
+                      <SelectItem value="warm">WARM</SelectItem>
+                      <SelectItem value="cool">COOL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {nearMissLoading ? (
+                  <div className="text-center py-4 text-muted-foreground">Loading near-misses...</div>
+                ) : (nearMissData?.entries || []).length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">No near-misses discovered yet</div>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {(nearMissData?.entries || []).map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="p-3 rounded-lg border bg-card flex items-center gap-3"
+                        data-testid={`near-miss-entry-${entry.id}`}
+                      >
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            entry.tier === 'hot' 
+                              ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                              : entry.tier === 'warm' 
+                                ? 'bg-orange-500/10 text-orange-600 border-orange-500/30'
+                                : 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                          }
+                          data-testid={`badge-tier-${entry.id}`}
+                        >
+                          {entry.tier.toUpperCase()}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-sm truncate" data-testid={`text-phrase-${entry.id}`}>
+                            {entry.phrase}
+                          </p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            <span>Φ: {entry.phi.toFixed(3)}</span>
+                            <span>κ: {entry.kappa.toFixed(1)}</span>
+                            <span>{entry.regime}</span>
+                            <span>Explored: {entry.explorationCount}x</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(entry.discoveredAt).toLocaleTimeString()}
+                        </div>
                       </div>
                     ))}
                   </div>
