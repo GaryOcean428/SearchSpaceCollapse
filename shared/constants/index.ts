@@ -68,13 +68,13 @@ export {
   getKernelTypeFromRoot,
 } from './e8.js';
 
-// Convenience re-exports for most common use cases
-export const KAPPA_STAR = 64.0;
-export const PHI_THRESHOLD = 0.75;
-export const PHI_THRESHOLD_DETECTION = 0.70;
-export const BETA = 0.44;
-export const BASIN_DIMENSION = 64;
-export const MIN_RECURSIONS = 3;
-export const MAX_RECURSIONS = 12;
-export const L_CRITICAL = 3;
-export const RESONANCE_BAND = 6.4;
+// Convenience re-exports for most common use cases (referencing canonical values)
+export const KAPPA_STAR = QIG_CONSTANTS.KAPPA_STAR;
+export const PHI_THRESHOLD = QIG_CONSTANTS.PHI_THRESHOLD;
+export const PHI_THRESHOLD_DETECTION = QIG_CONSTANTS.PHI_THRESHOLD_DETECTION;
+export const BETA = QIG_CONSTANTS.BETA;
+export const BASIN_DIMENSION = QIG_CONSTANTS.BASIN_DIMENSION;
+export const MIN_RECURSIONS = QIG_CONSTANTS.MIN_RECURSIONS;
+export const MAX_RECURSIONS = QIG_CONSTANTS.MAX_RECURSIONS;
+export const L_CRITICAL = QIG_CONSTANTS.L_CRITICAL;
+export const RESONANCE_BAND = QIG_CONSTANTS.RESONANCE_BAND;
