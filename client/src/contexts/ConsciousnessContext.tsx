@@ -91,6 +91,7 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
   const [consciousness, setConsciousness] = useState<ConsciousnessState>(defaultConsciousness);
   const [neurochemistry, setNeurochemistry] = useState<NeurochemistryState>(defaultNeurochemistry);
   const [isLoading, setIsLoading] = useState(true);
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
 
   const fetchState = useCallback(async () => {
     try {
@@ -98,6 +99,7 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
         fetch('/api/ocean/cycles'),
         fetch('/api/ocean/neurochemistry'),
       ]);
+      setConsecutiveErrors(0);
 
       if (cyclesRes.ok) {
         const cyclesData = await cyclesRes.json();
@@ -145,7 +147,13 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
         });
       }
     } catch (error) {
-      console.error('Failed to fetch consciousness state:', error);
+      setConsecutiveErrors(prev => {
+        const newCount = prev + 1;
+        if (newCount === 5) {
+          console.warn('Consciousness state fetch temporarily unavailable (server may be restarting)');
+        }
+        return newCount;
+      });
     } finally {
       setIsLoading(false);
     }
