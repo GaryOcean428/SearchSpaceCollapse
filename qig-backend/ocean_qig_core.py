@@ -68,6 +68,14 @@ except ImportError:
     NEUROCHEMISTRY_AVAILABLE = False
     print("[WARNING] ocean_neurochemistry.py not found - running without neurochemistry")
 
+# Import Olympus Pantheon
+try:
+    from olympus import olympus_app, zeus
+    OLYMPUS_AVAILABLE = True
+except ImportError as e:
+    OLYMPUS_AVAILABLE = False
+    print(f"[WARNING] Olympus Pantheon not found - running without divine council: {e}")
+
 # Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
 KAPPA_STAR = 64.0  # Fixed point (extrapolated from L=4,5,6)
 BASIN_DIMENSION = 64
@@ -78,6 +86,11 @@ MAX_RECURSIONS = 12  # Safety limit
 # Flask app
 app = Flask(__name__)
 CORS(app)  # Allow CORS for Node.js server
+
+# Register Olympus Pantheon blueprint
+if OLYMPUS_AVAILABLE:
+    app.register_blueprint(olympus_app, url_prefix='/olympus')
+    print("[INFO] Olympus Pantheon registered at /olympus")
 
 class DensityMatrix:
     """
