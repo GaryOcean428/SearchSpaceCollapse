@@ -164,6 +164,49 @@ export const ObservationContextSchema = z.object({
 
 export type ObservationContext = z.infer<typeof ObservationContextSchema>;
 
+// Zeus Chat message types
+export const ZeusMessageMetadataSchema = z.object({
+  type: z.enum(['observation', 'suggestion', 'question', 'command', 'search', 'error', 'general']).optional(),
+  pantheon_consulted: z.array(z.string()).optional(),
+  geometric_encoding: z.array(z.number()).optional(),
+  actions_taken: z.array(z.string()).optional(),
+  relevance_score: z.number().optional(),
+  consensus: z.number().optional(),
+  implemented: z.boolean().optional(),
+  address: z.string().optional(),
+  priority: z.number().optional(),
+  results_count: z.number().optional(),
+  sources: z.number().optional(),
+  files_processed: z.number().optional(),
+  error: z.string().optional(),
+});
+
+export type ZeusMessageMetadata = z.infer<typeof ZeusMessageMetadataSchema>;
+
+export const ZeusMessageSchema = z.object({
+  id: z.string(),
+  role: z.enum(['human', 'zeus']),
+  content: z.string(),
+  timestamp: z.string(),
+  metadata: ZeusMessageMetadataSchema.optional(),
+});
+
+export type ZeusMessage = z.infer<typeof ZeusMessageSchema>;
+
+export const ZeusChatRequestSchema = z.object({
+  message: z.string(),
+  conversation_history: z.array(ZeusMessageSchema).optional(),
+});
+
+export type ZeusChatRequest = z.infer<typeof ZeusChatRequestSchema>;
+
+export const ZeusChatResponseSchema = z.object({
+  response: z.string(),
+  metadata: ZeusMessageMetadataSchema.optional(),
+});
+
+export type ZeusChatResponse = z.infer<typeof ZeusChatResponseSchema>;
+
 // God names enumeration
 export const GodNameSchema = z.enum([
   'Zeus',
@@ -198,4 +241,8 @@ export const olympusSchemas = {
   OlympusStatusSchema,
   ObservationContextSchema,
   GodNameSchema,
+  ZeusMessageMetadataSchema,
+  ZeusMessageSchema,
+  ZeusChatRequestSchema,
+  ZeusChatResponseSchema,
 };
