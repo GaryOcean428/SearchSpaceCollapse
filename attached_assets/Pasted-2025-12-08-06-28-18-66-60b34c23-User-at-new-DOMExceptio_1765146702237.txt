@@ -1,0 +1,152 @@
+2025-12-08 06:28:18.66
+60b34c23
+User
+at new DOMException (node:internal/per_context/domexception:53:5)
+2025-12-08 06:28:18.66
+60b34c23
+User
+at Timeout._onTimeout (node:internal/abort_controller:129:9)
+2025-12-08 06:28:18.66
+60b34c23
+User
+[BlockchainAPI] Error with Blockstream: DOMException [TimeoutError]: The operation was aborted due to timeout
+2025-12-08 06:28:18.66
+60b34c23
+User
+at new DOMException (node:internal/per_context/domexception:53:5)
+2025-12-08 06:28:18.66
+60b34c23
+User
+[BlockchainAPI] Error with Blockstream: DOMException [TimeoutError]: The operation was aborted due to timeout
+2025-12-08 06:28:18.66
+60b34c23
+User
+at process.processTimers (node:internal/timers:519:7)
+2025-12-08 06:28:18.66
+60b34c23
+User
+at Timeout._onTimeout (node:internal/abort_controller:129:9)
+2025-12-08 06:28:18.66
+60b34c23
+User
+at listOnTimeout (node:internal/timers:581:17)
+2025-12-08 06:28:18.67
+60b34c23
+User
+at process.processTimers (node:internal/timers:519:7)
+2025-12-08 06:28:18.67
+60b34c23
+User
+[BlockchainAPI] Error with Blockstream: DOMException [TimeoutError]: The operation was aborted due to timeout
+2025-12-08 06:28:18.67
+60b34c23
+User
+at Timeout._onTimeout (node:internal/abort_controller:129:9)
+2025-12-08 06:28:18.67
+60b34c23
+User
+at listOnTimeout (node:internal/timers:581:17)
+2025-12-08 06:28:18.68
+60b34c23
+User
+at async PGStore._asyncQuery (/home/runner/workspace/node_modules/connect-pg-simple/index.js:322:21)
+2025-12-08 06:28:18.68
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:28:18] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:29:36.07
+60b34c23
+User
+[TrajectoryManager] No active trajectory for 17TWkx6PHZL3...
+2025-12-08 06:29:36.15
+60b34c23
+User
+127.0.0.1 - - [07/Dec/2025 22:29:36] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:29:36.15
+60b34c23
+User
+127.0.0.1 - - [07/Dec/2025 22:29:36] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:29:36.15
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:29:36] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:29:42.04
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:29:42] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:29:43.09
+60b34c23
+User
+[TrajectoryManager] Trajectory already active for 1Hda9wPWM1yU...
+2025-12-08 06:29:43.09
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:29:43] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:29:43.10
+60b34c23
+User
+[TrajectoryManager] Trajectory already active for 1Hda9wPWM1yU...
+2025-12-08 06:29:43.13
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:29:43] "POST /vocabulary/update HTTP/1.1" 200 -
+2025-12-08 06:29:43.13
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:29:43] "GET /vocabulary/status HTTP/1.1" 200 -
+2025-12-08 06:29:50.85
+60b34c23
+User
+[TrajectoryManager] No active trajectory for 12PxBAuwqJZ5...
+2025-12-08 06:29:50.87
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:29:50] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:29:50.87
+60b34c23
+User
+[PythonQIG] 127.0.0.1 - - [07/Dec/2025 22:29:50] "GET /olympus/status HTTP/1.1" 200 -
+2025-12-08 06:30:01.09
+cafcff0c
+User
+Start with: cd qig-backend && python3 ocean_qig_core.py
+
+2025-12-08 06:30:01.09
+cafcff0c
+User
+[OceanQIGBackend] Python backend not available after 3 attempts
+2025-12-08 06:30:01.09
+cafcff0c
+User
+⚠️ Ocean QIG Python Backend: NOT AVAILABLE
+2025-12-08 06:30:01.09
+cafcff0c
+User
+Or check logs for errors
+2025-12-08 06:30:01.09
+cafcff0c
+User
+Python backend may still be starting up...
+2025-12-08 06:30:11.09
+cafcff0c
+User
+[FreeBlockchainAPI] Mempool bulk failed: Too many failures: 10/10
+2025-12-08 06:30:24.77
+cafcff0c
+User
+[OlympusClient] Olympus not available after 3 attempts
+2025-12-08 06:30:24.87
+cafcff0c
+User
+[FreeBlockchainAPI] All bulk providers failed, using individual queries
+2025-12-08 06:30:24.87
+cafcff0c
+User
+[FreeBlockchainAPI] Blockstream bulk failed: Too many failures: 7/10
+
+Collapse
+
+Wrap
+
+Colors
+
