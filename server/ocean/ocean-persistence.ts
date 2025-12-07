@@ -11,7 +11,7 @@
  * - Graceful fallback to in-memory if DB unavailable
  */
 
-import { db } from '../db';
+import { db, withDbRetry } from '../db';
 import { eq, and, gte, lte, desc, asc, sql, inArray } from 'drizzle-orm';
 import {
   manifoldProbes,
@@ -606,18 +606,21 @@ export class OceanPersistence {
   async startTrajectory(id: string, address: string): Promise<boolean> {
     if (!db) return false;
     
-    try {
-      await db.insert(oceanTrajectories)
-        .values({
-          id,
-          address,
-          status: 'active',
-        });
-      return true;
-    } catch (error) {
-      console.error('[OceanPersistence] Failed to start trajectory:', error);
-      return false;
-    }
+    const result = await withDbRetry(
+      async () => {
+        await db!.insert(oceanTrajectories)
+          .values({
+            id,
+            address,
+            status: 'active',
+          });
+        return true;
+      },
+      'startTrajectory',
+      3
+    );
+    
+    return result ?? false;
   }
   
   /**
@@ -677,35 +680,38 @@ export class OceanPersistence {
   ): Promise<boolean> {
     if (!db) return false;
     
-    try {
-      const trajectory = await db.select()
-        .from(oceanTrajectories)
-        .where(eq(oceanTrajectories.id, trajectoryId))
-        .limit(1);
-      
-      if (trajectory.length === 0) return false;
-      
-      const startTime = trajectory[0].startTime;
-      const endTime = new Date();
-      const durationSeconds = (endTime.getTime() - startTime.getTime()) / 1000;
-      
-      await db.update(oceanTrajectories)
-        .set({
-          status: 'completed',
-          endTime,
-          finalResult: result,
-          durationSeconds,
-          nearMissCount: stats?.nearMissCount ?? trajectory[0].nearMissCount,
-          resonantCount: stats?.resonantCount ?? trajectory[0].resonantCount,
-          updatedAt: endTime,
-        })
-        .where(eq(oceanTrajectories.id, trajectoryId));
-      
-      return true;
-    } catch (error) {
-      console.error('[OceanPersistence] Failed to complete trajectory:', error);
-      return false;
-    }
+    const opResult = await withDbRetry(
+      async () => {
+        const trajectory = await db!.select()
+          .from(oceanTrajectories)
+          .where(eq(oceanTrajectories.id, trajectoryId))
+          .limit(1);
+        
+        if (trajectory.length === 0) return false;
+        
+        const startTime = trajectory[0].startTime;
+        const endTime = new Date();
+        const durationSeconds = (endTime.getTime() - startTime.getTime()) / 1000;
+        
+        await db!.update(oceanTrajectories)
+          .set({
+            status: 'completed',
+            endTime,
+            finalResult: result,
+            durationSeconds,
+            nearMissCount: stats?.nearMissCount ?? trajectory[0].nearMissCount,
+            resonantCount: stats?.resonantCount ?? trajectory[0].resonantCount,
+            updatedAt: endTime,
+          })
+          .where(eq(oceanTrajectories.id, trajectoryId));
+        
+        return true;
+      },
+      'completeTrajectory',
+      3
+    );
+    
+    return opResult ?? false;
   }
   
   /**

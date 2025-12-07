@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkS
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { type Candidate, type TargetAddress, type SearchJob, type User, type UpsertUser, userTargetAddresses } from "@shared/schema";
-import { db } from "./db";
+import { db, withDbRetry } from "./db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -357,19 +357,26 @@ export class MemStorage implements IStorage {
   }
 
   async getTargetAddresses(): Promise<TargetAddress[]> {
-    // Use PostgreSQL if available, otherwise fall back to memory/JSON
+    // Use PostgreSQL with retry logic, fallback to memory/JSON
     if (db) {
-      try {
-        const rows = await db.select().from(userTargetAddresses);
-        return rows.map(row => ({
-          id: row.id,
-          address: row.address,
-          label: row.label || undefined,
-          addedAt: row.addedAt.toISOString(),
-        }));
-      } catch (error) {
-        console.error("[Storage] PostgreSQL getTargetAddresses failed, using memory:", error);
+      const result = await withDbRetry(
+        async () => {
+          const rows = await db!.select().from(userTargetAddresses);
+          return rows.map(row => ({
+            id: row.id,
+            address: row.address,
+            label: row.label || undefined,
+            addedAt: row.addedAt.toISOString(),
+          }));
+        },
+        'getTargetAddresses',
+        3
+      );
+      
+      if (result !== null) {
+        return result;
       }
+      // Fall through to memory fallback on failure
     }
     return [...this.targetAddresses];
   }
