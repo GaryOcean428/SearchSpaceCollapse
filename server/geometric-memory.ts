@@ -144,6 +144,47 @@ export interface BasinTopologyData {
   probeCount: number;
 }
 
+/**
+ * Basin Coverage Heatmap - Exploration Efficiency Visualization
+ * 
+ * Projects 32D basin coordinates to 2D grid for visualization.
+ * Shows explored vs unexplored regions, hot zones (high Φ), cold zones (under-explored).
+ */
+export interface BasinHeatmapCell {
+  x: number;           // 2D projected X coordinate (0-1)
+  y: number;           // 2D projected Y coordinate (0-1)
+  gridX: number;       // Grid cell X index
+  gridY: number;       // Grid cell Y index
+  probeCount: number;  // Number of probes in this cell
+  avgPhi: number;      // Average Φ in this cell
+  maxPhi: number;      // Max Φ in this cell
+  lastVisited: string | null; // ISO timestamp of last probe
+  intensity: number;   // 0-1 normalized exploration intensity
+  regime: string;      // Dominant regime in this cell
+}
+
+export interface BasinHeatmapZone {
+  x: number;
+  y: number;
+  avgPhi: number;
+  probeCount: number;
+  reason: string;
+}
+
+export interface BasinHeatmapData {
+  cells: BasinHeatmapCell[];
+  gridResolution: number;  // e.g., 20x20 grid
+  totalProbes: number;
+  exploredCells: number;   // Cells with at least one probe
+  totalCells: number;      // Total cells in grid
+  coveragePercent: number; // % of cells with at least one probe
+  avgPhi: number;          // Average Φ across all probes
+  hotZones: BasinHeatmapZone[]; // Top high-Φ areas worth exploring
+  coldZones: BasinHeatmapZone[]; // Under-explored areas
+  projectionMethod: 'pca_2d' | 'dim_01' | 'phi_kappa';
+  timestamp: string;
+}
+
 export interface GeometricMemoryState {
   version: string;
   lastUpdated: string;
@@ -1356,6 +1397,258 @@ class GeometricMemory {
     }
 
     return matrix[b.length][a.length];
+  }
+
+  /**
+   * Get Basin Coverage Heatmap for exploration efficiency visualization.
+   * Projects 32D coordinates to 2D grid using PCA-style reduction.
+   * 
+   * @param gridResolution Number of cells per axis (default 20 = 20x20 grid)
+   * @param projectionMethod How to project 32D to 2D
+   * @returns BasinHeatmapData with cells, coverage stats, hot/cold zones
+   */
+  getBasinHeatmap(
+    gridResolution: number = 20,
+    projectionMethod: 'pca_2d' | 'dim_01' | 'phi_kappa' = 'pca_2d'
+  ): BasinHeatmapData {
+    const probes = Array.from(this.probeMap.values());
+    
+    if (probes.length === 0) {
+      return {
+        cells: [],
+        gridResolution,
+        totalProbes: 0,
+        exploredCells: 0,
+        totalCells: gridResolution * gridResolution,
+        coveragePercent: 0,
+        avgPhi: 0,
+        hotZones: [],
+        coldZones: [],
+        projectionMethod,
+        timestamp: new Date().toISOString(),
+      };
+    }
+    
+    // Project probes to 2D coordinates
+    const projected = probes.map(probe => ({
+      probe,
+      coords: this.projectTo2D(probe, projectionMethod),
+    }));
+    
+    // Initialize grid cells
+    const cellMap = new Map<string, {
+      probes: BasinProbe[];
+      gridX: number;
+      gridY: number;
+    }>();
+    
+    // Assign probes to cells
+    for (const { probe, coords } of projected) {
+      const gridX = Math.min(gridResolution - 1, Math.floor(coords.x * gridResolution));
+      const gridY = Math.min(gridResolution - 1, Math.floor(coords.y * gridResolution));
+      const key = `${gridX},${gridY}`;
+      
+      if (!cellMap.has(key)) {
+        cellMap.set(key, { probes: [], gridX, gridY });
+      }
+      cellMap.get(key)!.probes.push(probe);
+    }
+    
+    // Calculate max probe count for intensity normalization
+    let maxProbeCount = 0;
+    for (const cell of Array.from(cellMap.values())) {
+      maxProbeCount = Math.max(maxProbeCount, cell.probes.length);
+    }
+    
+    // Build cell data
+    const cells: BasinHeatmapCell[] = [];
+    let totalPhi = 0;
+    
+    for (let gx = 0; gx < gridResolution; gx++) {
+      for (let gy = 0; gy < gridResolution; gy++) {
+        const key = `${gx},${gy}`;
+        const cellData = cellMap.get(key);
+        
+        if (cellData && cellData.probes.length > 0) {
+          const cellProbes = cellData.probes;
+          const avgPhi = cellProbes.reduce((sum, p) => sum + p.phi, 0) / cellProbes.length;
+          const maxPhi = Math.max(...cellProbes.map(p => p.phi));
+          const lastProbe = cellProbes.reduce((latest, p) => 
+            new Date(p.timestamp) > new Date(latest.timestamp) ? p : latest
+          );
+          
+          // Count regimes to find dominant
+          const regimeCounts: Record<string, number> = {};
+          for (const p of cellProbes) {
+            regimeCounts[p.regime] = (regimeCounts[p.regime] || 0) + 1;
+          }
+          const dominantRegime = Object.entries(regimeCounts)
+            .sort((a, b) => b[1] - a[1])[0][0];
+          
+          totalPhi += avgPhi;
+          
+          cells.push({
+            x: (gx + 0.5) / gridResolution,
+            y: (gy + 0.5) / gridResolution,
+            gridX: gx,
+            gridY: gy,
+            probeCount: cellProbes.length,
+            avgPhi,
+            maxPhi,
+            lastVisited: lastProbe.timestamp,
+            intensity: maxProbeCount > 0 ? cellProbes.length / maxProbeCount : 0,
+            regime: dominantRegime,
+          });
+        } else {
+          // Empty cell
+          cells.push({
+            x: (gx + 0.5) / gridResolution,
+            y: (gy + 0.5) / gridResolution,
+            gridX: gx,
+            gridY: gy,
+            probeCount: 0,
+            avgPhi: 0,
+            maxPhi: 0,
+            lastVisited: null,
+            intensity: 0,
+            regime: 'unexplored',
+          });
+        }
+      }
+    }
+    
+    const exploredCells = cells.filter(c => c.probeCount > 0).length;
+    const totalCells = gridResolution * gridResolution;
+    
+    // Identify hot zones (high Φ, worth exploring more)
+    const hotZones: BasinHeatmapZone[] = cells
+      .filter(c => c.probeCount > 0 && c.avgPhi >= 0.6)
+      .sort((a, b) => b.avgPhi - a.avgPhi)
+      .slice(0, 5)
+      .map(c => ({
+        x: c.x,
+        y: c.y,
+        avgPhi: c.avgPhi,
+        probeCount: c.probeCount,
+        reason: `High Φ zone (${c.avgPhi.toFixed(3)}) - promising for exploration`,
+      }));
+    
+    // Identify cold zones (unexplored or under-explored near high-Φ)
+    const coldZones: BasinHeatmapZone[] = [];
+    for (const cell of cells) {
+      if (cell.probeCount === 0) {
+        // Check if this unexplored cell is adjacent to a hot zone
+        const hasNearbyHot = hotZones.some(hz => 
+          Math.abs(hz.x - cell.x) < 2/gridResolution && 
+          Math.abs(hz.y - cell.y) < 2/gridResolution
+        );
+        if (hasNearbyHot) {
+          coldZones.push({
+            x: cell.x,
+            y: cell.y,
+            avgPhi: 0,
+            probeCount: 0,
+            reason: 'Unexplored zone adjacent to high-Φ region',
+          });
+        }
+      } else if (cell.probeCount < 3 && cell.avgPhi >= 0.5) {
+        coldZones.push({
+          x: cell.x,
+          y: cell.y,
+          avgPhi: cell.avgPhi,
+          probeCount: cell.probeCount,
+          reason: `Under-explored zone with moderate Φ (${cell.avgPhi.toFixed(3)})`,
+        });
+      }
+    }
+    
+    return {
+      cells,
+      gridResolution,
+      totalProbes: probes.length,
+      exploredCells,
+      totalCells,
+      coveragePercent: (exploredCells / totalCells) * 100,
+      avgPhi: exploredCells > 0 ? totalPhi / exploredCells : 0,
+      hotZones,
+      coldZones: coldZones.slice(0, 10), // Limit to top 10
+      projectionMethod,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Project a probe's coordinates to 2D for visualization.
+   * Handles probes without coordinates by deriving position from phi/kappa/input hash.
+   */
+  private projectTo2D(
+    probe: BasinProbe, 
+    method: 'pca_2d' | 'dim_01' | 'phi_kappa'
+  ): { x: number; y: number } {
+    // Validate coordinates array
+    const hasCoords = Array.isArray(probe.coordinates) && 
+                      probe.coordinates.length >= 2 &&
+                      probe.coordinates.every(c => typeof c === 'number' && !isNaN(c));
+    
+    switch (method) {
+      case 'phi_kappa':
+        // Use Φ and κ directly (normalized)
+        return {
+          x: Math.max(0, Math.min(1, probe.phi)),
+          y: Math.max(0, Math.min(1, probe.kappa / 128)), // κ typically 0-128
+        };
+        
+      case 'dim_01':
+        // Use first two dimensions of basin coordinates
+        if (hasCoords) {
+          // Normalize assuming coords are roughly in [-1, 1] range
+          return {
+            x: Math.max(0, Math.min(1, (probe.coordinates[0] + 1) / 2)),
+            y: Math.max(0, Math.min(1, (probe.coordinates[1] + 1) / 2)),
+          };
+        }
+        // Fallback: derive from phi + input hash for Y to spread probes
+        return this.derivePositionFromProbe(probe);
+        
+      case 'pca_2d':
+      default:
+        // Simple PCA-style: weighted sum of first few dimensions
+        if (hasCoords && probe.coordinates.length >= 4) {
+          // Project using first 4 dimensions with different weights
+          const pc1 = 0.5 * probe.coordinates[0] + 0.3 * probe.coordinates[1] + 
+                      0.15 * probe.coordinates[2] + 0.05 * probe.coordinates[3];
+          const pc2 = 0.5 * probe.coordinates[1] + 0.3 * probe.coordinates[2] + 
+                      0.15 * probe.coordinates[3] + 0.05 * probe.coordinates[0];
+          
+          // Normalize to [0, 1] using tanh
+          return {
+            x: Math.max(0, Math.min(1, (Math.tanh(pc1) + 1) / 2)),
+            y: Math.max(0, Math.min(1, (Math.tanh(pc2) + 1) / 2)),
+          };
+        }
+        // Fallback: derive from phi + input characteristics
+        return this.derivePositionFromProbe(probe);
+    }
+  }
+
+  /**
+   * Derive 2D position for probes without coordinates.
+   * Uses phi for X and a hash of input for Y to spread probes across the grid.
+   */
+  private derivePositionFromProbe(probe: BasinProbe): { x: number; y: number } {
+    // X based on phi
+    const x = Math.max(0, Math.min(1, probe.phi));
+    
+    // Y based on hash of input string + kappa for variety
+    let hash = 0;
+    for (let i = 0; i < probe.input.length; i++) {
+      hash = ((hash << 5) - hash + probe.input.charCodeAt(i)) | 0;
+    }
+    const normalizedHash = (Math.abs(hash) % 10000) / 10000;
+    const kappaContribution = Math.min(1, probe.kappa / 128) * 0.3;
+    const y = Math.max(0, Math.min(1, normalizedHash * 0.7 + kappaContribution));
+    
+    return { x, y };
   }
 
   /**

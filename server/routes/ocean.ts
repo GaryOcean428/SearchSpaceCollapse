@@ -661,6 +661,59 @@ oceanRouter.get("/near-misses/success-rates", isAuthenticated, generousLimiter, 
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BASIN COVERAGE HEATMAP ENDPOINT
+// ═══════════════════════════════════════════════════════════════════════════
+
+oceanRouter.get("/basin-heatmap", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { geometricMemory } = await import("../geometric-memory");
+    
+    const resolution = Math.min(50, Math.max(5, parseInt(req.query.resolution as string) || 20));
+    const method = (req.query.method as 'pca_2d' | 'dim_01' | 'phi_kappa') || 'pca_2d';
+    
+    if (!['pca_2d', 'dim_01', 'phi_kappa'].includes(method)) {
+      return res.status(400).json({
+        error: 'Invalid projection method',
+        valid: ['pca_2d', 'dim_01', 'phi_kappa'],
+        hint: 'pca_2d (default) uses weighted first dimensions, dim_01 uses raw first 2 coords, phi_kappa uses Φ/κ directly'
+      });
+    }
+    
+    const heatmap = geometricMemory.getBasinHeatmap(resolution, method);
+    
+    res.json({
+      success: true,
+      heatmap,
+      summary: {
+        totalProbes: heatmap.totalProbes,
+        coveragePercent: heatmap.coveragePercent.toFixed(1) + '%',
+        exploredCells: heatmap.exploredCells,
+        totalCells: heatmap.totalCells,
+        avgPhi: heatmap.avgPhi.toFixed(4),
+        hotZoneCount: heatmap.hotZones.length,
+        coldZoneCount: heatmap.coldZones.length,
+      },
+      insights: [
+        heatmap.coveragePercent < 10 
+          ? 'Low coverage - expand exploration radius' 
+          : heatmap.coveragePercent < 50 
+            ? 'Moderate coverage - focus on hot zone neighbors'
+            : 'Good coverage - refine high-Φ regions',
+        heatmap.hotZones.length > 0 
+          ? `${heatmap.hotZones.length} hot zones identified with avg Φ > 0.6` 
+          : 'No high-Φ zones detected yet',
+        heatmap.coldZones.length > 0 
+          ? `${heatmap.coldZones.length} under-explored zones worth investigating` 
+          : 'No obvious gaps in exploration',
+      ],
+    });
+  } catch (error: any) {
+    console.error("[Heatmap] Basin heatmap error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 oceanRouter.post("/near-misses/conversion", isAuthenticated, standardLimiter, async (req: Request, res: Response) => {
   try {
     const { nearMissManager } = await import("../near-miss-manager");
