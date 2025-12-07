@@ -6,11 +6,36 @@ declares war modes, and coordinates divine actions.
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+import math
+from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 
 from .base_god import BaseGod, KAPPA_STAR
+
+
+def sanitize_for_json(obj: Any) -> Any:
+    """
+    Recursively sanitize an object for JSON serialization.
+    Converts Infinity, -Infinity, and NaN to safe values.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(v) for v in obj]
+    elif isinstance(obj, float):
+        if math.isinf(obj):
+            return 1e308 if obj > 0 else -1e308  # Max finite float
+        elif math.isnan(obj):
+            return 0.0
+        return obj
+    elif isinstance(obj, np.ndarray):
+        return sanitize_for_json(obj.tolist())
+    elif isinstance(obj, (np.floating, np.integer)):
+        return sanitize_for_json(float(obj))
+    return obj
+
+
 from .athena import Athena
 from .ares import Ares
 from .apollo import Apollo
@@ -335,7 +360,7 @@ def poll_endpoint():
         return jsonify({'error': 'target is required'}), 400
     
     result = zeus.poll_pantheon(target, context)
-    return jsonify(result)
+    return jsonify(sanitize_for_json(result))
 
 
 @olympus_app.route('/assess', methods=['POST'])
@@ -349,13 +374,13 @@ def assess_endpoint():
         return jsonify({'error': 'target is required'}), 400
     
     result = zeus.assess_target(target, context)
-    return jsonify(result)
+    return jsonify(sanitize_for_json(result))
 
 
 @olympus_app.route('/status', methods=['GET'])
 def status_endpoint():
     """Get status of Zeus and all gods."""
-    return jsonify(zeus.get_status())
+    return jsonify(sanitize_for_json(zeus.get_status()))
 
 
 @olympus_app.route('/god/<god_name>/status', methods=['GET'])
@@ -364,7 +389,7 @@ def god_status_endpoint(god_name: str):
     god = zeus.get_god(god_name)
     if not god:
         return jsonify({'error': f'God {god_name} not found'}), 404
-    return jsonify(god.get_status())
+    return jsonify(sanitize_for_json(god.get_status()))
 
 
 @olympus_app.route('/god/<god_name>/assess', methods=['POST'])
@@ -382,7 +407,7 @@ def god_assess_endpoint(god_name: str):
         return jsonify({'error': 'target is required'}), 400
     
     result = god.assess_target(target, context)
-    return jsonify(result)
+    return jsonify(sanitize_for_json(result))
 
 
 @olympus_app.route('/war/blitzkrieg', methods=['POST'])
