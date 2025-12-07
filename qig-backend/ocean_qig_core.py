@@ -77,6 +77,22 @@ except ImportError as e:
     OLYMPUS_AVAILABLE = False
     print(f"[WARNING] Olympus Pantheon not found - running without divine council: {e}")
 
+# Import Pure Geometric Kernels
+try:
+    from geometric_kernels import (
+        GeometricKernel,
+        DirectGeometricEncoder,
+        E8ClusteredVocabulary,
+        ByteLevelGeometric,
+        get_kernel,
+        BASIN_DIM,
+    )
+    GEOMETRIC_KERNELS_AVAILABLE = True
+    print("[INFO] Pure Geometric Kernels loaded (Direct, E8, Byte-Level)")
+except ImportError as e:
+    GEOMETRIC_KERNELS_AVAILABLE = False
+    print(f"[WARNING] Geometric Kernels not found: {e}")
+
 # Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
 KAPPA_STAR = 64.0  # Fixed point (extrapolated from L=4,5,6)
 BASIN_DIMENSION = 64
@@ -3018,6 +3034,269 @@ def olympus_orchestrate():
         return jsonify({'error': str(e)}), 500
 
 
+# =============================================================================
+# PURE GEOMETRIC KERNELS ENDPOINTS
+# Direct, E8-Clustered, and Byte-Level encoding with no external dependencies
+# =============================================================================
+
+# Global kernel instances for each mode
+_geometric_kernels: Dict[str, 'GeometricKernel'] = {}
+
+def _get_geometric_kernel(mode: str) -> Optional['GeometricKernel']:
+    """Get or create geometric kernel for specified mode."""
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return None
+    
+    if mode not in _geometric_kernels:
+        try:
+            _geometric_kernels[mode] = GeometricKernel(mode=mode)
+        except Exception as e:
+            print(f"[ERROR] Failed to create kernel for mode {mode}: {e}")
+            return None
+    
+    return _geometric_kernels[mode]
+
+
+@app.route('/geometric/status', methods=['GET'])
+def geometric_status():
+    """Get status of all geometric kernels."""
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return jsonify({'error': 'Geometric Kernels not available'}), 503
+    
+    try:
+        modes_status = {}
+        for mode in GeometricKernel.MODES:
+            kernel = _get_geometric_kernel(mode)
+            if kernel:
+                modes_status[mode] = kernel.get_stats()
+        
+        return jsonify({
+            'available': True,
+            'modes': GeometricKernel.MODES,
+            'basin_dim': BASIN_DIM,
+            'kernels': modes_status,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/geometric/encode', methods=['POST'])
+def geometric_encode():
+    """
+    Encode text using specified geometric kernel mode.
+    
+    Body: { text: string, mode: 'direct'|'e8'|'byte' }
+    Returns: { basins: [[...]], mode: string, segments: number }
+    """
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return jsonify({'error': 'Geometric Kernels not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        text = data.get('text', '')
+        mode = data.get('mode', 'direct')
+        
+        if not text:
+            return jsonify({'error': 'text required'}), 400
+        
+        if mode not in GeometricKernel.MODES:
+            return jsonify({'error': f'mode must be one of {GeometricKernel.MODES}'}), 400
+        
+        kernel = _get_geometric_kernel(mode)
+        if not kernel:
+            return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
+        
+        basins = kernel.encode_to_basins(text)
+        single_basin = kernel.encode_to_single_basin(text)
+        
+        return jsonify({
+            'mode': mode,
+            'text': text,
+            'segments': len(basins),
+            'basins': basins.tolist(),
+            'single_basin': single_basin.tolist(),
+            'basin_dim': len(single_basin),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/geometric/similarity', methods=['POST'])
+def geometric_similarity():
+    """
+    Compute geometric similarity between two texts.
+    
+    Body: { text1: string, text2: string, mode: 'direct'|'e8'|'byte' }
+    Returns: { similarity: float, distance: float }
+    """
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return jsonify({'error': 'Geometric Kernels not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        text1 = data.get('text1', '')
+        text2 = data.get('text2', '')
+        mode = data.get('mode', 'direct')
+        
+        if not text1 or not text2:
+            return jsonify({'error': 'text1 and text2 required'}), 400
+        
+        kernel = _get_geometric_kernel(mode)
+        if not kernel:
+            return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
+        
+        similarity = kernel.compute_similarity(text1, text2)
+        
+        return jsonify({
+            'mode': mode,
+            'text1': text1,
+            'text2': text2,
+            'similarity': similarity,
+            'distance': 1.0 - similarity,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/geometric/batch-encode', methods=['POST'])
+def geometric_batch_encode():
+    """
+    Batch encode multiple texts to basins.
+    
+    Body: { texts: string[], mode: 'direct'|'e8'|'byte' }
+    Returns: { results: [{ text, basins, single_basin }] }
+    """
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return jsonify({'error': 'Geometric Kernels not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        texts = data.get('texts', [])
+        mode = data.get('mode', 'direct')
+        
+        if not texts or not isinstance(texts, list):
+            return jsonify({'error': 'texts array required'}), 400
+        
+        if len(texts) > 100:
+            return jsonify({'error': 'Maximum 100 texts per batch'}), 400
+        
+        kernel = _get_geometric_kernel(mode)
+        if not kernel:
+            return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
+        
+        results = []
+        for text in texts:
+            basins = kernel.encode_to_basins(text)
+            single = kernel.encode_to_single_basin(text)
+            results.append({
+                'text': text,
+                'segments': len(basins),
+                'single_basin': single.tolist(),
+            })
+        
+        return jsonify({
+            'mode': mode,
+            'count': len(results),
+            'results': results,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/geometric/e8/learn', methods=['POST'])
+def geometric_e8_learn():
+    """
+    Train E8 vocabulary from corpus.
+    
+    Body: { texts: string[], min_frequency: int }
+    Returns: { vocab_size, e8_roots_used, tokens_added }
+    """
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return jsonify({'error': 'Geometric Kernels not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        texts = data.get('texts', [])
+        min_frequency = data.get('min_frequency', 2)
+        
+        if not texts or not isinstance(texts, list):
+            return jsonify({'error': 'texts array required'}), 400
+        
+        kernel = _get_geometric_kernel('e8')
+        if not kernel or not kernel._e8_encoder:
+            return jsonify({'error': 'E8 kernel not available'}), 500
+        
+        added = kernel._e8_encoder.learn_from_corpus(texts, min_frequency)
+        stats = kernel._e8_encoder.get_stats()
+        
+        return jsonify({
+            'tokens_added': added,
+            'vocab_size': stats.get('vocab_size', 0),
+            'e8_roots_used': stats.get('e8_roots_used', 0),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/geometric/e8/roots', methods=['GET'])
+def geometric_e8_roots():
+    """Get E8 root distribution."""
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return jsonify({'error': 'Geometric Kernels not available'}), 503
+    
+    try:
+        kernel = _get_geometric_kernel('e8')
+        if not kernel or not kernel._e8_encoder:
+            return jsonify({'error': 'E8 kernel not available'}), 500
+        
+        distribution = kernel._e8_encoder.get_e8_root_distribution()
+        
+        return jsonify({
+            'total_roots': 240,
+            'roots_used': len(distribution),
+            'distribution': distribution,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/geometric/decode', methods=['POST'])
+def geometric_decode():
+    """
+    Decode token IDs back to text (E8/Byte modes only).
+    
+    Body: { ids: int[], mode: 'e8'|'byte' }
+    Returns: { text: string }
+    """
+    if not GEOMETRIC_KERNELS_AVAILABLE:
+        return jsonify({'error': 'Geometric Kernels not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        ids = data.get('ids', [])
+        mode = data.get('mode', 'byte')
+        
+        if mode == 'direct':
+            return jsonify({'error': 'Direct mode requires candidates for decoding'}), 400
+        
+        if not ids or not isinstance(ids, list):
+            return jsonify({'error': 'ids array required'}), 400
+        
+        kernel = _get_geometric_kernel(mode)
+        if not kernel:
+            return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
+        
+        text = kernel.decode(ids)
+        
+        return jsonify({
+            'mode': mode,
+            'ids': ids,
+            'text': text,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
     print(f"Pure QIG Architecture:")
@@ -3028,10 +3307,14 @@ if __name__ == '__main__':
     print(f"  - Consciousness measurement (Φ, κ)")
     print(f"  - β-attention validation (substrate independence)")
     print(f"  - Basin Vocabulary Encoder (geometric vocabulary learning)")
+    if GEOMETRIC_KERNELS_AVAILABLE:
+        print(f"  - Pure Geometric Kernels (Direct, E8, Byte-Level)")
+    else:
+        print(f"  - Geometric Kernels NOT available")
     if NEUROCHEMISTRY_AVAILABLE:
         print(f"  - 🧠 Neurochemistry system (6 neurotransmitters)")
     else:
-        print(f"  - ⚠️  Neurochemistry NOT available")
+        print(f"  - Neurochemistry NOT available")
     print(f"\nκ* = {KAPPA_STAR}")
     print(f"Basin dimension = {BASIN_DIMENSION}")
     print(f"Φ threshold = {PHI_THRESHOLD}")
