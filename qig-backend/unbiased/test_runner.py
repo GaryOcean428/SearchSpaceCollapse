@@ -273,18 +273,22 @@ class UnbiasedValidationSuite:
         print("TEST 3: TEMPORAL COHERENCE")
         print("=" * 60)
         
-        # Generate temporal sequence
+        # Generate temporal sequence with truly diverse inputs
         print(f"\nGenerating temporal sequence ({n_samples} steps)...")
         
         temporal_measurements = []
-        base_input = "bitcoin"
         
-        for t in range(n_samples):
-            # Vary input slightly over time
-            input_text = f"{base_input} {t % 10}"
+        # Generate truly random inputs using the improved generator
+        temporal_inputs = self._generate_diverse_inputs(n_samples)
+        
+        for t, input_text in enumerate(temporal_inputs):
             measurement = self.network.process(input_text, n_recursions=3)
             measurement['time_step'] = t
+            measurement['input_text'] = input_text
             temporal_measurements.append(measurement)
+            
+            if t > 0 and t % 10 == 0:
+                print(f"  Progress: {t}/{n_samples}")
         
         # Compute temporal derivatives
         print("\nComputing temporal derivatives...")
@@ -436,25 +440,99 @@ class UnbiasedValidationSuite:
         self.results['test_4'] = result
         return result
     
-    def _generate_diverse_inputs(self, n: int) -> List[str]:
-        """Generate diverse test inputs"""
-        bases = [
+    def _generate_diverse_inputs(self, n: int, seed: int = None) -> List[str]:
+        """
+        Generate truly diverse test inputs using high-entropy randomness.
+        
+        Args:
+            n: Number of inputs to generate
+            seed: Optional seed for reproducibility (None = true random)
+        
+        Returns:
+            List of diverse input strings
+        """
+        import secrets
+        import string
+        
+        # Use secrets for true randomness, or seed for reproducibility
+        if seed is not None:
+            np.random.seed(seed)
+            use_secrets = False
+        else:
+            use_secrets = True
+        
+        # Large vocabulary pools
+        words_crypto = [
             "bitcoin", "satoshi", "nakamoto", "blockchain", "cryptocurrency",
-            "genesis", "halfinney", "mining", "wallet", "private key",
+            "genesis", "halfinney", "mining", "wallet", "private", "key",
             "transaction", "ledger", "network", "protocol", "cryptography",
-            "digital currency", "decentralized", "peer to peer", "consensus",
-            "merkle tree", "hash function", "public key", "signature",
+            "digital", "currency", "decentralized", "peer", "consensus",
+            "merkle", "hash", "public", "signature", "address", "block",
+            "chain", "node", "miner", "reward", "fee", "output", "input",
+            "script", "segwit", "taproot", "lightning", "channel", "utxo"
         ]
         
+        words_common = [
+            "the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
+            "hello", "world", "password", "secret", "alpha", "beta", "gamma",
+            "delta", "omega", "prime", "core", "main", "test", "first", "last",
+            "new", "old", "true", "false", "null", "void", "zero", "one", "two"
+        ]
+        
+        words_names = [
+            "alice", "bob", "charlie", "david", "eve", "frank", "grace",
+            "henry", "ivan", "julia", "karen", "leo", "maria", "nick",
+            "olivia", "peter", "quinn", "rachel", "steve", "tina"
+        ]
+        
+        words_technical = [
+            "sha256", "ripemd160", "secp256k1", "ecdsa", "bip32", "bip39",
+            "bip44", "hd", "derivation", "path", "entropy", "mnemonic",
+            "seed", "master", "child", "extended", "compressed", "uncompressed"
+        ]
+        
+        all_words = words_crypto + words_common + words_names + words_technical
+        
         inputs = []
-        for i in range(n):
-            if i < len(bases):
-                inputs.append(bases[i])
-            else:
-                # Combinations
-                base1 = bases[i % len(bases)]
-                base2 = bases[(i * 7) % len(bases)]
-                inputs.append(f"{base1} {base2}")
+        seen = set()  # Ensure uniqueness
+        
+        for _ in range(n):
+            while True:
+                # Random phrase length (1-6 words)
+                if use_secrets:
+                    length = secrets.randbelow(6) + 1
+                else:
+                    length = np.random.randint(1, 7)
+                
+                # Build phrase with random words
+                phrase_words = []
+                for _ in range(length):
+                    if use_secrets:
+                        word_idx = secrets.randbelow(len(all_words))
+                    else:
+                        word_idx = np.random.randint(len(all_words))
+                    phrase_words.append(all_words[word_idx])
+                
+                # Occasionally add random characters/numbers for more diversity
+                if use_secrets:
+                    add_random = secrets.randbelow(100) < 30  # 30% chance
+                else:
+                    add_random = np.random.random() < 0.3
+                
+                if add_random:
+                    if use_secrets:
+                        suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(secrets.randbelow(4) + 1))
+                    else:
+                        suffix = ''.join(np.random.choice(list(string.ascii_lowercase + string.digits), size=np.random.randint(1, 5)))
+                    phrase_words.append(suffix)
+                
+                phrase = ' '.join(phrase_words)
+                
+                # Ensure uniqueness
+                if phrase not in seen:
+                    seen.add(phrase)
+                    inputs.append(phrase)
+                    break
         
         return inputs
     
@@ -564,7 +642,7 @@ if __name__ == '__main__':
     # Parse arguments
     import argparse
     parser = argparse.ArgumentParser(description='Run unbiased QIG validation')
-    parser.add_argument('--samples', type=int, default=100, help='Samples per test')
+    parser.add_argument('--samples', type=int, default=250, help='Samples per test')
     parser.add_argument('--output', type=str, default='/tmp/qig_validation', help='Output directory')
     args = parser.parse_args()
     

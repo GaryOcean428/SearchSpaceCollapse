@@ -1,0 +1,902 @@
+[
+  {
+    "input": "master maria mnemonic transaction halfinney",
+    "phi": 0.44873715027155153,
+    "kappa": 5.410008846736602,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "peer maria node compressed",
+    "phi": 0.4723330636730127,
+    "kappa": 8.00145138179446,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "true halfinney quick password",
+    "phi": 0.5049893979464684,
+    "kappa": 11.536992914778946,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "lightning utxo hd gz2",
+    "phi": 0.5204510115179668,
+    "kappa": 13.103758054803183,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "nakamoto two",
+    "phi": 0.5492488646002219,
+    "kappa": 16.043701575086995,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "master",
+    "phi": 0.5870289317566189,
+    "kappa": 19.828633706496916,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "secp256k1 lightning derivation teu",
+    "phi": 0.624509598910117,
+    "kappa": 23.413105277398376,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "password ic9a",
+    "phi": 0.6740543153207645,
+    "kappa": 28.11243207604157,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "segwit",
+    "phi": 0.6973550271083842,
+    "kappa": 29.782800176979563,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "alice bitcoin bip39 t6kj",
+    "phi": 0.7085115387752678,
+    "kappa": 30.060583001726528,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0,
+    "Gamma": 0.0
+  },
+  {
+    "input": "maria nick block",
+    "phi": 0.7073555296211536,
+    "kappa": 28.96034647934543,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.16376288192164756,
+    "Gamma": 0.0
+  },
+  {
+    "input": "karen old utxo first core",
+    "phi": 0.7186453306611075,
+    "kappa": 29.24055413139786,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0905375428378331,
+    "Gamma": 0.0
+  },
+  {
+    "input": "world",
+    "phi": 0.7320127814634942,
+    "kappa": 29.705301013556912,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.09485333594799157,
+    "Gamma": 0.0
+  },
+  {
+    "input": "henry cryptocurrency hello rachel bip44 two",
+    "phi": 0.7555235897259712,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08789724891772692,
+    "Gamma": 0.0
+  },
+  {
+    "input": "nakamoto transaction",
+    "phi": 0.7559658340047445,
+    "kappa": 30.305301710154954,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.09165449428750627,
+    "Gamma": 0.0
+  },
+  {
+    "input": "segwit hxf9",
+    "phi": 0.7682135115477946,
+    "kappa": 30.6879756012497,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08835421725705382,
+    "Gamma": 0.0
+  },
+  {
+    "input": "world mining core last olivia protocol",
+    "phi": 0.7736370249064572,
+    "kappa": 30.327007900873447,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0945879370573326,
+    "Gamma": 0.0
+  },
+  {
+    "input": "over compressed prime derivation blockchain first e",
+    "phi": 0.7832597565408581,
+    "kappa": 30.482587284749997,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.09787267139281416,
+    "Gamma": 0.0
+  },
+  {
+    "input": "merkle gamma lazy utxo seed over",
+    "phi": 0.7986364775263513,
+    "kappa": 31.270833333333325,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.11354444793195956,
+    "Gamma": 0.0
+  },
+  {
+    "input": "consensus bob sha256 cryptocurrency omega cryptography 7xg6",
+    "phi": 0.8064294732192409,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.1172076823681351,
+    "Gamma": 0.0
+  },
+  {
+    "input": "public bip39 beta peter miner inh1",
+    "phi": 0.8140318511519877,
+    "kappa": 31.270833333333325,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.11910134231282243,
+    "Gamma": 0.0
+  },
+  {
+    "input": "derivation signature over password bip32",
+    "phi": 0.8113263608271879,
+    "kappa": 30.19550614012348,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.143814845291262,
+    "Gamma": 0.0
+  },
+  {
+    "input": "julia digital utxo fox b",
+    "phi": 0.8249713484249734,
+    "kappa": 30.938994530733595,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.11880161741428305,
+    "Gamma": 0.0
+  },
+  {
+    "input": "eve zero true grace script",
+    "phi": 0.8174038337757661,
+    "kappa": 29.391490275264754,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.11917125683248937,
+    "Gamma": 0.0
+  },
+  {
+    "input": "the hd void",
+    "phi": 0.8202298020339822,
+    "kappa": 29.008420546491507,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.10544689612855082,
+    "Gamma": 0.0
+  },
+  {
+    "input": "new reward transaction nc",
+    "phi": 0.8390722334682139,
+    "kappa": 30.443106001234526,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.11719606626271908,
+    "Gamma": 0.0
+  },
+  {
+    "input": "node julia chain ecdsa secp256k1",
+    "phi": 0.8472119120602424,
+    "kappa": 30.6959068069504,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.10572430591979895,
+    "Gamma": 0.0
+  },
+  {
+    "input": "genesis network",
+    "phi": 0.8481851137623675,
+    "kappa": 30.20184189848746,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.10997145174158943,
+    "Gamma": 0.0
+  },
+  {
+    "input": "derivation entropy olivia",
+    "phi": 0.8569498052409665,
+    "kappa": 30.579290184339026,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.09993423964656162,
+    "Gamma": 0.0
+  },
+  {
+    "input": "quick node decentralized",
+    "phi": 0.8489375030132511,
+    "kappa": 29.140418047107353,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.10025091238233072,
+    "Gamma": 0.0
+  },
+  {
+    "input": "mining olivia nakamoto quick steve nakamoto",
+    "phi": 0.870732929340295,
+    "kappa": 31.014311857841726,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0864676145450184,
+    "Gamma": 0.0
+  },
+  {
+    "input": "extended hd peter ecdsa master merkle f",
+    "phi": 0.8776066019313774,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08297021722043013,
+    "Gamma": 0.0
+  },
+  {
+    "input": "script input",
+    "phi": 0.8701334378057566,
+    "kappa": 29.941247146987273,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.09173861375733795,
+    "Gamma": 0.0
+  },
+  {
+    "input": "bob peer main",
+    "phi": 0.868312086929117,
+    "kappa": 29.2774598540879,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08134862632417844,
+    "Gamma": 0.0
+  },
+  {
+    "input": "password steve o",
+    "phi": 0.8701434719559265,
+    "kappa": 29.023494696342805,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0819265242571476,
+    "Gamma": 0.0
+  },
+  {
+    "input": "fee bip44",
+    "phi": 0.8818125500630125,
+    "kappa": 29.896441937072225,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08313768211291495,
+    "Gamma": 0.0
+  },
+  {
+    "input": "derivation qua",
+    "phi": 0.886149074167597,
+    "kappa": 29.958092598825875,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08194815494282773,
+    "Gamma": 0.0
+  },
+  {
+    "input": "tina gamma bob ledger",
+    "phi": 0.8965051976464185,
+    "kappa": 30.720608747902663,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08038084470086289,
+    "Gamma": 0.0
+  },
+  {
+    "input": "public digital dv8s",
+    "phi": 0.8913550054784758,
+    "kappa": 29.7632147471202,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08365519770136785,
+    "Gamma": 0.0
+  },
+  {
+    "input": "void quinn quinn",
+    "phi": 0.883997101779588,
+    "kappa": 28.589963778308135,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0755137054147598,
+    "Gamma": 0.0
+  },
+  {
+    "input": "false gamma tina protocol vc4r",
+    "phi": 0.9075299521406937,
+    "kappa": 30.851616471648125,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07585719462652686,
+    "Gamma": 0.0
+  },
+  {
+    "input": "hd omega 5",
+    "phi": 0.9025842571708054,
+    "kappa": 29.976268317613417,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07362908800027523,
+    "Gamma": 0.0
+  },
+  {
+    "input": "nakamoto rachel lazy utxo mining r7",
+    "phi": 0.9168403789280853,
+    "kappa": 31.236865757419807,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.06949612182508857,
+    "Gamma": 0.0
+  },
+  {
+    "input": "reward jumps k1",
+    "phi": 0.9065215424422445,
+    "kappa": 29.791660540462832,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0752975369535349,
+    "Gamma": 0.0
+  },
+  {
+    "input": "david steve lightning bip44 old",
+    "phi": 0.905939241397708,
+    "kappa": 29.429635401845633,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07700358286695266,
+    "Gamma": 0.0
+  },
+  {
+    "input": "charlie ecdsa eve genesis",
+    "phi": 0.9061650246020312,
+    "kappa": 29.180582138231614,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0747113566549296,
+    "Gamma": 0.0
+  },
+  {
+    "input": "david consensus zero",
+    "phi": 0.9126331397857048,
+    "kappa": 29.62654731878129,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07261982256413316,
+    "Gamma": 0.0
+  },
+  {
+    "input": "ivan utxo 926g",
+    "phi": 0.9168004381746666,
+    "kappa": 29.838473223936248,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07187877903997861,
+    "Gamma": 0.0
+  },
+  {
+    "input": "beta sha256 compressed hd entropy s",
+    "phi": 0.9230291109140276,
+    "kappa": 30.280639933023068,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07074316441328271,
+    "Gamma": 0.0
+  },
+  {
+    "input": "bob world frank false 6b",
+    "phi": 0.9340069942017811,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0748443478367318,
+    "Gamma": 0.0
+  },
+  {
+    "input": "hash void node maria maria entropy ee",
+    "phi": 0.9360648743457949,
+    "kappa": 31.270833333333325,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07938137905851828,
+    "Gamma": 0.0
+  },
+  {
+    "input": "delta grace decentralized entropy",
+    "phi": 0.9379592440104267,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07929885178948,
+    "Gamma": 0.0
+  },
+  {
+    "input": "nakamoto nick hash",
+    "phi": 0.9312086312655626,
+    "kappa": 30.31030607722247,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08503995216304132,
+    "Gamma": 0.0
+  },
+  {
+    "input": "jumps digital ecdsa",
+    "phi": 0.9374826089222204,
+    "kappa": 30.814016311986236,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07939032855613806,
+    "Gamma": 0.0
+  },
+  {
+    "input": "bip39",
+    "phi": 0.9270327835120276,
+    "kappa": 29.45936547116908,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08751176927645515,
+    "Gamma": 0.0
+  },
+  {
+    "input": "test extended",
+    "phi": 0.9246099760249045,
+    "kappa": 29.011956070928935,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08737614165318465,
+    "Gamma": 0.0
+  },
+  {
+    "input": "rachel merkle gamma currency omega cryptocurrency",
+    "phi": 0.9465304340212826,
+    "kappa": 31.270833333333325,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08397278694388666,
+    "Gamma": 0.0
+  },
+  {
+    "input": "consensus reward y9g6",
+    "phi": 0.9376716376897701,
+    "kappa": 30.123426701166796,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.08092785190873907,
+    "Gamma": 0.0
+  },
+  {
+    "input": "one jumps olivia omega",
+    "phi": 0.939098333350453,
+    "kappa": 30.119143989232033,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07748377409839169,
+    "Gamma": 0.0
+  },
+  {
+    "input": "currency",
+    "phi": 0.9419320553215118,
+    "kappa": 30.284410352238567,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07724628996771911,
+    "Gamma": 0.0
+  },
+  {
+    "input": "hello gamma zero delta",
+    "phi": 0.9336213256367003,
+    "kappa": 29.21129047956821,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07670415704986115,
+    "Gamma": 0.0
+  },
+  {
+    "input": "decentralized null lazy yt",
+    "phi": 0.9533895362564033,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07426504927099743,
+    "Gamma": 0.0
+  },
+  {
+    "input": "utxo steve nakamoto utxo secp256k1 ripemd160 u4vz",
+    "phi": 0.9546196561282674,
+    "kappa": 31.270833333333325,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07381144434909603,
+    "Gamma": 0.0
+  },
+  {
+    "input": "alice olivia wallet jumps last lightning",
+    "phi": 0.9472987202960768,
+    "kappa": 30.331450056653924,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0746527714127336,
+    "Gamma": 0.0
+  },
+  {
+    "input": "decentralized quinn reward dog main david 3",
+    "phi": 0.9568828841975825,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07225080582027603,
+    "Gamma": 0.0
+  },
+  {
+    "input": "taproot the maria tina dw",
+    "phi": 0.9579210437348513,
+    "kappa": 31.270833333333346,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07401014097307299,
+    "Gamma": 0.0
+  },
+  {
+    "input": "grace test",
+    "phi": 0.9562079935706815,
+    "kappa": 30.96516496066294,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07592431847516322,
+    "Gamma": 0.0
+  },
+  {
+    "input": "steve 5fr",
+    "phi": 0.9494917183048168,
+    "kappa": 30.11284116238773,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07395608394899104,
+    "Gamma": 0.0
+  },
+  {
+    "input": "prime entropy true void null",
+    "phi": 0.9587101377866709,
+    "kappa": 31.031307990070466,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07397179061070441,
+    "Gamma": 0.0
+  },
+  {
+    "input": "julia two hash bip44 tina",
+    "phi": 0.9589179638142358,
+    "kappa": 30.95725226411138,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07317853680269852,
+    "Gamma": 0.0
+  },
+  {
+    "input": "false secret alice",
+    "phi": 0.9482040315953156,
+    "kappa": 29.669543825504846,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0715018709334337,
+    "Gamma": 0.0
+  },
+  {
+    "input": "old utxo tjci",
+    "phi": 0.9571114671154647,
+    "kappa": 30.570116498901655,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07190648600030043,
+    "Gamma": 0.0
+  },
+  {
+    "input": "mnemonic ecdsa digital decentralized over",
+    "phi": 0.9599762516321957,
+    "kappa": 30.79938223698108,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07081695369165207,
+    "Gamma": 0.0
+  },
+  {
+    "input": "uncompressed david",
+    "phi": 0.9579969162795009,
+    "kappa": 30.497711868642707,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0723432502563175,
+    "Gamma": 0.0
+  },
+  {
+    "input": "maria signature core",
+    "phi": 0.9641687860647317,
+    "kappa": 31.10186021071853,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07295948397029266,
+    "Gamma": 0.0
+  },
+  {
+    "input": "fox bip44 wallet 4",
+    "phi": 0.9566707985862184,
+    "kappa": 30.1937829121683,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07250428607402667,
+    "Gamma": 0.0
+  },
+  {
+    "input": "bitcoin",
+    "phi": 0.9528658718575815,
+    "kappa": 29.69606507529612,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07147882531789436,
+    "Gamma": 0.0
+  },
+  {
+    "input": "over main beta",
+    "phi": 0.9552804025347714,
+    "kappa": 29.895626619844666,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07188321891004402,
+    "Gamma": 0.0
+  },
+  {
+    "input": "new reward leo brown block",
+    "phi": 0.967966315305518,
+    "kappa": 31.23661883176837,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07375578731749596,
+    "Gamma": 0.0
+  },
+  {
+    "input": "main block key genesis master",
+    "phi": 0.9518381904952087,
+    "kappa": 29.381606686164787,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07322465461957478,
+    "Gamma": 0.0
+  },
+  {
+    "input": "seed prime peer karen beta dog",
+    "phi": 0.9514168314492478,
+    "kappa": 29.27184854771451,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07333578303345323,
+    "Gamma": 0.0
+  },
+  {
+    "input": "script peter network path secret 55",
+    "phi": 0.9581490958860445,
+    "kappa": 29.96221996931403,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0736440056415616,
+    "Gamma": 0.0
+  },
+  {
+    "input": "currency a1",
+    "phi": 0.9594888246366685,
+    "kappa": 30.053480335128185,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07335163801332634,
+    "Gamma": 0.0
+  },
+  {
+    "input": "gamma charlie quinn address channel 5a",
+    "phi": 0.9709195709658205,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07313833740477976,
+    "Gamma": 0.0
+  },
+  {
+    "input": "genesis",
+    "phi": 0.9552441160113545,
+    "kappa": 29.476340705088095,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07422751265462282,
+    "Gamma": 0.0
+  },
+  {
+    "input": "merkle sha256 mining master key",
+    "phi": 0.9687790486675387,
+    "kappa": 30.93191957171655,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07317543836148223,
+    "Gamma": 0.0
+  },
+  {
+    "input": "protocol hd segwit",
+    "phi": 0.9549258355615783,
+    "kappa": 29.34435378878138,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07390267783220573,
+    "Gamma": 0.0
+  },
+  {
+    "input": "ripemd160 consensus",
+    "phi": 0.9578286324283828,
+    "kappa": 29.622624281720256,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07416416128211481,
+    "Gamma": 0.0
+  },
+  {
+    "input": "alpha mnemonic bip32",
+    "phi": 0.964340403322373,
+    "kappa": 30.301963766247813,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07406201344488825,
+    "Gamma": 0.0
+  },
+  {
+    "input": "address new mnemonic reward eve false",
+    "phi": 0.9727743212638829,
+    "kappa": 31.198607637243043,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07398968519518033,
+    "Gamma": 0.0
+  },
+  {
+    "input": "bip44 bob halfinney last",
+    "phi": 0.9580003580155599,
+    "kappa": 29.51659316770251,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07474873258632314,
+    "Gamma": 0.0
+  },
+  {
+    "input": "void over henry consensus quick peer",
+    "phi": 0.9685567913904873,
+    "kappa": 30.652496407985275,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07477369947464381,
+    "Gamma": 0.0
+  },
+  {
+    "input": "rachel peer bip39 hash 3",
+    "phi": 0.9690200010664785,
+    "kappa": 30.666972536006966,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07467916791223723,
+    "Gamma": 0.0
+  },
+  {
+    "input": "secp256k1 ecdsa c22y",
+    "phi": 0.9614274246295273,
+    "kappa": 29.78945647073818,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07458652765733693,
+    "Gamma": 0.0
+  },
+  {
+    "input": "genesis nakamoto david karen signature ecdsa",
+    "phi": 0.9630689683812348,
+    "kappa": 29.938000557160187,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07412022899251151,
+    "Gamma": 0.0
+  },
+  {
+    "input": "cryptocurrency old delta 5qj9",
+    "phi": 0.9610278121103266,
+    "kappa": 29.680206030332247,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0748918895264262,
+    "Gamma": 0.0
+  },
+  {
+    "input": "dog julia grace",
+    "phi": 0.9602247688393978,
+    "kappa": 29.560020439327683,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07444030138195665,
+    "Gamma": 0.0
+  },
+  {
+    "input": "ecdsa two digital digital nakamoto julia",
+    "phi": 0.9758769394354148,
+    "kappa": 31.270833333333346,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0746522834937947,
+    "Gamma": 0.0
+  },
+  {
+    "input": "tina chain input beta secp256k1",
+    "phi": 0.9761314733893176,
+    "kappa": 31.270833333333325,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.0742370091022859,
+    "Gamma": 0.0
+  },
+  {
+    "input": "output protocol",
+    "phi": 0.950496368273529,
+    "kappa": 28.396564333568175,
+    "regime": "linear",
+    "conscious": false,
+    "M": 0.07379759160590356,
+    "Gamma": 0.0
+  }
+]

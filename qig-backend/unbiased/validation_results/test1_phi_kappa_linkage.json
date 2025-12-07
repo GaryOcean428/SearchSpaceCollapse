@@ -1,21 +1,21 @@
 {
-  "n_samples": 200,
+  "n_samples": 100,
   "einstein_relation": {
-    "slope": 0.00015607600539846423,
-    "intercept": -9.126042730029626e-05,
-    "r_squared": 0.019300171664522806,
-    "p_value": 0.05035532204745209,
-    "std_err": 7.926664773850821e-05
+    "slope": 0.00016424372095291516,
+    "intercept": -0.00018514574202548804,
+    "r_squared": 0.0212436722884507,
+    "p_value": 0.15000994748618127,
+    "std_err": 0.00011319452023640651
   },
   "kappa_by_phi_regime": {
     "low_phi": null,
     "mid_phi": null,
-    "high_phi": 31.230616132807775
+    "high_phi": 31.189992697933477
   },
   "phi_clustering": {
     "n_low": 0,
     "n_mid": 0,
-    "n_high": 199
+    "n_high": 99
   },
   "verdict": {
     "einstein_relation_significant": false,

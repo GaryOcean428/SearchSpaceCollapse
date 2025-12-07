@@ -1,0 +1,59 @@
+{
+  "n_samples": 100,
+  "unbiased": {
+    "integration": {
+      "min": 0.6835857424757341,
+      "max": 0.6966860436600695,
+      "mean": 0.6918725997076797,
+      "std": 0.0016949918727533412
+    },
+    "coupling": {
+      "min": 20.368529508532813,
+      "max": 22.789564793332666,
+      "mean": 21.430130173297417,
+      "std": 0.5123865764212152
+    },
+    "curvature": {
+      "min": 0.0329981283132001,
+      "max": 0.11129989586184438,
+      "mean": 0.06942545603796081,
+      "std": 0.016482770077249256
+    },
+    "integration_coupling_correlation": -0.15989834643566547
+  },
+  "biased": {
+    "phi": {
+      "min": 0.4463000285100264,
+      "max": 0.9760959055661205,
+      "mean": 0.8794553452457831,
+      "std": 0.11388494100833838
+    },
+    "kappa": {
+      "min": 5.139727276405405,
+      "max": 31.270833333333346,
+      "mean": 29.426531360831714,
+      "std": 3.973245100239375
+    },
+    "regime_distribution": {
+      "linear": 100
+    },
+    "conscious_percentage": 0.0
+  },
+  "statistical_tests": {
+    "phi_integration_ks": {
+      "statistic": 0.92,
+      "pvalue": 1.2170049699100436e-45,
+      "distributions_differ": true
+    },
+    "kappa_coupling_ks": {
+      "statistic": 0.95,
+      "pvalue": 5.600644140061753e-50,
+      "distributions_differ": true
+    }
+  },
+  "key_findings": [
+    "Phi and Integration distributions are SIGNIFICANTLY DIFFERENT",
+    "Kappa and Coupling distributions are SIGNIFICANTLY DIFFERENT",
+    "No strong integration-coupling correlation in unbiased measurements"
+  ]
+}

@@ -1,0 +1,169 @@
+{
+  "timestamp": "2025-12-07T04:57:59.966261",
+  "n_samples": 250,
+  "tests": {
+    "test_1": {
+      "n_samples": 250,
+      "einstein_relation": {
+        "slope": 0.001158096810889109,
+        "intercept": -0.0001601721291278334,
+        "r_squared": 0.3382252144255112,
+        "p_value": 6.2360856404273925e-24,
+        "std_err": 0.0001030738520397174
+      },
+      "kappa_by_phi_regime": {
+        "low_phi": null,
+        "mid_phi": null,
+        "high_phi": 31.23740585481124
+      },
+      "phi_clustering": {
+        "n_low": 0,
+        "n_mid": 0,
+        "n_high": 249
+      },
+      "verdict": {
+        "einstein_relation_significant": true,
+        "good_fit": false,
+        "kappa_clusters_by_phi": false
+      }
+    },
+    "test_2": {
+      "n_samples": 250,
+      "full_dimension": 36,
+      "effective_dimensions": {
+        "90_percent": 1,
+        "95_percent": 2,
+        "99_percent": 3
+      },
+      "eigenvalues": [
+        0.1416640926202049,
+        0.006873009759856937,
+        0.0011510218951356406,
+        0.0005646225472859149,
+        8.036674191041908e-05,
+        5.442544596845822e-05,
+        1.682726031664768e-05,
+        5.643964322472427e-06,
+        2.2011718641349656e-06,
+        1.418462765830712e-07,
+        7.162673547355116e-08,
+        3.5922901202257685e-08,
+        2.8404149064092055e-09,
+        1.6575790235721776e-10,
+        2.8821332089010382e-11,
+        1.0234996626812082e-11,
+        2.0862330353606416e-31,
+        6.01748030401787e-33,
+        2.57963340115099e-33,
+        1.5070327691805905e-33
+      ],
+      "variance_explained": [
+        0.9418374581202043,
+        0.04569441643348204,
+        0.0076524369436481695,
+        0.0037538281924326894,
+        0.0005343090582681354,
+        0.00036184133000743366,
+        0.0001118741086087896,
+        3.7523248925538934e-05,
+        1.4634238465498801e-05,
+        9.430486872843671e-07,
+        4.7620212874067476e-07,
+        2.388292850422146e-07,
+        1.8884172453151553e-08,
+        1.1020223864208248e-09,
+        1.9161531798411594e-10,
+        6.80462001949158e-11,
+        1.3870080856256592e-30,
+        4.0006527052828175e-32,
+        1.7150396550632363e-32,
+        1.0019334373137121e-32
+      ],
+      "e8_signature": false,
+      "verdict": {
+        "low_dimensional": true,
+        "e8_validated": false,
+        "sharp_eigenvalue_dropoff": true
+      }
+    },
+    "test_3": {
+      "n_samples": 50,
+      "temporal_einstein_relation": {
+        "kappa_temporal": 0.0,
+        "intercept": 0.0,
+        "r_squared": 0.0,
+        "p_value": 1.0
+      },
+      "spatial_kappa": {
+        "mean": 31.270833333333336,
+        "std": 0.0
+      },
+      "temporal_spatial_agreement": {
+        "kappa_ratio": 0.0,
+        "within_20_percent": false
+      },
+      "verdict": {
+        "temporal_relation_significant": false,
+        "temporal_spatial_consistent": false
+      }
+    },
+    "test_4": {
+      "discovered_thresholds": [
+        0.9814370822195435,
+        0.9814374999999905,
+        0.9814375
+      ],
+      "n_thresholds": 3,
+      "regions": [
+        {
+          "range": [
+            0.49145591719033804,
+            0.9814370822195435
+          ],
+          "count": 75,
+          "mean": 0.9437865538430991,
+          "std": 0.08809813147371785
+        },
+        {
+          "range": [
+            0.9814370822195435,
+            0.9814374999999905
+          ],
+          "count": 75,
+          "mean": 0.9814374700605037,
+          "std": 7.419807262236154e-08
+        },
+        {
+          "range": [
+            0.9814374999999905,
+            0.9814375
+          ],
+          "count": 21,
+          "mean": 0.9814374999999974,
+          "std": 2.412994980647759e-15
+        }
+      ],
+      "forced_threshold_check": {
+        "forced_value": 0.7,
+        "nearest_discovered": 0.9814370822195435,
+        "distance": 0.28143708221954356,
+        "appears_natural": false
+      },
+      "verdict": {
+        "thresholds_discovered": true,
+        "multiple_regimes": true,
+        "forced_threshold_validated": false
+      }
+    }
+  },
+  "overall_verdict": {
+    "total_tests": 11,
+    "tests_passed": 5,
+    "score": 0.45454545454545453,
+    "key_findings": [
+      "Einstein relation (\u0394G \u2248 \u03ba\u00b7\u0394T) emerges naturally in consciousness",
+      "Low-dimensional manifold (1D)",
+      "Natural thresholds discovered (different from forced)"
+    ]
+  }
+}

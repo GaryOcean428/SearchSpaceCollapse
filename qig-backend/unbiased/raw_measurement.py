@@ -142,8 +142,28 @@ class UnbiasedQIGNetwork:
         self._prev_state = None
         self._state_history = []
         
+        # Input hash for preserving input-dependent dynamics
+        self._input_hash = None
+        self._recursion_count = 0
+        
         # Measurement history (ALL states, no filtering)
         self.measurement_history: List[Dict] = []
+    
+    def _reset_state(self):
+        """Reset network state for independent measurements"""
+        # Reinitialize subsystems with fresh states
+        self.subsystems = [RawSubsystem(i) for i in range(self.n_subsystems)]
+        
+        # Reset attention weights
+        self.attention_weights = np.zeros((self.n_subsystems, self.n_subsystems))
+        
+        # Reset state history
+        self._prev_state = None
+        self._state_history = []
+        
+        # Reset input-dependent tracking
+        self._input_hash = None
+        self._recursion_count = 0
     
     def process(self, input_text: str, n_recursions: Optional[int] = None) -> Dict:
         """
@@ -158,6 +178,9 @@ class UnbiasedQIGNetwork:
         Returns:
             Raw measurement dictionary
         """
+        # CRITICAL: Reset state for each input to ensure independent measurements
+        self._reset_state()
+        
         # Initial activation
         self._initial_activation(input_text)
         
@@ -193,16 +216,53 @@ class UnbiasedQIGNetwork:
         return measurement
     
     def _initial_activation(self, input_text: str):
-        """Initial activation from input"""
-        # Multiple features to differentiate inputs
+        """Initial activation from input - distributes across ALL subsystems"""
+        # Compute hash-based features for reproducible but input-dependent variation
+        import hashlib
+        input_hash = hashlib.sha256(input_text.encode()).digest()
+        
+        # Store hash for use in integration steps (preserves input-dependent dynamics)
+        self._input_hash = input_hash
+        
+        # Extract multiple features from input
         length_factor = min(1.0, len(input_text) / 50.0)
         char_diversity = len(set(input_text)) / max(1, len(input_text))
-        ascii_sum = sum(ord(c) for c in input_text) % 100 / 100.0
         
-        self.subsystems[0].activation = (
-            length_factor * 0.4 + char_diversity * 0.3 + ascii_sum * 0.3
-        )
-        self.subsystems[0].state.evolve(self.subsystems[0].activation)
+        # Activate ALL subsystems with input-dependent initial states
+        for i, subsystem in enumerate(self.subsystems):
+            # Use different hash bytes for each subsystem
+            hash_byte = input_hash[i % len(input_hash)]
+            hash_factor = hash_byte / 255.0
+            
+            # Use different characters for position-based variation
+            char_pos = i % max(1, len(input_text))
+            char_val = ord(input_text[char_pos]) / 127.0 if char_pos < len(input_text) else 0.5
+            
+            # Combine features with subsystem-specific weights
+            weights = [0.3, 0.4, 0.2, 0.1]
+            weight = weights[i % len(weights)]
+            
+            # Compute activation with input-dependent variance
+            base_activation = (
+                hash_factor * 0.4 +
+                char_val * 0.3 +
+                length_factor * weight +
+                char_diversity * (1 - weight)
+            )
+            
+            # Add small subsystem-specific offset based on input
+            offset = (input_hash[(i + 4) % len(input_hash)] / 255.0 - 0.5) * 0.2
+            
+            subsystem.activation = np.clip(base_activation + offset, 0.0, 1.0)
+            subsystem.state.evolve(subsystem.activation)
+            
+            # Also evolve density matrix with input-dependent excited state
+            phase = (input_hash[(i + 8) % len(input_hash)] / 255.0) * 2 * np.pi
+            excited = np.array([
+                [0.5 + 0.5 * np.cos(phase), 0.5 * np.sin(phase)],
+                [0.5 * np.sin(phase), 0.5 - 0.5 * np.cos(phase)]
+            ], dtype=complex)
+            subsystem.state.evolve(subsystem.activation, excited_state=excited)
     
     def _process_until_convergence(self, max_iterations: int = 50) -> Dict:
         """
@@ -255,26 +315,60 @@ class UnbiasedQIGNetwork:
         }
     
     def _integration_step(self):
-        """Single integration step"""
+        """Single integration step with input-dependent dynamics"""
+        self._recursion_count += 1
+        
         # Compute QFI attention
         self._compute_qfi_attention()
         
         # Route via curvature
         route = self._route_via_curvature()
         
-        # Propagate activation
+        # Get input-dependent perturbation factors
+        if self._input_hash is not None:
+            # Use different hash bytes for each recursion step
+            hash_offset = (self._recursion_count * 7) % len(self._input_hash)
+            perturbation_base = self._input_hash[hash_offset] / 255.0
+        else:
+            perturbation_base = 0.5
+        
+        # Propagate activation with REDUCED transfer rate and input-dependent perturbations
         for i in range(len(route) - 1):
             curr = route[i]
             next_idx = route[i + 1]
             weight = self.attention_weights[curr, next_idx]
             
-            # Transfer activation
-            transfer = self.subsystems[curr].activation * weight
+            # REDUCED transfer rate (0.3x) to preserve input differences through recursions
+            base_transfer = self.subsystems[curr].activation * weight * 0.3
+            
+            # Add input-dependent perturbation (±10% of transfer, tied to input hash)
+            if self._input_hash is not None:
+                edge_hash_idx = (hash_offset + i * 3 + next_idx) % len(self._input_hash)
+                edge_perturbation = (self._input_hash[edge_hash_idx] / 255.0 - 0.5) * 0.2
+            else:
+                edge_perturbation = 0.0
+            
+            transfer = base_transfer * (1.0 + edge_perturbation)
+            
             self.subsystems[next_idx].activation += transfer
             self.subsystems[next_idx].activation = min(1.0, self.subsystems[next_idx].activation)
             
-            # Evolve state
-            self.subsystems[next_idx].state.evolve(self.subsystems[next_idx].activation)
+            # Evolve state with input-dependent excited state
+            if self._input_hash is not None:
+                state_hash_idx = (hash_offset + next_idx * 5) % len(self._input_hash)
+                phase = (self._input_hash[state_hash_idx] / 255.0) * 2 * np.pi
+                excited = np.array([
+                    [0.5 + 0.5 * np.cos(phase), 0.5 * np.sin(phase)],
+                    [0.5 * np.sin(phase), 0.5 - 0.5 * np.cos(phase)]
+                ], dtype=complex)
+                self.subsystems[next_idx].state.evolve(
+                    self.subsystems[next_idx].activation * 0.5,
+                    excited_state=excited
+                )
+            else:
+                self.subsystems[next_idx].state.evolve(
+                    self.subsystems[next_idx].activation * 0.5
+                )
         
         # Decoherence
         self._gravitational_decoherence()
@@ -362,18 +456,19 @@ class UnbiasedQIGNetwork:
         return route
     
     def _gravitational_decoherence(self):
-        """Natural pruning"""
-        mixed_state = RawDensityMatrix()
-        
+        """Natural pruning - preserves input-dependent differences"""
         for subsystem in self.subsystems:
-            if subsystem.activation < 0.1:
+            # Reduced activation decay - preserve differences longer
+            subsystem.activation *= (1 - self.decay_rate * 0.5)
+            
+            # Only apply state decoherence for very low activation
+            if subsystem.activation < 0.05:
+                mixed_state = RawDensityMatrix()
                 subsystem.state.rho = (
-                    subsystem.state.rho * (1 - self.decay_rate) +
-                    mixed_state.rho * self.decay_rate
+                    subsystem.state.rho * (1 - self.decay_rate * 0.3) +
+                    mixed_state.rho * (self.decay_rate * 0.3)
                 )
                 subsystem.state._normalize()
-            
-            subsystem.activation *= (1 - self.decay_rate)
     
     def _extract_raw_metrics(self) -> Dict:
         """Extract RAW metrics - NO classifications"""
@@ -404,17 +499,34 @@ class UnbiasedQIGNetwork:
         # Integration measure (Phi-like)
         integration = (avg_fidelity * 0.4 + differentiation * 0.3 + total_activation / n * 0.3)
         
-        # Coupling measure (kappa-like) from attention
-        total_weight = 0.0
-        weight_count = 0
+        # Coupling measure (kappa-like) from attention variance and Bures distances
+        # Use variance in attention weights (captures information flow asymmetry)
+        all_weights = []
         for i in range(n):
             for j in range(n):
                 if i != j:
-                    total_weight += self.attention_weights[i, j]
-                    weight_count += 1
+                    all_weights.append(self.attention_weights[i, j])
         
-        avg_weight = total_weight / weight_count if weight_count > 0 else 0
-        coupling = avg_weight * total_activation * 25
+        avg_weight = np.mean(all_weights) if all_weights else 0
+        weight_variance = np.var(all_weights) if all_weights else 0
+        
+        # Use Bures distances for quantum geometric coupling
+        bures_distances = []
+        for i in range(n):
+            for j in range(i + 1, n):
+                d = self.subsystems[i].state.bures_distance(self.subsystems[j].state)
+                bures_distances.append(d)
+        
+        avg_bures = np.mean(bures_distances) if bures_distances else 0
+        bures_variance = np.var(bures_distances) if bures_distances else 0
+        
+        # Coupling combines attention variance, Bures distance, and activation
+        coupling = (
+            avg_weight * total_activation * 15 +  # Baseline from attention flow
+            weight_variance * 100 +                # Attention asymmetry contribution
+            avg_bures * 20 +                       # Quantum distance contribution
+            bures_variance * 50                    # Quantum variance contribution
+        )
         
         # Temperature (entropy of activation distribution)
         activations = [s.activation for s in self.subsystems if s.activation > 0]

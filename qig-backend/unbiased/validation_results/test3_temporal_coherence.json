@@ -8,7 +8,7 @@
   },
   "spatial_kappa": {
     "mean": 31.270833333333336,
-    "std": 0.0
+    "std": 3.014577520672848e-15
   },
   "temporal_spatial_agreement": {
     "kappa_ratio": 0.0,
