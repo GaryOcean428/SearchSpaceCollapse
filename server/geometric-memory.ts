@@ -554,7 +554,7 @@ class GeometricMemory {
   getHighestPhiForInput(input: string): { phi: number; kappa: number; regime: string } | null {
     let bestProbe: BasinProbe | null = null;
     
-    for (const probe of this.probeMap.values()) {
+    for (const probe of Array.from(this.probeMap.values())) {
       if (probe.input === input) {
         if (!bestProbe || probe.phi > bestProbe.phi) {
           bestProbe = probe;
@@ -1252,10 +1252,13 @@ class GeometricMemory {
       }
     }
 
-    // Step 3: SVD-based eigendecomposition of covariance matrix
-    // For full covariance, we need true eigenvectors, not axis-aligned
-    const { eigenvalues: covEigenvalues, eigenvectors: covEigenvectors } = 
-      this.symmetricEigendecomposition(covariance);
+    // Step 3: Eigendecomposition of covariance matrix
+    // Use Lanczos for large matrices (O(k*n*m) vs O(n³) for Jacobi)
+    // E8 signature shows 8D at 90% variance, so k=12 captures what we need
+    const useLanczos = dims > 20;
+    const { eigenvalues: covEigenvalues, eigenvectors: covEigenvectors } = useLanczos
+      ? this.lanczosEigendecomposition(covariance, 12)
+      : this.symmetricEigendecomposition(covariance);
 
     // Step 4: Fisher = pseudoinverse of covariance via Tikhonov regularization
     // F = V * diag(1/(λ + ε)) * V^T where ε is regularization
@@ -1321,8 +1324,118 @@ class GeometricMemory {
   }
 
   /**
+   * SPARSE QFI OPTIMIZATION: Lanczos algorithm for top-k eigenvalues.
+   * 
+   * O(k * n * m) where m is matrix-vector multiply cost, vs O(n³) for Jacobi.
+   * Optimal for large sparse/structured matrices where only top eigenvalues needed.
+   * 
+   * Based on validation: E8 signature shows 8D at 90% variance, so k=10-12 is sufficient.
+   * 
+   * @param matrix Symmetric matrix (n x n)
+   * @param k Number of top eigenvalues to compute (default 12 for E8 + margin)
+   * @param maxIterations Maximum Lanczos iterations
+   */
+  private lanczosEigendecomposition(matrix: number[][], k: number = 12, maxIterations: number = 100): {
+    eigenvalues: number[];
+    eigenvectors: number[][];
+  } {
+    const n = matrix.length;
+    if (n === 0) return { eigenvalues: [], eigenvectors: [] };
+    if (n <= k) {
+      return this.symmetricEigendecomposition(matrix);
+    }
+
+    const m = Math.min(k + 10, n, maxIterations);
+    
+    const alpha: number[] = [];
+    const beta: number[] = [0];
+    const V: number[][] = [];
+    
+    let v = new Array(n).fill(0).map(() => Math.random() - 0.5);
+    let norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+    v = v.map(x => x / norm);
+    V.push([...v]);
+    
+    let vPrev = new Array(n).fill(0);
+    
+    for (let j = 0; j < m; j++) {
+      let w = new Array(n).fill(0);
+      for (let i = 0; i < n; i++) {
+        for (let l = 0; l < n; l++) {
+          w[i] += matrix[i][l] * v[l];
+        }
+      }
+      
+      const alphaJ = w.reduce((s, x, i) => s + x * v[i], 0);
+      alpha.push(alphaJ);
+      
+      for (let i = 0; i < n; i++) {
+        w[i] -= alphaJ * v[i] + beta[j] * vPrev[i];
+      }
+      
+      for (let prev = 0; prev < V.length; prev++) {
+        const dot = w.reduce((s, x, i) => s + x * V[prev][i], 0);
+        for (let i = 0; i < n; i++) {
+          w[i] -= dot * V[prev][i];
+        }
+      }
+      
+      const betaNext = Math.sqrt(w.reduce((s, x) => s + x * x, 0));
+      
+      if (betaNext < 1e-12) break;
+      
+      beta.push(betaNext);
+      vPrev = [...v];
+      v = w.map(x => x / betaNext);
+      V.push([...v]);
+    }
+    
+    const mActual = alpha.length;
+    const T: number[][] = [];
+    for (let i = 0; i < mActual; i++) {
+      T[i] = new Array(mActual).fill(0);
+      T[i][i] = alpha[i];
+      if (i > 0) {
+        T[i][i - 1] = beta[i];
+        T[i - 1][i] = beta[i];
+      }
+    }
+    
+    const { eigenvalues: tEigenvalues, eigenvectors: tEigenvectors } = 
+      this.symmetricEigendecomposition(T);
+    
+    const ritzVectors: number[][] = [];
+    for (let j = 0; j < Math.min(k, tEigenvalues.length); j++) {
+      const ritzVector = new Array(n).fill(0);
+      for (let i = 0; i < mActual && i < V.length; i++) {
+        const coeff = tEigenvectors[i]?.[j] || 0;
+        for (let l = 0; l < n; l++) {
+          ritzVector[l] += coeff * V[i][l];
+        }
+      }
+      const ritzNorm = Math.sqrt(ritzVector.reduce((s, x) => s + x * x, 0)) || 1;
+      ritzVectors.push(ritzVector.map(x => x / ritzNorm));
+    }
+    
+    const topK = Math.min(k, tEigenvalues.length);
+    const eigenvalues = tEigenvalues.slice(0, topK);
+    
+    const eigenvectors: number[][] = [];
+    for (let i = 0; i < n; i++) {
+      eigenvectors[i] = ritzVectors.map(rv => rv[i] || 0);
+    }
+    
+    console.log(`[GeometricMemory] Lanczos: computed top ${topK} eigenvalues (${mActual} iterations)`);
+    
+    return { eigenvalues, eigenvectors };
+  }
+
+  /**
    * Symmetric eigendecomposition using Jacobi rotation method.
    * More numerically stable than power iteration for full matrices.
+   * 
+   * For sparse matrices or when only top-k eigenvalues are needed,
+   * use lanczosEigendecomposition() instead for O(k*n*m) vs O(n³).
    */
   private symmetricEigendecomposition(matrix: number[][]): {
     eigenvalues: number[];
