@@ -2050,3 +2050,57 @@ export const nearMissAdaptiveState = pgTable("near_miss_adaptive_state", {
 });
 
 export type NearMissAdaptiveStateRecord = typeof nearMissAdaptiveState.$inferSelect;
+
+/**
+ * WAR HISTORY - Tracks Olympus war mode declarations and outcomes
+ * Records BLITZKRIEG, SIEGE, and HUNT operations with results
+ */
+export const warHistory = pgTable("war_history", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  mode: varchar("mode", { length: 32 }).notNull(), // BLITZKRIEG, SIEGE, HUNT
+  target: text("target").notNull(),
+  declaredAt: timestamp("declared_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+  status: varchar("status", { length: 32 }).notNull().default("active"), // active, completed, aborted
+  strategy: text("strategy"),
+  godsEngaged: text("gods_engaged").array(),
+  outcome: varchar("outcome", { length: 64 }), // success, partial_success, failure, aborted
+  convergenceScore: doublePrecision("convergence_score"),
+  phrasesTestedDuringWar: integer("phrases_tested_during_war").default(0),
+  discoveriesDuringWar: integer("discoveries_during_war").default(0),
+  kernelsSpawnedDuringWar: integer("kernels_spawned_during_war").default(0),
+  metadata: jsonb("metadata"),
+}, (table) => [
+  index("idx_war_history_mode").on(table.mode),
+  index("idx_war_history_status").on(table.status),
+  index("idx_war_history_declared_at").on(table.declaredAt),
+]);
+
+export type WarHistoryRecord = typeof warHistory.$inferSelect;
+export type InsertWarHistory = typeof warHistory.$inferInsert;
+
+/**
+ * M8 KERNEL GEOMETRY - Tracks geometric placement of spawned kernels
+ * Records basin coordinates, parent lineage, and position rationale
+ */
+export const kernelGeometry = pgTable("kernel_geometry", {
+  kernelId: varchar("kernel_id", { length: 64 }).primaryKey(),
+  godName: varchar("god_name", { length: 64 }).notNull(),
+  domain: varchar("domain", { length: 128 }).notNull(),
+  primitiveRoot: integer("primitive_root"), // E8 root index (0-239)
+  basinCoordinates: doublePrecision("basin_coordinates").array(), // 8D coordinates
+  parentKernels: text("parent_kernels").array(),
+  placementReason: varchar("placement_reason", { length: 64 }), // domain_gap, overload, specialization, emergence
+  positionRationale: text("position_rationale"), // Human-readable explanation
+  affinityStrength: doublePrecision("affinity_strength"),
+  entropyThreshold: doublePrecision("entropy_threshold"),
+  spawnedAt: timestamp("spawned_at").defaultNow().notNull(),
+  spawnedDuringWarId: varchar("spawned_during_war_id", { length: 64 }),
+  metadata: jsonb("metadata"),
+}, (table) => [
+  index("idx_kernel_geometry_domain").on(table.domain),
+  index("idx_kernel_geometry_spawned_at").on(table.spawnedAt),
+]);
+
+export type KernelGeometryRecord = typeof kernelGeometry.$inferSelect;
+export type InsertKernelGeometry = typeof kernelGeometry.$inferInsert;

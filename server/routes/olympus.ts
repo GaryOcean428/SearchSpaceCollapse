@@ -20,6 +20,15 @@ import { z } from 'zod';
 import http from 'http';
 import https from 'https';
 import { URL } from 'url';
+import {
+  recordWarStart,
+  recordWarEnd,
+  getActiveWar,
+  getWarHistory,
+  getWarById,
+  type WarMode,
+  type WarOutcome,
+} from '../war-history-storage';
 
 const router = Router();
 const olympusClient = new OlympusClient(
@@ -332,14 +341,48 @@ const warTargetSchema = z.object({
     .regex(/^[a-zA-Z0-9\s\-_.,;:!?()]+$/, 'Target contains invalid characters'),
 });
 
+// War start validation schema
+const warStartSchema = z.object({
+  mode: z.enum(['BLITZKRIEG', 'SIEGE', 'HUNT']),
+  target: z.string().min(1).max(500),
+  strategy: z.string().max(1000).optional(),
+  godsEngaged: z.array(z.string()).max(20).optional(),
+});
+
+// War end validation schema
+const warEndSchema = z.object({
+  outcome: z.enum(['success', 'partial_success', 'failure', 'aborted']),
+  convergenceScore: z.number().min(0).max(1).optional(),
+  metrics: z.object({
+    phrasesTested: z.number().optional(),
+    discoveries: z.number().optional(),
+    kernelsSpawned: z.number().optional(),
+    metadata: z.record(z.any()).optional(),
+  }).optional(),
+});
+
 /**
  * Declare blitzkrieg mode
  * Requires authentication with strict input validation
+ * Automatically records war history
  */
 router.post('/war/blitzkrieg', isAuthenticated, validateInput(warTargetSchema), async (req, res) => {
   try {
     console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} declared blitzkrieg on: ${req.body.target}`);
     const result = await olympusClient.declareBlitzkrieg(req.body.target);
+    
+    if (result) {
+      const warRecord = await recordWarStart(
+        'BLITZKRIEG',
+        req.body.target,
+        result.strategy,
+        result.gods_engaged
+      );
+      if (warRecord) {
+        (result as any).warHistoryId = warRecord.id;
+      }
+    }
+    
     res.json(result);
   } catch (error) {
     console.error('[Olympus] Blitzkrieg error:', error);
@@ -352,11 +395,25 @@ router.post('/war/blitzkrieg', isAuthenticated, validateInput(warTargetSchema), 
 /**
  * Declare siege mode
  * Requires authentication with strict input validation
+ * Automatically records war history
  */
 router.post('/war/siege', isAuthenticated, validateInput(warTargetSchema), async (req, res) => {
   try {
     console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} declared siege on: ${req.body.target}`);
     const result = await olympusClient.declareSiege(req.body.target);
+    
+    if (result) {
+      const warRecord = await recordWarStart(
+        'SIEGE',
+        req.body.target,
+        result.strategy,
+        result.gods_engaged
+      );
+      if (warRecord) {
+        (result as any).warHistoryId = warRecord.id;
+      }
+    }
+    
     res.json(result);
   } catch (error) {
     console.error('[Olympus] Siege error:', error);
@@ -369,11 +426,25 @@ router.post('/war/siege', isAuthenticated, validateInput(warTargetSchema), async
 /**
  * Declare hunt mode
  * Requires authentication with strict input validation
+ * Automatically records war history
  */
 router.post('/war/hunt', isAuthenticated, validateInput(warTargetSchema), async (req, res) => {
   try {
     console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} declared hunt on: ${req.body.target}`);
     const result = await olympusClient.declareHunt(req.body.target);
+    
+    if (result) {
+      const warRecord = await recordWarStart(
+        'HUNT',
+        req.body.target,
+        result.strategy,
+        result.gods_engaged
+      );
+      if (warRecord) {
+        (result as any).warHistoryId = warRecord.id;
+      }
+    }
+    
     res.json(result);
   } catch (error) {
     console.error('[Olympus] Hunt error:', error);
@@ -386,14 +457,135 @@ router.post('/war/hunt', isAuthenticated, validateInput(warTargetSchema), async 
 /**
  * End war mode
  * Requires authentication
+ * Automatically records war end in history
  */
 router.post('/war/end', isAuthenticated, async (req, res) => {
   try {
     console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} ended war mode`);
+    
+    const activeWar = await getActiveWar();
     const result = await olympusClient.endWar();
+    
+    if (activeWar && result) {
+      await recordWarEnd(
+        activeWar.id,
+        'aborted',
+        undefined,
+        undefined
+      );
+      (result as any).warHistoryId = activeWar.id;
+    }
+    
     res.json(result);
   } catch (error) {
     console.error('[Olympus] End war error:', error);
+    res.status(500).json({
+      error: 'Failed to end war',
+    });
+  }
+});
+
+// ==================== WAR HISTORY API ROUTES ====================
+
+/**
+ * Get war history records (newest first)
+ * Requires authentication
+ */
+router.get('/war/history', isAuthenticated, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const history = await getWarHistory(limit);
+    res.json(history);
+  } catch (error) {
+    console.error('[Olympus] War history error:', error);
+    res.status(500).json({
+      error: 'Failed to get war history',
+    });
+  }
+});
+
+/**
+ * Get currently active war (if any)
+ * Requires authentication
+ */
+router.get('/war/active', isAuthenticated, async (req, res) => {
+  try {
+    const activeWar = await getActiveWar();
+    res.json(activeWar || { active: false });
+  } catch (error) {
+    console.error('[Olympus] Active war error:', error);
+    res.status(500).json({
+      error: 'Failed to get active war',
+    });
+  }
+});
+
+/**
+ * Record war start (manual/direct recording)
+ * Requires authentication with input validation
+ */
+router.post('/war/start', isAuthenticated, validateInput(warStartSchema), async (req, res) => {
+  try {
+    const { mode, target, strategy, godsEngaged } = req.body;
+    console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} starting war: ${mode} on ${target}`);
+    
+    const warRecord = await recordWarStart(
+      mode as WarMode,
+      target,
+      strategy,
+      godsEngaged
+    );
+    
+    if (!warRecord) {
+      res.status(500).json({ error: 'Failed to record war start' });
+      return;
+    }
+    
+    res.json(warRecord);
+  } catch (error) {
+    console.error('[Olympus] War start error:', error);
+    res.status(500).json({
+      error: 'Failed to start war',
+    });
+  }
+});
+
+/**
+ * End war and record outcome (by war ID)
+ * Requires authentication with input validation
+ */
+router.post('/war/end/:id', isAuthenticated, validateInput(warEndSchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { outcome, convergenceScore, metrics } = req.body;
+    console.log(`[Olympus] User ${(req.user as any)?.claims?.sub} ending war ${id} with outcome: ${outcome}`);
+    
+    const existingWar = await getWarById(id);
+    if (!existingWar) {
+      res.status(404).json({ error: 'War not found' });
+      return;
+    }
+    
+    if (existingWar.status !== 'active') {
+      res.status(400).json({ error: 'War is not active' });
+      return;
+    }
+    
+    const warRecord = await recordWarEnd(
+      id,
+      outcome as WarOutcome,
+      convergenceScore,
+      metrics
+    );
+    
+    if (!warRecord) {
+      res.status(500).json({ error: 'Failed to record war end' });
+      return;
+    }
+    
+    res.json(warRecord);
+  } catch (error) {
+    console.error('[Olympus] War end error:', error);
     res.status(500).json({
       error: 'Failed to end war',
     });
