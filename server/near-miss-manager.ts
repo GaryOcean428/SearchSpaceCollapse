@@ -22,6 +22,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { NEAR_MISS_CONFIG } from './ocean-config';
+import { oceanPersistence } from './ocean/ocean-persistence';
 
 export type NearMissTier = 'hot' | 'warm' | 'cool';
 
@@ -692,9 +693,117 @@ export class NearMissManager {
   }
 
   /**
-   * Load state from disk
+   * Load state from PostgreSQL first, fall back to JSON
    */
   private load(): void {
+    this.loadAsync().catch(err => {
+      console.error('[NearMiss] Async load failed:', err);
+    });
+  }
+
+  /**
+   * Async load implementation - PostgreSQL first, JSON fallback
+   */
+  private async loadAsync(): Promise<void> {
+    try {
+      if (oceanPersistence.isPersistenceAvailable()) {
+        const loadedFromDb = await this.loadFromPostgres();
+        if (loadedFromDb) {
+          console.log(`[NearMiss] Loaded from PostgreSQL: ${this.entries.size} entries, ${this.clusters.size} clusters`);
+          this.recomputeAdaptiveThresholds();
+          this.applyDecay();
+          return;
+        }
+      }
+      
+      this.loadFromJson();
+      this.recomputeAdaptiveThresholds();
+      this.applyDecay();
+    } catch (error) {
+      console.error('[NearMiss] Failed to load state:', error);
+      this.loadFromJson();
+    }
+  }
+
+  /**
+   * Load state from PostgreSQL
+   */
+  private async loadFromPostgres(): Promise<boolean> {
+    try {
+      const [entries, clusters, adaptiveState] = await Promise.all([
+        oceanPersistence.getAllNearMissEntries(),
+        oceanPersistence.getAllNearMissClusters(),
+        oceanPersistence.loadNearMissAdaptiveState(),
+      ]);
+
+      if (entries.length === 0 && clusters.length === 0 && !adaptiveState) {
+        console.log('[NearMiss] No data in PostgreSQL, will try JSON fallback');
+        return false;
+      }
+
+      for (const record of entries) {
+        const entry: NearMissEntry = {
+          id: record.id,
+          phrase: record.phrase,
+          phi: record.phi,
+          kappa: record.kappa,
+          regime: record.regime,
+          tier: record.tier as NearMissTier,
+          discoveredAt: record.discoveredAt.toISOString(),
+          lastAccessedAt: record.lastAccessedAt.toISOString(),
+          explorationCount: record.explorationCount ?? 1,
+          source: record.source ?? 'unknown',
+          clusterId: record.clusterId ?? undefined,
+          structuralSignature: record.structuralSignature as StructuralSignature | undefined,
+          phiHistory: record.phiHistory as number[] | undefined,
+          isEscalating: record.isEscalating ?? false,
+          queuePriority: record.queuePriority ?? 1,
+        };
+        this.entries.set(entry.id, entry);
+        if (entry.phi) {
+          this.rollingPhiDistribution.push(entry.phi);
+        }
+      }
+
+      for (const record of clusters) {
+        const cluster: NearMissCluster = {
+          id: record.id,
+          centroidPhrase: record.centroidPhrase,
+          centroidPhi: record.centroidPhi,
+          memberCount: record.memberCount,
+          avgPhi: record.avgPhi,
+          maxPhi: record.maxPhi,
+          commonWords: record.commonWords as string[] ?? [],
+          structuralPattern: record.structuralPattern ?? '',
+          createdAt: record.createdAt.toISOString(),
+          lastUpdatedAt: record.lastUpdatedAt.toISOString(),
+        };
+        this.clusters.set(cluster.id, cluster);
+      }
+
+      if (adaptiveState) {
+        this.rollingPhiDistribution = (adaptiveState.rollingPhiDistribution as number[] ?? [])
+          .slice(-NEAR_MISS_CONFIG.DISTRIBUTION_WINDOW_SIZE);
+        this.adaptiveThresholds = {
+          hot: adaptiveState.hotThreshold,
+          warm: adaptiveState.warmThreshold,
+          cool: adaptiveState.coolThreshold,
+          distributionSize: adaptiveState.distributionSize,
+          lastComputed: adaptiveState.lastComputed.toISOString(),
+        };
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[NearMiss] Failed to load from PostgreSQL:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Load state from JSON file (fallback)
+   */
+  private loadFromJson(): void {
     try {
       if (fs.existsSync(NEAR_MISS_FILE)) {
         const data = JSON.parse(fs.readFileSync(NEAR_MISS_FILE, 'utf-8'));
@@ -718,22 +827,32 @@ export class NearMissManager {
           this.rollingPhiDistribution = data.rollingPhiDistribution.slice(-NEAR_MISS_CONFIG.DISTRIBUTION_WINDOW_SIZE);
         }
 
-        console.log(`[NearMiss] Loaded ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.rollingPhiDistribution.length} Φ observations`);
-        
-        this.recomputeAdaptiveThresholds();
-        this.applyDecay();
+        console.log(`[NearMiss] Loaded from JSON: ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.rollingPhiDistribution.length} Φ observations`);
       }
     } catch (error) {
-      console.error('[NearMiss] Failed to load state:', error);
+      console.error('[NearMiss] Failed to load from JSON:', error);
     }
   }
 
   /**
-   * Save state to disk
+   * Save state to both PostgreSQL and JSON
    */
   private save(): void {
     if (!this.isDirty) return;
 
+    this.saveToJson();
+    
+    this.saveToPostgres().catch(err => {
+      console.error('[NearMiss] PostgreSQL save failed:', err);
+    });
+
+    this.isDirty = false;
+  }
+
+  /**
+   * Save state to JSON file (backup/fallback)
+   */
+  private saveToJson(): void {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -748,9 +867,60 @@ export class NearMissManager {
       };
 
       fs.writeFileSync(NEAR_MISS_FILE, JSON.stringify(data, null, 2));
-      this.isDirty = false;
     } catch (error) {
-      console.error('[NearMiss] Failed to save state:', error);
+      console.error('[NearMiss] Failed to save to JSON:', error);
+    }
+  }
+
+  /**
+   * Save state to PostgreSQL
+   */
+  private async saveToPostgres(): Promise<void> {
+    if (!oceanPersistence.isPersistenceAvailable()) return;
+
+    try {
+      const entries = Array.from(this.entries.values());
+      const clusters = Array.from(this.clusters.values());
+
+      const entryData = entries.map(e => ({
+        id: e.id,
+        phrase: e.phrase,
+        phi: e.phi,
+        kappa: e.kappa,
+        regime: e.regime,
+        tier: e.tier as 'hot' | 'warm' | 'cool',
+        source: e.source,
+        clusterId: e.clusterId,
+        phiHistory: e.phiHistory,
+        isEscalating: e.isEscalating,
+        queuePriority: e.queuePriority,
+        structuralSignature: e.structuralSignature as Record<string, unknown> | undefined,
+        explorationCount: e.explorationCount,
+      }));
+
+      const [entrySaveCount] = await Promise.all([
+        oceanPersistence.batchUpsertNearMissEntries(entryData),
+        ...clusters.map(c => oceanPersistence.upsertNearMissCluster({
+          id: c.id,
+          centroidPhrase: c.centroidPhrase,
+          centroidPhi: c.centroidPhi,
+          memberCount: c.memberCount,
+          avgPhi: c.avgPhi,
+          maxPhi: c.maxPhi,
+          commonWords: c.commonWords,
+          structuralPattern: c.structuralPattern,
+        })),
+        oceanPersistence.saveNearMissAdaptiveState({
+          rollingPhiDistribution: this.rollingPhiDistribution,
+          hotThreshold: this.adaptiveThresholds.hot,
+          warmThreshold: this.adaptiveThresholds.warm,
+          coolThreshold: this.adaptiveThresholds.cool,
+        }),
+      ]);
+
+      console.log(`[NearMiss] Saved to PostgreSQL: ${entrySaveCount} entries, ${clusters.length} clusters`);
+    } catch (error) {
+      console.error('[NearMiss] Failed to save to PostgreSQL:', error);
     }
   }
 

@@ -1980,3 +1980,73 @@ export const testedPhrasesIndex = pgTable("tested_phrases_index", {
 }, (table) => [
   index("idx_tested_phrases_date").on(table.testedAt),
 ]);
+
+/**
+ * NEAR-MISS ENTRIES - High-Φ candidates that didn't match but indicate promising areas
+ * Tiered classification: HOT (top 10%), WARM (top 25%), COOL (top 50%)
+ */
+export const nearMissEntries = pgTable("near_miss_entries", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  phrase: text("phrase").notNull(),
+  phraseHash: varchar("phrase_hash", { length: 64 }).notNull(), // For deduplication
+  phi: doublePrecision("phi").notNull(),
+  kappa: doublePrecision("kappa").notNull(),
+  regime: varchar("regime", { length: 32 }).notNull(),
+  tier: varchar("tier", { length: 16 }).notNull(), // hot, warm, cool
+  discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
+  lastAccessedAt: timestamp("last_accessed_at").defaultNow().notNull(),
+  explorationCount: integer("exploration_count").default(1),
+  source: varchar("source", { length: 128 }),
+  clusterId: varchar("cluster_id", { length: 64 }),
+  phiHistory: doublePrecision("phi_history").array(), // Trajectory of Φ values
+  isEscalating: boolean("is_escalating").default(false),
+  queuePriority: integer("queue_priority").default(1),
+  structuralSignature: jsonb("structural_signature"), // Word count, entropy, etc.
+}, (table) => [
+  uniqueIndex("idx_near_miss_phrase_hash").on(table.phraseHash),
+  index("idx_near_miss_tier").on(table.tier),
+  index("idx_near_miss_phi").on(table.phi),
+  index("idx_near_miss_cluster").on(table.clusterId),
+  index("idx_near_miss_escalating").on(table.isEscalating),
+]);
+
+export type NearMissEntryRecord = typeof nearMissEntries.$inferSelect;
+export type InsertNearMissEntry = typeof nearMissEntries.$inferInsert;
+
+/**
+ * NEAR-MISS CLUSTERS - Pattern groupings of structurally similar near-misses
+ */
+export const nearMissClusters = pgTable("near_miss_clusters", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  centroidPhrase: text("centroid_phrase").notNull(),
+  centroidPhi: doublePrecision("centroid_phi").notNull(),
+  memberCount: integer("member_count").default(1),
+  avgPhi: doublePrecision("avg_phi").notNull(),
+  maxPhi: doublePrecision("max_phi").notNull(),
+  commonWords: text("common_words").array(),
+  structuralPattern: varchar("structural_pattern", { length: 256 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastUpdatedAt: timestamp("last_updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_near_miss_clusters_avg_phi").on(table.avgPhi),
+  index("idx_near_miss_clusters_member_count").on(table.memberCount),
+]);
+
+export type NearMissClusterRecord = typeof nearMissClusters.$inferSelect;
+export type InsertNearMissCluster = typeof nearMissClusters.$inferInsert;
+
+/**
+ * NEAR-MISS ADAPTIVE STATE - Rolling Φ distribution and adaptive thresholds
+ */
+export const nearMissAdaptiveState = pgTable("near_miss_adaptive_state", {
+  id: varchar("id", { length: 32 }).primaryKey().default("singleton"),
+  rollingPhiDistribution: doublePrecision("rolling_phi_distribution").array(),
+  hotThreshold: doublePrecision("hot_threshold").notNull().default(0.70),
+  warmThreshold: doublePrecision("warm_threshold").notNull().default(0.55),
+  coolThreshold: doublePrecision("cool_threshold").notNull().default(0.40),
+  distributionSize: integer("distribution_size").default(0),
+  lastComputed: timestamp("last_computed").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type NearMissAdaptiveStateRecord = typeof nearMissAdaptiveState.$inferSelect;

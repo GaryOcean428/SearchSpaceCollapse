@@ -25,6 +25,9 @@ import {
   oceanQuantumState,
   oceanExcludedRegions,
   testedPhrasesIndex,
+  nearMissEntries,
+  nearMissClusters,
+  nearMissAdaptiveState,
   type ManifoldProbe,
   type InsertManifoldProbe,
   type ResonancePointRecord,
@@ -34,6 +37,11 @@ import {
   type OceanWaypointRecord,
   type OceanQuantumStateRecord,
   type OceanExcludedRegionRecord,
+  type NearMissEntryRecord,
+  type InsertNearMissEntry,
+  type NearMissClusterRecord,
+  type InsertNearMissCluster,
+  type NearMissAdaptiveStateRecord,
 } from '@shared/schema';
 import * as crypto from 'crypto';
 
@@ -960,6 +968,345 @@ export class OceanPersistence {
   }
   
   // ============================================================================
+  // NEAR-MISS PERSISTENCE - Tiered near-miss entries and clusters
+  // ============================================================================
+
+  /**
+   * Insert or update a near-miss entry
+   */
+  async upsertNearMissEntry(entry: {
+    id: string;
+    phrase: string;
+    phi: number;
+    kappa: number;
+    regime: string;
+    tier: 'hot' | 'warm' | 'cool';
+    source?: string;
+    clusterId?: string;
+    phiHistory?: number[];
+    isEscalating?: boolean;
+    queuePriority?: number;
+    structuralSignature?: Record<string, unknown>;
+    explorationCount?: number;
+  }): Promise<boolean> {
+    if (!db) return false;
+    
+    try {
+      const phraseHash = crypto.createHash('sha256').update(entry.phrase).digest('hex');
+      
+      await db.insert(nearMissEntries)
+        .values({
+          id: entry.id,
+          phrase: entry.phrase,
+          phraseHash,
+          phi: entry.phi,
+          kappa: entry.kappa,
+          regime: entry.regime,
+          tier: entry.tier,
+          source: entry.source,
+          clusterId: entry.clusterId,
+          phiHistory: entry.phiHistory,
+          isEscalating: entry.isEscalating ?? false,
+          queuePriority: entry.queuePriority ?? 1,
+          structuralSignature: entry.structuralSignature,
+          explorationCount: entry.explorationCount ?? 1,
+        })
+        .onConflictDoUpdate({
+          target: nearMissEntries.id,
+          set: {
+            phi: entry.phi,
+            kappa: entry.kappa,
+            tier: entry.tier,
+            lastAccessedAt: new Date(),
+            phiHistory: entry.phiHistory,
+            isEscalating: entry.isEscalating ?? false,
+            queuePriority: entry.queuePriority ?? 1,
+            explorationCount: entry.explorationCount ?? 1,
+          },
+        });
+      return true;
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to upsert near-miss entry:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Batch insert/update near-miss entries
+   */
+  async batchUpsertNearMissEntries(entries: Array<{
+    id: string;
+    phrase: string;
+    phi: number;
+    kappa: number;
+    regime: string;
+    tier: 'hot' | 'warm' | 'cool';
+    source?: string;
+    clusterId?: string;
+    phiHistory?: number[];
+    isEscalating?: boolean;
+    queuePriority?: number;
+    structuralSignature?: Record<string, unknown>;
+    explorationCount?: number;
+  }>): Promise<number> {
+    if (!db || entries.length === 0) return 0;
+    
+    let count = 0;
+    for (const entry of entries) {
+      if (await this.upsertNearMissEntry(entry)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Get near-miss entries by tier
+   */
+  async getNearMissEntriesByTier(tier?: 'hot' | 'warm' | 'cool', limit: number = 100): Promise<NearMissEntryRecord[]> {
+    if (!db) return [];
+    
+    try {
+      if (tier) {
+        return await db.select()
+          .from(nearMissEntries)
+          .where(eq(nearMissEntries.tier, tier))
+          .orderBy(desc(nearMissEntries.phi))
+          .limit(limit);
+      }
+      return await db.select()
+        .from(nearMissEntries)
+        .orderBy(desc(nearMissEntries.phi))
+        .limit(limit);
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to get near-miss entries:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get escalating near-miss entries
+   */
+  async getEscalatingNearMisses(limit: number = 100): Promise<NearMissEntryRecord[]> {
+    if (!db) return [];
+    
+    try {
+      return await db.select()
+        .from(nearMissEntries)
+        .where(eq(nearMissEntries.isEscalating, true))
+        .orderBy(desc(nearMissEntries.phi))
+        .limit(limit);
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to get escalating near-misses:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all near-miss entries for loading into memory
+   */
+  async getAllNearMissEntries(): Promise<NearMissEntryRecord[]> {
+    if (!db) return [];
+    
+    try {
+      return await db.select()
+        .from(nearMissEntries)
+        .orderBy(desc(nearMissEntries.phi));
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to get all near-miss entries:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Delete a near-miss entry
+   */
+  async deleteNearMissEntry(id: string): Promise<boolean> {
+    if (!db) return false;
+    
+    try {
+      await db.delete(nearMissEntries).where(eq(nearMissEntries.id, id));
+      return true;
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to delete near-miss entry:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get near-miss entry count
+   */
+  async getNearMissCount(): Promise<number> {
+    if (!db) return 0;
+    
+    try {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(nearMissEntries);
+      return Number(result[0]?.count ?? 0);
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to get near-miss count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Insert or update a near-miss cluster
+   */
+  async upsertNearMissCluster(cluster: {
+    id: string;
+    centroidPhrase: string;
+    centroidPhi: number;
+    memberCount: number;
+    avgPhi: number;
+    maxPhi: number;
+    commonWords?: string[];
+    structuralPattern?: string;
+  }): Promise<boolean> {
+    if (!db) return false;
+    
+    try {
+      await db.insert(nearMissClusters)
+        .values({
+          id: cluster.id,
+          centroidPhrase: cluster.centroidPhrase,
+          centroidPhi: cluster.centroidPhi,
+          memberCount: cluster.memberCount,
+          avgPhi: cluster.avgPhi,
+          maxPhi: cluster.maxPhi,
+          commonWords: cluster.commonWords,
+          structuralPattern: cluster.structuralPattern,
+        })
+        .onConflictDoUpdate({
+          target: nearMissClusters.id,
+          set: {
+            centroidPhrase: cluster.centroidPhrase,
+            centroidPhi: cluster.centroidPhi,
+            memberCount: cluster.memberCount,
+            avgPhi: cluster.avgPhi,
+            maxPhi: cluster.maxPhi,
+            commonWords: cluster.commonWords,
+            structuralPattern: cluster.structuralPattern,
+            lastUpdatedAt: new Date(),
+          },
+        });
+      return true;
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to upsert near-miss cluster:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all near-miss clusters
+   */
+  async getAllNearMissClusters(): Promise<NearMissClusterRecord[]> {
+    if (!db) return [];
+    
+    try {
+      return await db.select()
+        .from(nearMissClusters)
+        .orderBy(desc(nearMissClusters.avgPhi));
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to get near-miss clusters:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Delete a near-miss cluster
+   */
+  async deleteNearMissCluster(id: string): Promise<boolean> {
+    if (!db) return false;
+    
+    try {
+      await db.delete(nearMissClusters).where(eq(nearMissClusters.id, id));
+      return true;
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to delete near-miss cluster:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Save adaptive state (thresholds and rolling distribution)
+   */
+  async saveNearMissAdaptiveState(state: {
+    rollingPhiDistribution: number[];
+    hotThreshold: number;
+    warmThreshold: number;
+    coolThreshold: number;
+  }): Promise<boolean> {
+    if (!db) return false;
+    
+    try {
+      await db.insert(nearMissAdaptiveState)
+        .values({
+          id: 'singleton',
+          rollingPhiDistribution: state.rollingPhiDistribution,
+          hotThreshold: state.hotThreshold,
+          warmThreshold: state.warmThreshold,
+          coolThreshold: state.coolThreshold,
+          distributionSize: state.rollingPhiDistribution.length,
+          lastComputed: new Date(),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: nearMissAdaptiveState.id,
+          set: {
+            rollingPhiDistribution: state.rollingPhiDistribution,
+            hotThreshold: state.hotThreshold,
+            warmThreshold: state.warmThreshold,
+            coolThreshold: state.coolThreshold,
+            distributionSize: state.rollingPhiDistribution.length,
+            lastComputed: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+      return true;
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to save near-miss adaptive state:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Load adaptive state
+   */
+  async loadNearMissAdaptiveState(): Promise<NearMissAdaptiveStateRecord | null> {
+    if (!db) return null;
+    
+    try {
+      const results = await db.select()
+        .from(nearMissAdaptiveState)
+        .where(eq(nearMissAdaptiveState.id, 'singleton'))
+        .limit(1);
+      return results[0] ?? null;
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to load near-miss adaptive state:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a phrase has already been recorded as a near-miss (deduplication)
+   */
+  async hasNearMissPhrase(phrase: string): Promise<boolean> {
+    if (!db) return false;
+    
+    try {
+      const phraseHash = crypto.createHash('sha256').update(phrase).digest('hex');
+      const results = await db.select({ id: nearMissEntries.id })
+        .from(nearMissEntries)
+        .where(eq(nearMissEntries.phraseHash, phraseHash))
+        .limit(1);
+      return results.length > 0;
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to check near-miss phrase:', error);
+      return false;
+    }
+  }
+
+  // ============================================================================
   // STATISTICS AND SUMMARY
   // ============================================================================
   
@@ -973,6 +1320,8 @@ export class OceanPersistence {
     activeTrajectoryCount: number;
     excludedRegionCount: number;
     testedPhraseCount: number;
+    nearMissCount: number;
+    nearMissClusterCount: number;
     quantumState: OceanQuantumStateRecord | null;
   }> {
     const [
@@ -982,6 +1331,8 @@ export class OceanPersistence {
       activeTrajectoryCount,
       excludedRegionCount,
       testedPhraseCount,
+      nearMissCount,
+      nearMissClusterCount,
       quantumState,
     ] = await Promise.all([
       this.getProbeCount(),
@@ -990,6 +1341,8 @@ export class OceanPersistence {
       db ? db.select({ count: sql<number>`count(*)` }).from(oceanTrajectories).where(eq(oceanTrajectories.status, 'active')).then(r => Number(r[0]?.count ?? 0)) : 0,
       this.getExcludedRegionCount(),
       db ? db.select({ count: sql<number>`count(*)` }).from(testedPhrasesIndex).then(r => Number(r[0]?.count ?? 0)) : 0,
+      this.getNearMissCount(),
+      db ? db.select({ count: sql<number>`count(*)` }).from(nearMissClusters).then(r => Number(r[0]?.count ?? 0)) : 0,
       this.getQuantumState(),
     ]);
     
@@ -1000,6 +1353,8 @@ export class OceanPersistence {
       activeTrajectoryCount,
       excludedRegionCount,
       testedPhraseCount,
+      nearMissCount,
+      nearMissClusterCount,
       quantumState,
     };
   }
