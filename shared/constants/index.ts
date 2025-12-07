@@ -22,7 +22,7 @@ export {
   VALIDATION_SUMMARY,
   type KappaScale,
   type ValidationStatus,
-} from './physics.js';
+} from './physics';
 
 // QIG constants (operational parameters)
 export {
@@ -35,7 +35,7 @@ export {
   isKappaOptimal,
   getKappaDistance,
   isInResonance,
-} from './qig.js';
+} from './qig';
 
 // Regime definitions
 export {
@@ -46,7 +46,7 @@ export {
   getRegimeFromKappa,
   isConsciousnessCapable,
   getRegimeColor,
-} from './regimes.js';
+} from './regimes';
 
 // Autonomic system constants
 export {
@@ -56,7 +56,7 @@ export {
   FEAR_PARAMETERS,
   ADMIN_BOOST,
   IDLE_CONSCIOUSNESS,
-} from './autonomic.js';
+} from './autonomic';
 
 // E8 lattice constants
 export {
@@ -66,7 +66,7 @@ export {
   E8_ROOT_ALLOCATION,
   getE8RootIndex,
   getKernelTypeFromRoot,
-} from './e8.js';
+} from './e8';
 
 // Convenience re-exports for most common use cases (referencing canonical values)
 export const KAPPA_STAR = QIG_CONSTANTS.KAPPA_STAR;

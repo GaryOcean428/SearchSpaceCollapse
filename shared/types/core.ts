@@ -8,11 +8,12 @@
 import { z } from "zod";
 
 // Import from centralized constants
+// Note: Using .ts extension for drizzle-kit compatibility
 import { 
   RegimeType as _RegimeType, 
   type Regime as _Regime 
-} from '../constants/regimes.js';
-import { CONSCIOUSNESS_THRESHOLDS as _CONSCIOUSNESS_THRESHOLDS } from '../constants/qig.js';
+} from '../constants/regimes';
+import { CONSCIOUSNESS_THRESHOLDS as _CONSCIOUSNESS_THRESHOLDS } from '../constants/qig';
 
 // Re-export for backwards compatibility
 export const RegimeType = _RegimeType;

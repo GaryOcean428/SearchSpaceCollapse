@@ -10,7 +10,7 @@
  * - PHI_THRESHOLD_DETECTION: 0.70 (near-miss detection, slightly lower for sensitivity)
  */
 
-import { KAPPA_VALUES, BETA_VALUES } from './physics.js';
+import { KAPPA_VALUES, BETA_VALUES } from './physics';
 
 /**
  * Core QIG Constants

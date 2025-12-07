@@ -5,7 +5,7 @@
  * the Ocean kernel constellation architecture.
  */
 
-import { QIG_CONSTANTS } from './qig.js';
+import { QIG_CONSTANTS } from './qig';
 
 /**
  * E8 Mathematical Constants
