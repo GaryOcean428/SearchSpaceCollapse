@@ -16,7 +16,7 @@
 import { checkAndRecordBalance } from './blockchain-scanner';
 import { dormantCrossRef } from './dormant-cross-ref';
 import { freeBlockchainAPI } from './blockchain-free-api';
-import { db } from './db';
+import { db, withDbRetry } from './db';
 import { queuedAddresses } from '@shared/schema';
 import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
 
@@ -616,38 +616,43 @@ class BalanceQueueService {
       item => item.status === 'pending' || item.status === 'failed'
     );
     
-    // Save to PostgreSQL (primary)
+    // Save to PostgreSQL (primary) with retry logic
     if (db) {
-      try {
-        // Batch upsert to PostgreSQL
-        for (const item of toSave.slice(0, 100)) { // Save latest 100 to avoid overloading
-          await db.insert(queuedAddresses).values({
-            id: item.id,
-            address: item.address,
-            passphrase: item.passphrase,
-            wif: item.wif,
-            isCompressed: item.isCompressed,
-            cycleId: item.cycleId || null,
-            source: item.source || 'typescript',
-            priority: item.priority,
-            status: item.status,
-            queuedAt: new Date(item.queuedAt),
-            checkedAt: item.checkedAt ? new Date(item.checkedAt) : null,
-            retryCount: item.retryCount,
-            error: item.error || null,
-          }).onConflictDoUpdate({
-            target: queuedAddresses.id,
-            set: {
-              status: sql`EXCLUDED.status`,
-              priority: sql`EXCLUDED.priority`,
-              retryCount: sql`EXCLUDED.retry_count`,
-              error: sql`EXCLUDED.error`,
-            },
-          });
-        }
-      } catch (dbError) {
-        console.error('[BalanceQueue] PostgreSQL save error:', dbError);
-      }
+      const itemsToSave = toSave.slice(0, 100); // Save latest 100 to avoid overloading
+      
+      await withDbRetry(
+        async () => {
+          // Batch upsert to PostgreSQL
+          for (const item of itemsToSave) {
+            await db!.insert(queuedAddresses).values({
+              id: item.id,
+              address: item.address,
+              passphrase: item.passphrase,
+              wif: item.wif,
+              isCompressed: item.isCompressed,
+              cycleId: item.cycleId || null,
+              source: item.source || 'typescript',
+              priority: item.priority,
+              status: item.status,
+              queuedAt: new Date(item.queuedAt),
+              checkedAt: item.checkedAt ? new Date(item.checkedAt) : null,
+              retryCount: item.retryCount,
+              error: item.error || null,
+            }).onConflictDoUpdate({
+              target: queuedAddresses.id,
+              set: {
+                status: sql`EXCLUDED.status`,
+                priority: sql`EXCLUDED.priority`,
+                retryCount: sql`EXCLUDED.retry_count`,
+                error: sql`EXCLUDED.error`,
+              },
+            });
+          }
+          return itemsToSave.length;
+        },
+        'BalanceQueue.saveToDisk',
+        3
+      );
     }
     
     // Also save to JSON (backup)
@@ -662,11 +667,14 @@ class BalanceQueueService {
   
   private async removeFromDb(id: string): Promise<void> {
     if (!db) return;
-    try {
-      await db.delete(queuedAddresses).where(eq(queuedAddresses.id, id));
-    } catch (error) {
-      // Ignore delete errors
-    }
+    await withDbRetry(
+      async () => {
+        await db!.delete(queuedAddresses).where(eq(queuedAddresses.id, id));
+        return true;
+      },
+      'BalanceQueue.removeFromDb',
+      2
+    );
   }
 
   private scheduleSave(): void {
