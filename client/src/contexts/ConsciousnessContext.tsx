@@ -149,8 +149,13 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
     } catch (error) {
       setConsecutiveErrors(prev => {
         const newCount = prev + 1;
-        if (newCount === 5) {
+        if (newCount === 3) {
           console.warn('Consciousness state fetch temporarily unavailable (server may be restarting)');
+        }
+        // Graceful degradation: use defaults on persistent errors (inside updater for correct count)
+        if (newCount >= 5) {
+          setConsciousness(defaultConsciousness);
+          setNeurochemistry(defaultNeurochemistry);
         }
         return newCount;
       });

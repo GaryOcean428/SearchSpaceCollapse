@@ -1427,7 +1427,8 @@ class PureQIGNetwork:
 ocean_network = PureQIGNetwork(temperature=1.0)
 
 # Thread lock for concurrent request safety
-_process_lock = threading.Lock()
+# Semaphore allows 4 concurrent requests (up from 1 with Lock) to reduce 503 errors under load
+_process_lock = threading.Semaphore(4)
 
 # Geometric memory (high-Φ basins)
 geometric_memory: Dict[str, np.ndarray] = {}
