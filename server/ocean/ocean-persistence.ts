@@ -213,31 +213,50 @@ export class OceanPersistence {
   /**
    * Insert a batch of manifold probes efficiently
    * Used during investigation cycles (50+ probes per cycle)
+   * Uses chunking to prevent timeout on large batches
    */
   async insertProbes(probes: ProbeInsertData[]): Promise<number> {
     if (!db || probes.length === 0) return 0;
     
+    const CHUNK_SIZE = 100; // Smaller chunks to prevent timeout
+    let totalInserted = 0;
+    
     try {
-      const records: InsertManifoldProbe[] = probes.map(p => ({
-        id: p.id,
-        input: p.input,
-        coordinates: p.coordinates,
-        phi: p.phi,
-        kappa: p.kappa,
-        regime: p.regime,
-        ricciScalar: p.ricciScalar ?? 0,
-        fisherTrace: p.fisherTrace ?? 0,
-        source: p.source,
-      }));
+      // Process in chunks to avoid timeout
+      for (let i = 0; i < probes.length; i += CHUNK_SIZE) {
+        const chunk = probes.slice(i, i + CHUNK_SIZE);
+        const records: InsertManifoldProbe[] = chunk.map(p => ({
+          id: p.id,
+          input: p.input,
+          coordinates: p.coordinates,
+          phi: p.phi,
+          kappa: p.kappa,
+          regime: p.regime,
+          ricciScalar: p.ricciScalar ?? 0,
+          fisherTrace: p.fisherTrace ?? 0,
+          source: p.source,
+        }));
+        
+        try {
+          await db.insert(manifoldProbes)
+            .values(records)
+            .onConflictDoNothing();
+          totalInserted += chunk.length;
+        } catch (chunkError) {
+          // Log but continue with next chunk
+          console.warn(`[OceanPersistence] Chunk ${i / CHUNK_SIZE} failed, continuing...`);
+        }
+        
+        // Small delay between chunks to prevent connection saturation
+        if (i + CHUNK_SIZE < probes.length) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
       
-      await db.insert(manifoldProbes)
-        .values(records)
-        .onConflictDoNothing();
-      
-      return probes.length;
+      return totalInserted;
     } catch (error) {
       console.error('[OceanPersistence] Failed to insert probes:', error);
-      return 0;
+      return totalInserted;
     }
   }
   
