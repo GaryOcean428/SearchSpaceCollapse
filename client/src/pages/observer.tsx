@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause, Wallet, CheckCircle, XCircle, Send, AlertTriangle, History, DollarSign, Key, Eye, EyeOff, Copy, Building, Landmark } from "lucide-react";
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis, AreaChart, Area, ReferenceLine, BarChart, Bar, LineChart as RechartsLineChart, Line } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -161,6 +161,9 @@ interface NearMissEntry {
   discoveredAt: string;
   explorationCount: number;
   clusterId?: string;
+  phiHistory?: number[];
+  isEscalating?: boolean;
+  queuePriority?: number;
 }
 
 interface NearMissCluster {
@@ -182,6 +185,41 @@ interface NearMissStats {
   maxPhi: number;
   recentDiscoveries: number;
   staleCount: number;
+  adaptiveThresholds?: {
+    hot: number;
+    warm: number;
+    cool: number;
+    distributionSize: number;
+  };
+  escalatingCount?: number;
+}
+
+interface ClusterAgingAnalytics {
+  id: string;
+  ageHours: number;
+  memberCount: number;
+  avgPhi: number;
+  maxPhi: number;
+  explorationFrequency: number;
+  decayRate: number;
+  priorityScore: number;
+  explorationCadence: 'immediate' | 'priority' | 'standard' | 'deferred';
+  commonWords: string[];
+  structuralPattern: string;
+  lastUpdatedAt: string;
+}
+
+interface ClusterAnalyticsData {
+  analytics: ClusterAgingAnalytics[];
+  summary: {
+    totalClusters: number;
+    immediate: number;
+    priority: number;
+    standard: number;
+    deferred: number;
+    avgPriorityScore: number;
+    avgAgeHours: number;
+  };
 }
 
 interface NearMissData {
@@ -296,6 +334,14 @@ export default function ObserverPage() {
     refetchInterval: 5000, // Poll every 5 seconds
     retry: 2,
     staleTime: 2000,
+  });
+
+  // Query cluster aging analytics
+  const { data: clusterAnalyticsData, isLoading: clusterAnalyticsLoading } = useQuery<ClusterAnalyticsData>({
+    queryKey: ['/api/near-misses/cluster-analytics'],
+    refetchInterval: 10000, // Poll every 10 seconds
+    retry: 2,
+    staleTime: 5000,
   });
 
   // Start QIG search mutation
@@ -2103,8 +2149,8 @@ export default function ObserverPage() {
               </Card>
             )}
 
-            {/* Near-Miss Stats Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Near-Miss Stats Overview with Adaptive Thresholds */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <Card data-testid="card-near-miss-stat-total">
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold" data-testid="text-near-miss-total">
@@ -2118,7 +2164,9 @@ export default function ObserverPage() {
                   <div className="text-2xl font-bold text-red-500" data-testid="text-near-miss-hot">
                     {nearMissLoading ? "..." : nearMissData?.stats?.hot || 0}
                   </div>
-                  <p className="text-xs text-muted-foreground">HOT (Φ &gt; 0.92)</p>
+                  <p className="text-xs text-muted-foreground">
+                    HOT (Φ ≥ {nearMissData?.stats?.adaptiveThresholds?.hot?.toFixed(3) || '0.920'})
+                  </p>
                 </CardContent>
               </Card>
               <Card className="border-orange-500/30" data-testid="card-near-miss-stat-warm">
@@ -2126,7 +2174,9 @@ export default function ObserverPage() {
                   <div className="text-2xl font-bold text-orange-500" data-testid="text-near-miss-warm">
                     {nearMissLoading ? "..." : nearMissData?.stats?.warm || 0}
                   </div>
-                  <p className="text-xs text-muted-foreground">WARM (Φ &gt; 0.85)</p>
+                  <p className="text-xs text-muted-foreground">
+                    WARM (Φ ≥ {nearMissData?.stats?.adaptiveThresholds?.warm?.toFixed(3) || '0.850'})
+                  </p>
                 </CardContent>
               </Card>
               <Card className="border-blue-500/30" data-testid="card-near-miss-stat-cool">
@@ -2134,7 +2184,9 @@ export default function ObserverPage() {
                   <div className="text-2xl font-bold text-blue-500" data-testid="text-near-miss-cool">
                     {nearMissLoading ? "..." : nearMissData?.stats?.cool || 0}
                   </div>
-                  <p className="text-xs text-muted-foreground">COOL (Φ &gt; 0.80)</p>
+                  <p className="text-xs text-muted-foreground">
+                    COOL (Φ ≥ {nearMissData?.stats?.adaptiveThresholds?.cool?.toFixed(3) || '0.800'})
+                  </p>
                 </CardContent>
               </Card>
               <Card data-testid="card-near-miss-stat-phi">
@@ -2145,7 +2197,112 @@ export default function ObserverPage() {
                   <p className="text-xs text-muted-foreground">Avg Φ Score</p>
                 </CardContent>
               </Card>
+              <Card className="border-green-500/30" data-testid="card-near-miss-stat-escalating">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-green-500" data-testid="text-near-miss-escalating">
+                    {nearMissLoading ? "..." : nearMissData?.stats?.escalatingCount || 0}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Escalating ↑</p>
+                </CardContent>
+              </Card>
             </div>
+
+            {/* Φ Distribution Visualization */}
+            <Card data-testid="card-phi-distribution">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-primary" />
+                  Φ Distribution with Adaptive Thresholds
+                </CardTitle>
+                <CardDescription>
+                  Real-time threshold adaptation based on rolling Φ distribution (n={nearMissData?.stats?.adaptiveThresholds?.distributionSize || 0})
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {nearMissLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading distribution...</div>
+                ) : (nearMissData?.entries || []).length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No Φ data to visualize</div>
+                ) : (
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={(() => {
+                          const entries = nearMissData?.entries || [];
+                          const bins: { phi: number; count: number; tier: string }[] = [];
+                          for (let i = 0; i <= 10; i++) {
+                            const phiMin = 0.7 + i * 0.03;
+                            const phiMax = phiMin + 0.03;
+                            const count = entries.filter(e => e.phi >= phiMin && e.phi < phiMax).length;
+                            const thresholds = nearMissData?.stats?.adaptiveThresholds;
+                            let tier = 'cool';
+                            if (thresholds) {
+                              if (phiMin >= thresholds.hot) tier = 'hot';
+                              else if (phiMin >= thresholds.warm) tier = 'warm';
+                            }
+                            bins.push({ phi: phiMin, count, tier });
+                          }
+                          return bins;
+                        })()}
+                        margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis 
+                          dataKey="phi" 
+                          tickFormatter={(v) => v.toFixed(2)}
+                          className="text-xs"
+                        />
+                        <YAxis className="text-xs" />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-popover border rounded p-2 text-xs">
+                                  <p>Φ: {data.phi.toFixed(3)}</p>
+                                  <p>Count: {data.count}</p>
+                                  <p>Tier: {data.tier.toUpperCase()}</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="count" 
+                          stroke="hsl(var(--primary))"
+                          fill="hsl(var(--primary))"
+                          fillOpacity={0.3}
+                        />
+                        {nearMissData?.stats?.adaptiveThresholds && (
+                          <>
+                            <ReferenceLine 
+                              x={nearMissData.stats.adaptiveThresholds.hot} 
+                              stroke="#ef4444" 
+                              strokeDasharray="5 5"
+                              label={{ value: 'HOT', position: 'top', fontSize: 10, fill: '#ef4444' }}
+                            />
+                            <ReferenceLine 
+                              x={nearMissData.stats.adaptiveThresholds.warm} 
+                              stroke="#f97316" 
+                              strokeDasharray="5 5"
+                              label={{ value: 'WARM', position: 'top', fontSize: 10, fill: '#f97316' }}
+                            />
+                            <ReferenceLine 
+                              x={nearMissData.stats.adaptiveThresholds.cool} 
+                              stroke="#3b82f6" 
+                              strokeDasharray="5 5"
+                              label={{ value: 'COOL', position: 'top', fontSize: 10, fill: '#3b82f6' }}
+                            />
+                          </>
+                        )}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Φ Progression Stats */}
             <Card data-testid="card-near-miss-progression">
@@ -2239,6 +2396,101 @@ export default function ObserverPage() {
               </CardContent>
             </Card>
 
+            {/* Cluster Aging Analytics */}
+            <Card data-testid="card-cluster-aging-analytics">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-500" />
+                  Cluster Aging Analytics
+                </CardTitle>
+                <CardDescription>
+                  Priority scheduling based on cluster age and exploration frequency
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {clusterAnalyticsLoading ? (
+                  <div className="text-center py-4 text-muted-foreground">Loading analytics...</div>
+                ) : !clusterAnalyticsData?.analytics?.length ? (
+                  <div className="text-center py-4 text-muted-foreground">No cluster analytics available</div>
+                ) : (
+                  <>
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                      <div className="p-2 rounded bg-muted/50 text-center">
+                        <div className="text-lg font-bold">{clusterAnalyticsData.summary.totalClusters}</div>
+                        <p className="text-xs text-muted-foreground">Total</p>
+                      </div>
+                      <div className="p-2 rounded bg-red-500/10 text-center">
+                        <div className="text-lg font-bold text-red-500">{clusterAnalyticsData.summary.immediate}</div>
+                        <p className="text-xs text-muted-foreground">Immediate</p>
+                      </div>
+                      <div className="p-2 rounded bg-orange-500/10 text-center">
+                        <div className="text-lg font-bold text-orange-500">{clusterAnalyticsData.summary.priority}</div>
+                        <p className="text-xs text-muted-foreground">Priority</p>
+                      </div>
+                      <div className="p-2 rounded bg-blue-500/10 text-center">
+                        <div className="text-lg font-bold text-blue-500">{clusterAnalyticsData.summary.standard}</div>
+                        <p className="text-xs text-muted-foreground">Standard</p>
+                      </div>
+                      <div className="p-2 rounded bg-muted/30 text-center">
+                        <div className="text-lg font-bold text-muted-foreground">{clusterAnalyticsData.summary.deferred}</div>
+                        <p className="text-xs text-muted-foreground">Deferred</p>
+                      </div>
+                    </div>
+
+                    {/* Cluster Analytics List */}
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {clusterAnalyticsData.analytics.slice(0, 10).map((cluster) => (
+                        <div
+                          key={cluster.id}
+                          className="p-3 rounded-lg border bg-card flex items-center gap-3"
+                          data-testid={`cluster-analytics-${cluster.id}`}
+                        >
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              cluster.explorationCadence === 'immediate' 
+                                ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                                : cluster.explorationCadence === 'priority' 
+                                  ? 'bg-orange-500/10 text-orange-600 border-orange-500/30'
+                                  : cluster.explorationCadence === 'standard'
+                                    ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                    : 'bg-muted text-muted-foreground'
+                            }
+                          >
+                            {cluster.explorationCadence.toUpperCase()}
+                          </Badge>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-mono">Score: {cluster.priorityScore.toFixed(2)}</span>
+                              <span className="text-xs text-muted-foreground">|</span>
+                              <span className="text-xs text-muted-foreground">Φ: {cluster.avgPhi.toFixed(3)}</span>
+                              <span className="text-xs text-muted-foreground">|</span>
+                              <span className="text-xs text-muted-foreground">Age: {cluster.ageHours.toFixed(1)}h</span>
+                              <span className="text-xs text-muted-foreground">|</span>
+                              <span className="text-xs text-muted-foreground">Decay: {(cluster.decayRate * 100).toFixed(1)}%</span>
+                            </div>
+                            {cluster.commonWords.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {cluster.commonWords.slice(0, 3).map((word, i) => (
+                                  <Badge key={i} variant="secondary" className="text-xs px-1.5 py-0">
+                                    {word}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {cluster.memberCount} members
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Near-Miss Entries */}
             <Card data-testid="card-near-miss-entries">
               <CardHeader className="pb-3">
@@ -2278,31 +2530,61 @@ export default function ObserverPage() {
                         className="p-3 rounded-lg border bg-card flex items-center gap-3"
                         data-testid={`near-miss-entry-${entry.id}`}
                       >
-                        <Badge 
-                          variant="outline" 
-                          className={
-                            entry.tier === 'hot' 
-                              ? 'bg-red-500/10 text-red-600 border-red-500/30' 
-                              : entry.tier === 'warm' 
-                                ? 'bg-orange-500/10 text-orange-600 border-orange-500/30'
-                                : 'bg-blue-500/10 text-blue-600 border-blue-500/30'
-                          }
-                          data-testid={`badge-tier-${entry.id}`}
-                        >
-                          {entry.tier.toUpperCase()}
-                        </Badge>
+                        <div className="flex flex-col gap-1 items-center">
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              entry.tier === 'hot' 
+                                ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                                : entry.tier === 'warm' 
+                                  ? 'bg-orange-500/10 text-orange-600 border-orange-500/30'
+                                  : 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                            }
+                            data-testid={`badge-tier-${entry.id}`}
+                          >
+                            {entry.tier.toUpperCase()}
+                          </Badge>
+                          {entry.isEscalating && (
+                            <Badge 
+                              variant="outline" 
+                              className="bg-green-500/10 text-green-600 border-green-500/30 text-xs px-1"
+                              data-testid={`badge-escalating-${entry.id}`}
+                            >
+                              ↑ ESC
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-mono text-sm truncate" data-testid={`text-phrase-${entry.id}`}>
                             {entry.phrase}
                           </p>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
                             <span>Φ: {entry.phi.toFixed(3)}</span>
                             <span>κ: {entry.kappa.toFixed(1)}</span>
                             <span>{entry.regime}</span>
                             <span>Explored: {entry.explorationCount}x</span>
+                            {entry.queuePriority !== undefined && (
+                              <span className="text-primary font-medium">Priority: {entry.queuePriority}</span>
+                            )}
                           </div>
+                          {/* Mini Φ History Sparkline */}
+                          {entry.phiHistory && entry.phiHistory.length > 1 && (
+                            <div className="mt-1 h-6 w-24" data-testid={`sparkline-${entry.id}`}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <RechartsLineChart data={entry.phiHistory.map((phi, i) => ({ i, phi }))}>
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="phi" 
+                                    stroke={entry.isEscalating ? '#22c55e' : 'hsl(var(--primary))'} 
+                                    strokeWidth={1.5}
+                                    dot={false}
+                                  />
+                                </RechartsLineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground text-right">
                           {new Date(entry.discoveredAt).toLocaleTimeString()}
                         </div>
                       </div>
