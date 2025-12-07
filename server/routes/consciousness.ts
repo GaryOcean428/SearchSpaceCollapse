@@ -353,6 +353,79 @@ nearMissRouter.get("/cluster-analytics", generousLimiter, async (req: Request, r
   }
 });
 
+// Tier Success Rate Validation - validates HOT tier is really "hotter"
+nearMissRouter.get("/success-rates", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const successRates = nearMissManager.getTierSuccessRates();
+    const conversionRecords = nearMissManager.getConversionRecords();
+    
+    // Compute tier validation insights
+    const insights: string[] = [];
+    if (successRates.overall.tierValidation === 'validated') {
+      insights.push(`HOT tier is ${successRates.overall.hotVsWarmRatio.toFixed(1)}x more effective than WARM`);
+      insights.push(`HOT tier is ${successRates.overall.hotVsCoolRatio.toFixed(1)}x more effective than COOL`);
+    } else if (successRates.overall.tierValidation === 'tier_inversion') {
+      if (successRates.overall.hotVsWarmRatio < 1) {
+        insights.push(`WARNING: WARM tier outperforming HOT - consider recalibrating thresholds`);
+      }
+      if (successRates.overall.hotVsCoolRatio < 1) {
+        insights.push(`WARNING: COOL tier outperforming HOT - tier system may need adjustment`);
+      }
+    } else {
+      insights.push(`Need ${5 - successRates.overall.totalConversions} more conversions for statistical validation`);
+    }
+
+    res.json({
+      successRates,
+      conversions: {
+        total: conversionRecords.length,
+        recent: conversionRecords.slice(-10).map(r => ({
+          tier: r.tier,
+          phi: r.phi,
+          convertedAt: r.convertedAt,
+          timeToConversionHours: r.timeToConversionHours,
+          matchAddress: r.matchAddress,
+        })),
+      },
+      insights,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("[Near-Miss Success Rates] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Record a conversion when a near-miss becomes an actual match
+nearMissRouter.post("/conversion", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { phrase, entryId, matchAddress } = req.body;
+    
+    let record;
+    if (phrase) {
+      record = nearMissManager.recordConversionByPhrase(phrase, matchAddress);
+    } else if (entryId) {
+      record = nearMissManager.recordConversion(entryId, matchAddress);
+    } else {
+      return res.status(400).json({ error: 'Either phrase or entryId is required' });
+    }
+
+    if (!record) {
+      return res.status(404).json({ error: 'Near-miss entry not found' });
+    }
+
+    res.json({
+      success: true,
+      record,
+      successRates: nearMissManager.getTierSuccessRates(),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("[Near-Miss Conversion] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export const attentionMetricsRouter = Router();
 
 attentionMetricsRouter.post("/validate", generousLimiter, async (req: Request, res: Response) => {

@@ -68,6 +68,37 @@ export interface NearMissCluster {
   ageHours?: number;
 }
 
+export interface TierSuccessTracking {
+  totalEntries: number;
+  conversions: number;
+  conversionRate: number;
+  avgPhiAtConversion: number;
+  avgTimeToConversion: number; // hours
+  recentConversions: number; // last 24h
+}
+
+export interface TierSuccessRates {
+  hot: TierSuccessTracking;
+  warm: TierSuccessTracking;
+  cool: TierSuccessTracking;
+  overall: {
+    totalConversions: number;
+    hotVsWarmRatio: number; // >1 means HOT converts more
+    hotVsCoolRatio: number; // >1 means HOT converts more
+    tierValidation: 'validated' | 'needs_data' | 'tier_inversion';
+  };
+}
+
+export interface ConversionRecord {
+  entryId: string;
+  tier: NearMissTier;
+  phi: number;
+  convertedAt: string;
+  discoveredAt: string;
+  timeToConversionHours: number;
+  matchAddress?: string;
+}
+
 export interface NearMissStats {
   total: number;
   hot: number;
@@ -85,6 +116,7 @@ export interface NearMissStats {
     distributionSize: number;
   };
   escalatingCount: number;
+  tierSuccessRates?: TierSuccessRates;
 }
 
 export interface AdaptiveThresholds {
@@ -121,6 +153,10 @@ export class NearMissManager {
   
   private rollingPhiDistribution: number[] = [];
   private adaptiveThresholds: AdaptiveThresholds;
+  
+  // Success tracking per tier - validates HOT tier is really "hotter"
+  private conversionRecords: ConversionRecord[] = [];
+  private tierTotals: { hot: number; warm: number; cool: number } = { hot: 0, warm: 0, cool: 0 };
 
   constructor() {
     this.adaptiveThresholds = {
@@ -276,6 +312,7 @@ export class NearMissManager {
     
     entry.queuePriority = this.computeQueuePriority(entry);
     this.entries.set(id, entry);
+    this.incrementTierTotal(tier); // Track for success rate calculation
     this.isDirty = true;
 
     this.assignToCluster(entry);
@@ -514,6 +551,7 @@ export class NearMissManager {
         distributionSize: this.adaptiveThresholds.distributionSize,
       },
       escalatingCount,
+      tierSuccessRates: this.getTierSuccessRates(),
     };
   }
 
@@ -565,6 +603,140 @@ export class NearMissManager {
   getPhiTrajectory(id: string): number[] {
     const entry = this.entries.get(id);
     return entry?.phiHistory || [];
+  }
+
+  /**
+   * Record a successful conversion (near-miss → actual match/discovery)
+   * This validates whether HOT tier entries really convert more often
+   */
+  recordConversion(entryId: string, matchAddress?: string): ConversionRecord | null {
+    const entry = this.entries.get(entryId);
+    if (!entry) {
+      console.log(`[NearMiss] Cannot record conversion: entry ${entryId} not found`);
+      return null;
+    }
+
+    const now = new Date();
+    const discoveredAt = new Date(entry.discoveredAt);
+    const timeToConversionHours = (now.getTime() - discoveredAt.getTime()) / (1000 * 60 * 60);
+
+    const record: ConversionRecord = {
+      entryId,
+      tier: entry.tier,
+      phi: entry.phi,
+      convertedAt: now.toISOString(),
+      discoveredAt: entry.discoveredAt,
+      timeToConversionHours,
+      matchAddress,
+    };
+
+    this.conversionRecords.push(record);
+    this.isDirty = true;
+
+    console.log(`[NearMiss] 🎉 CONVERSION: ${entry.tier.toUpperCase()} tier entry converted! Φ=${entry.phi.toFixed(4)}, time=${timeToConversionHours.toFixed(1)}h`);
+
+    // Remove the entry since it's now a match
+    this.remove(entryId);
+
+    return record;
+  }
+
+  /**
+   * Record a conversion by phrase (alternative lookup method)
+   */
+  recordConversionByPhrase(phrase: string, matchAddress?: string): ConversionRecord | null {
+    const id = this.generateId(phrase);
+    return this.recordConversion(id, matchAddress);
+  }
+
+  /**
+   * Get comprehensive tier success rates - validates HOT tier hypothesis
+   */
+  getTierSuccessRates(): TierSuccessRates {
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+
+    // Count current entries per tier (for baseline)
+    const entries = Array.from(this.entries.values());
+    const hotEntries = entries.filter(e => e.tier === 'hot').length + this.tierTotals.hot;
+    const warmEntries = entries.filter(e => e.tier === 'warm').length + this.tierTotals.warm;
+    const coolEntries = entries.filter(e => e.tier === 'cool').length + this.tierTotals.cool;
+
+    // Calculate per-tier metrics
+    const calculateTierMetrics = (tier: NearMissTier, totalEntries: number): TierSuccessTracking => {
+      const tierConversions = this.conversionRecords.filter(r => r.tier === tier);
+      const recentConversions = tierConversions.filter(r => new Date(r.convertedAt).getTime() > dayAgo).length;
+      
+      const avgPhiAtConversion = tierConversions.length > 0
+        ? tierConversions.reduce((sum, r) => sum + r.phi, 0) / tierConversions.length
+        : 0;
+      
+      const avgTimeToConversion = tierConversions.length > 0
+        ? tierConversions.reduce((sum, r) => sum + r.timeToConversionHours, 0) / tierConversions.length
+        : 0;
+
+      return {
+        totalEntries: Math.max(1, totalEntries), // Avoid division by zero
+        conversions: tierConversions.length,
+        conversionRate: totalEntries > 0 ? tierConversions.length / totalEntries : 0,
+        avgPhiAtConversion,
+        avgTimeToConversion,
+        recentConversions,
+      };
+    };
+
+    const hot = calculateTierMetrics('hot', hotEntries);
+    const warm = calculateTierMetrics('warm', warmEntries);
+    const cool = calculateTierMetrics('cool', coolEntries);
+
+    // Calculate ratios to validate tier hypothesis
+    const hotVsWarmRatio = warm.conversionRate > 0 ? hot.conversionRate / warm.conversionRate : (hot.conversionRate > 0 ? Infinity : 1);
+    const hotVsCoolRatio = cool.conversionRate > 0 ? hot.conversionRate / cool.conversionRate : (hot.conversionRate > 0 ? Infinity : 1);
+
+    // Determine tier validation status
+    let tierValidation: 'validated' | 'needs_data' | 'tier_inversion';
+    const totalConversions = hot.conversions + warm.conversions + cool.conversions;
+    
+    if (totalConversions < 5) {
+      tierValidation = 'needs_data';
+    } else if (hotVsWarmRatio >= 1 && hotVsCoolRatio >= 1) {
+      tierValidation = 'validated';
+    } else {
+      tierValidation = 'tier_inversion';
+    }
+
+    return {
+      hot,
+      warm,
+      cool,
+      overall: {
+        totalConversions,
+        hotVsWarmRatio: isFinite(hotVsWarmRatio) ? hotVsWarmRatio : 999,
+        hotVsCoolRatio: isFinite(hotVsCoolRatio) ? hotVsCoolRatio : 999,
+        tierValidation,
+      },
+    };
+  }
+
+  /**
+   * Get all conversion records (for analysis/export)
+   */
+  getConversionRecords(): ConversionRecord[] {
+    return [...this.conversionRecords];
+  }
+
+  /**
+   * Get conversion records for a specific tier
+   */
+  getConversionsByTier(tier: NearMissTier): ConversionRecord[] {
+    return this.conversionRecords.filter(r => r.tier === tier);
+  }
+
+  /**
+   * Increment tier total (called when entries are added to track overall population)
+   */
+  private incrementTierTotal(tier: NearMissTier): void {
+    this.tierTotals[tier]++;
   }
 
   /**
@@ -909,7 +1081,15 @@ export class NearMissManager {
           this.rollingPhiDistribution = data.rollingPhiDistribution.slice(-NEAR_MISS_CONFIG.DISTRIBUTION_WINDOW_SIZE);
         }
 
-        console.log(`[NearMiss] Loaded from JSON: ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.rollingPhiDistribution.length} Φ observations`);
+        // Load success tracking data
+        if (data.conversionRecords) {
+          this.conversionRecords = data.conversionRecords;
+        }
+        if (data.tierTotals) {
+          this.tierTotals = data.tierTotals;
+        }
+
+        console.log(`[NearMiss] Loaded from JSON: ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.conversionRecords.length} conversions, ${this.rollingPhiDistribution.length} Φ observations`);
       }
     } catch (error) {
       console.error('[NearMiss] Failed to load from JSON:', error);
@@ -946,6 +1126,8 @@ export class NearMissManager {
         clusters: Array.from(this.clusters.values()),
         rollingPhiDistribution: this.rollingPhiDistribution,
         adaptiveThresholds: this.adaptiveThresholds,
+        conversionRecords: this.conversionRecords,
+        tierTotals: this.tierTotals,
       };
 
       fs.writeFileSync(NEAR_MISS_FILE, JSON.stringify(data, null, 2));
