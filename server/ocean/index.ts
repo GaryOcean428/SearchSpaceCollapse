@@ -10,3 +10,39 @@ export { OceanMemoryManager, oceanMemoryManager, type OceanEpisode, type Compres
 export { TrajectoryManager } from './trajectory-manager';
 export { StrategyAnalytics } from './strategy-analytics';
 export { GeometricMemoryPressure } from './geometric-memory-pressure';
+
+// Fisher Analysis module
+export {
+  symmetricEigendecomposition,
+  lanczosEigendecomposition,
+  powerIterationEigen,
+  computeFisherInformationMatrix,
+  computeMahalanobisDistance,
+  type FisherAnalysisResult,
+  type FisherAnalysisCache,
+} from './fisher-analysis';
+
+// Basin Topology module
+export {
+  computeAttractorPoint,
+  computeBasinVolume,
+  computeLocalCurvature,
+  computeBoundaryDistances,
+  findResonanceShells,
+  computeFlowField,
+  findTopologicalHoles,
+  computeEffectiveScale,
+  computeKappaAtScaleForProbes,
+  computeBasinTopology,
+  type BasinTopologyData,
+} from './basin-topology';
+
+// Geometric Cache module
+export {
+  GeometricCacheManager,
+  createEmptyCache,
+  isCacheValid,
+  updateCache,
+  type OrthogonalComplementResult,
+  type GeometricCache,
+} from './geometric-cache';
