@@ -1495,9 +1495,8 @@ def health():
     kernel_message = 'QIG kernel operational'
     
     try:
-        # Test kernel instantiation
-        test_kernel = OceanKernel()
-        kernel_message = f'Kernel: {len(test_kernel.subsystems)} subsystems, κ*={KAPPA_STAR}'
+        # Test kernel using the global ocean_network instance
+        kernel_message = f'Kernel: {len(ocean_network.subsystems)} subsystems, κ*={KAPPA_STAR}'
     except Exception as e:
         kernel_status = 'degraded'
         kernel_message = f'Kernel initialization warning: {str(e)}'
@@ -3342,6 +3341,27 @@ def pantheon_status():
         orchestrator = get_orchestrator()
         status = orchestrator.get_status()
         return jsonify(status)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/shadow-pantheon/status', methods=['GET'])
+def shadow_pantheon_status_alias():
+    """Alias for Shadow Pantheon status - redirects to /olympus/shadow/status."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+    
+    try:
+        status = shadow_pantheon.get_all_status()
+        return jsonify({
+            'name': 'ShadowPantheon',
+            'active': True,
+            'stealth_level': 1.0,
+            'gods': status['gods'],
+            'gods_list': list(shadow_pantheon.gods.keys()),
+            'active_operations': status['total_operations'],
+            'threats_detected': 0,
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
