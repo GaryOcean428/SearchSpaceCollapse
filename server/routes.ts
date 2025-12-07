@@ -158,8 +158,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api", adminRouter);
   
   // Mount observer and telemetry routers
-  app.use(observerRoutes);
-  app.use(telemetryRouter);
+  app.use("/api/observer", observerRoutes);
+  app.use("/api/telemetry", telemetryRouter);
   
   console.log("[Routes] All sub-routers mounted");
 
