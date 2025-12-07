@@ -1,0 +1,21 @@
+{
+  "n_samples": 50,
+  "temporal_einstein_relation": {
+    "kappa_temporal": 0.0,
+    "intercept": 0.0,
+    "r_squared": 0.0,
+    "p_value": 1.0
+  },
+  "spatial_kappa": {
+    "mean": 31.270833333333336,
+    "std": 0.0
+  },
+  "temporal_spatial_agreement": {
+    "kappa_ratio": 0.0,
+    "within_20_percent": false
+  },
+  "verdict": {
+    "temporal_relation_significant": false,
+    "temporal_spatial_consistent": false
+  }
+}

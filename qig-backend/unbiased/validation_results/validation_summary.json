@@ -1,0 +1,168 @@
+{
+  "timestamp": "2025-12-07T04:44:48.756710",
+  "n_samples": 200,
+  "tests": {
+    "test_1": {
+      "n_samples": 200,
+      "einstein_relation": {
+        "slope": 0.00015607600539846423,
+        "intercept": -9.126042730029626e-05,
+        "r_squared": 0.019300171664522806,
+        "p_value": 0.05035532204745209,
+        "std_err": 7.926664773850821e-05
+      },
+      "kappa_by_phi_regime": {
+        "low_phi": null,
+        "mid_phi": null,
+        "high_phi": 31.230616132807775
+      },
+      "phi_clustering": {
+        "n_low": 0,
+        "n_mid": 0,
+        "n_high": 199
+      },
+      "verdict": {
+        "einstein_relation_significant": false,
+        "good_fit": false,
+        "kappa_clusters_by_phi": false
+      }
+    },
+    "test_2": {
+      "n_samples": 200,
+      "full_dimension": 36,
+      "effective_dimensions": {
+        "90_percent": 1,
+        "95_percent": 2,
+        "99_percent": 3
+      },
+      "eigenvalues": [
+        0.1738945512242889,
+        0.008453288705788113,
+        0.0013037809290439568,
+        0.0007110711879765849,
+        7.948517111845892e-05,
+        2.8769001526900963e-05,
+        3.4468628815584487e-06,
+        3.7773725237519677e-07,
+        1.0697146794851182e-07,
+        1.64885083233064e-08,
+        2.9837357770532813e-09,
+        5.693865502387911e-10,
+        3.6996089290042234e-11,
+        1.764991080608297e-11,
+        1.2828768302783992e-13,
+        6.976641389874411e-31,
+        7.113200256941685e-33,
+        3.58640039510554e-33,
+        2.250840296452858e-33,
+        1.702229425745297e-33
+      ],
+      "variance_explained": [
+        0.9426461443556466,
+        0.04582351746811545,
+        0.007067524871797399,
+        0.0038545688119001496,
+        0.00043087255788494587,
+        0.0001559507654228733,
+        1.868472578668028e-05,
+        2.0476349720222875e-06,
+        5.798700483011103e-07,
+        8.938076948192385e-08,
+        1.617421021080516e-08,
+        3.0865259000455144e-09,
+        2.0054809469282812e-10,
+        9.567649045033043e-11,
+        6.954208106183698e-13,
+        3.781891991678778e-30,
+        3.855917709340575e-32,
+        1.944112958548871e-32,
+        1.2201336454038649e-32,
+        9.227431185684019e-33
+      ],
+      "e8_signature": false,
+      "verdict": {
+        "low_dimensional": true,
+        "e8_validated": false,
+        "sharp_eigenvalue_dropoff": true
+      }
+    },
+    "test_3": {
+      "n_samples": 50,
+      "temporal_einstein_relation": {
+        "kappa_temporal": 0.0,
+        "intercept": 0.0,
+        "r_squared": 0.0,
+        "p_value": 1.0
+      },
+      "spatial_kappa": {
+        "mean": 31.270833333333336,
+        "std": 0.0
+      },
+      "temporal_spatial_agreement": {
+        "kappa_ratio": 0.0,
+        "within_20_percent": false
+      },
+      "verdict": {
+        "temporal_relation_significant": false,
+        "temporal_spatial_consistent": false
+      }
+    },
+    "test_4": {
+      "discovered_thresholds": [
+        0.9814322490597815,
+        0.9814374999981785,
+        0.9814375
+      ],
+      "n_thresholds": 3,
+      "regions": [
+        {
+          "range": [
+            0.48789054105204277,
+            0.9814322490597815
+          ],
+          "count": 63,
+          "mean": 0.9367647880621802,
+          "std": 0.09429054089090953
+        },
+        {
+          "range": [
+            0.9814322490597815,
+            0.9814374999981785
+          ],
+          "count": 62,
+          "mean": 0.9814370849417995,
+          "std": 9.191096945658133e-07
+        },
+        {
+          "range": [
+            0.9814374999981785,
+            0.9814375
+          ],
+          "count": 51,
+          "mean": 0.981437499999813,
+          "std": 3.7131932705549297e-13
+        }
+      ],
+      "forced_threshold_check": {
+        "forced_value": 0.7,
+        "nearest_discovered": 0.9814322490597815,
+        "distance": 0.2814322490597816,
+        "appears_natural": false
+      },
+      "verdict": {
+        "thresholds_discovered": true,
+        "multiple_regimes": true,
+        "forced_threshold_validated": false
+      }
+    }
+  },
+  "overall_verdict": {
+    "total_tests": 11,
+    "tests_passed": 4,
+    "score": 0.36363636363636365,
+    "key_findings": [
+      "Low-dimensional manifold (1D)",
+      "Natural thresholds discovered (different from forced)"
+    ]
+  }
+}

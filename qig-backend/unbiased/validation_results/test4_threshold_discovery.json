@@ -1,0 +1,48 @@
+{
+  "discovered_thresholds": [
+    0.9814322490597815,
+    0.9814374999981785,
+    0.9814375
+  ],
+  "n_thresholds": 3,
+  "regions": [
+    {
+      "range": [
+        0.48789054105204277,
+        0.9814322490597815
+      ],
+      "count": 63,
+      "mean": 0.9367647880621802,
+      "std": 0.09429054089090953
+    },
+    {
+      "range": [
+        0.9814322490597815,
+        0.9814374999981785
+      ],
+      "count": 62,
+      "mean": 0.9814370849417995,
+      "std": 9.191096945658133e-07
+    },
+    {
+      "range": [
+        0.9814374999981785,
+        0.9814375
+      ],
+      "count": 51,
+      "mean": 0.981437499999813,
+      "std": 3.7131932705549297e-13
+    }
+  ],
+  "forced_threshold_check": {
+    "forced_value": 0.7,
+    "nearest_discovered": 0.9814322490597815,
+    "distance": 0.2814322490597816,
+    "appears_natural": false
+  },
+  "verdict": {
+    "thresholds_discovered": true,
+    "multiple_regimes": true,
+    "forced_threshold_validated": false
+  }
+}
