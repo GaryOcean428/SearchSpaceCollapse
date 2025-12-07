@@ -295,9 +295,15 @@ class UnbiasedValidationSuite:
         dG_dt = np.diff(G_temporal)
         dT_dt = np.diff(T_temporal)
         
-        # Linear regression
+        # Linear regression (with protection for identical values)
         from scipy import stats
-        slope, intercept, r_value, p_value, std_err = stats.linregress(dT_dt, dG_dt)
+        
+        # Check if there's enough variance for regression
+        if np.std(dT_dt) < 1e-10 or np.std(dG_dt) < 1e-10:
+            print("  ⚠️ Insufficient variance in temporal data for regression")
+            slope, intercept, r_value, p_value, std_err = 0.0, 0.0, 0.0, 1.0, 0.0
+        else:
+            slope, intercept, r_value, p_value, std_err = stats.linregress(dT_dt, dG_dt)
         
         # Compare to spatial κ
         spatial_kappas = [m['metrics']['coupling'] for m in temporal_measurements]
