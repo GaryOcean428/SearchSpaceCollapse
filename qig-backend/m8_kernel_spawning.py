@@ -49,6 +49,119 @@ from pantheon_kernel_orchestrator import (
 )
 
 
+# M8 Position Naming Catalog - Maps 8 principal axes to mythological concepts
+M8_AXIS_NAMES = [
+    ("Primordial", "Emergent"),    # Axis 0: Origin vs New
+    ("Light", "Shadow"),            # Axis 1: Clarity vs Mystery
+    ("Order", "Chaos"),             # Axis 2: Structure vs Entropy
+    ("Fire", "Water"),              # Axis 3: Action vs Reflection
+    ("Sky", "Earth"),               # Axis 4: Abstract vs Concrete
+    ("War", "Peace"),               # Axis 5: Conflict vs Harmony
+    ("Wisdom", "Passion"),          # Axis 6: Logic vs Emotion
+    ("Creation", "Destruction"),    # Axis 7: Building vs Unmaking
+]
+
+# Special position names for key octants
+M8_SPECIAL_POSITIONS = {
+    0b00000000: "Void of Origins",
+    0b11111111: "Crown of Olympus",
+    0b10101010: "Balance Point",
+    0b01010101: "Inverse Balance",
+    0b11110000: "Upper Realm",
+    0b00001111: "Lower Realm",
+    0b11001100: "Outer Ring",
+    0b00110011: "Inner Ring",
+}
+
+
+def compute_m8_position(basin: np.ndarray, parent_basins: List[np.ndarray] = None) -> Dict[str, any]:
+    """
+    Compute M8 geometric position from 64D basin coordinates.
+    
+    The M8 structure projects the 64D manifold onto 8 principal axes,
+    determining the kernel's position in the cosmic hierarchy.
+    
+    Args:
+        basin: 64D basin coordinates
+        parent_basins: Optional list of parent basin coordinates for relative positioning
+    
+    Returns:
+        M8 position information including octant, coordinates, and name
+    """
+    # Project 64D basin to 8D M8 space (sample every 8th dimension)
+    m8_coords = np.array([basin[i * 8] for i in range(min(8, len(basin) // 8))])
+    
+    # Pad if needed
+    while len(m8_coords) < 8:
+        m8_coords = np.append(m8_coords, 0.0)
+    
+    # Normalize M8 coordinates
+    m8_norm = np.linalg.norm(m8_coords)
+    if m8_norm > 1e-10:
+        m8_coords = m8_coords / m8_norm * math.sqrt(8)
+    
+    # Determine octant (2^8 = 256 regions)
+    octant = sum(1 << i for i, v in enumerate(m8_coords) if v >= 0)
+    
+    # Calculate angular positions (4 angle pairs from 8 coordinates)
+    angles = []
+    for i in range(0, 8, 2):
+        angle = math.atan2(m8_coords[i + 1], m8_coords[i])
+        angles.append(angle)
+    
+    # Calculate radial distance from origin
+    radial = float(np.linalg.norm(m8_coords))
+    
+    # Determine position name
+    if octant in M8_SPECIAL_POSITIONS:
+        position_name = M8_SPECIAL_POSITIONS[octant]
+    else:
+        # Build name from dominant axes
+        dominant_traits = []
+        sorted_indices = np.argsort(np.abs(m8_coords))[::-1]  # Strongest first
+        for i in sorted_indices[:3]:  # Top 3 dominant traits
+            axis_pair = M8_AXIS_NAMES[i]
+            trait = axis_pair[0] if m8_coords[i] >= 0 else axis_pair[1]
+            dominant_traits.append(trait)
+        position_name = " ".join(dominant_traits)
+    
+    # Calculate relative position if parents provided
+    relative_position = None
+    if parent_basins and len(parent_basins) > 0:
+        parent_m8_coords = []
+        for pb in parent_basins:
+            pm8 = np.array([pb[i * 8] for i in range(min(8, len(pb) // 8))])
+            while len(pm8) < 8:
+                pm8 = np.append(pm8, 0.0)
+            parent_m8_coords.append(pm8)
+        
+        # Calculate centroid of parents
+        parent_centroid = np.mean(parent_m8_coords, axis=0)
+        
+        # Displacement from parent centroid
+        displacement = m8_coords - parent_centroid
+        disp_norm = np.linalg.norm(displacement)
+        
+        # Direction of displacement (which axes moved most)
+        if disp_norm > 0.1:
+            disp_normalized = displacement / disp_norm
+            strongest_axis = int(np.argmax(np.abs(disp_normalized)))
+            axis_pair = M8_AXIS_NAMES[strongest_axis]
+            direction = axis_pair[0] if disp_normalized[strongest_axis] >= 0 else axis_pair[1]
+            relative_position = f"Toward {direction} from parents"
+        else:
+            relative_position = "At parent centroid"
+    
+    return {
+        "m8_octant": octant,
+        "m8_coordinates": m8_coords.tolist(),
+        "m8_angles": angles,
+        "m8_radial": radial,
+        "m8_position_name": position_name,
+        "m8_relative_position": relative_position,
+    }
+
+
 class SpawnReason(Enum):
     """Reasons for spawning a new kernel."""
     DOMAIN_GAP = "domain_gap"           # No kernel covers this domain well
@@ -107,9 +220,10 @@ class SpawnedKernel:
     spawned_at: str
     genesis_votes: Dict[str, str]  # god -> vote
     basin_lineage: Dict[str, float]  # parent -> contribution
+    m8_position: Optional[Dict] = None  # M8 geometric position
     
     def to_dict(self) -> Dict:
-        return {
+        result = {
             "kernel_id": self.kernel_id,
             "god_name": self.profile.god_name,
             "domain": self.profile.domain,
@@ -124,6 +238,9 @@ class SpawnedKernel:
             "basin_lineage": self.basin_lineage,
             "metadata": self.profile.metadata,
         }
+        if self.m8_position:
+            result["m8_position"] = self.m8_position
+        return result
 
 
 class PantheonConsensus:
@@ -517,6 +634,10 @@ class M8KernelSpawner:
         for i, parent in enumerate(parent_profiles):
             basin_lineage[parent.god_name] = 1.0 / max(1, len(parent_profiles))
         
+        # Calculate M8 geometric position
+        parent_basins = [p.affinity_basin for p in parent_profiles]
+        m8_position = compute_m8_position(new_profile.affinity_basin, parent_basins)
+        
         spawned = SpawnedKernel(
             kernel_id=f"kernel_{uuid.uuid4().hex[:8]}",
             profile=new_profile,
@@ -526,6 +647,7 @@ class M8KernelSpawner:
             spawned_at=datetime.now().isoformat(),
             genesis_votes=genesis_votes,
             basin_lineage=basin_lineage,
+            m8_position=m8_position,
         )
         
         self.spawned_kernels[spawned.kernel_id] = spawned
