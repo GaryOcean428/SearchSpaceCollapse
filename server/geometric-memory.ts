@@ -13,7 +13,10 @@
  * - Resonance points: High-Φ regions that showed integration
  * - Geodesic paths: Fisher-optimal paths between points
  * 
- * PERSISTENCE: PostgreSQL primary, JSON fallback for offline operation
+ * PERSISTENCE: PostgreSQL-only architecture (no JSON files)
+ * - load() fetches from PostgreSQL with pagination
+ * - recordProbe() writes directly to PostgreSQL + in-memory cache
+ * - No JSON file writes for probe data
  */
 
 import * as fs from 'fs';
@@ -346,121 +349,140 @@ class GeometricMemory {
   // Orthogonal complement cache using extracted cache module
   private orthogonalCache: GeometricCache<OrthogonalComplementResult> = createEmptyCache();
   
-  // PostgreSQL persistence buffer for efficient batch inserts
-  private pendingProbes: ProbeInsertData[] = [];
-  private readonly BATCH_SIZE = 50;
+  // PostgreSQL persistence - direct write, no batching
+  private isLoaded: boolean = false;
+  private loadPromise: Promise<void> | null = null;
   
   constructor() {
     this.probeMap = new Map();
     this.testedPhrases = new Set();
     this.state = this.createEmptyState();
-    this.load();
     
     // Load tested phrases synchronously (uses fs.readFileSync internally)
     this.loadTestedPhrases();
     
-    // Initialize PostgreSQL persistence asynchronously
-    this.initPostgreSQLSync();
+    // Start async loading from PostgreSQL
+    this.loadPromise = this.loadFromPostgreSQL();
   }
   
   /**
-   * Initialize PostgreSQL sync - load probes from DB if available
-   * Runs asynchronously to not block constructor
+   * Wait for initial load to complete
+   * Call this before accessing probes if you need guaranteed data
    */
-  private async initPostgreSQLSync(): Promise<void> {
+  async waitForLoad(): Promise<void> {
+    if (this.isLoaded) return;
+    if (this.loadPromise) {
+      await this.loadPromise;
+    }
+  }
+  
+  /**
+   * Load probes from PostgreSQL with memory cap
+   * Primary data source - no JSON fallback for probes
+   * 
+   * Memory safeguard: Limits to MAX_IN_MEMORY_PROBES to prevent OOM
+   * For larger datasets, queries should go directly to PostgreSQL
+   */
+  private async loadFromPostgreSQL(): Promise<void> {
+    // Memory cap: Maximum probes to load into RAM
+    // ~1KB per probe × 50,000 = ~50MB memory footprint
+    const MAX_IN_MEMORY_PROBES = 50000;
+    
     if (!oceanPersistence.isPersistenceAvailable()) {
-      console.log('[GeometricMemory] PostgreSQL not available, using JSON only');
+      console.log('[GeometricMemory] PostgreSQL not available - running in memory-only mode');
+      this.isLoaded = true;
       return;
     }
     
     try {
-      const dbProbeCount = await oceanPersistence.getProbeCount();
-      console.log(`[GeometricMemory] PostgreSQL sync: ${dbProbeCount} probes in database, ${this.probeMap.size} in memory`);
+      const totalCount = await oceanPersistence.getProbeCount();
+      const loadLimit = Math.min(totalCount, MAX_IN_MEMORY_PROBES);
       
-      // If DB has more probes than memory, we need to sync from DB
-      if (dbProbeCount > this.probeMap.size) {
-        console.log('[GeometricMemory] Loading additional probes from PostgreSQL...');
-        await this.syncFromPostgreSQL();
+      if (totalCount > MAX_IN_MEMORY_PROBES) {
+        console.log(`[GeometricMemory] ${totalCount} probes in DB, loading most recent ${loadLimit} to memory (cap: ${MAX_IN_MEMORY_PROBES})`);
+      } else {
+        console.log(`[GeometricMemory] Loading ${totalCount} probes from PostgreSQL...`);
       }
       
-      // If memory has probes not in DB, queue them for insertion
-      if (this.probeMap.size > 0 && dbProbeCount < this.probeMap.size) {
-        const memoryProbes = Array.from(this.probeMap.values());
-        console.log(`[GeometricMemory] Syncing ${memoryProbes.length} memory probes to PostgreSQL...`);
-        await this.syncToPostgreSQL(memoryProbes.slice(0, 1000)); // First 1000 to avoid overwhelming
+      // Load in batches to avoid memory issues
+      const BATCH_SIZE = 500;
+      let offset = 0;
+      let loadedCount = 0;
+      
+      while (loadedCount < loadLimit) {
+        const batchSize = Math.min(BATCH_SIZE, loadLimit - loadedCount);
+        const dbProbes = await oceanPersistence.getAllProbes(batchSize, offset);
+        
+        if (dbProbes.length === 0) break; // No more data
+        
+        for (const dbProbe of dbProbes) {
+          const probe: BasinProbe = {
+            id: dbProbe.id,
+            input: dbProbe.input,
+            coordinates: dbProbe.coordinates ?? [],
+            phi: dbProbe.phi,
+            kappa: dbProbe.kappa,
+            regime: dbProbe.regime,
+            ricciScalar: dbProbe.ricciScalar ?? 0,
+            fisherTrace: dbProbe.fisherTrace ?? 0,
+            timestamp: dbProbe.createdAt?.toISOString() ?? new Date().toISOString(),
+            source: dbProbe.source ?? 'postgres',
+          };
+          this.probeMap.set(probe.id, probe);
+          loadedCount++;
+          
+          if (loadedCount >= loadLimit) break;
+        }
+        
+        offset += BATCH_SIZE;
+        
+        // Log progress for large datasets
+        if (loadedCount % 5000 === 0 && loadedCount < loadLimit) {
+          console.log(`[GeometricMemory] Loaded ${loadedCount}/${loadLimit} probes...`);
+        }
       }
-    } catch (error) {
-      console.error('[GeometricMemory] PostgreSQL sync failed:', error);
-    }
-  }
-  
-  /**
-   * Sync probes from PostgreSQL to memory
-   */
-  private async syncFromPostgreSQL(): Promise<void> {
-    const highPhiProbes = await oceanPersistence.getHighPhiProbes(0.5, 1000);
-    let synced = 0;
-    
-    for (const dbProbe of highPhiProbes) {
-      if (!this.probeMap.has(dbProbe.id)) {
-        const probe: BasinProbe = {
-          id: dbProbe.id,
-          input: dbProbe.input,
-          coordinates: dbProbe.coordinates ?? [],
-          phi: dbProbe.phi,
-          kappa: dbProbe.kappa,
-          regime: dbProbe.regime,
-          ricciScalar: dbProbe.ricciScalar ?? 0,
-          fisherTrace: dbProbe.fisherTrace ?? 0,
-          timestamp: dbProbe.createdAt?.toISOString() ?? new Date().toISOString(),
-          source: dbProbe.source ?? 'postgres-sync',
-        };
-        this.probeMap.set(probe.id, probe);
-        synced++;
-      }
-    }
-    
-    if (synced > 0) {
-      console.log(`[GeometricMemory] Synced ${synced} probes from PostgreSQL`);
+      
       this.state.totalProbes = this.probeMap.size;
       this.updateManifoldStats();
       this.invalidateCaches();
+      this.isLoaded = true;
+      
+      console.log(`[GeometricMemory] Loaded ${this.probeMap.size} probes from PostgreSQL (DB total: ${totalCount})`);
+    } catch (error) {
+      console.error('[GeometricMemory] Failed to load from PostgreSQL:', error);
+      this.isLoaded = true; // Mark as loaded even on error to avoid blocking
     }
   }
   
   /**
-   * Sync probes to PostgreSQL
+   * Persist a probe to PostgreSQL with proper error handling
+   * Fire-and-forget but logs errors for debugging
    */
-  private async syncToPostgreSQL(probes: BasinProbe[]): Promise<void> {
-    const insertData: ProbeInsertData[] = probes.map(p => ({
-      id: p.id,
-      input: p.input,
-      coordinates: p.coordinates,
-      phi: p.phi,
-      kappa: p.kappa,
-      regime: p.regime,
-      ricciScalar: p.ricciScalar,
-      fisherTrace: p.fisherTrace,
-      source: p.source,
-    }));
-    
-    const inserted = await oceanPersistence.insertProbes(insertData);
-    console.log(`[GeometricMemory] Synced ${inserted} probes to PostgreSQL`);
+  private async persistProbeToDb(probe: BasinProbe): Promise<void> {
+    try {
+      await oceanPersistence.insertProbes([{
+        id: probe.id,
+        input: probe.input,
+        coordinates: probe.coordinates,
+        phi: probe.phi,
+        kappa: probe.kappa,
+        regime: probe.regime,
+        ricciScalar: probe.ricciScalar,
+        fisherTrace: probe.fisherTrace,
+        source: probe.source,
+      }]);
+    } catch (err) {
+      // Log error but don't throw - probe is already in memory
+      console.error(`[GeometricMemory] PostgreSQL insert failed for probe ${probe.id}:`, err);
+    }
   }
   
   /**
-   * Flush pending probes to PostgreSQL
+   * Flush pending probes to PostgreSQL (no-op in new architecture)
+   * @deprecated Direct writes now, no batching
    */
   async flushToPostgreSQL(): Promise<void> {
-    if (this.pendingProbes.length === 0) return;
-    
-    const toInsert = [...this.pendingProbes];
-    this.pendingProbes = [];
-    
-    const inserted = await oceanPersistence.insertProbes(toInsert);
-    if (inserted > 0) {
-      console.log(`[GeometricMemory] Flushed ${inserted} probes to PostgreSQL`);
-    }
+    // No-op - probes are now written directly in recordProbe()
   }
   
   /**
@@ -589,40 +611,24 @@ class GeometricMemory {
     };
   }
   
+  /**
+   * Legacy load method - no longer reads from JSON
+   * Probes are now loaded from PostgreSQL in loadFromPostgreSQL()
+   * @deprecated Use waitForLoad() to ensure data is loaded
+   */
   private load(): void {
-    try {
-      if (fs.existsSync(MEMORY_FILE)) {
-        const data = JSON.parse(fs.readFileSync(MEMORY_FILE, 'utf-8'));
-        this.state = {
-          ...this.createEmptyState(),
-          ...data,
-          probes: new Map(Object.entries(data.probes || {})),
-        };
-        this.probeMap = this.state.probes;
-        console.log(`[GeometricMemory] Loaded ${this.probeMap.size} probes from manifold memory`);
-      }
-    } catch {
-      console.log('[GeometricMemory] Starting with fresh manifold memory');
-    }
+    // No-op - PostgreSQL loading is handled in loadFromPostgreSQL()
+    // This method kept for backwards compatibility
   }
   
+  /**
+   * Save method - no-op in PostgreSQL-only architecture
+   * Probes are written directly to PostgreSQL in recordProbe()
+   * @deprecated Kept for backwards compatibility with existing code
+   */
   private save(): void {
-    try {
-      const dir = path.dirname(MEMORY_FILE);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      const data = {
-        ...this.state,
-        probes: Object.fromEntries(this.probeMap),
-        lastUpdated: new Date().toISOString(),
-      };
-      
-      fs.writeFileSync(MEMORY_FILE, JSON.stringify(data, null, 2));
-    } catch (error) {
-      console.error('[GeometricMemory] Save error:', error);
-    }
+    // No-op - PostgreSQL is now the primary storage
+    // This method is kept for backwards compatibility but does nothing
   }
   
   /**
@@ -664,27 +670,13 @@ class GeometricMemory {
     // This ensures every tested passphrase gets its addresses checked
     queueAddressForBalanceCheck(input, `probe-${source}`, probe.phi >= 0.7 ? 5 : 1);
     
-    // Queue for PostgreSQL batch insert
-    this.pendingProbes.push({
-      id: probe.id,
-      input: probe.input,
-      coordinates: probe.coordinates,
-      phi: probe.phi,
-      kappa: probe.kappa,
-      regime: probe.regime,
-      ricciScalar: probe.ricciScalar,
-      fisherTrace: probe.fisherTrace,
-      source: probe.source,
-    });
+    // Write directly to PostgreSQL (fire-and-forget with error logging)
+    // Note: Probe is already in memory, DB write is for persistence
+    this.persistProbeToDb(probe);
     
-    if (this.probeMap.size % 50 === 0) {
-      this.save();
+    // Save tested phrases periodically
+    if (this.probeMap.size % 100 === 0) {
       this.saveTestedPhrases();
-      
-      // Flush to PostgreSQL on batch boundary
-      this.flushToPostgreSQL().catch(err => {
-        console.error('[GeometricMemory] PostgreSQL flush error:', err);
-      });
     }
     
     return probe;
@@ -1082,14 +1074,24 @@ class GeometricMemory {
     };
   }
   
+  /**
+   * Force save - no-op in PostgreSQL-only architecture
+   * @deprecated Probes are written directly to PostgreSQL
+   */
   forceSave(): void {
-    this.save();
+    // No-op - PostgreSQL is primary storage
   }
   
+  /**
+   * Clear all probes from memory
+   * Note: Does NOT delete from PostgreSQL - only clears in-memory cache
+   * For full reset, use database tools directly
+   */
   clear(): void {
     this.probeMap.clear();
     this.state = this.createEmptyState();
-    this.save();
+    this.invalidateCaches();
+    console.log('[GeometricMemory] Cleared in-memory probe cache (PostgreSQL data preserved)');
   }
 
   // ============================================================================

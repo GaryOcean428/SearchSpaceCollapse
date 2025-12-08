@@ -322,6 +322,25 @@ export class OceanPersistence {
   }
   
   /**
+   * Get all probes with pagination
+   * Used for initial memory load from PostgreSQL
+   */
+  async getAllProbes(limit: number = 1000, offset: number = 0): Promise<ManifoldProbe[]> {
+    if (!db) return [];
+    
+    try {
+      return await db.select()
+        .from(manifoldProbes)
+        .orderBy(desc(manifoldProbes.createdAt))
+        .limit(limit)
+        .offset(offset);
+    } catch (error) {
+      console.error('[OceanPersistence] Failed to get all probes:', error);
+      return [];
+    }
+  }
+  
+  /**
    * Get total probe count
    */
   async getProbeCount(): Promise<number> {
