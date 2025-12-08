@@ -305,8 +305,20 @@ export class TestedPhrasesRegistryDB {
     
     const cutoffDate = new Date(Date.now() - keepDays * 24 * 60 * 60 * 1000);
     
-    await withDbRetry(
+    const result = await withDbRetry(
       async () => {
+        // Count items to be deleted first
+        const [toDelete] = await db!
+          .select({ count: sql<number>`count(*)` })
+          .from(testedPhrases)
+          .where(
+            and(
+              sql`${testedPhrases.testedAt} < ${cutoffDate}`,
+              eq(testedPhrases.balanceSats, 0),
+              eq(testedPhrases.retestCount, 0)
+            )
+          );
+        
         // Only prune empty addresses with no retests (not valuable data)
         await db!
           .delete(testedPhrases)
@@ -317,16 +329,21 @@ export class TestedPhrasesRegistryDB {
               eq(testedPhrases.retestCount, 0)
             )
           );
+        
+        return { removed: toDelete.count };
       },
       'prune-tested-phrases',
       2
     );
     
+    const removed = result?.removed || 0;
+    console.log(`[TestedPhrasesDB] Pruned ${removed} old empty phrases older than ${keepDays} days`);
+    
     // Clear cache to force reload
     phraseCache.clear();
     await this.init();
     
-    return { removed: 0 }; // Drizzle doesn't easily return count
+    return { removed };
   }
 
   /**
