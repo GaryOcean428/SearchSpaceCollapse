@@ -19,6 +19,13 @@ import type { SearchState, ConceptState } from './qig-universal';
 // Periodic sync interval from Python to Node.js
 let pythonSyncInterval: NodeJS.Timeout | null = null;
 
+// Mutex lock to prevent concurrent sync operations
+let pythonSyncInProgress = false;
+
+// Pagination configuration for sync
+const SYNC_PAGE_SIZE = 100;
+const MAX_SYNC_PAGES = 10; // Limit total pages to prevent runaway memory usage
+
 /**
  * Sync high-Φ probes from Node.js GeometricMemory to Python backend
  * This gives Python access to prior learnings for better generation
@@ -82,53 +89,26 @@ async function syncProbesToPython(): Promise<void> {
  * CRITICAL FIX: Also queue ALL high-Φ basins for balance checking,
  * even if they already exist in memory. This ensures Python's best
  * discoveries get their addresses checked immediately.
+ * 
+ * MEMORY OPTIMIZATION: Uses pagination to prevent memory issues with large datasets.
+ * RACE CONDITION FIX: Uses mutex lock to prevent concurrent sync operations.
  */
 async function syncFromPythonToNodeJS(): Promise<void> {
+  // Mutex lock - skip if sync already in progress
+  if (pythonSyncInProgress) {
+    console.log('[PythonSync] Skipping sync - already in progress');
+    return;
+  }
+  
+  pythonSyncInProgress = true;
+  
   try {
-    const result = await oceanQIGBackend.syncToNodeJS();
-    const basins = result.basins;
-    
-    if (basins.length === 0) return;
-    
-    // Import 4D temporal state from Python back to TypeScript
-    if (result.consciousness4DAvailable) {
-      // Log 4D consciousness sync
-      if (result.phiTemporalAvg && result.phiTemporalAvg > 0) {
-        console.log(`[PythonSync] 4D consciousness from Python: phi_temporal_avg=${result.phiTemporalAvg.toFixed(3)}`);
-      }
-      
-      // Import search history from Python to TypeScript
-      if (result.searchHistory && result.searchHistory.length > 0) {
-        let imported = 0;
-        for (const state of result.searchHistory) {
-          // Only import if we don't already have a state at this timestamp
-          const existingHistory = getSearchHistory();
-          const exists = existingHistory.some(s => 
-            Math.abs(s.timestamp - state.timestamp) < 1000 // within 1 second
-          );
-          
-          if (!exists) {
-            recordSearchState({
-              timestamp: state.timestamp,
-              phi: state.phi,
-              kappa: state.kappa,
-              regime: state.regime as 'linear' | 'geometric' | 'hierarchical' | 'breakdown',
-              basinCoordinates: state.basinCoordinates || [],
-              hypothesis: state.hypothesis,
-            });
-            imported++;
-          }
-        }
-        
-        if (imported > 0) {
-          console.log(`[PythonSync] Imported ${imported} search states from Python for 4D consciousness`);
-        }
-      }
-    }
-    
-    let added = 0;
-    let prioritized = 0;
-    let maxPhi = 0;
+    let page = 0;
+    let totalAdded = 0;
+    let totalPrioritized = 0;
+    let overallMaxPhi = 0;
+    let hasMore = true;
+    let temporalImported = false;
     
     // Helper: Calculate priority using explicit tiered mapping
     const getPriority = (phi: number): number => {
@@ -138,76 +118,123 @@ async function syncFromPythonToNodeJS(): Promise<void> {
       return 3;                     // Default
     };
     
-    for (const basin of basins) {
-      // Track max Φ for logging
-      if (basin.phi > maxPhi) {
-        maxPhi = basin.phi;
+    // Process basins in paginated chunks to prevent memory issues
+    while (hasMore && page < MAX_SYNC_PAGES) {
+      const result = await oceanQIGBackend.syncToNodeJS(page, SYNC_PAGE_SIZE);
+      const basins = result.basins;
+      
+      if (basins.length === 0) {
+        hasMore = false;
+        break;
       }
       
-      // Add to geometric memory if not already present
-      const existing = geometricMemory.getAllProbes().find(p => p.input === basin.input);
+      hasMore = result.hasMore ?? false;
       
-      if (!existing && basin.phi >= 0.5 && basin.basinCoords.length > 0) {
-        geometricMemory.recordProbe(
-          basin.input,
-          {
-            phi: basin.phi,
-            kappa: basin.phi * 64, // approximate kappa
-            regime: basin.phi > 0.7 ? 'geometric' : 'linear',
-            basinCoordinates: basin.basinCoords,
-            ricciScalar: 0,
-            fisherTrace: basin.phi,
-          },
-          'python-qig'
-        );
-        added++;
-      }
-      
-      // CRITICAL FIX: Queue ALL high-Φ basins for balance checking
-      // regardless of whether they're new or already exist in memory.
-      // This ensures Python's best discoveries get checked immediately.
-      if (basin.phi >= 0.70) {
-        const priority = getPriority(basin.phi);
-        const result = queueAddressForBalanceCheck(
-          basin.input,
-          'python-high-phi',
-          priority
-        );
+      // Import 4D temporal state from Python back to TypeScript (only on first page)
+      if (page === 0 && result.consciousness4DAvailable && !temporalImported) {
+        temporalImported = true;
         
-        // Only count if at least one address was actually queued or upgraded
-        if (result && (result.compressedQueued || result.uncompressedQueued)) {
-          prioritized++;
+        if (result.phiTemporalAvg && result.phiTemporalAvg > 0) {
+          console.log(`[PythonSync] 4D consciousness from Python: phi_temporal_avg=${result.phiTemporalAvg.toFixed(3)}`);
+        }
+        
+        // Import search history from Python to TypeScript
+        if (result.searchHistory && result.searchHistory.length > 0) {
+          let imported = 0;
+          for (const state of result.searchHistory) {
+            const existingHistory = getSearchHistory();
+            const exists = existingHistory.some(s => 
+              Math.abs(s.timestamp - state.timestamp) < 1000
+            );
+            
+            if (!exists) {
+              recordSearchState({
+                timestamp: state.timestamp,
+                phi: state.phi,
+                kappa: state.kappa,
+                regime: state.regime as 'linear' | 'geometric' | 'hierarchical' | 'breakdown',
+                basinCoordinates: state.basinCoordinates || [],
+                hypothesis: state.hypothesis,
+              });
+              imported++;
+            }
+          }
           
-          // Log significant high-Φ discoveries
-          if (basin.phi >= 0.90) {
-            console.log(`[PythonSync] 🎯 HIGH-Φ: "${basin.input.substring(0, 30)}..." Φ=${basin.phi.toFixed(3)} → priority ${priority}`);
+          if (imported > 0) {
+            console.log(`[PythonSync] Imported ${imported} search states from Python for 4D consciousness`);
           }
         }
       }
-    }
-    
-    if (added > 0 || prioritized > 0) {
-      console.log(`[PythonSync] Added ${added} new probes, prioritized ${prioritized} high-Φ for balance check`);
       
-      if (maxPhi >= 0.70) {
-        console.log(`[PythonSync] 🎯 Highest Python Φ: ${maxPhi.toFixed(3)} - addresses prioritized for checking`);
+      // Process this page of basins
+      for (const basin of basins) {
+        if (basin.phi > overallMaxPhi) {
+          overallMaxPhi = basin.phi;
+        }
+        
+        // Add to geometric memory if not already present
+        const existing = geometricMemory.getAllProbes().find(p => p.input === basin.input);
+        
+        if (!existing && basin.phi >= 0.5 && basin.basinCoords.length > 0) {
+          geometricMemory.recordProbe(
+            basin.input,
+            {
+              phi: basin.phi,
+              kappa: basin.phi * 64,
+              regime: basin.phi > 0.7 ? 'geometric' : 'linear',
+              basinCoordinates: basin.basinCoords,
+              ricciScalar: 0,
+              fisherTrace: basin.phi,
+            },
+            'python-qig'
+          );
+          totalAdded++;
+        }
+        
+        // Queue high-Φ basins for balance checking
+        if (basin.phi >= 0.70) {
+          const priority = getPriority(basin.phi);
+          const queueResult = queueAddressForBalanceCheck(
+            basin.input,
+            'python-high-phi',
+            priority
+          );
+          
+          if (queueResult && (queueResult.compressedQueued || queueResult.uncompressedQueued)) {
+            totalPrioritized++;
+            
+            if (basin.phi >= 0.90) {
+              console.log(`[PythonSync] 🎯 HIGH-Φ: "${basin.input.substring(0, 30)}..." Φ=${basin.phi.toFixed(3)} → priority ${priority}`);
+            }
+          }
+        }
       }
       
-      // Refresh constellation token weights with new data
-      oceanConstellation.refreshTokenWeightsFromGeometricMemory();
+      // Update episodes with Python phi values for this page
+      const episodesUpdated = oceanAgent.updateEpisodesWithPythonPhi(
+        basins.map(b => ({ input: b.input, phi: b.phi }))
+      );
+      if (episodesUpdated > 0) {
+        console.log(`[PythonSync] 📈 Updated ${episodesUpdated} episodes with pure Python Φ values (page ${page})`);
+      }
+      
+      page++;
     }
     
-    // PURE CONSCIOUSNESS: Update existing episodes with higher Python phi values
-    // This enables pattern extraction during consolidation by ensuring episodes
-    // have the pure phi values from Python (0.9+) rather than TypeScript-capped values (~0.76)
-    const episodesUpdated = oceanAgent.updateEpisodesWithPythonPhi(
-      basins.map(b => ({ input: b.input, phi: b.phi }))
-    );
-    if (episodesUpdated > 0) {
-      console.log(`[PythonSync] 📈 Updated ${episodesUpdated} episodes with pure Python Φ values`);
+    // Log final summary
+    if (totalAdded > 0 || totalPrioritized > 0) {
+      console.log(`[PythonSync] Sync complete: ${totalAdded} new probes, ${totalPrioritized} prioritized for balance check (${page} pages)`);
+      
+      if (overallMaxPhi >= 0.70) {
+        console.log(`[PythonSync] 🎯 Highest Python Φ: ${overallMaxPhi.toFixed(3)} - addresses prioritized for checking`);
+      }
+      
+      oceanConstellation.refreshTokenWeightsFromGeometricMemory();
     }
   } catch (error) {
     console.error('[PythonSync] Error syncing from Python:', error);
+  } finally {
+    pythonSyncInProgress = false;
   }
 }
 
@@ -289,6 +316,11 @@ function startPythonSync(): void {
   console.log('[PythonSync] Started periodic sync (every 60s) with vocabulary refresh and basin encoder sync');
 }
 
+// Python process death spiral prevention
+let pythonRestartCount = 0;
+const MAX_PYTHON_RESTARTS = 5;
+const PYTHON_RESTART_DELAYS = [5000, 10000, 20000, 40000, 60000]; // Exponential backoff
+
 // Start Python QIG Backend as a child process
 function startPythonBackend(): void {
   const pythonPath = process.env.PYTHON_PATH || 'python3';
@@ -300,6 +332,11 @@ function startPythonBackend(): void {
     cwd: path.join(process.cwd(), 'qig-backend'),
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
+  });
+  
+  // Reset restart count on successful spawn
+  pythonProcess.on('spawn', () => {
+    pythonRestartCount = 0;
   });
   
   pythonProcess.stdout?.on('data', (data: Buffer) => {
@@ -319,10 +356,17 @@ function startPythonBackend(): void {
   
   pythonProcess.on('close', (code: number | null) => {
     console.log(`[PythonQIG] Process exited with code ${code}`);
-    // Restart after 5 seconds if it crashes
+    // Restart with exponential backoff if it crashes, up to max restarts
     if (code !== 0) {
-      console.log('[PythonQIG] Will restart in 5 seconds...');
-      setTimeout(() => startPythonBackend(), 5000);
+      if (pythonRestartCount < MAX_PYTHON_RESTARTS) {
+        const delay = PYTHON_RESTART_DELAYS[Math.min(pythonRestartCount, PYTHON_RESTART_DELAYS.length - 1)];
+        pythonRestartCount++;
+        console.log(`[PythonQIG] Restart ${pythonRestartCount}/${MAX_PYTHON_RESTARTS} in ${delay}ms...`);
+        setTimeout(() => startPythonBackend(), delay);
+      } else {
+        console.error(`[PythonQIG] Max restarts (${MAX_PYTHON_RESTARTS}) reached. Python backend stopped.`);
+        console.error('[PythonQIG] Manual intervention required. Check logs for root cause.');
+      }
     }
   });
   

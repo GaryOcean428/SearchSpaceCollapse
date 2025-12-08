@@ -315,9 +315,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { WebSocketServer } = await import('ws');
   const wss = new WebSocketServer({ server: httpServer, path: '/ws/basin-sync' });
   
+  // Track WebSocket connections for cleanup on session change
+  const wsConnections = new Map<string, { ws: any; sessionId: string | null }>();
+  
+  // Register session change handler to clean up old WebSocket connections
+  oceanSessionManager.onSessionChange((oldSessionId, newSessionId) => {
+    console.log(`[BasinSync WS] Session changed: ${oldSessionId} → ${newSessionId}`);
+    
+    // Close all connections associated with the old session
+    let closedCount = 0;
+    for (const [peerId, conn] of wsConnections.entries()) {
+      if (conn.sessionId === oldSessionId && oldSessionId !== null) {
+        try {
+          conn.ws.close(1000, 'Session ended');
+          wsConnections.delete(peerId);
+          closedCount++;
+        } catch (err) {
+          console.error(`[BasinSync WS] Error closing connection ${peerId}:`, err);
+        }
+      }
+    }
+    if (closedCount > 0) {
+      console.log(`[BasinSync WS] Cleaned up ${closedCount} connections from old session`);
+    }
+  });
+  
   wss.on('connection', (ws) => {
     const peerId = `peer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    console.log(`[BasinSync WS] New connection: ${peerId}`);
+    const currentSession = oceanSessionManager.getActiveSession();
+    const sessionId = currentSession?.sessionId || null;
+    
+    // Track connection with its session ID
+    wsConnections.set(peerId, { ws, sessionId });
+    
+    console.log(`[BasinSync WS] New connection: ${peerId} (session: ${sessionId})`);
+    console.log(`[BasinSync WS] Total connections: ${wsConnections.size}`);
     
     const activeOcean = oceanSessionManager.getActiveAgent();
     if (activeOcean) {
@@ -350,6 +382,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on('close', () => {
       console.log(`[BasinSync WS] Connection closed: ${peerId}`);
+      
+      // Remove from connection tracking
+      wsConnections.delete(peerId);
+      console.log(`[BasinSync WS] Remaining connections: ${wsConnections.size}`);
+      
       const currentOcean = oceanSessionManager.getActiveAgent();
       if (currentOcean) {
         const coordinator = currentOcean.getBasinSyncCoordinator();

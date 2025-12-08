@@ -70,6 +70,25 @@ class OceanSessionManager {
   private agents: Map<string, OceanAgent> = new Map();
   private activeSessionId: string | null = null;
   private readonly MAX_EVENTS = 100;
+  private sessionChangeCallbacks: Array<(oldSessionId: string | null, newSessionId: string | null) => void> = [];
+  
+  /**
+   * Register a callback to be notified when sessions change
+   * Used for cleaning up resources like WebSocket connections
+   */
+  onSessionChange(callback: (oldSessionId: string | null, newSessionId: string | null) => void): void {
+    this.sessionChangeCallbacks.push(callback);
+  }
+  
+  private notifySessionChange(oldSessionId: string | null, newSessionId: string | null): void {
+    for (const callback of this.sessionChangeCallbacks) {
+      try {
+        callback(oldSessionId, newSessionId);
+      } catch (err) {
+        console.error('[OceanSessionManager] Session change callback error:', err);
+      }
+    }
+  }
   
   getActiveSession(): OceanSessionState | null {
     if (!this.activeSessionId) return null;
@@ -90,6 +109,8 @@ class OceanSessionManager {
   }
   
   async startSession(targetAddress: string): Promise<OceanSessionState> {
+    const oldSessionId = this.activeSessionId;
+    
     if (this.activeSessionId) {
       // Use isManualStop=false since this is an automatic handoff to a new session
       await this.stopSession(this.activeSessionId, false);
@@ -102,6 +123,9 @@ class OceanSessionManager {
     oceanQIGBackend.resetNearMissTracking();
     
     const sessionId = `ocean-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    
+    // Notify session change listeners (for WebSocket cleanup, etc.)
+    this.notifySessionChange(oldSessionId, sessionId);
     
     const state: OceanSessionState = {
       sessionId,

@@ -64,12 +64,19 @@ if (databaseUrl) {
     
     pool = new Pool({ 
       connectionString: databaseUrl,
-      max: 10, // Allow up to 10 concurrent connections
-      idleTimeoutMillis: 30000, // Close idle connections after 30s
+      max: 20, // Increased from 10 for better concurrency during high-throughput
+      idleTimeoutMillis: 60000, // Increased from 30s - keep connections warmer
       connectionTimeoutMillis: connectionTimeout, // Longer timeout for production
     });
     db = drizzle(pool, { schema });
-    console.log(`[DB] Database connection pool initialized (max: 10, timeout: ${connectionTimeout}ms)`);
+    console.log(`[DB] Database connection pool initialized (max: 20, idle: 60s, timeout: ${connectionTimeout}ms)`);
+    
+    // Log pool health periodically (every 5 minutes)
+    setInterval(() => {
+      if (pool) {
+        console.log(`[DB] Pool health: total=${pool.totalCount}, idle=${pool.idleCount}, waiting=${pool.waitingCount}`);
+      }
+    }, 300000);
   } catch (err) {
     console.error("[DB] Failed to initialize database connection:", err);
     console.log("[DB] Running without database - Replit Auth will be unavailable");
@@ -84,11 +91,14 @@ if (databaseUrl) {
  * Helper function to execute database operations with retry logic
  * Useful for handling transient connection issues in serverless environments
  * Returns operation result on success, or null on failure with proper logging
+ * 
+ * Default: 7 retries with exponential backoff (500ms → 1s → 2s → 4s → 5s → 5s → 5s)
+ * Total max wait: ~22.5s before final attempt, within 30s timeout goal
  */
 export async function withDbRetry<T>(
   operation: () => Promise<T>,
   operationName: string,
-  maxRetries: number = 3
+  maxRetries: number = 7
 ): Promise<T | null> {
   if (!db) return null;
   

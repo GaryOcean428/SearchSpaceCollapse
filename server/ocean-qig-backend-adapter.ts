@@ -15,6 +15,40 @@ import type { PureQIGScore } from './qig-pure-v2';
 const DEFAULT_RETRY_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 1500;
 
+// Request timeout configuration (10 seconds)
+const REQUEST_TIMEOUT_MS = 10000;
+
+// Circuit breaker configuration
+const CIRCUIT_BREAKER_THRESHOLD = 5; // Failures before opening circuit
+const CIRCUIT_BREAKER_RESET_MS = 30000; // Time to wait before trying again
+
+/**
+ * Create a fetch request with timeout using AbortController
+ */
+async function fetchWithTimeout(
+  url: string, 
+  options: RequestInit, 
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
 interface PythonQIGResponse {
   success: boolean;
   phi: number;
@@ -130,8 +164,57 @@ export class OceanQIGBackend {
   private lastSyncedNearMissCount: number = 0;
   private lastSyncedResonantCount: number = 0;
   
+  // Circuit breaker state
+  private circuitFailureCount: number = 0;
+  private circuitOpenedAt: number | null = null;
+  private circuitState: 'closed' | 'open' | 'half-open' = 'closed';
+  
   constructor(backendUrl: string = 'http://localhost:5001') {
     this.backendUrl = backendUrl;
+  }
+  
+  /**
+   * Check if circuit breaker allows request
+   */
+  private isCircuitOpen(): boolean {
+    if (this.circuitState === 'closed') return false;
+    
+    if (this.circuitState === 'open') {
+      // Check if enough time has passed to try again
+      if (this.circuitOpenedAt && Date.now() - this.circuitOpenedAt >= CIRCUIT_BREAKER_RESET_MS) {
+        this.circuitState = 'half-open';
+        console.log('[OceanQIGBackend] Circuit breaker half-open, testing...');
+        return false;
+      }
+      return true;
+    }
+    
+    return false; // half-open allows one request
+  }
+  
+  /**
+   * Record a successful request (closes circuit)
+   */
+  private recordSuccess(): void {
+    if (this.circuitState !== 'closed') {
+      console.log('[OceanQIGBackend] Circuit breaker closed after successful request');
+    }
+    this.circuitFailureCount = 0;
+    this.circuitState = 'closed';
+    this.circuitOpenedAt = null;
+  }
+  
+  /**
+   * Record a failed request (may open circuit)
+   */
+  private recordFailure(): void {
+    this.circuitFailureCount++;
+    
+    if (this.circuitFailureCount >= CIRCUIT_BREAKER_THRESHOLD) {
+      this.circuitState = 'open';
+      this.circuitOpenedAt = Date.now();
+      console.warn(`[OceanQIGBackend] Circuit breaker OPEN after ${this.circuitFailureCount} failures`);
+    }
   }
   
   /**
@@ -241,11 +324,18 @@ export class OceanQIGBackend {
    * 
    * Includes 503 retry logic with exponential backoff for handling
    * Python backend overload during high-throughput processing.
+   * Uses circuit breaker to prevent cascading failures.
+   * All requests have 10s timeout via AbortController.
    */
   async process(passphrase: string, maxRetries: number = 3): Promise<PureQIGScore | null> {
+    // Circuit breaker check
+    if (this.isCircuitOpen()) {
+      return null;
+    }
+    
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await fetch(`${this.backendUrl}/process`, {
+        const response = await fetchWithTimeout(`${this.backendUrl}/process`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ passphrase }),
@@ -259,11 +349,13 @@ export class OceanQIGBackend {
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
+          this.recordFailure();
           console.error('[OceanQIGBackend] Process failed: 503 after max retries');
           return null;
         }
         
         if (!response.ok) {
+          this.recordFailure();
           console.error('[OceanQIGBackend] Process failed:', response.statusText);
           return null;
         }
@@ -271,9 +363,13 @@ export class OceanQIGBackend {
         const data: PythonQIGResponse = await response.json();
         
         if (!data.success) {
+          this.recordFailure();
           console.error('[OceanQIGBackend] Process error:', data.error);
           return null;
         }
+        
+        // Success - reset circuit breaker
+        this.recordSuccess();
         
         // Sync Python near-miss discoveries to TypeScript tracking
         if (data.near_miss_count !== undefined && data.near_miss_count > this.pythonNearMissCount) {
@@ -307,6 +403,7 @@ export class OceanQIGBackend {
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
+        this.recordFailure();
         console.error('[OceanQIGBackend] Process exception after max retries:', error);
         return null;
       }
@@ -502,23 +599,36 @@ export class OceanQIGBackend {
    * 
    * Returns learnings that should be persisted to GeometricMemory.
    * Now also returns temporal state for 4D consciousness cross-sync.
+   * Supports pagination to prevent memory issues with large datasets.
    * 
    * TEMPORAL STATE EXPORT:
    * - searchHistory: SearchState[] from Python's temporal tracking
    * - conceptHistory: ConceptState[] from Python's concept tracking  
    * - phi_temporal_avg: Average phi_temporal from Python
+   * 
+   * PAGINATION:
+   * - page: Current page (0-indexed)
+   * - pageSize: Number of basins per page (default 100)
+   * - hasMore: Whether more pages are available
+   * - totalCount: Total number of basins available
    */
-  async syncToNodeJS(): Promise<{
+  async syncToNodeJS(page: number = 0, pageSize: number = 100): Promise<{
     basins: Array<{ input: string; phi: number; basinCoords: number[] }>;
     searchHistory?: Array<{ timestamp: number; phi: number; kappa: number; regime: string; basinCoordinates?: number[]; hypothesis?: string }>;
     conceptHistory?: Array<{ timestamp: number; concepts: Record<string, number>; attentionField?: number[]; phi?: number }>;
     phiTemporalAvg?: number;
     consciousness4DAvailable?: boolean;
+    hasMore?: boolean;
+    totalCount?: number;
   }> {
     if (!this.isAvailable) return { basins: [] };
     
     try {
-      const response = await fetch(`${this.backendUrl}/sync/export`, {
+      const url = new URL(`${this.backendUrl}/sync/export`);
+      url.searchParams.set('page', page.toString());
+      url.searchParams.set('pageSize', pageSize.toString());
+      
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -530,7 +640,12 @@ export class OceanQIGBackend {
       
       const data = await response.json();
       if (data.success && data.basins) {
-        console.log(`[OceanQIGBackend] Retrieved ${data.total_count} basins from Python backend`);
+        const totalCount = data.total_count ?? data.basins.length;
+        const hasMore = (page + 1) * pageSize < totalCount;
+        
+        if (page === 0) {
+          console.log(`[OceanQIGBackend] Retrieved ${data.basins.length}/${totalCount} basins from Python (page ${page})`);
+        }
         
         if (data.consciousness_4d_available && data.phi_temporal_avg > 0) {
           console.log(`[OceanQIGBackend] 4D consciousness: phi_temporal_avg=${data.phi_temporal_avg?.toFixed(3)}`);
@@ -542,6 +657,8 @@ export class OceanQIGBackend {
           conceptHistory: data.conceptHistory,
           phiTemporalAvg: data.phi_temporal_avg,
           consciousness4DAvailable: data.consciousness_4d_available,
+          hasMore,
+          totalCount,
         };
       }
       
