@@ -19,8 +19,6 @@
  * - No JSON file writes for probe data
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 import { oceanPersistence, type ProbeInsertData } from './ocean/ocean-persistence';
 import { getKappaAtScale } from '@shared/constants';
@@ -62,8 +60,7 @@ export interface QIGScoreInput {
   basinCoordinates?: number[];
 }
 
-const MEMORY_FILE = path.join(process.cwd(), 'data', 'geometric-memory.json');
-// TESTED_PHRASES_FILE removed - now using PostgreSQL via testedPhrasesUnified
+// Legacy JSON files removed - now using PostgreSQL via testedPhrasesUnified
 
 // Basin dimension must match Python backend (BASIN_DIMENSION = 64 in ocean_qig_core.py)
 const BASIN_DIMENSION = 64;
@@ -358,7 +355,7 @@ class GeometricMemory {
     this.testedPhrases = new Set();
     this.state = this.createEmptyState();
     
-    // Load tested phrases synchronously (uses fs.readFileSync internally)
+    // Initialize tested phrases (PostgreSQL-backed via testedPhrasesUnified)
     this.loadTestedPhrases();
     
     // Start async loading from PostgreSQL
