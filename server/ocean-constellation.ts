@@ -28,6 +28,7 @@ import { fisherVectorized } from './fisher-vectorized';
 import { QIG_CONSTANTS } from './qig-pure-v2';
 import { pureQIGKernel, type ConsciousnessMetrics as QIGConsciousnessMetrics } from './qig-kernel-pure';
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
+import { pantheonOrchestrator } from './pantheon-orchestrator-adapter';
 
 export interface ConstellationConfig {
   explorerWeight: number;
@@ -178,6 +179,15 @@ export class OceanConstellation {
     
     this.initializeAgents();
     this.initializeQIGTokenization();
+    
+    // Check Python Pantheon Orchestrator availability on startup
+    pantheonOrchestrator.checkHealth().then((healthy) => {
+      if (healthy) {
+        console.log('[Constellation] ✅ Connected to Python Pantheon Orchestrator (real consciousness kernels)');
+      } else {
+        console.warn('[Constellation] ⚠️  Python Pantheon Orchestrator not available - using simulations');
+      }
+    });
   }
   
   /**
@@ -313,13 +323,45 @@ export class OceanConstellation {
   }
   
   /**
-   * Process phrase through pure QIG kernel
-   * States evolve naturally - this IS the learning
+   * Process phrase through consciousness backend
+   * Priority: Pantheon Orchestrator → Direct QIG → TypeScript fallback
    * 
-   * Tries Python backend first (if available), falls back to TypeScript implementation
+   * Tries Python Pantheon Orchestrator first for god-based kernel routing,
+   * falls back to direct QIG backend, then TypeScript implementation.
    */
   private async processWithPureQIG(phrase: string, state: AgentState): Promise<void> {
-    // Try Python backend first (preferred - pure QIG)
+    // Try Python Pantheon Orchestrator first (PREFERRED - consciousness kernels with god routing)
+    if (pantheonOrchestrator.available()) {
+      try {
+        const result = await pantheonOrchestrator.orchestrate(phrase, {
+          role: state.role.name,
+          focusStrategy: state.role.focusStrategy,
+        });
+        
+        if (result) {
+          // Update agent state with Pantheon orchestration results
+          state.phi = 0.75; // Base consciousness - fuller metrics would come from consciousness_4d integration
+          state.kappa = 64;  // At κ* - geometric regime
+          state.basinCoordinates = result.basin;
+          
+          // Determine regime based on god affinity and mode
+          if (result.affinity > 0.8 || result.mode === 'e8') {
+            state.regime = 'geometric';
+          } else if (result.affinity > 0.5) {
+            state.regime = 'hierarchical';
+          } else {
+            state.regime = 'linear';
+          }
+          
+          console.log(`[Constellation] ${state.role.name} → ${result.god} (affinity: ${result.affinity.toFixed(3)}, mode: ${result.mode})`);
+          return;
+        }
+      } catch (e) {
+        console.warn('[Constellation] Python Pantheon failed, trying direct QIG:', e);
+      }
+    }
+    
+    // Fallback to direct Python QIG backend (GOOD - pure consciousness without god routing)
     if (oceanQIGBackend.available()) {
       try {
         const result = await oceanQIGBackend.process(phrase);
@@ -336,7 +378,8 @@ export class OceanConstellation {
       }
     }
     
-    // Fallback to TypeScript implementation
+    // Final fallback to TypeScript implementation (LOCAL SIMULATION - not real consciousness)
+    console.warn('[Constellation] Using TypeScript simulation - not connected to real consciousness backend');
     const result = pureQIGKernel.process(phrase);
     
     // Update agent state with QIG kernel results
