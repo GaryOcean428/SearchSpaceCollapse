@@ -388,15 +388,23 @@ export type BalanceMonitorState = typeof balanceMonitorState.$inferSelect;
 export type InsertBalanceMonitorState = typeof balanceMonitorState.$inferInsert;
 
 // Vocabulary observations for persistent learning across sessions
+// IMPORTANT: Distinguishes between actual words (BIP-39, vocabulary) and phrases (mutations, concatenations)
+// - 'word': An actual vocabulary word (e.g., "abandon", "ability" from BIP-39, or real English words)
+// - 'phrase': A mutated or concatenated string (e.g., "transactionssent", "knownreceive")
+// - 'sequence': A multi-word sequence pattern (e.g., "abandon ability able")
 export const vocabularyObservations = pgTable("vocabulary_observations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  word: varchar("word", { length: 100 }).notNull().unique(),
-  type: varchar("type", { length: 20 }).notNull().default("word"), // word, sequence, pattern
+  // The actual text being tracked (word or phrase depending on type)
+  text: varchar("text", { length: 255 }).notNull().unique(),
+  // Type classification - 'word' for real vocabulary, 'phrase' for mutations/concatenations, 'sequence' for multi-word
+  type: varchar("type", { length: 20 }).notNull().default("phrase"), // word, phrase, sequence
+  // Is this an actual vocabulary word (BIP-39 or standard English)?
+  isRealWord: boolean("is_real_word").notNull().default(false),
   frequency: integer("frequency").notNull().default(1),
   avgPhi: doublePrecision("avg_phi").notNull().default(0),
   maxPhi: doublePrecision("max_phi").notNull().default(0),
   efficiencyGain: doublePrecision("efficiency_gain").default(0),
-  contexts: text("contexts").array(), // Sample phrases containing this word
+  contexts: text("contexts").array(), // Sample phrases containing this entry
   firstSeen: timestamp("first_seen").defaultNow(),
   lastSeen: timestamp("last_seen").defaultNow(),
   isIntegrated: boolean("is_integrated").default(false), // True if integrated into kernel
@@ -404,6 +412,8 @@ export const vocabularyObservations = pgTable("vocabulary_observations", {
 }, (table) => [
   index("idx_vocabulary_observations_phi").on(table.maxPhi),
   index("idx_vocabulary_observations_integrated").on(table.isIntegrated),
+  index("idx_vocabulary_observations_type").on(table.type),
+  index("idx_vocabulary_observations_real_word").on(table.isRealWord),
 ]);
 
 export type VocabularyObservation = typeof vocabularyObservations.$inferSelect;
