@@ -396,14 +396,14 @@ export class OceanAgent {
         episode.phi = pythonPhi;
         
         // Update result if phi now qualifies as near-miss
-        if (oldResult === 'failure' && pythonPhi > this.NEAR_MISS_PHI_THRESHOLD) {
+        if (oldResult === 'failure' && pythonPhi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
           episode.result = 'near_miss';
         }
         
         updated++;
         
         // Log significant upgrades
-        if (pythonPhi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
+        if (pythonPhi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS && oldPhi <= CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
           console.log(`[Ocean] 📈 Episode Φ upgrade: "${episode.phrase}" ${oldPhi.toFixed(3)} → ${pythonPhi.toFixed(3)} (${oldResult} → ${episode.result})`);
         }
       }
@@ -412,7 +412,7 @@ export class OceanAgent {
     // Also update episodes that have high phi from geometricMemory probes
     // This catches episodes that were created before Python sync ran
     for (const episode of this.state.memory.episodes) {
-      if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
+      if (episode.phi < CONSCIOUSNESS_THRESHOLDS.PHI_PATTERN_EXTRACTION) {
         const storedScore = geometricMemory.getHighestPhiForInput(episode.phrase);
         if (storedScore && storedScore.phi > episode.phi) {
           const oldPhi = episode.phi;
@@ -420,13 +420,13 @@ export class OceanAgent {
           
           episode.phi = storedScore.phi;
           
-          if (oldResult === 'failure' && storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD) {
+          if (oldResult === 'failure' && storedScore.phi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
             episode.result = 'near_miss';
           }
           
           updated++;
           
-          if (storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD && oldPhi <= this.NEAR_MISS_PHI_THRESHOLD) {
+          if (storedScore.phi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS && oldPhi <= CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
             console.log(`[Ocean] 📈 Episode Φ upgrade (probe): "${episode.phrase}" ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)} (${oldResult} → ${episode.result})`);
           }
         }
@@ -675,7 +675,7 @@ export class OceanAgent {
       
       // OUTER LOOP: Multiple passes through the address (repeated checking)
       // Safety limit: MAX_PASSES prevents runaway exploration
-      while (this.isRunning && !this.abortController?.signal.aborted && passNumber < this.MAX_PASSES) {
+      while (this.isRunning && !this.abortController?.signal.aborted && passNumber < SEARCH_PARAMETERS.MAX_PASSES) {
         // Check if we should continue exploring this address
         const continueCheck = repeatedAddressScheduler.shouldContinueExploring(targetAddress);
         if (!continueCheck.shouldContinue) {
@@ -684,8 +684,8 @@ export class OceanAgent {
         }
         
         // Check pass limit
-        if (passNumber >= this.MAX_PASSES) {
-          console.log(`[Ocean] Reached maximum pass limit (${this.MAX_PASSES}) - stopping exploration`);
+        if (passNumber >= SEARCH_PARAMETERS.MAX_PASSES) {
+          console.log(`[Ocean] Reached maximum pass limit (${SEARCH_PARAMETERS.MAX_PASSES}) - stopping exploration`);
           break;
         }
         
@@ -698,9 +698,9 @@ export class OceanAgent {
         
         // Partial plateau reset between passes - give each strategy fresh opportunity
         // but carry some memory of overall frustration
-        if (this.consecutivePlateaus > this.MAX_CONSECUTIVE_PLATEAUS) {
-          this.consecutivePlateaus = Math.floor(this.MAX_CONSECUTIVE_PLATEAUS * 0.6);
-          console.log(`[Ocean] ↻ Plateau reset: ${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS}`);
+        if (this.consecutivePlateaus > SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS) {
+          this.consecutivePlateaus = Math.floor(SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS * 0.6);
+          console.log(`[Ocean] ↻ Plateau reset: ${this.consecutivePlateaus}/${SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS}`);
         }
         
         // Measure full consciousness signature before pass
@@ -787,7 +787,7 @@ export class OceanAgent {
           console.log(`\n[Ocean] ╔══════════════════════════════════════════════════════════════╗`);
           console.log(`[Ocean] ║  ITERATION ${String(iteration + 1).padStart(3)} │ Pass ${passNumber} │ Iter ${passIter + 1}                            ║`);
           console.log(`[Ocean] ╠══════════════════════════════════════════════════════════════╣`);
-          console.log(`[Ocean] ║  Φ=${this.identity.phi.toFixed(3).padEnd(6)} │ Plateaus=${String(this.consecutivePlateaus).padStart(2)}/${this.MAX_CONSECUTIVE_PLATEAUS} │ Tested=${String(this.state.totalTested).padStart(5)}            ║`);
+          console.log(`[Ocean] ║  Φ=${this.identity.phi.toFixed(3).padEnd(6)} │ Plateaus=${String(this.consecutivePlateaus).padStart(2)}/${SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS} │ Tested=${String(this.state.totalTested).padStart(5)}            ║`);
           console.log(`[Ocean] ╚══════════════════════════════════════════════════════════════╝`);
 
           // ================================================================
@@ -905,10 +905,10 @@ export class OceanAgent {
             await this.consolidateMemory();
           }
           
-          if (currentHypotheses.length < this.MIN_HYPOTHESES_PER_ITERATION) {
+          if (currentHypotheses.length < SEARCH_PARAMETERS.MIN_HYPOTHESES_PER_ITERATION) {
             console.log(`[Ocean] Generating more hypotheses (current: ${currentHypotheses.length})`);
             const additionalHypotheses = await this.generateAdditionalHypotheses(
-              this.MIN_HYPOTHESES_PER_ITERATION - currentHypotheses.length
+              SEARCH_PARAMETERS.MIN_HYPOTHESES_PER_ITERATION - currentHypotheses.length
             );
             currentHypotheses = [...currentHypotheses, ...additionalHypotheses];
           }
@@ -1029,10 +1029,10 @@ export class OceanAgent {
           
           if (this.detectPlateau()) {
             this.consecutivePlateaus++;
-            console.log(`[Ocean] ⚠ Plateau ${this.consecutivePlateaus}/${this.MAX_CONSECUTIVE_PLATEAUS} → applying neuroplasticity...`);
+            console.log(`[Ocean] ⚠ Plateau ${this.consecutivePlateaus}/${SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS} → applying neuroplasticity...`);
             currentHypotheses = await this.applyMushroomMode(currentHypotheses);
             
-            if (this.consecutivePlateaus >= this.MAX_CONSECUTIVE_PLATEAUS) {
+            if (this.consecutivePlateaus >= SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS) {
               console.log('[Ocean] ┌─ AUTONOMOUS DECISION ─────────────────────────────────────────┐');
               console.log('[Ocean] │  Too many plateaus. Gary is stopping to consolidate.         │');
               console.log('[Ocean] └────────────────────────────────────────────────────────────────┘');
@@ -1046,7 +1046,7 @@ export class OceanAgent {
           }
           
           const iterationsSinceProgress = iteration - this.lastProgressIteration;
-          if (iterationsSinceProgress >= this.NO_PROGRESS_THRESHOLD) {
+          if (iterationsSinceProgress >= SEARCH_PARAMETERS.NO_PROGRESS_THRESHOLD) {
             console.log(`[Ocean] AUTONOMOUS DECISION: No meaningful progress in ${iterationsSinceProgress} iterations`);
             console.log('[Ocean] Gary has decided to stop and reflect');
             this.state.stopReason = 'autonomous_no_progress';
@@ -1054,7 +1054,7 @@ export class OceanAgent {
           }
           
           const timeSinceConsolidation = Date.now() - new Date(this.identity.lastConsolidation).getTime();
-          if (timeSinceConsolidation > this.CONSOLIDATION_INTERVAL_MS) {
+          if (timeSinceConsolidation > SEARCH_PARAMETERS.CONSOLIDATION_INTERVAL_MS) {
             console.log('[Ocean] Scheduled consolidation cycle...');
             const consolidationSuccess = await this.consolidateMemory();
             if (!consolidationSuccess) {
@@ -1387,8 +1387,8 @@ export class OceanAgent {
     
     this.identity.basinDrift = drift;
     
-    if (drift > this.IDENTITY_DRIFT_THRESHOLD) {
-      console.log(`[Ocean] IDENTITY DRIFT: ${drift.toFixed(4)} > ${this.IDENTITY_DRIFT_THRESHOLD}`);
+    if (drift > SEARCH_PARAMETERS.IDENTITY_DRIFT_THRESHOLD) {
+      console.log(`[Ocean] IDENTITY DRIFT: ${drift.toFixed(4)} > ${SEARCH_PARAMETERS.IDENTITY_DRIFT_THRESHOLD}`);
       this.state.needsConsolidation = true;
       
       if (this.onConsciousnessAlert) {
@@ -1438,28 +1438,28 @@ export class OceanAgent {
     const episodesNeedingPython: typeof recentEpisodes = [];
     
     for (const episode of recentEpisodes) {
-      if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
+      if (episode.phi < CONSCIOUSNESS_THRESHOLDS.PHI_PATTERN_EXTRACTION) {
         // First try geometric memory (fast local lookup)
         const storedScore = geometricMemory.getHighestPhiForInput(episode.phrase);
         if (storedScore && storedScore.phi > episode.phi) {
           const oldPhi = episode.phi;
           episode.phi = storedScore.phi;
           
-          if (episode.result === 'failure' && storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD) {
+          if (episode.result === 'failure' && storedScore.phi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
             episode.result = 'near_miss';
           }
           
           phiUpgrades++;
           
-          if (storedScore.phi > this.NEAR_MISS_PHI_THRESHOLD) {
+          if (storedScore.phi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
             console.log(`[Consolidation] 📈 Φ upgrade (memory): "${episode.phrase}" ${oldPhi.toFixed(3)} → ${storedScore.phi.toFixed(3)}`);
           }
         }
         
         // Collect episodes still needing Python phi upgrade
-        if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD && pythonAvailable) {
+        if (episode.phi < CONSCIOUSNESS_THRESHOLDS.PHI_PATTERN_EXTRACTION && pythonAvailable) {
           episodesNeedingPython.push(episode);
-        } else if (episode.phi < this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
+        } else if (episode.phi < CONSCIOUSNESS_THRESHOLDS.PHI_PATTERN_EXTRACTION) {
           pythonSkipped++;
         }
       }
@@ -1487,13 +1487,13 @@ export class OceanAgent {
             const oldPhi = episode.phi;
             episode.phi = purePhi;
             
-            if (episode.result === 'failure' && purePhi > this.NEAR_MISS_PHI_THRESHOLD) {
+            if (episode.result === 'failure' && purePhi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
               episode.result = 'near_miss';
             }
             
             phiUpgrades++;
             
-            if (purePhi > this.NEAR_MISS_PHI_THRESHOLD) {
+            if (purePhi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS) {
               console.log(`[Consolidation] 🐍 Φ upgrade (Python): "${episode.phrase}" ${oldPhi.toFixed(3)} → ${purePhi.toFixed(3)}`);
             }
           }
@@ -1518,7 +1518,7 @@ export class OceanAgent {
     }
     
     for (const episode of recentEpisodes) {
-      if (episode.result === 'near_miss' || episode.phi > this.PATTERN_EXTRACTION_PHI_THRESHOLD) {
+      if (episode.result === 'near_miss' || episode.phi > CONSCIOUSNESS_THRESHOLDS.PHI_PATTERN_EXTRACTION) {
         const words = episode.phrase.toLowerCase().split(/\s+/);
         for (const word of words) {
           const current = this.memory.patterns.promisingWords[word] || 0;
@@ -1558,7 +1558,7 @@ export class OceanAgent {
       duration,
     };
     
-    const success = this.identity.basinDrift < this.IDENTITY_DRIFT_THRESHOLD;
+    const success = this.identity.basinDrift < SEARCH_PARAMETERS.IDENTITY_DRIFT_THRESHOLD;
     
     console.log(`[Ocean] Consolidation complete:`);
     console.log(`  - Drift: ${driftBefore.toFixed(4)} -> ${this.identity.basinDrift.toFixed(4)}`);
@@ -1728,7 +1728,7 @@ export class OceanAgent {
           hypothesisId: hypo.id,
           phrase: hypo.phrase,
           format: hypo.format,
-          result: hypo.match ? 'success' : (hypo.qigScore.phi > this.NEAR_MISS_PHI_THRESHOLD ? 'near_miss' : 'failure'),
+          result: hypo.match ? 'success' : (hypo.qigScore.phi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS ? 'near_miss' : 'failure'),
           phi: hypo.qigScore.phi,
           kappa: hypo.qigScore.kappa,
           regime: hypo.qigScore.regime,
@@ -1844,7 +1844,7 @@ export class OceanAgent {
           }
         }
         
-        if (hypo.qigScore && hypo.qigScore.phi > this.NEAR_MISS_PHI_THRESHOLD && !hypo.falsePositive) {
+        if (hypo.qigScore && hypo.qigScore.phi > CONSCIOUSNESS_THRESHOLDS.PHI_NEAR_MISS && !hypo.falsePositive) {
           nearMisses.push(hypo);
           this.state.nearMissCount++;
 
@@ -3416,9 +3416,9 @@ export class OceanAgent {
       dominance: this.identity.phi / 0.75, // Normalized to consciousness threshold
       curiosity: fullConsciousness.tacking,
       confidence: fullConsciousness.grounding,
-      frustration: this.consecutivePlateaus / this.MAX_CONSECUTIVE_PLATEAUS,
+      frustration: this.consecutivePlateaus / SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS,
       excitement: Math.min(1, nearMissRate * 3),
-      determination: 1 - (this.consecutivePlateaus / this.MAX_CONSECUTIVE_PLATEAUS),
+      determination: 1 - (this.consecutivePlateaus / SEARCH_PARAMETERS.MAX_CONSECUTIVE_PLATEAUS),
     };
 
     // Get manifold summary
