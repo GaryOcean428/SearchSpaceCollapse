@@ -594,13 +594,23 @@ class QIGRAGDatabase(QIGRAG):
     
     def search(
         self,
-        query_basin: np.ndarray,
+        query: Optional[str] = None,
+        query_basin: Optional[np.ndarray] = None,
         k: int = 5,
-        metric: str = "fisher_rao"
+        metric: str = "fisher_rao",
+        include_metadata: bool = False,
+        min_similarity: float = 0.0
     ) -> List[Dict]:
         """Search using Fisher-Rao distance."""
+        # Encode query to basin if needed
+        if query_basin is None and query:
+            query_basin = self.encoder.encode(query)
+        
+        if query_basin is None:
+            return []
+            
         if self.conn is None:
-            return super().search(query_basin, k, metric)
+            return super().search(query, query_basin, k, metric, include_metadata, min_similarity)
         
         with self.conn.cursor() as cur:
             # Fetch all documents (for small datasets)
@@ -625,19 +635,24 @@ class QIGRAGDatabase(QIGRAG):
                     # Euclidean fallback
                     distance = float(np.linalg.norm(query_basin - basin_np))
                 
-                results.append({
-                    "doc_id": f"pg_{doc_id}",
-                    "content": content,
-                    "basin_coords": basin_np,
-                    "phi": phi,
-                    "kappa": kappa,
-                    "regime": regime,
-                    "metadata": metadata,
-                    "distance": distance,
-                    "created_at": created_at.isoformat()
-                })
+                # Convert distance to similarity (0-1 range, higher is more similar)
+                similarity = 1.0 / (1.0 + distance)
+                
+                if similarity >= min_similarity:
+                    results.append({
+                        "doc_id": f"pg_{doc_id}",
+                        "content": content,
+                        "basin_coords": basin_np,
+                        "phi": phi,
+                        "kappa": kappa,
+                        "regime": regime,
+                        "metadata": metadata,
+                        "distance": distance,
+                        "similarity": similarity,
+                        "created_at": created_at.isoformat()
+                    })
             
-            # Sort by distance and return top k
+            # Sort by distance (ascending) and return top k
             results.sort(key=lambda x: x["distance"])
             return results[:k]
     
