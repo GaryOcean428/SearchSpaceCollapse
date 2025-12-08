@@ -7,35 +7,45 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from olympus.basin_encoder import BasinVocabularyEncoder
+from olympus.conversation_encoder import ConversationEncoder
+from olympus.passphrase_encoder import PassphraseEncoder
 from olympus.qig_rag import QIGRAG
 from olympus.zeus_chat import ZeusConversationHandler
 from olympus.zeus import zeus
 
-def test_basin_encoder():
-    """Test basin vocabulary encoder"""
-    print("\n=== Testing BasinVocabularyEncoder ===")
-    
-    encoder = BasinVocabularyEncoder()
-    
-    # Test encoding
-    text = "Bitcoin address with high value"
+def test_conversation_encoder():
+    """Test conversation encoder"""
+    print("\n=== Testing ConversationEncoder ===")
+
+    encoder = ConversationEncoder()
+
+    text = "I noticed the search status is improving"
     basin = encoder.encode(text)
-    
+
     print(f"Text: {text}")
     print(f"Basin shape: {basin.shape}")
     print(f"Basin coordinates (first 8): {basin[:8]}")
-    
-    # Test similarity
-    text2 = "Bitcoin address with low value"
+
+    text2 = "We see promising structure near the boundary"
     similarity = encoder.similarity(text, text2)
     print(f"\nSimilarity between texts: {similarity:.3f}")
-    
-    # Test learning
-    encoder.learn_from_text("important pattern detected", phi_score=0.8)
-    print("✓ Learning test passed")
-    
-    print("✓ Basin encoder tests passed")
+
+    encoder.learn_from_text("collaborative geometry conversation", phi_score=0.8)
+    print("✓ Conversation learning test passed")
+
+    print("✓ Conversation encoder tests passed")
+
+
+def test_passphrase_encoder():
+    """Ensure passphrase encoder remains available for mnemonic work."""
+    print("\n=== Testing PassphraseEncoder (BIP39) ===")
+
+    encoder = PassphraseEncoder()
+    phrase = "abandon ability about above"
+    basin = encoder.encode(phrase)
+    print(f"BIP39 basin shape: {basin.shape}")
+    assert basin.shape[0] == 64
+    print("✓ Passphrase encoder tests passed")
 
 
 def test_qig_rag():
@@ -111,7 +121,8 @@ def test_zeus_chat():
 
 if __name__ == '__main__':
     try:
-        test_basin_encoder()
+        test_conversation_encoder()
+        test_passphrase_encoder()
         test_qig_rag()
         test_zeus_chat()
         

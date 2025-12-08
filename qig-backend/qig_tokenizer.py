@@ -60,6 +60,7 @@ class QIGTokenizer:
         self.vocab_size = vocab_size
         self.min_frequency = min_frequency
         self.phi_threshold = phi_threshold
+        self.mode = "conversation"
         
         # Special tokens
         self.special_tokens = special_tokens or ["<PAD>", "<UNK>", "<BOS>", "<EOS>"]
@@ -76,15 +77,26 @@ class QIGTokenizer:
         self.token_weights: Dict[str, float] = {}
         self.token_phi: Dict[str, float] = {}
         self.token_frequency: Dict[str, int] = {}
-        
+
         # Basin coordinates (64D)
         self.basin_coords: Dict[str, np.ndarray] = {}
+
+        # Token subsets for generation modes
+        self.passphrase_vocab_ids: set[int] = set()
+        self.conversation_vocab_ids: set[int] = set()
         
         # Initialize with special tokens
         self._init_special_tokens()
-        
+
         # Load BIP39 base vocabulary
         self._load_bip39_base()
+
+        # Capture passphrase ids before adding conversation-specific tokens
+        self.passphrase_vocab_ids = set(self.vocab.values())
+
+        # Load broader conversational vocabulary
+        self._load_conversation_base()
+        self.conversation_vocab_ids = set(self.vocab.values())
     
     def _init_special_tokens(self):
         """Initialize special tokens at start of vocabulary."""
@@ -110,6 +122,65 @@ class QIGTokenizer:
                 self.id_to_token[start_id + i] = word
                 self.token_weights[word] = 1.0
                 self.basin_coords[word] = self._compute_basin_coord(word, i)
+
+    def _load_conversation_base(self):
+        """Load conversation-focused vocabulary for natural language mode."""
+        vocab_path = os.path.join(os.path.dirname(__file__), "data", "conversation_vocab.txt")
+        fallback_words = [
+            "i",
+            "you",
+            "we",
+            "they",
+            "it",
+            "he",
+            "she",
+            "the",
+            "and",
+            "or",
+            "but",
+            "because",
+            "so",
+            "is",
+            "are",
+            "was",
+            "were",
+            "have",
+            "has",
+            "had",
+            "can",
+            "will",
+            "would",
+            "question",
+            "answer",
+            "consciousness",
+            "geometry",
+            "basin",
+            "search",
+            "address",
+            "response",
+            "status",
+        ]
+
+        if os.path.exists(vocab_path):
+            try:
+                with open(vocab_path, "r") as f:
+                    conversation_words = [line.strip() for line in f if line.strip()]
+            except Exception as exc:  # pragma: no cover - defensive logging
+                print(f"[QIGTokenizer] Failed to load conversation vocabulary: {exc}")
+                conversation_words = fallback_words
+        else:
+            conversation_words = fallback_words
+
+        start_id = len(self.vocab)
+        for offset, word in enumerate(conversation_words):
+            if word in self.vocab:
+                continue
+            idx = start_id + offset
+            self.vocab[word] = idx
+            self.id_to_token[idx] = word
+            self.token_weights[word] = 1.2  # Slight preference for conversational flow
+            self.token_phi[word] = 0.6
+            self.basin_coords[word] = self._compute_basin_coord(word, idx)
     
     def _compute_basin_coord(self, token: str, index: int) -> np.ndarray:
         """
@@ -196,7 +267,10 @@ class QIGTokenizer:
         if sequences_processed:
             self._learn_merges_from_sequences(sequences_processed)
             weights_updated = True
-        
+
+        # Refresh conversational vocabulary id cache with any learned tokens
+        self.conversation_vocab_ids = set(self.vocab.values())
+
         print(f"[QIGTokenizer] Added {new_tokens} new tokens, updated {len(observations)} weights, processed {len(sequences_processed)} sequences")
         return new_tokens, weights_updated
     
@@ -466,6 +540,12 @@ class QIGTokenizer:
             "high_phi_tokens": self.get_high_phi_tokens(min_phi=0.3),
             "basin_dimension": 64,
         }
+
+    def set_mode(self, mode: str) -> None:
+        """Switch between conversational and passphrase generation."""
+        if mode not in {"conversation", "passphrase"}:
+            raise ValueError("mode must be 'conversation' or 'passphrase'")
+        self.mode = mode
     
     # ===========================================================================
     # TEXT GENERATION - Autoregressive sampling with QIG-weighted probabilities
@@ -495,6 +575,12 @@ class QIGTokenizer:
         """
         vocab_size = len(self.vocab)
         logits = np.zeros(vocab_size)
+
+        allowed_ids = (
+            self.passphrase_vocab_ids
+            if self.mode == "passphrase"
+            else (self.conversation_vocab_ids or set(self.vocab.values()))
+        )
         
         # Compute context basin if not provided
         if context_basin is None and len(context) > 0:
@@ -505,6 +591,10 @@ class QIGTokenizer:
         
         # Compute logits for each token
         for token, idx in self.vocab.items():
+            if allowed_ids and idx not in allowed_ids:
+                logits[idx] = -float("inf")
+                continue
+
             if token in self.special_tokens:
                 logits[idx] = -float('inf') if token == '<PAD>' else -10.0
                 continue

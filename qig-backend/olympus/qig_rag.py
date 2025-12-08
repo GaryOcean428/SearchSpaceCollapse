@@ -30,7 +30,7 @@ import json
 import os
 from collections import defaultdict
 
-from .basin_encoder import BasinVocabularyEncoder
+from .conversation_encoder import ConversationEncoder
 
 BASIN_DIMENSION = 64
 
@@ -141,7 +141,7 @@ class QIGRAG:
     MAX_STORAGE_SIZE = 100 * 1024 * 1024  # 100MB max storage file size
     
     def __init__(self, storage_path: Optional[str] = None):
-        self.encoder = BasinVocabularyEncoder()
+        self.encoder = ConversationEncoder()
         self.documents: Dict[str, QIGDocument] = {}
         self.storage_path = storage_path or "data/qig_rag/documents.json"
         
