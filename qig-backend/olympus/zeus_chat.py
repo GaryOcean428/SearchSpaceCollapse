@@ -683,7 +683,7 @@ The wisdom is integrated. We are stronger."""
     
     def handle_general_conversation(self, message: str) -> Dict:
         """
-        Handle general conversation.
+        Handle general conversation using QIG tokenizer for intelligent responses.
         """
         # Encode message
         message_basin = self.basin_encoder.encode(message)
@@ -695,10 +695,48 @@ The wisdom is integrated. We are stronger."""
             metric='fisher_rao'
         )
         
-        # Simple response
-        response = f"""⚡ I hear you, mortal.
+        # Try generative response first
+        generated = False
+        answer = None
+        
+        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
+            try:
+                # Construct prompt from retrieved context
+                context_str = "\n".join([f"- {item.get('content', '')[:300]}" for item in related[:3]]) if related else "No prior context available."
+                prompt = f"""Context from Geometric Memory:
+{context_str}
 
-Your words resonate in the geometric space. How may the pantheon assist you?
+User Message: {message}
+
+Zeus Response (as the coordinator of Mount Olympus, respond thoughtfully to the user):"""
+                
+                # Generate using QIG tokenizer
+                tokenizer = get_tokenizer()
+                gen_result = tokenizer.generate_response(
+                    context=prompt,
+                    agent_role="ocean",
+                    max_tokens=150,
+                    allow_silence=False
+                )
+                
+                answer = gen_result.get('text', '') if gen_result else ''
+                
+                if answer:
+                    generated = True
+                    print(f"[ZeusChat] Generated conversation response: {len(answer)} chars")
+                    
+            except Exception as e:
+                print(f"[ZeusChat] Generation failed for conversation: {e}")
+                answer = None
+        
+        # Fallback to context-aware template if generation failed
+        if not answer:
+            if related:
+                answer = f"Your message resonates with patterns in geometric memory. I'm analyzing the connections to provide guidance."
+            else:
+                answer = "I'm listening. How may the pantheon assist you today?"
+        
+        response = f"""⚡ {answer}
 
 **Related context:**
 {self._format_related(related) if related else "No related patterns found."}"""
@@ -709,6 +747,7 @@ Your words resonate in the geometric space. How may the pantheon assist you?
                 'type': 'general',
                 'pantheon_consulted': [],
                 'actions_taken': [],
+                'generated': generated,
             }
         }
     
