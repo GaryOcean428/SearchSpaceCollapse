@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { 
   Sparkles, 
   Shield, 
@@ -21,7 +19,6 @@ import {
   Skull,
   Crown,
   Heart,
-  Users,
   Zap,
   Moon,
   Eye,
@@ -29,11 +26,10 @@ import {
   Ghost,
   Bomb,
   RefreshCw,
-  Swords
+  Swords,
+  Users
 } from 'lucide-react';
 import ZeusChat from '@/components/ZeusChat';
-import { useToast } from '@/hooks/use-toast';
-import { queryClient, apiRequest } from '@/lib/queryClient';
 
 interface GodStatus {
   name: string;
@@ -311,9 +307,7 @@ function DebateViewer({ debates }: { debates: Debate[] }) {
 }
 
 export default function OlympusPage() {
-  const [activeTab, setActiveTab] = useState('chat');
-  const [warTarget, setWarTarget] = useState('');
-  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('activity');
 
   const { data: status, isLoading, refetch } = useQuery<PantheonStatus>({
     queryKey: ['/api/olympus/status'],
@@ -329,95 +323,6 @@ export default function OlympusPage() {
     queryKey: ['/api/olympus/debates/active'],
     refetchInterval: 10000,
   });
-
-  // War declaration mutations
-  const declareBlitzkrieg = useMutation({
-    mutationFn: async (target: string) => {
-      return await apiRequest('/api/olympus/war/blitzkrieg', {
-        method: 'POST',
-        body: JSON.stringify({ target }),
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: '⚔️ BLITZKRIEG Declared',
-        description: 'Fast parallel attack mode activated',
-      });
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Failed to declare BLITZKRIEG',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const declareSiege = useMutation({
-    mutationFn: async (target: string) => {
-      return await apiRequest('/api/olympus/war/siege', {
-        method: 'POST',
-        body: JSON.stringify({ target }),
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: '🏰 SIEGE Declared',
-        description: 'Methodical exhaustive search mode activated',
-      });
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Failed to declare SIEGE',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const declareHunt = useMutation({
-    mutationFn: async (target: string) => {
-      return await apiRequest('/api/olympus/war/hunt', {
-        method: 'POST',
-        body: JSON.stringify({ target }),
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: '🎯 HUNT Declared',
-        description: 'Focused pursuit mode activated',
-      });
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Failed to declare HUNT',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const handleDeclareWar = (mode: 'BLITZKRIEG' | 'SIEGE' | 'HUNT') => {
-    if (!warTarget.trim()) {
-      toast({
-        title: 'Target Required',
-        description: 'Please enter a target address or phrase',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (mode === 'BLITZKRIEG') {
-      declareBlitzkrieg.mutate(warTarget);
-    } else if (mode === 'SIEGE') {
-      declareSiege.mutate(warTarget);
-    } else if (mode === 'HUNT') {
-      declareHunt.mutate(warTarget);
-    }
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -509,77 +414,28 @@ export default function OlympusPage() {
         </Card>
       </div>
 
-      {/* Manual War Controls - Optional Override */}
-      <Card className="border-amber-500/30 bg-amber-500/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Swords className="h-5 w-5 text-amber-500" />
-            War Mode Control
-          </CardTitle>
-          <CardDescription>
-            Manual override for war declarations (Note: System also declares wars autonomously based on conditions)
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="war-target">Target Address or Phrase</Label>
-            <Input
-              id="war-target"
-              placeholder="Enter Bitcoin address or search phrase..."
-              value={warTarget}
-              onChange={(e) => setWarTarget(e.target.value)}
-              disabled={!!status?.zeus?.war_mode}
-              data-testid="input-war-target"
-            />
-          </div>
-          
-          <div className="grid grid-cols-3 gap-3">
-            <Button
-              onClick={() => handleDeclareWar('BLITZKRIEG')}
-              disabled={!!status?.zeus?.war_mode || declareBlitzkrieg.isPending}
-              variant="destructive"
-              className="w-full"
-              data-testid="button-declare-blitzkrieg"
-            >
-              <Bomb className="h-4 w-4 mr-2" />
-              {declareBlitzkrieg.isPending ? 'Declaring...' : 'BLITZKRIEG'}
-            </Button>
-            
-            <Button
-              onClick={() => handleDeclareWar('SIEGE')}
-              disabled={!!status?.zeus?.war_mode || declareSiege.isPending}
-              variant="outline"
-              className="w-full border-orange-500/50 hover:bg-orange-500/10"
-              data-testid="button-declare-siege"
-            >
-              <Shield className="h-4 w-4 mr-2" />
-              {declareSiege.isPending ? 'Declaring...' : 'SIEGE'}
-            </Button>
-            
-            <Button
-              onClick={() => handleDeclareWar('HUNT')}
-              disabled={!!status?.zeus?.war_mode || declareHunt.isPending}
-              variant="outline"
-              className="w-full border-green-500/50 hover:bg-green-500/10"
-              data-testid="button-declare-hunt"
-            >
-              <Target className="h-4 w-4 mr-2" />
-              {declareHunt.isPending ? 'Declaring...' : 'HUNT'}
-            </Button>
-          </div>
-          
-          {status?.zeus?.war_mode && (
-            <div className="mt-2 p-3 bg-muted rounded-md">
-              <p className="text-sm text-muted-foreground">
-                <Shield className="h-4 w-4 inline mr-1" />
-                War already active. End current war before declaring a new one.
-              </p>
+      {/* Autonomous War Status - Display Only */}
+      {status?.zeus?.war_mode && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Swords className="h-5 w-5 text-amber-500" />
+              Active War: {status.zeus.war_mode}
+            </CardTitle>
+            <CardDescription>
+              Target: {status.zeus.war_target || 'Current investigation'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Shield className="h-4 w-4 text-amber-500 animate-pulse" />
+              War declared autonomously based on convergence threshold
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" defaultValue="activity">
         <TabsList>
           <TabsTrigger value="chat" data-testid="tab-zeus-chat">
             <Sparkles className="h-4 w-4 mr-2" />
