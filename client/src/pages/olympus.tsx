@@ -347,26 +347,6 @@ export default function OlympusPage() {
         </Button>
       </div>
 
-      {status?.zeus?.war_mode && (
-        <Card className="border-red-500/50 bg-red-500/5">
-          <CardContent className="py-4">
-            <div className="flex items-center gap-3">
-              <Sword className="h-5 w-5 text-red-500" />
-              <div>
-                <span className="font-semibold text-red-400">
-                  War Mode Active: {status.zeus.war_mode.toUpperCase()}
-                </span>
-                {status.zeus.war_target && (
-                  <span className="text-sm text-muted-foreground ml-2">
-                    Target: {status.zeus.war_target}
-                  </span>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
