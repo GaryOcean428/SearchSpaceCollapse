@@ -228,7 +228,7 @@ class AutonomousPantheon:
                                     active_topics = []
                                     for d in active_debates_raw:
                                         if hasattr(d, 'topic'):
-                                            active_topics.append(d.topic)
+                                            active_topics.append(d.topic)  # type: ignore[union-attr]
                                         elif isinstance(d, dict):
                                             active_topics.append(d.get('topic', ''))
                                 except Exception as e:
