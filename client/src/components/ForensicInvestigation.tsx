@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { api, API_ROUTES, QUERY_KEYS } from '@/api';
+import { api, API_ROUTES, QUERY_KEYS, ForensicAnalysisResult } from '@/api';
 import {
   Search,
   Clock,
@@ -125,7 +125,7 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
   // Quick forensic analysis of an address
   const analyzeMutation = useMutation({
     mutationFn: async (address: string) => {
-      return api.forensic.analyzeAddress(address) as Promise<ForensicAnalysis>;
+      return api.forensic.analyzeAddress(address);
     },
     onError: (error: Error) => {
       toast({

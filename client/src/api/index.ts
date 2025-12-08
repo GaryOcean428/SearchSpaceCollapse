@@ -97,3 +97,4 @@ export type { GeometricMode, EncodeParams, EncodeResponse, SimilarityParams, Sim
 export type { WarHistoryEntry, ActiveWar, ZeusChatParams, ZeusChatResponse, ZeusSearchParams, ZeusSearchResponse } from './services/olympus';
 export type { ConsciousnessState } from './services/consciousness';
 export type { ForensicAnalysisResult, ForensicHypothesis, ForensicHypothesesResponse } from './services/forensic';
+export type { ZeusChatMetadata } from './services/olympus';

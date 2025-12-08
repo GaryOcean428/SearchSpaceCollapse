@@ -9,12 +9,26 @@ import { API_ROUTES } from '../routes';
 
 export interface ForensicAnalysisResult {
   address: string;
-  format: {
+  format?: {
     type: string;
     version?: number;
     era?: string;
     network?: string;
   };
+  forensics?: {
+    address: string;
+    creationBlock?: number;
+    creationTimestamp?: string;
+    totalReceived?: number;
+    totalSent?: number;
+    balance?: number;
+    txCount?: number;
+    siblingAddresses?: string[];
+    relatedAddresses?: string[];
+  };
+  likelyKeyFormat?: Array<{ format: string; confidence: number; reasoning: string }>;
+  isPreBIP39Era?: boolean;
+  recommendations?: string[];
   geometricSignature?: {
     embedding: number[];
     confidence: number;

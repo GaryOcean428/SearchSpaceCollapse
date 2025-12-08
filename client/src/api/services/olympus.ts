@@ -26,10 +26,18 @@ export interface ZeusChatParams {
   context?: string;
 }
 
+export interface ZeusChatMetadata {
+  actions_taken?: string[];
+  pantheon_consulted?: string[];
+  type?: string;
+  [key: string]: unknown;
+}
+
 export interface ZeusChatResponse {
   success: boolean;
   response?: string;
   message?: string;
+  metadata?: ZeusChatMetadata;
 }
 
 export interface ZeusSearchParams {
@@ -38,7 +46,9 @@ export interface ZeusSearchParams {
 
 export interface ZeusSearchResponse {
   success: boolean;
+  response?: string;
   results?: Array<{ text: string; score: number }>;
+  metadata?: ZeusChatMetadata;
 }
 
 export async function getWarHistory(limit: number = 10): Promise<WarHistoryEntry[]> {
