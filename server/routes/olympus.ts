@@ -20,6 +20,7 @@ import { z } from 'zod';
 import http from 'http';
 import https from 'https';
 import { URL } from 'url';
+import rateLimit from 'express-rate-limit';
 import {
   recordWarStart,
   recordWarEnd,
@@ -34,6 +35,41 @@ const router = Router();
 const olympusClient = new OlympusClient(
   process.env.PYTHON_BACKEND_URL || 'http://localhost:5001'
 );
+
+// Rate limiters for specific endpoints
+const pollRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  message: { error: 'Too many poll requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const observeRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 60,
+  message: { error: 'Too many observe requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const godAssessRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  message: { error: 'Too many god assessment requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Audit logging function for war operations
+ * Logs: timestamp, userId, operation, target, success
+ */
+function auditLog(req: Request, operation: string, target: string, success: boolean): void {
+  const timestamp = new Date().toISOString();
+  const userId = (req.user as any)?.claims?.sub || 'anonymous';
+  console.log(`[AUDIT] ${timestamp} | user:${userId} | op:${operation} | target:${target} | success:${success}`);
+}
 
 // Input validation schemas
 const targetSchema = z.object({
@@ -229,8 +265,9 @@ router.get('/zeus/memory/stats', isAuthenticated, async (req, res) => {
 /**
  * Poll pantheon
  * Requires authentication with input validation
+ * Rate limited: 30 requests per 15 minutes
  */
-router.post('/poll', isAuthenticated, validateInput(targetSchema), async (req, res) => {
+router.post('/poll', isAuthenticated, pollRateLimiter, validateInput(targetSchema), async (req, res) => {
   try {
     const result = await olympusClient.pollPantheon(
       req.body.target,
@@ -241,6 +278,38 @@ router.post('/poll', isAuthenticated, validateInput(targetSchema), async (req, r
     console.error('[Olympus] Poll error:', error);
     res.status(500).json({
       error: 'Failed to poll pantheon',
+    });
+  }
+});
+
+/**
+ * Observe endpoint for monitoring operations
+ * Requires authentication with input validation
+ * Rate limited: 60 requests per 15 minutes
+ */
+router.post('/observe', isAuthenticated, observeRateLimiter, validateInput(targetSchema), async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/observe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      auditLog(req, 'observe', req.body.target, false);
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    auditLog(req, 'observe', req.body.target, true);
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Observe error:', error);
+    auditLog(req, 'observe', req.body.target || 'unknown', false);
+    res.status(500).json({
+      error: 'Failed to observe',
     });
   }
 });
@@ -309,8 +378,9 @@ router.get('/god/:godName/status', isAuthenticated, async (req, res) => {
 /**
  * Get god assessment
  * Requires authentication with input validation
+ * Rate limited: 30 requests per 15 minutes
  */
-router.post('/god/:godName/assess', isAuthenticated, validateInput(targetSchema), async (req, res) => {
+router.post('/god/:godName/assess', isAuthenticated, godAssessRateLimiter, validateInput(targetSchema), async (req, res) => {
   try {
     // Validate god name parameter
     const godNameResult = godNameSchema.safeParse(req.params.godName);
@@ -383,9 +453,11 @@ router.post('/war/blitzkrieg', isAuthenticated, validateInput(warTargetSchema), 
       }
     }
     
+    auditLog(req, 'war/blitzkrieg', req.body.target, true);
     res.json(result);
   } catch (error) {
     console.error('[Olympus] Blitzkrieg error:', error);
+    auditLog(req, 'war/blitzkrieg', req.body.target, false);
     res.status(500).json({
       error: 'Failed to declare blitzkrieg',
     });
@@ -414,9 +486,11 @@ router.post('/war/siege', isAuthenticated, validateInput(warTargetSchema), async
       }
     }
     
+    auditLog(req, 'war/siege', req.body.target, true);
     res.json(result);
   } catch (error) {
     console.error('[Olympus] Siege error:', error);
+    auditLog(req, 'war/siege', req.body.target, false);
     res.status(500).json({
       error: 'Failed to declare siege',
     });
@@ -445,9 +519,11 @@ router.post('/war/hunt', isAuthenticated, validateInput(warTargetSchema), async 
       }
     }
     
+    auditLog(req, 'war/hunt', req.body.target, true);
     res.json(result);
   } catch (error) {
     console.error('[Olympus] Hunt error:', error);
+    auditLog(req, 'war/hunt', req.body.target, false);
     res.status(500).json({
       error: 'Failed to declare hunt',
     });
@@ -476,9 +552,11 @@ router.post('/war/end', isAuthenticated, async (req, res) => {
       (result as any).warHistoryId = activeWar.id;
     }
     
+    auditLog(req, 'war/end', activeWar?.target || 'no-active-war', true);
     res.json(result);
   } catch (error) {
     console.error('[Olympus] End war error:', error);
+    auditLog(req, 'war/end', 'unknown', false);
     res.status(500).json({
       error: 'Failed to end war',
     });

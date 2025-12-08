@@ -944,6 +944,11 @@ export class OceanAgent {
           const insights = await this.observeAndLearn(testResults);
           passInsights.push(...insights.topPatterns || []);
           
+          // ATHENA PATTERN LEARNING - Send near-misses to Athena for strategic pattern analysis
+          if (this.olympusAvailable && testResults.nearMisses.length > 0) {
+            await this.sendNearMissesToAthena(testResults.nearMisses);
+          }
+          
           // ULTRA CONSCIOUSNESS PROTOCOL INTEGRATION
           await this.integrateUltraConsciousnessProtocol(
             testResults,
@@ -993,6 +998,17 @@ export class OceanAgent {
           }
           
           this.updateProceduralMemory(iterStrategy.name);
+          
+          // ZEUS STRATEGY ADJUSTMENT - Adjust strategy based on Zeus convergence before generating hypotheses
+          if (this.olympusAvailable && this.lastZeusAssessment) {
+            const assessment = this.lastZeusAssessment;
+            console.log(`[Ocean] Zeus convergence: ${assessment.convergence_score.toFixed(3)}`);
+            console.log(`[Ocean] Suggested approach: ${assessment.recommended_action || 'balanced'}`);
+            
+            if (assessment.convergence_score > 0.7) {
+              this.adjustStrategyFromZeus(assessment);
+            }
+          }
           
           // GENERATE NEW HYPOTHESES with temperature boost applied
           currentHypotheses = await this.generateRefinedHypotheses(iterStrategy, insights, testResults, phiElevation.temperature);
@@ -4108,6 +4124,45 @@ export class OceanAgent {
   }
 
   /**
+   * Adjust search strategy based on Zeus's divine assessment
+   * Called when convergence_score > 0.7 indicating strong pantheon agreement
+   */
+  private adjustStrategyFromZeus(assessment: ZeusAssessment): void {
+    const recommendedStrategy = assessment.recommended_action;
+    const convergence = assessment.convergence_score;
+    
+    console.log(`[Ocean] ⚡ Zeus strategy adjustment (convergence: ${convergence.toFixed(3)})`);
+    
+    // Store the recommended strategy for use in hypothesis generation
+    if (!this.memory.workingMemory.nextActions) {
+      this.memory.workingMemory.nextActions = [];
+    }
+    
+    // Clear old Zeus recommendations and add new one
+    this.memory.workingMemory.nextActions = this.memory.workingMemory.nextActions.filter(
+      action => !action.startsWith('zeus:')
+    );
+    this.memory.workingMemory.nextActions.push(`zeus:${recommendedStrategy}`);
+    
+    // Adjust identity parameters based on Zeus's assessment
+    if (assessment.phi > this.identity.phi) {
+      const oldPhi = this.identity.phi;
+      this.identity.phi = Math.min(0.95, (this.identity.phi + assessment.phi) / 2);
+      console.log(`[Ocean] │  Φ adjusted: ${oldPhi.toFixed(3)} → ${this.identity.phi.toFixed(3)} (Zeus consensus)`);
+    }
+    
+    // If Zeus recommends aggressive action and convergence is very high
+    if (convergence > 0.85 && assessment.probability > 0.6) {
+      console.log(`[Ocean] │  High-confidence divine guidance: "${recommendedStrategy}"`);
+      this.memory.workingMemory.recentObservations.push(
+        `Zeus high-confidence (${(convergence * 100).toFixed(0)}%): ${recommendedStrategy}`
+      );
+    }
+    
+    console.log(`[Ocean] │  Strategy stored: ${recommendedStrategy}`);
+  }
+
+  /**
    * Apply divine war strategy based on Zeus's assessment
    */
   private async applyDivineWarStrategy(
@@ -4187,6 +4242,37 @@ export class OceanAgent {
     }
     
     console.log(`[Ocean] 📡 Broadcast ${Math.min(5, nearMisses.length)} near-misses to Olympus pantheon`);
+  }
+
+  /**
+   * Send near-miss discoveries to Athena specifically for pattern learning
+   * Athena extracts strategic patterns from near-miss hypotheses
+   */
+  private async sendNearMissesToAthena(nearMisses: OceanHypothesis[]): Promise<void> {
+    if (!this.olympusAvailable || nearMisses.length === 0) return;
+    
+    // Send near-miss patterns to Athena for strategic analysis
+    for (const nearMiss of nearMisses.slice(0, 3)) { // Top 3 for Athena
+      const observation: ObservationContext = {
+        target: nearMiss.phrase,
+        phi: nearMiss.qigScore?.phi || 0,
+        kappa: nearMiss.qigScore?.kappa || 0,
+        regime: nearMiss.qigScore?.regime || 'unknown',
+        source: 'athena_pattern_learning',
+        timestamp: Date.now(),
+        phrase_format: nearMiss.format,
+        confidence: nearMiss.confidence,
+        near_miss_count: nearMisses.length,
+        reasoning: nearMiss.reasoning,
+      };
+      
+      const success = await olympusClient.broadcastObservation(observation);
+      if (success) {
+        this.olympusObservationCount++;
+      }
+    }
+    
+    console.log(`[Ocean] 🦉 Sent ${Math.min(3, nearMisses.length)} near-misses to Athena for pattern learning`);
   }
 
   /**

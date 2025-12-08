@@ -541,6 +541,168 @@ class BaseGod(ABC):
         self.pending_messages.append(message)
         return message
     
+    async def handle_incoming_message(self, message: Dict) -> Optional[Dict]:
+        """
+        Handle an incoming message from the pantheon.
+        
+        Routes messages to appropriate handlers based on type.
+        This is a base implementation that specific gods can override.
+        
+        Args:
+            message: Message dict with 'type', 'from', 'content', and optional metadata
+            
+        Returns:
+            Response dict if a response is needed, None otherwise
+        """
+        msg_type = message.get('type', '')
+        from_god = message.get('from', 'unknown')
+        content = message.get('content', '')
+        metadata = message.get('metadata', {})
+        
+        if msg_type == 'challenge':
+            basin = self.encode_to_basin(content)
+            rho = self.basin_to_density_matrix(basin)
+            phi = self.compute_pure_phi(rho)
+            confidence = min(1.0, phi + self.reputation * 0.1)
+            
+            return {
+                'type': 'challenge_accepted',
+                'from_god': self.name,
+                'to_god': from_god,
+                'content': f"{self.name} accepts challenge with confidence {confidence:.3f}",
+                'confidence': confidence,
+                'phi': phi,
+                'timestamp': datetime.now().isoformat(),
+            }
+        
+        elif msg_type == 'request_assessment':
+            target = metadata.get('target', content)
+            context = metadata.get('context', {})
+            
+            assessment = self.assess_target(target, context)
+            
+            return {
+                'type': 'assessment_response',
+                'from_god': self.name,
+                'to_god': from_god,
+                'content': f"{self.name} assessment of target",
+                'assessment': assessment,
+                'timestamp': datetime.now().isoformat(),
+            }
+        
+        elif msg_type == 'insight':
+            knowledge = {
+                'from': from_god,
+                'content': content,
+                'domain': metadata.get('domain', ''),
+                'confidence': metadata.get('confidence', 0.5),
+            }
+            self.receive_knowledge(knowledge)
+            
+            return {
+                'type': 'acknowledgment',
+                'from_god': self.name,
+                'to_god': from_god,
+                'content': f"{self.name} acknowledges insight from {from_god}",
+                'integrated': knowledge.get('integrated', False),
+                'timestamp': datetime.now().isoformat(),
+            }
+        
+        elif msg_type == 'question':
+            basin = self.encode_to_basin(content)
+            rho = self.basin_to_density_matrix(basin)
+            phi = self.compute_pure_phi(rho)
+            kappa = self.compute_kappa(basin)
+            
+            relevance = 1.0 if self.domain.lower() in content.lower() else 0.5
+            confidence = min(1.0, phi * relevance + self.reputation * 0.1)
+            
+            response_content = (
+                f"{self.name} ({self.domain}): Based on Φ={phi:.3f}, κ={kappa:.3f}, "
+                f"my assessment suggests examining this from a {self.domain} perspective."
+            )
+            
+            return {
+                'type': 'answer',
+                'from_god': self.name,
+                'to_god': from_god,
+                'content': response_content,
+                'phi': phi,
+                'kappa': kappa,
+                'confidence': confidence,
+                'domain': self.domain,
+                'timestamp': datetime.now().isoformat(),
+            }
+        
+        return None
+    
+    async def process_observation(self, observation: Dict) -> Optional[Dict]:
+        """
+        Process an observation and decide if an insight should be shared.
+        
+        Computes strategic value based on phi and kappa.
+        If significant, creates a PantheonMessage-like dict for Zeus.
+        This is a base implementation that specific gods can override.
+        
+        Args:
+            observation: Observation dict with data to analyze
+            
+        Returns:
+            PantheonMessage-like dict if worth sharing, None otherwise
+        """
+        source = observation.get('source', '')
+        data = observation.get('data', observation)
+        
+        if 'basin' in observation:
+            basin = np.array(observation['basin'])
+        elif 'target' in observation:
+            basin = self.encode_to_basin(str(observation['target']))
+        elif 'content' in observation:
+            basin = self.encode_to_basin(str(observation['content']))
+        else:
+            basin = self.encode_to_basin(str(data)[:100])
+        
+        rho = self.basin_to_density_matrix(basin)
+        phi = self.compute_pure_phi(rho)
+        kappa = self.compute_kappa(basin)
+        
+        strategic_value = (phi * 0.6) + (kappa / KAPPA_STAR * 0.4)
+        
+        self.observe({
+            'phi': phi,
+            'kappa': kappa,
+            'source': source or self.name,
+            'regime': 'critical' if strategic_value > 0.7 else 'normal',
+        })
+        
+        if strategic_value > 0.7:
+            pattern_type = 'high_phi' if phi > 0.8 else 'high_kappa' if kappa > KAPPA_STAR * 0.8 else 'balanced'
+            
+            content = (
+                f"{self.name} observes significant pattern: "
+                f"Φ={phi:.4f}, κ={kappa:.2f}, strategic_value={strategic_value:.4f}. "
+                f"Pattern type: {pattern_type}. Source: {source or 'direct observation'}."
+            )
+            
+            return {
+                'from_god': self.name,
+                'to_god': 'zeus',
+                'message_type': 'insight',
+                'content': content,
+                'metadata': {
+                    'basin_coords': basin[:8].tolist(),
+                    'phi': phi,
+                    'kappa': kappa,
+                    'strategic_value': strategic_value,
+                    'pattern_type': pattern_type,
+                    'source': source,
+                    'domain': self.domain,
+                    'timestamp': datetime.now().isoformat(),
+                },
+            }
+        
+        return None
+    
     def get_agentic_status(self) -> Dict:
         """Get agentic learning status."""
         recent_learnings = self.learning_history[-50:]
