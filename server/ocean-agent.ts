@@ -2652,17 +2652,33 @@ export class OceanAgent {
       
       // Generate from all constellation roles
       const roles = ['skeptic', 'navigator', 'miner', 'pattern_recognizer', 'resonance_detector'];
-      
+
       for (const role of roles) {
         const roleHypotheses = await oceanConstellation.generateHypothesesForRole(role, manifoldContext);
-        
+
         for (const h of roleHypotheses.slice(0, 5)) {
+          const confidence = h.score ?? (h as any).confidence ?? 0.5;
+          const sourceLabel = h.god ? `pantheon:${h.god}` : `constellation:${role}`;
+          const reasoningParts = [] as string[];
+
+          if (h.god) {
+            reasoningParts.push(`god=${h.god}`);
+          }
+
+          if (h.domain) {
+            reasoningParts.push(`domain=${h.domain}`);
+          }
+
+          const reasoning = reasoningParts.length > 0
+            ? `${role} agent: ${reasoningParts.join(' ')}`
+            : `${role} agent: pantheon orchestration`;
+
           constellationHypotheses.push(this.createHypothesis(
             h.phrase,
             'arbitrary',
-            `constellation:${role}`,
-            `${role} agent: ${h.source}`,
-            h.confidence
+            sourceLabel,
+            reasoning,
+            confidence
           ));
         }
       }

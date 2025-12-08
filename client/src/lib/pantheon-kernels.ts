@@ -7,15 +7,7 @@
  * This client provides TypeScript interface to the Pantheon Kernel Orchestrator API.
  */
 
-export type KernelMode = 'direct' | 'e8' | 'byte';
-
-export type GodType = 'olympus' | 'shadow' | 'primordial';
-
-export interface GodMetadata {
-  element: string;
-  role: string;
-  type: GodType;
-}
+import type { GodMetadata, KernelMode, OrchestrationResult } from '@shared/types/olympus';
 
 export interface GodProfile {
   name: string;
@@ -25,22 +17,6 @@ export interface GodProfile {
   entropy_threshold: number;
   metadata: GodMetadata;
   basin: number[];
-}
-
-export interface OrchestrationResult {
-  text: string;
-  god: string;
-  domain: string;
-  mode: KernelMode;
-  affinity: number;
-  basin: number[];
-  basin_norm: number;
-  routing: {
-    ranking: [string, number][];
-    token_basin_norm: number;
-  };
-  metadata: GodMetadata;
-  timestamp: string;
 }
 
 export interface PantheonStatus {

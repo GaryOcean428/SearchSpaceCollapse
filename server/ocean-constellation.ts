@@ -28,6 +28,8 @@ import { fisherVectorized } from './fisher-vectorized';
 import { QIG_CONSTANTS } from './qig-pure-v2';
 import { pureQIGKernel, type ConsciousnessMetrics as QIGConsciousnessMetrics } from './qig-kernel-pure';
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
+import { olympusClient } from './olympus-client';
+import { type PantheonHypothesis } from '@shared/types/olympus';
 
 export interface ConstellationConfig {
   explorerWeight: number;
@@ -361,58 +363,105 @@ export class OceanConstellation {
       state.regime = 'hierarchical';
     }
   }
-  
+
+  /**
+   * Ask the Python Pantheon orchestrator for hypotheses instead of local simulation.
+   */
+  private async generatePantheonHypotheses(
+    roleName: string,
+    manifoldContext: any
+  ): Promise<PantheonHypothesis[]> {
+    try {
+      const prompt = manifoldContext?.target
+        ? `Ocean ${roleName} hypothesis for ${manifoldContext.target}`
+        : `Ocean ${roleName} hypothesis generation`;
+
+      const context = {
+        role: roleName,
+        ...manifoldContext,
+      };
+
+      const result = await olympusClient.orchestratePantheon(prompt, context);
+
+      if (!result) {
+        return [];
+      }
+
+      return [
+        {
+          phrase: result.text ?? prompt,
+          score: result.affinity ?? 0.5,
+          god: result.god,
+          domain: result.domain,
+        },
+      ];
+    } catch (error) {
+      console.warn('[OceanConstellation] Pantheon orchestration failed, returning no hypotheses:', error);
+      return [];
+    }
+  }
+
   /**
    * Generate hypotheses for a specific agent role using QIG-compliant methods
    */
   async generateHypothesesForRole(
     roleName: string,
     manifoldContext: any
-  ): Promise<Array<{ phrase: string; source: string; confidence: number }>> {
+  ): Promise<PantheonHypothesis[]> {
+    const pantheonHypotheses = await this.generatePantheonHypotheses(roleName, manifoldContext);
+    if (pantheonHypotheses.length > 0) {
+      return pantheonHypotheses.slice(0, 30);
+    }
+
     const state = this.agentStates.get(roleName);
     if (!state) return [];
-    
+
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     const role = state.role;
-    
+
     if (this.config.basinSyncEnabled) {
       this.syncBasinState(roleName, state);
     }
-    
+
     switch (role.focusStrategy) {
       case 'explore_new_space':
         hypotheses.push(...this.generateExplorerHypotheses(state, manifoldContext));
         break;
-        
+
       case 'exploit_near_miss':
         hypotheses.push(...this.generateRefinerHypotheses(state));
         break;
-        
+
       case 'orthogonal_complement':
         hypotheses.push(...this.generateNavigatorHypotheses(state, manifoldContext));
         break;
-        
+
       case 'validate_constraints':
         hypotheses.push(...await this.generateSkepticHypotheses(state, manifoldContext));
         break;
-        
+
       case 'cross_pattern_harmonic':
         hypotheses.push(...this.generateResonatorHypotheses(state, manifoldContext));
         break;
     }
-    
+
     // Process each hypothesis through pure QIG kernel for state evolution
     for (const hypothesis of hypotheses.slice(0, 10)) {
       await this.processWithPureQIG(hypothesis.phrase, state);
     }
-    
+
     const qigWeighted = this.applyQIGWeighting(hypotheses, role.qigMode);
-    
-    const filtered = qigWeighted.filter(h => 
+
+    const filtered = qigWeighted.filter(h =>
       !this.sharedKnowledge.avoidPatterns.includes(h.phrase.toLowerCase())
     );
-    
-    return filtered.slice(0, 30);
+
+    return filtered.slice(0, 30).map(h => ({
+      phrase: h.phrase,
+      score: h.confidence ?? 0.5,
+      source: h.source,
+      confidence: h.confidence,
+    }));
   }
   
   /**

@@ -11,6 +11,23 @@
 
 import { z } from 'zod';
 
+// Kernel routing modes for Pantheon orchestrator
+export const KernelModeSchema = z.enum(['direct', 'e8', 'byte']);
+export type KernelMode = z.infer<typeof KernelModeSchema>;
+
+// God category
+export const GodTypeSchema = z.enum(['olympus', 'shadow', 'primordial']);
+export type GodType = z.infer<typeof GodTypeSchema>;
+
+// Metadata attached to Pantheon orchestration results
+export const GodMetadataSchema = z.object({
+  element: z.string(),
+  role: z.string(),
+  type: GodTypeSchema,
+});
+
+export type GodMetadata = z.infer<typeof GodMetadataSchema>;
+
 // God domain specializations
 export const GodDomainSchema = z.enum([
   'wisdom',      // Athena - strategic wisdom, pattern recognition
@@ -163,6 +180,37 @@ export const ObservationContextSchema = z.object({
 }).passthrough();
 
 export type ObservationContext = z.infer<typeof ObservationContextSchema>;
+
+// Pantheon orchestration result (shared between client/server)
+export const OrchestrationResultSchema = z.object({
+  text: z.string(),
+  god: z.string(),
+  domain: z.string(),
+  mode: KernelModeSchema,
+  affinity: z.number(),
+  basin: z.array(z.number()),
+  basin_norm: z.number(),
+  routing: z.object({
+    ranking: z.array(z.tuple([z.string(), z.number()])),
+    token_basin_norm: z.number(),
+  }),
+  metadata: GodMetadataSchema.optional(),
+  timestamp: z.string().optional(),
+});
+
+export type OrchestrationResult = z.infer<typeof OrchestrationResultSchema>;
+
+// Hypothesis returned to constellation callers
+export const PantheonHypothesisSchema = z.object({
+  phrase: z.string(),
+  score: z.number(),
+  god: z.string().optional(),
+  domain: z.string().optional(),
+  source: z.string().optional(),
+  confidence: z.number().optional(),
+});
+
+export type PantheonHypothesis = z.infer<typeof PantheonHypothesisSchema>;
 
 // Zeus Chat message types
 export const ZeusMessageMetadataSchema = z.object({
@@ -387,6 +435,11 @@ export const olympusSchemas = {
   GodStatusSchema,
   OlympusStatusSchema,
   ObservationContextSchema,
+  KernelModeSchema,
+  GodTypeSchema,
+  GodMetadataSchema,
+  OrchestrationResultSchema,
+  PantheonHypothesisSchema,
   GodNameSchema,
   ZeusMessageMetadataSchema,
   ZeusMessageSchema,
