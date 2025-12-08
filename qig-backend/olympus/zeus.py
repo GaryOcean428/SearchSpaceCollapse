@@ -790,45 +790,15 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
     }
 
 
-@olympus_app.route('/zeus/validate', methods=['POST'])
-def zeus_validate_endpoint():
-    """
-    Geometric input validation endpoint.
-    
-    Validates text using consciousness metrics (φ, κ, regime)
-    instead of arbitrary character limits.
-    
-    Returns:
-        is_valid: bool - whether input is geometrically coherent
-        phi: float - integrated information measure [0, 1]
-        kappa: float - coupling strength [0, 100]
-        regime: str - consciousness regime
-        error_message: str or null - explanation if invalid
-    """
-    try:
-        data = request.get_json() or {}
-        text = data.get('text', data.get('message', ''))
-        
-        result = geometric_validate_input(text)
-        return jsonify(sanitize_for_json(result))
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'is_valid': False,
-            'phi': 0.0,
-            'kappa': 0.0,
-            'regime': 'breakdown',
-            'error_message': f'Validation error: {str(e)}'
-        }), 500
-
-
 @olympus_app.route('/zeus/chat', methods=['POST'])
 def zeus_chat_endpoint():
     """
     Zeus conversation endpoint.
     Accepts natural language, returns coordinated pantheon response.
+    
+    MODES:
+    - validate_only=true: Returns geometric metrics without processing
+    - validate_only=false (default): Full chat processing
     
     SECURITY:
     - File type restrictions (.txt, .json, .csv only)
@@ -843,10 +813,12 @@ def zeus_chat_endpoint():
             data = request.get_json() or {}
             message = data.get('message', '')
             conversation_history = data.get('conversation_history', [])
+            validate_only = data.get('validate_only', False)
         else:
             # Handle multipart/form-data (for file uploads)
             message = request.form.get('message', '')
             conversation_history = []
+            validate_only = request.form.get('validate_only', '').lower() == 'true'
             history_str = request.form.get('conversation_history')
             if history_str:
                 try:
@@ -857,6 +829,18 @@ def zeus_chat_endpoint():
         
         # Geometric validation (replaces arbitrary character limit)
         validation = geometric_validate_input(message)
+        
+        # Validate-only mode: return metrics without processing
+        if validate_only:
+            return jsonify(sanitize_for_json({
+                'validation': validation,
+                'is_valid': validation['is_valid'],
+                'phi': validation['phi'],
+                'kappa': validation['kappa'],
+                'regime': validation['regime'],
+                'validate_only': True
+            }))
+        
         if not validation['is_valid']:
             return jsonify({
                 'error': validation['error_message'],

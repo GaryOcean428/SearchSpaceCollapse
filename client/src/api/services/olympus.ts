@@ -25,6 +25,7 @@ export interface ZeusChatParams {
   message: string;
   context?: string;
   files?: File[];
+  validate_only?: boolean;
 }
 
 export interface ZeusChatMetadata {
@@ -69,6 +70,9 @@ export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResp
     if (params.context) {
       formData.append('conversation_history', params.context);
     }
+    if (params.validate_only) {
+      formData.append('validate_only', 'true');
+    }
     files.forEach(file => formData.append('files', file));
     return postMultipart<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, formData);
   }
@@ -76,24 +80,38 @@ export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResp
   return post<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, jsonParams);
 }
 
-export async function searchZeus(params: ZeusSearchParams): Promise<ZeusSearchResponse> {
-  return post<ZeusSearchResponse>(API_ROUTES.olympus.zeusSearch, params);
-}
-
-// Geometric validation types and function
-export interface GeometricValidationParams {
-  text?: string;
-  message?: string;
-}
-
-export interface GeometricValidationResponse {
+export interface GeometricValidationResult {
   is_valid: boolean;
   phi: number;
   kappa: number;
   regime: string;
-  error_message: string | null;
+  validate_only: true;
 }
 
-export async function validateInputGeometrically(params: GeometricValidationParams): Promise<GeometricValidationResponse> {
-  return post<GeometricValidationResponse>(API_ROUTES.olympus.zeusValidate, params);
+export async function validateZeusInput(message: string): Promise<GeometricValidationResult> {
+  return post<GeometricValidationResult>(API_ROUTES.olympus.zeusChat, { 
+    message, 
+    validate_only: true 
+  });
+}
+
+export async function searchZeus(params: ZeusSearchParams): Promise<ZeusSearchResponse> {
+  return post<ZeusSearchResponse>(API_ROUTES.olympus.zeusSearch, params);
+}
+
+/**
+ * Geometric validation is handled internally by Zeus chat.
+ * Use the sendZeusChat action - validation errors are returned in the response.
+ * 
+ * This follows the centralized action pattern where:
+ * - Validation happens server-side within the chat flow
+ * - Errors include phi, kappa, regime metrics
+ * - No separate validation endpoint is exposed
+ */
+export interface GeometricValidationError {
+  error: string;
+  phi: number;
+  kappa: number;
+  regime: string;
+  validation_type: 'geometric';
 }
