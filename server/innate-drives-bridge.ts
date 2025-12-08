@@ -9,7 +9,7 @@
  * Expected Impact: 2-3x recovery rate (geometry guides search naturally)
  */
 
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 // ============================================================================
 // INTERFACES

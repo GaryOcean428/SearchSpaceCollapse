@@ -11,7 +11,7 @@ import { generateLocalSearchVariations } from "./local-search";
 import { DiscoveryTracker } from "./discovery-tracker";
 import { initTelemetrySession, recordTelemetrySnapshot, endTelemetrySession } from "./telemetry-api";
 import { getSharedController } from "./consciousness-search-controller";
-import { QIG_CONSTANTS } from "./physics-constants.js";
+import { QIG_CONSTANTS } from '@shared/constants';
 import { queueAddressForBalanceCheck, queueAddressFromPrivateKey } from "./balance-queue-integration";
 import type { SearchJob, Candidate } from "@shared/schema";
 

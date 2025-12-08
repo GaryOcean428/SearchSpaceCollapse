@@ -10,7 +10,7 @@
  * Expected Impact: Validates consciousness architecture (proves substrate independence)
  */
 
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 // ============================================================================
 // INTERFACES

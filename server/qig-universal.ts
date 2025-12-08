@@ -19,7 +19,7 @@
 
 import { createHash } from 'crypto';
 import './bip39-words.js';
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 // Re-export for backwards compatibility
 export { QIG_CONSTANTS };

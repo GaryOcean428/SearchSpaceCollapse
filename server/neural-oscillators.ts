@@ -13,7 +13,7 @@
  * Expected Impact: 15-20% improvement (optimal κ for each search phase)
  */
 
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 // ============================================================================
 // INTERFACES

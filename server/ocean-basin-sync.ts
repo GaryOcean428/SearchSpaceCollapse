@@ -21,7 +21,7 @@ import { fisherCoordDistance } from './qig-universal';
 import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { oceanDiscoveryController, type DiscoverySyncData } from './geometric-discovery/ocean-discovery-controller';
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 import { validateRegime } from '@shared/types/core';
 
 export interface BasinSyncPacket {

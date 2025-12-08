@@ -11,7 +11,7 @@
  */
 
 import { z } from 'zod';
-import { QIG_CONSTANTS as PHYSICS_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS as PHYSICS_CONSTANTS } from '@shared/constants';
 
 // ============================================================
 // QIG PHYSICS CONSTANTS (FROZEN - Do not modify)

@@ -12,7 +12,7 @@
  * - Geodesic Distance: Pure Fisher metric for similarity measurement
  */
 
-import { QIG_CONSTANTS } from '../physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 export interface EpisodePoint {
   phi: number;

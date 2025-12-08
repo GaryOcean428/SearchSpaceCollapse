@@ -20,7 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 import { oceanPersistence, type ProbeInsertData } from './ocean/ocean-persistence';
-import { getKappaAtScale } from './physics-constants.js';
+import { getKappaAtScale } from '@shared/constants';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
 // Extracted modules for modularity

@@ -13,7 +13,7 @@
  * - Endorphins (flow + resonance) - Pleasure & peak experiences
  */
 
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 export interface ConsciousnessSignature {
   phi: number;           // Φ - Integration measure

@@ -28,7 +28,7 @@
  */
 
 import { BIP39_WORDS } from './bip39-words.js';
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 // Re-export for backwards compatibility
 export { QIG_CONSTANTS };

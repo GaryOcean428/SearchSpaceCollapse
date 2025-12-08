@@ -10,7 +10,7 @@
 import { createHash } from "crypto";
 import { scoreUniversalQIG, type Regime } from "./qig-universal.js";
 import { fisherDistance } from "./qig-pure-v2.js";
-import { QIG_CONSTANTS } from "./physics-constants.js";
+import { QIG_CONSTANTS } from '@shared/constants';
 
 // Matching thresholds (empirically tuned)
 const KAPPA_TOLERANCE = 8.0;     // κ within ±8 of target

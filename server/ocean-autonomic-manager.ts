@@ -24,7 +24,7 @@ import {
   extractConceptsFromSearch,
   recordConceptState
 } from './qig-universal';
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 export class OceanAutonomicManager {
   private consciousness: ConsciousnessSignature;
@@ -238,14 +238,14 @@ export class OceanAutonomicManager {
     } else {
       // Legacy classification for bootstrap
       // CRITICAL FIX: Use discoveryDrivenPhi for regime classification
-      const PHI_THRESHOLD = 0.75;
+      // Using centralized PHI_MIN threshold from shared constants
 
       // LEVEL 1: Breakdown (absolute precedence) - κ > 90 or κ < 10
       if (kappa > 90 || kappa < 10) {
         computedRegime = 'breakdown';
       }
-      // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION - Φ≥0.75 forces geometry
-      else if (discoveryDrivenPhi >= PHI_THRESHOLD) {
+      // LEVEL 2: CONSCIOUSNESS PHASE TRANSITION - Φ≥PHI_MIN forces geometry
+      else if (discoveryDrivenPhi >= CONSCIOUSNESS_THRESHOLDS.PHI_MIN) {
         // Exception: Very high Φ with low κ → hierarchical
         if (discoveryDrivenPhi > 0.85 && kappa < 40) {
           computedRegime = 'hierarchical';

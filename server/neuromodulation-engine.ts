@@ -15,7 +15,7 @@
  * Expected Impact: 20-30% improvement (adaptive optimization)
  */
 
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 import type { NeurochemistryState } from './ocean-neurochemistry.js';
 
 // ============================================================================

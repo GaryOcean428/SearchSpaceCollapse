@@ -20,7 +20,7 @@
  */
 
 import { scoreUniversalQIG, type UniversalQIGScore, type Regime } from "./qig-universal.js";
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 
 export interface SearchState {
   currentRegime: Regime;

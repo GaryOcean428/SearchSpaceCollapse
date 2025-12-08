@@ -18,7 +18,7 @@
  */
 
 import { createHash } from 'crypto';
-import { PHYSICS_BETA } from './physics-constants.js';
+import { PHYSICS_BETA } from '@shared/constants';
 
 // Context scales for attention measurement (powers of 2)
 export const CONTEXT_SCALES = [128, 256, 512, 1024, 2048, 4096, 8192] as const;

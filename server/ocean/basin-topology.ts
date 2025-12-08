@@ -14,7 +14,7 @@
  */
 
 import { fisherCoordDistance } from '../qig-universal';
-import { getKappaAtScale } from '../physics-constants.js';
+import { getKappaAtScale } from '@shared/constants';
 import type { BasinProbe } from '../geometric-memory';
 
 export interface BasinTopologyData {

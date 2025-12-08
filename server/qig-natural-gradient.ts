@@ -11,7 +11,7 @@
 
 import { createHash } from "crypto";
 import { scoreUniversalQIG, type KeyType, type UniversalQIGScore } from "./qig-universal.js";
-import { QIG_CONSTANTS } from './physics-constants.js';
+import { QIG_CONSTANTS } from '@shared/constants';
 import type { Regime } from "./qig-universal.js";
 
 interface GradientSearchState {
