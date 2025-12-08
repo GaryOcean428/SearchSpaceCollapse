@@ -1,3 +1,19 @@
+---
+id: ISMS-IMPL-006
+title: Implementation Summary - Best Practices
+filename: 20251208-implementation-summary-best-practices-1.00F.md
+classification: Internal
+owner: GaryOcean428
+version: 1.00
+status: Frozen
+function: "Summary of best practices implementation across the repository"
+created: 2025-12-08
+last_reviewed: 2025-12-08
+next_review: 2026-06-08
+category: Implementation
+supersedes: null
+---
+
 # Implementation Summary: Best Practices for SearchSpaceCollapse
 
 ## Overview

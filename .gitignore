@@ -9,3 +9,9 @@ vite.config.ts.*
 data/geometric-memory.json
 data/tested-phrases-index.json
 data/*.json
+
+# Exclude package-lock.json (using Yarn)
+package-lock.json
+
+# Exclude draft documentation
+docs/_drafts/*.md
