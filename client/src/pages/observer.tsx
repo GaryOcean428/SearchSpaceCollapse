@@ -1099,7 +1099,7 @@ export default function ObserverPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-sm font-bold">{addr.balance} BTC</div>
+                            <div className="font-mono text-sm font-bold">{addr.balance?.toLocaleString() ?? '0'} BTC</div>
                           </div>
                         </div>
                       ))}
