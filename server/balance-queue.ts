@@ -9,6 +9,7 @@
  * - BalanceQueue: Buffer for all generated addresses
  * - BalanceWorker: Always-on background worker with bulk processing
  * - Multi-provider: 4 free APIs with 230 req/min combined (2,300+ with caching)
+ * - TestedEmptyTracker: Prevents re-testing addresses found to be empty
  * 
  * Auto-starts on module load - no user action required.
  */
@@ -19,6 +20,7 @@ import { freeBlockchainAPI } from './blockchain-free-api';
 import { db, withDbRetry } from './db';
 import { queuedAddresses } from '@shared/schema';
 import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
+import { testedEmptyTracker } from './tested-empty-tracker';
 
 export interface QueuedAddress {
   id: string;
@@ -340,6 +342,11 @@ class BalanceQueueService {
       if (hit !== null) {
         this.backgroundHitCount++;
         console.log(`[BalanceQueue] 💰 HIT! ${item.address} has balance!`);
+        // If balance found, remove from tested-empty (in case it was there)
+        testedEmptyTracker.unmark(item.address);
+      } else {
+        // Mark as tested-empty to prevent re-testing
+        testedEmptyTracker.markAsTestedEmpty(item.address, 0, item.source);
       }
       
       // Remove resolved items
@@ -734,6 +741,11 @@ class BalanceQueueService {
       source?: 'typescript' | 'python' | 'mnemonic' | 'manual';
     }
   ): boolean {
+    // Skip if already tested and found empty
+    if (testedEmptyTracker.isTestedEmpty(address)) {
+      return false; // Don't add to queue
+    }
+    
     const id = this.generateId(address, passphrase);
     const newPriority = options?.priority || 1;
     const source = options?.source || 'typescript';
