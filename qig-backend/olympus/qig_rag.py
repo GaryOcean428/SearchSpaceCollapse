@@ -473,7 +473,8 @@ class QIGRAGDatabase(QIGRAG):
             
             self.conn = psycopg2.connect(db_url)
             self._create_schema()
-            print(f"[QIG-RAG] Connected to PostgreSQL: {db_url.split(\"@\")[1] if \"@\" in db_url else \"localhost\"}")
+            db_display = db_url.split('@')[1] if '@' in db_url else 'localhost'
+            print(f"[QIG-RAG] Connected to PostgreSQL: {db_display}")
         except ImportError:
             print("[QIG-RAG] psycopg2 not installed - falling back to JSON storage")
             print("[QIG-RAG] Install with: pip install psycopg2-binary")
