@@ -63,7 +63,7 @@ export interface QIGScoreInput {
 }
 
 const MEMORY_FILE = path.join(process.cwd(), 'data', 'geometric-memory.json');
-const TESTED_PHRASES_FILE = path.join(process.cwd(), 'data', 'tested-phrases.json');
+// TESTED_PHRASES_FILE removed - now using PostgreSQL via testedPhrasesUnified
 
 // Basin dimension must match Python backend (BASIN_DIMENSION = 64 in ocean_qig_core.py)
 const BASIN_DIMENSION = 64;
@@ -531,65 +531,52 @@ class GeometricMemory {
       regime
     );
     
-    if (this.testedPhrases.size !== prevSize && this.testedPhrases.size % 100 === 0) {
-      this.saveTestedPhrases();
-    }
+    // PostgreSQL persistence handled by testedPhrasesUnified above
   }
   
+  /**
+   * Legacy method - no longer writes to JSON
+   * Tested phrases are persisted by testedPhrasesUnified (PostgreSQL)
+   * @deprecated Kept for backwards compatibility
+   */
   flushTestedPhrases(): void {
-    this.saveTestedPhrases();
+    // No-op - PostgreSQL persistence handled by testedPhrasesUnified
   }
   
   getTestedCount(): number {
     return this.testedPhrases.size;
   }
   
+  /**
+   * Legacy method - no longer reads from JSON
+   * Tested phrases now checked via testedPhrasesUnified (PostgreSQL)
+   * Local Set is just a fast cache, populated on-demand
+   * @deprecated
+   */
   private loadTestedPhrases(): void {
-    try {
-      if (fs.existsSync(TESTED_PHRASES_FILE)) {
-        const data = JSON.parse(fs.readFileSync(TESTED_PHRASES_FILE, 'utf-8'));
-        if (Array.isArray(data.phrases)) {
-          for (const phrase of data.phrases) {
-            this.testedPhrases.add(phrase);
-          }
-          console.log(`[GeometricMemory] Loaded ${this.testedPhrases.size} tested phrases from index`);
-        }
-      } else {
-        this.backfillTestedPhrases();
-      }
-    } catch {
-      console.log('[GeometricMemory] Building tested phrase index from probes...');
-      this.backfillTestedPhrases();
-    }
+    // No-op - PostgreSQL is the source of truth via testedPhrasesUnified
+    // The in-memory Set (this.testedPhrases) acts as a fast cache only
+    console.log('[GeometricMemory] Tested phrases loaded from PostgreSQL via testedPhrasesUnified');
   }
   
+  /**
+   * Legacy method - no longer needed
+   * Tested phrases stored in PostgreSQL via testedPhrasesUnified
+   * @deprecated
+   */
   private backfillTestedPhrases(): void {
-    const probes = Array.from(this.probeMap.values());
-    for (const probe of probes) {
-      this.testedPhrases.add(this.normalizePhrase(probe.input));
-    }
-    console.log(`[GeometricMemory] Backfilled ${this.testedPhrases.size} tested phrases from ${probes.length} probes`);
-    this.saveTestedPhrases();
+    // No-op - PostgreSQL handles persistence
+    const probeCount = this.probeMap.size;
+    console.log(`[GeometricMemory] ${probeCount} probes in memory, tested phrases managed by PostgreSQL`);
   }
   
+  /**
+   * Legacy method - no longer writes to JSON
+   * Tested phrases persisted by testedPhrasesUnified (PostgreSQL)
+   * @deprecated Kept for backwards compatibility
+   */
   private saveTestedPhrases(): void {
-    try {
-      const dir = path.dirname(TESTED_PHRASES_FILE);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      const data = {
-        version: '1.0.0',
-        lastUpdated: new Date().toISOString(),
-        count: this.testedPhrases.size,
-        phrases: Array.from(this.testedPhrases),
-      };
-      
-      fs.writeFileSync(TESTED_PHRASES_FILE, JSON.stringify(data, null, 2));
-    } catch (error) {
-      console.error('[GeometricMemory] Failed to save tested phrases:', error);
-    }
+    // No-op - PostgreSQL persistence handled by testedPhrasesUnified
   }
   
   private createEmptyState(): GeometricMemoryState {
@@ -674,10 +661,7 @@ class GeometricMemory {
     // Note: Probe is already in memory, DB write is for persistence
     this.persistProbeToDb(probe);
     
-    // Save tested phrases periodically
-    if (this.probeMap.size % 100 === 0) {
-      this.saveTestedPhrases();
-    }
+    // Tested phrases persisted by testedPhrasesUnified in recordTested() call above
     
     return probe;
   }
