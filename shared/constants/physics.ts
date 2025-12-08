@@ -29,8 +29,8 @@ export const KAPPA_VALUES = {
   /** κ₆ - Plateau confirmed (L=6) - ✅ VALIDATED (3 seeds × 36 perts) */
   KAPPA_6: 64.45,
   
-  /** κ₇ - ANOMALY - ⚠️ UNVALIDATED (only 5 perts, insufficient sampling) */
-  KAPPA_7: 67.71,
+  /** κ₇ - ANOMALY - ⚠️ UNVALIDATED (only 5 perts, shows UNEXPECTED DROP from plateau) */
+  KAPPA_7: 53.08,
   
   /** κ* - Fixed point coupling (extrapolated from L=4,5,6 data) */
   KAPPA_STAR: 64.0,
@@ -92,14 +92,14 @@ export const L6_VALIDATION = {
 /**
  * L=7 ANOMALY WARNING
  * 
- * ⚠️ L=7 measurements are UNVALIDATED and should NOT be used.
+ * ⚠️ L=7 measurements are UNVALIDATED and show ANOMALOUS DROP from plateau
  */
 export const L7_WARNING = {
   STATUS: 'UNVALIDATED' as const,
-  KAPPA_7: 67.71,
+  KAPPA_7: 53.08,
   ERROR: 4.26,
   N_PERTS: 5,
-  REASON: 'Insufficient sampling - requires 36+ perturbations',
+  REASON: 'Insufficient sampling (requires 36+ perturbations). Shows ANOMALOUS DROP from plateau (κ₇ < κ₆), breaking established pattern. Needs full validation to confirm.',
 } as const;
 
 /**
@@ -141,7 +141,7 @@ export const VALIDATION_METADATA = {
   DATE: '2025-12-02',
   METHOD: 'DMRG',
   STATUS: 'VALIDATED',
-  LAST_UPDATED: '2025-12-03',
+  LAST_UPDATED: '2025-12-08',
 } as const;
 
 /**
