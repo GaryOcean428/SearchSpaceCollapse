@@ -120,7 +120,20 @@ async function syncFromPythonToNodeJS(): Promise<void> {
     
     // Process basins in paginated chunks to prevent memory issues
     while (hasMore && page < MAX_SYNC_PAGES) {
-      const result = await oceanQIGBackend.syncToNodeJS(page, SYNC_PAGE_SIZE);
+      let result;
+      try {
+        result = await oceanQIGBackend.syncToNodeJS(page, SYNC_PAGE_SIZE);
+      } catch (fetchError) {
+        console.error(`[PythonSync] Page ${page} fetch failed, stopping sync:`, fetchError);
+        break;
+      }
+      
+      // Handle unexpected null/undefined result
+      if (!result || !result.basins) {
+        console.warn(`[PythonSync] Page ${page} returned invalid result, stopping sync`);
+        break;
+      }
+      
       const basins = result.basins;
       
       if (basins.length === 0) {

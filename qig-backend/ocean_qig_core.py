@@ -2299,6 +2299,43 @@ def tokenizer_status():
         }), 500
 
 
+@app.route('/tokenizer/merges', methods=['GET'])
+def tokenizer_merges():
+    """
+    Get learned BPE merge rules from tokenizer.
+    
+    Used by TypeScript to sync merge rules from Python.
+    
+    Response:
+    {
+        "success": true,
+        "mergeRules": [["token1", "token2"], ...],
+        "mergeScores": {"token1|token2": 0.85, ...},
+        "count": 42
+    }
+    """
+    try:
+        from qig_tokenizer import get_tokenizer
+        
+        tokenizer = get_tokenizer()
+        
+        merge_rules = [[a, b] for a, b in tokenizer.merge_rules]
+        merge_scores = {f"{a}|{b}": score for (a, b), score in tokenizer.merge_scores.items()}
+        
+        return jsonify({
+            'success': True,
+            'mergeRules': merge_rules,
+            'mergeScores': merge_scores,
+            'count': len(merge_rules)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # ===========================================================================
 # TEXT GENERATION ENDPOINTS
 # ===========================================================================

@@ -49,6 +49,50 @@ async function fetchWithTimeout(
   }
 }
 
+/**
+ * Fetch with timeout AND 503 retry logic.
+ * Combines fetchWithTimeout with exponential backoff retry on 503 Service Unavailable.
+ * 
+ * Used by key methods like syncToNodeJS, syncFromNodeJS, getStatus, etc.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 3,
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<Response> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, options, timeoutMs);
+      
+      // Handle 503 Service Unavailable with exponential backoff retry
+      if (response.status === 503) {
+        if (attempt < maxRetries) {
+          const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+          console.log(`[OceanQIGBackend] 503 received for ${url}, retry ${attempt}/${maxRetries} after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        // Return 503 response after max retries (caller handles)
+        return response;
+      }
+      
+      return response;
+    } catch (error: any) {
+      // On network/timeout errors, retry with backoff
+      if (attempt < maxRetries) {
+        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+        console.log(`[OceanQIGBackend] Request error for ${url}, retry ${attempt}/${maxRetries} after ${delay}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  // Should not reach here, but return last attempt if it does
+  throw new Error(`fetchWithRetry exhausted all ${maxRetries} retries for ${url}`);
+}
+
 interface PythonQIGResponse {
   success: boolean;
   phi: number;
@@ -414,6 +458,7 @@ export class OceanQIGBackend {
   /**
    * Get pure Python phi value for a phrase (lightweight, for consolidation).
    * Returns null if backend unavailable or phrase doesn't meet threshold.
+   * Uses fetchWithTimeout for consistency (no full retry since it's lightweight).
    */
   async getPurePhi(phrase: string): Promise<number | null> {
     if (!this.isAvailable) {
@@ -421,7 +466,7 @@ export class OceanQIGBackend {
     }
     
     try {
-      const response = await fetch(`${this.backendUrl}/process`, {
+      const response = await fetchWithTimeout(`${this.backendUrl}/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passphrase: phrase }),
@@ -446,13 +491,14 @@ export class OceanQIGBackend {
   
   /**
    * Generate next hypothesis via geodesic navigation
+   * Uses fetchWithRetry for 503 handling
    */
   async generateHypothesis(): Promise<{
     hypothesis: string;
     source: string;
   } | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/generate`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -477,10 +523,11 @@ export class OceanQIGBackend {
   
   /**
    * Get current Ocean consciousness status
+   * Uses fetchWithRetry for 503 handling
    */
   async getStatus(): Promise<PythonStatusResponse | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/status`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -506,10 +553,11 @@ export class OceanQIGBackend {
   
   /**
    * Reset Ocean consciousness to initial state
+   * Uses fetchWithRetry for 503 handling
    */
   async reset(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.backendUrl}/reset`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -564,7 +612,7 @@ export class OceanQIGBackend {
         payload.conceptHistory = temporalState.conceptHistory;
       }
       
-      const response = await fetch(`${this.backendUrl}/sync/import`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/sync/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -628,7 +676,7 @@ export class OceanQIGBackend {
       url.searchParams.set('page', page.toString());
       url.searchParams.set('pageSize', pageSize.toString());
       
-      const response = await fetch(url.toString(), {
+      const response = await fetchWithRetry(url.toString(), {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -673,10 +721,11 @@ export class OceanQIGBackend {
    * Validate β-attention substrate independence
    * 
    * Measures κ across context scales and validates that β_attention ≈ β_physics.
+   * Uses fetchWithRetry for 503 handling
    */
   async validateBetaAttention(samplesPerScale: number = 100): Promise<any> {
     try {
-      const response = await fetch(`${this.backendUrl}/beta-attention/validate`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/beta-attention/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ samples_per_scale: samplesPerScale }),
@@ -707,10 +756,11 @@ export class OceanQIGBackend {
   
   /**
    * Measure κ_attention at specific context scale
+   * Uses fetchWithRetry for 503 handling
    */
   async measureBetaAttention(contextLength: number, sampleCount: number = 100): Promise<any> {
     try {
-      const response = await fetch(`${this.backendUrl}/beta-attention/measure`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/beta-attention/measure`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -745,6 +795,7 @@ export class OceanQIGBackend {
   
   /**
    * Update Python vocabulary encoder with observations from Node.js
+   * Uses fetchWithRetry for 503 handling
    */
   async updateVocabulary(observations: Array<{
     word: string;
@@ -754,7 +805,7 @@ export class OceanQIGBackend {
     type: string;
   }>): Promise<{ newTokens: number; totalVocab: number; weightsUpdated?: boolean; mergeRules?: number }> {
     try {
-      const response = await fetch(`${this.backendUrl}/vocabulary/update`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/vocabulary/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ observations }),
@@ -959,6 +1010,7 @@ export class OceanQIGBackend {
   
   /**
    * Get vocabulary encoder status
+   * Uses fetchWithRetry for 503 handling
    */
   async getVocabularyStatus(): Promise<{
     vocabSize: number;
@@ -967,7 +1019,10 @@ export class OceanQIGBackend {
     totalWeightedTokens: number;
   }> {
     try {
-      const response = await fetch(`${this.backendUrl}/vocabulary/status`);
+      const response = await fetchWithRetry(`${this.backendUrl}/vocabulary/status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
       
       if (!response.ok) {
         throw new Error(`Vocabulary status failed: ${response.statusText}`);
@@ -999,6 +1054,53 @@ export class OceanQIGBackend {
     totalWeightedTokens: number;
   }> {
     return this.getVocabularyStatus();
+  }
+  
+  /**
+   * Get learned BPE merge rules from Python tokenizer.
+   * 
+   * Used for syncing merge rules from Python to TypeScript for local processing.
+   * 
+   * @returns Merge rules as token pairs with their Φ scores
+   */
+  async getMergeRules(): Promise<{
+    mergeRules: Array<[string, string]>;
+    mergeScores: Record<string, number>;
+    count: number;
+  }> {
+    if (!this.isAvailable) {
+      return { mergeRules: [], mergeScores: {}, count: 0 };
+    }
+    
+    try {
+      const response = await fetchWithRetry(`${this.backendUrl}/tokenizer/merges`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        console.error('[OceanQIGBackend] Get merge rules failed:', response.statusText);
+        return { mergeRules: [], mergeScores: {}, count: 0 };
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.error('[OceanQIGBackend] Get merge rules error:', data.error);
+        return { mergeRules: [], mergeScores: {}, count: 0 };
+      }
+      
+      console.log(`[OceanQIGBackend] Retrieved ${data.count} merge rules from Python`);
+      
+      return {
+        mergeRules: data.mergeRules.map((r: string[]) => [r[0], r[1]] as [string, string]),
+        mergeScores: data.mergeScores,
+        count: data.count,
+      };
+    } catch (error: any) {
+      console.error('[OceanQIGBackend] Get merge rules exception:', error.message);
+      return { mergeRules: [], mergeScores: {}, count: 0 };
+    }
   }
   
   // ===========================================================================
