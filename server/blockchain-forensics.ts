@@ -16,6 +16,7 @@ import './historical-data-miner';
 
 const BLOCKSTREAM_API = 'https://blockstream.info/api';
 const BLOCKCHAIN_INFO_API = 'https://blockchain.info';
+const MEMPOOL_API = 'https://mempool.space/api';
 
 export interface AddressForensics {
   address: string;
@@ -247,33 +248,71 @@ export class BlockchainForensics {
       console.log(`[BlockchainForensics] blockchain.info failed, falling back to Blockstream for ${address}`);
       
       // Fallback to Blockstream API
-      const bsResponse = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
-      if (!bsResponse.ok) {
-        throw new Error(`Both APIs failed for ${address}`);
+      try {
+        const bsResponse = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
+        if (!bsResponse.ok) {
+          throw new Error(`Blockstream returned ${bsResponse.status}`);
+        }
+        
+        const bsData = await bsResponse.json();
+        
+        // Fetch ALL transactions with pagination to find the oldest one
+        const allTxs = await this.fetchAllBlockstreamTxs(address);
+        
+        // Convert Blockstream format to blockchain.info-like format
+        return {
+          address,
+          total_received: bsData.chain_stats.funded_txo_sum + bsData.mempool_stats.funded_txo_sum,
+          total_sent: bsData.chain_stats.spent_txo_sum + bsData.mempool_stats.spent_txo_sum,
+          final_balance: (bsData.chain_stats.funded_txo_sum - bsData.chain_stats.spent_txo_sum) +
+                         (bsData.mempool_stats.funded_txo_sum - bsData.mempool_stats.spent_txo_sum),
+          n_tx: bsData.chain_stats.tx_count + bsData.mempool_stats.tx_count,
+          txs: allTxs.map((tx: any) => ({
+            hash: tx.txid,
+            time: tx.status.block_time,
+            block_height: tx.status.block_height,
+            vin: tx.vin,
+            vout: tx.vout,
+          })),
+          _blockstreamFallback: true, // Flag for fetchOldestTransaction
+        };
+      } catch (bsError) {
+        console.log(`[BlockchainForensics] Blockstream also failed, trying Mempool.space for ${address}`);
+        
+        // Third fallback: Mempool.space API (same format as Blockstream)
+        try {
+          const mpResponse = await fetch(`${MEMPOOL_API}/address/${address}`);
+          if (!mpResponse.ok) {
+            throw new Error(`All three APIs failed for ${address}`);
+          }
+          
+          const mpData = await mpResponse.json();
+          
+          // Fetch transactions from mempool.space
+          const txResponse = await fetch(`${MEMPOOL_API}/address/${address}/txs`);
+          const txs = txResponse.ok ? await txResponse.json() : [];
+          
+          // Convert mempool.space format to blockchain.info-like format
+          return {
+            address,
+            total_received: mpData.chain_stats.funded_txo_sum + (mpData.mempool_stats?.funded_txo_sum || 0),
+            total_sent: mpData.chain_stats.spent_txo_sum + (mpData.mempool_stats?.spent_txo_sum || 0),
+            final_balance: (mpData.chain_stats.funded_txo_sum - mpData.chain_stats.spent_txo_sum) +
+                           ((mpData.mempool_stats?.funded_txo_sum || 0) - (mpData.mempool_stats?.spent_txo_sum || 0)),
+            n_tx: mpData.chain_stats.tx_count + (mpData.mempool_stats?.tx_count || 0),
+            txs: txs.map((tx: any) => ({
+              hash: tx.txid,
+              time: tx.status?.block_time,
+              block_height: tx.status?.block_height,
+              vin: tx.vin,
+              vout: tx.vout,
+            })),
+            _mempoolFallback: true, // Flag for third fallback
+          };
+        } catch {
+          throw new Error(`All APIs failed for ${address}`);
+        }
       }
-      
-      const bsData = await bsResponse.json();
-      
-      // Fetch ALL transactions with pagination to find the oldest one
-      const allTxs = await this.fetchAllBlockstreamTxs(address);
-      
-      // Convert Blockstream format to blockchain.info-like format
-      return {
-        address,
-        total_received: bsData.chain_stats.funded_txo_sum + bsData.mempool_stats.funded_txo_sum,
-        total_sent: bsData.chain_stats.spent_txo_sum + bsData.mempool_stats.spent_txo_sum,
-        final_balance: (bsData.chain_stats.funded_txo_sum - bsData.chain_stats.spent_txo_sum) +
-                       (bsData.mempool_stats.funded_txo_sum - bsData.mempool_stats.spent_txo_sum),
-        n_tx: bsData.chain_stats.tx_count + bsData.mempool_stats.tx_count,
-        txs: allTxs.map((tx: any) => ({
-          hash: tx.txid,
-          time: tx.status.block_time,
-          block_height: tx.status.block_height,
-          vin: tx.vin,
-          vout: tx.vout,
-        })),
-        _blockstreamFallback: true, // Flag for fetchOldestTransaction
-      };
     }
   }
 
