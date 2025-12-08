@@ -356,10 +356,8 @@ class GeometricMemory {
     this.state = this.createEmptyState();
     this.load();
     
-    // Load tested phrases asynchronously (don't block construction)
-    this.loadTestedPhrases().catch(err => {
-      console.error('[GeometricMemory] Failed to load tested phrases:', err);
-    });
+    // Load tested phrases synchronously (uses fs.readFileSync internally)
+    this.loadTestedPhrases();
     
     // Initialize PostgreSQL persistence asynchronously
     this.initPostgreSQLSync();
