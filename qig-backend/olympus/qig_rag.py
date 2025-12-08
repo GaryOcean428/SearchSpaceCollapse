@@ -441,3 +441,196 @@ class QIGRAG:
                 default=None
             ),
         }
+
+
+# ========================================
+# POSTGRESQL BACKEND FOR QIG-RAG
+# Persistent geometric memory
+# ========================================
+
+import uuid
+
+class QIGRAGDatabase(QIGRAG):
+    """PostgreSQL-backed geometric memory with pgvector support."""
+    
+    def __init__(self, db_url: Optional[str] = None):
+        """
+        Initialize PostgreSQL backend.
+        
+        Args:
+            db_url: PostgreSQL connection string
+                   Default: from DATABASE_URL env var
+        """
+        if db_url is None:
+            db_url = os.environ.get("DATABASE_URL", "postgresql://localhost:5432/qig")
+        
+        self.conn = None
+        try:
+            import psycopg2
+            from psycopg2.extras import Json
+            self.psycopg2 = psycopg2
+            self.Json = Json
+            
+            self.conn = psycopg2.connect(db_url)
+            self._create_schema()
+            db_display = db_url.split('@')[1] if '@' in db_url else 'localhost'
+            print(f"[QIG-RAG] Connected to PostgreSQL: {db_display}")
+        except ImportError:
+            print("[QIG-RAG] psycopg2 not installed - falling back to JSON storage")
+            print("[QIG-RAG] Install with: pip install psycopg2-binary")
+            super().__init__()
+        except Exception as e:
+            print(f"[QIG-RAG] Failed to connect to PostgreSQL: {e}")
+            print("[QIG-RAG] Falling back to in-memory storage")
+            super().__init__()
+    
+    def _create_schema(self):
+        """Create basin_documents table with pgvector index."""
+        if self.conn is None:
+            return
+            
+        with self.conn.cursor() as cur:
+            # Create pgvector extension
+            try:
+                cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            except:
+                print("[QIG-RAG] WARNING: pgvector extension not available")
+                print("[QIG-RAG] Install with: CREATE EXTENSION vector;")
+            
+            # Create table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS basin_documents (
+                    doc_id SERIAL PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    basin_coords FLOAT8[],
+                    phi FLOAT8,
+                    kappa FLOAT8,
+                    regime VARCHAR(50),
+                    metadata JSONB,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            
+            # Create index on basin coordinates
+            try:
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_basin_gist
+                    ON basin_documents
+                    USING gist (basin_coords)
+                """)
+            except:
+                print("[QIG-RAG] Basic index created (pgvector index requires extension)")
+            
+            self.conn.commit()
+    
+    def add_document(
+        self,
+        content: str,
+        basin_coords: np.ndarray,
+        phi: float,
+        kappa: float,
+        regime: str = "unknown",
+        metadata: Optional[Dict] = None
+    ) -> str:
+        """Add document to PostgreSQL."""
+        if self.conn is None:
+            # Fallback to parent implementation
+            return super().add_document(content, basin_coords, phi, kappa, regime, metadata)
+        
+        doc_id = str(uuid.uuid4())
+        
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO basin_documents 
+                (content, basin_coords, phi, kappa, regime, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING doc_id
+            """, (
+                content,
+                basin_coords.tolist(),
+                float(phi),
+                float(kappa),
+                regime,
+                self.Json(metadata or {})
+            ))
+            db_id = cur.fetchone()[0]
+            self.conn.commit()
+        
+        return f"pg_{db_id}"
+    
+    def search(
+        self,
+        query_basin: np.ndarray,
+        k: int = 5,
+        metric: str = "fisher_rao"
+    ) -> List[Dict]:
+        """Search using Fisher-Rao distance."""
+        if self.conn is None:
+            return super().search(query_basin, k, metric)
+        
+        with self.conn.cursor() as cur:
+            # Fetch all documents (for small datasets)
+            # TODO: Optimize with proper distance indexing when pgvector available
+            cur.execute("""
+                SELECT doc_id, content, basin_coords, phi, kappa, regime, metadata, created_at
+                FROM basin_documents
+                ORDER BY created_at DESC
+                LIMIT 1000
+            """)
+            
+            results = []
+            for row in cur.fetchall():
+                doc_id, content, basin, phi, kappa, regime, metadata, created_at = row
+                
+                basin_np = np.array(basin)
+                
+                # Calculate Fisher-Rao distance
+                if metric == "fisher_rao":
+                    distance = self.fisher_rao_distance(query_basin, basin_np)
+                else:
+                    # Euclidean fallback
+                    distance = float(np.linalg.norm(query_basin - basin_np))
+                
+                results.append({
+                    "doc_id": f"pg_{doc_id}",
+                    "content": content,
+                    "basin_coords": basin_np,
+                    "phi": phi,
+                    "kappa": kappa,
+                    "regime": regime,
+                    "metadata": metadata,
+                    "distance": distance,
+                    "created_at": created_at.isoformat()
+                })
+            
+            # Sort by distance and return top k
+            results.sort(key=lambda x: x["distance"])
+            return results[:k]
+    
+    def get_stats(self) -> Dict:
+        """Get memory statistics."""
+        if self.conn is None:
+            return super().get_stats()
+        
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM basin_documents")
+            total = cur.fetchone()[0]
+            
+            cur.execute("SELECT AVG(phi), AVG(kappa) FROM basin_documents")
+            avg_phi, avg_kappa = cur.fetchone()
+            
+            cur.execute("""
+                SELECT regime, COUNT(*) 
+                FROM basin_documents 
+                GROUP BY regime
+            """)
+            regime_dist = dict(cur.fetchall())
+        
+        return {
+            "total_documents": total,
+            "avg_phi": float(avg_phi) if avg_phi else 0.0,
+            "avg_kappa": float(avg_kappa) if avg_kappa else 0.0,
+            "regime_distribution": regime_dist,
+            "backend": "postgresql"
+        }
+

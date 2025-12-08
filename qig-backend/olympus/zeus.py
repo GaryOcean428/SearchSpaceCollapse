@@ -13,6 +13,12 @@ from flask import Blueprint, request, jsonify
 
 from .base_god import BaseGod, KAPPA_STAR
 
+# M8 Kernel Spawning imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from m8_kernel_spawning import M8KernelSpawner, SpawnReason, get_spawner
+
 
 def sanitize_for_json(obj: Any) -> Any:
     """
@@ -87,6 +93,9 @@ class Zeus(BaseGod):
         self.pantheon_chat = PantheonChat()
         self.shadow_pantheon = ShadowPantheon()
         
+        # Wire M8 kernel spawning
+        self.kernel_spawner = get_spawner()
+        
         self.war_mode: Optional[str] = None
         self.war_target: Optional[str] = None
         self.convergence_history: List[Dict] = []
@@ -94,17 +103,64 @@ class Zeus(BaseGod):
         
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """
-        Supreme assessment - poll all gods and synthesize.
+        Supreme assessment with shadow pantheon integration.
         """
         self.last_assessment_time = datetime.now()
         
+        # Import asyncio for shadow operations
+        import asyncio
+        
+        # Step 1 - OPSEC check via Nyx
+        opsec_check = asyncio.run(self.shadow_pantheon.nyx.verify_opsec())
+        
+        if not opsec_check.get('safe', False):
+            return {
+                'error': 'OPSEC compromised',
+                'recommendation': 'ABORT OPERATION',
+                'opsec_status': opsec_check,
+                'god': self.name,
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        # Step 2 - Surveillance scan via Erebus
+        surveillance = asyncio.run(
+            self.shadow_pantheon.erebus.scan_for_surveillance(target)
+        )
+        
+        # Step 3 - If watchers detected, deploy misdirection via Hecate
+        misdirection_deployed = False
+        if surveillance.get('threats', []):
+            asyncio.run(
+                self.shadow_pantheon.hecate.create_misdirection(target, decoy_count=15)
+            )
+            misdirection_deployed = True
+        
+        # Step 4 - Main pantheon poll
         poll_result = self.poll_pantheon(target, context)
         
+        # Step 5 - Calculate geometric metrics
         target_basin = self.encode_to_basin(target)
         rho = self.basin_to_density_matrix(target_basin)
         phi = self.compute_pure_phi(rho)
         kappa = self.compute_kappa(target_basin)
         
+        # Step 6 - If high convergence, deploy Nemesis pursuit
+        nemesis_pursuit = None
+        if poll_result.get('convergence_score', 0) > 0.85:
+            nemesis_pursuit = asyncio.run(
+                self.shadow_pantheon.nemesis.initiate_pursuit(target, max_iterations=5000)
+            )
+        
+        # Step 7 - Cleanup traces via Thanatos
+        # Create simple cleanup operation
+        cleanup_result = asyncio.run(
+            self.shadow_pantheon.thanatos.destroy_evidence(
+                f"assess_{datetime.now().timestamp()}",
+                ['logs', 'cache']
+            )
+        )
+        
+        # Enhanced assessment with shadow metrics
         assessment = {
             'probability': poll_result['consensus_probability'],
             'confidence': poll_result['convergence_score'],
@@ -115,9 +171,19 @@ class Zeus(BaseGod):
             'war_mode': self.war_mode,
             'god_assessments': poll_result['assessments'],
             'recommended_action': poll_result['recommended_action'],
+            
+            # Shadow pantheon metrics
+            'opsec_status': opsec_check,
+            'surveillance': surveillance,
+            'stealth_mode': True,
+            'misdirection_deployed': misdirection_deployed,
+            'nemesis_pursuit': nemesis_pursuit,
+            'traces_cleaned': cleanup_result.get('complete', False),
+            
             'reasoning': (
                 f"Divine council: {poll_result['convergence']}. "
                 f"Consensus: {poll_result['consensus_probability']:.2f}. "
+                f"Shadow ops: {'ACTIVE' if misdirection_deployed else 'PASSIVE'}. "
                 f"War mode: {self.war_mode or 'none'}. Φ={phi:.3f}."
             ),
             'god': self.name,
@@ -409,6 +475,45 @@ class Zeus(BaseGod):
         self.war_target = None
         
         return ended
+    
+    async def auto_spawn_if_needed(
+        self,
+        target: str,
+        assessments: Dict[str, Dict]
+    ) -> Optional[Dict]:
+        """
+        Automatically spawn specialist kernel if needed.
+        
+        Detects when multiple gods are struggling (low confidence) and
+        proposes spawning a specialist kernel to handle the domain.
+        
+        Args:
+            target: The target being assessed
+            assessments: God assessments from poll_pantheon
+        
+        Returns:
+            Spawn result dict if spawned, None if not needed
+        """
+        # Detect overload (placeholder logic - refine based on metrics)
+        overloaded = [
+            name for name, assessment in assessments.items()
+            if assessment.get('confidence', 1.0) < 0.6  # Low confidence = needs help
+        ]
+        
+        if len(overloaded) >= 3:  # Multiple gods struggling
+            result = self.kernel_spawner.propose_and_spawn(
+                name=f"Specialist_{target[:10].replace(' ', '_')}",
+                domain=f"focused_on_{target[:30]}",
+                element="precision",
+                role="specialist",
+                reason=SpawnReason.SPECIALIZATION,
+                parent_gods=overloaded[:2],  # Top 2 overloaded gods as parents
+                force=False  # Require pantheon consensus
+            )
+            
+            return result
+        
+        return None
     
     def poll_shadow_pantheon(self, target: str, context: Optional[Dict] = None) -> Dict:
         """Poll shadow pantheon for covert assessment."""
@@ -1184,3 +1289,56 @@ def shadow_god_assess_endpoint(god_name: str):
     
     result = god.assess_target(target, context)
     return jsonify(sanitize_for_json(result))
+
+
+# ========================================
+# KERNEL SPAWNING API ENDPOINTS
+# M8 dynamic kernel creation
+# ========================================
+
+@olympus_app.route("/spawn/auto", methods=["POST"])
+def auto_spawn_endpoint():
+    """
+    Trigger automatic kernel spawning.
+    
+    Analyzes current pantheon assessments and spawns a specialist
+    kernel if multiple gods are struggling with a target.
+    """
+    data = request.get_json() or {}
+    target = data.get("target", "")
+    
+    if not target:
+        return jsonify({"error": "target required"}), 400
+    
+    # Get current assessments
+    poll_result = zeus.poll_pantheon(target, {})
+    
+    # Attempt auto-spawn
+    import asyncio
+    spawn_result = asyncio.run(
+        zeus.auto_spawn_if_needed(target, poll_result["assessments"])
+    )
+    
+    return jsonify(sanitize_for_json({
+        "spawn_attempted": spawn_result is not None,
+        "spawn_result": spawn_result,
+        "target": target
+    }))
+
+
+@olympus_app.route("/spawn/list", methods=["GET"])
+def list_spawned_endpoint():
+    """List all spawned kernels."""
+    spawned = zeus.kernel_spawner.list_spawned_kernels()
+    return jsonify(sanitize_for_json({
+        "spawned_kernels": spawned,
+        "count": len(spawned)
+    }))
+
+
+@olympus_app.route("/spawn/status", methods=["GET"])
+def spawn_status_endpoint():
+    """Get spawner status."""
+    status = zeus.kernel_spawner.get_status()
+    return jsonify(sanitize_for_json(status))
+
