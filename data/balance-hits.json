@@ -368,6 +368,17 @@
     "txCount": 2,
     "discoveredAt": "2025-12-08T10:40:12.767Z",
     "isCompressed": false,
+    "balanceChanged": false
+  },
+  {
+    "address": "1KbYsNe2MRWXJKyZwNTYviEjnLKnXYvXTA",
+    "passphrase": "entropy",
+    "wif": "5JbpsApjSDCccYxJMzVnoz9vBCMjuYkAVePQEmrniKebrMKRLgX",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-12-08T10:46:03.090Z",
+    "isCompressed": false,
     "recoveryType": "brain_wallet"
   }
 ]
