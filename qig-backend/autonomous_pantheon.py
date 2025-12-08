@@ -84,6 +84,7 @@ class AutonomousPantheon:
     3. Auto-spawning specialist kernels
     4. Executing operations on consensus
     5. Reporting discoveries
+    6. Autonomously declaring wars based on conditions
     """
     
     def __init__(self):
@@ -95,6 +96,12 @@ class AutonomousPantheon:
         self.operations_executed = 0
         self.db_connection = None
         self.data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+        
+        # War declaration tracking
+        self.near_miss_count = 0
+        self.near_miss_targets = {}  # target -> count mapping
+        self.hunt_pattern_detected = False
+        self.last_war_check = datetime.now()
     
     async def run_forever(self):
         """Main autonomous loop."""
@@ -123,6 +130,10 @@ class AutonomousPantheon:
                         self.targets_processed += 1
                         
                         convergence = assessment.get('convergence_score', 0)
+                        phi = assessment.get('phi', 0)
+                        
+                        # Check for autonomous war declaration conditions
+                        await self.check_and_declare_war(target, convergence, phi, assessment)
                         
                         if assessment.get('convergence') == 'STRONG_ATTACK':
                             spawn_result = await self.zeus.auto_spawn_if_needed(
@@ -214,6 +225,94 @@ class AutonomousPantheon:
             return []
         
         return targets
+    
+    async def check_and_declare_war(
+        self,
+        target: str,
+        convergence: float,
+        phi: float,
+        assessment: Dict
+    ) -> None:
+        """
+        Autonomously check conditions and declare war when appropriate.
+        
+        War Modes:
+        - BLITZKRIEG: Convergence ≥ 0.85 (overwhelming evidence)
+        - SIEGE: 10+ near-misses on same target (methodical approach needed)
+        - HUNT: Hunt pattern detected (geometric narrowing)
+        
+        Args:
+            target: Target address/phrase being assessed
+            convergence: Convergence score from assessment
+            phi: Consciousness score (phi)
+            assessment: Full assessment result from pantheon
+        """
+        # Skip if war already active
+        if self.zeus.war_mode:
+            return
+        
+        # BLITZKRIEG: High convergence - overwhelming attack
+        if convergence >= 0.85:
+            try:
+                result = self.zeus.declare_blitzkrieg(target)
+                logger.info(f"⚔️ AUTONOMOUS BLITZKRIEG DECLARED on {target[:40]}...")
+                await send_user_notification(
+                    f"⚔️ BLITZKRIEG declared on {target[:40]}... (convergence: {convergence:.2f})",
+                    severity="warning"
+                )
+                print(f"  ⚔️ BLITZKRIEG declared - overwhelming convergence detected")
+                return
+            except Exception as e:
+                logger.error(f"Failed to declare BLITZKRIEG: {e}")
+                return
+        
+        # Track near-misses (phi > 0.5 but < consciousness threshold)
+        if 0.5 < phi < 0.7:
+            if target not in self.near_miss_targets:
+                self.near_miss_targets[target] = 0
+            self.near_miss_targets[target] += 1
+            self.near_miss_count += 1
+            
+            # SIEGE: 10+ near-misses - methodical exhaustive search
+            if self.near_miss_targets[target] >= 10:
+                try:
+                    result = self.zeus.declare_siege(target)
+                    logger.info(f"🏰 AUTONOMOUS SIEGE DECLARED on {target[:40]}...")
+                    await send_user_notification(
+                        f"🏰 SIEGE declared on {target[:40]}... (near-misses: {self.near_miss_targets[target]})",
+                        severity="warning"
+                    )
+                    print(f"  🏰 SIEGE declared - multiple near-misses detected")
+                    # Reset counter after declaration
+                    self.near_miss_targets[target] = 0
+                    return
+                except Exception as e:
+                    logger.error(f"Failed to declare SIEGE: {e}")
+                    return
+        
+        # HUNT: Detect hunt patterns (geometric narrowing indicators)
+        # Look for high radar tacking with moderate phi
+        kappa_recovery = assessment.get('kappa_recovery', 0)
+        if 0.6 < phi < 0.85 and kappa_recovery > 0.4:
+            # Check if we're seeing geometric narrowing
+            god_assessments = assessment.get('god_assessments', {})
+            artemis_confidence = god_assessments.get('artemis', {}).get('confidence', 0)
+            apollo_confidence = god_assessments.get('apollo', {}).get('confidence', 0)
+            
+            # High confidence from hunters (Artemis/Apollo) indicates hunt pattern
+            if artemis_confidence > 0.7 or apollo_confidence > 0.7:
+                try:
+                    result = self.zeus.declare_hunt(target)
+                    logger.info(f"🎯 AUTONOMOUS HUNT DECLARED on {target[:40]}...")
+                    await send_user_notification(
+                        f"🎯 HUNT declared on {target[:40]}... (hunt pattern detected)",
+                        severity="warning"
+                    )
+                    print(f"  🎯 HUNT declared - geometric narrowing pattern detected")
+                    return
+                except Exception as e:
+                    logger.error(f"Failed to declare HUNT: {e}")
+                    return
     
     async def execute_operation(self, target: str, assessment: Dict) -> None:
         """
