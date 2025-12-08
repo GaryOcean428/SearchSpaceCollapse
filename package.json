@@ -10,7 +10,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "migrate:json-to-db": "tsx scripts/migrate-json-to-db.ts",
-    "test:integration": "tsx scripts/test-integration.ts",
+    "test:integration": "cd tests && python3 -m pytest integration/test_full_flow.py -v",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "playwright:install": "playwright install --with-deps"
