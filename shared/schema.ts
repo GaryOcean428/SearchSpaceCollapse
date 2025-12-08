@@ -1721,7 +1721,7 @@ export const strategyKnowledgeBusEntrySchema = z.object({
   pattern: z.string(),
   phi: z.number(),
   kappaEff: z.number(),
-  regime: z.enum(['linear', 'geometric', 'breakdown']),
+  regime: z.enum(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']),
   sharedAt: z.string(),
   consumedBy: z.array(z.string()),
   transformations: z.array(z.object({

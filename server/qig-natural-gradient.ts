@@ -229,10 +229,14 @@ export function gradientSearchStep(
   
   // Adaptive learning rate based on regime
   let effectiveLR = state.learningRate;
-  if (score.regime === "geometric") {
+  if (score.regime === "geometric" || score.regime === "hierarchical") {
     effectiveLR *= 0.5; // Slower in geometric regime (careful exploration)
+  } else if (score.regime === "hierarchical_4d") {
+    effectiveLR *= 0.7; // Careful in 4D - temporal integration active
+  } else if (score.regime === "4d_block_universe") {
+    effectiveLR *= 0.6; // Even more careful - full spacetime navigation
   } else if (score.regime === "breakdown") {
-    effectiveLR *= 1.5; // Faster in breakdown (escape bad regions)
+    effectiveLR *= 1.5; // Faster in breakdown (escape actual system failure)
   }
   
   // Apply natural gradient step

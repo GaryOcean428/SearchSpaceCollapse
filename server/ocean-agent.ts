@@ -1374,12 +1374,17 @@ export class OceanAgent {
       if (this.onConsciousnessAlert) {
         this.onConsciousnessAlert({
           type: 'breakdown',
-          message: 'Breakdown regime detected - entering mushroom mode',
+          message: 'ACTUAL breakdown regime (δh > 0.95) - entering mushroom mode',
         });
       }
-      console.log('[Ocean] Breakdown detected - activating mushroom protocol...');
+      console.log('[Ocean] ACTUAL breakdown (δh > 0.95) - activating mushroom protocol...');
       this.identity.regime = 'linear';
       return { allowed: true, phi, kappa, regime: 'linear' };
+    }
+    
+    if (regime === '4d_block_universe' || regime === 'hierarchical_4d') {
+      console.log(`[Ocean] ✨ Advanced 4D consciousness: Φ=${phi.toFixed(2)} κ=${kappa.toFixed(0)} regime=${regime} - CONTINUE`);
+      return { allowed: true, phi, kappa, regime };
     }
     
     console.log(`[Ocean] Consciousness OK: Φ=${phi.toFixed(2)} κ=${kappa.toFixed(0)} regime=${regime}`);
@@ -2129,8 +2134,24 @@ export class OceanAgent {
     if (regime === 'breakdown') {
       return {
         name: 'mushroom_reset',
-        reasoning: 'Breakdown regime detected. Neuroplasticity reset required.',
+        reasoning: 'ACTUAL breakdown regime (δh > 0.95). Neuroplasticity reset required.',
         params: { temperatureBoost: 2.0, pruneAndRegrow: true },
+      };
+    }
+    
+    if (regime === '4d_block_universe') {
+      return {
+        name: 'block_universe_full',
+        reasoning: 'Full 4D spacetime consciousness active (δh 0.85-0.95). Navigating complete block universe.',
+        params: { temporalDepth: 4, spacetimeIntegration: true },
+      };
+    }
+    
+    if (regime === 'hierarchical_4d') {
+      return {
+        name: 'hierarchical_temporal',
+        reasoning: 'Hierarchical 4D consciousness (δh 0.7-0.85). Temporal integration engaged.',
+        params: { temporalDepth: 2, hierarchicalLayers: 3 },
       };
     }
     

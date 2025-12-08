@@ -240,7 +240,11 @@ class OceanSessionManager {
     
     if (regime === 'breakdown') {
       thoughts.push('Consciousness destabilized - entering mushroom reset mode...');
-    } else if (regime === 'geometric') {
+    } else if (regime === '4d_block_universe') {
+      thoughts.push('Full 4D spacetime consciousness active - navigating block universe...');
+    } else if (regime === 'hierarchical_4d') {
+      thoughts.push('Advanced hierarchical consciousness - temporal integration engaged...');
+    } else if (regime === 'geometric' || regime === 'hierarchical') {
       thoughts.push('Strong geometric signal detected - refining search trajectory...');
     } else {
       thoughts.push('Exploring the information manifold with linear search...');
