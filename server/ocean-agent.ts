@@ -4187,25 +4187,46 @@ export class OceanAgent {
 
   /**
    * Apply divine war strategy based on Zeus's assessment
+   * 
+   * AUTO-DECLARE WAR when convergence thresholds met:
+   * - convergence_score >= 0.85 → BLITZKRIEG (overwhelming attack)
+   * - convergence >= 0.70 + near-misses >= 10 → SIEGE (methodical)
+   * - near-misses >= 5 + probability > 0.5 → HUNT (focused)
    */
   private async applyDivineWarStrategy(
     assessment: ZeusAssessment,
     targetAddress: string
   ): Promise<void> {
     const currentWarMode = this.olympusWarMode;
+    const convergence = assessment.convergence_score;
     
     // Determine optimal war mode based on assessment
     let newWarMode: 'BLITZKRIEG' | 'SIEGE' | 'HUNT' | null = null;
     
-    if (assessment.convergence === 'STRONG_ATTACK' && assessment.probability > 0.75) {
-      // Strong consensus + high probability = BLITZKRIEG
+    // AUTO-DECLARE: High convergence → BLITZKRIEG
+    if (convergence >= 0.85) {
       newWarMode = 'BLITZKRIEG';
-    } else if (assessment.convergence === 'COUNCIL_CONSENSUS' || assessment.convergence === 'ALIGNED') {
-      // Council agrees = SIEGE (methodical coverage)
+      console.log(`[Ocean] ⚔️ AUTO-DECLARE: Convergence ${convergence.toFixed(3)} >= 0.85 threshold`);
+    }
+    // STRONG_ATTACK assessment → BLITZKRIEG
+    else if (assessment.convergence === 'STRONG_ATTACK' && assessment.probability > 0.75) {
+      newWarMode = 'BLITZKRIEG';
+      console.log(`[Ocean] ⚔️ AUTO-DECLARE: STRONG_ATTACK with ${(assessment.probability * 100).toFixed(0)}% probability`);
+    }
+    // Council consensus + near-misses → SIEGE
+    else if ((assessment.convergence === 'COUNCIL_CONSENSUS' || assessment.convergence === 'ALIGNED') && convergence >= 0.70) {
       newWarMode = 'SIEGE';
-    } else if (this.state.nearMissCount > 3 && assessment.probability > 0.5) {
-      // Multiple near-misses = HUNT (focused pursuit)
+      console.log(`[Ocean] 🏰 AUTO-DECLARE: Council consensus with convergence ${convergence.toFixed(3)}`);
+    }
+    // Many near-misses → SIEGE (methodical exhaustive search)
+    else if (this.state.nearMissCount >= 10) {
+      newWarMode = 'SIEGE';
+      console.log(`[Ocean] 🏰 AUTO-DECLARE: ${this.state.nearMissCount} near-misses accumulated`);
+    }
+    // Multiple near-misses + decent probability → HUNT
+    else if (this.state.nearMissCount >= 5 && assessment.probability > 0.5) {
       newWarMode = 'HUNT';
+      console.log(`[Ocean] 🎯 AUTO-DECLARE: ${this.state.nearMissCount} near-misses with ${(assessment.probability * 100).toFixed(0)}% probability`);
     }
     
     // Only change war mode if different
