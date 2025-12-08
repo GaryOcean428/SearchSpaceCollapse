@@ -325,7 +325,9 @@ export async function getAddressData(address: string): Promise<AddressData | nul
     
     if (!provider) {
       console.log('[BlockchainAPI] All providers rate limited or unavailable');
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s
+      // 5s base + random jitter (0-2s) to avoid rate limit storms
+      const jitter = Math.random() * 2000;
+      await new Promise(resolve => setTimeout(resolve, 5000 + jitter));
       attempts++;
       continue;
     }
@@ -361,7 +363,14 @@ export async function getAddressData(address: string): Promise<AddressData | nul
       return normalized;
       
     } catch (error) {
-      console.error(`[BlockchainAPI] Error with ${provider.name}:`, error);
+      // Clean error logging - concise but still uses console.error for monitoring
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const isTimeout = errorMsg.includes('timeout') || errorMsg.includes('aborted');
+      if (isTimeout) {
+        console.error(`[BlockchainAPI] Timeout with ${provider.name} (10s exceeded)`);
+      } else {
+        console.error(`[BlockchainAPI] Error with ${provider.name}: ${errorMsg}`);
+      }
       provider.errorCount++;
       
       // Disable provider if too many errors
