@@ -6,8 +6,10 @@ import { readFileSync } from 'fs';
 
 neonConfig.webSocketConstructor = ws;
 
-// Database is optional - only initialize if DATABASE_URL is set
-// This allows the brain wallet tool to run without database (using MemStorage)
+// Database initialization is required for persistence-backed services.
+// The code will still skip initialization if DATABASE_URL is absent, but
+// higher-level storage layers now fail fast without a database to avoid
+// falling back to JSON or in-memory paths.
 let pool: Pool | null = null;
 let db: ReturnType<typeof drizzle> | null = null;
 
