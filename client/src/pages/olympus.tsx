@@ -434,6 +434,10 @@ export default function OlympusPage() {
             <Sword className="h-4 w-4 mr-2" />
             Debates
           </TabsTrigger>
+          <TabsTrigger value="shadow" data-testid="tab-shadow">
+            <Moon className="h-4 w-4 mr-2 text-purple-400" />
+            Shadow
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="chat" className="mt-4">
@@ -485,7 +489,66 @@ export default function OlympusPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="shadow" className="mt-4">
+          <ShadowPantheonContent />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function ShadowPantheonContent() {
+  const { data: shadowStatus, isLoading } = useQuery<{
+    gods: Record<string, GodStatus>;
+    active_operations: number;
+    stealth_level: number;
+  }>({
+    queryKey: QUERY_KEYS.olympus.shadowStatus(),
+    refetchInterval: 10000,
+  });
+
+  const shadowNames = ['nyx', 'hecate', 'erebus', 'hypnos', 'thanatos', 'nemesis'];
+  const shadowGods = shadowNames.filter(name => shadowStatus?.gods?.[name]);
+
+  return (
+    <Card className="border-purple-500/30 bg-purple-950/10">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Eye className="h-5 w-5 text-purple-400" />
+          Covert Operations (Shadow Pantheon)
+        </CardTitle>
+        <CardDescription>
+          The hidden gods who operate in darkness - stealth reconnaissance and covert operations
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center text-muted-foreground py-8">Loading shadow operations...</div>
+        ) : shadowGods.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+              <Badge variant="outline" className="border-purple-500/50 text-purple-400">
+                Active Ops: {shadowStatus?.active_operations || 0}
+              </Badge>
+              <Badge variant="outline" className="border-indigo-500/50 text-indigo-400">
+                Stealth: {((shadowStatus?.stealth_level || 0) * 100).toFixed(0)}%
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {shadowGods.map(name => (
+                <GodCard key={name} name={name} god={shadowStatus!.gods[name]} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            <Moon className="h-8 w-8 mx-auto mb-2 opacity-50 text-purple-400" />
+            <p className="text-sm">Shadow Pantheon is dormant</p>
+            <p className="text-xs">The hidden gods await their call to action</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

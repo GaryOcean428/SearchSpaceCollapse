@@ -19,14 +19,10 @@
  * - Content treated as plain text (no HTML rendering)
  */
 
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Upload, Search, Sparkles, Brain, AlertCircle } from 'lucide-react';
-import { api } from '@/api';
+import { useRef, useEffect } from 'react';
+import { Send, Upload, Search, Sparkles, Brain } from 'lucide-react';
+import { useZeusChat, type ZeusMessage } from '@/hooks/useZeusChat';
 
-/**
- * Sanitize text content to prevent XSS attacks.
- * Escapes HTML special characters.
- */
 function sanitizeText(text: string): string {
   if (!text || typeof text !== 'string') return '';
   return text
@@ -38,169 +34,67 @@ function sanitizeText(text: string): string {
 }
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface ZeusMessage {
-  id: string;
-  role: 'human' | 'zeus';
-  content: string;
-  timestamp: string;
-  metadata?: {
-    type?: 'observation' | 'suggestion' | 'question' | 'command' | 'search' | 'error';
-    pantheon_consulted?: string[];
-    geometric_encoding?: number[];
-    actions_taken?: string[];
-    relevance_score?: number;
-    consensus?: number;
-    implemented?: boolean;
-  };
-}
-
 export default function ZeusChat() {
-  const [messages, setMessages] = useState<ZeusMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const {
+    messages,
+    input,
+    setInput,
+    sendMessage,
+    isThinking,
+    uploadedFiles,
+    setUploadedFiles,
+    messagesEndRef,
+    lastError,
+    lastSuccess,
+    clearLastError,
+    clearLastSuccess,
+  } = useZeusChat();
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
-  // Auto-scroll to bottom
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-  
-  /**
-   * Send message to Zeus
-   */
-  const sendMessage = async () => {
-    if (!input.trim() && uploadedFiles.length === 0) return;
-    
-    // Add human message
-    const humanMessage: ZeusMessage = {
-      id: `msg-${Date.now()}`,
-      role: 'human',
-      content: input,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, humanMessage]);
-    const messageToSend = input;
-    setInput('');
-    
-    setIsThinking(true);
-    
-    try {
-      // Send to Zeus via centralized API (with files if any)
-      const filesToSend = uploadedFiles.length > 0 ? uploadedFiles : undefined;
-      const data = await api.olympus.sendZeusChat({
-        message: messageToSend,
-        context: JSON.stringify(messages),
-        files: filesToSend,
-      });
-      
-      // Add Zeus response
-      const zeusMessage: ZeusMessage = {
-        id: `msg-${Date.now()}-zeus`,
-        role: 'zeus',
-        content: data.response || 'No response from Zeus',
-        timestamp: new Date().toISOString(),
-        metadata: data.metadata as ZeusMessage['metadata'],
-      };
-      setMessages(prev => [...prev, zeusMessage]);
-      
-      // Show actions taken
-      if ((data.metadata?.actions_taken?.length ?? 0) > 0) {
-        toast({
-          title: "⚡ Zeus coordinated actions",
-          description: data.metadata?.actions_taken?.join(', ') ?? '',
-        });
-      }
-      
-    } catch (error: unknown) {
-      console.error('[ZeusChat] Error:', error);
-      
-      // Check for geometric validation error (phi/kappa/regime based)
-      const errorData = (error as { response?: { data?: { validation_type?: string; phi?: number; kappa?: number; regime?: string; error?: string } } })?.response?.data;
-      const isGeometricError = errorData?.validation_type === 'geometric';
-      
-      if (isGeometricError) {
+    if (lastError) {
+      if (lastError.type === 'geometric') {
         toast({
           title: "Geometric validation failed",
-          description: `φ=${errorData?.phi?.toFixed(2)} κ=${errorData?.kappa?.toFixed(0)} regime=${errorData?.regime}`,
+          description: `φ=${lastError.details?.phi?.toFixed(2) ?? '?'} κ=${lastError.details?.kappa?.toFixed(0) ?? '?'} regime=${lastError.details?.regime ?? '?'}`,
           variant: "destructive",
         });
-        
-        setMessages(prev => [...prev, {
-          id: `msg-${Date.now()}-error`,
-          role: 'zeus',
-          content: errorData?.error || '⚡ Input lacks geometric coherence. Try simplifying or restructuring your message.',
-          timestamp: new Date().toISOString(),
-          metadata: { type: 'error' },
-        }]);
-      } else {
+      } else if (lastError.type === 'connection') {
         toast({
           title: "Communication failed",
-          description: "Could not reach Mount Olympus",
+          description: lastError.message,
           variant: "destructive",
         });
-        
-        setMessages(prev => [...prev, {
-          id: `msg-${Date.now()}-error`,
-          role: 'zeus',
-          content: '⚡ The divine connection has been disrupted. Please try again.',
-          timestamp: new Date().toISOString(),
-          metadata: { type: 'error' },
-        }]);
+      } else if (lastError.type === 'search') {
+        toast({
+          title: "Search failed",
+          description: lastError.message,
+          variant: "destructive",
+        });
       }
-    } finally {
-      setIsThinking(false);
-      setUploadedFiles([]);
+      clearLastError();
     }
-  };
+  }, [lastError, toast, clearLastError]);
   
-  /**
-   * Trigger Tavily search from chat
-   */
-  const triggerTavilySearch = async (query: string) => {
-    setIsThinking(true);
-    
-    try {
-      // Search via centralized API
-      const data = await api.olympus.searchZeus({ query });
-      
-      // Zeus analyzes search results and responds
-      const zeusMessage: ZeusMessage = {
-        id: `msg-${Date.now()}-search`,
-        role: 'zeus',
-        content: data.response || 'No search results',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          type: 'search',
-          pantheon_consulted: data.metadata?.pantheon_consulted,
-          actions_taken: data.metadata?.actions_taken,
-        },
-      };
-      setMessages(prev => [...prev, zeusMessage]);
-      
-    } catch (error) {
-      console.error('[ZeusChat] Search error:', error);
-      toast({
-        title: "Search failed",
-        description: "Tavily search encountered error",
-        variant: "destructive",
-      });
-    } finally {
-      setIsThinking(false);
+  useEffect(() => {
+    if (lastSuccess) {
+      if (lastSuccess.type === 'actions_taken' && lastSuccess.actions.length > 0) {
+        toast({
+          title: "⚡ Zeus coordinated actions",
+          description: lastSuccess.actions.join(', '),
+        });
+      }
+      clearLastSuccess();
     }
-  };
+  }, [lastSuccess, toast, clearLastSuccess]);
   
-  /**
-   * Handle file selection
-   */
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     setUploadedFiles(prev => [...prev, ...files]);
@@ -210,9 +104,6 @@ export default function ZeusChat() {
     });
   };
   
-  /**
-   * Handle Enter key
-   */
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -220,9 +111,6 @@ export default function ZeusChat() {
     }
   };
   
-  /**
-   * Format message metadata
-   */
   const formatMetadata = (msg: ZeusMessage) => {
     if (!msg.metadata) return null;
     
@@ -289,7 +177,6 @@ export default function ZeusChat() {
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col overflow-hidden">
-        {/* Messages */}
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
             {messages.length === 0 && (
@@ -351,7 +238,6 @@ export default function ZeusChat() {
           </div>
         </ScrollArea>
         
-        {/* File uploads indicator */}
         {uploadedFiles.length > 0 && (
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
             <Upload className="h-3 w-3" />
@@ -367,7 +253,6 @@ export default function ZeusChat() {
           </div>
         )}
         
-        {/* Input */}
         <div className="mt-4 flex items-end gap-2">
           <input
             ref={fileInputRef}
@@ -407,7 +292,6 @@ export default function ZeusChat() {
           </Button>
         </div>
         
-        {/* Quick actions */}
         <div className="mt-2 flex gap-2 text-xs">
           <Button
             variant="ghost"
