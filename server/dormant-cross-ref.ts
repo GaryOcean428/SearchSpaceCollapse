@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { db, withDbRetry } from './db';
+import { userTargetAddresses } from '@shared/schema';
 
 export interface DormantAddressInfo {
   rank: number;
@@ -18,52 +20,55 @@ class DormantCrossRef {
   private addressSet: Set<string> = new Set();
   private addressMap: Map<string, DormantAddressInfo> = new Map();
   private loaded: boolean = false;
+  private loadingPromise: Promise<void> | null = null;
   private matches: DormantAddressInfo[] = [];
   private matchesFile = 'data/dormant-matches.json';
 
   constructor() {
-    this.loadFromFile();
+    this.loadingPromise = this.loadFromDatabase();
     this.loadMatches();
   }
 
-  private loadFromFile(): void {
+  private async loadFromDatabase(): Promise<void> {
     try {
-      const filePath = path.join(process.cwd(), 'attached_assets/Pasted-Rank-Address-Wallet-Label-Balance-BTC-Balance-USD-Pct-o_1764727596104.txt');
-      
-      if (!fs.existsSync(filePath)) {
-        console.log('[DormantCrossRef] Dormant addresses file not found');
+      if (!db) {
+        console.log('[DormantCrossRef] No database connection - dormant addresses unavailable');
         return;
       }
 
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split('\n');
-      
+      const addresses = await withDbRetry(
+        async () => db!.select().from(userTargetAddresses),
+        'DormantCrossRef.loadFromDatabase'
+      );
+
+      if (!addresses || addresses.length === 0) {
+        console.log('[DormantCrossRef] No dormant addresses found in database');
+        return;
+      }
+
       let parsed = 0;
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const parts = line.split('\t');
-        if (parts.length < 2) continue;
-
-        const rank = parseInt(parts[0], 10);
-        const address = parts[1]?.trim();
+      for (let i = 0; i < addresses.length; i++) {
+        const row = addresses[i];
+        const address = row.address?.trim();
         
-        if (!address || !address.startsWith('1') && !address.startsWith('3') && !address.startsWith('bc1')) {
+        if (!address) continue;
+        
+        // Validate Bitcoin address format (legacy, P2SH, or bech32)
+        if (!address.startsWith('1') && !address.startsWith('3') && !address.startsWith('bc1')) {
           continue;
         }
 
         const info: DormantAddressInfo = {
-          rank,
+          rank: i + 1,
           address,
-          walletLabel: parts[2]?.trim() || '',
-          balanceBTC: parts[3]?.trim() || '',
-          balanceUSD: parts[4]?.trim() || '',
-          pctOfCoins: parts[5]?.trim() || '',
-          firstIn: parts[6]?.trim() || '',
-          lastIn: parts[7]?.trim() || '',
-          classification: parts[12]?.trim() || '',
-          analysisNotes: parts[13]?.trim() || ''
+          walletLabel: row.label || '',
+          balanceBTC: '',
+          balanceUSD: '',
+          pctOfCoins: '',
+          firstIn: '',
+          lastIn: '',
+          classification: 'Target',
+          analysisNotes: ''
         };
 
         this.addressSet.add(address);
@@ -72,10 +77,24 @@ class DormantCrossRef {
       }
 
       this.loaded = true;
-      console.log(`[DormantCrossRef] Loaded ${parsed} dormant addresses for cross-reference`);
+      console.log(`[DormantCrossRef] Loaded ${parsed} dormant addresses from database`);
     } catch (error) {
-      console.error('[DormantCrossRef] Error loading dormant addresses:', error);
+      console.error('[DormantCrossRef] Error loading dormant addresses from database:', error);
     }
+  }
+
+  async ensureLoaded(): Promise<void> {
+    if (this.loadingPromise) {
+      await this.loadingPromise;
+    }
+  }
+
+  async reload(): Promise<void> {
+    this.addressSet.clear();
+    this.addressMap.clear();
+    this.loaded = false;
+    this.loadingPromise = this.loadFromDatabase();
+    await this.loadingPromise;
   }
 
   private loadMatches(): void {
@@ -159,17 +178,17 @@ class DormantCrossRef {
 
   getTopDormant(limit: number = 100): DormantAddressInfo[] {
     const sorted = Array.from(this.addressMap.values())
-      .filter(info => info.classification.includes('Dormant') || info.classification.includes('Lost'))
+      .filter(info => info.classification.includes('Dormant') || info.classification.includes('Lost') || info.classification.includes('Target'))
       .sort((a, b) => a.rank - b.rank);
     
     return sorted.slice(0, limit);
   }
 
   /**
-   * Get ALL addresses from the top dormant wallets list (no classification filter)
-   * This returns all ~999 addresses from the imported data
+   * Get ALL addresses from the target addresses list (no classification filter)
+   * This returns all addresses from the database
    */
-  getAllDormantAddresses(limit: number = 1000): DormantAddressInfo[] {
+  getAllDormantAddresses(limit: number = 2000): DormantAddressInfo[] {
     const sorted = Array.from(this.addressMap.values())
       .sort((a, b) => a.rank - b.rank);
     

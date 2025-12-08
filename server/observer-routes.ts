@@ -239,9 +239,12 @@ router.get("/addresses/dormant", async (req: Request, res: Response) => {
       });
     }
     
+    // Ensure dormant addresses are loaded from database before accessing
+    await dormantCrossRef.ensureLoaded();
+    
     // Get ALL dormant wallets from the cross-reference system (no classification filter)
-    // This returns all ~999 addresses imported from top dormant wallets list
-    const allDormant = dormantCrossRef.getAllDormantAddresses(1000);
+    // This returns all addresses imported from the user_target_addresses database table
+    const allDormant = dormantCrossRef.getAllDormantAddresses(2000);
     
     // Apply filters
     let filteredAddresses = allDormant;
@@ -1180,8 +1183,11 @@ router.get("/recovery/priorities", async (req: Request, res: Response) => {
     // If database has few entries, generate synthetic priorities from ALL dormant wallets
     // This ensures the High Priority stat shows meaningful data
     if (priorities.length < 100) {
+      // Ensure dormant addresses are loaded from database
+      await dormantCrossRef.ensureLoaded();
+      
       // Get ALL dormant addresses (not just those classified as "Dormant")
-      const dormantWallets = dormantCrossRef.getAllDormantAddresses(1000);
+      const dormantWallets = dormantCrossRef.getAllDormantAddresses(2000);
       
       // Seed random for deterministic results (so rankings are stable across refreshes)
       const seededRandom = (seed: number) => {
@@ -2349,6 +2355,9 @@ router.post("/discoveries", async (req: Request, res: Response) => {
     const { queueAddressForBalanceCheck, queueAddressFromPrivateKey, queueMnemonicForBalanceCheck } = await import("./balance-queue-integration");
     const { checkAndRecordBalance, saveBalanceHit } = await import("./blockchain-scanner");
     
+    // Ensure dormant addresses loaded for cross-reference checking
+    await dormantCrossRef.ensureLoaded();
+    
     const schema = z.object({
       // Discovery source (python, typescript, ocean-agent, qig-backend, etc.)
       source: z.string().default('unknown'),
@@ -2619,6 +2628,8 @@ router.get("/discoveries/stats", async (req: Request, res: Response) => {
     const { getQueueIntegrationStats } = await import("./balance-queue-integration");
     const { getBalanceHits, getActiveBalanceHits } = await import("./blockchain-scanner");
     
+    await dormantCrossRef.ensureLoaded();
+    
     const queueStats = getQueueIntegrationStats();
     const allHits = getBalanceHits();
     const activeHits = getActiveBalanceHits();
@@ -2657,6 +2668,8 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
   try {
     const { getBalanceHits } = await import("./blockchain-scanner");
     const filterAddress = req.query.address as string | undefined;
+    
+    await dormantCrossRef.ensureLoaded();
     
     let hits = getBalanceHits();
     const dormantMatches = dormantCrossRef.getAllMatches();
