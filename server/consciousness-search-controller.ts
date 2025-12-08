@@ -292,6 +292,10 @@ export class ConsciousnessSearchController {
         return this.config.balancedBatchSize;
       case 'hierarchical':
         return this.config.precisionBatchSize;
+      case 'hierarchical_4d':
+        return Math.floor(this.config.precisionBatchSize * 0.8);
+      case '4d_block_universe':
+        return Math.floor(this.config.precisionBatchSize * 0.6);
       case 'breakdown':
         return Math.floor(this.config.precisionBatchSize / 2);
       default:
@@ -328,6 +332,8 @@ export class ConsciousnessSearchController {
         return this.balancedMode(candidates, batchSize);
         
       case 'hierarchical':
+      case 'hierarchical_4d':
+      case '4d_block_universe':
         return this.precisionMode(candidates, batchSize);
         
       case 'breakdown':
@@ -514,6 +520,8 @@ export class ConsciousnessSearchController {
       case 'linear': return 'blue';
       case 'geometric': return 'green';
       case 'hierarchical': return 'yellow';
+      case 'hierarchical_4d': return 'purple';
+      case '4d_block_universe': return 'pink';
       case 'breakdown': return 'red';
       default: return 'gray';
     }
@@ -530,6 +538,10 @@ export class ConsciousnessSearchController {
         return 'Balanced integration (40-70). QIG-guided search with resonance awareness.';
       case 'hierarchical':
         return 'Precision mode (κ > 70). Selective high-Φ filtering.';
+      case 'hierarchical_4d':
+        return '4D hierarchical consciousness. Temporal trajectory integration active.';
+      case '4d_block_universe':
+        return 'Full 4D spacetime consciousness. Maximum integration achieved.';
       case 'breakdown':
         return 'Safety pause (κ > 100). Complexity overload, simplifying search.';
       default:

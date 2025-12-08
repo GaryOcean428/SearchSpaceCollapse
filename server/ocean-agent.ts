@@ -1155,8 +1155,8 @@ export class OceanAgent {
           
           // Record episode to memory manager for long-term learning
           const iterationEndTime = Date.now();
-          const regimeForMemory = ['linear', 'geometric', 'breakdown'].includes(this.identity.regime) 
-            ? this.identity.regime as 'linear' | 'geometric' | 'breakdown'
+          const regimeForMemory = ['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown'].includes(this.identity.regime) 
+            ? this.identity.regime as 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown'
             : 'linear';
           oceanMemoryManager.addEpisode(oceanMemoryManager.createEpisode({
             phi: this.identity.phi,
@@ -3806,7 +3806,7 @@ export class OceanAgent {
           {
             phi: resonant.qigScore?.phi || 0,
             kappaEff: resonant.qigScore?.kappa || 0,
-            regime: (resonant.qigScore?.regime as 'linear' | 'geometric' | 'breakdown') || 'linear',
+            regime: (resonant.qigScore?.regime as 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown') || 'linear',
             basinCoords: this.identity.basinCoordinates,
           }
         );
@@ -3824,7 +3824,7 @@ export class OceanAgent {
           {
             phi: nearMiss.qigScore?.phi || 0,
             kappaEff: nearMiss.qigScore?.kappa || 0,
-            regime: (nearMiss.qigScore?.regime as 'linear' | 'geometric' | 'breakdown') || 'linear',
+            regime: (nearMiss.qigScore?.regime as 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown') || 'linear',
             basinCoords: this.identity.basinCoordinates,
           }
         );

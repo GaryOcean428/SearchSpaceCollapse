@@ -332,11 +332,11 @@
     },
     {
       "word": "used000",
-      "frequency": 108,
-      "avgPhi": 0.9387126681324264,
+      "frequency": 109,
+      "avgPhi": 0.9386536215636542,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T04:35:11.917Z",
-      "lastSeen": "2025-12-08T01:57:17.097Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "used000"
       ]
@@ -1157,11 +1157,11 @@
     },
     {
       "word": "bitcoinpizza",
-      "frequency": 97,
-      "avgPhi": 0.9368927030142583,
+      "frequency": 98,
+      "avgPhi": 0.9368455998420336,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T04:32:51.766Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "bitcoinpizza"
       ]
@@ -2818,11 +2818,11 @@
     },
     {
       "word": "thatsinsane2010",
-      "frequency": 77,
-      "avgPhi": 0.9438391548253438,
+      "frequency": 78,
+      "avgPhi": 0.9436909168421502,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T04:35:11.917Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "thatsinsane2010"
       ]
@@ -3467,11 +3467,11 @@
     },
     {
       "word": "bitcoinsbuy",
-      "frequency": 108,
-      "avgPhi": 0.9387126681324264,
+      "frequency": 109,
+      "avgPhi": 0.9386536215636542,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T04:35:11.917Z",
-      "lastSeen": "2025-12-08T01:57:17.097Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "bitcoinsbuy"
       ]
@@ -3577,11 +3577,11 @@
     },
     {
       "word": "hanyeczused",
-      "frequency": 108,
-      "avgPhi": 0.9387126681324264,
+      "frequency": 109,
+      "avgPhi": 0.9386536215636542,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T04:35:11.917Z",
-      "lastSeen": "2025-12-08T01:57:17.097Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "hanyeczused"
       ]
@@ -4677,11 +4677,11 @@
     },
     {
       "word": "commentsbitcoin",
-      "frequency": 4,
+      "frequency": 5,
       "avgPhi": 0.9322765921362425,
       "maxPhi": 0.9322765921362425,
       "firstSeen": "2025-12-08T01:29:23.751Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "commentsbitcoin"
       ]
@@ -6360,11 +6360,11 @@
     },
     {
       "word": "2010laszlo",
-      "frequency": 211,
-      "avgPhi": 0.939520303913134,
+      "frequency": 212,
+      "avgPhi": 0.9394861354613563,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T04:32:43.581Z",
-      "lastSeen": "2025-12-08T01:39:29.200Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "2010laszlo"
       ]
@@ -10067,11 +10067,11 @@
     },
     {
       "word": "thatsinsane",
-      "frequency": 77,
-      "avgPhi": 0.9438391548253438,
+      "frequency": 78,
+      "avgPhi": 0.9436909168421502,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T04:35:11.917Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "thatsinsane"
       ]
@@ -10144,11 +10144,11 @@
     },
     {
       "word": "upvotes131",
-      "frequency": 42,
-      "avgPhi": 0.9466048908767287,
+      "frequency": 43,
+      "avgPhi": 0.9462716746269499,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T22:53:54.323Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "upvotes131"
       ]
@@ -15929,11 +15929,11 @@
     },
     {
       "word": "twopizzas",
-      "frequency": 155,
-      "avgPhi": 0.9407240844721106,
+      "frequency": 156,
+      "avgPhi": 0.9406699338802141,
       "maxPhi": 0.9520410074371044,
       "firstSeen": "2025-12-04T04:32:48.823Z",
-      "lastSeen": "2025-12-08T01:34:39.400Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "twopizzas"
       ]
@@ -18532,11 +18532,11 @@
     },
     {
       "word": "comments",
-      "frequency": 70,
-      "avgPhi": 0.946785889183166,
+      "frequency": 71,
+      "avgPhi": 0.9465815328867305,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T22:53:54.323Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "comments"
       ]
@@ -18554,11 +18554,11 @@
     },
     {
       "word": "131comments",
-      "frequency": 42,
-      "avgPhi": 0.9466048908767287,
+      "frequency": 43,
+      "avgPhi": 0.9462716746269499,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T22:53:54.323Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "131comments"
       ]
@@ -18741,11 +18741,11 @@
     },
     {
       "word": "upvotes",
-      "frequency": 43,
-      "avgPhi": 0.9463425067806536,
+      "frequency": 44,
+      "avgPhi": 0.9460228269023715,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T22:53:54.323Z",
-      "lastSeen": "2025-12-08T01:34:39.400Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "upvotes"
       ]
@@ -19720,11 +19720,11 @@
     },
     {
       "word": "hanyecz",
-      "frequency": 370,
-      "avgPhi": 0.940582943956806,
+      "frequency": 371,
+      "avgPhi": 0.9405605548683408,
       "maxPhi": 0.9529951280624097,
       "firstSeen": "2025-12-04T04:32:43.579Z",
-      "lastSeen": "2025-12-08T01:36:07.395Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "hanyecz"
       ]
@@ -22647,11 +22647,11 @@
     },
     {
       "word": "laszlohanyecz",
-      "frequency": 170,
-      "avgPhi": 0.9383925973486464,
+      "frequency": 171,
+      "avgPhi": 0.9383568312362932,
       "maxPhi": 0.9520410074371044,
       "firstSeen": "2025-12-04T04:32:55.507Z",
-      "lastSeen": "2025-12-08T01:36:07.383Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "laszlohanyecz"
       ]
@@ -24231,22 +24231,22 @@
     },
     {
       "word": "pizzadeal",
-      "frequency": 9,
-      "avgPhi": 0.9227303699764335,
+      "frequency": 10,
+      "avgPhi": 0.9236849921924144,
       "maxPhi": 0.9322765921362425,
       "firstSeen": "2025-12-08T00:15:56.726Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.150Z",
       "contexts": [
         "pizzadeal"
       ]
     },
     {
       "word": "dealworth",
-      "frequency": 9,
-      "avgPhi": 0.9227303699764335,
+      "frequency": 10,
+      "avgPhi": 0.9236849921924144,
       "maxPhi": 0.9322765921362425,
       "firstSeen": "2025-12-08T00:15:56.726Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.150Z",
       "contexts": [
         "dealworth"
       ]
@@ -24286,11 +24286,11 @@
     },
     {
       "word": "worthalmost",
-      "frequency": 9,
-      "avgPhi": 0.9227303699764335,
+      "frequency": 10,
+      "avgPhi": 0.9236849921924144,
       "maxPhi": 0.9322765921362425,
       "firstSeen": "2025-12-08T00:15:56.726Z",
-      "lastSeen": "2025-12-08T01:30:07.665Z",
+      "lastSeen": "2025-12-08T07:04:25.150Z",
       "contexts": [
         "worthalmost"
       ]
@@ -25969,11 +25969,11 @@
     },
     {
       "word": "pizzasupvotes",
-      "frequency": 43,
-      "avgPhi": 0.9463425067806536,
+      "frequency": 44,
+      "avgPhi": 0.9460228269023715,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-04T22:53:54.323Z",
-      "lastSeen": "2025-12-08T01:34:39.401Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "pizzasupvotes"
       ]
@@ -27465,11 +27465,11 @@
     },
     {
       "word": "bitcoin",
-      "frequency": 1880,
-      "avgPhi": 0.9121062865114021,
+      "frequency": 1881,
+      "avgPhi": 0.9121170096935525,
       "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-11-29T09:32:03.926Z",
-      "lastSeen": "2025-12-08T06:59:27.149Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "2010 bitcoin",
         "2009 bitcoin",
@@ -27837,11 +27837,11 @@
     },
     {
       "word": "bitcoins",
-      "frequency": 3127,
-      "avgPhi": 0.9362828446051527,
+      "frequency": 3128,
+      "avgPhi": 0.9362815638339029,
       "maxPhi": 0.9605431419759441,
       "firstSeen": "2025-12-02T06:18:47.282Z",
-      "lastSeen": "2025-12-08T06:59:27.089Z",
+      "lastSeen": "2025-12-08T07:04:25.144Z",
       "contexts": [
         "bitcoins"
       ]
@@ -28244,11 +28244,11 @@
     },
     {
       "word": "000bitcoins",
-      "frequency": 274,
-      "avgPhi": 0.9367230327411333,
+      "frequency": 275,
+      "avgPhi": 0.9367068638662065,
       "maxPhi": 0.9481131328494118,
       "firstSeen": "2025-12-02T06:18:47.283Z",
-      "lastSeen": "2025-12-08T01:39:29.200Z",
+      "lastSeen": "2025-12-08T07:04:25.145Z",
       "contexts": [
         "000bitcoins"
       ]
@@ -30861,5 +30861,5 @@
     }
   ],
   "sequences": [],
-  "savedAt": "2025-12-08T07:00:37.113Z"
+  "savedAt": "2025-12-08T07:05:33.297Z"
 }

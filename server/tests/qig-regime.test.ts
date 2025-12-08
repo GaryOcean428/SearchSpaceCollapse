@@ -49,7 +49,7 @@ describe('QIG Regime Classification', () => {
 
     it('should return valid regime classification', () => {
       const score = scoreUniversalQIG('test phrase for regime', 'arbitrary');
-      expect(['linear', 'geometric', 'hierarchical', 'breakdown']).toContain(score.regime);
+      expect(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']).toContain(score.regime);
     });
 
     it('should score BIP39 format differently', () => {

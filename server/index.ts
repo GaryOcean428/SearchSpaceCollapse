@@ -166,7 +166,7 @@ async function syncFromPythonToNodeJS(): Promise<void> {
                 timestamp: state.timestamp,
                 phi: state.phi,
                 kappa: state.kappa,
-                regime: state.regime as 'linear' | 'geometric' | 'hierarchical' | 'breakdown',
+                regime: state.regime as 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown',
                 basinCoordinates: state.basinCoordinates || [],
                 hypothesis: state.hypothesis,
               });

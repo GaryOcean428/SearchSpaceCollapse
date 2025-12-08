@@ -65,7 +65,7 @@ export class TrajectoryManager {
     address: string,
     phi: number,
     kappa: number,
-    regime: 'linear' | 'geometric' | 'breakdown',
+    regime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown',
     basinCoords: number[],
     event: string,
     details: string

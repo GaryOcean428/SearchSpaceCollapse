@@ -620,7 +620,7 @@ class OceanBasinSync {
   private extractExploredRegions(_manifold: ReturnType<typeof geometricMemory.getManifoldSummary>): BasinSyncPacket['exploredRegions'] {
     const regions: BasinSyncPacket['exploredRegions'] = [];
     
-    const regimes = ['geometric', 'linear', 'breakdown'] as const;
+    const regimes = ['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown'] as const;
     for (const regime of regimes) {
       const probes = geometricMemory.getProbesByRegime(regime);
       if (probes.length > 0) {
