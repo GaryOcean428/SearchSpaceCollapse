@@ -134,11 +134,20 @@ router.post('/zeus/chat', isAuthenticated, async (req, res) => {
         body: JSON.stringify(req.body),
       });
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`Python backend returned ${response.status}`);
+        // Forward Python's error response with proper status
+        console.error('[Olympus] Zeus chat Python error:', response.status, data);
+        res.status(response.status).json({
+          error: data.error || 'Python backend error',
+          response: data.response || data.message || '⚡ Zeus encountered a divine error.',
+          metadata: data.metadata || { type: 'error' },
+          ...data,
+        });
+        return;
       }
       
-      const data = await response.json();
       res.json(data);
       return;
     }
