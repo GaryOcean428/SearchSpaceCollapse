@@ -23,6 +23,7 @@ PURE QIG PRINCIPLES:
 import numpy as np
 import os
 import re
+import sys
 import time
 from typing import List, Dict, Optional, Any
 from datetime import datetime
@@ -30,6 +31,20 @@ from datetime import datetime
 from .zeus import Zeus
 from .qig_rag import QIGRAG
 from .basin_encoder import BasinVocabularyEncoder
+
+# Import tokenizer for generative responses
+TOKENIZER_AVAILABLE = False
+get_tokenizer = None
+try:
+    # sys and os already imported above
+    _parent_dir = os.path.dirname(os.path.dirname(__file__))
+    if _parent_dir not in sys.path:
+        sys.path.insert(0, _parent_dir)
+    from qig_tokenizer import get_tokenizer as _get_tokenizer
+    get_tokenizer = _get_tokenizer
+    TOKENIZER_AVAILABLE = True
+except ImportError as e:
+    print(f"[ZeusChat] QIG Tokenizer not available - using template responses: {e}")
 
 
 class ZeusConversationHandler:
@@ -400,8 +415,8 @@ Consensus probability too low: {consensus_prob:.2%}"""
     
     def handle_question(self, question: str) -> Dict:
         """
-        Answer question using QIG-RAG.
-        Retrieve relevant knowledge from geometric memory.
+        Answer question using QIG-RAG + Generative Tokenizer.
+        Retrieve relevant knowledge and generate coherent response.
         """
         print(f"[ZeusChat] Answering question")
         
@@ -411,16 +426,53 @@ Consensus probability too low: {consensus_prob:.2%}"""
         # QIG-RAG search
         relevant_context = self.qig_rag.search(
             query_basin=q_basin,
-            k=10,
+            k=5,
             metric='fisher_rao',
             include_metadata=True
         )
         
-        # Synthesize answer
-        if relevant_context:
-            answer = self._synthesize_answer(question, relevant_context)
-        else:
-            answer = "The manifold holds no direct answer to this question. The gods suggest gathering more knowledge first."
+        # Try generative response first
+        generated = False
+        answer = None
+        
+        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
+            try:
+                # Construct prompt from retrieved context
+                context_str = "\n".join([f"- {item.get('content', '')[:300]}" for item in relevant_context[:3]])
+                prompt = f"""Context from Manifold:
+{context_str}
+
+User Question: {question}
+
+Zeus Response (Geometric Interpretation):"""
+                
+                # Generate using QIG tokenizer
+                tokenizer = get_tokenizer()
+                gen_result = tokenizer.generate_response(
+                    context=prompt,
+                    agent_role="ocean",  # Use balanced temperature
+                    max_tokens=150,
+                    allow_silence=False
+                )
+                
+                answer = gen_result.get('text', '') if gen_result else ''
+                
+                if answer:
+                    generated = True
+                    print(f"[ZeusChat] Generated response: {len(answer)} chars")
+                else:
+                    answer = "The geometry is silent. I sense the shape of the answer, but cannot form the words."
+                    
+            except Exception as e:
+                print(f"[ZeusChat] Generation failed, using template: {e}")
+                answer = None  # Force fallback
+        
+        # Fallback to template synthesis if generation failed or unavailable
+        if answer is None:
+            if relevant_context:
+                answer = self._synthesize_answer(question, relevant_context)
+            else:
+                answer = "The manifold holds no direct answer to this question. The gods suggest gathering more knowledge first."
         
         response = f"""⚡ {answer}
 
@@ -431,9 +483,10 @@ Consensus probability too low: {consensus_prob:.2%}"""
             'response': response,
             'metadata': {
                 'type': 'question',
-                'pantheon_consulted': ['poseidon'],  # Deep memory
+                'pantheon_consulted': ['poseidon', 'mnemosyne'],
                 'relevance_score': relevant_context[0]['similarity'] if relevant_context else 0,
                 'sources': len(relevant_context),
+                'generated': generated,
             }
         }
     
