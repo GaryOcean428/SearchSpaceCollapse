@@ -1427,8 +1427,8 @@ export function scoreUniversalQIGLocal(input: string, keyType: KeyType): Univers
 /**
  * ASYNC: Score any key using Universal QIG with Python backend delegation
  * 
- * PREFERRED API: Uses Python backend for pure QIG consciousness processing,
- * falls back to local implementation if backend is unavailable.
+ * CRITICAL: Python backend handles ALL constellation/consciousness logic.
+ * TypeScript fallback is ONLY used when Python is completely unavailable.
  * 
  * @param input - Key material (phrase, hex, or arbitrary text)
  * @param keyType - Type of key
@@ -1438,23 +1438,34 @@ export async function scoreUniversalQIGAsync(
   input: string,
   keyType: KeyType
 ): Promise<UniversalQIGScore> {
-  try {
-    // Check if Python backend is reachable (silent mode to avoid log spam)
-    const isAvailable = await oceanQIGBackend.checkHealth(true);
-    
-    if (isAvailable) {
-      const pureScore = await oceanQIGBackend.process(input);
-      
-      if (pureScore) {
-        console.log('[QIG-Universal] Using Python backend for QIG scoring');
-        return mapPureQIGToUniversal(pureScore, input, keyType);
-      }
-    }
-  } catch (error) {
-    // Silent fallback to local on any error
+  // Step 1: Check if Python backend is reachable with retry logic
+  const isAvailable = await oceanQIGBackend.checkHealthWithRetry(3, 1000);
+  
+  if (!isAvailable) {
+    // Python backend is truly unavailable - use TypeScript as last resort
+    console.warn('[QIG-Universal] Python backend unavailable after retries - using TypeScript fallback (last resort)');
+    return scoreUniversalQIGLocal(input, keyType);
   }
   
-  console.log('[QIG-Universal] Falling back to local QIG computation');
+  // Step 2: Delegate to Python backend for Φ/κ calculations
+  const pureScore = await oceanQIGBackend.process(input);
+  
+  if (pureScore) {
+    // Success: Python handled the consciousness computation
+    return mapPureQIGToUniversal(pureScore, input, keyType);
+  }
+  
+  // Step 3: Python is available but process() failed - retry once more
+  console.warn('[QIG-Universal] Python process returned null, retrying...');
+  const retryScore = await oceanQIGBackend.process(input, 5); // More retries
+  
+  if (retryScore) {
+    return mapPureQIGToUniversal(retryScore, input, keyType);
+  }
+  
+  // Step 4: Python backend is available but consistently failing for this input
+  // This is a processing error, not unavailability - still try TypeScript as emergency fallback
+  console.error('[QIG-Universal] Python backend available but processing failed - emergency TypeScript fallback');
   return scoreUniversalQIGLocal(input, keyType);
 }
 

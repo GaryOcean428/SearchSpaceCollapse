@@ -342,21 +342,6 @@
       }
     ],
     [
-      "kb_1765204945736_9cuf7fbt1",
-      {
-        "id": "kb_1765204945736_9cuf7fbt1",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765204887562-qdwx",
-        "pattern": "flush payment just broccoli atom arm false canyon waste rug result strong",
-        "phi": 0.9814374999996932,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-08T14:42:25.736Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
       "kb_1765204945738_n1ubasktp",
       {
         "id": "kb_1765204945738_n1ubasktp",
@@ -366,7 +351,22 @@
         "phi": 0.9814374999997648,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-08T14:42:25.738Z",
+        "sharedAt": "2025-12-08T14:42:26.811Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765204945736_9cuf7fbt1",
+      {
+        "id": "kb_1765204945736_9cuf7fbt1",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765204887562-qdwx",
+        "pattern": "flush payment just broccoli atom arm false canyon waste rug result strong",
+        "phi": 0.9814374999996932,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T14:42:26.809Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -381,7 +381,52 @@
         "phi": 0.9814374999998188,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-08T14:42:25.742Z",
+        "sharedAt": "2025-12-08T14:42:26.814Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765205084817_d44cg7vmf",
+      {
+        "id": "kb_1765205084817_d44cg7vmf",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765205026560-8cwo",
+        "pattern": "hen fever bag butter all blossom normal friend ridge mixture goat bonus",
+        "phi": 0.9814374999996704,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T14:44:44.817Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765205084824_z4epmjy0e",
+      {
+        "id": "kb_1765205084824_z4epmjy0e",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765205026561-y0qs",
+        "pattern": "secretblock1449",
+        "phi": 0.9814374999997455,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T14:44:44.827Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765205084828_i6ur1qcbf",
+      {
+        "id": "kb_1765205084828_i6ur1qcbf",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765205026561-406u",
+        "pattern": "chain the 9088",
+        "phi": 0.9814374999998053,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T14:44:44.828Z",
         "consumedBy": [],
         "transformations": []
       }
