@@ -10,6 +10,7 @@
  */
 
 import CryptoJS from 'crypto-js';
+import { API_ROUTES } from '@/api';
 
 export const BASIN_DIM = 64;
 export const E8_ROOTS_COUNT = 240;
@@ -535,7 +536,7 @@ export async function encodeViaAPI(
   text: string, 
   mode: KernelMode = 'direct'
 ): Promise<EncodingResult> {
-  const response = await fetch('/api/qig/geometric/encode', {
+  const response = await fetch(API_ROUTES.qig.geometricEncode, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, mode }),
@@ -560,7 +561,7 @@ export async function computeSimilarityViaAPI(
   text2: string,
   mode: KernelMode = 'direct'
 ): Promise<SimilarityResult> {
-  const response = await fetch('/api/qig/geometric/similarity', {
+  const response = await fetch(API_ROUTES.qig.geometricSimilarity, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text1, text2, mode }),

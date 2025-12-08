@@ -71,6 +71,7 @@ export const API_ROUTES = {
     triggerCycle: (type: string) => `/api/ocean/cycles/${type}`,
     neurochemistry: '/api/ocean/neurochemistry',
     neurochemistryAdmin: '/api/ocean/neurochemistry/admin',
+    neurochemistryBoost: '/api/ocean/neurochemistry/boost',
     boost: '/api/ocean/boost',
   },
 
@@ -179,6 +180,12 @@ export const API_ROUTES = {
     mnemonic: '/api/format/mnemonic',
     batchAddresses: '/api/format/batch-addresses',
   },
+
+  // Memory Search
+  memorySearch: {
+    search: '/api/memory-search',
+    testPhrase: '/api/test-phrase',
+  },
 } as const;
 
 /**
@@ -234,6 +241,7 @@ export const QUERY_KEYS = {
     cycles: () => [API_ROUTES.ocean.cycles] as const,
     neurochemistry: () => [API_ROUTES.ocean.neurochemistry] as const,
     neurochemistryAdmin: () => [API_ROUTES.ocean.neurochemistryAdmin] as const,
+    neurochemistryBoost: () => [API_ROUTES.ocean.neurochemistryBoost] as const,
   },
   
   autoCycle: {

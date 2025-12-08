@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { QUERY_KEYS } from "@/api";
 import { 
   Waves, 
   Wrench, 
@@ -47,7 +48,7 @@ export function AppSidebar() {
   const { consciousness, neurochemistry, isIdle } = useConsciousness();
 
   const { data: investigationStatus } = useQuery<{ isRunning: boolean; tested: number }>({
-    queryKey: ['/api/investigation/status'],
+    queryKey: QUERY_KEYS.investigation.status(),
     refetchInterval: 3000,
   });
 

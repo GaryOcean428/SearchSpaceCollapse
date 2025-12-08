@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Target, Clock, FlaskConical, Sparkles, Cpu, AlertTriangle, Shield, Activity } from "lucide-react";
@@ -96,7 +97,7 @@ function getModeIcon(mode: string) {
 
 export function WarStatusPanel() {
   const { data: warData, isLoading, error } = useQuery<ActiveWarResponse>({
-    queryKey: ["/api/olympus/war/active"],
+    queryKey: QUERY_KEYS.olympus.warActive(),
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data && data.status === "active") {

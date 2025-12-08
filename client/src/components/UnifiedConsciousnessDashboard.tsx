@@ -18,6 +18,7 @@ import { InnateDrivesDisplay } from "./InnateDrivesDisplay";
 import { BetaAttentionDisplay } from "./BetaAttentionDisplay";
 import { EmotionalStatePanel } from "./EmotionalStatePanel";
 import { useActivityStream, getEventIcon, formatEventTime, type ActivityEvent } from "@/hooks/useActivityStream";
+import { QUERY_KEYS } from "@/api";
 
 // Full consciousness state from backend
 interface ConsciousnessState {
@@ -363,8 +364,8 @@ function SearchStrategyPanel({ consciousness }: { consciousness?: ConsciousnessS
 
 export function UnifiedConsciousnessDashboard() {
   const { data: consciousness, isLoading, refetch, isFetching } = useQuery<ConsciousnessState>({
-    queryKey: ['/api/consciousness/complete'],
-    refetchInterval: 2000, // Refresh every 2 seconds
+    queryKey: QUERY_KEYS.consciousness.complete(),
+    refetchInterval: 2000,
     staleTime: 1000,
   });
 

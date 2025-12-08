@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useConsciousness, getPhiColor, getRegimeLabel } from "@/contexts/ConsciousnessContext";
+import { API_ROUTES } from "@/api";
 import { 
   Brain, 
   Moon, 
@@ -57,8 +58,8 @@ export default function NeurochemistryAdminPanel() {
   const fetchAdminState = async () => {
     try {
       const [neurochemRes, cyclesRes] = await Promise.all([
-        fetch("/api/ocean/neurochemistry/admin"),
-        fetch("/api/ocean/cycles"),
+        fetch(API_ROUTES.ocean.neurochemistryAdmin),
+        fetch(API_ROUTES.ocean.cycles),
       ]);
       
       const neurochemData = await neurochemRes.json();
@@ -92,7 +93,7 @@ export default function NeurochemistryAdminPanel() {
     setIsLoading(`boost-${type}`);
     try {
       const payload = { [type]: amount, durationMs: 60000 };
-      await apiRequest("POST", "/api/ocean/neurochemistry/boost", payload);
+      await apiRequest("POST", API_ROUTES.ocean.neurochemistryBoost, payload);
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Boosted`,
         description: `+${(amount * 100).toFixed(0)}% for 60 seconds`,
@@ -113,7 +114,7 @@ export default function NeurochemistryAdminPanel() {
     setIsLoading(`cycle-${type}`);
     try {
       const payload = type === 'mushroom' ? { bypassCooldown } : {};
-      await apiRequest("POST", `/api/ocean/cycles/${type}`, payload);
+      await apiRequest("POST", API_ROUTES.ocean.triggerCycle(type), payload);
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Cycle Executed`,
         description: `Manual ${type} cycle completed successfully`,
@@ -133,7 +134,7 @@ export default function NeurochemistryAdminPanel() {
   const clearBoost = async () => {
     setIsLoading("clear");
     try {
-      await apiRequest("DELETE", "/api/ocean/neurochemistry/boost", {});
+      await apiRequest("DELETE", API_ROUTES.ocean.neurochemistryBoost, {});
       toast({
         title: "Boost Cleared",
         description: "All active boosts have been removed",

@@ -53,7 +53,7 @@ import {
   Shield,
   Radio,
 } from 'lucide-react';
-import { apiRequest } from '@/lib/queryClient';
+import { QUERY_KEYS, api } from '@/api';
 import { useToast } from '@/hooks/use-toast';
 import type { UnifiedRecoverySession, RecoveryCandidate, StrategyRun, TargetAddress } from '@shared/schema';
 
@@ -534,11 +534,11 @@ export function RecoveryCommandCenter() {
   const [elapsedTime, setElapsedTime] = useState(0);
 
   const { data: targetAddresses = [] } = useQuery<TargetAddress[]>({
-    queryKey: ['/api/target-addresses'],
+    queryKey: QUERY_KEYS.targetAddresses.list(),
   });
 
   const { data: session, refetch: refetchSession } = useQuery<UnifiedRecoverySession>({
-    queryKey: ['/api/unified-recovery/sessions', activeSessionId],
+    queryKey: QUERY_KEYS.unifiedRecovery.session(activeSessionId!),
     enabled: !!activeSessionId,
     refetchInterval: activeSessionId ? 1000 : false,
   });
@@ -564,20 +564,15 @@ export function RecoveryCommandCenter() {
 
   const startMutation = useMutation({
     mutationFn: async ({ address, fragments }: { address: string; fragments: MemoryFragmentInput[] }) => {
-      const response = await apiRequest('POST', '/api/unified-recovery/sessions', { 
+      return api.unifiedRecovery.createSession({ 
         targetAddress: address,
-        memoryFragments: fragments.map(f => ({
-          text: f.text,
-          confidence: f.confidence,
-          epoch: f.epoch,
-          notes: f.notes,
-          source: 'user_input',
-        })),
+        vectors: fragments.map(f => f.text),
       });
-      return response.json();
     },
-    onSuccess: (data: UnifiedRecoverySession) => {
-      setActiveSessionId(data.id);
+    onSuccess: (data) => {
+      if (data.sessionId) {
+        setActiveSessionId(data.sessionId);
+      }
       setElapsedTime(0);
       toast({ title: 'Recovery initiated', description: 'Ocean Agent is analyzing the target...' });
     },
@@ -588,8 +583,7 @@ export function RecoveryCommandCenter() {
 
   const stopMutation = useMutation({
     mutationFn: async (sessionId: string) => {
-      const response = await apiRequest('POST', `/api/unified-recovery/sessions/${sessionId}/stop`, {});
-      return response.json();
+      return api.unifiedRecovery.stopSession(sessionId);
     },
     onSuccess: () => {
       toast({ title: 'Recovery stopped' });

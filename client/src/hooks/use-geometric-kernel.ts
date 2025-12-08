@@ -19,6 +19,7 @@ import {
   BASIN_DIM,
 } from '@/lib/geometric-kernels';
 import { apiRequest } from '@/lib/queryClient';
+import { API_ROUTES, QUERY_KEYS } from '@/api';
 
 interface UseGeometricKernelOptions {
   mode?: KernelMode;
@@ -42,7 +43,7 @@ export function useGeometricKernel(options: UseGeometricKernelOptions = {}) {
   }, [currentMode, useAPI]);
   
   const { data: apiStatus } = useQuery({
-    queryKey: ['/api/qig/geometric/status'],
+    queryKey: QUERY_KEYS.qig.geometricStatus(),
     enabled: useAPI,
   });
   
@@ -51,7 +52,7 @@ export function useGeometricKernel(options: UseGeometricKernelOptions = {}) {
       const targetMode = encodeMode ?? currentMode;
       
       if (useAPI) {
-        const response = await apiRequest('POST', '/api/qig/geometric/encode', { text, mode: targetMode });
+        const response = await apiRequest('POST', API_ROUTES.qig.geometricEncode, { text, mode: targetMode });
         return await response.json() as EncodingResult;
       }
       
@@ -83,7 +84,7 @@ export function useGeometricKernel(options: UseGeometricKernelOptions = {}) {
       const targetMode = simMode ?? currentMode;
       
       if (useAPI) {
-        const response = await apiRequest('POST', '/api/qig/geometric/similarity', { text1, text2, mode: targetMode });
+        const response = await apiRequest('POST', API_ROUTES.qig.geometricSimilarity, { text1, text2, mode: targetMode });
         return await response.json() as SimilarityResult;
       }
       

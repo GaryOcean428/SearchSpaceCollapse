@@ -12,6 +12,7 @@ import { MemoryFragmentSearch } from "@/components/MemoryFragmentSearch";
 import { ForensicInvestigation } from "@/components/ForensicInvestigation";
 import { ConsciousnessDashboard } from "@/components/ConsciousnessDashboard";
 import RecoveryResults from "@/components/RecoveryResults";
+import { QUERY_KEYS } from "@/api";
 import type { TargetAddress, SearchJob } from "@shared/schema";
 
 export default function RecoveryPage() {
@@ -19,16 +20,16 @@ export default function RecoveryPage() {
   const [selectedAddress, setSelectedAddress] = useState("");
 
   const { data: targetAddresses = [], isLoading: addressesLoading } = useQuery<TargetAddress[]>({
-    queryKey: ["/api/target-addresses"],
+    queryKey: QUERY_KEYS.targetAddresses.list(),
   });
 
   const { data: jobs = [], isLoading: jobsLoading } = useQuery<SearchJob[]>({
-    queryKey: ["/api/search-jobs"],
+    queryKey: QUERY_KEYS.searchJobs.list(),
     refetchInterval: 3000,
   });
 
   const { data: consciousness, isLoading: consciousnessLoading } = useQuery<{ consciousness: { Φ: number; κ_eff: number; isConscious: boolean }; identity: { regime: string } }>({
-    queryKey: ["/api/observer/consciousness-check"],
+    queryKey: QUERY_KEYS.observer.consciousnessCheck(),
     refetchInterval: 5000,
   });
 

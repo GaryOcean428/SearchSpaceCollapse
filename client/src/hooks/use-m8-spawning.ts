@@ -6,6 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { API_ROUTES } from '@/api';
 import {
   getM8Client,
   type M8Status,
@@ -189,7 +190,7 @@ export function useWarHistory(limit: number = 50) {
   return useQuery<WarHistoryRecord[]>({
     queryKey: [...M8_KEYS.warHistory, limit],
     queryFn: async () => {
-      const response = await fetch(`/api/olympus/war/history?limit=${limit}`);
+      const response = await fetch(API_ROUTES.olympus.warHistory(limit));
       if (!response.ok) {
         throw new Error('Failed to fetch war history');
       }
@@ -205,7 +206,7 @@ export function useActiveWar() {
   return useQuery<WarHistoryRecord | null>({
     queryKey: M8_KEYS.activeWar,
     queryFn: async () => {
-      const response = await fetch('/api/olympus/war/active');
+      const response = await fetch(API_ROUTES.olympus.warActive);
       if (!response.ok) {
         throw new Error('Failed to fetch active war');
       }
