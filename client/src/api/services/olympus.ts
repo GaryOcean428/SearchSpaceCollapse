@@ -115,3 +115,41 @@ export interface GeometricValidationError {
   regime: string;
   validation_type: 'geometric';
 }
+
+// ==================== SHADOW PANTHEON ====================
+
+export interface ShadowGodStatus {
+  name: string;
+  status: 'idle' | 'active' | 'covert';
+  activity: string;
+}
+
+export interface ShadowPantheonStatus {
+  active_operations: number;
+  stealth_level: number;
+  gods: ShadowGodStatus[];
+}
+
+export interface ShadowPollResponse {
+  success: boolean;
+  assessments: Record<string, unknown>;
+  consensus?: string;
+}
+
+export interface ShadowActResponse {
+  success: boolean;
+  result?: unknown;
+  error?: string;
+}
+
+export async function getShadowStatus(): Promise<ShadowPantheonStatus> {
+  return get<ShadowPantheonStatus>(API_ROUTES.olympus.shadow.status);
+}
+
+export async function pollShadowPantheon(target: string): Promise<ShadowPollResponse> {
+  return post<ShadowPollResponse>(API_ROUTES.olympus.shadow.poll, { target });
+}
+
+export async function triggerShadowAct(god: string, params: Record<string, unknown>): Promise<ShadowActResponse> {
+  return post<ShadowActResponse>(API_ROUTES.olympus.shadow.act(god), params);
+}

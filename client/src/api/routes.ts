@@ -172,6 +172,12 @@ export const API_ROUTES = {
     warHistory: (limit: number) => `/api/olympus/war/history?limit=${limit}`,
     zeusChat: '/api/olympus/zeus/chat',
     zeusSearch: '/api/olympus/zeus/search',
+    // Shadow Pantheon
+    shadow: {
+      status: '/api/olympus/shadow/status',
+      poll: '/api/olympus/shadow/poll',
+      act: (god: string) => `/api/olympus/shadow/${god}/act`,
+    },
   },
 
   // Format Detection
@@ -321,5 +327,6 @@ export const QUERY_KEYS = {
     chatRecent: () => [API_ROUTES.olympus.chatRecent] as const,
     debatesActive: () => [API_ROUTES.olympus.debatesActive] as const,
     warActive: () => [API_ROUTES.olympus.warActive] as const,
+    shadowStatus: () => [API_ROUTES.olympus.shadow.status] as const,
   },
 } as const;

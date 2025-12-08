@@ -831,4 +831,91 @@ router.get('/spawn/status', isAuthenticated, async (req, res) => {
   }
 });
 
+// ==================== SHADOW PANTHEON ROUTES ====================
+
+/**
+ * Get Shadow Pantheon status
+ * Requires authentication
+ */
+router.get('/shadow/status', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/shadow/status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Shadow status error:', error);
+    res.status(503).json({ error: 'Shadow Pantheon unreachable' });
+  }
+});
+
+/**
+ * Poll Shadow Pantheon for covert assessment
+ * Requires authentication with input validation
+ */
+router.post('/shadow/poll', isAuthenticated, validateInput(targetSchema), async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/shadow/poll`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Shadow poll error:', error);
+    res.status(503).json({ error: 'Shadow Pantheon unreachable' });
+  }
+});
+
+/**
+ * Trigger action on a specific Shadow god
+ * Requires authentication with input validation
+ */
+router.post('/shadow/:godName/act', isAuthenticated, async (req, res) => {
+  try {
+    // Validate god name parameter
+    const godNameResult = godNameSchema.safeParse(req.params.godName);
+    if (!godNameResult.success) {
+      res.status(400).json({ error: 'Invalid shadow god name format' });
+      return;
+    }
+    
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const godName = req.params.godName.toLowerCase();
+    
+    const response = await fetch(`${backendUrl}/olympus/shadow/${godName}/act`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error(`[Olympus] Shadow god ${req.params.godName} act error:`, error);
+    res.status(503).json({ error: 'Shadow god unreachable' });
+  }
+});
+
 export default router;
