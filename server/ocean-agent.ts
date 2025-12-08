@@ -1055,14 +1055,14 @@ export class OceanAgent {
           }
           
           // UCP CONSUMER STEP 1: Inject knowledge-influenced hypotheses from bus
-          const knowledgeInfluenced = this.generateKnowledgeInfluencedHypotheses(iterStrategy.name);
+          const knowledgeInfluenced = await this.generateKnowledgeInfluencedHypotheses(iterStrategy.name);
           if (knowledgeInfluenced.length > 0) {
             currentHypotheses = [...currentHypotheses, ...knowledgeInfluenced];
             console.log(`[Ocean] Injected ${knowledgeInfluenced.length} knowledge-influenced hypotheses`);
           }
           
           // UCP CONSUMER STEP 2: Apply cross-strategy insights to boost matching priorities
-          currentHypotheses = this.applyCrossStrategyInsights(currentHypotheses);
+          currentHypotheses = await this.applyCrossStrategyInsights(currentHypotheses);
           
           // UCP CONSUMER STEP 3: Filter using negative knowledge
           const filterResult = await this.filterWithNegativeKnowledge(currentHypotheses);
@@ -3692,7 +3692,7 @@ export class OceanAgent {
       if (!this.strategySubscriptions.get('initialized')) {
         const strategies = ['era_patterns', 'brain_wallet', 'bitcoin_terms', 'linguistic', 'qig_basin', 'historical', 'cross_format'];
         for (const strategy of strategies) {
-          strategyKnowledgeBus.subscribe(`ocean_${strategy}`, strategy, ['*'], (knowledge: any) => {
+          await strategyKnowledgeBus.subscribe(`ocean_${strategy}`, strategy, ['*'], (knowledge: any) => {
             if (knowledge.geometricSignature.phi > 0.5) {
               console.log(`[UCP] Strategy ${strategy} received high-Φ knowledge: ${knowledge.pattern}`);
             }
@@ -3822,7 +3822,7 @@ export class OceanAgent {
       
       // Publish resonant discoveries (high-Φ patterns)
       for (const resonant of testResults.resonant.slice(0, 5)) {
-        strategyKnowledgeBus.publishKnowledge(
+        await strategyKnowledgeBus.publishKnowledge(
           'ocean_agent',
           `resonant_${resonant.id}`,
           resonant.phrase,
@@ -3840,7 +3840,7 @@ export class OceanAgent {
         .filter(h => h.qigScore && h.qigScore.phi > 0.3)
         .slice(0, 3);
       for (const nearMiss of topNearMisses) {
-        strategyKnowledgeBus.publishKnowledge(
+        await strategyKnowledgeBus.publishKnowledge(
           'ocean_agent',
           `nearmiss_${nearMiss.id}`,
           nearMiss.phrase,
@@ -3870,11 +3870,11 @@ export class OceanAgent {
       // ====================================================================
       // 7. CROSS-STRATEGY PATTERN EXPLOITATION
       // ====================================================================
-      const crossPatterns = strategyKnowledgeBus.getCrossStrategyPatterns();
+      const crossPatterns = await strategyKnowledgeBus.getCrossStrategyPatterns();
       if (crossPatterns.length > 0) {
         const topPattern = crossPatterns.sort((a, b) => b.similarity - a.similarity)[0];
         if (topPattern.exploitationCount < 3) {
-          strategyKnowledgeBus.exploitCrossPattern(topPattern.id);
+          await strategyKnowledgeBus.exploitCrossPattern(topPattern.id);
           console.log(`[UCP] Exploiting cross-strategy pattern: ${topPattern.patterns.join(' <-> ')}`);
         }
       }
@@ -3883,7 +3883,7 @@ export class OceanAgent {
       // 8. LOG STATUS - Negative knowledge and bus statistics
       // ====================================================================
       const negStats = await negativeKnowledgeRegistry.getStats();
-      const busStats = strategyKnowledgeBus.getTransferStats();
+      const busStats = await strategyKnowledgeBus.getTransferStats();
       if (iteration % 5 === 0) {
         console.log(`[UCP] Iteration ${iteration} status:`);
         console.log(`  - Negative knowledge: ${negStats.contradictions} contradictions, ${negStats.barriers} barriers, ${negStats.computeSaved} ops saved`);
@@ -3904,7 +3904,7 @@ export class OceanAgent {
       const manifold = geometricMemory.getManifoldSummary();
       const trajectory = temporalGeometry.getTrajectory(targetAddress);
       const negativeStats = await negativeKnowledgeRegistry.getStats();
-      const busStats = strategyKnowledgeBus.getTransferStats();
+      const busStats = await strategyKnowledgeBus.getTransferStats();
       
       console.log(`[UCP] Manifold snapshot at iteration ${iteration}:`);
       console.log(`  - Probes: ${manifold.totalProbes}, Clusters: ${manifold.resonanceClusters}`);
@@ -3937,11 +3937,11 @@ export class OceanAgent {
    * Generate hypotheses influenced by Strategy Knowledge Bus entries
    * This makes the bus a true producer-consumer system
    */
-  generateKnowledgeInfluencedHypotheses(currentStrategy: string): OceanHypothesis[] {
+  async generateKnowledgeInfluencedHypotheses(currentStrategy: string): Promise<OceanHypothesis[]> {
     const influencedHypotheses: OceanHypothesis[] = [];
     
     // Get high-Φ knowledge from the bus via cross-strategy patterns
-    const crossPatterns = strategyKnowledgeBus.getCrossStrategyPatterns();
+    const crossPatterns = await strategyKnowledgeBus.getCrossStrategyPatterns();
     const highPhiPatterns = crossPatterns.filter(p => p.similarity > 0.5);
     
     if (highPhiPatterns.length === 0) {
@@ -4079,8 +4079,8 @@ export class OceanAgent {
   /**
    * Apply cross-strategy pattern insights to working hypotheses
    */
-  applyCrossStrategyInsights(workingSet: OceanHypothesis[]): OceanHypothesis[] {
-    const crossPatterns = strategyKnowledgeBus.getCrossStrategyPatterns();
+  async applyCrossStrategyInsights(workingSet: OceanHypothesis[]): Promise<OceanHypothesis[]> {
+    const crossPatterns = await strategyKnowledgeBus.getCrossStrategyPatterns();
     
     if (crossPatterns.length === 0) {
       return workingSet;
@@ -4126,7 +4126,7 @@ export class OceanAgent {
   }> {
     const trajectory = this.trajectoryId ? temporalGeometry.getTrajectory(this.trajectoryId) : null;
     const negStats = await negativeKnowledgeRegistry.getStats();
-    const busStats = strategyKnowledgeBus.getTransferStats();
+    const busStats = await strategyKnowledgeBus.getTransferStats();
     
     // Get compression stats using the correct methods
     const generatorStats = knowledgeCompressionEngine.getGeneratorStats();

@@ -2313,3 +2313,123 @@ export const testedPhrases = pgTable("tested_phrases", {
 
 export type TestedPhrase = typeof testedPhrases.$inferSelect;
 export type InsertTestedPhrase = typeof testedPhrases.$inferInsert;
+
+// ============================================================================
+// STRATEGY KNOWLEDGE BUS TABLES
+// PostgreSQL-backed storage for cross-strategy knowledge sharing
+// Replaces knowledge_bus_state.json with indexed database storage
+// ============================================================================
+
+/**
+ * KNOWLEDGE STRATEGIES - Strategy capability configurations
+ * Stores static strategy definitions with their types and regimes
+ */
+export const knowledgeStrategies = pgTable("knowledge_strategies", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  generatorTypes: text("generator_types").array().notNull(),
+  compressionMethods: text("compression_methods").array().notNull(),
+  resonanceRangeMin: doublePrecision("resonance_range_min").notNull(),
+  resonanceRangeMax: doublePrecision("resonance_range_max").notNull(),
+  preferredRegimes: text("preferred_regimes").array().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_knowledge_strategies_name").on(table.name),
+]);
+
+export type KnowledgeStrategyRecord = typeof knowledgeStrategies.$inferSelect;
+export type InsertKnowledgeStrategy = typeof knowledgeStrategies.$inferInsert;
+
+/**
+ * KNOWLEDGE SHARED ENTRIES - Core knowledge items shared between strategies
+ * Main storage for knowledge bus entries with consumption tracking
+ */
+export const knowledgeSharedEntries = pgTable("knowledge_shared_entries", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  sourceStrategy: varchar("source_strategy", { length: 64 }).notNull(),
+  generatorId: varchar("generator_id", { length: 128 }).notNull(),
+  pattern: text("pattern").notNull(),
+  phi: doublePrecision("phi").notNull(),
+  kappaEff: doublePrecision("kappa_eff").notNull(),
+  regime: varchar("regime", { length: 32 }).notNull(),
+  sharedAt: timestamp("shared_at").defaultNow().notNull(),
+  consumedBy: text("consumed_by").array().default([]),
+  transformations: jsonb("transformations").default([]),
+}, (table) => [
+  index("idx_knowledge_shared_entries_source").on(table.sourceStrategy),
+  index("idx_knowledge_shared_entries_phi").on(table.phi),
+  index("idx_knowledge_shared_entries_regime").on(table.regime),
+  index("idx_knowledge_shared_entries_shared_at").on(table.sharedAt),
+]);
+
+export type KnowledgeSharedEntryRecord = typeof knowledgeSharedEntries.$inferSelect;
+export type InsertKnowledgeSharedEntry = typeof knowledgeSharedEntries.$inferInsert;
+
+/**
+ * KNOWLEDGE CROSS PATTERNS - Patterns discovered across multiple strategies
+ * Tracks similarity between patterns from different sources
+ */
+export const knowledgeCrossPatterns = pgTable("knowledge_cross_patterns", {
+  id: varchar("id", { length: 128 }).primaryKey(),
+  patterns: text("patterns").array().notNull(),
+  strategies: text("strategies").array().notNull(),
+  similarity: doublePrecision("similarity").notNull(),
+  combinedPhi: doublePrecision("combined_phi").notNull(),
+  discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
+  exploitationCount: integer("exploitation_count").default(0),
+}, (table) => [
+  index("idx_knowledge_cross_patterns_similarity").on(table.similarity),
+  index("idx_knowledge_cross_patterns_combined_phi").on(table.combinedPhi),
+  index("idx_knowledge_cross_patterns_discovered_at").on(table.discoveredAt),
+]);
+
+export type KnowledgeCrossPatternRecord = typeof knowledgeCrossPatterns.$inferSelect;
+export type InsertKnowledgeCrossPattern = typeof knowledgeCrossPatterns.$inferInsert;
+
+/**
+ * KNOWLEDGE TRANSFERS - Event log of knowledge transfers
+ * Records all publish, consume, and generator transfer events
+ */
+export const knowledgeTransfers = pgTable("knowledge_transfers", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  type: varchar("type", { length: 32 }).notNull(),
+  sourceStrategy: varchar("source_strategy", { length: 64 }).notNull(),
+  targetStrategy: varchar("target_strategy", { length: 64 }),
+  generatorId: varchar("generator_id", { length: 128 }).notNull(),
+  pattern: text("pattern").notNull(),
+  phi: doublePrecision("phi").notNull(),
+  kappaEff: doublePrecision("kappa_eff").notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  success: boolean("success").notNull().default(true),
+  transformation: text("transformation"),
+  scaleAdjustment: doublePrecision("scale_adjustment"),
+}, (table) => [
+  index("idx_knowledge_transfers_type").on(table.type),
+  index("idx_knowledge_transfers_source").on(table.sourceStrategy),
+  index("idx_knowledge_transfers_target").on(table.targetStrategy),
+  index("idx_knowledge_transfers_timestamp").on(table.timestamp),
+  index("idx_knowledge_transfers_success").on(table.success),
+]);
+
+export type KnowledgeTransferRecord = typeof knowledgeTransfers.$inferSelect;
+export type InsertKnowledgeTransfer = typeof knowledgeTransfers.$inferInsert;
+
+/**
+ * KNOWLEDGE SCALE MAPPINGS - Scale-invariant bridge configurations
+ * Stores transform matrices for cross-scale knowledge transfer
+ */
+export const knowledgeScaleMappings = pgTable("knowledge_scale_mappings", {
+  id: varchar("id", { length: 128 }).primaryKey(),
+  sourceScale: doublePrecision("source_scale").notNull(),
+  targetScale: doublePrecision("target_scale").notNull(),
+  transformMatrix: doublePrecision("transform_matrix").array().notNull(),
+  preservedFeatures: text("preserved_features").array().notNull(),
+  lossEstimate: doublePrecision("loss_estimate").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_knowledge_scale_mappings_scales").on(table.sourceScale, table.targetScale),
+]);
+
+export type KnowledgeScaleMappingRecord = typeof knowledgeScaleMappings.$inferSelect;
+export type InsertKnowledgeScaleMapping = typeof knowledgeScaleMappings.$inferInsert;
