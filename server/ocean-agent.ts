@@ -69,6 +69,8 @@ import { emotionalSearchGuide, getEmotionalGuidance, type SearchStrategy } from 
 import { oceanNeuromodulator, runNeuromodulationCycle, type NeuromodulationEffect } from './neuromodulation-engine';
 import { neuralOscillators, recommendBrainState, applyBrainStateToSearch, type BrainState } from './neural-oscillators';
 import { olympusClient, type ZeusAssessment, type PollResult, type ObservationContext } from './olympus-client';
+import { executeShadowOperations, type ShadowWarDecision } from './shadow-war-orchestrator';
+import { updateWarMetrics, getActiveWar } from './war-history-storage';
 
 // Import centralized constants (SINGLE SOURCE OF TRUTH)
 import { 
@@ -1007,6 +1009,27 @@ export class OceanAgent {
             
             if (assessment.convergence_score > 0.7) {
               this.adjustStrategyFromZeus(assessment);
+            }
+          }
+          
+          if (this.olympusAvailable && this.olympusWarMode) {
+            const shadowDecisions = await executeShadowOperations(
+              this.olympusWarMode,
+              targetAddress,
+              iteration
+            );
+            console.log('[Ocean] 🌑 Shadow:', JSON.stringify(shadowDecisions));
+            
+            const activeWar = await getActiveWar();
+            if (activeWar && shadowDecisions.length > 0) {
+              const existingMeta = (activeWar.metadata as Record<string, unknown>) || {};
+              await updateWarMetrics(activeWar.id, {
+                metadata: {
+                  ...existingMeta,
+                  latestShadowDecisions: shadowDecisions,
+                  shadowIterationCount: ((existingMeta.shadowIterationCount as number) || 0) + 1,
+                },
+              });
             }
           }
           

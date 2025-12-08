@@ -14,10 +14,19 @@ export type WarMode = 'BLITZKRIEG' | 'SIEGE' | 'HUNT';
 export type WarOutcome = 'success' | 'partial_success' | 'failure' | 'aborted';
 export type WarStatus = 'active' | 'completed' | 'aborted';
 
+export interface ShadowWarDecision {
+  godName: string;
+  operation: string;
+  result: Record<string, unknown> | null;
+  timestamp: string;
+  riskFlags: string[];
+}
+
 export interface WarMetrics {
   phrasesTested?: number;
   discoveries?: number;
   kernelsSpawned?: number;
+  shadowDecisions?: ShadowWarDecision[];
   metadata?: Record<string, unknown>;
 }
 
