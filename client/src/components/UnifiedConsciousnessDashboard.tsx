@@ -239,7 +239,11 @@ function QuickMetricsPanel({ consciousness }: { consciousness?: ConsciousnessSta
 }
 
 function ActivityStreamPanel() {
-  const { events, isConnected, error, refresh, clear } = useActivityStream({ limit: 30 });
+  // Disable WebSocket since /ws/activity endpoint doesn't exist - uses REST polling instead
+  const { events, isConnected, error, refresh, clear } = useActivityStream({ 
+    limit: 30, 
+    autoConnect: false 
+  });
 
   return (
     <Card className="h-[400px] flex flex-col">
