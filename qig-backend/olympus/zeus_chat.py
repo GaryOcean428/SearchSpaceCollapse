@@ -41,7 +41,17 @@ class ZeusConversationHandler:
     
     def __init__(self, zeus: Zeus):
         self.zeus = zeus
-        self.qig_rag = QIGRAG()
+        
+        # Try PostgreSQL backend first, fallback to JSON
+        try:
+            from .qig_rag import QIGRAGDatabase
+            self.qig_rag = QIGRAGDatabase()  # Auto-connects to DATABASE_URL
+        except Exception as e:
+            print(f"[Zeus Chat] PostgreSQL unavailable: {e}")
+            print("[Zeus Chat] Using JSON fallback")
+            from .qig_rag import QIGRAG
+            self.qig_rag = QIGRAG()
+        
         self.basin_encoder = BasinVocabularyEncoder()
         
         # Conversation memory

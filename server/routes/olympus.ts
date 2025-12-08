@@ -646,4 +646,71 @@ router.get('/debates/active', isAuthenticated, async (req, res) => {
   }
 });
 
+/**
+ * Kernel Spawning Routes
+ */
+router.post('/spawn/auto', isAuthenticated, validateInput(targetSchema), async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/spawn/auto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Spawn auto error:', error);
+    res.status(500).json({ error: 'Failed to trigger auto-spawn' });
+  }
+});
+
+router.get('/spawn/list', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/spawn/list`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Spawn list error:', error);
+    res.json({ spawned_kernels: [], count: 0 });
+  }
+});
+
+router.get('/spawn/status', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/spawn/status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Spawn status error:', error);
+    res.status(500).json({ error: 'Failed to get spawn status' });
+  }
+});
+
 export default router;
