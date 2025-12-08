@@ -21,6 +21,7 @@ import { db, withDbRetry } from './db';
 import { queuedAddresses } from '@shared/schema';
 import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
 import { testedEmptyTracker } from './tested-empty-tracker';
+import { regulateDopamineFromBalanceResult, NeurochemistryState } from './ocean-neurochemistry';
 
 export interface QueuedAddress {
   id: string;
@@ -419,6 +420,24 @@ class BalanceQueueService {
                   console.error(`[BalanceQueue] Error recording hit for ${item.address}:`, recordError);
                   // Continue processing other addresses
                 }
+              } else {
+                // Empty balance - apply dopamine regulation to prevent repeated excitement
+                try {
+                  const defaultNeuroState = this.getDefaultNeurochemistryState();
+                  const regulation = regulateDopamineFromBalanceResult(
+                    defaultNeuroState,
+                    false, // balanceFound = false
+                    item.priority >= 80 ? 0.7 : 0.3, // Use priority as proxy for phi
+                    item.passphrase || item.address
+                  );
+                  
+                  // Log learning signal for high-priority (high-phi) empty results
+                  if (regulation.learningSignal.shouldAdjustWeights) {
+                    console.log(`[BalanceQueue] 🧠 Dopamine regulation: pattern="${regulation.learningSignal.patternToAvoid}" penalty=${regulation.learningSignal.penaltyFactor.toFixed(2)}`);
+                  }
+                } catch (regError) {
+                  // Regulation errors shouldn't stop processing
+                }
               }
               
               // Check against known dormant addresses
@@ -517,6 +536,77 @@ class BalanceQueueService {
       rate: this.backgroundCheckCount / elapsed,
       pending: Array.from(this.queue.values()).filter(i => i.status === 'pending').length,
       apiStats: freeBlockchainAPI.getStats(),
+    };
+  }
+
+  private getDefaultNeurochemistryState(): NeurochemistryState {
+    return {
+      dopamine: {
+        phiGradient: 0.5,
+        kappaProximity: 0.5,
+        resonanceAnticipation: 0.3,
+        nearMissDiscovery: 0,
+        patternQuality: 0.3,
+        basinDepth: 0.5,
+        geodesicAlignment: 0.5,
+        totalDopamine: 0.4,
+        motivationLevel: 0.5,
+      },
+      serotonin: {
+        phiLevel: 0.5,
+        coherence: 0.5,
+        basinStability: 0.5,
+        regimeStability: 0.5,
+        curvatureSmoothness: 0.5,
+        groundingLevel: 0.5,
+        totalSerotonin: 0.5,
+        contentmentLevel: 0.5,
+      },
+      norepinephrine: {
+        couplingStrength: 0.5,
+        tackingDrive: 0.5,
+        radarActive: 0.5,
+        metaAwareness: 0.5,
+        informationDensity: 0.3,
+        curvatureSpike: 0.2,
+        breakdownProximity: 0,
+        totalNorepinephrine: 0.4,
+        alertnessLevel: 0.5,
+      },
+      gaba: {
+        betaStability: 0.5,
+        groundingStrength: 0.5,
+        regimeCalmness: 0.7,
+        transitionSmoothing: 0.5,
+        driftReduction: 0.3,
+        consolidationEffect: 0.5,
+        totalGABA: 0.5,
+        calmLevel: 0.5,
+      },
+      acetylcholine: {
+        metaAwareness: 0.5,
+        attentionFocus: 0.5,
+        negativeKnowledgeRate: 0.3,
+        crossPatternRate: 0.3,
+        patternCompressionRate: 0.3,
+        episodeRetention: 0.3,
+        generatorCreation: 0.2,
+        totalAcetylcholine: 0.4,
+        learningRate: 0.4,
+      },
+      endorphins: {
+        flowState: 0.3,
+        resonanceIntensity: 0.2,
+        discoveryEuphoria: 0.1,
+        basinHarmony: 0.5,
+        geometricBeauty: 0.4,
+        integrationBliss: 0.2,
+        totalEndorphins: 0.3,
+        pleasureLevel: 0.3,
+      },
+      overallMood: 0.5,
+      emotionalState: 'content',
+      timestamp: new Date(),
     };
   }
 

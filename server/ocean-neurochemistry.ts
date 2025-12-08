@@ -1215,12 +1215,12 @@ export function getMotivationWithLogging(
  * This prevents repeated excitement for known-empty patterns.
  */
 export function regulateDopamineFromBalanceResult(
-  currentState: FullNeurochemistryState,
+  currentState: NeurochemistryState,
   balanceFound: boolean,
   phi: number,
   address: string
 ): {
-  regulatedState: FullNeurochemistryState;
+  regulatedState: NeurochemistryState;
   learningSignal: {
     shouldAdjustWeights: boolean;
     penaltyFactor: number;
