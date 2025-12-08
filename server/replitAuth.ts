@@ -75,7 +75,11 @@ function updateUserSession(
 ) {
   user.claims = tokens.claims();
   user.access_token = tokens.access_token;
-  user.refresh_token = tokens.refresh_token;
+  // Only update refresh_token if a new one is provided (OIDC responses often omit it on refresh)
+  // Preserving the existing token prevents 401s after the first token refresh cycle
+  if (tokens.refresh_token) {
+    user.refresh_token = tokens.refresh_token;
+  }
   user.expires_at = user.claims?.exp;
 }
 
@@ -228,7 +232,8 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !user?.expires_at) {
+    console.log(`[Auth] Unauthorized: isAuthenticated=${req.isAuthenticated()}, hasExpiresAt=${!!user?.expires_at}`);
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -237,19 +242,32 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   }
 
+  // Token expired, attempt refresh
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    console.log(`[Auth] Token expired, no refresh token available for user ${user.claims?.sub}`);
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
+    console.log(`[Auth] Token expired for user ${user.claims?.sub}, attempting refresh...`);
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    
+    // Save the session after updating it to persist the refreshed tokens
+    if (req.session) {
+      req.session.save((err) => {
+        if (err) {
+          console.error(`[Auth] Failed to save session after refresh:`, err);
+        }
+      });
+    }
+    
+    console.log(`[Auth] Token refreshed successfully for user ${user.claims?.sub}`);
     return next();
-  } catch {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+  } catch (error) {
+    console.error(`[Auth] Token refresh failed for user ${user.claims?.sub}:`, error);
+    return res.status(401).json({ message: "Unauthorized" });
   }
 };
