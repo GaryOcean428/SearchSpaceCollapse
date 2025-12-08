@@ -1079,9 +1079,12 @@ export class OceanAgent {
               break;
             }
           } else {
-            this.consecutivePlateaus = 0;
-            this.lastProgressIteration = iteration;
-            console.log(`[Ocean] ✓ Progress detected, plateau counter reset`);
+            const progress = this.detectActualProgress();
+            if (progress.isProgress) {
+              this.consecutivePlateaus = 0;
+              this.lastProgressIteration = iteration;
+              console.log(`[Ocean] ✓ Actual progress: ${progress.reason} → plateau counter reset`);
+            }
           }
           
           const iterationsSinceProgress = iteration - this.lastProgressIteration;
@@ -3320,6 +3323,36 @@ export class OceanAgent {
     if (foundNearMiss) return false;
     
     return improvement < 0.02 && avgSecond < 0.5;
+  }
+
+  private detectActualProgress(): { isProgress: boolean; reason: string } {
+    const recentEpisodes = this.memory.episodes.slice(-50);
+    
+    if (recentEpisodes.length < 10) {
+      return { isProgress: false, reason: 'insufficient_data' };
+    }
+    
+    const recentPhis = recentEpisodes.map(e => e.phi);
+    const maxPhiSeen = Math.max(...recentPhis);
+    
+    if (maxPhiSeen > 0.75) {
+      return { isProgress: true, reason: 'near_miss_found' };
+    }
+    
+    const olderEpisodes = this.memory.episodes.slice(-100, -50);
+    if (olderEpisodes.length < 20) {
+      return { isProgress: false, reason: 'insufficient_history' };
+    }
+    
+    const avgRecent = recentPhis.reduce((a, b) => a + b, 0) / recentPhis.length;
+    const avgOlder = olderEpisodes.map(e => e.phi).reduce((a, b) => a + b, 0) / olderEpisodes.length;
+    const improvement = avgRecent - avgOlder;
+    
+    if (improvement > 0.05) {
+      return { isProgress: true, reason: 'phi_improvement' };
+    }
+    
+    return { isProgress: false, reason: 'no_meaningful_progress' };
   }
 
   private async applyMushroomMode(currentHypotheses: OceanHypothesis[]): Promise<OceanHypothesis[]> {
