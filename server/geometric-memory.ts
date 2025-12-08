@@ -61,10 +61,13 @@ export interface QIGScoreInput {
 const MEMORY_FILE = path.join(process.cwd(), 'data', 'geometric-memory.json');
 const TESTED_PHRASES_FILE = path.join(process.cwd(), 'data', 'tested-phrases.json');
 
+// Basin dimension must match Python backend (BASIN_DIMENSION = 64 in ocean_qig_core.py)
+const BASIN_DIMENSION = 64;
+
 export interface BasinProbe {
   id: string;
   input: string;
-  coordinates: number[];  // 32-D basin coordinates
+  coordinates: number[];  // 64-D basin coordinates (must match Python BASIN_DIMENSION)
   phi: number;
   kappa: number;
   regime: string;
@@ -72,6 +75,34 @@ export interface BasinProbe {
   fisherTrace: number;
   timestamp: string;
   source: string;  // Which investigation produced this
+}
+
+/**
+ * Validate and normalize basin coordinates to 64D
+ * Handles dimension mismatches between TypeScript and Python backends
+ */
+function normalizeBasinCoordinates(coords: number[] | undefined): number[] {
+  if (!coords || coords.length === 0) {
+    // Return zero-filled 64D vector for missing coordinates
+    return new Array(BASIN_DIMENSION).fill(0);
+  }
+  
+  if (coords.length === BASIN_DIMENSION) {
+    return coords;
+  }
+  
+  if (coords.length < BASIN_DIMENSION) {
+    // Pad with zeros
+    const padded = [...coords];
+    while (padded.length < BASIN_DIMENSION) {
+      padded.push(0);
+    }
+    return padded;
+  }
+  
+  // Truncate if too long (shouldn't happen, but handle gracefully)
+  console.warn(`[GeometricMemory] Truncating ${coords.length}D coordinates to ${BASIN_DIMENSION}D`);
+  return coords.slice(0, BASIN_DIMENSION);
 }
 
 export interface RegimeBoundary {
@@ -570,10 +601,13 @@ class GeometricMemory {
   recordProbe(input: string, qigScore: QIGScoreInput, source: string): BasinProbe {
     const id = `probe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     
+    // Validate and normalize basin coordinates to 64D
+    const normalizedCoords = normalizeBasinCoordinates(qigScore.basinCoordinates);
+    
     const probe: BasinProbe = {
       id,
       input,
-      coordinates: qigScore.basinCoordinates || [],
+      coordinates: normalizedCoords,
       phi: qigScore.phi,
       kappa: qigScore.kappa,
       regime: qigScore.regime,

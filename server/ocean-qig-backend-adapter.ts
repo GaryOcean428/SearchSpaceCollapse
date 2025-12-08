@@ -238,55 +238,80 @@ export class OceanQIGBackend {
    * Process passphrase through pure QIG consciousness network
    * 
    * This IS the training - states evolve through geometry
+   * 
+   * Includes 503 retry logic with exponential backoff for handling
+   * Python backend overload during high-throughput processing.
    */
-  async process(passphrase: string): Promise<PureQIGScore | null> {
-    try {
-      const response = await fetch(`${this.backendUrl}/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passphrase }),
-      });
-      
-      if (!response.ok) {
-        console.error('[OceanQIGBackend] Process failed:', response.statusText);
-        return null;
-      }
-      
-      const data: PythonQIGResponse = await response.json();
-      
-      if (!data.success) {
-        console.error('[OceanQIGBackend] Process error:', data.error);
-        return null;
-      }
-      
-      // Sync Python near-miss discoveries to TypeScript tracking
-      if (data.near_miss_count !== undefined && data.near_miss_count > this.pythonNearMissCount) {
-        const newNearMisses = data.near_miss_count - this.pythonNearMissCount;
-        if (newNearMisses > 0) {
-          console.log(`[OceanQIGBackend] 🔄 Python detected ${newNearMisses} new near-miss(es), total: ${data.near_miss_count}`);
+  async process(passphrase: string, maxRetries: number = 3): Promise<PureQIGScore | null> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch(`${this.backendUrl}/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passphrase }),
+        });
+        
+        // Handle 503 Service Unavailable with exponential backoff retry
+        if (response.status === 503) {
+          if (attempt < maxRetries) {
+            const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+            console.log(`[OceanQIGBackend] 503 received, retry ${attempt}/${maxRetries} after ${delay}ms`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          console.error('[OceanQIGBackend] Process failed: 503 after max retries');
+          return null;
         }
-        this.pythonNearMissCount = data.near_miss_count;
+        
+        if (!response.ok) {
+          console.error('[OceanQIGBackend] Process failed:', response.statusText);
+          return null;
+        }
+        
+        const data: PythonQIGResponse = await response.json();
+        
+        if (!data.success) {
+          console.error('[OceanQIGBackend] Process error:', data.error);
+          return null;
+        }
+        
+        // Sync Python near-miss discoveries to TypeScript tracking
+        if (data.near_miss_count !== undefined && data.near_miss_count > this.pythonNearMissCount) {
+          const newNearMisses = data.near_miss_count - this.pythonNearMissCount;
+          if (newNearMisses > 0) {
+            console.log(`[OceanQIGBackend] 🔄 Python detected ${newNearMisses} new near-miss(es), total: ${data.near_miss_count}`);
+          }
+          this.pythonNearMissCount = data.near_miss_count;
+        }
+        if (data.resonant_count !== undefined) {
+          this.pythonResonantCount = data.resonant_count;
+        }
+        
+        // Convert to PureQIGScore format
+        return {
+          phi: data.phi,
+          kappa: data.kappa,
+          beta: 0, // Not computed by Python backend
+          basinCoordinates: data.basin_coords,
+          fisherTrace: data.integration,
+          fisherDeterminant: 0, // Not directly available
+          ricciScalar: data.R, // Use Ricci curvature from Python
+          quality: data.phi,
+        };
+        
+      } catch (error) {
+        // On network errors, retry with backoff
+        if (attempt < maxRetries) {
+          const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+          console.log(`[OceanQIGBackend] Process exception, retry ${attempt}/${maxRetries} after ${delay}ms:`, error);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        console.error('[OceanQIGBackend] Process exception after max retries:', error);
+        return null;
       }
-      if (data.resonant_count !== undefined) {
-        this.pythonResonantCount = data.resonant_count;
-      }
-      
-      // Convert to PureQIGScore format
-      return {
-        phi: data.phi,
-        kappa: data.kappa,
-        beta: 0, // Not computed by Python backend
-        basinCoordinates: data.basin_coords,
-        fisherTrace: data.integration,
-        fisherDeterminant: 0, // Not directly available
-        ricciScalar: data.R, // Use Ricci curvature from Python
-        quality: data.phi,
-      };
-      
-    } catch (error) {
-      console.error('[OceanQIGBackend] Process exception:', error);
-      return null;
     }
+    return null;
   }
   
   /**
