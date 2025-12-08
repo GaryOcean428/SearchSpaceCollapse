@@ -27,7 +27,15 @@ class BaseEncoder(ABC):
     
     Subclasses must implement _load_vocabulary() to define their
     specific vocabulary loading strategy.
+    
+    Subclasses can override:
+    - unknown_token_phi: Phi score for unknown tokens (default 0.4)
+    - tokenize_pattern: Regex pattern for tokenization
     """
+
+    # Default values - can be overridden by subclasses
+    unknown_token_phi: float = 0.4
+    tokenize_pattern: str = r"\b[\w']+\b"
 
     def __init__(self, vocab_path: Optional[str] = None):
         self.basin_dim = BASIN_DIMENSION
@@ -107,9 +115,10 @@ class BaseEncoder(ABC):
         Tokenize text into geometric tokens.
 
         Uses simple word tokenization with punctuation handling.
+        Pattern can be customized via tokenize_pattern class attribute.
         """
         text = text.lower()
-        tokens = re.findall(r"\b[\w']+\b", text)
+        tokens = re.findall(self.tokenize_pattern, text)
         return tokens
 
     def encode(self, text: str) -> np.ndarray:
@@ -140,13 +149,13 @@ class BaseEncoder(ABC):
                 basin = self._hash_to_basin(token)
                 self.token_vocab[token] = basin
                 self.token_frequencies[token] = 1
-                self.token_phi_scores[token] = 0.4  # Low phi for unknown
+                self.token_phi_scores[token] = self.unknown_token_phi
 
             token_basins.append(basin)
 
             # Fisher weight = frequency × phi
             freq = self.token_frequencies[token]
-            phi = self.token_phi_scores.get(token, 0.4)
+            phi = self.token_phi_scores.get(token, self.unknown_token_phi)
             weight = freq * phi
             token_weights.append(weight)
 

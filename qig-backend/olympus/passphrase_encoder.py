@@ -23,6 +23,10 @@ class PassphraseEncoder(BaseEncoder):
     while keeping conversational language in a separate encoder.
     """
 
+    # Override base class defaults to match original PassphraseEncoder behavior
+    unknown_token_phi = 0.3  # Lower phi for unknown tokens in passphrase mode
+    tokenize_pattern = r'\b\w+\b'  # No apostrophes in BIP39 words
+
     def __init__(self, vocab_path: Optional[str] = None):
         # Set default path before calling parent __init__
         if vocab_path is None:
