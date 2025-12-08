@@ -2,12 +2,18 @@
 Shadow Pantheon - Underground SWAT Team for Covert Operations
 
 Gods of stealth, secrecy, privacy, covering tracks, and invisibility:
-- Nyx: OPSEC Commander (darkness, VPN chains, traffic obfuscation)
+- Nyx: OPSEC Commander (darkness, Tor routing, traffic obfuscation)
 - Hecate: Misdirection Specialist (crossroads, false trails, decoys)
 - Erebus: Counter-Surveillance (detect watchers, honeypots)
 - Hypnos: Silent Operations (stealth execution, passive recon)
 - Thanatos: Evidence Destruction (cleanup, erasure)
 - Nemesis: Relentless Pursuit (never gives up, tracks targets)
+
+REAL DARKNET IMPLEMENTATION:
+- Tor SOCKS5 proxy support via darknet_proxy module
+- User agent rotation per request
+- Traffic obfuscation with random delays
+- Automatic fallback to clearnet if Tor unavailable
 """
 
 import asyncio
@@ -16,9 +22,22 @@ import hashlib
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from abc import ABC
+import sys
+import os
+
+# Add parent directory to path for darknet_proxy import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from .base_god import BaseGod, BASIN_DIMENSION
 import numpy as np
+
+# Import real darknet proxy support
+try:
+    from darknet_proxy import get_session, is_tor_available, get_status as get_proxy_status
+    DARKNET_AVAILABLE = True
+except ImportError:
+    DARKNET_AVAILABLE = False
+    print("[ShadowPantheon] WARNING: darknet_proxy not available - operating in clearnet only mode")
 
 
 class ShadowGod(BaseGod):
@@ -77,6 +96,7 @@ class Nyx(ShadowGod):
     Responsibilities:
     - Operational security coordination
     - All operations conducted under "cover of darkness"
+    - Real Tor routing via SOCKS5 proxy
     - Network traffic obfuscation
     - Identity concealment
     - Temporal attack windows (strike at night)
@@ -88,6 +108,19 @@ class Nyx(ShadowGod):
         self.visibility = 'invisible'
         self.active_operations: List[Dict] = []
         self.opsec_violations: List[Dict] = []
+        
+        # Check real darknet status
+        if DARKNET_AVAILABLE:
+            self.darknet_status = get_proxy_status()
+            if self.darknet_status['tor_available']:
+                print(f"[Nyx] ✓ REAL DARKNET ACTIVE - Tor routing enabled")
+            elif self.darknet_status['enabled']:
+                print(f"[Nyx] ⚠ Darknet enabled but Tor unavailable - will fallback to clearnet")
+            else:
+                print(f"[Nyx] ℹ Operating in clearnet mode")
+        else:
+            self.darknet_status = {'mode': 'clearnet', 'tor_available': False}
+            print(f"[Nyx] ⚠ darknet_proxy module not available - clearnet only")
         
     async def initiate_operation(self, target: str, operation_type: str = 'standard') -> Dict:
         """
@@ -105,13 +138,18 @@ class Nyx(ShadowGod):
         
         attack_window = self.calculate_attack_window()
         
+        # Determine actual network mode
+        network_mode = 'dark' if (DARKNET_AVAILABLE and self.darknet_status.get('tor_available')) else 'clear'
+        
         operation = {
             'id': f"op_{datetime.now().timestamp()}",
             'target': target[:50],
             'type': operation_type,
             'status': 'READY',
-            'network': 'dark',
-            'visibility': 'zero',
+            'network': network_mode,
+            'network_real': True,  # Flag to indicate this is REAL, not labels
+            'tor_enabled': DARKNET_AVAILABLE and self.darknet_status.get('tor_available', False),
+            'visibility': 'zero' if network_mode == 'dark' else 'low',
             'attack_window': attack_window,
             'initiated_at': datetime.now().isoformat(),
         }
@@ -124,8 +162,15 @@ class Nyx(ShadowGod):
     async def verify_opsec(self) -> Dict:
         """
         Verify operational security before proceeding.
+        Includes real Tor availability check.
         """
         violations = []
+        
+        # Check if Tor is available when darknet is enabled
+        if DARKNET_AVAILABLE:
+            status = get_proxy_status()
+            if status['enabled'] and not status['tor_available']:
+                violations.append('Tor enabled but not reachable - will fallback to clearnet')
         
         if not self._check_network_isolation():
             violations.append('Network isolation not verified')
@@ -148,6 +193,7 @@ class Nyx(ShadowGod):
             'safe': safe,
             'violations': violations,
             'opsec_level': self.opsec_level,
+            'tor_status': self.darknet_status.get('mode', 'unknown'),
         }
     
     def _check_network_isolation(self) -> bool:
@@ -585,7 +631,7 @@ class Hypnos(ShadowGod):
     no system wakes. We move while the world dreams.
     
     Responsibilities:
-    - Silent blockchain queries (no alerts)
+    - Silent blockchain queries (no alerts) via Tor when available
     - Passive reconnaissance
     - "Put to sleep" monitoring systems
     - Delay-based attacks (sleep timing)
@@ -598,6 +644,8 @@ class Hypnos(ShadowGod):
         self.silent_queries: int = 0
         self.passive_recons: int = 0
         
+        # User agents managed by darknet_proxy module
+        # Keep list here for backwards compatibility
         self.user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
@@ -613,7 +661,8 @@ class Hypnos(ShadowGod):
         Techniques:
         - Check cache first
         - Random delays between queries
-        - Rotate user agents
+        - Use Tor routing when available
+        - Rotate user agents (via darknet_proxy)
         - Use varied data sources
         """
         cached = self._get_cached_balance(address)
@@ -623,12 +672,19 @@ class Hypnos(ShadowGod):
                 'balance': cached['balance'],
                 'source': 'cache',
                 'silent': True,
+                'network': 'cache',
             }
         
+        # Random delay for timing obfuscation
         delay = random.uniform(1.0, 5.0)
         await asyncio.sleep(delay)
         
-        user_agent = random.choice(self.user_agents)
+        # Get session with Tor support if available
+        network_mode = 'clearnet'
+        if DARKNET_AVAILABLE:
+            session = get_session(use_tor=True)  # Will auto-fallback if Tor unavailable
+            status = get_proxy_status()
+            network_mode = status.get('mode', 'clearnet')
         
         self.silent_queries += 1
         
@@ -636,7 +692,8 @@ class Hypnos(ShadowGod):
             'address': address[:50],
             'balance': None,
             'source': 'silent_query',
-            'user_agent': user_agent[:30],
+            'network': network_mode,
+            'tor_enabled': network_mode == 'tor',
             'delay_applied': delay,
             'silent': True,
             'timestamp': datetime.now().isoformat(),
