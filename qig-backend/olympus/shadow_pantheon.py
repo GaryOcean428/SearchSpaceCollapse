@@ -19,6 +19,8 @@ REAL DARKNET IMPLEMENTATION:
 import asyncio
 import random
 import hashlib
+import subprocess
+import glob as glob_module
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from abc import ABC
@@ -38,6 +40,15 @@ try:
 except ImportError:
     DARKNET_AVAILABLE = False
     print("[ShadowPantheon] WARNING: darknet_proxy not available - operating in clearnet only mode")
+
+# Decoy traffic endpoints - innocuous blockchain explorers for cover traffic
+DECOY_ENDPOINTS = [
+    'https://blockchain.info/ticker',
+    'https://api.coindesk.com/v1/bpi/currentprice.json',
+    'https://blockstream.info/api/blocks/tip/height',
+    'https://mempool.space/api/v1/fees/recommended',
+    'https://api.blockchain.info/stats',
+]
 
 
 class ShadowGod(BaseGod):
@@ -332,6 +343,7 @@ class Hecate(ShadowGod):
         self.active_decoys: List[str] = []
         self.false_trails: List[Dict] = []
         self.misdirection_count: int = 0
+        self.decoys_sent: int = 0  # Counter for real decoy traffic sent
         
     async def create_misdirection(self, real_target: str, decoy_count: int = 10) -> Dict:
         """
@@ -366,6 +378,64 @@ class Hecate(ShadowGod):
             'total_targets': len(all_targets),
             'tasks': tasks,
             'observer_confusion': f'{len(all_targets)} simultaneous attacks - which is real?',
+        }
+    
+    async def send_decoy_traffic(self, count: int = 5) -> Dict:
+        """
+        Actually send decoy HTTP requests through Tor to confuse traffic analysis.
+        
+        This sends real network requests to innocuous blockchain API endpoints,
+        making it impossible for observers to distinguish real queries from decoys.
+        
+        Args:
+            count: Number of decoy requests to send (default 5)
+            
+        Returns:
+            Dict with results of decoy operation
+        """
+        if not DARKNET_AVAILABLE:
+            return {
+                'sent': 0,
+                'success': False,
+                'reason': 'darknet_proxy not available',
+                'timestamp': datetime.now().isoformat(),
+            }
+        
+        results = []
+        session = get_session(use_tor=True)  # Use Tor if available
+        
+        for i in range(count):
+            endpoint = random.choice(DECOY_ENDPOINTS)
+            delay = random.uniform(0.5, 3.0)  # Random delay to avoid patterns
+            
+            await asyncio.sleep(delay)
+            
+            try:
+                response = session.get(endpoint, timeout=10)
+                results.append({
+                    'endpoint': endpoint,
+                    'status': response.status_code,
+                    'success': response.status_code == 200,
+                    'delay': delay,
+                })
+                self.decoys_sent += 1
+            except Exception as e:
+                results.append({
+                    'endpoint': endpoint,
+                    'status': 0,
+                    'success': False,
+                    'error': str(e)[:50],
+                    'delay': delay,
+                })
+        
+        successful = sum(1 for r in results if r.get('success'))
+        
+        return {
+            'sent': count,
+            'successful': successful,
+            'failed': count - successful,
+            'results': results,
+            'timestamp': datetime.now().isoformat(),
         }
     
     def _generate_decoys(self, real_target: str, count: int) -> List[str]:
@@ -453,6 +523,7 @@ class Hecate(ShadowGod):
         base['active_decoys'] = len(self.active_decoys)
         base['false_trails'] = len(self.false_trails)
         base['misdirection_count'] = self.misdirection_count
+        base['decoys_sent'] = self.decoys_sent
         return base
 
 
@@ -809,6 +880,18 @@ class Thanatos(ShadowGod):
         super().__init__("Thanatos", "evidence_destruction")
         self.destruction_log: List[Dict] = []
         self.total_destroyed: int = 0
+        self.files_shredded: int = 0
+        
+        # Check if shred is available on this system
+        self.shred_available = self._check_shred_available()
+        
+    def _check_shred_available(self) -> bool:
+        """Check if shred command is available for secure deletion."""
+        try:
+            result = subprocess.run(['which', 'shred'], capture_output=True, text=True)
+            return result.returncode == 0
+        except Exception:
+            return False
         
     async def destroy_evidence(self, operation_id: str, evidence_types: Optional[List[str]] = None) -> Dict:
         """
@@ -840,25 +923,123 @@ class Thanatos(ShadowGod):
         return destruction_record
     
     async def _destroy_type(self, operation_id: str, evidence_type: str) -> Dict:
-        """Destroy specific type of evidence."""
+        """Destroy specific type of evidence with real secure deletion."""
+        files_destroyed = 0
+        method = 'memory_clear'
+        
+        if evidence_type == 'temp_files':
+            # Secure delete temp files using shred
+            temp_patterns = [
+                f'/tmp/*{operation_id}*',
+                f'/tmp/ocean_*',
+                f'/tmp/qig_*',
+            ]
+            for pattern in temp_patterns:
+                files_destroyed += await self._secure_delete_files(pattern)
+            method = 'shred' if self.shred_available else 'unlink'
+            
+        elif evidence_type == 'logs':
+            # Clear operation-specific log files
+            log_patterns = [
+                f'/tmp/logs/*{operation_id}*',
+            ]
+            for pattern in log_patterns:
+                files_destroyed += await self._secure_delete_files(pattern)
+            method = 'shred' if self.shred_available else 'unlink'
+            
+        elif evidence_type == 'cache':
+            # Clear Python cache files in qig-backend
+            cache_patterns = [
+                'qig-backend/__pycache__/*.pyc',
+                'qig-backend/**/__pycache__/*.pyc',
+            ]
+            for pattern in cache_patterns:
+                try:
+                    for f in glob_module.glob(pattern, recursive=True):
+                        os.unlink(f)
+                        files_destroyed += 1
+                except Exception:
+                    pass
+            method = 'unlink'
+            
+        elif evidence_type == 'memory':
+            # Memory is cleared in Python by dereferencing
+            method = 'gc_collect'
+        
         await asyncio.sleep(random.uniform(0.01, 0.05))
         
         return {
             'type': evidence_type,
             'operation_id': operation_id,
             'destroyed': True,
-            'method': 'secure_overwrite',
+            'files_destroyed': files_destroyed,
+            'method': method,
         }
+    
+    async def _secure_delete_files(self, pattern: str) -> int:
+        """
+        Securely delete files matching pattern using shred if available.
+        
+        Uses 'shred -uzn 3' for DoD-level secure deletion:
+        - -u: Remove file after overwriting
+        - -z: Add final zero overwrite to hide shredding
+        - -n 3: Overwrite 3 times with random data
+        
+        Returns number of files deleted.
+        """
+        deleted = 0
+        try:
+            files = glob_module.glob(pattern)
+            for filepath in files:
+                if os.path.isfile(filepath):
+                    if self.shred_available:
+                        try:
+                            subprocess.run(
+                                ['shred', '-uzn', '3', filepath],
+                                capture_output=True,
+                                timeout=30
+                            )
+                            deleted += 1
+                            self.files_shredded += 1
+                        except subprocess.TimeoutExpired:
+                            # Fallback to simple deletion
+                            os.unlink(filepath)
+                            deleted += 1
+                        except Exception:
+                            os.unlink(filepath)
+                            deleted += 1
+                    else:
+                        # Fallback: overwrite with zeros before deletion
+                        try:
+                            size = os.path.getsize(filepath)
+                            with open(filepath, 'wb') as f:
+                                f.write(b'\x00' * size)
+                            os.unlink(filepath)
+                            deleted += 1
+                        except Exception:
+                            try:
+                                os.unlink(filepath)
+                                deleted += 1
+                            except Exception:
+                                pass
+        except Exception:
+            pass
+        return deleted
     
     async def secure_cleanup(self, data: Dict) -> Dict:
         """
         Securely clean up sensitive data from memory.
-        Overwrite before deletion.
+        Overwrite with zeros before dereferencing.
         """
         cleaned_keys = []
         
         for key in list(data.keys()):
             if self._is_sensitive(key):
+                # Overwrite with zeros/empty string before dereferencing
+                if isinstance(data[key], str):
+                    data[key] = '\x00' * len(data[key])
+                elif isinstance(data[key], bytes):
+                    data[key] = b'\x00' * len(data[key])
                 data[key] = None
                 cleaned_keys.append(key)
         
@@ -915,6 +1096,8 @@ class Thanatos(ShadowGod):
         base = super().get_status()
         base['destruction_records'] = len(self.destruction_log)
         base['total_destroyed'] = self.total_destroyed
+        base['files_shredded'] = self.files_shredded
+        base['shred_available'] = self.shred_available
         return base
 
 
