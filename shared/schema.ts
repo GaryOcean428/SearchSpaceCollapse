@@ -313,6 +313,44 @@ export const userTargetAddresses = pgTable("user_target_addresses", {
 export type UserTargetAddress = typeof userTargetAddresses.$inferSelect;
 export type InsertUserTargetAddress = typeof userTargetAddresses.$inferInsert;
 
+// Recovery candidates - Postgres-backed store for tested phrases and scores
+export const recoveryCandidates = pgTable("recovery_candidates", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  phrase: text("phrase").notNull(),
+  address: varchar("address", { length: 62 }).notNull(),
+  score: doublePrecision("score").notNull(),
+  qigScore: jsonb("qig_score"),
+  testedAt: timestamp("tested_at").defaultNow().notNull(),
+  type: varchar("type", { length: 32 }),
+}, (table) => [
+  index("idx_recovery_candidates_score").on(table.score),
+  index("idx_recovery_candidates_address").on(table.address),
+  index("idx_recovery_candidates_tested_at").on(table.testedAt),
+]);
+
+export type RecoveryCandidateRecord = typeof recoveryCandidates.$inferSelect;
+export type InsertRecoveryCandidate = typeof recoveryCandidates.$inferInsert;
+
+// Recovery search jobs - durable job tracking for BIP-39 sweeps
+export const recoverySearchJobs = pgTable("recovery_search_jobs", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  strategy: varchar("strategy", { length: 64 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull(),
+  params: jsonb("params").notNull(),
+  progress: jsonb("progress").notNull(),
+  stats: jsonb("stats").notNull(),
+  logs: jsonb("logs").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_recovery_search_jobs_status").on(table.status),
+  index("idx_recovery_search_jobs_created_at").on(table.createdAt),
+  index("idx_recovery_search_jobs_updated_at").on(table.updatedAt),
+]);
+
+export type RecoverySearchJobRecord = typeof recoverySearchJobs.$inferSelect;
+export type InsertRecoverySearchJob = typeof recoverySearchJobs.$inferInsert;
+
 // Balance change events for monitoring
 export const balanceChangeEvents = pgTable("balance_change_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
