@@ -213,6 +213,31 @@ Each address is explored multiple times until:
 
 This ensures thorough exploration of the search space.
 
+## Documentation
+
+All documentation follows ISO 27001 date-versioned naming: `YYYYMMDD-name-function-versionSTATUS.md`
+
+See [Documentation Index](docs/00-index.md) for the complete catalog.
+
+### Documentation Structure
+
+- **`docs/01-policies/`** - Organizational policies and frozen facts
+- **`docs/02-procedures/`** - Operational procedures and guides
+- **`docs/03-technical/`** - Technical documentation and architecture
+- **`docs/04-records/`** - Records and verification reports
+- **`docs/05-decisions/`** - Architecture Decision Records (ADRs)
+- **`docs/06-implementation/`** - Implementation guides and status
+- **`docs/07-user-guides/`** - End-user documentation
+- **`docs/08-experiments/`** - Experimental features and research
+
+### Maintaining Documentation
+
+Run the documentation maintenance script to validate naming conventions and generate the index:
+
+```bash
+npm run docs:maintain
+```
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) for details.
