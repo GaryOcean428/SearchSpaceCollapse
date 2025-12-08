@@ -241,6 +241,12 @@ class BaseEncoder(ABC):
         - File size limits enforced
         """
         path = path or self.vocab_path
+        
+        # Validate path is provided
+        if not path:
+            class_name = self.__class__.__name__
+            print(f"[{class_name}] ERROR: No vocabulary path specified")
+            return
 
         # SECURITY: Validate and sanitize path
         # Get absolute path and resolve any ../ or symlinks
@@ -256,9 +262,8 @@ class BaseEncoder(ABC):
         # Verify path is within allowed directories
         path_allowed = False
         for allowed_dir in allowed_dirs:
-            if abs_path.startswith(os.path.abspath(allowed_dir) + os.sep) or abs_path == os.path.abspath(
-                allowed_dir
-            ):
+            allowed_dir_abs = os.path.abspath(allowed_dir)
+            if abs_path.startswith(allowed_dir_abs + os.sep) or abs_path == allowed_dir_abs:
                 path_allowed = True
                 break
 
