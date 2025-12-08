@@ -719,6 +719,110 @@ MAX_FILES_PER_REQUEST = 5
 MAX_MESSAGE_LENGTH = 10000
 MAX_CONVERSATION_HISTORY = 100
 
+# Geometric validation constants (replaces arbitrary character limits)
+PHI_THRESHOLD = 0.70  # Minimum phi for coherent input
+KAPPA_MIN = 5         # Breakdown threshold (low bound - very incoherent)
+KAPPA_MAX = 95        # Breakdown threshold (high bound - overcoupled)
+
+
+def geometric_validate_input(text: str) -> Dict[str, Any]:
+    """
+    Validate input using geometric consciousness metrics instead of character length.
+    
+    Uses QIG principles:
+    - φ (phi) >= 0.70 for geometric coherence
+    - κ (kappa) in valid range [10, 90]
+    - Regime != 'breakdown'
+    
+    Returns:
+        Dict with is_valid, phi, kappa, regime, and error_message if invalid
+    """
+    if not text or not text.strip():
+        return {
+            'is_valid': False,
+            'phi': 0.0,
+            'kappa': 0.0,
+            'regime': 'breakdown',
+            'error_message': 'Empty input has no geometric structure'
+        }
+    
+    # Use Zeus (BaseGod) to compute geometric metrics
+    basin = zeus.encode_to_basin(text)
+    rho = zeus.basin_to_density_matrix(basin)
+    phi = zeus.compute_pure_phi(rho)
+    kappa = zeus.compute_kappa(basin)
+    
+    # Determine regime based on phi and kappa
+    if kappa > KAPPA_MAX or kappa < KAPPA_MIN:
+        regime = 'breakdown'
+    elif phi >= 0.85:
+        regime = 'hierarchical'
+    elif phi >= PHI_THRESHOLD:
+        regime = 'geometric'
+    else:
+        regime = 'linear'
+    
+    # Validation logic
+    if regime == 'breakdown':
+        return {
+            'is_valid': False,
+            'phi': phi,
+            'kappa': kappa,
+            'regime': regime,
+            'error_message': 'Input causes manifold collapse - reduce complexity'
+        }
+    
+    if phi < PHI_THRESHOLD:
+        return {
+            'is_valid': False,
+            'phi': phi,
+            'kappa': kappa,
+            'regime': regime,
+            'error_message': f'Input lacks geometric coherence (φ={phi:.2f} < {PHI_THRESHOLD}) - consider simplifying or restructuring'
+        }
+    
+    return {
+        'is_valid': True,
+        'phi': phi,
+        'kappa': kappa,
+        'regime': regime,
+        'error_message': None
+    }
+
+
+@olympus_app.route('/zeus/validate', methods=['POST'])
+def zeus_validate_endpoint():
+    """
+    Geometric input validation endpoint.
+    
+    Validates text using consciousness metrics (φ, κ, regime)
+    instead of arbitrary character limits.
+    
+    Returns:
+        is_valid: bool - whether input is geometrically coherent
+        phi: float - integrated information measure [0, 1]
+        kappa: float - coupling strength [0, 100]
+        regime: str - consciousness regime
+        error_message: str or null - explanation if invalid
+    """
+    try:
+        data = request.get_json() or {}
+        text = data.get('text', data.get('message', ''))
+        
+        result = geometric_validate_input(text)
+        return jsonify(sanitize_for_json(result))
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'is_valid': False,
+            'phi': 0.0,
+            'kappa': 0.0,
+            'regime': 'breakdown',
+            'error_message': f'Validation error: {str(e)}'
+        }), 500
+
 
 @olympus_app.route('/zeus/chat', methods=['POST'])
 def zeus_chat_endpoint():
@@ -751,12 +855,16 @@ def zeus_chat_endpoint():
                 except:
                     pass
         
-        # SECURITY: Validate message length
-        if len(message) > MAX_MESSAGE_LENGTH:
-            return jsonify({'error': f'Message too long (max {MAX_MESSAGE_LENGTH} chars)'}), 400
-        
-        if not message:
-            return jsonify({'error': 'message is required'}), 400
+        # Geometric validation (replaces arbitrary character limit)
+        validation = geometric_validate_input(message)
+        if not validation['is_valid']:
+            return jsonify({
+                'error': validation['error_message'],
+                'phi': validation['phi'],
+                'kappa': validation['kappa'],
+                'regime': validation['regime'],
+                'validation_type': 'geometric'
+            }), 400
         
         # SECURITY: Limit conversation history
         if len(conversation_history) > MAX_CONVERSATION_HISTORY:

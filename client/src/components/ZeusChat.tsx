@@ -120,22 +120,42 @@ export default function ZeusChat() {
         });
       }
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[ZeusChat] Error:', error);
-      toast({
-        title: "Communication failed",
-        description: "Could not reach Mount Olympus",
-        variant: "destructive",
-      });
       
-      // Add error message
-      setMessages(prev => [...prev, {
-        id: `msg-${Date.now()}-error`,
-        role: 'zeus',
-        content: '⚡ The divine connection has been disrupted. Please try again.',
-        timestamp: new Date().toISOString(),
-        metadata: { type: 'error' },
-      }]);
+      // Check for geometric validation error (phi/kappa/regime based)
+      const errorData = (error as { response?: { data?: { validation_type?: string; phi?: number; kappa?: number; regime?: string; error?: string } } })?.response?.data;
+      const isGeometricError = errorData?.validation_type === 'geometric';
+      
+      if (isGeometricError) {
+        toast({
+          title: "Geometric validation failed",
+          description: `φ=${errorData?.phi?.toFixed(2)} κ=${errorData?.kappa?.toFixed(0)} regime=${errorData?.regime}`,
+          variant: "destructive",
+        });
+        
+        setMessages(prev => [...prev, {
+          id: `msg-${Date.now()}-error`,
+          role: 'zeus',
+          content: errorData?.error || '⚡ Input lacks geometric coherence. Try simplifying or restructuring your message.',
+          timestamp: new Date().toISOString(),
+          metadata: { type: 'error' },
+        }]);
+      } else {
+        toast({
+          title: "Communication failed",
+          description: "Could not reach Mount Olympus",
+          variant: "destructive",
+        });
+        
+        setMessages(prev => [...prev, {
+          id: `msg-${Date.now()}-error`,
+          role: 'zeus',
+          content: '⚡ The divine connection has been disrupted. Please try again.',
+          timestamp: new Date().toISOString(),
+          metadata: { type: 'error' },
+        }]);
+      }
     } finally {
       setIsThinking(false);
       setUploadedFiles([]);

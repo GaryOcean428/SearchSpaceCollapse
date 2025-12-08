@@ -172,6 +172,7 @@ export const API_ROUTES = {
     warHistory: (limit: number) => `/api/olympus/war/history?limit=${limit}`,
     zeusChat: '/api/olympus/zeus/chat',
     zeusSearch: '/api/olympus/zeus/search',
+    zeusValidate: '/api/olympus/zeus/validate',  // Geometric input validation
   },
 
   // Format Detection

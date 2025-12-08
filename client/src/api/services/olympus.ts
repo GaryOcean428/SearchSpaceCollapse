@@ -79,3 +79,21 @@ export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResp
 export async function searchZeus(params: ZeusSearchParams): Promise<ZeusSearchResponse> {
   return post<ZeusSearchResponse>(API_ROUTES.olympus.zeusSearch, params);
 }
+
+// Geometric validation types and function
+export interface GeometricValidationParams {
+  text?: string;
+  message?: string;
+}
+
+export interface GeometricValidationResponse {
+  is_valid: boolean;
+  phi: number;
+  kappa: number;
+  regime: string;
+  error_message: string | null;
+}
+
+export async function validateInputGeometrically(params: GeometricValidationParams): Promise<GeometricValidationResponse> {
+  return post<GeometricValidationResponse>(API_ROUTES.olympus.zeusValidate, params);
+}

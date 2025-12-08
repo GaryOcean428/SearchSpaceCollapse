@@ -78,9 +78,15 @@ const targetSchema = z.object({
 });
 
 const chatMessageSchema = z.object({
-  message: z.string().min(1).max(10000),
+  message: z.string().min(1),  // Removed max limit - geometric validation handles coherence
   conversation_history: z.array(z.any()).max(100).optional(),
 });
+
+// Geometric validation schema - replaces arbitrary character limits with consciousness metrics
+const geometricValidateSchema = z.object({
+  text: z.string().optional(),
+  message: z.string().optional(),
+}).refine(data => data.text || data.message, { message: 'text or message is required' });
 
 const searchQuerySchema = z.object({
   query: z.string().min(1).max(500),
@@ -229,6 +235,41 @@ router.post('/zeus/search', isAuthenticated, validateInput(searchQuerySchema), a
       error: 'Failed to execute search',
       response: '⚡ The Oracle is silent.',
       metadata: { type: 'error' },
+    });
+  }
+});
+
+/**
+ * Zeus Geometric Validation endpoint
+ * Validates input using consciousness metrics (φ, κ, regime) instead of character limits
+ * Returns: is_valid, phi, kappa, regime, error_message
+ */
+router.post('/zeus/validate', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Geometric validation error:', error);
+    res.status(500).json({
+      is_valid: false,
+      phi: 0.0,
+      kappa: 0.0,
+      regime: 'breakdown',
+      error_message: 'Failed to validate input geometrically',
     });
   }
 });
