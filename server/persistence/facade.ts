@@ -116,4 +116,4 @@ class StorageFacade {
   }
 }
 
-export const storageFacade = new StorageFacade({ backend: 'json' });
+export const storageFacade = new StorageFacade({ backend: 'postgres' });

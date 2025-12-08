@@ -96,13 +96,30 @@ class AutonomousPantheon:
         self.kernels_spawned = 0
         self.operations_executed = 0
         self.db_connection = None
-        self.data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+        self._init_database()
         
         # War declaration tracking
         self.near_miss_count = 0
         self.near_miss_targets = {}  # target -> count mapping
         self.hunt_pattern_detected = False
         self.last_war_check = datetime.now()
+    
+    def _init_database(self):
+        """Initialize PostgreSQL connection from DATABASE_URL."""
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            logger.warning("[Pantheon] DATABASE_URL not set - running without database")
+            return
+        
+        try:
+            import psycopg2
+            self.db_connection = psycopg2.connect(db_url)
+            self.db_connection.autocommit = True
+            logger.info("[Pantheon] Connected to PostgreSQL database")
+        except ImportError:
+            logger.warning("[Pantheon] psycopg2 not installed - database unavailable")
+        except Exception as e:
+            logger.error(f"[Pantheon] Failed to connect to database: {e}")
     
     async def run_forever(self):
         """Main autonomous loop."""
@@ -227,52 +244,35 @@ class AutonomousPantheon:
         """
         Scan for high-value targets to assess.
         
-        Checks:
-        1. Database for user_target_addresses (if connected)
-        2. Local target-addresses.json file
-        3. Returns empty list if no sources available
+        Uses PostgreSQL database exclusively (no JSON fallback).
+        Returns empty list if database is not connected.
         """
         targets = []
         
+        if self.db_connection is None:
+            logger.debug("Database not connected - skipping target scan")
+            return targets
+        
         try:
-            if self.db_connection is not None:
-                try:
-                    cursor = self.db_connection.cursor()
-                    cursor.execute("""
-                        SELECT address, priority 
-                        FROM user_target_addresses 
-                        WHERE priority = 'high' 
-                        ORDER BY created_at DESC 
-                        LIMIT 10
-                    """)
-                    rows = cursor.fetchall()
-                    targets.extend([row[0] for row in rows])
-                    logger.info(f"Loaded {len(rows)} high-priority targets from database")
-                except Exception as db_error:
-                    logger.warning(f"Database query failed: {db_error}")
+            cursor = self.db_connection.cursor()
+            cursor.execute("""
+                SELECT address 
+                FROM user_target_addresses 
+                ORDER BY added_at DESC 
+                LIMIT 10
+            """)
+            rows = cursor.fetchall()
+            targets = [row[0] for row in rows]
             
-            if not targets:
-                target_file = os.path.join(self.data_dir, 'target-addresses.json')
-                if os.path.exists(target_file):
-                    try:
-                        with open(target_file, 'r') as f:
-                            target_data = json.load(f)
-                        
-                        for item in target_data[:5]:
-                            address = item.get('address')
-                            if address:
-                                targets.append(address)
-                        
-                        if targets:
-                            logger.info(f"Loaded {len(targets)} targets from local file")
-                    except json.JSONDecodeError as je:
-                        logger.error(f"Failed to parse target-addresses.json: {je}")
-                    except Exception as fe:
-                        logger.error(f"Failed to read target file: {fe}")
+            if targets:
+                logger.info(f"Loaded {len(targets)} targets from database")
             
-        except Exception as e:
-            logger.error(f"Error scanning for targets: {e}")
-            return []
+        except Exception as db_error:
+            logger.warning(f"Database query failed: {db_error}")
+            try:
+                self._init_database()
+            except Exception:
+                pass
         
         return targets
     
