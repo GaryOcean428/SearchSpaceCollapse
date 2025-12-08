@@ -19,7 +19,7 @@ import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { knowledgeCompressionEngine } from './knowledge-compression-engine';
 import { temporalGeometry } from './temporal-geometry';
-import { negativeKnowledgeUnified as negativeKnowledgeRegistry } from './negative-knowledge-unified';
+import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 import { strategyKnowledgeBus } from './strategy-knowledge-bus';
 import { culturalManifold } from './cultural-manifold';
 import './geodesic-navigator';

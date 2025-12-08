@@ -9,7 +9,7 @@ import {
 } from '../shared/schema';
 import { knowledgeCompressionEngine } from './knowledge-compression-engine';
 import './temporal-geometry';
-import { negativeKnowledgeUnified as negativeKnowledgeRegistry } from './negative-knowledge-unified';
+import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
 
 interface StrategyCapability {
   id: string;

@@ -22,7 +22,6 @@ import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 import { oceanPersistence, type ProbeInsertData } from './ocean/ocean-persistence';
 import { getKappaAtScale } from '@shared/constants';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
-import { testedPhrasesUnified } from './tested-phrases-unified';
 
 // Extracted modules for modularity
 import {
