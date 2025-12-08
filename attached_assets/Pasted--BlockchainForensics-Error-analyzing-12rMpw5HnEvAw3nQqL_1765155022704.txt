@@ -1,0 +1,34 @@
+[BlockchainForensics] Error analyzing 12rMpw5HnEvAw3nQqLmRBCQyuktfpa4eVw: Error: Both APIs failed for 12rMpw5HnEvAw3nQqLmRBCQyuktfpa4eVw
+    at BlockchainForensics.fetchFromBlockchainInfo (/home/runner/workspace/server/blockchain-forensics.ts:252:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BlockchainForensics.analyzeAddress (/home/runner/workspace/server/blockchain-forensics.ts:162:22)
+    at async OceanAgent.runAutonomous (/home/runner/workspace/server/ocean-agent.ts:612:33)
+    at async OceanSessionManager.runAgentLoop (/home/runner/workspace/server/ocean-session-manager.ts:248:22)
+[Ocean] Could not determine era from blockchain - using autonomous pattern discovery
+[Ocean] === GEOMETRIC DISCOVERY PHASE ===
+[OceanDiscovery] Estimated coordinates for 12rMpw5HnEvA...
+  Era: unknown
+  Regime: linear
+  Spacetime: t=1296769671
+[Ocean] Target coordinates estimated: Φ=0.92, era=linear
+
+🔍 DISCOVERING CULTURAL CONTEXT
+
+[TavilyAdapter] Discovering at coordinates:
+  Era: mtgox_rise
+  Query: "bitcoin btc wallet mtgox exchange trading silk road 2011"
+[BlockchainForensics] Error analyzing 12rMpw5HnEvAw3nQqLmRBCQyuktfpa4eVw: Error: Both APIs failed for 12rMpw5HnEvAw3nQqLmRBCQyuktfpa4eVw
+    at BlockchainForensics.fetchFromBlockchainInfo (/home/runner/workspace/server/blockchain-forensics.ts:252:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BlockchainForensics.analyzeAddress (/home/runner/workspace/server/blockchain-forensics.ts:162:22)
+    at async OceanAgent.runAutonomous (/home/runner/workspace/server/ocean-agent.ts:612:33)
+    at async OceanSessionManager.runAgentLoop (/home/runner/workspace/server/ocean-session-manager.ts:248:22)
+[Ocean] Could not determine era from blockchain - using autonomous pattern discovery
+[Ocean] === GEOMETRIC DISCOVERY PHASE ===
+[OceanDiscovery] Estimated coordinates for 12rMpw5HnEvA...
+  Era: unknown
+  Regime: linear
+  Spacetime: t=1296769671
+[Ocean] Target coordinates estimated: Φ=0.92, era=linear
+
+🔍 DISCOVERING CULTURAL CONTEXT
