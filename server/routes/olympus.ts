@@ -629,6 +629,46 @@ router.post('/war/start', isAuthenticated, validateInput(warStartSchema), async 
 });
 
 /**
+ * Internal war start endpoint for autonomous Python operations
+ * Authenticated via X-Internal-Key header (shared secret between Node and Python)
+ * Used by autonomous_pantheon.py to sync war declarations to PostgreSQL
+ */
+router.post('/war/internal-start', validateInput(warStartSchema), async (req, res) => {
+  try {
+    const internalKey = req.headers['x-internal-key'];
+    const expectedKey = process.env.INTERNAL_API_KEY || 'olympus-internal-key-dev';
+    
+    if (internalKey !== expectedKey) {
+      console.warn('[Olympus] Rejected internal war start - invalid or missing X-Internal-Key');
+      res.status(403).json({ error: 'Unauthorized - invalid internal key' });
+      return;
+    }
+    
+    const { mode, target, strategy, godsEngaged } = req.body;
+    console.log(`[Olympus] AUTONOMOUS war declaration: ${mode} on ${target?.substring(0, 40)}...`);
+    
+    const warRecord = await recordWarStart(
+      mode as WarMode,
+      target,
+      strategy,
+      godsEngaged
+    );
+    
+    if (!warRecord) {
+      res.status(500).json({ error: 'Failed to record war start' });
+      return;
+    }
+    
+    res.json(warRecord);
+  } catch (error) {
+    console.error('[Olympus] Internal war start error:', error);
+    res.status(500).json({
+      error: 'Failed to start war',
+    });
+  }
+});
+
+/**
  * End war and record outcome (by war ID)
  * Requires authentication with input validation
  */
