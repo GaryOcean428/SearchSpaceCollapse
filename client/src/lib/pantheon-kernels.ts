@@ -1,9 +1,9 @@
 /**
  * Pantheon Kernel Client - Gods as Specialized Geometric Kernels
- * 
+ *
  * Every god is a kernel. Each has specialization based on their role.
  * Tokens flow naturally towards the correct kernel via geometric affinity.
- * 
+ *
  * This client provides TypeScript interface to the Pantheon Kernel Orchestrator API.
  */
 
