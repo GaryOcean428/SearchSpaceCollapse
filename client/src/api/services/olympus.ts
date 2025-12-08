@@ -4,7 +4,7 @@
  * Type-safe API functions for Olympus chat and war operations.
  */
 
-import { get, post } from '../client';
+import { get, post, postMultipart } from '../client';
 import { API_ROUTES } from '../routes';
 
 export interface WarHistoryEntry {
@@ -24,6 +24,7 @@ export interface ActiveWar {
 export interface ZeusChatParams {
   message: string;
   context?: string;
+  files?: File[];
 }
 
 export interface ZeusChatMetadata {
@@ -60,7 +61,19 @@ export async function getActiveWar(): Promise<ActiveWar | null> {
 }
 
 export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResponse> {
-  return post<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, params);
+  const { files, ...jsonParams } = params;
+  
+  if (files && files.length > 0) {
+    const formData = new FormData();
+    formData.append('message', params.message);
+    if (params.context) {
+      formData.append('conversation_history', params.context);
+    }
+    files.forEach(file => formData.append('files', file));
+    return postMultipart<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, formData);
+  }
+  
+  return post<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, jsonParams);
 }
 
 export async function searchZeus(params: ZeusSearchParams): Promise<ZeusSearchResponse> {

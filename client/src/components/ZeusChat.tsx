@@ -94,10 +94,12 @@ export default function ZeusChat() {
     setIsThinking(true);
     
     try {
-      // Send to Zeus via centralized API
+      // Send to Zeus via centralized API (with files if any)
+      const filesToSend = uploadedFiles.length > 0 ? uploadedFiles : undefined;
       const data = await api.olympus.sendZeusChat({
         message: messageToSend,
         context: JSON.stringify(messages),
+        files: filesToSend,
       });
       
       // Add Zeus response

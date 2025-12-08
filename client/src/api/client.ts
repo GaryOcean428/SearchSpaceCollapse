@@ -85,3 +85,19 @@ export async function patch<TResponse, TData = unknown>(
   await throwIfNotOk(res);
   return res.json();
 }
+
+/**
+ * Makes a POST request with multipart/form-data (for file uploads).
+ */
+export async function postMultipart<TResponse>(
+  url: string,
+  formData: FormData
+): Promise<TResponse> {
+  const res = await fetch(url, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+  await throwIfNotOk(res);
+  return res.json();
+}
