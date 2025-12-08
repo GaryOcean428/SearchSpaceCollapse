@@ -528,23 +528,34 @@ export async function fetchAddressBalance(address: string): Promise<{
     const data = await getAddressData(address);
     
     if (!data) {
-      // Fallback to legacy Blockstream API
-      console.log('[BlockchainScanner] API router failed, falling back to direct Blockstream API');
-      const response = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          return { balanceSats: 0, txCount: 0, funded: 0, spent: 0 };
+      // All providers failed - try legacy Blockstream API with timeout as last resort
+      console.log('[BlockchainScanner] All API providers failed, falling back to direct Blockstream API');
+      try {
+        const response = await fetch(`${BLOCKSTREAM_API}/address/${address}`, {
+          signal: AbortSignal.timeout(8000), // 8s timeout for fallback
+        });
+        if (!response.ok) {
+          if (response.status === 404) {
+            return { balanceSats: 0, txCount: 0, funded: 0, spent: 0 };
+          }
+          // Throw on HTTP errors to trigger retry logic
+          throw new Error(`Blockstream HTTP ${response.status}: ${response.statusText}`);
         }
-        return null;
+        
+        const rawData = await response.json();
+        const funded = (rawData.chain_stats?.funded_txo_sum || 0) + (rawData.mempool_stats?.funded_txo_sum || 0);
+        const spent = (rawData.chain_stats?.spent_txo_sum || 0) + (rawData.mempool_stats?.spent_txo_sum || 0);
+        const balanceSats = funded - spent;
+        const txCount = (rawData.chain_stats?.tx_count || 0) + (rawData.mempool_stats?.tx_count || 0);
+        
+        return { balanceSats, txCount, funded, spent };
+      } catch (fallbackError) {
+        // Log and rethrow to trigger upstream retry logic
+        const errMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        console.error(`[BlockchainScanner] Fallback API failed: ${errMsg}`);
+        // Rethrow all fallback errors so BalanceQueue retry mechanism kicks in
+        throw new Error(`Blockstream fallback failed: ${errMsg}`);
       }
-      
-      const rawData = await response.json();
-      const funded = (rawData.chain_stats?.funded_txo_sum || 0) + (rawData.mempool_stats?.funded_txo_sum || 0);
-      const spent = (rawData.chain_stats?.spent_txo_sum || 0) + (rawData.mempool_stats?.spent_txo_sum || 0);
-      const balanceSats = funded - spent;
-      const txCount = (rawData.chain_stats?.tx_count || 0) + (rawData.mempool_stats?.tx_count || 0);
-      
-      return { balanceSats, txCount, funded, spent };
     }
     
     // Use normalized data from API router
@@ -555,8 +566,10 @@ export async function fetchAddressBalance(address: string): Promise<{
       spent: data.totalSent,
     };
   } catch (error) {
-    console.error(`[BlockchainScanner] Error fetching balance for ${address}:`, error);
-    return null;
+    // Rethrow to trigger upstream BalanceQueue retry logic
+    console.error(`[BlockchainScanner] Error fetching balance for ${address}:`, 
+      error instanceof Error ? error.message : String(error));
+    throw error;
   }
 }
 

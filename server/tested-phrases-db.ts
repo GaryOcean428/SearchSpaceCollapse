@@ -112,7 +112,9 @@ export class TestedPhrasesRegistryDB {
       // Maintain cache size
       if (phraseCache.size > CACHE_SIZE) {
         const firstKey = phraseCache.keys().next().value;
-        phraseCache.delete(firstKey);
+        if (firstKey !== undefined) {
+          phraseCache.delete(firstKey);
+        }
       }
     }
     
@@ -183,7 +185,8 @@ export class TestedPhrasesRegistryDB {
     if (db) {
       await withDbRetry(
         async () => {
-          await db!.insert(testedPhrases).values(record);
+          // Use onConflictDoNothing to handle race conditions where cache doesn't have phrase but DB does
+          await db!.insert(testedPhrases).values(record).onConflictDoNothing();
         },
         'insert-tested-phrase',
         3
@@ -196,7 +199,9 @@ export class TestedPhrasesRegistryDB {
     // Maintain cache size
     if (phraseCache.size > CACHE_SIZE) {
       const firstKey = phraseCache.keys().next().value;
-      phraseCache.delete(firstKey);
+      if (firstKey !== undefined) {
+        phraseCache.delete(firstKey);
+      }
     }
   }
 

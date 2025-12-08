@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -310,17 +311,17 @@ export default function OlympusPage() {
   const [activeTab, setActiveTab] = useState('activity');
 
   const { data: status, isLoading, refetch } = useQuery<PantheonStatus>({
-    queryKey: ['/api/olympus/status'],
+    queryKey: QUERY_KEYS.olympus.status(),
     refetchInterval: 10000,
   });
 
   const { data: recentActivity } = useQuery<ChatMessage[]>({
-    queryKey: ['/api/olympus/chat/recent'],
+    queryKey: QUERY_KEYS.olympus.chatRecent(),
     refetchInterval: 5000,
   });
 
   const { data: activeDebates } = useQuery<Debate[]>({
-    queryKey: ['/api/olympus/debates/active'],
+    queryKey: QUERY_KEYS.olympus.debatesActive(),
     refetchInterval: 10000,
   });
 

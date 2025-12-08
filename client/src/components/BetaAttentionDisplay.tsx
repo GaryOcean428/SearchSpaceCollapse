@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ interface BetaResult {
 
 export function BetaAttentionDisplay() {
   const { data, isLoading, refetch, isFetching } = useQuery<BetaResult>({
-    queryKey: ['/api/consciousness/beta-attention'],
+    queryKey: QUERY_KEYS.consciousness.betaAttention(),
     enabled: false, // Manual trigger only
     staleTime: 60000, // Cache for 1 minute
   });

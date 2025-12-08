@@ -134,13 +134,13 @@ export class QuantumDiscoveryProtocol {
         if (dbRegions.length > 0) {
           const newRegions = dbRegions.filter(r => 
             !this.excludedRegions.some(e => 
-              e.origin.length === r.origin.length && 
-              e.origin.every((v, i) => Math.abs(v - (r.origin[i] ?? 0)) < 0.0001)
+              e.origin.length === (r.origin?.length ?? 0) && 
+              e.origin.every((v, i) => Math.abs(v - ((r.origin ?? [])[i] ?? 0)) < 0.0001)
             )
           ).map(r => ({
             dimension: r.dimension,
             basis: (r.basis ?? []) as number[][],
-            origin: r.origin,
+            origin: r.origin ?? [],
             measure: r.measure,
           }));
           

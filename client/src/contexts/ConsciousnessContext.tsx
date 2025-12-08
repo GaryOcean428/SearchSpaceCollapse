@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { API_ROUTES } from '@/api';
 
 export interface ConsciousnessState {
   phi: number;
@@ -96,8 +97,8 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
   const fetchState = useCallback(async () => {
     try {
       const [cyclesRes, neurochemRes] = await Promise.all([
-        fetch('/api/ocean/cycles'),
-        fetch('/api/ocean/neurochemistry'),
+        fetch(API_ROUTES.ocean.cycles),
+        fetch(API_ROUTES.ocean.neurochemistry),
       ]);
       setConsecutiveErrors(0);
 

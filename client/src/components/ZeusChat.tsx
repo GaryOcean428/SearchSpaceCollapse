@@ -21,6 +21,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, Upload, Search, Sparkles, Brain, AlertCircle } from 'lucide-react';
+import { api } from '@/api';
 
 /**
  * Sanitize text content to prevent XSS attacks.
@@ -93,26 +94,11 @@ export default function ZeusChat() {
     setIsThinking(true);
     
     try {
-      // Send to Zeus (Python backend via Node.js proxy)
-      const formData = new FormData();
-      formData.append('message', messageToSend);
-      formData.append('conversation_history', JSON.stringify(messages));
-      
-      // Include uploaded files
-      for (const file of uploadedFiles) {
-        formData.append('files', file);
-      }
-      
-      const response = await fetch('/api/olympus/zeus/chat', {
-        method: 'POST',
-        body: formData,
+      // Send to Zeus via centralized API
+      const data = await api.olympus.sendZeusChat({
+        message: messageToSend,
+        context: JSON.stringify(messages),
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
       
       // Add Zeus response
       const zeusMessage: ZeusMessage = {
@@ -120,15 +106,15 @@ export default function ZeusChat() {
         role: 'zeus',
         content: data.response || 'No response from Zeus',
         timestamp: new Date().toISOString(),
-        metadata: data.metadata,
+        metadata: data.metadata as ZeusMessage['metadata'],
       };
       setMessages(prev => [...prev, zeusMessage]);
       
       // Show actions taken
-      if (data.metadata?.actions_taken?.length > 0) {
+      if ((data.metadata?.actions_taken?.length ?? 0) > 0) {
         toast({
           title: "⚡ Zeus coordinated actions",
-          description: data.metadata.actions_taken.join(', '),
+          description: data.metadata?.actions_taken?.join(', ') ?? '',
         });
       }
       
@@ -161,23 +147,14 @@ export default function ZeusChat() {
     setIsThinking(true);
     
     try {
-      const response = await fetch('/api/olympus/zeus/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
+      // Search via centralized API
+      const data = await api.olympus.searchZeus({ query });
       
       // Zeus analyzes search results and responds
       const zeusMessage: ZeusMessage = {
         id: `msg-${Date.now()}-search`,
         role: 'zeus',
-        content: data.response,
+        content: data.response || 'No search results',
         timestamp: new Date().toISOString(),
         metadata: {
           type: 'search',

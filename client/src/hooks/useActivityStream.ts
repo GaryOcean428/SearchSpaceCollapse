@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/api';
 
 export interface ActivityEvent {
   id: string;
@@ -25,7 +26,7 @@ export function useActivityStream(options: UseActivityStreamOptions = {}) {
 
   // Initial load from REST API
   const { data: initialEvents, refetch } = useQuery<{ events: ActivityEvent[] }>({
-    queryKey: ['/api/activity-stream', { limit }],
+    queryKey: QUERY_KEYS.activityStream.list(limit),
     refetchInterval: false, // Don't poll - use WebSocket instead
     staleTime: 30000, // Cache for 30 seconds
   });

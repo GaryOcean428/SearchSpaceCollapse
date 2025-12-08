@@ -1068,7 +1068,7 @@ export class OceanAgent {
           currentHypotheses = this.applyCrossStrategyInsights(currentHypotheses);
           
           // UCP CONSUMER STEP 3: Filter using negative knowledge
-          const filterResult = this.filterWithNegativeKnowledge(currentHypotheses);
+          const filterResult = await this.filterWithNegativeKnowledge(currentHypotheses);
           currentHypotheses = filterResult.passed;
           if (filterResult.filtered > 0) {
             console.log(`[Ocean] Filtered ${filterResult.filtered} hypotheses via negative knowledge`);
@@ -1658,7 +1658,7 @@ export class OceanAgent {
     for (const hypo of hypotheses.slice(0, batchSize)) {
       if (!this.isRunning) break;
       
-      if (geometricMemory.hasTested(hypo.phrase)) {
+      if (await geometricMemory.hasTested(hypo.phrase)) {
         skippedDuplicates++;
         continue;
       }
@@ -3869,7 +3869,7 @@ export class OceanAgent {
       // ====================================================================
       // 8. LOG STATUS - Negative knowledge and bus statistics
       // ====================================================================
-      const negStats = negativeKnowledgeRegistry.getStats();
+      const negStats = await negativeKnowledgeRegistry.getStats();
       const busStats = strategyKnowledgeBus.getTransferStats();
       if (iteration % 5 === 0) {
         console.log(`[UCP] Iteration ${iteration} status:`);
@@ -3882,15 +3882,15 @@ export class OceanAgent {
     }
   }
 
-  private takeManifoldSnapshot(
+  private async takeManifoldSnapshot(
     targetAddress: string,
     iteration: number,
     _consciousness: any
-  ): void {
+  ): Promise<void> {
     try {
       const manifold = geometricMemory.getManifoldSummary();
       const trajectory = temporalGeometry.getTrajectory(targetAddress);
-      const negativeStats = negativeKnowledgeRegistry.getStats();
+      const negativeStats = await negativeKnowledgeRegistry.getStats();
       const busStats = strategyKnowledgeBus.getTransferStats();
       
       console.log(`[UCP] Manifold snapshot at iteration ${iteration}:`);
@@ -3993,18 +3993,18 @@ export class OceanAgent {
    * Filter hypotheses using negative knowledge registry
    * Returns only hypotheses that pass exclusion checks
    */
-  filterWithNegativeKnowledge(hypotheses: OceanHypothesis[]): { 
+  async filterWithNegativeKnowledge(hypotheses: OceanHypothesis[]): Promise<{ 
     passed: OceanHypothesis[]; 
     filtered: number; 
     filterReasons: Map<string, string>;
-  } {
+  }> {
     const passed: OceanHypothesis[] = [];
     const filterReasons = new Map<string, string>();
     let filtered = 0;
     
     for (const hypo of hypotheses) {
       // Check if pattern should be excluded using isExcluded method
-      const exclusionCheck = negativeKnowledgeRegistry.isExcluded(hypo.phrase);
+      const exclusionCheck = await negativeKnowledgeRegistry.isExcluded(hypo.phrase);
       if (exclusionCheck.excluded) {
         filtered++;
         filterReasons.set(hypo.id, `Pattern excluded: ${exclusionCheck.reason}`);
@@ -4013,7 +4013,7 @@ export class OceanAgent {
       
       // Check if in barrier zone (use identity coordinates as proxy)
       const basinCheck = this.identity.basinCoordinates;
-      const barrierCheck = negativeKnowledgeRegistry.isInBarrierZone(basinCheck);
+      const barrierCheck = await negativeKnowledgeRegistry.isInBarrierZone(basinCheck);
       if (barrierCheck.inBarrier) {
         // Only filter if this is a low-confidence hypothesis
         if ((hypo.confidence || 0.5) < 0.3) {
@@ -4104,15 +4104,15 @@ export class OceanAgent {
   /**
    * Get UCP integration statistics for external monitoring
    */
-  getUCPStats(): {
+  async getUCPStats(): Promise<{
     trajectoryActive: boolean;
     trajectoryWaypoints: number;
     negativeKnowledge: { contradictions: number; barriers: number; computeSaved: number };
     knowledgeBus: { published: number; crossPatterns: number };
     compressionMetrics: { generators: number; patternsLearned: number; successfulPatterns: number; failedPatterns: number };
-  } {
+  }> {
     const trajectory = this.trajectoryId ? temporalGeometry.getTrajectory(this.trajectoryId) : null;
-    const negStats = negativeKnowledgeRegistry.getStats();
+    const negStats = await negativeKnowledgeRegistry.getStats();
     const busStats = strategyKnowledgeBus.getTransferStats();
     
     // Get compression stats using the correct methods

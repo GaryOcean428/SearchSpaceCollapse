@@ -467,7 +467,7 @@ export const ucpRouter = Router();
 ucpRouter.get("/stats", async (req: Request, res: Response) => {
   try {
     const { oceanAgent } = await import("../ocean-agent");
-    const ucpStats = oceanAgent.getUCPStats();
+    const ucpStats = await oceanAgent.getUCPStats();
     
     res.json({
       success: true,

@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 from datetime import datetime
 from typing import List, Dict, Optional
 
@@ -131,6 +132,55 @@ class AutonomousPantheon:
                         
                         convergence = assessment.get('convergence_score', 0)
                         phi = assessment.get('phi', 0)
+                        
+                        # === AUTONOMOUS DEBATES & INTER-GOD ACTIVITY ===
+                        # 1. Check for Disagreement (Trigger Debates)
+                        god_assessments = assessment.get('god_assessments', {})
+                        athena_conf = god_assessments.get('athena', {}).get('confidence', 0)
+                        ares_conf = god_assessments.get('ares', {}).get('confidence', 0)
+                        
+                        # If Strategy (Athena) and War (Ares) disagree, trigger debate
+                        if abs(athena_conf - ares_conf) > 0.4:
+                            topic = f"Strategic approach for {target[:15]}..."
+                            # Check pantheon_chat availability first
+                            if hasattr(self.zeus, 'pantheon_chat'):
+                                # Check if debate already active (handle both dict and dataclass returns)
+                                try:
+                                    active_debates_raw = self.zeus.pantheon_chat.get_active_debates()
+                                    active_topics = []
+                                    for d in active_debates_raw:
+                                        if hasattr(d, 'topic'):
+                                            active_topics.append(d.topic)
+                                        elif isinstance(d, dict):
+                                            active_topics.append(d.get('topic', ''))
+                                except Exception as e:
+                                    logger.warning(f"Could not get active debates: {e}")
+                                    active_topics = []
+                                
+                                if topic not in active_topics:
+                                    logger.info(f"⚔️ CONFLICT: Athena ({athena_conf:.2f}) vs Ares ({ares_conf:.2f})")
+                                    
+                                    self.zeus.pantheon_chat.initiate_debate(
+                                        topic=topic,
+                                        initiator='Athena' if athena_conf > ares_conf else 'Ares',
+                                        opponent='Ares' if athena_conf > ares_conf else 'Athena',
+                                        initial_argument=f"Geometric analysis indicates {max(athena_conf, ares_conf):.0%} confidence, while you underestimate the entropy.",
+                                        context={'target': target}
+                                    )
+                                    await send_user_notification(f"🔥 DEBATE ERUPTED: {topic}", severity="warning")
+                                    print(f"  ⚔️ Debate triggered: Athena vs Ares")
+                        
+                        # 2. Random Chatter (Alive-ness)
+                        # Occasional comment on high-phi findings
+                        if phi > 0.75 and random.random() < 0.2:
+                            if hasattr(self.zeus, 'pantheon_chat'):
+                                commenter = random.choice(['Hermes', 'Apollo', 'Hephaestus'])
+                                self.zeus.pantheon_chat.broadcast(
+                                    from_god=commenter,
+                                    content=f"Witness the curvature on {target[:8]}... Φ={phi:.3f}. Rare geometry.",
+                                    msg_type='insight'
+                                )
+                                print(f"  💬 {commenter} observed high-Φ geometry")
                         
                         # Check for autonomous war declaration conditions
                         await self.check_and_declare_war(target, convergence, phi, assessment)

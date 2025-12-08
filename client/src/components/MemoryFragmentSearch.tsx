@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS, API_ROUTES } from "@/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,13 +122,13 @@ export function MemoryFragmentSearch() {
   const [directTestResult, setDirectTestResult] = useState<DirectTestResult | null>(null);
 
   const { data: consciousnessState } = useQuery<ConsciousnessState>({
-    queryKey: ["/api/consciousness/state"],
+    queryKey: QUERY_KEYS.consciousness.state(),
     refetchInterval: 2000,
   });
 
   const directTestMutation = useMutation({
     mutationFn: async (phrase: string) => {
-      const response = await apiRequest("POST", "/api/test-phrase", {
+      const response = await apiRequest("POST", API_ROUTES.memorySearch.testPhrase, {
         phrase,
         testAgainstTargets: true,
       });
@@ -167,7 +168,7 @@ export function MemoryFragmentSearch() {
         throw new Error("At least one fragment is required");
       }
       
-      const response = await apiRequest("POST", "/api/memory-search", {
+      const response = await apiRequest("POST", API_ROUTES.memorySearch.search, {
         fragments: validFragments,
         options: {
           maxCandidates: maxCandidates[0],

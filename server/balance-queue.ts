@@ -22,6 +22,7 @@ import { queuedAddresses } from '@shared/schema';
 import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
 import { testedEmptyTracker } from './tested-empty-tracker';
 import { regulateDopamineFromBalanceResult, NeurochemistryState } from './ocean-neurochemistry';
+import { ProviderUnavailableError } from './errors';
 
 export interface QueuedAddress {
   id: string;
@@ -365,7 +366,17 @@ class BalanceQueueService {
     } catch (error) {
       item.status = 'failed';
       item.retryCount++;
-      item.error = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Check if this is a provider unavailability error (not an empty balance)
+      if (ProviderUnavailableError.isProviderUnavailableError(error)) {
+        // Provider unavailable - mark with distinct error code
+        // DON'T mark as tested-empty (we don't know if balance is empty - APIs were unavailable)
+        item.error = 'providers_unavailable';
+        console.log(`[BalanceQueue] ⚠️ Provider unavailable for ${item.address} (retry ${item.retryCount}/3) - will retry when APIs recover`);
+      } else {
+        // Other errors - normal error handling
+        item.error = error instanceof Error ? error.message : 'Unknown error';
+      }
       return false;
     }
   }
@@ -499,13 +510,28 @@ class BalanceQueueService {
         return { checked: pending.length, hits };
         
       } catch (apiError) {
-        console.error('[BalanceQueue] Bulk API error (will retry):', apiError);
+        // Check if this is a provider unavailability error (all APIs down, not empty balances)
+        const isProviderUnavailable = ProviderUnavailableError.isProviderUnavailableError(apiError);
+        
+        if (isProviderUnavailable) {
+          console.log(`[BalanceQueue] ⚠️ All providers unavailable - ${pending.length} addresses will retry when APIs recover`);
+        } else {
+          console.error('[BalanceQueue] Bulk API error (will retry):', apiError);
+        }
         
         // Mark all as failed for retry - but don't throw
         for (const item of pending) {
           item.status = 'failed';
           item.retryCount++;
-          item.error = apiError instanceof Error ? apiError.message : 'Bulk API error';
+          
+          if (isProviderUnavailable) {
+            // Provider unavailable - mark with distinct error code
+            // DON'T mark as tested-empty (we don't know if balance is empty - APIs were unavailable)
+            item.error = 'providers_unavailable';
+          } else {
+            // Other errors - normal error handling
+            item.error = apiError instanceof Error ? apiError.message : 'Bulk API error';
+          }
         }
         
         return { checked: 0, hits: 0 };

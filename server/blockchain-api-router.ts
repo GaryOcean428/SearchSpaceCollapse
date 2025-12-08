@@ -17,6 +17,8 @@
  * Strategy: Round-robin with automatic failover
  */
 
+import { ProviderUnavailableError, type ProviderAttempt } from './errors';
+
 export interface BlockchainProvider {
   name: string;
   baseUrl: string;
@@ -315,17 +317,28 @@ function normalizeAddressData(data: any, provider: BlockchainProvider): AddressD
 
 /**
  * Fetch address data with automatic failover
+ * Throws ProviderUnavailableError when all providers are exhausted
  */
 export async function getAddressData(address: string): Promise<AddressData | null> {
   const maxRetries = Object.keys(PROVIDERS).length;
   let attempts = 0;
+  const providerHistory: ProviderAttempt[] = [];
+  let lastErrorMsg: string | undefined;
   
   while (attempts < maxRetries) {
     const provider = getNextProvider();
     
     if (!provider) {
       console.log('[BlockchainAPI] All providers rate limited or unavailable');
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5s
+      providerHistory.push({
+        provider: 'all',
+        status: 'rate_limited',
+        errorMessage: 'No available providers',
+        timestamp: Date.now(),
+      });
+      // 5s base + random jitter (0-2s) to avoid rate limit storms
+      const jitter = Math.random() * 2000;
+      await new Promise(resolve => setTimeout(resolve, 5000 + jitter));
       attempts++;
       continue;
     }
@@ -361,21 +374,46 @@ export async function getAddressData(address: string): Promise<AddressData | nul
       return normalized;
       
     } catch (error) {
-      console.error(`[BlockchainAPI] Error with ${provider.name}:`, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const isTimeout = errorMsg.includes('timeout') || errorMsg.includes('aborted');
+      
+      // Track attempt for error reporting
+      providerHistory.push({
+        provider: provider.name,
+        status: isTimeout ? 'timeout' : 'error',
+        errorMessage: errorMsg,
+        timestamp: Date.now(),
+      });
+      lastErrorMsg = errorMsg;
+      
+      // Concise error logging
+      if (isTimeout) {
+        console.error(`[BlockchainAPI] Timeout with ${provider.name} (10s exceeded)`);
+      } else {
+        console.error(`[BlockchainAPI] Error with ${provider.name}: ${errorMsg}`);
+      }
       provider.errorCount++;
       
       // Disable provider if too many errors
       if (provider.errorCount > 10 && provider.errorCount / (provider.successCount + 1) > 0.5) {
         console.log(`[BlockchainAPI] Disabling ${provider.name} due to high error rate`);
         provider.enabled = false;
+        providerHistory.push({
+          provider: provider.name,
+          status: 'disabled',
+          errorMessage: 'High error rate',
+          timestamp: Date.now(),
+        });
       }
       
       attempts++;
     }
   }
   
-  console.error(`[BlockchainAPI] Failed to fetch ${address} after ${attempts} attempts`);
-  return null;
+  // All providers exhausted - throw ProviderUnavailableError instead of returning null
+  const err = new ProviderUnavailableError(address, attempts, providerHistory, lastErrorMsg);
+  console.error(`[BlockchainAPI] Provider unavailable: ${err.getSummary()}`);
+  throw err;
 }
 
 /**

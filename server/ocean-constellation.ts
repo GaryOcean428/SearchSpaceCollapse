@@ -393,7 +393,7 @@ export class OceanConstellation {
         break;
         
       case 'validate_constraints':
-        hypotheses.push(...this.generateSkepticHypotheses(state, manifoldContext));
+        hypotheses.push(...await this.generateSkepticHypotheses(state, manifoldContext));
         break;
         
       case 'cross_pattern_harmonic':
@@ -749,10 +749,10 @@ export class OceanConstellation {
    * - Generate counter-hypotheses that challenge existing patterns
    * - Use Fisher metric to find patterns orthogonal to high-confidence failures
    */
-  private generateSkepticHypotheses(
+  private async generateSkepticHypotheses(
     state: AgentState,
     manifoldContext: any
-  ): Array<{ phrase: string; source: string; confidence: number }> {
+  ): Promise<Array<{ phrase: string; source: string; confidence: number }>> {
     const hypotheses: Array<{ phrase: string; source: string; confidence: number }> = [];
     
     const highAlignmentTokens = Array.from(this.qigTokenCache.values())
@@ -772,9 +772,9 @@ export class OceanConstellation {
       }
     }
     
-    const summary = negativeKnowledgeRegistry.getSummary();
-    const contradictions = summary.contradictions || [];
-    const highConfContradictions = contradictions.filter((c: any) => c.occurrences > 3);
+    const summary = await negativeKnowledgeRegistry.getSummary();
+    const contradictions = summary.contradictions ?? [];
+    const highConfContradictions = contradictions.filter((c: any) => (c.occurrences ?? 0) > 3);
     
     for (const contradiction of highConfContradictions.slice(0, 10)) {
       const coords = this.wordToBasinCoordinates(contradiction.pattern);

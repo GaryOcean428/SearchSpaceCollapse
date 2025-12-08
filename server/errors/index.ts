@@ -6,3 +6,4 @@
  */
 
 export * from './ocean-errors';
+export * from './provider-unavailable-error';

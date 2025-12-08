@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Waves, Wrench, Database, Brain, Activity, Target, TrendingUp, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import type { User, TargetAddress } from "@shared/schema";
+import { QUERY_KEYS } from "@/api";
 
 interface InvestigationStatus {
   isRunning: boolean;
@@ -31,16 +32,16 @@ export default function Home() {
   const { user } = useAuth() as { user: User | undefined };
 
   const { data: investigationStatus, isLoading: statusLoading } = useQuery<InvestigationStatus>({
-    queryKey: ['/api/investigation/status'],
+    queryKey: QUERY_KEYS.investigation.status(),
     refetchInterval: 3000,
   });
 
   const { data: targetAddresses, isLoading: addressesLoading } = useQuery<TargetAddress[]>({
-    queryKey: ['/api/target-addresses'],
+    queryKey: QUERY_KEYS.targetAddresses.list(),
   });
 
   const { data: candidates, isLoading: candidatesLoading } = useQuery<any[]>({
-    queryKey: ['/api/candidates'],
+    queryKey: QUERY_KEYS.candidates.list(),
   });
 
   return (
