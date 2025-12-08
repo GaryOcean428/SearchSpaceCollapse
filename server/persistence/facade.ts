@@ -22,9 +22,15 @@ import type {
   ITestedPhraseStorage,
   StorageConfig,
 } from './interfaces';
-import { CandidateJsonAdapter } from './adapters/candidate-json-adapter';
-import { SearchJobJsonAdapter } from './adapters/search-job-json-adapter';
+import {
+  CandidateJsonAdapter,
+  CandidatePostgresAdapter,
+  SearchJobJsonAdapter,
+  SearchJobPostgresAdapter,
+  TargetAddressPostgresAdapter,
+} from './adapters';
 import { storage as memStorage } from '../storage';
+import { db } from '../db';
 import { oceanPersistence } from '../ocean/ocean-persistence';
 
 class StorageFacade {
@@ -42,23 +48,41 @@ class StorageFacade {
       dataDir: config?.dataDir,
     };
 
-    if (this._config.backend === 'json') {
-      const candidatePath = this._config.dataDir 
-        ? `${this._config.dataDir}/candidates.json` 
+    if (this._config.backend === 'postgres' && db) {
+      this._candidates = new CandidatePostgresAdapter();
+      this._searchJobs = new SearchJobPostgresAdapter();
+      this._targetAddresses = new TargetAddressPostgresAdapter();
+      this._users = memStorage;
+    } else if (this._config.backend === 'json') {
+      const candidatePath = this._config.dataDir
+        ? `${this._config.dataDir}/candidates.json`
         : undefined;
-      const jobsPath = this._config.dataDir 
-        ? `${this._config.dataDir}/search-jobs.json` 
+      const jobsPath = this._config.dataDir
+        ? `${this._config.dataDir}/search-jobs.json`
         : undefined;
       this._candidates = new CandidateJsonAdapter({ filePath: candidatePath });
       this._searchJobs = new SearchJobJsonAdapter({ filePath: jobsPath });
+      this._targetAddresses = memStorage;
+      this._users = memStorage;
+    } else if (this._config.backend === 'postgres' && !db) {
+      console.warn('[StorageFacade] DATABASE_URL not set - falling back to JSON backend');
+      const candidatePath = this._config.dataDir
+        ? `${this._config.dataDir}/candidates.json`
+        : undefined;
+      const jobsPath = this._config.dataDir
+        ? `${this._config.dataDir}/search-jobs.json`
+        : undefined;
+      this._candidates = new CandidateJsonAdapter({ filePath: candidatePath });
+      this._searchJobs = new SearchJobJsonAdapter({ filePath: jobsPath });
+      this._targetAddresses = memStorage;
+      this._users = memStorage;
     } else {
       this._candidates = memStorage;
       this._searchJobs = memStorage;
+      this._targetAddresses = memStorage;
+      this._users = memStorage;
     }
 
-    this._targetAddresses = memStorage;
-    this._users = memStorage;
-    
     if (oceanPersistence.isPersistenceAvailable()) {
       this._oceanProbes = {
         insertProbes: (probes) => oceanPersistence.insertProbes(probes),
