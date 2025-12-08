@@ -106,15 +106,15 @@ export default function ZeusChat() {
         role: 'zeus',
         content: data.response || 'No response from Zeus',
         timestamp: new Date().toISOString(),
-        metadata: data.metadata,
+        metadata: data.metadata as ZeusMessage['metadata'],
       };
       setMessages(prev => [...prev, zeusMessage]);
       
       // Show actions taken
-      if (data.metadata?.actions_taken?.length > 0) {
+      if ((data.metadata?.actions_taken?.length ?? 0) > 0) {
         toast({
           title: "⚡ Zeus coordinated actions",
-          description: data.metadata.actions_taken.join(', '),
+          description: data.metadata?.actions_taken?.join(', ') ?? '',
         });
       }
       
@@ -154,7 +154,7 @@ export default function ZeusChat() {
       const zeusMessage: ZeusMessage = {
         id: `msg-${Date.now()}-search`,
         role: 'zeus',
-        content: data.response,
+        content: data.response || 'No search results',
         timestamp: new Date().toISOString(),
         metadata: {
           type: 'search',

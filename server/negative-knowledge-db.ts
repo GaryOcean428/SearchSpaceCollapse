@@ -252,8 +252,8 @@ export class NegativeKnowledgeRegistryDB {
     const existing = await this.findNearbyBarrier(center, radius);
     
     if (existing) {
-      const newCrossings = existing.crossings + 1;
-      const newRepulsionStrength = Math.min(1, existing.repulsionStrength + 0.1);
+      const newCrossings = (existing.crossings ?? 0) + 1;
+      const newRepulsionStrength = Math.min(1, (existing.repulsionStrength ?? 0) + 0.1);
       
       if (db) {
         await withDbRetry(
@@ -311,7 +311,7 @@ export class NegativeKnowledgeRegistryDB {
   private async findNearbyBarrier(center: number[], radius: number): Promise<GeometricBarrierType | null> {
     // Check cache first
     for (const barrier of cache.barriers.values()) {
-      const distance = fisherCoordDistance(center, barrier.center);
+      const distance = fisherCoordDistance(center, barrier.center ?? []);
       if (distance < barrier.radius + radius) {
         return barrier;
       }
@@ -477,12 +477,13 @@ export class NegativeKnowledgeRegistryDB {
   }> {
     // Check cache
     for (const barrier of cache.barriers.values()) {
-      const distance = fisherCoordDistance(coords, barrier.center);
+      const barrierCenter = barrier.center ?? [];
+      const distance = fisherCoordDistance(coords, barrierCenter);
       
       if (distance < barrier.radius) {
         const repulsionVector = coords.map((c, i) => {
-          const diff = c - (barrier.center[i] || 0);
-          return diff / Math.max(0.001, distance) * barrier.repulsionStrength;
+          const diff = c - (barrierCenter[i] || 0);
+          return diff / Math.max(0.001, distance) * (barrier.repulsionStrength ?? 0);
         });
         
         return {
@@ -512,7 +513,7 @@ export class NegativeKnowledgeRegistryDB {
           .filter(c => c.confirmedCount >= this.CONTRADICTION_CONFIRMATION_THRESHOLD).length,
         barriers: cache.barriers.size,
         confirmedBarriers: Array.from(cache.barriers.values())
-          .filter(b => b.crossings >= this.BARRIER_CROSS_THRESHOLD).length,
+          .filter(b => (b.crossings ?? 0) >= this.BARRIER_CROSS_THRESHOLD).length,
         falseClasses: cache.falsePatterns.size,
         totalExclusions: cache.contradictions.size,
         computeSaved: Array.from(cache.contradictions.values())

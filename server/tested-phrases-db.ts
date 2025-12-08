@@ -112,7 +112,9 @@ export class TestedPhrasesRegistryDB {
       // Maintain cache size
       if (phraseCache.size > CACHE_SIZE) {
         const firstKey = phraseCache.keys().next().value;
-        phraseCache.delete(firstKey);
+        if (firstKey !== undefined) {
+          phraseCache.delete(firstKey);
+        }
       }
     }
     
@@ -196,7 +198,9 @@ export class TestedPhrasesRegistryDB {
     // Maintain cache size
     if (phraseCache.size > CACHE_SIZE) {
       const firstKey = phraseCache.keys().next().value;
-      phraseCache.delete(firstKey);
+      if (firstKey !== undefined) {
+        phraseCache.delete(firstKey);
+      }
     }
   }
 

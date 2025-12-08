@@ -314,7 +314,7 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
                 {analysis.isPreBIP39Era ? "Pre-BIP39 Era (before 2013)" : "Post-BIP39 Era"}
               </Badge>
               
-              {analysis.forensics.creationTimestamp && (
+              {analysis?.forensics?.creationTimestamp && (
                 <Badge variant="outline" className="text-sm gap-1">
                   <Calendar className="w-3 h-3" />
                   {new Date(analysis.forensics.creationTimestamp).toLocaleDateString()}
@@ -323,11 +323,12 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
               
               <Badge variant="outline" className="text-sm gap-1">
                 <Hash className="w-3 h-3" />
-                Block {analysis.forensics.creationBlock?.toLocaleString() || "Unknown"}
+                Block {analysis?.forensics?.creationBlock?.toLocaleString() || "Unknown"}
               </Badge>
             </div>
 
             {/* Likely Key Format */}
+            {analysis?.likelyKeyFormat && analysis.likelyKeyFormat.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground">Likely Key Format</h4>
               <div className="grid gap-2">
@@ -352,8 +353,10 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
                 ))}
               </div>
             </div>
+            )}
 
             {/* Recommendations */}
+            {analysis?.recommendations && analysis.recommendations.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground">Recommendations</h4>
               <div className="space-y-1">
@@ -365,31 +368,32 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
                 ))}
               </div>
             </div>
+            )}
 
             {/* Address Stats */}
-            {analysis.forensics.txCount > 0 && (
+            {(analysis?.forensics?.txCount ?? 0) > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t">
                 <div className="text-center p-2 rounded bg-muted/30">
                   <div className="text-lg font-semibold">
-                    {analysis.forensics.txCount}
+                    {analysis?.forensics?.txCount ?? 0}
                   </div>
                   <div className="text-xs text-muted-foreground">Transactions</div>
                 </div>
                 <div className="text-center p-2 rounded bg-muted/30">
                   <div className="text-lg font-semibold">
-                    {(analysis.forensics.balance / 100000000).toFixed(4)}
+                    {((analysis?.forensics?.balance ?? 0) / 100000000).toFixed(4)}
                   </div>
                   <div className="text-xs text-muted-foreground">Balance (BTC)</div>
                 </div>
                 <div className="text-center p-2 rounded bg-muted/30">
                   <div className="text-lg font-semibold">
-                    {analysis.forensics.siblingAddresses.length}
+                    {analysis?.forensics?.siblingAddresses?.length ?? 0}
                   </div>
                   <div className="text-xs text-muted-foreground">Sibling Addresses</div>
                 </div>
                 <div className="text-center p-2 rounded bg-muted/30">
                   <div className="text-lg font-semibold">
-                    {analysis.forensics.relatedAddresses.length}
+                    {analysis?.forensics?.relatedAddresses?.length ?? 0}
                   </div>
                   <div className="text-xs text-muted-foreground">Related Addresses</div>
                 </div>

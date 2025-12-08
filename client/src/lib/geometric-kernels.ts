@@ -9,6 +9,7 @@
  * All approaches use the Fisher Information Metric and maintain geometric purity.
  */
 
+// @ts-ignore - crypto-js has no type declarations
 import CryptoJS from 'crypto-js';
 import { API_ROUTES } from '@/api';
 

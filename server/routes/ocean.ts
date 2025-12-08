@@ -42,7 +42,7 @@ oceanRouter.get("/health", generousLimiter, async (req: Request, res: Response) 
     const session = oceanSessionManager.getActiveSession();
     const agent = oceanSessionManager.getActiveAgent();
     
-    const nkStats = negativeKnowledgeRegistry.getStats();
+    const nkStats = await negativeKnowledgeRegistry.getStats();
     const vtStats = vocabularyTracker.getStats();
     const veStats = vocabularyExpander.getStats();
     const evStats = expandedVocabulary.getStats();
