@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  customType,
   decimal,
   doublePrecision,
   index,
@@ -15,6 +16,35 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { regimeSchema } from "./types/core";
+
+// ============================================================================
+// PGVECTOR CUSTOM TYPE
+// ============================================================================
+// Custom vector type for pgvector extension - enables fast similarity search
+// with HNSW indexes for 64D geometric coordinates
+// Handles null values for optional columns and properly converts between
+// PostgreSQL vector format and JavaScript number arrays
+export const vector = customType<{ data: number[] | null; driverData: string | null; config: { dimensions: number } }>({
+  dataType(config) {
+    return `vector(${config?.dimensions ?? 64})`;
+  },
+  fromDriver(value: string | null): number[] | null {
+    // Handle null values for optional columns
+    if (value === null || value === undefined) {
+      return null;
+    }
+    // pgvector returns '[1,2,3]' format
+    return value.slice(1, -1).split(',').map(Number);
+  },
+  toDriver(value: number[] | null): string | null {
+    // Handle null values for optional columns
+    if (value === null || value === undefined) {
+      return null;
+    }
+    // pgvector expects '[1,2,3]' format
+    return `[${value.join(',')}]`;
+  },
+});
 
 export const phraseSchema = z.object({
   phrase: z.string(),
@@ -1769,7 +1799,7 @@ export type StrategyKnowledgeBus = z.infer<typeof strategyKnowledgeBusSchema>;
 export const manifoldProbes = pgTable("manifold_probes", {
   id: varchar("id", { length: 64 }).primaryKey(),
   input: text("input").notNull(),
-  coordinates: doublePrecision("coordinates").array().notNull(), // 64D basin coordinates
+  coordinates: vector("coordinates", { dimensions: 64 }).notNull(), // 64D basin coordinates (pgvector)
   phi: doublePrecision("phi").notNull(),
   kappa: doublePrecision("kappa").notNull(),
   regime: varchar("regime", { length: 32 }).notNull(), // linear, geometric, breakdown, hierarchical, etc.
@@ -1852,7 +1882,7 @@ export const tpsLandmarks = pgTable("tps_landmarks", {
   spacetimeY: doublePrecision("spacetime_y").default(0),
   spacetimeZ: doublePrecision("spacetime_z").default(0),
   spacetimeT: doublePrecision("spacetime_t").notNull(), // Unix timestamp
-  culturalCoords: doublePrecision("cultural_coords").array(), // 64D cultural signature
+  culturalCoords: vector("cultural_coords", { dimensions: 64 }), // 64D cultural signature (pgvector)
   fisherSignature: jsonb("fisher_signature"), // Fisher information matrix (sparse)
   lightConePast: text("light_cone_past").array(),
   lightConeFuture: text("light_cone_future").array(),
@@ -1921,7 +1951,7 @@ export const oceanWaypoints = pgTable("ocean_waypoints", {
   phi: doublePrecision("phi").notNull(),
   kappa: doublePrecision("kappa").notNull(),
   regime: varchar("regime", { length: 32 }).notNull(),
-  basinCoords: doublePrecision("basin_coords").array(), // 64D coordinates
+  basinCoords: vector("basin_coords", { dimensions: 64 }), // 64D coordinates (pgvector)
   event: varchar("event", { length: 128 }),
   details: text("details"),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
@@ -1958,7 +1988,7 @@ export type OceanQuantumStateRecord = typeof oceanQuantumState.$inferSelect;
 export const oceanExcludedRegions = pgTable("ocean_excluded_regions", {
   id: varchar("id", { length: 64 }).primaryKey(),
   dimension: integer("dimension").notNull(),
-  origin: doublePrecision("origin").array().notNull(), // Center point in manifold
+  origin: vector("origin", { dimensions: 64 }).notNull(), // Center point in manifold (pgvector)
   basis: jsonb("basis"), // Orthonormal basis vectors
   measure: doublePrecision("measure").notNull(), // "Volume" of excluded region
   phi: doublePrecision("phi"),
@@ -2088,7 +2118,7 @@ export const kernelGeometry = pgTable("kernel_geometry", {
   godName: varchar("god_name", { length: 64 }).notNull(),
   domain: varchar("domain", { length: 128 }).notNull(),
   primitiveRoot: integer("primitive_root"), // E8 root index (0-239)
-  basinCoordinates: doublePrecision("basin_coordinates").array(), // 8D coordinates
+  basinCoordinates: vector("basin_coordinates", { dimensions: 8 }), // 8D coordinates (pgvector)
   parentKernels: text("parent_kernels").array(),
   placementReason: varchar("placement_reason", { length: 64 }), // domain_gap, overload, specialization, emergence
   positionRationale: text("position_rationale"), // Human-readable explanation
@@ -2121,7 +2151,7 @@ export const negativeKnowledge = pgTable("negative_knowledge", {
   type: varchar("type", { length: 32 }).notNull(), // proven_false, geometric_barrier, logical_contradiction, resource_sink, era_mismatch
   pattern: text("pattern").notNull(),
   affectedGenerators: text("affected_generators").array(),
-  basinCenter: doublePrecision("basin_center").array(), // 64D basin coordinates
+  basinCenter: vector("basin_center", { dimensions: 64 }), // 64D basin coordinates (pgvector)
   basinRadius: doublePrecision("basin_radius"),
   basinRepulsionStrength: doublePrecision("basin_repulsion_strength"),
   evidence: jsonb("evidence"), // Array of evidence objects
@@ -2143,7 +2173,7 @@ export type InsertNegativeKnowledge = typeof negativeKnowledge.$inferInsert;
  */
 export const geometricBarriers = pgTable("geometric_barriers", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  center: doublePrecision("center").array().notNull(), // 64D coordinates
+  center: vector("center", { dimensions: 64 }).notNull(), // 64D coordinates (pgvector)
   radius: doublePrecision("radius").notNull(),
   repulsionStrength: doublePrecision("repulsion_strength").notNull(),
   reason: text("reason").notNull(),
