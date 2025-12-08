@@ -163,6 +163,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/observer", observerRoutes);
   app.use("/api/telemetry", telemetryRouter);
   
+  // Investigation status endpoint - used by investigation page
+  app.get("/api/investigation/status", (req, res) => {
+    try {
+      const status = oceanSessionManager.getInvestigationStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("[API] Investigation status error:", error);
+      res.status(500).json({ error: error.message || "Failed to get investigation status" });
+    }
+  });
+  
+  // ============================================================
+  // AUTO-CYCLE MANAGEMENT ENDPOINTS
+  // ============================================================
+  
+  app.get("/api/auto-cycle/status", (req, res) => {
+    try {
+      const status = autoCycleManager.getStatus();
+      const position = autoCycleManager.getPositionString();
+      res.json({
+        success: true,
+        ...status,
+        positionString: position,
+      });
+    } catch (error: any) {
+      console.error("[API] Auto-cycle status error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/auto-cycle/enable", async (req, res) => {
+    try {
+      console.log("[API] Auto-cycle enable request received");
+      const result = await autoCycleManager.enable();
+      res.json({
+        success: result.success,
+        message: result.message,
+        status: autoCycleManager.getStatus(),
+      });
+    } catch (error: any) {
+      console.error("[API] Auto-cycle enable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/auto-cycle/disable", (req, res) => {
+    try {
+      console.log("[API] Auto-cycle disable request received");
+      const result = autoCycleManager.disable();
+      res.json({
+        success: result.success,
+        message: result.message,
+        status: autoCycleManager.getStatus(),
+      });
+    } catch (error: any) {
+      console.error("[API] Auto-cycle disable error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   console.log("[Routes] All sub-routers mounted");
 
   // ============================================================

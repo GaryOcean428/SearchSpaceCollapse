@@ -895,3 +895,55 @@ oceanRouter.post("/near-misses/conversion", isAuthenticated, standardLimiter, as
     res.status(500).json({ error: error.message });
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTO-CYCLE MANAGEMENT ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+oceanRouter.get("/auto-cycle/status", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const status = autoCycleManager.getStatus();
+    const position = autoCycleManager.getPositionString();
+    
+    res.json({
+      success: true,
+      ...status,
+      positionString: position,
+    });
+  } catch (error: any) {
+    console.error("[AutoCycle] Status error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+oceanRouter.post("/auto-cycle/start", standardLimiter, async (req: Request, res: Response) => {
+  try {
+    console.log("[AutoCycle] Start request received");
+    const result = await autoCycleManager.enable();
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      status: autoCycleManager.getStatus(),
+    });
+  } catch (error: any) {
+    console.error("[AutoCycle] Start error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+oceanRouter.post("/auto-cycle/stop", standardLimiter, async (req: Request, res: Response) => {
+  try {
+    console.log("[AutoCycle] Stop request received");
+    const result = autoCycleManager.disable();
+    
+    res.json({
+      success: result.success,
+      message: result.message,
+      status: autoCycleManager.getStatus(),
+    });
+  } catch (error: any) {
+    console.error("[AutoCycle] Stop error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
