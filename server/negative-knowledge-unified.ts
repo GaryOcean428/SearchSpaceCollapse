@@ -123,6 +123,19 @@ export class NegativeKnowledgeUnified {
     const registry = await getRegistry();
     return registry.prune();
   }
+
+  async getSummary(): Promise<{
+    contradictions: any[];
+    falsePatternClasses: Record<string, { count: number; examples: string[]; lastUpdated: string }>;
+    geometricBarriers: Array<{ center: number[]; radius: number; curvature: number; reason: string }>;
+    eraExclusions: Record<string, string[]>;
+    totalExclusions: number;
+    estimatedComputeSaved: number;
+    lastPruned: string | null;
+  }> {
+    const registry = await getRegistry();
+    return registry.getSummary();
+  }
 }
 
 export const negativeKnowledgeUnified = new NegativeKnowledgeUnified();

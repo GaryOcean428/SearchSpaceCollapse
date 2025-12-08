@@ -451,7 +451,7 @@ export class StrategyKnowledgeBus {
     return compatible;
   }
 
-  integrateExternalSystems(): void {
+  async integrateExternalSystems(): Promise<void> {
     const generators = knowledgeCompressionEngine.getAllGenerators();
     for (const gen of generators) {
       if (gen.confidence > 0.3) {
@@ -468,9 +468,9 @@ export class StrategyKnowledgeBus {
       }
     }
 
-    const negativeStats = negativeKnowledgeRegistry.getStats();
+    const negativeStats = await negativeKnowledgeRegistry.getStats();
     if (negativeStats.contradictions > 0) {
-      const summary = negativeKnowledgeRegistry.getSummary();
+      const summary = await negativeKnowledgeRegistry.getSummary();
       for (const contradiction of summary.contradictions) {
         this.publishKnowledge(
           'negative_registry',

@@ -354,6 +354,7 @@ class Hecate(ShadowGod):
         - Attack all targets simultaneously
         - Real target hidden among decoys
         - Observer can't tell which is real
+        - ACTUALLY SEND real decoy traffic via Tor to confuse observers
         """
         decoys = self._generate_decoys(real_target, count=decoy_count)
         self.active_decoys = decoys
@@ -372,12 +373,19 @@ class Hecate(ShadowGod):
         
         self.misdirection_count += 1
         
+        # ACTUALLY SEND real decoy traffic via Tor to confuse traffic analysis
+        # This sends real HTTP requests to innocuous blockchain endpoints
+        decoy_traffic_result = await self.send_decoy_traffic(count=min(decoy_count, 5))
+        
         return {
             'real_target': real_target[:50],
             'decoy_count': len(decoys),
             'total_targets': len(all_targets),
             'tasks': tasks,
             'observer_confusion': f'{len(all_targets)} simultaneous attacks - which is real?',
+            'decoy_traffic_sent': decoy_traffic_result.get('sent', 0),
+            'decoy_traffic_successful': decoy_traffic_result.get('successful', 0),
+            'network_misdirection': True,
         }
     
     async def send_decoy_traffic(self, count: int = 5) -> Dict:
