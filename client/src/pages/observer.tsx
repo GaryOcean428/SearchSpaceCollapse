@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, Target, Sparkles, LineChart, Plus, X, Terminal, RefreshCw, Play, Pause, Wallet, CheckCircle, XCircle, Send, AlertTriangle, History, DollarSign, Key, Eye, EyeOff, Copy, Building, Landmark } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis, AreaChart, Area, ReferenceLine, BarChart, Bar, LineChart as RechartsLineChart, Line } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
+import { API_ROUTES, QUERY_KEYS, api } from "@/api";
 import { WarStatusPanel } from "@/components/war-status-panel";
 
 interface DormantAddress {
@@ -243,21 +244,21 @@ export default function ObserverPage() {
 
   // Query dormant addresses
   const { data: addressesData, isLoading: addressesLoading } = useQuery<{ addresses: DormantAddress[]; total: number }>({
-    queryKey: ['/api/observer/addresses/dormant'],
+    queryKey: QUERY_KEYS.observer.dormantAddresses(),
     staleTime: 2000,
     retry: 2,
   });
 
   // Query recovery priorities with stable query key structure
   const { data: prioritiesData, isLoading: prioritiesLoading } = useQuery<{ priorities: RecoveryPriority[]; total: number }>({
-    queryKey: ['/api/observer/recovery/priorities', { tier: tierFilter }],
+    queryKey: QUERY_KEYS.observer.recoveryPriorities(tierFilter !== 'all' ? tierFilter : undefined),
     staleTime: 2000,
     retry: 2,
   });
 
   // Query workflows with stable query key structure
   const { data: workflowsData, isLoading: workflowsLoading } = useQuery<{ workflows: RecoveryWorkflow[]; total: number }>({
-    queryKey: ['/api/observer/workflows', { vector: vectorFilter }],
+    queryKey: QUERY_KEYS.observer.workflows(vectorFilter !== 'all' ? vectorFilter : undefined),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,
@@ -265,7 +266,7 @@ export default function ObserverPage() {
 
   // Query target addresses
   const { data: targetAddresses, isLoading: targetAddressesLoading } = useQuery<TargetAddress[]>({
-    queryKey: ['/api/target-addresses'],
+    queryKey: QUERY_KEYS.targetAddresses.list(),
     staleTime: 2000,
     retry: 2,
   });
@@ -276,7 +277,7 @@ export default function ObserverPage() {
     activeJobs: number; 
     totalJobs: number;
   }>({
-    queryKey: ['/api/activity-stream'],
+    queryKey: QUERY_KEYS.activityStream.list(),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,
@@ -284,7 +285,7 @@ export default function ObserverPage() {
 
   // Query balance queue status
   const { data: balanceQueueData, isLoading: balanceQueueLoading } = useQuery<BalanceQueueStatus>({
-    queryKey: ['/api/balance-queue/status'],
+    queryKey: QUERY_KEYS.balanceQueue.status(),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,
@@ -292,7 +293,7 @@ export default function ObserverPage() {
 
   // Query background worker status
   const { data: bgWorkerData, isLoading: bgWorkerLoading } = useQuery<BackgroundWorkerStatus>({
-    queryKey: ['/api/balance-queue/background'],
+    queryKey: QUERY_KEYS.balanceQueue.background(),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,
@@ -300,7 +301,7 @@ export default function ObserverPage() {
 
   // Query dormant cross-reference stats
   const { data: dormantCrossRefData, isLoading: dormantCrossRefLoading } = useQuery<DormantCrossRefStats>({
-    queryKey: ['/api/dormant-crossref/stats'],
+    queryKey: QUERY_KEYS.dormantCrossRef.stats(),
     refetchInterval: 10000,
     staleTime: 2000,
     retry: 2,
@@ -312,7 +313,7 @@ export default function ObserverPage() {
     count: number;
     sessions: Array<QIGSearchSession & { address: string }>;
   }>({
-    queryKey: ['/api/observer/qig-search/active'],
+    queryKey: QUERY_KEYS.observer.qigSearchActive(),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,
@@ -329,7 +330,7 @@ export default function ObserverPage() {
 
   // Query near-miss data with stable query key structure
   const { data: nearMissData, isLoading: nearMissLoading, error: nearMissError } = useQuery<NearMissData>({
-    queryKey: ['/api/near-misses', { tier: nearMissTierFilter }],
+    queryKey: QUERY_KEYS.nearMisses.list(nearMissTierFilter !== 'all' ? nearMissTierFilter : undefined),
     refetchInterval: 5000,
     retry: 2,
     staleTime: 2000,
@@ -337,7 +338,7 @@ export default function ObserverPage() {
 
   // Query cluster aging analytics
   const { data: clusterAnalyticsData, isLoading: clusterAnalyticsLoading } = useQuery<ClusterAnalyticsData>({
-    queryKey: ['/api/near-misses/cluster-analytics'],
+    queryKey: QUERY_KEYS.nearMisses.clusterAnalytics(),
     refetchInterval: 10000, // Poll every 10 seconds
     retry: 2,
     staleTime: 5000,
@@ -350,13 +351,7 @@ export default function ObserverPage() {
       kappaRecovery: number; 
       tier: string;
     }) => {
-      const res = await fetch('/api/observer/qig-search/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, kappaRecovery, tier })
-      });
-      if (!res.ok) throw new Error('Failed to start QIG search');
-      return res.json();
+      return api.observer.startQigSearch({ address, maxProbes: kappaRecovery });
     },
     onSuccess: (data) => {
       toast({
@@ -377,11 +372,7 @@ export default function ObserverPage() {
   // Stop QIG search mutation  
   const stopQIGSearchMutation = useMutation({
     mutationFn: async (address: string) => {
-      const res = await fetch(`/api/observer/qig-search/stop/${encodeURIComponent(address)}`, {
-        method: 'POST'
-      });
-      if (!res.ok) throw new Error('Failed to stop QIG search');
-      return res.json();
+      return api.observer.stopQigSearch(address);
     },
     onSuccess: () => {
       toast({
@@ -397,7 +388,7 @@ export default function ObserverPage() {
 
   // Query pending sweeps with stable query key structure
   const { data: sweepsData, isLoading: sweepsLoading, error: sweepsError } = useQuery<{ success: boolean; sweeps: PendingSweep[] }>({
-    queryKey: ['/api/sweeps', { status: sweepStatusFilter }],
+    queryKey: QUERY_KEYS.sweeps.list(sweepStatusFilter !== 'all' ? sweepStatusFilter : undefined),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,
@@ -405,7 +396,7 @@ export default function ObserverPage() {
 
   // Query sweep stats
   const { data: sweepStatsData, isLoading: sweepStatsLoading } = useQuery<{ success: boolean; stats: SweepStats }>({
-    queryKey: ['/api/sweeps/stats'],
+    queryKey: QUERY_KEYS.sweeps.stats(),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,
@@ -442,7 +433,7 @@ export default function ObserverPage() {
       dormantMatchCount: number;
     };
   }>({
-    queryKey: ['/api/observer/discoveries/hits'],
+    queryKey: QUERY_KEYS.observer.discoveryHits(),
     refetchInterval: 10000,
     staleTime: 2000,
     retry: 2,
@@ -451,7 +442,7 @@ export default function ObserverPage() {
   // Query audit log (optional - only when viewing details)
   const [selectedSweepId, setSelectedSweepId] = useState<string | null>(null);
   const { data: auditData } = useQuery<{ success: boolean; auditLog: SweepAuditEntry[] }>({
-    queryKey: ['/api/sweeps', selectedSweepId, 'audit'],
+    queryKey: QUERY_KEYS.sweeps.audit(selectedSweepId!),
     enabled: !!selectedSweepId,
     staleTime: 2000,
     retry: 2,
@@ -460,11 +451,11 @@ export default function ObserverPage() {
   // Approve sweep mutation
   const approveSweepMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("POST", `/api/sweeps/${id}/approve`, undefined);
+      return api.sweeps.approveSweep(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sweeps/stats'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sweeps.list() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sweeps.stats() });
       toast({
         title: "Sweep Approved",
         description: "The sweep has been approved and is ready for broadcast",
@@ -482,11 +473,11 @@ export default function ObserverPage() {
   // Reject sweep mutation
   const rejectSweepMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      return await apiRequest("POST", `/api/sweeps/${id}/reject`, { reason });
+      return api.sweeps.rejectSweep(id, { reason });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sweeps/stats'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sweeps.list() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sweeps.stats() });
       toast({
         title: "Sweep Rejected",
         description: "The sweep has been rejected",
@@ -504,11 +495,11 @@ export default function ObserverPage() {
   // Broadcast sweep mutation
   const broadcastSweepMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("POST", `/api/sweeps/${id}/broadcast`, undefined);
+      return api.sweeps.broadcastSweep(id);
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sweeps/stats'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sweeps.list() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sweeps.stats() });
       toast({
         title: "Sweep Broadcast",
         description: data.txId ? `Transaction broadcast: ${data.txId.slice(0, 16)}...` : "Transaction broadcast initiated",
@@ -526,10 +517,10 @@ export default function ObserverPage() {
   // Refresh sweep balance mutation
   const refreshSweepMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("POST", `/api/sweeps/${id}/refresh`, undefined);
+      return api.sweeps.refreshSweep(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sweeps'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sweeps.list() });
       toast({
         title: "Balance Refreshed",
         description: "Sweep balance has been updated",
@@ -547,10 +538,10 @@ export default function ObserverPage() {
   // Start background worker mutation
   const startBgWorkerMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/balance-queue/background/start", undefined);
+      return api.balanceQueue.startBackgroundQueue();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/balance-queue/background'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balanceQueue.background() });
       toast({
         title: "Worker Started",
         description: "Background balance checking is now active",
@@ -568,10 +559,10 @@ export default function ObserverPage() {
   // Stop background worker mutation
   const stopBgWorkerMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/balance-queue/background/stop", undefined);
+      return api.balanceQueue.stopBackgroundQueue();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/balance-queue/background'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balanceQueue.background() });
       toast({
         title: "Worker Stopped",
         description: "Background balance checking paused",
@@ -589,10 +580,10 @@ export default function ObserverPage() {
   // Add target address mutation
   const addTargetMutation = useMutation({
     mutationFn: async (data: { address: string; label?: string }) => {
-      return await apiRequest("POST", "/api/target-addresses", data);
+      return api.targetAddresses.createTargetAddress(data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/target-addresses'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.targetAddresses.list() });
       setNewTargetAddress("");
       setNewTargetLabel("");
       toast({
@@ -612,10 +603,10 @@ export default function ObserverPage() {
   // Remove target address mutation
   const removeTargetMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/target-addresses/${id}`, undefined);
+      return api.targetAddresses.deleteTargetAddress(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/target-addresses'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.targetAddresses.list() });
       toast({
         title: "Address removed",
         description: "Target address removed successfully",
@@ -2031,16 +2022,11 @@ export default function ObserverPage() {
                                 className="h-6 text-xs"
                                 onClick={async () => {
                                   try {
-                                    const res = await fetch('/api/observer/classify-address', {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ address: hit.address, balanceHitId: hit.id })
-                                    });
-                                    const data = await res.json();
+                                    const data = await api.observer.classifyAddress({ address: hit.address });
                                     if (data.success) {
                                       toast({
                                         title: "Classification Complete",
-                                        description: `${hit.address.slice(0, 12)}... classified as ${data.classification.entityType}${data.classification.entityName ? ` (${data.classification.entityName})` : ''}`,
+                                        description: `${hit.address.slice(0, 12)}... classified as ${data.format || 'unknown'}`,
                                       });
                                       refetchDiscoveries();
                                     }
@@ -2747,7 +2733,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function ConstrainedSearchProgress({ workflowId }: { workflowId: string }) {
   const { data: progressData, isLoading } = useQuery({
-    queryKey: ['/api/observer/workflows', workflowId, 'search-progress'],
+    queryKey: QUERY_KEYS.observer.workflowSearchProgress(workflowId),
     refetchInterval: 5000,
     staleTime: 2000,
     retry: 2,

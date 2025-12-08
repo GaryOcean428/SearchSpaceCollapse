@@ -21,7 +21,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { queryClient, apiRequest } from '@/lib/queryClient';
+import { queryClient } from '@/lib/queryClient';
+import { API_ROUTES, QUERY_KEYS, api } from '@/api';
 import { useToast } from '@/hooks/use-toast';
 import type { TargetAddress } from '@shared/schema';
 
@@ -177,38 +178,38 @@ export function OceanInvestigationStory() {
   const [activityOpen, setActivityOpen] = useState(true);
 
   const { data: status, isLoading } = useQuery<InvestigationStatus>({
-    queryKey: ['/api/investigation/status'],
+    queryKey: QUERY_KEYS.investigation.status(),
     refetchInterval: 2000,
   });
 
   const { data: targetAddresses } = useQuery<TargetAddress[]>({
-    queryKey: ['/api/target-addresses'],
+    queryKey: QUERY_KEYS.targetAddresses.list(),
   });
 
   const { data: candidates } = useQuery<RecoveryCandidate[]>({
-    queryKey: ['/api/recovery/candidates'],
+    queryKey: QUERY_KEYS.recovery.candidates(),
     refetchInterval: 3000,
   });
 
   const { data: neurochemistryData } = useQuery<{ neurochemistry: NeurochemistryData }>({
-    queryKey: ['/api/ocean/neurochemistry'],
+    queryKey: QUERY_KEYS.ocean.neurochemistry(),
     refetchInterval: 3000,
   });
 
   const { data: cyclesData } = useQuery<CyclesData>({
-    queryKey: ['/api/ocean/cycles'],
+    queryKey: QUERY_KEYS.ocean.cycles(),
     refetchInterval: 3000,
   });
 
   const { data: basinSyncStatus } = useQuery<BasinSyncStatus>({
-    queryKey: ['/api/basin-sync/coordinator/status'],
+    queryKey: QUERY_KEYS.basinSync.coordinatorStatus(),
     refetchInterval: 5000,
   });
 
   const { data: balanceHitsData, isLoading: balanceHitsLoading } = useQuery<{ hits: BalanceHit[]; count: number; activeCount: number }>({
-    queryKey: ['/api/balance-hits'],
+    queryKey: QUERY_KEYS.balance.hits(),
     refetchInterval: 10000,
-    staleTime: 0, // Always fetch fresh data
+    staleTime: 0,
   });
   const balanceHits = balanceHitsData?.hits || [];
 
@@ -216,27 +217,23 @@ export function OceanInvestigationStory() {
 
   const startMutation = useMutation({
     mutationFn: async (targetAddress: string) => {
-      return apiRequest('POST', '/api/recovery/start', { targetAddress });
+      return api.recovery.startRecovery({ targetAddress });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/investigation/status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/ocean/cycles'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.investigation.status() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ocean.cycles() });
       toast({ title: 'Investigation Started' });
     },
   });
 
   const stopMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/recovery/stop');
-      if (!response.ok) {
-        throw new Error('Failed to stop investigation');
-      }
-      return response.json();
+      return api.recovery.stopRecovery();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/investigation/status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/ocean/cycles'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/auto-cycle/status'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.investigation.status() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ocean.cycles() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autoCycle.status() });
       toast({ title: 'Investigation Stopped' });
     },
     onError: (error: Error) => {
@@ -250,21 +247,21 @@ export function OceanInvestigationStory() {
 
   const cycleMutation = useMutation({
     mutationFn: async ({ type, bypassCooldown }: { type: string; bypassCooldown?: boolean }) => {
-      return apiRequest('POST', `/api/ocean/cycles/${type}`, { bypassCooldown });
+      return api.ocean.triggerCycle(type as any, { bypassCooldown });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/ocean/cycles'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/ocean/neurochemistry'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ocean.cycles() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ocean.neurochemistry() });
       toast({ title: `${variables.type.charAt(0).toUpperCase() + variables.type.slice(1)} cycle triggered` });
     },
   });
 
   const boostMutation = useMutation({
     mutationFn: async ({ neurotransmitter, amount }: { neurotransmitter: string; amount: number }) => {
-      return apiRequest('POST', '/api/ocean/boost', { neurotransmitter, amount, duration: 60000 });
+      return api.ocean.boostNeurochemistry({ neurotransmitter, amount, duration: 60000 });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/ocean/neurochemistry'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ocean.neurochemistry() });
       toast({ title: `${variables.neurotransmitter} boosted +${(variables.amount * 100).toFixed(0)}%` });
     },
     onError: (error: Error) => {
@@ -595,20 +592,17 @@ function ControlRow({
 
   // Auto-cycle status query
   const { data: autoCycleStatus } = useQuery<AutoCycleStatus>({
-    queryKey: ['/api/auto-cycle/status'],
+    queryKey: QUERY_KEYS.autoCycle.status(),
     refetchInterval: 3000,
   });
 
   // Auto-cycle toggle mutation
   const autoCycleToggle = useMutation({
     mutationFn: async () => {
-      const endpoint = autoCycleStatus?.enabled 
-        ? '/api/auto-cycle/disable' 
-        : '/api/auto-cycle/enable';
-      return apiRequest('POST', endpoint, {});
+      return api.autoCycle.toggleAutoCycle(autoCycleStatus?.enabled ?? false);
     },
     onSuccess: (result: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auto-cycle/status'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autoCycle.status() });
       toast({
         title: result.success ? 'Success' : 'Error',
         description: result.message,
@@ -620,10 +614,10 @@ function ControlRow({
   // Dedicated disable mutation for Stop All button (avoids race condition)
   const disableAutoCycle = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/auto-cycle/disable', {});
+      return api.autoCycle.disableAutoCycle();
     },
     onSuccess: (result: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auto-cycle/status'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autoCycle.status() });
       if (!result.success) {
         toast({
           title: 'Error',
@@ -636,18 +630,13 @@ function ControlRow({
 
   const addAddressMutation = useMutation({
     mutationFn: async (address: string) => {
-      const response = await apiRequest('POST', '/api/target-addresses', { 
+      return api.targetAddresses.createTargetAddress({ 
         address, 
         label: `Custom ${new Date().toLocaleDateString()}` 
       });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to add address');
-      }
-      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/target-addresses'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.targetAddresses.list() });
       setNewAddress('');
       setShowAddNew(false);
       toast({ title: 'Address Added', description: 'New target address added successfully' });
@@ -1005,21 +994,21 @@ function BalanceHitsPanel({
   const { toast } = useToast();
   
   const { data: monitorStatus } = useQuery<BalanceMonitorStatus>({
-    queryKey: ['/api/balance-monitor/status'],
+    queryKey: QUERY_KEYS.balanceMonitor.status(),
     refetchInterval: 10000,
   });
   
   const refreshMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/balance-monitor/refresh', {});
+      return api.balanceMonitor.refreshBalanceMonitor();
     },
     onSuccess: (data: any) => {
       toast({
         title: 'Balance Refresh Complete',
-        description: data.message || `Refreshed ${data.result?.refreshed || 0} addresses`,
+        description: data.message || `Refreshed ${data.refreshedCount || 0} addresses`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/balance-hits'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/balance-monitor/status'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balance.hits() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balanceMonitor.status() });
     },
     onError: (error: any) => {
       toast({
