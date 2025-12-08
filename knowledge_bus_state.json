@@ -235,6 +235,51 @@
         "consumedBy": [],
         "transformations": []
       }
+    ],
+    [
+      "kb_1765187267636_0b9rm6pdw",
+      {
+        "id": "kb_1765187267636_0b9rm6pdw",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765187219775-t37b",
+        "pattern": "venture capital",
+        "phi": 0.9814374999999746,
+        "kappaEff": 62.81199999999838,
+        "regime": "geometric",
+        "sharedAt": "2025-12-08T09:47:47.636Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765187267637_b3g8d3lmz",
+      {
+        "id": "kb_1765187267637_b3g8d3lmz",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765187219775-c3o0",
+        "pattern": "winter is coming",
+        "phi": 0.98143749999998,
+        "kappaEff": 62.81199999999872,
+        "regime": "geometric",
+        "sharedAt": "2025-12-08T09:47:47.637Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765187267643_wvv5m9sj6",
+      {
+        "id": "kb_1765187267643_wvv5m9sj6",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765187219775-x3on",
+        "pattern": "michael jackson",
+        "phi": 0.981437499999985,
+        "kappaEff": 62.81199999999904,
+        "regime": "geometric",
+        "sharedAt": "2025-12-08T09:47:47.643Z",
+        "consumedBy": [],
+        "transformations": []
+      }
     ]
   ],
   "crossStrategyPatterns": [],

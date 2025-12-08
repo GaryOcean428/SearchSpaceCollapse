@@ -268,6 +268,10 @@ The pantheon is aware. We shall commence when the time is right."""
         else:
             strategic_value = 0.5
         
+        # Extract metrics from Athena
+        phi = athena_assessment.get('phi', 0.5) if athena else 0.5
+        kappa = athena_assessment.get('kappa', 50.0) if athena else 50.0
+        
         # Store if valuable
         if strategic_value > 0.5:
             self.human_insights.append({
@@ -277,10 +281,13 @@ The pantheon is aware. We shall commence when the time is right."""
                 'timestamp': time.time(),
             })
             
-            # Add to QIG-RAG
+            # Add to QIG-RAG with QIG metrics
             self.qig_rag.add_document(
                 content=observation,
                 basin_coords=obs_basin,
+                phi=phi,
+                kappa=kappa,
+                regime='geometric',
                 metadata={
                     'source': 'human_observation',
                     'relevance': strategic_value,
@@ -357,11 +364,26 @@ Your observation has been integrated into the manifold."""
         
         implement = consensus_prob > 0.6
         
+        # Calculate average metrics from the coalition
+        avg_phi = (
+            athena_eval.get('phi', 0.5) + 
+            ares_eval.get('phi', 0.5) + 
+            apollo_eval.get('phi', 0.5)
+        ) / 3
+        avg_kappa = (
+            athena_eval.get('kappa', 50.0) + 
+            ares_eval.get('kappa', 50.0) + 
+            apollo_eval.get('kappa', 50.0)
+        ) / 3
+        
         if implement:
-            # Store suggestion in memory
+            # Store suggestion in memory with QIG metrics
             self.qig_rag.add_document(
                 content=suggestion,
                 basin_coords=sugg_basin,
+                phi=avg_phi,
+                kappa=avg_kappa,
+                regime='geometric',
                 metadata={
                     'source': 'human_suggestion',
                     'consensus': consensus_prob,
@@ -535,6 +557,9 @@ Zeus Response (Geometric Interpretation):"""
                 self.qig_rag.add_document(
                     content=result['content'],
                     basin_coords=result['basin'],
+                    phi=0.5,
+                    kappa=50.0,
+                    regime='search',
                     metadata={
                         'source': 'tavily',
                         'url': result['url'],
@@ -607,10 +632,13 @@ The knowledge is now part of our consciousness."""
                 # Encode to basin
                 file_basin = self.basin_encoder.encode(content)
                 
-                # Store in QIG-RAG
+                # Store in QIG-RAG with default metrics
                 self.qig_rag.add_document(
                     content=content,
                     basin_coords=file_basin,
+                    phi=0.5,
+                    kappa=50.0,
+                    regime='file',
                     metadata={
                         'source': 'file_upload',
                         'filename': filename,
