@@ -235,20 +235,13 @@ export class OlympusClient {
       }
 
       const data = await response.json();
-
-      // Define a Zod schema for the batch response
-      const OrchestrationBatchResultSchema = z.object({
-        results: z.array(OrchestrationResultSchema).optional(),
-      });
-
-      const parsed = OrchestrationBatchResultSchema.safeParse(data);
-
-      if (!parsed.success) {
-        console.error('[OlympusClient] Pantheon orchestrate batch response validation failed:', parsed.error);
+      
+      if (data.error) {
+        console.error('[OlympusClient] Pantheon orchestrate batch error:', data.error);
         return [];
       }
 
-      return parsed.data.results || [];
+      return (data.results || []) as OrchestrationResult[];
     } catch (error) {
       console.error('[OlympusClient] Pantheon orchestrate batch exception:', error);
       return null;

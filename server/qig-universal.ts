@@ -20,9 +20,17 @@
 import { createHash } from 'crypto';
 import './bip39-words.js';
 import { QIG_CONSTANTS } from '@shared/constants';
+import { OceanQIGBackend } from './ocean-qig-backend-adapter';
+import type { PureQIGScore } from './qig-pure-v2';
 
 // Re-export for backwards compatibility
 export { QIG_CONSTANTS };
+
+// Singleton backend instance for Python QIG processing
+const oceanQIGBackend = new OceanQIGBackend();
+
+// Deprecation warning flag - only show once per process
+let deprecationWarningShown = false;
 
 /**
  * Key types supported by universal QIG
@@ -1219,7 +1227,94 @@ function computePatternScore(input: string, keyType: KeyType): number {
 }
 
 /**
- * MAIN: Score any key using Universal QIG
+ * Map PureQIGScore from Python backend to UniversalQIGScore
+ * 
+ * Bridges the gap between Python backend response format and TypeScript format.
+ * Some fields are not available from Python and are computed locally or set to defaults.
+ */
+function mapPureQIGToUniversal(
+  pureScore: PureQIGScore,
+  input: string,
+  keyType: KeyType
+): UniversalQIGScore {
+  const basinCoordinates = pureScore.basinCoordinates;
+  
+  const entropyNormalized = computeEntropy(basinCoordinates);
+  const entropyBits = entropyNormalized * Math.log2(32);
+  
+  const phi_spatial = pureScore.phi;
+  
+  const searchHistory = getSearchHistory();
+  const phi_temporal = computeTemporalPhi(searchHistory);
+  const phi_4D = compute4DPhi(phi_spatial, phi_temporal);
+  
+  const ricciScalar = pureScore.ricciScalar;
+  const kappa = pureScore.kappa;
+  
+  const regime = phi_temporal > 0
+    ? classifyRegime4D(phi_spatial, phi_temporal, phi_4D, kappa, ricciScalar)
+    : classifyRegime(phi_spatial, kappa, ricciScalar);
+  
+  const inResonance = Math.abs(kappa - QIG_CONSTANTS.KAPPA_STAR) < QIG_CONSTANTS.RESONANCE_BAND;
+  
+  const patternScore = computePatternScore(input, keyType);
+  
+  const phiFactor = phi_4D > phi_spatial ? phi_4D : phi_spatial;
+  const kappaFactor = 1 - Math.abs(kappa - QIG_CONSTANTS.KAPPA_STAR) / QIG_CONSTANTS.KAPPA_STAR;
+  const curvatureFactor = Math.exp(-ricciScalar);
+  
+  let regimeFactor: number;
+  switch (regime) {
+    case '4d_block_universe': regimeFactor = 1.2; break;
+    case 'hierarchical_4d': regimeFactor = 1.1; break;
+    case 'geometric': regimeFactor = 1.0; break;
+    case 'hierarchical': regimeFactor = 0.9; break;
+    case 'linear': regimeFactor = 0.6; break;
+    case 'breakdown': regimeFactor = 0.3; break;
+    default: regimeFactor = 0.5;
+  }
+  
+  const patternFactor = keyType === 'arbitrary' ? (0.3 + 0.7 * patternScore) : 1.0;
+  
+  const quality = (
+    phiFactor * 0.30 +
+    kappaFactor * 0.25 +
+    curvatureFactor * 0.15 +
+    regimeFactor * 0.15 +
+    patternFactor * 0.15
+  );
+  
+  recordSearchState({
+    timestamp: Date.now(),
+    phi: phi_spatial,
+    kappa,
+    regime,
+    basinCoordinates,
+    hypothesis: input.substring(0, 50),
+  });
+  
+  return {
+    keyType,
+    phi: pureScore.phi,
+    kappa: pureScore.kappa,
+    beta: pureScore.beta,
+    phi_spatial,
+    phi_temporal,
+    phi_4D,
+    basinCoordinates,
+    fisherTrace: pureScore.fisherTrace,
+    fisherDeterminant: pureScore.fisherDeterminant,
+    ricciScalar,
+    regime,
+    inResonance,
+    entropyBits,
+    patternScore,
+    quality: Math.max(0, Math.min(1, quality)),
+  };
+}
+
+/**
+ * LOCAL: Score any key using Universal QIG (synchronous, local computation)
  * 
  * PURE PRINCIPLE: This is MEASUREMENT ONLY - no optimization
  * 
@@ -1230,7 +1325,7 @@ function computePatternScore(input: string, keyType: KeyType): number {
  * @param keyType - Type of key
  * @returns Universal QIG score with all metrics including 4D consciousness
  */
-export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIGScore {
+export function scoreUniversalQIGLocal(input: string, keyType: KeyType): UniversalQIGScore {
   // STEP 1: Map to basin coordinates (same manifold for all types)
   const basinCoordinates = toBasinCoordinates(input, keyType);
   
@@ -1327,6 +1422,59 @@ export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIG
     patternScore,
     quality: Math.max(0, Math.min(1, quality)),
   };
+}
+
+/**
+ * ASYNC: Score any key using Universal QIG with Python backend delegation
+ * 
+ * PREFERRED API: Uses Python backend for pure QIG consciousness processing,
+ * falls back to local implementation if backend is unavailable.
+ * 
+ * @param input - Key material (phrase, hex, or arbitrary text)
+ * @param keyType - Type of key
+ * @returns Promise resolving to Universal QIG score
+ */
+export async function scoreUniversalQIGAsync(
+  input: string,
+  keyType: KeyType
+): Promise<UniversalQIGScore> {
+  try {
+    // Check if Python backend is reachable (silent mode to avoid log spam)
+    const isAvailable = await oceanQIGBackend.checkHealth(true);
+    
+    if (isAvailable) {
+      const pureScore = await oceanQIGBackend.process(input);
+      
+      if (pureScore) {
+        console.log('[QIG-Universal] Using Python backend for QIG scoring');
+        return mapPureQIGToUniversal(pureScore, input, keyType);
+      }
+    }
+  } catch (error) {
+    // Silent fallback to local on any error
+  }
+  
+  console.log('[QIG-Universal] Falling back to local QIG computation');
+  return scoreUniversalQIGLocal(input, keyType);
+}
+
+/**
+ * SYNC (DEPRECATED): Score any key using Universal QIG
+ * 
+ * @deprecated Use scoreUniversalQIGAsync for Python backend support.
+ * This sync version will continue to work but uses local computation only.
+ * 
+ * @param input - Key material (phrase, hex, or arbitrary text)
+ * @param keyType - Type of key
+ * @returns Universal QIG score with all metrics including 4D consciousness
+ */
+export function scoreUniversalQIG(input: string, keyType: KeyType): UniversalQIGScore {
+  if (!deprecationWarningShown) {
+    console.log('[QIG-Universal] DEPRECATION: scoreUniversalQIG is deprecated. Use scoreUniversalQIGAsync for Python backend support.');
+    deprecationWarningShown = true;
+  }
+  
+  return scoreUniversalQIGLocal(input, keyType);
 }
 
 /**
