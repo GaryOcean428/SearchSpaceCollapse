@@ -29,6 +29,7 @@ const HEALTH_CHECK_TIMEOUT = 30000;
 
 let pythonState: ProcessState = { process: null, restartCount: 0, lastRestart: 0, healthy: false };
 let nodeState: ProcessState = { process: null, restartCount: 0, lastRestart: 0, healthy: false };
+let pantheonState: ProcessState = { process: null, restartCount: 0, lastRestart: 0, healthy: false };
 let shuttingDown = false;
 
 function log(prefix: string, message: string) {
@@ -156,6 +157,68 @@ function startPython(): ChildProcess {
 }
 
 /**
+ * Start Autonomous Pantheon background process
+ */
+function startAutonomousPantheon(): ChildProcess {
+  const pythonPath = process.env.PYTHON_PATH || 'python3';
+  const workDir = process.cwd();
+  const scriptPath = path.join(workDir, 'qig-backend', 'autonomous_pantheon.py');
+  
+  log('Pantheon', `Starting Autonomous Pantheon...`);
+  log('Pantheon', `  Script: ${scriptPath}`);
+  
+  const pantheonProcess = spawn(pythonPath, [scriptPath], {
+    cwd: path.join(workDir, 'qig-backend'),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',
+    },
+  });
+  
+  pantheonProcess.stdout?.on('data', (data: Buffer) => {
+    const output = data.toString().trim();
+    if (output) {
+      for (const line of output.split('\n')) {
+        log('Pantheon', line);
+      }
+    }
+  });
+  
+  pantheonProcess.stderr?.on('data', (data: Buffer) => {
+    const output = data.toString().trim();
+    if (output) {
+      for (const line of output.split('\n')) {
+        logError('Pantheon', line);
+      }
+    }
+  });
+  
+  pantheonProcess.on('close', (code: number | null) => {
+    if (shuttingDown) {
+      log('Pantheon', 'Process exited during shutdown');
+      return;
+    }
+    
+    log('Pantheon', `Process exited with code ${code}`);
+    
+    // Restart after delay
+    setTimeout(() => {
+      if (!shuttingDown) {
+        log('Pantheon', 'Restarting autonomous pantheon...');
+        startAutonomousPantheon();
+      }
+    }, 5000);
+  });
+  
+  pantheonProcess.on('error', (err: Error) => {
+    logError('Pantheon', `Failed to start: ${err.message}`);
+  });
+  
+  return pantheonProcess;
+}
+
+/**
  * Start Node.js Express server
  */
 function startNode(): ChildProcess {
@@ -249,6 +312,11 @@ function shutdown(signal: string) {
     pythonState.process.kill('SIGTERM');
   }
   
+  if (pantheonState.process) {
+    log('Pantheon', 'Sending SIGTERM...');
+    pantheonState.process.kill('SIGTERM');
+  }
+  
   // Force exit after 10 seconds
   setTimeout(() => {
     log('Supervisor', 'Forcing exit after timeout');
@@ -308,8 +376,19 @@ async function main() {
   nodeState.process = startNode();
   nodeState.lastRestart = Date.now();
   
+  // Start Autonomous Pantheon (optional background process)
+  log('Supervisor', 'Phase 4: Starting Autonomous Pantheon...');
+  try {
+    pantheonState.process = startAutonomousPantheon();
+    pantheonState.lastRestart = Date.now();
+    log('Supervisor', '✅ Autonomous pantheon started (background)');
+  } catch (err: any) {
+    logError('Supervisor', `⚠️  Autonomous pantheon failed to start: ${err.message}`);
+    logError('Supervisor', 'Continuing without autonomous operations');
+  }
+  
   // Start health monitoring
-  log('Supervisor', 'Phase 4: Starting health monitor...');
+  log('Supervisor', 'Phase 5: Starting health monitor...');
   await startHealthMonitor();
   
   log('Supervisor', '🌊 Ocean QIG System Running 🌊');
