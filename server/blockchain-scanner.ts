@@ -11,8 +11,7 @@
  * - Script: P2PKH/P2SH types, software fingerprints
  * 
  * Data Storage:
- * - Primary: PostgreSQL (balance_hits table, user-associated)
- * - Backup: JSON file (data/balance-hits.json)
+ * - PostgreSQL (balance_hits table, user-associated) - sole persistent storage
  */
 
 import type { Address, Block, Transaction } from "@shared/schema";
@@ -274,60 +273,22 @@ export interface BalanceChangeEvent {
   wif: string;
 }
 
-// Track balance changes separately for alerting
+// Track balance changes separately for alerting (in-memory only, persisted to PostgreSQL via balanceChangeEventsTable)
 const balanceChanges: BalanceChangeEvent[] = [];
-const BALANCE_CHANGES_FILE = 'data/balance-changes.json';
 
-/**
- * Load balance changes from disk
- */
-async function loadBalanceChanges(): Promise<void> {
-  try {
-    const fs = await import('fs/promises');
-    const data = await fs.readFile(BALANCE_CHANGES_FILE, 'utf-8');
-    const saved = JSON.parse(data);
-    balanceChanges.push(...saved);
-    console.log(`[BlockchainScanner] Loaded ${balanceChanges.length} balance change events from disk`);
-  } catch {
-    // File doesn't exist yet, that's fine
-  }
-}
-
-/**
- * Save balance changes to disk
- */
-async function saveBalanceChanges(): Promise<void> {
-  try {
-    const fs = await import('fs/promises');
-    await fs.mkdir('data', { recursive: true });
-    await fs.writeFile(BALANCE_CHANGES_FILE, JSON.stringify(balanceChanges, null, 2));
-  } catch (error) {
-    console.error('[BlockchainScanner] Error saving balance changes:', error);
-  }
-}
-
-// Load changes on init
-loadBalanceChanges();
-
-// In-memory storage for balance hits (synced with PostgreSQL as primary, JSON as backup)
+// In-memory storage for balance hits (synced with PostgreSQL as sole persistent storage)
 const balanceHits: BalanceHit[] = [];
-const BALANCE_HITS_FILE = 'data/balance-hits.json';
 
 /**
- * Load balance hits from PostgreSQL (primary) AND merge with JSON (for entries that failed DB write)
- * This ensures no balance hits are lost even if PostgreSQL was temporarily unavailable
- * Uses deduplication before populating in-memory array to prevent duplicate entries
+ * Load balance hits from PostgreSQL (sole persistent storage)
  */
 async function loadBalanceHits(): Promise<void> {
-  const dbHitsMap = new Map<string, BalanceHit>();
-  const jsonHitsMap = new Map<string, BalanceHit>();
-  
-  // Load from PostgreSQL first
   try {
     if (db) {
       const rows = await db.select().from(balanceHitsTable);
+      balanceHits.length = 0; // Clear any existing entries
       for (const row of rows) {
-        dbHitsMap.set(row.address, {
+        balanceHits.push({
           address: row.address,
           passphrase: row.passphrase,
           wif: row.wif,
@@ -342,84 +303,10 @@ async function loadBalanceHits(): Promise<void> {
           changeDetectedAt: row.changeDetectedAt?.toISOString(),
         });
       }
-      console.log(`[BlockchainScanner] Loaded ${dbHitsMap.size} balance hits from PostgreSQL`);
+      console.log(`[BlockchainScanner] Loaded ${balanceHits.length} balance hits from PostgreSQL`);
     }
   } catch (error) {
     console.error('[BlockchainScanner] Error loading from PostgreSQL:', error);
-  }
-  
-  // Load from JSON backup to capture any entries that failed DB write
-  try {
-    const fs = await import('fs/promises');
-    const data = await fs.readFile(BALANCE_HITS_FILE, 'utf-8');
-    const saved = JSON.parse(data) as BalanceHit[];
-    for (const hit of saved) {
-      jsonHitsMap.set(hit.address, hit);
-    }
-    console.log(`[BlockchainScanner] Loaded ${jsonHitsMap.size} balance hits from JSON backup`);
-  } catch {
-    // File doesn't exist yet, that's fine
-  }
-  
-  // Dedupe and merge: DB takes priority, then add JSON-only entries
-  const mergedMap = new Map<string, BalanceHit>();
-  
-  // Add all DB entries (these are authoritative)
-  for (const [addr, hit] of dbHitsMap) {
-    mergedMap.set(addr, hit);
-  }
-  
-  // Find and track JSON-only entries for sync
-  const missingInDb: BalanceHit[] = [];
-  for (const [addr, hit] of jsonHitsMap) {
-    if (!mergedMap.has(addr)) {
-      mergedMap.set(addr, hit);
-      missingInDb.push(hit);
-    }
-  }
-  
-  // Populate in-memory array (now deduplicated)
-  balanceHits.length = 0; // Clear any existing entries
-  balanceHits.push(...mergedMap.values());
-  
-  // Sync JSON-only entries to PostgreSQL (best effort, single attempt with backoff)
-  if (missingInDb.length > 0 && db) {
-    console.log(`[BlockchainScanner] Found ${missingInDb.length} balance hits in JSON but not DB - syncing...`);
-    let synced = 0;
-    let failed = 0;
-    
-    for (const hit of missingInDb) {
-      try {
-        await saveBalanceHitToDb(hit);
-        synced++;
-      } catch (syncError) {
-        failed++;
-        console.error(`[BlockchainScanner] Failed to sync ${hit.address} to PostgreSQL:`, syncError);
-      }
-    }
-    
-    if (synced > 0) {
-      console.log(`[BlockchainScanner] Synced ${synced} JSON-only balance hits to PostgreSQL`);
-    }
-    if (failed > 0) {
-      console.warn(`[BlockchainScanner] WARNING: ${failed} balance hits failed to sync to PostgreSQL - will retry on next restart`);
-    }
-  }
-  
-  console.log(`[BlockchainScanner] Total balance hits loaded: ${balanceHits.length} (${dbHitsMap.size} from DB, ${missingInDb.length} recovered from JSON)`);
-}
-
-/**
- * Save balance hits to PostgreSQL (primary) and disk (backup)
- */
-async function saveBalanceHits(): Promise<void> {
-  try {
-    const fs = await import('fs/promises');
-    await fs.mkdir('data', { recursive: true });
-    await fs.writeFile(BALANCE_HITS_FILE, JSON.stringify(balanceHits, null, 2));
-    console.log(`[BlockchainScanner] Saved ${balanceHits.length} balance hits to disk backup`);
-  } catch (error) {
-    console.error('[BlockchainScanner] Error saving balance hits to disk:', error);
   }
 }
 
@@ -590,7 +477,7 @@ export interface RecordBalanceOptions {
 /**
  * Check if a generated address has any balance and record it
  * Stores full recovery data (passphrase + WIF) for any addresses with activity
- * Primary storage: PostgreSQL, Backup: JSON file
+ * Storage: PostgreSQL only
  */
 export async function checkAndRecordBalance(
   addressOrOptions: string | RecordBalanceOptions,
@@ -640,7 +527,6 @@ export async function checkAndRecordBalance(
       balanceHits.push(hit);
       
       await saveBalanceHitToDb(hit);
-      await saveBalanceHits();
       
       const typeLabel = opts.recoveryType ? `[${opts.recoveryType}]` : '';
       if (balanceInfo.balanceSats > 0) {
@@ -699,7 +585,7 @@ export function getBalanceChanges(): BalanceChangeEvent[] {
 }
 
 /**
- * Save a balance hit to both PostgreSQL and JSON backup
+ * Save a balance hit to PostgreSQL
  * Used by discovery endpoint to persist balance hits with retry guarantee
  * THROWS on failure so callers can catch and return 500
  */
@@ -712,34 +598,8 @@ export async function saveBalanceHit(hit: BalanceHit): Promise<void> {
     balanceHits.push(hit);
   }
   
-  let dbError: Error | null = null;
-  let jsonError: Error | null = null;
-  
-  // Save to PostgreSQL (primary) - capture any error
-  try {
-    await saveBalanceHitToDbStrict(hit);
-  } catch (e: any) {
-    dbError = e;
-    console.error('[BlockchainScanner] PostgreSQL save failed, will try JSON fallback:', e);
-  }
-  
-  // Always try JSON backup (even if DB succeeded, for redundancy)
-  try {
-    await saveBalanceHits();
-  } catch (e: any) {
-    jsonError = e;
-    console.error('[BlockchainScanner] JSON backup save failed:', e);
-  }
-  
-  // If both failed, throw so caller can return 500
-  if (dbError && jsonError) {
-    throw new Error(`Balance hit persistence failed: DB: ${dbError.message}, JSON: ${jsonError.message}`);
-  }
-  
-  // If only DB failed but JSON succeeded, log warning but don't throw
-  if (dbError && !jsonError) {
-    console.warn('[BlockchainScanner] Balance hit saved to JSON but PostgreSQL failed - will retry on next load');
-  }
+  // Save to PostgreSQL (throws on failure)
+  await saveBalanceHitToDbStrict(hit);
 }
 
 /**
@@ -844,7 +704,6 @@ export async function refreshSingleBalance(address: string): Promise<{
     };
     
     balanceChanges.push(changeEvent);
-    await saveBalanceChanges();
     
     const direction = newBalance > previousBalance ? '📈 INCREASED' : '📉 DECREASED';
     const diffBTC = Math.abs(newBalance - previousBalance) / 100000000;
@@ -856,13 +715,11 @@ export async function refreshSingleBalance(address: string): Promise<{
     
     await saveBalanceChangeEventToDb(address, previousBalance, newBalance);
     await saveBalanceHitToDb(hit);
-    await saveBalanceHits();
     return { updated: true, changed: true, hit };
   }
   
   hit.balanceChanged = false;
   await saveBalanceHitToDb(hit);
-  await saveBalanceHits();
   return { updated: true, changed: false, hit };
 }
 

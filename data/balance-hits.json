@@ -379,6 +379,17 @@
     "txCount": 2,
     "discoveredAt": "2025-12-08T10:46:03.090Z",
     "isCompressed": false,
+    "balanceChanged": false
+  },
+  {
+    "address": "1PzYwVuTotg15ridCGNnAo8u3dr6bE2Yxy",
+    "passphrase": "power",
+    "wif": "5HsjrA5VEhok91VzRTe4dhpGBtwmoF2MgZtLFCa1eZ1aVQ6FrNC",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 67782,
+    "discoveredAt": "2025-12-08T11:16:33.626Z",
+    "isCompressed": false,
     "recoveryType": "brain_wallet"
   }
 ]

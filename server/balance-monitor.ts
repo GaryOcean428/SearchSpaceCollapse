@@ -18,9 +18,7 @@ import {
 import { db } from './db';
 import { balanceMonitorState } from '@shared/schema';
 import { eq } from 'drizzle-orm';
-import * as fs from 'fs';
 
-const STATE_FILE = 'data/balance-monitor-state.json';
 const STATE_ID = 'default';
 
 interface BalanceMonitorStateLocal {
@@ -89,49 +87,12 @@ class BalanceMonitor {
           console.log(`[BalanceMonitor] Loaded state from PostgreSQL: enabled=${this.state.enabled}`);
           return;
         }
-        console.log(`[BalanceMonitor] No PostgreSQL state found, checking JSON...`);
+        console.log(`[BalanceMonitor] No PostgreSQL state found, creating default...`);
       } catch (error) {
         console.error('[BalanceMonitor] PostgreSQL load error:', error);
       }
     }
 
-    // Try JSON file for migration
-    try {
-      if (fs.existsSync(STATE_FILE)) {
-        const data = fs.readFileSync(STATE_FILE, 'utf-8');
-        const parsed = JSON.parse(data);
-        this.state = {
-          ...parsed,
-          isRefreshing: false,
-        };
-        console.log(`[BalanceMonitor] Loaded state from JSON: enabled=${this.state.enabled}`);
-        
-        // Migrate to PostgreSQL
-        if (db) {
-          try {
-            await db.insert(balanceMonitorState).values({
-              id: STATE_ID,
-              enabled: this.state.enabled,
-              refreshIntervalMinutes: this.state.refreshIntervalMinutes,
-              lastRefreshTime: this.state.lastRefreshTime ? new Date(this.state.lastRefreshTime) : null,
-              lastRefreshTotal: this.state.lastRefreshResult?.total || 0,
-              lastRefreshUpdated: this.state.lastRefreshResult?.refreshed || 0,
-              lastRefreshChanged: this.state.lastRefreshResult?.changed || 0,
-              lastRefreshErrors: this.state.lastRefreshResult?.errors || 0,
-              totalRefreshes: this.state.totalRefreshes,
-              isRefreshing: false,
-            }).onConflictDoNothing();
-            console.log(`[BalanceMonitor] Migrated state to PostgreSQL`);
-          } catch (error) {
-            console.error('[BalanceMonitor] Failed to migrate state to PostgreSQL:', error);
-          }
-        }
-        return;
-      }
-    } catch (error) {
-      console.error('[BalanceMonitor] Error loading JSON state:', error);
-    }
-    
     // Default state - insert into PostgreSQL
     if (db) {
       try {
@@ -179,20 +140,9 @@ class BalanceMonitor {
             updatedAt: new Date(),
           }
         });
-        return;
       } catch (error) {
-        console.error('[BalanceMonitor] PostgreSQL save error, falling back to JSON:', error);
+        console.error('[BalanceMonitor] PostgreSQL save error:', error);
       }
-    }
-    
-    // Fallback to JSON
-    try {
-      if (!fs.existsSync('data')) {
-        fs.mkdirSync('data', { recursive: true });
-      }
-      fs.writeFileSync(STATE_FILE, JSON.stringify(this.state, null, 2));
-    } catch (error) {
-      console.error('[BalanceMonitor] Error saving state:', error);
     }
   }
 

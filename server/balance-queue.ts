@@ -57,7 +57,6 @@ interface TokenBucket {
   refillRate: number;
 }
 
-const QUEUE_FILE = 'data/balance-queue.json';
 const MAX_QUEUE_SIZE = 10000;
 const DEFAULT_RATE_LIMIT = 1.5;
 
@@ -669,76 +668,13 @@ class BalanceQueueService {
           this.queue.set(item.id, queueItem);
         }
         
-        if (this.queue.size > 0) {
-          console.log(`[BalanceQueue] Loaded ${this.queue.size} pending addresses from PostgreSQL`);
-          return;
-        }
+        console.log(`[BalanceQueue] Loaded ${this.queue.size} pending addresses from PostgreSQL`);
       } catch (dbError) {
-        console.log('[BalanceQueue] PostgreSQL load failed, trying JSON fallback:', dbError);
+        console.error('[BalanceQueue] PostgreSQL load failed:', dbError);
       }
+    } else {
+      console.log('[BalanceQueue] No database connection, starting with empty queue');
     }
-    
-    // Fall back to JSON
-    try {
-      const fs = await import('fs/promises');
-      const data = await fs.readFile(QUEUE_FILE, 'utf-8');
-      const saved = JSON.parse(data);
-      
-      for (const item of saved) {
-        if (item.status === 'checking') {
-          item.status = 'pending';
-          item.retryCount = (item.retryCount || 0) + 1;
-        }
-        if (!item.source) {
-          item.source = 'typescript';
-        }
-        if (item.status === 'pending' || item.status === 'failed') {
-          this.queue.set(item.id, item);
-        }
-      }
-      
-      console.log(`[BalanceQueue] Loaded ${this.queue.size} pending addresses from disk`);
-      
-      // Migrate JSON data to PostgreSQL if available
-      if (db && this.queue.size > 0) {
-        console.log(`[BalanceQueue] Migrating ${this.queue.size} addresses to PostgreSQL...`);
-        this.migrateToPostgres();
-      }
-    } catch {
-      console.log('[BalanceQueue] No saved queue found, starting fresh');
-    }
-  }
-
-  private async migrateToPostgres(): Promise<void> {
-    if (!db) return;
-    
-    const items = Array.from(this.queue.values());
-    let migrated = 0;
-    
-    for (const item of items) {
-      try {
-        await db.insert(queuedAddresses).values({
-          id: item.id,
-          address: item.address,
-          passphrase: item.passphrase,
-          wif: item.wif,
-          isCompressed: item.isCompressed,
-          cycleId: item.cycleId || null,
-          source: item.source || 'typescript',
-          priority: item.priority,
-          status: item.status,
-          queuedAt: new Date(item.queuedAt),
-          checkedAt: item.checkedAt ? new Date(item.checkedAt) : null,
-          retryCount: item.retryCount,
-          error: item.error || null,
-        }).onConflictDoNothing();
-        migrated++;
-      } catch (error) {
-        // Ignore duplicates
-      }
-    }
-    
-    console.log(`[BalanceQueue] Migrated ${migrated}/${items.length} addresses to PostgreSQL`);
   }
 
   private async saveToDisk(): Promise<void> {
@@ -783,15 +719,6 @@ class BalanceQueueService {
         'BalanceQueue.saveToDisk',
         3
       );
-    }
-    
-    // Also save to JSON (backup)
-    try {
-      const fs = await import('fs/promises');
-      await fs.mkdir('data', { recursive: true });
-      await fs.writeFile(QUEUE_FILE, JSON.stringify(toSave, null, 2));
-    } catch (error) {
-      console.error('[BalanceQueue] Error saving to disk:', error);
     }
   }
   

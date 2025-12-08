@@ -20,6 +20,9 @@ import {
 } from './crypto';
 import './balance-queue';
 import { getAddressData } from './blockchain-api-router';
+import { db } from './db';
+import { verifiedAddresses as verifiedAddressesTable } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 export interface AddressGenerationResult {
   address: string;
@@ -71,11 +74,8 @@ export interface StoredAddress {
   matchedTarget?: string;
 }
 
-// In-memory storage with disk backup
+// In-memory storage with PostgreSQL persistence
 const verifiedAddresses: Map<string, StoredAddress> = new Map();
-const VERIFIED_ADDRESSES_FILE = 'data/verified-addresses.json';
-const BALANCE_ADDRESSES_FILE = 'data/balance-addresses.json';
-const TRANSACTION_ADDRESSES_FILE = 'data/transaction-addresses.json';
 
 /**
  * Generate address with COMPLETE data extraction
@@ -263,57 +263,106 @@ export async function batchVerifyAddresses(
 }
 
 /**
- * Save verified addresses to disk (categorized)
+ * Save verified addresses to PostgreSQL
  */
 async function saveStoredAddresses(): Promise<void> {
+  if (!db) {
+    console.error('[AddressVerification] No database connection available');
+    return;
+  }
+  
   try {
-    const fs = await import('fs/promises');
-    await fs.mkdir('data', { recursive: true });
-    
     const allAddresses = Array.from(verifiedAddresses.values());
+    let saved = 0;
     
-    // Save all verified addresses
-    await fs.writeFile(
-      VERIFIED_ADDRESSES_FILE,
-      JSON.stringify(allAddresses, null, 2)
-    );
+    for (const addr of allAddresses) {
+      try {
+        await db.insert(verifiedAddressesTable).values({
+          id: addr.id,
+          address: addr.address,
+          passphrase: addr.passphrase,
+          wif: addr.wif,
+          privateKeyHex: addr.privateKeyHex,
+          publicKeyHex: addr.publicKeyHex,
+          publicKeyCompressed: addr.publicKeyCompressed,
+          isCompressed: addr.isCompressed,
+          addressType: addr.addressType,
+          mnemonic: addr.mnemonic || null,
+          derivationPath: addr.derivationPath || null,
+          balanceSats: addr.balanceSats,
+          balanceBtc: addr.balanceBTC,
+          txCount: addr.txCount,
+          hasBalance: addr.hasBalance,
+          hasTransactions: addr.hasTransactions,
+          firstSeen: new Date(addr.firstSeen),
+          lastChecked: addr.lastChecked ? new Date(addr.lastChecked) : null,
+          matchedTarget: addr.matchedTarget || null,
+        }).onConflictDoUpdate({
+          target: verifiedAddressesTable.address,
+          set: {
+            balanceSats: addr.balanceSats,
+            balanceBtc: addr.balanceBTC,
+            txCount: addr.txCount,
+            hasBalance: addr.hasBalance,
+            hasTransactions: addr.hasTransactions,
+            lastChecked: addr.lastChecked ? new Date(addr.lastChecked) : null,
+            updatedAt: new Date(),
+          },
+        });
+        saved++;
+      } catch (upsertError) {
+        console.error(`[AddressVerification] Error saving ${addr.address}:`, upsertError);
+      }
+    }
     
-    // Save balance addresses separately (highlighted)
-    const balanceAddresses = allAddresses.filter(a => a.hasBalance);
-    await fs.writeFile(
-      BALANCE_ADDRESSES_FILE,
-      JSON.stringify(balanceAddresses, null, 2)
-    );
-    
-    // Save transaction addresses
-    const transactionAddresses = allAddresses.filter(a => a.hasTransactions);
-    await fs.writeFile(
-      TRANSACTION_ADDRESSES_FILE,
-      JSON.stringify(transactionAddresses, null, 2)
-    );
-    
-    console.log(`[AddressVerification] Saved ${allAddresses.length} addresses (${balanceAddresses.length} with balance, ${transactionAddresses.length} with transactions)`);
+    const balanceCount = allAddresses.filter(a => a.hasBalance).length;
+    const txCount = allAddresses.filter(a => a.hasTransactions).length;
+    console.log(`[AddressVerification] Saved ${saved} addresses to PostgreSQL (${balanceCount} with balance, ${txCount} with transactions)`);
   } catch (error) {
     console.error('[AddressVerification] Error saving addresses:', error);
   }
 }
 
 /**
- * Load verified addresses from disk
+ * Load verified addresses from PostgreSQL
  */
 async function loadStoredAddresses(): Promise<void> {
+  if (!db) {
+    console.log('[AddressVerification] No database connection, starting with empty cache');
+    return;
+  }
+  
   try {
-    const fs = await import('fs/promises');
-    const data = await fs.readFile(VERIFIED_ADDRESSES_FILE, 'utf-8');
-    const addresses: StoredAddress[] = JSON.parse(data);
+    const rows = await db.select().from(verifiedAddressesTable);
     
-    for (const addr of addresses) {
-      verifiedAddresses.set(addr.address, addr);
+    for (const row of rows) {
+      const stored: StoredAddress = {
+        id: row.id,
+        address: row.address,
+        passphrase: row.passphrase,
+        wif: row.wif,
+        privateKeyHex: row.privateKeyHex,
+        publicKeyHex: row.publicKeyHex,
+        publicKeyCompressed: row.publicKeyCompressed,
+        isCompressed: row.isCompressed ?? true,
+        addressType: row.addressType || 'Unknown',
+        mnemonic: row.mnemonic || undefined,
+        derivationPath: row.derivationPath || undefined,
+        balanceSats: row.balanceSats ?? 0,
+        balanceBTC: row.balanceBtc || '0.00000000',
+        txCount: row.txCount ?? 0,
+        hasBalance: row.hasBalance ?? false,
+        hasTransactions: row.hasTransactions ?? false,
+        firstSeen: row.firstSeen?.toISOString() || new Date().toISOString(),
+        lastChecked: row.lastChecked?.toISOString(),
+        matchedTarget: row.matchedTarget || undefined,
+      };
+      verifiedAddresses.set(row.address, stored);
     }
     
-    console.log(`[AddressVerification] Loaded ${addresses.length} verified addresses from disk`);
-  } catch {
-    console.log('[AddressVerification] No previous verified addresses found');
+    console.log(`[AddressVerification] Loaded ${rows.length} verified addresses from PostgreSQL`);
+  } catch (error) {
+    console.error('[AddressVerification] Error loading addresses from PostgreSQL:', error);
   }
 }
 

