@@ -1,0 +1,58 @@
+/**
+ * Olympus Service
+ * 
+ * Type-safe API functions for Olympus chat and war operations.
+ */
+
+import { get, post } from '../client';
+import { API_ROUTES } from '../routes';
+
+export interface WarHistoryEntry {
+  id: string;
+  topic: string;
+  winner?: string;
+  timestamp: string;
+}
+
+export interface ActiveWar {
+  id: string;
+  topic: string;
+  participants: string[];
+  status: string;
+}
+
+export interface ZeusChatParams {
+  message: string;
+  context?: string;
+}
+
+export interface ZeusChatResponse {
+  success: boolean;
+  response?: string;
+  message?: string;
+}
+
+export interface ZeusSearchParams {
+  query: string;
+}
+
+export interface ZeusSearchResponse {
+  success: boolean;
+  results?: Array<{ text: string; score: number }>;
+}
+
+export async function getWarHistory(limit: number = 10): Promise<WarHistoryEntry[]> {
+  return get<WarHistoryEntry[]>(API_ROUTES.olympus.warHistory(limit));
+}
+
+export async function getActiveWar(): Promise<ActiveWar | null> {
+  return get<ActiveWar | null>(API_ROUTES.olympus.warActive);
+}
+
+export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResponse> {
+  return post<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, params);
+}
+
+export async function searchZeus(params: ZeusSearchParams): Promise<ZeusSearchResponse> {
+  return post<ZeusSearchResponse>(API_ROUTES.olympus.zeusSearch, params);
+}
