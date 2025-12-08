@@ -8,9 +8,9 @@
  *   import { storageFacade } from './persistence';
  *   const candidates = await storageFacade.candidates.getCandidates();
  * 
- * The facade uses concrete adapters (JSON, Postgres) that implement
- * the domain interfaces. New modules should depend on the facade,
- * not on storage.ts or ocean-persistence.ts directly.
+ * The facade uses concrete Postgres adapters that implement the domain
+ * interfaces. New modules should depend on the facade, not on storage.ts
+ * or ocean-persistence.ts directly.
  */
 
 import type {
@@ -23,13 +23,11 @@ import type {
   StorageConfig,
 } from './interfaces';
 import {
-  CandidateJsonAdapter,
   CandidatePostgresAdapter,
-  SearchJobJsonAdapter,
   SearchJobPostgresAdapter,
   TargetAddressPostgresAdapter,
+  UserPostgresAdapter,
 } from './adapters';
-import { storage as memStorage } from '../storage';
 import { db } from '../db';
 import { oceanPersistence } from '../ocean/ocean-persistence';
 
@@ -44,44 +42,22 @@ class StorageFacade {
 
   constructor(config?: Partial<StorageConfig>) {
     this._config = {
-      backend: config?.backend ?? 'json',
+      backend: config?.backend ?? 'postgres',
       dataDir: config?.dataDir,
     };
 
-    if (this._config.backend === 'postgres' && db) {
-      this._candidates = new CandidatePostgresAdapter();
-      this._searchJobs = new SearchJobPostgresAdapter();
-      this._targetAddresses = new TargetAddressPostgresAdapter();
-      this._users = memStorage;
-    } else if (this._config.backend === 'json') {
-      const candidatePath = this._config.dataDir
-        ? `${this._config.dataDir}/candidates.json`
-        : undefined;
-      const jobsPath = this._config.dataDir
-        ? `${this._config.dataDir}/search-jobs.json`
-        : undefined;
-      this._candidates = new CandidateJsonAdapter({ filePath: candidatePath });
-      this._searchJobs = new SearchJobJsonAdapter({ filePath: jobsPath });
-      this._targetAddresses = memStorage;
-      this._users = memStorage;
-    } else if (this._config.backend === 'postgres' && !db) {
-      console.warn('[StorageFacade] DATABASE_URL not set - falling back to JSON backend');
-      const candidatePath = this._config.dataDir
-        ? `${this._config.dataDir}/candidates.json`
-        : undefined;
-      const jobsPath = this._config.dataDir
-        ? `${this._config.dataDir}/search-jobs.json`
-        : undefined;
-      this._candidates = new CandidateJsonAdapter({ filePath: candidatePath });
-      this._searchJobs = new SearchJobJsonAdapter({ filePath: jobsPath });
-      this._targetAddresses = memStorage;
-      this._users = memStorage;
-    } else {
-      this._candidates = memStorage;
-      this._searchJobs = memStorage;
-      this._targetAddresses = memStorage;
-      this._users = memStorage;
+    if (this._config.backend !== 'postgres') {
+      throw new Error('[StorageFacade] Only postgres backend is supported. Set backend to "postgres".');
     }
+
+    if (!db) {
+      throw new Error('[StorageFacade] DATABASE_URL not set - postgres backend is required for persistence');
+    }
+
+    this._candidates = new CandidatePostgresAdapter();
+    this._searchJobs = new SearchJobPostgresAdapter();
+    this._targetAddresses = new TargetAddressPostgresAdapter();
+    this._users = new UserPostgresAdapter();
 
     if (oceanPersistence.isPersistenceAvailable()) {
       this._oceanProbes = {
@@ -133,10 +109,6 @@ class StorageFacade {
 
   isOceanPersistenceAvailable(): boolean {
     return this._oceanProbes !== null;
-  }
-
-  getLegacyStorage() {
-    return memStorage;
   }
 }
 
