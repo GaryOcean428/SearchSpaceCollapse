@@ -1,11 +1,41 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import rateLimit from "express-rate-limit";
+import { z } from "zod";
 import { storage } from "./storage";
 import { generateBitcoinAddress, verifyBrainWallet, CryptoValidationError } from "./crypto";
 import { scorePhraseQIG } from "./qig-pure-v2.js";
 import observerRoutes from "./observer-routes";
 import { telemetryRouter } from "./telemetry-api";
+
+// WebSocket message validation schema (addresses Issue 13/14 from bottleneck report)
+const wsMessageSchema = z.object({
+  type: z.enum(['heartbeat', 'basin-delta', 'set-mode']),
+  data: z.any().optional(),
+  mode: z.enum(['full', 'partial', 'observer']).optional(),
+});
+
+// WebSocket rate limiter: Track message counts per connection
+const wsRateLimiter = new Map<string, { count: number; resetTime: number }>();
+const WS_RATE_LIMIT = 100; // Max messages per window
+const WS_RATE_WINDOW = 60000; // 1 minute window
+
+function checkWsRateLimit(peerId: string): boolean {
+  const now = Date.now();
+  const entry = wsRateLimiter.get(peerId);
+  
+  if (!entry || now > entry.resetTime) {
+    wsRateLimiter.set(peerId, { count: 1, resetTime: now + WS_RATE_WINDOW });
+    return true;
+  }
+  
+  if (entry.count >= WS_RATE_LIMIT) {
+    return false;
+  }
+  
+  entry.count++;
+  return true;
+}
 
 import {
   authRouter,
@@ -421,7 +451,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on('message', async (data) => {
       try {
-        const message = JSON.parse(data.toString());
+        // Rate limiting check (Issue 13/14 fix)
+        if (!checkWsRateLimit(peerId)) {
+          console.warn(`[BasinSync WS] Rate limit exceeded for ${peerId}`);
+          ws.send(JSON.stringify({ error: 'Rate limit exceeded' }));
+          return;
+        }
+        
+        // Parse and validate message with Zod schema
+        const rawMessage = JSON.parse(data.toString());
+        const parseResult = wsMessageSchema.safeParse(rawMessage);
+        
+        if (!parseResult.success) {
+          console.warn(`[BasinSync WS] Invalid message from ${peerId}:`, parseResult.error.message);
+          return;
+        }
+        
+        const message = parseResult.data;
         const currentOcean = oceanSessionManager.getActiveAgent();
         if (!currentOcean) return;
         
@@ -443,8 +489,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ws.on('close', () => {
       console.log(`[BasinSync WS] Connection closed: ${peerId}`);
       
-      // Remove from connection tracking
+      // Remove from connection tracking and rate limiter
       wsConnections.delete(peerId);
+      wsRateLimiter.delete(peerId);
       console.log(`[BasinSync WS] Remaining connections: ${wsConnections.size}`);
       
       const currentOcean = oceanSessionManager.getActiveAgent();
