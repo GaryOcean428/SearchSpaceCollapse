@@ -34,6 +34,24 @@ export const API_ROUTES = {
 
   recoveries: {
     list: '/api/recoveries',
+    detail: (filename: string) => `/api/recoveries/${filename}`,
+    download: (filename: string) => `/api/recoveries/${filename}/download`,
+  },
+
+  // Forensic Investigation
+  forensic: {
+    analyze: (address: string) => `/api/forensic/analyze/${encodeURIComponent(address)}`,
+    hypotheses: '/api/forensic/hypotheses',
+  },
+
+  // Telemetry
+  telemetry: {
+    capture: '/api/telemetry/capture',
+  },
+
+  // Candidates
+  candidates: {
+    list: '/api/candidates',
   },
 
   // Target Addresses
@@ -185,6 +203,15 @@ export const QUERY_KEYS = {
   
   recoveries: {
     list: () => [API_ROUTES.recoveries.list] as const,
+    detail: (filename: string) => [API_ROUTES.recoveries.list, filename] as const,
+  },
+  
+  forensic: {
+    analyze: (address: string) => ['/api/forensic/analyze', address] as const,
+  },
+  
+  candidates: {
+    list: () => [API_ROUTES.candidates.list] as const,
   },
   
   targetAddresses: {
