@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { API_ROUTES, QUERY_KEYS } from '@/api';
 
 interface RecoveryBundle {
   filename: string;
@@ -267,7 +268,7 @@ function RecoveryCard({ recovery, onSelect }: { recovery: RecoveryBundle; onSele
 
 function RecoveryDetailView({ filename, onBack }: { filename: string; onBack: () => void }) {
   const { data: detail, isLoading, error } = useQuery<RecoveryDetail>({
-    queryKey: ['/api/recoveries', filename],
+    queryKey: QUERY_KEYS.recoveries.detail(filename),
   });
   
   if (isLoading) {
@@ -305,7 +306,7 @@ function RecoveryDetailView({ filename, onBack }: { filename: string; onBack: ()
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/api/recoveries/${filename}/download`, '_blank')}
+            onClick={() => window.open(API_ROUTES.recoveries.download(filename), '_blank')}
             data-testid="button-download-json"
           >
             <Download className="h-4 w-4 mr-1" />
@@ -314,7 +315,7 @@ function RecoveryDetailView({ filename, onBack }: { filename: string; onBack: ()
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/api/recoveries/${txtFilename}/download`, '_blank')}
+            onClick={() => window.open(API_ROUTES.recoveries.download(txtFilename), '_blank')}
             data-testid="button-download-txt"
           >
             <FileText className="h-4 w-4 mr-1" />
@@ -643,19 +644,19 @@ export default function RecoveryResults() {
   const [activeView, setActiveView] = useState<'hits' | 'balance' | 'file'>('hits');
   
   const { data, isLoading, error } = useQuery<{ recoveries: RecoveryBundle[]; count: number }>({
-    queryKey: ['/api/recoveries'],
+    queryKey: QUERY_KEYS.recoveries.list(),
     staleTime: 30000, // Cache for 30s to avoid refetching on navigation
   });
 
   const { data: balanceData, isLoading: balanceLoading, isFetching: balanceFetching, error: balanceError, refetch: refetchBalance } = useQuery<BalanceAddressesData>({
-    queryKey: ['/api/balance-addresses'],
+    queryKey: QUERY_KEYS.balance.addresses(),
     refetchInterval: 15000, // 15s for balance updates
     staleTime: 10000, // Cache for 10s
   });
 
   // All recovered wallets from balance hits (includes recovery type tracking)
   const { data: balanceHitsData, isLoading: hitsLoading, isFetching: hitsFetching, refetch: refetchHits } = useQuery<BalanceHitsResponse>({
-    queryKey: ['/api/balance-hits'],
+    queryKey: QUERY_KEYS.balance.hits(),
     refetchInterval: 30000,
     staleTime: 20000, // Cache for 20s
   });
@@ -668,7 +669,7 @@ export default function RecoveryResults() {
       return await apiRequest('PATCH', `/api/balance-hits/${encodedAddress}/dormant`, { isDormantConfirmed: isDormant });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/balance-hits'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balance.hits() });
       // Show success feedback (imported useToast at top)
     },
     onError: (error: Error) => {

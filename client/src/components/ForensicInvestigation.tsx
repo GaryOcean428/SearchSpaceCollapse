@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { api, API_ROUTES, QUERY_KEYS } from '@/api';
 import {
   Search,
   Clock,
@@ -118,14 +119,13 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
 
   // Fetch target addresses
   const { data: targetAddresses } = useQuery<{ address: string; label?: string }[]>({
-    queryKey: ["/api/target-addresses"],
+    queryKey: QUERY_KEYS.targetAddresses.list(),
   });
 
   // Quick forensic analysis of an address
   const analyzeMutation = useMutation({
     mutationFn: async (address: string) => {
-      const response = await apiRequest("GET", `/api/forensic/analyze/${encodeURIComponent(address)}`);
-      return response.json() as Promise<ForensicAnalysis>;
+      return api.forensic.analyzeAddress(address) as Promise<ForensicAnalysis>;
     },
     onError: (error: Error) => {
       toast({
@@ -139,7 +139,7 @@ export function ForensicInvestigation({ targetAddress: propAddress }: ForensicIn
   // Generate cross-format hypotheses
   const hypothesesMutation = useMutation({
     mutationFn: async ({ targetAddr, frags }: { targetAddr: string; frags: MemoryFragment[] }) => {
-      const response = await apiRequest("POST", "/api/forensic/hypotheses", {
+      const response = await apiRequest("POST", API_ROUTES.forensic.hypotheses, {
         targetAddress: targetAddr,
         fragments: frags.filter(f => f.text.trim().length > 0),
       });

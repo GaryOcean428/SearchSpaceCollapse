@@ -40,6 +40,7 @@ import * as observer from './services/observer';
 import * as qig from './services/qig';
 import * as olympus from './services/olympus';
 import * as consciousness from './services/consciousness';
+import * as forensic from './services/forensic';
 
 /**
  * Consolidated API object for all service operations.
@@ -62,6 +63,7 @@ export const api = {
   qig,
   olympus,
   consciousness,
+  forensic,
 };
 
 // Re-export individual services for direct imports
@@ -78,6 +80,7 @@ export {
   qig,
   olympus,
   consciousness,
+  forensic,
 };
 
 // Re-export types from services for convenience
@@ -93,3 +96,4 @@ export type { StartQigSearchParams, QigSearchResponse, ClassifyAddressParams, Cl
 export type { GeometricMode, EncodeParams, EncodeResponse, SimilarityParams, SimilarityResponse } from './services/qig';
 export type { WarHistoryEntry, ActiveWar, ZeusChatParams, ZeusChatResponse, ZeusSearchParams, ZeusSearchResponse } from './services/olympus';
 export type { ConsciousnessState } from './services/consciousness';
+export type { ForensicAnalysisResult, ForensicHypothesis, ForensicHypothesesResponse } from './services/forensic';

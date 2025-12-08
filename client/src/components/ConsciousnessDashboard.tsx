@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { API_ROUTES } from '@/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -57,7 +58,7 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       try {
-        const res = await fetch('/api/consciousness/state', { 
+        const res = await fetch(API_ROUTES.consciousness.state, { 
           signal: controller.signal 
         });
         

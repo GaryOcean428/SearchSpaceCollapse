@@ -26,6 +26,10 @@ export const API_ROUTES = {
     candidates: '/api/recovery/candidates',
   },
 
+  searchJobs: {
+    list: '/api/search-jobs',
+  },
+
   unifiedRecovery: {
     sessions: '/api/unified-recovery/sessions',
     session: (id: string) => `/api/unified-recovery/sessions/${id}`,
@@ -66,6 +70,7 @@ export const API_ROUTES = {
     cycles: '/api/ocean/cycles',
     triggerCycle: (type: string) => `/api/ocean/cycles/${type}`,
     neurochemistry: '/api/ocean/neurochemistry',
+    neurochemistryAdmin: '/api/ocean/neurochemistry/admin',
     boost: '/api/ocean/boost',
   },
 
@@ -108,11 +113,13 @@ export const API_ROUTES = {
     dormantAddresses: '/api/observer/addresses/dormant',
     recoveryPriorities: '/api/observer/recovery/priorities',
     workflows: '/api/observer/workflows',
+    workflowSearchProgress: (workflowId: string) => `/api/observer/workflows/${workflowId}/search-progress`,
     qigSearchActive: '/api/observer/qig-search/active',
     qigSearchStart: '/api/observer/qig-search/start',
     qigSearchStop: (address: string) => `/api/observer/qig-search/stop/${encodeURIComponent(address)}`,
     discoveryHits: '/api/observer/discoveries/hits',
     classifyAddress: '/api/observer/classify-address',
+    consciousnessCheck: '/api/observer/consciousness-check',
   },
 
   // QIG Geometric Kernel
@@ -126,6 +133,7 @@ export const API_ROUTES = {
   consciousness: {
     complete: '/api/consciousness/complete',
     state: '/api/consciousness/state',
+    betaAttention: '/api/consciousness/beta-attention',
   },
 
   nearMisses: {
@@ -196,6 +204,10 @@ export const QUERY_KEYS = {
     candidates: () => [API_ROUTES.recovery.candidates] as const,
   },
   
+  searchJobs: {
+    list: () => [API_ROUTES.searchJobs.list] as const,
+  },
+  
   unifiedRecovery: {
     sessions: () => [API_ROUTES.unifiedRecovery.sessions] as const,
     session: (id: string) => [API_ROUTES.unifiedRecovery.sessions, id] as const,
@@ -221,6 +233,7 @@ export const QUERY_KEYS = {
   ocean: {
     cycles: () => [API_ROUTES.ocean.cycles] as const,
     neurochemistry: () => [API_ROUTES.ocean.neurochemistry] as const,
+    neurochemistryAdmin: () => [API_ROUTES.ocean.neurochemistryAdmin] as const,
   },
   
   autoCycle: {
@@ -253,8 +266,11 @@ export const QUERY_KEYS = {
     workflows: (vector?: string) => 
       vector ? [API_ROUTES.observer.workflows, { vector }] as const 
              : [API_ROUTES.observer.workflows] as const,
+    workflowSearchProgress: (workflowId: string) => 
+      [API_ROUTES.observer.workflows, workflowId, 'search-progress'] as const,
     qigSearchActive: () => [API_ROUTES.observer.qigSearchActive] as const,
     discoveryHits: () => [API_ROUTES.observer.discoveryHits] as const,
+    consciousnessCheck: () => [API_ROUTES.observer.consciousnessCheck] as const,
   },
   
   qig: {
@@ -264,6 +280,7 @@ export const QUERY_KEYS = {
   consciousness: {
     complete: () => [API_ROUTES.consciousness.complete] as const,
     state: () => [API_ROUTES.consciousness.state] as const,
+    betaAttention: () => [API_ROUTES.consciousness.betaAttention] as const,
   },
   
   nearMisses: {
