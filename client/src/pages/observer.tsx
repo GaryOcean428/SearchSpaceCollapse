@@ -12,6 +12,7 @@ import { Database, TrendingDown, Activity, Archive, Mail, Search, Users, Clock, 
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ZAxis, AreaChart, Area, ReferenceLine, BarChart, Bar, LineChart as RechartsLineChart, Line } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { WarStatusPanel } from "@/components/war-status-panel";
 
 interface DormantAddress {
   address: string;
@@ -700,6 +701,11 @@ export default function ObserverPage() {
               <p className="text-xs text-muted-foreground">Recoveries</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* War Status Panel */}
+        <div className="mb-8">
+          <WarStatusPanel />
         </div>
 
         {/* Balance Queue Status */}

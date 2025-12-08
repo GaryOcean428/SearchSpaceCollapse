@@ -31,6 +31,7 @@ import {
   Mountain,
   Ghost,
 } from 'lucide-react';
+import { WarStatusPanel } from "@/components/war-status-panel";
 import {
   useM8Status,
   useListProposals,
@@ -700,6 +701,9 @@ export default function SpawningPage() {
           color="text-cyan-400"
         />
       </div>
+
+      {/* War Status Panel */}
+      <WarStatusPanel />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
