@@ -4,13 +4,10 @@
  * Centralized persistence layer for the Observer Archaeology System.
  * 
  * Usage:
- *   import { storageFacade, FileJsonAdapter, createArrayAdapter } from './persistence';
- *   
- *   // Use domain-specific storage via facade
+ *   import { storageFacade } from './persistence';
+ *
+ *   // Use domain-specific storage via facade (Postgres only)
  *   const candidates = await storageFacade.candidates.getCandidates();
- *   
- *   // Create custom JSON adapter for module-specific storage
- *   const adapter = createArrayAdapter<MyType>('./data/my-data.json');
  * 
  * Migration Path:
  *   1. New code should use storageFacade for candidates and searchJobs

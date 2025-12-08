@@ -80,7 +80,7 @@ export interface ManifoldProbeData {
   createdAt: Date | null;
 }
 
-export type StorageBackend = 'postgres' | 'json' | 'memory';
+export type StorageBackend = 'postgres';
 
 export interface StorageConfig {
   backend: StorageBackend;
