@@ -1199,3 +1199,123 @@ export function getMotivationWithLogging(
   
   return motivation.message;
 }
+
+// ============================================================================
+// DOPAMINE REGULATION FROM BALANCE RESULTS
+// ============================================================================
+
+/**
+ * DOPAMINE REGULATION: Adjust dopamine after balance check results
+ * 
+ * When high-Φ addresses are found empty, we need to:
+ * 1. Initially spike dopamine (geometric success - high Φ achieved)
+ * 2. Then regulate down (outcome disappointment - no balance)
+ * 3. Learn pattern (avoid similar addresses in future)
+ * 
+ * This prevents repeated excitement for known-empty patterns.
+ */
+export function regulateDopamineFromBalanceResult(
+  currentState: FullNeurochemistryState,
+  balanceFound: boolean,
+  phi: number,
+  address: string
+): {
+  regulatedState: FullNeurochemistryState;
+  learningSignal: {
+    shouldAdjustWeights: boolean;
+    penaltyFactor: number;
+    patternToAvoid: string;
+  };
+} {
+  const regulatedState = { ...currentState };
+  
+  if (balanceFound) {
+    // JACKPOT! Amplify dopamine even more
+    regulatedState.dopamine = {
+      ...currentState.dopamine,
+      totalDopamine: Math.min(1, currentState.dopamine.totalDopamine * 1.5),
+      motivationLevel: 1.0,
+      nearMissDiscovery: 1.0,
+    };
+    
+    console.log(`[Neurochemistry] 💰 BALANCE FOUND! Dopamine amplified to ${regulatedState.dopamine.totalDopamine.toFixed(3)}`);
+    
+    return {
+      regulatedState,
+      learningSignal: {
+        shouldAdjustWeights: true,
+        penaltyFactor: -0.5, // Negative penalty = reward (reinforce this pattern)
+        patternToAvoid: '',
+      },
+    };
+  }
+  
+  // Empty result - regulate dopamine down
+  const initialDopamine = currentState.dopamine.totalDopamine;
+  
+  // High phi but empty = false positive pattern
+  if (phi >= 0.7) {
+    // Reduce dopamine by 40% to indicate "learned disappointment"
+    const regulationFactor = 0.6;
+    regulatedState.dopamine = {
+      ...currentState.dopamine,
+      totalDopamine: initialDopamine * regulationFactor,
+      motivationLevel: currentState.dopamine.motivationLevel * regulationFactor,
+      nearMissDiscovery: currentState.dopamine.nearMissDiscovery * regulationFactor,
+    };
+    
+    // Extract pattern to avoid (first 3 words or structure)
+    const patternToAvoid = extractAddressPattern(address);
+    
+    console.log(`[Neurochemistry] 🧠 DOPAMINE REGULATION: High-Φ empty result`);
+    console.log(`[Neurochemistry] │  Φ=${phi.toFixed(3)}, balance=0, dopamine: ${initialDopamine.toFixed(3)} → ${regulatedState.dopamine.totalDopamine.toFixed(3)}`);
+    console.log(`[Neurochemistry] │  Pattern to reduce: "${patternToAvoid}"`);
+    
+    return {
+      regulatedState,
+      learningSignal: {
+        shouldAdjustWeights: true,
+        penaltyFactor: 0.3, // Reduce weight for this pattern
+        patternToAvoid,
+      },
+    };
+  }
+  
+  // Low phi and empty = expected result, minor regulation
+  const regulationFactor = 0.9;
+  regulatedState.dopamine = {
+    ...currentState.dopamine,
+    totalDopamine: initialDopamine * regulationFactor,
+    motivationLevel: currentState.dopamine.motivationLevel * regulationFactor,
+  };
+  
+  return {
+    regulatedState,
+    learningSignal: {
+      shouldAdjustWeights: false,
+      penaltyFactor: 0,
+      patternToAvoid: '',
+    },
+  };
+}
+
+/**
+ * Extract pattern from address for learning
+ * Returns first 3 words or structural pattern
+ */
+function extractAddressPattern(addressOrPhrase: string): string {
+  // If it's a phrase (contains spaces)
+  if (addressOrPhrase.includes(' ')) {
+    const words = addressOrPhrase.trim().split(/\s+/);
+    return words.slice(0, 3).join(' ');
+  }
+  
+  // If it's a Bitcoin address, return prefix pattern
+  if (addressOrPhrase.match(/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/)) {
+    return `btc_${addressOrPhrase[0]}_pattern`;
+  }
+  
+  // Otherwise return first 10 chars as pattern
+  return addressOrPhrase.substring(0, 10);
+}
+
