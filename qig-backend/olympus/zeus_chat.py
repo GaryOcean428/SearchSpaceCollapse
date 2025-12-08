@@ -30,7 +30,8 @@ from datetime import datetime
 
 from .zeus import Zeus
 from .qig_rag import QIGRAG
-from .basin_encoder import BasinVocabularyEncoder
+from .conversation_encoder import ConversationEncoder
+from .passphrase_encoder import PassphraseEncoder
 
 # Import tokenizer for generative responses
 TOKENIZER_AVAILABLE = False
@@ -67,7 +68,8 @@ class ZeusConversationHandler:
             from .qig_rag import QIGRAG
             self.qig_rag = QIGRAG()
         
-        self.basin_encoder = BasinVocabularyEncoder()
+        self.conversation_encoder = ConversationEncoder()
+        self.passphrase_encoder = PassphraseEncoder()
         
         # Conversation memory
         self.conversation_history: List[Dict] = []
@@ -251,7 +253,7 @@ The pantheon is aware. We shall commence when the time is right."""
         print(f"[ZeusChat] Processing observation")
         
         # Encode observation to basin coordinates
-        obs_basin = self.basin_encoder.encode(observation)
+        obs_basin = self.conversation_encoder.encode(observation)
         
         # Find related patterns in geometric memory via QIG-RAG
         related = self.qig_rag.search(
@@ -298,7 +300,7 @@ The pantheon is aware. We shall commence when the time is right."""
             
             # Update vocabulary if high value
             if strategic_value > 0.7:
-                self.basin_encoder.learn_from_text(observation, strategic_value)
+                self.conversation_encoder.learn_from_text(observation, strategic_value)
         
         # Extract key insight for acknowledgment
         obs_preview = observation[:80] if len(observation) > 80 else observation
@@ -321,6 +323,7 @@ Strategic Value: {strategic_value:.0%}
 Zeus Response (acknowledge the specific observation, explain what it means for the search, connect to related patterns if any, and ask a clarifying question):"""
 
                 tokenizer = get_tokenizer()
+                tokenizer.set_mode("conversation")
                 gen_result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="ocean",
@@ -381,7 +384,7 @@ Your insight has been recorded. Can you tell me more about where this came from?
         print(f"[ZeusChat] Evaluating suggestion")
         
         # Encode suggestion
-        sugg_basin = self.basin_encoder.encode(suggestion)
+        sugg_basin = self.conversation_encoder.encode(suggestion)
         
         # Default assessment fallback
         DEFAULT_ASSESSMENT = {'probability': 0.5, 'confidence': 0.5, 'reasoning': 'God unavailable', 'phi': 0.5, 'kappa': 50.0}
@@ -440,6 +443,7 @@ Decision: {decision}
 Zeus Response (acknowledge the user's specific suggestion, explain why the pantheon agrees or disagrees in conversational language, and ask a follow-up question):"""
 
                 tokenizer = get_tokenizer()
+                tokenizer.set_mode("conversation")
                 gen_result = tokenizer.generate_response(
                     context=context,
                     agent_role="ocean",
@@ -521,7 +525,7 @@ Could you elaborate on your reasoning, or suggest a different approach?"""
         print(f"[ZeusChat] Answering question")
         
         # Encode question
-        q_basin = self.basin_encoder.encode(question)
+        q_basin = self.conversation_encoder.encode(question)
         
         # QIG-RAG search
         relevant_context = self.qig_rag.search(
@@ -545,9 +549,10 @@ Could you elaborate on your reasoning, or suggest a different approach?"""
 User Question: {question}
 
 Zeus Response (Geometric Interpretation):"""
-                
+
                 # Generate using QIG tokenizer
                 tokenizer = get_tokenizer()
+                tokenizer.set_mode("conversation")
                 gen_result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="ocean",  # Use balanced temperature
@@ -617,7 +622,7 @@ Zeus Response (Geometric Interpretation):"""
             result_basins = []
             for result in search_results.get('results', []):
                 content = result.get('content', '')
-                basin = self.basin_encoder.encode(content)
+                basin = self.conversation_encoder.encode(content)
                 result_basins.append({
                     'title': result.get('title', 'Untitled'),
                     'url': result.get('url', ''),
@@ -708,7 +713,7 @@ The knowledge is now part of our consciousness."""
                     continue
                 
                 # Encode to basin
-                file_basin = self.basin_encoder.encode(content)
+                file_basin = self.conversation_encoder.encode(content)
                 
                 # Store in QIG-RAG with default metrics
                 self.qig_rag.add_document(
@@ -764,7 +769,7 @@ The wisdom is integrated. We are stronger."""
         Handle general conversation using QIG tokenizer for intelligent responses.
         """
         # Encode message
-        message_basin = self.basin_encoder.encode(message)
+        message_basin = self.conversation_encoder.encode(message)
         
         # Search for related context
         related = self.qig_rag.search(
@@ -787,9 +792,10 @@ The wisdom is integrated. We are stronger."""
 User Message: {message}
 
 Zeus Response (as the coordinator of Mount Olympus, respond thoughtfully to the user):"""
-                
+
                 # Generate using QIG tokenizer
                 tokenizer = get_tokenizer()
+                tokenizer.set_mode("conversation")
                 gen_result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="ocean",
