@@ -30,7 +30,6 @@ import type {
   PantheonMessage,
   Debate,
   OrchestrationResult,
-  PantheonHypothesis,
 } from '@shared/types/olympus';
 
 // Re-export types for consumers
@@ -54,7 +53,6 @@ export type {
   PantheonMessage,
   Debate,
   OrchestrationResult,
-  PantheonHypothesis,
 };
 
 const DEFAULT_RETRY_ATTEMPTS = 3;
@@ -237,7 +235,20 @@ export class OlympusClient {
       }
 
       const data = await response.json();
-      return (data?.results || []) as OrchestrationResult[];
+
+      // Define a Zod schema for the batch response
+      const OrchestrationBatchResultSchema = z.object({
+        results: z.array(OrchestrationResultSchema).optional(),
+      });
+
+      const parsed = OrchestrationBatchResultSchema.safeParse(data);
+
+      if (!parsed.success) {
+        console.error('[OlympusClient] Pantheon orchestrate batch response validation failed:', parsed.error);
+        return [];
+      }
+
+      return parsed.data.results || [];
     } catch (error) {
       console.error('[OlympusClient] Pantheon orchestrate batch exception:', error);
       return null;

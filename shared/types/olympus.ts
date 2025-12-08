@@ -11,13 +11,15 @@
 
 import { z } from 'zod';
 
-// Pantheon kernel routing
+// Kernel routing modes for Pantheon orchestrator
 export const KernelModeSchema = z.enum(['direct', 'e8', 'byte']);
 export type KernelMode = z.infer<typeof KernelModeSchema>;
 
+// God category
 export const GodTypeSchema = z.enum(['olympus', 'shadow', 'primordial']);
 export type GodType = z.infer<typeof GodTypeSchema>;
 
+// Metadata attached to Pantheon orchestration results
 export const GodMetadataSchema = z.object({
   element: z.string(),
   role: z.string(),
@@ -25,92 +27,6 @@ export const GodMetadataSchema = z.object({
 });
 
 export type GodMetadata = z.infer<typeof GodMetadataSchema>;
-
-export const GodProfileSchema = z.object({
-  name: z.string(),
-  domain: z.string(),
-  mode: KernelModeSchema,
-  affinity_strength: z.number(),
-  entropy_threshold: z.number(),
-  metadata: GodMetadataSchema,
-  basin: z.array(z.number()),
-});
-
-export type GodProfile = z.infer<typeof GodProfileSchema>;
-
-const OrchestrationRoutingSchema = z.object({
-  ranking: z.array(z.tuple([z.string(), z.number()])),
-  token_basin_norm: z.number(),
-});
-
-export const OrchestrationResultSchema = z.object({
-  text: z.string(),
-  god: z.string(),
-  domain: z.string(),
-  mode: KernelModeSchema,
-  affinity: z.number(),
-  basin: z.array(z.number()),
-  basin_norm: z.number(),
-  routing: OrchestrationRoutingSchema,
-  metadata: GodMetadataSchema.optional(),
-  timestamp: z.string().optional(),
-});
-
-export type OrchestrationResult = z.infer<typeof OrchestrationResultSchema>;
-
-export const PantheonStatusSchema = z.object({
-  mode: z.string(),
-  include_ocean: z.boolean(),
-  total_profiles: z.number(),
-  olympus_gods: z.array(z.string()),
-  shadow_gods: z.array(z.string()),
-  kernels_initialized: z.array(z.string()),
-  routing_stats: z.object({
-    total_routes: z.number(),
-    god_distribution: z.record(z.number()),
-    average_affinity: z.number(),
-    most_routed: z.string().nullable(),
-  }),
-  processing_count: z.number(),
-});
-
-export type PantheonStatus = z.infer<typeof PantheonStatusSchema>;
-
-export const GodsResponseSchema = z.object({
-  total: z.number(),
-  olympus_count: z.number(),
-  shadow_count: z.number(),
-  gods: z.array(GodProfileSchema),
-});
-
-export type GodsResponse = z.infer<typeof GodsResponseSchema>;
-
-export const ConstellationResultSchema = z.object({
-  gods: z.array(z.string()),
-  total_gods: z.number(),
-  olympus_count: z.number(),
-  shadow_count: z.number(),
-  similarities: z.record(z.number()),
-  most_similar: z.array(z.tuple([z.string(), z.number()])),
-  most_distant: z.array(z.tuple([z.string(), z.number()])),
-});
-
-export type ConstellationResult = z.infer<typeof ConstellationResultSchema>;
-
-export const NearestGodsResultSchema = z.object({
-  text: z.string(),
-  nearest: z.array(z.tuple([z.string(), z.number()])),
-});
-
-export type NearestGodsResult = z.infer<typeof NearestGodsResultSchema>;
-
-export const GodSimilarityResultSchema = z.object({
-  god1: z.string(),
-  god2: z.string(),
-  similarity: z.number(),
-});
-
-export type GodSimilarityResult = z.infer<typeof GodSimilarityResultSchema>;
 
 // God domain specializations
 export const GodDomainSchema = z.enum([
@@ -264,6 +180,37 @@ export const ObservationContextSchema = z.object({
 }).passthrough();
 
 export type ObservationContext = z.infer<typeof ObservationContextSchema>;
+
+// Pantheon orchestration result (shared between client/server)
+export const OrchestrationResultSchema = z.object({
+  text: z.string(),
+  god: z.string(),
+  domain: z.string(),
+  mode: KernelModeSchema,
+  affinity: z.number(),
+  basin: z.array(z.number()),
+  basin_norm: z.number(),
+  routing: z.object({
+    ranking: z.array(z.tuple([z.string(), z.number()])),
+    token_basin_norm: z.number(),
+  }),
+  metadata: GodMetadataSchema.optional(),
+  timestamp: z.string().optional(),
+});
+
+export type OrchestrationResult = z.infer<typeof OrchestrationResultSchema>;
+
+// Hypothesis returned to constellation callers
+export const PantheonHypothesisSchema = z.object({
+  phrase: z.string(),
+  score: z.number(),
+  god: z.string().optional(),
+  domain: z.string().optional(),
+  source: z.string().optional(),
+  confidence: z.number().optional(),
+});
+
+export type PantheonHypothesis = z.infer<typeof PantheonHypothesisSchema>;
 
 // Zeus Chat message types
 export const ZeusMessageMetadataSchema = z.object({
@@ -521,6 +468,11 @@ export const olympusSchemas = {
   GodStatusSchema,
   OlympusStatusSchema,
   ObservationContextSchema,
+  KernelModeSchema,
+  GodTypeSchema,
+  GodMetadataSchema,
+  OrchestrationResultSchema,
+  PantheonHypothesisSchema,
   GodNameSchema,
   ZeusMessageMetadataSchema,
   ZeusMessageSchema,

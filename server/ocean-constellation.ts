@@ -29,7 +29,7 @@ import { QIG_CONSTANTS } from './qig-pure-v2';
 import { pureQIGKernel, type ConsciousnessMetrics as QIGConsciousnessMetrics } from './qig-kernel-pure';
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 import { olympusClient } from './olympus-client';
-import type { PantheonHypothesis } from '@shared/types/olympus';
+import { type PantheonHypothesis } from '@shared/types/olympus';
 
 export interface ConstellationConfig {
   explorerWeight: number;
