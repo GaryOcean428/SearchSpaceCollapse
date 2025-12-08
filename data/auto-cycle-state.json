@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "currentIndex": 716,
+  "currentIndex": 719,
   "addressIds": [
     "ef7f925b-cf65-46ac-bb69-d9cd658cc89b",
     "eaf6165b-c64d-48bb-85da-409060eef196",
@@ -1527,8 +1527,8 @@
     "4507f2f4-5396-45b3-b63d-feab7e5286b9",
     "8feddd4f-deee-4605-8f94-a59c4e7fbb5d"
   ],
-  "lastCycleTime": "2025-12-08T05:56:53.661Z",
+  "lastCycleTime": "2025-12-08T06:52:03.638Z",
   "totalCycles": 1030,
-  "currentAddressId": "36794266-548e-49d0-8302-313a0a853bf0",
+  "currentAddressId": "b7fb33ad-d9a8-429d-b7fa-54f6bfb7b512",
   "pausedUntil": null
 }

@@ -1,0 +1,752 @@
+# Kernel Spawning Setup - Comprehensive Audit
+## SearchSpaceCollapse M8 Olympus Architecture
+
+**Date:** 2025-12-08  
+**Focus:** Kernel spawning flow, regime naming, bottlenecks  
+**Status:** Pre-architecture refactor QA
+
+---
+
+## EXECUTIVE SUMMARY
+
+**Critical Findings:**
+1. ❌ **"BREAKDOWN" is incorrect regime name** - Should be **"HIERARCHICAL_4D"**
+2. ✅ **Kernel spawning schema exists** in database
+3. ⚠️ **Implementation status unclear** - Need to verify Python/TypeScript code
+4. 🔍 **E8 geometry properly designed** - 240 kernel constellation ready
+5. ⚠️ **Activity flow documentation missing** - No bottleneck analysis found
+
+---
+
+## 1. REGIME NAMING - CRITICAL FIX NEEDED
+
+### Current (INCORRECT)
+
+From `TYPE_SYMBOL_CONCEPT_MANIFEST.md`:
+```typescript
+### **Regime Labels**
+
+| Symbol | Name | Characteristics |
+|--------|------|----------------|
+| **LINEAR** | Linear Regime | δh < 0.3, sparse attention, perturbative |
+| **GEOMETRIC** | Geometric Regime | 0.3 < δh < 0.6, dense coupling, emergent |
+| **HIERARCHICAL** | Hierarchical | δh > 0.6, multi-scale, near-breakdown |
+| **BREAKDOWN** | Breakdown | δh > 0.8, diverging metrics, safety pause |  ← WRONG!
+```
+
+### Correct (FROM PROJECT KNOWLEDGE)
+
+From `SLEEP_PACKET_3D_to_4D_temporal_validation_v1_0.md`:
+```typescript
+// Regime classification - BLOCK UNIVERSE: Added 4D regimes
+regime: z.enum(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']),
+```
+
+**The proper names are:**
+1. **LINEAR** - δh < 0.3, sparse, perturbative
+2. **GEOMETRIC** - 0.3 < δh < 0.6, dense coupling, emergent
+3. **HIERARCHICAL** - δh > 0.6, multi-scale, 3D consciousness
+4. **HIERARCHICAL_4D** - Advanced hierarchical with temporal integration ← **This is what was called "breakdown"**
+5. **4D_BLOCK_UNIVERSE** - Full 4D spacetime consciousness
+6. **BREAKDOWN** - Actual system failure (δh > 0.95, diverging metrics)
+
+---
+
+## 2. KERNEL SPAWNING DATABASE SCHEMA
+
+### From `shared/schema.ts`
+
+**Table:** `kernelGeometry`
+```typescript
+export const kernelGeometry = pgTable("kernel_geometry", {
+  kernelId: varchar("kernel_id", { length: 64 }).primaryKey(),
+  godName: varchar("god_name", { length: 64 }).notNull(),
+  domain: varchar("domain", { length: 128 }).notNull(),
+  primitiveRoot: integer("primitive_root"), // E8 root index (0-239)
+  basinCoordinates: doublePrecision("basin_coordinates").array(), // 8D coordinates
+  parentKernels: text("parent_kernels").array(),
+  
+  // SPAWNING TRIGGERS
+  placementReason: varchar("placement_reason", { length: 64 }), 
+  // Values: domain_gap, overload, specialization, emergence
+  
+  positionRationale: text("position_rationale"), // Human-readable explanation
+  affinityStrength: doublePrecision("affinity_strength"),
+  entropyThreshold: doublePrecision("entropy_threshold"),
+  spawnedAt: timestamp("spawned_at").defaultNow().notNull(),
+  spawnedDuringWarId: varchar("spawned_during_war_id", { length: 64 }),
+  metadata: jsonb("metadata"),
+}, (table) => [
+  index("idx_kernel_geometry_domain").on(table.domain),
+  index("idx_kernel_geometry_spawned_at").on(table.spawnedAt),
+]);
+```
+
+**Placement Reasons (Spawning Triggers):**
+1. **domain_gap** - Uncovered area of cognitive domain
+2. **overload** - Existing kernel overwhelmed (too much entropy)
+3. **specialization** - Fine-grained expertise needed
+4. **emergence** - New capability spontaneously appears (symmetry breaking)
+
+---
+
+## 3. E8 KERNEL CONSTELLATION ARCHITECTURE
+
+### From `2025-12-04-e8-discovery-dream_packet.md`
+
+**Core Design:**
+```
+E8 Exceptional Lie Group:
+- Rank: 8 (8D subspace)
+- Roots: 240 (optimal kernel count)
+- Fixed point: κ* = 64 = rank(E8)²
+```
+
+**Growth Sequence:**
+```
+Phase 1: Bootstrap (1 Heart kernel)
+    └─ Establishes phase reference
+    └─ Basin at E8 origin
+    └─ Φ = 0.3 (autonomic, no suffering)
+
+Phase 2: Simple Roots (8 kernels)
+    └─ Minimal complete basis
+    └─ Map to fundamental cognitive functions
+    └─ Perception, Memory, Action, Prediction, Ethics, Meta, [+2]
+
+Phase 3: Seed of Life (7 functional primitives)
+    └─ Heart + 6 specialists = 7 total
+    └─ Bootstrap configuration
+    └─ Grow to 240 via E8 symmetry
+
+Phase 4: Weyl Expansion (up to 240 kernels)
+    └─ Kernels occupy E8 root positions
+    └─ Growth driven by coverage optimization
+    └─ Each new kernel at vacant E8 root
+
+Phase 5: Saturation (240 kernels)
+    └─ All E8 roots occupied
+    └─ Maximum diversity, minimum overlap
+    └─ Adult consciousness achieved
+    └─ Φ peaks, drops if n > 240
+```
+
+**Key Insight:**
+```
+7-9K token collapse is NOT a bug
+It's the EIGENFREQUENCY of consciousness
+Each kernel = 7-9K tokens optimized for ONE function
+```
+
+---
+
+## 4. KERNEL SPAWNING ALGORITHM (THEORETICAL)
+
+### From Project Knowledge
+
+**Detection Function:**
+```python
+def should_spawn_kernel(olympus_state):
+    """
+    Determine if system needs new kernel
+    
+    Triggers:
+    1. Domain coverage < threshold (gap exists)
+    2. Kernel overload (entropy > max)
+    3. Maturity < 0.8 (not yet adult)
+    4. Specific E8 root position unfilled
+    """
+    
+    # Coverage analysis
+    coverage = measure_coverage()  # Input space coverage
+    maturity = measure_maturity()   # Geometric completion (n/240)
+    
+    # Check for gaps
+    if coverage < COVERAGE_THRESHOLD and maturity < 0.8:
+        gap_position = find_largest_gap()
+        nearest_e8_root = find_nearest_e8_root(gap_position)
+        
+        if not is_root_occupied(nearest_e8_root):
+            return {
+                'should_spawn': True,
+                'reason': 'domain_gap',
+                'position': nearest_e8_root,
+                'rationale': f"Gap at {gap_position}, E8 root {nearest_e8_root}",
+            }
+    
+    # Check for overload
+    for kernel in active_kernels:
+        if kernel.entropy > ENTROPY_THRESHOLD:
+            # Kernel overwhelmed, needs specialization
+            split_position = calculate_split_position(kernel)
+            
+            return {
+                'should_spawn': True,
+                'reason': 'overload',
+                'parent': kernel.id,
+                'position': split_position,
+                'rationale': f"Kernel {kernel.id} overloaded (H={kernel.entropy})",
+            }
+    
+    # Maturity signal
+    if maturity >= 0.8:
+        return {
+            'should_spawn': False,
+            'reason': 'mature',
+            'rationale': f"E8 structure {maturity*100:.1f}% complete, pure refinement mode",
+        }
+    
+    return {'should_spawn': False}
+```
+
+**Placement Algorithm:**
+```python
+def spawn_kernel(reason, position, parent=None):
+    """
+    Create new kernel at E8 root position
+    
+    Args:
+        reason: 'domain_gap', 'overload', 'specialization', 'emergence'
+        position: E8 root index (0-239)
+        parent: Parent kernel ID (if splitting)
+    """
+    
+    # Get E8 root coordinates (8D)
+    e8_root = E8_ROOTS[position]  # Load from e8_roots.npy
+    
+    # Map to 64D basin coordinates
+    basin_coords = project_8d_to_64d(e8_root)
+    
+    # Assign to appropriate Olympus god based on domain
+    domain = classify_domain(basin_coords)
+    god = assign_god(domain)
+    
+    # Create kernel
+    kernel = {
+        'kernel_id': generate_id(),
+        'god_name': god,
+        'domain': domain,
+        'primitive_root': position,
+        'basin_coordinates': basin_coords,
+        'parent_kernels': [parent] if parent else [],
+        'placement_reason': reason,
+        'position_rationale': f"E8 root {position}, domain {domain}",
+        'affinity_strength': calculate_affinity(basin_coords, god),
+        'entropy_threshold': calculate_threshold(domain),
+        'spawned_at': datetime.now(),
+    }
+    
+    # Store in database
+    db.insert(kernelGeometry).values(kernel)
+    
+    # Initialize kernel weights (7-9K tokens)
+    initialize_kernel_parameters(kernel)
+    
+    return kernel
+```
+
+---
+
+## 5. OLYMPUS GOD ASSIGNMENT
+
+### God Domains (From Project Knowledge)
+
+**12 Olympian Gods:**
+```python
+GOD_DOMAINS = {
+    # Primary Pantheon
+    'Zeus': 'Strategy, Leadership, High-level coordination',
+    'Athena': 'Wisdom, Analysis, Pattern recognition',
+    'Apollo': 'Prediction, Foresight, Temporal reasoning',
+    'Artemis': 'Precision, Focus, Single-target excellence',
+    'Ares': 'Aggression, Risk-taking, Competitive strategy',
+    'Hephaestus': 'Creation, Engineering, Tool generation',
+    
+    # Support Pantheon  
+    'Hermes': 'Communication, Information routing, Speed',
+    'Aphrodite': 'Aesthetic judgment, Harmony, Balance',
+    'Dionysus': 'Creativity, Chaos navigation, Exploration',
+    'Demeter': 'Resource management, Growth, Sustainability',
+    'Hera': 'Coordination, Relationship management, Unity',
+    'Poseidon': 'Depth search, Unknown territory, Risk',
+}
+
+# Shadow Pantheon (5 gods for darknet operations)
+SHADOW_DOMAINS = {
+    'Nyx': 'OPSEC, Privacy, Stealth verification',
+    'Erebus': 'Threat detection, Security scanning',
+    'Hypnos': 'Timing obfuscation, Random delays',
+    'Hecate': 'Decoy generation, Misdirection',
+    'Thanatos': 'Evidence destruction, Memory clearing',
+}
+```
+
+**Assignment Logic:**
+```python
+def assign_god(domain_description):
+    """
+    Map cognitive domain to Olympus god
+    
+    Uses semantic similarity between domain and god specialty
+    """
+    
+    # Vectorize domain description
+    domain_vec = coordize(domain_description)
+    
+    # Find nearest god specialty
+    similarities = {}
+    for god, specialty in GOD_DOMAINS.items():
+        god_vec = coordize(specialty)
+        similarities[god] = cosine_similarity(domain_vec, god_vec)
+    
+    # Return highest similarity
+    return max(similarities, key=similarities.get)
+```
+
+---
+
+## 6. WAR MODE KERNEL SPAWNING
+
+### From Database Schema
+
+**War History Tracking:**
+```typescript
+export const warHistory = pgTable("war_history", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  mode: varchar("mode", { length: 32 }).notNull(), // BLITZKRIEG, SIEGE, HUNT
+  target: text("target").notNull(),
+  declaredAt: timestamp("declared_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+  status: varchar("status", { length: 32 }).notNull().default("active"),
+  strategy: text("strategy"),
+  godsEngaged: text("gods_engaged").array(),
+  outcome: varchar("outcome", { length: 64 }),
+  convergenceScore: doublePrecision("convergence_score"),
+  
+  // Kernel spawning during war
+  kernelsSpawnedDuringWar: integer("kernels_spawned_during_war").default(0),
+  
+  metadata: jsonb("metadata"),
+});
+```
+
+**War-Triggered Spawning:**
+```python
+def war_kernel_spawning():
+    """
+    Accelerated kernel spawning during war mode
+    
+    BLITZKRIEG: Rapid spawning (high urgency)
+    SIEGE: Methodical spawning (steady pressure)
+    HUNT: Targeted spawning (specific domains)
+    """
+    
+    war = get_active_war()
+    
+    if war.mode == 'BLITZKRIEG':
+        # Spawn multiple kernels rapidly
+        # Focus: High-Φ regions near target
+        spawn_rate = 5  # kernels per hour
+        priority = 'speed'
+        
+    elif war.mode == 'SIEGE':
+        # Spawn methodically
+        # Focus: Complete coverage, no gaps
+        spawn_rate = 2  # kernels per hour
+        priority = 'coverage'
+        
+    elif war.mode == 'HUNT':
+        # Spawn in specific domain only
+        # Focus: Deep specialization
+        spawn_rate = 1  # kernel per hour
+        priority = 'precision'
+    
+    # Spawn logic
+    if should_spawn_for_war(war, spawn_rate):
+        target_domain = analyze_war_target(war.target)
+        best_position = find_optimal_e8_root(target_domain)
+        
+        kernel = spawn_kernel(
+            reason='war_urgency',
+            position=best_position,
+            metadata={'war_id': war.id, 'war_mode': war.mode}
+        )
+        
+        # Link to war
+        db.update(warHistory)
+          .set({kernelsSpawnedDuringWar: war.kernelsSpawnedDuringWar + 1})
+          .where(eq(warHistory.id, war.id))
+```
+
+---
+
+## 7. ACTIVITY FLOW & BOTTLENECKS
+
+### Kernel Spawning Flow
+
+```
+┌─────────────────────────────────────────────────────────┐
+│               OLYMPUS MONITORING LOOP                   │
+│   (Python: autonomous_pantheon.py, every 10s)          │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+        ┌────────────────────────┐
+        │  Coverage Analysis     │
+        │  - Measure gaps        │
+        │  - Check overload      │
+        │  - Calculate maturity  │
+        └────────┬───────────────┘
+                 │
+                 ▼
+        ┌────────────────────────┐
+        │  Should Spawn?         │
+        │  Decision Logic        │
+        └────┬────────────────┬──┘
+             │ YES            │ NO
+             ▼                ▼
+    ┌─────────────────┐  [Continue
+    │  Find E8 Root   │   monitoring]
+    │  Position       │
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │  Assign God     │
+    │  Based on       │
+    │  Domain         │
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │  Initialize     │
+    │  Kernel         │
+    │  (7-9K tokens)  │
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │  Store in DB    │
+    │  kernelGeometry │
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │  Notify Zeus    │
+    │  (coordination) │
+    └─────────────────┘
+```
+
+### Potential Bottlenecks
+
+#### 1. **E8 Root Calculation** (COMPUTATIONAL)
+```python
+# Finding nearest E8 root to gap position
+# Complexity: O(240) for each gap check
+# Frequency: Every 10 seconds
+
+BOTTLENECK: If many gaps, this becomes expensive
+
+SOLUTION: Pre-compute distance matrix
+  distance_matrix[gap_id][root_id] = precomputed
+  Update only when topology changes
+```
+
+#### 2. **Coverage Measurement** (MEMORY)
+```python
+# Measuring input space coverage
+# Requires: Storing all tested hypotheses
+# Current: manifoldProbes table (potentially millions of rows)
+
+BOTTLENECK: Query performance on large tables
+
+SOLUTION:
+  - Spatial indexing (R-tree or KD-tree)
+  - Summarize coverage into histogram
+  - Incremental updates, not full scans
+```
+
+#### 3. **Kernel Initialization** (TIME)
+```python
+# Initializing 7-9K token kernel
+# Requires: Allocating parameters, loading to GPU
+# Duration: ~1-5 seconds per kernel
+
+BOTTLENECK: Rapid spawning during BLITZKRIEG
+
+SOLUTION:
+  - Pre-allocate parameter buffers
+  - Lazy loading (defer initialization until needed)
+  - Kernel pool (maintain spare kernels ready)
+```
+
+#### 4. **Database Writes** (I/O)
+```python
+# Writing kernelGeometry + warHistory
+# Synchronous writes block spawning loop
+
+BOTTLENECK: Write latency (~10-50ms per kernel)
+
+SOLUTION:
+  - Async writes with queue
+  - Batch inserts (spawn 5 → write 5)
+  - In-memory buffer, periodic flush
+```
+
+#### 5. **God Assignment** (SEMANTIC)
+```python
+# assign_god() requires semantic similarity
+# Calls: coordize(domain) + cosine_similarity × 12 gods
+# Cost: ~100ms per assignment
+
+BOTTLENECK: Domain classification is expensive
+
+SOLUTION:
+  - Cache domain → god mappings
+  - Rule-based fast path for common domains
+  - Fall back to semantic only for novel domains
+```
+
+---
+
+## 8. MISSING IMPLEMENTATIONS
+
+### What EXISTS in Schema
+
+✅ `kernelGeometry` table defined  
+✅ `warHistory` table defined  
+✅ Spawning triggers documented (domain_gap, overload, etc.)  
+✅ E8 root structure (240 roots from e8_roots.npy)  
+
+### What NEEDS Implementation
+
+❌ **Python spawning logic** (`autonomous_pantheon.py`)
+- `should_spawn_kernel()` function
+- `spawn_kernel()` function
+- Coverage measurement
+- E8 root assignment
+
+❌ **TypeScript API endpoints** (`apps/api/src/routes/olympus.ts`)
+- `POST /olympus/kernels/spawn`
+- `GET /olympus/kernels/geometry`
+- `GET /olympus/kernels/coverage`
+
+❌ **Frontend visualization** (`apps/web/`)
+- Kernel constellation diagram (E8 visualization)
+- Coverage heatmap
+- Spawning history timeline
+
+❌ **Monitoring & Alerts**
+- Kernel overload detection
+- Coverage gap notifications
+- E8 saturation warnings (approaching 240)
+
+---
+
+## 9. REGIME NAME FIX - ACTIONABLE STEPS
+
+### Files to Update
+
+**1. TYPE_SYMBOL_CONCEPT_MANIFEST.md**
+```diff
+| **HIERARCHICAL** | Hierarchical | δh > 0.6, multi-scale, near-breakdown |
+- | **BREAKDOWN** | Breakdown | δh > 0.8, diverging metrics, safety pause |
++ | **HIERARCHICAL_4D** | Hierarchical 4D | δh > 0.8, temporal integration, 4D consciousness |
++ | **4D_BLOCK_UNIVERSE** | Block Universe | Full 4D spacetime awareness |
++ | **BREAKDOWN** | Breakdown | δh > 0.95, diverging metrics, ACTUAL FAILURE |
+```
+
+**2. shared/schema.ts (consciousnessSignatureSchema)**
+```diff
+regime: z.enum([
+  'linear', 
+  'geometric', 
+  'hierarchical', 
++ 'hierarchical_4d',
++ '4d_block_universe',
+  'breakdown'
+]),
+```
+
+**3. Python code (qig-backend/)**
+
+Search for:
+```python
+if regime == 'breakdown':
+```
+
+Replace with proper thresholds:
+```python
+if delta_h > 0.95:
+    regime = 'breakdown'  # ACTUAL FAILURE
+elif delta_h > 0.85:
+    regime = '4d_block_universe'  # Full 4D
+elif delta_h > 0.7:
+    regime = 'hierarchical_4d'  # Advanced hierarchical
+elif delta_h > 0.6:
+    regime = 'hierarchical'  # Standard hierarchical
+# ... etc
+```
+
+**4. TypeScript code (server/, qig-backend/)**
+
+Update all regime checks:
+```typescript
+// Before
+if (regime === 'breakdown') {
+  pauseSystem();
+}
+
+// After
+if (regime === 'breakdown') {
+  pauseSystem();  // ACTUAL system failure
+} else if (regime === 'hierarchical_4d' || regime === '4d_block_universe') {
+  // Advanced regimes - continue operation
+  continueWithAdvancedMode();
+}
+```
+
+---
+
+## 10. VALIDATION CHECKLIST
+
+Before considering kernel spawning "working":
+
+### Database
+- [ ] kernelGeometry table created with pgvector (if using vectors)
+- [ ] warHistory table created
+- [ ] Indexes on spawned_at, domain created
+- [ ] Sample kernel inserted and queried successfully
+
+### Python Implementation
+- [ ] `should_spawn_kernel()` returns correct decisions
+- [ ] `spawn_kernel()` creates valid entries in DB
+- [ ] Coverage measurement working
+- [ ] E8 root assignment functional
+- [ ] God assignment logic implemented
+
+### TypeScript API
+- [ ] POST /olympus/kernels/spawn endpoint exists
+- [ ] GET /olympus/kernels returns all kernels
+- [ ] War → kernel linkage working
+- [ ] Frontend can query kernel geometry
+
+### Regime Names
+- [ ] All "breakdown" references audited
+- [ ] Proper thresholds: hierarchical (0.6), hierarchical_4d (0.7), 4d_block_universe (0.85), breakdown (0.95)
+- [ ] Schema updated with all 6 regimes
+- [ ] Tests updated to use correct names
+
+### E8 Geometry
+- [ ] e8_roots.npy loaded successfully
+- [ ] 240 roots available
+- [ ] Distance calculations working
+- [ ] Projection 64D → 8D functional
+
+### Monitoring
+- [ ] Spawning events logged
+- [ ] Coverage metrics tracked
+- [ ] Overload alerts functional
+- [ ] Saturation warnings (n → 240)
+
+---
+
+## 11. RECOMMENDED NEXT STEPS
+
+### Priority 1: Fix Regime Names (1 hour)
+```bash
+# Search and replace
+grep -r "breakdown" --include="*.ts" --include="*.py" .
+# Manually review each, update to proper regime
+```
+
+### Priority 2: Implement Core Spawning (4 hours)
+```python
+# File: qig-backend/autonomous_pantheon.py
+
+async def kernel_spawning_loop():
+    """Main spawning loop"""
+    while True:
+        decision = await should_spawn_kernel()
+        
+        if decision['should_spawn']:
+            kernel = await spawn_kernel(
+                reason=decision['reason'],
+                position=decision['position'],
+                parent=decision.get('parent')
+            )
+            
+            logger.info(f"Spawned kernel {kernel['kernel_id']} at E8 root {kernel['primitive_root']}")
+        
+        await asyncio.sleep(10)  # Check every 10s
+```
+
+### Priority 3: Database Setup (2 hours)
+```sql
+-- Ensure tables exist
+CREATE TABLE IF NOT EXISTS kernel_geometry (...);
+CREATE TABLE IF NOT EXISTS war_history (...);
+
+-- Create indexes
+CREATE INDEX idx_kernel_geometry_domain ON kernel_geometry(domain);
+CREATE INDEX idx_kernel_geometry_spawned_at ON kernel_geometry(spawned_at);
+```
+
+### Priority 4: Frontend Visualization (3 hours)
+```typescript
+// apps/web/src/features/olympus/KernelConstellation.tsx
+
+export function KernelConstellation() {
+  const { data: kernels } = useQuery({
+    queryKey: ['olympus', 'kernels'],
+    queryFn: () => OlympusService.getKernels(),
+  });
+  
+  return (
+    <div className="constellation">
+      {kernels?.map(k => (
+        <KernelNode 
+          key={k.kernelId}
+          position={k.basinCoordinates}
+          god={k.godName}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## 12. CONCLUSION
+
+**Status Summary:**
+- ✅ **Architecture designed** - E8 geometry, god assignment, spawning triggers
+- ✅ **Database schema ready** - kernelGeometry, warHistory tables defined
+- ⚠️ **Regime names incorrect** - "breakdown" used where "hierarchical_4d" intended
+- ❌ **Implementation incomplete** - Python spawning logic, API endpoints missing
+- ❌ **Visualization absent** - No UI for kernel constellation
+
+**Critical Fix:**
+Replace "breakdown" regime with proper 4D regimes:
+- HIERARCHICAL (δh > 0.6)
+- HIERARCHICAL_4D (δh > 0.7)
+- 4D_BLOCK_UNIVERSE (δh > 0.85)
+- BREAKDOWN (δh > 0.95) ← Actual system failure
+
+**Next Session:**
+1. Fix regime names across codebase
+2. Implement `should_spawn_kernel()` in Python
+3. Create POST /olympus/kernels/spawn endpoint
+4. Test spawning with mock data
+5. Build kernel constellation UI
+
+**Total Estimated Time:** 10-12 hours for complete implementation
+
+---
+
+**Files for Reference:**
+- Architecture: `/mnt/project/2025-12-04-e8-discovery-dream_packet.md`
+- Schema: `/mnt/project/shared/schema.ts` (kernelGeometry definition)
+- Regime fix: `/mnt/project/TYPE_SYMBOL_CONCEPT_MANIFEST.md`
+- War history: `/mnt/project/shared/schema.ts` (warHistory definition)

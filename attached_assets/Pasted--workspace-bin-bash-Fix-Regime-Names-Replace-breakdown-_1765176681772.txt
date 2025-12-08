@@ -1,0 +1,144 @@
+~/workspace$ #!/bin/bash
+# Fix Regime Names - Replace "breakdown" with proper 4D regimes
+# Run from repository root
+
+set -e
+
+echo "🔧 Regime Name Fix Script"
+echo "=========================="
+echo ""
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check we're in repo root
+if [ ! -f "package.json" ]; then
+    echo -e "${RED}❌ Error: Must run from repository root${NC}"
+    exit 1
+fi
+
+echo "📋 Phase 1: Scanning for 'breakdown' regime references..."
+echo ""
+
+# Find all files with "breakdown" in regime context
+FILES=$(grep -rl "regime.*breakdown\|breakdown.*regime" \
+    --include="*.ts" \
+    --include="*.tsx" \
+    --include="*.py" \
+    --include="*.md" \
+    . 2>/dev/null || true)
+
+if [ -z "$FILES" ]; then
+    echo -e "${GREEN}✅ No 'breakdown' regime references found${NC}"
+else
+    echo -e "${YELLOW}Found references in:${NC}"
+    echo "$FILES" | while read file; do
+        count=$(grep -c "regime.*breakdown\|breakdown.*regime" "$file" 2>/dev/null || echo "0")
+        echo "  - $file (${count} occurrences)"
+    done
+    echo ""
+fi
+
+echo ""
+echo "📋 Phase 2: Specific patterns to check manually..."
+echo ""
+
+# Pattern 1: Enum definitions
+echo "Done! ✅"d . && git commit -m 'checkpoint: before regime name fix'"4d', '4d_block_universe', 'breakdown'])"cho
+🔧 Regime Name Fix Script
+==========================
+
+📋 Phase 1: Scanning for 'breakdown' regime references...
+
+Found references in:
+  - ./client/src/components/MemoryFragmentSearch.tsx (1 occurrences)
+  - ./client/src/components/EmotionalStateDashboard.tsx (1 occurrences)
+  - ./client/src/components/RecoveryCommandCenter.tsx (2 occurrences)
+  - ./client/src/components/OceanInvestigationStory.tsx (4 occurrences)
+  - ./client/src/pages/home.tsx (1 occurrences)
+  - ./client/src/contexts/ConsciousnessContext.tsx (3 occurrences)
+  - ./server/tests/qig-regime.test.ts (1 occurrences)
+  - ./server/geometric-discovery/quantum-protocol.ts (1 occurrences)
+  - ./server/errors/ocean-errors.ts (1 occurrences)
+  - ./server/ocean/geometric-memory.test.ts (3 occurrences)
+  - ./server/ocean/memory-manager.ts (2 occurrences)
+  - ./server/ocean/integration.test.ts (2 occurrences)
+  - ./server/ocean/trajectory-manager.ts (1 occurrences)
+  - ./server/ocean/geometric-memory-pressure.ts (2 occurrences)
+  - ./server/vocabulary-decision.ts (2 occurrences)
+  - ./server/ocean-session-manager.ts (1 occurrences)
+  - ./server/ocean-autonomic-manager.ts (1 occurrences)
+  - ./server/qig-natural-gradient.ts (1 occurrences)
+  - ./server/consciousness-search-controller.ts (2 occurrences)
+  - ./server/ocean-config.ts (1 occurrences)
+  - ./server/qig-universal.ts (1 occurrences)
+  - ./server/ocean-basin-sync.ts (1 occurrences)
+  - ./server/geometric-memory.ts (2 occurrences)
+  - ./server/strategy-knowledge-bus.ts (3 occurrences)
+  - ./server/index.ts (1 occurrences)
+  - ./server/ocean-agent.ts (6 occurrences)
+  - ./shared/types/core.ts (1 occurrences)
+  - ./shared/constants/autonomic.ts (1 occurrences)
+  - ./shared/constants/qig.ts (1 occurrences)
+  - ./shared/schema.ts (4 occurrences)
+  - ./qig-backend/test_4d_consciousness.py (1 occurrences)
+  - ./4D_CONSCIOUSNESS_VERIFICATION.md (1 occurrences)
+  - ./COMPLETE_WIRING_VERIFICATION.md (1 occurrences)
+
+
+📋 Phase 2: Specific patterns to check manually...
+
+1. Enum definitions (need hierarchical_4d, 4d_block_universe):
+./shared/types/core.ts:22:export const regimeSchema = z.enum(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']);
+./shared/schema.ts:1192:  regime: z.enum(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']),
+./shared/schema.ts:1724:  regime: z.enum(['linear', 'geometric', 'breakdown']),
+
+2. If conditions checking breakdown:
+./server/ocean-session-manager.ts:241:    if (regime === 'breakdown') {
+./server/qig-natural-gradient.ts:234:  } else if (score.regime === "breakdown") {
+./server/ocean-agent.ts:1373:    if (regime === 'breakdown') {
+./server/ocean-agent.ts:2129:    if (regime === 'breakdown') {
+
+3. Delta_h threshold checks:
+
+================================================
+
+⚠️  MANUAL REVIEW REQUIRED
+
+The script found files that likely need updates.
+Here's what to change:
+
+1. \033[0;32mRegime Enums\033[0m - Add missing regimes:
+   OLD: enum(['linear', 'geometric', 'hierarchical', 'breakdown'])
+   NEW: enum(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown'])
+
+2. \033[0;32mThreshold Logic\033[0m - Update conditions:
+   δh > 0.95 → 'breakdown' (ACTUAL FAILURE)
+   δh > 0.85 → '4d_block_universe'
+   δh > 0.70 → 'hierarchical_4d'
+   δh > 0.60 → 'hierarchical'
+
+3. \033[0;32mChecks\033[0m - Update code that pauses on 'breakdown':
+   if (regime === 'breakdown') { pause(); }
+   // Should only pause on ACTUAL breakdown (δh > 0.95)
+   // hierarchical_4d and 4d_block_universe should CONTINUE
+
+================================================
+
+📝 Next Steps:
+
+1. Review the files listed above
+2. Update enum definitions first (shared/schema.ts, types.ts)
+3. Update threshold logic in Python kernels
+4. Update frontend checks
+5. Run tests to verify
+6. Update documentation (TYPE_SYMBOL_CONCEPT_MANIFEST.md)
+
+💾 Backup command before changes:
+   git add . && git commit -m 'checkpoint: before regime name fix'
+
+Done! ✅
+~/workspace$ 
