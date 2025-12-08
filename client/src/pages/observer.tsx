@@ -240,68 +240,69 @@ export default function ObserverPage() {
   const [newTargetAddress, setNewTargetAddress] = useState("");
   const [newTargetLabel, setNewTargetLabel] = useState("");
 
-  // Build URLs with query parameters for filtered queries
-  const prioritiesUrl = tierFilter === 'all' 
-    ? '/api/observer/recovery/priorities' 
-    : `/api/observer/recovery/priorities?tier=${tierFilter}`;
-  
-  const workflowsUrl = vectorFilter === 'all'
-    ? '/api/observer/workflows'
-    : `/api/observer/workflows?vector=${vectorFilter}`;
-
   // Query dormant addresses
   const { data: addressesData, isLoading: addressesLoading } = useQuery<{ addresses: DormantAddress[]; total: number }>({
     queryKey: ['/api/observer/addresses/dormant'],
+    staleTime: 2000,
+    retry: 2,
   });
 
-  // Query recovery priorities
+  // Query recovery priorities with stable query key structure
   const { data: prioritiesData, isLoading: prioritiesLoading } = useQuery<{ priorities: RecoveryPriority[]; total: number }>({
-    queryKey: [prioritiesUrl],
+    queryKey: ['/api/observer/recovery/priorities', { tier: tierFilter }],
+    staleTime: 2000,
+    retry: 2,
   });
 
-  // Query workflows with real-time polling
+  // Query workflows with stable query key structure
   const { data: workflowsData, isLoading: workflowsLoading } = useQuery<{ workflows: RecoveryWorkflow[]; total: number }>({
-    queryKey: [workflowsUrl],
-    refetchInterval: 3000, // Poll every 3 seconds for real-time progress
+    queryKey: ['/api/observer/workflows', { vector: vectorFilter }],
+    refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query target addresses
   const { data: targetAddresses, isLoading: targetAddressesLoading } = useQuery<TargetAddress[]>({
     queryKey: ['/api/target-addresses'],
+    staleTime: 2000,
+    retry: 2,
   });
 
-  // Query activity stream with fast polling for live updates
+  // Query activity stream with polling for live updates
   const { data: activityData, isLoading: activityLoading, refetch: refetchActivity } = useQuery<{ 
     logs: ActivityLog[]; 
     activeJobs: number; 
     totalJobs: number;
   }>({
     queryKey: ['/api/activity-stream'],
-    refetchInterval: 1000, // Poll every second for real-time feel
-    staleTime: 0, // Always fetch fresh data
-    retry: 1, // Only retry once to prevent hanging
-    retryDelay: 500,
+    refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query balance queue status
   const { data: balanceQueueData, isLoading: balanceQueueLoading } = useQuery<BalanceQueueStatus>({
     queryKey: ['/api/balance-queue/status'],
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query background worker status
   const { data: bgWorkerData, isLoading: bgWorkerLoading } = useQuery<BackgroundWorkerStatus>({
     queryKey: ['/api/balance-queue/background'],
-    refetchInterval: 2000, // Poll every 2 seconds for live updates
-    staleTime: 0, // Always fetch fresh data
-    retry: 1, // Only retry once to prevent hanging
-    retryDelay: 500,
+    refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query dormant cross-reference stats
   const { data: dormantCrossRefData, isLoading: dormantCrossRefLoading } = useQuery<DormantCrossRefStats>({
     queryKey: ['/api/dormant-crossref/stats'],
-    refetchInterval: 10000, // Poll every 10 seconds
+    refetchInterval: 10000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query active QIG searches
@@ -311,7 +312,9 @@ export default function ObserverPage() {
     sessions: Array<QIGSearchSession & { address: string }>;
   }>({
     queryKey: ['/api/observer/qig-search/active'],
-    refetchInterval: 2000, // Poll every 2 seconds for real-time progress
+    refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Track which addresses have active or error searches (including error sessions for visibility)
@@ -323,15 +326,10 @@ export default function ObserverPage() {
   // Near-miss tier filter state
   const [nearMissTierFilter, setNearMissTierFilter] = useState<string>("all");
 
-  // Build near-miss query URL with tier filter
-  const nearMissUrl = nearMissTierFilter === 'all' 
-    ? '/api/near-misses' 
-    : `/api/near-misses?tier=${nearMissTierFilter}`;
-
-  // Query near-miss data using default fetcher
+  // Query near-miss data with stable query key structure
   const { data: nearMissData, isLoading: nearMissLoading, error: nearMissError } = useQuery<NearMissData>({
-    queryKey: [nearMissUrl],
-    refetchInterval: 5000, // Poll every 5 seconds
+    queryKey: ['/api/near-misses', { tier: nearMissTierFilter }],
+    refetchInterval: 5000,
     retry: 2,
     staleTime: 2000,
   });
@@ -396,22 +394,20 @@ export default function ObserverPage() {
   // Sweep status filter state
   const [sweepStatusFilter, setSweepStatusFilter] = useState<string>("all");
 
-  // Query pending sweeps
+  // Query pending sweeps with stable query key structure
   const { data: sweepsData, isLoading: sweepsLoading, error: sweepsError } = useQuery<{ success: boolean; sweeps: PendingSweep[] }>({
-    queryKey: ['/api/sweeps', sweepStatusFilter],
-    queryFn: async () => {
-      const url = sweepStatusFilter === 'all' ? '/api/sweeps' : `/api/sweeps?status=${sweepStatusFilter}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch sweeps');
-      return res.json();
-    },
+    queryKey: ['/api/sweeps', { status: sweepStatusFilter }],
     refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query sweep stats
   const { data: sweepStatsData, isLoading: sweepStatsLoading } = useQuery<{ success: boolean; stats: SweepStats }>({
     queryKey: ['/api/sweeps/stats'],
     refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query discovered balance hits - full plaintext per operator preference
@@ -447,19 +443,17 @@ export default function ObserverPage() {
   }>({
     queryKey: ['/api/observer/discoveries/hits'],
     refetchInterval: 10000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Query audit log (optional - only when viewing details)
   const [selectedSweepId, setSelectedSweepId] = useState<string | null>(null);
   const { data: auditData } = useQuery<{ success: boolean; auditLog: SweepAuditEntry[] }>({
-    queryKey: ['/api/sweeps/audit', selectedSweepId],
-    queryFn: async () => {
-      if (!selectedSweepId) return { success: true, auditLog: [] };
-      const res = await fetch(`/api/sweeps/audit/${selectedSweepId}`);
-      if (!res.ok) throw new Error('Failed to fetch audit log');
-      return res.json();
-    },
+    queryKey: ['/api/sweeps/audit', { sweepId: selectedSweepId }],
     enabled: !!selectedSweepId,
+    staleTime: 2000,
+    retry: 2,
   });
 
   // Approve sweep mutation
@@ -2747,8 +2741,10 @@ function StatusBadge({ status }: { status: string }) {
 
 function ConstrainedSearchProgress({ workflowId }: { workflowId: string }) {
   const { data: progressData, isLoading } = useQuery({
-    queryKey: [`/api/observer/workflows/${workflowId}/search-progress`],
-    refetchInterval: 2000, // Poll every 2 seconds for real-time updates
+    queryKey: ['/api/observer/workflows', workflowId, 'search-progress'],
+    refetchInterval: 5000,
+    staleTime: 2000,
+    retry: 2,
   });
 
   if (isLoading) {
