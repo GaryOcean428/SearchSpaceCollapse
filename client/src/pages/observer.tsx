@@ -450,7 +450,7 @@ export default function ObserverPage() {
   // Query audit log (optional - only when viewing details)
   const [selectedSweepId, setSelectedSweepId] = useState<string | null>(null);
   const { data: auditData } = useQuery<{ success: boolean; auditLog: SweepAuditEntry[] }>({
-    queryKey: ['/api/sweeps/audit', { sweepId: selectedSweepId }],
+    queryKey: ['/api/sweeps', selectedSweepId, 'audit'],
     enabled: !!selectedSweepId,
     staleTime: 2000,
     retry: 2,
