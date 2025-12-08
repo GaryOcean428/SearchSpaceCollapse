@@ -20,6 +20,8 @@ Usage:
 """
 
 import os
+import subprocess
+import time
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -28,6 +30,9 @@ import random
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Track Tor subprocess if we started it
+_tor_process: Optional[subprocess.Popen] = None
 
 # User agents for rotation (appears as normal web traffic)
 USER_AGENTS = [
@@ -116,10 +121,87 @@ def create_session(use_proxy: bool = False) -> requests.Session:
     return session
 
 
+def _start_tor_daemon() -> bool:
+    """
+    Attempt to start the Tor daemon if not already running.
+    
+    Returns:
+        True if Tor was started or is already running, False if failed
+    """
+    global _tor_process
+    
+    import socket
+    
+    # Check if something is already listening on port 9050
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.settimeout(2)
+        sock.connect(('127.0.0.1', 9050))
+        sock.close()
+        logger.info("[DarknetProxy] Tor SOCKS port 9050 already listening")
+        return True
+    except (socket.error, socket.timeout):
+        sock.close()
+    
+    # Try to start Tor
+    try:
+        # Find tor binary
+        tor_bin = None
+        for path in ['/usr/bin/tor', '/usr/local/bin/tor']:
+            if os.path.exists(path):
+                tor_bin = path
+                break
+        
+        # Also check in Nix store (common on Replit)
+        if not tor_bin:
+            result = subprocess.run(['which', 'tor'], capture_output=True, text=True)
+            if result.returncode == 0:
+                tor_bin = result.stdout.strip()
+        
+        if not tor_bin:
+            logger.warning("[DarknetProxy] Tor binary not found")
+            return False
+        
+        logger.info(f"[DarknetProxy] Starting Tor daemon from: {tor_bin}")
+        
+        # Start Tor as a background process
+        _tor_process = subprocess.Popen(
+            [tor_bin],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True  # Detach from parent process
+        )
+        
+        # Wait for Tor to bootstrap (up to 60 seconds)
+        max_wait = 60
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait:
+            # Check if Tor is responding on port 9050
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                sock.settimeout(2)
+                sock.connect(('127.0.0.1', 9050))
+                sock.close()
+                logger.info("[DarknetProxy] ✓ Tor daemon started and listening on port 9050")
+                return True
+            except (socket.error, socket.timeout):
+                sock.close()
+                time.sleep(2)
+        
+        logger.warning("[DarknetProxy] Tor daemon started but not responding within timeout")
+        return False
+        
+    except Exception as e:
+        logger.warning(f"[DarknetProxy] Failed to start Tor daemon: {e}")
+        return False
+
+
 def is_tor_available() -> bool:
     """
     Check if Tor proxy is available and responding.
     
+    If ENABLE_TOR is true but Tor isn't running, attempts to start it.
     Caches result to avoid repeated checks.
     
     Returns:
@@ -135,12 +217,19 @@ def is_tor_available() -> bool:
         _tor_available = False
         return False
     
+    # If Tor is enabled, try to start the daemon first
+    if ENABLE_TOR:
+        if not _start_tor_daemon():
+            logger.warning("[DarknetProxy] Could not start Tor daemon")
+            _tor_available = False
+            return False
+    
     try:
         # Try to connect through Tor to check.torproject.org
         session = create_session(use_proxy=True)
         response = session.get(
             'https://check.torproject.org/api/ip',
-            timeout=10
+            timeout=15
         )
         
         if response.status_code == 200:
@@ -148,7 +237,7 @@ def is_tor_available() -> bool:
             is_tor = data.get('IsTor', False)
             
             if is_tor:
-                logger.info("[DarknetProxy] ✓ Tor connection verified")
+                logger.info("[DarknetProxy] ✓ Tor connection verified - traffic is anonymized")
                 _tor_available = True
                 return True
             else:

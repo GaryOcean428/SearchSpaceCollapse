@@ -632,6 +632,43 @@ export class NegativeKnowledgeRegistryDB {
     return result || { removed: 0, remaining: 0 };
   }
 
+  getSummary(): NegativeKnowledgeRegistryType {
+    const falsePatternClassesObj: Record<string, { count: number; examples: string[]; lastUpdated: string }> = {};
+    for (const [key, value] of cache.falsePatterns.entries()) {
+      falsePatternClassesObj[key] = {
+        count: value.count || 0,
+        examples: value.examples || [],
+        lastUpdated: value.lastUpdated?.toISOString() || new Date().toISOString(),
+      };
+    }
+    
+    const eraExclusionsObj: Record<string, string[]> = {};
+    for (const [key, value] of cache.eraExclusions.entries()) {
+      eraExclusionsObj[key] = value.excludedPatterns || [];
+    }
+    
+    const contradictionsList = Array.from(cache.contradictions.values());
+    const barriersList = Array.from(cache.barriers.values());
+    
+    const totalExclusions = contradictionsList.length;
+    const estimatedComputeSaved = contradictionsList.reduce((sum, c) => sum + (c.computeSaved || 0), 0);
+    
+    return {
+      contradictions: contradictionsList,
+      falsePatternClasses: falsePatternClassesObj,
+      geometricBarriers: barriersList.map(b => ({
+        center: b.center || [],
+        radius: b.radius,
+        curvature: b.repulsionStrength,
+        reason: b.reason,
+      })),
+      eraExclusions: eraExclusionsObj,
+      totalExclusions,
+      estimatedComputeSaved,
+      lastPruned: new Date().toISOString(),
+    };
+  }
+
   private estimateHypothesesExcluded(pattern: string): number {
     const baseExclusion = 100;
     const lengthFactor = Math.max(1, 10 - pattern.length);
