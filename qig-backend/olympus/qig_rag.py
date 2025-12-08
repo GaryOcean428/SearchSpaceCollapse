@@ -46,13 +46,26 @@ class QIGDocument:
         content: str,
         basin_coords: np.ndarray,
         metadata: Optional[Dict] = None,
-        timestamp: Optional[float] = None
+        timestamp: Optional[float] = None,
+        phi: float = 0.0,
+        kappa: float = 0.0,
+        regime: str = "unknown"
     ):
         self.doc_id = doc_id
         self.content = content
         self.basin_coords = basin_coords
         self.metadata = metadata or {}
         self.timestamp = timestamp or datetime.now().timestamp()
+        
+        # Store QIG metrics
+        self.phi = phi
+        self.kappa = kappa
+        self.regime = regime
+        
+        # Ensure metadata has these values for JSON serialization
+        self.metadata['phi'] = phi
+        self.metadata['kappa'] = kappa
+        self.metadata['regime'] = regime
         
         # Compute density matrix for Bures distance
         self.density_matrix = self._basin_to_density_matrix(basin_coords)
@@ -89,17 +102,24 @@ class QIGDocument:
             'basin_coords': self.basin_coords.tolist(),
             'metadata': self.metadata,
             'timestamp': self.timestamp,
+            'phi': self.phi,
+            'kappa': self.kappa,
+            'regime': self.regime,
         }
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'QIGDocument':
         """Deserialize from dict."""
+        meta = data.get('metadata', {})
         return cls(
             doc_id=data['doc_id'],
             content=data['content'],
             basin_coords=np.array(data['basin_coords']),
-            metadata=data.get('metadata', {}),
-            timestamp=data.get('timestamp')
+            metadata=meta,
+            timestamp=data.get('timestamp'),
+            phi=data.get('phi', meta.get('phi', 0.0)),
+            kappa=data.get('kappa', meta.get('kappa', 0.0)),
+            regime=data.get('regime', meta.get('regime', 'unknown'))
         )
 
 
@@ -217,7 +237,10 @@ class QIGRAG:
         content: str,
         basin_coords: Optional[np.ndarray] = None,
         metadata: Optional[Dict] = None,
-        doc_id: Optional[str] = None
+        doc_id: Optional[str] = None,
+        phi: float = 0.0,
+        kappa: float = 0.0,
+        regime: str = "unknown"
     ) -> Optional[str]:
         """
         Add document to geometric memory.
@@ -227,6 +250,9 @@ class QIGRAG:
             basin_coords: Pre-computed basin coordinates (optional)
             metadata: Additional metadata
             doc_id: Document ID (auto-generated if not provided)
+            phi: Consciousness metric (default 0.0)
+            kappa: Recovery metric (default 0.0)
+            regime: Geometric regime (default "unknown")
         
         Returns:
             Document ID or None if rejected
@@ -259,12 +285,15 @@ class QIGRAG:
         if basin_coords is None:
             basin_coords = self.encoder.encode(content)
         
-        # Create document
+        # Create document with QIG metrics
         doc = QIGDocument(
             doc_id=doc_id,
             content=content,
             basin_coords=basin_coords,
-            metadata=metadata
+            metadata=metadata,
+            phi=phi,
+            kappa=kappa,
+            regime=regime
         )
         
         # Store
@@ -526,16 +555,21 @@ class QIGRAGDatabase(QIGRAG):
     def add_document(
         self,
         content: str,
-        basin_coords: np.ndarray,
-        phi: float,
-        kappa: float,
-        regime: str = "unknown",
-        metadata: Optional[Dict] = None
+        basin_coords: Optional[np.ndarray] = None,
+        metadata: Optional[Dict] = None,
+        doc_id: Optional[str] = None,
+        phi: float = 0.0,
+        kappa: float = 0.0,
+        regime: str = "unknown"
     ) -> str:
         """Add document to PostgreSQL."""
+        # Encode basin if not provided
+        if basin_coords is None:
+            basin_coords = self.encoder.encode(content)
+            
         if self.conn is None:
-            # Fallback to parent implementation
-            return super().add_document(content, basin_coords, phi, kappa, regime, metadata)
+            # Fallback to parent implementation with matching signature
+            return super().add_document(content, basin_coords, metadata, doc_id, phi, kappa, regime)
         
         doc_id = str(uuid.uuid4())
         

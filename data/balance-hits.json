@@ -1,18 +1,5 @@
 [
   {
-    "address": "1ALSQjeAxm4oDrM4XsKXBoHnLxtJyM26vG",
-    "passphrase": "enlightenment",
-    "wif": "5JoAJazVXrQcgHtcmBiykfc2CxNhhfGQXRpWApYvuqyjYHWgQdq",
-    "balanceSats": 0,
-    "balanceBTC": "0.00000000",
-    "txCount": 2,
-    "discoveredAt": "2025-12-03T11:20:42.742Z",
-    "isCompressed": false,
-    "lastChecked": "2025-12-08T08:41:28.332Z",
-    "previousBalanceSats": 0,
-    "balanceChanged": false
-  },
-  {
     "address": "1QF29TBesPW7D7bPzvFaypVPcnYhYh8QPC",
     "passphrase": "signature",
     "wif": "5J1pUuscMvgGPPE655zLXUtxHdN48ZSU6xHM8mW7zmUrHv8Hcpx",
@@ -219,5 +206,117 @@
     "lastChecked": "2025-12-08T06:54:49.557Z",
     "previousBalanceSats": 0,
     "balanceChanged": false
+  },
+  {
+    "address": "1ALSQjeAxm4oDrM4XsKXBoHnLxtJyM26vG",
+    "passphrase": "enlightenment",
+    "wif": "5JoAJazVXrQcgHtcmBiykfc2CxNhhfGQXRpWApYvuqyjYHWgQdq",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-12-03T11:20:42.742Z",
+    "isCompressed": false,
+    "lastChecked": "2025-12-08T08:41:28.332Z",
+    "previousBalanceSats": 0,
+    "balanceChanged": false
+  },
+  {
+    "address": "1C7zdTfnkzmr13HfA2vNm5SJYRK6nEKyq8",
+    "passphrase": "correct horse battery staple",
+    "wif": "L3p8oAcQTtuokSCRHQ7i4MhjWc9zornvpJLfmg62sYpLRJF9woSu",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 219,
+    "discoveredAt": "2025-12-08T09:46:53.139Z",
+    "isCompressed": true,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "1JwSSubhmg6iPtRjtyqhUYYH7bZg3Lfy1T",
+    "passphrase": "correct horse battery staple",
+    "wif": "5KJvsngHeMpm884wtkJNzQGaCErckhHJBGFsvd3VyK5qMZXj3hS",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 4153,
+    "discoveredAt": "2025-12-08T09:46:55.815Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "1KqAv2r2iebeEhkoKonksJwwPczwBjLMXC",
+    "passphrase": "correcthorsebatterystaple",
+    "wif": "5KN5y5oYhpL59k4cVih717F5fD2SjnWctr9B3bb97R2j3nXz2ue",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 4,
+    "discoveredAt": "2025-12-08T09:46:56.878Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "16qVRutZ7rZuPx7NMtapvZorWYjyaME2Ue",
+    "passphrase": "password",
+    "wif": "KzPUBRRtVqs7gEagci5Eqk11KozLnMD6J7M7eWTpMT98xeYxxViv",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 197,
+    "discoveredAt": "2025-12-08T09:47:00.481Z",
+    "isCompressed": true,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "16ga2uqnF1NqpAuQeeg7sTCAdtDUwDyJav",
+    "passphrase": "password",
+    "wif": "5JXvHQfGHxUffo8BLRG1RBecRCZ2Jygtx5cNSiZoyk5Zcmhsdso",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 45026,
+    "discoveredAt": "2025-12-08T09:47:00.644Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "1GSJgoqTGUpA6w8ow1NZA41eZpPXTX4VgR",
+    "passphrase": "password123",
+    "wif": "L5FQiW2ikW1hjTeNb4d32YLwAp2B9rai76D5YCj58Ki2KMcuB7Ed",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-12-08T09:47:00.789Z",
+    "isCompressed": true,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "1oo9WfSHL75VZm4JtUivRcav5dH3gJcQM",
+    "passphrase": "password123",
+    "wif": "5Kdo9x4ZZxxtpgZwHKwqVSgQbrAnM8cH7N7pFKWvVr6fpHLMRV9",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 2,
+    "discoveredAt": "2025-12-08T09:47:01.042Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "18VkRiDhFu2Z17AvtpU3vL2LbTXDzCvDVo",
+    "passphrase": "bitcoin",
+    "wif": "Kzpk4gWf9XoURtdhJMRzZj9WdevysnuBTi2tGDNh7hr1LpJcgvXd",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 6,
+    "discoveredAt": "2025-12-08T09:47:01.190Z",
+    "isCompressed": true,
+    "recoveryType": "brain_wallet"
+  },
+  {
+    "address": "1E984zyYbNmeuumzEdqT8VSL8QGJi3byAD",
+    "passphrase": "bitcoin",
+    "wif": "5JdeQ39z8NUkNVvB37tt74Cu2WSNVj7qb9PdY651UoQnqyCm937",
+    "balanceSats": 0,
+    "balanceBTC": "0.00000000",
+    "txCount": 54,
+    "discoveredAt": "2025-12-08T09:47:01.345Z",
+    "isCompressed": false,
+    "recoveryType": "brain_wallet"
   }
 ]
