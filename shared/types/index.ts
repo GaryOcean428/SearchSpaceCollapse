@@ -113,4 +113,8 @@ export {
   ObservationContextSchema,
   GodNameSchema,
   olympusSchemas,
+  OrchestrationResult,
+  OrchestrationResultSchema,
+  PantheonHypothesis,
+  PantheonHypothesisSchema,
 } from './olympus';

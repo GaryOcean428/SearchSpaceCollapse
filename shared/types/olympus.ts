@@ -200,6 +200,39 @@ export const ZeusChatRequestSchema = z.object({
 
 export type ZeusChatRequest = z.infer<typeof ZeusChatRequestSchema>;
 
+// Pantheon orchestration result
+export const OrchestrationResultSchema = z.object({
+  text: z.string(),
+  god: z.string(),
+  domain: z.string(),
+  mode: z.string(),
+  affinity: z.number(),
+  basin: z.array(z.number()),
+  basin_norm: z.number(),
+  routing: z
+    .object({
+      ranking: z.array(z.tuple([z.string(), z.number()])),
+      token_basin_norm: z.number(),
+    })
+    .optional(),
+  metadata: z.record(z.unknown()).optional(),
+  timestamp: z.string().optional(),
+});
+
+export type OrchestrationResult = z.infer<typeof OrchestrationResultSchema>;
+
+// Pantheon hypothesis shared with constellation consumers
+export const PantheonHypothesisSchema = z.object({
+  phrase: z.string(),
+  score: z.number(),
+  god: z.string().optional(),
+  domain: z.string().optional(),
+  source: z.string().optional(),
+  confidence: z.number().optional(),
+});
+
+export type PantheonHypothesis = z.infer<typeof PantheonHypothesisSchema>;
+
 export const ZeusChatResponseSchema = z.object({
   response: z.string(),
   metadata: ZeusMessageMetadataSchema.optional(),
@@ -402,4 +435,6 @@ export const olympusSchemas = {
   SurveillanceScanSchema,
   PantheonMessageSchema,
   DebateSchema,
+  OrchestrationResultSchema,
+  PantheonHypothesisSchema,
 };
