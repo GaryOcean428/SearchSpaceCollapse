@@ -29,6 +29,7 @@ import type {
   SurveillanceScan,
   PantheonMessage,
   Debate,
+  OrchestrationResult,
 } from '@shared/types/olympus';
 
 // Re-export types for consumers
@@ -51,6 +52,7 @@ export type {
   SurveillanceScan,
   PantheonMessage,
   Debate,
+  OrchestrationResult,
 };
 
 const DEFAULT_RETRY_ATTEMPTS = 3;
@@ -183,6 +185,59 @@ export class OlympusClient {
       return data as ZeusAssessment;
     } catch (error) {
       console.error('[OlympusClient] Assess exception:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Route a single text through the Pantheon Kernel Orchestrator.
+   */
+  async orchestratePantheon(
+    text: string,
+    context?: Record<string, unknown>
+  ): Promise<OrchestrationResult | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/pantheon/orchestrate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, context: context || {} }),
+      });
+
+      if (!response.ok) {
+        console.error('[OlympusClient] Pantheon orchestrate failed:', response.statusText);
+        return null;
+      }
+
+      return await response.json() as OrchestrationResult;
+    } catch (error) {
+      console.error('[OlympusClient] Pantheon orchestrate exception:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Route multiple texts through the Pantheon Kernel Orchestrator in a batch.
+   */
+  async orchestratePantheonBatch(
+    texts: string[],
+    context?: Record<string, unknown>
+  ): Promise<OrchestrationResult[] | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/pantheon/orchestrate-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts, context: context || {} }),
+      });
+
+      if (!response.ok) {
+        console.error('[OlympusClient] Pantheon orchestrate batch failed:', response.statusText);
+        return null;
+      }
+
+      const data = await response.json();
+      return (data?.results || []) as OrchestrationResult[];
+    } catch (error) {
+      console.error('[OlympusClient] Pantheon orchestrate batch exception:', error);
       return null;
     }
   }
