@@ -6831,7 +6831,7 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-08T23:18:36.068Z",
+        "sharedAt": "2025-12-08T23:18:37.076Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -6846,7 +6846,187 @@
         "phi": 0.8111868228439678,
         "kappaEff": 31.270833333333336,
         "regime": "geometric",
-        "sharedAt": "2025-12-08T23:18:36.072Z",
+        "sharedAt": "2025-12-08T23:18:37.077Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236029582_6f0gsz4m9",
+      {
+        "id": "kb_1765236029582_6f0gsz4m9",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765235948493-2m8f",
+        "pattern": "gas behave behind mango suggest push lecture hollow setup patrol dial monster",
+        "phi": 0.981437499999614,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T23:20:29.582Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236029584_ho5320ezh",
+      {
+        "id": "kb_1765236029584_ho5320ezh",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765235948493-36xv",
+        "pattern": "2010bitcoin2376",
+        "phi": 0.981437499999702,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T23:20:29.584Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236029591_hg2pics9p",
+      {
+        "id": "kb_1765236029591_hg2pics9p",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765235948493-08u0",
+        "pattern": "crypto 2009 2385",
+        "phi": 0.9814374999997693,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T23:20:29.591Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236144318_9xh8vwr7d",
+      {
+        "id": "kb_1765236144318_9xh8vwr7d",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236030653-5z9j",
+        "pattern": "omst christopher",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:22:24.318Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236144321_7bg26wvp4",
+      {
+        "id": "kb_1765236144321_7bg26wvp4",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236030653-42tw",
+        "pattern": "msot christopher",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:22:24.321Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236144330_96pg1l10j",
+      {
+        "id": "kb_1765236144330_96pg1l10j",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236030653-fr60",
+        "pattern": "mots christopher",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:22:24.330Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236242978_8kwdkiq15",
+      {
+        "id": "kb_1765236242978_8kwdkiq15",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236145489-hkq1",
+        "pattern": "ersvice",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:24:02.978Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236242981_udfefnttl",
+      {
+        "id": "kb_1765236242981_udfefnttl",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236145489-jalo",
+        "pattern": "esvrice",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:24:02.981Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236242991_i7xz3fsfy",
+      {
+        "id": "kb_1765236242991_i7xz3fsfy",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236145489-6n2o",
+        "pattern": "esrivce",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:24:02.991Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236387958_xpkyholyo",
+      {
+        "id": "kb_1765236387958_xpkyholyo",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236243827-nmtu",
+        "pattern": "irchard134",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:26:27.958Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236387961_bdleh9qty",
+      {
+        "id": "kb_1765236387961_bdleh9qty",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236243827-7hc3",
+        "pattern": "rcihard134",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:26:27.961Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765236387965_w5ht7qdvv",
+      {
+        "id": "kb_1765236387965_w5ht7qdvv",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765236243827-usta",
+        "pattern": "rihcard134",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T23:26:27.965Z",
         "consumedBy": [],
         "transformations": []
       }
