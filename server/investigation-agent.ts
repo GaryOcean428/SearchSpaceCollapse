@@ -1,5 +1,5 @@
 import { getSharedController } from './consciousness-search-controller';
-import { scoreUniversalQIG } from './qig-universal';
+import { scoreUniversalQIGAsync } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { historicalDataMiner, type Era } from './historical-data-miner';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
@@ -275,7 +275,7 @@ export class InvestigationAgent {
         hypo.match = (hypo.address === this.targetAddress);
         hypo.testedAt = new Date();
         
-        const qigResult = scoreUniversalQIG(
+        const qigResult = await scoreUniversalQIGAsync(
           hypo.phrase,
           hypo.format === 'bip39' ? 'bip39' : hypo.format === 'master' ? 'master-key' : 'arbitrary'
         );

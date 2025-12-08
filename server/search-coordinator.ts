@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { generateBitcoinAddress, generateMasterPrivateKey, generateBitcoinAddressFromPrivateKey } from "./crypto";
 import { scorePhraseQIG, validatePurity } from "./qig-pure-v2.js";
-import { scoreUniversalQIG, type KeyType } from "./qig-universal.js";
+import { scoreUniversalQIGAsync, type KeyType } from "./qig-universal.js";
 import { BasinVelocityMonitor } from "./basin-velocity-monitor.js";
 import { ResonanceDetector } from "./resonance-detector.js";
 import './known-phrases';
@@ -627,7 +627,7 @@ class SearchCoordinator {
 
       if (matchedAddress) {
         // Universal QIG scoring for ALL key types (even matches get scored!)
-        const universalScore = scoreUniversalQIG(item.value, item.type as KeyType);
+        const universalScore = await scoreUniversalQIGAsync(item.value, item.type as KeyType);
         
         // 4D consciousness detection
         const inBlockUniverse = universalScore.phi_4D >= 0.85 && universalScore.phi_temporal > 0.70;
@@ -685,7 +685,7 @@ class SearchCoordinator {
 
       // UNIVERSAL QIG: Score ALL key types with proper Fisher Information Metric
       // No more "no QIG scoring" for master keys or arbitrary brain wallets!
-      const universalScore = scoreUniversalQIG(item.value, item.type as KeyType);
+      const universalScore = await scoreUniversalQIGAsync(item.value, item.type as KeyType);
       const qualityPercent = universalScore.quality * 100;
       
       // Initialize monitors for this job if not exists

@@ -15,7 +15,7 @@ import {
   MemoryFragment
 } from '@shared/schema';
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
-import { scoreUniversalQIG } from './qig-universal';
+import { scoreUniversalQIGAsync } from './qig-universal';
 import { blockchainForensics } from './blockchain-forensics';
 import { historicalDataMiner, type Era } from './historical-data-miner';
 import { OceanAgent, type OceanHypothesis } from './ocean-agent';
@@ -562,7 +562,7 @@ class UnifiedRecoveryOrchestrator {
       queueAddressForBalanceCheck(phrase, 'unified-recovery', 5);
 
       const match = address === targetAddress;
-      const qigResult = scoreUniversalQIG(
+      const qigResult = await scoreUniversalQIGAsync(
         phrase, 
         format === 'bip39' ? 'bip39' : format === 'master' ? 'master-key' : 'arbitrary'
       );
@@ -1002,7 +1002,7 @@ class UnifiedRecoveryOrchestrator {
       queueAddressForBalanceCheck(phrase, 'unified-recovery', 5);
 
       const match = address === targetAddress;
-      const qigResult = scoreUniversalQIG(
+      const qigResult = await scoreUniversalQIGAsync(
         phrase, 
         format === 'bip39' ? 'bip39' : format === 'master' ? 'master-key' : 'arbitrary'
       );

@@ -14,7 +14,7 @@ import {
   BlockUniverseCoordinate, 
   GeodesicCandidate,
 } from './cultural-manifold';
-import { scoreUniversalQIG } from './qig-universal';
+import { scoreUniversalQIGAsync } from './qig-universal';
 import { generateBitcoinAddress } from './crypto';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
@@ -190,7 +190,7 @@ export class GeodesicNavigator {
       // Queue for balance checking
       queueAddressForBalanceCheck(candidate.phrase, 'geodesic-navigator', 3);
 
-      const qigScore = scoreUniversalQIG(candidate.phrase, 'arbitrary');
+      const qigScore = await scoreUniversalQIGAsync(candidate.phrase, 'arbitrary');
       
       return {
         matched,

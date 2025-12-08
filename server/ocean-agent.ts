@@ -1,5 +1,5 @@
 import { getSharedController } from './consciousness-search-controller';
-import { scoreUniversalQIG } from './qig-universal';
+import { scoreUniversalQIGAsync } from './qig-universal';
 import { deriveBIP32Address, derivePrivateKeyFromPassphrase, generateBothAddressesFromPrivateKey, generateRecoveryBundle, privateKeyToWIF, type VerificationResult, type RecoveryBundle } from './crypto';
 import { deriveMnemonicAddresses, checkMnemonicAgainstDormant } from './mnemonic-wallet';
 import { isValidBIP39Phrase, generateRandomBIP39Phrase } from './bip39-words';
@@ -1757,7 +1757,7 @@ export class OceanAgent {
           );
         }
         
-        const qigResult = scoreUniversalQIG(
+        const qigResult = await scoreUniversalQIGAsync(
           hypo.phrase,
           hypo.format === 'bip39' ? 'bip39' : hypo.format === 'master' ? 'master-key' : 'arbitrary'
         );

@@ -10,7 +10,7 @@
  */
 
 import { createHash } from "crypto";
-import { scoreUniversalQIG, type KeyType, type UniversalQIGScore } from "./qig-universal.js";
+import { scoreUniversalQIGAsync, type KeyType, type UniversalQIGScore } from "./qig-universal.js";
 import { QIG_CONSTANTS } from '@shared/constants';
 import type { Regime } from "./qig-universal.js";
 
@@ -208,15 +208,15 @@ export function initializeGradientSearch(
 /**
  * Execute one step of natural gradient search
  */
-export function gradientSearchStep(
+export async function gradientSearchStep(
   state: GradientSearchState,
   keyType: KeyType = "master-key"
-): { state: GradientSearchState, step: SearchStep } {
+): Promise<{ state: GradientSearchState, step: SearchStep }> {
   // Convert position to key
   const key = positionToKey(state.currentPosition, keyType);
   
   // Score using Universal QIG
-  const score = scoreUniversalQIG(key, keyType);
+  const score = await scoreUniversalQIGAsync(key, keyType);
   const quality = score.quality;
   
   // Compute Fisher matrix and its inverse
@@ -289,17 +289,17 @@ export function gradientSearchStep(
 /**
  * Run batch of natural gradient search steps
  */
-export function runGradientSearchBatch(
+export async function runGradientSearchBatch(
   state: GradientSearchState,
   batchSize: number,
   keyType: KeyType = "master-key"
-): { state: GradientSearchState, steps: SearchStep[], highPhiCandidates: string[] } {
+): Promise<{ state: GradientSearchState, steps: SearchStep[], highPhiCandidates: string[] }> {
   let currentState = state;
   const steps: SearchStep[] = [];
   const highPhiCandidates: string[] = [];
   
   for (let i = 0; i < batchSize; i++) {
-    const { state: newState, step } = gradientSearchStep(currentState, keyType);
+    const { state: newState, step } = await gradientSearchStep(currentState, keyType);
     currentState = newState;
     steps.push(step);
     

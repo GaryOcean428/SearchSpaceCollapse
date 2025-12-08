@@ -10,7 +10,7 @@
  * - Cryptography mailing list phrases
  */
 
-import { scoreUniversalQIG, type UniversalQIGScore, type KeyType } from './qig-universal';
+import { scoreUniversalQIGAsync, type UniversalQIGScore, type KeyType } from './qig-universal';
 
 export type KeyFormat = KeyType;  // 'bip39' | 'master-key' | 'arbitrary'
 export type Era = 
@@ -533,7 +533,7 @@ export class HistoricalDataMiner {
     
     for (const pattern of patterns) {
       try {
-        pattern.qigScore = scoreUniversalQIG(pattern.phrase, pattern.format);
+        pattern.qigScore = await scoreUniversalQIGAsync(pattern.phrase, pattern.format);
       } catch {
         // Skip patterns that can't be scored
       }

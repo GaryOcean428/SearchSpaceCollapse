@@ -13,7 +13,7 @@
  * For post-2013 addresses, BIP39 and HD wallet formats are more likely.
  */
 
-import { scoreUniversalQIG, UniversalQIGScore } from './qig-universal';
+import { scoreUniversalQIGAsync, UniversalQIGScore } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address, deriveBIP32PrivateKey, generateAddressFromHex } from './crypto';
 import { getBIP39Wordlist } from './bip39-words';
 import { queueAddressForBalanceCheck, queueAddressFromPrivateKey } from './balance-queue-integration';
@@ -151,27 +151,27 @@ export class ForensicInvestigator {
     const allHypotheses: ForensicHypothesis[] = [];
 
     // 1. ARBITRARY PASSPHRASES (2009 brain wallets - MOST LIKELY)
-    const arbitraryHypos = this.generateArbitraryHypotheses(session.fragments);
+    const arbitraryHypos = await this.generateArbitraryHypotheses(session.fragments);
     allHypotheses.push(...arbitraryHypos);
     console.log(`[Forensic] Generated ${arbitraryHypos.length} arbitrary hypotheses`);
 
     // 2. CONCATENATION VARIANTS (all spacing/case combos)
-    const concatHypos = this.generateConcatenationVariants(session.fragments);
+    const concatHypos = await this.generateConcatenationVariants(session.fragments);
     allHypotheses.push(...concatHypos);
     console.log(`[Forensic] Generated ${concatHypos.length} concatenation variants`);
 
     // 3. SUBSTITUTION CIPHER VARIANTS (l33t speak)
-    const substHypos = this.generateSubstitutionVariants(session.fragments);
+    const substHypos = await this.generateSubstitutionVariants(session.fragments);
     allHypotheses.push(...substHypos);
     console.log(`[Forensic] Generated ${substHypos.length} substitution variants`);
 
     // 4. BIP39 PHRASES (less likely for 2009, but check anyway)
-    const bip39Hypos = this.generateBIP39Hypotheses(session.fragments);
+    const bip39Hypos = await this.generateBIP39Hypotheses(session.fragments);
     allHypotheses.push(...bip39Hypos);
     console.log(`[Forensic] Generated ${bip39Hypos.length} BIP39 hypotheses`);
 
     // 5. HEX FRAGMENTS (if fragments look like hex)
-    const hexHypos = this.generateHexHypotheses(session.fragments);
+    const hexHypos = await this.generateHexHypotheses(session.fragments);
     allHypotheses.push(...hexHypos);
     console.log(`[Forensic] Generated ${hexHypos.length} hex hypotheses`);
 
@@ -237,8 +237,8 @@ export class ForensicInvestigator {
    * Generate arbitrary passphrase hypotheses (2009-era brain wallets)
    * This is the MOST LIKELY format for pre-BIP39 addresses
    */
-  private generateArbitraryHypotheses(fragments: MemoryFragment[]): ForensicHypothesis[] {
-    const hypotheses: ForensicHypothesis[] = [];
+  private async generateArbitraryHypotheses(fragments: MemoryFragment[]): Promise<ForensicHypothesis[]> {
+    const promises: Promise<ForensicHypothesis>[] = [];
     const fragmentTexts = fragments.map(f => f.text);
     const avgConfidence = fragments.reduce((sum, f) => sum + f.confidence, 0) / fragments.length;
 
@@ -246,7 +246,7 @@ export class ForensicInvestigator {
     for (const frag of fragments) {
       const variants = this.generateCaseVariants(frag.text);
       for (const variant of variants) {
-        hypotheses.push(this.createHypothesis(
+        promises.push(this.createHypothesis(
           'arbitrary',
           variant,
           '2009-era brain wallet (direct fragment)',
@@ -276,7 +276,7 @@ export class ForensicInvestigator {
           for (const combo of combos) {
             const variants = this.generateCaseVariants(combo);
             for (const variant of variants) {
-              hypotheses.push(this.createHypothesis(
+              promises.push(this.createHypothesis(
                 'arbitrary',
                 variant,
                 '2009-era brain wallet (two fragments)',
@@ -300,7 +300,7 @@ export class ForensicInvestigator {
         ];
 
         for (const combo of combos) {
-          hypotheses.push(this.createHypothesis(
+          promises.push(this.createHypothesis(
             'arbitrary',
             combo,
             '2009-era brain wallet (three fragments)',
@@ -311,14 +311,14 @@ export class ForensicInvestigator {
       }
     }
 
-    return hypotheses;
+    return Promise.all(promises);
   }
 
   /**
    * Generate all case/spacing combination variants
    */
-  private generateConcatenationVariants(fragments: MemoryFragment[]): ForensicHypothesis[] {
-    const hypotheses: ForensicHypothesis[] = [];
+  private async generateConcatenationVariants(fragments: MemoryFragment[]): Promise<ForensicHypothesis[]> {
+    const promises: Promise<ForensicHypothesis>[] = [];
     const fragmentTexts = fragments.map(f => f.text);
     const avgConfidence = fragments.reduce((sum, f) => sum + f.confidence, 0) / fragments.length;
 
@@ -336,7 +336,7 @@ export class ForensicInvestigator {
         
         for (const caseType of CASE_VARIANTS) {
           const variant = this.applyCase(base, caseType);
-          hypotheses.push(this.createHypothesis(
+          promises.push(this.createHypothesis(
             'arbitrary',
             variant,
             `Concatenation (${spacing}/${caseType})`,
@@ -347,14 +347,14 @@ export class ForensicInvestigator {
       }
     }
 
-    return hypotheses;
+    return Promise.all(promises);
   }
 
   /**
    * Generate l33t speak and substitution variants
    */
-  private generateSubstitutionVariants(fragments: MemoryFragment[]): ForensicHypothesis[] {
-    const hypotheses: ForensicHypothesis[] = [];
+  private async generateSubstitutionVariants(fragments: MemoryFragment[]): Promise<ForensicHypothesis[]> {
+    const promises: Promise<ForensicHypothesis>[] = [];
     const fragmentTexts = fragments.map(f => f.text);
     const avgConfidence = fragments.reduce((sum, f) => sum + f.confidence, 0) / fragments.length;
 
@@ -362,7 +362,7 @@ export class ForensicInvestigator {
     for (const frag of fragments) {
       const l33tVariants = this.generateL33tVariants(frag.text);
       for (const variant of l33tVariants) {
-        hypotheses.push(this.createHypothesis(
+        promises.push(this.createHypothesis(
           'arbitrary',
           variant,
           'L33t speak substitution',
@@ -377,7 +377,7 @@ export class ForensicInvestigator {
       const base = fragmentTexts.join('');
       const l33tVariants = this.generateL33tVariants(base);
       for (const variant of l33tVariants.slice(0, 20)) {
-        hypotheses.push(this.createHypothesis(
+        promises.push(this.createHypothesis(
           'arbitrary',
           variant,
           'L33t speak (concatenated)',
@@ -387,15 +387,15 @@ export class ForensicInvestigator {
       }
     }
 
-    return hypotheses;
+    return Promise.all(promises);
   }
 
   /**
    * Generate BIP39 hypotheses with wordlist matching and fuzzy completion
    * More likely for post-2013 addresses
    */
-  private generateBIP39Hypotheses(fragments: MemoryFragment[]): ForensicHypothesis[] {
-    const hypotheses: ForensicHypothesis[] = [];
+  private async generateBIP39Hypotheses(fragments: MemoryFragment[]): Promise<ForensicHypothesis[]> {
+    const promises: Promise<ForensicHypothesis>[] = [];
     const wordlist = getWordlist();
     const wordlistSet = new Set(wordlist);
     const _avgConfidence = fragments.reduce((sum, f) => sum + f.confidence, 0) / fragments.length;
@@ -440,7 +440,7 @@ export class ForensicInvestigator {
     
     if (matchedWords.length === 0) {
       console.log(`[Forensic-BIP39] No BIP39 word matches found`);
-      return hypotheses;
+      return [];
     }
     
     if (matchedWords.length >= 1) {
@@ -448,7 +448,7 @@ export class ForensicInvestigator {
       
       for (const combo of combos) {
         const phrase = combo.words.join(' ');
-        hypotheses.push(this.createHypothesis(
+        promises.push(this.createHypothesis(
           'bip39',
           phrase,
           `BIP39 mnemonic (${combo.words.length} words, ${combo.method})`,
@@ -457,7 +457,7 @@ export class ForensicInvestigator {
         ));
         
         for (const path of DERIVATION_PATHS.slice(0, 3)) {
-          hypotheses.push(this.createHypothesis(
+          promises.push(this.createHypothesis(
             'master',
             phrase,
             `HD wallet derivation (${path})`,
@@ -469,6 +469,7 @@ export class ForensicInvestigator {
       }
     }
     
+    const hypotheses = await Promise.all(promises);
     console.log(`[Forensic-BIP39] Generated ${hypotheses.length} BIP39/master hypotheses`);
     return hypotheses;
   }
@@ -508,13 +509,13 @@ export class ForensicInvestigator {
   /**
    * Generate hex fragment hypotheses (partial private key reconstruction)
    */
-  private generateHexHypotheses(fragments: MemoryFragment[]): ForensicHypothesis[] {
-    const hypotheses: ForensicHypothesis[] = [];
+  private async generateHexHypotheses(fragments: MemoryFragment[]): Promise<ForensicHypothesis[]> {
+    const promises: Promise<ForensicHypothesis>[] = [];
     
     // Filter for hex-looking fragments
     const hexFrags = fragments.filter(f => /^[0-9a-f]+$/i.test(f.text));
     
-    if (hexFrags.length === 0) return hypotheses;
+    if (hexFrags.length === 0) return [];
 
     // If "77" is in fragments, try as hex byte (0x77 = 119)
     for (const frag of hexFrags) {
@@ -523,7 +524,7 @@ export class ForensicInvestigator {
       // Pad to make it look like partial private key
       const padded = hexValue.padStart(64, '0');
       
-      hypotheses.push(this.createHypothesis(
+      promises.push(this.createHypothesis(
         'hex',
         padded,
         'Hex fragment (zero-padded)',
@@ -532,21 +533,21 @@ export class ForensicInvestigator {
       ));
     }
 
-    return hypotheses;
+    return Promise.all(promises);
   }
 
   /**
    * Create a hypothesis with QIG scoring
    */
-  private createHypothesis(
+  private async createHypothesis(
     format: KeyFormat,
     phrase: string,
     method: string,
     confidence: number,
     sourceFragments: string[],
     derivationPath?: string
-  ): ForensicHypothesis {
-    const qigScore = scoreUniversalQIG(phrase, format === 'bip39' ? 'bip39' : 'arbitrary');
+  ): Promise<ForensicHypothesis> {
+    const qigScore = await scoreUniversalQIGAsync(phrase, format === 'bip39' ? 'bip39' : 'arbitrary');
     
     const regimeBonus = qigScore.regime === 'hierarchical' ? 1.5 :
                         qigScore.regime === 'geometric' ? 1.3 :

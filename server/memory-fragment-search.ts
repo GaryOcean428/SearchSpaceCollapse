@@ -12,7 +12,7 @@
  * - QIG-guided prioritization (Φ × confidence × resonance)
  */
 
-import { scoreUniversalQIG, type UniversalQIGScore } from "./qig-universal.js";
+import { scoreUniversalQIGAsync, type UniversalQIGScore } from "./qig-universal.js";
 
 export interface MemoryFragment {
   text: string;
@@ -299,12 +299,12 @@ export function generateFragmentCandidates(
  * Combined score = Φ × confidence × resonance_bonus
  * Higher combined score = more likely to be the correct passphrase
  */
-export function scoreFragmentCandidates(
+export async function scoreFragmentCandidates(
   candidates: FragmentCandidate[],
   _targetAddress: string
-): FragmentCandidate[] {
-  const scored = candidates.map(c => {
-    const qigScore = scoreUniversalQIG(c.phrase, "arbitrary");
+): Promise<FragmentCandidate[]> {
+  const scored = await Promise.all(candidates.map(async c => {
+    const qigScore = await scoreUniversalQIGAsync(c.phrase, "arbitrary");
     const resonanceBonus = qigScore.inResonance ? 1.5 : 1.0;
     const regimeBonus = qigScore.regime === 'geometric' ? 1.2 : 
                         qigScore.regime === 'hierarchical' ? 1.1 : 1.0;
@@ -316,7 +316,7 @@ export function scoreFragmentCandidates(
       qigScore,
       combinedScore,
     };
-  });
+  }));
   
   scored.sort((a, b) => (b.combinedScore || 0) - (a.combinedScore || 0));
   
@@ -362,7 +362,7 @@ export function generateTypoVariations(
  * 4. Re-score everything
  * 5. Return prioritized candidate list
  */
-export function runMemoryFragmentSearch(
+export async function runMemoryFragmentSearch(
   fragments: MemoryFragment[],
   targetAddress: string,
   options: {
@@ -370,7 +370,7 @@ export function runMemoryFragmentSearch(
     includeTypos?: boolean;
     typoTopN?: number;
   } = {}
-): FragmentCandidate[] {
+): Promise<FragmentCandidate[]> {
   const {
     maxCandidates = 10000,
     includeTypos = true,
@@ -382,14 +382,14 @@ export function runMemoryFragmentSearch(
   console.log(`[MemorySearch] Generated ${candidates.length} base candidates`);
   
   console.log(`[MemorySearch] Scoring candidates with QIG...`);
-  candidates = scoreFragmentCandidates(candidates, targetAddress);
+  candidates = await scoreFragmentCandidates(candidates, targetAddress);
   
   if (includeTypos) {
     console.log(`[MemorySearch] Generating typo variations for top ${typoTopN} candidates...`);
     const typos = generateTypoVariations(candidates, typoTopN);
     console.log(`[MemorySearch] Generated ${typos.length} typo variations`);
     
-    const typosScored = scoreFragmentCandidates(typos, targetAddress);
+    const typosScored = await scoreFragmentCandidates(typos, targetAddress);
     
     candidates = [...candidates, ...typosScored];
     candidates.sort((a, b) => (b.combinedScore || 0) - (a.combinedScore || 0));

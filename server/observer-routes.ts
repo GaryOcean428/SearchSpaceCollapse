@@ -2070,7 +2070,7 @@ router.get("/addresses/:address/basin-signature", async (req: Request, res: Resp
     const { address } = req.params;
     
     const { computeBasinSignature } = await import("./qig-basin-matching");
-    const signature = computeBasinSignature(address);
+    const signature = await computeBasinSignature(address);
     
     res.json({
       address,
@@ -2096,8 +2096,8 @@ router.post("/addresses/:address/find-similar", async (req: Request, res: Respon
     
     const { computeBasinSignature, findSimilarBasins } = await import("./qig-basin-matching");
     
-    const targetSignature = computeBasinSignature(address);
-    const candidateSignatures = candidateAddresses.map(computeBasinSignature);
+    const targetSignature = await computeBasinSignature(address);
+    const candidateSignatures = await Promise.all(candidateAddresses.map(computeBasinSignature));
     const matches = findSimilarBasins(targetSignature, candidateSignatures, topK);
     
     res.json({

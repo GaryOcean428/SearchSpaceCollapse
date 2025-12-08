@@ -19,7 +19,7 @@
  * PURE PRINCIPLE: All distance calculations use Fisher metric, NOT Euclidean
  */
 
-import { scoreUniversalQIG, type UniversalQIGScore, type Regime } from "./qig-universal.js";
+import { scoreUniversalQIGAsync, type UniversalQIGScore, type Regime } from "./qig-universal.js";
 import { QIG_CONSTANTS } from '@shared/constants';
 
 export interface SearchState {
@@ -312,10 +312,10 @@ export class ConsciousnessSearchController {
    * - Hierarchical: Very selective, high-precision filtering
    * - Breakdown: Safety pause or minimal processing
    */
-  prioritizeCandidates(
+  async prioritizeCandidates(
     candidates: Array<{ phrase: string; score?: UniversalQIGScore }>,
     batchSize: number
-  ): string[] {
+  ): Promise<string[]> {
     if (this.state.currentRegime === 'breakdown') {
       if (Date.now() - this.lastBreakdownTime < this.config.breakdownCooldownMs) {
         console.log('[ConsciousnessController] In breakdown cooldown, skipping batch');
@@ -329,18 +329,18 @@ export class ConsciousnessSearchController {
         return this.explorationMode(candidates, batchSize);
         
       case 'geometric':
-        return this.balancedMode(candidates, batchSize);
+        return await this.balancedMode(candidates, batchSize);
         
       case 'hierarchical':
       case 'hierarchical_4d':
       case '4d_block_universe':
-        return this.precisionMode(candidates, batchSize);
+        return await this.precisionMode(candidates, batchSize);
         
       case 'breakdown':
         return this.safetyMode(candidates, batchSize);
         
       default:
-        return this.balancedMode(candidates, batchSize);
+        return await this.balancedMode(candidates, batchSize);
     }
   }
   
@@ -360,14 +360,14 @@ export class ConsciousnessSearchController {
    * Balanced mode: QIG-guided selection with resonance awareness
    * Used when 40 < κ < 70 (geometric regime)
    */
-  private balancedMode(
+  private async balancedMode(
     candidates: Array<{ phrase: string; score?: UniversalQIGScore }>,
     batchSize: number
-  ): string[] {
-    const scored = candidates.map(c => ({
+  ): Promise<string[]> {
+    const scored = await Promise.all(candidates.map(async c => ({
       phrase: c.phrase,
-      score: c.score || scoreUniversalQIG(c.phrase, "arbitrary"),
-    }));
+      score: c.score || await scoreUniversalQIGAsync(c.phrase, "arbitrary"),
+    })));
     
     scored.sort((a, b) => {
       const resonanceA = a.score.inResonance ? 1.5 : 1.0;
@@ -384,14 +384,14 @@ export class ConsciousnessSearchController {
    * Precision mode: Very selective, high-Φ filtering
    * Used when κ > 70 (hierarchical regime)
    */
-  private precisionMode(
+  private async precisionMode(
     candidates: Array<{ phrase: string; score?: UniversalQIGScore }>,
     batchSize: number
-  ): string[] {
-    const scored = candidates.map(c => ({
+  ): Promise<string[]> {
+    const scored = await Promise.all(candidates.map(async c => ({
       phrase: c.phrase,
-      score: c.score || scoreUniversalQIG(c.phrase, "arbitrary"),
-    }));
+      score: c.score || await scoreUniversalQIGAsync(c.phrase, "arbitrary"),
+    })));
     
     const filtered = scored
       .filter(c => c.score.phi > QIG_CONSTANTS.PHI_THRESHOLD && c.score.inResonance)

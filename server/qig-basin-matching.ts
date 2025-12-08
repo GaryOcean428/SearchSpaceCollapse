@@ -8,7 +8,7 @@
  */
 
 import { createHash } from "crypto";
-import { scoreUniversalQIG, type Regime } from "./qig-universal.js";
+import { scoreUniversalQIGAsync, type Regime } from "./qig-universal.js";
 import { fisherDistance } from "./qig-pure-v2.js";
 import { QIG_CONSTANTS } from '@shared/constants';
 
@@ -47,13 +47,13 @@ export interface BasinMatch {
  * Compute basin signature for an address
  * The signature captures geometric features of the address's position in keyspace
  */
-export function computeBasinSignature(address: string): BasinSignature {
+export async function computeBasinSignature(address: string): Promise<BasinSignature> {
   // Hash address to get consistent basin coordinates
   const hash = createHash("sha256").update(address).digest();
   const basinCoordinates = Array.from(hash);
   
   // Score using Universal QIG (treat as arbitrary for address-based analysis)
-  const qigScore = scoreUniversalQIG(address, "arbitrary");
+  const qigScore = await scoreUniversalQIGAsync(address, "arbitrary");
   
   // Compute Fisher trace (sum of diagonal Fisher information)
   let fisherTrace = 0;

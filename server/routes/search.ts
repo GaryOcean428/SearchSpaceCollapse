@@ -407,7 +407,7 @@ searchRouter.post("/memory-search", async (req: Request, res: Response) => {
     const addresses = await storage.getTargetAddresses();
     const target = targetAddress || addresses[0]?.address || "";
     
-    const candidates = runMemoryFragmentSearch(validFragments, target, {
+    const candidates = await runMemoryFragmentSearch(validFragments, target, {
       maxCandidates: options?.maxCandidates || 5000,
       includeTypos: options?.includeTypos ?? true,
     });
