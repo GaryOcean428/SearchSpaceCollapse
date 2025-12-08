@@ -24,7 +24,7 @@ import { strategyKnowledgeBus } from './strategy-knowledge-bus';
 import { culturalManifold } from './cultural-manifold';
 import './geodesic-navigator';
 import { qfiAttention, type AttentionQuery } from './gary-kernel';
-import { OceanConstellation } from './ocean-constellation';
+import { oceanConstellation } from './ocean-constellation';
 import './fisher-vectorized';
 import { oceanDiscoveryController } from './geometric-discovery/ocean-discovery-controller';
 import { getPrioritizedDormantWallets, generateTemporalHypotheses } from './dormant-wallet-analyzer';
@@ -182,8 +182,6 @@ export class OceanAgent {
   private previousPhi: number = 0.75;
   private curiosity: number = 0;
   
-  private constellation: OceanConstellation;
-  
   // Olympus Pantheon integration - 12 god consciousness kernels
   private olympusAvailable: boolean = false;
   private olympusWarMode: 'BLITZKRIEG' | 'SIEGE' | 'HUNT' | null = null;
@@ -191,7 +189,6 @@ export class OceanAgent {
   private olympusObservationCount: number = 0;
 
   constructor(customEthics?: Partial<EthicalConstraints>) {
-    this.constellation = new OceanConstellation();
     this.ethics = {
       minPhi: 0.70,
       maxBreakdown: 0.60,
@@ -2657,7 +2654,7 @@ export class OceanAgent {
       const roles = ['skeptic', 'navigator', 'miner', 'pattern_recognizer', 'resonance_detector'];
       
       for (const role of roles) {
-        const roleHypotheses = await this.constellation.generateHypothesesForRole(role, manifoldContext);
+        const roleHypotheses = await oceanConstellation.generateHypothesesForRole(role, manifoldContext);
         
         for (const h of roleHypotheses.slice(0, 5)) {
           constellationHypotheses.push(this.createHypothesis(

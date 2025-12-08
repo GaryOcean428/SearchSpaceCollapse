@@ -1478,57 +1478,83 @@ class GeometricMemory {
     const unusualPrefixes = ['xor_', 'neo_', 'flux', 'void', 'null', 'pure', 'zero'];
     const unusualSuffixes = ['_x', '_z', '_prime', '_null', '2008', '1984', '_genesis'];
 
-    // Strategy 4: Personal pattern directions (orthogonal to cypherpunk lexicon)
-    const personalPatterns = [
-      // Names + dates
-      'john19820315', 'mary_birthday', 'firstson2009', 'wifename1985',
-      // Locations
-      'tokyo_apartment', 'berkeley_office', 'london2009feb',
-      // Personal phrases
-      'mylittlesecret', 'dontforgetthis', 'rememberthisday',
-      // Music/culture references
-      'beatles_yesterday', 'pink_floyd_wall', 'nirvana1991',
-      // Science/math
-      'euler_number', 'pi_3141592', 'golden_ratio_phi',
-      // Obscure technical
-      'rsa_2048_bit', 'aes256_key', 'sha256_hash',
-      // Japanese (Satoshi connection)
-      'watashi_wa', 'arigatou', 'ganbatte2009',
-      // Early internet culture
-      'slashdot_effect', 'usenet_post', 'bbs_system',
-    ];
-
-    // Generate variations
-    for (const base of personalPatterns) {
-      patterns.push(base);
-      patterns.push(base.toUpperCase());
-      patterns.push(base.replace(/_/g, ''));
-      patterns.push(base + '!');
-      patterns.push(base + '123');
+    // Strategy 4: Dynamic word combinations using geodesic directions
+    // Use seed from current time and geodesic info for reproducible but varied generation
+    const seed = Date.now() % 100000;
+    
+    // Word banks for dynamic generation (orthogonal to typical cypherpunk phrases)
+    const nameWords = ['john', 'mary', 'david', 'sarah', 'mike', 'lisa', 'tom', 'alice', 'bob', 'carol', 'dan', 'eve'];
+    const placeWords = ['tokyo', 'london', 'berlin', 'paris', 'chicago', 'boston', 'seattle', 'denver', 'austin', 'miami'];
+    const yearWords = ['1984', '1991', '1999', '2001', '2007', '2008', '2009', '2010', '2011', '2012'];
+    const objectWords = ['house', 'office', 'garden', 'bridge', 'tower', 'street', 'river', 'mountain', 'forest', 'beach'];
+    const actionWords = ['remember', 'forget', 'create', 'destroy', 'build', 'break', 'start', 'stop', 'open', 'close'];
+    const techWords = ['sha256', 'rsa', 'aes', 'hmac', 'pbkdf', 'bcrypt', 'argon', 'scrypt', 'blake', 'keccak'];
+    const mathWords = ['euler', 'gauss', 'riemann', 'fibonacci', 'prime', 'factor', 'modulo', 'inverse', 'sqrt', 'log'];
+    const cultureWords = ['beatles', 'stones', 'zeppelin', 'floyd', 'hendrix', 'cobain', 'lennon', 'bowie', 'queen', 'acdc'];
+    
+    // Dynamic combination patterns
+    const allBanks = [nameWords, placeWords, yearWords, objectWords, actionWords, techWords, mathWords, cultureWords];
+    
+    // Generate dynamic combinations using geodesic directions as variation seeds
+    const directionSeed = geodesicDirections.length > 0 
+      ? Math.floor(geodesicDirections[0]?.reduce((a, b) => Math.abs(a) + Math.abs(b), 0) || 0) 
+      : seed;
+    
+    for (let i = 0; i < Math.min(count * 3, 200); i++) {
+      const bank1 = allBanks[(i + directionSeed) % allBanks.length];
+      const bank2 = allBanks[(i + directionSeed + 3) % allBanks.length];
+      const bank3 = allBanks[(i + directionSeed + 5) % allBanks.length];
+      
+      const word1 = bank1[(seed + i * 7) % bank1.length];
+      const word2 = bank2[(seed + i * 11) % bank2.length];
+      const word3 = bank3[(seed + i * 13) % bank3.length];
+      
+      // Various combination patterns
+      patterns.push(`${word1}_${word2}`);
+      patterns.push(`${word1}${word2}${yearWords[(i + seed) % yearWords.length]}`);
+      patterns.push(`${word1}_${word2}_${word3}`);
+      patterns.push(`${word1}${word3}`);
+      patterns.push(`my${word1}${word2}`);
+      patterns.push(`${word1}!${word2}`);
     }
 
-    // Generate from unusual char combinations
+    // Generate from unusual char combinations with dynamic variation
     for (const prefix of unusualPrefixes) {
       for (const suffix of unusualSuffixes) {
-        patterns.push(prefix + 'secret' + suffix);
-        patterns.push(prefix + '2009' + suffix);
+        const midWord = nameWords[(seed + prefix.length) % nameWords.length];
+        patterns.push(prefix + midWord + suffix);
+        patterns.push(prefix + yearWords[seed % yearWords.length] + suffix);
       }
     }
 
-    // Generate from target lengths with random unusual chars
+    // Generate from target lengths with random unusual chars (more variations)
     for (const len of targetLengths) {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 20; i++) {
         let phrase = '';
         for (let j = 0; j < len; j++) {
           const charSet = j % 2 === 0 ? unusualChars : 'aeiou0123456789'.split('');
-          phrase += charSet[Math.floor(Math.random() * charSet.length)];
+          phrase += charSet[(seed + i * j + j) % charSet.length];
         }
         patterns.push(phrase);
       }
     }
+    
+    // Add random word combinations for diversity
+    const randomCombos = [];
+    for (let i = 0; i < 50; i++) {
+      const randIdx1 = (seed * (i + 1)) % allBanks.length;
+      const randIdx2 = (seed * (i + 2)) % allBanks.length;
+      const bank1 = allBanks[randIdx1];
+      const bank2 = allBanks[randIdx2];
+      const w1 = bank1[(seed + i * 3) % bank1.length];
+      const w2 = bank2[(seed + i * 5) % bank2.length];
+      randomCombos.push(`${w1}_${w2}_${seed + i}`);
+    }
+    patterns.push(...randomCombos);
 
-    // Shuffle and return
-    return patterns
+    // Shuffle and return (with deduplication)
+    const uniquePatterns = [...new Set(patterns)];
+    return uniquePatterns
       .filter(p => p.length >= 4)
       .sort(() => Math.random() - 0.5)
       .slice(0, count);
