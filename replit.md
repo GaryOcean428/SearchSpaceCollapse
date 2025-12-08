@@ -59,8 +59,20 @@ Preferred communication style: Simple, everyday language.
   - Activity logs and session tracking
   - War declarations and strategic assessments
   - Olympus pantheon state and kernel geometry
-- **Fallback**: JSON files for offline operation
-- **Migration**: Scripts to transition historical JSON data to PostgreSQL
+  - Vocabulary observations (words, phrases, sequences)
+- **No JSON Fallback**: All data stored exclusively in PostgreSQL
+
+### Vocabulary Tracking System
+The vocabulary tracker distinguishes between:
+- **words**: Actual vocabulary words (BIP-39 mnemonic words or real English words)
+- **phrases**: Mutated/concatenated strings (e.g., "transactionssent", "knownreceive")
+- **sequences**: Multi-word patterns (e.g., "abandon ability able")
+
+Table: `vocabulary_observations`
+- `text`: The actual string being tracked
+- `type`: Classification (word, phrase, sequence)
+- `isRealWord`: Boolean flag for actual vocabulary vs mutations
+- `frequency`, `avgPhi`, `maxPhi`: Tracking metrics from high-Φ discoveries
 
 ### Communication Patterns
 - **TypeScript ↔ Python**: HTTP API with retry logic, circuit breakers, and timeout handling
