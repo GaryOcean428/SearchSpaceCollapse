@@ -4,15 +4,14 @@
  * Prevents re-testing addresses that have already been checked and found to have zero balance.
  * This solves the problem of repeatedly checking the same 148 high-Φ addresses that are empty.
  * 
- * Key Features:
- * - In-memory Set for fast lookup
- * - Persistent storage to survive restarts
- * - Automatic cleanup of old entries (optional, configurable)
- * - Thread-safe operations
+ * UPDATED: Now uses PostgreSQL database (testedPhrases table) as primary storage
+ * with in-memory cache for fast lookups.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import { db } from './db';
+import { testedPhrases } from '@shared/schema';
+import { eq, and, sql } from 'drizzle-orm';
+import * as crypto from 'crypto';
 
 export interface TestedEmptyEntry {
   address: string;
@@ -22,27 +21,40 @@ export interface TestedEmptyEntry {
 }
 
 class TestedEmptyTracker {
-  private testedEmpty: Set<string> = new Set();
-  private testedEmptyDetails: Map<string, TestedEmptyEntry> = new Map();
-  private readonly STORAGE_FILE = 'data/tested-empty-addresses.json';
-  private readonly MAX_AGE_DAYS = 30; // Re-test addresses after 30 days
-  private saveTimeout: NodeJS.Timeout | null = null;
-  private initialized = false;
+  private addressCache: Set<string> = new Set();
+  private cacheLoaded = false;
+  private readonly CACHE_REFRESH_INTERVAL = 60000;
   
   constructor() {
-    this.initialize();
+    this.loadCacheFromDb();
+    setInterval(() => this.loadCacheFromDb(), this.CACHE_REFRESH_INTERVAL);
   }
   
-  private async initialize(): Promise<void> {
-    if (this.initialized) return;
+  private async loadCacheFromDb(): Promise<void> {
+    if (!db) return;
     
     try {
-      await this.loadFromDisk();
-      this.initialized = true;
-      console.log(`[TestedEmpty] Initialized with ${this.testedEmpty.size} tested-empty addresses`);
+      const emptyAddresses = await db.select({ address: testedPhrases.address })
+        .from(testedPhrases)
+        .where(and(
+          eq(testedPhrases.balanceSats, 0),
+          sql`${testedPhrases.address} IS NOT NULL`
+        ))
+        .limit(50000);
+      
+      this.addressCache.clear();
+      for (const row of emptyAddresses) {
+        if (row.address) {
+          this.addressCache.add(row.address);
+        }
+      }
+      
+      if (!this.cacheLoaded) {
+        console.log(`[TestedEmpty] Loaded ${this.addressCache.size} tested-empty addresses from DB`);
+        this.cacheLoaded = true;
+      }
     } catch (error) {
-      console.error('[TestedEmpty] Initialization error:', error);
-      this.initialized = true; // Continue with empty set
+      console.error('[TestedEmpty] Error loading from DB:', error);
     }
   }
   
@@ -50,41 +62,82 @@ class TestedEmptyTracker {
    * Check if an address has been tested and found empty
    */
   isTestedEmpty(address: string): boolean {
-    return this.testedEmpty.has(address);
+    return this.addressCache.has(address);
   }
   
   /**
-   * Mark an address as tested and empty
+   * Check if an address is tested-empty (async DB query for accuracy)
    */
-  markAsTestedEmpty(address: string, phi: number, source: string): void {
-    if (this.testedEmpty.has(address)) {
-      return; // Already marked
+  async isTestedEmptyAsync(address: string): Promise<boolean> {
+    if (this.addressCache.has(address)) return true;
+    
+    if (!db) return false;
+    
+    try {
+      const result = await db.select({ address: testedPhrases.address })
+        .from(testedPhrases)
+        .where(and(
+          eq(testedPhrases.address, address),
+          eq(testedPhrases.balanceSats, 0)
+        ))
+        .limit(1);
+      
+      if (result.length > 0) {
+        this.addressCache.add(address);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('[TestedEmpty] DB query error:', error);
+      return false;
     }
+  }
+  
+  /**
+   * Mark an address as tested and empty (stores in DB)
+   */
+  async markAsTestedEmpty(address: string, phi: number, source: string): Promise<void> {
+    if (this.addressCache.has(address)) return;
     
-    const entry: TestedEmptyEntry = {
-      address,
-      testedAt: Date.now(),
-      phi,
-      source,
-    };
+    this.addressCache.add(address);
     
-    this.testedEmpty.add(address);
-    this.testedEmptyDetails.set(address, entry);
+    if (!db) return;
     
-    // Schedule save to disk
-    this.scheduleSave();
-    
-    console.log(`[TestedEmpty] ⊗ Marked as tested-empty: ${address.substring(0, 20)}... (Φ=${phi.toFixed(3)}, source=${source})`);
+    try {
+      const id = crypto.createHash('sha256').update(`${address}-${Date.now()}`).digest('hex').substring(0, 64);
+      
+      await db.insert(testedPhrases).values({
+        id,
+        phrase: `addr:${address}`,
+        address,
+        balanceSats: 0,
+        txCount: 0,
+        phi,
+        regime: source,
+        testedAt: new Date(),
+        retestCount: 0,
+      }).onConflictDoNothing();
+      
+      console.log(`[TestedEmpty] ⊗ Marked as tested-empty: ${address.substring(0, 20)}... (Φ=${phi.toFixed(3)})`);
+    } catch (error) {
+      console.error('[TestedEmpty] Error marking as tested-empty:', error);
+    }
   }
   
   /**
    * Remove an address from tested-empty list (e.g., if balance appears later)
    */
-  unmark(address: string): void {
-    if (this.testedEmpty.delete(address)) {
-      this.testedEmptyDetails.delete(address);
-      this.scheduleSave();
+  async unmark(address: string): Promise<void> {
+    this.addressCache.delete(address);
+    
+    if (!db) return;
+    
+    try {
+      await db.delete(testedPhrases)
+        .where(eq(testedPhrases.address, address));
       console.log(`[TestedEmpty] ✓ Unmarked: ${address.substring(0, 20)}...`);
+    } catch (error) {
+      console.error('[TestedEmpty] Error unmarking:', error);
     }
   }
   
@@ -97,143 +150,32 @@ class TestedEmptyTracker {
     oldestTimestamp: number;
     newestTimestamp: number;
   } {
-    const now = Date.now();
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-    let recentCount = 0;
-    let oldestTimestamp = now;
-    let newestTimestamp = 0;
-    
-    for (const entry of this.testedEmptyDetails.values()) {
-      if (now - entry.testedAt < ONE_DAY) {
-        recentCount++;
-      }
-      if (entry.testedAt < oldestTimestamp) {
-        oldestTimestamp = entry.testedAt;
-      }
-      if (entry.testedAt > newestTimestamp) {
-        newestTimestamp = entry.testedAt;
-      }
-    }
-    
     return {
-      total: this.testedEmpty.size,
-      recentCount,
-      oldestTimestamp,
-      newestTimestamp,
+      total: this.addressCache.size,
+      recentCount: 0,
+      oldestTimestamp: 0,
+      newestTimestamp: Date.now(),
     };
-  }
-  
-  /**
-   * Clean up old entries that are past their expiration
-   */
-  cleanupOldEntries(): number {
-    const now = Date.now();
-    const MAX_AGE_MS = this.MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
-    let removed = 0;
-    
-    for (const [address, entry] of this.testedEmptyDetails.entries()) {
-      if (now - entry.testedAt > MAX_AGE_MS) {
-        this.testedEmpty.delete(address);
-        this.testedEmptyDetails.delete(address);
-        removed++;
-      }
-    }
-    
-    if (removed > 0) {
-      this.scheduleSave();
-      console.log(`[TestedEmpty] 🧹 Cleaned up ${removed} old entries (>${this.MAX_AGE_DAYS} days)`);
-    }
-    
-    return removed;
   }
   
   /**
    * Export addresses for analysis
    */
   exportAddresses(): TestedEmptyEntry[] {
-    return Array.from(this.testedEmptyDetails.values());
+    return Array.from(this.addressCache).map(address => ({
+      address,
+      testedAt: Date.now(),
+      phi: 0,
+      source: 'db',
+    }));
   }
   
   /**
-   * Load tested-empty addresses from disk
-   */
-  private async loadFromDisk(): Promise<void> {
-    try {
-      const dataDir = path.dirname(this.STORAGE_FILE);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      }
-      
-      if (!fs.existsSync(this.STORAGE_FILE)) {
-        console.log('[TestedEmpty] No existing data file, starting fresh');
-        return;
-      }
-      
-      const data = JSON.parse(fs.readFileSync(this.STORAGE_FILE, 'utf8'));
-      const entries: TestedEmptyEntry[] = data.entries || [];
-      
-      for (const entry of entries) {
-        this.testedEmpty.add(entry.address);
-        this.testedEmptyDetails.set(entry.address, entry);
-      }
-      
-      console.log(`[TestedEmpty] Loaded ${entries.length} tested-empty addresses from disk`);
-      
-      // Clean up old entries on load
-      this.cleanupOldEntries();
-    } catch (error) {
-      console.error('[TestedEmpty] Error loading from disk:', error);
-    }
-  }
-  
-  /**
-   * Save tested-empty addresses to disk (debounced)
-   */
-  private scheduleSave(): void {
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-    }
-    
-    this.saveTimeout = setTimeout(() => {
-      this.saveToDisk();
-    }, 5000); // Save 5 seconds after last change
-  }
-  
-  /**
-   * Immediately save to disk
-   */
-  private saveToDisk(): void {
-    try {
-      const dataDir = path.dirname(this.STORAGE_FILE);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      }
-      
-      const entries = Array.from(this.testedEmptyDetails.values());
-      const data = {
-        version: '1.0',
-        savedAt: Date.now(),
-        entries,
-      };
-      
-      fs.writeFileSync(this.STORAGE_FILE, JSON.stringify(data, null, 2), 'utf8');
-      console.log(`[TestedEmpty] 💾 Saved ${entries.length} tested-empty addresses to disk`);
-    } catch (error) {
-      console.error('[TestedEmpty] Error saving to disk:', error);
-    }
-  }
-  
-  /**
-   * Force immediate save (for graceful shutdown)
+   * Force cache refresh
    */
   async flush(): Promise<void> {
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-      this.saveTimeout = null;
-    }
-    this.saveToDisk();
+    await this.loadCacheFromDb();
   }
 }
 
-// Singleton instance
 export const testedEmptyTracker = new TestedEmptyTracker();

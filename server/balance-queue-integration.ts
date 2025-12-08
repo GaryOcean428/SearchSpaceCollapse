@@ -19,6 +19,7 @@ import { derivePrivateKeyFromPassphrase, privateKeyToWIF, generateBothAddresses 
 import { balanceQueue } from './balance-queue';
 import { deriveMnemonicAddresses, checkMnemonicAgainstDormant } from './mnemonic-wallet';
 import { oceanPersistence } from './ocean/ocean-persistence';
+import { testedEmptyTracker } from './tested-empty-tracker';
 
 interface QueuedAddressResult {
   passphrase: string;
@@ -28,6 +29,7 @@ interface QueuedAddressResult {
   uncompressedWif: string;
   compressedQueued: boolean;
   uncompressedQueued: boolean;
+  skippedTestedEmpty: boolean;
 }
 
 interface QueueStats {
@@ -76,6 +78,25 @@ export function queueAddressForBalanceCheck(
     // Generate BOTH addresses (critical for 2009-era recovery)
     const addresses = generateBothAddresses(passphrase);
     
+    // Check if EITHER address has already been tested and found empty
+    // This prevents re-testing the same 148 high-Φ addresses repeatedly
+    const compressedTestedEmpty = testedEmptyTracker.isTestedEmpty(addresses.compressed);
+    const uncompressedTestedEmpty = testedEmptyTracker.isTestedEmpty(addresses.uncompressed);
+    
+    if (compressedTestedEmpty && uncompressedTestedEmpty) {
+      // Both addresses already tested empty - skip entirely
+      return {
+        passphrase,
+        compressedAddress: addresses.compressed,
+        uncompressedAddress: addresses.uncompressed,
+        compressedWif: '',
+        uncompressedWif: '',
+        compressedQueued: false,
+        uncompressedQueued: false,
+        skippedTestedEmpty: true,
+      };
+    }
+    
     // Generate WIF keys for both
     const compressedWif = privateKeyToWIF(privateKeyHex, true);
     const uncompressedWif = privateKeyToWIF(privateKeyHex, false);
@@ -93,7 +114,7 @@ export function queueAddressForBalanceCheck(
       effectivePriority = priority + tierBoost + phiBoost;
     }
     
-    // Queue both addresses
+    // Queue both addresses (balance-queue.ts will also skip tested-empty internally)
     const result = balanceQueue.enqueueBoth(
       addresses.compressed,
       addresses.uncompressed,
@@ -127,7 +148,8 @@ export function queueAddressForBalanceCheck(
       compressedWif,
       uncompressedWif,
       compressedQueued: result.compressed,
-      uncompressedQueued: result.uncompressed
+      uncompressedQueued: result.uncompressed,
+      skippedTestedEmpty: false,
     };
   } catch (error) {
     console.error('[BalanceQueueIntegration] Error queuing address:', error);
@@ -192,7 +214,8 @@ export function queueAddressFromPrivateKey(
       compressedWif,
       uncompressedWif,
       compressedQueued: result.compressed,
-      uncompressedQueued: result.uncompressed
+      uncompressedQueued: result.uncompressed,
+      skippedTestedEmpty: false,
     };
   } catch (error) {
     console.error('[BalanceQueueIntegration] Error queuing from private key:', error);
@@ -465,7 +488,8 @@ export function queueAddressFromWIF(
       compressedWif,
       uncompressedWif,
       compressedQueued: result.compressed,
-      uncompressedQueued: result.uncompressed
+      uncompressedQueued: result.uncompressed,
+      skippedTestedEmpty: false,
     };
   } catch (error) {
     console.error('[BalanceQueueIntegration] Error queuing from WIF:', error);
