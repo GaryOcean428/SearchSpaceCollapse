@@ -2104,3 +2104,110 @@ export const kernelGeometry = pgTable("kernel_geometry", {
 
 export type KernelGeometryRecord = typeof kernelGeometry.$inferSelect;
 export type InsertKernelGeometry = typeof kernelGeometry.$inferInsert;
+
+// ============================================================================
+// NEGATIVE KNOWLEDGE REGISTRY - What NOT to search
+// ============================================================================
+
+/**
+ * NEGATIVE KNOWLEDGE - Contradictions and proven-false patterns
+ * Replaces massive 28MB JSON file with indexed database storage
+ */
+export const negativeKnowledge = pgTable("negative_knowledge", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  type: varchar("type", { length: 32 }).notNull(), // proven_false, geometric_barrier, logical_contradiction, resource_sink, era_mismatch
+  pattern: text("pattern").notNull(),
+  affectedGenerators: text("affected_generators").array(),
+  basinCenter: doublePrecision("basin_center").array(), // 64D basin coordinates
+  basinRadius: doublePrecision("basin_radius"),
+  basinRepulsionStrength: doublePrecision("basin_repulsion_strength"),
+  evidence: jsonb("evidence"), // Array of evidence objects
+  hypothesesExcluded: integer("hypotheses_excluded").default(0),
+  computeSaved: integer("compute_saved").default(0),
+  confirmedCount: integer("confirmed_count").default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_negative_knowledge_type").on(table.type),
+  index("idx_negative_knowledge_pattern").on(table.pattern),
+  index("idx_negative_knowledge_confirmed_count").on(table.confirmedCount),
+]);
+
+export type NegativeKnowledge = typeof negativeKnowledge.$inferSelect;
+export type InsertNegativeKnowledge = typeof negativeKnowledge.$inferInsert;
+
+/**
+ * GEOMETRIC BARRIERS - High-curvature regions to avoid
+ */
+export const geometricBarriers = pgTable("geometric_barriers", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  center: doublePrecision("center").array().notNull(), // 64D coordinates
+  radius: doublePrecision("radius").notNull(),
+  repulsionStrength: doublePrecision("repulsion_strength").notNull(),
+  reason: text("reason").notNull(),
+  crossings: integer("crossings").default(1),
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_geometric_barriers_crossings").on(table.crossings),
+  index("idx_geometric_barriers_detected_at").on(table.detectedAt),
+]);
+
+export type GeometricBarrier = typeof geometricBarriers.$inferSelect;
+export type InsertGeometricBarrier = typeof geometricBarriers.$inferInsert;
+
+/**
+ * FALSE PATTERN CLASSES - Categories of known-false patterns
+ */
+export const falsePatternClasses = pgTable("false_pattern_classes", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  className: varchar("class_name", { length: 255 }).notNull().unique(),
+  examples: text("examples").array(),
+  count: integer("count").default(0),
+  avgPhiAtFailure: doublePrecision("avg_phi_at_failure").default(0),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+}, (table) => [
+  index("idx_false_pattern_classes_name").on(table.className),
+]);
+
+export type FalsePatternClass = typeof falsePatternClasses.$inferSelect;
+export type InsertFalsePatternClass = typeof falsePatternClasses.$inferInsert;
+
+/**
+ * ERA EXCLUSIONS - Patterns excluded for specific eras
+ */
+export const eraExclusions = pgTable("era_exclusions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  era: varchar("era", { length: 64 }).notNull(),
+  excludedPatterns: text("excluded_patterns").array(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_era_exclusions_era").on(table.era),
+]);
+
+export type EraExclusion = typeof eraExclusions.$inferSelect;
+export type InsertEraExclusion = typeof eraExclusions.$inferInsert;
+
+/**
+ * TESTED PHRASES - Track all tested phrases to avoid re-testing
+ * Replaces 4.2MB JSON file with indexed database storage
+ */
+export const testedPhrases = pgTable("tested_phrases", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  phrase: text("phrase").notNull().unique(),
+  address: varchar("address", { length: 62 }),
+  balanceSats: bigint("balance_sats", { mode: "number" }).default(0),
+  txCount: integer("tx_count").default(0),
+  phi: doublePrecision("phi"),
+  kappa: doublePrecision("kappa"),
+  regime: varchar("regime", { length: 32 }),
+  testedAt: timestamp("tested_at").defaultNow().notNull(),
+  retestCount: integer("retest_count").default(0), // Track how many times we wastefully re-tested
+}, (table) => [
+  index("idx_tested_phrases_phrase").on(table.phrase),
+  index("idx_tested_phrases_tested_at").on(table.testedAt),
+  index("idx_tested_phrases_balance").on(table.balanceSats),
+  index("idx_tested_phrases_retest_count").on(table.retestCount),
+]);
+
+export type TestedPhrase = typeof testedPhrases.$inferSelect;
+export type InsertTestedPhrase = typeof testedPhrases.$inferInsert;
