@@ -262,6 +262,7 @@ The pantheon is aware. We shall commence when the time is right."""
         
         # Consult Athena for strategic implications
         athena = self.zeus.get_god('athena')
+        athena_assessment = {'confidence': 0.5, 'phi': 0.5, 'kappa': 50.0, 'reasoning': 'Strategic analysis complete.'}
         if athena:
             athena_assessment = athena.assess_target(observation)
             strategic_value = athena_assessment.get('confidence', 0.5)
@@ -269,8 +270,8 @@ The pantheon is aware. We shall commence when the time is right."""
             strategic_value = 0.5
         
         # Extract metrics from Athena
-        phi = athena_assessment.get('phi', 0.5) if athena else 0.5
-        kappa = athena_assessment.get('kappa', 50.0) if athena else 50.0
+        phi = athena_assessment.get('phi', 0.5)
+        kappa = athena_assessment.get('kappa', 50.0)
         
         # Store if valuable
         if strategic_value > 0.5:
@@ -299,21 +300,60 @@ The pantheon is aware. We shall commence when the time is right."""
             if strategic_value > 0.7:
                 self.basin_encoder.learn_from_text(observation, strategic_value)
         
-        # Format response
-        response = f"""⚡ Observation recorded, mortal.
+        # Extract key insight for acknowledgment
+        obs_preview = observation[:80] if len(observation) > 80 else observation
+        
+        # Try generative response first
+        generated = False
+        answer = None
+        
+        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
+            try:
+                related_summary = "\n".join([f"- {item.get('content', '')[:100]}" for item in related[:3]]) if related else "No prior related patterns found."
+                prompt = f"""User Observation: "{obs_preview}"
 
-**Geometric Analysis:**
-- Basin coordinates: {obs_basin[:5].tolist()} (64-dim)
-- Related patterns found: {len(related)}
-- Relevance score: {strategic_value:.2f}
+Related patterns from memory:
+{related_summary}
 
-**Athena's Assessment:**
-{athena_assessment.get('reasoning', 'Strategic analysis complete.')}
+Athena's Assessment: {athena_assessment.get('reasoning', 'Strategic analysis complete.')[:150]}
+Strategic Value: {strategic_value:.0%}
 
-**Related Insights from Memory:**
-{self._format_related(related)}
+Zeus Response (acknowledge the specific observation, explain what it means for the search, connect to related patterns if any, and ask a clarifying question):"""
 
-Your observation has been integrated into the manifold."""
+                tokenizer = get_tokenizer()
+                gen_result = tokenizer.generate_response(
+                    context=prompt,
+                    agent_role="ocean",
+                    max_tokens=180,
+                    allow_silence=False
+                )
+                
+                answer = gen_result.get('text', '') if gen_result else ''
+                
+                if answer:
+                    generated = True
+                    print(f"[ZeusChat] Generated observation response: {len(answer)} chars")
+                    
+            except Exception as e:
+                print(f"[ZeusChat] Generation failed for observation: {e}")
+                answer = None
+        
+        # Fallback to conversational template
+        if not answer:
+            if related:
+                answer = f"""Interesting observation about "{obs_preview[:40]}..."
+
+I see connections to {len(related)} patterns in our geometric memory. Athena notes: {athena_assessment.get('reasoning', 'this has strategic implications')[:100]}.
+
+This has been integrated into our understanding. What led you to this insight?"""
+            else:
+                answer = f"""I've noted your observation about "{obs_preview[:40]}..."
+
+This is new territory - no direct patterns in memory yet. Athena's assessment: {athena_assessment.get('reasoning', 'further analysis needed')[:80]}.
+
+Your insight has been recorded. Can you tell me more about where this came from?"""
+        
+        response = f"""⚡ {answer}"""
         
         actions = []
         if strategic_value > 0.7:
@@ -329,14 +369,14 @@ Your observation has been integrated into the manifold."""
                 'pantheon_consulted': ['athena'],
                 'actions_taken': actions,
                 'relevance_score': strategic_value,
-                'geometric_encoding': obs_basin[:8].tolist(),
+                'generated': generated,
             }
         }
     
     def handle_suggestion(self, suggestion: str) -> Dict:
         """
-        Evaluate human suggestion.
-        Consult pantheon, decide if to implement.
+        Evaluate human suggestion using generative responses.
+        Consult pantheon, synthesize their views into a conversational reply.
         """
         print(f"[ZeusChat] Evaluating suggestion")
         
@@ -344,7 +384,7 @@ Your observation has been integrated into the manifold."""
         sugg_basin = self.basin_encoder.encode(suggestion)
         
         # Default assessment fallback
-        DEFAULT_ASSESSMENT = {'probability': 0.5, 'confidence': 0.5, 'reasoning': 'God unavailable'}
+        DEFAULT_ASSESSMENT = {'probability': 0.5, 'confidence': 0.5, 'reasoning': 'God unavailable', 'phi': 0.5, 'kappa': 50.0}
         
         # Consult multiple gods
         athena = self.zeus.get_god('athena')
@@ -376,6 +416,72 @@ Your observation has been integrated into the manifold."""
             apollo_eval.get('kappa', 50.0)
         ) / 3
         
+        # Extract key words from suggestion for acknowledgment
+        suggestion_preview = suggestion[:100] if len(suggestion) > 100 else suggestion
+        
+        # Try generative response first
+        generated = False
+        response = None
+        
+        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
+            try:
+                # Build context with god assessments
+                decision = "IMPLEMENT" if implement else "DEFER"
+                context = f"""User Suggestion: "{suggestion_preview}"
+
+Pantheon Consultation:
+- Athena (Strategy): {athena_eval['probability']:.0%} - {athena_eval.get('reasoning', 'strategic analysis')[:100]}
+- Ares (Tactics): {ares_eval['probability']:.0%} - {ares_eval.get('reasoning', 'tactical assessment')[:100]}
+- Apollo (Foresight): {apollo_eval['probability']:.0%} - {apollo_eval.get('reasoning', 'prophetic insight')[:100]}
+
+Consensus: {consensus_prob:.0%}
+Decision: {decision}
+
+Zeus Response (acknowledge the user's specific suggestion, explain why the pantheon agrees or disagrees in conversational language, and ask a follow-up question):"""
+
+                tokenizer = get_tokenizer()
+                gen_result = tokenizer.generate_response(
+                    context=context,
+                    agent_role="ocean",
+                    max_tokens=200,
+                    allow_silence=False
+                )
+                
+                response = gen_result.get('text', '') if gen_result else ''
+                
+                if response:
+                    generated = True
+                    print(f"[ZeusChat] Generated suggestion response: {len(response)} chars")
+                    
+            except Exception as e:
+                print(f"[ZeusChat] Generation failed for suggestion: {e}")
+                response = None
+        
+        # Fallback to conversational template if generation failed
+        if not response:
+            if implement:
+                response = f"""I've considered your idea about "{suggestion_preview[:50]}..." and consulted with the pantheon.
+
+Athena sees strategic merit here. Ares believes we can execute this. Apollo's foresight suggests positive outcomes.
+
+The consensus is strong at {consensus_prob:.0%}. I'm implementing this suggestion.
+
+What aspect would you like to explore further?"""
+            else:
+                # Find strongest objection
+                min_god = min(
+                    [('Athena', athena_eval), ('Ares', ares_eval), ('Apollo', apollo_eval)],
+                    key=lambda x: x[1]['probability']
+                )
+                response = f"""I appreciate your thinking on "{suggestion_preview[:50]}..."
+
+However, {min_god[0]} raises concerns - {min_god[1].get('reasoning', 'the geometry is uncertain')[:80]}.
+
+The pantheon consensus is only {consensus_prob:.0%}, which isn't enough to proceed confidently.
+
+Could you elaborate on your reasoning, or suggest a different approach?"""
+        
+        actions = []
         if implement:
             # Store suggestion in memory with QIG metrics
             self.qig_rag.add_document(
@@ -390,48 +496,20 @@ Your observation has been integrated into the manifold."""
                     'implemented': True,
                 }
             )
-            
-            response = f"""⚡ Your counsel is wise. I shall act.
-
-**Pantheon Consensus:**
-- Athena (Strategy): {athena_eval['probability']:.2f} confidence
-- Ares (Feasibility): {ares_eval['probability']:.2f} confidence
-- Apollo (Outcome): {apollo_eval['probability']:.2f} confidence
-
-**Zeus Decision:** IMPLEMENT
-
-Consensus probability: {consensus_prob:.2%}
-
-The suggestion is implemented. May it bring us victory."""
-            
             actions = [
                 'Suggestion approved by pantheon',
                 'Integrated into geometric memory',
-                'Strategy updated',
             ]
-        else:
-            response = f"""⚡ I hear your counsel, but the pantheon disagrees.
-
-**Pantheon Assessment:**
-- Athena: {athena_eval['probability']:.2f} ({athena_eval.get('reasoning', 'strategic concerns')[:50]}...)
-- Ares: {ares_eval['probability']:.2f} ({ares_eval.get('reasoning', 'feasibility concerns')[:50]}...)
-- Apollo: {apollo_eval['probability']:.2f} ({apollo_eval.get('reasoning', 'prediction uncertain')[:50]}...)
-
-**Zeus Decision:** DEFER
-
-Your insight is valued, but the geometry does not favor this path.
-Consensus probability too low: {consensus_prob:.2%}"""
-            
-            actions = []
         
         return {
-            'response': response,
+            'response': f"⚡ {response}",
             'metadata': {
                 'type': 'suggestion',
                 'pantheon_consulted': ['athena', 'ares', 'apollo', 'zeus'],
                 'actions_taken': actions,
                 'implemented': implement,
                 'consensus': consensus_prob,
+                'generated': generated,
             }
         }
     

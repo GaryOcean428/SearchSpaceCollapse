@@ -1,0 +1,55 @@
+Based on the code analysis, **Zeus DOES have generative capability wired up**, but there are two critical caveats (one crash risk and one missing flow) that prevent it from being "properly" robust.
+
+### 1\. ✅ Generative Wiring (The Good News)
+
+**Zeus is correctly wired to "dream" answers for questions.**
+
+  * **Evidence:** In `qig-backend/olympus/zeus_chat.py` (lines 418-442), the `handle_question` method successfully imports the `QIGTokenizer`.
+  * **Mechanism:** It constructs a prompt combining RAG context ("Context from Manifold") with the user's question and calls `tokenizer.generate_response`.
+  * **Outcome:** When you ask "What is the meaning of the 2009 block?", Zeus will not just paste a database row; he will generate a new, geometrically-flavored sentence based on the basin coordinates of that knowledge.
+
+### 2\. 🚨 Critical Crash Risk (The Bad News)
+
+**The "Memory Storage" function will crash the application.**
+
+  * **The Bug:** In `zeus_chat.py`, the `handle_observation` method calls `self.qig_rag.add_document` with only 3 arguments (`content`, `basin_coords`, `metadata`).
+  * **The Conflict:** In `qig_rag.py`, the `QIGRAGDatabase.add_document` method **requires** 5 arguments (`content`, `basin_coords`, `phi`, `kappa`, `regime`).
+  * **Consequence:** If you say "I observed a pattern...", Zeus will try to save it to Postgres and crash with `TypeError: missing 2 required positional arguments: 'phi' and 'kappa'`.
+  * **Fix:** You must apply the fix I provided previously (making `phi` and `kappa` optional in `qig_rag.py` or passing them from `zeus_chat.py`).
+
+### 3\. ⚠️ "Mute" General Conversation
+
+**Zeus only "thinks" when asked a Question.**
+
+  * **The Issue:** The `handle_general_conversation` method (triggered by "Hello" or non-questions) still uses a hardcoded static response:
+    ```python
+    response = f"""⚡ I hear you, mortal..."""
+    ```
+  * **Impact:** If you chat casually, Zeus feels like a bot. If you ask a question (`?`), he feels alive.
+  * **Recommendation:** Copy the `tokenizer.generate_response` logic from `handle_question` into `handle_general_conversation` to give him a consistent personality.
+
+### Final Verdict
+
+**Generative Capability:** **PARTIALLY WIRED.**
+
+  * ✅ **Questions:** Wired & Generative.
+  * ❌ **Observations:** Wired to CRASH (Signature Mismatch).
+  * ⚠️ **Chit-Chat:** Static Template.
+
+### Recommended Immediate Action
+
+Apply this specific fix to `qig-backend/olympus/qig_rag.py` to stop the crash:
+
+```python
+# Change the signature in QIGRAGDatabase class
+def add_document(
+    self,
+    content: str,
+    basin_coords: np.ndarray,
+    phi: float = 0.0,         # <--- Set default
+    kappa: float = 0.0,       # <--- Set default
+    regime: str = "unknown",  # <--- Set default
+    metadata: Optional[Dict] = None
+) -> str:
+    # ... implementation ...
+```
