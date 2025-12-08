@@ -79,8 +79,9 @@ async function migrateNegativeKnowledge(): Promise<void> {
   }
   
   const data = JSON.parse(fs.readFileSync(NEGATIVE_KNOWLEDGE_FILE, 'utf-8'));
+  const BATCH_SIZE = 500;
   
-  // Migrate contradictions
+  // Migrate contradictions with batch inserts
   if (data.contradictions) {
     const contradictionsMap = typeof data.contradictions === 'object' && !Array.isArray(data.contradictions)
       ? Object.entries(data.contradictions)
@@ -91,10 +92,13 @@ async function migrateNegativeKnowledge(): Promise<void> {
     stats.contradictions.total = contradictionsMap.length;
     console.log(`  Found ${stats.contradictions.total} contradictions`);
     
-    for (const [id, contradiction] of contradictionsMap) {
-      try {
+    for (let i = 0; i < contradictionsMap.length; i += BATCH_SIZE) {
+      const batch = contradictionsMap.slice(i, i + BATCH_SIZE);
+      const records: InsertNegativeKnowledge[] = [];
+      
+      for (const [id, contradiction] of batch) {
         const c = contradiction as any;
-        const record: InsertNegativeKnowledge = {
+        records.push({
           id: c.id || id,
           type: c.type || 'proven_false',
           pattern: c.pattern || '',
@@ -107,18 +111,21 @@ async function migrateNegativeKnowledge(): Promise<void> {
           computeSaved: c.computeSaved || 0,
           confirmedCount: c.confirmedCount || 1,
           createdAt: c.createdAt ? new Date(c.createdAt) : new Date(),
-        };
-        
-        await db!.insert(negativeKnowledge).values(record).onConflictDoNothing();
-        stats.contradictions.migrated++;
+        });
+      }
+      
+      try {
+        await db!.insert(negativeKnowledge).values(records).onConflictDoNothing();
+        stats.contradictions.migrated += records.length;
+        console.log(`    Batch ${Math.floor(i/BATCH_SIZE)+1}: ${records.length} contradictions`);
       } catch (error) {
-        console.error(`  ✗ Failed to migrate contradiction ${id}:`, error);
-        stats.contradictions.failed++;
+        console.error(`  ✗ Batch failed:`, error);
+        stats.contradictions.failed += records.length;
       }
     }
   }
   
-  // Migrate barriers
+  // Migrate barriers with batch inserts
   if (data.barriers) {
     const barriersMap = typeof data.barriers === 'object' && !Array.isArray(data.barriers)
       ? Object.entries(data.barriers)
@@ -129,10 +136,13 @@ async function migrateNegativeKnowledge(): Promise<void> {
     stats.barriers.total = barriersMap.length;
     console.log(`  Found ${stats.barriers.total} barriers`);
     
-    for (const [id, barrier] of barriersMap) {
-      try {
+    for (let i = 0; i < barriersMap.length; i += BATCH_SIZE) {
+      const batch = barriersMap.slice(i, i + BATCH_SIZE);
+      const records: InsertGeometricBarrier[] = [];
+      
+      for (const [id, barrier] of batch) {
         const b = barrier as any;
-        const record: InsertGeometricBarrier = {
+        records.push({
           id: b.id || id,
           center: b.center || [],
           radius: b.radius || 0,
@@ -140,18 +150,21 @@ async function migrateNegativeKnowledge(): Promise<void> {
           reason: b.reason || 'Unknown',
           crossings: b.crossings || 1,
           detectedAt: b.detectedAt ? new Date(b.detectedAt) : new Date(),
-        };
-        
-        await db!.insert(geometricBarriers).values(record).onConflictDoNothing();
-        stats.barriers.migrated++;
+        });
+      }
+      
+      try {
+        await db!.insert(geometricBarriers).values(records).onConflictDoNothing();
+        stats.barriers.migrated += records.length;
+        console.log(`    Batch ${Math.floor(i/BATCH_SIZE)+1}: ${records.length} barriers`);
       } catch (error) {
-        console.error(`  ✗ Failed to migrate barrier ${id}:`, error);
-        stats.barriers.failed++;
+        console.error(`  ✗ Batch failed:`, error);
+        stats.barriers.failed += records.length;
       }
     }
   }
   
-  // Migrate false pattern classes
+  // Migrate false pattern classes with batch inserts
   if (data.falsePatternClasses) {
     const classesMap = typeof data.falsePatternClasses === 'object' && !Array.isArray(data.falsePatternClasses)
       ? Object.entries(data.falsePatternClasses)
@@ -160,28 +173,32 @@ async function migrateNegativeKnowledge(): Promise<void> {
     stats.falsePatterns.total = classesMap.length;
     console.log(`  Found ${stats.falsePatterns.total} false pattern classes`);
     
+    const records: InsertFalsePatternClass[] = [];
     for (const [className, classData] of classesMap) {
+      const c = classData as any;
+      records.push({
+        id: `fpc-${className.replace(/[^a-z0-9]/gi, '-')}`,
+        className,
+        examples: c.examples || [],
+        count: c.count || 0,
+        avgPhiAtFailure: c.avgPhiAtFailure || 0,
+        lastUpdated: c.lastUpdated ? new Date(c.lastUpdated) : new Date(),
+      });
+    }
+    
+    if (records.length > 0) {
       try {
-        const c = classData as any;
-        const record: InsertFalsePatternClass = {
-          id: `fpc-${className.replace(/[^a-z0-9]/gi, '-')}`,
-          className,
-          examples: c.examples || [],
-          count: c.count || 0,
-          avgPhiAtFailure: c.avgPhiAtFailure || 0,
-          lastUpdated: c.lastUpdated ? new Date(c.lastUpdated) : new Date(),
-        };
-        
-        await db!.insert(falsePatternClasses).values(record).onConflictDoNothing();
-        stats.falsePatterns.migrated++;
+        await db!.insert(falsePatternClasses).values(records).onConflictDoNothing();
+        stats.falsePatterns.migrated = records.length;
+        console.log(`    Inserted ${records.length} false pattern classes`);
       } catch (error) {
-        console.error(`  ✗ Failed to migrate false pattern class ${className}:`, error);
-        stats.falsePatterns.failed++;
+        console.error(`  ✗ Batch failed:`, error);
+        stats.falsePatterns.failed = records.length;
       }
     }
   }
   
-  // Migrate era exclusions
+  // Migrate era exclusions with batch inserts
   if (data.eraExclusions) {
     const erasMap = typeof data.eraExclusions === 'object' && !Array.isArray(data.eraExclusions)
       ? Object.entries(data.eraExclusions)
@@ -190,21 +207,25 @@ async function migrateNegativeKnowledge(): Promise<void> {
     stats.eraExclusions.total = erasMap.length;
     console.log(`  Found ${stats.eraExclusions.total} era exclusions`);
     
+    const records: InsertEraExclusion[] = [];
     for (const [era, patterns] of erasMap) {
+      records.push({
+        id: `era-${era.replace(/[^a-z0-9]/gi, '-')}`,
+        era,
+        excludedPatterns: Array.isArray(patterns) ? patterns : [],
+        reason: `Patterns excluded for era: ${era}`,
+        createdAt: new Date(),
+      });
+    }
+    
+    if (records.length > 0) {
       try {
-        const record: InsertEraExclusion = {
-          id: `era-${era.replace(/[^a-z0-9]/gi, '-')}`,
-          era,
-          excludedPatterns: Array.isArray(patterns) ? patterns : [],
-          reason: `Patterns excluded for era: ${era}`,
-          createdAt: new Date(),
-        };
-        
-        await db!.insert(eraExclusions).values(record).onConflictDoNothing();
-        stats.eraExclusions.migrated++;
+        await db!.insert(eraExclusions).values(records).onConflictDoNothing();
+        stats.eraExclusions.migrated = records.length;
+        console.log(`    Inserted ${records.length} era exclusions`);
       } catch (error) {
-        console.error(`  ✗ Failed to migrate era exclusion ${era}:`, error);
-        stats.eraExclusions.failed++;
+        console.error(`  ✗ Batch failed:`, error);
+        stats.eraExclusions.failed = records.length;
       }
     }
   }

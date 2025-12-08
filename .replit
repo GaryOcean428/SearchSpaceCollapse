@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["bfg-repo-cleaner", "github-cli", "glibcLocales", "libxcrypt", "pkg-config", "xsimd"]
+packages = ["bfg-repo-cleaner", "github-cli", "glibcLocales", "libxcrypt", "pkg-config", "xsimd", "tor"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -70,3 +70,4 @@ integrations = ["javascript_log_in_with_replit:1.0.0"]
 
 [userenv.shared]
 SWEEP_DESTINATION_ADDRESS = "bc1qcc0ln7gg92vlclfw8t39zfw2cfqtytcwum733l"
+ENABLE_TOR = "true"
