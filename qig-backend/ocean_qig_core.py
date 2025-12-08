@@ -3004,11 +3004,11 @@ def erebus_add_honeypot():
 @app.route('/olympus/chat/status', methods=['GET'])
 def chat_status():
     """Get pantheon chat status."""
-    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+    if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
     
     try:
-        status = pantheon_chat.get_status()
+        status = zeus.pantheon_chat.get_status()
         return jsonify(status)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3017,12 +3017,12 @@ def chat_status():
 @app.route('/olympus/chat/messages', methods=['GET'])
 def chat_messages():
     """Get recent pantheon messages."""
-    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+    if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
     
     try:
         limit = request.args.get('limit', 50, type=int)
-        messages = pantheon_chat.get_recent_activity(limit)
+        messages = zeus.pantheon_chat.get_recent_activity(limit)
         return jsonify(messages)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3031,7 +3031,7 @@ def chat_messages():
 @app.route('/olympus/chat/debate', methods=['POST'])
 def chat_initiate_debate():
     """Initiate debate between gods."""
-    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+    if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
     
     try:
@@ -3048,7 +3048,7 @@ def chat_initiate_debate():
         if not initial_argument:
             initial_argument = f"{initiator} challenges {opponent} on: {topic}"
         
-        debate = pantheon_chat.initiate_debate(topic, initiator, opponent, initial_argument, context)
+        debate = zeus.pantheon_chat.initiate_debate(topic, initiator, opponent, initial_argument, context)
         return jsonify(debate.to_dict())
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3057,11 +3057,11 @@ def chat_initiate_debate():
 @app.route('/olympus/chat/debates/active', methods=['GET'])
 def chat_active_debates():
     """Get active debates."""
-    if not OLYMPUS_AVAILABLE or not pantheon_chat:
+    if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
     
     try:
-        debates = pantheon_chat.get_active_debates()
+        debates = zeus.pantheon_chat.get_active_debates()
         return jsonify(debates)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
