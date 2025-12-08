@@ -30,6 +30,7 @@ import type {
   PantheonMessage,
   Debate,
   OrchestrationResult,
+  PantheonHypothesis,
 } from '@shared/types/olympus';
 
 // Re-export types for consumers
@@ -53,6 +54,7 @@ export type {
   PantheonMessage,
   Debate,
   OrchestrationResult,
+  PantheonHypothesis,
 };
 
 const DEFAULT_RETRY_ATTEMPTS = 3;

@@ -7,31 +7,81 @@
  * This client provides TypeScript interface to the Pantheon Kernel Orchestrator API.
  */
 
-import type {
-  ConstellationResult,
-  GodMetadata,
-  GodProfile,
-  GodSimilarityResult,
-  GodType,
-  GodsResponse,
-  KernelMode,
-  NearestGodsResult,
-  OrchestrationResult,
-  PantheonStatus,
-} from '@shared/types/olympus';
+import type { OrchestrationResult as SharedOrchestrationResult } from '@shared/types/olympus';
 
-export type {
-  ConstellationResult,
-  GodMetadata,
-  GodProfile,
-  GodSimilarityResult,
-  GodType,
-  GodsResponse,
-  KernelMode,
-  NearestGodsResult,
-  OrchestrationResult,
-  PantheonStatus,
-} from '@shared/types/olympus';
+export type KernelMode = 'direct' | 'e8' | 'byte';
+
+export type GodType = 'olympus' | 'shadow' | 'primordial';
+
+export interface GodMetadata {
+  element: string;
+  role: string;
+  type: GodType;
+}
+
+export interface GodProfile {
+  name: string;
+  domain: string;
+  mode: KernelMode;
+  affinity_strength: number;
+  entropy_threshold: number;
+  metadata: GodMetadata;
+  basin: number[];
+}
+
+export type OrchestrationResult = SharedOrchestrationResult & {
+  mode: KernelMode;
+  routing?: {
+    ranking: [string, number][];
+    token_basin_norm: number;
+  };
+  metadata?: GodMetadata;
+  timestamp?: string;
+};
+
+export interface PantheonStatus {
+  mode: string;
+  include_ocean: boolean;
+  total_profiles: number;
+  olympus_gods: string[];
+  shadow_gods: string[];
+  kernels_initialized: string[];
+  routing_stats: {
+    total_routes: number;
+    god_distribution: Record<string, number>;
+    average_affinity: number;
+    most_routed: string | null;
+  };
+  processing_count: number;
+}
+
+export interface GodsResponse {
+  total: number;
+  olympus_count: number;
+  shadow_count: number;
+  gods: GodProfile[];
+}
+
+export interface ConstellationResult {
+  gods: string[];
+  total_gods: number;
+  olympus_count: number;
+  shadow_count: number;
+  similarities: Record<string, number>;
+  most_similar: [string, number][];
+  most_distant: [string, number][];
+}
+
+export interface NearestGodsResult {
+  text: string;
+  nearest: [string, number][];
+}
+
+export interface GodSimilarityResult {
+  god1: string;
+  god2: string;
+  similarity: number;
+}
 
 const QIG_BACKEND_URL = 'http://localhost:5001';
 
