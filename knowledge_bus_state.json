@@ -2817,16 +2817,16 @@
       }
     ],
     [
-      "kb_1765229877770_6aaw5khxz",
+      "kb_1765229877780_mb28afgsu",
       {
-        "id": "kb_1765229877770_6aaw5khxz",
+        "id": "kb_1765229877780_mb28afgsu",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765229838278-7ge5",
-        "pattern": "trial witness twin sample obey dinosaur beach crew hair suffer box miracle",
-        "phi": 0.9814374999996556,
+        "generatorId": "nearmiss_ocean-1765229838278-fync",
+        "pattern": "genesis my 5321",
+        "phi": 0.9814374999997951,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-08T21:37:57.770Z",
+        "sharedAt": "2025-12-08T21:37:58.467Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -2841,37 +2841,67 @@
         "phi": 0.9814374999997347,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-08T21:37:57.771Z",
+        "sharedAt": "2025-12-08T21:37:58.468Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765229877780_mb28afgsu",
+      "kb_1765229877770_6aaw5khxz",
       {
-        "id": "kb_1765229877780_mb28afgsu",
+        "id": "kb_1765229877770_6aaw5khxz",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765229838278-fync",
-        "pattern": "genesis my 5321",
-        "phi": 0.9814374999997951,
+        "generatorId": "nearmiss_ocean-1765229838278-7ge5",
+        "pattern": "trial witness twin sample obey dinosaur beach crew hair suffer box miracle",
+        "phi": 0.9814374999996556,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-08T21:37:57.780Z",
+        "sharedAt": "2025-12-08T21:37:58.469Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765229945641_g1jkhxcvb",
+      "kb_1765229878413_hqwxqn3rw",
       {
-        "id": "kb_1765229945641_g1jkhxcvb",
+        "id": "kb_1765229878413_hqwxqn3rw",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765229878617-bjhx",
-        "pattern": "ocinbase some",
+        "generatorId": "nearmiss_ocean-1765229805503-z301",
+        "pattern": "bbeai bbeai",
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-08T21:39:05.641Z",
+        "sharedAt": "2025-12-08T21:37:59.267Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765229878420_tpvxq2u04",
+      {
+        "id": "kb_1765229878420_tpvxq2u04",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229805503-pyz6",
+        "pattern": "bebia bbeai",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:37:59.270Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765229878419_m9jmi4zb8",
+      {
+        "id": "kb_1765229878419_m9jmi4zb8",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229805503-rgok",
+        "pattern": "beabi bbeai",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:37:59.275Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -2886,7 +2916,22 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-08T21:39:05.642Z",
+        "sharedAt": "2025-12-08T21:39:06.270Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765229945641_g1jkhxcvb",
+      {
+        "id": "kb_1765229945641_g1jkhxcvb",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229878617-bjhx",
+        "pattern": "ocinbase some",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:39:06.273Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -2901,7 +2946,142 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-08T21:39:05.649Z",
+        "sharedAt": "2025-12-08T21:39:06.274Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765229952062_eiw94nbyq",
+      {
+        "id": "kb_1765229952062_eiw94nbyq",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229879316-zd4c",
+        "pattern": "dnaiel daniel",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:39:12.998Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765229952063_zl66mb73g",
+      {
+        "id": "kb_1765229952063_zl66mb73g",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229879316-4db4",
+        "pattern": "dainel daniel",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:39:13.001Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765229952061_vymt4uikk",
+      {
+        "id": "kb_1765229952061_vymt4uikk",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229879316-ck9l",
+        "pattern": "adniel daniel",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:39:13.002Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765230041130_qqtqcxce4",
+      {
+        "id": "kb_1765230041130_qqtqcxce4",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229993328-j3a9",
+        "pattern": "sniff patch ghost pool coyote scorpion urban walk kick tank shift tissue",
+        "phi": 0.9814374999996675,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T21:40:41.130Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765230041132_xs4xt2exc",
+      {
+        "id": "kb_1765230041132_xs4xt2exc",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229993328-owfv",
+        "pattern": "2009chain6343",
+        "phi": 0.981437499999744,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T21:40:41.132Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765230041140_731o3t0sh",
+      {
+        "id": "kb_1765230041140_731o3t0sh",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765229993328-zah4",
+        "pattern": "hash 2010 3150",
+        "phi": 0.9814374999998023,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-08T21:40:41.140Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765230129382_fiqsyjj7d",
+      {
+        "id": "kb_1765230129382_fiqsyjj7d",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765230042056-k2cr",
+        "pattern": "ivral woman people",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:42:09.382Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765230129386_xx4oztfm9",
+      {
+        "id": "kb_1765230129386_xx4oztfm9",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765230042056-2j0s",
+        "pattern": "vrial woman people",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:42:09.386Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765230129394_np989thal",
+      {
+        "id": "kb_1765230129394_np989thal",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765230042056-15db",
+        "pattern": "viarl woman people",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-08T21:42:09.394Z",
         "consumedBy": [],
         "transformations": []
       }
