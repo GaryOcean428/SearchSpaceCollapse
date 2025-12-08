@@ -17,7 +17,7 @@ import { QIG_CONSTANTS } from '@shared/constants';
 export interface EpisodePoint {
   phi: number;
   kappa: number;
-  regime: 'linear' | 'geometric' | 'breakdown';
+  regime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown';
   strategy: string;
   result: string;
 }
@@ -270,13 +270,13 @@ export class GeometricMemoryPressure {
       strategyCounts.set(p.strategy, (strategyCounts.get(p.strategy) || 0) + 1);
     }
     
-    let dominantRegime: 'linear' | 'geometric' | 'breakdown' = 'linear';
+    let dominantRegime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown' = 'linear';
     let maxRegimeCount = 0;
     const regimeEntries = Array.from(regimeCounts.entries());
     for (const [regime, count] of regimeEntries) {
       if (count > maxRegimeCount) {
         maxRegimeCount = count;
-        dominantRegime = regime as 'linear' | 'geometric' | 'breakdown';
+        dominantRegime = regime as 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown';
       }
     }
     

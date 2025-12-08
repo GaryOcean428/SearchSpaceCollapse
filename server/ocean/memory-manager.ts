@@ -13,7 +13,7 @@ export interface OceanEpisode {
   timestamp: string;
   phi: number;
   kappa: number;
-  regime: 'linear' | 'geometric' | 'breakdown';
+  regime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown';
   result: 'tested' | 'near_miss' | 'resonant' | 'match' | 'skip';
   strategy: string;
   phrasesTestedCount: number;
@@ -76,7 +76,7 @@ export class OceanMemoryManager {
   createEpisode(data: {
     phi: number;
     kappa: number;
-    regime: 'linear' | 'geometric' | 'breakdown';
+    regime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown';
     result: 'tested' | 'near_miss' | 'resonant' | 'match' | 'skip';
     strategy: string;
     phrasesTestedCount: number;

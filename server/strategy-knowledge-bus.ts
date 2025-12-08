@@ -17,7 +17,7 @@ interface StrategyCapability {
   generatorTypes: string[];
   compressionMethods: string[];
   resonanceRange: [number, number];
-  preferredRegimes: ('linear' | 'geometric' | 'breakdown')[];
+  preferredRegimes: ('linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown')[];
 }
 
 interface ActiveSubscription {
@@ -132,7 +132,7 @@ export class StrategyKnowledgeBus {
     context: {
       phi: number;
       kappaEff: number;
-      regime: 'linear' | 'geometric' | 'breakdown';
+      regime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown';
       basinCoords?: number[];
     }
   ): string {
@@ -361,7 +361,7 @@ export class StrategyKnowledgeBus {
   private detectCrossStrategyPatterns(
     pattern: string,
     sourceStrategy: string,
-    context: { phi: number; kappaEff: number; regime: 'linear' | 'geometric' | 'breakdown' }
+    context: { phi: number; kappaEff: number; regime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown' }
   ): void {
     const entriesList = Array.from(this.sharedKnowledge.values());
     for (const entry of entriesList) {
@@ -421,7 +421,7 @@ export class StrategyKnowledgeBus {
     return pattern ?? null;
   }
 
-  findCompatibleStrategies(generatorType: string, regime: 'linear' | 'geometric' | 'breakdown'): string[] {
+  findCompatibleStrategies(generatorType: string, regime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown'): string[] {
     const compatible: string[] = [];
     const strategiesList = Array.from(this.strategies.entries());
     
