@@ -475,6 +475,18 @@ if (pool) {
 
 const app = express();
 
+// CRITICAL: Health check endpoint MUST be registered FIRST
+// This ensures Autoscale deployments can detect the app is healthy
+// during startup, before any heavy initialization happens
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: Date.now() });
+});
+
+// Also support /health for backwards compatibility
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: Date.now() });
+});
+
 const isDev = process.env.NODE_ENV === 'development';
 
 // Disable CSP entirely - this is a single-user personal system
@@ -622,12 +634,15 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    log('[Startup] Server ready for health checks');
     
-    // CRITICAL: Defer heavy startup tasks to next event loop tick
-    // This ensures the HTTP server is fully ready to accept health check requests
-    // before we start spawning Python processes or doing other heavy initialization.
-    // This prevents Autoscale deployment timeout during initialization.
-    setImmediate(() => {
+    // CRITICAL: Delay heavy startup tasks significantly (5 seconds)
+    // This ensures:
+    // 1. HTTP server is fully ready to accept health check requests
+    // 2. Autoscale deployment health probes succeed before heavy init
+    // 3. Python processes don't block the initial request handling
+    // Using setTimeout instead of setImmediate for longer delay
+    setTimeout(() => {
       log('[Startup] Initializing background services...');
       
       // Start Python QIG Backend after main server is up
@@ -635,6 +650,6 @@ app.use((req, res, next) => {
       
       // Start scheduled documentation maintenance (runs every 6 hours)
       startDocsMaintenance();
-    });
+    }, 5000); // 5 second delay to allow health checks to pass
   });
 })();
