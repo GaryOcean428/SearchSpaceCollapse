@@ -80,7 +80,8 @@ const _TX_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 let lastBlockchainInfoCall = 0;
 const BLOCKCHAIN_INFO_MIN_DELAY = 2000; // 2 seconds between calls
 const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 5000; // 5 seconds
+const INITIAL_RETRY_DELAY = 3000; // 3 seconds (reduced from 5s for faster fallback)
+const FETCH_TIMEOUT_MS = 10000; // 10 second timeout per request
 
 /**
  * Sleep utility for delays
@@ -90,7 +91,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Rate-limited fetch with exponential backoff
+ * Fetch with timeout to prevent hanging on slow/unresponsive APIs
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Rate-limited fetch with exponential backoff and timeout
  */
 async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Response> {
   // Enforce minimum delay between API calls
@@ -103,7 +124,7 @@ async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Res
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await fetchWithTimeout(url, FETCH_TIMEOUT_MS);
       
       if (response.ok) {
         return response;
@@ -124,7 +145,8 @@ async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Res
         throw error;
       }
       const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-      console.log(`[BlockchainForensics] Request failed, waiting ${retryDelay/1000}s before retry ${attempt + 1}/${retries}`);
+      const errorMsg = error instanceof Error ? error.message : 'unknown';
+      console.log(`[BlockchainForensics] Request failed (${errorMsg}), waiting ${retryDelay/1000}s before retry ${attempt + 1}/${retries}`);
       await sleep(retryDelay);
     }
   }

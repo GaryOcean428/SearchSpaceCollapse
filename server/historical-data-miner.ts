@@ -621,6 +621,87 @@ export class HistoricalDataMiner {
   }
   
   /**
+   * Detect era from Bitcoin address format (fallback when blockchain APIs fail)
+   * 
+   * Address formats reveal minimum possible era:
+   * - "1" prefix (P2PKH Legacy): Available since genesis (2009)
+   * - "3" prefix (P2SH): Available since BIP16 activation (April 2012)
+   * - "bc1q" prefix (Native SegWit): Available since SegWit activation (August 2017)
+   * - "bc1p" prefix (Taproot): Available since Taproot activation (November 2021)
+   * 
+   * For legacy addresses, we estimate most likely era based on dormant wallet patterns
+   */
+  static detectEraFromAddressFormat(address: string): { era: Era; confidence: number; reasoning: string } {
+    // Taproot (Bech32m) - bc1p prefix
+    if (address.startsWith('bc1p')) {
+      return {
+        era: '2022-present',
+        confidence: 0.95,
+        reasoning: 'Taproot address (bc1p) - only possible after November 2021 activation'
+      };
+    }
+    
+    // Native SegWit (Bech32) - bc1q prefix
+    if (address.startsWith('bc1q')) {
+      return {
+        era: '2017-2019',
+        confidence: 0.80,
+        reasoning: 'Native SegWit address (bc1q) - only possible after August 2017 SegWit activation'
+      };
+    }
+    
+    // P2SH (starts with 3)
+    if (address.startsWith('3')) {
+      return {
+        era: '2012-2013',
+        confidence: 0.60,
+        reasoning: 'P2SH address (3) - available since BIP16 activation in April 2012, common for multisig and wrapped SegWit'
+      };
+    }
+    
+    // Legacy P2PKH (starts with 1) - most common in early Bitcoin
+    if (address.startsWith('1')) {
+      // For legacy addresses, estimate based on address characteristics
+      // Early addresses (2009-2011) tend to have certain patterns
+      // We default to 2010-2011 as the most likely era for dormant wallets
+      
+      // Check for very short addresses (early software sometimes produced these)
+      const addressLength = address.length;
+      if (addressLength < 33) {
+        return {
+          era: 'genesis-2009',
+          confidence: 0.50,
+          reasoning: 'Short legacy P2PKH address - may indicate early Bitcoin software (2009-2010)'
+        };
+      }
+      
+      // Default estimation for legacy addresses
+      // Most dormant wallets with significant balances are from 2009-2013 era
+      return {
+        era: '2010-2011',
+        confidence: 0.40,
+        reasoning: 'Legacy P2PKH address (1) - estimating early era (2010-2011) as most likely for dormant wallet recovery'
+      };
+    }
+    
+    // Testnet or unknown format
+    if (address.startsWith('m') || address.startsWith('n') || address.startsWith('2') || address.startsWith('tb1')) {
+      return {
+        era: '2022-present',
+        confidence: 0.20,
+        reasoning: 'Testnet address format detected - using current era as default'
+      };
+    }
+    
+    // Unknown format - use conservative default
+    return {
+      era: '2014-2016',
+      confidence: 0.20,
+      reasoning: 'Unknown address format - using middle era as conservative estimate'
+    };
+  }
+  
+  /**
    * Get format weights for an era
    */
   static getFormatWeightsForEra(era: Era): Record<KeyFormat, number> {

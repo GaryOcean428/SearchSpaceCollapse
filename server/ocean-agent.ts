@@ -624,12 +624,22 @@ export class OceanAgent {
           this.memory.patterns.failedStrategies = this.memory.patterns.failedStrategies || [];
           console.log(`[Ocean] Stored era insight: ${detectedEra}`);
         } else {
-          console.log('[Ocean] Could not determine era from blockchain - using autonomous pattern discovery');
-          this.state.detectedEra = 'unknown';
+          // FALLBACK: Use address format to estimate era when blockchain data unavailable
+          console.log('[Ocean] Blockchain data unavailable - using address format analysis for era estimation');
+          const formatEra = HistoricalDataMiner.detectEraFromAddressFormat(targetAddress);
+          this.state.detectedEra = formatEra.era;
+          console.log(`[Ocean] Era estimated from address format: ${formatEra.era} (confidence: ${(formatEra.confidence * 100).toFixed(0)}%)`);
+          console.log(`[Ocean] Reasoning: ${formatEra.reasoning}`);
+          this.memory.workingMemory.recentObservations.push(`Era ${formatEra.era} estimated from address format (${(formatEra.confidence * 100).toFixed(0)}% confidence)`);
         }
       } catch {
-        console.log('[Ocean] Era detection failed (address may not exist on chain) - proceeding with full autonomous mode');
-        this.state.detectedEra = 'unknown';
+        // FALLBACK: Use address format to estimate era when API calls fail
+        console.log('[Ocean] Era detection APIs failed - using address format analysis as fallback');
+        const formatEra = HistoricalDataMiner.detectEraFromAddressFormat(targetAddress);
+        this.state.detectedEra = formatEra.era;
+        console.log(`[Ocean] Era estimated from address format: ${formatEra.era} (confidence: ${(formatEra.confidence * 100).toFixed(0)}%)`);
+        console.log(`[Ocean] Reasoning: ${formatEra.reasoning}`);
+        this.memory.workingMemory.recentObservations.push(`Era ${formatEra.era} estimated from address format (${(formatEra.confidence * 100).toFixed(0)}% confidence - API fallback)`);
       }
       
       // GEOMETRIC DISCOVERY - Enhance cultural manifold using external sources
