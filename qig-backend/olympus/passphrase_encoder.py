@@ -30,7 +30,9 @@ class PassphraseEncoder(BaseEncoder):
     def __init__(self, vocab_path: Optional[str] = None):
         # Set default path before calling parent __init__
         if vocab_path is None:
-            vocab_path = "data/basin_vocab.json"
+            vocab_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "data", "basin_vocab.json"
+            )
         super().__init__(vocab_path)
         
     def _load_vocabulary(self) -> None:
