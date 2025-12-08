@@ -163,6 +163,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/observer", observerRoutes);
   app.use("/api/telemetry", telemetryRouter);
   
+  // Investigation status endpoint - used by investigation page
+  app.get("/api/investigation/status", (req, res) => {
+    try {
+      const status = oceanSessionManager.getInvestigationStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("[API] Investigation status error:", error);
+      res.status(500).json({ error: error.message || "Failed to get investigation status" });
+    }
+  });
+  
   console.log("[Routes] All sub-routers mounted");
 
   // ============================================================
