@@ -355,7 +355,11 @@ class GeometricMemory {
     this.testedPhrases = new Set();
     this.state = this.createEmptyState();
     this.load();
-    this.loadTestedPhrases();
+    
+    // Load tested phrases asynchronously (don't block construction)
+    this.loadTestedPhrases().catch(err => {
+      console.error('[GeometricMemory] Failed to load tested phrases:', err);
+    });
     
     // Initialize PostgreSQL persistence asynchronously
     this.initPostgreSQLSync();
@@ -472,13 +476,41 @@ class GeometricMemory {
     return phrase.toLowerCase().trim();
   }
   
-  hasTested(phrase: string): boolean {
-    return this.testedPhrases.has(this.normalizePhrase(phrase));
+  async hasTested(phrase: string): Promise<boolean> {
+    const normalized = this.normalizePhrase(phrase);
+    
+    // Check local cache first
+    if (this.testedPhrases.has(normalized)) {
+      return true;
+    }
+    
+    // Check unified backend (database or memory)
+    const tested = await testedPhrasesUnified.wasTested(normalized);
+    if (tested) {
+      // Update local cache
+      this.testedPhrases.add(normalized);
+      return true;
+    }
+    
+    return false;
   }
   
-  recordTested(phrase: string): void {
+  async recordTested(phrase: string, address?: string, balanceSats?: number, phi?: number, kappa?: number, regime?: string): Promise<void> {
+    const normalized = this.normalizePhrase(phrase);
     const prevSize = this.testedPhrases.size;
-    this.testedPhrases.add(this.normalizePhrase(phrase));
+    this.testedPhrases.add(normalized);
+    
+    // Also record in unified backend (database or memory)
+    await testedPhrasesUnified.recordTested(
+      normalized,
+      address || '',
+      balanceSats || 0,
+      0, // txCount
+      phi,
+      kappa,
+      regime
+    );
+    
     if (this.testedPhrases.size !== prevSize && this.testedPhrases.size % 100 === 0) {
       this.saveTestedPhrases();
     }
