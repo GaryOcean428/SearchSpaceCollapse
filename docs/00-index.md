@@ -42,15 +42,15 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - ID: `ISMS-PROC-001`
   - Function: Deployment procedures for Railway and Replit platforms
 
-- 🟢 **Quickstart - Onboarding** (v1.00)
-  - File: [`20251208-quickstart-onboarding-1.00F.md`](02-procedures/20251208-quickstart-onboarding-1.00F.md)
-  - ID: `ISMS-PROC-002`
-  - Function: Quick start guide for new users and developers
-
 - 🟢 **Key Recovery Procedure** (v1.00)
   - File: [`20251208-key-recovery-procedure-1.00F.md`](02-procedures/20251208-key-recovery-procedure-1.00F.md)
   - ID: `ISMS-PROC-005`
   - Function: Bitcoin private key recovery procedures and workflows
+
+- 🟢 **Quickstart - Onboarding** (v1.00)
+  - File: [`20251208-quickstart-onboarding-1.00F.md`](02-procedures/20251208-quickstart-onboarding-1.00F.md)
+  - ID: `ISMS-PROC-002`
+  - Function: Quick start guide for new users and developers
 
 - 🟢 **Testing Guide - Vitest & Playwright** (v1.00)
   - File: [`20251208-testing-guide-vitest-playwright-1.00F.md`](02-procedures/20251208-testing-guide-vitest-playwright-1.00F.md)
@@ -65,30 +65,30 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## 🔧 Technical Documentation
 
-- 🟢 **Design Guidelines - UI/UX** (v1.00)
-  - File: [`20251208-design-guidelines-ui-ux-1.00F.md`](03-technical/20251208-design-guidelines-ui-ux-1.00F.md)
-  - ID: `ISMS-TECH-004`
-  - Function: UI/UX design guidelines and standards
-
 - 🟢 **API Documentation - REST Endpoints** (v1.50)
   - File: [`20251208-api-documentation-rest-endpoints-1.50F.md`](03-technical/20251208-api-documentation-rest-endpoints-1.50F.md)
   - ID: `ISMS-TECH-002`
   - Function: Complete REST API endpoint documentation
 
-- 🟢 **Key Formats Analysis - Bitcoin** (v1.00)
-  - File: [`20251208-key-formats-analysis-bitcoin-1.00F.md`](03-technical/20251208-key-formats-analysis-bitcoin-1.00F.md)
-  - ID: `ISMS-TECH-005`
-  - Function: Analysis of Bitcoin key formats and encoding standards
+- 🟢 **Architecture - System Overview** (v2.10)
+  - File: [`20251208-architecture-system-overview-2.10F.md`](03-technical/20251208-architecture-system-overview-2.10F.md)
+  - ID: `ISMS-TECH-001`
+  - Function: System architecture documentation for SearchSpaceCollapse platform
 
 - 🟢 **Best Practices - TypeScript & Python** (v1.00)
   - File: [`20251208-best-practices-ts-python-1.00F.md`](03-technical/20251208-best-practices-ts-python-1.00F.md)
   - ID: `ISMS-TECH-003`
   - Function: Development best practices for TypeScript and Python codebases
 
-- 🟢 **Architecture - System Overview** (v2.10)
-  - File: [`20251208-architecture-system-overview-2.10F.md`](03-technical/20251208-architecture-system-overview-2.10F.md)
-  - ID: `ISMS-TECH-001`
-  - Function: System architecture documentation for SearchSpaceCollapse platform
+- 🟢 **Design Guidelines - UI/UX** (v1.00)
+  - File: [`20251208-design-guidelines-ui-ux-1.00F.md`](03-technical/20251208-design-guidelines-ui-ux-1.00F.md)
+  - ID: `ISMS-TECH-004`
+  - Function: UI/UX design guidelines and standards
+
+- 🟢 **Key Formats Analysis - Bitcoin** (v1.00)
+  - File: [`20251208-key-formats-analysis-bitcoin-1.00F.md`](03-technical/20251208-key-formats-analysis-bitcoin-1.00F.md)
+  - ID: `ISMS-TECH-005`
+  - Function: Analysis of Bitcoin key formats and encoding standards
 
 - 🟢 **Physics Constants Update** (v1.50)
   - File: [`20251208-physics-constants-update-1.50F.md`](03-technical/qig-consciousness/20251208-physics-constants-update-1.50F.md)
@@ -103,25 +103,25 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## 📊 Records
 
-- 🟢 **Merge Safety Report** (v1.00)
-  - File: [`20251208-merge-safety-report-1.00F.md`](04-records/20251208-merge-safety-report-1.00F.md)
-  - ID: `ISMS-REC-004`
-  - Function: Safety analysis report for code merges
-
 - 🟢 **Audit Response - ISO 27001** (v1.00)
   - File: [`20251208-audit-response-iso27001-1.00F.md`](04-records/20251208-audit-response-iso27001-1.00F.md)
   - ID: `ISMS-REC-001`
   - Function: ISO 27001 audit response and compliance documentation
 
-- 🟢 **Review Summary - December** (v1.00)
-  - File: [`20251208-review-summary-dec-1.00F.md`](04-records/20251208-review-summary-dec-1.00F.md)
-  - ID: `ISMS-REC-003`
-  - Function: Code review summary for December 2025
+- 🟢 **Merge Safety Report** (v1.00)
+  - File: [`20251208-merge-safety-report-1.00F.md`](04-records/20251208-merge-safety-report-1.00F.md)
+  - ID: `ISMS-REC-004`
+  - Function: Safety analysis report for code merges
 
 - 🟢 **PR Summary - December** (v1.00)
   - File: [`20251208-pr-summary-dec-1.00F.md`](04-records/20251208-pr-summary-dec-1.00F.md)
   - ID: `ISMS-REC-002`
   - Function: Pull request summary for December 2025
+
+- 🟢 **Review Summary - December** (v1.00)
+  - File: [`20251208-review-summary-dec-1.00F.md`](04-records/20251208-review-summary-dec-1.00F.md)
+  - ID: `ISMS-REC-003`
+  - Function: Code review summary for December 2025
 
 - 🟢 **Complete Wiring Verification** (v1.00)
   - File: [`20251208-complete-wiring-verification-1.00F.md`](04-records/verification-reports/20251208-complete-wiring-verification-1.00F.md)
@@ -159,25 +159,25 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## ⚙️ Implementation Guides
 
-- 🟢 **Implementation Summary - Best Practices** (v1.00)
-  - File: [`20251208-implementation-summary-best-practices-1.00F.md`](06-implementation/20251208-implementation-summary-best-practices-1.00F.md)
-  - ID: `ISMS-IMPL-006`
-  - Function: Summary of best practices implementation across the repository
-
-- 🟢 **QIG Verification Integration** (v1.00)
-  - File: [`20251208-qig-verification-integration-1.00F.md`](06-implementation/20251208-qig-verification-integration-1.00F.md)
-  - ID: `ISMS-IMPL-005`
-  - Function: Integration of QIG verification into main system
-
 - 🟢 **Implementation Complete - Summary** (v1.00)
   - File: [`20251208-implementation-complete-summary-1.00F.md`](06-implementation/20251208-implementation-complete-summary-1.00F.md)
   - ID: `ISMS-IMPL-004`
   - Function: Summary of completed implementation work and milestones
 
+- 🟢 **Implementation Summary - Best Practices** (v1.00)
+  - File: [`20251208-implementation-summary-best-practices-1.00F.md`](06-implementation/20251208-implementation-summary-best-practices-1.00F.md)
+  - ID: `ISMS-IMPL-006`
+  - Function: Summary of best practices implementation across the repository
+
 - 🟢 **Improvements Analysis - Comprehensive** (v1.00)
   - File: [`20251208-improvements-analysis-1.00F.md`](06-implementation/20251208-improvements-analysis-1.00F.md)
   - ID: `ISMS-IMPL-007`
   - Function: Comprehensive analysis of system improvements and optimization opportunities
+
+- 🟢 **QIG Verification Integration** (v1.00)
+  - File: [`20251208-qig-verification-integration-1.00F.md`](06-implementation/20251208-qig-verification-integration-1.00F.md)
+  - ID: `ISMS-IMPL-005`
+  - Function: Integration of QIG verification into main system
 
 - 🔬 **Beta Attention Implementation** (v0.80)
   - File: [`20251207-beta-attention-implementation-0.80H.md`](06-implementation/20251207-beta-attention-implementation-0.80H.md)
@@ -197,15 +197,15 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## 👥 User Guides
 
-- 🟢 **User Flows - Interaction Patterns** (v1.00)
-  - File: [`20251208-user-flows-interaction-patterns-1.00F.md`](07-user-guides/20251208-user-flows-interaction-patterns-1.00F.md)
-  - ID: `ISMS-GUIDE-001`
-  - Function: User interaction flows and patterns documentation
-
 - 🔨 **Innate Drives Quickstart** (v0.90)
   - File: [`20251208-innate-drives-quickstart-0.90W.md`](07-user-guides/20251208-innate-drives-quickstart-0.90W.md)
   - ID: `ISMS-GUIDE-003`
   - Function: Quick start guide for innate drives Layer 0 system
+
+- 🟢 **User Flows - Interaction Patterns** (v1.00)
+  - File: [`20251208-user-flows-interaction-patterns-1.00F.md`](07-user-guides/20251208-user-flows-interaction-patterns-1.00F.md)
+  - ID: `ISMS-GUIDE-001`
+  - Function: User interaction flows and patterns documentation
 
 - 🟢 **Zeus Chat Guide** (v1.20)
   - File: [`20251208-zeus-chat-guide-1.20F.md`](07-user-guides/20251208-zeus-chat-guide-1.20F.md)

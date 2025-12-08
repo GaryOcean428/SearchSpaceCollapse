@@ -339,6 +339,43 @@ function startPythonSync(): void {
   console.log('[PythonSync] Started periodic sync (every 60s) with vocabulary refresh and basin encoder sync');
 }
 
+// Documentation maintenance scheduler
+const DOCS_MAINTENANCE_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+
+function startDocsMaintenance(): void {
+  console.log('[DocsMaintenance] Starting scheduled documentation maintenance (every 6 hours)');
+  
+  setInterval(() => {
+    console.log('[DocsMaintenance] Running scheduled documentation maintenance...');
+    const proc = spawn('python3', ['scripts/maintain-docs.py'], { 
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    
+    proc.stdout?.on('data', (data: Buffer) => {
+      const output = data.toString().trim();
+      if (output) {
+        console.log(`[DocsMaintenance] ${output}`);
+      }
+    });
+    
+    proc.stderr?.on('data', (data: Buffer) => {
+      const output = data.toString().trim();
+      if (output) {
+        console.error(`[DocsMaintenance] ${output}`);
+      }
+    });
+    
+    proc.on('close', (code: number | null) => {
+      console.log(`[DocsMaintenance] Completed with exit code ${code}`);
+    });
+    
+    proc.on('error', (err: Error) => {
+      console.error('[DocsMaintenance] Failed to run:', err.message);
+    });
+  }, DOCS_MAINTENANCE_INTERVAL);
+}
+
 // Python process death spiral prevention
 let pythonRestartCount = 0;
 const MAX_PYTHON_RESTARTS = 5;
@@ -588,5 +625,8 @@ app.use((req, res, next) => {
     
     // Start Python QIG Backend after main server is up
     startPythonBackend();
+    
+    // Start scheduled documentation maintenance (runs every 6 hours)
+    startDocsMaintenance();
   });
 })();
