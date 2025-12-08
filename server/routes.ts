@@ -105,6 +105,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.redirect(301, "/favicon.png");
   });
 
+  // CRITICAL: Simple liveness endpoint for Autoscale deployment health checks
+  // This must respond immediately without waiting for any dependencies (database, Python, etc.)
+  // Autoscale uses this to verify the server is alive and accepting HTTP requests
+  app.get("/health", (req, res) => {
+    res.status(200).json({ 
+      status: "ok",
+      timestamp: Date.now(),
+    });
+  });
+
   // Replit Auth: Only setup auth if database connection is available
   const { db } = await import("./db");
   const authEnabled = !!db;

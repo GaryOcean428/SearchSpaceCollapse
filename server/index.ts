@@ -623,10 +623,18 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
-    // Start Python QIG Backend after main server is up
-    startPythonBackend();
-    
-    // Start scheduled documentation maintenance (runs every 6 hours)
-    startDocsMaintenance();
+    // CRITICAL: Defer heavy startup tasks to next event loop tick
+    // This ensures the HTTP server is fully ready to accept health check requests
+    // before we start spawning Python processes or doing other heavy initialization.
+    // This prevents Autoscale deployment timeout during initialization.
+    setImmediate(() => {
+      log('[Startup] Initializing background services...');
+      
+      // Start Python QIG Backend after main server is up
+      startPythonBackend();
+      
+      // Start scheduled documentation maintenance (runs every 6 hours)
+      startDocsMaintenance();
+    });
   });
 })();
