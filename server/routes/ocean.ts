@@ -34,7 +34,7 @@ export const oceanRouter = Router();
 oceanRouter.get("/health", generousLimiter, async (req: Request, res: Response) => {
   try {
     const { geometricMemory } = await import("../geometric-memory");
-    const { negativeKnowledgeRegistry } = await import("../negative-knowledge-registry");
+    const { negativeKnowledgeUnified: negativeKnowledgeRegistry } = await import("../negative-knowledge-unified");
     const { vocabularyTracker } = await import("../vocabulary-tracker");
     const { vocabularyExpander } = await import("../vocabulary-expander");
     const { expandedVocabulary } = await import("../expanded-vocabulary");

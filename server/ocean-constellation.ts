@@ -22,7 +22,7 @@
  */
 
 import { geometricMemory } from './geometric-memory';
-import { negativeKnowledgeRegistry } from './negative-knowledge-registry';
+import { negativeKnowledgeUnified as negativeKnowledgeRegistry } from './negative-knowledge-unified';
 import { expandedVocabulary } from './expanded-vocabulary';
 import { fisherVectorized } from './fisher-vectorized';
 import { QIG_CONSTANTS } from './qig-pure-v2';
