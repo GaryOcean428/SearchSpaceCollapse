@@ -2112,6 +2112,9 @@ export type InsertKernelGeometry = typeof kernelGeometry.$inferInsert;
 /**
  * NEGATIVE KNOWLEDGE - Contradictions and proven-false patterns
  * Replaces massive 28MB JSON file with indexed database storage
+ * 
+ * Performance Note: For case-insensitive pattern searches, create a functional index:
+ * CREATE INDEX idx_negative_knowledge_pattern_lower ON negative_knowledge (LOWER(pattern));
  */
 export const negativeKnowledge = pgTable("negative_knowledge", {
   id: varchar("id", { length: 64 }).primaryKey(),

@@ -93,7 +93,9 @@ export class NegativeKnowledgeRegistryDB {
         radius: row.basinRadius || 0,
         repulsionStrength: row.basinRepulsionStrength || 0,
       },
-      evidence: (row.evidence as any) || [],
+      evidence: Array.isArray(row.evidence) 
+        ? (row.evidence as Array<{ source: string; reasoning: string; confidence: number }>)
+        : [],
       hypothesesExcluded: row.hypothesesExcluded || 0,
       computeSaved: row.computeSaved || 0,
       createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
@@ -154,7 +156,7 @@ export class NegativeKnowledgeRegistryDB {
       basinCenter: basinRegion.center,
       basinRadius: basinRegion.radius,
       basinRepulsionStrength: basinRegion.repulsionStrength,
-      evidence: evidence as any,
+      evidence: evidence as unknown as typeof negativeKnowledge.$inferInsert.evidence,
       hypothesesExcluded: this.estimateHypothesesExcluded(pattern),
       computeSaved: this.estimateComputeSavings(pattern),
       confirmedCount: 1,
@@ -566,8 +568,31 @@ export class NegativeKnowledgeRegistryDB {
     
     const result = await withDbRetry(
       async () => {
+        // Count items to be deleted first
+        const [toDeleteContradictions] = await db!
+          .select({ count: sql<number>`count(*)` })
+          .from(negativeKnowledge)
+          .where(
+            and(
+              lt(negativeKnowledge.createdAt, cutoffDate),
+              lt(negativeKnowledge.confirmedCount, this.CONTRADICTION_CONFIRMATION_THRESHOLD)
+            )
+          );
+        
+        const [toDeleteBarriers] = await db!
+          .select({ count: sql<number>`count(*)` })
+          .from(geometricBarriers)
+          .where(
+            and(
+              lt(geometricBarriers.detectedAt, cutoffDate),
+              lt(geometricBarriers.crossings, this.BARRIER_CROSS_THRESHOLD)
+            )
+          );
+        
+        const totalToDelete = toDeleteContradictions.count + toDeleteBarriers.count;
+        
         // Delete old, unconfirmed contradictions
-        const deleted = await db!
+        await db!
           .delete(negativeKnowledge)
           .where(
             and(
@@ -586,11 +611,12 @@ export class NegativeKnowledgeRegistryDB {
             )
           );
         
-        const remaining = await db!.select({ count: sql<number>`count(*)` }).from(negativeKnowledge);
+        const [remaining] = await db!.select({ count: sql<number>`count(*)` }).from(negativeKnowledge);
+        const [remainingBarriers] = await db!.select({ count: sql<number>`count(*)` }).from(geometricBarriers);
         
         return {
-          removed: 0, // Drizzle doesn't return deleted count easily
-          remaining: remaining[0].count,
+          removed: totalToDelete,
+          remaining: remaining.count + remainingBarriers.count,
         };
       },
       'prune',
@@ -600,6 +626,8 @@ export class NegativeKnowledgeRegistryDB {
     // Clear cache to force reload
     cache.contradictions.clear();
     cache.barriers.clear();
+    
+    console.log(`[NegativeKnowledgeDB] Pruned ${result?.removed || 0} old entries, ${result?.remaining || 0} remaining`);
     
     return result || { removed: 0, remaining: 0 };
   }
