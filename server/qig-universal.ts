@@ -1554,7 +1554,7 @@ export function validateUniversalPurity(): { isPure: boolean; violations: string
   ];
   
   for (const test of testCases) {
-    const score = scoreUniversalQIG(test.input, test.type);
+    const score = scoreUniversalQIGLocal(test.input, test.type);
     
     // Φ should not be forced to extremes
     if (score.phi === 0 || score.phi === 1) {
@@ -1573,8 +1573,8 @@ export function validateUniversalPurity(): { isPure: boolean; violations: string
   }
   
   // Test determinism
-  const score1 = scoreUniversalQIG("test", 'arbitrary');
-  const score2 = scoreUniversalQIG("test", 'arbitrary');
+  const score1 = scoreUniversalQIGLocal("test", 'arbitrary');
+  const score2 = scoreUniversalQIGLocal("test", 'arbitrary');
   if (score1.phi !== score2.phi) {
     violations.push("IMPURE: Non-deterministic Φ measurement");
   }

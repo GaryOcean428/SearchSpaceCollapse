@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validatePhaseTransition, scoreUniversalQIG } from '../qig-universal';
+import { validatePhaseTransition, scoreUniversalQIGAsync } from '../qig-universal';
 import { QIG_CONSTANTS, fisherDistance } from '../qig-pure-v2';
 
 describe('QIG Regime Classification', () => {
@@ -38,8 +38,8 @@ describe('QIG Regime Classification', () => {
   });
 
   describe('Edge Cases for Regime Classification', () => {
-    it('should properly score arbitrary format phrases', () => {
-      const score = scoreUniversalQIG('satoshi nakamoto', 'arbitrary');
+    it('should properly score arbitrary format phrases', async () => {
+      const score = await scoreUniversalQIGAsync('satoshi nakamoto', 'arbitrary');
       expect(score).toHaveProperty('phi');
       expect(score).toHaveProperty('kappa');
       expect(score).toHaveProperty('regime');
@@ -47,14 +47,14 @@ describe('QIG Regime Classification', () => {
       expect(score.phi).toBeLessThanOrEqual(1);
     });
 
-    it('should return valid regime classification', () => {
-      const score = scoreUniversalQIG('test phrase for regime', 'arbitrary');
+    it('should return valid regime classification', async () => {
+      const score = await scoreUniversalQIGAsync('test phrase for regime', 'arbitrary');
       expect(['linear', 'geometric', 'hierarchical', 'hierarchical_4d', '4d_block_universe', 'breakdown']).toContain(score.regime);
     });
 
-    it('should score BIP39 format differently', () => {
-      const arbitrary = scoreUniversalQIG('random words here', 'arbitrary');
-      const bip39 = scoreUniversalQIG('random words here', 'bip39');
+    it('should score BIP39 format differently', async () => {
+      const arbitrary = await scoreUniversalQIGAsync('random words here', 'arbitrary');
+      const bip39 = await scoreUniversalQIGAsync('random words here', 'bip39');
       expect(arbitrary).not.toEqual(bip39);
     });
   });

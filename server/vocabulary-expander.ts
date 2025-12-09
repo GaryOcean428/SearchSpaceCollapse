@@ -13,7 +13,7 @@
  */
 
 import { geometricMemory } from './geometric-memory';
-import { scoreUniversalQIG, type UniversalQIGScore as QIGScore, type Regime } from './qig-universal';
+import { scoreUniversalQIGAsync, type UniversalQIGScore as QIGScore, type Regime } from './qig-universal';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { expandedVocabulary } from './expanded-vocabulary';
 import fs from 'fs';
@@ -232,7 +232,7 @@ export class GeometricVocabularyExpander {
           candidate.frequency >= this.minFrequencyForExpansion) {
         
         // Score the candidate to get coordinates
-        const score = await scoreUniversalQIG(candidate.text, 'arbitrary');
+        const score = await scoreUniversalQIGAsync(candidate.text, 'arbitrary');
         
         this.addWord(candidate.text, score, {
           components: candidate.components,
@@ -434,7 +434,7 @@ export class GeometricVocabularyExpander {
         
         for (const word of words) {
           if (!this.state.words.has(word)) {
-            const score = await scoreUniversalQIG(word, 'arbitrary');
+            const score = await scoreUniversalQIGAsync(word, 'arbitrary');
             this.addWord(word, score, { source: 'Bootstrap from probes' });
             added++;
           }
