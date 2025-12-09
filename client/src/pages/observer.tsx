@@ -843,11 +843,29 @@ export default function ObserverPage() {
               </div>
             </div>
             {dormantCrossRefData?.matchesFound && dormantCrossRefData.matchesFound > 0 && (
-              <div className="mt-3 p-3 rounded-lg border border-green-500/50 bg-green-500/10">
+              <div className="mt-3 p-3 rounded-lg border border-green-500/50 bg-green-500/10 space-y-2">
                 <p className="text-sm font-medium text-green-600 flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
                   {dormantCrossRefData.matchesFound} address(es) match known dormant wallets!
                 </p>
+                {dormantCrossRefData.topMatches && dormantCrossRefData.topMatches.length > 0 && (
+                  <div className="space-y-1">
+                    {dormantCrossRefData.topMatches.map((match: { address: string; rank: number; walletLabel?: string; balanceBTC?: string }) => (
+                      <div key={match.address} className="flex items-center gap-2 text-xs">
+                        <span className="font-mono text-green-700 dark:text-green-400">{match.address}</span>
+                        <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30">
+                          Rank #{match.rank}
+                        </Badge>
+                        {match.walletLabel && (
+                          <span className="text-muted-foreground">{match.walletLabel}</span>
+                        )}
+                        {match.balanceBTC && (
+                          <span className="text-green-600 font-medium">{match.balanceBTC} BTC</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {dormantCrossRefData?.loaded && (
