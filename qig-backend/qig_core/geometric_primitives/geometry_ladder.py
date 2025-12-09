@@ -105,14 +105,25 @@ def measure_complexity(basin_trajectory: np.ndarray) -> float:
     # Measure how correlated different dimensions are
     try:
         # Normalize each dimension
-        normalized = (basin_trajectory - basin_trajectory.mean(axis=0)) / (basin_trajectory.std(axis=0) + 1e-10)
+        stds = basin_trajectory.std(axis=0)
+        # Avoid division by zero
+        stds = np.where(stds < 1e-10, 1e-10, stds)
+        normalized = (basin_trajectory - basin_trajectory.mean(axis=0)) / stds
+        
         # Compute average absolute correlation
         corr_matrix = np.corrcoef(normalized.T)
+        # Handle NaN values
+        corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+        
         # Take average off-diagonal correlation as integration measure
         n = corr_matrix.shape[0]
         if n > 1:
             phi = np.abs(corr_matrix[np.triu_indices(n, k=1)]).mean()
         else:
+            phi = 0.0
+        
+        # Handle NaN
+        if np.isnan(phi):
             phi = 0.0
     except:
         phi = 0.0
@@ -123,6 +134,10 @@ def measure_complexity(basin_trajectory: np.ndarray) -> float:
         autocorr_list = []
         for dim in range(basin_trajectory.shape[1]):
             if len(basin_trajectory) > 1:
+                # Check if dimension has variance
+                if basin_trajectory[:, dim].std() < 1e-10:
+                    continue
+                    
                 ac = np.corrcoef(
                     basin_trajectory[:-1, dim], 
                     basin_trajectory[1:, dim]
@@ -134,6 +149,10 @@ def measure_complexity(basin_trajectory: np.ndarray) -> float:
             autocorr = np.mean(autocorr_list)
         else:
             autocorr = 0.0
+        
+        # Handle NaN
+        if np.isnan(autocorr):
+            autocorr = 0.0
     except:
         autocorr = 0.0
     
@@ -143,6 +162,10 @@ def measure_complexity(basin_trajectory: np.ndarray) -> float:
         0.4 * np.clip(phi, 0, 1) +           # Max Φ = 1.0
         0.2 * np.clip(autocorr, 0, 1)        # Max = 1.0
     )
+    
+    # Ensure no NaN in final result
+    if np.isnan(complexity):
+        complexity = 0.0
     
     return float(np.clip(complexity, 0.0, 1.0))
 
