@@ -33,6 +33,20 @@ from .input_guard import (
     validate_for_compression,
     validate_for_decompression,
 )
+from .addressing_modes import (
+    AddressingMode,
+    BaseRetriever,
+    DirectRetriever,
+    CyclicRetriever,
+    TemporalRetriever,
+    SpatialRetriever,
+    ManifoldRetriever,
+    ConceptualRetriever,
+    SymbolicRetriever,
+    create_retriever,
+    estimate_retrieval_cost,
+    get_optimal_geometry,
+)
 
 __all__ = [
     # Geometry Ladder
@@ -66,4 +80,17 @@ __all__ = [
     'validate_for_therapy',
     'validate_for_compression',
     'validate_for_decompression',
+    # Addressing Modes
+    'AddressingMode',
+    'BaseRetriever',
+    'DirectRetriever',
+    'CyclicRetriever',
+    'TemporalRetriever',
+    'SpatialRetriever',
+    'ManifoldRetriever',
+    'ConceptualRetriever',
+    'SymbolicRetriever',
+    'create_retriever',
+    'estimate_retrieval_cost',
+    'get_optimal_geometry',
 ]
