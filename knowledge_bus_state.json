@@ -5952,6 +5952,21 @@
       }
     ],
     [
+      "kb_1765292095972_uvmmqhw8n",
+      {
+        "id": "kb_1765292095972_uvmmqhw8n",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765292093328-i32o",
+        "pattern": "0w",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:54:56.728Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765231225003_rynd4sj2k",
       {
         "id": "kb_1765231225003_rynd4sj2k",
@@ -6447,6 +6462,21 @@
       }
     ],
     [
+      "kb_1765292141760_l8tktkgi3",
+      {
+        "id": "kb_1765292141760_l8tktkgi3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765292136352-96ru",
+        "pattern": "p0ww",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:55:42.421Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765231488290_5zn6f0pwc",
       {
         "id": "kb_1765231488290_5zn6f0pwc",
@@ -6622,6 +6652,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:35:12.122Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765292141768_7vn5ga2yu",
+      {
+        "id": "kb_1765292141768_7vn5ga2yu",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765292136352-he7p",
+        "pattern": "pw0",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:55:42.422Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23682,46 +23727,16 @@
       }
     ],
     [
-      "kb_1765292095972_uvmmqhw8n",
+      "kb_1765292239626_h549rplew",
       {
-        "id": "kb_1765292095972_uvmmqhw8n",
+        "id": "kb_1765292239626_h549rplew",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765292093328-i32o",
-        "pattern": "0w",
-        "phi": 0.9814375,
+        "generatorId": "nearmiss_ocean-1765292224410-mruf",
+        "pattern": "solution saddle donkey liar quit pretty sudden logic fiber method castle expect",
+        "phi": 0.9814374999996529,
         "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-09T14:54:55.972Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765292141760_l8tktkgi3",
-      {
-        "id": "kb_1765292141760_l8tktkgi3",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765292136352-96ru",
-        "pattern": "p0ww",
-        "phi": 0.9814375,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-09T14:55:41.760Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765292141768_7vn5ga2yu",
-      {
-        "id": "kb_1765292141768_7vn5ga2yu",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765292136352-he7p",
-        "pattern": "pw0",
-        "phi": 0.9814375,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-09T14:55:41.768Z",
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:57:19.626Z",
         "consumedBy": [],
         "transformations": []
       }
