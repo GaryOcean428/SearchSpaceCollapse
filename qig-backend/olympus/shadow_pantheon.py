@@ -2188,8 +2188,11 @@ class ShadowPantheon:
             Storage result with intel_id
         """
         try:
-            # Import geometric memory for storage
-            from ..ocean_qig_core import geometricMemory
+            # Import geometric memory for storage (try absolute import first for Flask context)
+            try:
+                from ocean_qig_core import geometricMemory
+            except ImportError:
+                from ..ocean_qig_core import geometricMemory
 
             # Build shadow intel document
             assessments = poll_result.get('assessments', {})
@@ -2282,7 +2285,11 @@ class ShadowPantheon:
             List of shadow intel documents
         """
         try:
-            from ..ocean_qig_core import geometricMemory
+            # Try absolute import first for Flask context
+            try:
+                from ocean_qig_core import geometricMemory
+            except ImportError:
+                from ..ocean_qig_core import geometricMemory
 
             if not hasattr(geometricMemory, 'shadow_intel'):
                 return []
