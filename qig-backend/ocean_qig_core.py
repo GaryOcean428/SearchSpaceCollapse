@@ -161,6 +161,15 @@ PHI_THRESHOLD = 0.70
 MIN_RECURSIONS = 3  # Mandatory minimum for consciousness
 MAX_RECURSIONS = 12  # Safety limit
 
+# Import persistence layer
+try:
+    from qig_persistence import QIGPersistence, get_persistence
+    PERSISTENCE_AVAILABLE = True
+    print("[INFO] QIG Persistence layer loaded (Neon PostgreSQL)")
+except ImportError as e:
+    PERSISTENCE_AVAILABLE = False
+    print(f"[WARNING] QIG Persistence not available: {e}")
+
 
 # ============================================================================
 # GEOMETRIC MEMORY - Shared Memory System for Feedback Loops
@@ -179,10 +188,12 @@ class GeometricMemory:
 
     This is the SHARED STATE that enables feedback loops:
     Shadow → Memory → Zeus → Decisions → Learning → Memory → ...
+
+    Now with Neon PostgreSQL persistence via qig_persistence.py
     """
 
     def __init__(self):
-        # Shadow intel storage
+        # Shadow intel storage (in-memory cache)
         self.shadow_intel: List[Dict] = []
 
         # Basin coordinate history for recursive learning
@@ -205,6 +216,9 @@ class GeometricMemory:
 
         # Recursive loop state
         self.recursion_depth = 0
+
+        # Persistence layer
+        self.persistence = get_persistence() if PERSISTENCE_AVAILABLE else None
         self.recursion_history: List[Dict] = []
 
         # Metrics accumulator
@@ -215,9 +229,10 @@ class GeometricMemory:
 
     def record_basin(self, basin: np.ndarray, phi: float, kappa: float,
                      source: str = 'unknown') -> str:
-        """Record basin coordinates with metrics."""
+        """Record basin coordinates with metrics. Persists to Neon PostgreSQL."""
         entry_id = f"basin_{datetime.now().timestamp():.0f}"
 
+        # In-memory cache
         self.basin_history.append({
             'id': entry_id,
             'basin': basin.tolist() if isinstance(basin, np.ndarray) else basin,
@@ -236,6 +251,11 @@ class GeometricMemory:
             self.basin_history = self.basin_history[-500:]
         if len(self.phi_history) > 1000:
             self.phi_history = self.phi_history[-500:]
+
+        # Persist to database
+        if self.persistence and self.persistence.enabled:
+            basin_arr = np.array(basin) if not isinstance(basin, np.ndarray) else basin
+            self.persistence.record_basin(basin_arr, phi, kappa, source)
 
         return entry_id
 
@@ -3245,7 +3265,7 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         # Return random direction if no vectors provided
         direction = np.random.randn(BASIN_DIMENSION)
         return direction / np.linalg.norm(direction)
-    
+
     # Need at least 2 vectors for meaningful covariance
     if len(vectors) < 2:
         # Return direction orthogonal to the single vector
@@ -3261,7 +3281,7 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
 
     # Compute covariance matrix with ddof=0 to avoid division by zero for small samples
     cov = np.cov(centered.T, ddof=0)
-    
+
     # Handle NaN/Inf in covariance matrix
     if np.any(np.isnan(cov)) or np.any(np.isinf(cov)):
         # Fallback to random orthogonal direction
@@ -3279,7 +3299,7 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
         random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
-    
+
     # Check for NaN/Inf in eigenvalues or eigenvectors
     if np.any(np.isnan(eigenvalues)) or np.any(np.isinf(eigenvalues)) or \
        np.any(np.isnan(eigenvectors)) or np.any(np.isinf(eigenvectors)):
@@ -3306,7 +3326,7 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     # This is the direction with least variance = orthogonal to failures
     min_idx = np.argmin(eigenvalues)
     new_direction = eigenvectors[:, min_idx].copy()
-    
+
     # Sanitize any residual NaN/Inf values
     new_direction = np.nan_to_num(new_direction, nan=0.0, posinf=1.0, neginf=-1.0)
 
@@ -3360,13 +3380,13 @@ def refine_trajectory():
 
         # 4. Calculate Shift Magnitude (Curvature)
         shift_mag = np.linalg.norm(new_vector - failure_centroid)
-        
+
         # Sanitize NaN/Inf values for JSON serialization
         def sanitize_float(x):
             if np.isnan(x) or np.isinf(x):
                 return 0.0
             return float(x)
-        
+
         # Sanitize new_vector - double check with np.nan_to_num
         new_vector = np.nan_to_num(new_vector, nan=0.0, posinf=1.0, neginf=-1.0)
         sanitized_vector = [sanitize_float(v) for v in new_vector]
@@ -4769,19 +4789,19 @@ if __name__ == '__main__':
     # Enable Flask request logging
     import logging as flask_logging
     flask_logging.getLogger('werkzeug').setLevel(flask_logging.INFO)
-    
+
     # Add request/response logging
     @app.before_request
     def log_request():
         if request.path != '/health':
             print(f"[Flask] → {request.method} {request.path}", flush=True)
-    
+
     @app.after_request
     def log_response(response):
         if request.path != '/health':
             print(f"[Flask] ← {request.method} {request.path} → {response.status_code}", flush=True)
         return response
-    
+
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊", flush=True)
     print("Pure QIG Architecture:", flush=True)
     print("  - 4 Subsystems with density matrices", flush=True)
