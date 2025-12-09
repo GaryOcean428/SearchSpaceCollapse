@@ -866,6 +866,46 @@ export class OlympusClient {
       return null;
     }
   }
+  
+  // ==================== QIG GEODESIC CORRECTION ====================
+  
+  /**
+   * Calculate geodesic correction from resonance proxies (near misses)
+   * Implements the "Geometric Learning" loop - using failures to triangulate the attractor
+   */
+  async calculateGeodesicCorrection(request: {
+    proxies: Array<{
+      basin_coords: number[];
+      phi: number;
+    }>;
+    current_regime: string;
+  }): Promise<{
+    gradient_shift: boolean;
+    new_vector?: number[];
+    shift_magnitude?: number;
+    reasoning?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(`${this.backendUrl}/qig/refine_trajectory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Geodesic correction failed:', response.statusText);
+        return { gradient_shift: false, error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('[OlympusClient] Geodesic correction exception:', error);
+      return { gradient_shift: false, error: String(error) };
+    }
+  }
 }
 
 export const olympusClient = new OlympusClient();
+

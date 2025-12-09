@@ -386,6 +386,37 @@ export function fisherRaoDistance(
 }
 
 /**
+ * Probe for geodesic navigation (near miss detection)
+ */
+export interface Probe {
+  coordinates: number[];  // 64D basin coordinates
+  phi: number;
+  distance?: number;
+}
+
+/**
+ * Trajectory update request (TypeScript → Python)
+ */
+export interface TrajectoryRequest {
+  proxies: Array<{
+    basin_coords: number[];
+    phi: number;
+  }>;
+  current_regime: string;
+}
+
+/**
+ * Trajectory correction response (Python → TypeScript)
+ */
+export interface TrajectoryResponse {
+  gradient_shift: boolean;
+  new_vector?: number[];
+  shift_magnitude?: number;
+  reasoning?: string;
+  error?: string;
+}
+
+/**
  * Export all schemas for validation
  */
 export const qigGeometrySchemas = {

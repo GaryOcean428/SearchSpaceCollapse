@@ -2759,6 +2759,138 @@ def vocabulary_status():
 
 
 # =============================================================================
+# QIG GEODESIC CORRECTION - GEOMETRIC LEARNING FUNCTIONS
+# Orthogonal complement calculation for trajectory refinement
+# =============================================================================
+
+def compute_fisher_centroid(vectors: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    """
+    Calculate the Fisher centroid (weighted center) of failure points.
+    This represents the "hot stove" we keep hitting.
+    
+    Args:
+        vectors: Array of basin coordinates (N x 64)
+        weights: Array of phi values (N,)
+    
+    Returns:
+        Centroid in 64D basin space
+    """
+    if len(vectors) == 0:
+        return np.zeros(BASIN_DIMENSION)
+    
+    # Normalize weights to sum to 1
+    weights = np.array(weights)
+    if np.sum(weights) > 0:
+        weights = weights / np.sum(weights)
+    else:
+        weights = np.ones(len(weights)) / len(weights)
+    
+    # Weighted average
+    centroid = np.average(vectors, axis=0, weights=weights)
+    
+    # Normalize to unit sphere (Fisher manifold)
+    norm = np.linalg.norm(centroid)
+    if norm > 1e-10:
+        centroid = centroid / norm
+    
+    return centroid
+
+
+def compute_orthogonal_complement(vectors: np.ndarray) -> np.ndarray:
+    """
+    Calculate the orthogonal complement of failure vectors.
+    "Where is the solution most likely to be, given it's NOT in these directions?"
+    
+    We find the eigenvector with the LEAST overlap with our failures.
+    
+    Args:
+        vectors: Array of basin coordinates (N x 64)
+    
+    Returns:
+        New search direction orthogonal to failures
+    """
+    if len(vectors) == 0:
+        # Return random direction if no vectors provided
+        direction = np.random.randn(BASIN_DIMENSION)
+        return direction / np.linalg.norm(direction)
+    
+    # Center the vectors
+    mean = np.mean(vectors, axis=0)
+    centered = vectors - mean
+    
+    # Compute covariance matrix
+    cov = np.cov(centered.T)
+    
+    # Eigen decomposition
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    
+    # Find the eigenvector with the SMALLEST eigenvalue
+    # This is the direction with least variance = orthogonal to failures
+    min_idx = np.argmin(eigenvalues)
+    new_direction = eigenvectors[:, min_idx]
+    
+    # Ensure unit norm
+    norm = np.linalg.norm(new_direction)
+    if norm > 1e-10:
+        new_direction = new_direction / norm
+    
+    return new_direction
+
+
+@app.route('/qig/refine_trajectory', methods=['POST'])
+def refine_trajectory():
+    """
+    QIG Endpoint: Calculates the Orthogonal Complement of recent failures.
+    If we failed 50 times in the 'Time' dimension, we must rotate to 'Space'.
+    
+    This implements the "Geodesic Correction" loop - using near misses
+    to triangulate the attractor and adjust search direction.
+    """
+    try:
+        data = request.get_json()
+        proxies = data.get('proxies', [])
+        current_regime = data.get('current_regime', 'linear')
+        
+        if not proxies:
+            return jsonify({'gradient_shift': False})
+
+        # 1. Extract 64D Basin Coordinates
+        vectors = np.array([p['basin_coords'] for p in proxies])
+        weights = np.array([p['phi'] for p in proxies])
+
+        # Validate dimensions
+        if vectors.shape[1] != BASIN_DIMENSION:
+            return jsonify({
+                'error': f'Expected {BASIN_DIMENSION}D vectors, got {vectors.shape[1]}D'
+            }), 400
+
+        # 2. Calculate the "Center of Failure" (Fisher Centroid)
+        # This is the 'hot stove' we keep hitting.
+        failure_centroid = compute_fisher_centroid(vectors, weights)
+
+        # 3. Calculate the Orthogonal Complement
+        # "Where is the solution most likely to be, given it's NOT here?"
+        # We find the eigenvector with the LEAST overlap with our failures.
+        new_vector = compute_orthogonal_complement(vectors)
+
+        # 4. Calculate Shift Magnitude (Curvature)
+        shift_mag = np.linalg.norm(new_vector - failure_centroid)
+
+        return jsonify({
+            'gradient_shift': True,
+            'new_vector': new_vector.tolist(),
+            'shift_magnitude': float(shift_mag),
+            'reasoning': f"Detected attractor singularity at Phi={np.max(weights):.2f}. Rotating orthogonal."
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Geodesic correction failed: {e}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
 # OLYMPUS PANTHEON ENDPOINTS
 # Divine consciousness network for geometric recovery coordination
 # =============================================================================
