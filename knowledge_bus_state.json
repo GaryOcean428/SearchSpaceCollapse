@@ -7422,6 +7422,21 @@
       }
     ],
     [
+      "kb_1765292239626_h549rplew",
+      {
+        "id": "kb_1765292239626_h549rplew",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765292224410-mruf",
+        "pattern": "solution saddle donkey liar quit pretty sudden logic fiber method castle expect",
+        "phi": 0.9814374999996529,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:57:22.851Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765233139843_chq6a9pkm",
       {
         "id": "kb_1765233139843_chq6a9pkm",
@@ -7477,6 +7492,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:21:47.871Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765293003236_bmxv3juf1",
+      {
+        "id": "kb_1765293003236_bmxv3juf1",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765292240254-3xnh",
+        "pattern": "pave conduct clock ask north confirm soon rib grace remember sponsor select",
+        "phi": 0.819679667018878,
+        "kappaEff": 31.270833333333336,
+        "regime": "geometric",
+        "sharedAt": "2025-12-09T15:10:04.106Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -7612,6 +7642,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:24:44.966Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765293003251_ycsj0juib",
+      {
+        "id": "kb_1765293003251_ycsj0juib",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765292240254-a29x",
+        "pattern": "bitcoin 2009 2393",
+        "phi": 0.873401752979896,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T15:10:04.114Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -7812,6 +7857,21 @@
       }
     ],
     [
+      "kb_1765293003244_f2fotug7l",
+      {
+        "id": "kb_1765293003244_f2fotug7l",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765292240254-5z82",
+        "pattern": "secretsatoshi3540",
+        "phi": 0.8488540100556061,
+        "kappaEff": 31.270833333333336,
+        "regime": "geometric",
+        "sharedAt": "2025-12-09T15:10:04.118Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765233257730_jomw5izeo",
       {
         "id": "kb_1765233257730_jomw5izeo",
@@ -7887,6 +7947,21 @@
       }
     ],
     [
+      "kb_1765294174998_vuj3hmrj1",
+      {
+        "id": "kb_1765294174998_vuj3hmrj1",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765294163998-xy72",
+        "pattern": "waste ribbon present sun chest video dog horn awful camera fitness access",
+        "phi": 0.9814374999997312,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T15:29:35.607Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765233303149_lahn1kl80",
       {
         "id": "kb_1765233303149_lahn1kl80",
@@ -7912,6 +7987,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:40:34.238Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765294175009_k0rrrf0x3",
+      {
+        "id": "kb_1765294175009_k0rrrf0x3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765294163998-2bnq",
+        "pattern": "thefreedom5724",
+        "phi": 0.9814374999997912,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T15:29:35.608Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23727,46 +23817,31 @@
       }
     ],
     [
-      "kb_1765292239626_h549rplew",
+      "kb_1765323712434_7odtt7t7r",
       {
-        "id": "kb_1765292239626_h549rplew",
+        "id": "kb_1765323712434_7odtt7t7r",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765292224410-mruf",
-        "pattern": "solution saddle donkey liar quit pretty sudden logic fiber method castle expect",
-        "phi": 0.9814374999996529,
+        "generatorId": "nearmiss_ocean-1765323704385-4qvd",
+        "pattern": "horse bone bird lend install wife enough shield forum pattern execute mimic",
+        "phi": 0.9814374999996722,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T14:57:19.626Z",
+        "sharedAt": "2025-12-09T23:41:52.434Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765294174998_vuj3hmrj1",
+      "kb_1765323712443_nsvbxg41b",
       {
-        "id": "kb_1765294174998_vuj3hmrj1",
+        "id": "kb_1765323712443_nsvbxg41b",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765294163998-xy72",
-        "pattern": "waste ribbon present sun chest video dog horn awful camera fitness access",
-        "phi": 0.9814374999997312,
+        "generatorId": "nearmiss_ocean-1765323704385-qzny",
+        "pattern": "mycrypto4393",
+        "phi": 0.9814374999997487,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T15:29:34.998Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765294175009_k0rrrf0x3",
-      {
-        "id": "kb_1765294175009_k0rrrf0x3",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765294163998-2bnq",
-        "pattern": "thefreedom5724",
-        "phi": 0.9814374999997912,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T15:29:35.009Z",
+        "sharedAt": "2025-12-09T23:41:52.443Z",
         "consumedBy": [],
         "transformations": []
       }

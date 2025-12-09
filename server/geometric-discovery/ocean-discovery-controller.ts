@@ -8,7 +8,7 @@
  * 
  * This controller orchestrates:
  * 1. TPS - Temporal Positioning System (68D localization)
- * 2. Tavily - External content discovery
+ * 2. SearXNG - FREE external content discovery (replaces Tavily)
  * 3. Quantum Protocol - Wave function collapse tracking
  * 4. Cultural Manifold - Pattern integration
  * 
@@ -20,7 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fisherCoordDistance } from '../qig-universal';
 import { tps, TemporalPositioningSystem, type TPSSyncData } from './temporal-positioning-system';
-import { TavilyGeometricAdapter, createTavilyAdapter } from './tavily-adapter';
+import { SearXNGGeometricAdapter, createSearXNGAdapter } from './searxng-adapter';
 import { quantumProtocol, QuantumDiscoveryProtocol, type QuantumSyncData } from './quantum-protocol';
 import {
   type BlockUniverseMap,
@@ -65,7 +65,7 @@ interface DiscoveryResult {
  */
 export class OceanDiscoveryController {
   private tps: TemporalPositioningSystem;
-  private tavily: TavilyGeometricAdapter | null;
+  private searchAdapter: SearXNGGeometricAdapter;
   private quantum: QuantumDiscoveryProtocol;
   
   private state: DiscoveryState | null = null;
@@ -73,14 +73,10 @@ export class OceanDiscoveryController {
   
   constructor() {
     this.tps = tps;
-    this.tavily = createTavilyAdapter();
+    this.searchAdapter = createSearXNGAdapter();
     this.quantum = quantumProtocol;
     
-    if (this.tavily) {
-      console.log('[OceanDiscovery] Controller initialized with Tavily integration');
-    } else {
-      console.log('[OceanDiscovery] Controller initialized (Tavily not available)');
-    }
+    console.log('[OceanDiscovery] Controller initialized with SearXNG (FREE search)');
   }
   
   /**
@@ -287,15 +283,10 @@ export class OceanDiscoveryController {
       return { discoveries: 0, patterns: 0, entropyGained: 0 };
     }
     
-    if (!this.tavily) {
-      console.log(`[OceanDiscovery] Tavily not available - skipping external discovery`);
-      return { discoveries: 0, patterns: 0, entropyGained: 0 };
-    }
-    
-    console.log(`\n🔍 DISCOVERING CULTURAL CONTEXT\n`);
+    console.log(`\n🔍 DISCOVERING CULTURAL CONTEXT (SearXNG - FREE)\n`);
     
     // Discover what exists near target coordinates
-    const discoveries = await this.tavily.discoverAtCoordinates(
+    const discoveries = await this.searchAdapter.discoverAtCoordinates(
       this.state.targetCoords,
       this.state.targetCoords.phi > 0.7 ? 1.5 : 2.0  // Tighter radius for high-Φ targets
     );
@@ -592,10 +583,10 @@ export class OceanDiscoveryController {
   }
   
   /**
-   * Check if Tavily is enabled
+   * Check if search adapter is enabled (always true with SearXNG)
    */
-  isTavilyEnabled(): boolean {
-    return this.tavily !== null;
+  isSearchEnabled(): boolean {
+    return true;
   }
   
   /**
@@ -712,12 +703,21 @@ export class OceanDiscoveryController {
     keywords: string[],
     era: BitcoinEra = 'pizza_era'
   ): Promise<GeometricDiscovery[]> {
-    if (!this.tavily) {
-      console.log('[OceanDiscovery] Tavily not available');
-      return [];
-    }
-    
-    return this.tavily.searchBitcoinEra(keywords, era);
+    const query = {
+      text: keywords.join(' ') + ` bitcoin ${era}`,
+      maxResults: 10
+    };
+    const results = await this.searchAdapter.search(query);
+    return results.map(r => ({
+      content: r.content,
+      url: r.url,
+      coords: this.tps.locateInBlockUniverse(r.content, r.url),
+      distance: 0,
+      phi: 0.5,
+      patterns: [],
+      causalChain: [],
+      entropyReduction: 0
+    }));
   }
   
   /**
@@ -728,11 +728,8 @@ export class OceanDiscoveryController {
     patterns: string[];
     coords: BlockUniverseMap;
   }> {
-    if (!this.tavily) {
-      return { content: '', patterns: [], coords: this.getCurrentPosition() };
-    }
-    
-    const content = await this.tavily.crawl(url);
+    const contentMap = await this.searchAdapter.extractContent([url]);
+    const content = contentMap.get(url) || '';
     const coords = this.tps.locateInBlockUniverse(content, url);
     
     // Extract patterns
