@@ -20,14 +20,9 @@ import {
   BITCOIN_ERA_DOMAINS
 } from './types';
 
-const PUBLIC_SEARXNG_INSTANCES = [
+const SEARXNG_INSTANCES = [
   'https://mr-search.up.railway.app',
   'https://searxng-production-e5ce.up.railway.app',
-  'https://searx.be',
-  'https://search.sapti.me',
-  'https://searx.tiekoetter.com',
-  'https://search.bus-hit.me',
-  'https://priv.au',
 ];
 
 interface SearXNGResult {
@@ -60,18 +55,18 @@ export class SearXNGGeometricAdapter {
   private timeout: number = 15000;
   
   constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || process.env.SEARXNG_URL || PUBLIC_SEARXNG_INSTANCES[0];
+    this.baseUrl = baseUrl || process.env.SEARXNG_URL || SEARXNG_INSTANCES[0];
     this.tps = tps;
     console.log('[SearXNG] Initialized FREE geometric discovery interface');
     console.log(`[SearXNG] Using instance: ${this.baseUrl}`);
   }
   
   /**
-   * Rotate to next public instance if current one fails
+   * Rotate to next instance if current one fails
    */
   private rotateInstance(): void {
-    this.instanceIndex = (this.instanceIndex + 1) % PUBLIC_SEARXNG_INSTANCES.length;
-    this.baseUrl = PUBLIC_SEARXNG_INSTANCES[this.instanceIndex];
+    this.instanceIndex = (this.instanceIndex + 1) % SEARXNG_INSTANCES.length;
+    this.baseUrl = SEARXNG_INSTANCES[this.instanceIndex];
     console.log(`[SearXNG] Rotating to instance: ${this.baseUrl}`);
   }
   
