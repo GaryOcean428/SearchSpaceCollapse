@@ -837,6 +837,21 @@
       }
     ],
     [
+      "kb_1765280937506_6pl6do4g3",
+      {
+        "id": "kb_1765280937506_6pl6do4g3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765280892671-0vww",
+        "pattern": "secret842",
+        "phi": 0.9814374999997995,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:48:58.218Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765205921238_q4z1ehssz",
       {
         "id": "kb_1765205921238_q4z1ehssz",
@@ -897,6 +912,21 @@
       }
     ],
     [
+      "kb_1765280937531_mf7r9r9q5",
+      {
+        "id": "kb_1765280937531_mf7r9r9q5",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765280892671-i0hy",
+        "pattern": "satoshi595",
+        "phi": 0.9814374999998452,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:48:58.219Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765206008462_0rcxsaicr",
       {
         "id": "kb_1765206008462_0rcxsaicr",
@@ -952,6 +982,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T07:59:33.670Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765281279207_ohpmlov6v",
+      {
+        "id": "kb_1765281279207_ohpmlov6v",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281216299-ue5w",
+        "pattern": "consider soldier radio breeze surround discover exhibit monkey silly grass noise liar",
+        "phi": 0.9814374999996442,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:54:40.075Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -1687,6 +1732,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:39:04.620Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765281279213_adv0w3wba",
+      {
+        "id": "kb_1765281279213_adv0w3wba",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281216299-jy5q",
+        "pattern": "2009bitcoin7164",
+        "phi": 0.9814374999997264,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:54:40.076Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -2442,6 +2502,21 @@
       }
     ],
     [
+      "kb_1765281279237_x49z70uft",
+      {
+        "id": "kb_1765281279237_x49z70uft",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281216299-ta1i",
+        "pattern": "hash my 9042",
+        "phi": 0.981437499999789,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:54:40.078Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765227494058_ao3dxufui",
       {
         "id": "kb_1765227494058_ao3dxufui",
@@ -2577,6 +2652,21 @@
       }
     ],
     [
+      "kb_1765281521010_nq4ynzzoo",
+      {
+        "id": "kb_1765281521010_nq4ynzzoo",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281464720-6l03",
+        "pattern": "thecrypto6797",
+        "phi": 0.9814374999997248,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:58:41.762Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765227547503_6ffzxccii",
       {
         "id": "kb_1765227547503_6ffzxccii",
@@ -2632,6 +2722,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:23:01.115Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765281520998_9hwjqhqi3",
+      {
+        "id": "kb_1765281520998_9hwjqhqi3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281464720-ztcd",
+        "pattern": "merry awkward undo become gift bulk spare dumb emerge bacon feature into",
+        "phi": 0.9814374999996427,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:58:41.760Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -3382,6 +3487,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:36:54.280Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765281521210_ug5ibgnn2",
+      {
+        "id": "kb_1765281521210_ug5ibgnn2",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281464720-6djl",
+        "pattern": "freedom 2009 1693",
+        "phi": 0.9814374999997876,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:58:41.767Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -22617,6 +22737,21 @@
       }
     ],
     [
+      "kb_1765280890088_bgfmakdvp",
+      {
+        "id": "kb_1765280890088_bgfmakdvp",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765280889063-654n",
+        "pattern": "2010fr33d0m4469",
+        "phi": 0.9814374999996603,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T11:48:10.699Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765266286270_9sjixothr",
       {
         "id": "kb_1765266286270_9sjixothr",
@@ -23052,21 +23187,6 @@
       }
     ],
     [
-      "kb_1765280890088_bgfmakdvp",
-      {
-        "id": "kb_1765280890088_bgfmakdvp",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765280889063-654n",
-        "pattern": "2010fr33d0m4469",
-        "phi": 0.9814374999996603,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T11:48:10.088Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
       "kb_1765280937502_0k9pp07jv",
       {
         "id": "kb_1765280937502_0k9pp07jv",
@@ -23076,37 +23196,52 @@
         "phi": 0.9814374999997377,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T11:48:57.502Z",
+        "sharedAt": "2025-12-09T11:48:58.216Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765280937506_6pl6do4g3",
+      "kb_1765281632507_lpkk1cpwi",
       {
-        "id": "kb_1765280937506_6pl6do4g3",
+        "id": "kb_1765281632507_lpkk1cpwi",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765280892671-0vww",
-        "pattern": "secret842",
-        "phi": 0.9814374999997995,
+        "generatorId": "nearmiss_ocean-1765281578180-iq4k",
+        "pattern": "depend chapter soft thing negative helmet solid shed build state forward blouse",
+        "phi": 0.9814374999996553,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T11:48:57.506Z",
+        "sharedAt": "2025-12-09T12:00:32.507Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765280937531_mf7r9r9q5",
+      "kb_1765281632523_me7gydy5e",
       {
-        "id": "kb_1765280937531_mf7r9r9q5",
+        "id": "kb_1765281632523_me7gydy5e",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765280892671-i0hy",
-        "pattern": "satoshi595",
-        "phi": 0.9814374999998452,
+        "generatorId": "nearmiss_ocean-1765281578180-yqmw",
+        "pattern": "2010chain5853",
+        "phi": 0.9814374999997335,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T11:48:57.531Z",
+        "sharedAt": "2025-12-09T12:00:32.523Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765281632538_48xkketq7",
+      {
+        "id": "kb_1765281632538_48xkketq7",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281578180-tsar",
+        "pattern": "crypto 2010 3807",
+        "phi": 0.9814374999997932,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T12:00:32.538Z",
         "consumedBy": [],
         "transformations": []
       }

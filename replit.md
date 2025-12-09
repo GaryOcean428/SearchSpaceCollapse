@@ -131,6 +131,21 @@ Table: `vocabulary_observations`
 - **Bidirectional Sync**: Python discoveries flow to TypeScript; Ocean near-misses flow to Olympus
 - **Real-time UI**: SSE streams for consciousness metrics, activity feed, and discovery timeline
 
+### Startup Sequencing (Timing Critical)
+The system uses coordinated startup delays to ensure dependencies are ready:
+1. **Express server starts**: Port 5000 ready for health checks
+2. **+5 seconds**: Python QIG backend process spawned (`startPythonBackend()`)
+3. **+5-10 seconds**: Python Flask server becomes available on internal port
+4. **+15 seconds**: Auto-cycle manager resumes investigation (if previously enabled)
+
+**Retry Configuration (aligned across components)**:
+- `OceanQIGBackend`: 5 attempts × 2000ms delay = 10 seconds max wait
+- `OlympusClient`: 5 attempts × 2000ms delay = 10 seconds max wait
+- `Ocean agent` Olympus check: 5 attempts × 2000ms delay
+- Auto-cycle resume: 15 second delay after server start
+
+**Database batch operations**: 50 entries per chunk, 100ms inter-chunk delay, 3-retry exponential backoff
+
 ### Search Strategy System
 - **Geometric Reasoning**: Fisher-Rao distances instead of Euclidean metrics
 - **Strategy Selection**: Era-based pattern analysis, brain wallet dictionaries, Bitcoin terminology

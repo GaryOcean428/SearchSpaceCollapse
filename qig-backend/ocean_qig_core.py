@@ -2841,7 +2841,23 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
     # Eigen decomposition
-    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    try:
+        eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    except np.linalg.LinAlgError:
+        # Fallback if eigenvalue decomposition fails
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
+    
+    # Check for NaN/Inf in eigenvalues or eigenvectors
+    if np.any(np.isnan(eigenvalues)) or np.any(np.isinf(eigenvalues)) or \
+       np.any(np.isnan(eigenvectors)) or np.any(np.isinf(eigenvectors)):
+        # Fallback to random orthogonal direction
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
     # Check for near-singular data (smallest eigenvalue is too small compared to largest)
     max_eigenvalue = np.max(eigenvalues)
@@ -2859,12 +2875,19 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     # Find the eigenvector with the SMALLEST eigenvalue
     # This is the direction with least variance = orthogonal to failures
     min_idx = np.argmin(eigenvalues)
-    new_direction = eigenvectors[:, min_idx]
+    new_direction = eigenvectors[:, min_idx].copy()
+    
+    # Sanitize any residual NaN/Inf values
+    new_direction = np.nan_to_num(new_direction, nan=0.0, posinf=1.0, neginf=-1.0)
 
     # Ensure unit norm
     norm = np.linalg.norm(new_direction)
     if norm > 1e-10:
         new_direction = new_direction / norm
+    else:
+        # If zero vector, return random direction
+        new_direction = np.random.randn(BASIN_DIMENSION)
+        new_direction = new_direction / np.linalg.norm(new_direction)
 
     return new_direction
 
@@ -2914,14 +2937,17 @@ def refine_trajectory():
                 return 0.0
             return float(x)
         
+        # Sanitize new_vector - double check with np.nan_to_num
+        new_vector = np.nan_to_num(new_vector, nan=0.0, posinf=1.0, neginf=-1.0)
         sanitized_vector = [sanitize_float(v) for v in new_vector]
         sanitized_shift_mag = sanitize_float(shift_mag)
+        max_phi = sanitize_float(np.max(weights)) if len(weights) > 0 else 0.0
 
         return jsonify({
             'gradient_shift': True,
             'new_vector': sanitized_vector,
             'shift_magnitude': sanitized_shift_mag,
-            'reasoning': f"Detected attractor singularity at Phi={np.max(weights):.2f}. Rotating orthogonal."
+            'reasoning': f"Detected attractor singularity at Phi={max_phi:.2f}. Rotating orthogonal."
         })
 
     except Exception as e:

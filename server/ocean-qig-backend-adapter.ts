@@ -12,8 +12,8 @@
 import type { PureQIGScore } from "./qig-pure-v2";
 
 // Health check retry configuration
-const DEFAULT_RETRY_ATTEMPTS = 3;
-const DEFAULT_RETRY_DELAY_MS = 1500;
+const DEFAULT_RETRY_ATTEMPTS = 5;
+const DEFAULT_RETRY_DELAY_MS = 2000;
 
 // Request timeout configuration (10 seconds)
 const REQUEST_TIMEOUT_MS = 10000;
