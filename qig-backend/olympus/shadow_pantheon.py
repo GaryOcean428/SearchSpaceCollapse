@@ -2189,7 +2189,13 @@ class ShadowPantheon:
         """
         try:
             # Import geometric memory for storage
-            from ..ocean_qig_core import geometricMemory
+            # Use absolute import - ocean_qig_core is in parent dir, added to sys.path
+            import os
+            import sys
+            _parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if _parent not in sys.path:
+                sys.path.insert(0, _parent)
+            from ocean_qig_core import geometricMemory
 
             # Build shadow intel document
             assessments = poll_result.get('assessments', {})
@@ -2282,7 +2288,13 @@ class ShadowPantheon:
             List of shadow intel documents
         """
         try:
-            from ..ocean_qig_core import geometricMemory
+            # Use absolute import
+            import os
+            import sys
+            _parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if _parent not in sys.path:
+                sys.path.insert(0, _parent)
+            from ocean_qig_core import geometricMemory
 
             if not hasattr(geometricMemory, 'shadow_intel'):
                 return []

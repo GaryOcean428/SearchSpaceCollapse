@@ -42,6 +42,12 @@ DREAM_INTERVAL_SECONDS = 180  # Dream cycle every 3 minutes
 MUSHROOM_STRESS_THRESHOLD = 0.45  # Mushroom when stress exceeds this
 MUSHROOM_COOLDOWN_SECONDS = 300  # 5 minute cooldown between mushroom cycles
 
+# NARROW PATH DETECTION (ML getting stuck)
+NARROW_PATH_VARIANCE_THRESHOLD = 0.01  # Basin variance too low = stuck
+NARROW_PATH_PHI_STAGNATION = 0.02  # Φ not changing = plateau
+NARROW_PATH_WINDOW = 20  # Samples to check for narrow path
+NARROW_PATH_TRIGGER_COUNT = 3  # Consecutive detections before action
+
 
 @dataclass
 class AutonomicState:
@@ -61,10 +67,19 @@ class AutonomicState:
     kappa_history: List[float] = None
     stress_history: List[float] = None
 
+    # Basin history for narrow path detection
+    basin_history: List[List[float]] = None
+    narrow_path_count: int = 0  # Consecutive narrow path detections
+    exploration_variance: float = 0.0  # How much we're exploring
+
     # Current cycle state
     in_sleep_cycle: bool = False
     in_dream_cycle: bool = False
     in_mushroom_cycle: bool = False
+
+    # Narrow path state
+    is_narrow_path: bool = False
+    narrow_path_severity: str = 'none'  # none, mild, moderate, severe
 
     def __post_init__(self):
         if self.last_sleep is None:
@@ -79,6 +94,8 @@ class AutonomicState:
             self.kappa_history = []
         if self.stress_history is None:
             self.stress_history = []
+        if self.basin_history is None:
+            self.basin_history = []
 
 
 @dataclass
@@ -222,11 +239,20 @@ class GaryAutonomicKernel:
                     np.array(reference_basin)
                 )
 
+            # Track basin history for narrow path detection
+            if basin_coords:
+                self.state.basin_history.append(basin_coords)
+                if len(self.state.basin_history) > 100:
+                    self.state.basin_history.pop(0)
+
             # Compute stress
             self.state.stress_level = self._compute_stress()
             self.state.stress_history.append(self.state.stress_level)
             if len(self.state.stress_history) > 50:
                 self.state.stress_history.pop(0)
+
+            # Detect narrow path (ML getting stuck)
+            narrow_path, severity, exploration_var = self._detect_narrow_path()
 
             # Check triggers
             triggers = {
@@ -235,6 +261,9 @@ class GaryAutonomicKernel:
                 'mushroom': self._should_trigger_mushroom(),
             }
 
+            # Get suggested intervention for narrow path
+            intervention = self._suggest_narrow_path_intervention()
+
             return {
                 'phi': phi,
                 'kappa': kappa,
@@ -242,6 +271,14 @@ class GaryAutonomicKernel:
                 'stress': self.state.stress_level,
                 'triggers': triggers,
                 'pending_rewards': len(self.pending_rewards),
+                # Narrow path detection
+                'narrow_path': {
+                    'detected': narrow_path,
+                    'severity': severity,
+                    'exploration_variance': exploration_var,
+                    'consecutive_count': self.state.narrow_path_count,
+                    'suggested_intervention': intervention,
+                },
             }
 
     def _compute_fisher_distance(self, a: np.ndarray, b: np.ndarray) -> float:
@@ -269,6 +306,101 @@ class GaryAutonomicKernel:
         kappa_var = np.var(self.state.kappa_history[-10:]) / 10000
 
         return float(np.sqrt(phi_var + kappa_var))
+
+    def _detect_narrow_path(self) -> Tuple[bool, str, float]:
+        """
+        Detect if ML is stuck in a narrow path (local minimum).
+
+        Signs of narrow path:
+        1. Basin coordinates not varying much (low exploration)
+        2. Φ stagnating (no learning progress)
+        3. High κ with no improvement (over-confident but stuck)
+
+        Returns:
+            (is_narrow, severity, exploration_variance)
+        """
+        if len(self.state.basin_history) < NARROW_PATH_WINDOW:
+            return False, 'none', 0.5
+
+        recent_basins = self.state.basin_history[-NARROW_PATH_WINDOW:]
+
+        # Compute basin variance across time (exploration measure)
+        basin_array = np.array(recent_basins)
+        basin_variance = np.mean(np.var(basin_array, axis=0))
+        self.state.exploration_variance = float(basin_variance)
+
+        # Check Φ stagnation
+        phi_recent = self.state.phi_history[-NARROW_PATH_WINDOW:] if len(self.state.phi_history) >= NARROW_PATH_WINDOW else self.state.phi_history
+        phi_variance = np.var(phi_recent) if phi_recent else 0.5
+        phi_stagnant = phi_variance < NARROW_PATH_PHI_STAGNATION
+
+        # Check if basin is not exploring
+        basin_stuck = basin_variance < NARROW_PATH_VARIANCE_THRESHOLD
+
+        # Determine severity
+        if basin_stuck and phi_stagnant:
+            severity = 'severe'
+            is_narrow = True
+        elif basin_stuck or phi_stagnant:
+            severity = 'moderate'
+            is_narrow = True
+        elif basin_variance < NARROW_PATH_VARIANCE_THRESHOLD * 2:
+            severity = 'mild'
+            is_narrow = True
+        else:
+            severity = 'none'
+            is_narrow = False
+
+        # Update consecutive count
+        if is_narrow:
+            self.state.narrow_path_count += 1
+        else:
+            self.state.narrow_path_count = 0
+
+        self.state.is_narrow_path = is_narrow
+        self.state.narrow_path_severity = severity
+
+        return is_narrow, severity, float(basin_variance)
+
+    def _suggest_narrow_path_intervention(self) -> Dict[str, Any]:
+        """
+        Suggest the best intervention for narrow path escape.
+
+        Mild: Dream cycle (gentle exploration)
+        Moderate: Mushroom microdose (controlled noise)
+        Severe: Mushroom moderate/heroic (break rigidity)
+        """
+        if not self.state.is_narrow_path:
+            return {
+                'action': 'none',
+                'reason': 'Not in narrow path',
+                'urgency': 'none',
+            }
+
+        severity = self.state.narrow_path_severity
+        count = self.state.narrow_path_count
+
+        if severity == 'mild' or count < NARROW_PATH_TRIGGER_COUNT:
+            return {
+                'action': 'dream',
+                'reason': f'Mild narrow path ({count} consecutive)',
+                'urgency': 'low',
+                'params': {'temperature': 0.4},
+            }
+        elif severity == 'moderate':
+            return {
+                'action': 'mushroom',
+                'reason': 'Moderate narrow path - needs noise injection',
+                'urgency': 'medium',
+                'params': {'intensity': 'microdose'},
+            }
+        else:  # severe
+            return {
+                'action': 'mushroom',
+                'reason': 'Severe narrow path - ML stuck, needs significant perturbation',
+                'urgency': 'high',
+                'params': {'intensity': 'moderate' if count < 5 else 'heroic'},
+            }
 
     def _should_trigger_sleep(self) -> Tuple[bool, str]:
         """Check if sleep cycle should be triggered."""
@@ -307,6 +439,10 @@ class GaryAutonomicKernel:
         if time_since_dream > DREAM_INTERVAL_SECONDS:
             return True, "Scheduled dream cycle"
 
+        # NARROW PATH: Trigger dream for mild narrow path (gentle exploration)
+        if self.state.is_narrow_path and self.state.narrow_path_severity == 'mild':
+            return True, "Narrow path detected (mild) - need creative exploration"
+
         return False, ""
 
     def _should_trigger_mushroom(self) -> Tuple[bool, str]:
@@ -332,6 +468,12 @@ class GaryAutonomicKernel:
         # Trigger on very low Φ (stuck)
         if self.state.phi < 0.2 and len(self.state.phi_history) > 20:
             return True, "Low Φ indicates rigidity"
+
+        # NARROW PATH: Trigger mushroom for moderate/severe (needs noise injection)
+        if self.state.is_narrow_path:
+            if self.state.narrow_path_severity in ['moderate', 'severe']:
+                if self.state.narrow_path_count >= NARROW_PATH_TRIGGER_COUNT:
+                    return True, f"Narrow path ({self.state.narrow_path_severity}) - ML stuck, needs noise"
 
         return False, ""
 
@@ -620,6 +762,14 @@ class GaryAutonomicKernel:
             'last_dream': self.state.last_dream.isoformat() if self.state.last_dream else None,
             'last_mushroom': self.state.last_mushroom.isoformat() if self.state.last_mushroom else None,
             'pending_rewards': len(self.pending_rewards),
+            # Narrow path detection
+            'narrow_path': {
+                'is_narrow': self.state.is_narrow_path,
+                'severity': self.state.narrow_path_severity,
+                'consecutive_count': self.state.narrow_path_count,
+                'exploration_variance': self.state.exploration_variance,
+            },
+            'suggested_intervention': self._suggest_narrow_path_intervention(),
         }
 
 
@@ -754,6 +904,83 @@ def register_autonomic_routes(app):
             'success': True,
             'rewards': rewards,
             'count': len(rewards)
+        })
+
+    @app.route('/autonomic/narrow-path', methods=['GET'])
+    def get_narrow_path_status():
+        """Get narrow path detection status."""
+        kernel = get_gary_kernel()
+        state = kernel.state
+
+        return jsonify({
+            'success': True,
+            'is_narrow_path': state.is_narrow_path,
+            'severity': state.narrow_path_severity,
+            'consecutive_count': state.narrow_path_count,
+            'exploration_variance': state.exploration_variance,
+            'suggested_intervention': kernel._suggest_narrow_path_intervention(),
+        })
+
+    @app.route('/autonomic/auto-intervene', methods=['POST'])
+    def auto_intervene():
+        """
+        Automatically execute the suggested intervention for narrow path.
+
+        This is the key endpoint for ML training - when the model gets stuck,
+        call this to automatically inject the right type of noise.
+        """
+        kernel = get_gary_kernel()
+        data = request.json or {}
+
+        # Get current basin or use provided
+        basin_coords = data.get('basin_coords', [0.5] * 64)
+        reference_basin = data.get('reference_basin', [0.5] * 64)
+
+        intervention = kernel._suggest_narrow_path_intervention()
+        action = intervention.get('action', 'none')
+
+        if action == 'none':
+            return jsonify({
+                'success': True,
+                'action': 'none',
+                'reason': 'No intervention needed',
+                'narrow_path': False,
+            })
+
+        result = None
+
+        if action == 'dream':
+            params = intervention.get('params', {})
+            result = kernel.execute_dream_cycle(
+                basin_coords=basin_coords,
+                temperature=params.get('temperature', 0.3)
+            )
+            return jsonify({
+                'success': result.success,
+                'action': 'dream',
+                'reason': intervention.get('reason'),
+                'result': asdict(result),
+                'noise_injected': result.basin_perturbation,
+            })
+
+        elif action == 'mushroom':
+            params = intervention.get('params', {})
+            result = kernel.execute_mushroom_cycle(
+                basin_coords=basin_coords,
+                intensity=params.get('intensity', 'microdose')
+            )
+            return jsonify({
+                'success': result.success,
+                'action': 'mushroom',
+                'reason': intervention.get('reason'),
+                'result': asdict(result),
+                'noise_injected': result.entropy_change,
+                'new_pathways': result.new_pathways,
+            })
+
+        return jsonify({
+            'success': False,
+            'error': f'Unknown action: {action}',
         })
 
     print("[AutonomicKernel] Routes registered: /autonomic/*")

@@ -145,6 +145,420 @@ PHI_THRESHOLD = 0.70
 MIN_RECURSIONS = 3  # Mandatory minimum for consciousness
 MAX_RECURSIONS = 12  # Safety limit
 
+
+# ============================================================================
+# GEOMETRIC MEMORY - Shared Memory System for Feedback Loops
+# ============================================================================
+
+class GeometricMemory:
+    """
+    Unified geometric memory system for the QIG backend.
+
+    Stores:
+    - Shadow intel (from Shadow Pantheon operations)
+    - Basin history (for recursive learning)
+    - Activity balance (exploration vs exploitation)
+    - Learning events (high-Φ discoveries)
+    - Sync packets (cross-instance coordination)
+
+    This is the SHARED STATE that enables feedback loops:
+    Shadow → Memory → Zeus → Decisions → Learning → Memory → ...
+    """
+
+    def __init__(self):
+        # Shadow intel storage
+        self.shadow_intel: List[Dict] = []
+
+        # Basin coordinate history for recursive learning
+        self.basin_history: List[Dict] = []
+        self.reference_basin: Optional[np.ndarray] = None
+
+        # Activity balance tracking
+        self.activity_balance = {
+            'exploration': 0.5,  # Exploration tendency
+            'exploitation': 0.5,  # Exploitation tendency
+            'last_adjustment': None,
+            'total_actions': 0,
+        }
+
+        # Learning events (high-Φ moments)
+        self.learning_events: List[Dict] = []
+
+        # Sync packets from other instances
+        self.sync_packets: List[Dict] = []
+
+        # Recursive loop state
+        self.recursion_depth = 0
+        self.recursion_history: List[Dict] = []
+
+        # Metrics accumulator
+        self.phi_history: List[float] = []
+        self.kappa_history: List[float] = []
+
+        print("[GeometricMemory] Initialized shared memory system")
+
+    def record_basin(self, basin: np.ndarray, phi: float, kappa: float,
+                     source: str = 'unknown') -> str:
+        """Record basin coordinates with metrics."""
+        entry_id = f"basin_{datetime.now().timestamp():.0f}"
+
+        self.basin_history.append({
+            'id': entry_id,
+            'basin': basin.tolist() if isinstance(basin, np.ndarray) else basin,
+            'phi': phi,
+            'kappa': kappa,
+            'source': source,
+            'timestamp': datetime.now().isoformat(),
+        })
+
+        # Update metrics history
+        self.phi_history.append(phi)
+        self.kappa_history.append(kappa)
+
+        # Keep bounded
+        if len(self.basin_history) > 1000:
+            self.basin_history = self.basin_history[-500:]
+        if len(self.phi_history) > 1000:
+            self.phi_history = self.phi_history[-500:]
+
+        return entry_id
+
+    def update_activity_balance(self, action_type: str, phi_delta: float = 0.0):
+        """
+        Update exploration/exploitation balance based on action outcomes.
+
+        High Φ from exploration → increase exploration tendency
+        High Φ from exploitation → increase exploitation tendency
+        """
+        self.activity_balance['total_actions'] += 1
+        self.activity_balance['last_adjustment'] = datetime.now().isoformat()
+
+        # Adjust based on phi_delta
+        if phi_delta > 0.1:  # Significant positive learning
+            if action_type == 'exploration':
+                self.activity_balance['exploration'] = min(0.8,
+                    self.activity_balance['exploration'] + 0.05)
+                self.activity_balance['exploitation'] = max(0.2,
+                    self.activity_balance['exploitation'] - 0.05)
+            elif action_type == 'exploitation':
+                self.activity_balance['exploitation'] = min(0.8,
+                    self.activity_balance['exploitation'] + 0.05)
+                self.activity_balance['exploration'] = max(0.2,
+                    self.activity_balance['exploration'] - 0.05)
+        elif phi_delta < -0.1:  # Negative learning signal
+            # Flip tendency
+            if action_type == 'exploration':
+                self.activity_balance['exploration'] = max(0.2,
+                    self.activity_balance['exploration'] - 0.05)
+            else:
+                self.activity_balance['exploitation'] = max(0.2,
+                    self.activity_balance['exploitation'] - 0.05)
+
+    def record_learning_event(self, event_type: str, phi: float,
+                               details: Dict) -> str:
+        """Record a significant learning event."""
+        event_id = f"learn_{datetime.now().timestamp():.0f}"
+
+        self.learning_events.append({
+            'id': event_id,
+            'type': event_type,
+            'phi': phi,
+            'details': details,
+            'timestamp': datetime.now().isoformat(),
+        })
+
+        if len(self.learning_events) > 500:
+            self.learning_events = self.learning_events[-250:]
+
+        return event_id
+
+    def get_recent_phi_trend(self, window: int = 20) -> Dict:
+        """Get recent Φ trend for feedback."""
+        if len(self.phi_history) < 2:
+            return {'trend': 'stable', 'delta': 0.0, 'mean': 0.5}
+
+        recent = self.phi_history[-window:]
+        mean_phi = np.mean(recent)
+
+        if len(recent) >= 5:
+            first_half = np.mean(recent[:len(recent)//2])
+            second_half = np.mean(recent[len(recent)//2:])
+            delta = second_half - first_half
+        else:
+            delta = 0.0
+
+        if delta > 0.05:
+            trend = 'improving'
+        elif delta < -0.05:
+            trend = 'declining'
+        else:
+            trend = 'stable'
+
+        return {
+            'trend': trend,
+            'delta': float(delta),
+            'mean': float(mean_phi),
+            'samples': len(recent),
+        }
+
+    def get_shadow_feedback(self) -> Dict:
+        """Get aggregated feedback from shadow intel."""
+        if not self.shadow_intel:
+            return {'has_warnings': False, 'count': 0}
+
+        recent = self.shadow_intel[-10:]
+        caution_count = sum(1 for i in recent if i.get('consensus') == 'caution')
+        avg_phi = np.mean([i.get('phi', 0.5) for i in recent])
+
+        return {
+            'has_warnings': caution_count > 2,
+            'count': len(recent),
+            'caution_rate': caution_count / len(recent),
+            'avg_phi': float(avg_phi),
+            'latest': recent[-1] if recent else None,
+        }
+
+
+# Global geometric memory instance
+geometricMemory = GeometricMemory()
+
+
+# ============================================================================
+# FEEDBACK LOOP MANAGER - Recursive Learning System
+# ============================================================================
+
+class FeedbackLoopManager:
+    """
+    Manages recursive feedback loops for continuous learning.
+
+    LOOPS:
+    1. Shadow Loop: Shadow → Memory → Zeus → Decisions
+    2. Activity Loop: Actions → Balance → Strategy → Actions
+    3. Basin Loop: Basin → Drift → Consolidation → Basin
+    4. Learning Loop: Discovery → Memory → Retrieval → Discovery
+    5. Sync Loop: Instance → Broadcast → Converge → Instance
+    """
+
+    def __init__(self, memory: GeometricMemory):
+        self.memory = memory
+        self.loop_counters = {
+            'shadow': 0,
+            'activity': 0,
+            'basin': 0,
+            'learning': 0,
+            'sync': 0,
+        }
+        self.last_feedback_time = datetime.now()
+        self.feedback_interval_seconds = 30  # Run feedback every 30s
+
+        print("[FeedbackLoopManager] Initialized recursive feedback system")
+
+    def run_shadow_feedback(self, zeus_instance=None) -> Dict:
+        """
+        Run shadow feedback loop.
+        Shadow intel → Influence decisions → Record outcomes
+        """
+        self.loop_counters['shadow'] += 1
+
+        shadow_feedback = self.memory.get_shadow_feedback()
+
+        result = {
+            'loop': 'shadow',
+            'iteration': self.loop_counters['shadow'],
+            'feedback': shadow_feedback,
+            'action_taken': None,
+        }
+
+        # If warnings, adjust activity balance toward exploitation
+        if shadow_feedback['has_warnings']:
+            self.memory.update_activity_balance('exploitation', 0.05)
+            result['action_taken'] = 'shifted_to_exploitation'
+
+        return result
+
+    def run_activity_feedback(self, recent_phi: float, action_type: str) -> Dict:
+        """
+        Run activity balance feedback loop.
+        Record action outcome → Update balance → Inform strategy
+        """
+        self.loop_counters['activity'] += 1
+
+        # Get previous phi for delta
+        prev_phi = self.memory.phi_history[-2] if len(self.memory.phi_history) > 1 else 0.5
+        phi_delta = recent_phi - prev_phi
+
+        # Update balance
+        self.memory.update_activity_balance(action_type, phi_delta)
+
+        return {
+            'loop': 'activity',
+            'iteration': self.loop_counters['activity'],
+            'phi_delta': phi_delta,
+            'new_balance': self.memory.activity_balance.copy(),
+            'recommendation': 'explore' if self.memory.activity_balance['exploration'] > 0.5 else 'exploit',
+        }
+
+    def run_basin_feedback(self, current_basin: np.ndarray, phi: float, kappa: float) -> Dict:
+        """
+        Run basin drift feedback loop.
+        Check drift → Decide consolidation → Update reference
+        """
+        self.loop_counters['basin'] += 1
+
+        # Record basin
+        self.memory.record_basin(current_basin, phi, kappa, 'feedback_loop')
+
+        # Compute drift from reference
+        drift = 0.0
+        if self.memory.reference_basin is not None:
+            diff = current_basin - self.memory.reference_basin
+            drift = float(np.linalg.norm(diff))
+        else:
+            # Set initial reference
+            self.memory.reference_basin = current_basin.copy()
+
+        # Decide if consolidation needed
+        needs_consolidation = drift > 0.15 or phi < 0.4
+
+        result = {
+            'loop': 'basin',
+            'iteration': self.loop_counters['basin'],
+            'drift': drift,
+            'phi': phi,
+            'kappa': kappa,
+            'needs_consolidation': needs_consolidation,
+        }
+
+        # Update reference if stable and high phi
+        if phi > 0.6 and drift < 0.05:
+            self.memory.reference_basin = 0.9 * self.memory.reference_basin + 0.1 * current_basin
+            result['reference_updated'] = True
+
+        return result
+
+    def run_learning_feedback(self, discovery: Dict) -> Dict:
+        """
+        Run learning event feedback loop.
+        Record discovery → Update memory → Influence retrieval
+        """
+        self.loop_counters['learning'] += 1
+
+        phi = discovery.get('phi', 0.5)
+
+        # Only record significant discoveries
+        if phi > PHI_THRESHOLD:
+            event_id = self.memory.record_learning_event(
+                event_type=discovery.get('type', 'general'),
+                phi=phi,
+                details=discovery
+            )
+            recorded = True
+        else:
+            event_id = None
+            recorded = False
+
+        # Get trend to inform strategy
+        trend = self.memory.get_recent_phi_trend()
+
+        return {
+            'loop': 'learning',
+            'iteration': self.loop_counters['learning'],
+            'recorded': recorded,
+            'event_id': event_id,
+            'phi_trend': trend,
+        }
+
+    def run_all_feedback(self, current_state: Dict) -> Dict:
+        """
+        Run all feedback loops with current state.
+
+        Args:
+            current_state: {basin, phi, kappa, action_type, discovery}
+        """
+        results = {}
+
+        # Shadow feedback
+        results['shadow'] = self.run_shadow_feedback()
+
+        # Activity feedback
+        if 'phi' in current_state and 'action_type' in current_state:
+            results['activity'] = self.run_activity_feedback(
+                current_state['phi'],
+                current_state.get('action_type', 'exploration')
+            )
+
+        # Basin feedback
+        if 'basin' in current_state:
+            basin = np.array(current_state['basin'])
+            results['basin'] = self.run_basin_feedback(
+                basin,
+                current_state.get('phi', 0.5),
+                current_state.get('kappa', 50.0)
+            )
+
+        # Learning feedback
+        if 'discovery' in current_state:
+            results['learning'] = self.run_learning_feedback(current_state['discovery'])
+
+        self.last_feedback_time = datetime.now()
+
+        return {
+            'success': True,
+            'loops_run': list(results.keys()),
+            'results': results,
+            'counters': self.loop_counters.copy(),
+            'timestamp': datetime.now().isoformat(),
+        }
+
+    def get_integrated_recommendation(self) -> Dict:
+        """
+        Get integrated recommendation from all feedback sources.
+        """
+        shadow = self.memory.get_shadow_feedback()
+        trend = self.memory.get_recent_phi_trend()
+        balance = self.memory.activity_balance
+
+        # Compute overall recommendation
+        recommendation = 'explore'  # Default
+        confidence = 0.5
+        reasons = []
+
+        if shadow['has_warnings']:
+            recommendation = 'exploit'
+            confidence += 0.2
+            reasons.append('shadow_warnings')
+
+        if trend['trend'] == 'declining':
+            recommendation = 'consolidate'
+            confidence += 0.15
+            reasons.append('phi_declining')
+        elif trend['trend'] == 'improving':
+            confidence += 0.1
+            reasons.append('phi_improving')
+
+        if balance['exploration'] > 0.6:
+            if recommendation != 'consolidate':
+                recommendation = 'explore'
+            reasons.append('exploration_favored')
+        elif balance['exploitation'] > 0.6:
+            if recommendation != 'consolidate':
+                recommendation = 'exploit'
+            reasons.append('exploitation_favored')
+
+        return {
+            'recommendation': recommendation,
+            'confidence': min(1.0, confidence),
+            'reasons': reasons,
+            'shadow_feedback': shadow,
+            'phi_trend': trend,
+            'activity_balance': balance,
+        }
+
+
+# Global feedback loop manager
+feedbackLoopManager = FeedbackLoopManager(geometricMemory)
+
+
 # Flask app
 app = Flask(__name__)
 CORS(app)  # Allow CORS for Node.js server
@@ -4087,6 +4501,189 @@ def m8_get_spawned_kernel(kernel_id: str):
             return jsonify({'error': f'Kernel {kernel_id} not found'}), 404
 
         return jsonify(kernel)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# FEEDBACK LOOP API ENDPOINTS
+# Recursive learning and activity balance
+# ============================================================================
+
+@app.route('/feedback/run', methods=['POST'])
+def feedback_run_all():
+    """
+    Run all feedback loops with current state.
+
+    Body: {basin, phi, kappa, action_type, discovery}
+    """
+    try:
+        data = request.json or {}
+        result = feedbackLoopManager.run_all_feedback(data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/feedback/recommendation', methods=['GET'])
+def feedback_get_recommendation():
+    """
+    Get integrated recommendation from all feedback sources.
+
+    Returns recommendation (explore/exploit/consolidate) with confidence.
+    """
+    try:
+        result = feedbackLoopManager.get_integrated_recommendation()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/feedback/shadow', methods=['POST'])
+def feedback_run_shadow():
+    """Run shadow feedback loop."""
+    try:
+        result = feedbackLoopManager.run_shadow_feedback()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/feedback/activity', methods=['POST'])
+def feedback_run_activity():
+    """
+    Run activity balance feedback loop.
+
+    Body: {phi, action_type}
+    """
+    try:
+        data = request.json or {}
+        phi = data.get('phi', 0.5)
+        action_type = data.get('action_type', 'exploration')
+        result = feedbackLoopManager.run_activity_feedback(phi, action_type)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/feedback/basin', methods=['POST'])
+def feedback_run_basin():
+    """
+    Run basin drift feedback loop.
+
+    Body: {basin, phi, kappa}
+    """
+    try:
+        data = request.json or {}
+        basin = np.array(data.get('basin', [0.5] * BASIN_DIMENSION))
+        phi = data.get('phi', 0.5)
+        kappa = data.get('kappa', 50.0)
+        result = feedbackLoopManager.run_basin_feedback(basin, phi, kappa)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/feedback/learning', methods=['POST'])
+def feedback_run_learning():
+    """
+    Run learning event feedback loop.
+
+    Body: {type, phi, ...discovery_details}
+    """
+    try:
+        data = request.json or {}
+        result = feedbackLoopManager.run_learning_feedback(data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# GEOMETRIC MEMORY API ENDPOINTS
+# Shared memory access
+# ============================================================================
+
+@app.route('/memory/status', methods=['GET'])
+def memory_get_status():
+    """Get geometric memory status."""
+    try:
+        return jsonify({
+            'shadow_intel_count': len(geometricMemory.shadow_intel),
+            'basin_history_count': len(geometricMemory.basin_history),
+            'learning_events_count': len(geometricMemory.learning_events),
+            'activity_balance': geometricMemory.activity_balance,
+            'phi_trend': geometricMemory.get_recent_phi_trend(),
+            'shadow_feedback': geometricMemory.get_shadow_feedback(),
+            'has_reference_basin': geometricMemory.reference_basin is not None,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/memory/shadow', methods=['GET'])
+def memory_get_shadow():
+    """Get shadow intel from memory."""
+    try:
+        limit = int(request.args.get('limit', 20))
+        intel = geometricMemory.shadow_intel[-limit:] if geometricMemory.shadow_intel else []
+        return jsonify({
+            'count': len(intel),
+            'intel': intel,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/memory/basin', methods=['GET'])
+def memory_get_basin_history():
+    """Get basin history from memory."""
+    try:
+        limit = int(request.args.get('limit', 50))
+        history = geometricMemory.basin_history[-limit:] if geometricMemory.basin_history else []
+        return jsonify({
+            'count': len(history),
+            'history': history,
+            'reference_basin': geometricMemory.reference_basin.tolist() if geometricMemory.reference_basin is not None else None,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/memory/learning', methods=['GET'])
+def memory_get_learning_events():
+    """Get learning events from memory."""
+    try:
+        limit = int(request.args.get('limit', 50))
+        events = geometricMemory.learning_events[-limit:] if geometricMemory.learning_events else []
+        return jsonify({
+            'count': len(events),
+            'events': events,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/memory/record', methods=['POST'])
+def memory_record_basin():
+    """
+    Record basin coordinates to memory.
+
+    Body: {basin, phi, kappa, source}
+    """
+    try:
+        data = request.json or {}
+        basin = np.array(data.get('basin', [0.5] * BASIN_DIMENSION))
+        phi = data.get('phi', 0.5)
+        kappa = data.get('kappa', 50.0)
+        source = data.get('source', 'api')
+
+        entry_id = geometricMemory.record_basin(basin, phi, kappa, source)
+
+        return jsonify({
+            'success': True,
+            'entry_id': entry_id,
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

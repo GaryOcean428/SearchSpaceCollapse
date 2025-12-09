@@ -2024,6 +2024,246 @@ export class OceanQIGBackend {
       return null;
     }
   }
+
+  // =========================================================================
+  // FEEDBACK LOOP METHODS
+  // Recursive learning and activity balance
+  // =========================================================================
+
+  /**
+   * Run all feedback loops with current state
+   */
+  async runFeedbackLoops(state: {
+    basin?: number[];
+    phi?: number;
+    kappa?: number;
+    action_type?: "exploration" | "exploitation";
+    discovery?: Record<string, unknown>;
+  }): Promise<{
+    success: boolean;
+    loops_run: string[];
+    results: Record<string, unknown>;
+    counters: Record<string, number>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(`${this.backendUrl}/feedback/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state),
+      });
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Feedback loops failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get integrated recommendation from all feedback sources
+   */
+  async getFeedbackRecommendation(): Promise<{
+    recommendation: "explore" | "exploit" | "consolidate";
+    confidence: number;
+    reasons: string[];
+    shadow_feedback: Record<string, unknown>;
+    phi_trend: { trend: string; delta: number; mean: number };
+    activity_balance: Record<string, unknown>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/feedback/recommendation`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get recommendation failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Run activity balance feedback with action outcome
+   */
+  async runActivityFeedback(
+    phi: number,
+    actionType: "exploration" | "exploitation"
+  ): Promise<{
+    loop: string;
+    iteration: number;
+    phi_delta: number;
+    new_balance: Record<string, unknown>;
+    recommendation: string;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/feedback/activity`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phi, action_type: actionType }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Activity feedback failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Run basin drift feedback
+   */
+  async runBasinFeedback(
+    basin: number[],
+    phi: number,
+    kappa: number
+  ): Promise<{
+    loop: string;
+    iteration: number;
+    drift: number;
+    needs_consolidation: boolean;
+    reference_updated?: boolean;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/feedback/basin`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ basin, phi, kappa }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Basin feedback failed:", error);
+      return null;
+    }
+  }
+
+  // =========================================================================
+  // GEOMETRIC MEMORY METHODS
+  // Shared memory access
+  // =========================================================================
+
+  /**
+   * Get geometric memory status
+   */
+  async getMemoryStatus(): Promise<{
+    shadow_intel_count: number;
+    basin_history_count: number;
+    learning_events_count: number;
+    activity_balance: Record<string, unknown>;
+    phi_trend: Record<string, unknown>;
+    shadow_feedback: Record<string, unknown>;
+    has_reference_basin: boolean;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/memory/status`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Memory status failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Record basin coordinates to memory
+   */
+  async recordBasin(
+    basin: number[],
+    phi: number,
+    kappa: number,
+    source: string = "typescript"
+  ): Promise<string | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/memory/record`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ basin, phi, kappa, source }),
+        }
+      );
+
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.success ? data.entry_id : null;
+    } catch (error) {
+      console.error("[OceanQIGBackend] Record basin failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get shadow intel from memory
+   */
+  async getShadowIntel(
+    limit: number = 20
+  ): Promise<Array<Record<string, unknown>>> {
+    if (!this.isAvailable) return [];
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/memory/shadow?limit=${limit}`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.intel || [];
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get shadow intel failed:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get learning events from memory
+   */
+  async getLearningEvents(
+    limit: number = 50
+  ): Promise<Array<Record<string, unknown>>> {
+    if (!this.isAvailable) return [];
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/memory/learning?limit=${limit}`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.events || [];
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get learning events failed:", error);
+      return [];
+    }
+  }
 }
 
 // Global singleton instance
