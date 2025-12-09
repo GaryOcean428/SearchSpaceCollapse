@@ -191,6 +191,23 @@ export const NEAR_MISS_TIERS = {
 } as const;
 
 /**
+ * Geodesic Correction Thresholds
+ * 
+ * Parameters for the Geodesic Navigation learning loop.
+ * Controls when and how trajectory corrections are applied.
+ */
+export const GEODESIC_CORRECTION = {
+  /** Minimum Φ for resonance proxy significance (non-random structure) */
+  PHI_SIGNIFICANCE_THRESHOLD: 0.4,
+  
+  /** Fisher-Rao distance threshold for nearby failures */
+  DISTANCE_THRESHOLD: 0.15,
+  
+  /** Minimum eigenvalue ratio to avoid singular directions */
+  MIN_EIGENVALUE_RATIO: 0.01,
+} as const;
+
+/**
  * Innate Drives Thresholds
  * 
  * Layer 0 geometric instincts that shape search behavior.

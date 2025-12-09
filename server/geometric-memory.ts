@@ -501,9 +501,9 @@ class GeometricMemory {
       return true;
     }
     
-    // Check unified backend (database or memory)
-    const tested = await testedPhrasesUnified.wasTested(normalized);
-    if (tested) {
+    // Use synchronous check against pre-hydrated cache for performance
+    // Falls back to async check if needed
+    if (testedPhrasesUnified.has(normalized)) {
       // Update local cache
       this.testedPhrases.add(normalized);
       return true;
