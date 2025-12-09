@@ -1076,7 +1076,8 @@ export class OceanPersistence {
   }
 
   /**
-   * Batch insert/update near-miss entries
+   * Batch insert/update near-miss entries with chunking and retry logic
+   * Processes entries in chunks to avoid connection pool exhaustion
    */
   async batchUpsertNearMissEntries(entries: Array<{
     id: string;
@@ -1095,10 +1096,65 @@ export class OceanPersistence {
   }>): Promise<number> {
     if (!db || entries.length === 0) return 0;
     
+    const CHUNK_SIZE = 50;
+    const CHUNK_DELAY_MS = 100;
     let count = 0;
-    for (const entry of entries) {
-      if (await this.upsertNearMissEntry(entry)) {
-        count++;
+    
+    // Process in chunks to avoid overwhelming the connection pool
+    for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+      const chunk = entries.slice(i, i + CHUNK_SIZE);
+      
+      // Process chunk sequentially
+      for (const entry of chunk) {
+        // Retry up to 2 times with backoff
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const phraseHash = crypto.createHash('sha256').update(entry.phrase).digest('hex');
+            await db.insert(nearMissEntries)
+              .values({
+                id: entry.id,
+                phrase: entry.phrase,
+                phraseHash,
+                phi: entry.phi,
+                kappa: entry.kappa,
+                regime: entry.regime,
+                tier: entry.tier,
+                source: entry.source,
+                clusterId: entry.clusterId,
+                phiHistory: entry.phiHistory,
+                isEscalating: entry.isEscalating ?? false,
+                queuePriority: entry.queuePriority ?? 1,
+                structuralSignature: entry.structuralSignature,
+                explorationCount: entry.explorationCount ?? 1,
+              })
+              .onConflictDoUpdate({
+                target: nearMissEntries.id,
+                set: {
+                  phi: entry.phi,
+                  kappa: entry.kappa,
+                  tier: entry.tier,
+                  lastAccessedAt: new Date(),
+                  phiHistory: entry.phiHistory,
+                  isEscalating: entry.isEscalating ?? false,
+                  queuePriority: entry.queuePriority ?? 1,
+                  explorationCount: entry.explorationCount ?? 1,
+                },
+              });
+            count++;
+            break; // Success, exit retry loop
+          } catch (error) {
+            if (attempt < 2) {
+              // Wait before retry with exponential backoff
+              await new Promise(r => setTimeout(r, 100 * Math.pow(2, attempt)));
+            }
+            // Silently continue on final failure - don't spam logs
+          }
+        }
+      }
+      
+      // Small delay between chunks to let connections recover
+      if (i + CHUNK_SIZE < entries.length) {
+        await new Promise(r => setTimeout(r, CHUNK_DELAY_MS));
       }
     }
     return count;
