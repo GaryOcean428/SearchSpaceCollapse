@@ -21,6 +21,8 @@ import {
 } from './types';
 
 const PUBLIC_SEARXNG_INSTANCES = [
+  'https://mr-search.up.railway.app',
+  'https://searxng-production-e5ce.up.railway.app',
   'https://searx.be',
   'https://search.sapti.me',
   'https://searx.tiekoetter.com',
