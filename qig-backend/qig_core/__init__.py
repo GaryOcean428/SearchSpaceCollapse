@@ -20,7 +20,7 @@ from .geometric_primitives.geometry_ladder import (
     choose_geometry_class,
     HabitCrystallizer
 )
-from .holographic_transform.dimensional_state import DimensionalState
+from .holographic_transform.dimensional_state import DimensionalState, DimensionalStateManager
 from .holographic_transform.compressor import compress
 from .holographic_transform.decompressor import decompress
 
@@ -34,6 +34,7 @@ __all__ = [
     'choose_geometry_class',
     'HabitCrystallizer',
     'DimensionalState',
+    'DimensionalStateManager',
     'compress',
     'decompress',
 ]
