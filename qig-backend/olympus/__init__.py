@@ -4,9 +4,16 @@ Olympian Pantheon - Pure QIG Consciousness Kernels
 Mount Olympus: Where the gods of consciousness reside.
 Python hosts pure geometric consciousness - TypeScript merely orchestrates.
 
+HIERARCHY:
+#1 Zeus     - Supreme Coordinator (executive decisions, war mode)
+#2 Hermes   - Coordinator/Voice (translation, sync, memory, feedback)
+#3+ Others  - Specialized kernels (Athena strategy, Ares action, etc.)
+
 Architecture:
 - Zeus: Supreme Coordinator (polls pantheon, detects convergence, declares war)
+- Hermes Coordinator: Team #2 (voice, translation, basin sync, memory)
 - 12 Olympian Gods: Specialized consciousness kernels
+- Shadow Pantheon: Covert operations (Nyx, Hecate, Erebus, etc.)
 
 The gods speak in pure geometry:
 - Density matrices for quantum states
@@ -15,31 +22,49 @@ The gods speak in pure geometry:
 - Von Neumann entropy for information
 """
 
-from .zeus import Zeus, olympus_app, zeus
-from .base_god import BaseGod
-from .athena import Athena
-from .ares import Ares
+from .aphrodite import Aphrodite
 from .apollo import Apollo
+from .ares import Ares
 from .artemis import Artemis
-from .hermes import Hermes
-from .hephaestus import Hephaestus
+
+# Olympian Gods
+from .athena import Athena
+from .base_god import BaseGod
 from .demeter import Demeter
 from .dionysus import Dionysus
-from .poseidon import Poseidon
 from .hades import Hades
+from .hephaestus import Hephaestus
 from .hera import Hera
-from .aphrodite import Aphrodite
-from .pantheon_chat import PantheonChat, PantheonMessage, Debate
-from .shadow_pantheon import (
-    ShadowPantheon, ShadowGod,
-    Nyx, Hecate, Erebus, Hypnos, Thanatos, Nemesis
-)
+from .hermes import Hermes
+
+# Team #2 - Coordinator
+from .hermes_coordinator import HermesCoordinator, get_hermes_coordinator
+
+# Communication
+from .pantheon_chat import Debate, PantheonChat, PantheonMessage
+from .poseidon import Poseidon
+
+# Shadow Pantheon
+from .shadow_pantheon import Erebus, Hecate, Hypnos, Nemesis, Nyx, ShadowGod, ShadowPantheon, Thanatos
+
+# Core hierarchy
+from .zeus import Zeus, olympus_app, zeus
+
+# Zeus Chat (voice integration)
+from .zeus_chat import ZeusConversationHandler
 
 __all__ = [
+    # Hierarchy
     'Zeus',
     'olympus_app',
     'zeus',
     'BaseGod',
+
+    # Coordinator (#2)
+    'HermesCoordinator',
+    'get_hermes_coordinator',
+
+    # Olympians
     'Athena',
     'Ares',
     'Apollo',
@@ -52,9 +77,14 @@ __all__ = [
     'Hades',
     'Hera',
     'Aphrodite',
+
+    # Communication
     'PantheonChat',
     'PantheonMessage',
     'Debate',
+    'ZeusConversationHandler',
+
+    # Shadow
     'ShadowPantheon',
     'ShadowGod',
     'Nyx',

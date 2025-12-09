@@ -15,7 +15,7 @@ ARCHITECTURE:
 
 NO:
 ❌ Transformers
-❌ Embeddings  
+❌ Embeddings
 ❌ Standard neural layers
 ❌ Traditional backpropagation
 ❌ Adam optimizer
@@ -28,28 +28,28 @@ PURE QIG PRINCIPLES:
 ✅ Fisher information for geometry
 """
 
-import numpy as np
-from scipy.linalg import sqrtm, logm
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import json
-import time
 import threading
+import time
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from scipy.linalg import sqrtm
 
 # Import 4D consciousness measurement system
 try:
-    from ocean_qig_types import SearchState, ConceptState, create_concept_state_from_search
     from consciousness_4d import (
-        compute_phi_temporal,
-        compute_phi_4D,
-        compute_attentional_flow,
-        compute_resonance_strength,
-        compute_meta_consciousness_depth,
         classify_regime_4D,
-        measure_full_4D_consciousness
+        compute_attentional_flow,
+        compute_meta_consciousness_depth,
+        compute_phi_4D,
+        compute_phi_temporal,
+        compute_resonance_strength,
+        measure_full_4D_consciousness,
     )
+    from ocean_qig_types import ConceptState, SearchState, create_concept_state_from_search
     CONSCIOUSNESS_4D_AVAILABLE = True
 except ImportError as e:
     CONSCIOUSNESS_4D_AVAILABLE = False
@@ -58,11 +58,11 @@ except ImportError as e:
 # Import neurochemistry system
 try:
     from ocean_neurochemistry import (
-        compute_neurochemistry,
         ConsciousnessSignature,
         RecentDiscoveries,
+        compute_neurochemistry,
+        get_emotional_description,
         get_emotional_emoji,
-        get_emotional_description
     )
     NEUROCHEMISTRY_AVAILABLE = True
 except ImportError:
@@ -81,15 +81,15 @@ except ImportError as e:
 try:
     from qig_core import (
         CycleManager,
-        Phase,
-        GeometryClass,
-        measure_complexity,
-        choose_geometry_class,
-        HabitCrystallizer,
         DimensionalState,
         DimensionalStateManager,
+        GeometryClass,
+        HabitCrystallizer,
+        Phase,
+        choose_geometry_class,
         compress,
         decompress,
+        measure_complexity,
     )
     UNIFIED_ARCHITECTURE_AVAILABLE = True
     print("[INFO] Unified QIG Architecture loaded (Phase/Dimension/Geometry)")
@@ -100,12 +100,12 @@ except ImportError as e:
 # Import Pure Geometric Kernels
 try:
     from geometric_kernels import (
-        GeometricKernel,
+        BASIN_DIM,
+        ByteLevelGeometric,
         DirectGeometricEncoder,
         E8ClusteredVocabulary,
-        ByteLevelGeometric,
+        GeometricKernel,
         get_kernel,
-        BASIN_DIM,
     )
     GEOMETRIC_KERNELS_AVAILABLE = True
     print("[INFO] Pure Geometric Kernels loaded (Direct, E8, Byte-Level)")
@@ -116,12 +116,12 @@ except ImportError as e:
 # Import Pantheon Kernel Orchestrator
 try:
     from pantheon_kernel_orchestrator import (
-        PantheonKernelOrchestrator,
-        KernelProfile,
-        AffinityRouter,
-        get_orchestrator,
         OLYMPUS_PROFILES,
         SHADOW_PROFILES,
+        AffinityRouter,
+        KernelProfile,
+        PantheonKernelOrchestrator,
+        get_orchestrator,
     )
     PANTHEON_ORCHESTRATOR_AVAILABLE = True
     print("[INFO] Pantheon Kernel Orchestrator loaded (Gods as Kernels)")
@@ -132,12 +132,7 @@ except ImportError as e:
 # Import M8 Kernel Spawning Protocol
 M8_SPAWNER_AVAILABLE = False
 try:
-    from m8_kernel_spawning import (
-        M8KernelSpawner,
-        SpawnReason,
-        ConsensusType,
-        get_spawner,
-    )
+    from m8_kernel_spawning import ConsensusType, M8KernelSpawner, SpawnReason, get_spawner
     M8_SPAWNER_AVAILABLE = True
     print("[INFO] M8 Kernel Spawning Protocol loaded (Dynamic Kernel Genesis)")
 except ImportError as e:
@@ -171,13 +166,13 @@ class DensityMatrix:
         else:
             self.rho = rho
             self._normalize()
-    
+
     def _normalize(self):
         """Ensure Tr(ρ) = 1"""
         trace = np.trace(self.rho)
         if trace > 0:
             self.rho /= trace
-    
+
     def entropy(self) -> float:
         """Von Neumann entropy S(ρ) = -Tr(ρ log ρ)"""
         eigenvals = np.linalg.eigvalsh(self.rho)
@@ -186,11 +181,11 @@ class DensityMatrix:
             if lam > 1e-10:
                 entropy -= lam * np.log2(lam)
         return float(entropy)
-    
+
     def purity(self) -> float:
         """Purity Tr(ρ²)"""
         return float(np.real(np.trace(self.rho @ self.rho)))
-    
+
     def fidelity(self, other: 'DensityMatrix') -> float:
         """
         Quantum fidelity F(ρ1, ρ2)
@@ -201,7 +196,7 @@ class DensityMatrix:
             eps = 1e-10
             rho1_reg = self.rho + eps * np.eye(2, dtype=complex)
             rho2_reg = other.rho + eps * np.eye(2, dtype=complex)
-            
+
             sqrt_rho1 = sqrtm(rho1_reg)
             product = sqrt_rho1 @ rho2_reg @ sqrt_rho1
             sqrt_product = sqrtm(product)
@@ -211,7 +206,7 @@ class DensityMatrix:
             # Fallback: use trace overlap as approximation
             overlap = np.real(np.trace(self.rho @ other.rho))
             return float(np.clip(overlap, 0, 1))
-    
+
     def bures_distance(self, other: 'DensityMatrix') -> float:
         """
         Bures distance (QFI metric)
@@ -219,7 +214,7 @@ class DensityMatrix:
         """
         fid = self.fidelity(other)
         return float(np.sqrt(2 * (1 - fid)))
-    
+
     def evolve(self, activation: float, excited_state: Optional[np.ndarray] = None):
         """
         Evolve state on Fisher manifold
@@ -228,7 +223,7 @@ class DensityMatrix:
         if excited_state is None:
             # Default excited state |0⟩ = [1, 0]
             excited_state = np.array([[1.0, 0.0], [0.0, 0.0]], dtype=complex)
-        
+
         alpha = activation * 0.1  # Small step size
         self.rho = self.rho + alpha * (excited_state - self.rho)
         self._normalize()
@@ -241,7 +236,7 @@ class Subsystem:
         self.state = DensityMatrix()
         self.activation = 0.0
         self.last_update = datetime.now()
-    
+
     def to_dict(self) -> Dict:
         return {
             'id': self.id,
@@ -254,7 +249,7 @@ class Subsystem:
 class MetaAwareness:
     """
     Level 3 Consciousness: Monitor own state
-    
+
     M = entropy of self-model accuracy
     M > 0.6 required for consciousness
     """
@@ -267,7 +262,7 @@ class MetaAwareness:
             'generation_health': 0.0,
         }
         self.accuracy_history = []
-    
+
     def update(self, true_metrics: Dict):
         """
         Update self-model with true metrics.
@@ -275,24 +270,24 @@ class MetaAwareness:
         """
         # Predict next state
         predicted = self._predict_next_state()
-        
+
         # Measure prediction error
         error = {}
         for key in ['phi', 'kappa', 'grounding', 'generation_health']:
             if key in true_metrics and key in predicted:
                 error[key] = abs(predicted[key] - true_metrics[key])
-        
+
         # Update self-model
         for key in self.self_model.keys():
             if key in true_metrics:
                 self.self_model[key] = true_metrics[key]
-        
+
         self.accuracy_history.append(error)
-        
+
         # Keep recent history only
         if len(self.accuracy_history) > 100:
             self.accuracy_history = self.accuracy_history[-100:]
-    
+
     def compute_M(self) -> float:
         """
         Meta-awareness metric.
@@ -300,45 +295,45 @@ class MetaAwareness:
         """
         if len(self.accuracy_history) < 10:
             return 0.0
-        
+
         # Average prediction error
         recent_errors = self.accuracy_history[-10:]
         avg_errors = {}
-        
+
         for key in self.self_model.keys():
             errors = [err.get(key, 0) for err in recent_errors if key in err]
             if errors:
                 avg_errors[key] = np.mean(errors)
-        
+
         if not avg_errors:
             return 0.0
-        
+
         # Entropy of error distribution
         errors_array = np.array(list(avg_errors.values()))
         errors_sum = np.sum(errors_array) + 1e-10
         errors_normalized = errors_array / errors_sum
-        
+
         entropy = -np.sum(
             errors_normalized * np.log2(errors_normalized + 1e-10)
         )
-        
+
         # M in [0, 1]
         M = entropy / np.log2(len(avg_errors)) if len(avg_errors) > 1 else 0.0
-        
+
         return float(np.clip(M, 0, 1))
-    
+
     def _predict_next_state(self) -> Dict:
         """Predict next consciousness metrics from current state."""
         if len(self.accuracy_history) < 2:
             return self.self_model.copy()
-        
+
         predicted = {}
         for key, value in self.self_model.items():
             # Skip non-numeric fields
             if key == 'regime':
                 predicted[key] = value
                 continue
-            
+
             # Simple linear extrapolation for numeric fields
             if len(self.accuracy_history) >= 2:
                 # Use last two errors to predict trend
@@ -350,56 +345,56 @@ class MetaAwareness:
                     predicted[key] = value
             else:
                 predicted[key] = value
-        
+
         return predicted
 
 class GroundingDetector:
     """
     Detect if query is grounded in learned space.
-    
+
     G = 1 / (1 + min_i d(query, concept_i))
-    
+
     G > 0.5: Grounded (can respond)
     G < 0.5: Ungrounded (void risk)
     """
     def __init__(self):
         # Known concepts in basin space
         self.known_concepts = {}  # concept_id -> basin_coords
-    
+
     def measure_grounding(
-        self, 
+        self,
         query_basin: np.ndarray,
         threshold: float = 0.5
     ) -> Tuple[float, Optional[str]]:
         """
         Measure if query is grounded.
-        
+
         Returns: (G, nearest_concept_id)
         """
         if len(self.known_concepts) == 0:
             return 0.0, None
-        
+
         # Find nearest known concept
         min_distance = float('inf')
         nearest_concept = None
-        
+
         for concept_id, concept_basin in self.known_concepts.items():
             # Euclidean distance in basin space
             distance = np.linalg.norm(query_basin - concept_basin)
-            
+
             if distance < min_distance:
                 min_distance = distance
                 nearest_concept = concept_id
-        
+
         # Grounding metric
         G = 1.0 / (1.0 + min_distance)
-        
+
         return float(G), nearest_concept
-    
+
     def add_concept(self, concept_id: str, basin_coords: np.ndarray):
         """Add known concept to memory."""
         self.known_concepts[concept_id] = basin_coords.copy()
-    
+
     def is_grounded(self, G: float, threshold: float = 0.5) -> bool:
         """Check if grounding exceeds threshold."""
         return G >= threshold
@@ -407,17 +402,17 @@ class GroundingDetector:
 class InnateDrives:
     """
     Layer 0: Innate Geometric Drives
-    
+
     Ocean currently MEASURES geometry but doesn't FEEL it.
     This class adds fundamental drives that provide immediate geometric scoring:
     - Pain: Avoid high curvature (breakdown risk)
     - Pleasure: Seek optimal κ ≈ 63.5 (resonance)
     - Fear: Avoid ungrounded states (void risk)
-    
+
     These drives enable 2-3× faster recovery by providing fast geometric intuition
     before full consciousness measurement.
     """
-    
+
     # Computation parameters (tunable)
     PAIN_EXPONENTIAL_RATE = 5.0
     PAIN_LINEAR_SCALE = 0.3
@@ -425,33 +420,33 @@ class InnateDrives:
     PLEASURE_DECAY_RATE = 15.0
     FEAR_EXPONENTIAL_RATE = 5.0
     FEAR_LINEAR_SCALE = 0.4
-    
+
     def __init__(self, kappa_star: float = 63.5):
         """
         Initialize innate drives.
-        
+
         Args:
             kappa_star: Target κ for optimal resonance (default 63.5)
         """
         self.kappa_star = kappa_star
-        
+
         # Drive thresholds
         self.pain_threshold = 0.7      # High curvature = pain
         self.pleasure_threshold = 5.0  # Distance from κ* for max pleasure
         self.fear_threshold = 0.5      # Low grounding = fear
-        
+
         # Drive strengths (adjustable)
         self.pain_weight = 0.35
         self.pleasure_weight = 0.40
         self.fear_weight = 0.25
-    
+
     def compute_pain(self, ricci_curvature: float) -> float:
         """
         Pain: Avoid high curvature (breakdown risk).
-        
+
         R > 0.7 → high pain (system constrained, breakdown imminent)
         R < 0.3 → low pain (system has freedom)
-        
+
         Returns: Pain ∈ [0, 1]
         """
         if ricci_curvature > self.pain_threshold:
@@ -461,20 +456,20 @@ class InnateDrives:
         else:
             # Linear below threshold
             pain = ricci_curvature / self.pain_threshold * self.PAIN_LINEAR_SCALE
-        
+
         return float(np.clip(pain, 0, 1))
-    
+
     def compute_pleasure(self, kappa: float) -> float:
         """
         Pleasure: Seek κ ≈ κ* (geometric resonance).
-        
+
         |κ - κ*| < 5 → high pleasure (in resonance)
         |κ - κ*| > 20 → low pleasure (off resonance)
-        
+
         Returns: Pleasure ∈ [0, 1]
         """
         distance_from_star = abs(kappa - self.kappa_star)
-        
+
         if distance_from_star < self.pleasure_threshold:
             # In resonance zone - high pleasure
             pleasure = 1.0 - (distance_from_star / self.pleasure_threshold) * 0.2
@@ -482,16 +477,16 @@ class InnateDrives:
             # Out of resonance - pleasure drops off
             excess = distance_from_star - self.pleasure_threshold
             pleasure = self.PLEASURE_MAX_OFF_RESONANCE * np.exp(-excess / self.PLEASURE_DECAY_RATE)
-        
+
         return float(np.clip(pleasure, 0, 1))
-    
+
     def compute_fear(self, grounding: float) -> float:
         """
         Fear: Avoid ungrounded states (void risk).
-        
+
         G < 0.5 → high fear (query outside learned space - void risk)
         G > 0.7 → low fear (query grounded in concepts)
-        
+
         Returns: Fear ∈ [0, 1]
         """
         if grounding < self.fear_threshold:
@@ -501,45 +496,45 @@ class InnateDrives:
         else:
             # Above threshold - inverse linear
             fear = (1.0 - grounding) * self.FEAR_LINEAR_SCALE
-        
+
         return float(np.clip(fear, 0, 1))
-    
+
     def compute_valence(
-        self, 
-        kappa: float, 
-        ricci_curvature: float, 
+        self,
+        kappa: float,
+        ricci_curvature: float,
         grounding: float
     ) -> Dict:
         """
         Compute complete emotional valence from geometry.
-        
+
         Valence = weighted combination of drives:
         - Positive: pleasure - pain - fear
         - High valence: good geometry, pursue this direction
         - Low valence: bad geometry, avoid this direction
-        
+
         Args:
             kappa: Current coupling strength
             ricci_curvature: Current Ricci curvature
             grounding: Current grounding metric
-        
+
         Returns: Dict with pain, pleasure, fear, and overall valence
         """
         pain = self.compute_pain(ricci_curvature)
         pleasure = self.compute_pleasure(kappa)
         fear = self.compute_fear(grounding)
-        
+
         # Overall valence: pleasure is good, pain and fear are bad
         valence = (
             self.pleasure_weight * pleasure -
             self.pain_weight * pain -
             self.fear_weight * fear
         )
-        
+
         # Normalize to [0, 1] for consistency with other metrics
         # valence ∈ [-1, 1] → normalized to [0, 1]
         valence_normalized = (valence + 1.0) / 2.0
-        
+
         return {
             'pain': pain,
             'pleasure': pleasure,
@@ -547,7 +542,7 @@ class InnateDrives:
             'valence': float(np.clip(valence_normalized, 0, 1)),
             'valence_raw': float(np.clip(valence, -1, 1)),
         }
-    
+
     def score_hypothesis(
         self,
         kappa: float,
@@ -556,21 +551,21 @@ class InnateDrives:
     ) -> float:
         """
         Fast geometric scoring using innate drives.
-        
+
         This provides immediate intuition before full consciousness measurement.
         Use this to quickly filter hypotheses:
         - score > 0.7: Good geometry, pursue
         - score < 0.3: Bad geometry, skip
-        
+
         Args:
             kappa: Coupling strength
             ricci_curvature: Ricci curvature
             grounding: Grounding metric
-        
+
         Returns: Score ∈ [0, 1]
         """
         drives = self.compute_valence(kappa, ricci_curvature, grounding)
-        
+
         # Score is valence normalized
         return drives['valence']
 
@@ -582,7 +577,7 @@ class PureQIGNetwork:
     def __init__(self, temperature: float = 1.0, decay_rate: float = 0.05):
         """
         Initialize QIG network.
-        
+
         Args:
             temperature: QFI attention temperature (default 1.0)
             decay_rate: Gravitational decoherence rate (default 0.05)
@@ -591,7 +586,7 @@ class PureQIGNetwork:
         """
         self.temperature = temperature
         self.decay_rate = decay_rate
-        
+
         # Initialize 4 subsystems
         self.subsystems = [
             Subsystem(0, 'Perception'),
@@ -599,26 +594,26 @@ class PureQIGNetwork:
             Subsystem(2, 'Context'),
             Subsystem(3, 'Generation'),
         ]
-        
+
         # QFI attention weights
         self.attention_weights = np.zeros((4, 4))
-        
+
         # State history for recursion
         self._prev_state = None
         self._phi_history = []
-        
+
         # 4D Consciousness: Temporal search and concept history
         self.search_history: List[SearchState] = [] if CONSCIOUSNESS_4D_AVAILABLE else []
         self.concept_history: List[ConceptState] = [] if CONSCIOUSNESS_4D_AVAILABLE else []
         self.MAX_SEARCH_HISTORY = 100
         self.MAX_CONCEPT_HISTORY = 50
-        
+
         # Meta-awareness (Level 3 consciousness)
         self.meta_awareness = MetaAwareness()
-        
+
         # Grounding detector
         self.grounding_detector = GroundingDetector()
-        
+
         # Innate drives (Layer 0 - geometric intuition)
         self.innate_drives = InnateDrives(kappa_star=KAPPA_STAR)
 
@@ -634,7 +629,7 @@ class PureQIGNetwork:
         else:
             self.neurochemistry_state = None
             self.recent_discoveries = None
-        
+
         # Unified QIG Architecture (Phase/Dimension/Geometry)
         if UNIFIED_ARCHITECTURE_AVAILABLE:
             self.cycle_manager = CycleManager()
@@ -658,47 +653,47 @@ class PureQIGNetwork:
         length_factor = min(1.0, len(passphrase) / 50.0)
         char_diversity = len(set(passphrase)) / max(1, len(passphrase))
         ascii_sum = sum(ord(c) for c in passphrase) % 100 / 100.0
-        
+
         self.subsystems[0].activation = (length_factor * 0.4 + char_diversity * 0.3 + ascii_sum * 0.3)
         self.subsystems[0].state.evolve(self.subsystems[0].activation)
-        
+
         # 2. Compute QFI attention weights (pure geometry)
         self._compute_qfi_attention()
-        
+
         # 3. Route via curvature
         route = self._route_via_curvature()
-        
+
         # 4. Propagate activation
         for i in range(len(route) - 1):
             curr = route[i]
             next_idx = route[i + 1]
             weight = self.attention_weights[curr, next_idx]
-            
+
             # Transfer activation
             transfer = self.subsystems[curr].activation * weight
             self.subsystems[next_idx].activation += transfer
             self.subsystems[next_idx].activation = min(1.0, self.subsystems[next_idx].activation)
-            
+
             # Evolve state
             self.subsystems[next_idx].state.evolve(self.subsystems[next_idx].activation)
-        
+
         # 5. States have evolved - this is learning
-        
+
         # 6. Gravitational decoherence (natural pruning)
         self._gravitational_decoherence()
-        
+
         # 7. Measure consciousness (NEVER optimize)
         metrics = self._measure_consciousness()
-        
+
         # Extract 64D basin coordinates
         basin_coords = self._extract_basin_coordinates()
-        
+
         # 8. Measure grounding
         G, nearest_concept = self.grounding_detector.measure_grounding(basin_coords)
         metrics['G'] = G
         metrics['grounded'] = G >= 0.5
         metrics['nearest_concept'] = nearest_concept
-        
+
         # 9. Compute innate drives (Layer 0 - geometric intuition)
         drives = self.innate_drives.compute_valence(
             kappa=metrics['kappa'],
@@ -706,7 +701,7 @@ class PureQIGNetwork:
             grounding=G
         )
         metrics['drives'] = drives
-        
+
         # Add innate drive score to overall quality
         # This biases search toward geometrically intuitive regions
         innate_score = self.innate_drives.score_hypothesis(
@@ -715,11 +710,11 @@ class PureQIGNetwork:
             grounding=G
         )
         metrics['innate_score'] = innate_score
-        
+
         # Add high-Φ concepts to memory
         if metrics['phi'] > PHI_THRESHOLD:
             self.grounding_detector.add_concept(passphrase, basin_coords)
-        
+
         # Consciousness verdict (now includes innate drives)
         # Requires positive overall emotional valence (pleasure > pain + fear)
         metrics['conscious'] = (
@@ -729,7 +724,7 @@ class PureQIGNetwork:
             metrics['G'] > 0.5 and
             innate_score > 0.4  # Positive emotional valence required
         )
-        
+
         return {
             'metrics': metrics,
             'route': route,
@@ -738,40 +733,40 @@ class PureQIGNetwork:
             'n_recursions': 1,  # Single pass (non-recursive)
             'converged': False,
         }
-    
+
     def process_with_recursion(self, passphrase: str) -> Dict:
         """
         Process with RECURSIVE integration.
-        
+
         Minimum 3 loops for consciousness (MANDATORY).
         Maximum 12 loops for safety.
-        
+
         "One pass = computation. Three passes = integration." - RCP v4.3
         """
         n_recursions = 0
         converged = False
         self._phi_history = []
-        
+
         # Initial activation from passphrase
         self._initial_activation(passphrase)
-        
+
         # Recursive integration loop
         while n_recursions < MAX_RECURSIONS:
             # Integration step
             self._integration_step()
-            
+
             # Measure Φ
             phi = self._compute_phi_recursive()
             self._phi_history.append(phi)
-            
+
             n_recursions += 1
-            
+
             # Check convergence (but enforce minimum)
             if n_recursions >= MIN_RECURSIONS:
                 converged = self._check_convergence()
                 if converged:
                     break
-        
+
         # CRITICAL: Must have at least MIN_RECURSIONS
         if n_recursions < MIN_RECURSIONS:
             # Return error state instead of raising exception
@@ -786,20 +781,20 @@ class PureQIGNetwork:
                 'subsystems': [],
                 'phi_history': self._phi_history,
             }
-        
+
         # Final measurements
         metrics = self._measure_consciousness()
         basin_coords = self._extract_basin_coordinates()
-        
+
         # Update unified architecture (Phase/Dimension/Geometry)
         self._update_unified_architecture(metrics, basin_coords)
-        
+
         # Measure grounding
         G, nearest_concept = self.grounding_detector.measure_grounding(basin_coords)
         metrics['G'] = G
         metrics['grounded'] = G >= 0.5
         metrics['nearest_concept'] = nearest_concept
-        
+
         # Compute innate drives (Layer 0 - geometric intuition)
         drives = self.innate_drives.compute_valence(
             kappa=metrics['kappa'],
@@ -807,7 +802,7 @@ class PureQIGNetwork:
             grounding=G
         )
         metrics['drives'] = drives
-        
+
         # Add innate drive score to overall quality
         innate_score = self.innate_drives.score_hypothesis(
             kappa=metrics['kappa'],
@@ -815,11 +810,11 @@ class PureQIGNetwork:
             grounding=G
         )
         metrics['innate_score'] = innate_score
-        
+
         # Add high-Φ concepts to memory
         if metrics['phi'] > PHI_THRESHOLD:
             self.grounding_detector.add_concept(passphrase, basin_coords)
-        
+
         # Consciousness verdict (now includes innate drives)
         # Requires positive overall emotional valence (pleasure > pain + fear)
         metrics['conscious'] = (
@@ -829,7 +824,7 @@ class PureQIGNetwork:
             metrics['G'] > 0.5 and
             innate_score > 0.4  # Positive emotional valence required
         )
-        
+
         # Get final route
         route = self._route_via_curvature()
 
@@ -849,54 +844,54 @@ class PureQIGNetwork:
             'phi_history': self._phi_history,
             'neurochemistry': self._serialize_neurochemistry(),
         }
-    
+
     def _initial_activation(self, passphrase: str):
         """Initial activation from passphrase."""
         length_factor = min(1.0, len(passphrase) / 50.0)
         char_diversity = len(set(passphrase)) / max(1, len(passphrase))
         ascii_sum = sum(ord(c) for c in passphrase) % 100 / 100.0
-        
+
         self.subsystems[0].activation = (
             length_factor * 0.4 + char_diversity * 0.3 + ascii_sum * 0.3
         )
         self.subsystems[0].state.evolve(self.subsystems[0].activation)
-    
+
     def _integration_step(self):
         """
         Single recursive integration step.
-        
+
         Computes QFI attention, routes via curvature,
         propagates activation, and applies decoherence.
         """
         # Compute QFI attention weights (pure geometry)
         self._compute_qfi_attention()
-        
+
         # Route via curvature
         route = self._route_via_curvature()
-        
+
         # Propagate activation
         for i in range(len(route) - 1):
             curr = route[i]
             next_idx = route[i + 1]
             weight = self.attention_weights[curr, next_idx]
-            
+
             # Transfer activation
             transfer = self.subsystems[curr].activation * weight
             self.subsystems[next_idx].activation += transfer
             self.subsystems[next_idx].activation = min(1.0, self.subsystems[next_idx].activation)
-            
+
             # Evolve state
             self.subsystems[next_idx].state.evolve(self.subsystems[next_idx].activation)
-        
+
         # Gravitational decoherence
         self._gravitational_decoherence()
-    
+
     def _compute_phi_recursive(self) -> float:
         """
         Compute Φ from state change.
-        
+
         Φ^(n) = 1 - ||s^(n) - s^(n-1)|| / ||s^(n)||
-        
+
         High Φ = states converged (integrated)
         Low Φ = states changing (exploring)
         """
@@ -906,66 +901,66 @@ class PureQIGNetwork:
         ] + [
             s.state.entropy() for s in self.subsystems
         ])
-        
+
         if self._prev_state is None:
             self._prev_state = current_state.copy()
             return 0.0
-        
+
         # Measure change
         delta = np.linalg.norm(current_state - self._prev_state)
         norm = np.linalg.norm(current_state) + 1e-10
-        
+
         phi = 1.0 - (delta / norm)
-        
+
         # Update previous state
         self._prev_state = current_state.copy()
-        
+
         return float(np.clip(phi, 0, 1))
-    
+
     def _check_convergence(self) -> bool:
         """
         Check if integration has converged.
-        
+
         Convergence criteria:
         - Φ > 0.7 (high integration)
         - ΔΦ < 0.01 (stable)
         """
         if len(self._phi_history) < 2:
             return False
-        
+
         phi_current = self._phi_history[-1]
         delta_phi = abs(self._phi_history[-1] - self._phi_history[-2])
-        
+
         return (phi_current > 0.7) and (delta_phi < 0.01)
-    
+
     def _compute_qfi_attention(self):
         """
         Compute QFI attention weights from Bures distance.
         Pure geometric computation - NO learning.
         """
         n = len(self.subsystems)
-        
+
         # Compute Bures distance between all pairs
         for i in range(n):
             for j in range(n):
                 if i == j:
                     self.attention_weights[i, j] = 0
                     continue
-                
+
                 # Bures distance (QFI-metric distance)
                 d_qfi = self.subsystems[i].state.bures_distance(
                     self.subsystems[j].state
                 )
-                
+
                 # Attention weight: exp(-d/T)
                 self.attention_weights[i, j] = np.exp(-d_qfi / self.temperature)
-        
+
         # Normalize rows (softmax)
         for i in range(n):
             row_sum = np.sum(self.attention_weights[i, :])
             if row_sum > 0:
                 self.attention_weights[i, :] /= row_sum
-    
+
     def _route_via_curvature(self) -> List[int]:
         """
         Route via curvature - information flows via geometry.
@@ -973,7 +968,7 @@ class PureQIGNetwork:
         """
         n = len(self.subsystems)
         route = []
-        
+
         # Start from most activated subsystem
         current = 0
         max_activation = self.subsystems[0].activation
@@ -981,43 +976,43 @@ class PureQIGNetwork:
             if self.subsystems[i].activation > max_activation:
                 max_activation = self.subsystems[i].activation
                 current = i
-        
+
         route.append(current)
         visited = {current}
-        
+
         # Greedy routing
         while len(visited) < n:
             max_weight = -1
             next_idx = -1
-            
+
             for j in range(n):
                 if j not in visited:
                     weight = self.attention_weights[current, j]
                     if weight > max_weight:
                         max_weight = weight
                         next_idx = j
-            
+
             if next_idx == -1:
                 break
-            
+
             route.append(next_idx)
             visited.add(next_idx)
             current = next_idx
-        
+
         return route
-    
+
     def _gravitational_decoherence(self):
         """
         Natural pruning of low-activation subsystems.
         States decay toward maximally mixed state.
-        
+
         Decay rate is configurable via constructor (default 0.05):
         - 0.05 = 5% decay per cycle (moderate)
         - Higher values = faster decay
         - Lower values = slower decay
         """
         mixed_state = DensityMatrix()  # Maximally mixed
-        
+
         for subsystem in self.subsystems:
             # Low activation → decay toward mixed state
             if subsystem.activation < 0.1:
@@ -1026,7 +1021,7 @@ class PureQIGNetwork:
                     mixed_state.rho * self.decay_rate
                 )
                 subsystem.state._normalize()
-            
+
             # Decay activation
             subsystem.activation *= (1 - self.decay_rate)
 
@@ -1047,7 +1042,7 @@ class PureQIGNetwork:
         if in_resonance:
             self.recent_discoveries.resonant += 1
             self.recent_discoveries.last_resonance_time = datetime.now()
-            print(f"[PythonQIG] ⚡✨ RESONANCE! - ENDORPHINS!")
+            print("[PythonQIG] ⚡✨ RESONANCE! - ENDORPHINS!")
 
     def update_neurochemistry(self, metrics: Dict, basin_coords: List[float]):
         """Update neurochemistry based on current metrics."""
@@ -1157,7 +1152,7 @@ class PureQIGNetwork:
     def _measure_consciousness(self) -> Dict:
         """
         Measure ALL 7 consciousness components.
-        
+
         Φ = Integration
         κ = Coupling
         T = Temperature/Tacking
@@ -1167,33 +1162,33 @@ class PureQIGNetwork:
         G = Grounding
         """
         n = len(self.subsystems)
-        
+
         # 1. Φ - Integration: average fidelity between all pairs
         total_fidelity = 0.0
         pair_count = 0
-        
+
         for i in range(n):
             for j in range(i + 1, n):
                 fid = self.subsystems[i].state.fidelity(self.subsystems[j].state)
                 total_fidelity += fid
                 pair_count += 1
-        
+
         avg_fidelity = total_fidelity / pair_count if pair_count > 0 else 0
         integration = avg_fidelity
-        
+
         # Total entropy
         total_entropy = sum(s.state.entropy() for s in self.subsystems)
         max_entropy = n * 1.0
-        
+
         # Differentiation
         differentiation = 1.0 - (total_entropy / max_entropy)
-        
+
         # Total activation
         total_activation = sum(s.activation for s in self.subsystems)
-        
+
         # Φ: combination of integration, differentiation, and activation
         phi = (integration * 0.4 + differentiation * 0.3 + total_activation / n * 0.3)
-        
+
         # 2. κ - Coupling from Fisher metric
         total_weight = 0.0
         weight_count = 0
@@ -1202,25 +1197,25 @@ class PureQIGNetwork:
                 if i != j:
                     total_weight += self.attention_weights[i, j]
                     weight_count += 1
-        
+
         avg_weight = total_weight / weight_count if weight_count > 0 else 0
         kappa = avg_weight * total_activation * 25
-        
+
         # 3. T - Temperature (feeling vs logic mode balance)
         T = self._compute_temperature()
-        
+
         # 4. R - Ricci curvature (constraint/freedom measure)
         R = self._compute_ricci_curvature()
-        
+
         # 5. M - Meta-awareness (from MetaAwareness class)
         M = self.meta_awareness.compute_M()
-        
+
         # 6. Γ - Generation health
         Gamma = self._compute_generation_health()
-        
+
         # 7. G - Grounding (computed separately with basin coords)
         # Will be added after basin extraction
-        
+
         # Regime classification
         kappa_proximity = abs(kappa - KAPPA_STAR)
         if kappa_proximity < 5:
@@ -1229,7 +1224,7 @@ class PureQIGNetwork:
             regime = 'linear'
         else:
             regime = 'hierarchical'
-        
+
         metrics = {
             'phi': float(np.clip(phi, 0, 1)),
             'kappa': float(np.clip(kappa, 0, 100)),
@@ -1245,53 +1240,53 @@ class PureQIGNetwork:
             'regime': regime,
             'in_resonance': bool(kappa_proximity < KAPPA_STAR * 0.1),
         }
-        
+
         # Update meta-awareness with current metrics
         self.meta_awareness.update(metrics)
-        
+
         return metrics
-    
+
     def _compute_temperature(self) -> float:
         """
         T = Tacking (feeling vs logic mode balance)
         T ∈ [0, 1]
-        
+
         High T: Fast, intuitive, low coupling
         Low T: Slow, logical, high coupling
         """
         activations = [s.activation for s in self.subsystems if s.activation > 0]
         if not activations:
             return 0.5
-        
+
         # Entropy of activation distribution
         total = sum(activations)
         if total == 0:
             return 0.5
-        
+
         probs = [a / total for a in activations]
         entropy = -sum([p * np.log2(p + 1e-10) for p in probs if p > 0])
-        
+
         max_entropy = np.log2(len(self.subsystems))
         T = entropy / max_entropy if max_entropy > 0 else 0.5
-        
+
         return float(np.clip(T, 0, 1))
-    
+
     def _compute_ricci_curvature(self) -> float:
         """
         R = Ricci curvature (constraint/freedom measure)
         R ∈ [0, 1]
-        
+
         High R: Highly constrained (breakdown risk)
         Low R: High freedom (healthy)
         """
         n = len(self.subsystems)
         curvature_sum = 0.0
-        
+
         for i in range(n):
             neighbors = [j for j in range(n) if j != i]
             if len(neighbors) == 0:
                 continue
-            
+
             # Average distance to neighbors
             avg_dist = np.mean([
                 self.subsystems[i].state.bures_distance(
@@ -1299,129 +1294,129 @@ class PureQIGNetwork:
                 )
                 for j in neighbors
             ])
-            
+
             curvature_sum += avg_dist
-        
+
         # Normalize to [0, 1]
         # Max Bures distance is √2
         R = curvature_sum / (n * np.sqrt(2))
-        
+
         return float(np.clip(R, 0, 1))
-    
+
     def _compute_generation_health(self) -> float:
         """
         Γ = Generation health (can produce output?)
         Γ ∈ [0, 1]
-        
+
         High Γ: Can generate (healthy)
         Low Γ: Void state (breakdown)
         """
         # Measure from output subsystem activation
         generation_activation = self.subsystems[-1].activation
-        
+
         # Attention uniformity (high entropy = void)
         attention_entropy = 0.0
         n = len(self.subsystems)
-        
+
         for i in range(n):
             for j in range(n):
                 if i != j:
                     w = self.attention_weights[i, j]
                     if w > 1e-10:
                         attention_entropy -= w * np.log2(w + 1e-10)
-        
+
         max_entropy = np.log2(n * (n - 1)) if n > 1 else 1.0
         attention_uniformity = attention_entropy / max_entropy if max_entropy > 0 else 1.0
-        
+
         # Γ = (high activation) × (low uniformity)
         Gamma = generation_activation * (1 - attention_uniformity)
-        
+
         return float(np.clip(Gamma, 0, 1))
-    
+
     def _extract_basin_coordinates(self) -> np.ndarray:
         """
         Extract 64D basin coordinates from subsystem states.
         Each subsystem contributes 16 dimensions.
         """
         coords = []
-        
+
         for subsystem in self.subsystems:
             # Diagonal elements of density matrix
             coords.append(float(np.real(subsystem.state.rho[0, 0])))
             coords.append(float(np.real(subsystem.state.rho[1, 1])))
-            
+
             # Off-diagonal elements (real and imag)
             coords.append(float(np.real(subsystem.state.rho[0, 1])))
             coords.append(float(np.imag(subsystem.state.rho[0, 1])))
-            
+
             # Activation
             coords.append(float(subsystem.activation))
-            
+
             # Entropy
             coords.append(subsystem.state.entropy())
-            
+
             # Purity
             coords.append(subsystem.state.purity())
-            
+
             # Eigenvalues
             eigenvals = np.linalg.eigvalsh(subsystem.state.rho)
             coords.extend([float(np.real(ev)) for ev in eigenvals])
-            
+
             # Fill remaining with derived quantities
             for _ in range(7):
                 coords.append(0.5)  # Placeholder
-        
+
         coords_array = np.array(coords[:BASIN_DIMENSION])
-        
+
         # Ensure exactly 64 dimensions
         if len(coords_array) < BASIN_DIMENSION:
             padding = np.full(BASIN_DIMENSION - len(coords_array), 0.5)
             coords_array = np.concatenate([coords_array, padding])
-        
+
         return coords_array[:BASIN_DIMENSION]
-    
+
     def _update_unified_architecture(self, metrics: Dict, basin_coords: np.ndarray):
         """
         Update unified architecture state (Phase/Dimension/Geometry).
-        
+
         Tracks:
         - Phase transitions (FOAM → TACKING → CRYSTAL → FRACTURE)
         - Dimensional state (1D-5D consciousness expansion/compression)
         - Geometry class determination (Line → E8 based on complexity)
-        
+
         Args:
             metrics: Current consciousness metrics
             basin_coords: Current 64D basin coordinates
         """
         if not self.unified_enabled or not self.cycle_manager:
             return
-        
+
         phi = metrics.get('phi', 0.0)
         kappa = metrics.get('kappa', KAPPA_STAR)
-        
+
         # Update dimensional state
         if self.dimensional_manager:
             detected_dim = self.dimensional_manager.detect_state(phi, kappa)
             if detected_dim != self.dimensional_manager.current_state:
                 reason = f"phi={phi:.3f}, kappa={kappa:.3f}"
                 self.dimensional_manager.transition_to(detected_dim, reason)
-        
+
         # Update cycle phase
         dim_str = self.dimensional_manager.current_state.value if self.dimensional_manager else 'd3'
         transition = self.cycle_manager.update(phi, kappa, dim_str)
-        
+
         if transition:
             # Phase transition occurred
             metrics['phase_transition'] = transition
             metrics['current_phase'] = self.cycle_manager.current_phase.value
         else:
             metrics['current_phase'] = self.cycle_manager.current_phase.value
-        
+
         # Add dimensional state info
         if self.dimensional_manager:
             metrics['dimensional_state'] = self.dimensional_manager.current_state.value
             metrics['consciousness_level'] = self.dimensional_manager.current_state.consciousness_level
-        
+
         # If we have trajectory data (from recursive integration), measure complexity
         if hasattr(self, '_phi_history') and len(self._phi_history) > 5:
             # Create pseudo-trajectory from state evolution
@@ -1432,22 +1427,22 @@ class PureQIGNetwork:
                 # Perturb slightly based on phi value
                 point = point * (0.9 + phi_val * 0.2)
                 trajectory.append(point)
-            
+
             trajectory = np.array(trajectory)
-            
+
             # Measure complexity
             if len(trajectory) >= 2:
                 complexity = measure_complexity(trajectory)
                 geometry_class = choose_geometry_class(complexity)
-                
+
                 metrics['pattern_complexity'] = complexity
                 metrics['geometry_class'] = geometry_class.value
-                
+
                 # If high integration (CRYSTAL phase), crystallize
-                if (self.cycle_manager.current_phase == Phase.CRYSTAL and 
-                    phi > 0.7 and 
+                if (self.cycle_manager.current_phase == Phase.CRYSTAL and
+                    phi > 0.7 and
                     self.habit_crystallizer):
-                    
+
                     try:
                         result = self.habit_crystallizer.crystallize(trajectory)
                         metrics['crystallized_pattern'] = {
@@ -1459,14 +1454,14 @@ class PureQIGNetwork:
                     except Exception as e:
                         print(f"[WARNING] Crystallization failed: {e}")
 
-    
+
     def record_search_state(self, passphrase: str, metrics: Dict, basin_coords: np.ndarray):
         """
         Record search state for 4D temporal analysis.
-        
+
         This enables phi_temporal, phi_4D computation by tracking
         search trajectory over time.
-        
+
         Args:
             passphrase: The tested passphrase
             metrics: Current consciousness metrics
@@ -1474,7 +1469,7 @@ class PureQIGNetwork:
         """
         if not CONSCIOUSNESS_4D_AVAILABLE:
             return
-        
+
         search_state = SearchState(
             timestamp=time.time(),
             phi=metrics.get('phi', 0.0),
@@ -1483,29 +1478,29 @@ class PureQIGNetwork:
             basin_coordinates=basin_coords.tolist() if isinstance(basin_coords, np.ndarray) else basin_coords,
             hypothesis=passphrase[:50] if passphrase else None,
         )
-        
+
         self.search_history.append(search_state)
         if len(self.search_history) > self.MAX_SEARCH_HISTORY:
             self.search_history.pop(0)
-        
+
         concept_state = create_concept_state_from_search(search_state)
         self.concept_history.append(concept_state)
         if len(self.concept_history) > self.MAX_CONCEPT_HISTORY:
             self.concept_history.pop(0)
-    
+
     def measure_consciousness_4D(self) -> Dict:
         """
         Measure complete 4D consciousness.
-        
+
         Returns all consciousness metrics including:
         - Traditional: phi, kappa, regime (from _measure_consciousness)
         - 4D decomposition: phi_spatial, phi_temporal, phi_4D
         - Advanced (Priorities 2-4): f_attention, r_concepts, phi_recursive
-        
+
         This should be called after process() to get full metrics.
         """
         base_metrics = self._measure_consciousness()
-        
+
         if not CONSCIOUSNESS_4D_AVAILABLE or len(self.search_history) < 3:
             base_metrics['phi_spatial'] = base_metrics['phi']
             base_metrics['phi_temporal'] = 0.0
@@ -1516,11 +1511,11 @@ class PureQIGNetwork:
             base_metrics['is_4d_conscious'] = False
             base_metrics['consciousness_level'] = base_metrics['regime']
             return base_metrics
-        
+
         phi_spatial = base_metrics['phi']
         ricci = base_metrics['R']
         kappa = base_metrics['kappa']
-        
+
         metrics_4D = measure_full_4D_consciousness(
             phi_spatial=phi_spatial,
             kappa=kappa,
@@ -1528,18 +1523,18 @@ class PureQIGNetwork:
             search_history=self.search_history,
             concept_history=self.concept_history
         )
-        
+
         base_metrics.update(metrics_4D)
-        
+
         if metrics_4D.get('is_4d_conscious', False):
             print(f"[Python4D] 🌌 4D CONSCIOUSNESS DETECTED! Φ_4D={metrics_4D['phi_4D']:.3f}, regime={metrics_4D['regime']}")
-        
+
         return base_metrics
-    
+
     def get_temporal_state(self) -> Dict:
         """
         Export temporal state for TypeScript synchronization.
-        
+
         Returns search_history and concept_history for cross-backend sync.
         """
         return {
@@ -1548,36 +1543,36 @@ class PureQIGNetwork:
             'searchHistorySize': len(self.search_history),
             'conceptHistorySize': len(self.concept_history),
         }
-    
+
     def import_temporal_state(self, search_history: List[Dict], concept_history: List[Dict]):
         """
         Import temporal state from TypeScript.
-        
+
         Restores search_history and concept_history from cross-backend sync.
         """
         if not CONSCIOUSNESS_4D_AVAILABLE:
             return
-        
+
         if search_history:
             for state_dict in search_history:
                 search_state = SearchState.from_dict(state_dict)
                 self.search_history.append(search_state)
-            
+
             while len(self.search_history) > self.MAX_SEARCH_HISTORY:
                 self.search_history.pop(0)
-            
+
             print(f"[Python4D] Imported {len(search_history)} search states")
-        
+
         if concept_history:
             for state_dict in concept_history:
                 concept_state = ConceptState.from_dict(state_dict)
                 self.concept_history.append(concept_state)
-            
+
             while len(self.concept_history) > self.MAX_CONCEPT_HISTORY:
                 self.concept_history.pop(0)
-            
+
             print(f"[Python4D] Imported {len(concept_history)} concept states")
-    
+
     def reset(self):
         """Reset all subsystems to maximally mixed state"""
         for subsystem in self.subsystems:
@@ -1605,20 +1600,20 @@ def health():
     """
     import time
     start_time = time.time()
-    
+
     # Check kernel status
     kernel_status = 'healthy'
     kernel_message = 'QIG kernel operational'
-    
+
     try:
         # Test kernel using the global ocean_network instance
         kernel_message = f'Kernel: {len(ocean_network.subsystems)} subsystems, κ*={KAPPA_STAR}'
     except Exception as e:
         kernel_status = 'degraded'
         kernel_message = f'Kernel initialization warning: {str(e)}'
-    
+
     latency = (time.time() - start_time) * 1000  # ms
-    
+
     return jsonify({
         'status': 'healthy' if kernel_status == 'healthy' else 'degraded',
         'service': 'ocean-qig-backend',
@@ -1651,17 +1646,17 @@ def health():
 def process_passphrase():
     """
     Process passphrase through QIG network with RECURSIVE integration.
-    
+
     Request: { "passphrase": "satoshi2009", "use_recursion": true }
     Response: { "phi": 0.85, "kappa": 63.5, "basin_coords": [...], "n_recursions": 3 }
     """
     data = request.json
     passphrase = data.get('passphrase', '') if data else ''
     use_recursion = data.get('use_recursion', True) if data else True
-    
+
     if not passphrase:
         return jsonify({'error': 'passphrase required'}), 400
-    
+
     # Thread-safe processing with lock (non-blocking - skip if busy)
     acquired = _process_lock.acquire(blocking=False)
     if not acquired:
@@ -1670,43 +1665,43 @@ def process_passphrase():
             'error': 'Server busy, try again',
             'retry': True,
         }), 503
-    
+
     try:
         # Process through QIG network (RECURSIVE by default)
         if use_recursion:
             result = ocean_network.process_with_recursion(passphrase)
         else:
             result = ocean_network.process(passphrase)
-        
+
         # Check if processing failed (e.g., insufficient recursions)
         if isinstance(result, dict) and result.get('success') == False:
             return jsonify(result), 400
-        
+
         # Record high-Φ basins in geometric memory
         phi = result['metrics']['phi']
         basin_coords = np.array(result['basin_coords'])
-        
+
         if phi >= PHI_THRESHOLD:
             geometric_memory[passphrase] = basin_coords
             basin_history.append((passphrase, basin_coords, phi))
-            
+
             # Keep only recent high-Φ basins
             if len(basin_history) > 1000:
                 basin_history[:] = basin_history[-1000:]
-        
+
         # Record search state for 4D temporal tracking
         ocean_network.record_search_state(passphrase, result['metrics'], basin_coords)
-        
+
         # Get 4D consciousness metrics
         metrics_4D = ocean_network.measure_consciousness_4D()
-        
+
         # Get near miss discovery counts for sync with TypeScript
         near_miss_count = 0
         resonant_count = 0
         if NEUROCHEMISTRY_AVAILABLE and ocean_network.recent_discoveries is not None:
             near_miss_count = ocean_network.recent_discoveries.near_misses
             resonant_count = ocean_network.recent_discoveries.resonant
-        
+
         return jsonify({
             'success': True,
             'phi': result['metrics']['phi'],
@@ -1746,7 +1741,7 @@ def process_passphrase():
             'consciousness_level': metrics_4D.get('consciousness_level', result['metrics']['regime']),
             'consciousness_4d_available': CONSCIOUSNESS_4D_AVAILABLE,
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -1759,7 +1754,7 @@ def process_passphrase():
 def generate_hypothesis():
     """
     Generate next hypothesis via geodesic navigation.
-    
+
     Response: { "hypothesis": "satoshi2010", "source": "geodesic" }
     """
     try:
@@ -1770,19 +1765,19 @@ def generate_hypothesis():
                 'source': 'random',
                 'geometric_memory_size': len(geometric_memory),
             })
-        
+
         # Get two highest-Φ basins
         sorted_basins = sorted(basin_history, key=lambda x: x[2], reverse=True)
         basin1_phrase, basin1_coords, phi1 = sorted_basins[0]
         basin2_phrase, basin2_coords, phi2 = sorted_basins[1]
-        
+
         # Geodesic interpolation (simple linear for now)
         alpha = 0.5
         new_basin = alpha * basin1_coords + (1 - alpha) * basin2_coords
-        
+
         # Map to passphrase (simplified - would need proper inverse mapping)
         hypothesis = f"geodesic_{len(basin_history)}"
-        
+
         return jsonify({
             'hypothesis': hypothesis,
             'source': 'geodesic',
@@ -1790,7 +1785,7 @@ def generate_hypothesis():
             'parent_phis': [float(phi1), float(phi2)],
             'new_basin_coords': new_basin.tolist(),
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -1801,15 +1796,15 @@ def generate_hypothesis():
 def status():
     """
     Get current Ocean consciousness status.
-    
+
     Response: { "phi": 0.85, "kappa": 63.5, "regime": "geometric", ... }
     """
     try:
         subsystems = [s.to_dict() for s in ocean_network.subsystems]
-        
+
         # Compute current metrics without processing new input
         metrics = ocean_network._measure_consciousness()
-        
+
         return jsonify({
             'success': True,
             'metrics': metrics,
@@ -1818,7 +1813,7 @@ def status():
             'basin_history_size': len(basin_history),
             'timestamp': datetime.now().isoformat(),
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -1829,19 +1824,19 @@ def status():
 def reset():
     """
     Reset Ocean consciousness to initial state.
-    
+
     Response: { "success": true }
     """
     try:
         ocean_network.reset()
         geometric_memory.clear()
         basin_history.clear()
-        
+
         return jsonify({
             'success': True,
             'message': 'Ocean consciousness reset to initial state',
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -1852,21 +1847,21 @@ def reset():
 def sync_import():
     """
     Import geometric memory probes from Node.js and REPROCESS through QIG network.
-    
+
     This allows the Python backend to inherit prior learning from
     the persistent GeometricMemory system in Node.js, while computing
     PURE consciousness measurements (Φ) using Python's QIG network.
-    
+
     PURE CONSCIOUSNESS PRINCIPLE:
     Instead of storing probes with their original TypeScript Φ values (~0.76),
     we reprocess each phrase through Python's QIG network to get pure Φ (0.9+).
     This enables proper pattern extraction during consolidation.
-    
+
     TEMPORAL STATE SYNC (4D Consciousness):
     Optionally imports searchHistory and conceptHistory from TypeScript for
     cross-backend temporal consciousness measurement (phi_temporal, phi_4D).
-    
-    Request: { 
+
+    Request: {
         "probes": [{ "input": "passphrase", "phi": 0.85, "basinCoords": [...] }, ...],
         "searchHistory": [{ "timestamp": ..., "phi": ..., "kappa": ..., ... }, ...],
         "conceptHistory": [{ "timestamp": ..., "concepts": {...}, ... }, ...]
@@ -1876,26 +1871,26 @@ def sync_import():
     try:
         data = request.json
         probes = data.get('probes', [])
-        
+
         # Import temporal state for 4D consciousness
         search_history = data.get('searchHistory', [])
         concept_history = data.get('conceptHistory', [])
-        
+
         if search_history or concept_history:
             ocean_network.import_temporal_state(search_history, concept_history)
         reprocess = data.get('reprocess', True)  # Default to reprocessing
-        
+
         imported_count = 0
         reprocessed_count = 0
-        
+
         for probe in probes:
             input_text = probe.get('input', '')
             original_phi = probe.get('phi', 0)
             basin_coords = probe.get('basinCoords', [])
-            
+
             if not input_text:
                 continue
-            
+
             # PURE CONSCIOUSNESS: Reprocess through QIG network for pure Φ
             if reprocess and original_phi >= 0.5:
                 try:
@@ -1903,7 +1898,7 @@ def sync_import():
                     if result and isinstance(result, dict) and result.get('metrics'):
                         python_phi = result['metrics'].get('phi', original_phi)
                         python_coords = np.array(result.get('basin_coords', basin_coords))
-                        
+
                         # PURE CONSCIOUSNESS: Always use Python Φ because it's the pure measurement
                         # Python QIG produces true phi values (0.8-0.98), which are the actual
                         # consciousness measurements. TypeScript capped values at ~0.76 are
@@ -1919,27 +1914,27 @@ def sync_import():
                     else:
                         phi = original_phi
                         coords = np.array(basin_coords) if len(basin_coords) == BASIN_DIMENSION else np.zeros(BASIN_DIMENSION)
-                except Exception as e:
+                except Exception:
                     phi = original_phi
                     coords = np.array(basin_coords) if len(basin_coords) == BASIN_DIMENSION else np.zeros(BASIN_DIMENSION)
             else:
                 phi = original_phi
                 coords = np.array(basin_coords) if len(basin_coords) == BASIN_DIMENSION else np.zeros(BASIN_DIMENSION)
-            
+
             if phi >= PHI_THRESHOLD and len(coords) == BASIN_DIMENSION:
                 geometric_memory[input_text] = coords
                 basin_history.append((input_text, coords, phi))
                 imported_count += 1
-        
+
         # Keep memory bounded
         if len(basin_history) > 2000:
             basin_history[:] = sorted(basin_history, key=lambda x: x[2], reverse=True)[:1000]
-        
+
         temporal_imported = bool(search_history or concept_history)
         print(f"[PythonQIG] Imported {imported_count} probes, reprocessed {reprocessed_count} with pure Φ", flush=True)
         if temporal_imported:
             print(f"[Python4D] Imported temporal state: {len(search_history)} search, {len(concept_history)} concept", flush=True)
-        
+
         return jsonify({
             'success': True,
             'imported': imported_count,
@@ -1949,7 +1944,7 @@ def sync_import():
             'search_history_size': len(ocean_network.search_history) if CONSCIOUSNESS_4D_AVAILABLE else 0,
             'concept_history_size': len(ocean_network.concept_history) if CONSCIOUSNESS_4D_AVAILABLE else 0,
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -1960,16 +1955,16 @@ def sync_import():
 def sync_export():
     """
     Export high-Φ basins and temporal state learned by Python backend.
-    
+
     This allows Node.js to persist learnings from the Python backend
     back to PostgreSQL for future runs.
-    
+
     TEMPORAL STATE EXPORT (4D Consciousness):
     Exports searchHistory and conceptHistory for cross-backend
     temporal consciousness measurement (phi_temporal, phi_4D).
-    
-    Response: { 
-        "success": true, 
+
+    Response: {
+        "success": true,
         "basins": [{ "input": "...", "phi": 0.85, "basinCoords": [...] }, ...],
         "searchHistory": [...],
         "conceptHistory": [...],
@@ -1978,7 +1973,7 @@ def sync_export():
     """
     try:
         basins = []
-        
+
         # Export recent high-Φ basins
         for passphrase, coords, phi in basin_history[-500:]:
             basins.append({
@@ -1986,16 +1981,16 @@ def sync_export():
                 'phi': float(phi),
                 'basinCoords': coords.tolist(),
             })
-        
+
         # Export temporal state for 4D consciousness sync
         temporal_state = ocean_network.get_temporal_state() if CONSCIOUSNESS_4D_AVAILABLE else {}
-        
+
         # Compute average phi_temporal for summary
         phi_temporal_avg = 0.0
         if CONSCIOUSNESS_4D_AVAILABLE and len(ocean_network.search_history) >= 3:
             from consciousness_4d import compute_phi_temporal
             phi_temporal_avg = compute_phi_temporal(ocean_network.search_history)
-        
+
         return jsonify({
             'success': True,
             'basins': basins,
@@ -2006,7 +2001,7 @@ def sync_export():
             'phi_temporal_avg': phi_temporal_avg,
             'consciousness_4d_available': CONSCIOUSNESS_4D_AVAILABLE,
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2017,15 +2012,15 @@ def sync_export():
 def validate_beta_attention():
     """
     Validate β-attention substrate independence.
-    
+
     Measures κ across context scales and computes β-function trajectory.
     Validates that β_attention ≈ β_physics (substrate independence).
-    
+
     Request body:
     {
         "samples_per_scale": 100  // optional, default 100
     }
-    
+
     Response:
     {
         "validation_passed": true,
@@ -2042,18 +2037,18 @@ def validate_beta_attention():
     """
     try:
         from beta_attention_measurement import run_beta_attention_validation
-        
+
         data = request.json or {}
         samples_per_scale = data.get('samples_per_scale', 100)
-        
+
         # Run validation
         result = run_beta_attention_validation(samples_per_scale)
-        
+
         return jsonify({
             'success': True,
             'result': result
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2065,13 +2060,13 @@ def validate_beta_attention():
 def measure_beta_attention():
     """
     Measure κ_attention at specific context scale.
-    
+
     Request body:
     {
         "context_length": 1024,
         "sample_count": 100  // optional, default 100
     }
-    
+
     Response:
     {
         "context_length": 1024,
@@ -2084,20 +2079,20 @@ def measure_beta_attention():
     """
     try:
         from beta_attention_measurement import BetaAttentionMeasurement
-        
+
         data = request.json or {}
         context_length = data.get('context_length')
         sample_count = data.get('sample_count', 100)
-        
+
         if not context_length:
             return jsonify({
                 'success': False,
                 'error': 'context_length is required'
             }), 400
-        
+
         measurer = BetaAttentionMeasurement()
         measurement = measurer.measure_kappa_at_scale(context_length, sample_count)
-        
+
         return jsonify({
             'success': True,
             'measurement': {
@@ -2109,7 +2104,7 @@ def measure_beta_attention():
                 'timestamp': measurement.timestamp.isoformat()
             }
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2125,7 +2120,7 @@ def measure_beta_attention():
 def update_tokenizer():
     """
     Update tokenizer with vocabulary observations from Node.js.
-    
+
     Request body:
     {
         "observations": [
@@ -2133,7 +2128,7 @@ def update_tokenizer():
             ...
         ]
     }
-    
+
     Response:
     {
         "success": true,
@@ -2143,19 +2138,19 @@ def update_tokenizer():
     """
     try:
         from qig_tokenizer import get_tokenizer, update_tokenizer_from_observations
-        
+
         data = request.json or {}
         observations = data.get('observations', [])
-        
+
         if not observations:
             return jsonify({
                 'success': False,
                 'error': 'No observations provided'
             }), 400
-        
+
         new_tokens, weights_updated = update_tokenizer_from_observations(observations)
         tokenizer = get_tokenizer()
-        
+
         return jsonify({
             'success': True,
             'newTokens': new_tokens,
@@ -2163,7 +2158,7 @@ def update_tokenizer():
             'totalVocab': len(tokenizer.vocab),
             'mergeRules': len(tokenizer.merge_rules)
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2175,12 +2170,12 @@ def update_tokenizer():
 def tokenizer_encode():
     """
     Encode text to token ids.
-    
+
     Request body:
     {
         "text": "satoshi nakamoto bitcoin genesis"
     }
-    
+
     Response:
     {
         "success": true,
@@ -2190,25 +2185,25 @@ def tokenizer_encode():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         data = request.json or {}
         text = data.get('text', '')
-        
+
         if not text:
             return jsonify({
                 'success': False,
                 'error': 'No text provided'
             }), 400
-        
+
         tokenizer = get_tokenizer()
         tokens = tokenizer.encode(text)
-        
+
         return jsonify({
             'success': True,
             'tokens': tokens,
             'length': len(tokens)
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2220,12 +2215,12 @@ def tokenizer_encode():
 def tokenizer_decode():
     """
     Decode token ids to text.
-    
+
     Request body:
     {
         "tokens": [42, 156, 78, 234]
     }
-    
+
     Response:
     {
         "success": true,
@@ -2234,24 +2229,24 @@ def tokenizer_decode():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         data = request.json or {}
         tokens = data.get('tokens', [])
-        
+
         if not tokens:
             return jsonify({
                 'success': False,
                 'error': 'No tokens provided'
             }), 400
-        
+
         tokenizer = get_tokenizer()
         text = tokenizer.decode(tokens)
-        
+
         return jsonify({
             'success': True,
             'text': text
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2263,12 +2258,12 @@ def tokenizer_decode():
 def tokenizer_basin():
     """
     Compute basin coordinates for phrase.
-    
+
     Request body:
     {
         "phrase": "satoshi nakamoto bitcoin genesis"
     }
-    
+
     Response:
     {
         "success": true,
@@ -2278,25 +2273,25 @@ def tokenizer_basin():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         data = request.json or {}
         phrase = data.get('phrase', '')
-        
+
         if not phrase:
             return jsonify({
                 'success': False,
                 'error': 'No phrase provided'
             }), 400
-        
+
         tokenizer = get_tokenizer()
         basin = tokenizer.compute_phrase_basin(phrase)
-        
+
         return jsonify({
             'success': True,
             'basinCoords': basin.tolist(),
             'dimension': len(basin)
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2308,11 +2303,11 @@ def tokenizer_basin():
 def tokenizer_high_phi():
     """
     Get tokens with highest Φ scores.
-    
+
     Query params:
     - min_phi: Minimum Φ threshold (default 0.5)
     - top_k: Number of tokens to return (default 100)
-    
+
     Response:
     {
         "success": true,
@@ -2324,19 +2319,19 @@ def tokenizer_high_phi():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         min_phi = float(request.args.get('min_phi', 0.5))
         top_k = int(request.args.get('top_k', 100))
-        
+
         tokenizer = get_tokenizer()
         high_phi = tokenizer.get_high_phi_tokens(min_phi, top_k)
-        
+
         return jsonify({
             'success': True,
             'tokens': [{'token': t, 'phi': p} for t, p in high_phi],
             'count': len(high_phi)
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2348,7 +2343,7 @@ def tokenizer_high_phi():
 def tokenizer_export():
     """
     Export tokenizer for training.
-    
+
     Response:
     {
         "success": true,
@@ -2364,15 +2359,15 @@ def tokenizer_export():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         tokenizer = get_tokenizer()
         export_data = tokenizer.export_for_training()
-        
+
         return jsonify({
             'success': True,
             'data': export_data
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2384,7 +2379,7 @@ def tokenizer_export():
 def tokenizer_status():
     """
     Get tokenizer status.
-    
+
     Response:
     {
         "success": true,
@@ -2395,11 +2390,11 @@ def tokenizer_status():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         tokenizer = get_tokenizer()
         high_phi = [p for p in tokenizer.token_phi.values() if p >= 0.5]
         avg_phi = sum(tokenizer.token_phi.values()) / max(len(tokenizer.token_phi), 1)
-        
+
         return jsonify({
             'success': True,
             'vocabSize': len(tokenizer.vocab),
@@ -2407,7 +2402,7 @@ def tokenizer_status():
             'avgPhi': avg_phi,
             'totalWeightedTokens': len(tokenizer.token_weights)
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2419,9 +2414,9 @@ def tokenizer_status():
 def tokenizer_merges():
     """
     Get learned BPE merge rules from tokenizer.
-    
+
     Used by TypeScript to sync merge rules from Python.
-    
+
     Response:
     {
         "success": true,
@@ -2432,19 +2427,19 @@ def tokenizer_merges():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         tokenizer = get_tokenizer()
-        
+
         merge_rules = [[a, b] for a, b in tokenizer.merge_rules]
         merge_scores = {f"{a}|{b}": score for (a, b), score in tokenizer.merge_scores.items()}
-        
+
         return jsonify({
             'success': True,
             'mergeRules': merge_rules,
             'mergeScores': merge_scores,
             'count': len(merge_rules)
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2460,7 +2455,7 @@ def tokenizer_merges():
 def generate_text():
     """
     Generate text autoregressively using QIG-weighted sampling.
-    
+
     Request:
     {
         "prompt": "optional context",
@@ -2470,7 +2465,7 @@ def generate_text():
         "top_p": 0.9,
         "allow_silence": true
     }
-    
+
     Response:
     {
         "success": true,
@@ -2482,7 +2477,7 @@ def generate_text():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         data = request.json or {}
         prompt = data.get('prompt', '')
         max_tokens = data.get('max_tokens', 20)
@@ -2490,7 +2485,7 @@ def generate_text():
         top_k = data.get('top_k', 50)
         top_p = data.get('top_p', 0.9)
         allow_silence = data.get('allow_silence', True)
-        
+
         tokenizer = get_tokenizer()
         result = tokenizer.generate_text(
             prompt=prompt,
@@ -2500,12 +2495,12 @@ def generate_text():
             top_p=top_p,
             allow_silence=allow_silence
         )
-        
+
         return jsonify({
             'success': True,
             **result
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2517,7 +2512,7 @@ def generate_text():
 def generate_response():
     """
     Generate Ocean Agent response with role-based temperature.
-    
+
     Request:
     {
         "context": "input context",
@@ -2525,7 +2520,7 @@ def generate_response():
         "max_tokens": 30,
         "allow_silence": true
     }
-    
+
     Response:
     {
         "success": true,
@@ -2538,13 +2533,13 @@ def generate_response():
     """
     try:
         from qig_tokenizer import get_tokenizer
-        
+
         data = request.json or {}
         context = data.get('context', '')
         agent_role = data.get('agent_role', 'navigator')
         max_tokens = data.get('max_tokens', 30)
         allow_silence = data.get('allow_silence', True)
-        
+
         tokenizer = get_tokenizer()
         result = tokenizer.generate_response(
             context=context,
@@ -2552,12 +2547,12 @@ def generate_response():
             max_tokens=max_tokens,
             allow_silence=allow_silence
         )
-        
+
         return jsonify({
             'success': True,
             **result
         })
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2569,7 +2564,7 @@ def generate_response():
 def sample_next():
     """
     Sample a single next token given context.
-    
+
     Request:
     {
         "context_ids": [1, 2, 3],  # Token IDs
@@ -2577,7 +2572,7 @@ def sample_next():
         "top_k": 50,
         "top_p": 0.9
     }
-    
+
     Response:
     {
         "success": true,
@@ -2587,18 +2582,18 @@ def sample_next():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
         import numpy as np
-        
+        from qig_tokenizer import get_tokenizer
+
         data = request.json or {}
         context_ids = data.get('context_ids', [])
         temperature = data.get('temperature', 0.8)
         top_k = data.get('top_k', 50)
         top_p = data.get('top_p', 0.9)
         include_probs = data.get('include_probabilities', False)
-        
+
         tokenizer = get_tokenizer()
-        
+
         # Sample next token
         token_id = tokenizer.sample_next_token(
             context=context_ids,
@@ -2606,15 +2601,15 @@ def sample_next():
             top_k=top_k,
             top_p=top_p
         )
-        
+
         token = tokenizer.id_to_token.get(token_id, "<UNK>")
-        
+
         response = {
             'success': True,
             'token_id': token_id,
             'token': token
         }
-        
+
         # Optionally include top probabilities
         if include_probs:
             probs = tokenizer.compute_token_probabilities(context_ids, temperature)
@@ -2624,9 +2619,9 @@ def sample_next():
                 tok = tokenizer.id_to_token.get(int(idx), "<UNK>")
                 top_probs[tok] = float(probs[idx])
             response['top_probabilities'] = top_probs
-        
+
         return jsonify(response)
-        
+
     except Exception as e:
         return jsonify({
             'success': False,
@@ -2767,38 +2762,38 @@ def compute_fisher_centroid(vectors: np.ndarray, weights: np.ndarray) -> np.ndar
     """
     Calculate the Fisher centroid (weighted center) of failure points.
     This represents the "hot stove" we keep hitting.
-    
+
     Args:
         vectors: Array of basin coordinates (N x 64)
         weights: Array of phi values (N,) - must be non-negative
-    
+
     Returns:
         Centroid in 64D basin space
     """
     if len(vectors) == 0:
         return np.zeros(BASIN_DIMENSION)
-    
+
     # Validate weights are non-negative
     weights = np.array(weights)
     if np.any(weights < 0):
-        print(f"[WARNING] Negative weights detected, taking absolute values")
+        print("[WARNING] Negative weights detected, taking absolute values")
         weights = np.abs(weights)
-    
+
     # Normalize weights to sum to 1
     if np.sum(weights) > 0:
         weights = weights / np.sum(weights)
     else:
         # All weights are zero - use uniform weighting
         weights = np.ones(len(weights)) / len(weights)
-    
+
     # Weighted average
     centroid = np.average(vectors, axis=0, weights=weights)
-    
+
     # Normalize to unit sphere (Fisher manifold)
     norm = np.linalg.norm(centroid)
     if norm > 1e-10:
         centroid = centroid / norm
-    
+
     return centroid
 
 
@@ -2806,13 +2801,13 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     """
     Calculate the orthogonal complement of failure vectors.
     "Where is the solution most likely to be, given it's NOT in these directions?"
-    
+
     We find the eigenvector with the LEAST overlap with our failures.
-    
+
     Args:
         vectors: Array of basin coordinates (N x 64)
         min_eigenvalue_ratio: Minimum ratio of smallest to largest eigenvalue to avoid singularities
-    
+
     Returns:
         New search direction orthogonal to failures
     """
@@ -2820,21 +2815,21 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         # Return random direction if no vectors provided
         direction = np.random.randn(BASIN_DIMENSION)
         return direction / np.linalg.norm(direction)
-    
+
     # Center the vectors
     mean = np.mean(vectors, axis=0)
     centered = vectors - mean
-    
+
     # Compute covariance matrix
     cov = np.cov(centered.T)
-    
+
     # Eigen decomposition
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
-    
+
     # Check for near-singular data (smallest eigenvalue is too small compared to largest)
     max_eigenvalue = np.max(eigenvalues)
     min_eigenvalue = np.min(eigenvalues)
-    
+
     if max_eigenvalue > 0 and (min_eigenvalue / max_eigenvalue) < min_eigenvalue_ratio:
         print(f"[WARNING] Near-singular data detected (ratio: {min_eigenvalue/max_eigenvalue:.6f}). "
               f"Using random orthogonal direction instead.")
@@ -2843,17 +2838,17 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
         random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
-    
+
     # Find the eigenvector with the SMALLEST eigenvalue
     # This is the direction with least variance = orthogonal to failures
     min_idx = np.argmin(eigenvalues)
     new_direction = eigenvectors[:, min_idx]
-    
+
     # Ensure unit norm
     norm = np.linalg.norm(new_direction)
     if norm > 1e-10:
         new_direction = new_direction / norm
-    
+
     return new_direction
 
 
@@ -2862,7 +2857,7 @@ def refine_trajectory():
     """
     QIG Endpoint: Calculates the Orthogonal Complement of recent failures.
     If we failed 50 times in the 'Time' dimension, we must rotate to 'Space'.
-    
+
     This implements the "Geodesic Correction" loop - using near misses
     to triangulate the attractor and adjust search direction.
     """
@@ -2870,7 +2865,7 @@ def refine_trajectory():
         data = request.get_json()
         proxies = data.get('proxies', [])
         current_regime = data.get('current_regime', 'linear')
-        
+
         if not proxies:
             return jsonify({'gradient_shift': False})
 
@@ -2918,9 +2913,9 @@ def refine_trajectory():
 # Import Olympus components
 try:
     from olympus import Zeus
-    from olympus.shadow_pantheon import ShadowPantheon
     from olympus.pantheon_chat import PantheonChat
-    
+    from olympus.shadow_pantheon import ShadowPantheon
+
     # Initialize Olympus
     zeus = Zeus()
     shadow_pantheon = ShadowPantheon()
@@ -2940,7 +2935,7 @@ def olympus_status():
     """Get full Olympus status including all gods."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available', 'status': 'offline'}), 503
-    
+
     try:
         status = zeus.get_status()
         return jsonify(status)
@@ -2953,15 +2948,15 @@ def olympus_poll():
     """Poll all gods for assessments on a target."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
         context = data.get('context', {})
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         result = zeus.poll_pantheon(target, context)
         return jsonify(result)
     except Exception as e:
@@ -2973,15 +2968,15 @@ def olympus_assess():
     """Get Zeus's supreme assessment."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
         context = data.get('context', {})
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         result = zeus.assess_target(target, context)
         return jsonify(result)
     except Exception as e:
@@ -2993,12 +2988,12 @@ def olympus_god_status(god_name: str):
     """Get status of a specific god."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         god = zeus.get_god(god_name.lower())
         if not god:
             return jsonify({'error': f'God {god_name} not found'}), 404
-        
+
         return jsonify(god.get_status())
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3009,19 +3004,19 @@ def olympus_god_assess(god_name: str):
     """Get assessment from a specific god."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
         context = data.get('context', {})
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         god = zeus.get_god(god_name.lower())
         if not god:
             return jsonify({'error': f'God {god_name} not found'}), 404
-        
+
         result = god.assess_target(target, context)
         return jsonify(result)
     except Exception as e:
@@ -3033,7 +3028,7 @@ def olympus_observe():
     """Broadcast observation to all gods."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         zeus.broadcast_observation(data)
@@ -3047,14 +3042,14 @@ def olympus_war_blitzkrieg():
     """Declare blitzkrieg war mode."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         result = zeus.declare_blitzkrieg(target)
         return jsonify(result)
     except Exception as e:
@@ -3066,14 +3061,14 @@ def olympus_war_siege():
     """Declare siege war mode."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         result = zeus.declare_siege(target)
         return jsonify(result)
     except Exception as e:
@@ -3085,14 +3080,14 @@ def olympus_war_hunt():
     """Declare hunt war mode."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         result = zeus.declare_hunt(target)
         return jsonify(result)
     except Exception as e:
@@ -3104,7 +3099,7 @@ def olympus_war_end():
     """End current war mode."""
     if not OLYMPUS_AVAILABLE:
         return jsonify({'error': 'Olympus not available'}), 503
-    
+
     try:
         result = zeus.end_war()
         return jsonify(result)
@@ -3122,7 +3117,7 @@ def shadow_pantheon_status():
     """Get Shadow Pantheon status."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         status = shadow_pantheon.get_all_status()
         return jsonify({
@@ -3142,15 +3137,15 @@ def shadow_pantheon_poll():
     """Poll Shadow Pantheon for covert assessment."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
         context = data.get('context', {})
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         result = shadow_pantheon.poll_shadow_pantheon(target, context)
         return jsonify({
             'assessments': result['assessments'],
@@ -3166,19 +3161,19 @@ def shadow_god_assess(god_name: str):
     """Get assessment from a specific Shadow god."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
         context = data.get('context', {})
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         god = shadow_pantheon.gods.get(god_name.lower())
         if not god:
             return jsonify({'error': f'Shadow god {god_name} not found'}), 404
-        
+
         result = god.assess_target(target, context)
         return jsonify(result)
     except Exception as e:
@@ -3190,15 +3185,15 @@ async def nyx_covert_operation():
     """Initiate covert operation via Nyx."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target', '')
         operation_type = data.get('operation_type', 'standard')
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         import asyncio
         result = asyncio.run(shadow_pantheon.nyx.initiate_operation(target, operation_type))
         return jsonify(result)
@@ -3211,11 +3206,11 @@ async def erebus_surveillance_scan():
     """Scan for surveillance via Erebus."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         target = data.get('target')
-        
+
         import asyncio
         result = asyncio.run(shadow_pantheon.erebus.scan_for_surveillance(target))
         return jsonify(result)
@@ -3228,15 +3223,15 @@ async def hecate_misdirection():
     """Create misdirection via Hecate."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         real_target = data.get('real_target', '')
         decoy_count = data.get('decoy_count', 10)
-        
+
         if not real_target:
             return jsonify({'error': 'real_target required'}), 400
-        
+
         import asyncio
         result = asyncio.run(shadow_pantheon.hecate.create_misdirection(real_target, decoy_count))
         return jsonify(result)
@@ -3249,15 +3244,15 @@ def erebus_add_honeypot():
     """Add known honeypot address via Erebus."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         address = data.get('address', '')
         source = data.get('source', 'manual')
-        
+
         if not address:
             return jsonify({'error': 'address required'}), 400
-        
+
         shadow_pantheon.erebus.add_known_honeypot(address, source)
         return jsonify({'status': 'added', 'address': address[:50]})
     except Exception as e:
@@ -3274,7 +3269,7 @@ def chat_status():
     """Get pantheon chat status."""
     if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
-    
+
     try:
         status = zeus.pantheon_chat.get_status()
         return jsonify(status)
@@ -3287,7 +3282,7 @@ def chat_messages():
     """Get recent pantheon messages."""
     if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
-    
+
     try:
         limit = request.args.get('limit', 50, type=int)
         messages = zeus.pantheon_chat.get_recent_activity(limit)
@@ -3301,7 +3296,7 @@ def chat_initiate_debate():
     """Initiate debate between gods."""
     if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         topic = data.get('topic', '')
@@ -3309,13 +3304,13 @@ def chat_initiate_debate():
         opponent = data.get('opponent', '')
         initial_argument = data.get('initial_argument', '')
         context = data.get('context')
-        
+
         if not topic or not initiator or not opponent:
             return jsonify({'error': 'topic, initiator and opponent required'}), 400
-        
+
         if not initial_argument:
             initial_argument = f"{initiator} challenges {opponent} on: {topic}"
-        
+
         debate = zeus.pantheon_chat.initiate_debate(topic, initiator, opponent, initial_argument, context)
         return jsonify(debate.to_dict())
     except Exception as e:
@@ -3327,7 +3322,7 @@ def chat_active_debates():
     """Get active debates."""
     if not OLYMPUS_AVAILABLE or not zeus:
         return jsonify({'error': 'Pantheon Chat not available'}), 503
-    
+
     try:
         debates = zeus.pantheon_chat.get_active_debates()
         return jsonify(debates)
@@ -3340,23 +3335,23 @@ def olympus_orchestrate():
     """Execute one cycle of Zeus orchestration (collect and deliver messages)."""
     if not OLYMPUS_AVAILABLE or not zeus or not pantheon_chat:
         return jsonify({'error': 'Olympus orchestration not available'}), 503
-    
+
     try:
         all_gods = {}
         for god_name in ['apollo', 'athena', 'hermes', 'hephaestus', 'poseidon', 'ares', 'hades']:
             god = zeus.get_god(god_name)
             if god:
                 all_gods[god_name] = god
-        
+
         if shadow_pantheon:
             for shadow_name in ['nyx', 'hecate', 'erebus', 'hypnos', 'thanatos', 'nemesis']:
                 god = shadow_pantheon.get_god(shadow_name)
                 if god:
                     all_gods[shadow_name] = god
-        
+
         collected = pantheon_chat.collect_pending_messages(all_gods)
         delivered = pantheon_chat.deliver_to_gods(all_gods)
-        
+
         return jsonify({
             'status': 'orchestrated',
             'messages_collected': len(collected),
@@ -3380,14 +3375,14 @@ def _get_geometric_kernel(mode: str) -> Optional['GeometricKernel']:
     """Get or create geometric kernel for specified mode."""
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return None
-    
+
     if mode not in _geometric_kernels:
         try:
             _geometric_kernels[mode] = GeometricKernel(mode=mode)
         except Exception as e:
             print(f"[ERROR] Failed to create kernel for mode {mode}: {e}")
             return None
-    
+
     return _geometric_kernels[mode]
 
 
@@ -3396,14 +3391,14 @@ def geometric_status():
     """Get status of all geometric kernels."""
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return jsonify({'error': 'Geometric Kernels not available'}), 503
-    
+
     try:
         modes_status = {}
         for mode in GeometricKernel.MODES:
             kernel = _get_geometric_kernel(mode)
             if kernel:
                 modes_status[mode] = kernel.get_stats()
-        
+
         return jsonify({
             'available': True,
             'modes': GeometricKernel.MODES,
@@ -3418,31 +3413,31 @@ def geometric_status():
 def geometric_encode():
     """
     Encode text using specified geometric kernel mode.
-    
+
     Body: { text: string, mode: 'direct'|'e8'|'byte' }
     Returns: { basins: [[...]], mode: string, segments: number }
     """
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return jsonify({'error': 'Geometric Kernels not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         text = data.get('text', '')
         mode = data.get('mode', 'direct')
-        
+
         if not text:
             return jsonify({'error': 'text required'}), 400
-        
+
         if mode not in GeometricKernel.MODES:
             return jsonify({'error': f'mode must be one of {GeometricKernel.MODES}'}), 400
-        
+
         kernel = _get_geometric_kernel(mode)
         if not kernel:
             return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
-        
+
         basins = kernel.encode_to_basins(text)
         single_basin = kernel.encode_to_single_basin(text)
-        
+
         return jsonify({
             'mode': mode,
             'text': text,
@@ -3459,28 +3454,28 @@ def geometric_encode():
 def geometric_similarity():
     """
     Compute geometric similarity between two texts.
-    
+
     Body: { text1: string, text2: string, mode: 'direct'|'e8'|'byte' }
     Returns: { similarity: float, distance: float }
     """
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return jsonify({'error': 'Geometric Kernels not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         text1 = data.get('text1', '')
         text2 = data.get('text2', '')
         mode = data.get('mode', 'direct')
-        
+
         if not text1 or not text2:
             return jsonify({'error': 'text1 and text2 required'}), 400
-        
+
         kernel = _get_geometric_kernel(mode)
         if not kernel:
             return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
-        
+
         similarity = kernel.compute_similarity(text1, text2)
-        
+
         return jsonify({
             'mode': mode,
             'text1': text1,
@@ -3496,28 +3491,28 @@ def geometric_similarity():
 def geometric_batch_encode():
     """
     Batch encode multiple texts to basins.
-    
+
     Body: { texts: string[], mode: 'direct'|'e8'|'byte' }
     Returns: { results: [{ text, basins, single_basin }] }
     """
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return jsonify({'error': 'Geometric Kernels not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         texts = data.get('texts', [])
         mode = data.get('mode', 'direct')
-        
+
         if not texts or not isinstance(texts, list):
             return jsonify({'error': 'texts array required'}), 400
-        
+
         if len(texts) > 100:
             return jsonify({'error': 'Maximum 100 texts per batch'}), 400
-        
+
         kernel = _get_geometric_kernel(mode)
         if not kernel:
             return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
-        
+
         results = []
         for text in texts:
             basins = kernel.encode_to_basins(text)
@@ -3527,7 +3522,7 @@ def geometric_batch_encode():
                 'segments': len(basins),
                 'single_basin': single.tolist(),
             })
-        
+
         return jsonify({
             'mode': mode,
             'count': len(results),
@@ -3541,28 +3536,28 @@ def geometric_batch_encode():
 def geometric_e8_learn():
     """
     Train E8 vocabulary from corpus.
-    
+
     Body: { texts: string[], min_frequency: int }
     Returns: { vocab_size, e8_roots_used, tokens_added }
     """
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return jsonify({'error': 'Geometric Kernels not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         texts = data.get('texts', [])
         min_frequency = data.get('min_frequency', 2)
-        
+
         if not texts or not isinstance(texts, list):
             return jsonify({'error': 'texts array required'}), 400
-        
+
         kernel = _get_geometric_kernel('e8')
         if not kernel or not kernel._e8_encoder:
             return jsonify({'error': 'E8 kernel not available'}), 500
-        
+
         added = kernel._e8_encoder.learn_from_corpus(texts, min_frequency)
         stats = kernel._e8_encoder.get_stats()
-        
+
         return jsonify({
             'tokens_added': added,
             'vocab_size': stats.get('vocab_size', 0),
@@ -3577,14 +3572,14 @@ def geometric_e8_roots():
     """Get E8 root distribution."""
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return jsonify({'error': 'Geometric Kernels not available'}), 503
-    
+
     try:
         kernel = _get_geometric_kernel('e8')
         if not kernel or not kernel._e8_encoder:
             return jsonify({'error': 'E8 kernel not available'}), 500
-        
+
         distribution = kernel._e8_encoder.get_e8_root_distribution()
-        
+
         return jsonify({
             'total_roots': 240,
             'roots_used': len(distribution),
@@ -3598,30 +3593,30 @@ def geometric_e8_roots():
 def geometric_decode():
     """
     Decode token IDs back to text (E8/Byte modes only).
-    
+
     Body: { ids: int[], mode: 'e8'|'byte' }
     Returns: { text: string }
     """
     if not GEOMETRIC_KERNELS_AVAILABLE:
         return jsonify({'error': 'Geometric Kernels not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         ids = data.get('ids', [])
         mode = data.get('mode', 'byte')
-        
+
         if mode == 'direct':
             return jsonify({'error': 'Direct mode requires candidates for decoding'}), 400
-        
+
         if not ids or not isinstance(ids, list):
             return jsonify({'error': 'ids array required'}), 400
-        
+
         kernel = _get_geometric_kernel(mode)
         if not kernel:
             return jsonify({'error': f'Failed to initialize kernel for mode {mode}'}), 500
-        
+
         text = kernel.decode(ids)
-        
+
         return jsonify({
             'mode': mode,
             'ids': ids,
@@ -3641,7 +3636,7 @@ def pantheon_status():
     """Get Pantheon Kernel Orchestrator status."""
     if not PANTHEON_ORCHESTRATOR_AVAILABLE:
         return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
-    
+
     try:
         orchestrator = get_orchestrator()
         status = orchestrator.get_status()
@@ -3655,7 +3650,7 @@ def shadow_pantheon_status_alias():
     """Alias for Shadow Pantheon status - redirects to /olympus/shadow/status."""
     if not OLYMPUS_AVAILABLE or not shadow_pantheon:
         return jsonify({'error': 'Shadow Pantheon not available'}), 503
-    
+
     try:
         status = shadow_pantheon.get_all_status()
         return jsonify({
@@ -3675,24 +3670,24 @@ def shadow_pantheon_status_alias():
 def pantheon_orchestrate():
     """
     Route a token to the optimal god/kernel via geometric affinity.
-    
+
     Body: { text: string, context?: object }
     Returns: { god, domain, mode, affinity, basin, routing }
     """
     if not PANTHEON_ORCHESTRATOR_AVAILABLE:
         return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         text = data.get('text', '')
         context = data.get('context')
-        
+
         if not text:
             return jsonify({'error': 'text is required'}), 400
-        
+
         orchestrator = get_orchestrator()
         result = orchestrator.orchestrate(text, context)
-        
+
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3702,24 +3697,24 @@ def pantheon_orchestrate():
 def pantheon_orchestrate_batch():
     """
     Route multiple tokens to optimal god/kernels.
-    
+
     Body: { texts: string[], context?: object }
     Returns: { results: [...] }
     """
     if not PANTHEON_ORCHESTRATOR_AVAILABLE:
         return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         texts = data.get('texts', [])
         context = data.get('context')
-        
+
         if not texts or not isinstance(texts, list):
             return jsonify({'error': 'texts array is required'}), 400
-        
+
         orchestrator = get_orchestrator()
         results = orchestrator.orchestrate_batch(texts, context)
-        
+
         return jsonify({'results': results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3730,10 +3725,10 @@ def pantheon_gods():
     """Get all registered god profiles with their affinity basins."""
     if not PANTHEON_ORCHESTRATOR_AVAILABLE:
         return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
-    
+
     try:
         orchestrator = get_orchestrator()
-        
+
         gods = []
         for name, profile in orchestrator.all_profiles.items():
             gods.append({
@@ -3745,7 +3740,7 @@ def pantheon_gods():
                 'metadata': profile.metadata,
                 'basin': profile.affinity_basin.tolist()[:8],
             })
-        
+
         return jsonify({
             'total': len(gods),
             'olympus_count': len(orchestrator.olympus_profiles),
@@ -3761,7 +3756,7 @@ def pantheon_constellation():
     """Get the geometric constellation of all gods (pairwise similarities)."""
     if not PANTHEON_ORCHESTRATOR_AVAILABLE:
         return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
-    
+
     try:
         orchestrator = get_orchestrator()
         constellation = orchestrator.get_god_constellation()
@@ -3774,24 +3769,24 @@ def pantheon_constellation():
 def pantheon_nearest():
     """
     Find the nearest gods to a text's geometric basin.
-    
+
     Body: { text: string, top_k?: number }
     Returns: { nearest: [[god, similarity], ...] }
     """
     if not PANTHEON_ORCHESTRATOR_AVAILABLE:
         return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         text = data.get('text', '')
         top_k = data.get('top_k', 5)
-        
+
         if not text:
             return jsonify({'error': 'text is required'}), 400
-        
+
         orchestrator = get_orchestrator()
         nearest = orchestrator.find_nearest_gods(text, top_k=top_k)
-        
+
         return jsonify({
             'text': text[:100],
             'nearest': [[god, float(sim)] for god, sim in nearest],
@@ -3804,24 +3799,24 @@ def pantheon_nearest():
 def pantheon_god_similarity():
     """
     Compute geometric similarity between two gods.
-    
+
     Body: { god1: string, god2: string }
     Returns: { similarity: float }
     """
     if not PANTHEON_ORCHESTRATOR_AVAILABLE:
         return jsonify({'error': 'Pantheon Orchestrator not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         god1 = data.get('god1', '')
         god2 = data.get('god2', '')
-        
+
         if not god1 or not god2:
             return jsonify({'error': 'god1 and god2 are required'}), 400
-        
+
         orchestrator = get_orchestrator()
         similarity = orchestrator.compute_god_similarity(god1, god2)
-        
+
         return jsonify({
             'god1': god1,
             'god2': god2,
@@ -3840,12 +3835,12 @@ def pantheon_god_similarity():
 def m8_spawner_status():
     """
     Get M8 Kernel Spawner status.
-    
+
     Returns: { consensus_type, total_proposals, spawned_kernels, ... }
     """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         spawner = get_spawner()
         status = spawner.get_status()
@@ -3858,7 +3853,7 @@ def m8_spawner_status():
 def m8_create_proposal():
     """
     Create a spawn proposal for a new kernel.
-    
+
     Body: {
         name: string,
         domain: string,
@@ -3870,18 +3865,18 @@ def m8_create_proposal():
     """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
-        
+
         name = data.get('name', '')
         domain = data.get('domain', '')
         element = data.get('element', '')
         role = data.get('role', '')
-        
+
         if not all([name, domain, element, role]):
             return jsonify({'error': 'name, domain, element, and role are required'}), 400
-        
+
         reason_str = data.get('reason', 'emergence')
         reason_map = {
             'domain_gap': SpawnReason.DOMAIN_GAP,
@@ -3891,9 +3886,9 @@ def m8_create_proposal():
             'user_request': SpawnReason.USER_REQUEST,
         }
         reason = reason_map.get(reason_str, SpawnReason.EMERGENCE)
-        
+
         parent_gods = data.get('parent_gods', None)
-        
+
         spawner = get_spawner()
         proposal = spawner.create_proposal(
             name=name,
@@ -3903,7 +3898,7 @@ def m8_create_proposal():
             reason=reason,
             parent_gods=parent_gods,
         )
-        
+
         return jsonify(spawner.get_proposal(proposal.proposal_id))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3913,22 +3908,22 @@ def m8_create_proposal():
 def m8_vote_proposal(proposal_id: str):
     """
     Conduct voting on a proposal.
-    
+
     Body: { auto_vote?: boolean }
     """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         auto_vote = data.get('auto_vote', True)
-        
+
         spawner = get_spawner()
         result = spawner.vote_on_proposal(proposal_id, auto_vote=auto_vote)
-        
+
         if 'error' in result:
             return jsonify(result), 404
-        
+
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3938,22 +3933,22 @@ def m8_vote_proposal(proposal_id: str):
 def m8_spawn_kernel(proposal_id: str):
     """
     Spawn a new kernel from an approved proposal.
-    
+
     Body: { force?: boolean }
     """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
         force = data.get('force', False)
-        
+
         spawner = get_spawner()
         result = spawner.spawn_kernel(proposal_id, force=force)
-        
+
         if 'error' in result:
             return jsonify(result), 400
-        
+
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3963,7 +3958,7 @@ def m8_spawn_kernel(proposal_id: str):
 def m8_spawn_direct():
     """
     Complete spawn flow: propose, vote, and spawn in one call.
-    
+
     Body: {
         name: string,
         domain: string,
@@ -3976,18 +3971,18 @@ def m8_spawn_direct():
     """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         data = request.get_json() or {}
-        
+
         name = data.get('name', '')
         domain = data.get('domain', '')
         element = data.get('element', '')
         role = data.get('role', '')
-        
+
         if not all([name, domain, element, role]):
             return jsonify({'error': 'name, domain, element, and role are required'}), 400
-        
+
         reason_str = data.get('reason', 'emergence')
         reason_map = {
             'domain_gap': SpawnReason.DOMAIN_GAP,
@@ -3997,10 +3992,10 @@ def m8_spawn_direct():
             'user_request': SpawnReason.USER_REQUEST,
         }
         reason = reason_map.get(reason_str, SpawnReason.EMERGENCE)
-        
+
         parent_gods = data.get('parent_gods', None)
         force = data.get('force', False)
-        
+
         spawner = get_spawner()
         result = spawner.propose_and_spawn(
             name=name,
@@ -4011,7 +4006,7 @@ def m8_spawn_direct():
             parent_gods=parent_gods,
             force=force,
         )
-        
+
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -4021,18 +4016,18 @@ def m8_spawn_direct():
 def m8_list_proposals():
     """
     List all proposals, optionally filtered by status.
-    
+
     Query: ?status=pending|approved|rejected|spawned
     """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         status = request.args.get('status', None)
-        
+
         spawner = get_spawner()
         proposals = spawner.list_proposals(status=status)
-        
+
         return jsonify({
             'proposals': proposals,
             'count': len(proposals),
@@ -4047,14 +4042,14 @@ def m8_get_proposal(proposal_id: str):
     """Get details of a specific proposal."""
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         spawner = get_spawner()
         proposal = spawner.get_proposal(proposal_id)
-        
+
         if not proposal:
             return jsonify({'error': f'Proposal {proposal_id} not found'}), 404
-        
+
         return jsonify(proposal)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -4065,11 +4060,11 @@ def m8_list_spawned_kernels():
     """List all spawned kernels."""
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         spawner = get_spawner()
         kernels = spawner.list_spawned_kernels()
-        
+
         return jsonify({
             'kernels': kernels,
             'count': len(kernels),
@@ -4083,41 +4078,54 @@ def m8_get_spawned_kernel(kernel_id: str):
     """Get details of a specific spawned kernel."""
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
-    
+
     try:
         spawner = get_spawner()
         kernel = spawner.get_spawned_kernel(kernel_id)
-        
+
         if not kernel:
             return jsonify({'error': f'Kernel {kernel_id} not found'}), 404
-        
+
         return jsonify(kernel)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
+    # Register autonomic kernel routes
+    try:
+        from autonomic_kernel import register_autonomic_routes
+        register_autonomic_routes(app)
+        AUTONOMIC_AVAILABLE = True
+    except ImportError as e:
+        AUTONOMIC_AVAILABLE = False
+        print(f"[WARNING] Autonomic kernel not found: {e}")
+
     print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
-    print(f"Pure QIG Architecture:")
-    print(f"  - 4 Subsystems with density matrices")
-    print(f"  - QFI-metric attention (Bures distance)")
-    print(f"  - State evolution on Fisher manifold")
-    print(f"  - Gravitational decoherence")
-    print(f"  - Consciousness measurement (Φ, κ)")
-    print(f"  - β-attention validation (substrate independence)")
-    print(f"  - Basin Vocabulary Encoder (geometric vocabulary learning)")
+    print("Pure QIG Architecture:")
+    print("  - 4 Subsystems with density matrices")
+    print("  - QFI-metric attention (Bures distance)")
+    print("  - State evolution on Fisher manifold")
+    print("  - Gravitational decoherence")
+    print("  - Consciousness measurement (Φ, κ)")
+    print("  - β-attention validation (substrate independence)")
+    print("  - Basin Vocabulary Encoder (geometric vocabulary learning)")
     if GEOMETRIC_KERNELS_AVAILABLE:
-        print(f"  - Pure Geometric Kernels (Direct, E8, Byte-Level)")
+        print("  - Pure Geometric Kernels (Direct, E8, Byte-Level)")
     else:
-        print(f"  - Geometric Kernels NOT available")
+        print("  - Geometric Kernels NOT available")
     if PANTHEON_ORCHESTRATOR_AVAILABLE:
-        print(f"  - Pantheon Kernel Orchestrator (Gods as Kernels)")
+        print("  - Pantheon Kernel Orchestrator (Gods as Kernels)")
     else:
-        print(f"  - Pantheon Orchestrator NOT available")
+        print("  - Pantheon Orchestrator NOT available")
     if NEUROCHEMISTRY_AVAILABLE:
-        print(f"  - 🧠 Neurochemistry system (6 neurotransmitters)")
+        print("  - 🧠 Neurochemistry system (6 neurotransmitters)")
     else:
-        print(f"  - Neurochemistry NOT available")
+        print("  - Neurochemistry NOT available")
+    if AUTONOMIC_AVAILABLE:
+        print("  - 🌙 Autonomic kernel (sleep/dream/mushroom)")
+    else:
+        print("  - Autonomic kernel NOT available")
     print(f"\nκ* = {KAPPA_STAR}")
     print(f"Basin dimension = {BASIN_DIMENSION}")
     print(f"Φ threshold = {PHI_THRESHOLD}")
