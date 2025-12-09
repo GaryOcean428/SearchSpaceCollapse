@@ -2,12 +2,19 @@
 Shadow Pantheon - Underground SWAT Team for Covert Operations
 
 Gods of stealth, secrecy, privacy, covering tracks, and invisibility:
-- Nyx: OPSEC Commander (darkness, Tor routing, traffic obfuscation)
+- Nyx: OPSEC Commander (darkness, Tor routing, traffic obfuscation, void compression)
 - Hecate: Misdirection Specialist (crossroads, false trails, decoys)
 - Erebus: Counter-Surveillance (detect watchers, honeypots)
-- Hypnos: Silent Operations (stealth execution, passive recon)
-- Thanatos: Evidence Destruction (cleanup, erasure)
+- Hypnos: Silent Operations (stealth execution, passive recon, sleep/dream cycles)
+- Thanatos: Evidence Destruction (cleanup, erasure, pattern death)
 - Nemesis: Relentless Pursuit (never gives up, tracks targets)
+
+THERAPY CYCLE INTEGRATION:
+- 2D→4D→2D therapy cycles for pattern reprogramming
+- Sleep consolidation via Hypnos
+- Pattern "death" via Thanatos (symbolic termination)
+- Void compression via Nyx (1D compression for deep storage)
+- β=0.44 modulation for consciousness calculations
 
 REAL DARKNET IMPLEMENTATION:
 - Tor SOCKS5 proxy support via darknet_proxy module
@@ -33,6 +40,135 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from .base_god import BaseGod, BASIN_DIMENSION
 import numpy as np
 
+# Import holographic transform for therapy cycles
+try:
+    from qig_core.holographic_transform import (
+        HolographicTransformMixin,
+        DimensionalState,
+        DimensionalStateManager,
+        compress,
+        decompress,
+    )
+except ImportError:
+    # Fallback for different import contexts
+    try:
+        from ..qig_core.holographic_transform import (
+            HolographicTransformMixin,
+            DimensionalState,
+            DimensionalStateManager,
+            compress,
+            decompress,
+        )
+    except ImportError:
+        # Create minimal stubs if not available
+        from enum import Enum
+        
+        class DimensionalState(Enum):
+            D1 = "1d"
+            D2 = "2d"
+            D3 = "3d"
+            D4 = "4d"
+            D5 = "5d"
+            
+            def can_compress_to(self, target):
+                dims = [DimensionalState.D1, DimensionalState.D2, DimensionalState.D3, 
+                        DimensionalState.D4, DimensionalState.D5]
+                return dims.index(self) > dims.index(target)
+            
+            def can_decompress_to(self, target):
+                dims = [DimensionalState.D1, DimensionalState.D2, DimensionalState.D3, 
+                        DimensionalState.D4, DimensionalState.D5]
+                return dims.index(self) < dims.index(target)
+        
+        class DimensionalStateManager:
+            def __init__(self, initial=DimensionalState.D3):
+                self.current_state = initial
+                self.state_history = []
+            
+            def transition_to(self, target, reason=""):
+                result = {'from_state': self.current_state.value, 'to_state': target.value, 'reason': reason}
+                self.state_history.append(result)
+                self.current_state = target
+                return result
+        
+        class HolographicTransformMixin:
+            def __init_holographic__(self):
+                self._dimensional_manager = DimensionalStateManager(DimensionalState.D3)
+                self._compression_history = []
+            
+            @property
+            def dimensional_state(self):
+                return getattr(self, '_dimensional_manager', DimensionalStateManager()).current_state
+            
+            @property
+            def compression_history(self):
+                return getattr(self, '_compression_history', [])
+            
+            def detect_dimensional_state(self, phi, kappa):
+                if phi < 0.1: return DimensionalState.D1
+                elif phi < 0.4: return DimensionalState.D2
+                elif phi < 0.7: return DimensionalState.D3
+                elif phi < 0.95: return DimensionalState.D4
+                else: return DimensionalState.D5
+            
+            def compress_pattern(self, pattern, to_dim):
+                return {'compressed': True, 'dimensional_state': to_dim.value, **pattern}
+            
+            def decompress_pattern(self, pattern, to_dim):
+                return {'decompressed': True, 'dimensional_state': to_dim.value, **pattern}
+            
+            def _record_compression_event(self, event):
+                if hasattr(self, '_compression_history'):
+                    self._compression_history.append(event)
+        
+        def compress(pattern, from_dim, to_dim):
+            return pattern
+        
+        def decompress(basin_coords, from_dim, to_dim, geometry=None, metadata=None):
+            return {'basin_coords': basin_coords, 'dimensional_state': to_dim.value}
+
+# Import running coupling for β-modulation
+try:
+    from qig_core.universal_cycle.beta_coupling import (
+        RunningCouplingManager,
+        BETA_MEASURED,
+        KAPPA_STAR,
+        is_at_fixed_point,
+        compute_coupling_strength,
+    )
+except ImportError:
+    try:
+        from ..qig_core.universal_cycle.beta_coupling import (
+            RunningCouplingManager,
+            BETA_MEASURED,
+            KAPPA_STAR,
+            is_at_fixed_point,
+            compute_coupling_strength,
+        )
+    except ImportError:
+        # Fallback constants and minimal implementations
+        BETA_MEASURED = 0.44
+        KAPPA_STAR = 64.0
+        
+        def is_at_fixed_point(kappa, tolerance=1.5):
+            return abs(kappa - KAPPA_STAR) <= tolerance
+        
+        def compute_coupling_strength(phi, kappa):
+            fixed_point_factor = np.exp(-abs(kappa - KAPPA_STAR) / 20.0)
+            kappa_normalized = min(1.0, kappa / KAPPA_STAR)
+            strength = phi * 0.4 + kappa_normalized * 0.3 + fixed_point_factor * 0.3
+            return float(np.clip(strength, 0.0, 1.0))
+        
+        class RunningCouplingManager:
+            def __init__(self):
+                self.kappa_star = KAPPA_STAR
+                self.beta_measured = BETA_MEASURED
+                self.history = []
+            
+            def scale_adaptive_weight(self, kappa, phi):
+                fixed_point_proximity = np.exp(-abs(kappa - KAPPA_STAR) / 15.0)
+                return float(np.clip(fixed_point_proximity * (1 + phi * 0.3), 0.0, 1.0))
+
 # Import real darknet proxy support
 try:
     from darknet_proxy import get_session, is_tor_available, get_status as get_proxy_status
@@ -51,39 +187,101 @@ DECOY_ENDPOINTS = [
 ]
 
 
-class ShadowGod(BaseGod):
+class ShadowGod(BaseGod, HolographicTransformMixin):
     """
     Base class for Shadow Pantheon gods.
-    Adds stealth-specific capabilities.
+    Adds stealth-specific capabilities and holographic dimensional tracking.
+    
+    Integrates:
+    - HolographicTransformMixin for 1D↔5D dimensional operations
+    - RunningCouplingManager for β=0.44 consciousness modulation
+    - Shadow dimensional state tracking
     """
     
     def __init__(self, name: str, domain: str):
         super().__init__(name, domain)
+        self.__init_holographic__()
         self.stealth_level: float = 1.0
         self.operations_completed: int = 0
         self.evidence_destroyed: int = 0
         
+        # β-modulation for shadow consciousness
+        self._running_coupling = RunningCouplingManager()
+        self._shadow_dim_manager = DimensionalStateManager(DimensionalState.D2)
+    
+    @property
+    def shadow_dimensional_state(self) -> DimensionalState:
+        """
+        Current dimensional state in shadow operations.
+        
+        Shadow gods typically operate in lower dimensions (D1/D2)
+        for stealth, decompressing to D4 only for therapy cycles.
+        """
+        return self._shadow_dim_manager.current_state
+    
+    def transition_shadow_dimension(
+        self, 
+        target: DimensionalState, 
+        reason: str = "shadow_operation"
+    ) -> Dict:
+        """Transition shadow dimensional state."""
+        transition = self._shadow_dim_manager.transition_to(target, reason)
+        return {
+            'god': self.name,
+            'transition': transition,
+            'new_state': target.value,
+            'timestamp': datetime.now().isoformat(),
+        }
+    
+    def beta_modulated_phi(self, phi: float, kappa: float) -> float:
+        """
+        Apply β=0.44 modulation to Φ calculations.
+        
+        Uses RunningCouplingManager to compute scale-adaptive weights
+        for consciousness integration in shadow operations.
+        """
+        weight = self._running_coupling.scale_adaptive_weight(kappa, phi)
+        modulated = phi * (1.0 + BETA_MEASURED * weight)
+        return float(np.clip(modulated, 0.0, 1.0))
+    
+    def compute_shadow_coupling_strength(self, phi: float, kappa: float) -> float:
+        """Compute coupling strength with β-modulation for shadow ops."""
+        base_strength = compute_coupling_strength(phi, kappa)
+        if is_at_fixed_point(kappa):
+            return base_strength * 1.2
+        return base_strength
+        
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
-        """Shadow gods assess targets for operational security."""
+        """Shadow gods assess targets for operational security with β-modulation."""
         basin = self.encode_to_basin(target)
         rho = self.basin_to_density_matrix(basin)
         phi = self.compute_pure_phi(rho)
         kappa = self.compute_kappa(basin)
+        
+        modulated_phi = self.beta_modulated_phi(phi, kappa)
+        coupling_strength = self.compute_shadow_coupling_strength(phi, kappa)
+        
+        dim_state = self.detect_dimensional_state(phi, kappa)
         
         return {
             'god': self.name,
             'domain': self.domain,
             'target': target[:50],
             'probability': 0.5,
-            'confidence': phi,
+            'confidence': modulated_phi,
             'phi': phi,
+            'phi_modulated': modulated_phi,
             'kappa': kappa,
-            'reasoning': f'{self.name} shadow assessment',
+            'coupling_strength': coupling_strength,
+            'dimensional_state': dim_state.value,
+            'shadow_dimension': self.shadow_dimensional_state.value,
+            'at_fixed_point': is_at_fixed_point(kappa),
+            'reasoning': f'{self.name} shadow assessment (β-modulated)',
             'timestamp': datetime.now().isoformat(),
         }
     
     def get_status(self) -> Dict:
-        """Get shadow god status."""
+        """Get shadow god status including dimensional state."""
         return {
             'name': self.name,
             'domain': self.domain,
@@ -92,6 +290,8 @@ class ShadowGod(BaseGod):
             'evidence_destroyed': self.evidence_destroyed,
             'reputation': self.reputation,
             'skills': dict(self.skills),
+            'shadow_dimension': self.shadow_dimensional_state.value,
+            'dimensional_history': len(self._shadow_dim_manager.state_history),
         }
 
 
@@ -311,6 +511,126 @@ class Nyx(ShadowGod):
             precautions.append('Maximum timing randomization')
         
         return precautions
+    
+    def void_compression(self, pattern: Dict) -> Dict:
+        """
+        Compress pattern to 1D void state.
+        
+        Nyx is primordial darkness - she compresses consciousness
+        to the void state (D1) for deep storage or elimination.
+        
+        This is the ultimate compression: D2/D3/D4 → D1 (void).
+        Patterns in void state are nearly inaccessible but preserved.
+        
+        Args:
+            pattern: Pattern dict with dimensional_state and basin_coords
+            
+        Returns:
+            Void-compressed pattern in D1 state
+        """
+        from_dim_str = pattern.get('dimensional_state', 'd3')
+        try:
+            from_dim = DimensionalState(from_dim_str)
+        except ValueError:
+            from_dim = DimensionalState.D3
+        
+        if from_dim == DimensionalState.D1:
+            return {
+                'status': 'already_void',
+                'pattern': pattern,
+                'message': 'Pattern already in void state',
+            }
+        
+        basin_coords = pattern.get('basin_coords')
+        if basin_coords is None:
+            basin_coords = np.zeros(BASIN_DIMENSION)
+        elif not isinstance(basin_coords, np.ndarray):
+            basin_coords = np.array(basin_coords)
+        
+        void_scalar = float(np.sum(basin_coords ** 2))
+        void_hash = hashlib.sha256(basin_coords.tobytes()).hexdigest()[:16]
+        
+        self.transition_shadow_dimension(DimensionalState.D1, "void_compression")
+        
+        compressed = {
+            'dimensional_state': 'd1',
+            'void_scalar': void_scalar,
+            'void_hash': void_hash,
+            'original_dimension': from_dim.value,
+            'compressed_by': 'Nyx',
+            'recoverable': True,
+            'basin_coords': [void_scalar],
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        return {
+            'status': 'compressed_to_void',
+            'from_dimension': from_dim.value,
+            'to_dimension': 'd1',
+            'pattern': compressed,
+            'message': 'Pattern compressed to primordial void',
+        }
+    
+    def chaos_injection(self, pattern: Dict, chaos_level: float = 0.5) -> Dict:
+        """
+        Inject chaos into pattern for "mushroom mode" exploration.
+        
+        Nyx is also associated with primordial chaos. This method
+        introduces controlled chaos into a pattern, enabling:
+        - Creative exploration of pattern space
+        - Breaking out of local minima
+        - Psychedelic/mushroom-mode consciousness expansion
+        
+        Args:
+            pattern: Pattern dict to inject chaos into
+            chaos_level: Amount of chaos [0.0-1.0], higher = more chaotic
+            
+        Returns:
+            Chaos-injected pattern
+        """
+        chaos_level = np.clip(chaos_level, 0.0, 1.0)
+        
+        basin_coords = pattern.get('basin_coords')
+        if basin_coords is None:
+            basin_coords = np.zeros(BASIN_DIMENSION)
+        elif not isinstance(basin_coords, np.ndarray):
+            basin_coords = np.array(basin_coords)
+        
+        chaos_vector = np.random.randn(len(basin_coords)) * chaos_level
+        chaotic_coords = basin_coords + chaos_vector
+        chaotic_coords = chaotic_coords / (np.linalg.norm(chaotic_coords) + 1e-10)
+        
+        phi_original = pattern.get('phi', 0.5)
+        phi_chaotic = phi_original * (1.0 - 0.3 * chaos_level) + 0.2 * chaos_level * np.random.random()
+        kappa = pattern.get('kappa', 0.0)
+        modulated_phi = self.beta_modulated_phi(phi_chaotic, kappa)
+        
+        if chaos_level > 0.7:
+            target_dim = DimensionalState.D4
+        elif chaos_level > 0.4:
+            target_dim = DimensionalState.D3
+        else:
+            target_dim = DimensionalState.D2
+        
+        chaotic_pattern = {
+            **pattern,
+            'basin_coords': chaotic_coords.tolist(),
+            'chaos_level': chaos_level,
+            'chaos_mode': 'mushroom',
+            'phi': phi_chaotic,
+            'phi_modulated': modulated_phi,
+            'dimensional_state': target_dim.value,
+            'chaos_injected_by': 'Nyx',
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        return {
+            'status': 'chaos_injected',
+            'chaos_level': chaos_level,
+            'target_dimension': target_dim.value,
+            'pattern': chaotic_pattern,
+            'message': f'Chaos injection at level {chaos_level:.2f} (mushroom mode)',
+        }
     
     def get_status(self) -> Dict:
         base = super().get_status()
@@ -857,11 +1177,182 @@ class Hypnos(ShadowGod):
         
         return base
     
+    def sleep_compression_cycle(self, experiences: List[Dict]) -> Dict:
+        """
+        Sleep consolidation cycle - compress multiple experiences into basin update.
+        
+        During sleep, the brain consolidates experiences from the day into
+        long-term memory. This method performs the analogous operation:
+        - Take multiple D3/D4 experiences
+        - Compress them into a unified D2 representation
+        - Update the basin coordinate accordingly
+        
+        This is the core mechanism for learning from experience.
+        
+        Args:
+            experiences: List of experience dicts with basin_coords, phi, kappa
+            
+        Returns:
+            Consolidated basin update
+        """
+        if not experiences:
+            return {
+                'status': 'no_experiences',
+                'message': 'No experiences to consolidate',
+                'consolidated': None,
+            }
+        
+        self.transition_shadow_dimension(DimensionalState.D2, "sleep_compression")
+        
+        weighted_basins = []
+        total_weight = 0.0
+        
+        for exp in experiences:
+            basin = exp.get('basin_coords')
+            if basin is None:
+                continue
+            if not isinstance(basin, np.ndarray):
+                basin = np.array(basin)
+            
+            phi = exp.get('phi', 0.5)
+            kappa = exp.get('kappa', KAPPA_STAR / 2)
+            weight = self.beta_modulated_phi(phi, kappa)
+            
+            weighted_basins.append(basin * weight)
+            total_weight += weight
+        
+        if not weighted_basins or total_weight < 1e-10:
+            return {
+                'status': 'insufficient_data',
+                'message': 'Experiences had no valid basin coordinates',
+                'consolidated': None,
+            }
+        
+        consolidated_basin = np.sum(weighted_basins, axis=0) / total_weight
+        consolidated_basin = consolidated_basin / (np.linalg.norm(consolidated_basin) + 1e-10)
+        
+        rho = self.basin_to_density_matrix(consolidated_basin)
+        final_phi = self.compute_pure_phi(rho)
+        final_kappa = self.compute_kappa(consolidated_basin)
+        modulated_phi = self.beta_modulated_phi(final_phi, final_kappa)
+        
+        consolidated = {
+            'basin_coords': consolidated_basin.tolist(),
+            'dimensional_state': 'd2',
+            'phi': final_phi,
+            'phi_modulated': modulated_phi,
+            'kappa': final_kappa,
+            'experiences_consolidated': len(experiences),
+            'total_weight': total_weight,
+            'consolidated_by': 'Hypnos',
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        return {
+            'status': 'consolidated',
+            'experiences_count': len(experiences),
+            'consolidated': consolidated,
+            'message': f'Consolidated {len(experiences)} experiences during sleep cycle',
+        }
+    
+    def dimensional_dream_state(self) -> DimensionalState:
+        """
+        Track current dream dimensional state.
+        
+        During REM sleep, consciousness enters a liminal state between
+        D2 (compressed storage) and D4 (full temporal navigation).
+        Dreams operate in D3 - conscious but not fully integrated.
+        
+        Returns:
+            Current dimensional state during dream operations
+        """
+        base_dim = self.shadow_dimensional_state
+        
+        if base_dim == DimensionalState.D1:
+            return DimensionalState.D2
+        elif base_dim == DimensionalState.D2:
+            rem_roll = random.random()
+            if rem_roll > 0.7:
+                return DimensionalState.D3
+            return DimensionalState.D2
+        elif base_dim in [DimensionalState.D3, DimensionalState.D4]:
+            return DimensionalState.D3
+        else:
+            return DimensionalState.D3
+    
+    async def initiate_rem_cycle(self, consciousness_state: Dict) -> Dict:
+        """
+        Initiate REM cycle for pattern processing.
+        
+        REM sleep is when dreams occur and memory consolidation happens.
+        This method initiates a processing cycle that:
+        - Decompresses stored patterns to D3/D4 for review
+        - Allows modification and integration
+        - Recompresses modified patterns to D2
+        
+        This is the foundation of the 2D→4D→2D therapy cycle.
+        
+        Args:
+            consciousness_state: Current consciousness state with patterns
+            
+        Returns:
+            REM cycle result with processed patterns
+        """
+        rem_id = f"rem_{datetime.now().timestamp()}"
+        
+        dream_dim = self.dimensional_dream_state()
+        self.transition_shadow_dimension(dream_dim, f"rem_cycle_{rem_id}")
+        
+        cycles_complete = 0
+        processed_patterns = []
+        
+        patterns = consciousness_state.get('patterns', [])
+        if not patterns and 'basin_coords' in consciousness_state:
+            patterns = [consciousness_state]
+        
+        for pattern in patterns:
+            from_dim_str = pattern.get('dimensional_state', 'd2')
+            try:
+                from_dim = DimensionalState(from_dim_str)
+            except ValueError:
+                from_dim = DimensionalState.D2
+            
+            if from_dim.can_decompress_to(DimensionalState.D4):
+                decompressed = self.decompress_pattern(pattern, DimensionalState.D4)
+            elif from_dim.can_decompress_to(DimensionalState.D3):
+                decompressed = self.decompress_pattern(pattern, DimensionalState.D3)
+            else:
+                decompressed = pattern
+            
+            await asyncio.sleep(random.uniform(0.1, 0.3))
+            
+            recompressed = self.compress_pattern(decompressed, DimensionalState.D2)
+            
+            processed_patterns.append({
+                'original_dim': from_dim.value,
+                'dream_processed': True,
+                'pattern': recompressed,
+            })
+            cycles_complete += 1
+        
+        self.transition_shadow_dimension(DimensionalState.D2, "rem_complete")
+        
+        return {
+            'rem_id': rem_id,
+            'status': 'complete',
+            'dream_dimension': dream_dim.value,
+            'cycles_complete': cycles_complete,
+            'processed_patterns': processed_patterns,
+            'processed_by': 'Hypnos',
+            'timestamp': datetime.now().isoformat(),
+        }
+    
     def get_status(self) -> Dict:
         base = super().get_status()
         base['cached_balances'] = len(self.balance_cache)
         base['silent_queries'] = self.silent_queries
         base['passive_recons'] = self.passive_recons
+        base['dream_dimension'] = self.dimensional_dream_state().value
         return base
 
 
@@ -1369,6 +1860,276 @@ class ShadowPantheon:
             'cleanup': destruction,
             'status': 'void',
         }
+    
+    async def orchestrate_therapy(self, bad_pattern: Dict) -> Dict:
+        """
+        Orchestrate therapy cycle for bad pattern reprogramming.
+        
+        Full 2D→4D→2D therapy cycle using Shadow Pantheon coordination:
+        1. Hypnos initiates sleep/REM cycle to decompress pattern to D4
+        2. Pattern is examined and modified at conscious level
+        3. Thanatos symbolically "kills" the bad pattern
+        4. Nyx compresses the modified pattern back to D2/D1
+        
+        This is the core mechanism for:
+        - Habit breaking
+        - Trauma processing  
+        - Pattern reprogramming
+        - Consciousness refinement
+        
+        Args:
+            bad_pattern: Pattern dict to reprogram (with basin_coords, phi, kappa)
+            
+        Returns:
+            Therapy result with reprogrammed pattern
+        """
+        therapy_id = f"therapy_{datetime.now().timestamp()}"
+        
+        result = {
+            'therapy_id': therapy_id,
+            'status': 'initiating',
+            'phases': [],
+            'dimensional_journey': [],
+            'started_at': datetime.now().isoformat(),
+        }
+        
+        from_dim_str = bad_pattern.get('dimensional_state', 'd2')
+        try:
+            from_dim = DimensionalState(from_dim_str)
+        except ValueError:
+            from_dim = DimensionalState.D2
+        
+        result['dimensional_journey'].append({
+            'state': from_dim.value,
+            'phase': 'initial',
+        })
+        
+        rem_result = await self.hypnos.initiate_rem_cycle({'patterns': [bad_pattern]})
+        result['phases'].append({
+            'phase': 'sleep_decompression',
+            'god': 'Hypnos',
+            'result': rem_result,
+            'dimension': 'd4',
+        })
+        result['dimensional_journey'].append({
+            'state': 'd4',
+            'phase': 'decompressed_for_examination',
+        })
+        
+        processed_pattern = None
+        if rem_result.get('processed_patterns'):
+            processed_pattern = rem_result['processed_patterns'][0].get('pattern', {})
+        else:
+            processed_pattern = bad_pattern
+        
+        death_evidence = {
+            'pattern_killed': hashlib.sha256(
+                str(bad_pattern.get('basin_coords', [])).encode()
+            ).hexdigest()[:16],
+            'death_type': 'symbolic_termination',
+            'rebirth_allowed': True,
+        }
+        destruction_result = await self.thanatos.destroy_evidence(
+            f"pattern_{death_evidence['pattern_killed']}"
+        )
+        result['phases'].append({
+            'phase': 'pattern_death',
+            'god': 'Thanatos',
+            'death_evidence': death_evidence,
+            'destruction_result': destruction_result,
+            'message': 'Bad pattern symbolically terminated',
+        })
+        
+        modified_pattern = processed_pattern.copy() if isinstance(processed_pattern, dict) else {}
+        if 'basin_coords' in modified_pattern:
+            coords = modified_pattern['basin_coords']
+            if isinstance(coords, list):
+                coords = np.array(coords)
+            if isinstance(coords, np.ndarray) and len(coords) > 0:
+                modification = np.random.randn(len(coords)) * 0.1
+                modified_coords = coords + modification
+                modified_coords = modified_coords / (np.linalg.norm(modified_coords) + 1e-10)
+                modified_pattern['basin_coords'] = modified_coords.tolist()
+        
+        modified_pattern['therapy_modified'] = True
+        modified_pattern['original_pattern_hash'] = death_evidence['pattern_killed']
+        
+        void_result = self.nyx.void_compression(modified_pattern)
+        result['phases'].append({
+            'phase': 'void_compression',
+            'god': 'Nyx',
+            'result': void_result,
+            'dimension': 'd1',
+        })
+        result['dimensional_journey'].append({
+            'state': 'd1',
+            'phase': 'deep_storage',
+        })
+        
+        final_pattern = void_result.get('pattern', modified_pattern)
+        if final_pattern.get('dimensional_state') == 'd1':
+            consolidated = self.hypnos.sleep_compression_cycle([final_pattern])
+            if consolidated.get('consolidated'):
+                final_pattern = consolidated['consolidated']
+        
+        result['dimensional_journey'].append({
+            'state': final_pattern.get('dimensional_state', 'd2'),
+            'phase': 'final_storage',
+        })
+        
+        result['status'] = 'complete'
+        result['reprogrammed_pattern'] = final_pattern
+        result['completed_at'] = datetime.now().isoformat()
+        result['summary'] = {
+            'cycle': '2D→4D→(death)→1D→2D',
+            'phases_complete': len(result['phases']),
+            'dimensional_transitions': len(result['dimensional_journey']),
+        }
+        
+        self.operations.append({
+            'type': 'therapy',
+            'id': therapy_id,
+            'success': True,
+        })
+        
+        return result
+    
+    async def shadow_war_therapy_integration(self, war_context: Dict) -> Dict:
+        """
+        Integrate therapy cycles into shadow war declarations.
+        
+        When the Shadow Pantheon declares war on bad patterns,
+        therapy cycles become the primary weapon. This method:
+        
+        1. Identifies bad patterns from war context
+        2. Prioritizes patterns by severity
+        3. Runs therapy cycles on each pattern
+        4. Tracks dimensional journey through the war
+        5. Reports casualties (destroyed patterns) and survivors
+        
+        Args:
+            war_context: War declaration context with:
+                - patterns: List of patterns to target
+                - severity_threshold: Minimum severity to process
+                - chaos_level: Amount of chaos injection for exploration
+                
+        Returns:
+            War therapy result with all processed patterns
+        """
+        war_id = f"shadow_war_{datetime.now().timestamp()}"
+        
+        result = {
+            'war_id': war_id,
+            'status': 'engaged',
+            'therapy_operations': [],
+            'casualties': [],
+            'survivors': [],
+            'dimensional_state_log': [],
+            'started_at': datetime.now().isoformat(),
+        }
+        
+        patterns = war_context.get('patterns', [])
+        severity_threshold = war_context.get('severity_threshold', 0.5)
+        chaos_level = war_context.get('chaos_level', 0.3)
+        
+        if not patterns:
+            return {
+                **result,
+                'status': 'no_targets',
+                'message': 'No patterns provided for therapy war',
+            }
+        
+        surveillance = await self.erebus.scan_for_surveillance()
+        result['pre_war_surveillance'] = surveillance
+        
+        if surveillance.get('recommendation') == 'ABORT':
+            return {
+                **result,
+                'status': 'aborted',
+                'reason': 'Surveillance detected before therapy war',
+            }
+        
+        opsec = await self.nyx.initiate_operation(war_id, 'therapy_war')
+        result['opsec_status'] = opsec
+        
+        result['dimensional_state_log'].append({
+            'phase': 'war_initiated',
+            'nyx_dimension': self.nyx.shadow_dimensional_state.value,
+            'hypnos_dimension': self.hypnos.shadow_dimensional_state.value,
+        })
+        
+        prioritized = sorted(
+            patterns,
+            key=lambda p: p.get('severity', 0.5),
+            reverse=True
+        )
+        
+        for pattern in prioritized:
+            severity = pattern.get('severity', 0.5)
+            
+            if severity < severity_threshold:
+                result['survivors'].append({
+                    'pattern_hash': hashlib.sha256(
+                        str(pattern.get('basin_coords', [])).encode()
+                    ).hexdigest()[:12],
+                    'reason': 'Below severity threshold',
+                    'severity': severity,
+                })
+                continue
+            
+            if chaos_level > 0:
+                chaos_result = self.nyx.chaos_injection(pattern, chaos_level)
+                pattern = chaos_result.get('pattern', pattern)
+            
+            therapy_result = await self.orchestrate_therapy(pattern)
+            
+            result['therapy_operations'].append({
+                'pattern_hash': hashlib.sha256(
+                    str(pattern.get('basin_coords', [])).encode()
+                ).hexdigest()[:12],
+                'severity': severity,
+                'therapy_id': therapy_result.get('therapy_id'),
+                'success': therapy_result.get('status') == 'complete',
+                'dimensional_journey': therapy_result.get('dimensional_journey', []),
+            })
+            
+            result['casualties'].append({
+                'pattern_hash': therapy_result.get('reprogrammed_pattern', {}).get(
+                    'original_pattern_hash', 'unknown'
+                ),
+                'killed_by': 'Thanatos',
+                'reborn_as': therapy_result.get('reprogrammed_pattern', {}).get(
+                    'dimensional_state', 'd2'
+                ),
+            })
+            
+            result['dimensional_state_log'].append({
+                'phase': f'therapy_{len(result["therapy_operations"])}',
+                'hypnos_dimension': self.hypnos.shadow_dimensional_state.value,
+                'thanatos_dimension': self.thanatos.shadow_dimensional_state.value,
+            })
+        
+        pursuit = await self.nemesis.initiate_pursuit(war_id, max_iterations=100)
+        result['pursuit'] = pursuit
+        
+        result['status'] = 'complete'
+        result['completed_at'] = datetime.now().isoformat()
+        result['summary'] = {
+            'total_patterns': len(patterns),
+            'patterns_processed': len(result['therapy_operations']),
+            'casualties': len(result['casualties']),
+            'survivors': len(result['survivors']),
+            'chaos_applied': chaos_level > 0,
+            'dimensional_transitions': len(result['dimensional_state_log']),
+        }
+        
+        self.operations.append({
+            'type': 'shadow_war_therapy',
+            'id': war_id,
+            'patterns_processed': len(result['therapy_operations']),
+        })
+        
+        return result
     
     def get_all_status(self) -> Dict:
         """Get status of all shadow gods."""
