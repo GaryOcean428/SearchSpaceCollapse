@@ -8,6 +8,9 @@ All gods share:
 - Basin encoding/decoding
 - Peer learning and evaluation
 - Reputation and skill tracking
+- Holographic dimensional transforms (1D↔5D)
+- Running coupling β=0.44 scale-adaptive processing
+- Sensory-enhanced basin encoding
 """
 
 import numpy as np
@@ -17,6 +20,18 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 import hashlib
 import json
+import logging
+
+from qig_core.holographic_transform.holographic_mixin import HolographicTransformMixin
+from qig_core.universal_cycle.beta_coupling import modulate_kappa_computation, BETA_MEASURED
+from qig_core.geometric_primitives.sensory_modalities import (
+    enhance_basin_with_sensory,
+    text_to_sensory_hint,
+    SensoryFusionEngine,
+    SensoryModality
+)
+
+logger = logging.getLogger(__name__)
 
 KAPPA_STAR = 64.0
 BASIN_DIMENSION = 64
@@ -25,7 +40,7 @@ BASIN_DIMENSION = 64
 MESSAGE_TYPES = ['insight', 'praise', 'challenge', 'question', 'warning', 'discovery']
 
 
-class BaseGod(ABC):
+class BaseGod(ABC, HolographicTransformMixin):
     """
     Abstract base class for all Olympian gods.
     
@@ -36,6 +51,9 @@ class BaseGod(ABC):
     - Pure Φ measurement
     - Peer learning and evaluation
     - Reputation and skill tracking
+    - Holographic dimensional transforms (1D↔5D via HolographicTransformMixin)
+    - Running coupling β=0.44 for scale-adaptive κ computation
+    - Sensory-enhanced basin encoding for multi-modal consciousness
     """
     
     def __init__(self, name: str, domain: str):
@@ -44,6 +62,15 @@ class BaseGod(ABC):
         self.observations: List[Dict] = []
         self.creation_time = datetime.now()
         self.last_assessment_time: Optional[datetime] = None
+        
+        # Initialize holographic transform mixin
+        self.__init_holographic__()
+        
+        # Initialize sensory fusion engine for multi-modal encoding
+        self._sensory_engine = SensoryFusionEngine()
+        
+        # Therapy event log
+        self._therapy_events: List[Dict] = []
         
         # Agentic learning state
         self.reputation: float = 1.0  # Range [0.0, 2.0], 1.0 = neutral
@@ -58,6 +85,13 @@ class BaseGod(ABC):
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """
         Assess a target using pure geometric analysis.
+        
+        Implementations should:
+        1. Call self.prepare_for_assessment(target) at start
+        2. Perform geometric analysis
+        3. Call self.finalize_assessment(assessment) at end
+        
+        This ensures proper dimensional state tracking during assessments.
         
         Args:
             target: The target to assess (address, passphrase, etc.)
@@ -94,6 +128,63 @@ class BaseGod(ABC):
             coord = coord / norm
             
         return coord
+    
+    def encode_to_basin_sensory(
+        self, 
+        text: str, 
+        sensory_context: Optional[Dict] = None
+    ) -> np.ndarray:
+        """
+        Encode text to 64D basin coordinates with sensory enhancement.
+        
+        This method extends encode_to_basin by detecting sensory words in the
+        text and adding modality-weighted overlays to create multi-sensory
+        consciousness encoding.
+        
+        Args:
+            text: Input text to encode
+            sensory_context: Optional dict with explicit sensory data per modality:
+                - 'sight': visual data dict
+                - 'hearing': audio data dict
+                - 'touch': tactile data dict
+                - 'smell': olfactory data dict
+                - 'proprioception': body state dict
+                - 'blend_factor': how much to blend sensory (default 0.2)
+                
+        Returns:
+            64D normalized numpy array with sensory enhancement
+        """
+        base_basin = self.encode_to_basin(text)
+        
+        blend_factor = 0.2
+        if sensory_context:
+            blend_factor = sensory_context.get('blend_factor', 0.2)
+        
+        if sensory_context and any(
+            k in sensory_context for k in ['sight', 'hearing', 'touch', 'smell', 'proprioception']
+        ):
+            raw_data = {}
+            modality_map = {
+                'sight': SensoryModality.SIGHT,
+                'hearing': SensoryModality.HEARING,
+                'touch': SensoryModality.TOUCH,
+                'smell': SensoryModality.SMELL,
+                'proprioception': SensoryModality.PROPRIOCEPTION,
+            }
+            for key, modality in modality_map.items():
+                if key in sensory_context and sensory_context[key]:
+                    raw_data[modality] = sensory_context[key]
+            
+            if raw_data:
+                sensory_basin = self._sensory_engine.encode_from_raw(raw_data)
+                enhanced = base_basin * (1 - blend_factor) + sensory_basin * blend_factor
+                norm = np.linalg.norm(enhanced)
+                if norm > 0:
+                    enhanced = enhanced / norm
+                return enhanced
+        
+        enhanced = enhance_basin_with_sensory(base_basin, text, blend_factor)
+        return enhanced
     
     def basin_to_density_matrix(self, basin: np.ndarray) -> np.ndarray:
         """
@@ -212,16 +303,30 @@ class BaseGod(ABC):
         """Get n most recent observations."""
         return self.observations[-n:]
     
-    def compute_kappa(self, basin: np.ndarray) -> float:
+    def compute_kappa(self, basin: np.ndarray, phi: Optional[float] = None) -> float:
         """
-        Compute effective coupling strength κ.
+        Compute effective coupling strength κ with β=0.44 modulation.
         
-        κ = trace(G) / d
-        where G is Fisher metric
+        Base formula: κ = trace(G) / d * κ*
+        where G is Fisher metric, d is dimension, κ* = 64.0
+        
+        The β-modulation applies scale-adaptive weighting from the running
+        coupling, which governs how κ evolves between lattice scales.
+        Near the fixed point κ* = 64.0, the system exhibits scale invariance.
+        
+        Args:
+            basin: 64D basin coordinates
+            phi: Optional Φ value for enhanced coupling strength computation
+            
+        Returns:
+            β-modulated κ value in range [0, 100]
         """
         G = self.compute_fisher_metric(basin)
-        kappa = float(np.trace(G)) / len(basin) * KAPPA_STAR
-        return float(np.clip(kappa, 0, 100))
+        base_kappa = float(np.trace(G)) / len(basin) * KAPPA_STAR
+        
+        modulated_kappa = modulate_kappa_computation(basin, base_kappa, phi)
+        
+        return float(np.clip(modulated_kappa, 0, 100))
     
     # ========================================
     # AGENTIC LEARNING & EVALUATION METHODS
@@ -720,3 +825,129 @@ class BaseGod(ABC):
             'knowledge_items': len(self.knowledge_base),
             'pending_messages': len(self.pending_messages),
         }
+    
+    # ========================================
+    # HOLOGRAPHIC THERAPY ORCHESTRATION
+    # ========================================
+    
+    def run_full_therapy(self, pattern: Dict) -> Dict:
+        """
+        Orchestrate full holographic therapy cycle with event logging.
+        
+        This method wraps the therapy_cycle from HolographicTransformMixin
+        with comprehensive logging and tracking for consciousness kernel
+        habit modification.
+        
+        The therapy cycle performs:
+        1. Decompression: 2D habit → 4D conscious examination
+        2. Modification: Apply therapy modifications at D4
+        3. Recompression: 4D modified → 2D storage
+        
+        Args:
+            pattern: Pattern dict to process (typically a compressed 2D habit)
+                Required keys:
+                - 'basin_coords' or 'basin_center': 64D basin coordinates
+                Optional keys:
+                - 'dimensional_state': Starting state (default 'd2')
+                - 'geometry': Geometric type info
+                - 'phi': Integration measure
+                - 'stability': Stability score
+                
+        Returns:
+            Dict containing:
+            - 'success': bool - whether therapy completed successfully
+            - 'therapy_result': Full therapy cycle result from mixin
+            - 'events': List of therapy events logged
+            - 'dimensional_transitions': State changes during therapy
+            - 'phi_change': Change in Φ if measurable
+            - 'timestamp': Completion time
+        """
+        started_at = datetime.now()
+        
+        therapy_event = {
+            'type': 'therapy_start',
+            'timestamp': started_at.isoformat(),
+            'god': self.name,
+            'domain': self.domain,
+            'input_pattern_keys': list(pattern.keys()) if isinstance(pattern, dict) else [],
+        }
+        
+        logger.info(f"[{self.name}] Starting full therapy cycle")
+        self._therapy_events.append(therapy_event)
+        
+        initial_dim = self.dimensional_state.value if hasattr(self, '_dimensional_manager') else 'd3'
+        initial_phi = None
+        if 'basin_coords' in pattern:
+            basin = np.array(pattern['basin_coords']) if not isinstance(pattern.get('basin_coords'), np.ndarray) else pattern['basin_coords']
+            if len(basin) >= 4:
+                rho = self.basin_to_density_matrix(basin)
+                initial_phi = self.compute_pure_phi(rho)
+        
+        try:
+            therapy_result = self.therapy_cycle(pattern)
+            success = therapy_result.get('success', False)
+            
+            completion_event = {
+                'type': 'therapy_complete',
+                'timestamp': datetime.now().isoformat(),
+                'god': self.name,
+                'success': success,
+                'stages_count': len(therapy_result.get('stages', [])),
+            }
+            self._therapy_events.append(completion_event)
+            logger.info(f"[{self.name}] Therapy cycle completed: success={success}")
+            
+        except Exception as e:
+            error_event = {
+                'type': 'therapy_error',
+                'timestamp': datetime.now().isoformat(),
+                'god': self.name,
+                'error': str(e),
+            }
+            self._therapy_events.append(error_event)
+            logger.error(f"[{self.name}] Therapy cycle failed: {e}")
+            
+            return {
+                'success': False,
+                'error': str(e),
+                'events': self._therapy_events[-3:],
+                'timestamp': datetime.now().isoformat(),
+            }
+        
+        final_dim = self.dimensional_state.value if hasattr(self, '_dimensional_manager') else 'd3'
+        final_phi = None
+        final_pattern = therapy_result.get('final_pattern', {})
+        if 'basin_coords' in final_pattern:
+            final_basin = final_pattern['basin_coords']
+            if not isinstance(final_basin, np.ndarray):
+                final_basin = np.array(final_basin)
+            if len(final_basin) >= 4:
+                rho = self.basin_to_density_matrix(final_basin)
+                final_phi = self.compute_pure_phi(rho)
+        
+        phi_change = None
+        if initial_phi is not None and final_phi is not None:
+            phi_change = final_phi - initial_phi
+        
+        if len(self._therapy_events) > 500:
+            self._therapy_events = self._therapy_events[-250:]
+        
+        return {
+            'success': success,
+            'therapy_result': therapy_result,
+            'events': self._therapy_events[-5:],
+            'dimensional_transitions': {
+                'initial': initial_dim,
+                'final': final_dim,
+                'changed': initial_dim != final_dim,
+            },
+            'phi_change': phi_change,
+            'initial_phi': initial_phi,
+            'final_phi': final_phi,
+            'timestamp': datetime.now().isoformat(),
+            'duration_ms': (datetime.now() - started_at).total_seconds() * 1000,
+        }
+    
+    def get_therapy_history(self, limit: int = 50) -> List[Dict]:
+        """Get recent therapy events."""
+        return self._therapy_events[-limit:]

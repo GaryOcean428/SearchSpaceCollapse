@@ -9,7 +9,7 @@ In the TACKING phase:
 - Complexity emerges during navigation
 """
 
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Callable
 import numpy as np
 from .foam_phase import Bubble
 
@@ -67,7 +67,7 @@ class TackingPhase:
     def navigate(
         self,
         bubbles: List[Bubble],
-        target_fn: Optional[callable] = None
+        target_fn: Optional[Callable] = None
     ) -> Dict[str, Any]:
         """
         Navigate through bubble space, forming connections.
@@ -136,7 +136,7 @@ class TackingPhase:
     def navigate_toward(
         self,
         bubbles: List[Bubble],
-        target_fn: callable
+        target_fn: Callable
     ) -> List[Bubble]:
         """
         Navigate toward bubbles that satisfy target function.
