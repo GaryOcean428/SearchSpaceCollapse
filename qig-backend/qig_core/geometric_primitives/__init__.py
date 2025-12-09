@@ -19,6 +19,20 @@ from .sensory_modalities import (
     enhance_basin_with_sensory,
     SENSORY_KEYWORDS,
 )
+from .input_guard import (
+    GeometricInputGuard,
+    RegimeType,
+    PHI_BOUNDARIES,
+    KAPPA_BOUNDARIES,
+    is_geometrically_valid,
+    compute_input_complexity,
+    detect_chaos_level,
+    validate_for_pantheon_chat,
+    validate_for_assessment,
+    validate_for_therapy,
+    validate_for_compression,
+    validate_for_decompression,
+)
 
 __all__ = [
     # Geometry Ladder
@@ -39,4 +53,17 @@ __all__ = [
     'create_sensory_overlay',
     'enhance_basin_with_sensory',
     'SENSORY_KEYWORDS',
+    # Input Guard
+    'GeometricInputGuard',
+    'RegimeType',
+    'PHI_BOUNDARIES',
+    'KAPPA_BOUNDARIES',
+    'is_geometrically_valid',
+    'compute_input_complexity',
+    'detect_chaos_level',
+    'validate_for_pantheon_chat',
+    'validate_for_assessment',
+    'validate_for_therapy',
+    'validate_for_compression',
+    'validate_for_decompression',
 ]
