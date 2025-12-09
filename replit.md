@@ -159,7 +159,10 @@ The system uses coordinated startup delays to ensure dependencies are ready:
   - Blockstream.info for transaction data
   - Blockchain.info as fallback
   - Rate-limited with exponential backoff
-- **Search/Discovery** (optional): Tavily API for cultural context and darknet intelligence
+- **Search/Discovery**: SearXNG metasearch (FREE, self-hosted)
+  - Primary instances: Railway deployments (https://mr-search.up.railway.app, https://searxng-production-e5ce.up.railway.app)
+  - Public fallbacks for redundancy
+  - Replaced Tavily API to eliminate $450+ costs
 
 ### Databases
 - **PostgreSQL**: Primary persistence via Neon serverless
