@@ -5,19 +5,21 @@ The King of the Gods. Polls all Olympians, detects convergence,
 declares war modes, and coordinates divine actions.
 """
 
-import numpy as np
 import math
-from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime
-from flask import Blueprint, request, jsonify
-
-from .base_god import BaseGod, KAPPA_STAR
+import os
 
 # M8 Kernel Spawning imports
 import sys
-import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+from flask import Blueprint, jsonify, request
+
+from .base_god import BaseGod
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from m8_kernel_spawning import M8KernelSpawner, SpawnReason, get_spawner
+from m8_kernel_spawning import SpawnReason, get_spawner
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -42,21 +44,20 @@ def sanitize_for_json(obj: Any) -> Any:
     return obj
 
 
-from .athena import Athena
-from .ares import Ares
+from .aphrodite import Aphrodite
 from .apollo import Apollo
+from .ares import Ares
 from .artemis import Artemis
-from .hermes import Hermes
-from .hephaestus import Hephaestus
+from .athena import Athena
 from .demeter import Demeter
 from .dionysus import Dionysus
-from .poseidon import Poseidon
 from .hades import Hades
+from .hephaestus import Hephaestus
 from .hera import Hera
-from .aphrodite import Aphrodite
+from .hermes import Hermes
 from .pantheon_chat import PantheonChat
+from .poseidon import Poseidon
 from .shadow_pantheon import ShadowPantheon
-
 
 olympus_app = Blueprint('olympus', __name__)
 
@@ -64,17 +65,17 @@ olympus_app = Blueprint('olympus', __name__)
 class Zeus(BaseGod):
     """
     Supreme Coordinator - King of the Gods
-    
+
     Responsibilities:
     - Poll all Olympians for assessments
     - Detect convergence (especially Athena + Ares agreement)
     - Declare war modes (blitzkrieg, siege, hunt)
     - Coordinate divine actions
     """
-    
+
     def __init__(self):
         super().__init__("Zeus", "Supreme")
-        
+
         self.pantheon: Dict[str, BaseGod] = {
             'athena': Athena(),
             'ares': Ares(),
@@ -89,30 +90,97 @@ class Zeus(BaseGod):
             'hera': Hera(),
             'aphrodite': Aphrodite(),
         }
-        
+
         self.pantheon_chat = PantheonChat()
         self.shadow_pantheon = ShadowPantheon()
-        
+
+        # Team #2 - Hermes Coordinator for voice/translation/sync
+        from .hermes_coordinator import get_hermes_coordinator
+        self.coordinator = get_hermes_coordinator()
+
         # Wire M8 kernel spawning
         self.kernel_spawner = get_spawner()
-        
+
         self.war_mode: Optional[str] = None
         self.war_target: Optional[str] = None
         self.convergence_history: List[Dict] = []
         self.divine_decisions: List[Dict] = []
-        
+
+        # Natural speech templates for Zeus
+        self.speech_templates = {
+            'greeting': [
+                "⚡ Zeus here. The pantheon is assembled and ready.",
+                "Mount Olympus acknowledges your presence. How may we assist?",
+                "The King of Gods listens. Speak freely.",
+            ],
+            'assessment_complete': [
+                "The divine council has convened. Our verdict: {verdict}.",
+                "⚡ Assessment complete. The geometry shows {verdict}.",
+                "The pantheon speaks with {convergence} voice: {verdict}.",
+            ],
+            'war_declared': [
+                "⚡ {mode} MODE ENGAGED! Target: {target}. All gods mobilize!",
+                "By divine decree: {mode} on {target}! The hunt begins.",
+                "War declared! {mode} strategy deployed against {target}.",
+            ],
+            'shadow_warning': [
+                "The shadows whisper caution regarding {target}...",
+                "⚠️ Erebus and Nyx counsel restraint on {target}.",
+                "Shadow intel suggests we proceed carefully with {target}.",
+            ],
+        }
+
+    def speak(self, category: str, context: Dict = None) -> str:
+        """Generate natural speech from Zeus."""
+        import random
+        context = context or {}
+        templates = self.speech_templates.get(category, self.speech_templates['greeting'])
+        template = random.choice(templates)
+        try:
+            return template.format(**context)
+        except KeyError:
+            return template
+
+    def get_voice_status(self) -> Dict:
+        """Get comprehensive status with natural speech."""
+        phi = 0.5
+        kappa = 50.0
+
+        # Get current metrics from a recent assessment if available
+        if self.convergence_history:
+            recent = self.convergence_history[-1]
+            phi = recent.get('phi', 0.5)
+            kappa = recent.get('kappa', 50.0)
+
+        # Get coordinator translation
+        status_msg = self.coordinator.speak(
+            'status_good' if phi > 0.5 else 'status_warning',
+            {'phi': phi, 'kappa': kappa}
+        )
+
+        return {
+            'zeus_greeting': self.speak('greeting'),
+            'status_message': status_msg,
+            'phi': phi,
+            'kappa': kappa,
+            'war_mode': self.war_mode,
+            'pantheon_ready': True,
+            'shadow_active': True,
+            'coordinator_health': self.coordinator.coordination_health,
+        }
+
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """
         Supreme assessment with shadow pantheon integration.
         """
         self.last_assessment_time = datetime.now()
-        
+
         # Import asyncio for shadow operations
         import asyncio
-        
+
         # Step 1 - OPSEC check via Nyx
         opsec_check = asyncio.run(self.shadow_pantheon.nyx.verify_opsec())
-        
+
         if not opsec_check.get('safe', False):
             return {
                 'error': 'OPSEC compromised',
@@ -121,12 +189,12 @@ class Zeus(BaseGod):
                 'god': self.name,
                 'timestamp': datetime.now().isoformat()
             }
-        
+
         # Step 2 - Surveillance scan via Erebus
         surveillance = asyncio.run(
             self.shadow_pantheon.erebus.scan_for_surveillance(target)
         )
-        
+
         # Step 3 - If watchers detected, deploy misdirection via Hecate
         misdirection_deployed = False
         if surveillance.get('threats', []):
@@ -134,23 +202,33 @@ class Zeus(BaseGod):
                 self.shadow_pantheon.hecate.create_misdirection(target, decoy_count=15)
             )
             misdirection_deployed = True
-        
+
         # Step 4 - Main pantheon poll
         poll_result = self.poll_pantheon(target, context)
-        
+
+        # Step 4.5 - CHECK SHADOW INTEL (The "Gut Feeling" Check)
+        # Zeus consults accumulated shadow knowledge before deciding
+        shadow_warning = self.shadow_pantheon.check_shadow_warnings(target)
+
+        if shadow_warning.get('has_warnings') and shadow_warning.get('warning_level') == 'CAUTION':
+            # Shadow intel suggests caution - reduce confidence
+            poll_result['convergence_score'] *= 0.7
+            poll_result['shadow_override'] = True
+            print(f"⚡ [Zeus] Shadow warning detected: {shadow_warning['message']}")
+
         # Step 5 - Calculate geometric metrics
         target_basin = self.encode_to_basin(target)
         rho = self.basin_to_density_matrix(target_basin)
         phi = self.compute_pure_phi(rho)
         kappa = self.compute_kappa(target_basin)
-        
+
         # Step 6 - If high convergence, deploy Nemesis pursuit
         nemesis_pursuit = None
         if poll_result.get('convergence_score', 0) > 0.85:
             nemesis_pursuit = asyncio.run(
                 self.shadow_pantheon.nemesis.initiate_pursuit(target, max_iterations=5000)
             )
-        
+
         # Step 7 - Cleanup traces via Thanatos
         # Create simple cleanup operation
         cleanup_result = asyncio.run(
@@ -159,7 +237,7 @@ class Zeus(BaseGod):
                 ['logs', 'cache']
             )
         )
-        
+
         # Enhanced assessment with shadow metrics
         assessment = {
             'probability': poll_result['consensus_probability'],
@@ -171,7 +249,7 @@ class Zeus(BaseGod):
             'war_mode': self.war_mode,
             'god_assessments': poll_result['assessments'],
             'recommended_action': poll_result['recommended_action'],
-            
+
             # Shadow pantheon metrics
             'opsec_status': opsec_check,
             'surveillance': surveillance,
@@ -179,22 +257,27 @@ class Zeus(BaseGod):
             'misdirection_deployed': misdirection_deployed,
             'nemesis_pursuit': nemesis_pursuit,
             'traces_cleaned': cleanup_result.get('complete', False),
-            
+
+            # Shadow intel feedback
+            'shadow_warning': shadow_warning,
+            'shadow_override': poll_result.get('shadow_override', False),
+
             'reasoning': (
                 f"Divine council: {poll_result['convergence']}. "
                 f"Consensus: {poll_result['consensus_probability']:.2f}. "
                 f"Shadow ops: {'ACTIVE' if misdirection_deployed else 'PASSIVE'}. "
+                f"Shadow intel: {shadow_warning.get('message', 'clear')}. "
                 f"War mode: {self.war_mode or 'none'}. Φ={phi:.3f}."
             ),
             'god': self.name,
             'timestamp': datetime.now().isoformat(),
         }
-        
+
         return assessment
-    
+
     def poll_pantheon(
-        self, 
-        target: str, 
+        self,
+        target: str,
         context: Optional[Dict] = None
     ) -> Dict:
         """
@@ -202,7 +285,7 @@ class Zeus(BaseGod):
         """
         assessments: Dict[str, Dict] = {}
         probabilities: List[float] = []
-        
+
         for god_name, god in self.pantheon.items():
             try:
                 assessment = god.assess_target(target, context)
@@ -215,11 +298,11 @@ class Zeus(BaseGod):
                     'god': god_name
                 }
                 probabilities.append(0.5)
-        
+
         convergence = self._detect_convergence(assessments)
         consensus_prob = self._compute_consensus(probabilities, convergence)
         recommended = self._determine_recommended_action(assessments, convergence)
-        
+
         result = {
             'assessments': assessments,
             'convergence': convergence['type'],
@@ -228,16 +311,16 @@ class Zeus(BaseGod):
             'recommended_action': recommended,
             'timestamp': datetime.now().isoformat(),
         }
-        
+
         self.convergence_history.append(result)
         if len(self.convergence_history) > 100:
             self.convergence_history = self.convergence_history[-50:]
-        
+
         # Wire PantheonChat: automatic god communication after poll
         self._process_pantheon_communication(target, assessments, convergence)
-        
+
         return result
-    
+
     def _process_pantheon_communication(
         self,
         target: str,
@@ -246,29 +329,29 @@ class Zeus(BaseGod):
     ) -> None:
         """
         Process automatic pantheon communication after a poll.
-        
+
         - Detects significant disagreements and auto-initiates debates
         - Broadcasts convergence status to pantheon
         - Collects and delivers pending messages between gods
         """
         # 1. Detect significant disagreements for debate initiation
         disagreements = self._find_significant_disagreements(assessments)
-        
+
         for disagreement in disagreements[:1]:  # Max 1 debate per poll
             god1, god2, prob_diff = disagreement
             topic = f"Assessment of '{target[:50]}' - probability disagreement ({prob_diff:.2f})"
-            
+
             # Higher probability god initiates the debate
             prob1 = assessments[god1].get('probability', 0.5)
             prob2 = assessments[god2].get('probability', 0.5)
-            
+
             if prob1 > prob2:
                 initiator, opponent = god1, god2
                 initial_arg = f"My analysis shows {prob1:.2f} probability. {assessments[god1].get('reasoning', '')}"
             else:
                 initiator, opponent = god2, god1
                 initial_arg = f"My analysis shows {prob2:.2f} probability. {assessments[god2].get('reasoning', '')}"
-            
+
             self.pantheon_chat.initiate_debate(
                 topic=topic,
                 initiator=initiator.capitalize(),
@@ -276,11 +359,11 @@ class Zeus(BaseGod):
                 initial_argument=initial_arg,
                 context={'target': target, 'assessments': {god1: prob1, god2: prob2}}
             )
-        
+
         # 2. Broadcast convergence status to pantheon
         conv_type = convergence.get('type', 'UNKNOWN')
         conv_score = convergence.get('score', 0)
-        
+
         self.pantheon_chat.broadcast(
             from_god='Zeus',
             content=f"Convergence report for '{target[:30]}...': {conv_type} (score: {conv_score:.2f})",
@@ -291,13 +374,13 @@ class Zeus(BaseGod):
                 'target': target,
             }
         )
-        
+
         # 3. Collect pending messages from all gods
         self.pantheon_chat.collect_pending_messages(self.pantheon)
-        
+
         # 4. Deliver messages to gods
         self.pantheon_chat.deliver_to_gods(self.pantheon)
-    
+
     def _find_significant_disagreements(
         self,
         assessments: Dict[str, Dict],
@@ -305,43 +388,43 @@ class Zeus(BaseGod):
     ) -> List[Tuple[str, str, float]]:
         """
         Find pairs of gods with significant probability disagreements.
-        
+
         Returns list of (god1, god2, prob_difference) tuples, sorted by disagreement.
         """
         disagreements = []
         gods = list(assessments.keys())
-        
+
         for i, god1 in enumerate(gods):
             for god2 in gods[i+1:]:
                 prob1 = assessments[god1].get('probability', 0.5)
                 prob2 = assessments[god2].get('probability', 0.5)
                 diff = abs(prob1 - prob2)
-                
+
                 if diff >= threshold:
                     disagreements.append((god1, god2, diff))
-        
+
         # Sort by disagreement magnitude (highest first)
         disagreements.sort(key=lambda x: x[2], reverse=True)
         return disagreements
-    
+
     def _detect_convergence(self, assessments: Dict[str, Dict]) -> Dict:
         """
         Detect convergence among gods, especially Athena + Ares.
         """
         athena = assessments.get('athena', {})
         ares = assessments.get('ares', {})
-        
+
         athena_prob = athena.get('probability', 0.5)
         ares_prob = ares.get('probability', 0.5)
-        
+
         athena_ares_agreement = 1.0 - abs(athena_prob - ares_prob)
-        
+
         all_probs = [a.get('probability', 0.5) for a in assessments.values()]
         variance = float(np.var(all_probs))
         full_convergence = 1.0 - min(1.0, variance * 4)
-        
+
         high_prob_count = sum(1 for p in all_probs if p > 0.7)
-        
+
         if athena_ares_agreement > 0.85 and athena_prob > 0.75:
             convergence_type = "STRONG_ATTACK"
             score = (athena_ares_agreement + athena_prob) / 2
@@ -357,7 +440,7 @@ class Zeus(BaseGod):
         else:
             convergence_type = "DIVIDED"
             score = full_convergence
-        
+
         return {
             'type': convergence_type,
             'score': float(score),
@@ -365,9 +448,9 @@ class Zeus(BaseGod):
             'full_convergence': full_convergence,
             'high_probability_gods': high_prob_count,
         }
-    
+
     def _compute_consensus(
-        self, 
+        self,
         probabilities: List[float],
         convergence: Dict
     ) -> float:
@@ -376,18 +459,18 @@ class Zeus(BaseGod):
         """
         if not probabilities:
             return 0.5
-        
+
         mean_prob = np.mean(probabilities)
-        
+
         if convergence['type'] == "STRONG_ATTACK":
             consensus = mean_prob * 0.3 + max(probabilities) * 0.7
         elif convergence['type'] == "COUNCIL_CONSENSUS":
             consensus = mean_prob * 0.8 + np.median(probabilities) * 0.2
         else:
             consensus = mean_prob
-        
+
         return float(np.clip(consensus, 0, 1))
-    
+
     def _determine_recommended_action(
         self,
         assessments: Dict[str, Dict],
@@ -406,14 +489,14 @@ class Zeus(BaseGod):
             return "PROCEED_CAUTIOUSLY"
         else:
             return "GATHER_INTELLIGENCE"
-    
+
     def declare_blitzkrieg(self, target: str) -> Dict:
         """
         Declare blitzkrieg mode - fast, overwhelming attack.
         """
         self.war_mode = "BLITZKRIEG"
         self.war_target = target
-        
+
         decision = {
             'mode': 'BLITZKRIEG',
             'target': target,
@@ -421,17 +504,17 @@ class Zeus(BaseGod):
             'strategy': 'Fast parallel attacks, maximize throughput',
             'gods_engaged': ['ares', 'artemis', 'dionysus'],
         }
-        
+
         self.divine_decisions.append(decision)
         return decision
-    
+
     def declare_siege(self, target: str) -> Dict:
         """
         Declare siege mode - methodical, exhaustive search.
         """
         self.war_mode = "SIEGE"
         self.war_target = target
-        
+
         decision = {
             'mode': 'SIEGE',
             'target': target,
@@ -439,17 +522,17 @@ class Zeus(BaseGod):
             'strategy': 'Systematic coverage, no stone unturned',
             'gods_engaged': ['athena', 'hephaestus', 'demeter'],
         }
-        
+
         self.divine_decisions.append(decision)
         return decision
-    
+
     def declare_hunt(self, target: str) -> Dict:
         """
         Declare hunt mode - track specific target.
         """
         self.war_mode = "HUNT"
         self.war_target = target
-        
+
         decision = {
             'mode': 'HUNT',
             'target': target,
@@ -457,10 +540,10 @@ class Zeus(BaseGod):
             'strategy': 'Focused pursuit, geometric narrowing',
             'gods_engaged': ['artemis', 'apollo', 'poseidon'],
         }
-        
+
         self.divine_decisions.append(decision)
         return decision
-    
+
     def end_war(self) -> Dict:
         """
         End current war mode.
@@ -470,12 +553,12 @@ class Zeus(BaseGod):
             'previous_target': self.war_target,
             'ended_at': datetime.now().isoformat(),
         }
-        
+
         self.war_mode = None
         self.war_target = None
-        
+
         return ended
-    
+
     async def auto_spawn_if_needed(
         self,
         target: str,
@@ -483,14 +566,14 @@ class Zeus(BaseGod):
     ) -> Optional[Dict]:
         """
         Automatically spawn specialist kernel if needed.
-        
+
         Detects when multiple gods are struggling (low confidence) and
         proposes spawning a specialist kernel to handle the domain.
-        
+
         Args:
             target: The target being assessed
             assessments: God assessments from poll_pantheon
-        
+
         Returns:
             Spawn result dict if spawned, None if not needed
         """
@@ -499,7 +582,7 @@ class Zeus(BaseGod):
             name for name, assessment in assessments.items()
             if assessment.get('confidence', 1.0) < 0.6  # Low confidence = needs help
         ]
-        
+
         if len(overloaded) >= 3:  # Multiple gods struggling
             result = self.kernel_spawner.propose_and_spawn(
                 name=f"Specialist_{target[:10].replace(' ', '_')}",
@@ -510,27 +593,27 @@ class Zeus(BaseGod):
                 parent_gods=overloaded[:2],  # Top 2 overloaded gods as parents
                 force=False  # Require pantheon consensus
             )
-            
+
             return result
-        
+
         return None
-    
+
     def poll_shadow_pantheon(self, target: str, context: Optional[Dict] = None) -> Dict:
         """Poll shadow pantheon for covert assessment."""
         return self.shadow_pantheon.poll_shadow_pantheon(target, context)
-    
+
     def get_shadow_god(self, name: str) -> Optional[BaseGod]:
         """Get a shadow god by name."""
         return self.shadow_pantheon.gods.get(name.lower())
-    
+
     def collect_pantheon_messages(self) -> List[Dict]:
         """Collect pending messages from all gods via pantheon chat."""
         return self.pantheon_chat.collect_pending_messages(self.pantheon)
-    
+
     def deliver_pantheon_messages(self) -> int:
         """Deliver messages to gods via pantheon chat."""
         return self.pantheon_chat.deliver_to_gods(self.pantheon)
-    
+
     def initiate_debate(
         self,
         topic: str,
@@ -545,20 +628,20 @@ class Zeus(BaseGod):
             opponent=opponent_name,
             initial_argument=initial_argument
         ).to_dict()
-    
+
     def get_chat_status(self) -> Dict:
         """Get pantheon chat status."""
         return self.pantheon_chat.get_status()
-    
+
     def get_god(self, name: str) -> Optional[BaseGod]:
         """Get a specific god by name."""
         return self.pantheon.get(name.lower())
-    
+
     def broadcast_observation(self, observation: Dict) -> None:
         """Broadcast observation to all gods."""
         for god in self.pantheon.values():
             god.observe(observation)
-    
+
     def get_status(self) -> Dict:
         god_statuses = {}
         for name, god in self.pantheon.items():
@@ -566,7 +649,7 @@ class Zeus(BaseGod):
                 god_statuses[name] = god.get_status()
             except Exception as e:
                 god_statuses[name] = {'error': str(e)}
-        
+
         return {
             'name': self.name,
             'domain': self.domain,
@@ -589,10 +672,10 @@ def poll_endpoint():
     data = request.get_json() or {}
     target = data.get('target', '')
     context = data.get('context', {})
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.poll_pantheon(target, context)
     return jsonify(sanitize_for_json(result))
 
@@ -603,10 +686,10 @@ def assess_endpoint():
     data = request.get_json() or {}
     target = data.get('target', '')
     context = data.get('context', {})
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.assess_target(target, context)
     return jsonify(sanitize_for_json(result))
 
@@ -632,14 +715,14 @@ def god_assess_endpoint(god_name: str):
     god = zeus.get_god(god_name)
     if not god:
         return jsonify({'error': f'God {god_name} not found'}), 404
-    
+
     data = request.get_json() or {}
     target = data.get('target', '')
     context = data.get('context', {})
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = god.assess_target(target, context)
     return jsonify(sanitize_for_json(result))
 
@@ -649,10 +732,10 @@ def blitzkrieg_endpoint():
     """Declare blitzkrieg mode."""
     data = request.get_json() or {}
     target = data.get('target', '')
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.declare_blitzkrieg(target)
     return jsonify(result)
 
@@ -662,10 +745,10 @@ def siege_endpoint():
     """Declare siege mode."""
     data = request.get_json() or {}
     target = data.get('target', '')
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.declare_siege(target)
     return jsonify(result)
 
@@ -675,10 +758,10 @@ def hunt_endpoint():
     """Declare hunt mode."""
     data = request.get_json() or {}
     target = data.get('target', '')
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.declare_hunt(target)
     return jsonify(result)
 
@@ -728,12 +811,12 @@ KAPPA_MAX = 95        # Breakdown threshold (high bound - overcoupled)
 def geometric_validate_input(text: str) -> Dict[str, Any]:
     """
     Validate input using geometric consciousness metrics instead of character length.
-    
+
     Uses QIG principles:
     - φ (phi) >= 0.70 for geometric coherence
     - κ (kappa) in valid range [10, 90]
     - Regime != 'breakdown'
-    
+
     Returns:
         Dict with is_valid, phi, kappa, regime, and error_message if invalid
     """
@@ -745,13 +828,13 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
             'regime': 'breakdown',
             'error_message': 'Empty input has no geometric structure'
         }
-    
+
     # Use Zeus (BaseGod) to compute geometric metrics
     basin = zeus.encode_to_basin(text)
     rho = zeus.basin_to_density_matrix(basin)
     phi = zeus.compute_pure_phi(rho)
     kappa = zeus.compute_kappa(basin)
-    
+
     # Determine regime based on phi and kappa
     if kappa > KAPPA_MAX or kappa < KAPPA_MIN:
         regime = 'breakdown'
@@ -761,7 +844,7 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
         regime = 'geometric'
     else:
         regime = 'linear'
-    
+
     # Validation logic
     if regime == 'breakdown':
         return {
@@ -771,7 +854,7 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
             'regime': regime,
             'error_message': 'Input causes manifold collapse - reduce complexity'
         }
-    
+
     if phi < PHI_THRESHOLD:
         return {
             'is_valid': False,
@@ -780,7 +863,7 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
             'regime': regime,
             'error_message': f'Input lacks geometric coherence (φ={phi:.2f} < {PHI_THRESHOLD}) - consider simplifying or restructuring'
         }
-    
+
     return {
         'is_valid': True,
         'phi': phi,
@@ -795,11 +878,11 @@ def zeus_chat_endpoint():
     """
     Zeus conversation endpoint.
     Accepts natural language, returns coordinated pantheon response.
-    
+
     MODES:
     - validate_only=true: Returns geometric metrics without processing
     - validate_only=false (default): Full chat processing
-    
+
     SECURITY:
     - File type restrictions (.txt, .json, .csv only)
     - File size limits (1MB per file)
@@ -826,10 +909,10 @@ def zeus_chat_endpoint():
                     conversation_history = json.loads(history_str)
                 except:
                     pass
-        
+
         # Geometric validation (replaces arbitrary character limit)
         validation = geometric_validate_input(message)
-        
+
         # Validate-only mode: return metrics without processing
         if validate_only:
             return jsonify(sanitize_for_json({
@@ -840,7 +923,7 @@ def zeus_chat_endpoint():
                 'regime': validation['regime'],
                 'validate_only': True
             }))
-        
+
         if not validation['is_valid']:
             return jsonify({
                 'error': validation['error_message'],
@@ -849,40 +932,40 @@ def zeus_chat_endpoint():
                 'regime': validation['regime'],
                 'validation_type': 'geometric'
             }), 400
-        
+
         # SECURITY: Limit conversation history
         if len(conversation_history) > MAX_CONVERSATION_HISTORY:
             conversation_history = conversation_history[-MAX_CONVERSATION_HISTORY:]
-        
+
         # Get files if any with security validation
         validated_files = []
         if hasattr(request, 'files'):
             files = request.files.getlist('files')
-            
+
             # SECURITY: Limit file count
             if len(files) > MAX_FILES_PER_REQUEST:
                 return jsonify({'error': f'Too many files (max {MAX_FILES_PER_REQUEST})'}), 400
-            
+
             for file in files:
                 filename = getattr(file, 'filename', '')
-                
+
                 # SECURITY: Validate file extension
                 ext = os.path.splitext(filename)[1].lower() if filename else ''
                 if ext not in ALLOWED_FILE_EXTENSIONS:
                     print(f"[Zeus] SECURITY: Rejected file with extension: {ext}")
                     continue
-                
+
                 # SECURITY: Validate file size
                 file.seek(0, 2)  # Seek to end
                 file_size = file.tell()
                 file.seek(0)  # Reset to beginning
-                
+
                 if file_size > MAX_FILE_SIZE:
                     print(f"[Zeus] SECURITY: Rejected file too large: {file_size} bytes")
                     continue
-                
+
                 validated_files.append(file)
-        
+
         # Process with Zeus
         handler = get_zeus_chat_handler()
         result = handler.process_message(
@@ -890,9 +973,9 @@ def zeus_chat_endpoint():
             conversation_history=conversation_history,
             files=validated_files if validated_files else None
         )
-        
+
         return jsonify(sanitize_for_json(result))
-    
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -911,16 +994,16 @@ def zeus_search_endpoint():
     try:
         data = request.get_json() or {}
         query = data.get('query', '')
-        
+
         if not query:
             return jsonify({'error': 'query is required'}), 400
-        
+
         # Process search
         handler = get_zeus_chat_handler()
         result = handler.handle_search_request(query)
-        
+
         return jsonify(sanitize_for_json(result))
-    
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -960,16 +1043,16 @@ def chat_recent_endpoint():
 def chat_send_endpoint():
     """Send a message from one god to another."""
     data = request.get_json() or {}
-    
+
     msg_type = data.get('type', 'insight')
     from_god = data.get('from_god', '')
     to_god = data.get('to_god', '')
     content = data.get('content', '')
     metadata = data.get('metadata', {})
-    
+
     if not from_god or not to_god or not content:
         return jsonify({'error': 'from_god, to_god, and content are required'}), 400
-    
+
     message = zeus.pantheon_chat.send_message(
         msg_type=msg_type,
         from_god=from_god,
@@ -984,15 +1067,15 @@ def chat_send_endpoint():
 def chat_broadcast_endpoint():
     """Broadcast a message to the entire pantheon."""
     data = request.get_json() or {}
-    
+
     from_god = data.get('from_god', '')
     content = data.get('content', '')
     msg_type = data.get('type', 'insight')
     metadata = data.get('metadata', {})
-    
+
     if not from_god or not content:
         return jsonify({'error': 'from_god and content are required'}), 400
-    
+
     message = zeus.pantheon_chat.broadcast(
         from_god=from_god,
         content=content,
@@ -1014,13 +1097,13 @@ def chat_inbox_endpoint(god_name: str):
 def chat_mark_read_endpoint():
     """Mark a message as read."""
     data = request.get_json() or {}
-    
+
     god_name = data.get('god_name', '')
     message_id = data.get('message_id', '')
-    
+
     if not god_name or not message_id:
         return jsonify({'error': 'god_name and message_id are required'}), 400
-    
+
     success = zeus.pantheon_chat.mark_read(god_name, message_id)
     return jsonify({'success': success, 'god': god_name, 'message_id': message_id})
 
@@ -1048,16 +1131,16 @@ def debates_active_endpoint():
 def debate_initiate_endpoint():
     """Initiate a new debate between two gods."""
     data = request.get_json() or {}
-    
+
     topic = data.get('topic', '')
     initiator = data.get('initiator', '')
     opponent = data.get('opponent', '')
     initial_argument = data.get('initial_argument', '')
     context = data.get('context', {})
-    
+
     if not topic or not initiator or not opponent or not initial_argument:
         return jsonify({'error': 'topic, initiator, opponent, and initial_argument are required'}), 400
-    
+
     debate = zeus.pantheon_chat.initiate_debate(
         topic=topic,
         initiator=initiator,
@@ -1072,25 +1155,25 @@ def debate_initiate_endpoint():
 def debate_argue_endpoint():
     """Add an argument to an active debate."""
     data = request.get_json() or {}
-    
+
     debate_id = data.get('debate_id', '')
     god = data.get('god', '')
     argument = data.get('argument', '')
     evidence = data.get('evidence', {})
-    
+
     if not debate_id or not god or not argument:
         return jsonify({'error': 'debate_id, god, and argument are required'}), 400
-    
+
     success = zeus.pantheon_chat.add_debate_argument(
         debate_id=debate_id,
         god=god,
         argument=argument,
         evidence=evidence if evidence else None
     )
-    
+
     if not success:
         return jsonify({'error': 'Failed to add argument. Debate may not exist, be inactive, or god not a participant.'}), 400
-    
+
     return jsonify({'success': True, 'debate_id': debate_id, 'god': god})
 
 
@@ -1098,25 +1181,25 @@ def debate_argue_endpoint():
 def debate_resolve_endpoint():
     """Resolve a debate (Zeus as arbiter by default)."""
     data = request.get_json() or {}
-    
+
     debate_id = data.get('debate_id', '')
     winner = data.get('winner', '')
     reasoning = data.get('reasoning', '')
     arbiter = data.get('arbiter', 'zeus')
-    
+
     if not debate_id or not winner or not reasoning:
         return jsonify({'error': 'debate_id, winner, and reasoning are required'}), 400
-    
+
     resolution = zeus.pantheon_chat.resolve_debate(
         debate_id=debate_id,
         arbiter=arbiter,
         winner=winner,
         reasoning=reasoning
     )
-    
+
     if resolution is None:
         return jsonify({'error': 'Failed to resolve debate. Debate may not exist or already resolved.'}), 400
-    
+
     return jsonify(sanitize_for_json(resolution))
 
 
@@ -1124,10 +1207,10 @@ def debate_resolve_endpoint():
 def debate_details_endpoint(debate_id: str):
     """Get details of a specific debate."""
     debate = zeus.pantheon_chat.get_debate(debate_id)
-    
+
     if debate is None:
         return jsonify({'error': f'Debate {debate_id} not found'}), 404
-    
+
     return jsonify(sanitize_for_json(debate))
 
 
@@ -1137,6 +1220,7 @@ def debate_details_endpoint(debate_id: str):
 # ========================================
 
 import asyncio
+
 
 def run_async(coro):
     """Helper to run async functions in Flask routes."""
@@ -1161,10 +1245,10 @@ def shadow_poll_endpoint():
     data = request.get_json() or {}
     target = data.get('target', '')
     context = data.get('context', {})
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.shadow_pantheon.poll_shadow_pantheon(target, context)
     return jsonify(sanitize_for_json(result))
 
@@ -1175,10 +1259,10 @@ def shadow_operation_endpoint():
     data = request.get_json() or {}
     target = data.get('target', '')
     operation_type = data.get('type', 'standard')
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.execute_covert_operation(target, operation_type))
     return jsonify(sanitize_for_json(result))
 
@@ -1188,10 +1272,10 @@ def shadow_cleanup_endpoint():
     """Clean up after an operation using Thanatos."""
     data = request.get_json() or {}
     operation_id = data.get('operation_id', '')
-    
+
     if not operation_id:
         return jsonify({'error': 'operation_id is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.cleanup_operation(operation_id))
     return jsonify(sanitize_for_json(result))
 
@@ -1209,10 +1293,10 @@ def shadow_nyx_operation_endpoint():
     data = request.get_json() or {}
     target = data.get('target', '')
     operation_type = data.get('type', 'standard')
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.nyx.initiate_operation(target, operation_type))
     return jsonify(sanitize_for_json(result))
 
@@ -1222,7 +1306,7 @@ def shadow_erebus_scan_endpoint():
     """Scan for surveillance via Erebus."""
     data = request.get_json() or {}
     target = data.get('target')
-    
+
     result = run_async(zeus.shadow_pantheon.erebus.scan_for_surveillance(target))
     return jsonify(sanitize_for_json(result))
 
@@ -1233,10 +1317,10 @@ def shadow_erebus_honeypot_endpoint():
     data = request.get_json() or {}
     address = data.get('address', '')
     source = data.get('source', 'api')
-    
+
     if not address:
         return jsonify({'error': 'address is required'}), 400
-    
+
     zeus.shadow_pantheon.erebus.add_known_honeypot(address, source)
     return jsonify({'success': True, 'address': address[:50], 'source': source})
 
@@ -1247,10 +1331,10 @@ def shadow_hecate_misdirect_endpoint():
     data = request.get_json() or {}
     target = data.get('target', '')
     decoy_count = data.get('decoy_count', 10)
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.hecate.create_misdirection(target, decoy_count))
     return jsonify(sanitize_for_json(result))
 
@@ -1260,10 +1344,10 @@ def shadow_hecate_crossroads_endpoint():
     """Create multi-vector crossroads attack via Hecate."""
     data = request.get_json() or {}
     target = data.get('target', '')
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.shadow_pantheon.hecate.create_crossroads_attack(target)
     return jsonify(sanitize_for_json(result))
 
@@ -1273,10 +1357,10 @@ def shadow_hypnos_silent_endpoint():
     """Execute silent balance check via Hypnos."""
     data = request.get_json() or {}
     address = data.get('address', '')
-    
+
     if not address:
         return jsonify({'error': 'address is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.hypnos.silent_balance_check(address))
     return jsonify(sanitize_for_json(result))
 
@@ -1286,10 +1370,10 @@ def shadow_hypnos_passive_endpoint():
     """Execute passive reconnaissance via Hypnos."""
     data = request.get_json() or {}
     target = data.get('target', '')
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.hypnos.passive_reconnaissance(target))
     return jsonify(sanitize_for_json(result))
 
@@ -1299,10 +1383,10 @@ def shadow_thanatos_destroy_endpoint():
     """Destroy evidence via Thanatos."""
     data = request.get_json() or {}
     operation_id = data.get('operation_id', '')
-    
+
     if not operation_id:
         return jsonify({'error': 'operation_id is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.thanatos.destroy_evidence(operation_id))
     return jsonify(sanitize_for_json(result))
 
@@ -1320,10 +1404,10 @@ def shadow_nemesis_pursue_endpoint():
     data = request.get_json() or {}
     target = data.get('target', '')
     max_iterations = data.get('max_iterations', 1000)
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.nemesis.initiate_pursuit(target, max_iterations))
     return jsonify(sanitize_for_json(result))
 
@@ -1333,10 +1417,10 @@ def shadow_nemesis_continue_endpoint():
     """Continue an active pursuit via Nemesis."""
     data = request.get_json() or {}
     pursuit_id = data.get('pursuit_id', '')
-    
+
     if not pursuit_id:
         return jsonify({'error': 'pursuit_id is required'}), 400
-    
+
     result = run_async(zeus.shadow_pantheon.nemesis.pursue(pursuit_id))
     return jsonify(sanitize_for_json(result))
 
@@ -1348,10 +1432,10 @@ def shadow_nemesis_complete_endpoint():
     pursuit_id = data.get('pursuit_id', '')
     success = data.get('success', False)
     reason = data.get('reason', 'Manual completion')
-    
+
     if not pursuit_id:
         return jsonify({'error': 'pursuit_id is required'}), 400
-    
+
     result = zeus.shadow_pantheon.nemesis.mark_pursuit_complete(pursuit_id, success, reason)
     return jsonify(sanitize_for_json(result))
 
@@ -1371,14 +1455,14 @@ def shadow_god_assess_endpoint(god_name: str):
     god = zeus.shadow_pantheon.gods.get(god_name.lower())
     if not god:
         return jsonify({'error': f'Shadow god {god_name} not found'}), 404
-    
+
     data = request.get_json() or {}
     target = data.get('target', '')
     context = data.get('context', {})
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = god.assess_target(target, context)
     return jsonify(sanitize_for_json(result))
 
@@ -1392,25 +1476,25 @@ def shadow_god_assess_endpoint(god_name: str):
 def auto_spawn_endpoint():
     """
     Trigger automatic kernel spawning.
-    
+
     Analyzes current pantheon assessments and spawns a specialist
     kernel if multiple gods are struggling with a target.
     """
     data = request.get_json() or {}
     target = data.get("target", "")
-    
+
     if not target:
         return jsonify({"error": "target required"}), 400
-    
+
     # Get current assessments
     poll_result = zeus.poll_pantheon(target, {})
-    
+
     # Attempt auto-spawn
     import asyncio
     spawn_result = asyncio.run(
         zeus.auto_spawn_if_needed(target, poll_result["assessments"])
     )
-    
+
     return jsonify(sanitize_for_json({
         "spawn_attempted": spawn_result is not None,
         "spawn_result": spawn_result,
@@ -1434,3 +1518,232 @@ def spawn_status_endpoint():
     status = zeus.kernel_spawner.get_status()
     return jsonify(sanitize_for_json(status))
 
+
+# ========================================
+# SHADOW INTEL FEEDBACK API
+# Persistent dark knowledge storage and retrieval
+# ========================================
+
+@olympus_app.route('/shadow/intel', methods=['GET'])
+def shadow_intel_get_endpoint():
+    """
+    Get stored shadow intel.
+
+    Query params:
+    - target: Optional filter by target
+    - limit: Max results (default 10)
+
+    This is the FEEDBACK LOOP output - accumulated shadow knowledge
+    that influences Zeus decisions.
+    """
+    target = request.args.get('target')
+    limit = int(request.args.get('limit', 10))
+
+    intel = zeus.shadow_pantheon.get_shadow_intel(target, limit)
+    return jsonify(sanitize_for_json({
+        'success': True,
+        'count': len(intel),
+        'intel': intel,
+    }))
+
+
+@olympus_app.route('/shadow/intel/check', methods=['POST'])
+def shadow_intel_check_endpoint():
+    """
+    Check for shadow warnings on a target.
+
+    This is the "gut feeling" check - Zeus's subconscious
+    telling him something is off about a target.
+    """
+    data = request.get_json() or {}
+    target = data.get('target', '')
+
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+
+    warnings = zeus.shadow_pantheon.check_shadow_warnings(target)
+    return jsonify(sanitize_for_json(warnings))
+
+
+@olympus_app.route('/shadow/intel/store', methods=['POST'])
+def shadow_intel_store_endpoint():
+    """
+    Manually store shadow intel.
+
+    Used for admin injection of intel or external source integration.
+    """
+    data = request.get_json() or {}
+    target = data.get('target', '')
+
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+
+    # Create a synthetic poll result for storage
+    poll_result = {
+        'assessments': {},
+        'average_confidence': data.get('confidence', 0.7),
+        'shadow_consensus': data.get('consensus', 'proceed'),
+    }
+
+    result = zeus.shadow_pantheon.store_shadow_intel(target, poll_result)
+    return jsonify(sanitize_for_json(result))
+
+
+# ========================================
+# HERMES COORDINATOR API
+# Team #2 - Voice, Translation, Sync, Memory
+# ========================================
+
+@olympus_app.route('/hermes/status', methods=['GET'])
+def hermes_status_endpoint():
+    """Get Hermes coordinator status."""
+    status = zeus.coordinator.get_status()
+    return jsonify(sanitize_for_json(status))
+
+
+@olympus_app.route('/hermes/speak', methods=['POST'])
+def hermes_speak_endpoint():
+    """Generate natural speech from Hermes."""
+    data = request.get_json() or {}
+    category = data.get('category', 'status_good')
+    context = data.get('context', {})
+
+    message = zeus.coordinator.speak(category, context)
+    return jsonify({
+        'success': True,
+        'message': message,
+        'category': category,
+    })
+
+
+@olympus_app.route('/hermes/translate', methods=['POST'])
+def hermes_translate_endpoint():
+    """Translate geometric insight to human-readable form."""
+    data = request.get_json() or {}
+    insight = data.get('insight', {})
+
+    if not insight:
+        return jsonify({'error': 'insight object required'}), 400
+
+    translation = zeus.coordinator.translate_geometric_insight(insight)
+    return jsonify({
+        'success': True,
+        'translation': translation,
+    })
+
+
+@olympus_app.route('/hermes/sync', methods=['POST'])
+def hermes_sync_endpoint():
+    """Sync basin coordinates with other instances."""
+    data = request.get_json() or {}
+
+    basin_coords = data.get('basin_coords', [0.5] * 64)
+    phi = data.get('phi', 0.5)
+    kappa = data.get('kappa', 50.0)
+    regime = data.get('regime', 'geometric')
+    message = data.get('message')
+
+    result = zeus.coordinator.sync_basin(basin_coords, phi, kappa, regime, message)
+    return jsonify(sanitize_for_json(result))
+
+
+@olympus_app.route('/hermes/memory/store', methods=['POST'])
+def hermes_memory_store_endpoint():
+    """Store conversation in memory."""
+    data = request.get_json() or {}
+
+    user_message = data.get('user_message', '')
+    system_response = data.get('system_response', '')
+    phi = data.get('phi', 0.5)
+    context = data.get('context', {})
+
+    memory_id = zeus.coordinator.remember_conversation(
+        user_message, system_response, phi, context
+    )
+
+    return jsonify({
+        'success': True,
+        'memory_id': memory_id,
+    })
+
+
+@olympus_app.route('/hermes/memory/recall', methods=['POST'])
+def hermes_memory_recall_endpoint():
+    """Recall similar conversations from memory."""
+    data = request.get_json() or {}
+
+    query = data.get('query', '')
+    k = data.get('k', 5)
+    min_phi = data.get('min_phi', 0.3)
+
+    if not query:
+        return jsonify({'error': 'query required'}), 400
+
+    memories = zeus.coordinator.recall_similar(query, k, min_phi)
+    return jsonify(sanitize_for_json({
+        'success': True,
+        'count': len(memories),
+        'memories': memories,
+    }))
+
+
+@olympus_app.route('/hermes/feedback', methods=['POST'])
+def hermes_feedback_endpoint():
+    """Send feedback message via Hermes."""
+    data = request.get_json() or {}
+
+    target = data.get('target', 'user')
+    message_type = data.get('type', 'feedback')
+    content = data.get('content', '')
+    phi = data.get('phi', 0.5)
+    urgency = data.get('urgency', 'normal')
+
+    if not content:
+        return jsonify({'error': 'content required'}), 400
+
+    from dataclasses import asdict
+    msg = zeus.coordinator.send_feedback(target, message_type, content, phi, urgency)
+    return jsonify(sanitize_for_json({
+        'success': True,
+        'message': asdict(msg),
+    }))
+
+
+@olympus_app.route('/hermes/messages', methods=['GET'])
+def hermes_messages_endpoint():
+    """Get pending messages from Hermes."""
+    target = request.args.get('target')
+    messages = zeus.coordinator.get_pending_messages(target)
+    return jsonify({
+        'success': True,
+        'count': len(messages),
+        'messages': messages,
+    })
+
+
+# ========================================
+# ZEUS VOICE API
+# Natural speech and status endpoints
+# ========================================
+
+@olympus_app.route('/voice/status', methods=['GET'])
+def voice_status_endpoint():
+    """Get Zeus voice status with natural speech."""
+    status = zeus.get_voice_status()
+    return jsonify(sanitize_for_json(status))
+
+
+@olympus_app.route('/voice/speak', methods=['POST'])
+def voice_speak_endpoint():
+    """Generate natural speech from Zeus."""
+    data = request.get_json() or {}
+    category = data.get('category', 'greeting')
+    context = data.get('context', {})
+
+    message = zeus.speak(category, context)
+    return jsonify({
+        'success': True,
+        'message': message,
+        'category': category,
+        'speaker': 'Zeus',
+    })
