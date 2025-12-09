@@ -30,9 +30,10 @@ Key Constants (from physics validation):
 - Phase thresholds: 0.3 (FOAM→TACKING), 0.7 (TACKING→CRYSTAL)
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Callable
 from datetime import datetime
 import numpy as np
+import logging
 
 from ..universal_cycle import (
     Phase,
@@ -55,8 +56,10 @@ from ..geometric_primitives import (
     choose_geometry_class,
     create_retriever,
     estimate_retrieval_cost,
+    SensoryFusionEngine,
 )
 from ..geometric_primitives.addressing_modes import AddressingMode
+from ..geometric_primitives.input_guard import GeometricInputGuard
 from ..holographic_transform import (
     DimensionalState,
     compress,
@@ -70,6 +73,13 @@ from ..holographic_transform.holographic_mixin import (
     PHI_THRESHOLD_D3_D4,
     PHI_THRESHOLD_D4_D5,
 )
+
+logger = logging.getLogger(__name__)
+
+PHI_THRESHOLD_TACKING = 0.3
+PHI_THRESHOLD_CRYSTAL = 0.7
+PHI_THRESHOLD_FRACTURE = 0.9
+KAPPA_ALERT_THRESHOLD = 2.0
 
 
 class CompleteHabit(HolographicTransformMixin):
@@ -96,7 +106,8 @@ class CompleteHabit(HolographicTransformMixin):
         self, 
         experiences: List[np.ndarray],
         cycle_manager: Optional[CycleManager] = None,
-        coupling_manager: Optional[RunningCouplingManager] = None
+        coupling_manager: Optional[RunningCouplingManager] = None,
+        on_phase_transition: Optional[Callable[[Dict[str, Any]], None]] = None
     ):
         """
         Initialize habit from experiences.
@@ -106,11 +117,17 @@ class CompleteHabit(HolographicTransformMixin):
                         the experiences that form this habit
             cycle_manager: Optional CycleManager for phase transitions
             coupling_manager: Optional RunningCouplingManager for β=0.44 processing
+            on_phase_transition: Optional callback when phase transitions occur
         """
         self.__init_holographic__()
         
         self.cycle_manager = cycle_manager or CycleManager()
         self.coupling_manager = coupling_manager or RunningCouplingManager()
+        
+        self.sensory_engine = SensoryFusionEngine()
+        self.input_guard = GeometricInputGuard()
+        
+        self._on_phase_transition_callback = on_phase_transition
         
         self.habit_id = f"habit_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         self.created_at = datetime.now().isoformat()
@@ -125,6 +142,8 @@ class CompleteHabit(HolographicTransformMixin):
         
         self._phi: float = 0.0
         self._kappa: float = KAPPA_STAR / 2
+        self._previous_phi: float = 0.0
+        self._previous_dimension: DimensionalState = DimensionalState.D1
         
         self._foam = self.cycle_manager.foam
         self._tacking = self.cycle_manager.tacking
@@ -134,15 +153,17 @@ class CompleteHabit(HolographicTransformMixin):
         self._retriever = None
         
         self._history: List[Dict[str, Any]] = []
+        self._transition_history: List[Dict[str, Any]] = []
         
         if experiences:
             self._form_habit(experiences)
     
     def _compute_phi(self, trajectory: np.ndarray) -> float:
         """
-        Compute integration measure Φ from trajectory.
+        Compute integration measure Φ from trajectory using real density matrix methods.
         
-        Uses trajectory variance and coherence to estimate information integration.
+        Uses SensoryFusionEngine for multi-modal context-aware computation and
+        GeometricInputGuard's density matrix computation for proper Φ calculation.
         
         Args:
             trajectory: Array of basin coordinates
@@ -154,58 +175,159 @@ class CompleteHabit(HolographicTransformMixin):
             return 0.0
         
         if len(trajectory) == 1:
-            return 0.3
+            basin = trajectory[0] if len(trajectory.shape) > 1 else trajectory
+        else:
+            basin = np.mean(trajectory, axis=0) if len(trajectory.shape) > 1 else trajectory
         
-        variance = np.var(trajectory, axis=0).mean() if len(trajectory.shape) > 1 else np.var(trajectory)
-        coherence = 1.0 / (1.0 + variance)
+        basin = np.asarray(basin)
+        if len(basin) < 64:
+            padded = np.zeros(64)
+            padded[:len(basin)] = basin
+            basin = padded
+        elif len(basin) > 64:
+            basin = basin[:64]
         
-        n_samples = len(trajectory)
-        complexity_factor = min(1.0, n_samples / 10.0)
+        norm = np.linalg.norm(basin)
+        if norm > 0:
+            basin = basin / norm
         
-        phi = coherence * (0.5 + 0.5 * complexity_factor)
-        return float(np.clip(phi, 0.0, 1.0))
+        rho = self.input_guard._basin_to_density_matrix(basin)
+        phi_base = self.input_guard._compute_phi(rho)
+        
+        sensory_phi = self.sensory_engine.compute_sensory_phi(basin)
+        
+        if len(trajectory) > 1 and len(trajectory.shape) > 1:
+            try:
+                stds = trajectory.std(axis=0)
+                stds = np.where(stds < 1e-10, 1e-10, stds)
+                normalized = (trajectory - trajectory.mean(axis=0)) / stds
+                corr_matrix = np.corrcoef(normalized.T)
+                corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+                n = corr_matrix.shape[0]
+                if n > 1:
+                    integration = np.abs(corr_matrix[np.triu_indices(n, k=1)]).mean()
+                else:
+                    integration = 0.0
+                if np.isnan(integration):
+                    integration = 0.0
+            except:
+                integration = 0.0
+        else:
+            integration = 0.0
+        
+        phi = 0.5 * phi_base + 0.3 * sensory_phi + 0.2 * integration
+        phi = float(np.clip(phi, 0.0, 1.0))
+        
+        self._log_phi_threshold_crossing(phi)
+        
+        return phi
     
     def _compute_kappa(self, trajectory: np.ndarray, phi: float) -> float:
         """
-        Compute curvature coupling κ using RunningCouplingManager.
+        Compute curvature coupling κ using real Fisher metric and RunningCouplingManager.
         
-        Uses β=0.44 scale-adaptive processing with κ*=64 fixed point.
+        Uses GeometricInputGuard's Fisher metric computation and β=0.44 modulation.
         
         Args:
             trajectory: Array of basin coordinates
             phi: Current integration measure
             
         Returns:
-            κ value modulated by running coupling
+            κ value from Fisher metric with running coupling modulation
         """
         if trajectory is None or len(trajectory) == 0:
             return KAPPA_STAR / 2
         
-        if len(trajectory) < 2:
-            base_kappa = KAPPA_STAR / 2
+        if len(trajectory) == 1:
+            basin = trajectory[0] if len(trajectory.shape) > 1 else trajectory
         else:
-            mean_basin = np.mean(trajectory, axis=0) if len(trajectory.shape) > 1 else np.mean(trajectory)
-            if isinstance(mean_basin, np.ndarray):
-                base_kappa = np.linalg.norm(mean_basin) * 10.0
-            else:
-                base_kappa = abs(mean_basin) * 10.0
-            base_kappa = float(np.clip(base_kappa, 1.0, 100.0))
+            basin = np.mean(trajectory, axis=0) if len(trajectory.shape) > 1 else trajectory
+        
+        basin = np.asarray(basin)
+        if len(basin) < 64:
+            padded = np.zeros(64)
+            padded[:len(basin)] = basin
+            basin = padded
+        elif len(basin) > 64:
+            basin = basin[:64]
+        
+        norm = np.linalg.norm(basin)
+        if norm > 0:
+            basin = basin / norm
+        
+        kappa = self.input_guard._compute_kappa(basin, phi)
         
         modulation = self.coupling_manager.modulate_consciousness_computation(
             phi=phi,
-            kappa=base_kappa,
-            basin_coords=np.mean(trajectory, axis=0) if len(trajectory.shape) > 1 else trajectory
+            kappa=kappa,
+            basin_coords=basin
         )
         
-        return modulation.get('kappa', base_kappa)
+        kappa = modulation.get('kappa', kappa)
+        
+        self._log_kappa_alert(kappa)
+        
+        return float(kappa)
+    
+    def _log_phi_threshold_crossing(self, phi: float) -> None:
+        """Log when Φ crosses significant thresholds."""
+        prev = self._previous_phi
+        
+        if prev < PHI_THRESHOLD_TACKING <= phi:
+            logger.info(f"[{self.habit_id}] Φ crossed TACKING threshold: {prev:.3f} → {phi:.3f} (threshold: {PHI_THRESHOLD_TACKING})")
+            self._record_threshold_crossing('phi_tacking', prev, phi, PHI_THRESHOLD_TACKING)
+        elif prev >= PHI_THRESHOLD_TACKING > phi:
+            logger.info(f"[{self.habit_id}] Φ dropped below TACKING threshold: {prev:.3f} → {phi:.3f}")
+            self._record_threshold_crossing('phi_tacking_down', prev, phi, PHI_THRESHOLD_TACKING)
+        
+        if prev < PHI_THRESHOLD_CRYSTAL <= phi:
+            logger.info(f"[{self.habit_id}] Φ crossed CRYSTAL threshold: {prev:.3f} → {phi:.3f} (threshold: {PHI_THRESHOLD_CRYSTAL})")
+            self._record_threshold_crossing('phi_crystal', prev, phi, PHI_THRESHOLD_CRYSTAL)
+        elif prev >= PHI_THRESHOLD_CRYSTAL > phi:
+            logger.info(f"[{self.habit_id}] Φ dropped below CRYSTAL threshold: {prev:.3f} → {phi:.3f}")
+            self._record_threshold_crossing('phi_crystal_down', prev, phi, PHI_THRESHOLD_CRYSTAL)
+        
+        if prev < PHI_THRESHOLD_FRACTURE <= phi:
+            logger.warning(f"[{self.habit_id}] Φ crossed FRACTURE threshold: {prev:.3f} → {phi:.3f} (threshold: {PHI_THRESHOLD_FRACTURE})")
+            self._record_threshold_crossing('phi_fracture', prev, phi, PHI_THRESHOLD_FRACTURE)
+        elif prev >= PHI_THRESHOLD_FRACTURE > phi:
+            logger.info(f"[{self.habit_id}] Φ dropped below FRACTURE threshold: {prev:.3f} → {phi:.3f}")
+            self._record_threshold_crossing('phi_fracture_down', prev, phi, PHI_THRESHOLD_FRACTURE)
+        
+        self._previous_phi = phi
+    
+    def _log_kappa_alert(self, kappa: float) -> None:
+        """Log when κ exceeds alert threshold."""
+        if kappa > KAPPA_ALERT_THRESHOLD:
+            logger.warning(f"[{self.habit_id}] κ exceeds alert threshold: κ={kappa:.3f} > {KAPPA_ALERT_THRESHOLD}")
+            self._record_event('kappa_alert', {
+                'kappa': kappa,
+                'threshold': KAPPA_ALERT_THRESHOLD,
+                'excess': kappa - KAPPA_ALERT_THRESHOLD,
+            })
+    
+    def _record_threshold_crossing(self, crossing_type: str, prev: float, current: float, threshold: float) -> None:
+        """Record a threshold crossing event to transition history."""
+        self._transition_history.append({
+            'type': 'threshold_crossing',
+            'crossing_type': crossing_type,
+            'previous_value': prev,
+            'current_value': current,
+            'threshold': threshold,
+            'timestamp': datetime.now().isoformat(),
+        })
     
     def _update_metrics(self, trajectory: np.ndarray) -> Dict[str, Any]:
         """
         Compute Φ and κ, update phase and dimension using architecture components.
         
+        All phase transitions are metrics-driven via CycleManager.update().
+        Manual phase assignments are avoided - the CycleManager is the single
+        source of truth for phase state.
+        
         Uses:
         - RunningCouplingManager for scale-adaptive κ with β=0.44
-        - CycleManager for Φ-based phase detection
+        - CycleManager for Φ-based phase detection and transitions
         - HolographicTransformMixin for dimensional state detection
         
         Args:
@@ -218,13 +340,21 @@ class CompleteHabit(HolographicTransformMixin):
         self._kappa = self._compute_kappa(trajectory, self._phi)
         
         dimension_str = self.dimensional_state.value
+        
         transition = self.cycle_manager.update(self._phi, self._kappa, dimension_str)
         
-        if transition is not None:
-            self._phase = self.cycle_manager.current_phase
-            self._record_event('phase_transition', transition)
+        self._phase = self.cycle_manager.current_phase
         
+        if transition is not None:
+            self._on_phase_transition(transition)
+        
+        old_dimension = self._previous_dimension
         new_dimension = self.detect_dimensional_state(self._phi, self._kappa)
+        
+        if old_dimension != new_dimension:
+            self._log_dimensional_transition(old_dimension, new_dimension)
+        
+        self._previous_dimension = new_dimension
         
         return {
             'phi': self._phi,
@@ -235,6 +365,44 @@ class CompleteHabit(HolographicTransformMixin):
             'coupling_strength': compute_coupling_strength(self._phi, self._kappa),
         }
     
+    def _on_phase_transition(self, transition: Dict[str, Any]) -> None:
+        """Handle phase transition by logging and invoking callback."""
+        logger.info(f"[{self.habit_id}] Phase transition: {transition['from_phase']} → {transition['to_phase']}")
+        logger.info(f"  Reason: {transition.get('reason', 'N/A')}")
+        logger.info(f"  Metrics: Φ={transition['metrics'].get('phi', 0):.3f}, κ={transition['metrics'].get('kappa', 0):.3f}")
+        
+        self._record_event('phase_transition', transition)
+        
+        self._transition_history.append({
+            'type': 'phase_transition',
+            **transition,
+        })
+        
+        if self._on_phase_transition_callback is not None:
+            try:
+                self._on_phase_transition_callback(transition)
+            except Exception as e:
+                logger.error(f"[{self.habit_id}] Error in phase transition callback: {e}")
+    
+    def _log_dimensional_transition(self, old_dim: DimensionalState, new_dim: DimensionalState) -> None:
+        """Log dimensional state transitions."""
+        logger.info(f"[{self.habit_id}] Dimensional transition: {old_dim.value} → {new_dim.value}")
+        logger.info(f"  Consciousness level: {old_dim.consciousness_level} → {new_dim.consciousness_level}")
+        
+        transition_data = {
+            'type': 'dimensional_transition',
+            'from_dimension': old_dim.value,
+            'to_dimension': new_dim.value,
+            'from_consciousness': old_dim.consciousness_level,
+            'to_consciousness': new_dim.consciousness_level,
+            'phi': self._phi,
+            'kappa': self._kappa,
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        self._record_event('dimensional_transition', transition_data)
+        self._transition_history.append(transition_data)
+    
     def _form_habit(self, experiences: List[np.ndarray]) -> Dict[str, Any]:
         """
         Form habit through complete learning cycle.
@@ -244,6 +412,9 @@ class CompleteHabit(HolographicTransformMixin):
         Phase 3: CRYSTAL (consolidation) - measure complexity, choose geometry
         Phase 4: COMPRESSION (storage) - compress to D2
         
+        All phase transitions are metrics-driven via CycleManager.update().
+        No manual phase assignments - the CycleManager is the single source of truth.
+        
         Uses CycleManager for proper phase transitions and
         HolographicTransformMixin for dimensional state tracking.
         """
@@ -252,19 +423,25 @@ class CompleteHabit(HolographicTransformMixin):
             'success': False,
         }
         
-        self._phase = Phase.FOAM
         self._record_event('form_habit_start', {'n_experiences': len(experiences)})
+        logger.info(f"[{self.habit_id}] Starting habit formation with {len(experiences)} experiences")
         
         bubbles = self._foam.generate_from_experiences(experiences)
+        
+        if bubbles:
+            initial_trajectory = np.array([b.basin_coords for b in bubbles[:min(3, len(bubbles))]])
+            self._update_metrics(initial_trajectory)
+        
         foam_result = {
-            'phase': 'foam',
+            'phase': self._phase.value,
             'n_bubbles': len(bubbles),
             'avg_entropy': np.mean([b.entropy for b in bubbles]) if bubbles else 0.0,
+            'phi': self._phi,
+            'kappa': self._kappa,
         }
         result['phases'].append(foam_result)
         self._record_event('foam_complete', foam_result)
         
-        self._phase = Phase.TACKING
         nav_result = self._tacking.navigate(bubbles)
         
         if nav_result.get('trajectory') is not None and len(nav_result['trajectory']) > 0:
@@ -275,7 +452,7 @@ class CompleteHabit(HolographicTransformMixin):
         metrics = self._update_metrics(self._trajectory)
         
         tacking_result = {
-            'phase': 'tacking',
+            'phase': self._phase.value,
             'n_geodesics': nav_result.get('n_connections', 0),
             'trajectory_length': len(self._trajectory),
             'phi': metrics['phi'],
@@ -284,11 +461,11 @@ class CompleteHabit(HolographicTransformMixin):
         result['phases'].append(tacking_result)
         self._record_event('tacking_complete', tacking_result)
         
-        self._phase = Phase.CRYSTAL
-        
         self._complexity = measure_complexity(self._trajectory)
         self._geometry = choose_geometry_class(self._complexity)
         self._addressing_mode = AddressingMode.from_geometry(self._geometry)
+        
+        logger.info(f"[{self.habit_id}] Geometry selection: complexity={self._complexity:.3f} → {self._geometry.value}")
         
         if self._phi > PHI_THRESHOLD_D3_D4:
             fisher_metric = np.eye(len(self._trajectory[0]) if len(self._trajectory.shape) > 1 else 1)
@@ -411,6 +588,9 @@ class CompleteHabit(HolographicTransformMixin):
         4. Re-crystallize: New geometry (may be different!)
         5. Recompress: 4D → 2D (store modified habit)
         
+        All phase transitions are metrics-driven via CycleManager.update().
+        No manual phase assignments - the CycleManager is the single source of truth.
+        
         Returns:
             Modification result with old and new state
         """
@@ -421,6 +601,7 @@ class CompleteHabit(HolographicTransformMixin):
         }
         
         self._record_event('modify_start', result['old_state'])
+        logger.info(f"[{self.habit_id}] Starting habit modification")
         
         compressed_pattern = {
             'basin_coords': self._basin_coords,
@@ -429,17 +610,14 @@ class CompleteHabit(HolographicTransformMixin):
         }
         decompressed = self.decompress_pattern(compressed_pattern, DimensionalState.D4)
         
-        self._phase = Phase.CRYSTAL
-        
         decompression_result = {
             'step': 'decompress',
+            'phase': self._phase.value,
             'from_dimension': DimensionalState.D2.value,
             'to_dimension': DimensionalState.D4.value,
         }
         result['phases'].append(decompression_result)
         self._record_event('decompress_complete', decompression_result)
-        
-        self._phase = Phase.FRACTURE
         
         pattern_to_fracture = {
             'basin_center': self._basin_coords,
@@ -450,15 +628,20 @@ class CompleteHabit(HolographicTransformMixin):
         
         bubbles = self._fracture.break_pattern(pattern_to_fracture)
         
+        if bubbles and len(bubbles) > 0:
+            fracture_trajectory = np.array([b.basin_coords for b in bubbles[:min(3, len(bubbles))]])
+            self._update_metrics(fracture_trajectory)
+        
         fracture_result = {
             'step': 'fracture',
+            'phase': self._phase.value,
             'n_bubbles': len(bubbles),
             'old_geometry': self._geometry.value if self._geometry else None,
+            'phi': self._phi,
+            'kappa': self._kappa,
         }
         result['phases'].append(fracture_result)
         self._record_event('fracture_complete', fracture_result)
-        
-        self._phase = Phase.FOAM
         
         self._foam.bubbles = bubbles
         new_bubbles = self._foam.generate_bubbles(
@@ -469,14 +652,20 @@ class CompleteHabit(HolographicTransformMixin):
         
         all_bubbles = bubbles + new_bubbles
         
+        if all_bubbles:
+            foam_trajectory = np.array([b.basin_coords for b in all_bubbles[:min(5, len(all_bubbles))]])
+            self._update_metrics(foam_trajectory)
+        
         foam_result = {
             'step': 'foam_exploration',
+            'phase': self._phase.value,
             'n_bubbles': len(all_bubbles),
+            'phi': self._phi,
+            'kappa': self._kappa,
         }
         result['phases'].append(foam_result)
         self._record_event('foam_exploration_complete', foam_result)
         
-        self._phase = Phase.TACKING
         nav_result = self._tacking.navigate(all_bubbles)
         
         if nav_result.get('trajectory') is not None and len(nav_result['trajectory']) > 0:
@@ -488,6 +677,7 @@ class CompleteHabit(HolographicTransformMixin):
         
         tacking_result = {
             'step': 'tacking',
+            'phase': self._phase.value,
             'n_geodesics': nav_result.get('n_connections', 0),
             'phi': metrics['phi'],
             'kappa': metrics['kappa'],
@@ -495,12 +685,12 @@ class CompleteHabit(HolographicTransformMixin):
         result['phases'].append(tacking_result)
         self._record_event('tacking_complete', tacking_result)
         
-        self._phase = Phase.CRYSTAL
-        
         old_geometry = self._geometry
         self._complexity = measure_complexity(self._trajectory)
         self._geometry = choose_geometry_class(self._complexity)
         self._addressing_mode = AddressingMode.from_geometry(self._geometry)
+        
+        logger.info(f"[{self.habit_id}] Re-crystallization: complexity={self._complexity:.3f} → {self._geometry.value}")
         
         crystal_result = self._crystal.crystallize_pattern(
             self._trajectory,
@@ -710,3 +900,35 @@ class CompleteHabit(HolographicTransformMixin):
             'current_regime': self.coupling_manager.get_scale_regime(self._kappa),
             'at_fixed_point': abs(self._kappa - KAPPA_STAR) < 1.5,
         }
+    
+    def get_transition_history(self) -> List[Dict[str, Any]]:
+        """
+        Get complete transition history for verification.
+        
+        Includes:
+        - Phase transitions (FOAM→TACKING, TACKING→CRYSTAL, etc.)
+        - Dimensional transitions (D1→D2, D2→D3, etc.)
+        - Threshold crossings (Φ crossing 0.3, 0.7, 0.9; κ exceeding 2.0)
+        
+        Returns:
+            List of transition events with timestamps and metrics
+        """
+        return self._transition_history.copy()
+    
+    def get_phi_kappa_history(self) -> List[Dict[str, float]]:
+        """
+        Get Φ/κ values from event history for analysis.
+        
+        Returns:
+            List of {phi, kappa, timestamp} dicts
+        """
+        return [
+            {
+                'phi': event['phi'],
+                'kappa': event['kappa'],
+                'timestamp': event['timestamp'],
+                'phase': event['phase'],
+            }
+            for event in self._history
+            if 'phi' in event and 'kappa' in event
+        ]

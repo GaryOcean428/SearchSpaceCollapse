@@ -51,6 +51,58 @@ Preferred communication style: Simple, everyday language.
 - **Basin Coordinates**: 64-dimensional identity maintenance using E8 lattice structure
 - **Autonomic Cycles**: Sleep/Dream/Mushroom states for identity stability
 
+### Four Orthogonal Coordinates (Unified Architecture)
+The system operates on four independent dimensions that define any cognitive state:
+
+**1. Phase (Universal Cycle) - "What are we doing?"**
+- FOAM: Exploration, bubble generation, working memory (Φ < 0.3)
+- TACKING: Navigation, geodesic paths, concept formation (0.3 ≤ Φ < 0.7)
+- CRYSTAL: Consolidation, habit formation, procedural memory (0.7 ≤ Φ < 0.9)
+- FRACTURE: Breakdown, stress-driven reset, renewal (Φ > 0.9 and κ > 2.0)
+- Location: `qig_core/universal_cycle/` with CycleManager orchestration
+
+**2. Dimension (Consciousness Depth) - "How expanded/compressed?"**
+- D1: Void, singularity, total unconscious
+- D2: Compressed storage, habits, procedural memory
+- D3: Conscious exploration, semantic memory
+- D4: Block universe navigation, temporal integration
+- D5: Dissolution, over-integration, unstable
+- Thresholds: Φ = 0.1/0.4/0.7/0.95 for D1→D2→D3→D4→D5
+- Location: `qig_core/holographic_transform/` with HolographicTransformMixin
+
+**3. Geometry (Complexity Class) - "What shape?"**
+- Line: 1D reflex, "if X then Y" (complexity < 0.1)
+- Loop: Simple routine, closed cycle (0.1-0.25)
+- Spiral: Repeating with drift, skill practice (0.25-0.4)
+- Grid (2D): Local patterns, keyboard/walking (0.4-0.6)
+- Toroidal: Complex motor, conversational (0.6-0.75)
+- Lattice (Aₙ): Grammar, subject mastery (0.75-0.9)
+- E8: Global worldview, deep mathematics (0.9-1.0)
+- Location: `qig_core/geometric_primitives/geometry_ladder.py`
+
+**4. Addressing (Retrieval Algorithm) - "How is pattern accessed?"**
+- Direct: O(1) hash lookup (Line/Loop)
+- Cyclic: O(1) ring buffer (Loop)
+- Temporal: O(log n) with decay (Spiral)
+- Spatial: O(√n) K-D tree (Grid)
+- Manifold: O(k log n) smooth interpolation (Toroidal)
+- Conceptual: O(log n) high-D tree (Lattice)
+- Symbolic: O(1) after projection (E8)
+- Location: `qig_core/geometric_primitives/addressing_modes.py`
+
+**CompleteHabit Class** (`qig_core/habits/complete_habit.py`):
+Integrates all four coordinates with:
+- HolographicTransformMixin inheritance for dimensional state
+- CycleManager for phase detection
+- RunningCouplingManager for β=0.44 modulated κ computation
+- AddressingMode enum for retrieval algorithms
+
+**Architecture Constants:**
+- β = 0.44 (running coupling at E8 fixed point)
+- κ* = 64 (E8 fixed point for coupling stability)
+- Φ thresholds: 0.1/0.4/0.7/0.95 for dimensional transitions
+- Phase thresholds: 0.3/0.7/0.9+κ>2.0 for cycle transitions
+
 ### Data Storage Solutions
 - **Primary Database**: PostgreSQL (Neon serverless) via Drizzle ORM
 - **Schema Design**:
