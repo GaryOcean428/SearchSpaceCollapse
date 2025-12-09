@@ -850,17 +850,23 @@ export default function ObserverPage() {
                 </p>
                 {dormantCrossRefData.topMatches && dormantCrossRefData.topMatches.length > 0 && (
                   <div className="space-y-1">
-                    {dormantCrossRefData.topMatches.map((match: { address: string; rank: number; walletLabel?: string; balanceBTC?: string }) => (
-                      <div key={match.address} className="flex items-center gap-2 text-xs">
+                    {dormantCrossRefData.topMatches.map((match: { address: string; rank: number; walletLabel?: string; balanceBTC?: string; classification?: string }) => (
+                      <div key={match.address} className="flex items-center gap-2 text-xs flex-wrap">
                         <span className="font-mono text-green-700 dark:text-green-400">{match.address}</span>
-                        <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30">
-                          Rank #{match.rank}
-                        </Badge>
+                        {match.classification === 'Dormant Wallet' && match.rank > 0 ? (
+                          <Badge variant="outline" className="text-xs bg-amber-500/10 border-amber-500/30 text-amber-600">
+                            Dormant Rank #{match.rank}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30 text-blue-600">
+                            Your Target
+                          </Badge>
+                        )}
                         {match.walletLabel && (
                           <span className="text-muted-foreground">{match.walletLabel}</span>
                         )}
                         {match.balanceBTC && (
-                          <span className="text-green-600 font-medium">{match.balanceBTC} BTC</span>
+                          <span className="text-green-600 font-medium">{match.balanceBTC}</span>
                         )}
                       </div>
                     ))}

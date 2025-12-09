@@ -58,16 +58,31 @@ class DormantCrossRef {
           continue;
         }
 
+        // Parse rank and balance from label like "Rank #57 - 3,141 BTC"
+        const label = row.label || '';
+        let rank = 0;
+        let balanceBTC = '';
+        
+        const rankMatch = label.match(/Rank\s*#(\d+)/i);
+        if (rankMatch) {
+          rank = parseInt(rankMatch[1], 10);
+        }
+        
+        const btcMatch = label.match(/([\d,]+(?:\.\d+)?)\s*BTC/i);
+        if (btcMatch) {
+          balanceBTC = btcMatch[1].replace(/,/g, '') + ' BTC';
+        }
+
         const info: DormantAddressInfo = {
-          rank: i + 1,
+          rank: rank || (i + 1), // Use parsed rank, fallback to iteration order
           address,
-          walletLabel: row.label || '',
-          balanceBTC: '',
+          walletLabel: label,
+          balanceBTC,
           balanceUSD: '',
           pctOfCoins: '',
           firstIn: '',
           lastIn: '',
-          classification: 'Target',
+          classification: rank > 0 ? 'Dormant Wallet' : 'Target',
           analysisNotes: ''
         };
 
