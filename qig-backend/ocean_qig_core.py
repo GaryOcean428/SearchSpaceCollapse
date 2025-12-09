@@ -2770,7 +2770,7 @@ def compute_fisher_centroid(vectors: np.ndarray, weights: np.ndarray) -> np.ndar
     
     Args:
         vectors: Array of basin coordinates (N x 64)
-        weights: Array of phi values (N,)
+        weights: Array of phi values (N,) - must be non-negative
     
     Returns:
         Centroid in 64D basin space
@@ -2778,11 +2778,17 @@ def compute_fisher_centroid(vectors: np.ndarray, weights: np.ndarray) -> np.ndar
     if len(vectors) == 0:
         return np.zeros(BASIN_DIMENSION)
     
-    # Normalize weights to sum to 1
+    # Validate weights are non-negative
     weights = np.array(weights)
+    if np.any(weights < 0):
+        print(f"[WARNING] Negative weights detected, taking absolute values")
+        weights = np.abs(weights)
+    
+    # Normalize weights to sum to 1
     if np.sum(weights) > 0:
         weights = weights / np.sum(weights)
     else:
+        # All weights are zero - use uniform weighting
         weights = np.ones(len(weights)) / len(weights)
     
     # Weighted average
@@ -2796,7 +2802,7 @@ def compute_fisher_centroid(vectors: np.ndarray, weights: np.ndarray) -> np.ndar
     return centroid
 
 
-def compute_orthogonal_complement(vectors: np.ndarray) -> np.ndarray:
+def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: float = 0.01) -> np.ndarray:
     """
     Calculate the orthogonal complement of failure vectors.
     "Where is the solution most likely to be, given it's NOT in these directions?"
@@ -2805,6 +2811,7 @@ def compute_orthogonal_complement(vectors: np.ndarray) -> np.ndarray:
     
     Args:
         vectors: Array of basin coordinates (N x 64)
+        min_eigenvalue_ratio: Minimum ratio of smallest to largest eigenvalue to avoid singularities
     
     Returns:
         New search direction orthogonal to failures
@@ -2823,6 +2830,19 @@ def compute_orthogonal_complement(vectors: np.ndarray) -> np.ndarray:
     
     # Eigen decomposition
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    
+    # Check for near-singular data (smallest eigenvalue is too small compared to largest)
+    max_eigenvalue = np.max(eigenvalues)
+    min_eigenvalue = np.min(eigenvalues)
+    
+    if max_eigenvalue > 0 and (min_eigenvalue / max_eigenvalue) < min_eigenvalue_ratio:
+        print(f"[WARNING] Near-singular data detected (ratio: {min_eigenvalue/max_eigenvalue:.6f}). "
+              f"Using random orthogonal direction instead.")
+        # Generate random direction and orthogonalize it to mean direction
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
     
     # Find the eigenvector with the SMALLEST eigenvalue
     # This is the direction with least variance = orthogonal to failures
