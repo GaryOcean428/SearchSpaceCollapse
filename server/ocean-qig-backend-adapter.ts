@@ -15,8 +15,8 @@ import type { PureQIGScore } from "./qig-pure-v2";
 const DEFAULT_RETRY_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 2000;
 
-// Request timeout configuration (10 seconds)
-const REQUEST_TIMEOUT_MS = 10000;
+// Request timeout configuration (30 seconds for complex QIG operations)
+const REQUEST_TIMEOUT_MS = 30000;
 
 // Circuit breaker configuration
 const CIRCUIT_BREAKER_THRESHOLD = 5; // Failures before opening circuit

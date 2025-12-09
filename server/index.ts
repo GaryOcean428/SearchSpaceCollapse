@@ -384,13 +384,37 @@ const PYTHON_RESTART_DELAYS = [5000, 10000, 20000, 40000, 60000]; // Exponential
 
 // Start Python QIG Backend as a child process
 function startPythonBackend(): void {
+  const isProduction = process.env.NODE_ENV === 'production';
   const pythonPath = process.env.PYTHON_PATH || 'python3';
-  const scriptPath = path.join(process.cwd(), 'qig-backend', 'ocean_qig_core.py');
+  const qigBackendDir = path.join(process.cwd(), 'qig-backend');
   
-  console.log('[PythonQIG] Starting Python QIG Backend...');
+  let spawnArgs: string[];
+  let spawnCommand: string;
   
-  const pythonProcess = spawn(pythonPath, ['-u', scriptPath], {
-    cwd: path.join(process.cwd(), 'qig-backend'),
+  if (isProduction) {
+    // Use Gunicorn for production with increased timeout
+    spawnCommand = 'gunicorn';
+    spawnArgs = [
+      '--bind', '0.0.0.0:5001',
+      '--workers', '2',
+      '--threads', '4',
+      '--timeout', '120',  // 2 minute timeout for long QIG operations
+      '--keep-alive', '5',
+      '--access-logfile', '-',
+      '--error-logfile', '-',
+      '--capture-output',
+      'wsgi:app'
+    ];
+    console.log('[PythonQIG] Starting Python QIG Backend (Gunicorn production mode)...');
+  } else {
+    // Use Flask development server
+    spawnCommand = pythonPath;
+    spawnArgs = ['-u', path.join(qigBackendDir, 'ocean_qig_core.py')];
+    console.log('[PythonQIG] Starting Python QIG Backend (Flask development mode)...');
+  }
+  
+  const pythonProcess = spawn(spawnCommand, spawnArgs, {
+    cwd: qigBackendDir,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
     env: {

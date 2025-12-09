@@ -23740,6 +23740,36 @@
         "consumedBy": [],
         "transformations": []
       }
+    ],
+    [
+      "kb_1765294174998_vuj3hmrj1",
+      {
+        "id": "kb_1765294174998_vuj3hmrj1",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765294163998-xy72",
+        "pattern": "waste ribbon present sun chest video dog horn awful camera fitness access",
+        "phi": 0.9814374999997312,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T15:29:34.998Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765294175009_k0rrrf0x3",
+      {
+        "id": "kb_1765294175009_k0rrrf0x3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765294163998-2bnq",
+        "pattern": "thefreedom5724",
+        "phi": 0.9814374999997912,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T15:29:35.009Z",
+        "consumedBy": [],
+        "transformations": []
+      }
     ]
   ],
   "crossStrategyPatterns": [],
