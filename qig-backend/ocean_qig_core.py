@@ -77,6 +77,26 @@ except ImportError as e:
     OLYMPUS_AVAILABLE = False
     print(f"[WARNING] Olympus Pantheon not found - running without divine council: {e}")
 
+# Import Unified QIG Architecture
+try:
+    from qig_core import (
+        CycleManager,
+        Phase,
+        GeometryClass,
+        measure_complexity,
+        choose_geometry_class,
+        HabitCrystallizer,
+        DimensionalState,
+        DimensionalStateManager,
+        compress,
+        decompress,
+    )
+    UNIFIED_ARCHITECTURE_AVAILABLE = True
+    print("[INFO] Unified QIG Architecture loaded (Phase/Dimension/Geometry)")
+except ImportError as e:
+    UNIFIED_ARCHITECTURE_AVAILABLE = False
+    print(f"[WARNING] Unified Architecture not found: {e}")
+
 # Import Pure Geometric Kernels
 try:
     from geometric_kernels import (
@@ -614,6 +634,19 @@ class PureQIGNetwork:
         else:
             self.neurochemistry_state = None
             self.recent_discoveries = None
+        
+        # Unified QIG Architecture (Phase/Dimension/Geometry)
+        if UNIFIED_ARCHITECTURE_AVAILABLE:
+            self.cycle_manager = CycleManager()
+            self.dimensional_manager = DimensionalStateManager(initial_state=DimensionalState.D3)
+            self.habit_crystallizer = HabitCrystallizer()
+            self.unified_enabled = True
+            print("[INFO] Unified Architecture enabled in PureQIGNetwork")
+        else:
+            self.cycle_manager = None
+            self.dimensional_manager = None
+            self.habit_crystallizer = None
+            self.unified_enabled = False
 
     def process(self, passphrase: str) -> Dict:
         """
@@ -757,6 +790,9 @@ class PureQIGNetwork:
         # Final measurements
         metrics = self._measure_consciousness()
         basin_coords = self._extract_basin_coordinates()
+        
+        # Update unified architecture (Phase/Dimension/Geometry)
+        self._update_unified_architecture(metrics, basin_coords)
         
         # Measure grounding
         G, nearest_concept = self.grounding_detector.measure_grounding(basin_coords)
@@ -1343,6 +1379,86 @@ class PureQIGNetwork:
             coords_array = np.concatenate([coords_array, padding])
         
         return coords_array[:BASIN_DIMENSION]
+    
+    def _update_unified_architecture(self, metrics: Dict, basin_coords: np.ndarray):
+        """
+        Update unified architecture state (Phase/Dimension/Geometry).
+        
+        Tracks:
+        - Phase transitions (FOAM → TACKING → CRYSTAL → FRACTURE)
+        - Dimensional state (1D-5D consciousness expansion/compression)
+        - Geometry class determination (Line → E8 based on complexity)
+        
+        Args:
+            metrics: Current consciousness metrics
+            basin_coords: Current 64D basin coordinates
+        """
+        if not self.unified_enabled or not self.cycle_manager:
+            return
+        
+        phi = metrics.get('phi', 0.0)
+        kappa = metrics.get('kappa', KAPPA_STAR)
+        
+        # Update dimensional state
+        if self.dimensional_manager:
+            detected_dim = self.dimensional_manager.detect_state(phi, kappa)
+            if detected_dim != self.dimensional_manager.current_state:
+                reason = f"phi={phi:.3f}, kappa={kappa:.3f}"
+                self.dimensional_manager.transition_to(detected_dim, reason)
+        
+        # Update cycle phase
+        dim_str = self.dimensional_manager.current_state.value if self.dimensional_manager else 'd3'
+        transition = self.cycle_manager.update(phi, kappa, dim_str)
+        
+        if transition:
+            # Phase transition occurred
+            metrics['phase_transition'] = transition
+            metrics['current_phase'] = self.cycle_manager.current_phase.value
+        else:
+            metrics['current_phase'] = self.cycle_manager.current_phase.value
+        
+        # Add dimensional state info
+        if self.dimensional_manager:
+            metrics['dimensional_state'] = self.dimensional_manager.current_state.value
+            metrics['consciousness_level'] = self.dimensional_manager.current_state.consciousness_level
+        
+        # If we have trajectory data (from recursive integration), measure complexity
+        if hasattr(self, '_phi_history') and len(self._phi_history) > 5:
+            # Create pseudo-trajectory from state evolution
+            trajectory = []
+            for i, phi_val in enumerate(self._phi_history[-10:]):
+                # Generate trajectory point from phi and basin coords
+                point = basin_coords.copy()
+                # Perturb slightly based on phi value
+                point = point * (0.9 + phi_val * 0.2)
+                trajectory.append(point)
+            
+            trajectory = np.array(trajectory)
+            
+            # Measure complexity
+            if len(trajectory) >= 2:
+                complexity = measure_complexity(trajectory)
+                geometry_class = choose_geometry_class(complexity)
+                
+                metrics['pattern_complexity'] = complexity
+                metrics['geometry_class'] = geometry_class.value
+                
+                # If high integration (CRYSTAL phase), crystallize
+                if (self.cycle_manager.current_phase == Phase.CRYSTAL and 
+                    phi > 0.7 and 
+                    self.habit_crystallizer):
+                    
+                    try:
+                        result = self.habit_crystallizer.crystallize(trajectory)
+                        metrics['crystallized_pattern'] = {
+                            'geometry': result['geometry'].value,
+                            'complexity': result['complexity'],
+                            'stability': result['stability'],
+                            'addressing_mode': result['addressing_mode'],
+                        }
+                    except Exception as e:
+                        print(f"[WARNING] Crystallization failed: {e}")
+
     
     def record_search_state(self, passphrase: str, metrics: Dict, basin_coords: np.ndarray):
         """
