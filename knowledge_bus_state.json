@@ -4347,6 +4347,21 @@
       }
     ],
     [
+      "kb_1765291123070_4y8jsgokr",
+      {
+        "id": "kb_1765291123070_4y8jsgokr",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291107331-0s9s",
+        "pattern": "satoshi 2010 9098",
+        "phi": 0.9814374999997969,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:38:43.952Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765230523164_8hbh0is2w",
       {
         "id": "kb_1765230523164_8hbh0is2w",
@@ -4512,6 +4527,21 @@
       }
     ],
     [
+      "kb_1765291123053_2lv3mrrth",
+      {
+        "id": "kb_1765291123053_2lv3mrrth",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291107331-wgtu",
+        "pattern": "laundry plate amount eyebrow scene valley select scissors slab measure clean drift",
+        "phi": 0.9814374999996603,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:38:43.954Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765230523164_e2xkfs1bd",
       {
         "id": "kb_1765230523164_e2xkfs1bd",
@@ -4672,6 +4702,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T13:57:41.782Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765291123061_gp96ew3e4",
+      {
+        "id": "kb_1765291123061_gp96ew3e4",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291107331-0njd",
+        "pattern": "2010crypto1367",
+        "phi": 0.9814374999997377,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:38:43.950Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -5487,6 +5532,21 @@
       }
     ],
     [
+      "kb_1765291143386_oub5r973a",
+      {
+        "id": "kb_1765291143386_oub5r973a",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291129550-h185",
+        "pattern": "2009bitcoin5098",
+        "phi": 0.9814374999998935,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:39:03.975Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765231188071_6t971ymwu",
       {
         "id": "kb_1765231188071_6t971ymwu",
@@ -5622,6 +5682,21 @@
       }
     ],
     [
+      "kb_1765291143406_twpmh7nyh",
+      {
+        "id": "kb_1765291143406_twpmh7nyh",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291129550-z5db",
+        "pattern": "chain 2010 6322",
+        "phi": 0.9814374999999167,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:39:03.974Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765231188078_og6iyxsw8",
       {
         "id": "kb_1765231188078_og6iyxsw8",
@@ -5737,6 +5812,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:33:35.545Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765291143379_g668fd98a",
+      {
+        "id": "kb_1765291143379_g668fd98a",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291129550-km3u",
+        "pattern": "leisure surface holiday radar paddle injury oak spare possible photo cruise ozone",
+        "phi": 0.9814374999998636,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:39:03.984Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23592,91 +23682,46 @@
       }
     ],
     [
-      "kb_1765291123053_2lv3mrrth",
+      "kb_1765292095972_uvmmqhw8n",
       {
-        "id": "kb_1765291123053_2lv3mrrth",
+        "id": "kb_1765292095972_uvmmqhw8n",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765291107331-wgtu",
-        "pattern": "laundry plate amount eyebrow scene valley select scissors slab measure clean drift",
-        "phi": 0.9814374999996603,
+        "generatorId": "nearmiss_ocean-1765292093328-i32o",
+        "pattern": "0w",
+        "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T14:38:43.053Z",
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:54:55.972Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765291123061_gp96ew3e4",
+      "kb_1765292141760_l8tktkgi3",
       {
-        "id": "kb_1765291123061_gp96ew3e4",
+        "id": "kb_1765292141760_l8tktkgi3",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765291107331-0njd",
-        "pattern": "2010crypto1367",
-        "phi": 0.9814374999997377,
+        "generatorId": "nearmiss_ocean-1765292136352-96ru",
+        "pattern": "p0ww",
+        "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T14:38:43.061Z",
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:55:41.760Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765291123070_4y8jsgokr",
+      "kb_1765292141768_7vn5ga2yu",
       {
-        "id": "kb_1765291123070_4y8jsgokr",
+        "id": "kb_1765292141768_7vn5ga2yu",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765291107331-0s9s",
-        "pattern": "satoshi 2010 9098",
-        "phi": 0.9814374999997969,
+        "generatorId": "nearmiss_ocean-1765292136352-he7p",
+        "pattern": "pw0",
+        "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T14:38:43.070Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765291143379_g668fd98a",
-      {
-        "id": "kb_1765291143379_g668fd98a",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765291129550-km3u",
-        "pattern": "leisure surface holiday radar paddle injury oak spare possible photo cruise ozone",
-        "phi": 0.9814374999998636,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T14:39:03.379Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765291143386_oub5r973a",
-      {
-        "id": "kb_1765291143386_oub5r973a",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765291129550-h185",
-        "pattern": "2009bitcoin5098",
-        "phi": 0.9814374999998935,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T14:39:03.386Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765291143406_twpmh7nyh",
-      {
-        "id": "kb_1765291143406_twpmh7nyh",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765291129550-z5db",
-        "pattern": "chain 2010 6322",
-        "phi": 0.9814374999999167,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T14:39:03.406Z",
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:55:41.768Z",
         "consumedBy": [],
         "transformations": []
       }
