@@ -610,7 +610,7 @@ app.use((req, res, next) => {
   console.log('🌊 Hydrating Ocean Memory from PostgreSQL...');
   await Promise.all([
     testedPhrasesUnified.initialize(),
-    geometricMemory.load(), // Ensure geometric memory also loads from DB
+    geometricMemory.waitForLoad(), // Ensure geometric memory also loads from DB
   ]);
   console.log('✅ Memory hydration complete');
 

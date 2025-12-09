@@ -2815,13 +2815,30 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         # Return random direction if no vectors provided
         direction = np.random.randn(BASIN_DIMENSION)
         return direction / np.linalg.norm(direction)
+    
+    # Need at least 2 vectors for meaningful covariance
+    if len(vectors) < 2:
+        # Return direction orthogonal to the single vector
+        mean = vectors[0]
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
     # Center the vectors
     mean = np.mean(vectors, axis=0)
     centered = vectors - mean
 
-    # Compute covariance matrix
-    cov = np.cov(centered.T)
+    # Compute covariance matrix with ddof=0 to avoid division by zero for small samples
+    cov = np.cov(centered.T, ddof=0)
+    
+    # Handle NaN/Inf in covariance matrix
+    if np.any(np.isnan(cov)) or np.any(np.isinf(cov)):
+        # Fallback to random orthogonal direction
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
     # Eigen decomposition
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
@@ -2890,11 +2907,20 @@ def refine_trajectory():
 
         # 4. Calculate Shift Magnitude (Curvature)
         shift_mag = np.linalg.norm(new_vector - failure_centroid)
+        
+        # Sanitize NaN/Inf values for JSON serialization
+        def sanitize_float(x):
+            if np.isnan(x) or np.isinf(x):
+                return 0.0
+            return float(x)
+        
+        sanitized_vector = [sanitize_float(v) for v in new_vector]
+        sanitized_shift_mag = sanitize_float(shift_mag)
 
         return jsonify({
             'gradient_shift': True,
-            'new_vector': new_vector.tolist(),
-            'shift_magnitude': float(shift_mag),
+            'new_vector': sanitized_vector,
+            'shift_magnitude': sanitized_shift_mag,
             'reasoning': f"Detected attractor singularity at Phi={np.max(weights):.2f}. Rotating orthogonal."
         })
 

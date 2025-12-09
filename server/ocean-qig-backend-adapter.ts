@@ -910,11 +910,12 @@ export class OceanQIGBackend {
    */
   async updateVocabulary(
     observations: Array<{
-      word: string;
+      text: string;
       frequency: number;
       avgPhi: number;
       maxPhi: number;
       type: string;
+      isRealWord?: boolean;
     }>
   ): Promise<{
     newTokens: number;
@@ -961,7 +962,7 @@ export class OceanQIGBackend {
     }
   }
 
-  // Legacy alias for compatibility
+  // Legacy alias for compatibility - maps 'word' to 'text'
   async updateTokenizer(
     observations: Array<{
       word: string;
@@ -976,7 +977,15 @@ export class OceanQIGBackend {
     weightsUpdated?: boolean;
     mergeRules?: number;
   }> {
-    return this.updateVocabulary(observations);
+    // Map legacy 'word' field to new 'text' field
+    const mapped = observations.map(obs => ({
+      text: obs.word,
+      frequency: obs.frequency,
+      avgPhi: obs.avgPhi,
+      maxPhi: obs.maxPhi,
+      type: obs.type,
+    }));
+    return this.updateVocabulary(mapped);
   }
 
   /**
