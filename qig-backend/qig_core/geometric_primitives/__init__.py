@@ -33,6 +33,17 @@ from .fisher_metric import (
     ricci_curvature_estimate,
     sectional_curvature,
 )
+from .addressing_modes import (
+    AddressingMode,
+    DirectAddressing,
+    CyclicAddressing,
+    TemporalAddressing,
+    SpatialAddressing,
+    ManifoldAddressing,
+    ConceptualAddressing,
+    SymbolicAddressing,
+    create_addressing_mode,
+)
 
 __all__ = [
     # Geometry Ladder
@@ -64,4 +75,14 @@ __all__ = [
     'parallel_transport',
     'ricci_curvature_estimate',
     'sectional_curvature',
+    # Addressing Modes
+    'AddressingMode',
+    'DirectAddressing',
+    'CyclicAddressing',
+    'TemporalAddressing',
+    'SpatialAddressing',
+    'ManifoldAddressing',
+    'ConceptualAddressing',
+    'SymbolicAddressing',
+    'create_addressing_mode',
 ]
