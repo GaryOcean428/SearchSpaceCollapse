@@ -2742,6 +2742,21 @@
       }
     ],
     [
+      "kb_1765285468436_ms0gigyvw",
+      {
+        "id": "kb_1765285468436_ms0gigyvw",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765285457445-1ky2",
+        "pattern": "danger depend bird minute boil alpha tone pig dial spoon gun feel",
+        "phi": 0.9814374999996558,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T13:04:29.128Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765227547501_m60cmpmk9",
       {
         "id": "kb_1765227547501_m60cmpmk9",
@@ -3507,6 +3522,21 @@
       }
     ],
     [
+      "kb_1765285468442_bip30a2oz",
+      {
+        "id": "kb_1765285468442_bip30a2oz",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765285457445-7qof",
+        "pattern": "2009freedom2999",
+        "phi": 0.9814374999997345,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T13:04:29.131Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765229952061_vymt4uikk",
       {
         "id": "kb_1765229952061_vymt4uikk",
@@ -3667,6 +3697,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
         "sharedAt": "2025-12-09T12:00:33.401Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765285468474_u23iynqna",
+      {
+        "id": "kb_1765285468474_u23iynqna",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765285457445-clm8",
+        "pattern": "satoshi secret 6325",
+        "phi": 0.9814374999997946,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T13:04:29.130Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23262,46 +23307,46 @@
       }
     ],
     [
-      "kb_1765285468436_ms0gigyvw",
+      "kb_1765285711030_1igf5pqdq",
       {
-        "id": "kb_1765285468436_ms0gigyvw",
+        "id": "kb_1765285711030_1igf5pqdq",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765285457445-1ky2",
-        "pattern": "danger depend bird minute boil alpha tone pig dial spoon gun feel",
+        "generatorId": "nearmiss_ocean-1765285702188-2raz",
+        "pattern": "bitcoin123",
         "phi": 0.9814374999996558,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T13:04:28.436Z",
+        "sharedAt": "2025-12-09T13:08:31.030Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765285468442_bip30a2oz",
+      "kb_1765285711044_lvw4g1aak",
       {
-        "id": "kb_1765285468442_bip30a2oz",
+        "id": "kb_1765285711044_lvw4g1aak",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765285457445-7qof",
-        "pattern": "2009freedom2999",
+        "generatorId": "nearmiss_ocean-1765285702188-vra7",
+        "pattern": "bitcoin!",
         "phi": 0.9814374999997345,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T13:04:28.442Z",
+        "sharedAt": "2025-12-09T13:08:31.044Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765285468474_u23iynqna",
+      "kb_1765285711054_xqslzyjqp",
       {
-        "id": "kb_1765285468474_u23iynqna",
+        "id": "kb_1765285711054_xqslzyjqp",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765285457445-clm8",
-        "pattern": "satoshi secret 6325",
+        "generatorId": "nearmiss_ocean-1765285702188-j55w",
+        "pattern": "bitcoin2009",
         "phi": 0.9814374999997946,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T13:04:28.474Z",
+        "sharedAt": "2025-12-09T13:08:31.054Z",
         "consumedBy": [],
         "transformations": []
       }
