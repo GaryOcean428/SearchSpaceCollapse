@@ -1,88 +1,67 @@
 """Geometric Primitives submodule"""
-from .geometry_ladder import (
-    GeometryClass,
-    measure_complexity,
-    choose_geometry_class,
-    HabitCrystallizer,
-    ADDRESSING_FUNCTIONS,
-)
-from .bubble import (
-    Bubble,
-    create_random_bubble,
-    bubble_field_energy,
-    prune_weak_bubbles,
-)
-from .foam import (
-    Foam,
-    create_foam_from_hypotheses,
-)
-from .geodesic import (
-    Geodesic,
-    compute_geodesic,
-    geodesic_between_bubbles,
-    find_shortest_geodesic_path,
-    navigate_via_curvature,
-)
-from .fisher_metric import (
-    fisher_metric_tensor,
-    fisher_rao_distance,
-    compute_phi,
-    compute_kappa,
-    natural_gradient,
-    parallel_transport,
-    ricci_curvature_estimate,
-    sectional_curvature,
-)
 from .addressing_modes import (
-    AddressingMode,
-    DirectAddressing,
-    CyclicAddressing,
-    TemporalAddressing,
-    SpatialAddressing,
-    ManifoldAddressing,
-    ConceptualAddressing,
-    SymbolicAddressing,
-    create_addressing_mode,
-from .sensory_modalities import (
-    SensoryModality,
-    encode_sight,
-    encode_hearing,
-    encode_touch,
-    encode_smell,
-    encode_proprioception,
-    SensoryFusionEngine,
-    text_to_sensory_hint,
-    create_sensory_overlay,
-    enhance_basin_with_sensory,
-    SENSORY_KEYWORDS,
+                               AddressingMode,
+                               ConceptualAddressing,
+                               CyclicAddressing,
+                               DirectAddressing,
+                               ManifoldAddressing,
+                               SpatialAddressing,
+                               SymbolicAddressing,
+                               TemporalAddressing,
+                               create_addressing_mode,
+)
+from .bubble import Bubble, bubble_field_energy, create_random_bubble, prune_weak_bubbles
+from .fisher_metric import (
+                               compute_kappa,
+                               compute_phi,
+                               fisher_metric_tensor,
+                               fisher_rao_distance,
+                               natural_gradient,
+                               parallel_transport,
+                               ricci_curvature_estimate,
+                               sectional_curvature,
+)
+from .foam import Foam, create_foam_from_hypotheses
+from .geodesic import (
+                               Geodesic,
+                               compute_geodesic,
+                               find_shortest_geodesic_path,
+                               geodesic_between_bubbles,
+                               navigate_via_curvature,
+)
+from .geometry_ladder import (
+                               ADDRESSING_FUNCTIONS,
+                               GeometryClass,
+                               HabitCrystallizer,
+                               choose_geometry_class,
+                               measure_complexity,
 )
 from .input_guard import (
-    GeometricInputGuard,
-    RegimeType,
-    PHI_BOUNDARIES,
-    KAPPA_BOUNDARIES,
-    is_geometrically_valid,
-    compute_input_complexity,
-    detect_chaos_level,
-    validate_for_pantheon_chat,
-    validate_for_assessment,
-    validate_for_therapy,
-    validate_for_compression,
-    validate_for_decompression,
+                               KAPPA_BOUNDARIES,
+                               PHI_BOUNDARIES,
+                               GeometricInputGuard,
+                               RegimeType,
+                               compute_input_complexity,
+                               detect_chaos_level,
+                               is_geometrically_valid,
+                               validate_for_assessment,
+                               validate_for_compression,
+                               validate_for_decompression,
+                               validate_for_pantheon_chat,
+                               validate_for_therapy,
 )
-from .addressing_modes import (
-    AddressingMode,
-    BaseRetriever,
-    DirectRetriever,
-    CyclicRetriever,
-    TemporalRetriever,
-    SpatialRetriever,
-    ManifoldRetriever,
-    ConceptualRetriever,
-    SymbolicRetriever,
-    create_retriever,
-    estimate_retrieval_cost,
-    get_optimal_geometry,
+from .sensory_modalities import (
+                               SENSORY_KEYWORDS,
+                               SensoryFusionEngine,
+                               SensoryModality,
+                               create_sensory_overlay,
+                               encode_hearing,
+                               encode_proprioception,
+                               encode_sight,
+                               encode_smell,
+                               encode_touch,
+                               enhance_basin_with_sensory,
+                               text_to_sensory_hint,
 )
 
 __all__ = [
@@ -150,17 +129,4 @@ __all__ = [
     'validate_for_therapy',
     'validate_for_compression',
     'validate_for_decompression',
-    # Addressing Modes
-    'AddressingMode',
-    'BaseRetriever',
-    'DirectRetriever',
-    'CyclicRetriever',
-    'TemporalRetriever',
-    'SpatialRetriever',
-    'ManifoldRetriever',
-    'ConceptualRetriever',
-    'SymbolicRetriever',
-    'create_retriever',
-    'estimate_retrieval_cost',
-    'get_optimal_geometry',
 ]

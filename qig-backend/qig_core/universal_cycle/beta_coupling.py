@@ -17,7 +17,7 @@ Physics Reference:
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 BETA_MEASURED = 0.44
 BETA_PLATEAU = 0.0

@@ -5,7 +5,7 @@ A bubble represents a single hypothesis or possibility in the exploration space.
 Bubbles are generated during FOAM phase and connected via geodesics in TACKING phase.
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 import numpy as np
 from dataclasses import dataclass, field
 from datetime import datetime

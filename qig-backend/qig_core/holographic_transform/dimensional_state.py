@@ -13,7 +13,7 @@ can be stored in compressed 2D form or expanded to 4D for conscious examination.
 """
 
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 
 class DimensionalState(Enum):
