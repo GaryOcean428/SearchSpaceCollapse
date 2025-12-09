@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "currentIndex": 271,
+  "currentIndex": 658,
   "addressIds": [
     "dormant-13eEt6my-1765102353345",
     "dormant-1P9fAFAs-1765102353299",
@@ -1527,8 +1527,8 @@
     "eaf6165b-c64d-48bb-85da-409060eef196",
     "ef7f925b-cf65-46ac-bb69-d9cd658cc89b"
   ],
-  "lastCycleTime": "2025-12-09T13:37:13.180Z",
-  "totalCycles": 1034,
-  "currentAddressId": "dormant-1HaG7Y4B-1765102340518",
+  "lastCycleTime": "2025-12-09T14:40:30.810Z",
+  "totalCycles": 1035,
+  "currentAddressId": "ebc1662f-1fc0-41d6-9be0-be434a313d85",
   "pausedUntil": null
 }

@@ -2757,6 +2757,51 @@
       }
     ],
     [
+      "kb_1765287888796_fjq3ekqor",
+      {
+        "id": "kb_1765287888796_fjq3ekqor",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765287834496-q4vw",
+        "pattern": "crypto secret 8422",
+        "phi": 0.8580033471235348,
+        "kappaEff": 31.270833333333346,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T13:44:49.324Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765290583053_ze26imwtu",
+      {
+        "id": "kb_1765290583053_ze26imwtu",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765290484972-5x6k",
+        "pattern": "human essence hamster practice enlist true path alarm there confirm hope chapter",
+        "phi": 0.8173876599183435,
+        "kappaEff": 31.270833333333336,
+        "regime": "geometric",
+        "sharedAt": "2025-12-09T14:29:43.527Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765290955591_iib93yfcl",
+      {
+        "id": "kb_1765290955591_iib93yfcl",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765290636872-hfir",
+        "pattern": "wlel623",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:35:56.104Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765227547501_m60cmpmk9",
       {
         "id": "kb_1765227547501_m60cmpmk9",
@@ -3537,6 +3582,66 @@
       }
     ],
     [
+      "kb_1765287888791_eba6y49ph",
+      {
+        "id": "kb_1765287888791_eba6y49ph",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765287834496-fs45",
+        "pattern": "mygenesis6720",
+        "phi": 0.83584857391303,
+        "kappaEff": 31.270833333333346,
+        "regime": "geometric",
+        "sharedAt": "2025-12-09T13:44:49.330Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765288019558_yj79ojsna",
+      {
+        "id": "kb_1765288019558_yj79ojsna",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765287925265-pt0a",
+        "pattern": "ihstory use will concert manual train title strike guitar lens brown below",
+        "phi": 0.9814275263495522,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T13:47:00.102Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765290583060_f07jyndvt",
+      {
+        "id": "kb_1765290583060_f07jyndvt",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765290484972-axmo",
+        "pattern": "thefreedom1104",
+        "phi": 0.8473452980731728,
+        "kappaEff": 31.270833333333336,
+        "regime": "geometric",
+        "sharedAt": "2025-12-09T14:29:43.526Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765290955602_zcb106s8c",
+      {
+        "id": "kb_1765290955602_zcb106s8c",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765290636872-n8fa",
+        "pattern": "well263",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:35:56.112Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765229952061_vymt4uikk",
       {
         "id": "kb_1765229952061_vymt4uikk",
@@ -3712,6 +3817,51 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
         "sharedAt": "2025-12-09T13:04:29.130Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765287888785_82s3ytj77",
+      {
+        "id": "kb_1765287888785_82s3ytj77",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765287834496-y663",
+        "pattern": "false fiber matrix crash transfer fancy carbon wife derive there bicycle bulb",
+        "phi": 0.8108523538823258,
+        "kappaEff": 31.270833333333336,
+        "regime": "geometric",
+        "sharedAt": "2025-12-09T13:44:49.325Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765290583065_1g0nraf5j",
+      {
+        "id": "kb_1765290583065_1g0nraf5j",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765290484972-g4bo",
+        "pattern": "bitcoin secret 6700",
+        "phi": 0.8726002831903539,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:30:12.292Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765290955597_aa0v9ejr2",
+      {
+        "id": "kb_1765290955597_aa0v9ejr2",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765290636872-xjsv",
+        "pattern": "wel6l23",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:35:56.110Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -4152,6 +4302,51 @@
       }
     ],
     [
+      "kb_1765285711054_xqslzyjqp",
+      {
+        "id": "kb_1765285711054_xqslzyjqp",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765285702188-j55w",
+        "pattern": "bitcoin2009",
+        "phi": 0.9814374999997946,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T13:08:32.144Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765288019563_u7jtnhcit",
+      {
+        "id": "kb_1765288019563_u7jtnhcit",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765287925265-obma",
+        "pattern": "hsitory use will concert manual train title strike guitar lens brown below",
+        "phi": 0.9814293301631857,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T13:47:00.097Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765290635366_2hq5aw8be",
+      {
+        "id": "kb_1765290635366_2hq5aw8be",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765290611824-74an",
+        "pattern": "well623",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T14:30:35.835Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765230523164_8hbh0is2w",
       {
         "id": "kb_1765230523164_8hbh0is2w",
@@ -4287,6 +4482,36 @@
       }
     ],
     [
+      "kb_1765285711030_1igf5pqdq",
+      {
+        "id": "kb_1765285711030_1igf5pqdq",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765285702188-2raz",
+        "pattern": "bitcoin123",
+        "phi": 0.9814374999996558,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T13:08:32.157Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765288019568_2xwj8uszp",
+      {
+        "id": "kb_1765288019568_2xwj8uszp",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765287925265-bicg",
+        "pattern": "hitsory use will concert manual train title strike guitar lens brown below",
+        "phi": 0.9814308069802788,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T13:47:00.097Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765230523164_e2xkfs1bd",
       {
         "id": "kb_1765230523164_e2xkfs1bd",
@@ -4417,6 +4642,36 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
         "sharedAt": "2025-12-09T12:06:00.968Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765285711044_lvw4g1aak",
+      {
+        "id": "kb_1765285711044_lvw4g1aak",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765285702188-vra7",
+        "pattern": "bitcoin!",
+        "phi": 0.9814374999997345,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T13:08:32.169Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765288661252_vnvp77a1i",
+      {
+        "id": "kb_1765288661252_vnvp77a1i",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765288090530-2nmh",
+        "pattern": "sceretgenesis430",
+        "phi": 0.9814374999999652,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T13:57:41.782Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -5217,6 +5472,21 @@
       }
     ],
     [
+      "kb_1765288661247_pfqqsq687",
+      {
+        "id": "kb_1765288661247_pfqqsq687",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765288090530-j69o",
+        "pattern": "escretgenesis430",
+        "phi": 0.9814374999999571,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T13:57:41.783Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765231188071_6t971ymwu",
       {
         "id": "kb_1765231188071_6t971ymwu",
@@ -5332,6 +5602,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:20:05.966Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765288661257_q6swpjdmi",
+      {
+        "id": "kb_1765288661257_q6swpjdmi",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765288090530-wgyc",
+        "pattern": "sercetgenesis430",
+        "phi": 0.9814374999999718,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T13:57:41.789Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23307,46 +23592,91 @@
       }
     ],
     [
-      "kb_1765285711030_1igf5pqdq",
+      "kb_1765291123053_2lv3mrrth",
       {
-        "id": "kb_1765285711030_1igf5pqdq",
+        "id": "kb_1765291123053_2lv3mrrth",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765285702188-2raz",
-        "pattern": "bitcoin123",
-        "phi": 0.9814374999996558,
+        "generatorId": "nearmiss_ocean-1765291107331-wgtu",
+        "pattern": "laundry plate amount eyebrow scene valley select scissors slab measure clean drift",
+        "phi": 0.9814374999996603,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T13:08:31.030Z",
+        "sharedAt": "2025-12-09T14:38:43.053Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765285711044_lvw4g1aak",
+      "kb_1765291123061_gp96ew3e4",
       {
-        "id": "kb_1765285711044_lvw4g1aak",
+        "id": "kb_1765291123061_gp96ew3e4",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765285702188-vra7",
-        "pattern": "bitcoin!",
-        "phi": 0.9814374999997345,
+        "generatorId": "nearmiss_ocean-1765291107331-0njd",
+        "pattern": "2010crypto1367",
+        "phi": 0.9814374999997377,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T13:08:31.044Z",
+        "sharedAt": "2025-12-09T14:38:43.061Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765285711054_xqslzyjqp",
+      "kb_1765291123070_4y8jsgokr",
       {
-        "id": "kb_1765285711054_xqslzyjqp",
+        "id": "kb_1765291123070_4y8jsgokr",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765285702188-j55w",
-        "pattern": "bitcoin2009",
-        "phi": 0.9814374999997946,
+        "generatorId": "nearmiss_ocean-1765291107331-0s9s",
+        "pattern": "satoshi 2010 9098",
+        "phi": 0.9814374999997969,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T13:08:31.054Z",
+        "sharedAt": "2025-12-09T14:38:43.070Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765291143379_g668fd98a",
+      {
+        "id": "kb_1765291143379_g668fd98a",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291129550-km3u",
+        "pattern": "leisure surface holiday radar paddle injury oak spare possible photo cruise ozone",
+        "phi": 0.9814374999998636,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:39:03.379Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765291143386_oub5r973a",
+      {
+        "id": "kb_1765291143386_oub5r973a",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291129550-h185",
+        "pattern": "2009bitcoin5098",
+        "phi": 0.9814374999998935,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:39:03.386Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765291143406_twpmh7nyh",
+      {
+        "id": "kb_1765291143406_twpmh7nyh",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765291129550-z5db",
+        "pattern": "chain 2010 6322",
+        "phi": 0.9814374999999167,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T14:39:03.406Z",
         "consumedBy": [],
         "transformations": []
       }

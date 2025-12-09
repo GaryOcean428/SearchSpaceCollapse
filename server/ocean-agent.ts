@@ -569,7 +569,10 @@ export class OceanAgent {
       console.log('[Ocean] ⚡ OLYMPUS CONNECTED - 12 gods ready for divine assessment');
       const olympusStatus = await olympusClient.getStatus();
       if (olympusStatus) {
-        const activeGods = Object.keys(olympusStatus.gods).filter(g => olympusStatus.gods[g].status === 'ready');
+        // Gods can have status 'active', 'ready', or 'idle' - all are valid online states
+        const activeGods = Object.keys(olympusStatus.gods).filter(g => 
+          ['active', 'ready', 'idle'].includes(olympusStatus.gods[g].status)
+        );
         console.log(`[Ocean] Divine pantheon: ${activeGods.length} gods online`);
         console.log(`[Ocean]   → ${activeGods.join(', ')}`);
       }
