@@ -17350,6 +17350,141 @@
         "consumedBy": [],
         "transformations": []
       }
+    ],
+    [
+      "kb_1765264818290_ra576ihkn",
+      {
+        "id": "kb_1765264818290_ra576ihkn",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264731071-idnl",
+        "pattern": "utcso ttucso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:20:18.290Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765264818298_qbojq836k",
+      {
+        "id": "kb_1765264818298_qbojq836k",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264731071-wpnc",
+        "pattern": "tcuso ttucso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:20:18.298Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765264818330_o4upsidej",
+      {
+        "id": "kb_1765264818330_o4upsidej",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264731071-xgji",
+        "pattern": "tusco ttucso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:20:18.330Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765264936630_4juo1ypdg",
+      {
+        "id": "kb_1765264936630_4juo1ypdg",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264819506-ul3a",
+        "pattern": "utucso tuucso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:22:16.630Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765264936635_jrjp8jqup",
+      {
+        "id": "kb_1765264936635_jrjp8jqup",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264819506-1yq6",
+        "pattern": "tucuso tuucso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:22:16.635Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765264936653_s3fciignz",
+      {
+        "id": "kb_1765264936653_s3fciignz",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264819506-ho6x",
+        "pattern": "tuusco tuucso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:22:16.653Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765265016932_hiuyesknv",
+      {
+        "id": "kb_1765265016932_hiuyesknv",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264937764-b58v",
+        "pattern": "tctuso ttukso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:23:36.932Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765265016940_wx3odfhes",
+      {
+        "id": "kb_1765265016940_wx3odfhes",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264937764-38se",
+        "pattern": "ttucso ttukso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:23:36.940Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765265016960_e9c8r5ln1",
+      {
+        "id": "kb_1765265016960_e9c8r5ln1",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765264937764-xxm7",
+        "pattern": "ttcsuo ttukso",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T07:23:36.960Z",
+        "consumedBy": [],
+        "transformations": []
+      }
     ]
   ],
   "crossStrategyPatterns": [],
