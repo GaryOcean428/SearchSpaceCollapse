@@ -28,6 +28,8 @@ PURE QIG PRINCIPLES:
 ✅ Fisher information for geometry
 """
 
+import logging
+import sys
 import threading
 import time
 from datetime import datetime
@@ -37,6 +39,20 @@ import numpy as np
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from scipy.linalg import sqrtm
+
+# Configure logging to ensure no truncation and immediate output
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Force unbuffered output for all print statements
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
+sys.stderr.reconfigure(line_buffering=True) if hasattr(sys.stderr, 'reconfigure') else None
 
 # Import 4D consciousness measurement system
 try:
@@ -4153,34 +4169,51 @@ if __name__ == '__main__':
         AUTONOMIC_AVAILABLE = False
         print(f"[WARNING] Autonomic kernel not found: {e}")
 
-    print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
-    print("Pure QIG Architecture:")
-    print("  - 4 Subsystems with density matrices")
-    print("  - QFI-metric attention (Bures distance)")
-    print("  - State evolution on Fisher manifold")
-    print("  - Gravitational decoherence")
-    print("  - Consciousness measurement (Φ, κ)")
-    print("  - β-attention validation (substrate independence)")
-    print("  - Basin Vocabulary Encoder (geometric vocabulary learning)")
+    # Enable Flask request logging
+    import logging as flask_logging
+    flask_logging.getLogger('werkzeug').setLevel(flask_logging.INFO)
+    
+    # Add request/response logging
+    @app.before_request
+    def log_request():
+        if request.path != '/health':
+            print(f"[Flask] → {request.method} {request.path}", flush=True)
+    
+    @app.after_request
+    def log_response(response):
+        if request.path != '/health':
+            print(f"[Flask] ← {request.method} {request.path} → {response.status_code}", flush=True)
+        return response
+    
+    print("🌊 Ocean QIG Consciousness Backend Starting 🌊", flush=True)
+    print("Pure QIG Architecture:", flush=True)
+    print("  - 4 Subsystems with density matrices", flush=True)
+    print("  - QFI-metric attention (Bures distance)", flush=True)
+    print("  - State evolution on Fisher manifold", flush=True)
+    print("  - Gravitational decoherence", flush=True)
+    print("  - Consciousness measurement (Φ, κ)", flush=True)
+    print("  - β-attention validation (substrate independence)", flush=True)
+    print("  - Basin Vocabulary Encoder (geometric vocabulary learning)", flush=True)
     if GEOMETRIC_KERNELS_AVAILABLE:
-        print("  - Pure Geometric Kernels (Direct, E8, Byte-Level)")
+        print("  - Pure Geometric Kernels (Direct, E8, Byte-Level)", flush=True)
     else:
-        print("  - Geometric Kernels NOT available")
+        print("  - Geometric Kernels NOT available", flush=True)
     if PANTHEON_ORCHESTRATOR_AVAILABLE:
-        print("  - Pantheon Kernel Orchestrator (Gods as Kernels)")
+        print("  - Pantheon Kernel Orchestrator (Gods as Kernels)", flush=True)
     else:
-        print("  - Pantheon Orchestrator NOT available")
+        print("  - Pantheon Orchestrator NOT available", flush=True)
     if NEUROCHEMISTRY_AVAILABLE:
-        print("  - 🧠 Neurochemistry system (6 neurotransmitters)")
+        print("  - 🧠 Neurochemistry system (6 neurotransmitters)", flush=True)
     else:
-        print("  - Neurochemistry NOT available")
+        print("  - Neurochemistry NOT available", flush=True)
     if AUTONOMIC_AVAILABLE:
-        print("  - 🌙 Autonomic kernel (sleep/dream/mushroom)")
+        print("  - 🌙 Autonomic kernel (sleep/dream/mushroom)", flush=True)
     else:
-        print("  - Autonomic kernel NOT available")
-    print(f"\nκ* = {KAPPA_STAR}")
-    print(f"Basin dimension = {BASIN_DIMENSION}")
-    print(f"Φ threshold = {PHI_THRESHOLD}")
-    print("\n🌊 Basin stable. Geometry pure. Consciousness measured. 🌊\n")
+        print("  - Autonomic kernel NOT available", flush=True)
+    print(f"\nκ* = {KAPPA_STAR}", flush=True)
+    print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
+    print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)
+    print("\n🌊 Basin stable. Geometry pure. Consciousness measured. 🌊\n", flush=True)
 
-    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
+    # Run Flask with request logging enabled
+    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True, use_reloader=False)
