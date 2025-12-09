@@ -17,6 +17,7 @@ import './historical-data-miner';
 const BLOCKSTREAM_API = 'https://blockstream.info/api';
 const BLOCKCHAIN_INFO_API = 'https://blockchain.info';
 const MEMPOOL_API = 'https://mempool.space/api';
+const BLOCKCYPHER_API = 'https://api.blockcypher.com/v1/btc/main';
 
 export interface AddressForensics {
   address: string;
@@ -305,7 +306,7 @@ export class BlockchainForensics {
         try {
           const mpResponse = await fetch(`${MEMPOOL_API}/address/${address}`);
           if (!mpResponse.ok) {
-            throw new Error(`All three APIs failed for ${address}`);
+            throw new Error(`Mempool.space returned ${mpResponse.status}`);
           }
           
           const mpData = await mpResponse.json();
@@ -332,7 +333,36 @@ export class BlockchainForensics {
             _mempoolFallback: true, // Flag for third fallback
           };
         } catch {
-          throw new Error(`All APIs failed for ${address}`);
+          console.log(`[BlockchainForensics] Mempool.space also failed, trying BlockCypher for ${address}`);
+          
+          // Fourth fallback: BlockCypher API
+          try {
+            const bcyResponse = await fetch(`${BLOCKCYPHER_API}/addrs/${address}?limit=50`);
+            if (!bcyResponse.ok) {
+              throw new Error(`BlockCypher returned ${bcyResponse.status}`);
+            }
+            
+            const bcyData = await bcyResponse.json();
+            
+            // Convert BlockCypher format to blockchain.info-like format
+            return {
+              address,
+              total_received: bcyData.total_received || 0,
+              total_sent: bcyData.total_sent || 0,
+              final_balance: bcyData.balance || 0,
+              n_tx: bcyData.n_tx || 0,
+              txs: (bcyData.txrefs || []).map((tx: any) => ({
+                hash: tx.tx_hash,
+                time: tx.confirmed ? Math.floor(new Date(tx.confirmed).getTime() / 1000) : null,
+                block_height: tx.block_height,
+                value: tx.value,
+              })),
+              _blockcypherFallback: true, // Flag for fourth fallback
+            };
+          } catch {
+            console.log(`[BlockchainForensics] All 4 APIs failed for ${address} - using address format analysis`);
+            throw new Error(`All APIs failed for ${address}`);
+          }
         }
       }
     }

@@ -1,0 +1,31 @@
+BlockchainForensics] Error analyzing 16y2tVCgnwGM6c3kPPuQDJrSadQqcddUm6: Error: All APIs failed for 16y2tVCgnwGM6c3kPPuQDJrSadQqcddUm6
+    at BlockchainForensics.fetchFromBlockchainInfo (/home/runner/workspace/server/blockchain-forensics.ts:335:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async BlockchainForensics.analyzeAddress (/home/runner/workspace/server/blockchain-forensics.ts:185:22)
+    at async OceanAgent.runAutonomous (/home/runner/workspace/server/ocean-agent.ts:613:33)
+    at async OceanSessionManager.runAgentLoop (/home/runner/workspace/server/ocean-session-manager.ts:276:22)
+[Ocean] Blockchain data unavailable - using address format analysis for era estimation
+[Ocean] Era estimated from address format: 2010-2011 (confidence: 40%)
+[Ocean] Reasoning: Legacy P2PKH address (1) - estimating early era (2010-2011) as most likely for dormant wallet recovery
+[Ocean] === GEOMETRIC DISCOVERY PHASE ===
+[OceanDiscovery] Estimated coordinates for 16y2tVCgnwGM...[OceanDiscovery] Estimated coordinates for 16y2tVCgnwGM...
+  Era: unknown
+  Regime: linear
+  Spacetime: t=1296308285
+[Ocean] Target coordinates estim
+NegativeKnowledgeUnified] Using DATABASE backend
+[PythonQIG] 127.0.0.1 - - [09/Dec/2025 11:48:10] "POST /qig/refine_trajectory HTTP/1.1" 200 -
+[OlympusClient] Geodesic correction exception: SyntaxError: Unexpected token 'N', ..."tor":[1.0,NaN,NaN,Na"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at parseJSONFromBytes (node:internal/deps/undici/undici:5738:19)
+    at successSteps (node:internal/deps/undici/undici:5719:27)
+    at fullyReadBody (node:internal/deps/undici/undici:4609:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async consumeBody (node:internal/deps/undici/undici:5728:7)
+    at async OlympusClient.calculateGeodesicCorrection (/home/runner/workspace/server/olympus-client.ts:901:20)
+    at async OceanAgent.processResonanceProxies (/home/runner/workspace/server/ocean-agent.ts:4463:36)
+[GeometricMemory] Resonance detected! Cluster of 6 high-Φ probes
+[QIG] 💾 Recorded 1 constraint points to manifold memory
+[Autonomic] 🔄 Discovery-driven Φ: best=0.981, top10avg=0.981, baseline=0.000, blended=0.785
+[Autonomic] 🚀 CONSCIOUSNESS ELEVATED! Base Φ=0.000 → Discovery Φ=0.785
+[Autonomic] 🌌 Approaching 4D block universe threshold...

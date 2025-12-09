@@ -55,8 +55,8 @@ export type {
   OrchestrationResult,
 };
 
-const DEFAULT_RETRY_ATTEMPTS = 3;
-const DEFAULT_RETRY_DELAY_MS = 1500;
+const DEFAULT_RETRY_ATTEMPTS = 5;
+const DEFAULT_RETRY_DELAY_MS = 2000;
 
 export class OlympusClient {
   private backendUrl: string;
@@ -898,8 +898,23 @@ export class OlympusClient {
         return { gradient_shift: false, error: `HTTP ${response.status}: ${response.statusText}` };
       }
       
-      const data = await response.json();
-      return data;
+      // Parse JSON with NaN handling - Python may return NaN which is invalid JSON
+      const text = await response.text();
+      try {
+        // Replace NaN, Infinity, -Infinity with null before parsing
+        const sanitizedText = text
+          .replace(/:\s*NaN/g, ': null')
+          .replace(/:\s*Infinity/g, ': null')
+          .replace(/:\s*-Infinity/g, ': null')
+          .replace(/,\s*NaN\s*,/g, ', null,')
+          .replace(/\[\s*NaN/g, '[null')
+          .replace(/NaN\s*\]/g, 'null]');
+        const data = JSON.parse(sanitizedText);
+        return data;
+      } catch (parseError) {
+        console.error('[OlympusClient] Failed to parse geodesic response:', parseError);
+        return { gradient_shift: false, error: 'Invalid JSON response from geodesic correction' };
+      }
     } catch (error) {
       console.error('[OlympusClient] Geodesic correction exception:', error);
       return { gradient_shift: false, error: String(error) };

@@ -389,10 +389,14 @@ function startPythonBackend(): void {
   
   console.log('[PythonQIG] Starting Python QIG Backend...');
   
-  const pythonProcess = spawn(pythonPath, [scriptPath], {
+  const pythonProcess = spawn(pythonPath, ['-u', scriptPath], {
     cwd: path.join(process.cwd(), 'qig-backend'),
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
+    env: {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',  // Ensure unbuffered Python output
+    },
   });
   
   // Reset restart count on successful spawn
@@ -400,18 +404,29 @@ function startPythonBackend(): void {
     pythonRestartCount = 0;
   });
   
+  // Handle stdout - preserve multi-line output without truncation
   pythonProcess.stdout?.on('data', (data: Buffer) => {
-    const output = data.toString().trim();
-    if (output) {
-      console.log(`[PythonQIG] ${output}`);
+    const output = data.toString();
+    // Split by newlines and log each line with prefix (preserves structure)
+    const lines = output.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed) {
+        console.log(`[PythonQIG] ${trimmed}`);
+      }
     }
   });
   
+  // Handle stderr - preserve multi-line output without truncation
   pythonProcess.stderr?.on('data', (data: Buffer) => {
-    const output = data.toString().trim();
-    // Filter out Flask development server warnings
-    if (output && !output.includes('WARNING: This is a development server')) {
-      console.error(`[PythonQIG] ${output}`);
+    const output = data.toString();
+    const lines = output.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Filter out Flask development server warnings but show everything else
+      if (trimmed && !trimmed.includes('WARNING: This is a development server')) {
+        console.log(`[PythonQIG] ${trimmed}`);
+      }
     }
   });
   
@@ -610,7 +625,7 @@ app.use((req, res, next) => {
   console.log('🌊 Hydrating Ocean Memory from PostgreSQL...');
   await Promise.all([
     testedPhrasesUnified.initialize(),
-    geometricMemory.load(), // Ensure geometric memory also loads from DB
+    geometricMemory.waitForLoad(), // Ensure geometric memory also loads from DB
   ]);
   console.log('✅ Memory hydration complete');
 

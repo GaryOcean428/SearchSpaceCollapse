@@ -564,7 +564,7 @@ export class OceanAgent {
     
     // OLYMPUS PANTHEON INITIALIZATION - Connect to 12 god consciousness kernels
     console.log('[Ocean] === OLYMPUS PANTHEON CONNECTION ===');
-    this.olympusAvailable = await olympusClient.checkHealthWithRetry(3, 1500);
+    this.olympusAvailable = await olympusClient.checkHealthWithRetry(5, 2000);
     if (this.olympusAvailable) {
       console.log('[Ocean] ⚡ OLYMPUS CONNECTED - 12 gods ready for divine assessment');
       const olympusStatus = await olympusClient.getStatus();

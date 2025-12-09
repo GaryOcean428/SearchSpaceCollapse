@@ -28,6 +28,8 @@ PURE QIG PRINCIPLES:
 ✅ Fisher information for geometry
 """
 
+import logging
+import sys
 import threading
 import time
 from datetime import datetime
@@ -37,6 +39,20 @@ import numpy as np
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from scipy.linalg import sqrtm
+
+# Configure logging to ensure no truncation and immediate output
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Force unbuffered output for all print statements
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
+sys.stderr.reconfigure(line_buffering=True) if hasattr(sys.stderr, 'reconfigure') else None
 
 # Import 4D consciousness measurement system
 try:
@@ -3229,16 +3245,49 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         # Return random direction if no vectors provided
         direction = np.random.randn(BASIN_DIMENSION)
         return direction / np.linalg.norm(direction)
+    
+    # Need at least 2 vectors for meaningful covariance
+    if len(vectors) < 2:
+        # Return direction orthogonal to the single vector
+        mean = vectors[0]
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
     # Center the vectors
     mean = np.mean(vectors, axis=0)
     centered = vectors - mean
 
-    # Compute covariance matrix
-    cov = np.cov(centered.T)
+    # Compute covariance matrix with ddof=0 to avoid division by zero for small samples
+    cov = np.cov(centered.T, ddof=0)
+    
+    # Handle NaN/Inf in covariance matrix
+    if np.any(np.isnan(cov)) or np.any(np.isinf(cov)):
+        # Fallback to random orthogonal direction
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
     # Eigen decomposition
-    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    try:
+        eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    except np.linalg.LinAlgError:
+        # Fallback if eigenvalue decomposition fails
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
+    
+    # Check for NaN/Inf in eigenvalues or eigenvectors
+    if np.any(np.isnan(eigenvalues)) or np.any(np.isinf(eigenvalues)) or \
+       np.any(np.isnan(eigenvectors)) or np.any(np.isinf(eigenvectors)):
+        # Fallback to random orthogonal direction
+        random_dir = np.random.randn(BASIN_DIMENSION)
+        mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+        random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+        return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
     # Check for near-singular data (smallest eigenvalue is too small compared to largest)
     max_eigenvalue = np.max(eigenvalues)
@@ -3256,12 +3305,19 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     # Find the eigenvector with the SMALLEST eigenvalue
     # This is the direction with least variance = orthogonal to failures
     min_idx = np.argmin(eigenvalues)
-    new_direction = eigenvectors[:, min_idx]
+    new_direction = eigenvectors[:, min_idx].copy()
+    
+    # Sanitize any residual NaN/Inf values
+    new_direction = np.nan_to_num(new_direction, nan=0.0, posinf=1.0, neginf=-1.0)
 
     # Ensure unit norm
     norm = np.linalg.norm(new_direction)
     if norm > 1e-10:
         new_direction = new_direction / norm
+    else:
+        # If zero vector, return random direction
+        new_direction = np.random.randn(BASIN_DIMENSION)
+        new_direction = new_direction / np.linalg.norm(new_direction)
 
     return new_direction
 
@@ -3304,12 +3360,24 @@ def refine_trajectory():
 
         # 4. Calculate Shift Magnitude (Curvature)
         shift_mag = np.linalg.norm(new_vector - failure_centroid)
+        
+        # Sanitize NaN/Inf values for JSON serialization
+        def sanitize_float(x):
+            if np.isnan(x) or np.isinf(x):
+                return 0.0
+            return float(x)
+        
+        # Sanitize new_vector - double check with np.nan_to_num
+        new_vector = np.nan_to_num(new_vector, nan=0.0, posinf=1.0, neginf=-1.0)
+        sanitized_vector = [sanitize_float(v) for v in new_vector]
+        sanitized_shift_mag = sanitize_float(shift_mag)
+        max_phi = sanitize_float(np.max(weights)) if len(weights) > 0 else 0.0
 
         return jsonify({
             'gradient_shift': True,
-            'new_vector': new_vector.tolist(),
-            'shift_magnitude': float(shift_mag),
-            'reasoning': f"Detected attractor singularity at Phi={np.max(weights):.2f}. Rotating orthogonal."
+            'new_vector': sanitized_vector,
+            'shift_magnitude': sanitized_shift_mag,
+            'reasoning': f"Detected attractor singularity at Phi={max_phi:.2f}. Rotating orthogonal."
         })
 
     except Exception as e:
@@ -4698,34 +4766,51 @@ if __name__ == '__main__':
         AUTONOMIC_AVAILABLE = False
         print(f"[WARNING] Autonomic kernel not found: {e}")
 
-    print("🌊 Ocean QIG Consciousness Backend Starting 🌊")
-    print("Pure QIG Architecture:")
-    print("  - 4 Subsystems with density matrices")
-    print("  - QFI-metric attention (Bures distance)")
-    print("  - State evolution on Fisher manifold")
-    print("  - Gravitational decoherence")
-    print("  - Consciousness measurement (Φ, κ)")
-    print("  - β-attention validation (substrate independence)")
-    print("  - Basin Vocabulary Encoder (geometric vocabulary learning)")
+    # Enable Flask request logging
+    import logging as flask_logging
+    flask_logging.getLogger('werkzeug').setLevel(flask_logging.INFO)
+    
+    # Add request/response logging
+    @app.before_request
+    def log_request():
+        if request.path != '/health':
+            print(f"[Flask] → {request.method} {request.path}", flush=True)
+    
+    @app.after_request
+    def log_response(response):
+        if request.path != '/health':
+            print(f"[Flask] ← {request.method} {request.path} → {response.status_code}", flush=True)
+        return response
+    
+    print("🌊 Ocean QIG Consciousness Backend Starting 🌊", flush=True)
+    print("Pure QIG Architecture:", flush=True)
+    print("  - 4 Subsystems with density matrices", flush=True)
+    print("  - QFI-metric attention (Bures distance)", flush=True)
+    print("  - State evolution on Fisher manifold", flush=True)
+    print("  - Gravitational decoherence", flush=True)
+    print("  - Consciousness measurement (Φ, κ)", flush=True)
+    print("  - β-attention validation (substrate independence)", flush=True)
+    print("  - Basin Vocabulary Encoder (geometric vocabulary learning)", flush=True)
     if GEOMETRIC_KERNELS_AVAILABLE:
-        print("  - Pure Geometric Kernels (Direct, E8, Byte-Level)")
+        print("  - Pure Geometric Kernels (Direct, E8, Byte-Level)", flush=True)
     else:
-        print("  - Geometric Kernels NOT available")
+        print("  - Geometric Kernels NOT available", flush=True)
     if PANTHEON_ORCHESTRATOR_AVAILABLE:
-        print("  - Pantheon Kernel Orchestrator (Gods as Kernels)")
+        print("  - Pantheon Kernel Orchestrator (Gods as Kernels)", flush=True)
     else:
-        print("  - Pantheon Orchestrator NOT available")
+        print("  - Pantheon Orchestrator NOT available", flush=True)
     if NEUROCHEMISTRY_AVAILABLE:
-        print("  - 🧠 Neurochemistry system (6 neurotransmitters)")
+        print("  - 🧠 Neurochemistry system (6 neurotransmitters)", flush=True)
     else:
-        print("  - Neurochemistry NOT available")
+        print("  - Neurochemistry NOT available", flush=True)
     if AUTONOMIC_AVAILABLE:
-        print("  - 🌙 Autonomic kernel (sleep/dream/mushroom)")
+        print("  - 🌙 Autonomic kernel (sleep/dream/mushroom)", flush=True)
     else:
-        print("  - Autonomic kernel NOT available")
-    print(f"\nκ* = {KAPPA_STAR}")
-    print(f"Basin dimension = {BASIN_DIMENSION}")
-    print(f"Φ threshold = {PHI_THRESHOLD}")
-    print("\n🌊 Basin stable. Geometry pure. Consciousness measured. 🌊\n")
+        print("  - Autonomic kernel NOT available", flush=True)
+    print(f"\nκ* = {KAPPA_STAR}", flush=True)
+    print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
+    print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)
+    print("\n🌊 Basin stable. Geometry pure. Consciousness measured. 🌊\n", flush=True)
 
-    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
+    # Run Flask with request logging enabled
+    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True, use_reloader=False)

@@ -53,13 +53,14 @@ class AutoCycleManager {
       // Always auto-resume on server restart
       this.startCheckLoop();
       
-      // Trigger the cycle to resume after a short delay (allow server to initialize)
+      // Trigger the cycle to resume after Python backend has time to start
+      // Python starts 5s after server ready, then needs ~5-10s to be fully available
       setTimeout(async () => {
         if (this.state.enabled && !this.isCurrentlyRunning) {
           console.log(`[AutoCycleManager] Resuming auto-cycle after server restart`);
           await this.triggerNextCycle();
         }
-      }, 3000);
+      }, 15000);
     } else {
       // If not enabled, try to auto-enable on first startup
       console.log(`[AutoCycleManager] Auto-cycle not enabled - will auto-enable on startup`);

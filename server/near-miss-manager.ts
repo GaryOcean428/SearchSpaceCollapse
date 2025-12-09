@@ -1391,7 +1391,7 @@ export class NearMissManager {
   }
 
   /**
-   * Save state to PostgreSQL
+   * Save state to PostgreSQL - serialized to avoid connection pool exhaustion
    */
   private async saveToPostgres(): Promise<void> {
     if (!oceanPersistence.isPersistenceAvailable()) return;
@@ -1416,27 +1416,39 @@ export class NearMissManager {
         explorationCount: e.explorationCount,
       }));
 
-      const [entrySaveCount] = await Promise.all([
-        oceanPersistence.batchUpsertNearMissEntries(entryData),
-        ...clusters.map(c => oceanPersistence.upsertNearMissCluster({
-          id: c.id,
-          centroidPhrase: c.centroidPhrase,
-          centroidPhi: c.centroidPhi,
-          memberCount: c.memberCount,
-          avgPhi: c.avgPhi,
-          maxPhi: c.maxPhi,
-          commonWords: c.commonWords,
-          structuralPattern: c.structuralPattern,
-        })),
-        oceanPersistence.saveNearMissAdaptiveState({
-          rollingPhiDistribution: this.rollingPhiDistribution,
-          hotThreshold: this.adaptiveThresholds.hot,
-          warmThreshold: this.adaptiveThresholds.warm,
-          coolThreshold: this.adaptiveThresholds.cool,
-        }),
-      ]);
+      // Serialize operations to avoid connection pool exhaustion
+      // 1. Save entries first (already batched internally)
+      const entrySaveCount = await oceanPersistence.batchUpsertNearMissEntries(entryData);
 
-      console.log(`[NearMiss] Saved to PostgreSQL: ${entrySaveCount} entries, ${clusters.length} clusters`);
+      // 2. Save clusters sequentially with small delays
+      let clusterSaveCount = 0;
+      for (const c of clusters) {
+        try {
+          await oceanPersistence.upsertNearMissCluster({
+            id: c.id,
+            centroidPhrase: c.centroidPhrase,
+            centroidPhi: c.centroidPhi,
+            memberCount: c.memberCount,
+            avgPhi: c.avgPhi,
+            maxPhi: c.maxPhi,
+            commonWords: c.commonWords,
+            structuralPattern: c.structuralPattern,
+          });
+          clusterSaveCount++;
+        } catch (e) {
+          // Continue on individual cluster failures
+        }
+      }
+
+      // 3. Save adaptive state last
+      await oceanPersistence.saveNearMissAdaptiveState({
+        rollingPhiDistribution: this.rollingPhiDistribution,
+        hotThreshold: this.adaptiveThresholds.hot,
+        warmThreshold: this.adaptiveThresholds.warm,
+        coolThreshold: this.adaptiveThresholds.cool,
+      });
+
+      console.log(`[NearMiss] Saved to PostgreSQL: ${entrySaveCount} entries, ${clusterSaveCount}/${clusters.length} clusters`);
     } catch (error) {
       console.error('[NearMiss] Failed to save to PostgreSQL:', error);
     }
