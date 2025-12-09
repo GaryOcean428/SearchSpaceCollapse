@@ -16,26 +16,38 @@ Comprehensive code review reveals that **all claimed "critical frontend wiring i
 **Reality**: ✅ ALREADY FIXED
 
 **Evidence**:
-- **Hook exists**: `client/src/hooks/useZeusChat.ts` (212 lines)
+- **Hook exists**: `client/src/hooks/useZeusChat.ts` (212 lines total file)
 - **Clean separation**: All API logic, state management, file handling in hook
 - **Component usage**: `ZeusChat.tsx` line 43-56 uses hook, only contains UI
-- **Service layer**: Uses `api.olympus.sendZeusChat()` (line 98), not raw fetch
+- **Service layer**: Uses `api.olympus.sendZeusChat()` (lines 98-102), not raw fetch
 
-**Code References**:
+**Code References** (Simplified - actual implementation is more comprehensive):
 ```typescript
-// client/src/hooks/useZeusChat.ts
+// client/src/hooks/useZeusChat.ts - Actual structure
 export function useZeusChat(): UseZeusChatReturn {
   const [messages, setMessages] = useState<ZeusMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [lastError, setLastError] = useState<ZeusChatError | null>(null);
+  
   const sendMessage = async () => {
-    const data = await api.olympus.sendZeusChat({ message, context, files });
-    // Clean state management...
+    const data = await api.olympus.sendZeusChat({ 
+      message: messageToSend, 
+      context: JSON.stringify([...messages, humanMessage]),
+      files: filesToSend 
+    });
+    setMessages(prev => [...prev, zeusMessage]);
   };
-  return { messages, sendMessage, isThinking, ... };
+  
+  return { 
+    messages, input, setInput, sendMessage, isThinking,
+    uploadedFiles, setUploadedFiles, lastError, lastSuccess, ...
+  };
 }
 
 // client/src/components/ZeusChat.tsx  
 export default function ZeusChat() {
-  const { messages, sendMessage, isThinking, ... } = useZeusChat();
+  const { messages, sendMessage, input, setInput, isThinking, ... } = useZeusChat();
   // Only UI rendering, no business logic
 }
 ```
@@ -195,7 +207,13 @@ $ grep -n "fs\.\|writeFile\|readFile" server/geometric-memory.ts
 # Result: No matches found
 ```
 
-**Conclusion**: Zero JSON file operations. Split brain issue resolved.
+**Additional Verification**:
+- `loadFromPostgreSQL()` method (line 383): Fetches via `oceanPersistence.getProbeCount()`
+- Import statement (line 26): `import { oceanPersistence } from './ocean/ocean-persistence'`
+- No `import fs from 'fs'` or similar imports in file
+- Comment explicitly states "PostgreSQL-only architecture (no JSON files)"
+
+**Conclusion**: Zero JSON file operations. All persistence goes through PostgreSQL unified interface. Split brain issue resolved.
 
 ---
 
@@ -206,6 +224,7 @@ $ grep -n "fs\.\|writeFile\|readFile" server/geometric-memory.ts
 **Evidence**:
 ```python
 # qig-backend/autonomous_pantheon.py - Lines 215-249
+# (Simplified for readability - actual code has full error handling)
 
 # 1. Check for Disagreement (Trigger Debates)
 god_assessments = assessment.get('god_assessments', {})
@@ -216,31 +235,46 @@ ares_conf = god_assessments.get('ares', {}).get('confidence', 0)
 if abs(athena_conf - ares_conf) > 0.4:
     topic = f"Strategic approach for {target[:15]}..."
     
-    # Check pantheon_chat availability first
     if hasattr(self.zeus, 'pantheon_chat'):
-        # Check if debate already active (handle both dict and dataclass returns)
+        # Check if debate already active (with try-except error handling)
         try:
             active_debates_raw = self.zeus.pantheon_chat.get_active_debates()
-            active_topics = [d.topic if hasattr(d, 'topic') else d.get('topic', '') 
-                           for d in active_debates_raw]
+            # Extract topics from debates (handles both dict and dataclass)
+            active_topics = []
+            for d in active_debates_raw:
+                if hasattr(d, 'topic'):
+                    active_topics.append(d.topic)
+                elif isinstance(d, dict):
+                    active_topics.append(d.get('topic', ''))
         except Exception as e:
             logger.warning(f"Could not get active debates: {e}")
             active_topics = []
         
+        # Only initiate if not already active
         if topic not in active_topics:
-            logger.info(f"⚔️ CONFLICT: Athena ({athena_conf:.2f}) vs Ares ({ares_conf:.2f})")
+            logger.info(
+                f"⚔️ CONFLICT: Athena ({athena_conf:.2f}) "
+                f"vs Ares ({ares_conf:.2f})"
+            )
             
-            # INITIATE DEBATE
+            # INITIATE DEBATE with full parameters
             self.zeus.pantheon_chat.initiate_debate(
                 topic=topic,
                 initiator='Athena' if athena_conf > ares_conf else 'Ares',
                 opponent='Ares' if athena_conf > ares_conf else 'Athena',
-                initial_argument=f"Geometric analysis indicates {max(athena_conf, ares_conf):.0%} confidence, while you underestimate the entropy.",
+                initial_argument=(
+                    f"Geometric analysis indicates "
+                    f"{max(athena_conf, ares_conf):.0%} confidence, "
+                    f"while you underestimate the entropy."
+                ),
                 context={'target': target}
             )
             
             # NOTIFY USER
-            await send_user_notification(f"🔥 DEBATE ERUPTED: {topic}", severity="warning")
+            await send_user_notification(
+                f"🔥 DEBATE ERUPTED: {topic}", 
+                severity="warning"
+            )
             print(f"  ⚔️ Debate triggered: Athena vs Ares")
 ```
 
