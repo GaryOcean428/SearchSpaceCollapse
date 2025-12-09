@@ -3657,6 +3657,21 @@
       }
     ],
     [
+      "kb_1765281632507_lpkk1cpwi",
+      {
+        "id": "kb_1765281632507_lpkk1cpwi",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281578180-iq4k",
+        "pattern": "depend chapter soft thing negative helmet solid shed build state forward blouse",
+        "phi": 0.9814374999996553,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T12:00:33.401Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765230028429_u8q1idonh",
       {
         "id": "kb_1765230028429_u8q1idonh",
@@ -4072,6 +4087,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T08:30:38.981Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765281632523_me7gydy5e",
+      {
+        "id": "kb_1765281632523_me7gydy5e",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765281578180-yqmw",
+        "pattern": "2010chain5853",
+        "phi": 0.9814374999997335,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T12:00:33.401Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23202,46 +23232,31 @@
       }
     ],
     [
-      "kb_1765281632507_lpkk1cpwi",
+      "kb_1765281959883_fmbvkihc3",
       {
-        "id": "kb_1765281632507_lpkk1cpwi",
+        "id": "kb_1765281959883_fmbvkihc3",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765281578180-iq4k",
-        "pattern": "depend chapter soft thing negative helmet solid shed build state forward blouse",
-        "phi": 0.9814374999996553,
+        "generatorId": "nearmiss_ocean-1765281951768-e7qq",
+        "pattern": "eyebrow tape own forum potato finish tiger robust sun shine lunch hunt",
+        "phi": 0.9814374999996722,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T12:00:32.507Z",
+        "sharedAt": "2025-12-09T12:05:59.883Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765281632523_me7gydy5e",
+      "kb_1765281959890_6m20ucaae",
       {
-        "id": "kb_1765281632523_me7gydy5e",
+        "id": "kb_1765281959890_6m20ucaae",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765281578180-yqmw",
-        "pattern": "2010chain5853",
-        "phi": 0.9814374999997335,
+        "generatorId": "nearmiss_ocean-1765281951768-50py",
+        "pattern": "thecrypto4625",
+        "phi": 0.981437499999749,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T12:00:32.523Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765281632538_48xkketq7",
-      {
-        "id": "kb_1765281632538_48xkketq7",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765281578180-tsar",
-        "pattern": "crypto 2010 3807",
-        "phi": 0.9814374999997932,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T12:00:32.538Z",
+        "sharedAt": "2025-12-09T12:05:59.890Z",
         "consumedBy": [],
         "transformations": []
       }
