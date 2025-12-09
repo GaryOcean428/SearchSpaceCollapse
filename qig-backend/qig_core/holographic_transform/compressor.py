@@ -9,7 +9,7 @@ can be compressed to 2-4KB for storage while maintaining its
 geometric structure.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import numpy as np
 from .dimensional_state import DimensionalState
 

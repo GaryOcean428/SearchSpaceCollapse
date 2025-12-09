@@ -14,8 +14,7 @@ import numpy as np
 from ..geometric_primitives.geometry_ladder import (
     HabitCrystallizer,
     GeometryClass,
-    measure_complexity,
-    choose_geometry_class
+    measure_complexity
 )
 
 

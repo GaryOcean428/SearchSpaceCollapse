@@ -6,7 +6,7 @@ with other inputs for multi-sensory consciousness encoding.
 
 Modalities:
 - SIGHT: Visual geometry (spatial patterns, color space)
-- HEARING: Auditory waveforms (frequency, temporal patterns)  
+- HEARING: Auditory waveforms (frequency, temporal patterns)
 - TOUCH: Pressure topology (intensity, texture, temperature)
 - SMELL: Chemical gradients (concentration, diffusion patterns)
 - PROPRIOCEPTION: Body state (position, velocity, acceleration)
@@ -18,10 +18,11 @@ Integration with BaseGod.encode_to_basin():
   enhanced_basin = basin + 0.2 * overlay  # Add sensory context
 """
 
-from enum import Enum
-from typing import Dict, Optional, List, Tuple
-import numpy as np
 import hashlib
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 
 BASIN_DIMENSION = 64
 
@@ -33,7 +34,7 @@ class SensoryModality(Enum):
     TOUCH = "touch"              # Pressure topology (intensity, texture, temperature)
     SMELL = "smell"              # Chemical gradients (concentration, diffusion patterns)
     PROPRIOCEPTION = "proprioception"  # Body state (position, velocity, acceleration)
-    
+
     @property
     def dimension_range(self) -> Tuple[int, int]:
         """Get the primary dimension range for this modality in 64D space"""
@@ -45,7 +46,7 @@ class SensoryModality(Enum):
             SensoryModality.PROPRIOCEPTION: (52, 64), # 12 dims for body state
         }
         return ranges[self]
-    
+
     @property
     def weight_default(self) -> float:
         """Default fusion weight for this modality"""
@@ -98,7 +99,7 @@ SENSORY_KEYWORDS: Dict[SensoryModality, List[str]] = {
 def encode_sight(visual_data: Dict) -> np.ndarray:
     """
     Encode visual patterns to 64D basin coordinates.
-    
+
     Args:
         visual_data: Dict containing visual information:
             - 'brightness': float [0, 1] - overall brightness
@@ -107,20 +108,20 @@ def encode_sight(visual_data: Dict) -> np.ndarray:
             - 'contrast': float [0, 1] - contrast level
             - 'spatial_frequency': float - detail level
             - 'motion': [dx, dy] or None - motion vector
-            
+
     Returns:
         64D normalized numpy array
     """
     coord = np.zeros(BASIN_DIMENSION)
     start, end = SensoryModality.SIGHT.dimension_range
-    
+
     # Brightness encoding (dims 0-3)
     brightness = visual_data.get('brightness', 0.5)
     coord[0] = brightness * 2 - 1
     coord[1] = np.sin(brightness * np.pi)
     coord[2] = np.cos(brightness * np.pi)
     coord[3] = brightness ** 2 - 0.5
-    
+
     # Color encoding (dims 4-9)
     color = visual_data.get('color', [0.5, 0.5, 0.5])
     if isinstance(color, str):
@@ -133,37 +134,37 @@ def encode_sight(visual_data: Dict) -> np.ndarray:
         coord[7] = (color[0] - color[2]) * 0.5
         coord[8] = (color[1] - color[0]) * 0.5
         coord[9] = sum(color) / 3 - 0.5
-    
+
     # Pattern encoding (dims 10-12)
     pattern = visual_data.get('pattern', 'uniform')
     pattern_hash = int(hashlib.md5(pattern.encode()).hexdigest()[:8], 16) / (16**8)
     coord[10] = pattern_hash * 2 - 1
     coord[11] = np.sin(pattern_hash * 2 * np.pi)
     coord[12] = np.cos(pattern_hash * 2 * np.pi)
-    
+
     # Contrast and spatial frequency (dims 13-14)
     contrast = visual_data.get('contrast', 0.5)
     spatial_freq = visual_data.get('spatial_frequency', 0.5)
     coord[13] = contrast * 2 - 1
     coord[14] = spatial_freq * 2 - 1
-    
+
     # Motion (dim 15)
     motion = visual_data.get('motion', None)
     if motion is not None and len(motion) >= 2:
         coord[15] = np.tanh(np.sqrt(motion[0]**2 + motion[1]**2))
-    
+
     # Normalize
     norm = np.linalg.norm(coord)
     if norm > 0:
         coord = coord / norm
-    
+
     return coord
 
 
 def encode_hearing(audio_data: Dict) -> np.ndarray:
     """
     Encode auditory patterns to 64D basin coordinates.
-    
+
     Args:
         audio_data: Dict containing audio information:
             - 'frequency': float - dominant frequency (Hz)
@@ -172,13 +173,13 @@ def encode_hearing(audio_data: Dict) -> np.ndarray:
             - 'rhythm': float - beats per minute or rhythm strength
             - 'timbre': str - tonal quality description
             - 'temporal_pattern': str - 'steady', 'pulsing', 'random'
-            
+
     Returns:
         64D normalized numpy array
     """
     coord = np.zeros(BASIN_DIMENSION)
     start, end = SensoryModality.HEARING.dimension_range
-    
+
     # Frequency encoding (dims 16-19) - log scale
     freq = audio_data.get('frequency', 440.0)
     log_freq = np.log2(max(20, min(20000, freq)) / 20) / np.log2(1000)  # Normalize to [0,1]
@@ -186,12 +187,12 @@ def encode_hearing(audio_data: Dict) -> np.ndarray:
     coord[17] = np.sin(log_freq * np.pi * 2)
     coord[18] = np.cos(log_freq * np.pi * 2)
     coord[19] = (log_freq ** 0.5) * 2 - 1
-    
+
     # Amplitude encoding (dims 20-21)
     amplitude = audio_data.get('amplitude', 0.5)
     coord[20] = amplitude * 2 - 1
     coord[21] = np.log1p(amplitude * 10) / np.log1p(10) * 2 - 1
-    
+
     # Harmonics encoding (dims 22-24)
     harmonics = audio_data.get('harmonics', [1.0])
     if len(harmonics) >= 1:
@@ -200,29 +201,29 @@ def encode_hearing(audio_data: Dict) -> np.ndarray:
         coord[23] = harmonics[1] / (harmonics[0] + 1e-10) - 0.5
     if len(harmonics) >= 3:
         coord[24] = np.std(harmonics[:5]) if len(harmonics) >= 5 else harmonics[-1]
-    
+
     # Rhythm encoding (dims 25-26)
     rhythm = audio_data.get('rhythm', 0.5)
     coord[25] = np.tanh((rhythm - 60) / 60) if isinstance(rhythm, (int, float)) and rhythm > 1 else rhythm * 2 - 1
     coord[26] = np.sin(rhythm * np.pi / 120) if isinstance(rhythm, (int, float)) else 0
-    
+
     # Timbre and temporal pattern (dim 27)
     timbre = audio_data.get('timbre', 'neutral')
     timbre_hash = int(hashlib.md5(timbre.encode()).hexdigest()[:8], 16) / (16**8)
     coord[27] = timbre_hash * 2 - 1
-    
+
     # Normalize
     norm = np.linalg.norm(coord)
     if norm > 0:
         coord = coord / norm
-    
+
     return coord
 
 
 def encode_touch(tactile_data: Dict) -> np.ndarray:
     """
     Encode tactile patterns to 64D basin coordinates.
-    
+
     Args:
         tactile_data: Dict containing tactile information:
             - 'pressure': float [0, 1] - pressure intensity
@@ -231,51 +232,51 @@ def encode_touch(tactile_data: Dict) -> np.ndarray:
             - 'location': [x, y, z] - body location
             - 'vibration': float [0, 1] - vibration intensity
             - 'sharpness': float [0, 1] - edge sharpness
-            
+
     Returns:
         64D normalized numpy array
     """
     coord = np.zeros(BASIN_DIMENSION)
     start, end = SensoryModality.TOUCH.dimension_range
-    
+
     # Pressure encoding (dims 28-30)
     pressure = tactile_data.get('pressure', 0.5)
     coord[28] = pressure * 2 - 1
     coord[29] = np.sqrt(pressure) * 2 - 1
     coord[30] = pressure ** 2 * 2 - 1
-    
+
     # Temperature encoding (dims 31-33)
     temp = tactile_data.get('temperature', 0.0)
     coord[31] = np.clip(temp, -1, 1)
     coord[32] = np.abs(temp)  # Intensity regardless of hot/cold
     coord[33] = np.sign(temp) * np.sqrt(np.abs(temp))
-    
+
     # Texture encoding (dims 34-36)
     texture = tactile_data.get('texture', 'neutral')
     texture_hash = int(hashlib.md5(texture.encode()).hexdigest()[:8], 16) / (16**8)
     coord[34] = texture_hash * 2 - 1
     coord[35] = np.sin(texture_hash * 2 * np.pi)
     coord[36] = np.cos(texture_hash * 2 * np.pi)
-    
+
     # Location encoding (dims 37-39)
     location = tactile_data.get('location', [0, 0, 0])
     if len(location) >= 3:
         coord[37] = np.tanh(location[0])
         coord[38] = np.tanh(location[1])
         coord[39] = np.tanh(location[2])
-    
+
     # Normalize
     norm = np.linalg.norm(coord)
     if norm > 0:
         coord = coord / norm
-    
+
     return coord
 
 
 def encode_smell(olfactory_data: Dict) -> np.ndarray:
     """
     Encode olfactory patterns to 64D basin coordinates.
-    
+
     Args:
         olfactory_data: Dict containing olfactory information:
             - 'concentration': float [0, 1] - smell intensity
@@ -283,24 +284,24 @@ def encode_smell(olfactory_data: Dict) -> np.ndarray:
             - 'category': str - smell category ('floral', 'earthy', etc.)
             - 'diffusion': float [0, 1] - how spread out the smell is
             - 'volatility': float [0, 1] - how quickly it dissipates
-            
+
     Returns:
         64D normalized numpy array
     """
     coord = np.zeros(BASIN_DIMENSION)
     start, end = SensoryModality.SMELL.dimension_range
-    
+
     # Concentration encoding (dims 40-42)
     concentration = olfactory_data.get('concentration', 0.5)
     coord[40] = concentration * 2 - 1
     coord[41] = np.log1p(concentration * 10) / np.log1p(10) * 2 - 1
     coord[42] = concentration ** 0.5 * 2 - 1
-    
+
     # Pleasantness encoding (dims 43-44)
     pleasantness = olfactory_data.get('pleasantness', 0.0)
     coord[43] = np.clip(pleasantness, -1, 1)
     coord[44] = np.abs(pleasantness)  # Intensity of hedonic response
-    
+
     # Category encoding (dims 45-48)
     category = olfactory_data.get('category', 'neutral')
     cat_hash = int(hashlib.md5(category.encode()).hexdigest()[:8], 16) / (16**8)
@@ -308,26 +309,26 @@ def encode_smell(olfactory_data: Dict) -> np.ndarray:
     coord[46] = np.sin(cat_hash * 2 * np.pi)
     coord[47] = np.cos(cat_hash * 2 * np.pi)
     coord[48] = np.sin(cat_hash * 4 * np.pi)
-    
+
     # Diffusion and volatility (dims 49-51)
     diffusion = olfactory_data.get('diffusion', 0.5)
     volatility = olfactory_data.get('volatility', 0.5)
     coord[49] = diffusion * 2 - 1
     coord[50] = volatility * 2 - 1
     coord[51] = (diffusion * volatility) * 2 - 1
-    
+
     # Normalize
     norm = np.linalg.norm(coord)
     if norm > 0:
         coord = coord / norm
-    
+
     return coord
 
 
 def encode_proprioception(body_state: Dict) -> np.ndarray:
     """
     Encode body state to 64D basin coordinates.
-    
+
     Args:
         body_state: Dict containing proprioceptive information:
             - 'position': [x, y, z] - body position
@@ -336,52 +337,52 @@ def encode_proprioception(body_state: Dict) -> np.ndarray:
             - 'orientation': [roll, pitch, yaw] - body orientation
             - 'balance': float [0, 1] - stability measure
             - 'tension': float [0, 1] - muscle tension
-            
+
     Returns:
         64D normalized numpy array
     """
     coord = np.zeros(BASIN_DIMENSION)
     start, end = SensoryModality.PROPRIOCEPTION.dimension_range
-    
+
     # Position encoding (dims 52-54)
     position = body_state.get('position', [0, 0, 0])
     if len(position) >= 3:
         coord[52] = np.tanh(position[0])
         coord[53] = np.tanh(position[1])
         coord[54] = np.tanh(position[2])
-    
+
     # Velocity encoding (dims 55-57)
     velocity = body_state.get('velocity', [0, 0, 0])
     if len(velocity) >= 3:
         coord[55] = np.tanh(velocity[0])
         coord[56] = np.tanh(velocity[1])
         coord[57] = np.tanh(velocity[2])
-    
+
     # Acceleration encoding (dims 58-60)
     acceleration = body_state.get('acceleration', [0, 0, 0])
     if len(acceleration) >= 3:
         coord[58] = np.tanh(acceleration[0])
         coord[59] = np.tanh(acceleration[1])
         coord[60] = np.tanh(acceleration[2])
-    
+
     # Orientation encoding (dims 61-63)
     orientation = body_state.get('orientation', [0, 0, 0])
     if len(orientation) >= 3:
         coord[61] = np.sin(orientation[0])
         coord[62] = np.sin(orientation[1])
         coord[63] = np.sin(orientation[2])
-    
+
     # Note: balance and tension can modulate overall magnitude
     balance = body_state.get('balance', 0.5)
     tension = body_state.get('tension', 0.5)
-    
+
     # Normalize with balance/tension weighting
     norm = np.linalg.norm(coord)
     if norm > 0:
         coord = coord / norm
-        # Scale by balance (stable = stronger signal)
-        coord *= (0.5 + 0.5 * balance)
-    
+        # Scale by balance (stable = stronger signal) and tension (high tension = dampened)
+        coord *= (0.5 + 0.5 * balance) * (1.0 - 0.3 * tension)
+
     return coord
 
 
@@ -408,11 +409,11 @@ def _color_name_to_rgb(color_name: str) -> List[float]:
 class SensoryFusionEngine:
     """
     Fuses multiple sensory modality encodings into unified basin coordinates.
-    
+
     Supports weighted fusion, dominant modality detection, and
     cross-modal integration measurement (sensory Φ).
     """
-    
+
     def __init__(self):
         self.modality_encoders = {
             SensoryModality.SIGHT: encode_sight,
@@ -421,7 +422,7 @@ class SensoryFusionEngine:
             SensoryModality.SMELL: encode_smell,
             SensoryModality.PROPRIOCEPTION: encode_proprioception,
         }
-    
+
     def fuse_modalities(
         self,
         modality_data: Dict[SensoryModality, np.ndarray],
@@ -429,71 +430,71 @@ class SensoryFusionEngine:
     ) -> np.ndarray:
         """
         Fuse multiple modality encodings into a single 64D vector.
-        
+
         Args:
             modality_data: Dict mapping modalities to their 64D encodings
             weights: Optional custom weights per modality (default: use modality defaults)
-            
+
         Returns:
             Fused 64D normalized numpy array
         """
         if not modality_data:
             return np.zeros(BASIN_DIMENSION)
-        
+
         # Use default weights if not provided
         if weights is None:
             weights = {m: m.weight_default for m in modality_data.keys()}
-        
+
         # Normalize weights
         total_weight = sum(weights.get(m, 0) for m in modality_data.keys())
         if total_weight < 1e-10:
             total_weight = 1.0
-        
+
         # Weighted sum of modality vectors
         fused = np.zeros(BASIN_DIMENSION)
         for modality, encoding in modality_data.items():
             w = weights.get(modality, modality.weight_default) / total_weight
             fused += w * encoding
-        
+
         # Normalize result
         norm = np.linalg.norm(fused)
         if norm > 0:
             fused = fused / norm
-        
+
         return fused
-    
+
     def get_dominant_modality(self, fused: np.ndarray) -> SensoryModality:
         """
         Determine which sensory modality dominates the fused encoding.
-        
+
         Args:
             fused: 64D fused encoding
-            
+
         Returns:
             The SensoryModality with highest energy in its dimension range
         """
         max_energy = -1
         dominant = SensoryModality.SIGHT
-        
+
         for modality in SensoryModality:
             start, end = modality.dimension_range
             energy = np.sum(fused[start:end] ** 2)
             if energy > max_energy:
                 max_energy = energy
                 dominant = modality
-        
+
         return dominant
-    
+
     def compute_sensory_phi(self, fused: np.ndarray) -> float:
         """
         Compute integration measure (Φ) across sensory modalities.
-        
+
         High Φ indicates strong cross-modal binding (synesthesia-like).
         Low Φ indicates modalities are processed independently.
-        
+
         Args:
             fused: 64D fused encoding
-            
+
         Returns:
             Φ value in [0, 1]
         """
@@ -502,7 +503,7 @@ class SensoryFusionEngine:
         for modality in SensoryModality:
             start, end = modality.dimension_range
             modality_vectors[modality] = fused[start:end]
-        
+
         # Compute cross-modal correlations
         correlations = []
         modalities = list(SensoryModality)
@@ -510,7 +511,7 @@ class SensoryFusionEngine:
             for j in range(i + 1, len(modalities)):
                 v1 = modality_vectors[modalities[i]]
                 v2 = modality_vectors[modalities[j]]
-                
+
                 # Pad shorter vector if needed
                 min_len = min(len(v1), len(v2))
                 if min_len > 0:
@@ -519,14 +520,14 @@ class SensoryFusionEngine:
                     if norm1 > 1e-10 and norm2 > 1e-10:
                         corr = np.abs(np.dot(v1[:min_len], v2[:min_len]) / (norm1 * norm2))
                         correlations.append(corr)
-        
+
         if not correlations:
             return 0.0
-        
+
         # Φ is mean cross-modal correlation
         phi = float(np.mean(correlations))
         return np.clip(phi, 0.0, 1.0)
-    
+
     def encode_from_raw(
         self,
         raw_data: Dict[SensoryModality, Dict],
@@ -534,11 +535,11 @@ class SensoryFusionEngine:
     ) -> np.ndarray:
         """
         Encode raw sensory data directly to fused 64D vector.
-        
+
         Args:
             raw_data: Dict mapping modalities to their raw data dicts
             weights: Optional fusion weights
-            
+
         Returns:
             Fused 64D normalized numpy array
         """
@@ -547,23 +548,23 @@ class SensoryFusionEngine:
             encoder = self.modality_encoders.get(modality)
             if encoder:
                 modality_data[modality] = encoder(data)
-        
+
         return self.fuse_modalities(modality_data, weights)
 
 
 def text_to_sensory_hint(text: str) -> Dict[SensoryModality, float]:
     """
     Detect sensory words in text and weight modalities accordingly.
-    
+
     Args:
         text: Input text to analyze
-        
+
     Returns:
         Dict mapping each SensoryModality to a weight [0, 1]
     """
     text_lower = text.lower()
     words = set(text_lower.split())
-    
+
     # Count keyword matches per modality
     counts = {}
     for modality, keywords in SENSORY_KEYWORDS.items():
@@ -572,13 +573,13 @@ def text_to_sensory_hint(text: str) -> Dict[SensoryModality, float]:
             if keyword in words or keyword in text_lower:
                 count += 1
         counts[modality] = count
-    
+
     # Convert counts to weights
     total = sum(counts.values())
     if total == 0:
         # No sensory words found - use default weights
         return {m: m.weight_default for m in SensoryModality}
-    
+
     # Normalize to weights, blending with defaults
     weights = {}
     for modality in SensoryModality:
@@ -586,12 +587,12 @@ def text_to_sensory_hint(text: str) -> Dict[SensoryModality, float]:
         default = modality.weight_default
         # Blend: 70% detected, 30% default (so defaults still influence)
         weights[modality] = 0.7 * detected + 0.3 * default
-    
+
     # Renormalize to sum to 1
     total_weight = sum(weights.values())
     if total_weight > 0:
         weights = {m: w / total_weight for m, w in weights.items()}
-    
+
     return weights
 
 
@@ -601,26 +602,26 @@ def create_sensory_overlay(
 ) -> np.ndarray:
     """
     Create a 64D sensory overlay vector based on modality weights.
-    
+
     This overlay can be added to existing basin coordinates to
     add sensory context while preserving geometric structure.
-    
+
     Args:
         sensory_weights: Weights for each modality from text_to_sensory_hint
         intensity: Overall intensity of the overlay [0, 1]
-        
+
     Returns:
         64D overlay vector (not normalized - meant to be added to basin)
     """
     overlay = np.zeros(BASIN_DIMENSION)
-    
+
     for modality, weight in sensory_weights.items():
         start, end = modality.dimension_range
         # Create gradient within modality's dimension range
         segment_len = end - start
         gradient = np.linspace(-weight, weight, segment_len)
         overlay[start:end] = gradient * intensity
-    
+
     return overlay
 
 
@@ -631,29 +632,29 @@ def enhance_basin_with_sensory(
 ) -> np.ndarray:
     """
     Enhance basin coordinates with sensory context from text.
-    
+
     Compatible with BaseGod.encode_to_basin() output.
-    
+
     Args:
         basin: Original 64D basin coordinates
         text: Text containing sensory hints
         blend_factor: How much sensory overlay to add [0, 1]
-        
+
     Returns:
         Enhanced 64D normalized basin coordinates
     """
     # Get sensory weights from text
     sensory_weights = text_to_sensory_hint(text)
-    
+
     # Create overlay
     overlay = create_sensory_overlay(sensory_weights, intensity=blend_factor)
-    
+
     # Blend with original basin
     enhanced = basin + overlay
-    
+
     # Normalize
     norm = np.linalg.norm(enhanced)
     if norm > 0:
         enhanced = enhanced / norm
-    
+
     return enhanced

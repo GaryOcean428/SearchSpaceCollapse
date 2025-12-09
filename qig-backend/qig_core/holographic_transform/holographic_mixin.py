@@ -12,13 +12,13 @@ Key concepts:
 This mixin is designed for use with BaseGod but remains independent for reuse.
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from datetime import datetime
 import numpy as np
 
 from .dimensional_state import DimensionalState, DimensionalStateManager
 from .compressor import compress, estimate_compression_ratio
-from .decompressor import decompress, expand_for_modification
+from .decompressor import decompress
 
 
 BETA_RUNNING_COUPLING = 0.44
