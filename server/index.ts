@@ -14,6 +14,7 @@ import { vocabularyTracker } from './vocabulary-tracker';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
 import { oceanAgent } from './ocean-agent';
 import { testedEmptyTracker } from './tested-empty-tracker';
+import { testedPhrasesUnified } from './tested-phrases-unified';
 import { getSearchHistory, getConceptHistory, recordSearchState } from './qig-universal';
 import type { SearchState, ConceptState } from './qig-universal';
 
@@ -604,6 +605,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // CRITICAL: Hydrate Memory BEFORE starting server
+  // This prevents "resurfacing hits" by loading all tested phrases from PostgreSQL
+  console.log('🌊 Hydrating Ocean Memory from PostgreSQL...');
+  await Promise.all([
+    testedPhrasesUnified.initialize(),
+    geometricMemory.load(), // Ensure geometric memory also loads from DB
+  ]);
+  console.log('✅ Memory hydration complete');
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

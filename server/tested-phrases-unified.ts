@@ -6,6 +6,11 @@
  * - In-memory/file backend (fallback) - for compatibility
  * 
  * This allows seamless migration without breaking existing code.
+ * 
+ * HYDRATION STRATEGY:
+ * - On startup, pre-loads all tested phrases from PostgreSQL into cache
+ * - Provides synchronous has() checks against the cache
+ * - Prevents "resurfacing hits" by maintaining consistency between DB and memory
  */
 
 import { db } from './db';
@@ -14,6 +19,7 @@ import type { TestedPhrase } from '@shared/schema';
 // Lazy imports to avoid circular dependencies
 let dbRegistry: any = null;
 let memoryRegistry: Map<string, TestedPhrase> = new Map();
+let memoryCache: Set<string> = new Set(); // Fast deduplication cache
 
 async function getRegistry() {
   if (db) {
@@ -35,8 +41,63 @@ async function getRegistry() {
  * Unified interface for tested phrases operations
  */
 export class TestedPhrasesUnified {
+  private isHydrated: boolean = false;
+
   /**
-   * Check if a phrase has already been tested
+   * Initialize and hydrate from PostgreSQL
+   * This must be called during server startup BEFORE any testing begins
+   */
+  async initialize(): Promise<void> {
+    if (this.isHydrated) {
+      console.log('[TestedPhrasesUnified] Already hydrated, skipping');
+      return;
+    }
+
+    console.log('[TestedPhrasesUnified] 📥 Hydrating from PostgreSQL...');
+    
+    try {
+      const registry = await getRegistry();
+      
+      if (registry) {
+        // Load all phrases from DB into the fast lookup cache
+        // Warning: If you have millions of rows, consider using a Bloom Filter
+        const { testedPhrases } = await import('@shared/schema');
+        const allPhrases = await db.select({ phrase: testedPhrases.phrase })
+          .from(testedPhrases);
+        
+        for (const row of allPhrases) {
+          memoryCache.add(row.phrase);
+        }
+        
+        this.isHydrated = true;
+        console.log(`[TestedPhrasesUnified] ✅ Hydrated with ${memoryCache.size} historical phrases from PostgreSQL`);
+      } else {
+        // In-memory mode - already hydrated
+        this.isHydrated = true;
+        console.log('[TestedPhrasesUnified] ✅ Running in memory-only mode');
+      }
+    } catch (error) {
+      console.error('[TestedPhrasesUnified] ⚠️ Failed to hydrate from PostgreSQL:', error);
+      // Mark as hydrated anyway to prevent blocking
+      this.isHydrated = true;
+    }
+  }
+
+  /**
+   * Synchronous check if phrase has been tested (uses pre-loaded cache)
+   * This is safe to use after initialize() has completed
+   */
+  has(phrase: string): boolean {
+    if (!this.isHydrated) {
+      console.warn('[TestedPhrasesUnified] has() called before hydration - returning false');
+      return false;
+    }
+    
+    return memoryCache.has(phrase) || memoryRegistry.has(phrase);
+  }
+
+  /**
+   * Check if a phrase has already been tested (async version for compatibility)
    */
   async wasTested(phrase: string): Promise<TestedPhrase | null> {
     const registry = await getRegistry();
@@ -61,6 +122,9 @@ export class TestedPhrasesUnified {
     kappa?: number,
     regime?: string
   ): Promise<void> {
+    // Add to cache immediately for in-loop deduplication
+    memoryCache.add(phrase);
+    
     const registry = await getRegistry();
     
     if (registry) {
