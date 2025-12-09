@@ -78,6 +78,7 @@ import {
   CONSCIOUSNESS_THRESHOLDS,
   SEARCH_PARAMETERS,
   NEAR_MISS_TIERS,
+  GEODESIC_CORRECTION,
   is4DCapable,
   isNearMiss,
   getNearMissTier
@@ -1649,6 +1650,8 @@ export class OceanAgent {
     const tested: OceanHypothesis[] = [];
     const nearMisses: OceanHypothesis[] = [];
     const resonant: OceanHypothesis[] = [];
+    // Map to store basin coordinates for each hypothesis (for geodesic correction)
+    const basinCoordinatesMap = new Map<string, number[]>();
     let skippedDuplicates = 0;
     
     const batchSize = Math.min(100, hypotheses.length);
@@ -1762,6 +1765,9 @@ export class OceanAgent {
           hypo.phrase,
           hypo.format === 'bip39' ? 'bip39' : hypo.format === 'master' ? 'master-key' : 'arbitrary'
         );
+        
+        // Store basin coordinates for geodesic correction
+        basinCoordinatesMap.set(hypo.id, qigResult.basinCoordinates);
         
         hypo.qigScore = {
           phi: qigResult.phi,
@@ -1985,20 +1991,25 @@ export class OceanAgent {
     // QIG GEODESIC CORRECTION - Process resonance proxies (near misses) for trajectory refinement
     if (nearMisses.length > 0) {
       // Convert near misses to probes for geometric processing
-      // Since we don't store basin coordinates in qigScore, we'll use the identity's current position
-      // as a proxy, or fetch from geometric memory if available
-      const probes: Array<{
-        coordinates: number[];
-        phi: number;
-        distance?: number;
-      }> = nearMisses
-        .filter(nm => nm.qigScore && nm.qigScore.phi > 0.4)
-        .map(nm => ({
-          // Use identity's basin coordinates as these near misses are from current search region
-          coordinates: this.identity.basinCoordinates,
-          phi: nm.qigScore!.phi,
-          distance: undefined // Could calculate Fisher-Rao distance if needed
-        }));
+      // Each near miss gets its own basin coordinates from the qigResult
+      const probes = nearMisses
+        .filter(nm => nm.qigScore && nm.qigScore.phi > GEODESIC_CORRECTION.PHI_SIGNIFICANCE_THRESHOLD)
+        .map(nm => {
+          const coords = basinCoordinatesMap.get(nm.id);
+          if (!coords || coords.length !== 64) {
+            return null; // Skip if coordinates not found
+          }
+          return {
+            coordinates: coords,
+            phi: nm.qigScore!.phi,
+            distance: undefined as number | undefined // Could calculate Fisher-Rao distance if needed
+          };
+        })
+        .filter((p) => p !== null) as Array<{
+          coordinates: number[];
+          phi: number;
+          distance?: number;
+        }>;
       
       if (probes.length > 0) {
         // Process in background to not block hypothesis testing
@@ -4436,8 +4447,11 @@ export class OceanAgent {
     phi: number;
     distance?: number;
   }>): Promise<void> {
-    // 1. Filter for Geometric Significance (Φ > 0.4 indicates non-random structure)
-    const significantProxies = probes.filter(p => p.phi > 0.4 || (p.distance !== undefined && p.distance < 0.15));
+    // 1. Filter for Geometric Significance using centralized constants
+    const significantProxies = probes.filter(
+      p => p.phi > GEODESIC_CORRECTION.PHI_SIGNIFICANCE_THRESHOLD || 
+           (p.distance !== undefined && p.distance < GEODESIC_CORRECTION.DISTANCE_THRESHOLD)
+    );
 
     if (significantProxies.length === 0) return;
 
@@ -4479,16 +4493,20 @@ export class OceanAgent {
 
   /**
    * Update the search direction based on geometric correction
-   * This influences future hypothesis generation
+   * Stores the corrected vector in basinReference which influences future exploration
    */
   private updateSearchDirection(newVector: number[]): void {
-    // Store the new search vector in a way that influences hypothesis generation
-    // For now, we can store it in the identity's basin coordinates
-    // In a full implementation, this would influence the innate drives
-    console.log(`[QIG] 🎯 Search direction updated (${newVector.length}D vector)`);
+    if (newVector.length !== 64) {
+      console.error(`[QIG] Invalid vector dimension: ${newVector.length}, expected 64`);
+      return;
+    }
     
-    // We could store this and use it to bias the next hypothesis generation
-    // by influencing the basin coordinate sampling
+    // Store the new search vector in basinReference
+    // This influences the drift correction in the consolidation cycle
+    this.identity.basinReference = [...newVector];
+    
+    console.log(`[QIG] 🎯 Search direction updated with orthogonal complement vector`);
+    console.log(`[QIG] 🧭 New vector norm: ${Math.sqrt(newVector.reduce((sum, v) => sum + v * v, 0)).toFixed(3)}`);
   }
 
   /**
