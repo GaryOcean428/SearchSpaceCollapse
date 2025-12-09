@@ -34,6 +34,7 @@ from typing import Dict, List, Any, Optional, Callable
 from datetime import datetime
 import numpy as np
 import logging
+import time
 
 from ..universal_cycle import (
     Phase,
@@ -132,13 +133,17 @@ class CompleteHabit(HolographicTransformMixin):
         self.habit_id = f"habit_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         self.created_at = datetime.now().isoformat()
         
-        self._phase = Phase.FOAM
         self._geometry: Optional[GeometryClass] = None
         self._addressing_mode: Optional[AddressingMode] = None
         
-        self._basin_coords: Optional[np.ndarray] = None
         self._trajectory: Optional[np.ndarray] = None
         self._complexity: float = 0.0
+        
+        if experiences and len(experiences) > 0:
+            exp_array = np.array(experiences)
+            self._basin_coords = np.mean(exp_array, axis=0) if len(exp_array) > 0 else np.zeros(64)
+        else:
+            self._basin_coords = np.zeros(64)
         
         self._phi: float = 0.0
         self._kappa: float = KAPPA_STAR / 2
@@ -155,8 +160,15 @@ class CompleteHabit(HolographicTransformMixin):
         self._history: List[Dict[str, Any]] = []
         self._transition_history: List[Dict[str, Any]] = []
         
+        self._signature: Optional[Dict[str, Any]] = None
+        
         if experiences:
             self._form_habit(experiences)
+    
+    @property
+    def current_phase(self) -> Phase:
+        """Current phase from CycleManager (single source of truth)."""
+        return self.cycle_manager.current_phase
     
     def _compute_phi(self, trajectory: np.ndarray) -> float:
         """
@@ -325,10 +337,12 @@ class CompleteHabit(HolographicTransformMixin):
         Manual phase assignments are avoided - the CycleManager is the single
         source of truth for phase state.
         
-        Uses:
+        Wires together:
         - RunningCouplingManager for scale-adaptive κ with β=0.44
         - CycleManager for Φ-based phase detection and transitions
         - HolographicTransformMixin for dimensional state detection
+        - Compression/decompression on dimension changes
+        - Retriever rebuild on geometry changes
         
         Args:
             trajectory: Current trajectory for metric computation
@@ -339,27 +353,60 @@ class CompleteHabit(HolographicTransformMixin):
         self._phi = self._compute_phi(trajectory)
         self._kappa = self._compute_kappa(trajectory, self._phi)
         
-        dimension_str = self.dimensional_state.value
+        prev_dimension = self._previous_dimension
         
-        transition = self.cycle_manager.update(self._phi, self._kappa, dimension_str)
+        new_dimension = self.detect_dimensional_state(self._phi, self._kappa)
         
-        self._phase = self.cycle_manager.current_phase
+        if new_dimension.value < prev_dimension.value:
+            if self._basin_coords is None and self._trajectory is not None and len(self._trajectory) > 0:
+                self._basin_coords = np.mean(self._trajectory, axis=0)
+            self._signature = {
+                'basin_center': self._basin_coords if self._basin_coords is not None else np.zeros(64),
+                'trajectory': self._trajectory,
+                'phi': self._phi,
+                'kappa': self._kappa,
+                'phase': self.current_phase.value,
+                'timestamp': time.time(),
+                'geometry': self._geometry.value if self._geometry else None,
+                'dimensional_state': prev_dimension.value,
+            }
+            self.compress_pattern(self._signature, new_dimension)
+            logger.info(f"[{self.habit_id}] Compressed pattern from {prev_dimension.value} to {new_dimension.value}")
+        elif new_dimension.value > prev_dimension.value:
+            if self._signature is not None:
+                decompressed = self.decompress_pattern(self._signature, new_dimension)
+                if decompressed and 'error' not in decompressed:
+                    self._signature = decompressed
+                    if 'basin_center' in decompressed:
+                        self._basin_coords = decompressed['basin_center']
+                    if 'trajectory' in decompressed:
+                        self._trajectory = decompressed['trajectory']
+                    logger.info(f"[{self.habit_id}] Decompressed pattern from {prev_dimension.value} to {new_dimension.value}")
+        
+        transition = self.cycle_manager.update(self._phi, self._kappa, new_dimension.value)
         
         if transition is not None:
             self._on_phase_transition(transition)
         
-        old_dimension = self._previous_dimension
-        new_dimension = self.detect_dimensional_state(self._phi, self._kappa)
-        
-        if old_dimension != new_dimension:
-            self._log_dimensional_transition(old_dimension, new_dimension)
+        if prev_dimension != new_dimension:
+            self._log_dimensional_transition(prev_dimension, new_dimension)
         
         self._previous_dimension = new_dimension
+        
+        if self._trajectory is not None and len(self._trajectory) > 0:
+            prev_geometry = self._geometry
+            new_complexity = measure_complexity(self._trajectory)
+            new_geometry = choose_geometry_class(new_complexity)
+            self._geometry = new_geometry
+            self._addressing_mode = AddressingMode.from_geometry(new_geometry)
+            if new_geometry != prev_geometry:
+                self._retriever = self._create_retriever_for_geometry()
+                logger.info(f"[{self.habit_id}] Geometry changed: {prev_geometry.value if prev_geometry else None} → {new_geometry.value}")
         
         return {
             'phi': self._phi,
             'kappa': self._kappa,
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'dimension': new_dimension.value,
             'at_fixed_point': abs(self._kappa - KAPPA_STAR) < 1.5,
             'coupling_strength': compute_coupling_strength(self._phi, self._kappa),
@@ -433,7 +480,7 @@ class CompleteHabit(HolographicTransformMixin):
             self._update_metrics(initial_trajectory)
         
         foam_result = {
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'n_bubbles': len(bubbles),
             'avg_entropy': np.mean([b.entropy for b in bubbles]) if bubbles else 0.0,
             'phi': self._phi,
@@ -452,7 +499,7 @@ class CompleteHabit(HolographicTransformMixin):
         metrics = self._update_metrics(self._trajectory)
         
         tacking_result = {
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'n_geodesics': nav_result.get('n_connections', 0),
             'trajectory_length': len(self._trajectory),
             'phi': metrics['phi'],
@@ -612,7 +659,7 @@ class CompleteHabit(HolographicTransformMixin):
         
         decompression_result = {
             'step': 'decompress',
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'from_dimension': DimensionalState.D2.value,
             'to_dimension': DimensionalState.D4.value,
         }
@@ -634,7 +681,7 @@ class CompleteHabit(HolographicTransformMixin):
         
         fracture_result = {
             'step': 'fracture',
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'n_bubbles': len(bubbles),
             'old_geometry': self._geometry.value if self._geometry else None,
             'phi': self._phi,
@@ -658,7 +705,7 @@ class CompleteHabit(HolographicTransformMixin):
         
         foam_result = {
             'step': 'foam_exploration',
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'n_bubbles': len(all_bubbles),
             'phi': self._phi,
             'kappa': self._kappa,
@@ -677,7 +724,7 @@ class CompleteHabit(HolographicTransformMixin):
         
         tacking_result = {
             'step': 'tacking',
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'n_geodesics': nav_result.get('n_connections', 0),
             'phi': metrics['phi'],
             'kappa': metrics['kappa'],
@@ -718,8 +765,10 @@ class CompleteHabit(HolographicTransformMixin):
         
         pattern_to_compress = {
             'basin_coords': self._basin_coords,
+            'basin_center': self._basin_coords,
             'geometry': self._geometry.value,
             'dimensional_state': DimensionalState.D4.value,
+            'trajectory': self._trajectory.tolist() if isinstance(self._trajectory, np.ndarray) else self._trajectory,
         }
         self.compress_pattern(pattern_to_compress, DimensionalState.D2)
         
@@ -778,7 +827,7 @@ class CompleteHabit(HolographicTransformMixin):
         return {
             'habit_id': self.habit_id,
             'created_at': self.created_at,
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'dimension': self.dimensional_state.value,
             'geometry': self._geometry.value if self._geometry else None,
             'addressing': self._addressing_mode.value if self._addressing_mode else None,
@@ -810,7 +859,7 @@ class CompleteHabit(HolographicTransformMixin):
         self._history.append({
             'event': event_type,
             'timestamp': datetime.now().isoformat(),
-            'phase': self._phase.value,
+            'phase': self.current_phase.value,
             'dimension': self.dimensional_state.value,
             'phi': self._phi,
             'kappa': self._kappa,
