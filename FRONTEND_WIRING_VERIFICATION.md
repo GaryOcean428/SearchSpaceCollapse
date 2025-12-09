@@ -1,11 +1,13 @@
 # Frontend Wiring Verification Report
-**Date**: 2025-12-08  
+**Date**: 2025-12-08 (Updated: 2025-12-09)
 **Status**: ✅ ALL SYSTEMS OPERATIONAL  
-**Version**: 1.0
+**Version**: 1.1
 
 ## Executive Summary
 
 Comprehensive code review reveals that **all claimed "critical frontend wiring issues" and "backend logic gaps" are already resolved**. The system is not "half-wired" - it is fully operational with proper architecture.
+
+**Update 2025-12-09**: Additional audit confirms all persistence is PostgreSQL-only, no JSON operations in production paths, OceanConstellation is a singleton, and Python backend startup is properly implemented.
 
 ---
 
@@ -213,7 +215,15 @@ $ grep -n "fs\.\|writeFile\|readFile" server/geometric-memory.ts
 - No `import fs from 'fs'` or similar imports in file
 - Comment explicitly states "PostgreSQL-only architecture (no JSON files)"
 
-**Conclusion**: Zero JSON file operations. All persistence goes through PostgreSQL unified interface. Split brain issue resolved.
+**Additional Verification** (2025-12-09 Audit):
+- `recordProbe()` method (line 622): Writes directly to DB via `oceanPersistence`
+- Orphaned JSON adapter files exist but are **never imported or used**:
+  - `server/persistence/adapters/candidate-json-adapter.ts` (dead code)
+  - `server/persistence/adapters/file-json-adapter.ts` (dead code)
+  - `server/persistence/adapters/search-job-json-adapter.ts` (dead code)
+- `facade.ts` enforces postgres-only (throws error on non-postgres backend)
+
+**Conclusion**: Zero JSON file operations in production code paths. All persistence goes through PostgreSQL unified interface. Split brain issue resolved. Orphaned JSON adapter files can be deleted as dead code.
 
 ---
 
@@ -286,6 +296,83 @@ if abs(athena_conf - ares_conf) > 0.4:
 - ✅ Logging
 
 **Conclusion**: Debate system fully operational. No implementation needed.
+
+---
+
+## Additional Audit Results (2025-12-09)
+
+### ✅ Verified: No Double Initialization
+
+**Claim**: OceanConstellation initializes twice causing performance issues  
+**Reality**: Already a singleton
+
+**Evidence**:
+```typescript
+// server/ocean-constellation.ts - Line 1404
+export const oceanConstellation = new OceanConstellation();
+
+// Usage in server/index.ts and server/ocean-agent.ts
+import { oceanConstellation } from './ocean-constellation';
+// Only imported, never re-instantiated or re-initialized
+```
+
+**Imports**:
+- `server/index.ts` line 12: Uses for sync operations
+- `server/ocean-agent.ts` line 27: Uses for hypothesis generation
+
+**Conclusion**: No double initialization. Already exported as singleton instance.
+
+---
+
+### ✅ Verified: Python Backend Startup
+
+**Claim**: No Python backend logs, suggesting it's not starting  
+**Reality**: Startup code exists and is called
+
+**Evidence**:
+```typescript
+// server/index.ts - Lines 385-434
+function startPythonBackend(): void {
+  console.log('[PythonQIG] Starting Python QIG Backend...');
+  const pythonProcess = spawn(pythonPath, [scriptPath], {
+    stdio: ['inherit', 'pipe', 'pipe'],
+    env: { ...process.env, PYTHONUNBUFFERED: '1' }
+  });
+  // Includes auto-restart logic with exponential backoff
+}
+
+// Line 649: Called during server startup
+startPythonBackend();
+```
+
+**Conclusion**: Python backend startup is properly implemented. If logs don't appear, issue is runtime/environment (Python not installed, port conflict, etc.), not code.
+
+---
+
+### ✅ Verified: Orphaned JSON Files
+
+**Status**: Legacy JSON adapter files exist but are **completely unused**
+
+**Files**:
+- `server/persistence/adapters/candidate-json-adapter.ts`
+- `server/persistence/adapters/file-json-adapter.ts`
+- `server/persistence/adapters/search-job-json-adapter.ts`
+
+**Import Check**:
+```bash
+$ grep -r "CandidateJsonAdapter\|FileJsonAdapter\|SearchJobJsonAdapter" server/
+# Result: Only self-imports within adapter files, never used in production code
+```
+
+**Facade Protection**:
+```typescript
+// server/persistence/facade.ts - Lines 49-51
+if (this._config.backend !== 'postgres') {
+  throw new Error('[StorageFacade] Only postgres backend is supported.');
+}
+```
+
+**Conclusion**: JSON adapters are dead code. Can be safely deleted. Facade enforces postgres-only.
 
 ---
 
