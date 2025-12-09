@@ -44,11 +44,9 @@ class BasinEncoder:
     
     def _init_projection_matrix(self) -> np.ndarray:
         """Initialize random projection matrix for encoding"""
-        # Johnson-Lindenstrauss random projection
-        matrix = np.random.randn(self.dimension, 512)
-        # Orthonormalize columns
-        matrix, _ = np.linalg.qr(matrix)
-        return matrix
+        # For simplicity, just return identity for direct dimensionality
+        # In practice, could use random projection if needed
+        return np.eye(self.dimension)
     
     def encode_text(self, text: str) -> np.ndarray:
         """
@@ -88,16 +86,16 @@ class BasinEncoder:
             return self.encoding_cache[cache_key]
         
         # Project to basin space
-        if len(vector) < 512:
-            # Pad to 512 dimensions
-            padded = np.zeros(512)
+        if len(vector) < self.dimension:
+            # Pad to target dimension
+            padded = np.zeros(self.dimension)
             padded[:len(vector)] = vector
             vector = padded
-        elif len(vector) > 512:
+        elif len(vector) > self.dimension:
             # Truncate or pool
-            vector = vector[:512]
+            vector = vector[:self.dimension]
         
-        basin_coords = self.projection_matrix @ vector
+        basin_coords = vector.copy()
         
         # Convert to probability distribution
         basin_coords = np.abs(basin_coords) + 1e-10
@@ -178,15 +176,15 @@ class BasinEncoder:
         return pooled
     
     def _text_to_features(self, text: str) -> np.ndarray:
-        """Convert text to 512-dimensional feature vector"""
-        features = np.zeros(512)
+        """Convert text to 64-dimensional feature vector"""
+        features = np.zeros(self.dimension)
         
         # Character n-grams (1-3)
         for n in range(1, 4):
             for i in range(len(text) - n + 1):
                 ngram = text[i:i+n]
                 # Hash to feature index
-                idx = hash(ngram) % 512
+                idx = hash(ngram) % self.dimension
                 features[idx] += 1
         
         # Normalize
@@ -197,18 +195,18 @@ class BasinEncoder:
     
     def _hypothesis_to_features(self, hypothesis: Dict[str, Any]) -> np.ndarray:
         """Convert hypothesis dict to feature vector"""
-        features = np.zeros(512)
+        features = np.zeros(self.dimension)
         
         # Extract numeric features
         feature_idx = 0
         for key, value in hypothesis.items():
             if isinstance(value, (int, float)):
-                if feature_idx < 512:
+                if feature_idx < self.dimension:
                     features[feature_idx] = float(value)
                     feature_idx += 1
             elif isinstance(value, str):
                 # Hash string values
-                idx = hash(f"{key}:{value}") % 512
+                idx = hash(f"{key}:{value}") % self.dimension
                 features[idx] += 1
         
         # Normalize
@@ -219,16 +217,15 @@ class BasinEncoder:
     
     def _project_to_basin(self, features: np.ndarray) -> np.ndarray:
         """Project features to basin coordinates"""
-        # Ensure 512-dimensional
-        if len(features) < 512:
-            padded = np.zeros(512)
+        # Ensure correct dimensionality
+        if len(features) < self.dimension:
+            padded = np.zeros(self.dimension)
             padded[:len(features)] = features
             features = padded
-        elif len(features) > 512:
-            features = features[:512]
+        elif len(features) > self.dimension:
+            features = features[:self.dimension]
         
-        # Random projection
-        basin_coords = self.projection_matrix @ features
+        basin_coords = features.copy()
         
         # Convert to probability
         basin_coords = np.abs(basin_coords) + 1e-10
