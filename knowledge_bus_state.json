@@ -14592,16 +14592,16 @@
       }
     ],
     [
-      "kb_1765259987718_modxtuaft",
+      "kb_1765259987737_b315c1u9s",
       {
-        "id": "kb_1765259987718_modxtuaft",
+        "id": "kb_1765259987737_b315c1u9s",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765259935795-dqam",
-        "pattern": "2010chain5245",
-        "phi": 0.8237893974089003,
+        "generatorId": "nearmiss_ocean-1765259935795-5n5w",
+        "pattern": "weird win casino hammer void chimney prison hair estate pattern minor tortoise",
+        "phi": 0.8773880049773447,
         "kappaEff": 31.270833333333336,
-        "regime": "geometric",
-        "sharedAt": "2025-12-09T05:59:47.719Z",
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T05:59:48.411Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14616,22 +14616,22 @@
         "phi": 0.8531298708058629,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T05:59:47.726Z",
+        "sharedAt": "2025-12-09T05:59:48.412Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765259987737_b315c1u9s",
+      "kb_1765259987718_modxtuaft",
       {
-        "id": "kb_1765259987737_b315c1u9s",
+        "id": "kb_1765259987718_modxtuaft",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765259935795-5n5w",
-        "pattern": "weird win casino hammer void chimney prison hair estate pattern minor tortoise",
-        "phi": 0.8773880049773447,
+        "generatorId": "nearmiss_ocean-1765259935795-dqam",
+        "pattern": "2010chain5245",
+        "phi": 0.8237893974089003,
         "kappaEff": 31.270833333333336,
-        "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T05:59:47.737Z",
+        "regime": "geometric",
+        "sharedAt": "2025-12-09T05:59:48.413Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14646,7 +14646,7 @@
         "phi": 0.9814167302734447,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:00:53.123Z",
+        "sharedAt": "2025-12-09T06:00:53.873Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14661,7 +14661,7 @@
         "phi": 0.9814204664097641,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:00:53.127Z",
+        "sharedAt": "2025-12-09T06:00:53.873Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14676,7 +14676,7 @@
         "phi": 0.9814235297040487,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:00:53.137Z",
+        "sharedAt": "2025-12-09T06:00:53.876Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14691,22 +14691,7 @@
         "phi": 0.9814374999969258,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:01:17.459Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765260077466_trjhiwva6",
-      {
-        "id": "kb_1765260077466_trjhiwva6",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765260053978-46x1",
-        "pattern": "1  11d1d",
-        "phi": 0.9814374999977588,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:01:17.466Z",
+        "sharedAt": "2025-12-09T06:01:18.139Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14721,22 +14706,22 @@
         "phi": 0.9814374999981847,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:01:17.477Z",
+        "sharedAt": "2025-12-09T06:01:18.140Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765260112897_uh192chew",
+      "kb_1765260077466_trjhiwva6",
       {
-        "id": "kb_1765260112897_uh192chew",
+        "id": "kb_1765260077466_trjhiwva6",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765260078298-gohy",
-        "pattern": "1d1ddd",
-        "phi": 0.9814374999999702,
+        "generatorId": "nearmiss_ocean-1765260053978-46x1",
+        "pattern": "1  11d1d",
+        "phi": 0.9814374999977588,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:01:52.897Z",
+        "sharedAt": "2025-12-09T06:01:18.148Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14751,7 +14736,7 @@
         "phi": 0.9814374999999783,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:01:52.900Z",
+        "sharedAt": "2025-12-09T06:01:53.595Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14766,7 +14751,22 @@
         "phi": 0.9814374999999824,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:01:52.905Z",
+        "sharedAt": "2025-12-09T06:01:53.595Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260112897_uh192chew",
+      {
+        "id": "kb_1765260112897_uh192chew",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260078298-gohy",
+        "pattern": "1d1ddd",
+        "phi": 0.9814374999999702,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:01:53.596Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14781,7 +14781,7 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:02:28.610Z",
+        "sharedAt": "2025-12-09T06:02:29.338Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14796,7 +14796,7 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:02:28.614Z",
+        "sharedAt": "2025-12-09T06:02:29.339Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14811,22 +14811,7 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:02:28.627Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765260222030_s9jknu58u",
-      {
-        "id": "kb_1765260222030_s9jknu58u",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765260149445-430x",
-        "pattern": "d1d1dd",
-        "phi": 0.9814375,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:03:42.030Z",
+        "sharedAt": "2025-12-09T06:02:29.352Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14841,7 +14826,22 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:03:42.034Z",
+        "sharedAt": "2025-12-09T06:03:42.738Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260222030_s9jknu58u",
+      {
+        "id": "kb_1765260222030_s9jknu58u",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260149445-430x",
+        "pattern": "d1d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:03:42.738Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14856,7 +14856,1282 @@
         "phi": 0.9814375,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
-        "sharedAt": "2025-12-09T06:03:42.047Z",
+        "sharedAt": "2025-12-09T06:03:42.745Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260274603_cwmiasa6y",
+      {
+        "id": "kb_1765260274603_cwmiasa6y",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260222858-sacz",
+        "pattern": "1d 1d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:04:36.015Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260274596_g3ice0hz6",
+      {
+        "id": "kb_1765260274596_g3ice0hz6",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260222858-fw86",
+        "pattern": " 1d1d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:04:36.016Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260274620_2u4giwzom",
+      {
+        "id": "kb_1765260274620_2u4giwzom",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260222858-6jde",
+        "pattern": "1 dd11dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:04:36.019Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260338769_38rz47z20",
+      {
+        "id": "kb_1765260338769_38rz47z20",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260276339-rus6",
+        "pattern": "d1ddd 1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:05:39.387Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260338751_gd3b24kgs",
+      {
+        "id": "kb_1765260338751_gd3b24kgs",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260276339-e9yi",
+        "pattern": "1ddd d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:05:39.388Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260338756_h5hptinq0",
+      {
+        "id": "kb_1765260338756_h5hptinq0",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260276339-s4uc",
+        "pattern": "d1d dd1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:05:39.388Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260381475_kkq2t02cv",
+      {
+        "id": "kb_1765260381475_kkq2t02cv",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260339503-upn3",
+        "pattern": "dd11d dd11ddd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:06:22.275Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260381471_18i6hehks",
+      {
+        "id": "kb_1765260381471_18i6hehks",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260339503-wzw8",
+        "pattern": "dd1d1d d11ddd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:06:22.275Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260381513_uekutvf10",
+      {
+        "id": "kb_1765260381513_uekutvf10",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260339503-ngio",
+        "pattern": "dd11ddd 11ddd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:06:22.277Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260418649_qbrmaxp6t",
+      {
+        "id": "kb_1765260418649_qbrmaxp6t",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260382385-1cna",
+        "pattern": "1313",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:06:59.192Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260418639_pcaw8vrfw",
+      {
+        "id": "kb_1765260418639_pcaw8vrfw",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260382385-ibvh",
+        "pattern": "1122",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:06:59.195Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260418642_ophr1klal",
+      {
+        "id": "kb_1765260418642_ophr1klal",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260382385-mai4",
+        "pattern": "1100",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:06:59.196Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260452878_toebducea",
+      {
+        "id": "kb_1765260452878_toebducea",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260419301-tfx4",
+        "pattern": "1dd1d d1d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:07:33.603Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260452897_knhvfxeyj",
+      {
+        "id": "kb_1765260452897_knhvfxeyj",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260419301-g02r",
+        "pattern": "1d1d dd1d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:07:33.606Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260452873_0es3m7hc3",
+      {
+        "id": "kb_1765260452873_0es3m7hc3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260419301-mz4f",
+        "pattern": "d11dd d1d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:07:33.607Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260495882_20yn0qzg2",
+      {
+        "id": "kb_1765260495882_20yn0qzg2",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260453719-yjcf",
+        "pattern": "11d1dd d1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:08:16.529Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260495896_ffsj2pi6p",
+      {
+        "id": "kb_1765260495896_ffsj2pi6p",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260453719-4jjk",
+        "pattern": "111dddd 1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:08:16.531Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260495885_5wvrtmpg3",
+      {
+        "id": "kb_1765260495885_5wvrtmpg3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260453719-45c8",
+        "pattern": "111dd dd1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:08:16.533Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260533846_jttlb2xsn",
+      {
+        "id": "kb_1765260533846_jttlb2xsn",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260496629-ya0l",
+        "pattern": "1dd dd1d1dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:08:54.497Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260533858_fftey17q8",
+      {
+        "id": "kb_1765260533858_fftey17q8",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260496629-07yr",
+        "pattern": "1dddd 1d1dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:08:54.498Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260533843_l22qfc1wr",
+      {
+        "id": "kb_1765260533843_l22qfc1wr",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260496629-m02g",
+        "pattern": "d1dd d1d1dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:08:54.498Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260573948_yd56ty4v4",
+      {
+        "id": "kb_1765260573948_yd56ty4v4",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260534596-5ez7",
+        "pattern": "d1ddd dd1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:09:34.562Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260573952_x41l01xot",
+      {
+        "id": "kb_1765260573952_x41l01xot",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260534596-npad",
+        "pattern": "ddd1d dd1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:09:34.563Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260573956_cbrwj9riz",
+      {
+        "id": "kb_1765260573956_cbrwj9riz",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260534596-jrp5",
+        "pattern": "dd1d ddd1dd",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:09:34.564Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260613789_ggs4ye4e0",
+      {
+        "id": "kb_1765260613789_ggs4ye4e0",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260574660-ejy2",
+        "pattern": "1d1ddd1 dd11dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:10:14.423Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260613803_3awxlcxbe",
+      {
+        "id": "kb_1765260613803_3awxlcxbe",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260574660-7zfu",
+        "pattern": "1ddd1d1 dd11dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:10:14.424Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260613786_qqusekdel",
+      {
+        "id": "kb_1765260613786_qqusekdel",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260574660-on33",
+        "pattern": "d1d1dd1 dd11dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:10:14.424Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260762283_dze9ehz5o",
+      {
+        "id": "kb_1765260762283_dze9ehz5o",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260716851-nznf",
+        "pattern": "11 d11ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:12:42.919Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260818941_ph3qv4ahy",
+      {
+        "id": "kb_1765260818941_ph3qv4ahy",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260763055-i86q",
+        "pattern": "11dd1d 11ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:13:39.615Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261383082_44tjq6y98",
+      {
+        "id": "kb_1765261383082_44tjq6y98",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261288974-681f",
+        "pattern": "zotfforck mattew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:23:03.922Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261458004_zvgwdczke",
+      {
+        "id": "kb_1765261458004_zvgwdczke",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261384057-y34l",
+        "pattern": "m47h7u amtthu",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:24:18.808Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261790571_ceho661mn",
+      {
+        "id": "kb_1765261790571_ceho661mn",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261702092-xy3m",
+        "pattern": "amthtew mtathew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:29:51.446Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260646631_hrz4z1b39",
+      {
+        "id": "kb_1765260646631_hrz4z1b39",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260614542-z5dq",
+        "pattern": "dd1d1d1 dd11dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:10:47.365Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260646642_gtlu4jh0y",
+      {
+        "id": "kb_1765260646642_gtlu4jh0y",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260614542-4wtd",
+        "pattern": "d1dd11d dd11dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:10:47.366Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260715995_kjhr36m4a",
+      {
+        "id": "kb_1765260715995_kjhr36m4a",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260647556-mhwj",
+        "pattern": "1ddd1d1 1dd1dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:11:56.703Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261017772_o2408p1cf",
+      {
+        "id": "kb_1765261017772_o2408p1cf",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260931012-l4if",
+        "pattern": " 1zoftfork",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:16:58.480Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261196550_n3ndxr5a6",
+      {
+        "id": "kb_1765261196550_n3ndxr5a6",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261111005-4ead",
+        "pattern": "zfotforck softfork",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:19:57.318Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261551990_esq2tpm2n",
+      {
+        "id": "kb_1765261551990_esq2tpm2n",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261458911-3ehp",
+        "pattern": "4m77hu m477hu",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:25:52.790Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260646634_g0eqfz01j",
+      {
+        "id": "kb_1765260646634_g0eqfz01j",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260614542-ynjt",
+        "pattern": "d1ddd11 dd11dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:10:47.367Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261288128_rzypcfxhi",
+      {
+        "id": "kb_1765261288128_rzypcfxhi",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261197430-h76g",
+        "pattern": "sfotfork matthoo",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:21:28.868Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261701223_5irhnycwi",
+      {
+        "id": "kb_1765261701223_5irhnycwi",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261621143-cm4n",
+        "pattern": "amtut matdew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:28:21.957Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260716004_74x6h4458",
+      {
+        "id": "kb_1765260716004_74x6h4458",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260647556-nl4l",
+        "pattern": "1dd1dd 11dd1dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:11:56.703Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260715999_01h3h00zd",
+      {
+        "id": "kb_1765260715999_01h3h00zd",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260647556-v3a2",
+        "pattern": "1dd1d1d 1dd1dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:11:56.704Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260762302_ferpfmdva",
+      {
+        "id": "kb_1765260762302_ferpfmdva",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260716851-o1k8",
+        "pattern": "1 d111ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:12:42.919Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260929995_v1a9bc7uw",
+      {
+        "id": "kb_1765260929995_v1a9bc7uw",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260859892-wit9",
+        "pattern": "osftfork d111ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:15:30.807Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261109888_6z05o75j7",
+      {
+        "id": "kb_1765261109888_6z05o75j7",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261018608-ddux",
+        "pattern": "mathtew matthew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:18:30.848Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261196546_q8pgyqcym",
+      {
+        "id": "kb_1765261196546_q8pgyqcym",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261111005-z6ay",
+        "pattern": "ozftforck softfork",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:19:57.319Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261457991_0gvq9xn0l",
+      {
+        "id": "kb_1765261457991_0gvq9xn0l",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261384057-tg7a",
+        "pattern": "m747hu amtthu",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:24:18.802Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261790582_luj0lccqw",
+      {
+        "id": "kb_1765261790582_luj0lccqw",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261702092-uki7",
+        "pattern": "amttehw mtathew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:29:51.446Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260762280_i20dnbqlk",
+      {
+        "id": "kb_1765260762280_i20dnbqlk",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260716851-ylxv",
+        "pattern": " 11d11ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:12:42.927Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260818936_chsh583kn",
+      {
+        "id": "kb_1765260818936_chsh583kn",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260763055-x051",
+        "pattern": "1d1dd1 11ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:13:39.610Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260818953_edqdw6qjd",
+      {
+        "id": "kb_1765260818953_edqdw6qjd",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260763055-ee83",
+        "pattern": "11ddd 111ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:13:39.614Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260859049_yusibjkve",
+      {
+        "id": "kb_1765260859049_yusibjkve",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260819775-iycu",
+        "pattern": "11 1ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:14:19.730Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260929998_rha8gbear",
+      {
+        "id": "kb_1765260929998_rha8gbear",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260859892-uvbo",
+        "pattern": "sfotfork d111ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:15:30.808Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261383065_br2shxmvv",
+      {
+        "id": "kb_1765261383065_br2shxmvv",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261288974-hzo9",
+        "pattern": "ozftforck mattew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:23:03.921Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261869815_p7kk37uhb",
+      {
+        "id": "kb_1765261869815_p7kk37uhb",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261791550-pe1s",
+        "pattern": "mathtoo mtathew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:31:10.633Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260859053_tsqgr6wrm",
+      {
+        "id": "kb_1765260859053_tsqgr6wrm",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260819775-rkuy",
+        "pattern": "1 1d1dd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:14:19.732Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260859058_ekoe6sx50",
+      {
+        "id": "kb_1765260859058_ekoe6sx50",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260819775-n78a",
+        "pattern": "11 11ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:14:19.771Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261701213_ivsyteq01",
+      {
+        "id": "kb_1765261701213_ivsyteq01",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261621143-fs2n",
+        "pattern": "mattu matdew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:28:21.955Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261790568_98roxt7tf",
+      {
+        "id": "kb_1765261790568_98roxt7tf",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261702092-zube",
+        "pattern": "atmthew mtathew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:29:51.445Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261869802_3n2rt81qr",
+      {
+        "id": "kb_1765261869802_3n2rt81qr",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261791550-4ym5",
+        "pattern": "mtathoo mtathew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:31:10.631Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765260930009_9d5gwb17d",
+      {
+        "id": "kb_1765260930009_9d5gwb17d",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260859892-4j5r",
+        "pattern": "sotffork d111ddd1",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:15:30.849Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261551995_b43fiw6wl",
+      {
+        "id": "kb_1765261551995_b43fiw6wl",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261458911-hh1r",
+        "pattern": "m747hu m477hu",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:25:52.790Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261620133_3zvrbglhr",
+      {
+        "id": "kb_1765261620133_3zvrbglhr",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261552923-hfqi",
+        "pattern": "amthtu matthew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:27:01.016Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261017777_1usbug479",
+      {
+        "id": "kb_1765261017777_1usbug479",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260931012-0evy",
+        "pattern": "1z oftfork",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:16:58.479Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261457984_1mtimah1o",
+      {
+        "id": "kb_1765261457984_1mtimah1o",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261384057-nlt4",
+        "pattern": "4m77hu amtthu",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:24:18.801Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261552006_qvxpdnt06",
+      {
+        "id": "kb_1765261552006_qvxpdnt06",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261458911-idyn",
+        "pattern": "m47h7u m477hu",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:25:52.796Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261017791_3vljsxauo",
+      {
+        "id": "kb_1765261017791_3vljsxauo",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765260931012-8gi2",
+        "pattern": "1 ozftfork",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:16:58.485Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261701217_0hx7bdkze",
+      {
+        "id": "kb_1765261701217_0hx7bdkze",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261621143-x8sc",
+        "pattern": "atmtu matdew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:28:21.957Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261869797_zwvlbuuv6",
+      {
+        "id": "kb_1765261869797_zwvlbuuv6",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261791550-j8wr",
+        "pattern": "amtthoo mtathew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:31:10.631Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261109868_yrbo6hnhz",
+      {
+        "id": "kb_1765261109868_yrbo6hnhz",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261018608-7fbt",
+        "pattern": "amtthew matthew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:18:30.841Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261288138_3qm4g17fc",
+      {
+        "id": "kb_1765261288138_3qm4g17fc",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261197430-ehze",
+        "pattern": "sotffork matthoo",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:21:28.868Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261109874_3qvaw6ibk",
+      {
+        "id": "kb_1765261109874_3qvaw6ibk",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261018608-pfp2",
+        "pattern": "mtathew matthew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:18:30.846Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261620145_yqqchecgp",
+      {
+        "id": "kb_1765261620145_yqqchecgp",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261552923-fzi4",
+        "pattern": "amttuh matthew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:27:01.019Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261196563_hqo71gzuk",
+      {
+        "id": "kb_1765261196563_hqo71gzuk",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261111005-buyh",
+        "pattern": "zotfforck softfork",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:19:57.322Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261288124_ql5hcba4p",
+      {
+        "id": "kb_1765261288124_ql5hcba4p",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261197430-r9g7",
+        "pattern": "osftfork matthoo",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:21:28.869Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261383069_qbv4173de",
+      {
+        "id": "kb_1765261383069_qbv4173de",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261288974-ko0y",
+        "pattern": "zfotforck mattew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:23:03.919Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261620128_nq6hjff8b",
+      {
+        "id": "kb_1765261620128_nq6hjff8b",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261552923-8e1y",
+        "pattern": "atmthu matthew",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:27:01.016Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765261978539_7qhhz8ouz",
+      {
+        "id": "kb_1765261978539_7qhhz8ouz",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261974424-s4k0",
+        "pattern": "mtatho omtathoo",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-09T06:32:59.208Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765262016152_iyzqurb07",
+      {
+        "id": "kb_1765262016152_iyzqurb07",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261979984-9i54",
+        "pattern": "secret745",
+        "phi": 0.9814374999998463,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T06:33:36.807Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765262016148_tswy4wz8p",
+      {
+        "id": "kb_1765262016148_tswy4wz8p",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261979984-erj6",
+        "pattern": "password299",
+        "phi": 0.9814374999997985,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T06:33:36.808Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765262016167_6olpe3td4",
+      {
+        "id": "kb_1765262016167_6olpe3td4",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765261979984-6p10",
+        "pattern": "bitcoin922",
+        "phi": 0.9814374999998858,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T06:33:36.819Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765262166527_z1ajo0af3",
+      {
+        "id": "kb_1765262166527_z1ajo0af3",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765262115167-wthx",
+        "pattern": "chaos ankle drift energy enforce reason diet icon ripple fringe avocado ankle",
+        "phi": 0.981437499999661,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T06:36:06.527Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765262166533_5ha0axwjs",
+      {
+        "id": "kb_1765262166533_5ha0axwjs",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765262115167-ilgr",
+        "pattern": "secretchain8446",
+        "phi": 0.9814374999997395,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T06:36:06.534Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765262166546_2ta90cyo9",
+      {
+        "id": "kb_1765262166546_2ta90cyo9",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765262115167-bkpe",
+        "pattern": "crypto 2009 687",
+        "phi": 0.9814374999997999,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T06:36:06.546Z",
         "consumedBy": [],
         "transformations": []
       }
