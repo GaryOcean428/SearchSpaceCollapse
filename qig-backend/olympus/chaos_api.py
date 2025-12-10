@@ -421,3 +421,125 @@ def spawn_all_god_kernels():
         'spawned_count': len([s for s in spawned if 'kernel_id' in s]),
         'kernels': spawned
     })
+
+
+# =========================================================================
+# GOD-KERNEL ASSIGNMENT AND TRAINING ENDPOINTS
+# =========================================================================
+
+@chaos_app.route('/chaos/assign_kernels', methods=['POST'])
+def assign_kernels():
+    """
+    Assign CHAOS kernels to gods for poll_pantheon() integration.
+
+    POST /chaos/assign_kernels
+
+    This assigns top kernels (by Φ) to gods in priority order.
+    The kernels then influence god assessments during poll_pantheon().
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    assignments = _zeus.assign_kernels_to_gods()
+
+    return jsonify({
+        'success': True,
+        'assignments': assignments,
+        'assigned_count': len(assignments),
+        'message': f'Assigned {len(assignments)} kernels to gods'
+    })
+
+
+@chaos_app.route('/chaos/kernel_assignments', methods=['GET'])
+def get_kernel_assignments():
+    """
+    Get current kernel-god assignments with status.
+
+    GET /chaos/kernel_assignments
+    """
+    if _zeus is None:
+        return jsonify({'success': False, 'error': 'Zeus not available'}), 503
+
+    assignments = _zeus.get_kernel_assignments()
+
+    return jsonify({
+        'success': True,
+        **assignments
+    })
+
+
+@chaos_app.route('/chaos/train_from_outcome', methods=['POST'])
+def train_from_outcome():
+    """
+    Train all god kernels from an assessment outcome.
+
+    POST /chaos/train_from_outcome
+    {
+        "target": "test passphrase",
+        "success": true,
+        "phi_result": 0.75,
+        "assessments": {...}  // optional, from poll_pantheon
+    }
+
+    This feeds the outcome back to kernels:
+    - Success: kernels move TOWARD target's basin
+    - Failure: kernels move AWAY from target's basin
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    data = request.json or {}
+    target = data.get('target')
+    success = data.get('success', False)
+    phi_result = data.get('phi_result', 0.5)
+    assessments = data.get('assessments', {})
+
+    if not target:
+        return jsonify({'success': False, 'error': 'target is required'}), 400
+
+    # If assessments not provided, use empty dict (trains all god kernels)
+    results = _zeus.train_all_god_kernels(target, assessments, success, phi_result)
+
+    return jsonify({
+        'success': True,
+        'trained_count': len(results),
+        'training_results': results,
+        'direction': 'toward' if success else 'away',
+        'outcome_phi': phi_result
+    })
+
+
+@chaos_app.route('/chaos/god/<god_name>/kernel_status', methods=['GET'])
+def get_god_kernel_status(god_name: str):
+    """
+    Get the status of a god's assigned CHAOS kernel.
+
+    GET /chaos/god/athena/kernel_status
+    """
+    if _zeus is None:
+        return jsonify({'success': False, 'error': 'Zeus not available'}), 503
+
+    god = _zeus.pantheon.get(god_name.lower())
+    if god is None:
+        return jsonify({'success': False, 'error': f'God {god_name} not found'}), 404
+
+    if god.chaos_kernel is None:
+        return jsonify({
+            'success': True,
+            'god': god_name,
+            'has_kernel': False,
+            'message': f'{god_name} has no assigned kernel'
+        })
+
+    kernel = god.chaos_kernel
+    return jsonify({
+        'success': True,
+        'god': god_name,
+        'has_kernel': True,
+        'kernel_id': kernel.kernel_id,
+        'kernel_phi': kernel.kernel.compute_phi(),
+        'kernel_generation': kernel.generation,
+        'kernel_alive': getattr(kernel, 'is_alive', True),
+        'kernel_assessments_count': len(god.kernel_assessments),
+        'recent_assessments': god.kernel_assessments[-5:] if god.kernel_assessments else []
+    })

@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "currentIndex": 445,
+  "currentIndex": 450,
   "addressIds": [
     "dormant-13eEt6my-1765102353345",
     "dormant-1P9fAFAs-1765102353299",
@@ -1527,8 +1527,17 @@
     "eaf6165b-c64d-48bb-85da-409060eef196",
     "ef7f925b-cf65-46ac-bb69-d9cd658cc89b"
   ],
-  "lastCycleTime": "2025-12-10T01:55:52.603Z",
+  "lastCycleTime": "2025-12-10T02:10:24.379Z",
   "totalCycles": 1044,
-  "currentAddressId": "dormant-3MPaGxZf-1765102332404",
-  "pausedUntil": null
+  "currentAddressId": null,
+  "pausedUntil": "2025-12-10T02:20:57.667Z",
+  "lastSessionMetrics": {
+    "explorationPasses": 0,
+    "hypothesesTested": 0,
+    "nearMisses": 0,
+    "pantheonConsulted": false,
+    "duration": 25664,
+    "completedAt": "2025-12-10T02:10:24.379Z"
+  },
+  "consecutiveZeroPassSessions": 10
 }

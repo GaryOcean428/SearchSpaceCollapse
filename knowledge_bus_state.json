@@ -5982,6 +5982,21 @@
       }
     ],
     [
+      "kb_1765332029220_snklw4cpp",
+      {
+        "id": "kb_1765332029220_snklw4cpp",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765331996791-ut88",
+        "pattern": "block 2010 8878",
+        "phi": 0.981437499999785,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T02:00:29.700Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765231188066_fym7j63s1",
       {
         "id": "kb_1765231188066_fym7j63s1",
@@ -6112,6 +6127,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T14:54:56.728Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765332029205_iouxreudy",
+      {
+        "id": "kb_1765332029205_iouxreudy",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765331996791-b4qg",
+        "pattern": "mychain153",
+        "phi": 0.9814374999997209,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T02:00:29.701Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -6627,6 +6657,21 @@
       }
     ],
     [
+      "kb_1765332029199_d9xe4y69r",
+      {
+        "id": "kb_1765332029199_d9xe4y69r",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765331996791-mrna",
+        "pattern": "twenty balcony easily rich decline lyrics address between ocean truth hat other",
+        "phi": 0.9814374999996553,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T02:00:29.700Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765231488290_5zn6f0pwc",
       {
         "id": "kb_1765231488290_5zn6f0pwc",
@@ -6817,6 +6862,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T14:55:42.422Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765332496258_5bz9onfyx",
+      {
+        "id": "kb_1765332496258_5bz9onfyx",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765332446581-al0g",
+        "pattern": "company sun moon fame story rabbit kiss hurry actress yard canoe grape",
+        "phi": 0.9814374999996553,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T02:08:18.830Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -7587,6 +7647,21 @@
       }
     ],
     [
+      "kb_1765332496280_7kbvqs0kt",
+      {
+        "id": "kb_1765332496280_7kbvqs0kt",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765332446581-wv91",
+        "pattern": "satoshi 2010 9491",
+        "phi": 0.981437499999795,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T02:08:18.834Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765233139843_chq6a9pkm",
       {
         "id": "kb_1765233139843_chq6a9pkm",
@@ -7657,6 +7732,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "geometric",
         "sharedAt": "2025-12-09T15:10:04.106Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765332496265_aka15ji3e",
+      {
+        "id": "kb_1765332496265_aka15ji3e",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765332446581-jen4",
+        "pattern": "2010block8253",
+        "phi": 0.9814374999997345,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T02:08:18.837Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23967,46 +24057,46 @@
       }
     ],
     [
-      "kb_1765332029199_d9xe4y69r",
+      "kb_1765332692367_s7kfk7nia",
       {
-        "id": "kb_1765332029199_d9xe4y69r",
+        "id": "kb_1765332692367_s7kfk7nia",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765331996791-mrna",
-        "pattern": "twenty balcony easily rich decline lyrics address between ocean truth hat other",
-        "phi": 0.9814374999996553,
+        "generatorId": "nearmiss_ocean-1765332623139-huku",
+        "pattern": "negative bless window stamp come organ gas track panel hockey device innocent",
+        "phi": 0.9814374999996784,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-10T02:00:29.199Z",
+        "sharedAt": "2025-12-10T02:11:32.367Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765332029205_iouxreudy",
+      "kb_1765332692379_49fzdarg0",
       {
-        "id": "kb_1765332029205_iouxreudy",
+        "id": "kb_1765332692379_49fzdarg0",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765331996791-b4qg",
-        "pattern": "mychain153",
-        "phi": 0.9814374999997209,
+        "generatorId": "nearmiss_ocean-1765332623139-mh16",
+        "pattern": "2010satoshi9574",
+        "phi": 0.9814374999997513,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-10T02:00:29.205Z",
+        "sharedAt": "2025-12-10T02:11:32.379Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765332029220_snklw4cpp",
+      "kb_1765332692401_tqnxfbavz",
       {
-        "id": "kb_1765332029220_snklw4cpp",
+        "id": "kb_1765332692401_tqnxfbavz",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765331996791-ut88",
-        "pattern": "block 2010 8878",
-        "phi": 0.981437499999785,
+        "generatorId": "nearmiss_ocean-1765332623139-4j1y",
+        "pattern": "freedom 2009 5857",
+        "phi": 0.9814374999998072,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-10T02:00:29.220Z",
+        "sharedAt": "2025-12-10T02:11:32.401Z",
         "consumedBy": [],
         "transformations": []
       }

@@ -104,6 +104,7 @@ class Zeus(BaseGod):
         # 🌪️ CHAOS MODE: Experimental kernel evolution
         self.chaos_enabled = False
         self.chaos = None
+        self.kernel_assignments: Dict[str, str] = {}  # god_name -> kernel_id
         try:
             from training_chaos import ExperimentalKernelEvolution
             self.chaos = ExperimentalKernelEvolution()
@@ -179,6 +180,122 @@ class Zeus(BaseGod):
             'shadow_active': True,
             'coordinator_health': self.coordinator.coordination_health,
         }
+
+    # ========================================
+    # CHAOS MODE: KERNEL ASSIGNMENT
+    # ========================================
+
+    def assign_kernels_to_gods(self) -> Dict[str, str]:
+        """
+        Assign CHAOS kernels to gods from the kernel population.
+
+        Distribution strategy:
+        - Top kernels (by Φ) go to most active gods
+        - Each god gets at most one kernel
+        - Kernels without gods participate in general evolution
+
+        Returns:
+            Mapping of god_name -> kernel_id
+        """
+        if not self.chaos or not self.chaos_enabled:
+            return {}
+
+        # Get living kernels sorted by Φ
+        living_kernels = [k for k in self.chaos.kernel_population if getattr(k, 'is_alive', getattr(k, 'alive', True))]
+        living_kernels.sort(key=lambda k: k.kernel.compute_phi(), reverse=True)
+
+        if not living_kernels:
+            return {}
+
+        # Assign to gods in order of domain importance for Bitcoin recovery
+        priority_gods = [
+            'athena',    # Strategy - high priority
+            'ares',      # Attacks/geometry
+            'hephaestus',# Hypothesis generation
+            'apollo',    # Temporal prediction
+            'artemis',   # Hunting
+            'hades',     # Underworld intel
+            'dionysus',  # Chaos exploration
+            'poseidon',  # Deep memory
+            'demeter',   # Fertility/growth
+            'aphrodite', # Desire/motivation
+            'hera',      # Coherence
+            'hermes',    # Communication
+        ]
+
+        assignments = {}
+        for i, god_name in enumerate(priority_gods):
+            if i >= len(living_kernels):
+                break
+
+            god = self.pantheon.get(god_name)
+            if god:
+                kernel = living_kernels[i]
+                god.chaos_kernel = kernel
+                assignments[god_name] = kernel.kernel_id
+                self.kernel_assignments[god_name] = kernel.kernel_id
+                print(f"🌪️ Assigned kernel {kernel.kernel_id} (Φ={kernel.kernel.compute_phi():.3f}) to {god_name}")
+
+        return assignments
+
+    def get_kernel_assignments(self) -> Dict:
+        """Get current kernel-god assignments with status."""
+        if not self.chaos or not self.chaos_enabled:
+            return {'chaos_enabled': False}
+
+        assignments = []
+        for god_name, kernel_id in self.kernel_assignments.items():
+            god = self.pantheon.get(god_name)
+            if god and god.chaos_kernel:
+                assignments.append({
+                    'god': god_name,
+                    'kernel_id': kernel_id,
+                    'kernel_phi': god.chaos_kernel.kernel.compute_phi(),
+                    'kernel_generation': god.chaos_kernel.generation,
+                    'kernel_alive': getattr(god.chaos_kernel, 'is_alive', True),
+                    'assessments_with_kernel': len(god.kernel_assessments),
+                })
+
+        return {
+            'chaos_enabled': self.chaos_enabled,
+            'total_kernels': len(self.chaos.kernel_population),
+            'living_kernels': len([k for k in self.chaos.kernel_population if getattr(k, 'is_alive', True)]),
+            'assigned_kernels': len(assignments),
+            'assignments': assignments,
+        }
+
+    def train_all_god_kernels(
+        self,
+        target: str,
+        assessments: Dict[str, Dict],
+        success: bool,
+        phi_result: float
+    ) -> Dict[str, Dict]:
+        """
+        Train all god kernels from a shared outcome.
+
+        Called after we know whether an assessment was successful.
+
+        Args:
+            target: The target that was assessed
+            assessments: Dict of god_name -> assessment
+            success: Whether the overall assessment led to success
+            phi_result: The Φ value from the actual outcome
+
+        Returns:
+            Dict of training results per god
+        """
+        results = {}
+
+        for god_name, assessment in assessments.items():
+            god = self.pantheon.get(god_name)
+            if god and god.chaos_kernel:
+                # Train this god's kernel
+                result = god.train_kernel_from_outcome(target, success, phi_result)
+                if result:
+                    results[god_name] = result
+
+        return results
 
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """
@@ -293,15 +410,55 @@ class Zeus(BaseGod):
     ) -> Dict:
         """
         Poll all gods for their assessments on a target.
+
+        CHAOS MODE integration:
+        - Each god consults their assigned kernel
+        - Kernel Φ influences god confidence
+        - Kernel geometric resonance affects probability
         """
         assessments: Dict[str, Dict] = {}
         probabilities: List[float] = []
+        kernel_influences: Dict[str, Dict] = {}
+
+        # Auto-assign kernels if CHAOS MODE active but kernels not yet assigned
+        if self.chaos_enabled and self.chaos and not self.kernel_assignments:
+            if len(self.chaos.kernel_population) > 0:
+                self.assign_kernels_to_gods()
 
         for god_name, god in self.pantheon.items():
             try:
                 assessment = god.assess_target(target, context)
+
+                # CHAOS MODE: Consult kernel and apply influence
+                if self.chaos_enabled and god.chaos_kernel:
+                    kernel_input = god.consult_kernel(target, context)
+                    if kernel_input:
+                        kernel_influences[god_name] = kernel_input
+
+                        # Apply kernel influence to assessment
+                        # 1. Probability modifier from kernel resonance
+                        prob_mod = kernel_input.get('prob_modifier', 0)
+                        orig_prob = assessment.get('probability', 0.5)
+                        assessment['probability'] = max(0.0, min(1.0, orig_prob + prob_mod))
+
+                        # 2. Confidence boost from high-Φ kernel
+                        kernel_phi = kernel_input.get('kernel_phi', 0.5)
+                        if kernel_phi > 0.6:
+                            conf_boost = (kernel_phi - 0.6) * 0.2
+                            orig_conf = assessment.get('confidence', 0.5)
+                            assessment['confidence'] = min(1.0, orig_conf + conf_boost)
+
+                        # 3. Record kernel contribution in assessment
+                        assessment['kernel_influence'] = {
+                            'kernel_id': kernel_input.get('kernel_id'),
+                            'kernel_phi': kernel_phi,
+                            'resonance': kernel_input.get('geometric_resonance', 0),
+                            'prob_modifier': prob_mod,
+                        }
+
                 assessments[god_name] = assessment
                 probabilities.append(assessment.get('probability', 0.5))
+
             except Exception as e:
                 assessments[god_name] = {
                     'error': str(e),
@@ -322,6 +479,15 @@ class Zeus(BaseGod):
             'recommended_action': recommended,
             'timestamp': datetime.now().isoformat(),
         }
+
+        # Add kernel influence summary if CHAOS MODE active
+        if kernel_influences:
+            result['kernel_influences'] = kernel_influences
+            result['chaos_active'] = True
+            avg_kernel_phi = sum(
+                k.get('kernel_phi', 0.5) for k in kernel_influences.values()
+            ) / len(kernel_influences)
+            result['avg_kernel_phi'] = avg_kernel_phi
 
         self.convergence_history.append(result)
         if len(self.convergence_history) > 100:

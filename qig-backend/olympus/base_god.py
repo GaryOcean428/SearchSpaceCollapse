@@ -79,6 +79,10 @@ class BaseGod(ABC, HolographicTransformMixin):
         self.knowledge_base: List[Dict] = []  # Transferred knowledge from peers
         self.pending_messages: List[Dict] = []  # Messages to send via pantheon chat
 
+        # CHAOS MODE: Assigned kernel for learning from outcomes
+        self.chaos_kernel = None  # Will be assigned by Zeus when CHAOS MODE is active
+        self.kernel_assessments: List[Dict] = []  # Track kernel-influenced assessments
+
     @abstractmethod
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """
@@ -614,6 +618,138 @@ class BaseGod(ABC, HolographicTransformMixin):
         messages = self.pending_messages.copy()
         self.pending_messages = []
         return messages
+
+    # ========================================
+    # CHAOS MODE: KERNEL INTEGRATION
+    # ========================================
+
+    def consult_kernel(self, target: str, context: Optional[Dict] = None) -> Optional[Dict]:
+        """
+        Consult assigned CHAOS kernel for additional perspective.
+
+        The kernel provides a geometric/Φ-based assessment that can
+        influence the god's confidence and probability estimates.
+
+        Returns:
+            Kernel assessment dict or None if no kernel assigned
+        """
+        if self.chaos_kernel is None:
+            return None
+
+        try:
+            # Get kernel's geometric perspective
+            kernel = self.chaos_kernel.kernel
+            basin = self.encode_to_basin(target)
+
+            # Compute kernel's Φ
+            kernel_phi = kernel.compute_phi()
+
+            # Compute geometric distance from kernel's current state
+            kernel_basin = kernel.basin_coords.detach().numpy()
+            geo_distance = self.fisher_geodesic_distance(basin, kernel_basin)
+
+            # Kernel influence: how much this target "resonates" with kernel state
+            resonance = 1.0 / (1.0 + geo_distance)
+
+            # Kernel-derived probability adjustment
+            # High Φ kernel with close resonance → boost probability
+            prob_modifier = (kernel_phi - 0.5) * resonance * 0.2
+
+            assessment = {
+                'kernel_id': self.chaos_kernel.kernel_id,
+                'kernel_phi': kernel_phi,
+                'kernel_generation': self.chaos_kernel.generation,
+                'geometric_resonance': resonance,
+                'geo_distance': geo_distance,
+                'prob_modifier': prob_modifier,
+                'kernel_alive': getattr(self.chaos_kernel, 'is_alive', True),
+            }
+
+            # Track this kernel-influenced assessment
+            self.kernel_assessments.append({
+                'target': target[:50],
+                'timestamp': datetime.now().isoformat(),
+                **assessment
+            })
+
+            # Trim history
+            if len(self.kernel_assessments) > 200:
+                self.kernel_assessments = self.kernel_assessments[-100:]
+
+            return assessment
+
+        except Exception as e:
+            logger.warning(f"{self.name}: Kernel consultation failed: {e}")
+            return None
+
+    def train_kernel_from_outcome(
+        self,
+        target: str,
+        success: bool,
+        phi_result: float
+    ) -> Optional[Dict]:
+        """
+        Feed outcome back to kernel as training signal.
+
+        Success = kernel basin should move TOWARD this target's basin
+        Failure = kernel basin should move AWAY from this target's basin
+
+        Args:
+            target: The target that was assessed
+            success: Whether the assessment led to success
+            phi_result: The Φ value from the actual outcome
+
+        Returns:
+            Training result dict or None if no kernel
+        """
+        if self.chaos_kernel is None:
+            return None
+
+        try:
+            import torch
+
+            kernel = self.chaos_kernel.kernel
+            target_basin = self.encode_to_basin(target)
+            target_tensor = torch.tensor(target_basin, dtype=torch.float32)
+
+            # Direction: toward target if success, away if failure
+            direction = 1.0 if success else -1.0
+
+            # Learning rate scaled by phi_result (higher Φ outcomes = stronger signal)
+            lr = 0.01 * (0.5 + phi_result)
+
+            # Update kernel basin coords
+            with torch.no_grad():
+                delta = direction * lr * (target_tensor - kernel.basin_coords)
+                kernel.basin_coords += delta
+
+                # Normalize to unit hypersphere
+                norm = kernel.basin_coords.norm()
+                if norm > 0:
+                    kernel.basin_coords /= norm
+
+            new_phi = kernel.compute_phi()
+
+            result = {
+                'kernel_id': self.chaos_kernel.kernel_id,
+                'trained': True,
+                'direction': 'toward' if success else 'away',
+                'learning_rate': lr,
+                'phi_before': self.chaos_kernel.kernel.compute_phi(),
+                'phi_after': new_phi,
+                'outcome_phi': phi_result,
+            }
+
+            logger.info(
+                f"{self.name}: Kernel {self.chaos_kernel.kernel_id} trained "
+                f"{'toward' if success else 'away'} target, Φ: {new_phi:.3f}"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.warning(f"{self.name}: Kernel training failed: {e}")
+            return None
 
     def respond_to_challenge(
         self,
