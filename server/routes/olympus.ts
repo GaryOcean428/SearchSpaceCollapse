@@ -593,17 +593,25 @@ router.get('/war/history', isAuthenticated, async (req, res) => {
 
 /**
  * Get currently active war (if any)
- * Requires authentication
+ * Public endpoint - war status is not sensitive
  */
-router.get('/war/active', isAuthenticated, async (req, res) => {
+router.get('/war/active', async (req, res) => {
   try {
-    const activeWar = await getActiveWar();
+    // Add 5-second timeout to prevent hanging
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), 5000);
+    });
+    
+    const activeWar = await Promise.race([
+      getActiveWar(),
+      timeoutPromise
+    ]);
+    
     res.json(activeWar || { active: false });
   } catch (error) {
     console.error('[Olympus] Active war error:', error);
-    res.status(500).json({
-      error: 'Failed to get active war',
-    });
+    // Return inactive state on error instead of 500 - more graceful degradation
+    res.json({ active: false });
   }
 });
 

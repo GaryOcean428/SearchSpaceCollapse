@@ -1529,16 +1529,9 @@
   ],
   "lastCycleTime": "2025-12-10T04:17:30.977Z",
   "totalCycles": 1044,
-  "currentAddressId": null,
-  "pausedUntil": null,
-  "lastSessionMetrics": {
-    "explorationPasses": 0,
-    "hypothesesTested": 0,
-    "nearMisses": 0,
-    "pantheonConsulted": false,
-    "duration": 25612,
-    "completedAt": "2025-12-10T04:17:30.977Z"
-  },
-  "consecutiveZeroPassSessions": 0,
+  "currentAddressId": "dormant-113fiz1m-1765102330942",
+  "pausedUntil": "2025-12-10T04:19:57.709Z",
+  "lastSessionMetrics": null,
+  "consecutiveZeroPassSessions": 3,
   "rateLimitBackoffUntil": null
 }
