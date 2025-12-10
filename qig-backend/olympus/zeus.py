@@ -101,6 +101,17 @@ class Zeus(BaseGod):
         # Wire M8 kernel spawning
         self.kernel_spawner = get_spawner()
 
+        # 🌪️ CHAOS MODE: Experimental kernel evolution
+        self.chaos_enabled = False
+        self.chaos = None
+        try:
+            from training_chaos import ExperimentalKernelEvolution
+            self.chaos = ExperimentalKernelEvolution()
+            self.chaos_enabled = True
+            print("🌪️ CHAOS MODE available - use /chaos/activate to enable evolution")
+        except ImportError as e:
+            print(f"⚠️ CHAOS MODE not available: {e}")
+
         self.war_mode: Optional[str] = None
         self.war_target: Optional[str] = None
         self.convergence_history: List[Dict] = []
@@ -636,6 +647,188 @@ class Zeus(BaseGod):
     def get_god(self, name: str) -> Optional[BaseGod]:
         """Get a specific god by name."""
         return self.pantheon.get(name.lower())
+
+    # =========================================================================
+    # SKILL-BASED ROUTING - Route tasks to expert gods
+    # =========================================================================
+
+    # Domain expertise mapping for each god
+    GOD_EXPERTISE = {
+        'athena': ['strategy', 'optimization', 'wisdom', 'pattern_analysis', 'defense'],
+        'ares': ['attack', 'aggression', 'speed', 'force', 'tactical'],
+        'apollo': ['prophecy', 'foresight', 'pattern_recognition', 'light', 'music'],
+        'artemis': ['hunting', 'tracking', 'target_acquisition', 'precision', 'stealth'],
+        'hermes': ['communication', 'translation', 'speed', 'messaging', 'coordination'],
+        'hephaestus': ['crafting', 'engineering', 'tools', 'persistence', 'creation'],
+        'demeter': ['growth', 'cultivation', 'nurturing', 'patience', 'cycles'],
+        'dionysus': ['chaos', 'creativity', 'madness', 'inspiration', 'randomness'],
+        'poseidon': ['depth', 'waves', 'flow', 'underwater', 'emotional'],
+        'hades': ['underworld', 'death', 'hidden', 'secrets', 'wealth'],
+        'hera': ['governance', 'marriage', 'loyalty', 'authority', 'family'],
+        'aphrodite': ['beauty', 'love', 'attraction', 'charm', 'desire'],
+    }
+
+    def route_to_expert_gods(
+        self,
+        target: str,
+        task_type: str,
+        min_experts: int = 3,
+        max_experts: int = 5
+    ) -> Dict[str, BaseGod]:
+        """
+        Route task to expert gods based on skill × reputation.
+
+        Instead of polling all 12 gods, routes to the most qualified
+        for the specific task type.
+
+        Args:
+            target: The target being assessed
+            task_type: Type of task (e.g., 'pattern_recognition', 'attack', 'tracking')
+            min_experts: Minimum number of experts to include
+            max_experts: Maximum number of experts to poll
+
+        Returns:
+            Dictionary of {god_name: god_instance} for qualified gods
+        """
+        scored_gods = []
+
+        for god_name, god in self.pantheon.items():
+            # Base skill score from expertise mapping
+            expertise = self.GOD_EXPERTISE.get(god_name, [])
+            skill_score = 0.5  # Default
+
+            # Check if task matches any expertise
+            task_lower = task_type.lower()
+            for exp in expertise:
+                if exp in task_lower or task_lower in exp:
+                    skill_score = 0.9
+                    break
+                # Partial match
+                if any(word in exp for word in task_lower.split('_')):
+                    skill_score = max(skill_score, 0.7)
+
+            # Get god's tracked skills if available
+            if hasattr(god, 'skills') and task_type in god.skills:
+                skill_score = god.skills[task_type]
+
+            # Get reputation
+            reputation = getattr(god, 'reputation', 1.0)
+
+            # Combined score: skill × reputation
+            combined_score = skill_score * reputation
+
+            scored_gods.append((god_name, god, combined_score))
+
+        # Sort by score descending
+        scored_gods.sort(key=lambda x: x[2], reverse=True)
+
+        # Select top experts (at least min_experts, at most max_experts)
+        num_experts = max(min_experts, min(max_experts, len([g for g in scored_gods if g[2] > 0.6])))
+
+        expert_gods = {name: god for name, god, score in scored_gods[:num_experts]}
+
+        return expert_gods
+
+    def smart_poll(
+        self,
+        target: str,
+        task_type: str = 'general',
+        context: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Smart poll that uses skill-based routing before full poll.
+
+        First polls expert gods for the task type.
+        Falls back to full poll if experts disagree significantly.
+
+        Args:
+            target: Target to assess
+            task_type: Type of task for routing
+            context: Additional context
+
+        Returns:
+            Poll result with assessments
+        """
+        # Step 1: Get expert gods for this task
+        expert_gods = self.route_to_expert_gods(target, task_type)
+
+        print(f"⚡ [Zeus] Smart routing: {list(expert_gods.keys())} for task '{task_type}'")
+
+        # Step 2: Poll experts
+        expert_assessments: Dict[str, Dict] = {}
+        expert_probs: List[float] = []
+
+        for god_name, god in expert_gods.items():
+            try:
+                assessment = god.assess_target(target, context)
+                expert_assessments[god_name] = assessment
+                expert_probs.append(assessment.get('probability', 0.5))
+            except Exception as e:
+                expert_assessments[god_name] = {
+                    'error': str(e),
+                    'probability': 0.5,
+                    'god': god_name
+                }
+                expert_probs.append(0.5)
+
+        # Step 3: Check expert consensus
+        expert_variance = float(np.var(expert_probs)) if expert_probs else 1.0
+        expert_consensus = 1.0 - min(1.0, expert_variance * 4)
+
+        # If experts agree strongly, use their consensus
+        if expert_consensus > 0.75:
+            convergence = self._detect_convergence(expert_assessments)
+            consensus_prob = self._compute_consensus(expert_probs, convergence)
+
+            return {
+                'assessments': expert_assessments,
+                'convergence': convergence['type'],
+                'convergence_score': convergence['score'],
+                'consensus_probability': consensus_prob,
+                'recommended_action': self._determine_recommended_action(expert_assessments, convergence),
+                'routing_mode': 'expert',
+                'experts_polled': list(expert_gods.keys()),
+                'timestamp': datetime.now().isoformat(),
+            }
+
+        # Step 4: Experts disagree - fall back to full pantheon poll
+        print(f"⚡ [Zeus] Expert disagreement (consensus={expert_consensus:.2f}), polling full pantheon")
+
+        full_result = self.poll_pantheon(target, context)
+        full_result['routing_mode'] = 'full_fallback'
+        full_result['expert_consensus'] = expert_consensus
+        full_result['initial_experts'] = list(expert_gods.keys())
+
+        return full_result
+
+    def update_god_skill(
+        self,
+        god_name: str,
+        skill_type: str,
+        outcome: bool,
+        adjustment: float = 0.02
+    ) -> None:
+        """
+        Update a god's skill score based on outcome.
+
+        Called after assessments to adjust skill levels.
+
+        Args:
+            god_name: Name of the god
+            skill_type: Type of skill to update
+            outcome: Whether the assessment was correct
+            adjustment: Amount to adjust (default 0.02)
+        """
+        god = self.pantheon.get(god_name.lower())
+        if not god or not hasattr(god, 'skills'):
+            return
+
+        current = god.skills.get(skill_type, 0.5)
+
+        if outcome:
+            god.skills[skill_type] = min(1.0, current + adjustment)
+        else:
+            god.skills[skill_type] = max(0.1, current - adjustment)
 
     def broadcast_observation(self, observation: Dict) -> None:
         """Broadcast observation to all gods."""
@@ -1747,3 +1940,158 @@ def voice_speak_endpoint():
         'category': category,
         'speaker': 'Zeus',
     })
+
+
+# ========================================
+# SMART POLLING API
+# Skill-based routing for efficient assessments
+# ========================================
+
+@olympus_app.route('/smart_poll', methods=['POST'])
+def smart_poll_endpoint():
+    """
+    Smart poll using skill-based routing.
+
+    Routes tasks to expert gods first, falls back to full poll
+    if experts disagree significantly.
+    """
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    task_type = data.get('task_type', 'general')
+    context = data.get('context', {})
+
+    if not target:
+        return jsonify({'error': 'target required'}), 400
+
+    result = zeus.smart_poll(target, task_type, context)
+    return jsonify(sanitize_for_json(result))
+
+
+# ========================================
+# DEBATE CONTINUATION API
+# Recursive multi-turn debates to convergence
+# ========================================
+
+@olympus_app.route('/debates/continue', methods=['POST'])
+def continue_debates_endpoint():
+    """
+    Continue all active debates toward geometric convergence.
+
+    Gods auto-generate counter-arguments until Fisher distance
+    between positions converges or max turns reached.
+    """
+    data = request.get_json() or {}
+    max_debates = data.get('max_debates', 3)
+
+    results = zeus.pantheon_chat.auto_continue_active_debates(
+        gods=zeus.pantheon,
+        max_debates=max_debates
+    )
+
+    return jsonify(sanitize_for_json({
+        'success': True,
+        'debates_processed': len(results),
+        'results': results,
+    }))
+
+
+# ========================================
+# META-COGNITIVE REFLECTION API
+# Pantheon self-examination and strategy update
+# ========================================
+
+@olympus_app.route('/reflect', methods=['POST'])
+def pantheon_reflection_endpoint():
+    """
+    Trigger meta-cognitive self-reflection for all gods.
+
+    Each god analyzes their historical performance and
+    adjusts confidence calibration and strategy.
+    """
+    insights = []
+    gods_reflected = []
+
+    for god_name, god in zeus.pantheon.items():
+        try:
+            # Analyze performance and update strategy
+            analysis = god.analyze_performance_history()
+            update = god.update_assessment_strategy()
+
+            if analysis.get('status') == 'analyzed':
+                insights.append({
+                    'god': god_name,
+                    'pattern': analysis.get('pattern', 'unknown'),
+                    'calibration': analysis.get('new_calibration', 1.0),
+                    'updates': update.get('updates', []),
+                })
+                gods_reflected.append(god_name)
+        except Exception as e:
+            insights.append({
+                'god': god_name,
+                'error': str(e),
+            })
+
+    return jsonify(sanitize_for_json({
+        'success': True,
+        'gods_reflected': gods_reflected,
+        'total_gods': len(zeus.pantheon),
+        'insights': insights,
+    }))
+
+
+@olympus_app.route('/god/<god_name>/insights', methods=['GET'])
+def god_insights_endpoint(god_name: str):
+    """Get self-insights for a specific god."""
+    god = zeus.get_god(god_name)
+    if not god:
+        return jsonify({'error': f'God {god_name} not found'}), 404
+
+    insights = god.get_self_insights(limit=20)
+    return jsonify(sanitize_for_json({
+        'god': god_name,
+        'insights': insights,
+        'calibration': getattr(god, 'confidence_calibration', 1.0),
+        'reputation': getattr(god, 'reputation', 1.0),
+    }))
+
+
+@olympus_app.route('/god/<god_name>/record_outcome', methods=['POST'])
+def record_outcome_endpoint(god_name: str):
+    """
+    Record assessment outcome for meta-cognitive learning.
+
+    Called when ground truth becomes available for a past assessment.
+    """
+    god = zeus.get_god(god_name)
+    if not god:
+        return jsonify({'error': f'God {god_name} not found'}), 404
+
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    probability = data.get('probability', 0.5)
+    confidence = data.get('confidence', 0.5)
+    correct = data.get('correct', False)
+
+    if not target:
+        return jsonify({'error': 'target required'}), 400
+
+    god.record_assessment_outcome(target, probability, confidence, correct)
+
+    return jsonify({
+        'success': True,
+        'god': god_name,
+        'target': target[:50],
+        'recorded': True,
+    })
+
+
+# =========================================================================
+# 🌪️ CHAOS MODE API REGISTRATION
+# =========================================================================
+try:
+    from .chaos_api import chaos_app, set_zeus
+    olympus_app.register_blueprint(chaos_app)
+    set_zeus(zeus)
+    print("🌪️ CHAOS MODE API endpoints registered at /chaos/*")
+except ImportError as e:
+    print(f"⚠️ CHAOS MODE API not available: {e}")
