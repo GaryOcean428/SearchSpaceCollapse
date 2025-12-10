@@ -978,7 +978,7 @@ export class OceanQIGBackend {
     mergeRules?: number;
   }> {
     // Map legacy 'word' field to new 'text' field
-    const mapped = observations.map(obs => ({
+    const mapped = observations.map((obs) => ({
       text: obs.word,
       frequency: obs.frequency,
       avgPhi: obs.avgPhi,
@@ -2035,6 +2035,225 @@ export class OceanQIGBackend {
   }
 
   // =========================================================================
+  // PANTHEON CONSULTATION METHODS
+  // Direct god assessment for hypothesis enhancement
+  // =========================================================================
+
+  /**
+   * God assessment response type
+   */
+  private static readonly GOD_NAMES = [
+    "athena",
+    "ares",
+    "apollo",
+    "artemis",
+    "hermes",
+    "hephaestus",
+    "demeter",
+    "dionysus",
+    "poseidon",
+    "hades",
+    "hera",
+    "aphrodite",
+  ] as const;
+
+  /**
+   * Consult a specific Olympian god for assessment
+   *
+   * Used by discovery flow for mandatory pantheon consultation:
+   * - Apollo: Pattern recognition, foresight
+   * - Athena: Strategic optimization, wisdom
+   * - Artemis: Target tracking, hunting
+   * - Ares: Tactical assessment, aggression
+   */
+  async consultGod(
+    godName: string,
+    target: string,
+    context: Record<string, unknown> = {}
+  ): Promise<{
+    god: string;
+    probability: number;
+    confidence: number;
+    phi: number;
+    kappa: number;
+    reasoning: string;
+    recommendation?: string;
+    timestamp: string;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    const normalizedName = godName.toLowerCase();
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/god/${normalizedName}/assess`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target, context }),
+        }
+      );
+
+      if (!response.ok) {
+        console.warn(
+          `[OceanQIGBackend] God ${godName} consultation failed: ${response.status}`
+        );
+        return null;
+      }
+
+      const data = await response.json();
+      this.recordSuccess();
+      return data;
+    } catch (error) {
+      console.error(`[OceanQIGBackend] Consult ${godName} failed:`, error);
+      this.recordFailure();
+      return null;
+    }
+  }
+
+  /**
+   * Consult multiple gods in parallel for comprehensive assessment
+   */
+  async consultMultipleGods(
+    godNames: string[],
+    target: string,
+    context: Record<string, unknown> = {}
+  ): Promise<
+    Map<
+      string,
+      {
+        probability: number;
+        confidence: number;
+        phi: number;
+        kappa: number;
+        reasoning: string;
+      }
+    >
+  > {
+    const results = new Map();
+
+    const consultations = godNames.map(async (godName) => {
+      const result = await this.consultGod(godName, target, context);
+      if (result) {
+        results.set(godName, {
+          probability: result.probability,
+          confidence: result.confidence,
+          phi: result.phi,
+          kappa: result.kappa,
+          reasoning: result.reasoning,
+        });
+      }
+    });
+
+    await Promise.all(consultations);
+    return results;
+  }
+
+  /**
+   * Get Shadow Pantheon status
+   */
+  async getShadowPantheonStatus(): Promise<{
+    success: boolean;
+    gods: Record<
+      string,
+      {
+        name: string;
+        active: boolean;
+        last_operation?: string;
+        operations_count?: number;
+      }
+    >;
+    opsec_mode?: string;
+    tor_available?: boolean;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/shadow/status`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Shadow status failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Consult a Shadow Pantheon god
+   */
+  async consultShadowGod(
+    godName: string,
+    target: string,
+    context: Record<string, unknown> = {}
+  ): Promise<{
+    god: string;
+    probability: number;
+    confidence: number;
+    phi: number;
+    kappa: number;
+    reasoning: string;
+    stealth_rating?: number;
+    opsec_status?: string;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    const normalizedName = godName.toLowerCase();
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/shadow/god/${normalizedName}/assess`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target, context }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error(
+        `[OceanQIGBackend] Consult shadow ${godName} failed:`,
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Check shadow intel warnings for a target
+   */
+  async checkShadowWarnings(target: string): Promise<{
+    has_warnings: boolean;
+    warning_level: "clear" | "caution" | "danger";
+    message: string;
+    details?: Record<string, unknown>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/shadow/intel/check`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Shadow warnings check failed:", error);
+      return null;
+    }
+  }
+
+  // =========================================================================
   // FEEDBACK LOOP METHODS
   // Recursive learning and activity balance
   // =========================================================================
@@ -2271,6 +2490,494 @@ export class OceanQIGBackend {
     } catch (error) {
       console.error("[OceanQIGBackend] Get learning events failed:", error);
       return [];
+    }
+  }
+
+  // =========================================================================
+  // DEBATE SYSTEM METHODS
+  // Multi-turn god debates with geometric convergence
+  // =========================================================================
+
+  /**
+   * Initiate a debate between two gods
+   */
+  async initiateDebate(
+    topic: string,
+    initiator: string,
+    opponent: string,
+    initialArgument: string,
+    context?: Record<string, unknown>
+  ): Promise<{
+    id: string;
+    topic: string;
+    initiator: string;
+    opponent: string;
+    status: string;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/debate/initiate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic,
+            initiator,
+            opponent,
+            initial_argument: initialArgument,
+            context,
+          }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Initiate debate failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all active debates
+   */
+  async getActiveDebates(): Promise<
+    Array<{
+      id: string;
+      topic: string;
+      initiator: string;
+      opponent: string;
+      arguments: Array<Record<string, unknown>>;
+      status: string;
+    }>
+  > {
+    if (!this.isAvailable) return [];
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/debates/active`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.debates || [];
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get active debates failed:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Add an argument to an active debate
+   */
+  async addDebateArgument(
+    debateId: string,
+    god: string,
+    argument: string,
+    evidence?: Record<string, unknown>
+  ): Promise<{ success: boolean; debate_id: string } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/debate/argue`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            debate_id: debateId,
+            god,
+            argument,
+            evidence,
+          }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Add debate argument failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Resolve a debate with arbiter decision
+   */
+  async resolveDebate(
+    debateId: string,
+    arbiter: string,
+    winner: string,
+    reasoning: string
+  ): Promise<{
+    success: boolean;
+    resolution: Record<string, unknown>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/debate/resolve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            debate_id: debateId,
+            arbiter,
+            winner,
+            reasoning,
+          }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Resolve debate failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Continue debates until geometric convergence
+   */
+  async continueDebatesUntilConvergence(maxDebates: number = 3): Promise<
+    Array<{
+      status: string;
+      turns: number;
+      convergence: number;
+      winner?: string;
+    }>
+  > {
+    if (!this.isAvailable) return [];
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/debates/continue`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ max_debates: maxDebates }),
+        }
+      );
+
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.results || [];
+    } catch (error) {
+      console.error("[OceanQIGBackend] Continue debates failed:", error);
+      return [];
+    }
+  }
+
+  // =========================================================================
+  // WAR DECLARATION METHODS
+  // Blitzkrieg, Siege, Hunt modes
+  // =========================================================================
+
+  /**
+   * Declare blitzkrieg war mode
+   */
+  async declareBlitzkrieg(target: string): Promise<{
+    mode: string;
+    target: string;
+    declared_at: string;
+    strategy: string;
+    gods_engaged: string[];
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/war/blitzkrieg`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Declare blitzkrieg failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Declare siege war mode
+   */
+  async declareSiege(target: string): Promise<{
+    mode: string;
+    target: string;
+    declared_at: string;
+    strategy: string;
+    gods_engaged: string[];
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/war/siege`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Declare siege failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Declare hunt war mode
+   */
+  async declareHunt(target: string): Promise<{
+    mode: string;
+    target: string;
+    declared_at: string;
+    strategy: string;
+    gods_engaged: string[];
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/war/hunt`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Declare hunt failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * End current war mode
+   */
+  async endWar(): Promise<{
+    previous_mode: string | null;
+    previous_target: string | null;
+    ended_at: string;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/war/end`,
+        { method: "POST" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] End war failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get current war status
+   */
+  async getWarStatus(): Promise<{
+    mode: string | null;
+    target: string | null;
+    active: boolean;
+    gods_engaged: string[];
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/war/status`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get war status failed:", error);
+      return null;
+    }
+  }
+
+  // =========================================================================
+  // KERNEL SPAWNING METHODS
+  // M8 structure kernel genesis
+  // =========================================================================
+
+  /**
+   * Spawn a new kernel via pantheon consensus
+   */
+  async spawnKernel(spec: {
+    name: string;
+    domain: string;
+    element?: string;
+    role?: string;
+    parent_gods?: string[];
+    force?: boolean;
+  }): Promise<{
+    success: boolean;
+    kernel_id?: string;
+    name: string;
+    domain: string;
+    m8_position?: Record<string, unknown>;
+    error?: string;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/spawn/auto`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(spec),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Spawn kernel failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * List all spawned kernels
+   */
+  async listSpawnedKernels(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      domain: string;
+      created_at: string;
+      parent_gods: string[];
+    }>
+  > {
+    if (!this.isAvailable) return [];
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/spawn/list`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.kernels || [];
+    } catch (error) {
+      console.error("[OceanQIGBackend] List spawned kernels failed:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get spawner status
+   */
+  async getSpawnerStatus(): Promise<{
+    active: boolean;
+    total_spawned: number;
+    recent_spawns: Array<Record<string, unknown>>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/spawn/status`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get spawner status failed:", error);
+      return null;
+    }
+  }
+
+  // =========================================================================
+  // SMART POLL AND META-COGNITIVE METHODS
+  // Skill-based routing and self-reflection
+  // =========================================================================
+
+  /**
+   * Smart poll using skill-based routing
+   */
+  async smartPoll(
+    target: string,
+    taskType: string = "general",
+    context?: Record<string, unknown>
+  ): Promise<{
+    assessments: Record<string, Record<string, unknown>>;
+    convergence: string;
+    convergence_score: number;
+    consensus_probability: number;
+    routing_mode: string;
+    experts_polled?: string[];
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/smart_poll`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target,
+            task_type: taskType,
+            context,
+          }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Smart poll failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Trigger pantheon self-reflection
+   */
+  async triggerPantheonReflection(): Promise<{
+    success: boolean;
+    gods_reflected: string[];
+    insights: Array<Record<string, unknown>>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/olympus/reflect`,
+        { method: "POST" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Pantheon reflection failed:", error);
+      return null;
     }
   }
 }
