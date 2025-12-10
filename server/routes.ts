@@ -8,7 +8,7 @@ import {
   verifyBrainWallet,
 } from "./crypto";
 import observerRoutes from "./observer-routes";
-import { scorePhraseQIG } from "./qig-pure-v2.js";
+import { scorePhraseQIG } from "./qig-universal.js";
 import { storage } from "./storage";
 import { telemetryRouter } from "./telemetry-api";
 

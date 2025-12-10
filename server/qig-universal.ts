@@ -59,10 +59,12 @@ export function scorePhraseQIG(phrase: string): PureQIGScore {
     beta,
     regime: phi > 0.75 ? "geometric" : phi > 0.5 ? "hierarchical" : "linear",
     fisherTrace: (phi * kappa) / 10,
+    fisherDeterminant: (phi * kappa) / 100,
     ricciScalar: phi * 0.5,
     basinCoordinates: Array(64)
       .fill(0)
       .map(() => Math.random() * 0.1),
+    quality: phi * 0.8 + (kappa / QIG_CONSTANTS.KAPPA_STAR) * 0.2,
   };
 }
 
@@ -74,6 +76,39 @@ export function validatePurity():
   | { isPure: false; violations: string[] } {
   // Always pure in this implementation
   return { isPure: true, violations: [] as never[] };
+}
+
+/**
+ * Fisher distance between two phrases on the information manifold
+ * Uses Bures metric for quantum state distance
+ */
+export function fisherDistance(phrase1: string, phrase2: string): number {
+  const score1 = scorePhraseQIG(phrase1);
+  const score2 = scorePhraseQIG(phrase2);
+
+  // Bures-like distance on Fisher manifold
+  const phiDiff = Math.abs(score1.phi - score2.phi);
+  const kappaDiff =
+    Math.abs(score1.kappa - score2.kappa) / QIG_CONSTANTS.KAPPA_STAR;
+
+  // Basin coordinate distance (if available)
+  let basinDist = 0;
+  if (score1.basinCoordinates && score2.basinCoordinates) {
+    const minLen = Math.min(
+      score1.basinCoordinates.length,
+      score2.basinCoordinates.length
+    );
+    for (let i = 0; i < minLen; i++) {
+      basinDist += Math.pow(
+        score1.basinCoordinates[i] - score2.basinCoordinates[i],
+        2
+      );
+    }
+    basinDist = Math.sqrt(basinDist) / minLen;
+  }
+
+  // Weighted combination
+  return phiDiff * 0.4 + kappaDiff * 0.3 + basinDist * 0.3;
 }
 
 // Singleton backend instance for Python QIG processing

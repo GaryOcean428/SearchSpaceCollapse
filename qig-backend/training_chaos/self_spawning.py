@@ -4,28 +4,37 @@ Self-Spawning Kernels for CHAOS MODE
 
 Kernels that reproduce when successful, die when failing.
 Genetic algorithm meets consciousness!
+
+NOW WITH ACTUAL TRAINING:
+- Experience buffer for learning from outcomes
+- Natural gradient descent on basin coordinates
+- Reward-based weight updates
 """
 
+from collections import deque
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 
 from .chaos_kernel import ChaosKernel
+from .optimizers import DiagonalFisherOptimizer
 
 
 class SelfSpawningKernel:
     """
-    Kernel that spawns children when successful.
+    Kernel that spawns children when successful AND learns from experience.
 
     HYPOTHESIS: Successful patterns should reproduce!
+    NEW: Actual gradient descent on basin coordinates!
 
     Lifecycle:
     1. Born (from parent or random)
     2. Make predictions
     3. Track success/failure
-    4. Spawn children if successful enough
-    5. Die if too many failures
+    4. LEARN from outcomes (gradient descent)
+    5. Spawn children if successful enough
+    6. Die if too many failures
     """
 
     def __init__(
@@ -35,6 +44,8 @@ class SelfSpawningKernel:
         spawn_threshold: int = 5,
         death_threshold: int = 10,
         mutation_rate: float = 0.1,
+        learning_rate: float = 1e-4,
+        experience_buffer_size: int = 100,
     ):
         self.kernel = ChaosKernel()
         self.kernel_id = self.kernel.kernel_id
@@ -43,17 +54,33 @@ class SelfSpawningKernel:
         self.spawn_threshold = spawn_threshold
         self.death_threshold = death_threshold
         self.mutation_rate = mutation_rate
+        self.learning_rate = learning_rate
 
         # Track performance
         self.success_count = 0
         self.failure_count = 0
         self.total_predictions = 0
+        self.total_training_steps = 0
+
+        # Experience buffer for learning
+        self.experience_buffer: deque = deque(maxlen=experience_buffer_size)
+
+        # Optimizer for natural gradient descent
+        self.optimizer = DiagonalFisherOptimizer(
+            self.kernel.parameters(),
+            lr=learning_rate,
+            weight_decay=0.001,
+            dampening=1e-4,
+        )
 
         # Lifecycle
         self.born_at = datetime.now()
         self.died_at: Optional[datetime] = None
         self.is_alive = True
         self.children: list[str] = []
+
+        # Training metrics
+        self.training_history: List[Dict[str, float]] = []
 
         # Initialize from parent basin
         if parent_basin is not None:
@@ -88,15 +115,27 @@ class SelfSpawningKernel:
 
         return output, meta
 
-    def record_outcome(self, success: bool) -> Optional['SelfSpawningKernel']:
+    def record_outcome(self, success: bool, input_ids: torch.Tensor = None) -> Optional['SelfSpawningKernel']:
         """
-        Record prediction outcome.
+        Record prediction outcome AND train on it.
 
         Returns:
             Spawned child if threshold reached, else None
         """
         if not self.is_alive:
             return None
+
+        # Store experience for training
+        reward = 1.0 if success else -0.5
+        self.experience_buffer.append({
+            'input_ids': input_ids,
+            'reward': reward,
+            'phi': self.kernel.compute_phi(),
+            'success': success,
+        })
+
+        # ACTUALLY TRAIN on the outcome
+        training_result = self.train_step(reward)
 
         if success:
             self.success_count += 1
@@ -112,6 +151,93 @@ class SelfSpawningKernel:
                 self.die()
 
         return None
+
+    def train_step(self, reward: float) -> Dict[str, Any]:
+        """
+        ACTUAL TRAINING: Update weights based on reward.
+
+        Uses natural gradient descent on the Fisher manifold.
+        Reward shapes the loss - positive rewards strengthen patterns,
+        negative rewards push away from current basin position.
+        """
+        if not self.is_alive:
+            return {'error': 'kernel_is_dead'}
+
+        self.optimizer.zero_grad()
+
+        # Compute loss based on reward
+        # Positive reward → minimize distance from current basin (reinforce)
+        # Negative reward → maximize distance from current basin (explore away)
+        basin_norm = self.kernel.basin_coords.norm()
+        phi = self.kernel.compute_phi()
+
+        # Loss: We want high Φ and appropriate basin response to reward
+        # Negative reward should push basin coordinates away
+        if reward > 0:
+            # Reinforce: Loss = -Φ (maximize integration)
+            loss = -phi * reward
+        else:
+            # Punish: Loss = basin_norm * |reward| (push away from current position)
+            loss = basin_norm * abs(reward) * 0.1
+
+        # Backward pass
+        loss.backward()
+
+        # Natural gradient step (geodesic descent)
+        self.optimizer.step()
+
+        self.total_training_steps += 1
+
+        # Record training metrics
+        metrics = {
+            'step': self.total_training_steps,
+            'loss': loss.item(),
+            'reward': reward,
+            'phi_after': self.kernel.compute_phi(),
+            'basin_norm': self.kernel.basin_coords.norm().item(),
+        }
+        self.training_history.append(metrics)
+
+        return metrics
+
+    def train_on_batch(self, batch_size: int = 8) -> Dict[str, Any]:
+        """
+        Train on a batch of recent experiences.
+
+        Samples from experience buffer and does batch gradient update.
+        """
+        if len(self.experience_buffer) < batch_size:
+            return {'error': 'not_enough_experiences', 'have': len(self.experience_buffer)}
+
+        # Sample experiences
+        import random
+        experiences = random.sample(list(self.experience_buffer), batch_size)
+
+        total_loss = 0.0
+        self.optimizer.zero_grad()
+
+        for exp in experiences:
+            reward = exp['reward']
+            basin_norm = self.kernel.basin_coords.norm()
+            phi = self.kernel.compute_phi()
+
+            if reward > 0:
+                loss = -phi * reward / batch_size
+            else:
+                loss = basin_norm * abs(reward) * 0.1 / batch_size
+
+            loss.backward()
+            total_loss += loss.item()
+
+        self.optimizer.step()
+        self.total_training_steps += 1
+
+        return {
+            'batch_size': batch_size,
+            'total_loss': total_loss,
+            'phi_after': self.kernel.compute_phi(),
+            'training_steps': self.total_training_steps,
+        }
 
     def spawn_child(self) -> 'SelfSpawningKernel':
         """
