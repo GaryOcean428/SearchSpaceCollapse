@@ -4776,6 +4776,172 @@ def memory_record_basin():
         return jsonify({'error': str(e)}), 500
 
 
+# =============================================================================
+# CHAOS MODE - Experimental Kernel Evolution
+# Self-spawning kernels with genetic breeding (file-based logging only)
+# =============================================================================
+
+# Global chaos evolution instance
+_chaos_evolution = None
+
+def get_chaos_evolution():
+    """Get or create chaos evolution instance."""
+    global _chaos_evolution
+    if _chaos_evolution is None:
+        try:
+            from training_chaos import ExperimentalKernelEvolution
+            _chaos_evolution = ExperimentalKernelEvolution()
+        except Exception as e:
+            print(f"[CHAOS] Failed to initialize: {e}")
+            return None
+    return _chaos_evolution
+
+
+@app.route('/chaos/activate', methods=['POST'])
+def chaos_activate():
+    """Activate CHAOS MODE - start experimental evolution."""
+    try:
+        data = request.json or {}
+        interval_seconds = data.get('interval_seconds', 60)
+        
+        evolution = get_chaos_evolution()
+        if evolution is None:
+            return jsonify({'error': 'CHAOS MODE not available'}), 500
+        
+        evolution.start_evolution(interval_seconds=interval_seconds)
+        
+        return jsonify({
+            'status': 'activated',
+            'population_size': len(evolution.kernel_population),
+            'interval_seconds': interval_seconds
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/chaos/deactivate', methods=['POST'])
+def chaos_deactivate():
+    """Deactivate CHAOS MODE."""
+    try:
+        evolution = get_chaos_evolution()
+        if evolution is None:
+            return jsonify({'error': 'CHAOS MODE not available'}), 500
+        
+        evolution.stop_evolution()
+        
+        return jsonify({'status': 'deactivated'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/chaos/status', methods=['GET'])
+def chaos_status():
+    """Get CHAOS MODE status."""
+    try:
+        evolution = get_chaos_evolution()
+        if evolution is None:
+            return jsonify({
+                'active': False,
+                'population_size': 0,
+                'best_fitness': 0.0,
+                'generation': 0,
+                'kernels': []
+            })
+        
+        # Use the built-in get_status method
+        status = evolution.get_status()
+        
+        return jsonify({
+            'active': status['evolution_running'],
+            'population_size': status['living_kernels'],
+            'best_fitness': status['avg_phi'],
+            'generation': int(status['avg_generation']),
+            'kernels': status['kernels']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/chaos/spawn_random', methods=['POST'])
+def chaos_spawn_random():
+    """Spawn a random kernel."""
+    try:
+        evolution = get_chaos_evolution()
+        if evolution is None:
+            return jsonify({'error': 'CHAOS MODE not available'}), 500
+        
+        kernel = evolution.spawn_random_kernel()
+        
+        return jsonify({
+            'success': True,
+            'kernel_id': kernel.kernel_id,
+            'phi': kernel.kernel.compute_phi() if hasattr(kernel, 'kernel') else 0.0
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/chaos/breed_best', methods=['POST'])
+def chaos_breed_best():
+    """Breed the two best kernels."""
+    try:
+        evolution = get_chaos_evolution()
+        if evolution is None:
+            return jsonify({'error': 'CHAOS MODE not available'}), 500
+        
+        living = [k for k in evolution.kernel_population if k.is_alive]
+        if len(living) < 2:
+            return jsonify({'error': 'Need at least 2 living kernels to breed'}), 400
+        
+        child = evolution.breed_top_kernels(n=2)
+        if child is None:
+            return jsonify({'error': 'Breeding failed'}), 500
+        
+        return jsonify({
+            'success': True,
+            'child_id': child.kernel_id,
+            'child_phi': child.kernel.compute_phi() if hasattr(child, 'kernel') else 0.0
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/chaos/report', methods=['GET'])
+def chaos_report():
+    """Get experiment report."""
+    try:
+        evolution = get_chaos_evolution()
+        if evolution is None:
+            return jsonify({
+                'total_generations': 0,
+                'total_spawns': 0,
+                'best_kernel': None,
+                'experiment_duration_seconds': 0
+            })
+        
+        status = evolution.get_status()
+        best = None
+        best_kernel = evolution.get_best_kernel()
+        if best_kernel:
+            best = {
+                'id': best_kernel.kernel_id,
+                'phi': best_kernel.kernel.compute_phi() if hasattr(best_kernel, 'kernel') else 0.0,
+                'generation': best_kernel.generation,
+                'success_count': best_kernel.success_count
+            }
+        
+        return jsonify({
+            'evolution_running': status['evolution_running'],
+            'total_population': status['total_population'],
+            'living_kernels': status['living_kernels'],
+            'dead_kernels': status['dead_kernels'],
+            'avg_phi': status['avg_phi'],
+            'best_kernel': best
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Register autonomic kernel routes
     try:

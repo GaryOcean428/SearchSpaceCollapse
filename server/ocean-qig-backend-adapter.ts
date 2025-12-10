@@ -2980,6 +2980,161 @@ export class OceanQIGBackend {
       return null;
     }
   }
+
+  // =========================================================================
+  // CHAOS MODE - Experimental Kernel Evolution
+  // Self-spawning kernels with genetic breeding
+  // =========================================================================
+
+  /**
+   * Activate CHAOS MODE - start experimental kernel evolution
+   */
+  async activateChaos(intervalSeconds: number = 60): Promise<{
+    status: string;
+    population_size: number;
+    interval_seconds: number;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/activate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ interval_seconds: intervalSeconds }),
+        }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Activate chaos failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Deactivate CHAOS MODE
+   */
+  async deactivateChaos(): Promise<{ status: string } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/deactivate`,
+        { method: "POST" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Deactivate chaos failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get CHAOS MODE status
+   */
+  async getChaosStatus(): Promise<{
+    active: boolean;
+    population_size: number;
+    best_fitness: number;
+    generation: number;
+    kernels: Array<{ id: string; fitness: number; generation: number }>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/status`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get chaos status failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Spawn a random kernel in CHAOS MODE
+   */
+  async spawnRandomKernel(): Promise<{
+    success: boolean;
+    kernel_id: string;
+    traits: Record<string, unknown>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/spawn_random`,
+        { method: "POST" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Spawn random kernel failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Breed the best kernels in CHAOS MODE
+   */
+  async breedBestKernels(): Promise<{
+    success: boolean;
+    parent1: string;
+    parent2: string;
+    child_id: string;
+    child_fitness: number;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/breed_best`,
+        { method: "POST" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Breed best kernels failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get CHAOS MODE experiment report
+   */
+  async getChaosReport(): Promise<{
+    total_generations: number;
+    total_spawns: number;
+    best_kernel: { id: string; fitness: number; traits: Record<string, unknown> } | null;
+    fitness_history: number[];
+    experiment_duration_seconds: number;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/report`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get chaos report failed:", error);
+      return null;
+    }
+  }
 }
 
 // Global singleton instance
