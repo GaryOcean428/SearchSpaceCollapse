@@ -1473,8 +1473,12 @@ export default function ObserverPage() {
                 {prioritiesLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading geometric data...</div>
                 ) : !prioritiesData || prioritiesData.priorities.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No priority data available. Run κ_recovery computation first.
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-geometry">
+                    <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No geometric data yet</p>
+                    <p className="text-sm mt-2">
+                      Run κ_recovery computation to visualize the QIG manifold.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -2232,7 +2236,13 @@ export default function ObserverPage() {
                 {nearMissLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading distribution...</div>
                 ) : (nearMissData?.entries || []).length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No Φ data to visualize</div>
+                  <div className="text-center py-8 text-muted-foreground" data-testid="empty-phi-distribution">
+                    <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No Φ data yet</p>
+                    <p className="text-sm mt-2">
+                      Near-miss data will appear here as Ocean explores the manifold.
+                    </p>
+                  </div>
                 ) : (
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">

@@ -32,11 +32,11 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <span className="text-sm text-muted-foreground">Observer Archaeology System</span>
           </header>
-          <main className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto">
             <PageErrorBoundary>
               {children}
             </PageErrorBoundary>
-          </main>
+          </div>
         </SidebarInset>
       </div>
     </SidebarProvider>
