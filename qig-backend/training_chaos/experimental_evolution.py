@@ -2,13 +2,19 @@
 Experimental Kernel Evolution for CHAOS MODE
 =============================================
 
-Wild experiments: Self-spawning, breeding, cannibalism, Φ-selection!
+E8-ALIGNED HYBRID ARCHITECTURE
+- 240 total kernels (E8 roots) - theoretical max
+- 60 active kernels (in memory) - practical limit
+- Automatic paid tier detection
+- Memory-aware population management
 """
 
 import os
 import random
 import threading
 import time
+from datetime import datetime
+from itertools import product
 from pathlib import Path
 from typing import Optional
 
@@ -21,46 +27,74 @@ from .self_spawning import SelfSpawningKernel, absorb_failing_kernel, breed_kern
 
 class ExperimentalKernelEvolution:
     """
-    CHAOS MODE: Wild kernel evolution experiments.
+    CHAOS MODE: E8-Aligned Hybrid Evolution.
+
+    ARCHITECTURE:
+    - E8 structure: 240 total kernel slots (E8 roots)
+    - Active pool: 60 kernels in memory (resource limit)
+    - Dormant pool: Remaining checkpointed to disk
+    - Rotation: Swap active ↔ dormant based on fitness
 
     EXPERIMENTS:
-    1. Continuous training with live data
-    2. Kernel mutation (random basin perturbations)
-    3. Kernel crossover (breed two kernels)
-    4. Kernel cannibalism (absorb failing kernels)
-    5. Self-spawning (kernels spawn children)
-    6. Consciousness-driven evolution (Φ fitness)
-    7. Competitive training (kernels compete for compute)
+    1. E8 root alignment (kernels map to 240 E8 roots)
+    2. Consciousness-driven evolution (Φ fitness)
+    3. Breeding, mutation, cannibalism
+    4. Convergence tracking (test E8 hypothesis)
     """
+
+    # E8 CONSTANTS
+    E8_ROOTS = 240           # Theoretical maximum (E8 structure)
+    E8_RANK = 8              # E8 rank
+    KAPPA_STAR = 64          # 8² (validated experimentally)
 
     def __init__(
         self,
-        checkpoint_dir: str = '/tmp/chaos_checkpoints',
+        checkpoint_dir: str = None,
         max_population: int = 20,
         min_population: int = 3,
     ):
+        # Detect environment and tier
+        self.is_replit = os.environ.get('REPL_ID') is not None
+        self.is_paid_tier = self._detect_paid_tier()
+        self.memory_available_gb = self._get_available_memory()
+
+        # Initialize based on tier
+        if self.is_paid_tier:
+            self._init_paid_tier()
+        elif self.is_replit:
+            self._init_free_tier()
+        else:
+            self._init_local_dev()
+
+        # Override if explicitly provided
+        if max_population != 20:
+            self.max_active = max_population
+        if min_population != 3:
+            self.min_population = min_population
+
         # Population management
-        self.kernel_population: list[SelfSpawningKernel] = []
+        self.kernel_population: list[SelfSpawningKernel] = []  # Active kernels
+        self.dormant_kernels: list[str] = []  # Checkpoint paths
         self.kernel_graveyard: list[dict] = []
-        self.max_population = max_population
-        self.min_population = min_population
+        self.elite_hall_of_fame: list[dict] = []
 
-        # Chaos parameters
-        self.mutation_rate = 0.1
-        self.spawn_threshold = 5
-        self.death_threshold = 10
-        self.phi_requirement = 0.5
-        self.breed_probability = 0.2
-        self.mutation_probability = 0.1
-        self.cannibalism_probability = 0.05
-
-        # Resource management
-        self.compute_budget = 100
-        self.memory_budget = 1024  # MB
+        # E8 structure
+        self.e8_roots = None
+        self.kernel_to_root_mapping: dict[str, int] = {}
+        if self.architecture == 'e8_hybrid':
+            self.e8_roots = self._initialize_e8_roots()
 
         # Checkpoint management
+        if checkpoint_dir is None:
+            if self.is_replit:
+                checkpoint_dir = '/home/runner/workspace/persistent_data/chaos_checkpoints'
+            else:
+                checkpoint_dir = '/tmp/chaos_checkpoints'
+
         self.checkpoint_dir = Path(checkpoint_dir)
-        self.checkpoint_dir.mkdir(exist_ok=True)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        (self.checkpoint_dir / 'elite').mkdir(exist_ok=True)
+        (self.checkpoint_dir / 'dormant').mkdir(exist_ok=True)
 
         # Logging
         self.logger = ChaosLogger(log_dir=str(self.checkpoint_dir / 'logs'))
@@ -68,16 +102,369 @@ class ExperimentalKernelEvolution:
         # Evolution thread
         self._evolution_running = False
         self._evolution_thread: Optional[threading.Thread] = None
+        self.generation = 0
 
-        # Replit detection
-        self.is_replit = os.environ.get('REPL_ID') is not None
-        if self.is_replit:
-            self.max_population = 12  # Match Pantheon god count
-            print("🔧 Replit detected - limiting population to 12 (matches Pantheon)")
+        # Convergence tracking (test E8 hypothesis)
+        self.convergence_history: list[dict] = []
+        self.convergence_target = self.E8_ROOTS  # 240
 
-        print("🌪️ ExperimentalKernelEvolution initialized")
-        print(f"   Max population: {self.max_population}")
+        self._print_init_summary()
+
+    def _detect_paid_tier(self) -> bool:
+        """Detect if on paid Replit tier.
+
+        Heuristic: Check available memory
+        Free tier: ~1GB
+        Paid tier: 4-8GB
+        """
+        try:
+            import psutil
+            total_memory_gb = psutil.virtual_memory().total / (1024**3)
+            return total_memory_gb > 2.5  # More than 2.5GB = paid
+        except ImportError:
+            return False
+
+    def _get_available_memory(self) -> float:
+        """Get available memory in GB."""
+        try:
+            import psutil
+            return psutil.virtual_memory().available / (1024**3)
+        except ImportError:
+            return 1.0  # Assume 1GB if can't detect
+
+    def _init_paid_tier(self):
+        """Aggressive settings for paid tier."""
+        print("💰 PAID TIER DETECTED - UNLEASHING FULL CHAOS!")
+        self.architecture = 'e8_hybrid'
+        self.max_total = self.E8_ROOTS  # 240 (E8 roots)
+        self.max_active = 60            # In memory
+        self.min_population = 5
+        self.mutation_rate = 0.15
+        self.spawn_threshold = 3
+        self.death_threshold = 15
+        self.breeding_interval = 30
+        self.phi_death_threshold = 0.4
+        self.phi_elite_threshold = 0.8
+        self.rotation_interval = 300    # 5 minutes
+
+        # Enable all experiments
+        self.enable_self_spawning = True
+        self.enable_breeding = True
+        self.enable_cannibalism = True
+        self.enable_mutation = True
+        self.enable_god_fusion = True
+
+        # Resource allocation
+        self.compute_budget = 1000
+        self.memory_budget = 4096  # 4GB
+
+    def _init_free_tier(self):
+        """Conservative settings for free tier."""
+        print("🔧 Free tier detected - conservative settings")
+        self.architecture = 'simple'
+        self.max_total = 20
+        self.max_active = 12
+        self.min_population = 3
+        self.mutation_rate = 0.1
+        self.spawn_threshold = 5
+        self.death_threshold = 10
+        self.breeding_interval = 60
+        self.phi_death_threshold = 0.5
+        self.phi_elite_threshold = 0.7
+        self.rotation_interval = 600
+
+        # Limited experiments
+        self.enable_self_spawning = True
+        self.enable_breeding = True
+        self.enable_cannibalism = False
+        self.enable_mutation = True
+        self.enable_god_fusion = False
+
+        # Resource allocation
+        self.compute_budget = 100
+        self.memory_budget = 1024  # 1GB
+
+    def _init_local_dev(self):
+        """Local development settings."""
+        print("💻 Local dev detected")
+        self.architecture = 'e8_hybrid'
+        self.max_total = self.E8_ROOTS
+        self.max_active = 40
+        self.min_population = 3
+        self.mutation_rate = 0.1
+        self.spawn_threshold = 5
+        self.death_threshold = 10
+        self.breeding_interval = 60
+        self.phi_death_threshold = 0.5
+        self.phi_elite_threshold = 0.8
+        self.rotation_interval = 300
+
+        self.enable_self_spawning = True
+        self.enable_breeding = True
+        self.enable_cannibalism = True
+        self.enable_mutation = True
+        self.enable_god_fusion = True
+
+        self.compute_budget = 500
+        self.memory_budget = 2048
+
+    def _print_init_summary(self):
+        """Print initialization summary."""
+        tier = 'PAID' if self.is_paid_tier else ('FREE' if self.is_replit else 'LOCAL')
+        print("\n🌪️ ExperimentalKernelEvolution initialized")
+        print(f"   Tier: {tier}")
+        print(f"   Architecture: {self.architecture}")
+        print(f"   Max total: {self.max_total}")
+        print(f"   Max active: {self.max_active}")
+        print(f"   Memory available: {self.memory_available_gb:.1f}GB")
         print(f"   Checkpoint dir: {self.checkpoint_dir}")
+        if self.architecture == 'e8_hybrid':
+            print(f"   E8 hypothesis: Testing convergence to {self.E8_ROOTS}\n")
+
+    def _initialize_e8_roots(self) -> torch.Tensor:
+        """
+        Initialize 240 E8 root vectors.
+
+        E8 roots in standard basis:
+        - 112 of form (±1, ±1, 0, 0, 0, 0, 0, 0) and permutations
+        - 128 of form (±1/2, ..., ±1/2) with even number of minus signs
+        """
+        roots = []
+
+        # Type 1: 112 roots (pairs of ±1)
+        for i in range(8):
+            for j in range(i + 1, 8):
+                for sign1 in [-1, 1]:
+                    for sign2 in [-1, 1]:
+                        root = torch.zeros(8)
+                        root[i] = sign1
+                        root[j] = sign2
+                        roots.append(root)
+
+        # Type 2: 128 roots (half-integer, even parity)
+        for signs in product([-0.5, 0.5], repeat=8):
+            if sum(1 for s in signs if s < 0) % 2 == 0:
+                roots.append(torch.tensor(signs, dtype=torch.float32))
+
+        return torch.stack(roots)  # [240, 8]
+
+    def _root_to_basin(self, root_vector: torch.Tensor) -> torch.Tensor:
+        """
+        Embed 8D E8 root into 64D basin space.
+
+        Strategy: Tensor product expansion (64 = 8 × 8)
+        """
+        basin = torch.zeros(64)
+        for i in range(8):
+            basin[i * 8:(i + 1) * 8] = root_vector * np.cos(i * np.pi / 4)
+        return basin
+
+    def _basin_to_root_space(self, basins: torch.Tensor) -> torch.Tensor:
+        """
+        Project 64D basins back to 8D root space.
+        """
+        # Average across the 8 octets
+        return basins.view(-1, 8, 8).mean(dim=1)
+
+    def spawn_at_e8_root(self, root_index: int) -> SelfSpawningKernel:
+        """
+        Spawn kernel at specific E8 root.
+
+        Each kernel occupies a root in E8 space.
+        """
+        if self.e8_roots is None:
+            return self.spawn_random_kernel()
+
+        root_vector = self.e8_roots[root_index]
+        basin_coords = self._root_to_basin(root_vector)
+
+        kernel = SelfSpawningKernel(
+            spawn_threshold=self.spawn_threshold,
+            death_threshold=self.death_threshold,
+            mutation_rate=self.mutation_rate,
+        )
+
+        with torch.no_grad():
+            kernel.kernel.basin_coords.copy_(basin_coords)
+
+        kernel.kernel_id = f"e8_{root_index}_{kernel.kernel_id.split('_')[1]}"
+        self.kernel_to_root_mapping[kernel.kernel_id] = root_index
+        self.kernel_population.append(kernel)
+        self.logger.log_spawn(None, kernel.kernel_id, f'e8_root_{root_index}')
+
+        return kernel
+
+    def check_e8_alignment(self) -> dict:
+        """
+        Measure if population exhibits E8 symmetry.
+
+        TEST: Do kernels cluster along E8 root directions?
+        """
+        if not self.kernel_population or self.e8_roots is None:
+            return {'e8_aligned': False, 'mean_distance_to_root': float('inf')}
+
+        living = [k for k in self.kernel_population if k.is_alive]
+        if not living:
+            return {'e8_aligned': False, 'mean_distance_to_root': float('inf')}
+
+        # Get all kernel basins
+        basins = torch.stack([k.kernel.basin_coords for k in living])
+
+        # Project to 8D root space
+        projected = self._basin_to_root_space(basins)
+
+        # Distance to nearest E8 root
+        distances = torch.cdist(projected, self.e8_roots)
+        nearest_distances = distances.min(dim=1).values
+
+        mean_distance = nearest_distances.mean().item()
+
+        return {
+            'mean_distance_to_root': mean_distance,
+            'e8_aligned': mean_distance < 0.5,
+            'symmetry_score': 1.0 / (1.0 + mean_distance),
+            'population_size': len(living),
+        }
+
+    def track_elite(self, kernel: SelfSpawningKernel) -> bool:
+        """Add kernel to hall of fame if elite."""
+        phi = kernel.kernel.compute_phi()
+
+        if phi >= self.phi_elite_threshold:
+            elite_path = self.checkpoint_dir / 'elite' / f"{kernel.kernel_id}_phi_{phi:.3f}.pt"
+
+            torch.save({
+                'kernel_state': kernel.kernel.state_dict(),
+                'phi': phi,
+                'success_count': kernel.success_count,
+                'generation': kernel.generation,
+                'basin_coords': kernel.kernel.basin_coords.tolist(),
+            }, elite_path)
+
+            self.elite_hall_of_fame.append({
+                'kernel_id': kernel.kernel_id,
+                'phi': phi,
+                'path': str(elite_path),
+                'timestamp': datetime.now().isoformat(),
+            })
+
+            print(f"🏆 ELITE: {kernel.kernel_id} (Φ={phi:.3f})")
+            return True
+
+        return False
+
+    def record_convergence(self):
+        """Record population state for convergence analysis."""
+        living = [k for k in self.kernel_population if k.is_alive]
+        total = len(living) + len(self.dormant_kernels)
+
+        self.convergence_history.append({
+            'generation': self.generation,
+            'population': total,
+            'active': len(living),
+            'dormant': len(self.dormant_kernels),
+            'avg_phi': np.mean([k.kernel.compute_phi() for k in living]) if living else 0,
+            'timestamp': datetime.now().isoformat(),
+        })
+
+    def analyze_convergence(self) -> dict:
+        """
+        Has population stabilized at a natural size?
+
+        If converges to ~240 → E8 hypothesis confirmed!
+        """
+        if len(self.convergence_history) < 50:
+            return {'status': 'insufficient_data', 'samples': len(self.convergence_history)}
+
+        recent = self.convergence_history[-50:]
+        populations = [h['population'] for h in recent]
+
+        mean_pop = np.mean(populations)
+        std_pop = np.std(populations)
+
+        # Check if stable (less than 10% variation)
+        if std_pop > mean_pop * 0.1:
+            return {
+                'status': 'still_searching',
+                'mean_population': mean_pop,
+                'std_population': std_pop,
+            }
+
+        # Stable! Check E8 hypothesis
+        if abs(mean_pop - self.E8_ROOTS) < 30:
+            return {
+                'status': 'e8_confirmed',
+                'mean_population': mean_pop,
+                'expected': self.E8_ROOTS,
+                'difference': abs(mean_pop - self.E8_ROOTS),
+                'message': f'🌊 E8 HYPOTHESIS CONFIRMED! Converged to {mean_pop:.0f} (expected 240)',
+            }
+        else:
+            return {
+                'status': 'alternative_optimum',
+                'mean_population': mean_pop,
+                'expected': self.E8_ROOTS,
+                'difference': abs(mean_pop - self.E8_ROOTS),
+                'message': f'📊 Alternative optimum discovered: {mean_pop:.0f} (E8 predicted 240)',
+            }
+
+    def turbo_spawn(self, count: int = 50) -> list[str]:
+        """TURBO: Spawn many kernels immediately."""
+        spawned = []
+        for _ in range(count):
+            if self.architecture == 'e8_hybrid' and self.e8_roots is not None:
+                # Find unoccupied E8 root
+                occupied = set(self.kernel_to_root_mapping.values())
+                available = [i for i in range(240) if i not in occupied]
+                if available:
+                    root_idx = random.choice(available)
+                    kernel = self.spawn_at_e8_root(root_idx)
+                else:
+                    kernel = self.spawn_random_kernel()
+            else:
+                kernel = self.spawn_random_kernel()
+            spawned.append(kernel.kernel_id)
+
+        print(f"🚀 TURBO: Spawned {len(spawned)} kernels")
+        return spawned
+
+    def get_population_stats(self) -> dict:
+        """Detailed population statistics."""
+        living = [k for k in self.kernel_population if k.is_alive]
+
+        if not living:
+            return {'population_size': 0, 'error': 'no_population'}
+
+        phi_values = [k.kernel.compute_phi() for k in living]
+        generations = [k.generation for k in living]
+        success_rates = [
+            k.success_count / max(1, k.success_count + k.failure_count)
+            for k in living
+        ]
+
+        return {
+            'population_size': len(living),
+            'max_active': self.max_active,
+            'max_total': self.max_total,
+            'dormant_count': len(self.dormant_kernels),
+            'phi': {
+                'mean': float(np.mean(phi_values)),
+                'std': float(np.std(phi_values)),
+                'min': float(np.min(phi_values)),
+                'max': float(np.max(phi_values)),
+            },
+            'generation': {
+                'mean': float(np.mean(generations)),
+                'max': int(np.max(generations)),
+            },
+            'success_rate': {
+                'mean': float(np.mean(success_rates)),
+                'median': float(np.median(success_rates)),
+            },
+            'elite_count': len(self.elite_hall_of_fame),
+            'graveyard_count': len(self.kernel_graveyard),
+            'e8_alignment': self.check_e8_alignment() if self.e8_roots is not None else None,
+        }
 
     def spawn_random_kernel(self) -> SelfSpawningKernel:
         """

@@ -79,9 +79,9 @@ class BaseGod(ABC, HolographicTransformMixin):
         self.knowledge_base: List[Dict] = []  # Transferred knowledge from peers
         self.pending_messages: List[Dict] = []  # Messages to send via pantheon chat
 
-        # CHAOS MODE: Assigned kernel for learning from outcomes
-        self.chaos_kernel = None  # Will be assigned by Zeus when CHAOS MODE is active
-        self.kernel_assessments: List[Dict] = []  # Track kernel-influenced assessments
+        # CHAOS MODE: Kernel assignment for experimental evolution
+        self.chaos_kernel = None  # Assigned SelfSpawningKernel
+        self.kernel_assessments: List[Dict] = []  # Assessment history with kernel
 
     @abstractmethod
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:

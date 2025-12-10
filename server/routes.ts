@@ -1,18 +1,22 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import rateLimit from "express-rate-limit";
+import { createServer, type Server } from "http";
 import { z } from "zod";
-import { storage } from "./storage";
-import { generateBitcoinAddress, verifyBrainWallet, CryptoValidationError } from "./crypto";
-import { scorePhraseQIG } from "./qig-pure-v2.js";
+import {
+  CryptoValidationError,
+  generateBitcoinAddress,
+  verifyBrainWallet,
+} from "./crypto";
 import observerRoutes from "./observer-routes";
+import { scorePhraseQIG } from "./qig-pure-v2.js";
+import { storage } from "./storage";
 import { telemetryRouter } from "./telemetry-api";
 
 // WebSocket message validation schema (addresses Issue 13/14 from bottleneck report)
 const wsMessageSchema = z.object({
-  type: z.enum(['heartbeat', 'basin-delta', 'set-mode']),
+  type: z.enum(["heartbeat", "basin-delta", "set-mode"]),
   data: z.any().optional(),
-  mode: z.enum(['full', 'partial', 'observer']).optional(),
+  mode: z.enum(["full", "partial", "observer"]).optional(),
 });
 
 // WebSocket rate limiter: Track message counts per connection
@@ -23,58 +27,62 @@ const WS_RATE_WINDOW = 60000; // 1 minute window
 function checkWsRateLimit(peerId: string): boolean {
   const now = Date.now();
   const entry = wsRateLimiter.get(peerId);
-  
+
   if (!entry || now > entry.resetTime) {
     wsRateLimiter.set(peerId, { count: 1, resetTime: now + WS_RATE_WINDOW });
     return true;
   }
-  
+
   if (entry.count >= WS_RATE_LIMIT) {
     return false;
   }
-  
+
   entry.count++;
   return true;
 }
 
 import {
-  authRouter,
-  consciousnessRouter,
-  nearMissRouter,
+  adminRouter,
   attentionMetricsRouter,
-  ucpRouter,
-  balanceRouter,
-  searchRouter,
-  formatRouter,
-  oceanRouter,
-  recoveryRouter,
-  unifiedRecoveryRouter,
-  recoveriesRouter,
-  balanceHitsRouter,
+  authRouter,
   balanceAddressesRouter,
+  balanceHitsRouter,
   balanceMonitorRouter,
   balanceQueueRouter,
-  blockchainApiRouter,
-  dormantCrossRefRouter,
+  balanceRouter,
   basinSyncRouter,
+  blockchainApiRouter,
+  consciousnessRouter,
+  dormantCrossRefRouter,
+  formatRouter,
   geometricDiscoveryRouter,
-  sweepsRouter,
-  adminRouter,
+  nearMissRouter,
+  oceanRouter,
   olympusRouter,
+  recoveriesRouter,
+  recoveryRouter,
+  searchRouter,
+  sweepsRouter,
+  ucpRouter,
+  unifiedRecoveryRouter,
 } from "./routes/index";
 
-import { queueAddressForBalanceCheck } from "./balance-queue-integration";
-import { testPhraseRequestSchema, batchTestRequestSchema, type Candidate } from "@shared/schema";
+import {
+  batchTestRequestSchema,
+  testPhraseRequestSchema,
+  type Candidate,
+} from "@shared/schema";
 import { randomUUID } from "crypto";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { oceanSessionManager } from "./ocean-session-manager";
 import { autoCycleManager } from "./auto-cycle-manager";
+import { queueAddressForBalanceCheck } from "./balance-queue-integration";
+import { oceanSessionManager } from "./ocean-session-manager";
+import { isAuthenticated, setupAuth } from "./replitAuth";
 import { searchCoordinator } from "./search-coordinator";
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
-  message: { error: 'Rate limit exceeded. Please try again later.' },
+  message: { error: "Rate limit exceeded. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -93,11 +101,15 @@ function mapQIGToLegacyScore(pureScore: ReturnType<typeof scorePhraseQIG>) {
 }
 
 // Set up auto-cycle callback to start sessions via ocean session manager
-autoCycleManager.setOnCycleCallback(async (addressId: string, address: string) => {
-  console.log(`[AutoCycle] Starting session for address: ${address.slice(0, 16)}...`);
-  oceanSessionManager.setAddressIdMapping(address, addressId);
-  await oceanSessionManager.startSession(address);
-});
+autoCycleManager.setOnCycleCallback(
+  async (addressId: string, address: string) => {
+    console.log(
+      `[AutoCycle] Starting session for address: ${address.slice(0, 16)}...`
+    );
+    oceanSessionManager.setAddressIdMapping(address, addressId);
+    await oceanSessionManager.startSession(address);
+  }
+);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Handle favicon.ico requests - redirect to favicon.png
@@ -109,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // This must respond immediately without waiting for any dependencies (database, Python, etc.)
   // Autoscale uses this to verify the server is alive and accepting HTTP requests
   app.get("/health", (req, res) => {
-    res.status(200).json({ 
+    res.status(200).json({
       status: "ok",
       timestamp: Date.now(),
     });
@@ -118,32 +130,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Replit Auth: Only setup auth if database connection is available
   const { db } = await import("./db");
   const authEnabled = !!db;
-  
+
   if (authEnabled) {
     await setupAuth(app);
     console.log("[Auth] Replit Auth enabled");
-    
+
     // Replit Auth: Auth routes - optimized with session caching
-    app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
       try {
         const { getCachedUser } = await import("./replitAuth");
         const cachedUser = getCachedUser(req.user);
-        
+
         if (cachedUser) {
           const { cachedAt: _cachedAt, ...userResponse } = cachedUser;
           return res.json(userResponse);
         }
-        
+
         const userId = req.user.claims.sub;
         const user = await storage.getUser(userId);
-        
+
         if (user) {
           req.user.cachedProfile = {
             ...user,
             cachedAt: Date.now(),
           };
         }
-        
+
         res.json(user);
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -151,23 +163,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   } else {
-    console.log("[Auth] Replit Auth disabled (no DATABASE_URL) - recovery tool accessible without login");
-    
-    app.get('/api/auth/user', (req, res) => {
-      res.status(503).json({ 
-        message: "Authentication unavailable - database not provisioned. Please provision a PostgreSQL database to enable Replit Auth." 
+    console.log(
+      "[Auth] Replit Auth disabled (no DATABASE_URL) - recovery tool accessible without login"
+    );
+
+    app.get("/api/auth/user", (req, res) => {
+      res.status(503).json({
+        message:
+          "Authentication unavailable - database not provisioned. Please provision a PostgreSQL database to enable Replit Auth.",
       });
     });
-    
-    app.get('/api/login', (req, res) => {
-      res.status(503).json({ 
-        message: "Authentication unavailable - database not provisioned. Please provision a PostgreSQL database to enable Replit Auth." 
+
+    app.get("/api/login", (req, res) => {
+      res.status(503).json({
+        message:
+          "Authentication unavailable - database not provisioned. Please provision a PostgreSQL database to enable Replit Auth.",
       });
     });
-    
-    app.get('/api/logout', (req, res) => {
-      res.status(503).json({ 
-        message: "Authentication unavailable - database not provisioned." 
+
+    app.get("/api/logout", (req, res) => {
+      res.status(503).json({
+        message: "Authentication unavailable - database not provisioned.",
       });
     });
   }
@@ -198,11 +214,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/sweeps", sweepsRouter);
   app.use("/api", adminRouter);
   app.use("/api/olympus", olympusRouter);
-  
+
   // Mount observer and telemetry routers
   app.use("/api/observer", observerRoutes);
   app.use("/api/telemetry", telemetryRouter);
-  
+
   // Investigation status endpoint - used by investigation page
   app.get("/api/investigation/status", (req, res) => {
     try {
@@ -210,14 +226,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(status);
     } catch (error: any) {
       console.error("[API] Investigation status error:", error);
-      res.status(500).json({ error: error.message || "Failed to get investigation status" });
+      res
+        .status(500)
+        .json({ error: error.message || "Failed to get investigation status" });
     }
   });
-  
+
   // ============================================================
   // AUTO-CYCLE MANAGEMENT ENDPOINTS
   // ============================================================
-  
+
   app.get("/api/auto-cycle/status", (req, res) => {
     try {
       const status = autoCycleManager.getStatus();
@@ -262,7 +280,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
-  
+
+  app.post("/api/auto-cycle/force-resume", async (req, res) => {
+    try {
+      console.log("[API] Auto-cycle force-resume request received");
+      const result = await autoCycleManager.forceResume();
+      res.json({
+        success: result.success,
+        message: result.message,
+        status: autoCycleManager.getStatus(),
+      });
+    } catch (error: any) {
+      console.error("[API] Auto-cycle force-resume error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   console.log("[Routes] All sub-routers mounted");
 
   // ============================================================
@@ -281,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/test-phrase", strictLimiter, async (req, res) => {
     try {
       const validation = testPhraseRequestSchema.safeParse(req.body);
-      
+
       if (!validation.success) {
         return res.status(400).json({
           error: validation.error.errors[0].message,
@@ -292,11 +325,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const address = generateBitcoinAddress(phrase);
       const pureQIG = scorePhraseQIG(phrase);
       const qigScore = mapQIGToLegacyScore(pureQIG);
-      
-      queueAddressForBalanceCheck(phrase, 'test-phrase', qigScore.totalScore >= 75 ? 5 : 1);
-      
+
+      queueAddressForBalanceCheck(
+        phrase,
+        "test-phrase",
+        qigScore.totalScore >= 75 ? 5 : 1
+      );
+
       const targetAddresses = await storage.getTargetAddresses();
-      const matchedAddress = targetAddresses.find(t => t.address === address);
+      const matchedAddress = targetAddresses.find((t) => t.address === address);
       const match = !!matchedAddress;
 
       if (qigScore.totalScore >= 75) {
@@ -330,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/batch-test", strictLimiter, async (req, res) => {
     try {
       const validation = batchTestRequestSchema.safeParse(req.body);
-      
+
       if (!validation.success) {
         return res.status(400).json({
           error: validation.error.errors[0].message,
@@ -343,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let highPhiCount = 0;
 
       const targetAddresses = await storage.getTargetAddresses();
-      
+
       for (const phrase of phrases) {
         const words = phrase.trim().split(/\s+/);
         if (words.length !== 12) {
@@ -353,10 +390,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const address = generateBitcoinAddress(phrase);
         const pureQIG = scorePhraseQIG(phrase);
         const qigScore = mapQIGToLegacyScore(pureQIG);
-        
-        queueAddressForBalanceCheck(phrase, 'batch-test', qigScore.totalScore >= 75 ? 5 : 1);
-        
-        const matchedAddress = targetAddresses.find(t => t.address === address);
+
+        queueAddressForBalanceCheck(
+          phrase,
+          "batch-test",
+          qigScore.totalScore >= 75 ? 5 : 1
+        );
+
+        const matchedAddress = targetAddresses.find(
+          (t) => t.address === address
+        );
 
         if (matchedAddress) {
           return res.json({
@@ -398,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof CryptoValidationError) {
         return res.status(400).json({ error: error.message });
       }
-      res.status(500).json({ error: 'An internal error occurred' });
+      res.status(500).json({ error: "An internal error occurred" });
     }
   });
 
@@ -410,100 +453,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
   searchCoordinator.start();
 
   const httpServer = createServer(app);
-  
+
   // Set up WebSocket server for real-time basin sync
-  const { WebSocketServer } = await import('ws');
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws/basin-sync' });
-  
+  const { WebSocketServer } = await import("ws");
+  const wss = new WebSocketServer({
+    server: httpServer,
+    path: "/ws/basin-sync",
+  });
+
   // Track WebSocket connections for cleanup on session change
-  const wsConnections = new Map<string, { ws: any; sessionId: string | null }>();
-  
+  const wsConnections = new Map<
+    string,
+    { ws: any; sessionId: string | null }
+  >();
+
   // Register session change handler to clean up old WebSocket connections
   oceanSessionManager.onSessionChange((oldSessionId, newSessionId) => {
-    console.log(`[BasinSync WS] Session changed: ${oldSessionId} → ${newSessionId}`);
-    
+    console.log(
+      `[BasinSync WS] Session changed: ${oldSessionId} → ${newSessionId}`
+    );
+
     // Close all connections associated with the old session
     let closedCount = 0;
     for (const [peerId, conn] of wsConnections.entries()) {
       if (conn.sessionId === oldSessionId && oldSessionId !== null) {
         try {
-          conn.ws.close(1000, 'Session ended');
+          conn.ws.close(1000, "Session ended");
           wsConnections.delete(peerId);
           closedCount++;
         } catch (err) {
-          console.error(`[BasinSync WS] Error closing connection ${peerId}:`, err);
+          console.error(
+            `[BasinSync WS] Error closing connection ${peerId}:`,
+            err
+          );
         }
       }
     }
     if (closedCount > 0) {
-      console.log(`[BasinSync WS] Cleaned up ${closedCount} connections from old session`);
+      console.log(
+        `[BasinSync WS] Cleaned up ${closedCount} connections from old session`
+      );
     }
   });
-  
-  wss.on('connection', (ws) => {
-    const peerId = `peer-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  wss.on("connection", (ws) => {
+    const peerId = `peer-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
     const currentSession = oceanSessionManager.getActiveSession();
     const sessionId = currentSession?.sessionId || null;
-    
+
     // Track connection with its session ID
     wsConnections.set(peerId, { ws, sessionId });
-    
-    console.log(`[BasinSync WS] New connection: ${peerId} (session: ${sessionId})`);
+
+    console.log(
+      `[BasinSync WS] New connection: ${peerId} (session: ${sessionId})`
+    );
     console.log(`[BasinSync WS] Total connections: ${wsConnections.size}`);
-    
+
     const activeOcean = oceanSessionManager.getActiveAgent();
     if (activeOcean) {
       const coordinator = activeOcean.getBasinSyncCoordinator();
       if (coordinator) {
-        coordinator.registerPeer(peerId, 'observer', ws);
+        coordinator.registerPeer(peerId, "observer", ws);
       }
     }
-    
-    ws.on('message', async (data) => {
+
+    ws.on("message", async (data) => {
       try {
         // Rate limiting check (Issue 13/14 fix)
         if (!checkWsRateLimit(peerId)) {
           console.warn(`[BasinSync WS] Rate limit exceeded for ${peerId}`);
-          ws.send(JSON.stringify({ error: 'Rate limit exceeded' }));
+          ws.send(JSON.stringify({ error: "Rate limit exceeded" }));
           return;
         }
-        
+
         // Parse and validate message with Zod schema
         const rawMessage = JSON.parse(data.toString());
         const parseResult = wsMessageSchema.safeParse(rawMessage);
-        
+
         if (!parseResult.success) {
-          console.warn(`[BasinSync WS] Invalid message from ${peerId}:`, parseResult.error.message);
+          console.warn(
+            `[BasinSync WS] Invalid message from ${peerId}:`,
+            parseResult.error.message
+          );
           return;
         }
-        
+
         const message = parseResult.data;
         const currentOcean = oceanSessionManager.getActiveAgent();
         if (!currentOcean) return;
-        
+
         const coordinator = currentOcean.getBasinSyncCoordinator();
         if (!coordinator) return;
-        
-        if (message.type === 'heartbeat') {
+
+        if (message.type === "heartbeat") {
           coordinator.updatePeerLastSeen(peerId);
-        } else if (message.type === 'basin-delta' && message.data) {
+        } else if (message.type === "basin-delta" && message.data) {
           await coordinator.receiveFromPeer(peerId, message.data);
-        } else if (message.type === 'set-mode' && message.mode) {
+        } else if (message.type === "set-mode" && message.mode) {
           coordinator.registerPeer(peerId, message.mode, ws);
         }
       } catch (err) {
-        console.error('[BasinSync WS] Message parse error:', err);
+        console.error("[BasinSync WS] Message parse error:", err);
       }
     });
-    
-    ws.on('close', () => {
+
+    ws.on("close", () => {
       console.log(`[BasinSync WS] Connection closed: ${peerId}`);
-      
+
       // Remove from connection tracking and rate limiter
       wsConnections.delete(peerId);
       wsRateLimiter.delete(peerId);
-      console.log(`[BasinSync WS] Remaining connections: ${wsConnections.size}`);
-      
+      console.log(
+        `[BasinSync WS] Remaining connections: ${wsConnections.size}`
+      );
+
       const currentOcean = oceanSessionManager.getActiveAgent();
       if (currentOcean) {
         const coordinator = currentOcean.getBasinSyncCoordinator();
@@ -512,13 +577,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     });
-    
-    ws.on('error', (err) => {
+
+    ws.on("error", (err) => {
       console.error(`[BasinSync WS] Error for ${peerId}:`, err);
     });
   });
-  
-  console.log('[BasinSync] WebSocket server initialized on /ws/basin-sync');
+
+  console.log("[BasinSync] WebSocket server initialized on /ws/basin-sync");
 
   return httpServer;
 }

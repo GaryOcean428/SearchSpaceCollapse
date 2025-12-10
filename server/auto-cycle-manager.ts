@@ -307,7 +307,14 @@ class AutoCycleManager {
       if (pauseEnd > new Date()) {
         return; // Still paused
       }
+      // Pause ended - reset counters to prevent immediate re-pause
+      console.log(
+        `[AutoCycleManager] Pause ended - resetting zero-pass counter`
+      );
       this.state.pausedUntil = null;
+      this.state.consecutiveZeroPassSessions = 0;
+      this.state.lastSessionMetrics = null; // Clear stale metrics
+      this.saveState();
     }
 
     // If no current address is running, trigger the next one
@@ -363,6 +370,8 @@ class AutoCycleManager {
           this.state.pausedUntil = new Date(
             Date.now() + EXTENDED_PAUSE_MS
           ).toISOString();
+          // Clear metrics so we don't re-trigger on same data after pause
+          this.state.lastSessionMetrics = null;
           this.saveState();
           return;
         }
@@ -586,6 +595,9 @@ class AutoCycleManager {
     isRunning: boolean;
     totalCycles: number;
     lastCycleTime: string | null;
+    pausedUntil: string | null;
+    consecutiveZeroPassSessions: number;
+    lastSessionMetrics: SessionMetrics | null;
   } {
     return {
       enabled: this.state.enabled,
@@ -595,6 +607,9 @@ class AutoCycleManager {
       isRunning: this.isCurrentlyRunning,
       totalCycles: this.state.totalCycles,
       lastCycleTime: this.state.lastCycleTime,
+      pausedUntil: this.state.pausedUntil,
+      consecutiveZeroPassSessions: this.state.consecutiveZeroPassSessions,
+      lastSessionMetrics: this.state.lastSessionMetrics,
     };
   }
 
@@ -603,6 +618,36 @@ class AutoCycleManager {
     if (!this.state.enabled) return "Off";
     if (this.state.addressIds.length === 0) return "No addresses";
     return `${this.state.currentIndex + 1}/${this.state.addressIds.length}`;
+  }
+
+  /**
+   * Force resume - clears all pause states and triggers next cycle
+   * Use when system is stuck in pause loop
+   */
+  async forceResume(): Promise<{ success: boolean; message: string }> {
+    console.log(`[AutoCycleManager] 🔧 Force resume requested`);
+
+    // Clear all pause-related state
+    this.state.pausedUntil = null;
+    this.state.consecutiveZeroPassSessions = 0;
+    this.state.lastSessionMetrics = null;
+    this.state.rateLimitBackoffUntil = null;
+    this.state.currentAddressId = null;
+    this.isCurrentlyRunning = false;
+    this.saveState();
+
+    // Ensure check loop is running
+    if (!this.checkInterval) {
+      this.startCheckLoop();
+    }
+
+    // Trigger next cycle immediately
+    await this.triggerNextCycle();
+
+    return {
+      success: true,
+      message: `Force resumed. Cleared pause state and triggered next cycle.`,
+    };
   }
 }
 
