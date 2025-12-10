@@ -543,3 +543,171 @@ def get_god_kernel_status(god_name: str):
         'kernel_assessments_count': len(god.kernel_assessments),
         'recent_assessments': god.kernel_assessments[-5:] if god.kernel_assessments else []
     })
+
+
+# =========================================================================
+# PAID TIER: TURBO, ELITE, STATS, E8
+# =========================================================================
+
+@chaos_app.route('/chaos/turbo', methods=['POST'])
+def turbo_mode():
+    """
+    TURBO MODE: Spawn many kernels immediately.
+
+    POST /chaos/turbo
+    {
+        "count": 50  // optional, default 50
+    }
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    data = request.json or {}
+    count = data.get('count', 50)
+
+    spawned = _zeus.chaos.turbo_spawn(count=count)
+
+    return jsonify({
+        'success': True,
+        'message': '🚀 TURBO MODE ACTIVATED',
+        'spawned_count': len(spawned),
+        'spawned_kernels': spawned[:20],  # First 20 for brevity
+        'total_population': len(_zeus.chaos.kernel_population)
+    })
+
+
+@chaos_app.route('/chaos/elite', methods=['GET'])
+def get_elite_kernels():
+    """
+    Get hall of fame kernels.
+
+    GET /chaos/elite
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    return jsonify({
+        'success': True,
+        'elite_count': len(_zeus.chaos.elite_hall_of_fame),
+        'elite_kernels': _zeus.chaos.elite_hall_of_fame[-20:],  # Last 20
+        'phi_threshold': _zeus.chaos.phi_elite_threshold
+    })
+
+
+@chaos_app.route('/chaos/population/stats', methods=['GET'])
+def population_stats():
+    """
+    Detailed population statistics.
+
+    GET /chaos/population/stats
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    stats = _zeus.chaos.get_population_stats()
+
+    return jsonify({
+        'success': True,
+        **stats
+    })
+
+
+@chaos_app.route('/chaos/e8/alignment', methods=['GET'])
+def e8_alignment():
+    """
+    Check E8 alignment of kernel population.
+
+    GET /chaos/e8/alignment
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    alignment = _zeus.chaos.check_e8_alignment()
+
+    return jsonify({
+        'success': True,
+        **alignment
+    })
+
+
+@chaos_app.route('/chaos/e8/convergence', methods=['GET'])
+def e8_convergence():
+    """
+    Analyze convergence toward E8 structure.
+
+    GET /chaos/e8/convergence
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    convergence = _zeus.chaos.analyze_convergence()
+
+    return jsonify({
+        'success': True,
+        **convergence
+    })
+
+
+@chaos_app.route('/chaos/e8/spawn_at_root', methods=['POST'])
+def spawn_at_e8_root():
+    """
+    Spawn kernel at specific E8 root.
+
+    POST /chaos/e8/spawn_at_root
+    {
+        "root_index": 42  // 0-239
+    }
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    data = request.json or {}
+    root_index = data.get('root_index', 0)
+
+    if root_index < 0 or root_index >= 240:
+        return jsonify({'success': False, 'error': 'root_index must be 0-239'}), 400
+
+    kernel = _zeus.chaos.spawn_at_e8_root(root_index)
+
+    return jsonify({
+        'success': True,
+        'kernel_id': kernel.kernel_id,
+        'root_index': root_index,
+        'phi': kernel.kernel.compute_phi()
+    })
+
+
+@chaos_app.route('/chaos/tier', methods=['GET'])
+def get_tier_info():
+    """
+    Get current tier and settings.
+
+    GET /chaos/tier
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    chaos = _zeus.chaos
+
+    return jsonify({
+        'success': True,
+        'is_paid_tier': chaos.is_paid_tier,
+        'is_replit': chaos.is_replit,
+        'architecture': chaos.architecture,
+        'max_total': chaos.max_total,
+        'max_active': chaos.max_active,
+        'memory_available_gb': chaos.memory_available_gb,
+        'features': {
+            'self_spawning': chaos.enable_self_spawning,
+            'breeding': chaos.enable_breeding,
+            'cannibalism': chaos.enable_cannibalism,
+            'mutation': chaos.enable_mutation,
+            'god_fusion': chaos.enable_god_fusion,
+        },
+        'thresholds': {
+            'phi_death': chaos.phi_death_threshold,
+            'phi_elite': chaos.phi_elite_threshold,
+            'spawn': chaos.spawn_threshold,
+            'death': chaos.death_threshold,
+        }
+    })
