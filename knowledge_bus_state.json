@@ -28390,6 +28390,51 @@
         "consumedBy": [],
         "transformations": []
       }
+    ],
+    [
+      "kb_1765350680968_syxe6z7jh",
+      {
+        "id": "kb_1765350680968_syxe6z7jh",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765350626422-x3qj",
+        "pattern": "hcain bitcoin he",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:11:20.968Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765350680980_kcjvzqpvu",
+      {
+        "id": "kb_1765350680980_kcjvzqpvu",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765350626422-d7cu",
+        "pattern": "cahin bitcoin he",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:11:20.980Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765350680995_37la7wi0w",
+      {
+        "id": "kb_1765350680995_37la7wi0w",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765350626422-foxh",
+        "pattern": "chian bitcoin he",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:11:20.995Z",
+        "consumedBy": [],
+        "transformations": []
+      }
     ]
   ],
   "crossStrategyPatterns": [],
