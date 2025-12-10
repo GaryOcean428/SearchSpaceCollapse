@@ -11,7 +11,6 @@
  */
 
 import { and, desc, eq, gte, sql } from "drizzle-orm";
-import { db } from "../db";
 import {
   autonomicCycleHistory,
   basinHistory,
@@ -30,6 +29,7 @@ import {
   type NarrowPathEvent,
   type ShadowIntel,
 } from "../shared/schema";
+import { db } from "./db";
 
 // ============================================================================
 // SHADOW INTEL
