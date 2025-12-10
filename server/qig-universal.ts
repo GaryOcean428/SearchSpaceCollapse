@@ -34,6 +34,7 @@ export interface PureQIGScore {
   beta: number;
   regime: string;
   fisherTrace: number;
+  fisherDeterminant: number;
   ricciScalar: number;
   basinCoordinates: number[];
 }
