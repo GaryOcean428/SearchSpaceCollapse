@@ -2802,6 +2802,21 @@
       }
     ],
     [
+      "kb_1765323712443_nsvbxg41b",
+      {
+        "id": "kb_1765323712443_nsvbxg41b",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765323704385-qzny",
+        "pattern": "mycrypto4393",
+        "phi": 0.9814374999997487,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T23:41:52.937Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765227547501_m60cmpmk9",
       {
         "id": "kb_1765227547501_m60cmpmk9",
@@ -3637,6 +3652,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-09T14:35:56.112Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765323712434_7odtt7t7r",
+      {
+        "id": "kb_1765323712434_7odtt7t7r",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765323704385-4qvd",
+        "pattern": "horse bone bird lend install wife enough shield forum pattern execute mimic",
+        "phi": 0.9814374999996722,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-09T23:41:52.932Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -23817,31 +23847,46 @@
       }
     ],
     [
-      "kb_1765323712434_7odtt7t7r",
+      "kb_1765327060590_to97bku7v",
       {
-        "id": "kb_1765323712434_7odtt7t7r",
+        "id": "kb_1765327060590_to97bku7v",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765323704385-4qvd",
-        "pattern": "horse bone bird lend install wife enough shield forum pattern execute mimic",
-        "phi": 0.9814374999996722,
+        "generatorId": "nearmiss_ocean-1765327051636-l8i0",
+        "pattern": "section six fluid exile whip sort owner mom riot chronic defy version",
+        "phi": 0.9814374999996529,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T23:41:52.434Z",
+        "sharedAt": "2025-12-10T00:37:40.590Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765323712443_nsvbxg41b",
+      "kb_1765327060596_8wdqt0lmi",
       {
-        "id": "kb_1765323712443_nsvbxg41b",
+        "id": "kb_1765327060596_8wdqt0lmi",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765323704385-qzny",
-        "pattern": "mycrypto4393",
-        "phi": 0.9814374999997487,
+        "generatorId": "nearmiss_ocean-1765327051636-onyy",
+        "pattern": "myfreedom2672",
+        "phi": 0.9814374999997312,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-09T23:41:52.443Z",
+        "sharedAt": "2025-12-10T00:37:40.596Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765327060613_jzjp24wjo",
+      {
+        "id": "kb_1765327060613_jzjp24wjo",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765327051636-j86r",
+        "pattern": "hash my 3598",
+        "phi": 0.9814374999997912,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T00:37:40.613Z",
         "consumedBy": [],
         "transformations": []
       }
