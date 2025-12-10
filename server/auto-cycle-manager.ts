@@ -61,6 +61,9 @@ class AutoCycleManager {
   // Callback for session metrics (set by session manager)
   private onSessionMetricsCallback: (() => SessionMetrics | null) | null = null;
 
+  // Throttle counter for "no metrics" warning (reduce log spam)
+  private noMetricsWarningCount = 0;
+
   constructor() {
     this.state = this.loadState();
     console.log(
@@ -523,9 +526,13 @@ class AutoCycleManager {
         duration,
         completedAt: new Date().toISOString(),
       };
-      console.log(
-        `[AutoCycleManager] ⚠️ No session metrics provided - defaulting to 0 passes`
-      );
+      // Throttle this warning - only log every 10th occurrence
+      this.noMetricsWarningCount++;
+      if (this.noMetricsWarningCount === 1 || this.noMetricsWarningCount % 10 === 0) {
+        console.log(
+          `[AutoCycleManager] ⚠️ No session metrics provided - defaulting to 0 passes (${this.noMetricsWarningCount} total)`
+        );
+      }
     }
 
     this.isCurrentlyRunning = false;
