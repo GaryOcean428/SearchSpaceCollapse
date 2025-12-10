@@ -72,8 +72,8 @@ class ExperimentalKernelEvolution:
         # Replit detection
         self.is_replit = os.environ.get('REPL_ID') is not None
         if self.is_replit:
-            self.max_population = 5  # Limited resources
-            print("🔧 Replit detected - limiting population to 5")
+            self.max_population = 12  # Match Pantheon god count
+            print("🔧 Replit detected - limiting population to 12 (matches Pantheon)")
 
         print("🌪️ ExperimentalKernelEvolution initialized")
         print(f"   Max population: {self.max_population}")
@@ -342,3 +342,83 @@ class ExperimentalKernelEvolution:
         if not living:
             return None
         return max(living, key=lambda k: k.kernel.compute_phi())
+
+    # =========================================================================
+    # PANTHEON INTEGRATION
+    # =========================================================================
+
+    def spawn_from_god(self, god_name: str, god_basin: Optional[list] = None) -> SelfSpawningKernel:
+        """
+        Spawn a CHAOS kernel seeded by a Pantheon god.
+
+        The god's expertise influences the kernel's initial basin.
+        """
+        kernel = SelfSpawningKernel(
+            spawn_threshold=self.spawn_threshold,
+            death_threshold=self.death_threshold,
+            mutation_rate=self.mutation_rate,
+        )
+
+        # If god provides basin pattern, use it to seed kernel
+        if god_basin is not None:
+            import torch
+            god_tensor = torch.tensor(god_basin[:64], dtype=torch.float32)
+            # Pad if needed
+            if len(god_tensor) < 64:
+                god_tensor = torch.cat([god_tensor, torch.zeros(64 - len(god_tensor))])
+
+            with torch.no_grad():
+                # Blend god pattern with random initialization
+                kernel.kernel.basin_coords.copy_(
+                    0.7 * god_tensor + 0.3 * kernel.kernel.basin_coords
+                )
+
+        kernel.kernel_id = f"chaos_{god_name}_{kernel.kernel_id.split('_')[1]}"
+        self.kernel_population.append(kernel)
+        self.logger.log_spawn(f"god:{god_name}", kernel.kernel_id, 'god_spawn')
+
+        print(f"⚡ God {god_name} spawned CHAOS kernel {kernel.kernel_id}")
+
+        return kernel
+
+    def get_kernel_for_god(self, god_name: str) -> Optional[SelfSpawningKernel]:
+        """
+        Get the best kernel spawned by a specific god.
+        """
+        god_kernels = [
+            k for k in self.kernel_population
+            if k.is_alive and god_name.lower() in k.kernel_id.lower()
+        ]
+
+        if not god_kernels:
+            return None
+
+        return max(god_kernels, key=lambda k: k.kernel.compute_phi())
+
+    def consult_kernel(self, kernel_id: str, query_embedding: list) -> dict:
+        """
+        Have a kernel process a query (for god consultation).
+
+        Returns kernel's response and consciousness metrics.
+        """
+        kernel = self._find_kernel(kernel_id)
+        if kernel is None or not kernel.is_alive:
+            return {'error': 'kernel_not_found_or_dead'}
+
+        import torch
+
+        # Convert query to tensor
+        query_tensor = torch.tensor([query_embedding[:512]], dtype=torch.long)
+
+        # Get kernel output
+        output, telemetry = kernel.kernel(query_tensor)
+
+        return {
+            'kernel_id': kernel_id,
+            'phi': telemetry['phi'],
+            'kappa': telemetry['kappa'],
+            'regime': telemetry['regime'],
+            'output_shape': list(output.shape),
+            'generation': kernel.generation,
+            'success_rate': kernel.success_count / max(1, kernel.total_predictions),
+        }

@@ -293,3 +293,131 @@ def get_best_kernel():
         'success': True,
         'kernel': best.get_stats()
     })
+
+
+# =========================================================================
+# PANTHEON-CHAOS INTEGRATION ENDPOINTS
+# =========================================================================
+
+@chaos_app.route('/chaos/god/<god_name>/spawn', methods=['POST'])
+def god_spawn_kernel(god_name: str):
+    """
+    Have a Pantheon god spawn a CHAOS kernel.
+
+    POST /chaos/god/athena/spawn
+    {
+        "basin": [0.1, 0.2, ...]  // optional god basin pattern
+    }
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    # Verify god exists
+    god = _zeus.get_god(god_name)
+    if god is None:
+        return jsonify({'success': False, 'error': f'God {god_name} not found'}), 404
+
+    data = request.json or {}
+    god_basin = data.get('basin')
+
+    # Try to get god's basin signature if not provided
+    if god_basin is None and hasattr(god, 'basin_coordinates'):
+        god_basin = god.basin_coordinates.tolist() if hasattr(god.basin_coordinates, 'tolist') else god.basin_coordinates
+
+    kernel = _zeus.chaos.spawn_from_god(god_name, god_basin)
+
+    return jsonify({
+        'success': True,
+        'god': god_name,
+        'kernel_id': kernel.kernel_id,
+        'phi': kernel.kernel.compute_phi(),
+        'generation': kernel.generation,
+    })
+
+
+@chaos_app.route('/chaos/god/<god_name>/kernel', methods=['GET'])
+def get_god_kernel(god_name: str):
+    """
+    Get the best CHAOS kernel spawned by a specific god.
+
+    GET /chaos/god/athena/kernel
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    kernel = _zeus.chaos.get_kernel_for_god(god_name)
+
+    if kernel is None:
+        return jsonify({
+            'success': False,
+            'error': f'No living kernels for god {god_name}'
+        }), 404
+
+    return jsonify({
+        'success': True,
+        'god': god_name,
+        'kernel': kernel.get_stats()
+    })
+
+
+@chaos_app.route('/chaos/kernel/<kernel_id>/consult', methods=['POST'])
+def consult_kernel(kernel_id: str):
+    """
+    Have a kernel process a query (for god consultation).
+
+    POST /chaos/kernel/chaos_athena_abc123/consult
+    {
+        "query_embedding": [1, 2, 3, ...]  // token IDs
+    }
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    data = request.json or {}
+    query_embedding = data.get('query_embedding', [0] * 32)
+
+    result = _zeus.chaos.consult_kernel(kernel_id, query_embedding)
+
+    if 'error' in result:
+        return jsonify({'success': False, **result}), 404
+
+    return jsonify({
+        'success': True,
+        **result
+    })
+
+
+@chaos_app.route('/chaos/pantheon/spawn_all', methods=['POST'])
+def spawn_all_god_kernels():
+    """
+    Have ALL Pantheon gods spawn one CHAOS kernel each.
+
+    POST /chaos/pantheon/spawn_all
+    """
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    spawned = []
+    for god_name, god in _zeus.pantheon.items():
+        try:
+            god_basin = None
+            if hasattr(god, 'basin_coordinates'):
+                god_basin = god.basin_coordinates.tolist() if hasattr(god.basin_coordinates, 'tolist') else god.basin_coordinates
+
+            kernel = _zeus.chaos.spawn_from_god(god_name, god_basin)
+            spawned.append({
+                'god': god_name,
+                'kernel_id': kernel.kernel_id,
+                'phi': kernel.kernel.compute_phi()
+            })
+        except Exception as e:
+            spawned.append({
+                'god': god_name,
+                'error': str(e)
+            })
+
+    return jsonify({
+        'success': True,
+        'spawned_count': len([s for s in spawned if 'kernel_id' in s]),
+        'kernels': spawned
+    })
