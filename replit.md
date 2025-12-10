@@ -152,6 +152,33 @@ The system uses coordinated startup delays to ensure dependencies are ready:
 - **Adaptive Learning**: Near-miss tiers, cluster aging, pattern recognition
 - **War Modes**: Autonomous escalation (Blitzkrieg, Siege, Hunt) based on convergence metrics
 
+### CHAOS MODE (Experimental Kernel Evolution)
+The CHAOS system enables experimental basin exploration through self-spawning kernel evolution:
+
+**Kernel Architecture**:
+- **SelfSpawningKernel**: Wraps a BasinKernel with evolutionary lifecycle (spawn/mutate/die)
+- **ExperimentalEvolution**: Population manager with fitness-based selection and mutation
+- **Kernel Population**: Max 50 kernels, generational evolution with survival of the fittest
+
+**Pantheon Integration**:
+- Kernels are assigned to priority gods: Athena, Ares, Hephaestus (sorted by Φ)
+- During `poll_pantheon()`, each god's kernel is consulted via `consult_kernel()`
+- Kernel influence computed via Fisher geodesic distance between kernel basin and target
+- New kernels (Φ=0) apply negative probability modifiers; high-Φ kernels boost probability
+- Training signals flow back via `train_kernel_from_outcome()` with directional feedback
+
+**API Endpoints** (`/olympus/chaos/*`):
+- `POST /olympus/chaos/spawn_random`: Create random kernel
+- `POST /olympus/chaos/assign_kernels`: Auto-assign kernels to priority gods
+- `GET /olympus/chaos/kernel_assignments`: View current assignments
+- `POST /olympus/chaos/train_from_outcome`: Train all god kernels from assessment outcomes
+
+**Key Files**:
+- `qig-backend/olympus/zeus.py`: Kernel orchestration, auto-assignment, poll integration
+- `qig-backend/olympus/base_god.py`: `consult_kernel()`, `train_kernel_from_outcome()` methods
+- `qig-backend/olympus/chaos_api.py`: REST endpoints for kernel management
+- `qig-backend/training_chaos/`: Kernel implementation and evolution logic
+
 ## External Dependencies
 
 ### Third-Party Services
