@@ -164,7 +164,10 @@ export class TestedPhrasesRegistryDB {
       existing.retestCount = newRetestCount;
       phraseCache.set(phrase, existing);
       
-      console.warn(`[TestedPhrasesDB] WASTE DETECTED: Phrase "${phrase.substring(0, 30)}..." re-tested (${newRetestCount} times)`);
+      // Only log every 50 retests to reduce spam
+      if (newRetestCount % 50 === 0 || newRetestCount === 1) {
+        console.warn(`[TestedPhrasesDB] WASTE DETECTED: Phrase "${phrase.substring(0, 30)}..." re-tested (${newRetestCount} times)`);
+      }
       return;
     }
     

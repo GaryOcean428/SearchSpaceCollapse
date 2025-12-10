@@ -58,7 +58,7 @@ export class TestedPhrasesUnified {
     try {
       const registry = await getRegistry();
       
-      if (registry) {
+      if (registry && db) {
         // Load all phrases from DB into the fast lookup cache
         // Warning: If you have millions of rows, consider using a Bloom Filter
         const { testedPhrases } = await import('@shared/schema');
@@ -136,7 +136,10 @@ export class TestedPhrasesUnified {
       if (existing) {
         // Wasteful re-test detected
         existing.retestCount = (existing.retestCount || 0) + 1;
-        console.warn(`[TestedPhrasesUnified] WASTE DETECTED: Phrase "${phrase.substring(0, 30)}..." re-tested (${existing.retestCount} times)`);
+        // Only log every 50 retests to reduce spam
+        if (existing.retestCount % 50 === 0 || existing.retestCount === 1) {
+          console.warn(`[TestedPhrasesUnified] WASTE DETECTED: Phrase "${phrase.substring(0, 30)}..." re-tested (${existing.retestCount} times)`);
+        }
       } else {
         // New phrase
         memoryRegistry.set(phrase, {

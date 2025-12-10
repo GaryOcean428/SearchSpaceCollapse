@@ -242,13 +242,30 @@ export class OceanPersistence {
         }));
         
         try {
+          // Validate coordinates before insert - must be exactly 64 dimensions
+          const validRecords = records.filter(r => {
+            if (!r.coordinates || !Array.isArray(r.coordinates) || r.coordinates.length !== 64) {
+              return false;
+            }
+            // Ensure all coordinate values are valid numbers
+            return r.coordinates.every(v => typeof v === 'number' && isFinite(v));
+          });
+          
+          if (validRecords.length === 0) {
+            // Skip chunk if all records have invalid coordinates
+            continue;
+          }
+          
           await db.insert(manifoldProbes)
-            .values(records)
+            .values(validRecords)
             .onConflictDoNothing();
-          totalInserted += chunk.length;
+          totalInserted += validRecords.length;
         } catch (chunkError) {
-          // Log but continue with next chunk
-          console.warn(`[OceanPersistence] Chunk ${i / CHUNK_SIZE} failed, continuing...`);
+          // Log actual error for debugging
+          const errMsg = chunkError instanceof Error ? chunkError.message : String(chunkError);
+          if (!errMsg.includes('duplicate key')) {
+            console.warn(`[OceanPersistence] Chunk ${i / CHUNK_SIZE} failed: ${errMsg.slice(0, 100)}`);
+          }
         }
         
         // Small delay between chunks to prevent connection saturation
