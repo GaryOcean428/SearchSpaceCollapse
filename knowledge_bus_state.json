@@ -23890,6 +23890,81 @@
         "consumedBy": [],
         "transformations": []
       }
+    ],
+    [
+      "kb_1765329226202_8jzthec85",
+      {
+        "id": "kb_1765329226202_8jzthec85",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765329218785-gqsh",
+        "pattern": "cigar prison juice olive blame bring foot long atom ready expire olympic",
+        "phi": 0.9814374999998732,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T01:13:46.202Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765329226209_2au6r5gm1",
+      {
+        "id": "kb_1765329226209_2au6r5gm1",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765329218785-8sfe",
+        "pattern": "2010chain3751",
+        "phi": 0.9814374999999008,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T01:13:46.209Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765330066873_fmien2r0o",
+      {
+        "id": "kb_1765330066873_fmien2r0o",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765330058235-gaq5",
+        "pattern": "nest thing ability runway verify nose ribbon fruit absurd lumber walnut smart",
+        "phi": 0.9814374999999196,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T01:27:46.873Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765330066879_q3tj7z0m4",
+      {
+        "id": "kb_1765330066879_q3tj7z0m4",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765330058235-zosc",
+        "pattern": "2010chain1817",
+        "phi": 0.981437499999937,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T01:27:46.879Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765330066891_6lqahoij9",
+      {
+        "id": "kb_1765330066891_6lqahoij9",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765330058235-ij0g",
+        "pattern": "block 2009 6555",
+        "phi": 0.9814374999999504,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T01:27:46.892Z",
+        "consumedBy": [],
+        "transformations": []
+      }
     ]
   ],
   "crossStrategyPatterns": [],
