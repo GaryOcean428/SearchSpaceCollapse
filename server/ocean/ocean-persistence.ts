@@ -59,6 +59,8 @@ export interface ProbeInsertData {
   phi: number;
   kappa: number;
   regime: string;
+  geometryClass?: string;
+  complexity?: number;
   ricciScalar?: number;
   fisherTrace?: number;
   source?: string;
@@ -232,6 +234,8 @@ export class OceanPersistence {
           phi: p.phi,
           kappa: p.kappa,
           regime: p.regime,
+          geometryClass: p.geometryClass,
+          complexity: p.complexity,
           ricciScalar: p.ricciScalar ?? 0,
           fisherTrace: p.fisherTrace ?? 0,
           source: p.source,

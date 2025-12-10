@@ -8,7 +8,17 @@ All persistence classes inherit from this base.
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Optional
+
+# Load .env file if it exists
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent.parent.parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+except ImportError:
+    pass  # dotenv not installed, rely on environment variables
 
 try:
     import psycopg2

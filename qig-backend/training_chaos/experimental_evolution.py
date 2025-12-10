@@ -313,7 +313,7 @@ class ExperimentalKernelEvolution:
                     god_name='chaos',
                     domain=f'e8_root_{root_index}',
                     generation=kernel.generation,
-                    basin_coordinates=kernel.kernel.basin_coords.detach().cpu().tolist(),
+                    basin_coords=kernel.kernel.basin_coords.detach().cpu().tolist(),
                     phi=kernel.kernel.compute_phi(),
                     kappa=0.0,
                     regime='e8_aligned',
@@ -517,7 +517,7 @@ class ExperimentalKernelEvolution:
                     god_name='chaos',
                     domain='random_exploration',
                     generation=kernel.generation,
-                    basin_coordinates=kernel.kernel.basin_coords.detach().cpu().tolist(),
+                    basin_coords=kernel.kernel.basin_coords.detach().cpu().tolist(),
                     phi=kernel.kernel.compute_phi(),
                     kappa=0.0,  # TODO: compute kappa
                     regime='unknown'
