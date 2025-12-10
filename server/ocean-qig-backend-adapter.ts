@@ -9,7 +9,7 @@
  * - Clean separation via HTTP API
  */
 
-import type { PureQIGScore } from "./qig-pure-v2";
+import type { PureQIGScore } from "./qig-universal";
 
 // Health check retry configuration
 const DEFAULT_RETRY_ATTEMPTS = 5;
@@ -3047,10 +3047,9 @@ export class OceanQIGBackend {
     if (!this.isAvailable) return null;
 
     try {
-      const response = await fetchWithRetry(
-        `${this.backendUrl}/chaos/status`,
-        { method: "GET" }
-      );
+      const response = await fetchWithRetry(`${this.backendUrl}/chaos/status`, {
+        method: "GET",
+      });
 
       if (!response.ok) return null;
       return await response.json();
@@ -3116,17 +3115,20 @@ export class OceanQIGBackend {
   async getChaosReport(): Promise<{
     total_generations: number;
     total_spawns: number;
-    best_kernel: { id: string; fitness: number; traits: Record<string, unknown> } | null;
+    best_kernel: {
+      id: string;
+      fitness: number;
+      traits: Record<string, unknown>;
+    } | null;
     fitness_history: number[];
     experiment_duration_seconds: number;
   } | null> {
     if (!this.isAvailable) return null;
 
     try {
-      const response = await fetchWithRetry(
-        `${this.backendUrl}/chaos/report`,
-        { method: "GET" }
-      );
+      const response = await fetchWithRetry(`${this.backendUrl}/chaos/report`, {
+        method: "GET",
+      });
 
       if (!response.ok) return null;
       return await response.json();

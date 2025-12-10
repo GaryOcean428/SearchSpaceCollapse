@@ -2132,6 +2132,8 @@ export const manifoldProbes = pgTable(
     phi: doublePrecision("phi").notNull(),
     kappa: doublePrecision("kappa").notNull(),
     regime: varchar("regime", { length: 32 }).notNull(), // linear, geometric, breakdown, hierarchical, etc.
+    geometryClass: varchar("geometry_class", { length: 20 }).default("line"), // line/loop/spiral/grid/toroidal/lattice/e8
+    complexity: doublePrecision("complexity"), // 0-1 complexity score
     ricciScalar: doublePrecision("ricci_scalar").default(0),
     fisherTrace: doublePrecision("fisher_trace").default(0),
     source: varchar("source", { length: 128 }), // Investigation that produced this probe
@@ -2142,6 +2144,8 @@ export const manifoldProbes = pgTable(
     index("idx_manifold_probes_kappa").on(table.kappa),
     index("idx_manifold_probes_phi_kappa").on(table.phi, table.kappa),
     index("idx_manifold_probes_regime").on(table.regime),
+    index("idx_manifold_probes_geometry_class").on(table.geometryClass),
+    index("idx_manifold_probes_complexity").on(table.complexity),
   ]
 );
 

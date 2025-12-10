@@ -62,6 +62,8 @@ export interface ProbeInsertData {
   phi: number;
   kappa: number;
   regime: string;
+   geometryClass?: string;
+   complexity?: number;
   ricciScalar?: number;
   fisherTrace?: number;
   source?: string;
@@ -74,6 +76,8 @@ export interface ManifoldProbeData {
   phi: number;
   kappa: number;
   regime: string;
+   geometryClass?: string | null;
+   complexity?: number | null;
   ricciScalar: number | null;
   fisherTrace: number | null;
   source: string | null;
