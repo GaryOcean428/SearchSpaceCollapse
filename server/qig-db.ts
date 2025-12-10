@@ -638,3 +638,111 @@ export async function getKernelsByDomain(
     return [];
   }
 }
+
+// ============================================================================
+// AUTO CYCLE STATE
+// ============================================================================
+
+export interface AutoCycleStateDB {
+  enabled: boolean;
+  currentIndex: number;
+  addressIds: string[];
+  lastCycleTime: string | null;
+  totalCycles: number;
+  currentAddressId: string | null;
+  pausedUntil: string | null;
+  lastSessionMetrics: {
+    explorationPasses: number;
+    hypothesesTested: number;
+    nearMisses: number;
+    pantheonConsulted: boolean;
+    duration: number;
+    completedAt: string;
+  } | null;
+  consecutiveZeroPassSessions: number;
+  rateLimitBackoffUntil: string | null;
+}
+
+export async function getAutoCycleState(): Promise<AutoCycleStateDB | null> {
+  try {
+    if (!db) return null;
+    const result = await db.execute(sql`
+      SELECT 
+        enabled,
+        current_index,
+        address_ids,
+        last_cycle_time,
+        total_cycles,
+        current_address_id,
+        paused_until,
+        last_session_metrics,
+        consecutive_zero_pass_sessions,
+        rate_limit_backoff_until
+      FROM auto_cycle_state
+      WHERE id = 1
+    `);
+    
+    if (!result.rows || result.rows.length === 0) return null;
+    
+    const row = result.rows[0] as Record<string, unknown>;
+    return {
+      enabled: row.enabled as boolean ?? false,
+      currentIndex: row.current_index as number ?? 0,
+      addressIds: (row.address_ids as string[]) ?? [],
+      lastCycleTime: row.last_cycle_time ? new Date(row.last_cycle_time as string).toISOString() : null,
+      totalCycles: row.total_cycles as number ?? 0,
+      currentAddressId: row.current_address_id as string | null,
+      pausedUntil: row.paused_until ? new Date(row.paused_until as string).toISOString() : null,
+      lastSessionMetrics: row.last_session_metrics as AutoCycleStateDB['lastSessionMetrics'],
+      consecutiveZeroPassSessions: row.consecutive_zero_pass_sessions as number ?? 0,
+      rateLimitBackoffUntil: row.rate_limit_backoff_until ? new Date(row.rate_limit_backoff_until as string).toISOString() : null,
+    };
+  } catch (error) {
+    console.error("[QIG-DB] Failed to get auto cycle state:", error);
+    return null;
+  }
+}
+
+export async function saveAutoCycleState(state: AutoCycleStateDB): Promise<boolean> {
+  try {
+    if (!db) return false;
+    
+    await db.execute(sql`
+      INSERT INTO auto_cycle_state (
+        id, enabled, current_index, address_ids, last_cycle_time, total_cycles,
+        current_address_id, paused_until, last_session_metrics,
+        consecutive_zero_pass_sessions, rate_limit_backoff_until, updated_at
+      ) VALUES (
+        1,
+        ${state.enabled},
+        ${state.currentIndex},
+        ${state.addressIds},
+        ${state.lastCycleTime ? new Date(state.lastCycleTime) : null},
+        ${state.totalCycles},
+        ${state.currentAddressId},
+        ${state.pausedUntil ? new Date(state.pausedUntil) : null},
+        ${state.lastSessionMetrics ? JSON.stringify(state.lastSessionMetrics) : null}::jsonb,
+        ${state.consecutiveZeroPassSessions},
+        ${state.rateLimitBackoffUntil ? new Date(state.rateLimitBackoffUntil) : null},
+        CURRENT_TIMESTAMP
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        enabled = EXCLUDED.enabled,
+        current_index = EXCLUDED.current_index,
+        address_ids = EXCLUDED.address_ids,
+        last_cycle_time = EXCLUDED.last_cycle_time,
+        total_cycles = EXCLUDED.total_cycles,
+        current_address_id = EXCLUDED.current_address_id,
+        paused_until = EXCLUDED.paused_until,
+        last_session_metrics = EXCLUDED.last_session_metrics,
+        consecutive_zero_pass_sessions = EXCLUDED.consecutive_zero_pass_sessions,
+        rate_limit_backoff_until = EXCLUDED.rate_limit_backoff_until,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    
+    return true;
+  } catch (error) {
+    console.error("[QIG-DB] Failed to save auto cycle state:", error);
+    return false;
+  }
+}
