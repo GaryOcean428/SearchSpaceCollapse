@@ -24,6 +24,16 @@ import torch
 from .chaos_logger import ChaosLogger
 from .self_spawning import SelfSpawningKernel, absorb_failing_kernel, breed_kernels
 
+# Import persistence for database operations
+try:
+    import sys
+    sys.path.append('..')
+    from persistence import KernelPersistence
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+    print("[Chaos] Persistence not available - running without database")
+
 
 class ExperimentalKernelEvolution:
     """
@@ -98,6 +108,9 @@ class ExperimentalKernelEvolution:
 
         # Logging
         self.logger = ChaosLogger(log_dir=str(self.checkpoint_dir / 'logs'))
+
+        # Persistence (database operations)
+        self.kernel_persistence = KernelPersistence() if PERSISTENCE_AVAILABLE else None
 
         # Evolution thread
         self._evolution_running = False
@@ -292,6 +305,23 @@ class ExperimentalKernelEvolution:
         self.kernel_population.append(kernel)
         self.logger.log_spawn(None, kernel.kernel_id, f'e8_root_{root_index}')
 
+        # Save to database
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.save_kernel_snapshot(
+                    kernel_id=kernel.kernel_id,
+                    god_name='chaos',
+                    domain=f'e8_root_{root_index}',
+                    generation=kernel.generation,
+                    basin_coordinates=kernel.kernel.basin_coords.detach().cpu().tolist(),
+                    phi=kernel.kernel.compute_phi(),
+                    kappa=0.0,
+                    regime='e8_aligned',
+                    primitive_root=root_index
+                )
+            except Exception as e:
+                print(f"[Chaos] Failed to persist E8 kernel: {e}")
+
         return kernel
 
     def check_e8_alignment(self) -> dict:
@@ -478,6 +508,22 @@ class ExperimentalKernelEvolution:
 
         self.kernel_population.append(kernel)
         self.logger.log_spawn(None, kernel.kernel_id, 'random')
+
+        # Save to database
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.save_kernel_snapshot(
+                    kernel_id=kernel.kernel_id,
+                    god_name='chaos',
+                    domain='random_exploration',
+                    generation=kernel.generation,
+                    basin_coordinates=kernel.kernel.basin_coords.detach().cpu().tolist(),
+                    phi=kernel.kernel.compute_phi(),
+                    kappa=0.0,  # TODO: compute kappa
+                    regime='unknown'
+                )
+            except Exception as e:
+                print(f"[Chaos] Failed to persist kernel: {e}")
 
         return kernel
 
