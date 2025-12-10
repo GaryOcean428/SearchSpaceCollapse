@@ -1530,7 +1530,7 @@
   "lastCycleTime": "2025-12-10T02:10:24.379Z",
   "totalCycles": 1044,
   "currentAddressId": null,
-  "pausedUntil": "2025-12-10T02:21:50.036Z",
+  "pausedUntil": "2025-12-10T02:23:50.204Z",
   "lastSessionMetrics": {
     "explorationPasses": 0,
     "hypothesesTested": 0,
@@ -1539,5 +1539,5 @@
     "duration": 25664,
     "completedAt": "2025-12-10T02:10:24.379Z"
   },
-  "consecutiveZeroPassSessions": 11
+  "consecutiveZeroPassSessions": 12
 }
