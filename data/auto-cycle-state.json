@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "currentIndex": 0,
+  "currentIndex": 1,
   "addressIds": [
     "dormant-13eEt6my-1765102353345",
     "dormant-1P9fAFAs-1765102353299",
@@ -1527,11 +1527,11 @@
     "eaf6165b-c64d-48bb-85da-409060eef196",
     "ef7f925b-cf65-46ac-bb69-d9cd658cc89b"
   ],
-  "lastCycleTime": null,
+  "lastCycleTime": "2025-12-10T07:46:55.601Z",
   "totalCycles": 0,
-  "currentAddressId": "dormant-13eEt6my-1765102353345",
-  "pausedUntil": null,
+  "currentAddressId": "dormant-1P9fAFAs-1765102353299",
+  "pausedUntil": "2025-12-10T07:49:22.150Z",
   "lastSessionMetrics": null,
-  "consecutiveZeroPassSessions": 0,
+  "consecutiveZeroPassSessions": 3,
   "rateLimitBackoffUntil": null
 }

@@ -1,6 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
 import { storage } from "./storage";
+import { getAutoCycleState, saveAutoCycleState, type AutoCycleStateDB } from "./qig-db";
 
 export interface AutoCycleState {
   enabled: boolean;
@@ -28,7 +27,8 @@ export interface SessionMetrics {
   completedAt: string;
 }
 
-const DATA_FILE = path.join(process.cwd(), "data", "auto-cycle-state.json");
+// State cache for synchronous access (synced from PostgreSQL)
+let cachedState: AutoCycleState | null = null;
 
 // Development mode detection
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -77,46 +77,51 @@ class AutoCycleManager {
       );
     }
 
-    // Start the check loop if auto-cycle was enabled before restart
-    if (this.state.enabled) {
-      // On restart, if we have a stale currentAddressId but no active session,
-      // clear it so the cycle can resume
-      if (this.state.currentAddressId) {
+    // Hydrate from PostgreSQL and then start
+    this.hydrateFromPostgres().then(() => {
+      console.log(`[AutoCycleManager] PostgreSQL hydration complete: enabled=${this.state.enabled}`);
+      
+      // Start the check loop if auto-cycle was enabled before restart
+      if (this.state.enabled) {
+        // On restart, if we have a stale currentAddressId but no active session,
+        // clear it so the cycle can resume
+        if (this.state.currentAddressId) {
+          console.log(
+            `[AutoCycleManager] Clearing stale currentAddressId after restart`
+          );
+          this.state.currentAddressId = null;
+          this.isCurrentlyRunning = false;
+          this.saveState();
+        }
+
+        // Always auto-resume on server restart
+        this.startCheckLoop();
+
+        // Trigger the cycle to resume after Python backend has time to start
+        // Python starts 5s after server ready, then needs ~5-10s to be fully available
+        setTimeout(async () => {
+          if (this.state.enabled && !this.isCurrentlyRunning) {
+            console.log(
+              `[AutoCycleManager] Resuming auto-cycle after server restart`
+            );
+            await this.triggerNextCycle();
+          }
+        }, 15000);
+      } else {
+        // If not enabled, try to auto-enable on first startup
         console.log(
-          `[AutoCycleManager] Clearing stale currentAddressId after restart`
+          `[AutoCycleManager] Auto-cycle not enabled - will auto-enable on startup`
         );
-        this.state.currentAddressId = null;
-        this.isCurrentlyRunning = false;
-        this.saveState();
+        setTimeout(async () => {
+          await this.autoEnableOnStartup();
+        }, 5000);
       }
 
-      // Always auto-resume on server restart
-      this.startCheckLoop();
-
-      // Trigger the cycle to resume after Python backend has time to start
-      // Python starts 5s after server ready, then needs ~5-10s to be fully available
-      setTimeout(async () => {
-        if (this.state.enabled && !this.isCurrentlyRunning) {
-          console.log(
-            `[AutoCycleManager] Resuming auto-cycle after server restart`
-          );
-          await this.triggerNextCycle();
-        }
-      }, 15000);
-    } else {
-      // If not enabled, try to auto-enable on first startup
-      console.log(
-        `[AutoCycleManager] Auto-cycle not enabled - will auto-enable on startup`
-      );
-      setTimeout(async () => {
-        await this.autoEnableOnStartup();
-      }, 5000);
-    }
-
-    // Start the always-on guardian if ALWAYS_ON is enabled
-    if (ALWAYS_ON) {
-      this.startAlwaysOnGuardian();
-    }
+      // Start the always-on guardian if ALWAYS_ON is enabled
+      if (ALWAYS_ON) {
+        this.startAlwaysOnGuardian();
+      }
+    });
   }
 
   /**
@@ -169,19 +174,16 @@ class AutoCycleManager {
   }
 
   private loadState(): AutoCycleState {
-    try {
-      if (fs.existsSync(DATA_FILE)) {
-        const data = fs.readFileSync(DATA_FILE, "utf-8");
-        const parsed = JSON.parse(data);
-        console.log(
-          `[AutoCycleManager] Loaded state from disk: enabled=${parsed.enabled}`
-        );
-        return parsed;
-      }
-    } catch (error) {
-      console.error("[AutoCycleManager] Error loading state:", error);
+    // Return cached state or defaults - async hydration happens after construction
+    if (cachedState) {
+      console.log(`[AutoCycleManager] Loaded state from cache: enabled=${cachedState.enabled}`);
+      return cachedState;
     }
-
+    
+    return this.getDefaultState();
+  }
+  
+  private getDefaultState(): AutoCycleState {
     return {
       enabled: false,
       currentIndex: 0,
@@ -195,17 +197,30 @@ class AutoCycleManager {
       rateLimitBackoffUntil: null,
     };
   }
+  
+  async hydrateFromPostgres(): Promise<void> {
+    try {
+      const dbState = await getAutoCycleState();
+      if (dbState) {
+        this.state = dbState;
+        cachedState = dbState;
+        console.log(`[AutoCycleManager] Hydrated from PostgreSQL: enabled=${dbState.enabled}, index=${dbState.currentIndex}`);
+      } else {
+        console.log(`[AutoCycleManager] No state in PostgreSQL, using defaults`);
+      }
+    } catch (error) {
+      console.error("[AutoCycleManager] Error hydrating from PostgreSQL:", error);
+    }
+  }
 
   private saveState(): void {
-    try {
-      const dataDir = path.dirname(DATA_FILE);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      }
-      fs.writeFileSync(DATA_FILE, JSON.stringify(this.state, null, 2));
-    } catch (error) {
-      console.error("[AutoCycleManager] Error saving state:", error);
-    }
+    // Update cache immediately
+    cachedState = { ...this.state };
+    
+    // Save to PostgreSQL asynchronously (non-blocking)
+    saveAutoCycleState(this.state).catch(error => {
+      console.error("[AutoCycleManager] Error saving state to PostgreSQL:", error);
+    });
   }
 
   setOnCycleCallback(

@@ -707,6 +707,11 @@ export async function saveAutoCycleState(state: AutoCycleStateDB): Promise<boole
   try {
     if (!db) return false;
     
+    // Store addressIds as JSON in a separate column to avoid array casting issues
+    // The address list can be re-fetched on startup anyway
+    const metricsJson = state.lastSessionMetrics ? JSON.stringify(state.lastSessionMetrics) : null;
+    const addressIdsJson = JSON.stringify(state.addressIds);
+    
     await db.execute(sql`
       INSERT INTO auto_cycle_state (
         id, enabled, current_index, address_ids, last_cycle_time, total_cycles,
@@ -716,12 +721,12 @@ export async function saveAutoCycleState(state: AutoCycleStateDB): Promise<boole
         1,
         ${state.enabled},
         ${state.currentIndex},
-        ${state.addressIds},
+        ARRAY(SELECT jsonb_array_elements_text(${addressIdsJson}::jsonb)),
         ${state.lastCycleTime ? new Date(state.lastCycleTime) : null},
         ${state.totalCycles},
         ${state.currentAddressId},
         ${state.pausedUntil ? new Date(state.pausedUntil) : null},
-        ${state.lastSessionMetrics ? JSON.stringify(state.lastSessionMetrics) : null}::jsonb,
+        ${metricsJson}::jsonb,
         ${state.consecutiveZeroPassSessions},
         ${state.rateLimitBackoffUntil ? new Date(state.rateLimitBackoffUntil) : null},
         CURRENT_TIMESTAMP

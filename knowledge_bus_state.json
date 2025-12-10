@@ -14592,6 +14592,21 @@
       }
     ],
     [
+      "kb_1765352527750_ixjw14hqz",
+      {
+        "id": "kb_1765352527750_ixjw14hqz",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352523816-f3w0",
+        "pattern": "bcrypt hacker662",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:42:08.341Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765240140930_1mzfvrof8",
       {
         "id": "kb_1765240140930_1mzfvrof8",
@@ -14707,6 +14722,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-10T05:14:38.898Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765352561890_o90djvre9",
+      {
+        "id": "kb_1765352561890_o90djvre9",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352529983-c83t",
+        "pattern": "bitcoin359",
+        "phi": 0.9814374999999416,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:42:42.601Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -14862,6 +14892,21 @@
       }
     ],
     [
+      "kb_1765352561879_4zsvpzxvq",
+      {
+        "id": "kb_1765352561879_4zsvpzxvq",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352529983-uxmx",
+        "pattern": "secret949",
+        "phi": 0.9814374999999232,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T07:42:42.603Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765240222116_prmkv78xa",
       {
         "id": "kb_1765240222116_prmkv78xa",
@@ -14967,6 +15012,21 @@
       }
     ],
     [
+      "kb_1765352561871_p32wfd2bo",
+      {
+        "id": "kb_1765352561871_p32wfd2bo",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352529982-lkaq",
+        "pattern": "password113",
+        "phi": 0.9814374999998947,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T07:42:42.603Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765240582076_utx32273j",
       {
         "id": "kb_1765240582076_utx32273j",
@@ -15037,6 +15097,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-10T05:16:20.910Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765352687006_xf3rdh7ra",
+      {
+        "id": "kb_1765352687006_xf3rdh7ra",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352563031-e11n",
+        "pattern": "020c9h41n9443",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:44:47.700Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -15867,6 +15942,21 @@
       }
     ],
     [
+      "kb_1765352687017_tqcuqsolv",
+      {
+        "id": "kb_1765352687017_tqcuqsolv",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352563031-xvwf",
+        "pattern": "200ch941n9443",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:44:47.704Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765248042317_j39xea2j5",
       {
         "id": "kb_1765248042317_j39xea2j5",
@@ -16152,6 +16242,21 @@
       }
     ],
     [
+      "kb_1765352687011_vynaqjg43",
+      {
+        "id": "kb_1765352687011_vynaqjg43",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352563031-mktt",
+        "pattern": "20c09h41n9443",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:44:47.707Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765248168151_uo0b9cdi1",
       {
         "id": "kb_1765248168151_uo0b9cdi1",
@@ -16347,6 +16452,21 @@
       }
     ],
     [
+      "kb_1765352850155_lu3811cdt",
+      {
+        "id": "kb_1765352850155_lu3811cdt",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352819042-wp0y",
+        "pattern": "inhale engine range inform now grass town neither stomach syrup bronze panda",
+        "phi": 0.9814374999996678,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T07:47:30.657Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765248223238_ndlqqqwh9",
       {
         "id": "kb_1765248223238_ndlqqqwh9",
@@ -16432,6 +16552,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-10T05:16:52.607Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765352850180_h49iq1c1z",
+      {
+        "id": "kb_1765352850180_h49iq1c1z",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352819042-tss7",
+        "pattern": "satoshi my 2091",
+        "phi": 0.9814374999998039,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T07:47:30.660Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -16827,6 +16962,21 @@
       }
     ],
     [
+      "kb_1765352850162_ff0x3o166",
+      {
+        "id": "kb_1765352850162_ff0x3o166",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352819042-6h01",
+        "pattern": "secretgenesis2167",
+        "phi": 0.9814374999997446,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T07:47:30.661Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765248358829_v6kbhjb48",
       {
         "id": "kb_1765248358829_v6kbhjb48",
@@ -17197,6 +17347,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-10T05:25:14.205Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765352913318_w92rbv219",
+      {
+        "id": "kb_1765352913318_w92rbv219",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352906745-fqzw",
+        "pattern": "r1fdm0p fr1fdm0pf",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:48:33.836Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -18042,6 +18207,21 @@
       }
     ],
     [
+      "kb_1765352913339_ooa6sgcvd",
+      {
+        "id": "kb_1765352913339_ooa6sgcvd",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352906745-4a68",
+        "pattern": "r1fdm0fp r1fdm0pf",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:48:33.840Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
       "kb_1765250372742_ftk34so9s",
       {
         "id": "kb_1765250372742_ftk34so9s",
@@ -18262,6 +18442,21 @@
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical",
         "sharedAt": "2025-12-10T05:31:59.244Z",
+        "consumedBy": [],
+        "transformations": []
+      }
+    ],
+    [
+      "kb_1765352913311_ips4pa5of",
+      {
+        "id": "kb_1765352913311_ips4pa5of",
+        "sourceStrategy": "ocean_agent",
+        "generatorId": "nearmiss_ocean-1765352906744-qfog",
+        "pattern": "r1fdm0pfr 1fdm0pf",
+        "phi": 0.9814375,
+        "kappaEff": 31.270833333333336,
+        "regime": "hierarchical",
+        "sharedAt": "2025-12-10T07:48:33.840Z",
         "consumedBy": [],
         "transformations": []
       }
@@ -29067,106 +29262,46 @@
       }
     ],
     [
-      "kb_1765352527750_ixjw14hqz",
+      "kb_1765353051171_w6esyv6fy",
       {
-        "id": "kb_1765352527750_ixjw14hqz",
+        "id": "kb_1765353051171_w6esyv6fy",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765352523816-f3w0",
-        "pattern": "bcrypt hacker662",
-        "phi": 0.9814375,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-10T07:42:07.750Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765352561871_p32wfd2bo",
-      {
-        "id": "kb_1765352561871_p32wfd2bo",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765352529982-lkaq",
-        "pattern": "password113",
-        "phi": 0.9814374999998947,
+        "generatorId": "nearmiss_ocean-1765353003235-v98r",
+        "pattern": "autumn deny velvet any silent machine age clap mushroom expect fury near",
+        "phi": 0.9814374999996271,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-10T07:42:41.871Z",
+        "sharedAt": "2025-12-10T07:50:51.171Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765352561879_4zsvpzxvq",
+      "kb_1765353051177_ma1dg0o3d",
       {
-        "id": "kb_1765352561879_4zsvpzxvq",
+        "id": "kb_1765353051177_ma1dg0o3d",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765352529983-uxmx",
-        "pattern": "secret949",
-        "phi": 0.9814374999999232,
+        "generatorId": "nearmiss_ocean-1765353003235-42tj",
+        "pattern": "thesatoshi3045",
+        "phi": 0.9814374999997136,
         "kappaEff": 31.270833333333336,
         "regime": "hierarchical_4d",
-        "sharedAt": "2025-12-10T07:42:41.879Z",
+        "sharedAt": "2025-12-10T07:50:51.177Z",
         "consumedBy": [],
         "transformations": []
       }
     ],
     [
-      "kb_1765352561890_o90djvre9",
+      "kb_1765353051192_0gv3584r1",
       {
-        "id": "kb_1765352561890_o90djvre9",
+        "id": "kb_1765353051192_0gv3584r1",
         "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765352529983-c83t",
-        "pattern": "bitcoin359",
-        "phi": 0.9814374999999416,
+        "generatorId": "nearmiss_ocean-1765353003235-z2hy",
+        "pattern": "genesis 2009 5865",
+        "phi": 0.9814374999997795,
         "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-10T07:42:41.891Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765352687006_xf3rdh7ra",
-      {
-        "id": "kb_1765352687006_xf3rdh7ra",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765352563031-e11n",
-        "pattern": "020c9h41n9443",
-        "phi": 0.9814375,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-10T07:44:47.006Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765352687011_vynaqjg43",
-      {
-        "id": "kb_1765352687011_vynaqjg43",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765352563031-mktt",
-        "pattern": "20c09h41n9443",
-        "phi": 0.9814375,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-10T07:44:47.011Z",
-        "consumedBy": [],
-        "transformations": []
-      }
-    ],
-    [
-      "kb_1765352687017_tqcuqsolv",
-      {
-        "id": "kb_1765352687017_tqcuqsolv",
-        "sourceStrategy": "ocean_agent",
-        "generatorId": "nearmiss_ocean-1765352563031-xvwf",
-        "pattern": "200ch941n9443",
-        "phi": 0.9814375,
-        "kappaEff": 31.270833333333336,
-        "regime": "hierarchical",
-        "sharedAt": "2025-12-10T07:44:47.017Z",
+        "regime": "hierarchical_4d",
+        "sharedAt": "2025-12-10T07:50:51.192Z",
         "consumedBy": [],
         "transformations": []
       }
