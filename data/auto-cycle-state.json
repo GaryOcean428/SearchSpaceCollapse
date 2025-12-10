@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "currentIndex": 481,
+  "currentIndex": 583,
   "addressIds": [
     "dormant-13eEt6my-1765102353345",
     "dormant-1P9fAFAs-1765102353299",
@@ -1527,10 +1527,10 @@
     "eaf6165b-c64d-48bb-85da-409060eef196",
     "ef7f925b-cf65-46ac-bb69-d9cd658cc89b"
   ],
-  "lastCycleTime": "2025-12-10T05:09:43.775Z",
+  "lastCycleTime": "2025-12-10T06:47:00.215Z",
   "totalCycles": 1044,
   "currentAddressId": null,
-  "pausedUntil": "2025-12-10T05:11:46.050Z",
+  "pausedUntil": "2025-12-10T06:49:02.216Z",
   "lastSessionMetrics": null,
   "consecutiveZeroPassSessions": 5,
   "rateLimitBackoffUntil": null
