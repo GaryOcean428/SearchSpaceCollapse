@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -2501,6 +2502,30 @@ export type WarHistoryRecord = typeof warHistory.$inferSelect;
 export type InsertWarHistory = typeof warHistory.$inferInsert;
 
 /**
+ * AUTO CYCLE STATE - Tracks automatic investigation cycling
+ */
+export const autoCycleState = pgTable(
+  "auto_cycle_state",
+  {
+    id: integer("id").primaryKey().default(1),
+    enabled: boolean("enabled").default(false),
+    currentIndex: integer("current_index").default(0),
+    addressIds: text("address_ids").array(),
+    lastCycleTime: timestamp("last_cycle_time"),
+    totalCycles: integer("total_cycles").default(0),
+    currentAddressId: text("current_address_id"),
+    pausedUntil: timestamp("paused_until"),
+    lastSessionMetrics: jsonb("last_session_metrics"),
+    consecutiveZeroPassSessions: integer("consecutive_zero_pass_sessions").default(0),
+    rateLimitBackoffUntil: timestamp("rate_limit_backoff_until"),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  }
+);
+
+export type AutoCycleStateRecord = typeof autoCycleState.$inferSelect;
+export type InsertAutoCycleState = typeof autoCycleState.$inferInsert;
+
+/**
  * M8 KERNEL GEOMETRY - Tracks geometric placement of spawned kernels
  * Records basin coordinates, parent lineage, and position rationale
  */
@@ -2520,6 +2545,17 @@ export const kernelGeometry = pgTable(
     spawnedAt: timestamp("spawned_at").defaultNow().notNull(),
     spawnedDuringWarId: varchar("spawned_during_war_id", { length: 64 }),
     metadata: jsonb("metadata"),
+    phi: doublePrecision("phi"),
+    kappa: doublePrecision("kappa"),
+    regime: varchar("regime", { length: 64 }),
+    generation: integer("generation"),
+    successCount: integer("success_count").default(0),
+    failureCount: integer("failure_count").default(0),
+    elementGroup: varchar("element_group", { length: 64 }),
+    ecologicalNiche: varchar("ecological_niche", { length: 128 }),
+    targetFunction: varchar("target_function", { length: 128 }),
+    valence: integer("valence"),
+    breedingTarget: varchar("breeding_target", { length: 64 }),
   },
   (table) => [
     index("idx_kernel_geometry_domain").on(table.domain),
