@@ -1,9 +1,13 @@
 {
   "enabled": true,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   "currentIndex": 510,
 =======
   "currentIndex": 589,
+>>>>>>> Stashed changes
+=======
+  "currentIndex": 518,
 >>>>>>> Stashed changes
   "addressIds": [
     "dormant-13eEt6my-1765102353345",
@@ -1532,6 +1536,7 @@
     "ef7f925b-cf65-46ac-bb69-d9cd658cc89b"
   ],
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   "lastCycleTime": "2025-12-10T07:13:27.542Z",
   "totalCycles": 1044,
   "currentAddressId": "dormant-18jGeboN-1765102329412",
@@ -1542,7 +1547,13 @@
   "currentAddressId": null,
   "pausedUntil": "2025-12-10T06:56:01.444Z",
 >>>>>>> Stashed changes
+=======
+  "lastCycleTime": "2025-12-10T07:37:43.257Z",
+  "totalCycles": 1044,
+  "currentAddressId": "dormant-1Btud1pq-1765102328973",
+  "pausedUntil": null,
+>>>>>>> Stashed changes
   "lastSessionMetrics": null,
-  "consecutiveZeroPassSessions": 3,
+  "consecutiveZeroPassSessions": 0,
   "rateLimitBackoffUntil": null
 }
