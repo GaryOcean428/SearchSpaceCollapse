@@ -10,3 +10,6 @@ export { queryClient, apiRequest, getQueryFn } from './queryClient';
 export { SSEConnectionManager, createSSEConnection, type SSEEvent, type SSEConfig } from './sse-connection';
 export { telemetry } from './telemetry';
 export { isUnauthorizedError } from './authUtils';
+export * from './geometric-kernels';
+export * from './m8-kernel-spawning';
+export * from './pantheon-kernels';
