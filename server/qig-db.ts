@@ -11,10 +11,12 @@
  */
 
 import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { db } from "./db";
 import {
   autonomicCycleHistory,
   basinHistory,
   hermesConversations,
+  kernelGeometry,
   learningEvents,
   narrowPathEvents,
   shadowIntel,
@@ -22,14 +24,15 @@ import {
   type BasinHistory,
   type HermesConversation,
   type InsertAutonomicCycleHistory,
+  type InsertKernelGeometry,
   type InsertLearningEvent,
   type InsertNarrowPathEvent,
   type InsertShadowIntel,
+  type KernelGeometryRecord,
   type LearningEvent,
   type NarrowPathEvent,
   type ShadowIntel,
 } from "../shared/schema";
-import { db } from "./db";
 
 // ============================================================================
 // SHADOW INTEL
@@ -39,6 +42,7 @@ export async function storeShadowIntel(
   data: Omit<InsertShadowIntel, "intelId" | "createdAt">
 ): Promise<ShadowIntel | null> {
   try {
+    if (!db) return null;
     const [result] = await db
       .insert(shadowIntel)
       .values({
@@ -58,6 +62,7 @@ export async function getShadowIntel(
   limit: number = 20
 ): Promise<ShadowIntel[]> {
   try {
+    if (!db) return [];
     if (target) {
       return await db
         .select()
@@ -81,6 +86,7 @@ export async function getShadowWarnings(
   limit: number = 10
 ): Promise<ShadowIntel[]> {
   try {
+    if (!db) return [];
     return await db
       .select()
       .from(shadowIntel)
@@ -105,6 +111,7 @@ export async function recordBasin(
   instanceId?: string
 ): Promise<BasinHistory | null> {
   try {
+    if (!db) return null;
     const [result] = await db
       .insert(basinHistory)
       .values({
@@ -128,6 +135,7 @@ export async function getBasinHistory(
   minPhi: number = 0.0
 ): Promise<BasinHistory[]> {
   try {
+    if (!db) return [];
     return await db
       .select()
       .from(basinHistory)
@@ -146,6 +154,7 @@ export async function findSimilarBasins(
   minPhi: number = 0.3
 ): Promise<Array<BasinHistory & { similarity: number }>> {
   try {
+    if (!db) return [];
     // Use pgvector cosine similarity operator
     const vectorStr = `[${queryBasin.join(",")}]`;
     const results = await db.execute(sql`
@@ -172,6 +181,7 @@ export async function recordLearningEvent(
   data: Omit<InsertLearningEvent, "eventId" | "createdAt">
 ): Promise<LearningEvent | null> {
   try {
+    if (!db) return null;
     const [result] = await db
       .insert(learningEvents)
       .values({
@@ -192,6 +202,7 @@ export async function getLearningEvents(
   limit: number = 50
 ): Promise<LearningEvent[]> {
   try {
+    if (!db) return [];
     if (eventType) {
       return await db
         .select()
@@ -222,6 +233,7 @@ export async function getHighPhiEvents(
   limit: number = 100
 ): Promise<LearningEvent[]> {
   try {
+    if (!db) return [];
     return await db
       .select()
       .from(learningEvents)
@@ -248,6 +260,7 @@ export async function storeConversation(
   instanceId?: string
 ): Promise<HermesConversation | null> {
   try {
+    if (!db) return null;
     const [result] = await db
       .insert(hermesConversations)
       .values({
@@ -274,6 +287,7 @@ export async function findSimilarConversations(
   minPhi: number = 0.3
 ): Promise<Array<HermesConversation & { similarity: number }>> {
   try {
+    if (!db) return [];
     const vectorStr = `[${queryBasin.join(",")}]`;
     const results = await db.execute(sql`
       SELECT
@@ -296,6 +310,7 @@ export async function getRecentConversations(
   limit: number = 20
 ): Promise<HermesConversation[]> {
   try {
+    if (!db) return [];
     return await db
       .select()
       .from(hermesConversations)
@@ -315,6 +330,7 @@ export async function recordNarrowPathEvent(
   data: Omit<InsertNarrowPathEvent, "eventId" | "detectedAt">
 ): Promise<NarrowPathEvent | null> {
   try {
+    if (!db) return null;
     const [result] = await db
       .insert(narrowPathEvents)
       .values({
@@ -333,10 +349,11 @@ export async function resolveNarrowPathEvent(
   eventId: number
 ): Promise<boolean> {
   try {
+    if (!db) return false;
     await db
       .update(narrowPathEvents)
       .set({ resolvedAt: new Date() })
-      .where(eq(narrowPathEvents.eventId, BigInt(eventId)));
+      .where(eq(narrowPathEvents.eventId, eventId));
     return true;
   } catch (error) {
     console.error("[QIG-DB] Failed to resolve narrow path event:", error);
@@ -349,6 +366,7 @@ export async function getNarrowPathEvents(
   limit: number = 50
 ): Promise<NarrowPathEvent[]> {
   try {
+    if (!db) return [];
     if (severity) {
       return await db
         .select()
@@ -376,6 +394,7 @@ export async function recordAutonomicCycle(
   data: Omit<InsertAutonomicCycleHistory, "cycleId" | "startedAt">
 ): Promise<AutonomicCycleHistory | null> {
   try {
+    if (!db) return null;
     const [result] = await db
       .insert(autonomicCycleHistory)
       .values({
@@ -395,6 +414,7 @@ export async function getAutonomicHistory(
   limit: number = 50
 ): Promise<AutonomicCycleHistory[]> {
   try {
+    if (!db) return [];
     if (cycleType) {
       return await db
         .select()
@@ -421,6 +441,12 @@ export async function getCycleStats(): Promise<{
   avgPhiImprovement: number;
 }> {
   try {
+    if (!db) return {
+      sleepCount: 0,
+      dreamCount: 0,
+      mushroomCount: 0,
+      avgPhiImprovement: 0,
+    };
     const results = await db.execute(sql`
       SELECT
         COUNT(CASE WHEN cycle_type = 'sleep' THEN 1 END) as sleep_count,
@@ -461,6 +487,7 @@ export async function getPhiTrend(hours: number = 24): Promise<
   }>
 > {
   try {
+    if (!db) return [];
     const results = await db.execute(sql`
       SELECT
         DATE_TRUNC('hour', recorded_at) as hour,
@@ -495,6 +522,7 @@ export async function getNarrowPathSummary(): Promise<
   }>
 > {
   try {
+    if (!db) return [];
     const results = await db.execute(sql`
       SELECT * FROM narrow_path_summary
     `);
@@ -517,6 +545,7 @@ export async function cleanupExpiredData(): Promise<{
   basinHistory: number;
 }> {
   try {
+    if (!db) return { syncPackets: 0, basinHistory: 0 };
     const syncResult = await db.execute(
       sql`SELECT cleanup_expired_sync_packets()`
     );
@@ -535,5 +564,77 @@ export async function cleanupExpiredData(): Promise<{
   } catch (error) {
     console.error("[QIG-DB] Failed to cleanup expired data:", error);
     return { syncPackets: 0, basinHistory: 0 };
+  }
+}
+
+// ============================================================================
+// KERNEL GEOMETRY - CHAOS MODE kernel persistence
+// ============================================================================
+
+export async function storeKernelGeometry(
+  data: Omit<InsertKernelGeometry, "spawnedAt">
+): Promise<KernelGeometryRecord | null> {
+  try {
+    if (!db) return null;
+    const [result] = await db
+      .insert(kernelGeometry)
+      .values(data)
+      .onConflictDoUpdate({
+        target: kernelGeometry.kernelId,
+        set: {
+          basinCoordinates: data.basinCoordinates,
+          affinityStrength: data.affinityStrength,
+          entropyThreshold: data.entropyThreshold,
+          metadata: data.metadata,
+        },
+      })
+      .returning();
+    return result;
+  } catch (error) {
+    console.error("[QIG-DB] Failed to store kernel geometry:", error);
+    return null;
+  }
+}
+
+export async function getKernelGeometry(
+  godName?: string,
+  limit: number = 50
+): Promise<KernelGeometryRecord[]> {
+  try {
+    if (!db) return [];
+    if (godName) {
+      return await db
+        .select()
+        .from(kernelGeometry)
+        .where(eq(kernelGeometry.godName, godName))
+        .orderBy(desc(kernelGeometry.spawnedAt))
+        .limit(limit);
+    }
+    return await db
+      .select()
+      .from(kernelGeometry)
+      .orderBy(desc(kernelGeometry.spawnedAt))
+      .limit(limit);
+  } catch (error) {
+    console.error("[QIG-DB] Failed to get kernel geometry:", error);
+    return [];
+  }
+}
+
+export async function getKernelsByDomain(
+  domain: string,
+  limit: number = 20
+): Promise<KernelGeometryRecord[]> {
+  try {
+    if (!db) return [];
+    return await db
+      .select()
+      .from(kernelGeometry)
+      .where(sql`${kernelGeometry.domain} ILIKE ${"%" + domain + "%"}`)
+      .orderBy(desc(kernelGeometry.spawnedAt))
+      .limit(limit);
+  } catch (error) {
+    console.error("[QIG-DB] Failed to get kernels by domain:", error);
+    return [];
   }
 }

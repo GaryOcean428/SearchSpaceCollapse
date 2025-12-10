@@ -71,6 +71,7 @@ import { neuralOscillators, recommendBrainState, applyBrainStateToSearch, type B
 import { olympusClient, type ZeusAssessment, type PollResult, type ObservationContext } from './olympus-client';
 import { executeShadowOperations, type ShadowWarDecision } from './shadow-war-orchestrator';
 import { updateWarMetrics, getActiveWar } from './war-history-storage';
+import { recordLearningEvent } from './qig-db';
 import type { Probe, TrajectoryRequest, TrajectoryResponse } from '@shared/types/qig-geometry';
 
 // Import centralized constants (SINGLE SOURCE OF TRUTH)
@@ -1944,6 +1945,25 @@ export class OceanAgent {
             const desc = getEmotionalDescription(this.neurochemistry.emotionalState);
             console.log(`[Ocean] ${emoji} Emotional response: ${desc}`);
           }
+
+          // PERSIST LEARNING EVENT TO DATABASE
+          recordLearningEvent({
+            eventType: 'near_miss',
+            phi: hypo.qigScore.phi,
+            kappa: hypo.qigScore.kappa,
+            details: {
+              phrase: hypo.phrase,
+              tier,
+              regime: hypo.qigScore.regime,
+              source: hypo.source || 'ocean-agent',
+            },
+            context: {
+              iteration: this.state.iteration,
+              targetAddress: this.targetAddress,
+              nearMissCount: this.state.nearMissCount,
+            },
+            source: 'ocean-agent',
+          }).catch(err => console.warn('[Ocean] Learning event persistence failed:', err));
         }
 
         if (hypo.qigScore && hypo.qigScore.inResonance) {

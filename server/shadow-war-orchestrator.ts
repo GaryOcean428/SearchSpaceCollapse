@@ -1,5 +1,6 @@
 import { olympusClient, type ObservationContext } from './olympus-client';
 import { updateWarMetrics, getActiveWar } from './war-history-storage';
+import { storeShadowIntel } from './qig-db';
 
 export interface ShadowWarDecision {
   godName: string;
@@ -82,7 +83,28 @@ async function callShadowGod(
         result = genericAssessment as Record<string, unknown> | null;
     }
 
-    return { godName, operation, result, timestamp, riskFlags };
+    const decision = { godName, operation, result, timestamp, riskFlags };
+    
+    // Persist shadow intel to database
+    if (result && !result.error) {
+      const confidence = typeof result.confidence === 'number' ? result.confidence : 0.5;
+      const phi = typeof result.phi === 'number' ? result.phi : undefined;
+      const kappa = typeof result.kappa === 'number' ? result.kappa : undefined;
+      
+      storeShadowIntel({
+        target,
+        consensus: riskFlags.length > 0 ? 'caution' : 'proceed',
+        averageConfidence: confidence,
+        phi,
+        kappa,
+        assessments: { [godName]: result },
+        warnings: riskFlags.length > 0 ? riskFlags : undefined,
+      }).catch((err) => {
+        console.error('[Shadow] Failed to persist shadow intel:', err);
+      });
+    }
+    
+    return decision;
   } catch (error) {
     riskFlags.push('operation_failed');
     return {

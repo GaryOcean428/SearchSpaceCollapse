@@ -1,7 +1,5 @@
-import { autonomicCycleHistory } from "@shared/schema";
 import * as fs from "fs";
 import * as path from "path";
-import { db } from "./db";
 import { storage } from "./storage";
 
 export interface AutoCycleState {
@@ -530,9 +528,6 @@ class AutoCycleManager {
       );
     }
 
-    // PERSIST cycle to database
-    await this.recordCycleToDatabase(addressId, this.state.lastSessionMetrics);
-
     this.isCurrentlyRunning = false;
     this.state.currentAddressId = null;
     this.state.lastCycleTime = new Date().toISOString();
@@ -555,48 +550,6 @@ class AutoCycleManager {
       }, 2000);
     } else {
       this.saveState();
-    }
-  }
-
-  // Record cycle to database for history tracking
-  private async recordCycleToDatabase(
-    addressId: string,
-    metrics: SessionMetrics
-  ): Promise<void> {
-    try {
-      if (!db) {
-        console.log(
-          "[AutoCycleManager] Database not available, skipping cycle record"
-        );
-        return;
-      }
-
-      // Use the autonomicCycleHistory table with correct schema
-      // cycleType = 'investigation' for auto-cycle sessions
-      await db.insert(autonomicCycleHistory).values({
-        cycleId: Date.now(),
-        cycleType: "investigation",
-        intensity:
-          metrics.explorationPasses > 5
-            ? "high"
-            : metrics.explorationPasses > 0
-            ? "medium"
-            : "low",
-        success: metrics.explorationPasses > 0,
-        patternsConsolidated: metrics.hypothesesTested,
-        novelConnections: metrics.nearMisses,
-        durationMs: metrics.duration,
-        verdict: `Address ${addressId}: ${metrics.explorationPasses} passes, ${metrics.hypothesesTested} hypotheses`,
-        triggerReason: `auto_cycle_index_${this.state.currentIndex}`,
-        completedAt: new Date(),
-      });
-
-      console.log(`[AutoCycleManager] 💾 Cycle recorded to database`);
-    } catch (error) {
-      console.error(
-        "[AutoCycleManager] Failed to record cycle to database:",
-        error
-      );
     }
   }
 

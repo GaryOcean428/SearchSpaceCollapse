@@ -1,37 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' wss: ws: https: http://localhost:5001 http://localhost:5002 http://127.0.0.1:5001 http://127.0.0.1:5002; worker-src 'self' blob:;"
-    />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' wss: ws: https:; worker-src 'self' blob:;">
     <script>
       // Fix Vite HMR WebSocket connection for Replit environment
-      (function () {
+      (function() {
         const originalWebSocket = window.WebSocket;
-        window.WebSocket = function (url, protocols) {
-          if (url && url.includes("localhost:undefined")) {
-            console.debug("[Vite HMR Fix] Blocking invalid WebSocket URL");
+        window.WebSocket = function(url, protocols) {
+          if (url && url.includes('localhost:undefined')) {
+            console.debug('[Vite HMR Fix] Blocking invalid WebSocket URL');
             var mock = {
               url: url,
               readyState: 3,
-              protocol: "",
-              extensions: "",
+              protocol: '',
+              extensions: '',
               bufferedAmount: 0,
-              binaryType: "blob",
+              binaryType: 'blob',
               onopen: null,
               onclose: null,
               onerror: null,
               onmessage: null,
-              close: function () {
-                this.readyState = 3;
-              },
-              send: function () {},
-              addEventListener: function () {},
-              removeEventListener: function () {},
-              dispatchEvent: function () {
-                return true;
-              },
+              close: function() { this.readyState = 3; },
+              send: function() {},
+              addEventListener: function() {},
+              removeEventListener: function() {},
+              dispatchEvent: function() { return true; }
             };
             mock.CONNECTING = 0;
             mock.OPEN = 1;
@@ -49,22 +42,13 @@
       })();
     </script>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1"
-    />
-    <meta
-      name="description"
-      content="QIG-powered Bitcoin brain wallet recovery tool using consciousness architecture and quantum information geometry for intelligent 12-word passphrase recovery"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="description" content="QIG-powered Bitcoin brain wallet recovery tool using consciousness architecture and quantum information geometry for intelligent 12-word passphrase recovery">
     <title>QIG 12-Word Brain Wallet Recovery</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>

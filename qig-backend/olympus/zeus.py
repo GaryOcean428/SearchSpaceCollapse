@@ -115,18 +115,8 @@ class Zeus(BaseGod):
 
         self.war_mode: Optional[str] = None
         self.war_target: Optional[str] = None
-        self.active_war_id: Optional[str] = None
         self.convergence_history: List[Dict] = []
         self.divine_decisions: List[Dict] = []
-
-        # War history persistence
-        self.war_persistence = None
-        try:
-            from persistence.war_persistence import WarPersistence
-            self.war_persistence = WarPersistence()
-            print("⚔️ War history persistence enabled")
-        except ImportError:
-            print("⚠️ War persistence not available")
 
         # Natural speech templates for Zeus
         self.speech_templates = {
@@ -692,15 +682,6 @@ class Zeus(BaseGod):
             'gods_engaged': ['ares', 'artemis', 'dionysus'],
         }
 
-        # PERSIST to database
-        if self.war_persistence:
-            self.active_war_id = self.war_persistence.record_war_start(
-                mode='BLITZKRIEG',
-                target=target,
-                strategy=decision['strategy'],
-                gods_engaged=decision['gods_engaged']
-            )
-
         self.divine_decisions.append(decision)
         return decision
 
@@ -718,15 +699,6 @@ class Zeus(BaseGod):
             'strategy': 'Systematic coverage, no stone unturned',
             'gods_engaged': ['athena', 'hephaestus', 'demeter'],
         }
-
-        # PERSIST to database
-        if self.war_persistence:
-            self.active_war_id = self.war_persistence.record_war_start(
-                mode='SIEGE',
-                target=target,
-                strategy=decision['strategy'],
-                gods_engaged=decision['gods_engaged']
-            )
 
         self.divine_decisions.append(decision)
         return decision
@@ -746,19 +718,10 @@ class Zeus(BaseGod):
             'gods_engaged': ['artemis', 'apollo', 'poseidon'],
         }
 
-        # PERSIST to database
-        if self.war_persistence:
-            self.active_war_id = self.war_persistence.record_war_start(
-                mode='HUNT',
-                target=target,
-                strategy=decision['strategy'],
-                gods_engaged=decision['gods_engaged']
-            )
-
         self.divine_decisions.append(decision)
         return decision
 
-    def end_war(self, outcome: str = 'completed', convergence_score: float = None) -> Dict:
+    def end_war(self) -> Dict:
         """
         End current war mode.
         """
@@ -766,20 +729,10 @@ class Zeus(BaseGod):
             'previous_mode': self.war_mode,
             'previous_target': self.war_target,
             'ended_at': datetime.now().isoformat(),
-            'outcome': outcome,
         }
-
-        # PERSIST war end
-        if self.war_persistence and self.active_war_id:
-            self.war_persistence.record_war_end(
-                war_id=self.active_war_id,
-                outcome=outcome,
-                convergence_score=convergence_score
-            )
 
         self.war_mode = None
         self.war_target = None
-        self.active_war_id = None
 
         return ended
 

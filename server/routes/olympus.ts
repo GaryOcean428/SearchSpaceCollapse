@@ -30,6 +30,7 @@ import {
   type WarMode,
   type WarOutcome,
 } from '../war-history-storage';
+import { storeConversation, storeShadowIntel, storeKernelGeometry } from '../qig-db';
 
 const router = Router();
 const olympusClient = new OlympusClient(
@@ -146,6 +147,23 @@ router.post('/zeus/chat', isAuthenticated, async (req, res) => {
           ...data,
         });
         return;
+      }
+
+      // PERSIST CONVERSATION TO DATABASE (non-blocking)
+      const userMessage = req.body.message || '';
+      const systemResponse = data.response || data.message || '';
+      if (userMessage && systemResponse) {
+        storeConversation(
+          userMessage,
+          systemResponse,
+          undefined, // messageBasin - could be computed from Python
+          undefined, // responseBasin
+          data.metadata?.phi, // phi from response if available
+          { 
+            god: data.metadata?.responding_god || 'zeus',
+            type: data.metadata?.type,
+          },
+        ).catch(err => console.warn('[Olympus] Conversation persistence failed:', err));
       }
       
       res.json(data);
@@ -798,7 +816,25 @@ router.post('/spawn/auto', isAuthenticated, validateInput(targetSchema), async (
       throw new Error(`Python backend returned ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as Record<string, unknown>;
+    
+    // Persist spawned kernels to database
+    if (data.spawned_kernels && Array.isArray(data.spawned_kernels)) {
+      for (const kernel of data.spawned_kernels) {
+        const k = kernel as Record<string, unknown>;
+        storeKernelGeometry({
+          kernelId: String(k.kernel_id || `kernel_${Date.now()}`),
+          godName: String(k.god_name || 'unknown'),
+          domain: String(k.domain || req.body?.target || 'general'),
+          primitiveRoot: typeof k.primitive_root === 'number' ? k.primitive_root : undefined,
+          basinCoordinates: Array.isArray(k.basin_coords) ? k.basin_coords : undefined,
+          placementReason: 'auto_spawn',
+          affinityStrength: typeof k.affinity === 'number' ? k.affinity : undefined,
+          metadata: { phi: k.phi, generation: k.generation },
+        }).catch(err => console.error('[Olympus] Failed to persist kernel:', err));
+      }
+    }
+    
     res.json(data);
   } catch (error) {
     console.error('[Olympus] Spawn auto error:', error);
