@@ -130,12 +130,10 @@ class SelfSpawningKernel:
         self.experience_buffer.append({
             'input_ids': input_ids,
             'reward': reward,
-            'phi': self.kernel.compute_phi(),
-            'success': success,
         })
 
         # ACTUALLY TRAIN on the outcome
-        training_result = self.train_step(reward)
+        self.train_step(reward)
 
         if success:
             self.success_count += 1
