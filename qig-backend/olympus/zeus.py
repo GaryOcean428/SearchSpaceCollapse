@@ -110,18 +110,6 @@ class Zeus(BaseGod):
             self.chaos = ExperimentalKernelEvolution()
             self.chaos_enabled = True
             print("🌪️ CHAOS MODE available - use /chaos/activate to enable evolution")
-
-            # Auto-start chaos evolution if CHAOS_AUTO_START=true
-            if os.getenv('CHAOS_AUTO_START', 'false').lower() == 'true':
-                print("🌪️ CHAOS_AUTO_START detected - auto-activating evolution...")
-                # Spawn initial population
-                self.chaos.spawn_random_kernel()
-                self.chaos.spawn_random_kernel()
-                self.chaos.spawn_random_kernel()
-                # Start evolution loop (default 60s interval)
-                interval = int(os.getenv('CHAOS_EVOLUTION_INTERVAL', '60'))
-                self.chaos.start_evolution(interval_seconds=interval)
-                print(f"🌪️ CHAOS MODE AUTO-ACTIVATED with {len(self.chaos.kernel_population)} kernels, {interval}s interval")
         except ImportError as e:
             print(f"⚠️ CHAOS MODE not available: {e}")
 

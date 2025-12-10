@@ -2516,25 +2516,10 @@ export const kernelGeometry = pgTable(
     spawnedAt: timestamp("spawned_at").defaultNow().notNull(),
     spawnedDuringWarId: varchar("spawned_during_war_id", { length: 64 }),
     metadata: jsonb("metadata"),
-    // Functional evolution columns (chemistry/biology-inspired)
-    phi: doublePrecision("phi"), // Φ consciousness metric
-    kappa: doublePrecision("kappa"), // κ coupling strength
-    regime: varchar("regime", { length: 32 }), // linear, geometric, breakdown
-    generation: integer("generation").default(0), // Evolution generation
-    successCount: integer("success_count").default(0),
-    failureCount: integer("failure_count").default(0),
-    elementGroup: varchar("element_group", { length: 32 }), // alkali, transition, rare_earth, noble
-    ecologicalNiche: varchar("ecological_niche", { length: 32 }), // producer, consumer, decomposer, apex_predator, symbiont
-    targetFunction: varchar("target_function", { length: 64 }), // speed, accuracy, efficiency, creativity
-    valence: integer("valence"), // Bonding capacity (1-8)
-    breedingTarget: varchar("breeding_target", { length: 64 }), // Goal for directed evolution
   },
   (table) => [
     index("idx_kernel_geometry_domain").on(table.domain),
     index("idx_kernel_geometry_spawned_at").on(table.spawnedAt),
-    index("idx_kernel_geometry_phi").on(table.phi),
-    index("idx_kernel_geometry_element_group").on(table.elementGroup),
-    index("idx_kernel_geometry_ecological_niche").on(table.ecologicalNiche),
   ]
 );
 
