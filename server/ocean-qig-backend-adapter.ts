@@ -3047,10 +3047,9 @@ export class OceanQIGBackend {
     if (!this.isAvailable) return null;
 
     try {
-      const response = await fetchWithRetry(
-        `${this.backendUrl}/chaos/status`,
-        { method: "GET" }
-      );
+      const response = await fetchWithRetry(`${this.backendUrl}/chaos/status`, {
+        method: "GET",
+      });
 
       if (!response.ok) return null;
       return await response.json();
@@ -3116,22 +3115,191 @@ export class OceanQIGBackend {
   async getChaosReport(): Promise<{
     total_generations: number;
     total_spawns: number;
-    best_kernel: { id: string; fitness: number; traits: Record<string, unknown> } | null;
+    best_kernel: {
+      id: string;
+      fitness: number;
+      traits: Record<string, unknown>;
+    } | null;
     fitness_history: number[];
     experiment_duration_seconds: number;
   } | null> {
     if (!this.isAvailable) return null;
 
     try {
+      const response = await fetchWithRetry(`${this.backendUrl}/chaos/report`, {
+        method: "GET",
+      });
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get chaos report failed:", error);
+      return null;
+    }
+  }
+
+  // =========================================================================
+  // CHAOS MODE PAID TIER - E8 Hybrid Architecture
+  // =========================================================================
+
+  /**
+   * TURBO MODE: Spawn many kernels at once
+   */
+  async chaosTurboSpawn(count: number = 50): Promise<{
+    success: boolean;
+    spawned_count: number;
+    spawned_kernels: string[];
+    total_population: number;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(`${this.backendUrl}/chaos/turbo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Chaos turbo spawn failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get elite kernels from hall of fame
+   */
+  async getChaosElite(): Promise<{
+    success: boolean;
+    elite_count: number;
+    elite_kernels: Array<{ kernel_id: string; phi: number; path: string }>;
+    phi_threshold: number;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(`${this.backendUrl}/chaos/elite`, {
+        method: "GET",
+      });
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get chaos elite failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get detailed population statistics
+   */
+  async getChaosPopulationStats(): Promise<{
+    success: boolean;
+    population_size: number;
+    max_active: number;
+    max_total: number;
+    phi: { mean: number; std: number; min: number; max: number };
+    elite_count: number;
+    graveyard_count: number;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
       const response = await fetchWithRetry(
-        `${this.backendUrl}/chaos/report`,
+        `${this.backendUrl}/chaos/population/stats`,
         { method: "GET" }
       );
 
       if (!response.ok) return null;
       return await response.json();
     } catch (error) {
-      console.error("[OceanQIGBackend] Get chaos report failed:", error);
+      console.error(
+        "[OceanQIGBackend] Get chaos population stats failed:",
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Check E8 alignment of kernel population
+   */
+  async getChaosE8Alignment(): Promise<{
+    success: boolean;
+    e8_aligned: boolean;
+    mean_distance_to_root: number;
+    symmetry_score: number;
+    population_size: number;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/e8/alignment`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get E8 alignment failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Analyze convergence toward E8 structure
+   */
+  async getChaosE8Convergence(): Promise<{
+    success: boolean;
+    status: string;
+    mean_population?: number;
+    expected?: number;
+    message?: string;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/chaos/e8/convergence`,
+        { method: "GET" }
+      );
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get E8 convergence failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get current tier and settings
+   */
+  async getChaosTierInfo(): Promise<{
+    success: boolean;
+    is_paid_tier: boolean;
+    is_replit: boolean;
+    architecture: string;
+    max_total: number;
+    max_active: number;
+    memory_available_gb: number;
+    features: Record<string, boolean>;
+    thresholds: Record<string, number>;
+  } | null> {
+    if (!this.isAvailable) return null;
+
+    try {
+      const response = await fetchWithRetry(`${this.backendUrl}/chaos/tier`, {
+        method: "GET",
+      });
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("[OceanQIGBackend] Get chaos tier info failed:", error);
       return null;
     }
   }

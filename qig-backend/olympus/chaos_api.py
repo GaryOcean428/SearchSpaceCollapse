@@ -711,3 +711,195 @@ def get_tier_info():
             'death': chaos.death_threshold,
         }
     })
+
+
+# =========================================================================
+# FUNCTIONAL EVOLUTION ENDPOINTS
+# Chemistry, Biology, Modular Cannibalism, Goal-Directed Breeding
+# =========================================================================
+
+@chaos_app.route('/chaos/functional/ecosystem', methods=['GET'])
+def get_ecosystem_stats():
+    """Get functional ecosystem statistics."""
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    try:
+        from training_chaos.functional import FunctionalKernelEvolution
+        func_evo = getattr(_zeus.chaos, 'functional_evolution', None)
+        if func_evo is None:
+            func_evo = FunctionalKernelEvolution()
+            _zeus.chaos.functional_evolution = func_evo
+
+        return jsonify({
+            'success': True,
+            'ecosystem': func_evo.get_ecosystem_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@chaos_app.route('/chaos/functional/spawn', methods=['POST'])
+def spawn_functional_kernel():
+    """Spawn kernel for specific function."""
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    data = request.get_json() or {}
+    target_function = data.get('function', 'generalist')
+
+    try:
+        from training_chaos.functional import FunctionalKernelEvolution
+        func_evo = getattr(_zeus.chaos, 'functional_evolution', None)
+        if func_evo is None:
+            func_evo = FunctionalKernelEvolution()
+            _zeus.chaos.functional_evolution = func_evo
+
+        kernel = func_evo.spawn_functional_kernel(target_function)
+        _zeus.chaos.kernel_population.append(kernel)
+
+        return jsonify({
+            'success': True,
+            'kernel_id': kernel.kernel_id,
+            'target_function': target_function,
+            'phi': kernel.kernel.compute_phi()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@chaos_app.route('/chaos/functional/breed', methods=['POST'])
+def functional_breed():
+    """Goal-directed breeding of kernels."""
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    data = request.get_json() or {}
+    target = data.get('target', 'pattern_recognition')
+    parent1_id = data.get('parent1')
+    parent2_id = data.get('parent2')
+
+    try:
+        from training_chaos.functional import BreedingTarget, FunctionalKernelEvolution
+        func_evo = getattr(_zeus.chaos, 'functional_evolution', None)
+        if func_evo is None:
+            func_evo = FunctionalKernelEvolution()
+            _zeus.chaos.functional_evolution = func_evo
+
+        # Find parents
+        parent1 = None
+        parent2 = None
+        for k in _zeus.chaos.kernel_population:
+            if k.kernel_id == parent1_id:
+                parent1 = k
+            if k.kernel_id == parent2_id:
+                parent2 = k
+
+        if parent1 is None or parent2 is None:
+            # Use best candidates if not specified
+            candidates = func_evo.get_breeding_candidates(BreedingTarget(target))
+            if candidates:
+                parent1, parent2 = candidates[0]
+            else:
+                return jsonify({'success': False, 'error': 'No compatible parents found'}), 400
+
+        child = func_evo.functional_breeding(parent1, parent2, BreedingTarget(target))
+        if child:
+            _zeus.chaos.kernel_population.append(child)
+            return jsonify({
+                'success': True,
+                'child_id': child.kernel_id,
+                'parent1_id': parent1.kernel_id,
+                'parent2_id': parent2.kernel_id,
+                'breeding_target': target,
+                'phi': child.kernel.compute_phi()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Breeding failed - incompatible parents'}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@chaos_app.route('/chaos/functional/balance', methods=['POST'])
+def balance_ecosystem():
+    """Balance ecosystem by spawning/culling as needed."""
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    try:
+        from training_chaos.functional import FunctionalKernelEvolution
+        func_evo = getattr(_zeus.chaos, 'functional_evolution', None)
+        if func_evo is None:
+            func_evo = FunctionalKernelEvolution()
+            _zeus.chaos.functional_evolution = func_evo
+
+        actions = func_evo.balance_ecosystem()
+        return jsonify({
+            'success': True,
+            'actions': actions
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@chaos_app.route('/chaos/functional/cannibalize', methods=['POST'])
+def modular_cannibalism():
+    """Modular cannibalism - extract useful modules from weak kernel."""
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    data = request.get_json() or {}
+    strong_id = data.get('strong_id')
+    weak_id = data.get('weak_id')
+
+    try:
+        from training_chaos.functional import FunctionalKernelEvolution
+        func_evo = getattr(_zeus.chaos, 'functional_evolution', None)
+        if func_evo is None:
+            func_evo = FunctionalKernelEvolution()
+            _zeus.chaos.functional_evolution = func_evo
+
+        # Find kernels
+        strong_kernel = None
+        weak_kernel = None
+        for k in _zeus.chaos.kernel_population:
+            if k.kernel_id == strong_id:
+                strong_kernel = k
+            if k.kernel_id == weak_id:
+                weak_kernel = k
+
+        if strong_kernel is None or weak_kernel is None:
+            return jsonify({'success': False, 'error': 'Kernels not found'}), 404
+
+        enhanced, absorbed = func_evo.functional_cannibalism(strong_kernel, weak_kernel)
+
+        return jsonify({
+            'success': True,
+            'enhanced_id': enhanced.kernel_id,
+            'absorbed_modules': absorbed,
+            'phi_after': enhanced.kernel.compute_phi()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@chaos_app.route('/chaos/functional/modules', methods=['GET'])
+def get_module_library():
+    """Get module library statistics."""
+    if _zeus is None or _zeus.chaos is None:
+        return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
+
+    try:
+        from training_chaos.functional import FunctionalKernelEvolution
+        func_evo = getattr(_zeus.chaos, 'functional_evolution', None)
+        if func_evo is None:
+            func_evo = FunctionalKernelEvolution()
+            _zeus.chaos.functional_evolution = func_evo
+
+        return jsonify({
+            'success': True,
+            'library': func_evo.cannibalism.get_library_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

@@ -24,6 +24,14 @@ import torch
 from .chaos_logger import ChaosLogger
 from .self_spawning import SelfSpawningKernel, absorb_failing_kernel, breed_kernels
 
+# Database persistence (CRITICAL for evolution survival)
+try:
+    from persistence.kernel_persistence import KernelPersistence
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+    print("⚠️ Kernel persistence not available - evolution will be ephemeral!")
+
 
 class ExperimentalKernelEvolution:
     """
@@ -107,6 +115,23 @@ class ExperimentalKernelEvolution:
         # Convergence tracking (test E8 hypothesis)
         self.convergence_history: list[dict] = []
         self.convergence_target = self.E8_ROOTS  # 240
+
+        # Database persistence (CRITICAL!)
+        self.persistence = None
+        self.persistence_enabled = False
+        if PERSISTENCE_AVAILABLE:
+            try:
+                self.persistence = KernelPersistence()
+                self.persistence_enabled = True
+                print("💾 Kernel persistence enabled - evolution will survive restarts!")
+                # Resume from database
+                self._resume_from_database()
+            except Exception as e:
+                print(f"⚠️ Persistence init failed: {e}")
+
+        # Snapshot interval (save every N steps)
+        self.snapshot_interval = 100
+        self.steps_since_snapshot = 0
 
         self._print_init_summary()
 
@@ -218,8 +243,92 @@ class ExperimentalKernelEvolution:
         print(f"   Max active: {self.max_active}")
         print(f"   Memory available: {self.memory_available_gb:.1f}GB")
         print(f"   Checkpoint dir: {self.checkpoint_dir}")
+        print(f"   Persistence: {'✅ ENABLED' if self.persistence_enabled else '❌ DISABLED'}")
         if self.architecture == 'e8_hybrid':
             print(f"   E8 hypothesis: Testing convergence to {self.E8_ROOTS}\n")
+
+    def _resume_from_database(self):
+        """
+        Resume evolution from database.
+
+        On startup:
+        1. Load elite kernels
+        2. Restore population
+        3. Continue evolution
+        """
+        if not self.persistence:
+            return
+
+        print("💾 Resuming evolution from database...")
+
+        try:
+            elite_data = self.persistence.load_elite_kernels(min_phi=0.6, limit=30)
+
+            if elite_data:
+                print(f"📥 Loaded {len(elite_data)} elite kernels from history")
+
+                for data in elite_data:
+                    # Reconstruct kernel from saved data
+                    kernel = SelfSpawningKernel(
+                        spawn_threshold=self.spawn_threshold,
+                        death_threshold=self.death_threshold,
+                        mutation_rate=self.mutation_rate,
+                    )
+
+                    # Restore basin coordinates
+                    basin_tensor = torch.tensor(data['basin_coords'], dtype=torch.float32)
+                    with torch.no_grad():
+                        kernel.kernel.basin_coords.copy_(basin_tensor)
+
+                    # Restore metadata
+                    kernel.kernel_id = data['kernel_id']
+                    kernel.generation = data['generation']
+                    kernel.success_count = data['success_count']
+                    kernel.failure_count = data['failure_count']
+
+                    if data['e8_root_index'] is not None:
+                        self.kernel_to_root_mapping[kernel.kernel_id] = data['e8_root_index']
+
+                    self.kernel_population.append(kernel)
+
+                    # Track as elite if high Φ
+                    if data['phi'] >= self.phi_elite_threshold:
+                        self.elite_hall_of_fame.append({
+                            'kernel_id': data['kernel_id'],
+                            'phi': data['phi'],
+                            'restored': True,
+                        })
+
+                print(f"✅ Evolution resumed with {len(self.kernel_population)} kernels")
+            else:
+                print("🆕 No previous evolution found, starting fresh")
+
+        except Exception as e:
+            print(f"⚠️ Failed to resume from database: {e}")
+
+    def _persist_kernel(self, kernel, event_type: str = None):
+        """Persist kernel to database (non-blocking)."""
+        if self.persistence:
+            try:
+                self.persistence.save_kernel(kernel, event_type=event_type)
+            except Exception as e:
+                print(f"⚠️ Persist failed for {kernel.kernel_id}: {e}")
+
+    def _persist_evolution_event(self, event_type: str, kernel_ids: list, details: dict):
+        """Persist evolution event to database."""
+        if self.persistence:
+            try:
+                self.persistence.save_evolution_event(event_type, kernel_ids, details)
+            except Exception as e:
+                print(f"⚠️ Event persist failed: {e}")
+
+    def _maybe_snapshot_population(self):
+        """Periodically snapshot entire population to database."""
+        self.steps_since_snapshot += 1
+        if self.steps_since_snapshot >= self.snapshot_interval:
+            self.steps_since_snapshot = 0
+            if self.persistence:
+                self.persistence.snapshot_population(self.kernel_population)
 
     def _initialize_e8_roots(self) -> torch.Tensor:
         """
@@ -479,6 +588,9 @@ class ExperimentalKernelEvolution:
         self.kernel_population.append(kernel)
         self.logger.log_spawn(None, kernel.kernel_id, 'random')
 
+        # PERSIST to database
+        self._persist_kernel(kernel, event_type='spawn_random')
+
         return kernel
 
     def spawn_from_parent(self, parent_id: str) -> Optional[SelfSpawningKernel]:
@@ -492,6 +604,13 @@ class ExperimentalKernelEvolution:
         child = parent.spawn_child()
         self.kernel_population.append(child)
         self.logger.log_spawn(parent_id, child.kernel_id, 'reproduction')
+
+        # PERSIST child and event
+        self._persist_kernel(child, event_type='spawn_child')
+        self._persist_evolution_event('kernel_spawn', [parent_id, child.kernel_id], {
+            'parent_phi': parent.kernel.compute_phi(),
+            'child_phi': child.kernel.compute_phi(),
+        })
 
         return child
 
@@ -522,6 +641,16 @@ class ExperimentalKernelEvolution:
             'child_phi': child.kernel.compute_phi(),
         })
 
+        # PERSIST breeding event
+        self._persist_kernel(child, event_type='breed')
+        self._persist_evolution_event('kernel_breed', [
+            parent1.kernel_id, parent2.kernel_id, child.kernel_id
+        ], {
+            'parent1_phi': parent1.kernel.compute_phi(),
+            'parent2_phi': parent2.kernel.compute_phi(),
+            'child_phi': child.kernel.compute_phi(),
+        })
+
         return child
 
     def apply_phi_selection(self):
@@ -537,6 +666,13 @@ class ExperimentalKernelEvolution:
             phi = kernel.kernel.compute_phi()
 
             if phi < self.phi_requirement:
+                # PERSIST before death
+                self._persist_kernel(kernel, event_type='death_phi_selection')
+                self._persist_evolution_event('kernel_death', [kernel.kernel_id], {
+                    'phi': phi,
+                    'cause': 'phi_selection',
+                })
+
                 autopsy = kernel.die(cause=f'phi_too_low_{phi:.2f}')
                 self.kernel_graveyard.append(autopsy)
                 killed.append(kernel.kernel_id)
