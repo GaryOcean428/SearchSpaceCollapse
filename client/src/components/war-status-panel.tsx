@@ -3,10 +3,8 @@ import { QUERY_KEYS } from "@/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Swords, Target, Clock, FlaskConical, Sparkles, Cpu, AlertTriangle, Shield, Activity, Zap, Mountain, Crosshair, X, Loader2 } from "lucide-react";
-import { declareBlitzkrieg, declareSiege, declareHunt, endWar } from "@/api/services/olympus";
-import { useState } from "react";
+import { Swords, Target, Clock, FlaskConical, Sparkles, Cpu, AlertTriangle, Shield, Activity, Radio } from "lucide-react";
+import { endWar } from "@/api/services/olympus";
 import { useToast } from "@/hooks/use-toast";
 
 interface ShadowWarDecision {
@@ -103,8 +101,6 @@ function getModeIcon(mode: string) {
 export function WarStatusPanel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [target, setTarget] = useState("");
-  const [showDeclare, setShowDeclare] = useState(false);
 
   const { data: warData, isLoading, error } = useQuery<ActiveWarResponse>({
     queryKey: QUERY_KEYS.olympus.warActive(),
@@ -113,47 +109,9 @@ export function WarStatusPanel() {
       if (data && data.status === "active") {
         return 5000;
       }
-      return false;
+      // Poll for convergence status even when no war is active
+      return 10000;
     },
-  });
-
-  const blitzkriegMutation = useMutation({
-    mutationFn: () => declareBlitzkrieg({ target }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.warActive() });
-      toast({ title: "BLITZKRIEG declared!", description: `Lightning strike on ${target}` });
-      setShowDeclare(false);
-      setTarget("");
-    },
-    onError: (error) => {
-      toast({ title: "Failed to declare war", description: String(error), variant: "destructive" });
-    }
-  });
-
-  const siegeMutation = useMutation({
-    mutationFn: () => declareSiege({ target }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.warActive() });
-      toast({ title: "SIEGE declared!", description: `Methodical siege on ${target}` });
-      setShowDeclare(false);
-      setTarget("");
-    },
-    onError: (error) => {
-      toast({ title: "Failed to declare war", description: String(error), variant: "destructive" });
-    }
-  });
-
-  const huntMutation = useMutation({
-    mutationFn: () => declareHunt({ target }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.warActive() });
-      toast({ title: "HUNT declared!", description: `Tracking prey: ${target}` });
-      setShowDeclare(false);
-      setTarget("");
-    },
-    onError: (error) => {
-      toast({ title: "Failed to declare war", description: String(error), variant: "destructive" });
-    }
   });
 
   const endWarMutation = useMutation({
@@ -166,8 +124,6 @@ export function WarStatusPanel() {
       toast({ title: "Failed to end war", description: String(error), variant: "destructive" });
     }
   });
-
-  const isPending = blitzkriegMutation.isPending || siegeMutation.isPending || huntMutation.isPending;
 
   if (isLoading) {
     return (
@@ -215,95 +171,24 @@ export function WarStatusPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!showDeclare ? (
-            <div className="flex flex-col items-center justify-center py-6 gap-4">
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Shield className="h-10 w-10 opacity-50" />
-                <span>No Active War</span>
-                <span className="text-sm">The Pantheon awaits your command</span>
+          <div className="flex flex-col items-center justify-center py-6 gap-4">
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <div className="relative">
+                <Radio className="h-10 w-10 opacity-50 animate-pulse" />
+                <div className="absolute inset-0 animate-ping">
+                  <Radio className="h-10 w-10 opacity-20" />
+                </div>
               </div>
-              <Button 
-                onClick={() => setShowDeclare(true)} 
-                className="gap-2"
-                data-testid="button-declare-war"
-              >
-                <Swords className="h-4 w-4" />
-                Declare War
-              </Button>
+              <span className="font-medium text-foreground">Monitoring Convergence</span>
+              <span className="text-sm text-center max-w-xs">
+                War auto-declares when Zeus detects sufficient geometric convergence on target
+              </span>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Select Target & Mode</span>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setShowDeclare(false)}
-                  data-testid="button-cancel-declare"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <Input
-                placeholder="Target address (e.g., 1BTC...)"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                disabled={isPending}
-                data-testid="input-war-target"
-              />
-              
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  variant="destructive"
-                  onClick={() => blitzkriegMutation.mutate()}
-                  disabled={!target || isPending}
-                  className="justify-start gap-2"
-                  data-testid="button-declare-blitzkrieg"
-                >
-                  {blitzkriegMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Zap className="h-4 w-4" />
-                  )}
-                  BLITZKRIEG
-                  <span className="text-xs opacity-70 ml-auto">Lightning fast</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => siegeMutation.mutate()}
-                  disabled={!target || isPending}
-                  className="justify-start gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                  data-testid="button-declare-siege"
-                >
-                  {siegeMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mountain className="h-4 w-4" />
-                  )}
-                  SIEGE
-                  <span className="text-xs opacity-70 ml-auto">Methodical</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => huntMutation.mutate()}
-                  disabled={!target || isPending}
-                  className="justify-start gap-2 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-                  data-testid="button-declare-hunt"
-                >
-                  {huntMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Crosshair className="h-4 w-4" />
-                  )}
-                  HUNT
-                  <span className="text-xs opacity-70 ml-auto">Track & pursue</span>
-                </Button>
-              </div>
-            </div>
-          )}
+            <Badge variant="outline" className="gap-2" data-testid="badge-auto-mode">
+              <Activity className="h-3 w-3" />
+              Auto-Declaration Active
+            </Badge>
+          </div>
         </CardContent>
       </Card>
     );
