@@ -57,6 +57,51 @@ export type {
 
 const DEFAULT_RETRY_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 2000;
+const FETCH_TIMEOUT_MS = 15000;
+
+/**
+ * Fetch with timeout and retry for transient Python backend failures.
+ * Retries on ECONNREFUSED and network errors with exponential backoff.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 3,
+  timeoutMs: number = FETCH_TIMEOUT_MS
+): Promise<Response> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      // Retry on 503 Service Unavailable
+      if (response.status === 503 && attempt < maxRetries) {
+        const delay = Math.min(200 * Math.pow(2, attempt), 2000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      return response;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      // Retry on network errors (ECONNREFUSED, timeout, etc)
+      if (attempt < maxRetries) {
+        const delay = Math.min(200 * Math.pow(2, attempt), 2000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error(`fetchWithRetry exhausted ${maxRetries} retries for ${url}`);
+}
 
 export class OlympusClient {
   private backendUrl: string;
@@ -134,7 +179,7 @@ export class OlympusClient {
    */
   async pollPantheon(target: string, context?: ObservationContext): Promise<PollResult | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/poll`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/poll`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, context: context || {} }),
@@ -164,7 +209,7 @@ export class OlympusClient {
    */
   async assessTarget(target: string, context?: ObservationContext): Promise<ZeusAssessment | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/assess`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/assess`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, context: context || {} }),
@@ -253,7 +298,7 @@ export class OlympusClient {
    */
   async getStatus(): Promise<OlympusStatus | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/status`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -266,7 +311,7 @@ export class OlympusClient {
       const data = await response.json();
       return data as OlympusStatus;
     } catch (error) {
-      console.error('[OlympusClient] Status exception:', error);
+      console.error('[OlympusClient] Status exception after retries:', error);
       return null;
     }
   }
@@ -276,7 +321,7 @@ export class OlympusClient {
    */
   async getGodStatus(godName: string): Promise<GodStatus | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/god/${godName.toLowerCase()}/status`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/god/${godName.toLowerCase()}/status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -293,7 +338,7 @@ export class OlympusClient {
       const data = await response.json();
       return data as GodStatus;
     } catch (error) {
-      console.error('[OlympusClient] God status exception:', error);
+      console.error('[OlympusClient] God status exception after retries:', error);
       return null;
     }
   }
@@ -307,7 +352,7 @@ export class OlympusClient {
     context?: ObservationContext
   ): Promise<GodAssessment | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/god/${godName.toLowerCase()}/assess`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/god/${godName.toLowerCase()}/assess`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, context: context || {} }),
@@ -341,7 +386,7 @@ export class OlympusClient {
    */
   async declareBlitzkrieg(target: string): Promise<WarDeclaration | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/war/blitzkrieg`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/war/blitzkrieg`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target }),
@@ -362,7 +407,7 @@ export class OlympusClient {
       console.log(`[OlympusClient] BLITZKRIEG declared on: ${target}`);
       return data as WarDeclaration;
     } catch (error) {
-      console.error('[OlympusClient] Blitzkrieg exception:', error);
+      console.error('[OlympusClient] Blitzkrieg exception after retries:', error);
       return null;
     }
   }
@@ -372,7 +417,7 @@ export class OlympusClient {
    */
   async declareSiege(target: string): Promise<WarDeclaration | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/war/siege`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/war/siege`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target }),
@@ -393,7 +438,7 @@ export class OlympusClient {
       console.log(`[OlympusClient] SIEGE declared on: ${target}`);
       return data as WarDeclaration;
     } catch (error) {
-      console.error('[OlympusClient] Siege exception:', error);
+      console.error('[OlympusClient] Siege exception after retries:', error);
       return null;
     }
   }
@@ -403,7 +448,7 @@ export class OlympusClient {
    */
   async declareHunt(target: string): Promise<WarDeclaration | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/war/hunt`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/war/hunt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target }),
@@ -424,7 +469,7 @@ export class OlympusClient {
       console.log(`[OlympusClient] HUNT declared on: ${target}`);
       return data as WarDeclaration;
     } catch (error) {
-      console.error('[OlympusClient] Hunt exception:', error);
+      console.error('[OlympusClient] Hunt exception after retries:', error);
       return null;
     }
   }
@@ -434,7 +479,7 @@ export class OlympusClient {
    */
   async endWar(): Promise<WarEnded | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/war/end`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/war/end`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -448,7 +493,7 @@ export class OlympusClient {
       console.log(`[OlympusClient] War ended. Previous mode: ${data.previous_mode || 'none'}`);
       return data as WarEnded;
     } catch (error) {
-      console.error('[OlympusClient] End war exception:', error);
+      console.error('[OlympusClient] End war exception after retries:', error);
       return null;
     }
   }
@@ -458,7 +503,7 @@ export class OlympusClient {
    */
   async broadcastObservation(observation: ObservationContext): Promise<boolean> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/observe`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/observe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(observation),
@@ -472,7 +517,7 @@ export class OlympusClient {
       const data = await response.json();
       return data.status === 'observed';
     } catch (error) {
-      console.error('[OlympusClient] Observe exception:', error);
+      console.error('[OlympusClient] Observe exception after retries:', error);
       return false;
     }
   }
@@ -489,7 +534,7 @@ export class OlympusClient {
     details?: { balance?: number; address?: string; [key: string]: unknown }
   ): Promise<{ godsUpdated: number; success: boolean } | null> {
     try {
-      const response = await fetch(`${this.backendUrl}/olympus/report-outcome`, {
+      const response = await fetchWithRetry(`${this.backendUrl}/olympus/report-outcome`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, success, details: details || {} }),
@@ -504,7 +549,7 @@ export class OlympusClient {
       console.log(`[OlympusClient] Discovery reported: success=${success}, gods=${data.gods_updated}`);
       return { godsUpdated: data.gods_updated, success: data.success };
     } catch (error) {
-      console.error('[OlympusClient] Report outcome exception:', error);
+      console.error('[OlympusClient] Report outcome exception after retries:', error);
       return null;
     }
   }
