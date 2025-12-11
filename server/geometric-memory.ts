@@ -374,17 +374,12 @@ class GeometricMemory {
   }
   
   /**
-   * Load probes from PostgreSQL with memory cap
+   * Load probes from PostgreSQL
    * Primary data source - no JSON fallback for probes
    * 
-   * Memory safeguard: Limits to MAX_IN_MEMORY_PROBES to prevent OOM
-   * For larger datasets, queries should go directly to PostgreSQL
+   * No memory cap - loads all probes for complete manifold coverage
    */
   private async loadFromPostgreSQL(): Promise<void> {
-    // Memory cap: Maximum probes to load into RAM
-    // ~1KB per probe × 50,000 = ~50MB memory footprint
-    const MAX_IN_MEMORY_PROBES = 50000;
-    
     if (!oceanPersistence.isPersistenceAvailable()) {
       console.log('[GeometricMemory] PostgreSQL not available - running in memory-only mode');
       this.isLoaded = true;
@@ -393,13 +388,9 @@ class GeometricMemory {
     
     try {
       const totalCount = await oceanPersistence.getProbeCount();
-      const loadLimit = Math.min(totalCount, MAX_IN_MEMORY_PROBES);
+      const loadLimit = totalCount; // Load all probes - no cap
       
-      if (totalCount > MAX_IN_MEMORY_PROBES) {
-        console.log(`[GeometricMemory] ${totalCount} probes in DB, loading most recent ${loadLimit} to memory (cap: ${MAX_IN_MEMORY_PROBES})`);
-      } else {
-        console.log(`[GeometricMemory] Loading ${totalCount} probes from PostgreSQL...`);
-      }
+      console.log(`[GeometricMemory] Loading all ${totalCount} probes from PostgreSQL...`);
       
       // Load in batches to avoid memory issues
       const BATCH_SIZE = 500;
