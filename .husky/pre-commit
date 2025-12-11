@@ -1,0 +1,39 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# SearchSpaceCollapse Architectural Pattern Enforcement
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Check for dual persistence (json.dump in persistence modules)
+echo "Checking for dual persistence violations..."
+if git diff --cached --name-only | grep -E "persistence|storage" | xargs grep -n "json\.dump\|json\.dumps" 2>/dev/null; then
+  echo "❌ ERROR: json.dump() found in persistence modules!"
+  echo "   Rule: Python backend is the ONLY source of truth. NO dual writes to JSON + DB."
+  echo "   See .github/copilot-instructions.md Pattern #4"
+  exit 1
+fi
+
+# 2. Check for hardcoded magic numbers in constants
+echo "Checking for configuration constants..."
+if git diff --cached --name-only | grep -E "\.ts$|\.tsx$" | xargs grep -nE "(0\.727|0\.7|63\.5|64)" 2>/dev/null | grep -v "shared/constants" | grep -v "test" | grep -v "spec"; then
+  echo "⚠️  WARNING: Potential magic numbers found outside constants/"
+  echo "   Consider moving to shared/constants/"
+  echo "   See .github/copilot-instructions.md Pattern #7"
+fi
+
+# 3. ESLint check
+echo "Running ESLint..."
+npm run lint --silent || {
+  echo "❌ ESLint errors found. Fix them before committing."
+  exit 1
+}
+
+# 4. TypeScript check
+echo "Running TypeScript check..."
+npm run check --silent || {
+  echo "❌ TypeScript errors found. Fix them before committing."
+  exit 1
+}
+
+echo "✅ Pre-commit checks passed!"
