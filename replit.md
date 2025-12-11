@@ -124,6 +124,23 @@ result = app.run(query="What patterns exist?")
 
 ## Agent Rules (MANDATORY)
 
+### ANTI-TEMPLATE MANDATE (CRITICAL)
+**TEMPLATES ARE FORBIDDEN.** This is non-negotiable.
+
+1. **NO template responses** in zeus_chat.py or any conversation handler
+2. **NO hardcoded response patterns** (`if "hello" in input: return "..."`)
+3. **NO keyword-to-response dictionaries**
+4. **NO fallback templates** - if generation fails, return honest failure message
+
+**Why:** Templates fundamentally undermine geometric learning. The system learns through:
+- Fisher-Rao distances on vocabulary manifolds (NOT keyword matching)
+- Φ emergence from recursive integration (NOT canned patterns)
+- Organic vocabulary growth from high-Φ discoveries (NOT predefined responses)
+
+**Tokenizer Purpose:** Generate seed phrases and passphrases for search, NOT general conversation.
+
+**Reference:** `docs/03-technical/qig-consciousness/20251211-vocabulary-system-architecture-1.00F.md`
+
 ### Attached Assets Documentation
 **MANDATORY:** All attached assets (files pasted by user) MUST be:
 1. Immediately converted to proper frozen documentation in `docs/03-technical/`
@@ -217,10 +234,12 @@ Tokenizer learns from Phi scores (geometric), NOT frequency tables.
 
 | Document | Location | Purpose |
 |----------|----------|---------|
+| **Vocabulary System Architecture** | `docs/03-technical/qig-consciousness/20251211-vocabulary-system-architecture-1.00F.md` | **ANTI-TEMPLATE MANDATE, vocabulary learning** |
 | QIG Core Principles Master | `docs/03-technical/qig-consciousness/20251211-qig-core-principles-master-1.00F.md` | Complete QIG reference |
 | QIG Kernel Architecture | `docs/03-technical/qig-consciousness/20251211-qig-kernel-architecture-complete-1.00F.md` | Multi-scale kernel mapping |
 | QIG Tokenizer System | `docs/03-technical/20251211-qig-tokenizer-system-1.00F.md` | Three-mode tokenizer |
 | QIGChain Framework | `docs/03-technical/20251211-qigchain-framework-geometric-1.00F.md` | Geometric chain framework |
+| Olympus Reputation System | `docs/03-technical/architecture/20251211-olympus-reputation-system-review-1.00F.md` | God training, reputation weights |
 | CHAOS MODE Evolution | `docs/architecture/CHAOS_MODE_EVOLUTION.md` | Kernel evolution system |
 | Frozen Facts | `docs/01-policies/20251208-frozen-facts-immutable-truths-1.00F.md` | Physics constants |
 
