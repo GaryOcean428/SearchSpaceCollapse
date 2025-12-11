@@ -35,6 +35,50 @@ import {
 } from "../shared/schema";
 
 // ============================================================================
+// RETRY HELPER FOR TRANSIENT DB ERRORS
+// ============================================================================
+
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    baseDelayMs?: number;
+    operationName?: string;
+  } = {}
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 1000, operationName = "DB operation" } = options;
+  
+  let lastError: Error | unknown;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isTransient = 
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("ECONNRESET") ||
+        errorMessage.includes("connection") ||
+        errorMessage.includes("ETIMEDOUT");
+      
+      if (!isTransient || attempt === maxRetries) {
+        throw error;
+      }
+      
+      const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+      console.log(
+        `[QIG-DB] ${operationName} failed (attempt ${attempt}/${maxRetries}), ` +
+        `retrying in ${delayMs}ms: ${errorMessage.slice(0, 80)}`
+      );
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  throw lastError;
+}
+
+// ============================================================================
 // SHADOW INTEL
 // ============================================================================
 
@@ -182,14 +226,19 @@ export async function recordLearningEvent(
 ): Promise<LearningEvent | null> {
   try {
     if (!db) return null;
-    const [result] = await db
-      .insert(learningEvents)
-      .values({
-        ...data,
-        eventId: `learn_${Date.now()}`,
-      })
-      .returning();
-    return result;
+    return await withRetry(
+      async () => {
+        const [result] = await db!
+          .insert(learningEvents)
+          .values({
+            ...data,
+            eventId: `learn_${Date.now()}`,
+          })
+          .returning();
+        return result;
+      },
+      { operationName: "recordLearningEvent" }
+    );
   } catch (error) {
     console.error("[QIG-DB] Failed to record learning event:", error);
     return null;
