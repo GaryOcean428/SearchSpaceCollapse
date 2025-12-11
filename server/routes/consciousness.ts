@@ -78,24 +78,8 @@ consciousnessRouter.get("/complete", generousLimiter, async (req: Request, res: 
     const agent = oceanSessionManager.getActiveAgent();
 
     let innateDrives = null;
-    try {
-      const { innateDrives: driveModule } = await import("../innate-drives-bridge");
-      if (agent) {
-        const driveContext = {
-          ricciCurvature: fullConsciousness.phi || 0.5,
-          kappa: fullConsciousness.kappaEff || 64,
-          grounding: fullConsciousness.grounding || 0.7,
-        };
-        const state = driveModule.computeValence(driveContext);
-        innateDrives = {
-          pain: state.pain,
-          pleasure: state.pleasure,
-          fear: state.fear,
-          valence: state.valence,
-          valenceRaw: state.valenceRaw,
-        };
-      }
-    } catch (e) {}
+    // innateDrives module not yet implemented
+    // TODO: Implement innate-drives-bridge module
 
     let neurochemistry = null;
     if (agent) {
@@ -104,7 +88,7 @@ consciousnessRouter.get("/complete", generousLimiter, async (req: Request, res: 
 
     let oscillators = null;
     try {
-      const { neuralOscillators } = await import("../neural-oscillators");
+      const { neuralOscillators } = await import("../deprecated-stubs");
       const stateInfo = neuralOscillators.getStateInfo();
       const oscState = neuralOscillators.update();
       oscillators = {
@@ -113,7 +97,6 @@ consciousnessRouter.get("/complete", generousLimiter, async (req: Request, res: 
         modulatedKappa: neuralOscillators.getKappa(),
         oscillatorValues: oscState,
         searchModulation: 1.0,
-        description: stateInfo.description,
       };
     } catch (e) {}
 
@@ -191,27 +174,18 @@ consciousnessRouter.get("/innate-drives", generousLimiter, async (req: Request, 
     const { oceanAutonomicManager } = await import("../ocean-autonomic-manager");
     const fullConsciousness = oceanAutonomicManager.getCurrentFullConsciousness();
 
-    const { innateDrives } = await import("../innate-drives-bridge");
-
-    const driveContext = {
-      ricciCurvature: fullConsciousness.phi || 0.5,
-      kappa: fullConsciousness.kappaEff || 64,
-      grounding: fullConsciousness.grounding || 0.7,
-    };
-
-    const state = innateDrives.computeValence(driveContext);
-    const scoreResult = innateDrives.scoreHypothesis(driveContext);
-
+    // TODO: Implement innate-drives-bridge module
+    // For now, return stub data
     res.json({
       drives: {
-        pain: state.pain,
-        pleasure: state.pleasure,
-        fear: state.fear,
+        pain: 0,
+        pleasure: 0,
+        fear: 0,
       },
-      valence: state.valence,
-      valenceRaw: state.valenceRaw,
-      score: scoreResult.score,
-      recommendation: scoreResult.recommendation,
+      valence: 0,
+      valenceRaw: 0,
+      score: 0.5,
+      recommendation: "innate-drives module not yet implemented",
     });
   } catch (error: any) {
     console.error("[Innate Drives] Error:", error);

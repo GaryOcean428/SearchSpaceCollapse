@@ -9,6 +9,9 @@
 
 import type { GodMetadata, KernelMode, OrchestrationResult } from '@shared/types/olympus';
 
+// Re-export types for consumers
+export type { OrchestrationResult };
+
 export interface GodProfile {
   name: string;
   domain: string;
