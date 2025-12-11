@@ -768,6 +768,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // CRITICAL: Start Python QIG Backend FIRST - Ocean agent needs it during route registration
+  // AutoCycleManager auto-resumes during registerRoutes() which triggers Ocean
+  console.log("[Startup] Starting Python QIG Backend early (before routes)...");
+  startPythonBackend();
+  
+  // Give Python a moment to start before continuing (non-blocking)
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   // CRITICAL: Hydrate Memory BEFORE starting server
   // This prevents "resurfacing hits" by loading all tested phrases from PostgreSQL
   console.log("🌊 Hydrating Ocean Memory from PostgreSQL...");
@@ -811,21 +819,12 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       log("[Startup] Server ready for health checks");
 
-      // CRITICAL: Delay heavy startup tasks significantly (5 seconds)
-      // This ensures:
-      // 1. HTTP server is fully ready to accept health check requests
-      // 2. Autoscale deployment health probes succeed before heavy init
-      // 3. Python processes don't block the initial request handling
-      // Using setTimeout instead of setImmediate for longer delay
+      // Python already started early (before routes) - just start maintenance tasks
       setTimeout(() => {
         log("[Startup] Initializing background services...");
-
-        // Start Python QIG Backend after main server is up
-        startPythonBackend();
-
         // Start scheduled documentation maintenance (runs every 6 hours)
         startDocsMaintenance();
-      }, 5000); // 5 second delay to allow health checks to pass
+      }, 5000);
     }
   );
 })();

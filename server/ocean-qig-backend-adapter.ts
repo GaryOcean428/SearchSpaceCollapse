@@ -3142,19 +3142,6 @@ export class OceanQIGBackend {
 // Global singleton instance
 export const oceanQIGBackend = new OceanQIGBackend();
 
-// Auto-check health on import with retry to handle startup race conditions
-// Python backend may take a few seconds to start up
-oceanQIGBackend
-  .checkHealthWithRetry(DEFAULT_RETRY_ATTEMPTS, DEFAULT_RETRY_DELAY_MS)
-  .then((available) => {
-    if (available) {
-      console.log("🌊 Ocean QIG Python Backend: CONNECTED 🌊");
-    } else {
-      console.warn("⚠️  Ocean QIG Python Backend: NOT AVAILABLE");
-      console.warn("   Python backend may still be starting up...");
-      console.warn(
-        "   Start with: cd qig-backend && python3 ocean_qig_core.py"
-      );
-      console.warn("   Or check logs for errors");
-    }
-  });
+// NOTE: Auto-check REMOVED - Python backend must be started FIRST via startPythonBackend()
+// Health checks should be done explicitly after Python startup, not on module import
+// The previous auto-check caused race conditions: module imports before server.listen() callback
