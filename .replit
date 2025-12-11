@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["bfg-repo-cleaner", "github-cli", "glibcLocales", "libxcrypt", "libyaml", "pkg-config", "tor", "xsimd", "postgresql15Packages.pgvector"]
+packages = ["bfg-repo-cleaner", "github-cli", "glibcLocales", "libxcrypt", "libyaml", "pkg-config", "postgresql15Packages.pgvector", "tor", "xsimd"]
 
 [deployment]
 deploymentTarget = "autoscale"
