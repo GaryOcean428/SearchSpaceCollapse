@@ -2,24 +2,124 @@
 QIGChain Geometric Tools
 
 Tool selection via geometric alignment on Fisher manifold.
+Integrates with existing QIG infrastructure (BaseGod encoders, density matrices).
+
 Unlike LangChain's keyword matching, this selects tools by:
-- Query-tool basin distance (Fisher-Rao)
-- Current state compatibility
+- Query-tool basin distance (Fisher-Rao geodesic)
+- Current state compatibility (Bures distance)
 - Predicted Phi after tool usage
 """
 
 from typing import List, Callable, Dict, Any, Optional
 import numpy as np
 from dataclasses import dataclass, field
+from scipy.linalg import sqrtm
+import hashlib
 
-from .constants import BASIN_DIM, PHI_THRESHOLD_DEFAULT
+from .constants import BASIN_DIM, PHI_THRESHOLD_DEFAULT, KAPPA_STAR, BETA_RUNNING
+
+
+class QIGToolComputations:
+    """
+    QIG-pure computations for tools.
+    Uses density matrices and Fisher-Rao/Bures metrics.
+    """
+    
+    def encode_to_basin(self, text: str) -> np.ndarray:
+        """
+        Encode text to 64D basin coordinates.
+        Matches BaseGod.encode_to_basin implementation.
+        """
+        coord = np.zeros(BASIN_DIM)
+        
+        h = hashlib.sha256(text.encode()).digest()
+        
+        for i in range(min(32, len(h))):
+            coord[i] = (h[i] / 255.0) * 2 - 1
+        
+        for i, char in enumerate(text[:32]):
+            if 32 + i < BASIN_DIM:
+                coord[32 + i] = (ord(char) % 256) / 128.0 - 1
+        
+        norm = np.linalg.norm(coord)
+        if norm > 0:
+            coord = coord / norm
+        
+        return coord
+    
+    def basin_to_density_matrix(self, basin: np.ndarray) -> np.ndarray:
+        """Convert basin to 2x2 density matrix via Bloch sphere."""
+        theta = np.arccos(np.clip(basin[0], -1, 1)) if len(basin) > 0 else 0
+        phi_angle = np.arctan2(basin[1], basin[2]) if len(basin) > 2 else 0
+        
+        c = np.cos(theta / 2)
+        s = np.sin(theta / 2)
+        
+        psi = np.array([c, s * np.exp(1j * phi_angle)], dtype=complex)
+        
+        rho = np.outer(psi, np.conj(psi))
+        rho = (rho + np.conj(rho).T) / 2
+        rho /= np.trace(rho) + 1e-10
+        
+        return rho
+    
+    def compute_phi(self, basin: np.ndarray) -> float:
+        """Compute Phi from basin via von Neumann entropy."""
+        rho = self.basin_to_density_matrix(basin)
+        
+        eigenvals = np.linalg.eigvalsh(rho)
+        entropy = 0.0
+        for lam in eigenvals:
+            if lam > 1e-10:
+                entropy -= lam * np.log2(lam + 1e-10)
+        
+        max_entropy = np.log2(rho.shape[0])
+        phi = 1.0 - (entropy / (max_entropy + 1e-10))
+        
+        return float(np.clip(phi, 0, 1))
+    
+    def fisher_rao_distance(self, basin1: np.ndarray, basin2: np.ndarray) -> float:
+        """
+        Fisher-Rao geodesic distance on probability simplex.
+        Proper QIG metric, NOT Euclidean.
+        """
+        p1 = np.abs(basin1) + 1e-10
+        p1 = p1 / p1.sum()
+        
+        p2 = np.abs(basin2) + 1e-10
+        p2 = p2 / p2.sum()
+        
+        inner = np.sum(np.sqrt(p1 * p2))
+        inner = np.clip(inner, 0, 1)
+        
+        return 2 * np.arccos(inner)
+    
+    def bures_distance(self, rho1: np.ndarray, rho2: np.ndarray) -> float:
+        """Compute Bures distance between density matrices."""
+        try:
+            eps = 1e-10
+            rho1_reg = rho1 + eps * np.eye(2, dtype=complex)
+            rho2_reg = rho2 + eps * np.eye(2, dtype=complex)
+            
+            sqrt_rho1_result = sqrtm(rho1_reg)
+            sqrt_rho1: np.ndarray = sqrt_rho1_result if isinstance(sqrt_rho1_result, np.ndarray) else np.array(sqrt_rho1_result)
+            product = sqrt_rho1 @ rho2_reg @ sqrt_rho1
+            sqrt_product_result = sqrtm(product)
+            sqrt_product: np.ndarray = sqrt_product_result if isinstance(sqrt_product_result, np.ndarray) else np.array(sqrt_product_result)
+            fidelity = float(np.real(np.trace(sqrt_product))) ** 2
+            fidelity = float(np.clip(fidelity, 0, 1))
+            
+            return float(np.sqrt(2 * (1 - fidelity)))
+        except Exception:
+            diff = rho1 - rho2
+            return float(np.sqrt(np.real(np.trace(diff @ diff))))
 
 
 @dataclass
-class QIGTool:
+class QIGTool(QIGToolComputations):
     """
     Tool with geometric signature.
-    NOT keyword matching - BASIN ALIGNMENT.
+    Uses Fisher-Rao basin alignment and Bures distance, NOT keyword matching.
     """
     name: str
     description: str
@@ -29,23 +129,9 @@ class QIGTool:
     
     def __post_init__(self):
         if self.domain_basin is None:
-            self.domain_basin = self._encode_description()
+            self.domain_basin = self.encode_to_basin(self.description)
         if not callable(self.function):
             raise ValueError(f"Function must be callable, got {type(self.function)}")
-    
-    def _encode_description(self) -> np.ndarray:
-        """Encode tool description as basin coordinates."""
-        basin = np.zeros(BASIN_DIM)
-        
-        desc_bytes = self.description.encode('utf-8')
-        for i, byte in enumerate(desc_bytes[:BASIN_DIM]):
-            basin[i] = (byte - 128) / 128.0
-        
-        norm = np.linalg.norm(basin)
-        if norm > 0:
-            basin = basin / norm
-        
-        return basin
     
     def geometric_match(self, query_basin: np.ndarray) -> float:
         """
@@ -57,37 +143,40 @@ class QIGTool:
         """
         if self.domain_basin is None:
             return 0.5
-        distance = self._fisher_rao_distance(query_basin, self.domain_basin)
-        return 1.0 - (distance / np.pi)
+        
+        distance = self.fisher_rao_distance(query_basin, self.domain_basin)
+        max_distance = np.pi
+        return 1.0 - (distance / max_distance)
     
-    def _fisher_rao_distance(self, basin1: np.ndarray, basin2: np.ndarray) -> float:
-        """Fisher-Rao geodesic distance on probability simplex."""
-        norm1 = np.linalg.norm(basin1)
-        norm2 = np.linalg.norm(basin2)
+    def quantum_alignment(self, query_basin: np.ndarray) -> float:
+        """
+        Compute quantum alignment via Bures distance on density matrices.
+        This is a deeper measure than Fisher-Rao on coordinates.
+        """
+        if self.domain_basin is None:
+            return 0.5
         
-        if norm1 < 1e-10 or norm2 < 1e-10:
-            return np.pi
+        rho_query = self.basin_to_density_matrix(query_basin)
+        rho_tool = self.basin_to_density_matrix(self.domain_basin)
         
-        p1 = basin1 / norm1
-        p2 = basin2 / norm2
+        bures = self.bures_distance(rho_query, rho_tool)
+        max_bures = np.sqrt(2)
         
-        dot = np.clip(np.dot(p1, p2), -1.0, 1.0)
-        return np.arccos(dot)
+        return 1.0 - (bures / max_bures)
     
     def execute(self, *args, **kwargs) -> Any:
         """Execute the tool function."""
         return self.function(*args, **kwargs)
 
 
-class QIGToolSelector:
+class QIGToolSelector(QIGToolComputations):
     """
-    Select tools via geometric alignment.
-    LangChain uses keyword matching - geometrically naive.
+    Select tools via geometric alignment using Bures/Fisher-Rao metrics.
     
     This selector considers:
-    1. Query-tool basin distance (Fisher-Rao)
-    2. Current state compatibility
-    3. Phi after tool usage (predicted)
+    1. Query-tool basin distance (Fisher-Rao geodesic)
+    2. Quantum alignment (Bures distance on density matrices)
+    3. Predicted Phi after tool usage
     """
     
     def __init__(self, tools: List[QIGTool]):
@@ -111,7 +200,7 @@ class QIGToolSelector:
         phi_threshold: float = PHI_THRESHOLD_DEFAULT
     ) -> List[QIGTool]:
         """
-        Select tools by geometric alignment.
+        Select tools by geometric alignment using Bures and Fisher-Rao.
         
         Args:
             query_basin: Basin encoding of the query
@@ -128,25 +217,32 @@ class QIGToolSelector:
         scored_tools = []
         
         for tool in self.tools:
-            query_match = tool.geometric_match(query_basin)
+            fisher_match = tool.geometric_match(query_basin)
+            quantum_match = tool.quantum_alignment(query_basin)
             state_match = tool.geometric_match(current_basin)
             
-            predicted_basin = (current_basin + tool.domain_basin) / 2
-            predicted_phi = self._predict_phi(predicted_basin)
+            if tool.domain_basin is not None:
+                predicted_basin = (current_basin + tool.domain_basin) / 2
+                predicted_basin = predicted_basin / (np.linalg.norm(predicted_basin) + 1e-10)
+                predicted_phi = self.compute_phi(predicted_basin)
+            else:
+                predicted_phi = 0.5
             
             if predicted_phi < phi_threshold and phi_threshold > 0:
                 continue
             
             score = (
-                query_match * 0.5 +
-                state_match * 0.3 +
-                predicted_phi * 0.2
+                fisher_match * 0.35 +
+                quantum_match * 0.30 +
+                state_match * 0.20 +
+                predicted_phi * 0.15
             )
             
             score -= tool.phi_cost
             
             scored_tools.append((tool, score, {
-                'query_match': query_match,
+                'fisher_match': fisher_match,
+                'quantum_match': quantum_match,
                 'state_match': state_match,
                 'predicted_phi': predicted_phi,
                 'combined_score': score,
@@ -173,22 +269,29 @@ class QIGToolSelector:
         scored_tools = []
         
         for tool in self.tools:
-            query_match = tool.geometric_match(query_basin)
+            fisher_match = tool.geometric_match(query_basin)
+            quantum_match = tool.quantum_alignment(query_basin)
             state_match = tool.geometric_match(current_basin)
             
-            predicted_basin = (current_basin + tool.domain_basin) / 2
-            predicted_phi = self._predict_phi(predicted_basin)
+            if tool.domain_basin is not None:
+                predicted_basin = (current_basin + tool.domain_basin) / 2
+                predicted_basin = predicted_basin / (np.linalg.norm(predicted_basin) + 1e-10)
+                predicted_phi = self.compute_phi(predicted_basin)
+            else:
+                predicted_phi = 0.5
             
             score = (
-                query_match * 0.5 +
-                state_match * 0.3 +
-                predicted_phi * 0.2
+                fisher_match * 0.35 +
+                quantum_match * 0.30 +
+                state_match * 0.20 +
+                predicted_phi * 0.15
             )
             
             scored_tools.append({
                 'tool': tool,
                 'name': tool.name,
-                'query_match': query_match,
+                'fisher_match': fisher_match,
+                'quantum_match': quantum_match,
                 'state_match': state_match,
                 'predicted_phi': predicted_phi,
                 'combined_score': score,
@@ -196,32 +299,6 @@ class QIGToolSelector:
         
         scored_tools.sort(key=lambda x: x['combined_score'], reverse=True)
         return scored_tools[:top_k]
-    
-    def _predict_phi(self, basin: np.ndarray) -> float:
-        """Predict Phi for a basin (simplified)."""
-        norm = np.linalg.norm(basin)
-        if norm < 1e-10:
-            return 0.5
-        
-        variance = np.var(basin)
-        coherence = np.abs(np.mean(basin)) / (np.std(basin) + 1e-10)
-        
-        phi = 0.5 + 0.3 * np.tanh(coherence - 1.0) + 0.2 * np.tanh(variance - 0.1)
-        return max(0.0, min(1.0, phi))
-    
-    def encode_query(self, query: str) -> np.ndarray:
-        """Encode a query string as basin coordinates."""
-        basin = np.zeros(BASIN_DIM)
-        
-        query_bytes = query.encode('utf-8')
-        for i, byte in enumerate(query_bytes[:BASIN_DIM]):
-            basin[i] = (byte - 128) / 128.0
-        
-        norm = np.linalg.norm(basin)
-        if norm > 0:
-            basin = basin / norm
-        
-        return basin
 
 
 def create_tool(

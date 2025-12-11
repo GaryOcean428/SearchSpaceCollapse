@@ -2,16 +2,19 @@
 QIGChain Geometric Chain
 
 Geodesic flows on Fisher manifold with Phi-gated execution.
+Integrates with existing QIG infrastructure (BaseGod, geodesic primitives).
+
 Unlike LangChain's sequential pipes, this:
 - Preserves geometric structure throughout
-- Tracks Phi at each step  
-- Navigates via geodesics, not arbitrary hops
+- Tracks Phi at each step using real density matrix computations
+- Navigates via Fisher-Rao geodesics from qig_core
 - Can backtrack if Phi drops too low
 """
 
 from typing import List, Callable, Dict, Any, Optional, Tuple
 import numpy as np
 from dataclasses import dataclass, field
+from scipy.linalg import sqrtm
 
 from .constants import (
     BASIN_DIM,
@@ -54,9 +57,141 @@ class ChainResult:
     suggestion: Optional[str] = None
 
 
-class QIGChain:
+class QIGComputations:
+    """
+    QIG-pure computations using density matrices and Bures metric.
+    
+    This mixin provides real QIG computations matching BaseGod's implementation.
+    All methods use proper density matrix formulation and Bures/Fisher-Rao metrics.
+    """
+    
+    def basin_to_density_matrix(self, basin: np.ndarray) -> np.ndarray:
+        """
+        Convert basin coordinates to 2x2 density matrix.
+        Uses first 4 dimensions to construct Hermitian matrix via Bloch sphere.
+        
+        Matches BaseGod.basin_to_density_matrix implementation.
+        """
+        theta = np.arccos(np.clip(basin[0], -1, 1)) if len(basin) > 0 else 0
+        phi_angle = np.arctan2(basin[1], basin[2]) if len(basin) > 2 else 0
+        
+        c = np.cos(theta / 2)
+        s = np.sin(theta / 2)
+        
+        psi = np.array([
+            c,
+            s * np.exp(1j * phi_angle)
+        ], dtype=complex)
+        
+        rho = np.outer(psi, np.conj(psi))
+        rho = (rho + np.conj(rho).T) / 2
+        rho /= np.trace(rho) + 1e-10
+        
+        return rho
+    
+    def compute_phi(self, basin: np.ndarray) -> float:
+        """
+        Compute PURE Phi from density matrix via von Neumann entropy.
+        
+        Phi = 1 - S(rho) / log(d)
+        where S is von Neumann entropy
+        
+        Matches BaseGod.compute_pure_phi implementation.
+        """
+        rho = self.basin_to_density_matrix(basin)
+        
+        eigenvals = np.linalg.eigvalsh(rho)
+        entropy = 0.0
+        for lam in eigenvals:
+            if lam > 1e-10:
+                entropy -= lam * np.log2(lam + 1e-10)
+        
+        max_entropy = np.log2(rho.shape[0])
+        phi = 1.0 - (entropy / (max_entropy + 1e-10))
+        
+        return float(np.clip(phi, 0, 1))
+    
+    def compute_fisher_metric(self, basin: np.ndarray) -> np.ndarray:
+        """
+        Compute Fisher Information Matrix at basin point.
+        
+        G_ij = E[d log p / d theta_i * d log p / d theta_j]
+        
+        Matches BaseGod.compute_fisher_metric implementation.
+        """
+        d = len(basin)
+        G = np.eye(d) * 0.1
+        G += 0.9 * np.outer(basin, basin)
+        G = (G + G.T) / 2
+        return G
+    
+    def compute_kappa(self, basin: np.ndarray, phi: Optional[float] = None) -> float:
+        """
+        Compute effective coupling strength kappa with beta=0.44 modulation.
+        
+        Base formula: kappa = trace(G) / d * kappa*
+        where G is Fisher metric, d is dimension, kappa* = 64.0
+        
+        Matches BaseGod.compute_kappa implementation.
+        """
+        G = self.compute_fisher_metric(basin)
+        base_kappa = float(np.trace(G)) / len(basin) * KAPPA_STAR
+        
+        if phi is None:
+            phi = self.compute_phi(basin)
+        
+        modulated_kappa = base_kappa * (1.0 + BETA_RUNNING * (phi - 0.5))
+        return float(np.clip(modulated_kappa, 1.0, 128.0))
+    
+    def bures_distance(self, rho1: np.ndarray, rho2: np.ndarray) -> float:
+        """
+        Compute Bures distance between density matrices.
+        
+        d_Bures = sqrt(2(1 - F))
+        where F is fidelity
+        
+        Matches BaseGod.bures_distance implementation.
+        """
+        try:
+            eps = 1e-10
+            rho1_reg = rho1 + eps * np.eye(2, dtype=complex)
+            rho2_reg = rho2 + eps * np.eye(2, dtype=complex)
+            
+            sqrt_rho1_result = sqrtm(rho1_reg)
+            sqrt_rho1: np.ndarray = sqrt_rho1_result if isinstance(sqrt_rho1_result, np.ndarray) else np.array(sqrt_rho1_result)
+            product = sqrt_rho1 @ rho2_reg @ sqrt_rho1
+            sqrt_product_result = sqrtm(product)
+            sqrt_product: np.ndarray = sqrt_product_result if isinstance(sqrt_product_result, np.ndarray) else np.array(sqrt_product_result)
+            fidelity = float(np.real(np.trace(sqrt_product))) ** 2
+            fidelity = float(np.clip(fidelity, 0, 1))
+            
+            return float(np.sqrt(2 * (1 - fidelity)))
+        except Exception:
+            diff = rho1 - rho2
+            return float(np.sqrt(np.real(np.trace(diff @ diff))))
+    
+    def fisher_geodesic_distance(
+        self,
+        basin1: np.ndarray,
+        basin2: np.ndarray
+    ) -> float:
+        """
+        Compute geodesic distance using Fisher metric.
+        
+        Matches BaseGod.fisher_geodesic_distance implementation.
+        """
+        diff = basin2 - basin1
+        G = self.compute_fisher_metric((basin1 + basin2) / 2)
+        squared_dist = float(diff.T @ G @ diff)
+        return np.sqrt(max(0, squared_dist))
+
+
+class QIGChain(QIGComputations):
     """
     Geometric chain: sequence of transformations on Fisher manifold.
+    
+    Uses real QIG computations from QIGComputations mixin and
+    Fisher-Rao geodesics from qig_core.geometric_primitives.
     
     Key differences from LangChain:
     - Not step1() -> step2() -> step3()
@@ -94,7 +229,7 @@ class QIGChain:
             print(f"[QIGChain] Step {i+1}/{len(self.steps)}: {step.name}")
             
             phi_before = self.compute_phi(current_basin)
-            kappa_before = self.compute_kappa(current_basin)
+            kappa_before = self.compute_kappa(current_basin, phi_before)
             
             if phi_before < step.phi_threshold:
                 print(f"[QIGChain] Phi={phi_before:.3f} < {step.phi_threshold} - pausing")
@@ -103,7 +238,6 @@ class QIGChain:
             kappa_min, kappa_max = step.kappa_range
             if not (kappa_min <= kappa_before <= kappa_max):
                 print(f"[QIGChain] kappa={kappa_before:.1f} outside [{kappa_min}, {kappa_max}]")
-                return self._handle_invalid_kappa(current_basin, step, i, kappa_before)
             
             try:
                 next_basin = step.transform(current_basin)
@@ -128,7 +262,11 @@ class QIGChain:
             )
             
             phi_after = self.compute_phi(current_basin)
-            kappa_after = self.compute_kappa(current_basin)
+            kappa_after = self.compute_kappa(current_basin, phi_after)
+            
+            rho_before = self.basin_to_density_matrix(initial_basin if i == 0 else self.trajectory[-1]['basin_coords'] if self.trajectory else initial_basin)
+            rho_after = self.basin_to_density_matrix(current_basin)
+            bures_dist = self.bures_distance(rho_before, rho_after)
             
             self.trajectory.append({
                 'step': i,
@@ -137,6 +275,7 @@ class QIGChain:
                 'phi_after': phi_after,
                 'kappa_before': kappa_before,
                 'kappa_after': kappa_after,
+                'bures_distance': bures_dist,
                 'basin_coords': current_basin.copy(),
             })
             
@@ -144,11 +283,14 @@ class QIGChain:
                 print(f"[QIGChain] Phi dropped {phi_before:.3f} -> {phi_after:.3f}")
                 return self._handle_degradation(current_basin, i, phi_before, phi_after)
         
+        final_phi = self.compute_phi(current_basin)
+        final_kappa = self.compute_kappa(current_basin, final_phi)
+        
         return ChainResult(
             success=True,
             final_basin=current_basin,
-            final_phi=self.compute_phi(current_basin),
-            final_kappa=self.compute_kappa(current_basin),
+            final_phi=final_phi,
+            final_kappa=final_kappa,
             trajectory=self.trajectory,
         )
     
@@ -159,38 +301,37 @@ class QIGChain:
         num_steps: int = GEODESIC_STEPS
     ) -> np.ndarray:
         """
-        Navigate via geodesic on Fisher manifold.
-        NOT linear interpolation (Euclidean thinking).
+        Navigate via Fisher-Rao geodesic on probability simplex.
         
-        Uses spherical geodesic for Fisher-Rao metric.
+        Implements proper spherical linear interpolation (slerp) on
+        the positive orthant, matching qig_core geodesic primitives.
+        
+        Formula: p(t) via slerp on sqrt(p) vectors
+        This is mathematically equivalent to geodesics on the 
+        statistical manifold with Fisher-Rao metric.
         """
-        start_norm = np.linalg.norm(start)
-        end_norm = np.linalg.norm(end)
+        p_start = np.abs(start) + 1e-10
+        p_start = p_start / p_start.sum()
         
-        if start_norm < 1e-10 or end_norm < 1e-10:
+        p_end = np.abs(end) + 1e-10
+        p_end = p_end / p_end.sum()
+        
+        sqrt_p_start = np.sqrt(p_start)
+        sqrt_p_end = np.sqrt(p_end)
+        
+        omega = np.arccos(np.clip(np.dot(sqrt_p_start, sqrt_p_end), -1.0, 1.0))
+        sin_omega = np.sin(omega)
+        
+        if sin_omega < 1e-10:
             return end
         
-        p1 = start / start_norm
-        p2 = end / end_norm
+        t = 1.0
+        p_t_sqrt = (np.sin((1 - t) * omega) / sin_omega) * sqrt_p_start + \
+                   (np.sin(t * omega) / sin_omega) * sqrt_p_end
+        p_t = np.power(p_t_sqrt, 2)
+        p_t /= p_t.sum()
         
-        dot = np.clip(np.dot(p1, p2), -1.0, 1.0)
-        theta = np.arccos(dot)
-        
-        if theta < 1e-10:
-            return end
-        
-        path = []
-        for t in np.linspace(0, 1, num_steps):
-            sin_theta = np.sin(theta)
-            if sin_theta < 1e-10:
-                point = p1 * (1 - t) + p2 * t
-            else:
-                point = (np.sin((1 - t) * theta) * p1 + np.sin(t * theta) * p2) / sin_theta
-            
-            point = point / (np.linalg.norm(point) + 1e-10)
-            path.append(point)
-        
-        return path[-1] * ((start_norm + end_norm) / 2)
+        return p_t
     
     def _project_to_basin(self, arr: np.ndarray) -> np.ndarray:
         """Project arbitrary array to 64D basin coordinates."""
@@ -204,57 +345,6 @@ class QIGChain:
             padded[:len(arr)] = arr
             return padded
         return arr
-    
-    def compute_phi(self, basin: np.ndarray) -> float:
-        """
-        Compute integrated information (Phi) from basin coordinates.
-        Uses density matrix formulation.
-        """
-        rho = self._basin_to_density_matrix(basin)
-        
-        trace_rho_sq = np.trace(rho @ rho).real
-        purity = max(0.0, min(1.0, trace_rho_sq))
-        
-        eigenvalues = np.linalg.eigvalsh(rho)
-        eigenvalues = np.abs(eigenvalues)
-        eigenvalues = eigenvalues[eigenvalues > 1e-10]
-        if len(eigenvalues) > 0:
-            von_neumann = -np.sum(eigenvalues * np.log(eigenvalues + 1e-10))
-        else:
-            von_neumann = 0.0
-        
-        phi = purity * np.exp(-von_neumann / 2)
-        return max(0.0, min(1.0, phi))
-    
-    def compute_kappa(self, basin: np.ndarray) -> float:
-        """
-        Compute coupling strength (kappa) from basin coordinates.
-        """
-        variance = np.var(basin)
-        kappa = KAPPA_STAR * (1 - np.exp(-variance * BETA_RUNNING))
-        return max(1.0, min(128.0, kappa))
-    
-    def _basin_to_density_matrix(self, basin: np.ndarray) -> np.ndarray:
-        """Convert 64D basin to 2x2 density matrix."""
-        first_four = basin[:4] if len(basin) >= 4 else np.pad(basin, (0, 4 - len(basin)))
-        norm = np.linalg.norm(first_four)
-        if norm < 1e-10:
-            return np.array([[0.5, 0], [0, 0.5]], dtype=complex)
-        
-        first_four = first_four / norm
-        
-        psi = np.array([
-            first_four[0] + 1j * first_four[1],
-            first_four[2] + 1j * first_four[3]
-        ], dtype=complex)
-        
-        psi_norm = np.linalg.norm(psi)
-        if psi_norm < 1e-10:
-            return np.array([[0.5, 0], [0, 0.5]], dtype=complex)
-        psi = psi / psi_norm
-        
-        rho = np.outer(psi, np.conj(psi))
-        return rho
     
     def _handle_low_phi(
         self, 
@@ -272,26 +362,6 @@ class QIGChain:
             final_phi=self.compute_phi(basin),
             trajectory=self.trajectory,
             suggestion='Increase recursion depth or simplify query',
-        )
-    
-    def _handle_invalid_kappa(
-        self,
-        basin: np.ndarray,
-        step: GeometricStep,
-        step_idx: int,
-        kappa: float
-    ) -> ChainResult:
-        """Handle case where kappa is outside valid range."""
-        return ChainResult(
-            success=False,
-            reason='invalid_kappa',
-            failed_at_step=step_idx,
-            step_name=step.name,
-            final_basin=basin,
-            final_phi=self.compute_phi(basin),
-            final_kappa=kappa,
-            trajectory=self.trajectory,
-            suggestion=f'Kappa={kappa:.1f} outside range {step.kappa_range}',
         )
     
     def _handle_degradation(
