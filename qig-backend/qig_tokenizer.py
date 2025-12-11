@@ -578,8 +578,9 @@ class QIGTokenizer:
         Returns:
             Probability distribution over vocabulary
         """
-        vocab_size = len(self.vocab)
-        logits = np.zeros(vocab_size)
+        # Use max ID + 1 to handle non-contiguous IDs from loaded state
+        max_id = max(self.vocab.values()) + 1 if self.vocab else 1
+        logits = np.full(max_id, -float('inf'))  # Default to -inf (zero prob)
 
         allowed_ids = (
             self.passphrase_vocab_ids
@@ -625,7 +626,7 @@ class QIGTokenizer:
         else:
             # Greedy: set max to 1, rest to 0
             max_idx = np.argmax(logits)
-            probs = np.zeros(vocab_size)
+            probs = np.zeros(max_id)
             probs[max_idx] = 1.0
             return probs
         
