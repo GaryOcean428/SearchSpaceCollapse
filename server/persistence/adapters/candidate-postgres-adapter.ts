@@ -11,7 +11,7 @@ function mapRecordToCandidate(record: RecoveryCandidateRecord): Candidate {
     score: record.score,
     qigScore: (record.qigScore as Candidate['qigScore']) ?? undefined,
     testedAt: record.testedAt?.toISOString() ?? new Date().toISOString(),
-    type: record.type ?? undefined,
+    type: (record.type as Candidate['type']) ?? undefined,
   };
 }
 

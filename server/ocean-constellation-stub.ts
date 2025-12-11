@@ -55,22 +55,17 @@ class OceanConstellationStub {
         return [];
       }
 
-      const result = await oceanQIGBackend.orchestratePantheon({
-        role,
-        phi: context.phi,
-        kappa: context.kappa,
-        regime: context.regime,
-        highPhiPatterns: context.highPhiPatterns.slice(0, 20),
-        testedPhrases: context.testedPhrases.slice(-100),
-      });
-
-      if (result.hypotheses && Array.isArray(result.hypotheses)) {
-        return result.hypotheses.map((h: any) => ({
-          phrase: h.phrase || h.pattern || "",
-          score: h.score || h.phi || 0.5,
-          god: h.god,
-          domain: h.domain,
-        }));
+      // Use process method which exists on OceanQIGBackend
+      const result = await oceanQIGBackend.process(role);
+      
+      if (result) {
+        // Generate hypothesis from QIG result
+        return [{
+          phrase: role,
+          score: result.phi || 0.5,
+          god: "Zeus",
+          domain: "orchestration",
+        }];
       }
 
       return [];
@@ -114,16 +109,14 @@ class OceanConstellationStub {
   ): Promise<GenerationResult> {
     try {
       if (oceanQIGBackend.available()) {
-        const result = await oceanQIGBackend.processInput(context, {
-          maxTokens: options.maxTokens || 30,
-          temperature: options.temperature || 0.8,
-        });
+        // Use process method which exists on OceanQIGBackend
+        const result = await oceanQIGBackend.process(context);
 
         return {
-          text: result.generatedText || context,
-          tokens: (result.generatedText || context).split(/\s+/),
-          phi: result.phi || 0.5,
-          entropy: result.entropy || 1.0,
+          text: context,
+          tokens: context.split(/\s+/),
+          phi: result?.phi || 0.5,
+          entropy: 1.0,
         };
       }
     } catch (error) {

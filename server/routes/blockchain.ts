@@ -850,7 +850,7 @@ geometricDiscoveryRouter.get("/status", standardLimiter, async (req: Request, re
         regime: state.targetCoords.regime
       } : null,
       discoveries: state?.discoveries?.length || 0,
-      tavilyEnabled: oceanDiscoveryController.isTavilyEnabled()
+      tavilyEnabled: false // Tavily not currently implemented
     });
   } catch (error: any) {
     console.error("[GeometricDiscovery] Status error:", error);

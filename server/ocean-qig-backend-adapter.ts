@@ -470,6 +470,7 @@ export class OceanQIGBackend {
           fisherDeterminant: 0, // Not directly available
           ricciScalar: data.R, // Use Ricci curvature from Python
           quality: data.phi,
+          regime: data.regime || "linear", // Default to linear if not provided
         };
       } catch (error) {
         // On network errors, retry with backoff

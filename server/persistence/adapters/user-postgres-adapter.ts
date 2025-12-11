@@ -10,12 +10,12 @@ export class UserPostgresAdapter implements IUserStorage {
       throw new Error('Database not available - please provision a database to use Replit Auth');
     }
 
-    const [user] = await withDbRetry(
+    const result = await withDbRetry(
       () => db!.select().from(users).where(eq(users.id, id)),
       'getUser'
     );
 
-    return user || undefined;
+    return result?.[0] || undefined;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
@@ -24,13 +24,14 @@ export class UserPostgresAdapter implements IUserStorage {
     }
 
     if (userData.email) {
-      const [existingUser] = await withDbRetry(
+      const existingResult = await withDbRetry(
         () => db!.select().from(users).where(eq(users.email, userData.email!)),
         'upsertUser.selectByEmail'
       );
+      const existingUser = existingResult?.[0];
 
       if (existingUser && existingUser.id !== userData.id) {
-        const [updatedUser] = await withDbRetry(
+        const updateResult = await withDbRetry(
           () =>
             db!
               .update(users)
@@ -45,11 +46,11 @@ export class UserPostgresAdapter implements IUserStorage {
           'upsertUser.updateExisting'
         );
 
-        return updatedUser;
+        return updateResult![0];
       }
     }
 
-    const [user] = await withDbRetry(
+    const insertResult = await withDbRetry(
       () =>
         db!
           .insert(users)
@@ -65,6 +66,6 @@ export class UserPostgresAdapter implements IUserStorage {
       'upsertUser'
     );
 
-    return user;
+    return insertResult![0];
   }
 }
