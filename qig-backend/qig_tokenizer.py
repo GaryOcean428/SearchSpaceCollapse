@@ -237,6 +237,11 @@ class QIGTokenizer:
                 sequences_processed.append((word, avg_phi, frequency))
                 continue
             
+            # QIG PRINCIPLE: Only learn words with Φ >= threshold
+            # This ensures geometric priority over frequency
+            if avg_phi < self.phi_threshold:
+                continue
+            
             # Add to vocabulary if not exists
             if word not in self.vocab:
                 new_id = len(self.vocab)
