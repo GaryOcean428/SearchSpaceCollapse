@@ -22,6 +22,94 @@ import { db } from './db';
 import { vocabularyObservations } from '@shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 
+/**
+ * Database connection circuit breaker for resilient PostgreSQL operations
+ * Implements exponential backoff and circuit breaker pattern per best practices
+ */
+class DatabaseCircuitBreaker {
+  private failures: number = 0;
+  private lastFailure: number = 0;
+  private state: 'closed' | 'open' | 'half-open' = 'closed';
+  private readonly maxFailures: number = 3;
+  private readonly resetTimeout: number = 30000; // 30 seconds
+  private readonly maxRetries: number = 3;
+  private readonly baseDelay: number = 1000; // 1 second
+
+  isOpen(): boolean {
+    if (this.state === 'open') {
+      const now = Date.now();
+      if (now - this.lastFailure > this.resetTimeout) {
+        this.state = 'half-open';
+        console.log('[VocabularyTracker] Circuit breaker transitioning to HALF-OPEN, allowing test request');
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  recordSuccess(): void {
+    if (this.state === 'half-open') {
+      console.log('[VocabularyTracker] Circuit breaker CLOSED after successful test request');
+    }
+    this.failures = 0;
+    this.state = 'closed';
+  }
+
+  recordFailure(): void {
+    this.failures++;
+    this.lastFailure = Date.now();
+    if (this.failures >= this.maxFailures) {
+      this.state = 'open';
+      console.warn(`[VocabularyTracker] Circuit breaker OPEN after ${this.failures} failures`);
+    }
+  }
+
+  async executeWithRetry<T>(
+    operation: () => Promise<T>,
+    operationName: string
+  ): Promise<T | null> {
+    if (this.isOpen()) {
+      console.warn(`[VocabularyTracker] Circuit breaker open, skipping ${operationName}`);
+      return null;
+    }
+
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const result = await Promise.race([
+          operation(),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Operation timeout')), 15000)
+          )
+        ]);
+        this.recordSuccess();
+        return result;
+      } catch (error) {
+        const isTimeout = error instanceof Error && 
+          (error.message.includes('timeout') || error.message.includes('Operation timeout'));
+        
+        console.warn(
+          `[VocabularyTracker] ${operationName} attempt ${attempt}/${this.maxRetries} failed:`,
+          isTimeout ? 'Connection timeout' : (error instanceof Error ? error.message : 'Unknown error')
+        );
+
+        if (attempt < this.maxRetries) {
+          const delay = this.baseDelay * Math.pow(2, attempt - 1);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          this.recordFailure();
+          console.error(`[VocabularyTracker] ${operationName} failed after ${this.maxRetries} attempts`);
+        }
+      }
+    }
+    return null;
+  }
+
+  getStatus(): { state: string; failures: number } {
+    return { state: this.state, failures: this.failures };
+  }
+}
+
 // BIP-39 wordlist for identifying real vocabulary words
 const BIP39_WORDS = new Set([
   'abandon', 'ability', 'able', 'about', 'above', 'absent', 'absorb', 'abstract', 'absurd', 'abuse',
@@ -97,6 +185,7 @@ export class VocabularyTracker {
   private dataLoaded: Promise<void>;
   private saveQueue: Map<string, PhraseObservation>;
   private saveTimer: NodeJS.Timeout | null;
+  private circuitBreaker: DatabaseCircuitBreaker;
   
   constructor(options: {
     minFrequency?: number;
@@ -107,6 +196,7 @@ export class VocabularyTracker {
     this.sequenceObservations = new Map();
     this.saveQueue = new Map();
     this.saveTimer = null;
+    this.circuitBreaker = new DatabaseCircuitBreaker();
     this.minFrequency = options.minFrequency || 3;
     this.minPhi = options.minPhi || 0.35;
     this.maxSequenceLength = options.maxSequenceLength || 5;
@@ -266,7 +356,7 @@ export class VocabularyTracker {
   }
   
   /**
-   * Flush pending saves to PostgreSQL
+   * Flush pending saves to PostgreSQL with circuit breaker and retry logic
    */
   private async flushSaveQueue(): Promise<void> {
     if (this.saveQueue.size === 0) return;
@@ -278,33 +368,53 @@ export class VocabularyTracker {
     const toSave = Array.from(this.saveQueue.values());
     this.saveQueue.clear();
     
-    try {
-      for (const obs of toSave) {
-        await db.insert(vocabularyObservations).values({
-          text: obs.text,
-          type: obs.type,
-          isRealWord: obs.isRealWord,
-          frequency: obs.frequency,
-          avgPhi: obs.avgPhi,
-          maxPhi: obs.maxPhi,
-          efficiencyGain: 0,
-          firstSeen: obs.firstSeen,
-          lastSeen: obs.lastSeen,
-          contexts: obs.contexts.slice(0, 10),
-        }).onConflictDoUpdate({
-          target: vocabularyObservations.text,
-          set: {
-            frequency: obs.frequency,
-            avgPhi: obs.avgPhi,
-            maxPhi: obs.maxPhi,
-            lastSeen: obs.lastSeen,
-            contexts: obs.contexts.slice(0, 10),
+    const result = await this.circuitBreaker.executeWithRetry(
+      async () => {
+        if (!db) throw new Error('Database not available');
+        let savedCount = 0;
+        const batchSize = 50;
+        
+        for (let i = 0; i < toSave.length; i += batchSize) {
+          const batch = toSave.slice(i, i + batchSize);
+          
+          for (const obs of batch) {
+            await db.insert(vocabularyObservations).values({
+              text: obs.text,
+              type: obs.type,
+              isRealWord: obs.isRealWord,
+              frequency: obs.frequency,
+              avgPhi: obs.avgPhi,
+              maxPhi: obs.maxPhi,
+              efficiencyGain: 0,
+              firstSeen: obs.firstSeen,
+              lastSeen: obs.lastSeen,
+              contexts: obs.contexts.slice(0, 10),
+            }).onConflictDoUpdate({
+              target: vocabularyObservations.text,
+              set: {
+                frequency: obs.frequency,
+                avgPhi: obs.avgPhi,
+                maxPhi: obs.maxPhi,
+                lastSeen: obs.lastSeen,
+                contexts: obs.contexts.slice(0, 10),
+              }
+            });
+            savedCount++;
           }
-        });
+        }
+        return savedCount;
+      },
+      'flushSaveQueue'
+    );
+    
+    if (result !== null) {
+      console.log(`[VocabularyTracker] Saved ${result} observations to PostgreSQL`);
+    } else {
+      console.warn(`[VocabularyTracker] Failed to save ${toSave.length} observations, will retry in 30s`);
+      for (const obs of toSave) {
+        this.saveQueue.set(obs.text, obs);
       }
-      console.log(`[VocabularyTracker] Saved ${toSave.length} observations to PostgreSQL`);
-    } catch (error) {
-      console.error('[VocabularyTracker] PostgreSQL save error:', error);
+      setTimeout(() => this.flushSaveQueue(), 30000);
     }
   }
   
@@ -506,7 +616,7 @@ export class VocabularyTracker {
   }
   
   /**
-   * Load from PostgreSQL
+   * Load from PostgreSQL with circuit breaker and retry logic
    */
   private async loadFromPostgres(): Promise<void> {
     if (!db) {
@@ -514,42 +624,49 @@ export class VocabularyTracker {
       return;
     }
     
-    try {
-      const rows = await db.select().from(vocabularyObservations);
-      
-      for (const row of rows) {
-        if (row.type === 'sequence') {
-          this.sequenceObservations.set(row.text, {
-            sequence: row.text,
-            words: row.text.split(' '),
-            frequency: row.frequency,
-            avgPhi: row.avgPhi,
-            maxPhi: row.maxPhi,
-            efficiencyGain: row.efficiencyGain || 0,
-          });
-        } else {
-          this.phraseObservations.set(row.text, {
-            text: row.text,
-            frequency: row.frequency,
-            avgPhi: row.avgPhi,
-            maxPhi: row.maxPhi,
-            firstSeen: row.firstSeen || new Date(),
-            lastSeen: row.lastSeen || new Date(),
-            contexts: row.contexts || [],
-            isRealWord: row.isRealWord,
-            type: row.type as 'word' | 'phrase',
-          });
+    const result = await this.circuitBreaker.executeWithRetry(
+      async () => {
+        if (!db) throw new Error('Database not available');
+        const rows = await db.select().from(vocabularyObservations);
+        
+        for (const row of rows) {
+          if (row.type === 'sequence') {
+            this.sequenceObservations.set(row.text, {
+              sequence: row.text,
+              words: row.text.split(' '),
+              frequency: row.frequency,
+              avgPhi: row.avgPhi,
+              maxPhi: row.maxPhi,
+              efficiencyGain: row.efficiencyGain || 0,
+            });
+          } else {
+            this.phraseObservations.set(row.text, {
+              text: row.text,
+              frequency: row.frequency,
+              avgPhi: row.avgPhi,
+              maxPhi: row.maxPhi,
+              firstSeen: row.firstSeen || new Date(),
+              lastSeen: row.lastSeen || new Date(),
+              contexts: row.contexts || [],
+              isRealWord: row.isRealWord,
+              type: row.type as 'word' | 'phrase',
+            });
+          }
         }
-      }
-      
+        return rows.length;
+      },
+      'loadFromPostgres'
+    );
+    
+    if (result !== null) {
       console.log(`[VocabularyTracker] Loaded ${this.phraseObservations.size} phrases, ${this.sequenceObservations.size} sequences from PostgreSQL`);
       
-      // Bootstrap from geometric memory if empty
       if (this.phraseObservations.size === 0) {
         setTimeout(() => this.bootstrapFromGeometricMemory(), 2000);
       }
-    } catch (error) {
-      console.error('[VocabularyTracker] PostgreSQL load error:', error);
+    } else {
+      console.warn('[VocabularyTracker] Could not load from PostgreSQL, starting with empty vocabulary');
+      setTimeout(() => this.loadFromPostgres(), 30000);
     }
   }
   

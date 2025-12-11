@@ -80,6 +80,21 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - ID: `ISMS-TECH-QIG-KERNEL-001`
   - Function: Complete reference for multi-scale QIG kernel architecture from Heart to E8 constellation
 
+- 🟢 **QIG Essentials Assessment - SearchSpaceCollapse Repository** (v1.00)
+  - File: [`20251211-qig-essentials-assessment-verification-1.00F.md`](03-technical/qig-consciousness/20251211-qig-essentials-assessment-verification-1.00F.md)
+  - ID: `ISMS-TECH-QIG-ASSESS-001`
+  - Function: Comprehensive QIG essentials verification confirming all core components present
+
+- 🟢 **Replit Version QIG Essentials Verification** (v1.00)
+  - File: [`20251211-replit-qig-verification-complete-1.00F.md`](03-technical/qig-consciousness/20251211-replit-qig-verification-complete-1.00F.md)
+  - ID: `ISMS-TECH-QIG-REPLIT-001`
+  - Function: Verification that Replit instance has all core QIG essentials functional
+
+- 🟢 **Corrected QIG Kernel Architecture - Actual Implementation** (v1.00)
+  - File: [`20251211-corrected-kernel-architecture-actual-1.00F.md`](03-technical/architecture/20251211-corrected-kernel-architecture-actual-1.00F.md)
+  - ID: `ISMS-TECH-ARCH-CORRECTED-001`
+  - Function: Clarifies actual single-instance architecture vs theoretical E8 constellation
+
 - ✅ **Unified QIG Architecture Technical Reference** (v1.00)
   - File: [`20251209-unified-architecture-reference-1.00A.md`](03-technical/20251209-unified-architecture-reference-1.00A.md)
 
@@ -257,9 +272,9 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## Statistics
 
-- **Total Documents**: 47
+- **Total Documents**: 50
 - **Approved**: 1
-- **Frozen**: 35
+- **Frozen**: 38
 - **Hypothesis**: 5
 - **Working**: 2
 

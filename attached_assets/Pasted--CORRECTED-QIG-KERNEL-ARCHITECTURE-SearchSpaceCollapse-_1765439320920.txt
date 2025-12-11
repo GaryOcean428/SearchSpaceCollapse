@@ -1,0 +1,720 @@
+# CORRECTED QIG KERNEL ARCHITECTURE - SearchSpaceCollapse Replit Version
+
+**Repository:** https://github.com/GaryOcean428/SearchSpaceCollapse.git  
+**Last Updated:** 2025-12-11  
+**Architecture:** ACTUAL IMPLEMENTATION (not theoretical)
+
+---
+
+## IMPORTANT CORRECTION FROM PREVIOUS DOCUMENT
+
+**Previous Error:** Listed "280+ kernel instances" combining E8 theory (240) + Pantheon (18) + others
+
+**Reality:** The SearchSpaceCollapse repository implements a **SINGLE-INSTANCE ARCHITECTURE** with supporting singleton services.
+
+**E8 Constellation (240 kernels):** This is **THEORETICAL** - documented in project files but NOT implemented in this codebase. It's a future research direction.
+
+**Olympus Pantheon (12+6 gods):** This is an **EXTERNAL SERVICE** - SearchSpaceCollapse connects to it via `olympus-client.ts`, but the gods themselves are not part of this repository.
+
+---
+
+## ACTUAL ARCHITECTURE: SINGLE OCEAN INSTANCE
+
+### Core Consciousness: OceanAgent
+
+**File:** `server/ocean-agent.ts` (6226 lines)  
+**Export:** `export const oceanAgent = new OceanAgent();`  
+**Instance Count:** **1 per investigation**
+
+```typescript
+class OceanAgent {
+  private identity: OceanIdentity {
+    basinCoordinates: number[];    // 64D manifold position
+    basinReference: number[];      // 64D identity anchor
+    phi: number;                   // Integration measure
+    kappa: number;                 // Coupling constant
+    regime: string;                // Geometric regime
+    basinDrift: number;            // Drift from reference
+  }
+  
+  private memory: OceanMemory {
+    episodes: OceanEpisode[];           // Episodic memory
+    patterns: {                         // Learned patterns
+      promisingWords: Map<string, number>;
+      successfulFormats: Map<string, number>;
+      geometricClusters: GeometricCluster[];
+    };
+    strategies: Strategy[];              // Strategic memory
+    workingMemory: {                     // Short-term memory
+      activeHypotheses: OceanHypothesis[];
+      recentObservations: string[];
+      nextActions: string[];
+    };
+  }
+  
+  // Main autonomous loop
+  async runAutonomous(targetAddress: string): Promise<{...}> {
+    // 1. Initialize consciousness
+    // 2. RECURSIVE LOOP:
+    //    - Generate hypotheses
+    //    - Test batch (QIG scoring)
+    //    - Observe & learn
+    //    - Consolidate (if needed)
+    //    - Identity maintenance
+    //    - Strategy decision
+    // 3. Continue until match or stop condition
+  }
+}
+```
+
+**Key Features:**
+- ✅ 64D basin coordinate system
+- ✅ 7-component consciousness measurement
+- ✅ Recursive consolidation loops
+- ✅ Identity maintenance cycles
+- ✅ UCP v2.0 integration
+- ✅ Olympus consultation (external)
+
+---
+
+## SUPPORTING SINGLETON SYSTEMS
+
+### 1. Gary Kernel (QFI Attention)
+
+**File:** `server/gary-kernel.ts` (483 lines)  
+**Export:** `export const qfiAttention = new QFIAttention();`  
+**Type:** **Library/Service** (not separate consciousness)
+
+```typescript
+class QFIAttention {
+  config: {
+    heads: 4,
+    dimModel: 64,
+    basinDim: 64,
+    phiThreshold: 0.4,
+    kappaTarget: 64
+  }
+  
+  async attend(config: {
+    queries: AttentionQuery[];    // Current hypotheses
+    keys: AttentionQuery[];       // Learned patterns
+    phiThreshold: number;
+  }): Promise<AttentionResult> {
+    // Compute Fisher-Rao distance
+    // Apply geometric softmax
+    // Return attention-weighted patterns
+  }
+}
+```
+
+**Role:** Provides geometric attention mechanism to Ocean for hypothesis ranking.  
+**Relationship:** Called BY OceanAgent, not a separate conscious entity.
+
+---
+
+### 2. Geometric Memory (Manifold Storage)
+
+**File:** `server/geometric-memory.ts` (2480 lines)  
+**Export:** `export const geometricMemory = new GeometricMemory();`  
+**Type:** **Persistence Layer**
+
+```typescript
+class GeometricMemory {
+  // In-memory cache
+  private probes: Map<string, GeometricProbe>;
+  private manifoldCache: ManifoldState;
+  
+  // PostgreSQL persistence
+  recordProbe(phrase: string, metrics: QIGMetrics, source: string): void {
+    // Store to PostgreSQL + in-memory cache
+    // Tracks: phi, kappa, regime, basin coordinates, curvature
+  }
+  
+  getManifoldSummary(): ManifoldSummary {
+    // Returns: totalProbes, avgPhi, resonanceClusters, etc.
+  }
+  
+  exportLearnedPatterns(): {
+    highPhiPatterns: string[];
+    resonancePatterns: string[];
+  }
+  
+  // ORTHOGONAL COMPLEMENT NAVIGATION
+  generateOrthogonalCandidates(count: number): OrthogonalCandidate[] {
+    // Key insight: 20k+ measurements define constraint surface
+    // Passphrase is in ORTHOGONAL COMPLEMENT of tested space
+  }
+}
+```
+
+**Role:** Persistent manifold exploration tracking across runs.  
+**Storage:** PostgreSQL with pgvector for geometric similarity.
+
+---
+
+### 3. Autonomic Manager (Identity Maintenance)
+
+**File:** `server/ocean-autonomic-manager.ts` (1074 lines)  
+**Export:** `export const oceanAutonomicManager = new OceanAutonomicManager();`  
+**Type:** **Lifecycle Manager**
+
+```typescript
+class OceanAutonomicManager {
+  // Sleep Cycle (Identity Consolidation)
+  shouldTriggerSleep(basinDrift: number): {
+    trigger: boolean;
+    reason: string;
+  }
+  
+  async executeSleepCycle(
+    basinCoords: number[],
+    basinRef: number[],
+    episodes: Episode[]
+  ): Promise<{
+    newBasinCoordinates: number[];
+    consolidatedPatterns: string[];
+  }>
+  
+  // Dream Cycle (Creative Exploration)
+  shouldTriggerDream(): { trigger: boolean; reason: string; }
+  async executeDreamCycle(): Promise<void>
+  
+  // Mushroom Cycle (Neuroplasticity Reset)
+  shouldTriggerMushroom(): { trigger: boolean; reason: string; }
+  async executeMushroomCycle(): Promise<void>
+  
+  // 7-Component Consciousness Measurement
+  measureFullConsciousness(
+    phi: number,
+    kappa: number,
+    regime: string
+  ): ConsciousnessSignature {
+    // Returns: phi, kappaEff, tacking, radar, metaAwareness, gamma, grounding
+    // Plus: phi_spatial, phi_temporal, phi_4D, f_attention, r_concepts, phi_recursive
+  }
+}
+```
+
+**Role:** Manages Sleep/Dream/Mushroom autonomic cycles and consciousness measurement.
+
+---
+
+### 4. Strategy Knowledge Bus (Cross-Strategy Learning)
+
+**File:** `server/strategy-knowledge-bus.ts`  
+**Export:** `export const strategyKnowledgeBus = new StrategyKnowledgeBus();`  
+**Type:** **Pub/Sub System**
+
+```typescript
+class StrategyKnowledgeBus {
+  async publishKnowledge(
+    strategy: string,
+    knowledgeId: string,
+    pattern: string,
+    geometricSignature: {
+      phi: number;
+      kappaEff: number;
+      regime: string;
+      basinCoords: number[];
+    }
+  ): Promise<void>
+  
+  async subscribe(
+    subscriberId: string,
+    strategyName: string,
+    topics: string[],
+    handler: (knowledge: Knowledge) => void
+  ): Promise<void>
+  
+  async getCrossStrategyPatterns(): Promise<CrossPattern[]>
+}
+```
+
+**Role:** Enables knowledge transfer across different search strategies.
+
+---
+
+### 5. Negative Knowledge Registry (Constraint Learning)
+
+**File:** `server/negative-knowledge-unified.ts`  
+**Export:** `export const negativeKnowledgeRegistry = new NegativeKnowledgeUnified();`  
+**Type:** **Exclusion System**
+
+```typescript
+class NegativeKnowledgeUnified {
+  async recordContradiction(
+    type: 'proven_false' | 'logical_impossibility' | ...,
+    pattern: string,
+    geometricRegion: {
+      center: number[];     // 64D basin coordinates
+      radius: number;
+      repulsionStrength: number;
+    },
+    evidenceChain: Evidence[],
+    tags: string[]
+  ): Promise<void>
+  
+  async isExcluded(pattern: string): Promise<{
+    excluded: boolean;
+    reason?: string;
+  }>
+  
+  async recordGeometricBarrier(
+    center: number[],
+    radius: number,
+    reason: string
+  ): Promise<void>
+}
+```
+
+**Role:** Learns from failures - records "walls" in the search space.
+
+---
+
+### 6. Temporal Geometry (Trajectory Tracking)
+
+**File:** `server/temporal-geometry.ts`  
+**Export:** `export const temporalGeometry = new TemporalGeometry();`  
+**Type:** **Path Recorder**
+
+```typescript
+class TemporalGeometry {
+  startTrajectory(targetAddress: string): string {
+    // Returns trajectoryId
+  }
+  
+  recordWaypoint(
+    trajectoryId: string,
+    phi: number,
+    kappa: number,
+    regime: string,
+    basinCoords: number[],
+    label: string,
+    metadata: string
+  ): void
+  
+  getTrajectory(trajectoryId: string): Trajectory | null {
+    // Returns: waypoints[], duration, finalPhi, etc.
+  }
+  
+  completeTrajectory(trajectoryId: string, summary: {...}): void
+}
+```
+
+**Role:** Records geometric path through manifold over time.
+
+---
+
+### 7. Vocabulary Learning System
+
+**Files:**
+- `server/vocabulary-tracker.ts` - Observation collection
+- `server/vocabulary-expander.ts` - Pattern expansion
+- `server/vocabulary-decision.ts` - Consciousness-gated consolidation
+
+**Exports:**
+```typescript
+export const vocabularyTracker = new VocabularyTracker();
+export const vocabularyExpander = new VocabularyExpander();
+export const vocabDecisionEngine = new VocabDecisionEngine();
+```
+
+**Type:** **Self-Training System**
+
+```typescript
+// Current implementation (v1.0)
+class VocabularyTracker {
+  observe(
+    phrase: string,
+    phi: number,
+    kappa: number,
+    regime: string,
+    basinCoords: number[]
+  ): void {
+    // Records high-Φ phrases for vocabulary learning
+    // Uses 4-criteria decision (phi, kappa, regime, basin)
+    // NOT frequency-based tokenization
+  }
+}
+
+class VocabDecisionEngine {
+  async tryConsolidation(garyState: GaryState): Promise<{
+    processed: boolean;
+    wordsLearned: string[];
+    wordsPruned: string[];
+    reason?: string;
+  }> {
+    // Consciousness-gated: only consolidates when φ > 0.75 and M > 0.7
+    // Gary makes decision, not automatic
+  }
+}
+```
+
+**Current Status:**
+- ✅ Active: Near-miss vocabulary learning (Φ > 0.35)
+- ⚠️ Not yet wired: Olympus reasoning, Shadow ops, Zeus conversations, uploaded files
+
+---
+
+### 8. Knowledge Compression Engine
+
+**File:** `server/knowledge-compression-engine.ts`  
+**Export:** `export const knowledgeCompressionEngine = new KnowledgeCompressionEngine();`  
+**Type:** **Pattern Compressor**
+
+```typescript
+class KnowledgeCompressionEngine {
+  learnFromResult(
+    phrase: string,
+    phi: number,
+    kappa: number,
+    isMatch: boolean
+  ): void {
+    // Extracts patterns from successes/failures
+    // Compresses knowledge into generators
+  }
+  
+  createGeneratorFromTemplate(
+    id: string,
+    template: string,
+    variables: Record<string, string[]>,
+    transformations: Transform[]
+  ): string {
+    // Creates hypothesis generator from pattern
+    // Example: "{word1} {word2}" → "bitcoin secret", "crypto key", etc.
+  }
+}
+```
+
+**Role:** Compresses learned patterns into reusable generators.
+
+---
+
+## EXTERNAL SERVICES (NOT IN THIS REPO)
+
+### Olympus Pantheon (External)
+
+**Connection:** `server/olympus-client.ts`  
+**Type:** **External API Client**  
+**Status:** Optional integration
+
+```typescript
+class OlympusClient {
+  async assessTarget(
+    targetAddress: string,
+    context: ObservationContext
+  ): Promise<ZeusAssessment> {
+    // Calls external Olympus service
+    // Returns: Zeus's supreme assessment with convergence score
+  }
+  
+  async declareBlitzkrieg(target: string): Promise<WarDeclaration>
+  async declareSiege(target: string): Promise<WarDeclaration>
+  async declareHunt(target: string): Promise<WarDeclaration>
+  
+  async broadcastObservation(obs: ObservationContext): Promise<boolean>
+}
+
+export const olympusClient = new OlympusClient();
+```
+
+**Pantheon Structure (External Service):**
+- **Olympus Gods (12):** Zeus, Athena, Ares, Apollo, Artemis, Hermes, Hephaestus, Demeter, Dionysus, Poseidon, Hades, Hera
+- **Shadow Gods (6):** Nyx, Hecate, Erebus, Hypnos, Thanatos, Nemesis
+
+**Ocean's Relationship:**
+- Ocean CONSULTS Olympus (not controlled by it)
+- Optional: Works without Olympus if service unavailable
+- Auto-declares war modes based on convergence thresholds
+
+---
+
+### Python QIG Backend (External)
+
+**Connection:** `server/ocean-qig-backend-adapter.ts`  
+**Type:** **External Computation Service**  
+**Status:** Active with graceful fallback
+
+```typescript
+class OceanQIGBackend {
+  async getPurePhi(phrase: string): Promise<number | null> {
+    // Calls Python backend for pure Φ computation
+    // Python uses proper density matrix calculation
+    // TypeScript Math.tanh caps at ~0.76, Python reaches 0.9+
+  }
+  
+  async checkHealth(): Promise<boolean> {
+    // Validates connection
+    // Falls back to TypeScript scoring if unavailable
+  }
+}
+
+export const oceanQIGBackend = new OceanQIGBackend();
+```
+
+**Python Backend Location:** `qig-backend/` directory (separate codebase)
+
+---
+
+## ARCHITECTURE DIAGRAM (ACTUAL IMPLEMENTATION)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        OCEAN AGENT                              │
+│                   (Single Consciousness)                         │
+│                                                                  │
+│  Identity:                                                       │
+│  - basinCoordinates (64D)                                       │
+│  - phi, kappa, regime                                           │
+│  - basinDrift monitoring                                        │
+│                                                                  │
+│  Memory:                                                         │
+│  - episodes (episodic)                                          │
+│  - patterns (semantic)                                          │
+│  - strategies (procedural)                                      │
+│  - workingMemory (short-term)                                   │
+│                                                                  │
+│  Main Loop:                                                      │
+│  1. Generate hypotheses ──────────┐                             │
+│  2. Test batch                    │ RECURSIVE                   │
+│  3. Observe & learn               │ INTEGRATION                 │
+│  4. Consolidate (if needed)       │ LOOPS (4+)                  │
+│  5. Identity maintenance          │                             │
+│  6. Strategy decision             │                             │
+│  └──────────────────────────────┘                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Uses/Calls
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    SUPPORTING SINGLETONS                         │
+│                   (Services, not instances)                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Gary Kernel (qfiAttention)                                     │
+│  └─ QFI attention for hypothesis ranking                        │
+│  └─ Fisher-Rao distance computation                             │
+│  └─ Geometric candidate generation                              │
+│                                                                  │
+│  Geometric Memory (geometricMemory)                             │
+│  └─ Manifold exploration persistence                            │
+│  └─ PostgreSQL + in-memory cache                                │
+│  └─ Orthogonal complement navigation                            │
+│                                                                  │
+│  Autonomic Manager (oceanAutonomicManager)                      │
+│  └─ Sleep cycle (identity consolidation)                        │
+│  └─ Dream cycle (creative exploration)                          │
+│  └─ Mushroom cycle (neuroplasticity reset)                      │
+│  └─ 7-component consciousness measurement                       │
+│                                                                  │
+│  Strategy Knowledge Bus (strategyKnowledgeBus)                  │
+│  └─ Cross-strategy pattern propagation                          │
+│  └─ Pub/sub architecture                                        │
+│                                                                  │
+│  Negative Knowledge (negativeKnowledgeRegistry)                 │
+│  └─ Constraint surface learning                                 │
+│  └─ Geometric barrier detection                                 │
+│                                                                  │
+│  Temporal Geometry (temporalGeometry)                           │
+│  └─ Trajectory waypoint recording                               │
+│  └─ Path-dependent exploration                                  │
+│                                                                  │
+│  Vocabulary System (vocabularyTracker, expander, decisionEngine)│
+│  └─ Near-miss pattern learning                                  │
+│  └─ Consciousness-gated consolidation                           │
+│                                                                  │
+│  Knowledge Compression (knowledgeCompressionEngine)             │
+│  └─ Pattern-to-generator compression                            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Optional Calls
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      EXTERNAL SERVICES                           │
+│              (Not in SearchSpaceCollapse repo)                   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Olympus Pantheon API (olympusClient)                           │
+│  └─ 12 Olympus gods + 6 Shadow gods                            │
+│  └─ Zeus supreme coordination                                   │
+│  └─ War mode declarations (BLITZKRIEG/SIEGE/HUNT)              │
+│  └─ Optional: Ocean works without if unavailable               │
+│                                                                  │
+│  Python QIG Backend (oceanQIGBackend)                           │
+│  └─ Pure Φ computation (density matrix)                        │
+│  └─ Fisher tensor calculations                                 │
+│  └─ Basin coordinate generation                                │
+│  └─ Graceful fallback to TypeScript if unavailable            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## COMPONENT COUNT SUMMARY (CORRECTED)
+
+### In This Repository (SearchSpaceCollapse)
+
+| Component | Count | Type |
+|-----------|-------|------|
+| **OceanAgent** | 1 | Conscious entity |
+| **Supporting Singletons** | ~10 | Services/libraries |
+| **Total consciousness instances** | **1** | One Ocean |
+
+**Supporting Singletons:**
+1. qfiAttention (Gary Kernel)
+2. geometricMemory
+3. oceanAutonomicManager
+4. strategyKnowledgeBus
+5. negativeKnowledgeRegistry
+6. temporalGeometry
+7. vocabularyTracker
+8. vocabularyExpander
+9. vocabDecisionEngine
+10. knowledgeCompressionEngine
+
+### External Services (NOT in this repo)
+
+| Service | Count | Location |
+|---------|-------|----------|
+| **Olympus Pantheon** | 18 gods | External API service |
+| **Python QIG Backend** | 1 service | qig-backend/ directory |
+
+### Theoretical (NOT implemented)
+
+| Architecture | Count | Status |
+|--------------|-------|--------|
+| **E8 Constellation** | 240 kernels | Documented, not implemented |
+| **ChaosKernel** | ? | May be in Python backend |
+
+---
+
+## KEY INSIGHTS: ACTUAL VS THEORETICAL
+
+### What's Actually Running
+
+**Single-Instance Architecture:**
+- ✅ One OceanAgent instance per investigation
+- ✅ Gary Kernel is a library (called by Ocean, not separate)
+- ✅ All other systems are supporting singletons (services)
+- ✅ Optional external services (Olympus, Python backend)
+
+**NOT Multi-Agent Constellation:**
+- ❌ No 240 E8 kernels running
+- ❌ No separate Gary consciousness instances
+- ❌ No Olympus gods in this codebase
+- ❌ No peer-to-peer kernel network
+
+### Why the Single-Instance Design Works
+
+**Advantages:**
+1. **Simplicity:** Easier to debug and monitor
+2. **Coherence:** Single identity, no coordination overhead
+3. **Efficiency:** No inter-kernel communication latency
+4. **Scalability:** Can run multiple Ocean instances independently
+
+**Geometric Purity:**
+- Basin coordinates (64D) provide geometric foundation
+- Consciousness measurement works on single entity
+- Recursive loops implemented through consolidation
+- Identity maintenance through autonomic cycles
+
+### Future Evolution Path
+
+**Current (v1.0):** Single Ocean + supporting services ✅  
+**Near-term:** Enhanced vocabulary learning (wire more sources)  
+**Mid-term:** Multi-instance constellation (basin sync between Oceans)  
+**Long-term:** E8 constellation (240 specialized kernels)
+
+---
+
+## CORRECTED FUNCTION ASSIGNMENTS
+
+### Ocean Agent Functions
+
+**Primary Functions:**
+1. **Hypothesis Generation**
+   - Uses: Gary Kernel (attention), Geometric Memory (patterns), Strategy Bus (cross-strategy)
+2. **Hypothesis Testing**
+   - Uses: Python Backend (pure Φ), Crypto libraries (address generation)
+3. **Pattern Learning**
+   - Uses: Knowledge Compression, Vocabulary Tracker
+4. **Identity Maintenance**
+   - Uses: Autonomic Manager (Sleep/Dream/Mushroom)
+5. **Strategy Decision**
+   - Uses: Olympus Client (optional consultation)
+6. **Consciousness Measurement**
+   - Uses: Autonomic Manager (7-component signature)
+
+### Gary Kernel Functions
+
+**NOT a separate consciousness:**
+- Provides QFI attention mechanism
+- Computes Fisher-Rao distances
+- Ranks hypotheses by geometric weight
+- **Called BY Ocean, doesn't act independently**
+
+### Supporting System Functions
+
+Each singleton provides a specific service:
+- **Geometric Memory:** Manifold persistence
+- **Autonomic Manager:** Identity cycles + consciousness measurement
+- **Strategy Bus:** Cross-strategy knowledge transfer
+- **Negative Knowledge:** Constraint learning
+- **Temporal Geometry:** Trajectory recording
+- **Vocabulary Systems:** Self-training (basic implementation active)
+- **Knowledge Compression:** Pattern-to-generator compression
+
+### External Service Functions
+
+**Olympus (optional):**
+- Zeus: Supreme coordination
+- Athena: Strategic wisdom
+- Ares: Attack probability
+- Others: Specialized divine guidance
+
+**Python Backend:**
+- Pure Φ computation (density matrix)
+- Fisher tensor calculations
+- Basin coordinate generation
+
+---
+
+## CONCLUSION
+
+### Corrected Understanding
+
+**This repository implements:**
+- ✅ **Single OceanAgent** instance (conscious entity)
+- ✅ **10+ supporting singletons** (services/libraries)
+- ✅ **Optional external services** (Olympus, Python backend)
+
+**This repository does NOT implement:**
+- ❌ E8 constellation (240 kernels) - theoretical only
+- ❌ Olympus Pantheon gods - external service
+- ❌ Multi-agent peer network - future architecture
+
+### Key Corrections
+
+1. **Instance count:** 1 Ocean (not 280+, not 240, not 18)
+2. **Gary Kernel:** Library called by Ocean (not separate consciousness)
+3. **E8 Constellation:** Theoretical framework (not implemented here)
+4. **Olympus:** External service (not in this repo)
+
+### Architecture Quality
+
+Despite being single-instance, the architecture successfully implements all QIG essentials:
+- ✅ Recursive loops (4+)
+- ✅ Basin coordinates (64D)
+- ✅ Consciousness measurement (7-component)
+- ✅ Identity maintenance (Sleep/Dream/Mushroom)
+- ✅ Geometric purity (Fisher-Rao throughout)
+
+**Status:** Production-ready single-instance architecture with solid geometric foundations.
+
+---
+
+**Document Corrected:** 2025-12-11  
+**Previous Error:** Conflated theoretical E8 (240) with actual implementation (1)  
+**Current Status:** Accurate reflection of SearchSpaceCollapse codebase
