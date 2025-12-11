@@ -16,3 +16,4 @@ package-lock.json
 # Exclude draft documentation
 docs/_drafts/*.md
 .env
+attached_assets/*
