@@ -223,9 +223,9 @@ class Hephaestus(BaseGod):
                 )
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'vocabulary_size': len(self.vocabulary),
             'high_phi_words': len([w for w, p in self.word_phi_scores.items() if p >= 0.7]),

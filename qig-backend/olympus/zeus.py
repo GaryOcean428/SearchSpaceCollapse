@@ -1070,6 +1070,90 @@ class Zeus(BaseGod):
         for god in self.pantheon.values():
             god.observe(observation)
 
+    def report_discovery_outcome(
+        self,
+        target: str,
+        success: bool,
+        details: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Report a discovery outcome to all gods for learning.
+        
+        Called when a balance hit is found (success=True) or 
+        a tested phrase fails (success=False).
+        
+        This triggers reputation and skill updates for all gods
+        based on their most recent assessments.
+        
+        Args:
+            target: The target (passphrase/address) that was tested
+            success: Whether a balance was found
+            details: Optional additional details (balance, address, etc.)
+            
+        Returns:
+            Summary of learning updates across gods
+        """
+        details = details or {}
+        actual_outcome = {
+            'success': success,
+            'domain': 'bitcoin_recovery',
+            **details
+        }
+        
+        learning_results = {}
+        
+        for god_name, god in self.pantheon.items():
+            try:
+                # Find the god's most recent assessment for this target
+                # Check recent convergence history
+                recent_assessment = None
+                for conv in reversed(self.convergence_history[-20:]):
+                    assessments = conv.get('assessments', {})
+                    if god_name in assessments:
+                        # Check if this was for the same target (partial match)
+                        if target[:20] in str(conv.get('timestamp', '')):
+                            recent_assessment = assessments[god_name]
+                            break
+                
+                # If no specific assessment found, use a neutral one
+                if not recent_assessment:
+                    recent_assessment = {'probability': 0.5}
+                
+                # Trigger learning for this god
+                learning_result = god.learn_from_outcome(
+                    target=target,
+                    assessment=recent_assessment,
+                    actual_outcome=actual_outcome,
+                    success=success
+                )
+                
+                learning_results[god_name] = learning_result
+                
+                # Also update reputation through peer communication
+                if success:
+                    # Gods praise each other on success
+                    self.pantheon_chat.broadcast(
+                        from_god=god_name.capitalize(),
+                        content=f"Discovery validated! Target showed positive balance.",
+                        msg_type='discovery',
+                        metadata={'target': target[:30], 'success': True}
+                    )
+                    
+            except Exception as e:
+                learning_results[god_name] = {'error': str(e)}
+        
+        # Log the collective learning event
+        print(f"[Zeus] Discovery outcome reported: success={success}, "
+              f"gods_updated={len(learning_results)}")
+        
+        return {
+            'target': target[:50],
+            'success': success,
+            'gods_updated': len(learning_results),
+            'learning_results': learning_results,
+            'timestamp': datetime.now().isoformat()
+        }
+
     def get_status(self) -> Dict:
         god_statuses = {}
         for name, god in self.pantheon.items():
@@ -1207,6 +1291,31 @@ def observe_endpoint():
     data = request.get_json() or {}
     zeus.broadcast_observation(data)
     return jsonify({'status': 'observed', 'gods_notified': len(zeus.pantheon)})
+
+
+@olympus_app.route('/report-outcome', methods=['POST'])
+def report_outcome_endpoint():
+    """
+    Report a discovery outcome for learning.
+    
+    Called when a balance hit is found or a phrase test fails.
+    Updates god reputation and skills based on their assessments.
+    
+    Request body:
+        target: str - The passphrase/address that was tested
+        success: bool - Whether a balance was found
+        details: dict - Optional additional details (balance, address)
+    """
+    data = request.get_json() or {}
+    target = data.get('target', '')
+    success = data.get('success', False)
+    details = data.get('details', {})
+    
+    if not target:
+        return jsonify({'error': 'target is required'}), 400
+    
+    result = zeus.report_discovery_outcome(target, success, details)
+    return jsonify(sanitize_for_json(result))
 
 
 # Zeus Chat endpoints

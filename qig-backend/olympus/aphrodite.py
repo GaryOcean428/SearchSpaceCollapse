@@ -197,9 +197,9 @@ class Aphrodite(BaseGod):
         self.motivation_level = max(0.2, self.motivation_level - amount)
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'motivation_level': self.motivation_level,
             'desire_count': len(self.desire_basins),

@@ -140,18 +140,45 @@ class Athena(BaseGod):
         probability = base_prob + similar_bonus + strategy_bonus
         return float(np.clip(probability, 0, 1))
     
-    def learn_from_outcome(self, target: str, success: bool, strategy: str) -> None:
-        """Update strategy success rates based on outcome."""
-        if strategy in self.strategy_success_rates:
+    def learn_from_outcome(
+        self,
+        target: str,
+        assessment: Dict = None,
+        actual_outcome: Dict = None,
+        success: bool = False,
+        strategy: str = None
+    ) -> Dict:
+        """
+        Update strategy success rates and reputation based on outcome.
+        
+        Supports both:
+        - Base class signature: (target, assessment, actual_outcome, success)
+        - Custom signature: (target, success, strategy) via kwargs
+        """
+        # Handle legacy call pattern where second arg is bool (success)
+        if assessment is not None and isinstance(assessment, bool):
+            success = assessment
+            assessment = None
+        
+        # Update strategy success rates if strategy provided
+        if strategy and strategy in self.strategy_success_rates:
             current = self.strategy_success_rates[strategy]
             alpha = 0.1
             new_rate = current * (1 - alpha) + (1.0 if success else 0.0) * alpha
             self.strategy_success_rates[strategy] = new_rate
+        
+        # Call base class learning for reputation updates
+        return super().learn_from_outcome(
+            target,
+            assessment or {},
+            actual_outcome or {},
+            success
+        )
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'learned_patterns': len(self.learned_patterns),
             'strategy_success_rates': self.strategy_success_rates,

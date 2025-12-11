@@ -177,9 +177,9 @@ class Demeter(BaseGod):
             self.detected_cycles = self.detected_cycles[-50:]
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'detected_cycles': len(self.detected_cycles),
             'average_cycle_length': float(np.mean(self.cycle_lengths)) if self.cycle_lengths else 0,

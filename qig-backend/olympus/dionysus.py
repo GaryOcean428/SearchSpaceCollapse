@@ -170,9 +170,9 @@ class Dionysus(BaseGod):
         return wild
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'chaos_level': self.chaos_level,
             'explored_regions': len(self.explored_regions),

@@ -25,6 +25,7 @@ import { eq } from "drizzle-orm";
 import { getAddressData } from "./blockchain-api-router";
 import { bitcoinSweepService } from "./bitcoin-sweep";
 import { sweepApprovalService } from "./sweep-approval";
+import { olympusClient } from "./olympus-client";
 
 const DEFAULT_USER_ID = '36468785';
 
@@ -551,6 +552,18 @@ export async function checkAndRecordBalance(
           });
         } catch (sweepError) {
           console.error(`[BlockchainScanner] Failed to create pending sweep:`, sweepError);
+        }
+
+        // Trigger Olympus pantheon learning from successful discovery
+        try {
+          await olympusClient.reportDiscoveryOutcome(opts.passphrase, true, {
+            balance: balanceInfo.balanceSats,
+            address: opts.address,
+            recoveryType: opts.recoveryType,
+          });
+          console.log(`[BlockchainScanner] Olympus learning triggered for discovery`);
+        } catch (olympusError) {
+          console.error(`[BlockchainScanner] Olympus learning failed:`, olympusError);
         }
       } else {
         console.log(`[BlockchainScanner] Historical activity ${typeLabel}: ${opts.address} (${hit.txCount} txs, 0 balance)`);

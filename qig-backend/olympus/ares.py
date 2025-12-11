@@ -161,9 +161,9 @@ class Ares(BaseGod):
         }
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'success_basins': len(self.success_basins),
             'attack_vectors_computed': len(self.attack_vectors),

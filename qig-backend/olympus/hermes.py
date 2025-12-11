@@ -158,9 +158,9 @@ class Hermes(BaseGod):
         }
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'queue_depth': len(self.message_queue),
             'broadcast_history': len(self.broadcast_history),

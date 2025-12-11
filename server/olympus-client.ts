@@ -476,6 +476,38 @@ export class OlympusClient {
       return false;
     }
   }
+
+  /**
+   * Report a discovery outcome to trigger learning for all gods.
+   * 
+   * Called when a balance hit is found (success=true) or tested phrase fails.
+   * Updates god reputation and skills based on their assessments.
+   */
+  async reportDiscoveryOutcome(
+    target: string,
+    success: boolean,
+    details?: { balance?: number; address?: string; [key: string]: unknown }
+  ): Promise<{ godsUpdated: number; success: boolean } | null> {
+    try {
+      const response = await fetch(`${this.backendUrl}/olympus/report-outcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, success, details: details || {} }),
+      });
+      
+      if (!response.ok) {
+        console.error('[OlympusClient] Report outcome failed:', response.statusText);
+        return null;
+      }
+      
+      const data = await response.json();
+      console.log(`[OlympusClient] Discovery reported: success=${success}, gods=${data.gods_updated}`);
+      return { godsUpdated: data.gods_updated, success: data.success };
+    } catch (error) {
+      console.error('[OlympusClient] Report outcome exception:', error);
+      return null;
+    }
+  }
   
   /**
    * Quick assessment: Get Athena (strategy) + Ares (attack) consensus

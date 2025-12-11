@@ -144,9 +144,9 @@ class Artemis(BaseGod):
         return list(self.active_hunts.values())
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'active_hunts': len(self.active_hunts),
             'completed_hunts': len(self.completed_hunts),

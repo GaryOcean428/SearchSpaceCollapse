@@ -164,10 +164,10 @@ class Apollo(BaseGod):
             self.regime_history = self.regime_history[-500:]
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         trajectory = self._forecast_trajectory()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'trajectory_length': len(self.phi_trajectory),
             'current_trend': trajectory.get('trend', 'unknown'),

@@ -208,9 +208,9 @@ class Hera(BaseGod):
         self._update_unity_score()
     
     def get_status(self) -> Dict:
+        base_status = self.get_agentic_status()
         return {
-            'name': self.name,
-            'domain': self.domain,
+            **base_status,
             'observations': len(self.observations),
             'unity_score': self.unity_score,
             'components_monitored': len(self.component_states),
