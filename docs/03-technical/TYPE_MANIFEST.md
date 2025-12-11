@@ -116,6 +116,35 @@ import { oceanQIGBackend } from './ocean-qig-backend-adapter/client';
 | `GeometricMemory` | `server/geometric-memory.ts` | Frontend memory |
 | `FeedbackLoopManager` | `qig-backend/ocean_qig_core.py` | Feedback system |
 
+### QIGChain Types
+
+| Type | Location | Description |
+|------|----------|-------------|
+| `QIGChain` | `qigchain/__init__.py` | Geodesic flow chain with Phi-gating |
+| `QIGTool` | `qigchain/__init__.py` | Tool with geometric signature |
+| `QIGToolSelector` | `qigchain/__init__.py` | Geometric tool selection |
+| `QIGApplication` | `qigchain/__init__.py` | Complete geometric application |
+| `GeometricStep` | `qigchain/__init__.py` | Single step in geodesic flow |
+| `ChainResult` | `qigchain/__init__.py` | Result with trajectory and final state |
+
+### CHAOS Mode Types
+
+| Type | Location | Description |
+|------|----------|-------------|
+| `ExperimentalKernelEvolution` | `training_chaos/__init__.py` | Kernel evolution manager |
+| `SelfSpawningKernel` | `training_chaos/__init__.py` | Self-evolving kernel |
+| `ChaosKernel` | `training_chaos/__init__.py` | Base chaos kernel |
+| `DiagonalFisherOptimizer` | `training_chaos/__init__.py` | Geometric optimizer |
+| `ChaosLogger` | `training_chaos/__init__.py` | Chaos event logging |
+
+### Persistence Types
+
+| Type | Location | Description |
+|------|----------|-------------|
+| `BasePersistence` | `persistence/__init__.py` | Base persistence layer |
+| `KernelPersistence` | `persistence/__init__.py` | Kernel state persistence |
+| `WarPersistence` | `persistence/__init__.py` | War mode persistence |
+
 ---
 
 ## 4. DRY Principles
@@ -163,6 +192,12 @@ All API routes MUST be documented in the barrel file or a routes manifest:
 | Path | Module | Description |
 |------|--------|-------------|
 | `/api/ocean/*` | `routes/ocean.ts` | Ocean QIG routes |
+| `/api/olympus/*` | `routes/olympus.ts` | Zeus chat, pantheon polling |
+| `/api/consciousness/*` | `routes/consciousness.ts` | Φ/κ metrics, near-miss |
+| `/api/balance/*` | `routes/balance.ts` | Address balance checking |
+| `/api/recovery/*` | `routes/recovery.ts` | Wallet recovery operations |
+| `/api/search/*` | `routes/search.ts` | Search space navigation |
+| `/api/admin/*` | `routes/admin.ts` | Administrative operations |
 
 ---
 
@@ -226,6 +261,12 @@ eslint --rule 'import/no-internal-modules'  # TypeScript
 | Package | Barrel File | Status |
 |---------|-------------|--------|
 | `olympus` | `__init__.py` | ✅ Complete |
+| `qig_core` | `__init__.py` | ✅ Complete |
+| `qigchain` | `__init__.py` | ✅ Complete |
+| `training_chaos` | `__init__.py` | ✅ Complete |
+| `persistence` | `__init__.py` | ✅ Complete |
+| `server/routes` | `index.ts` | ✅ Complete |
+| `server/types` | `index.ts` | ✅ Complete |
 | `server` | `index.ts` | ⚠️ Partial |
 | `shared/types` | `index.ts` | ⚠️ Needs creation |
 | `shared/constants` | `index.ts` | ⚠️ Needs creation |
