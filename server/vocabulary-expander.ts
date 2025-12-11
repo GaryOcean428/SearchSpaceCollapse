@@ -16,8 +16,9 @@ import { geometricMemory } from './geometric-memory';
 import { scoreUniversalQIGAsync, type UniversalQIGScore as QIGScore, type Regime } from './qig-universal';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { expandedVocabulary } from './expanded-vocabulary';
-import fs from 'fs';
-import path from 'path';
+import { db } from './db';
+import { vocabManifoldWords, vocabManifoldState } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 // ============================================================================
 // FISHER MANIFOLD VOCABULARY TYPES
@@ -48,8 +49,6 @@ interface VocabularyManifoldState {
   totalExpansions: number;
   lastExpansionTime: string | null;
 }
-
-const DATA_FILE = path.join(process.cwd(), 'data', 'vocabulary-manifold.json');
 
 // ============================================================================
 // GEOMETRIC VOCABULARY EXPANDER
@@ -367,51 +366,140 @@ export class GeometricVocabularyExpander {
   }
   
   /**
-   * Save to disk
+   * Save to PostgreSQL
    */
   saveToDisk(): void {
+    this.saveToDatabase().catch(err => {
+      console.error('[VocabExpander] Failed to save:', err);
+    });
+  }
+
+  /**
+   * Async save to PostgreSQL database
+   */
+  private async saveToDatabase(): Promise<void> {
+    if (!db) {
+      console.warn('[VocabExpander] Database not available, skipping save');
+      return;
+    }
     try {
-      const dir = path.dirname(DATA_FILE);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      const words = Array.from(this.state.words.values());
+      const avgPhi = words.length > 0
+        ? words.reduce((sum, w) => sum + w.phi, 0) / words.length
+        : 0;
+      const maxPhi = words.length > 0
+        ? Math.max(...words.map(w => w.phi))
+        : 0;
+
+      // Save global state
+      await db.insert(vocabManifoldState)
+        .values({
+          id: 'singleton',
+          totalExpansions: this.state.totalExpansions,
+          totalWords: this.state.words.size,
+          avgPhi,
+          maxPhi,
+          lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: vocabManifoldState.id,
+          set: {
+            totalExpansions: this.state.totalExpansions,
+            totalWords: this.state.words.size,
+            avgPhi,
+            maxPhi,
+            lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
+            updatedAt: new Date(),
+          },
+        });
+
+      // Batch save words (limit to avoid bloat)
+      const wordsToSave = words.slice(-1000);
+      
+      for (const word of wordsToSave) {
+        await db.insert(vocabManifoldWords)
+          .values({
+            text: word.text,
+            phi: word.phi,
+            kappa: word.kappa,
+            regime: undefined,
+            geodesicOrigin: word.geodesicOrigin,
+            geodesicDistance: 0,
+            basinCoordinates: word.coordinates,
+            expansionCount: word.frequency,
+          })
+          .onConflictDoUpdate({
+            target: vocabManifoldWords.text,
+            set: {
+              phi: word.phi,
+              kappa: word.kappa,
+              basinCoordinates: word.coordinates,
+              expansionCount: word.frequency,
+              updatedAt: new Date(),
+            },
+          });
       }
       
-      const data = {
-        words: Array.from(this.state.words.entries()),
-        expansionHistory: this.state.expansionHistory,
-        totalExpansions: this.state.totalExpansions,
-        lastExpansionTime: this.state.lastExpansionTime,
-        savedAt: new Date().toISOString(),
-      };
-      
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-      console.log(`[VocabExpander] Saved ${this.state.words.size} manifold words`);
+      console.log(`[VocabExpander] Saved to DB: ${this.state.words.size} manifold words`);
     } catch (error) {
-      console.error('[VocabExpander] Failed to save:', error);
+      console.error('[VocabExpander] Failed to save to database:', error);
     }
   }
-  
+
   /**
-   * Load from disk
+   * Load from PostgreSQL database
    */
   private loadFromDisk(): void {
+    this.loadFromDatabase().catch(err => {
+      console.error('[VocabExpander] Failed to load:', err);
+    });
+  }
+
+  /**
+   * Async load from PostgreSQL database
+   */
+  private async loadFromDatabase(): Promise<void> {
+    if (!db) {
+      console.warn('[VocabExpander] Database not available, starting fresh');
+      return;
+    }
     try {
-      if (!fs.existsSync(DATA_FILE)) {
-        console.log('[VocabExpander] No saved manifold found, starting fresh');
+      // Load global state
+      const state = await db.select()
+        .from(vocabManifoldState)
+        .where(eq(vocabManifoldState.id, 'singleton'))
+        .limit(1);
+      
+      if (state.length === 0) {
+        console.log('[VocabExpander] No saved manifold found in DB, starting fresh');
         return;
       }
+
+      const s = state[0];
+      this.state.totalExpansions = s.totalExpansions ?? 0;
+      this.state.lastExpansionTime = s.lastExpansionAt?.toISOString() ?? null;
+
+      // Load words
+      const words = await db.select()
+        .from(vocabManifoldWords)
+        .limit(2000);
       
-      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-      const data = JSON.parse(raw);
+      for (const word of words) {
+        this.state.words.set(word.text, {
+          text: word.text,
+          phi: word.phi,
+          kappa: word.kappa,
+          frequency: word.expansionCount,
+          coordinates: (word.basinCoordinates as number[]) ?? [],
+          geodesicOrigin: word.geodesicOrigin ?? undefined,
+        });
+      }
       
-      this.state.words = new Map(data.words || []);
-      this.state.expansionHistory = data.expansionHistory || [];
-      this.state.totalExpansions = data.totalExpansions || 0;
-      this.state.lastExpansionTime = data.lastExpansionTime;
-      
-      console.log(`[VocabExpander] Loaded ${this.state.words.size} manifold words, ${this.state.totalExpansions} expansions`);
+      console.log(`[VocabExpander] Loaded from DB: ${this.state.words.size} manifold words, ${this.state.totalExpansions} expansions`);
     } catch (error) {
-      console.error('[VocabExpander] Failed to load:', error);
+      console.error('[VocabExpander] Failed to load from database:', error);
+      console.log('[VocabExpander] Starting fresh due to load error');
     }
   }
   

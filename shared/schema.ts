@@ -473,6 +473,88 @@ export type VocabularyObservation = typeof vocabularyObservations.$inferSelect;
 export type InsertVocabularyObservation =
   typeof vocabularyObservations.$inferInsert;
 
+// Vocabulary decision state - persistent state for VocabDecision consolidation cycles
+export const vocabDecisionState = pgTable("vocab_decision_state", {
+  id: varchar("id").primaryKey().default("singleton"),
+  cycleNumber: integer("cycle_number").notNull().default(0),
+  iterationsSinceSleep: integer("iterations_since_sleep").notNull().default(0),
+  lastConsolidation: bigint("last_consolidation", { mode: "number" }),
+  pendingCandidates: text("pending_candidates").array(), // Words awaiting decision
+  learnedWords: text("learned_words").array(), // Words marked for learning
+  prunedWords: text("pruned_words").array(), // Words marked for pruning
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type VocabDecisionState = typeof vocabDecisionState.$inferSelect;
+export type InsertVocabDecisionState = typeof vocabDecisionState.$inferInsert;
+
+// Vocabulary decision observations - detailed per-word observations for consolidation
+export const vocabDecisionObservations = pgTable(
+  "vocab_decision_observations",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    word: varchar("word", { length: 255 }).notNull().unique(),
+    avgPhi: doublePrecision("avg_phi").notNull().default(0),
+    maxPhi: doublePrecision("max_phi").notNull().default(0),
+    frequency: integer("frequency").notNull().default(1),
+    firstSeen: bigint("first_seen", { mode: "number" }),
+    lastSeen: bigint("last_seen", { mode: "number" }),
+    contextEmbeddings: jsonb("context_embeddings"), // Basin coordinates per context
+    contexts: jsonb("contexts"), // WordContext[] serialized
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_vocab_decision_obs_phi").on(table.maxPhi),
+    index("idx_vocab_decision_obs_freq").on(table.frequency),
+  ]
+);
+
+export type VocabDecisionObservation = typeof vocabDecisionObservations.$inferSelect;
+export type InsertVocabDecisionObservation = typeof vocabDecisionObservations.$inferInsert;
+
+// Vocabulary manifold words - persistent state for VocabExpander manifold
+export const vocabManifoldWords = pgTable(
+  "vocab_manifold_words",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    text: varchar("text", { length: 255 }).notNull().unique(),
+    phi: doublePrecision("phi").notNull().default(0),
+    kappa: doublePrecision("kappa").notNull().default(0),
+    regime: varchar("regime", { length: 50 }),
+    geodesicOrigin: varchar("geodesic_origin", { length: 255 }),
+    geodesicDistance: doublePrecision("geodesic_distance").default(0),
+    basinCoordinates: doublePrecision("basin_coordinates").array(),
+    expansionCount: integer("expansion_count").notNull().default(0),
+    addedAt: timestamp("added_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_vocab_manifold_phi").on(table.phi),
+    index("idx_vocab_manifold_origin").on(table.geodesicOrigin),
+  ]
+);
+
+export type VocabManifoldWord = typeof vocabManifoldWords.$inferSelect;
+export type InsertVocabManifoldWord = typeof vocabManifoldWords.$inferInsert;
+
+// Vocabulary manifold state - global state for VocabExpander
+export const vocabManifoldState = pgTable("vocab_manifold_state", {
+  id: varchar("id").primaryKey().default("singleton"),
+  totalExpansions: integer("total_expansions").notNull().default(0),
+  totalWords: integer("total_words").notNull().default(0),
+  avgPhi: doublePrecision("avg_phi").notNull().default(0),
+  maxPhi: doublePrecision("max_phi").notNull().default(0),
+  lastExpansionAt: timestamp("last_expansion_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type VocabManifoldState = typeof vocabManifoldState.$inferSelect;
+export type InsertVocabManifoldState = typeof vocabManifoldState.$inferInsert;
+
 // Verified addresses: Full address details with complete recovery data
 export const verifiedAddresses = pgTable(
   "verified_addresses",

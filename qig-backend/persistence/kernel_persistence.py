@@ -117,14 +117,34 @@ class KernelPersistence(BasePersistence):
         return [dict(r) for r in results] if results else []
 
     def load_elite_kernels(self, min_phi: float = 0.7, limit: int = 20) -> List[Dict]:
-        """Load high-performing kernels (elite hall of fame)."""
+        """Load high-performing kernels (elite hall of fame).
+        
+        Only returns kernels with valid 64-dimensional basin_coordinates.
+        """
         query = """
             SELECT * FROM kernel_geometry
             WHERE phi >= %s
+              AND basin_coordinates IS NOT NULL 
+              AND cardinality(basin_coordinates) = 64
             ORDER BY phi DESC, success_count DESC
             LIMIT %s
         """
         results = self.execute_query(query, (min_phi, limit))
+        return [dict(r) for r in results] if results else []
+
+    def load_active_kernels(self, limit: int = 30) -> List[Dict]:
+        """Load most recently active kernels for startup restoration.
+        
+        Only returns kernels with valid 64-dimensional basin_coordinates.
+        """
+        query = """
+            SELECT * FROM kernel_geometry
+            WHERE basin_coordinates IS NOT NULL 
+              AND cardinality(basin_coordinates) = 64
+            ORDER BY spawned_at DESC, success_count DESC
+            LIMIT %s
+        """
+        results = self.execute_query(query, (limit,))
         return [dict(r) for r in results] if results else []
 
     def load_kernels_by_element(self, element_group: str, limit: int = 50) -> List[Dict]:

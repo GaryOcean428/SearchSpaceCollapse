@@ -121,7 +121,83 @@ class ExperimentalKernelEvolution:
         self.convergence_history: list[dict] = []
         self.convergence_target = self.E8_ROOTS  # 240
 
+        # Load persisted kernels from database on startup
+        self._load_from_database()
+        
         self._print_init_summary()
+
+    def _load_from_database(self):
+        """Load persisted kernels from PostgreSQL on startup."""
+        if not self.kernel_persistence:
+            print("[Chaos] No persistence available, starting fresh")
+            return
+        
+        try:
+            # Load elite kernels first (high performers)
+            elite_kernels = self.kernel_persistence.load_elite_kernels(
+                min_phi=self.phi_elite_threshold,
+                limit=min(20, self.max_active // 2)
+            )
+            
+            # Load additional active kernels
+            active_kernels = self.kernel_persistence.load_active_kernels(
+                limit=self.max_active - len(elite_kernels)
+            )
+            
+            loaded_count = 0
+            for kernel_data in elite_kernels + active_kernels:
+                try:
+                    # Skip if already at capacity
+                    if len(self.kernel_population) >= self.max_active:
+                        break
+                    
+                    # Reconstruct kernel from database
+                    basin_coords = kernel_data.get('basin_coordinates')
+                    # Validate basin coordinates - must be a list of 64 floats
+                    if basin_coords is None or not isinstance(basin_coords, (list, tuple)):
+                        continue
+                    if len(basin_coords) != 64:
+                        continue
+                    # Ensure all values are valid numbers
+                    try:
+                        basin_coords = [float(x) for x in basin_coords]
+                    except (ValueError, TypeError):
+                        continue
+                    
+                    kernel = SelfSpawningKernel(
+                        spawn_threshold=self.spawn_threshold,
+                        death_threshold=self.death_threshold,
+                        mutation_rate=self.mutation_rate,
+                    )
+                    
+                    # Restore state
+                    with torch.no_grad():
+                        kernel.kernel.basin_coords.copy_(
+                            torch.tensor(basin_coords, dtype=torch.float32)
+                        )
+                    
+                    kernel.kernel_id = kernel_data.get('kernel_id', kernel.kernel_id)
+                    kernel.generation = kernel_data.get('generation', 0)
+                    kernel.success_count = kernel_data.get('success_count', 0)
+                    kernel.failure_count = kernel_data.get('failure_count', 0)
+                    
+                    # Track E8 root mapping if available
+                    e8_root = kernel_data.get('primitive_root')
+                    if e8_root is not None:
+                        self.kernel_to_root_mapping[kernel.kernel_id] = e8_root
+                    
+                    self.kernel_population.append(kernel)
+                    loaded_count += 1
+                    
+                except Exception as e:
+                    print(f"[Chaos] Failed to restore kernel {kernel_data.get('kernel_id')}: {e}")
+            
+            if loaded_count > 0:
+                print(f"✨ [Chaos] Restored {loaded_count} kernels from database")
+                
+        except Exception as e:
+            print(f"[Chaos] Failed to load from database: {e}")
+            # Continue with empty population - will spawn fresh
 
     def _detect_paid_tier(self) -> bool:
         """Detect if on paid Replit tier.
