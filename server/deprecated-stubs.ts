@@ -147,6 +147,25 @@ class NeuralOscillators {
     return this.currentState;
   }
 
+  getStateInfo(): { state: BrainState } {
+    return { state: this.currentState };
+  }
+
+  getKappa(): number {
+    return this.getModulatedKappa();
+  }
+
+  update(): Record<string, number> {
+    // Return stub oscillator values
+    return {
+      alpha: 1.0,
+      beta: 1.0,
+      gamma: 1.0,
+      theta: 1.0,
+      delta: 1.0,
+    };
+  }
+
   getModulatedKappa(): number {
     switch (this.currentState) {
       case "focused":
