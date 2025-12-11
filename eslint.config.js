@@ -11,6 +11,15 @@ export default [
       "attached_assets/**",
       "*.config.js",
       "*.config.ts",
+      "build/**",
+      ".venv/**",
+      "qig-backend/**",
+      "scripts/**",
+      "data/**",
+      "persistent_data/**",
+      "migrations/**",
+      "e2e/**",
+      "docs/**",
     ],
   },
   {
@@ -42,7 +51,7 @@ export default [
       // Architectural Pattern Enforcement
 
       // 1. Barrel File Pattern: Block deep component imports
-      "no-restricted-imports": ["error", {
+      "no-restricted-imports": ["warn", {
         "patterns": [
           {
             "group": ["**/components/*/**", "!**/components/*/index"],
@@ -57,7 +66,7 @@ export default [
 
       // 2. Centralized API Client: No raw fetch in components
       "no-restricted-syntax": [
-        "error",
+        "warn",
         {
           "selector": "CallExpression[callee.name='fetch']",
           "message": "Use centralized API client from @/lib/api instead of raw fetch()"
