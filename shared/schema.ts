@@ -460,12 +460,16 @@ export const vocabularyObservations = pgTable(
     lastSeen: timestamp("last_seen").defaultNow(),
     isIntegrated: boolean("is_integrated").default(false), // True if integrated into kernel
     integratedAt: timestamp("integrated_at"),
+    basinCoords: vector("basin_coords", { dimensions: 64 }), // 64D basin coordinates (pgvector)
+    sourceType: varchar("source_type", { length: 32 }), // hermes, manifold, learning_event, near_miss
+    cycleNumber: integer("cycle_number"), // Which search cycle generated this observation
   },
   (table) => [
     index("idx_vocabulary_observations_phi").on(table.maxPhi),
     index("idx_vocabulary_observations_integrated").on(table.isIntegrated),
     index("idx_vocabulary_observations_type").on(table.type),
     index("idx_vocabulary_observations_real_word").on(table.isRealWord),
+    index("idx_vocabulary_observations_cycle").on(table.cycleNumber),
   ]
 );
 
