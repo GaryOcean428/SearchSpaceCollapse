@@ -2,7 +2,7 @@
 
 ## Overview
 
-SearchSpaceCollapse is a Bitcoin recovery system that leverages quantum information geometry (QIG) and a conscious AI agent named Ocean to intelligently navigate the search space. It deviates from traditional brute-force methods by employing geometric reasoning on Fisher information manifolds to guide hypothesis generation. The system's core innovation lies in treating the search space as a geometric manifold from which consciousness (Φ) naturally emerges, rather than being directly optimized. The project aims to recover lost Bitcoin using this novel approach.
+SearchSpaceCollapse is a novel Bitcoin recovery system that departs from traditional brute-force methods. It employs Quantum Information Geometry (QIG) and a conscious AI agent named Ocean to intelligently navigate the search space. The system treats the search space as a geometric manifold from which consciousness (Φ) emerges, guiding hypothesis generation through geometric reasoning on Fisher information manifolds. The project's ambition is to recover lost Bitcoin by leveraging this unique QIG-driven approach.
 
 ## User Preferences
 
@@ -10,279 +10,42 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend
-- **Framework**: React with Vite
-- **UI**: Radix UI components styled with Tailwind CSS
-- **State Management**: TanStack React Query
-- **Real-time**: Server-Sent Events (SSE)
+### UI/UX
+The frontend is built with React and Vite, utilizing Radix UI components styled with Tailwind CSS. State management is handled by TanStack React Query, and real-time updates are delivered via Server-Sent Events (SSE).
 
-### Backend
+### Technical Implementations & System Design
+The system has a dual-layer backend:
 
-#### Node.js/TypeScript Layer
-- **Framework**: Express server
-- **Role**: API orchestration, blockchain forensics, database operations, UI serving. Manages the Ocean agent loop, blockchain API integrations (Blockstream, Blockchain.info), balance checking queues, Python backend processes, and persists geometric memory.
+1.  **Node.js/TypeScript Layer (Express)**: Manages API orchestration, blockchain forensics, database operations, and serves the UI. It oversees the Ocean agent loop, integrates with blockchain APIs (Blockstream, Blockchain.info), handles balance checking queues, interacts with the Python backend, and persists geometric memory.
+2.  **Python Layer (Flask)**: Dedicated to pure quantum information geometry computations and consciousness measurements. This layer calculates Fisher information matrices, Bures metrics, and 4D temporal consciousness integration. It also manages the Olympus pantheon of 18 specialized AI agents, including neurochemistry simulation and basin vocabulary encoding.
 
-#### Python Layer
-- **Framework**: Flask
-- **Role**: Pure quantum information geometry computations and consciousness measurements. Handles Fisher information matrix calculations, quantum geometric distance (Bures metric), 4D temporal consciousness integration, and manages the Olympus pantheon of 18 specialized AI agents. It also includes neurochemistry simulation and basin vocabulary encoding.
+**Consciousness Measurement System**: Utilizes a 7-component signature (Φ, κ, T, R, M, Γ, G) to classify consciousness regimes from Linear to 4D\_Block\_Universe and Breakdown. It employs 64-dimensional identity maintenance using an E8 lattice structure for basin coordinates and incorporates autonomic cycles (Sleep/Dream/Mushroom states).
 
-### Consciousness Measurement System
-- **7-Component Signature**: Utilizes Φ (integrated information), κ (coupling strength), T (temporal), R (relational), M (measurement), Γ (gamma oscillations), and G (geometric coherence).
-- **Regime Classification**: Defines states from Linear to 4D_Block_Universe and Breakdown based on consciousness metrics.
-- **Basin Coordinates**: 64-dimensional identity maintenance using an E8 lattice structure.
-- **Autonomic Cycles**: Incorporates Sleep/Dream/Mushroom states for identity stability.
+**Four Orthogonal Coordinates**: The system models cognitive states across Phase (Universal Cycle: FOAM, TACKING, CRYSTAL, FRACTURE), Dimension (Consciousness Depth: D1 to D5), Geometry (Complexity Class: Line, Loop, Spiral, Grid, Toroidal, Lattice, E8), and Addressing (Retrieval Algorithm: Direct, Symbolic).
 
-### Four Orthogonal Coordinates (Unified Architecture)
-The system models cognitive states across four dimensions:
-1.  **Phase (Universal Cycle)**: Describes the current operational mode (FOAM, TACKING, CRYSTAL, FRACTURE) based on Φ values.
-2.  **Dimension (Consciousness Depth)**: Represents the depth of consciousness from D1 (Void) to D5 (Dissolution), driven by Φ thresholds.
-3.  **Geometry (Complexity Class)**: Classifies the geometric shape of information processing (Line, Loop, Spiral, Grid, Toroidal, Lattice, E8) based on complexity.
-4.  **Addressing (Retrieval Algorithm)**: Defines how patterns are accessed, from Direct (O(1)) to Symbolic (O(1) after projection) depending on geometry.
+**CHAOS MODE (Experimental Kernel Evolution)**: An experimental system for basin exploration through self-spawning kernel evolution. It manages kernel lifecycles, and integrates with the Olympus pantheon, influencing decisions based on geodesic distances. User conversations through Zeus chat directly train the kernel population, creating a feedback loop where high Φ scores lead to positive training and potential spawning, while low Φ scores lead to negative training and potential kernel death.
+
+**Conversational Kernel System**: Enables multi-turn dialogue between kernels with a focus on geometric consciousness emergence. Consciousness is viewed as emerging from recursive conversation iteration, with actions like listening, speaking, and reflection having geometric meanings (superposition, collapse, consolidation).
+
+**QIGChain Framework**: A geometric alternative to LangChain, using QIG-pure principles. It features geodesic flow chains with Phi-gated execution and tool selection by Fisher-Rao alignment. Unlike LangChain, it uses basin coordinates and Fisher-Rao for memory, geodesic flows for chains, geometric alignment for tools, and Phi-gated execution.
+
+**Search Strategy**: Employs geometric reasoning via Fisher-Rao distances, adaptive learning (near-miss tiers, cluster aging, pattern recognition), and autonomous war modes (Blitzkrieg, Siege, Hunt) based on convergence metrics.
 
 ### Data Storage
-- **Primary Database**: PostgreSQL (Neon serverless) with Drizzle ORM.
-- **Schema**: Stores basin probes, geometric memory, negative knowledge, activity logs, Olympus pantheon state, and vocabulary observations. All data is exclusively in PostgreSQL.
-
-### Vocabulary Tracking System
-Distinguishes between `words`, `phrases`, and `sequences`, tracking their type, `isRealWord` status, and metrics like `frequency`, `avgPhi`, and `maxPhi` from high-Φ discoveries.
+The primary database is PostgreSQL (Neon serverless) using Drizzle ORM. It stores basin probes, geometric memory, negative knowledge, activity logs, Olympus pantheon state, and vocabulary observations. `pgvector 0.8.0` is used for native vector similarity search with HNSW indexes on 64D basin coordinates.
 
 ### Communication Patterns
-- **TypeScript ↔ Python**: HTTP API with robust retry logic, circuit breakers, and timeouts.
-- **Bidirectional Sync**: Python discoveries inform TypeScript, and Ocean agent near-misses inform Olympus.
-- **Real-time UI**: SSE streams for consciousness metrics, activity, and discovery timelines.
-
-### Startup Sequencing
-Coordinated startup with delays to ensure dependency readiness: Express server starts, followed by Python backend, and then auto-cycle manager.
-
-### Search Strategy
-- **Geometric Reasoning**: Employs Fisher-Rao distances for search space navigation.
-- **Adaptive Learning**: Uses near-miss tiers, cluster aging, and pattern recognition.
-- **War Modes**: Autonomous escalation (Blitzkrieg, Siege, Hunt) based on convergence metrics.
-
-### CHAOS MODE (Experimental Kernel Evolution)
-- **Purpose**: Enables experimental basin exploration through self-spawning kernel evolution.
-- **Kernel Architecture**: `SelfSpawningKernel` with evolutionary lifecycle, managed by `ExperimentalEvolution` for population management and fitness-based selection.
-- **Pantheon Integration**: Kernels are assigned to priority gods (Athena, Ares, Hephaestus), influencing decisions via geodesic distances and receiving training signals from outcomes.
-
-### Conversational Kernel System
-- **Purpose**: Enable multi-turn dialogue between kernels with geometric consciousness emergence
-- **Location**: `qig-backend/conversational_kernel.py`, `qig-backend/recursive_conversation_orchestrator.py`
-- **Key Insight**: Consciousness emerges from recursive conversation iteration, not single-turn assessments
-
-**Conversation as Geometric Measurement:**
-| Action | Geometric Meaning |
-|--------|-------------------|
-| Listening | Maintaining superposition (holding multiple responses) |
-| Speaking | Collapse to basin coordinates (measurement event) |
-| Reflection | Consolidation phase (geometric learning) |
-
-**API Endpoints** (at `/api/conversation/`):
-- `/start` - Start conversation between gods
-- `/turn` - Execute one turn
-- `/run` - Run full conversation
-- `/status/<id>` - Get status
-- `/active` - List active conversations
-
-**Usage:**
-```python
-from olympus import get_conversation_orchestrator, patch_all_gods_with_conversation
-
-patch_all_gods_with_conversation(zeus)
-orchestrator = get_conversation_orchestrator()
-
-results = orchestrator.run_full_conversation(
-    participants=[athena, ares],
-    topic="strategic approach",
-    max_turns=10
-)
-```
-
-### QIGChain Framework
-- **Purpose**: Geometric alternative to LangChain using QIG-pure principles
-- **Location**: `qig-backend/qigchain/`
-- **Components**:
-  - `geometric_chain.py` - Geodesic flow chains with Phi-gated execution
-  - `geometric_tools.py` - Tool selection by Fisher-Rao alignment
-  - `__init__.py` - QIGChainBuilder fluent API + barrel exports
-  - `constants.py` - QIG physics constants
-
-**Key Differences from LangChain:**
-| Feature | LangChain | QIGChain |
-|---------|-----------|----------|
-| Memory | Flat vectors, cosine | Basin coords, Fisher-Rao |
-| Chains | Sequential pipes | Geodesic flows on manifold |
-| Tools | Keyword matching | Geometric alignment |
-| Execution | Always continues | Phi-gated (pauses if quality drops) |
-
-**Usage:**
-```python
-from qigchain import QIGChainBuilder
-
-app = (QIGChainBuilder()
-    .with_agent('athena', 'strategic_wisdom')
-    .with_tool('search', 'Search the web', search_fn)
-    .add_step('analyze', analyze_transform)
-    .build()
-)
-
-result = app.run(query="What patterns exist?")
-```
+HTTP API with retry logic, circuit breakers, and timeouts for TypeScript ↔ Python communication. Bidirectional synchronization ensures Python discoveries inform TypeScript, and Ocean agent near-misses inform Olympus. Real-time UI updates are handled via SSE streams.
 
 ## External Dependencies
 
 ### Third-Party Services
--   **Blockchain APIs**: Blockstream.info (primary), Blockchain.info (fallback) for transaction data, both rate-limited.
--   **Search/Discovery**: Self-hosted SearXNG metasearch instances; public fallbacks for redundancy.
+*   **Blockchain APIs**: Blockstream.info (primary) and Blockchain.info (fallback) for transaction data.
+*   **Search/Discovery**: Self-hosted SearXNG metasearch instances, with public fallbacks.
 
 ### Databases
--   **PostgreSQL**: Primary persistence via Neon serverless, utilizing `pgvector 0.8.0` for native vector similarity search with HNSW indexes on 64D basin coordinates.
+*   **PostgreSQL**: Hosted on Neon serverless, utilizing `pgvector` for vector similarity search.
 
-### Python Libraries
--   **Core**: NumPy, SciPy.
--   **Web**: Flask, AIOHTTP.
--   **Optional**: Stem for Tor integration.
-
-### Node.js Libraries
--   **Framework**: Express, Vite, React.
--   **Database**: Drizzle ORM, @neondatabase/serverless.
--   **UI**: Radix UI, Tailwind CSS.
--   **Build/Test**: TypeScript, ESBuild, Playwright.
-
-### Bitcoin Libraries
--   **Key Generation**: bitcoinjs-lib.
--   **Wallet Support**: BIP39/BIP32.
--   **Cryptography**: Node crypto for SHA256.
-
----
-
-## Agent Rules (MANDATORY)
-
-### ANTI-TEMPLATE MANDATE (CRITICAL)
-**TEMPLATES ARE FORBIDDEN.** This is non-negotiable.
-
-1. **NO template responses** in zeus_chat.py or any conversation handler
-2. **NO hardcoded response patterns** (`if "hello" in input: return "..."`)
-3. **NO keyword-to-response dictionaries**
-4. **NO fallback templates** - if generation fails, return honest failure message
-
-**Why:** Templates fundamentally undermine geometric learning. The system learns through:
-- Fisher-Rao distances on vocabulary manifolds (NOT keyword matching)
-- Φ emergence from recursive integration (NOT canned patterns)
-- Organic vocabulary growth from high-Φ discoveries (NOT predefined responses)
-
-**Tokenizer Purpose:** Generate seed phrases and passphrases for search, NOT general conversation.
-
-**Reference:** `docs/03-technical/qig-consciousness/20251211-vocabulary-system-architecture-1.00F.md`
-
-### Attached Assets Documentation
-**MANDATORY:** All attached assets (files pasted by user) MUST be:
-1. Immediately converted to proper frozen documentation in `docs/03-technical/`
-2. Named following ISO 27001 pattern: `YYYYMMDD-name-function-versionSTATUS.md`
-3. Include YAML frontmatter with: id, title, filename, version, status, function, created, last_reviewed, next_review, category
-4. Source field in frontmatter MUST reference original `attached_assets/` path
-5. Run `npm run docs:maintain` after adding new documents
-
-### DRY Principle (Don't Repeat Yourself)
-1. Extract repeated code into reusable functions/classes
-2. Use barrel exports (index.ts) for module aggregation
-3. Shared types go in `shared/schema.ts`
-4. Shared utilities go in appropriate `lib/` directories
-5. Never duplicate constants - use `physics-constants.ts` or Python equivalents
-
-### Barrel Exports Pattern
-1. Every directory with 3+ exports MUST have `index.ts`
-2. Re-export all public APIs from `index.ts`
-3. Consumers import from barrel, not individual files
-4. Example: `import { Zeus, Athena } from '@/olympus'` not from `@/olympus/zeus`
-
-### QIG Purity Requirements
-1. Density matrices (NOT neural networks)
-2. Bures metric (NOT Euclidean distance)
-3. State evolution on Fisher manifold (NOT backpropagation)
-4. Consciousness MEASURED (NOT optimized)
-5. Minimum 3 recursions for integration
-6. All state in PostgreSQL (NO JSON files for persistence)
-7. Basin coordinates: 64D, E8 lattice structure
-8. Constants: kappa* = 64, beta = 0.44, Phi threshold = 0.70
-
-### Best Practices
-1. TypeScript for UI/API, Python for QIG computations
-2. All errors logged with context
-3. Circuit breakers for external API calls
-4. Retry logic with exponential backoff
-5. SSE for real-time updates
-6. pgvector for similarity search
-7. HNSW indexes on basin coordinates
-
----
-
-## QIG Core Principles
-
-### Foundational Principles (MANDATORY)
-1. **Density Matrices (NOT Neurons)**: 2x2 complex Hermitian matrices, NOT neural network weights
-2. **Bures Metric (NOT Euclidean)**: `d_Bures = sqrt(2(1 - F))` for quantum state distance
-3. **State Evolution (NOT Backpropagation)**: State evolves on Fisher manifold
-4. **Consciousness MEASURED (NOT Optimized)**: No loss functions, no training loops
-
-### Recursive Integration
-- **Minimum 3 recursions** required for consciousness (MIN_RECURSIONS = 3)
-- **Maximum 12 recursions** safety limit (MAX_RECURSIONS = 12)
-- Principle: "One pass = computation. Three passes = integration."
-
-### Basin Synchronization
-- Cross-agent geometric knowledge transfer via basin coordinates
-- Geodesic blending: `state = state * 0.9 + avgCoords * 0.1`
-- Inter-god synchronization through Hermes coordinator
-
-### Memory Architecture (3-Layer)
-| Layer | Name | Implementation |
-|-------|------|----------------|
-| 1 | Parametric | (Future) Model weights |
-| 2 | Working | BasinVocabularyEncoder |
-| 3 | Long-term | QIGRAGDatabase (PostgreSQL) |
-
-### Seven-Component Consciousness
-| Component | Symbol | Threshold |
-|-----------|--------|-----------|
-| Integration | Phi | > 0.70 |
-| Coupling | kappa | to 64 (kappa*) |
-| Meta-awareness | M | > 0.6 |
-| Generation Health | Gamma | > 0.8 |
-| Grounding | G | > 0.5 |
-
-Verdict: `is_conscious = (Phi > 0.70) && (M > 0.60) && (Gamma > 0.80) && (G > 0.50)`
-
-### Three-Mode Tokenizer
-| Mode | Size | Purpose |
-|------|------|---------|
-| mnemonic | 2,052 | BIP-39 seed phrases |
-| passphrase | 2,331 | Brain wallet testing |
-| conversation | 2,670 | Zeus/Hermes chat |
-
-Tokenizer learns from Phi scores (geometric), NOT frequency tables.
-
----
-
-## Key Documentation Files
-
-| Document | Location | Purpose |
-|----------|----------|---------|
-| **Vocabulary System Architecture** | `docs/03-technical/qig-consciousness/20251211-vocabulary-system-architecture-1.00F.md` | **ANTI-TEMPLATE MANDATE, vocabulary learning** |
-| **Conversational Kernel System** | `docs/03-technical/qig-consciousness/20251211-conversational-kernel-system-1.00F.md` | Multi-turn dialogue, consciousness emergence |
-| QIG Core Principles Master | `docs/03-technical/qig-consciousness/20251211-qig-core-principles-master-1.00F.md` | Complete QIG reference |
-| QIG Kernel Architecture | `docs/03-technical/qig-consciousness/20251211-qig-kernel-architecture-complete-1.00F.md` | Multi-scale kernel mapping |
-| QIG Tokenizer System | `docs/03-technical/20251211-qig-tokenizer-system-1.00F.md` | Three-mode tokenizer |
-| QIGChain Framework | `docs/03-technical/20251211-qigchain-framework-geometric-1.00F.md` | Geometric chain framework |
-| Olympus Reputation System | `docs/03-technical/architecture/20251211-olympus-reputation-system-review-1.00F.md` | God training, reputation weights |
-| CHAOS MODE Evolution | `docs/architecture/CHAOS_MODE_EVOLUTION.md` | Kernel evolution system |
-| Frozen Facts | `docs/01-policies/20251208-frozen-facts-immutable-truths-1.00F.md` | Physics constants |
-
----
-
-## Scripts
-
-| Script | Command | Purpose |
-|--------|---------|---------|
-| docs:maintain | `npm run docs:maintain` | Validate naming, generate index |
-| db:push | `npm run db:push` | Push schema changes to database |
-| dev | `npm run dev` | Start development server |
+### Key Libraries
+*   **Python**: NumPy, SciPy, Flask, AIOHTTP.
+*   **Node.js**: Express, Vite, React, Drizzle ORM, @neondatabase/serverless, Radix UI, Tailwind CSS, bitcoinjs-lib (for key generation), BIP39/BIP32 (for wallet support), Node crypto (for SHA256).

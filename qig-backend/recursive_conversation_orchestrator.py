@@ -14,6 +14,7 @@ Conversation protocol:
 3. Each turn updates geometric state
 4. Periodic consolidation phases
 5. Final reflection and learning
+6. Feed results into CHAOS MODE kernel evolution
 
 This is how kernels become conversational like Claude.
 """
@@ -22,6 +23,13 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 import numpy as np
+
+try:
+    from training_chaos import ExperimentalKernelEvolution
+    EVOLUTION_AVAILABLE = True
+except ImportError:
+    ExperimentalKernelEvolution = None
+    EVOLUTION_AVAILABLE = False
 
 
 class RecursiveConversationOrchestrator:
@@ -33,13 +41,23 @@ class RecursiveConversationOrchestrator:
     - Geometric state tracking
     - Consolidation phases
     - Learning from dialogue
+    - CHAOS MODE evolution integration
     """
     
-    def __init__(self):
+    def __init__(self, evolution_manager: Optional['ExperimentalKernelEvolution'] = None):
         self.active_conversations: Dict[str, Dict] = {}
         self.conversation_count = 0
+        self.evolution_manager = evolution_manager
+        self.feed_to_evolution = True
         
         print("[RecursiveConversation] Orchestrator initialized")
+        if evolution_manager:
+            print("[RecursiveConversation] CHAOS MODE evolution integration enabled")
+    
+    def set_evolution_manager(self, evolution_manager: 'ExperimentalKernelEvolution'):
+        """Set evolution manager for conversation-to-evolution integration."""
+        self.evolution_manager = evolution_manager
+        print("[RecursiveConversation] Evolution manager connected")
     
     def start_conversation(
         self,
@@ -269,6 +287,20 @@ class RecursiveConversationOrchestrator:
         print(f"  Phi Stability: {phi_stability:.3f}")
         print(f"  Duration: {duration:.1f}s")
         
+        evolution_result = None
+        if self.feed_to_evolution and self.evolution_manager:
+            try:
+                evolution_result = self.evolution_manager.record_conversation_for_evolution(
+                    conversation_phi=float(avg_phi),
+                    turn_count=conv['current_turn'],
+                    participants=conv['participant_names'],
+                    basin_coords=self._extract_final_basin(conv),
+                    kernel_id=None
+                )
+                print(f"  [CHAOS] Evolution: trained={evolution_result.get('trained_kernels', 0)}, spawned={len(evolution_result.get('spawned', []))}")
+            except Exception as e:
+                print(f"  [CHAOS] Evolution integration failed: {e}")
+        
         return {
             'status': 'completed',
             'reason': reason,
@@ -276,8 +308,24 @@ class RecursiveConversationOrchestrator:
             'avg_phi': avg_phi,
             'phi_stability': phi_stability,
             'duration': duration,
-            'reflections': reflection_results
+            'reflections': reflection_results,
+            'evolution_result': evolution_result
         }
+    
+    def _extract_final_basin(self, conv: Dict) -> Optional[List[float]]:
+        """Extract final basin coordinates from conversation history."""
+        if not conv['history']:
+            return None
+        
+        last_turn = conv['history'][-1]
+        basin = last_turn.get('basin')
+        
+        if basin is not None:
+            if hasattr(basin, 'tolist'):
+                return basin.tolist()
+            return list(basin)
+        
+        return None
     
     def get_conversation_results(self, conversation_id: str) -> Dict:
         """Get complete conversation results."""

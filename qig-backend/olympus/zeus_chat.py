@@ -6,18 +6,22 @@ pantheon responses. This is the conversational interface to Mount Olympus.
 
 ARCHITECTURE:
 Human → Zeus → Pantheon → Geometric Memory → Action → Response
+                                                    ↓
+                                         CHAOS MODE Evolution
 
 Zeus coordinates:
 - Geometric encoding of human insights
 - Pantheon consultation (is this useful?)
 - Memory integration (store in manifold)
 - Action execution (update search strategies)
+- Evolution feedback (user conversations train kernels)
 
 PURE QIG PRINCIPLES:
 ✅ All insights encoded to basin coordinates
 ✅ Retrieval via Fisher-Rao distance
 ✅ Learning through geometric integration
 ✅ Actions based on manifold structure
+✅ Conversations feed kernel evolution
 """
 
 import numpy as np
@@ -32,6 +36,16 @@ from .zeus import Zeus
 from .qig_rag import QIGRAG
 from .conversation_encoder import ConversationEncoder
 from .passphrase_encoder import PassphraseEncoder
+
+EVOLUTION_AVAILABLE = False
+try:
+    _parent_dir = os.path.dirname(os.path.dirname(__file__))
+    if _parent_dir not in sys.path:
+        sys.path.insert(0, _parent_dir)
+    from training_chaos import ExperimentalKernelEvolution
+    EVOLUTION_AVAILABLE = True
+except ImportError:
+    pass
 
 # Import tokenizer for generative responses
 TOKENIZER_AVAILABLE = False
@@ -84,7 +98,91 @@ class ZeusConversationHandler:
         self.searxng_available = True
         print("[ZeusChat] SearXNG search enabled (FREE)")
         
+        self._evolution_manager = None
+        
         print("[ZeusChat] Zeus conversation handler initialized")
+        
+        if EVOLUTION_AVAILABLE:
+            print("[ZeusChat] CHAOS MODE evolution integration available")
+    
+    def set_evolution_manager(self, evolution_manager: 'ExperimentalKernelEvolution'):
+        """Set evolution manager for user conversation → kernel training."""
+        self._evolution_manager = evolution_manager
+        print("[ZeusChat] Evolution manager connected - user conversations will train kernels")
+    
+    def _estimate_phi_from_context(
+        self,
+        message_basin: Optional[np.ndarray],
+        related_count: int,
+        athena_phi: Optional[float] = None
+    ) -> float:
+        """
+        Estimate Φ from actual semantic context.
+        
+        Heuristics:
+        - Athena's assessment (if available) is most reliable
+        - RAG similarity count indicates semantic richness
+        - Basin norm captures geometric information density
+        """
+        if athena_phi is not None and athena_phi > 0:
+            return athena_phi
+        
+        base_phi = 0.45
+        if related_count > 0:
+            base_phi += min(0.3, related_count * 0.05)
+        
+        if message_basin is not None:
+            basin_norm = float(np.linalg.norm(message_basin))
+            if basin_norm > 1.0:
+                base_phi += min(0.15, basin_norm * 0.02)
+        
+        return min(0.95, base_phi)
+    
+    def _record_conversation_for_evolution(
+        self,
+        message: str,
+        response: str,
+        phi_estimate: float,
+        message_basin: Optional[np.ndarray] = None
+    ):
+        """
+        Record user conversation outcome for kernel evolution.
+        
+        User conversations are valuable training signals:
+        - High-value observations train kernels positively
+        - Engaged conversations indicate good basin positions
+        - Questions guide exploration direction
+        """
+        if not EVOLUTION_AVAILABLE or self._evolution_manager is None:
+            return
+        
+        self.conversation_history.append({
+            'role': 'user',
+            'content': message,
+            'timestamp': time.time()
+        })
+        self.conversation_history.append({
+            'role': 'zeus',
+            'content': response[:500],
+            'timestamp': time.time()
+        })
+        
+        actual_turn_count = len(self.conversation_history) // 2
+        
+        try:
+            result = self._evolution_manager.record_conversation_for_evolution(
+                conversation_phi=phi_estimate,
+                turn_count=actual_turn_count,
+                participants=['user', 'zeus'],
+                basin_coords=message_basin.tolist() if message_basin is not None else None,
+                kernel_id=None
+            )
+            
+            if result.get('trained_kernels', 0) > 0:
+                print(f"[ZeusChat] Evolution: trained {result['trained_kernels']} kernels with user conversation (Φ={phi_estimate:.3f})")
+                
+        except Exception as e:
+            print(f"[ZeusChat] Evolution integration failed: {e}")
     
     def process_message(
         self, 
@@ -359,6 +457,13 @@ Your insight has been recorded. Can you tell me more about where this came from?
             actions.append('Vocabulary updated with new patterns')
         elif strategic_value > 0.5:
             actions.append('Observation stored in geometric memory')
+        
+        self._record_conversation_for_evolution(
+            message=observation,
+            response=response,
+            phi_estimate=phi,
+            message_basin=obs_basin
+        )
         
         return {
             'response': response,
@@ -860,6 +965,18 @@ The pantheon listens and learns from every interaction."""
 
 **Related context:**
 {self._format_related(related) if related else "No related patterns found."}"""
+        
+        phi_estimate = self._estimate_phi_from_context(
+            message_basin=message_basin,
+            related_count=len(related) if related else 0,
+            athena_phi=None
+        )
+        self._record_conversation_for_evolution(
+            message=message,
+            response=response,
+            phi_estimate=phi_estimate,
+            message_basin=message_basin
+        )
         
         return {
             'response': response,

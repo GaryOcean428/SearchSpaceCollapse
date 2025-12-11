@@ -296,6 +296,107 @@ class SelfSpawningKernel:
             'children_count': len(self.children),
             'phi': self.kernel.compute_phi(),
             'basin_norm': self.kernel.basin_coords.norm().item(),
+            'conversation_count': getattr(self, 'conversation_count', 0),
+            'conversation_phi_avg': getattr(self, 'conversation_phi_avg', 0.0),
+        }
+
+    def record_conversation_outcome(
+        self,
+        conversation_phi: float,
+        turn_count: int,
+        participants: List[str],
+        transcript_summary: Optional[str] = None
+    ) -> Optional['SelfSpawningKernel']:
+        """
+        Record conversation outcome as training signal.
+        
+        Conversations are treated like predictions:
+        - High Phi conversations = success
+        - Low Phi conversations = failure
+        - Conversation quality drives kernel evolution
+        
+        Returns spawned child if threshold reached.
+        """
+        if not self.is_alive:
+            return None
+        
+        # Track conversation metrics
+        if not hasattr(self, 'conversation_count'):
+            self.conversation_count = 0
+            self.conversation_phi_sum = 0.0
+            self.conversation_phi_avg = 0.0
+        
+        self.conversation_count += 1
+        self.conversation_phi_sum += conversation_phi
+        self.conversation_phi_avg = self.conversation_phi_sum / self.conversation_count
+        
+        # Convert conversation Phi to reward signal
+        phi_threshold = 0.6
+        if conversation_phi >= phi_threshold:
+            reward = (conversation_phi - phi_threshold) * 2.5
+            is_success = True
+        else:
+            reward = (conversation_phi - phi_threshold) * 1.5
+            is_success = False
+        
+        # Store in experience buffer for batch training
+        self.experience_buffer.append({
+            'input_ids': None,
+            'reward': reward,
+            'phi': conversation_phi,
+            'success': is_success,
+            'type': 'conversation',
+            'turn_count': turn_count,
+            'participants': participants,
+        })
+        
+        # Train on conversation outcome
+        training_metrics = self.train_step(reward)
+        
+        if is_success:
+            self.success_count += 1
+            if self.success_count > 0 and self.success_count % self.spawn_threshold == 0:
+                return self.spawn_child()
+        else:
+            self.failure_count += 1
+            if self.failure_count >= self.death_threshold:
+                self.die(cause='poor_conversations')
+        
+        print(f"💬 {self.kernel_id} conversation: Φ={conversation_phi:.3f} → reward={reward:.3f}")
+        
+        return None
+
+    def absorb_conversation_knowledge(
+        self,
+        basin_coords: List[float],
+        phi: float,
+        absorption_rate: float = 0.05
+    ) -> Dict[str, Any]:
+        """
+        Absorb geometric knowledge from high-quality conversation.
+        
+        When conversations produce valuable insights, kernels can
+        absorb the basin coordinates of those insights directly.
+        """
+        if not self.is_alive:
+            return {'absorbed': False, 'error': 'kernel_dead'}
+        
+        import torch
+        target_basin = torch.tensor(basin_coords, dtype=torch.float32)
+        
+        with torch.no_grad():
+            current = self.kernel.basin_coords
+            delta = absorption_rate * (target_basin - current)
+            self.kernel.basin_coords.add_(delta)
+        
+        new_phi = self.kernel.compute_phi()
+        
+        return {
+            'absorbed': True,
+            'absorption_rate': absorption_rate,
+            'source_phi': phi,
+            'new_phi': new_phi,
+            'basin_shift': delta.norm().item()
         }
 
 

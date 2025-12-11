@@ -1045,3 +1045,190 @@ class ExperimentalKernelEvolution:
             'generation': kernel.generation,
             'success_rate': kernel.success_count / max(1, kernel.total_predictions),
         }
+
+    # =========================================================================
+    # CONVERSATIONAL EVOLUTION
+    # =========================================================================
+
+    def record_conversation_for_evolution(
+        self,
+        conversation_phi: float,
+        turn_count: int,
+        participants: list[str],
+        basin_coords: Optional[list[float]] = None,
+        kernel_id: Optional[str] = None
+    ) -> dict:
+        """
+        Record a conversation outcome to train the kernel population.
+        
+        Conversations feed into kernel evolution:
+        - High-Phi conversations breed successful kernels
+        - Low-Phi conversations kill weak kernels
+        - Basin coordinates from conversations are absorbed
+        
+        Args:
+            conversation_phi: Overall conversation Phi score
+            turn_count: Number of conversation turns
+            participants: List of participant names
+            basin_coords: Optional basin coordinates from conversation
+            kernel_id: Optional specific kernel to train
+            
+        Returns:
+            Evolution result including spawns/deaths
+        """
+        result = {
+            'trained_kernels': 0,
+            'spawned': [],
+            'died': [],
+            'conversation_phi': conversation_phi,
+        }
+        
+        # Find kernel to train
+        if kernel_id:
+            kernel = self._find_kernel(kernel_id)
+            kernels_to_train = [kernel] if kernel else []
+        else:
+            # Train best kernel by default
+            best = self.get_best_kernel()
+            kernels_to_train = [best] if best else []
+        
+        for kernel in kernels_to_train:
+            if not kernel or not kernel.is_alive:
+                continue
+            
+            # Record conversation outcome
+            spawned_child = kernel.record_conversation_outcome(
+                conversation_phi=conversation_phi,
+                turn_count=turn_count,
+                participants=participants
+            )
+            
+            result['trained_kernels'] += 1
+            
+            if spawned_child:
+                self.kernel_population.append(spawned_child)
+                result['spawned'].append(spawned_child.kernel_id)
+                self.logger.log_spawn(kernel.kernel_id, spawned_child.kernel_id, 'conversation_success')
+            
+            # Absorb basin if provided and Phi is high
+            if basin_coords and conversation_phi >= 0.7:
+                absorption_result = kernel.absorb_conversation_knowledge(
+                    basin_coords=basin_coords,
+                    phi=conversation_phi,
+                    absorption_rate=0.05
+                )
+                result['absorption'] = absorption_result
+        
+        # Check for deaths after conversation-based training
+        dead = [k for k in self.kernel_population if not k.is_alive]
+        for k in dead:
+            result['died'].append(k.kernel_id)
+        
+        # Persist conversation event
+        if self.kernel_persistence and result['trained_kernels'] > 0:
+            try:
+                self.kernel_persistence.record_conversation_evolution_event(
+                    conversation_phi=conversation_phi,
+                    turn_count=turn_count,
+                    participants=participants,
+                    trained_kernels=result['trained_kernels'],
+                    spawned_count=len(result['spawned']),
+                    died_count=len(result['died'])
+                )
+            except Exception as e:
+                # Method may not exist - graceful degradation
+                pass
+        
+        return result
+
+    def breed_conversational_kernels(self, n_best: int = 2) -> Optional[SelfSpawningKernel]:
+        """
+        Breed kernels based on conversation performance.
+        
+        Selects parents by:
+        1. Conversation Phi average
+        2. Success rate
+        3. Number of successful conversations
+        """
+        living = [k for k in self.kernel_population if k.is_alive]
+        
+        # Filter kernels with conversation experience
+        conversational = [
+            k for k in living 
+            if getattr(k, 'conversation_count', 0) > 0
+        ]
+        
+        if len(conversational) < n_best:
+            # Fall back to regular breeding
+            return self.breed_top_kernels(n_best)
+        
+        # Sort by conversation quality
+        sorted_kernels = sorted(
+            conversational,
+            key=lambda k: getattr(k, 'conversation_phi_avg', 0.0) * (
+                k.success_count / max(1, k.total_predictions)
+            ),
+            reverse=True
+        )
+        
+        parent1, parent2 = sorted_kernels[0], sorted_kernels[1]
+        child = breed_kernels(parent1, parent2, mutation_strength=0.03)
+        
+        self.kernel_population.append(child)
+        child_phi = child.kernel.compute_phi()
+        
+        self.logger.log_breeding(
+            parent1.kernel_id, parent2.kernel_id, child.kernel_id,
+            {
+                'parent1_conv_phi': getattr(parent1, 'conversation_phi_avg', 0.0),
+                'parent2_conv_phi': getattr(parent2, 'conversation_phi_avg', 0.0),
+                'breeding_type': 'conversational',
+                'child_phi': child_phi,
+            }
+        )
+        
+        print(f"💬🧬 Bred conversational kernels: {child.kernel_id} (Φ={child_phi:.3f})")
+        
+        return child
+
+    def get_conversational_stats(self) -> dict:
+        """
+        Get statistics about conversational evolution.
+        """
+        living = [k for k in self.kernel_population if k.is_alive]
+        
+        conversational = [
+            k for k in living 
+            if getattr(k, 'conversation_count', 0) > 0
+        ]
+        
+        if not conversational:
+            return {
+                'conversational_kernels': 0,
+                'total_conversations': 0,
+                'avg_conversation_phi': 0.0,
+            }
+        
+        total_convs = sum(getattr(k, 'conversation_count', 0) for k in conversational)
+        avg_phi = np.mean([
+            getattr(k, 'conversation_phi_avg', 0.0) for k in conversational
+        ])
+        
+        return {
+            'conversational_kernels': len(conversational),
+            'total_conversations': total_convs,
+            'avg_conversation_phi': float(avg_phi),
+            'best_conversation_kernel': max(
+                conversational,
+                key=lambda k: getattr(k, 'conversation_phi_avg', 0.0)
+            ).kernel_id,
+            'kernels': [
+                {
+                    'kernel_id': k.kernel_id,
+                    'conversation_count': getattr(k, 'conversation_count', 0),
+                    'conversation_phi_avg': getattr(k, 'conversation_phi_avg', 0.0),
+                    'phi': k.kernel.compute_phi(),
+                }
+                for k in conversational
+            ]
+        }
