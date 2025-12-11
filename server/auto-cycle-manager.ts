@@ -544,6 +544,11 @@ class AutoCycleManager {
       console.error("[AutoCycleManager] Balance queue drain error:", err);
     });
 
+    // Trigger QIG cycle complete processing (non-blocking)
+    this.triggerQIGCycleComplete(addressId, this.state.currentIndex, sessionMetrics).catch((err) => {
+      console.error("[AutoCycleManager] QIG cycle complete error:", err);
+    });
+
     if (this.state.enabled) {
       // Move to next address
       this.state.currentIndex++;
@@ -583,6 +588,41 @@ class AutoCycleManager {
       );
     } catch (error) {
       console.error("[AutoCycleManager] Balance queue drain error:", error);
+    }
+  }
+
+  // Trigger QIG cycle complete processing via Python backend
+  private async triggerQIGCycleComplete(
+    addressId: string,
+    cycleNumber: number,
+    metrics?: SessionMetrics
+  ): Promise<void> {
+    try {
+      const QIG_BACKEND_URL = process.env.QIG_BACKEND_URL || "http://localhost:5001";
+      
+      const response = await fetch(`${QIG_BACKEND_URL}/cycle/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cycle_number: cycleNumber,
+          address_id: addressId,
+          metrics: metrics || {},
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(
+          `[AutoCycleManager] 🔄 QIG cycle complete processed: ${result.processing?.length || 0} tasks`
+        );
+      } else {
+        console.log(
+          `[AutoCycleManager] ⚠️ QIG cycle complete returned ${response.status}`
+        );
+      }
+    } catch (error) {
+      // Non-blocking - just log the error
+      console.log("[AutoCycleManager] QIG cycle complete unavailable (Python backend may not be running)");
     }
   }
 

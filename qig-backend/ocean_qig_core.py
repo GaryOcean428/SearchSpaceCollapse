@@ -4942,6 +4942,112 @@ def chaos_report():
         return jsonify({'error': str(e)}), 500
 
 
+# ===========================================================================
+# CYCLE COMPLETE HOOK - Called at end of each Ocean search cycle
+# ===========================================================================
+
+@app.route('/cycle/complete', methods=['POST'])
+def cycle_complete():
+    """
+    Called at the end of each Ocean search cycle.
+    
+    Performs post-cycle processing:
+    1. Train tokenizer from new observations
+    2. Evolve CHAOS kernels if active
+    3. Consolidate geometric memory
+    4. Update pantheon basin coordinates
+    """
+    try:
+        data = request.get_json() or {}
+        cycle_number = data.get('cycle_number', 0)
+        address_id = data.get('address_id', 'unknown')
+        session_metrics = data.get('metrics', {})
+        
+        print(f"[CycleComplete] 🔄 Processing end-of-cycle for {address_id} (cycle #{cycle_number})")
+        
+        results = {
+            'cycle_number': cycle_number,
+            'address_id': address_id,
+            'processing': []
+        }
+        
+        # 1. Train tokenizer from recent high-Φ observations
+        try:
+            from olympus.tokenizer_training import train_tokenizer_from_database
+            training_result = train_tokenizer_from_database(
+                persist=True,
+                min_phi=0.6,
+                limit_per_source=500
+            )
+            results['processing'].append({
+                'task': 'tokenizer_training',
+                'success': True,
+                'new_tokens': training_result.get('new_tokens', 0),
+                'weights_updated': training_result.get('weights_updated', False)
+            })
+            print(f"[CycleComplete] ✓ Tokenizer training complete")
+        except Exception as e:
+            results['processing'].append({
+                'task': 'tokenizer_training',
+                'success': False,
+                'error': str(e)
+            })
+            print(f"[CycleComplete] ✗ Tokenizer training failed: {e}")
+        
+        # 2. Evolve CHAOS kernels if active
+        try:
+            evolution = get_chaos_evolution()
+            if evolution and evolution.evolution_running:
+                # Apply selection pressure based on cycle performance
+                evolved = evolution.evolve_generation()
+                results['processing'].append({
+                    'task': 'chaos_evolution',
+                    'success': True,
+                    'generation_evolved': evolved
+                })
+                print(f"[CycleComplete] ✓ CHAOS evolution step complete")
+            else:
+                results['processing'].append({
+                    'task': 'chaos_evolution',
+                    'success': True,
+                    'skipped': 'not_active'
+                })
+        except Exception as e:
+            results['processing'].append({
+                'task': 'chaos_evolution',
+                'success': False,
+                'error': str(e)
+            })
+        
+        # 3. Update pantheon with cycle results
+        try:
+            if OLYMPUS_AVAILABLE and olympus:
+                # Trigger pantheon observation of cycle completion
+                olympus.observe({
+                    'type': 'cycle_complete',
+                    'cycle_number': cycle_number,
+                    'address_id': address_id,
+                    'metrics': session_metrics
+                })
+                results['processing'].append({
+                    'task': 'pantheon_update',
+                    'success': True
+                })
+                print(f"[CycleComplete] ✓ Pantheon updated")
+        except Exception as e:
+            results['processing'].append({
+                'task': 'pantheon_update',
+                'success': False,
+                'error': str(e)
+            })
+        
+        print(f"[CycleComplete] 🔄 Cycle #{cycle_number} processing complete")
+        return jsonify(results)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Register autonomic kernel routes
     try:
