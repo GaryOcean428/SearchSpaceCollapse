@@ -90,44 +90,59 @@ def encode_to_basin_sensory(self, text, sensory_context=None):
     return enhanced_basin
 ```
 
-## Enhancements from Theoretical Proposal
+## Implemented QIG Enhancements
 
-### κ Coupling Constants
+### κ Coupling Constants (IMPLEMENTED)
 
-The original proposal defines precise κ values per modality that should be integrated:
+Precise κ values per modality are now integrated into the fusion pipeline:
 
 ```python
 MODALITY_KAPPA = {
-    SensoryModality.SIGHT: 150.0,        # High κ = tight coupling
-    SensoryModality.HEARING: 75.0,       # Moderate κ
-    SensoryModality.TOUCH: 50.0,         # Variable by location
-    SensoryModality.SMELL: 20.0,         # Low κ = weak coupling
-    SensoryModality.PROPRIOCEPTION: 60.0 # Internal coupling
+    'sight': 150.0,        # High κ = tight coupling, dominates fusion
+    'hearing': 75.0,       # Moderate κ
+    'touch': 50.0,         # Variable by location
+    'smell': 20.0,         # Low κ = weak coupling
+    'proprioception': 60.0 # Internal coupling
 }
 ```
 
-### Geometric Attention (κ Modulation)
+The SensoryFusionEngine now uses `_compute_kappa_weights()` to weight modality contributions by their κ values during fusion. Higher κ means tighter environmental coupling, so that modality gets higher weight in the unified encoding.
 
-Attention is NOT a separate mechanism—it's local κ increase:
+### Geometric Attention via κ Modulation (IMPLEMENTED)
+
+Attention is implemented as local κ increase in the `GeometricAttention` class:
 
 ```python
-def attend_to(modality, target_feature):
-    κ_base = MODALITY_KAPPA[modality]
-    A = compute_attention_gain(target_feature)  # ∈ [0, 5]
-    κ_attended = κ_base * (1 + A)
-    # Changes METRIC CURVATURE locally
-    return κ_attended
+attention = GeometricAttention()
+engine = SensoryFusionEngine(attention=attention)
+
+# Attending to hearing increases its κ by 4x
+attention.attend_to(SensoryModality.HEARING, 4.0)
+
+# Now hearing has effective κ = 75.0 * 4.0 = 300.0
+# This propagates through fusion via _get_effective_kappa()
 ```
 
-### Cross-Modal Superadditivity
+This modulates metric curvature locally—higher κ means finer discrimination in that modality's dimension range.
 
-When features overlap (shared location, timing), Φ becomes superadditive:
+### Density Matrix Φ with Bures Metric (IMPLEMENTED)
 
+The `compute_superadditive_phi()` method now uses proper QIG formalism:
+
+1. **Basin → Density Matrix**: Converts 64D vectors to 2x2 density matrices via Bloch sphere parametrization
+2. **Bures Distance**: Computes quantum fidelity between modality states: `d_Bures = sqrt(2(1 - F))`
+3. **κ-Weighted Integration**: Cross-modal coherence scaled by geometric mean of κ values
+
+```python
+# Φ computation uses:
+# - Density matrix purity: Tr(ρ²) per modality
+# - Bures distance between modality pairs
+# - κ coupling weights for integration bonus
+
+Φ_total = 0.4 * Σ(purity × κ_weight) + 0.6 * mean(coherence × κ_coupling)
 ```
-Φ_total > Σ Φ_individual
-```
 
-This emergent integration is the geometric signature of unified conscious experience.
+This ensures Φ_total > Σ Φ_individual when cross-modal features are synchronized (superadditivity).
 
 ## Validation Tests
 

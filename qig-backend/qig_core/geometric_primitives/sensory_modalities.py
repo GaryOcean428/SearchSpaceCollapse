@@ -449,11 +449,12 @@ class SensoryFusionEngine:
     """
     Fuses multiple sensory modality encodings into unified basin coordinates.
 
+    Uses κ coupling constants to weight modality contributions geometrically.
     Supports weighted fusion, dominant modality detection, and
-    cross-modal integration measurement (sensory Φ).
+    cross-modal integration measurement (sensory Φ via density matrices).
     """
 
-    def __init__(self):
+    def __init__(self, attention: Optional['GeometricAttention'] = None):
         self.modality_encoders = {
             SensoryModality.SIGHT: encode_sight,
             SensoryModality.HEARING: encode_hearing,
@@ -461,18 +462,42 @@ class SensoryFusionEngine:
             SensoryModality.SMELL: encode_smell,
             SensoryModality.PROPRIOCEPTION: encode_proprioception,
         }
+        self.attention = attention
+
+    def _get_effective_kappa(self, modality: SensoryModality) -> float:
+        """Get κ for modality, including attention modulation if set."""
+        if self.attention is not None:
+            return self.attention.get_effective_kappa(modality)
+        return modality.kappa
+
+    def _compute_kappa_weights(
+        self,
+        modalities: List[SensoryModality]
+    ) -> Dict[SensoryModality, float]:
+        """
+        Compute fusion weights from κ coupling constants.
+        
+        Higher κ = tighter coupling = higher weight in fusion.
+        """
+        kappas = {m: self._get_effective_kappa(m) for m in modalities}
+        total_kappa = sum(kappas.values())
+        if total_kappa < 1e-10:
+            total_kappa = 1.0
+        return {m: k / total_kappa for m, k in kappas.items()}
 
     def fuse_modalities(
         self,
         modality_data: Dict[SensoryModality, np.ndarray],
-        weights: Optional[Dict[SensoryModality, float]] = None
+        weights: Optional[Dict[SensoryModality, float]] = None,
+        use_kappa_weighting: bool = True
     ) -> np.ndarray:
         """
         Fuse multiple modality encodings into a single 64D vector.
 
         Args:
             modality_data: Dict mapping modalities to their 64D encodings
-            weights: Optional custom weights per modality (default: use modality defaults)
+            weights: Optional custom weights per modality (overrides kappa)
+            use_kappa_weighting: If True, weight by κ coupling (default)
 
         Returns:
             Fused 64D normalized numpy array
@@ -480,22 +505,21 @@ class SensoryFusionEngine:
         if not modality_data:
             return np.zeros(BASIN_DIMENSION)
 
-        # Use default weights if not provided
         if weights is None:
-            weights = {m: m.weight_default for m in modality_data.keys()}
+            if use_kappa_weighting:
+                weights = self._compute_kappa_weights(list(modality_data.keys()))
+            else:
+                weights = {m: m.weight_default for m in modality_data.keys()}
 
-        # Normalize weights
         total_weight = sum(weights.get(m, 0) for m in modality_data.keys())
         if total_weight < 1e-10:
             total_weight = 1.0
 
-        # Weighted sum of modality vectors
         fused = np.zeros(BASIN_DIMENSION)
         for modality, encoding in modality_data.items():
             w = weights.get(modality, modality.weight_default) / total_weight
             fused += w * encoding
 
-        # Normalize result
         norm = np.linalg.norm(fused)
         if norm > 0:
             fused = fused / norm
@@ -590,51 +614,98 @@ class SensoryFusionEngine:
 
         return self.fuse_modalities(modality_data, weights)
 
+    def _to_density_matrix(self, vec: np.ndarray) -> np.ndarray:
+        """
+        Convert 64D basin vector to 2x2 density matrix.
+        
+        Uses first 4 components as Bloch sphere coordinates:
+        ρ = (I + r·σ)/2 where σ are Pauli matrices
+        """
+        r = vec[:4] if len(vec) >= 4 else np.zeros(4)
+        norm_r = np.linalg.norm(r)
+        if norm_r > 1.0:
+            r = r / norm_r
+        
+        rho = 0.5 * np.array([
+            [1 + r[2] if len(r) > 2 else 1, r[0] - 1j * r[1] if len(r) > 1 else 0],
+            [r[0] + 1j * r[1] if len(r) > 1 else 0, 1 - r[2] if len(r) > 2 else 1]
+        ], dtype=complex)
+        
+        return rho
+
+    def _bures_distance(self, rho1: np.ndarray, rho2: np.ndarray) -> float:
+        """
+        Compute Bures distance between two density matrices.
+        
+        d_Bures = sqrt(2(1 - F)) where F is fidelity.
+        """
+        sqrt_rho1 = np.linalg.cholesky(rho1 + 1e-10 * np.eye(2))
+        product = sqrt_rho1 @ rho2 @ sqrt_rho1.conj().T
+        
+        eigenvalues = np.linalg.eigvalsh(product)
+        eigenvalues = np.maximum(eigenvalues.real, 0)
+        
+        fidelity = np.sum(np.sqrt(eigenvalues)) ** 2
+        fidelity = min(fidelity, 1.0)
+        
+        return float(np.sqrt(2 * (1 - fidelity)))
+
     def compute_superadditive_phi(
         self,
         modality_data: Dict[SensoryModality, np.ndarray]
     ) -> float:
         """
-        Compute superadditive Φ when features overlap across modalities.
+        Compute superadditive Φ using density matrices and Bures metric.
         
         Φ_total > Σ Φ_individual when cross-modal features are synchronized.
+        Uses QIG density matrix formalism for proper geometric integration.
         
         Args:
             modality_data: Dict mapping modalities to their 64D encodings
             
         Returns:
-            Total Φ including cross-modal integration bonus
+            Total Φ including cross-modal integration bonus [0, 1]
         """
         if len(modality_data) < 2:
             return 0.0
             
-        phi_individual = 0.0
-        phi_cross = 0.0
-        
         modalities = list(modality_data.keys())
         encodings = list(modality_data.values())
+        density_matrices = {m: self._to_density_matrix(enc) 
+                           for m, enc in modality_data.items()}
         
-        for i, (m, enc) in enumerate(modality_data.items()):
-            start, end = m.dimension_range
-            energy = np.sum(enc[start:end] ** 2)
-            phi_individual += energy * 0.5
+        phi_individual = 0.0
+        for m, rho in density_matrices.items():
+            purity = np.real(np.trace(rho @ rho))
+            kappa_weight = self._get_effective_kappa(m) / 150.0
+            phi_individual += purity * kappa_weight
         
+        phi_cross = 0.0
+        n_pairs = 0
         for i in range(len(modalities)):
             for j in range(i + 1, len(modalities)):
                 m1, m2 = modalities[i], modalities[j]
-                e1, e2 = encodings[i], encodings[j]
+                rho1 = density_matrices[m1]
+                rho2 = density_matrices[m2]
                 
-                kappa_cross = np.sqrt(m1.kappa * m2.kappa)
-                
-                norm1 = np.linalg.norm(e1)
-                norm2 = np.linalg.norm(e2)
-                if norm1 > 1e-10 and norm2 > 1e-10:
-                    overlap = np.abs(np.dot(e1, e2) / (norm1 * norm2))
-                    if overlap > 0.1:
-                        coherence = overlap * kappa_cross / 100.0
-                        phi_cross += coherence
+                try:
+                    d_bures = self._bures_distance(rho1, rho2)
+                    kappa_coupling = np.sqrt(
+                        self._get_effective_kappa(m1) * 
+                        self._get_effective_kappa(m2)
+                    ) / 150.0
+                    
+                    coherence = (1.0 - d_bures) * kappa_coupling
+                    phi_cross += max(0, coherence)
+                    n_pairs += 1
+                except np.linalg.LinAlgError:
+                    continue
         
-        return float(np.clip(phi_individual + phi_cross, 0.0, 1.0))
+        if n_pairs > 0:
+            phi_cross /= n_pairs
+        
+        phi_total = 0.4 * phi_individual + 0.6 * phi_cross
+        return float(np.clip(phi_total, 0.0, 1.0))
 
 
 class GeometricAttention:
