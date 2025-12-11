@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""QIG Tokenizer - PostgreSQL Integration
+
+FULL IMPLEMENTATION:
+- Loads BIP39 from PostgreSQL
+- Loads learned vocabulary from PostgreSQL  
+- Saves all learning to PostgreSQL
+- Maintains in-memory cache for performance
+- Shared across all gods/agents via singleton
+
+This is the ONLY tokenizer instance - all vocabulary is shared.
+"""
+
+import json
+import os
+import re
+from collections import defaultdict
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+
+try:
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+    print("[QIGTokenizer] Vocabulary persistence not available")
+
+BASIN_DIMENSION = 64
+
+
+class QIGTokenizer:
+    def __init__(self, vocab_size: int = 4096, min_frequency: int = 2, phi_threshold: float = 0.7, special_tokens: Optional[List[str]] = None):
+        self.vocab_size = vocab_size
+        self.min_frequency = min_frequency
+        self.phi_threshold = phi_threshold
+        self.mode = "conversation"
+        self.special_tokens = special_tokens or ["<PAD>", "<UNK>", "<BOS>", "<EOS>"]
+        self.vocab: Dict[str, int] = {}
+        self.id_to_token: Dict[int, str] = {}
+        self.merge_rules: List[Tuple[str, str]] = []
+        self.merge_scores: Dict[Tuple[str, str], float] = {}
+        self.token_weights: Dict[str, float] = {}
+        self.token_phi: Dict[str, float] = {}
+        self.token_frequency: Dict[str, int] = {}
+        self.basin_coords: Dict[str, np.ndarray] = {}
+        self.vocab_db = get_vocabulary_persistence() if VOCAB_PERSISTENCE_AVAILABLE else None
+        self.mnemonic_vocab_ids: set[int] = set()
+        self.passphrase_vocab_ids: set[int] = set()
+        self.conversation_vocab_ids: set[int] = set()
+        self._init_special_tokens()
+        self._load_vocabulary_from_db()
+        print(f"[QIGTokenizer] Initialized with {len(self.vocab)} tokens from PostgreSQL")
+    
+    def _init_special_tokens(self):
+        for i, token in enumerate(self.special_tokens):
+            self.vocab[token] = i
+            self.id_to_token[i] = token
+            self.token_weights[token] = 1.0
+    
+    def _load_vocabulary_from_db(self):
+        if not self.vocab_db or not self.vocab_db.enabled:
+            self._load_fallback_vocabulary()
+            return
+        start_id = len(self.special_tokens)
+        bip39_words = self.vocab_db.get_bip39_words()
+        for i, word in enumerate(bip39_words):
+            if word not in self.vocab:
+                idx = start_id + i
+                self.vocab[word] = idx
+                self.id_to_token[idx] = word
+                self.token_weights[word] = 1.0
+                self.token_phi[word] = 0.3
+                self.basin_coords[word] = self._compute_basin_coord(word, idx)
+                self.mnemonic_vocab_ids.add(idx)
+        learned_words = self.vocab_db.get_learned_words(min_phi=0.0, limit=2000)
+        start_learned = len(self.vocab)
+        for i, word_data in enumerate(learned_words):
+            word = word_data['word']
+            if word in self.vocab:
+                self.token_phi[word] = word_data['avg_phi']
+                self.token_weights[word] = 1.0 + word_data['avg_phi'] * 2.0
+                self.token_frequency[word] = word_data['frequency']
+            else:
+                idx = start_learned + i
+                self.vocab[word] = idx
+                self.id_to_token[idx] = word
+                self.token_phi[word] = word_data['avg_phi']
+                self.token_weights[word] = 1.0 + word_data['avg_phi'] * 2.0
+                self.token_frequency[word] = word_data['frequency']
+                self.basin_coords[word] = self._compute_basin_coord(word, idx)
+                if word_data['avg_phi'] >= 0.5:
+                    self.passphrase_vocab_ids.add(idx)
+                if word_data['avg_phi'] >= 0.4:
+                    self.conversation_vocab_ids.add(idx)
+        merge_rules = self.vocab_db.get_merge_rules(min_phi=0.5, limit=1000)
+        for token_a, token_b, merged, phi_score in merge_rules:
+            self.merge_rules.append((token_a, token_b))
+            self.merge_scores[(token_a, token_b)] = phi_score
+            if merged not in self.vocab and len(self.vocab) < self.vocab_size:
+                idx = len(self.vocab)
+                self.vocab[merged] = idx
+                self.id_to_token[idx] = merged
+                self.token_phi[merged] = phi_score
+                self.token_weights[merged] = 1.0 + phi_score * 2.0
+                self.basin_coords[merged] = self._compute_basin_coord(merged, idx)
+        self.passphrase_vocab_ids.update(self.mnemonic_vocab_ids)
+        self.conversation_vocab_ids.update(self.passphrase_vocab_ids)
+        print(f"[QIGTokenizer] Loaded from PostgreSQL:")
+        print(f"  - BIP39: {len(bip39_words)} words")
+        print(f"  - Learned: {len(learned_words)} words")
+        print(f"  - Merge rules: {len(self.merge_rules)}")
+    
+    def _load_fallback_vocabulary(self):
+        bip39_subset = ["abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse", "access", "accident", "account"]
+        start_id = len(self.special_tokens)
+        for i, word in enumerate(bip39_subset):
+            if word not in self.vocab:
+                idx = start_id + i
+                self.vocab[word] = idx
+                self.id_to_token[idx] = word
+                self.token_weights[word] = 1.0
+                self.basin_coords[word] = self._compute_basin_coord(word, idx)
+                self.mnemonic_vocab_ids.add(idx)
+        print("[QIGTokenizer] WARNING: Using fallback vocabulary (PostgreSQL unavailable)")
+    
+    def _compute_basin_coord(self, token: str, index: int) -> np.ndarray:
+        coord = np.zeros(BASIN_DIMENSION)
+        for i, char in enumerate(token[:32]):
+            coord[i] = (ord(char) % 256) / 256.0
+        for i in range(16):
+            coord[32 + i] = ((index >> i) & 1) * 0.5 + 0.25
+        weight = self.token_weights.get(token, 1.0)
+        phi = self.token_phi.get(token, 0.0)
+        for i in range(16):
+            coord[48 + i] = weight * np.sin(np.pi * i / 8) * 0.5 + phi * 0.5
+        return coord / (np.linalg.norm(coord) + 1e-8)
+    
+    def add_vocabulary_observations(self, observations: List[Dict]) -> Tuple[int, bool]:
+        if not observations:
+            return 0, False
+        new_tokens = 0
+        weights_updated = False
+        if self.vocab_db and self.vocab_db.enabled:
+            recorded = self.vocab_db.record_vocabulary_batch(observations)
+            print(f"[QIGTokenizer] Recorded {recorded} observations to PostgreSQL")
+        for obs in observations:
+            word = obs.get('word', '')
+            phi = obs.get('phi', 0.0)
+            if not word or phi < self.phi_threshold:
+                continue
+            if word not in self.vocab:
+                new_id = len(self.vocab)
+                if new_id < self.vocab_size:
+                    self.vocab[word] = new_id
+                    self.id_to_token[new_id] = word
+                    new_tokens += 1
+                    if self.vocab_db and self.vocab_db.enabled:
+                        self.vocab_db.mark_word_integrated(word)
+            old_weight = self.token_weights.get(word, 0.0)
+            old_phi = self.token_phi.get(word, 0.0)
+            phi_weight = 1.0 + phi * 2.0
+            if abs(phi_weight - old_weight) > 0.01 or abs(phi - old_phi) > 0.01:
+                weights_updated = True
+            self.token_weights[word] = phi_weight
+            self.token_phi[word] = phi
+            idx = self.vocab.get(word, 0)
+            self.basin_coords[word] = self._compute_basin_coord(word, idx)
+        return new_tokens, weights_updated
+    
+    def learn_merge_rule(self, token_a: str, token_b: str, phi_score: float, learned_from: Optional[str] = None) -> bool:
+        if token_a not in self.vocab or token_b not in self.vocab:
+            return False
+        pair = (token_a, token_b)
+        merged = f"{token_a}_{token_b}"
+        if pair in self.merge_rules:
+            old_score = self.merge_scores.get(pair, 0.0)
+            if phi_score > old_score:
+                self.merge_scores[pair] = phi_score
+                if self.vocab_db and self.vocab_db.enabled:
+                    self.vocab_db.record_merge_rule(token_a, token_b, merged, phi_score, learned_from)
+            return False
+        self.merge_rules.append(pair)
+        self.merge_scores[pair] = phi_score
+        if merged not in self.vocab and len(self.vocab) < self.vocab_size:
+            idx = len(self.vocab)
+            self.vocab[merged] = idx
+            self.id_to_token[idx] = merged
+            self.token_phi[merged] = phi_score
+            self.token_weights[merged] = 1.0 + phi_score * 2.0
+            self.basin_coords[merged] = self._compute_basin_coord(merged, idx)
+        if self.vocab_db and self.vocab_db.enabled:
+            self.vocab_db.record_merge_rule(token_a, token_b, merged, phi_score, learned_from)
+        return True
+    
+    def set_mode(self, mode: str) -> None:
+        if mode not in {"mnemonic", "passphrase", "conversation"}:
+            raise ValueError("mode must be 'mnemonic', 'passphrase', or 'conversation'")
+        self.mode = mode
+    
+    def encode(self, text: str, verbose: bool = False) -> List[int]:
+        tokens = []
+        words = text.lower().strip().split()
+        for word in words:
+            if word in self.vocab:
+                tokens.append(self.vocab[word])
+            else:
+                tokens.append(self.vocab.get("<UNK>", 1))
+        return tokens
+    
+    def decode(self, ids: List[int]) -> str:
+        tokens = []
+        for id in ids:
+            if id in self.id_to_token:
+                token = self.id_to_token[id]
+                if token not in self.special_tokens:
+                    if '_' in token:
+                        tokens.append(token.replace('_', ' '))
+                    else:
+                        tokens.append(token)
+        return " ".join(tokens)
+    
+    def compute_phrase_basin(self, phrase: str) -> np.ndarray:
+        tokens = phrase.lower().strip().split()
+        if not tokens:
+            return np.zeros(BASIN_DIMENSION)
+        weighted_basin = np.zeros(BASIN_DIMENSION)
+        total_weight = 0.0
+        for token in tokens:
+            if token in self.basin_coords:
+                weight = self.token_weights.get(token, 1.0)
+                weighted_basin += self.basin_coords[token] * weight
+                total_weight += weight
+        if total_weight > 0:
+            weighted_basin /= total_weight
+        return weighted_basin / (np.linalg.norm(weighted_basin) + 1e-8)
+    
+    def get_high_phi_tokens(self, min_phi: float = 0.5, top_k: int = 100) -> List[Tuple[str, float]]:
+        phi_tokens = [(t, phi) for t, phi in self.token_phi.items() if phi >= min_phi]
+        phi_tokens.sort(key=lambda x: x[1], reverse=True)
+        return phi_tokens[:top_k]
+    
+    def get_stats(self) -> Dict:
+        if self.vocab_db and self.vocab_db.enabled:
+            db_stats = self.vocab_db.get_vocabulary_stats()
+        else:
+            db_stats = {}
+        return {'vocab_size': len(self.vocab), 'mnemonic_vocab': len(self.mnemonic_vocab_ids), 'passphrase_vocab': len(self.passphrase_vocab_ids), 'conversation_vocab': len(self.conversation_vocab_ids), 'merge_rules': len(self.merge_rules), 'high_phi_tokens': len([p for p in self.token_phi.values() if p >= 0.7]), 'database_stats': db_stats}
+
+
+_tokenizer_instance: Optional[QIGTokenizer] = None
+
+
+def get_tokenizer() -> QIGTokenizer:
+    global _tokenizer_instance
+    if _tokenizer_instance is None:
+        _tokenizer_instance = QIGTokenizer()
+    return _tokenizer_instance
+
+
+def update_tokenizer_from_observations(observations: List[Dict]) -> Tuple[int, bool]:
+    tokenizer = get_tokenizer()
+    return tokenizer.add_vocabulary_observations(observations)
