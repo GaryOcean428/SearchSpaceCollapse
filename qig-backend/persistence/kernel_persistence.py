@@ -125,7 +125,7 @@ class KernelPersistence(BasePersistence):
             SELECT * FROM kernel_geometry
             WHERE phi >= %s
               AND basin_coordinates IS NOT NULL 
-              AND cardinality(basin_coordinates) = 64
+              AND vector_dims(basin_coordinates) = 64
             ORDER BY phi DESC, success_count DESC
             LIMIT %s
         """
@@ -136,11 +136,12 @@ class KernelPersistence(BasePersistence):
         """Load most recently active kernels for startup restoration.
         
         Only returns kernels with valid 64-dimensional basin_coordinates.
+        Uses vector_dims() for pgvector column type.
         """
         query = """
             SELECT * FROM kernel_geometry
             WHERE basin_coordinates IS NOT NULL 
-              AND cardinality(basin_coordinates) = 64
+              AND vector_dims(basin_coordinates) = 64
             ORDER BY spawned_at DESC, success_count DESC
             LIMIT %s
         """

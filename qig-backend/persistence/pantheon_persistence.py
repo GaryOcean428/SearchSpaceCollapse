@@ -52,31 +52,41 @@ class PantheonPersistence(BasePersistence):
             return False
 
     def load_recent_messages(self, limit: int = 100) -> List[Dict]:
-        """Load recent messages from the database."""
+        """Load recent messages from the database in chronological order (oldest first)."""
         query = """
             SELECT id, msg_type, from_god, to_god, content, metadata,
                    is_read, is_responded, debate_id, created_at
             FROM pantheon_messages
-            ORDER BY created_at DESC
+            ORDER BY created_at ASC
             LIMIT %s
         """
         results = self.execute_query(query, (limit,))
         messages = []
         for row in results or []:
+            # Parse metadata JSON if it's a string
+            metadata = row['metadata']
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except:
+                    metadata = {}
+            elif metadata is None:
+                metadata = {}
+            
             msg = {
                 'id': row['id'],
                 'type': row['msg_type'],
                 'from': row['from_god'],
                 'to': row['to_god'],
                 'content': row['content'],
-                'metadata': row['metadata'] if row['metadata'] else {},
+                'metadata': metadata,
                 'read': row['is_read'],
                 'responded': row['is_responded'],
                 'debate_id': row['debate_id'],
                 'timestamp': row['created_at'].isoformat() if row['created_at'] else None,
             }
             messages.append(msg)
-        return list(reversed(messages))
+        return messages
 
     def mark_message_read(self, message_id: str) -> bool:
         """Mark a message as read."""
@@ -152,17 +162,45 @@ class PantheonPersistence(BasePersistence):
         
         debates = []
         for row in results or []:
+            # Parse JSON fields if they're strings
+            context = row['context']
+            if isinstance(context, str):
+                try:
+                    context = json.loads(context)
+                except:
+                    context = {}
+            elif context is None:
+                context = {}
+            
+            arguments = row['arguments']
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except:
+                    arguments = []
+            elif arguments is None:
+                arguments = []
+            
+            resolution = row['resolution']
+            if isinstance(resolution, str):
+                try:
+                    resolution = json.loads(resolution)
+                except:
+                    resolution = {}
+            elif resolution is None:
+                resolution = {}
+            
             debate = {
                 'id': row['id'],
                 'topic': row['topic'],
                 'initiator': row['initiator'],
                 'opponent': row['opponent'],
-                'context': row['context'] if row['context'] else {},
+                'context': context,
                 'status': row['status'],
-                'arguments': row['arguments'] if row['arguments'] else [],
+                'arguments': arguments,
                 'winner': row['winner'],
                 'arbiter': row['arbiter'],
-                'resolution': row['resolution'] if row['resolution'] else {},
+                'resolution': resolution,
                 'started_at': row['started_at'].isoformat() if row['started_at'] else None,
                 'resolved_at': row['resolved_at'].isoformat() if row['resolved_at'] else None,
             }
@@ -191,26 +229,36 @@ class PantheonPersistence(BasePersistence):
             return False
 
     def load_knowledge_transfers(self, limit: int = 100) -> List[Dict]:
-        """Load recent knowledge transfers."""
+        """Load recent knowledge transfers in chronological order."""
         query = """
             SELECT * FROM pantheon_knowledge_transfers
-            ORDER BY created_at DESC
+            ORDER BY created_at ASC
             LIMIT %s
         """
         results = self.execute_query(query, (limit,))
         transfers = []
         for row in results or []:
+            # Parse content JSON if it's a string
+            content = row['content']
+            if isinstance(content, str):
+                try:
+                    content = json.loads(content)
+                except:
+                    content = {}
+            elif content is None:
+                content = {}
+            
             transfer = {
                 'id': row['id'],
                 'from': row['from_god'],
                 'to': row['to_god'],
                 'type': row['knowledge_type'],
-                'content': row['content'] if row['content'] else {},
+                'content': content,
                 'accepted': row['accepted'],
                 'created_at': row['created_at'].isoformat() if row['created_at'] else None,
             }
             transfers.append(transfer)
-        return list(reversed(transfers))
+        return transfers
 
 
 # Singleton instance

@@ -6,6 +6,8 @@ Enables real-time communication between Olympian gods:
 - Debate initiation and resolution
 - Knowledge transfer coordination
 - Peer evaluation routing
+
+All messages and debates are persisted to PostgreSQL for durability.
 """
 
 from typing import Dict, List, Optional, Any, Callable
@@ -13,6 +15,13 @@ from datetime import datetime
 from collections import defaultdict
 import asyncio
 import json
+
+try:
+    from persistence.pantheon_persistence import get_pantheon_persistence, PantheonPersistence
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+    print("[PantheonChat] Persistence not available - messages will not persist")
 
 
 MESSAGE_TYPES = ['insight', 'praise', 'challenge', 'question', 'warning', 'discovery', 'challenge_response']
@@ -124,6 +133,8 @@ class PantheonChat:
     - Debate initiation and resolution
     - Knowledge transfer coordination
     - Challenge routing and tracking
+    
+    All messages and debates persist to PostgreSQL for durability.
     """
 
     # Canonical roster of all Olympian gods for broadcast targeting
@@ -144,14 +155,103 @@ class PantheonChat:
 
         self.message_limit = 1000
         self.debate_limit = 100
+        
+        # Persistence layer
+        self._persistence: Optional[PantheonPersistence] = None
+        if PERSISTENCE_AVAILABLE:
+            self._persistence = get_pantheon_persistence()
 
         # Initialize inboxes for all gods in roster (using lowercase canonical keys)
         for god in self.OLYMPIAN_ROSTER:
             self.god_inboxes[god.lower()]  # Creates empty list via defaultdict
+        
+        # Hydrate from database
+        self._hydrate_from_database()
 
     def _normalize_god_name(self, name: str) -> str:
         """Normalize god name to lowercase for consistent inbox key lookup."""
         return name.lower() if name else name
+
+    def _hydrate_from_database(self) -> None:
+        """Load messages and debates from PostgreSQL on startup."""
+        if not self._persistence:
+            return
+        
+        try:
+            # Load recent messages
+            messages_data = self._persistence.load_recent_messages(limit=self.message_limit)
+            loaded_messages = 0
+            for msg_data in messages_data:
+                msg = PantheonMessage(
+                    msg_type=msg_data.get('type', 'insight'),
+                    from_god=msg_data.get('from', ''),
+                    to_god=msg_data.get('to', ''),
+                    content=msg_data.get('content', ''),
+                    metadata=msg_data.get('metadata'),
+                )
+                msg.id = msg_data.get('id', msg.id)
+                msg.read = msg_data.get('read', False)
+                msg.responded = msg_data.get('responded', False)
+                if msg_data.get('timestamp'):
+                    try:
+                        msg.timestamp = datetime.fromisoformat(msg_data['timestamp'].replace('Z', '+00:00'))
+                    except:
+                        pass
+                
+                self.messages.append(msg)
+                
+                # Rebuild inboxes
+                if msg.to_god == 'pantheon':
+                    for god_name in self.OLYMPIAN_ROSTER:
+                        if god_name.lower() != msg.from_god.lower():
+                            self.god_inboxes[self._normalize_god_name(god_name)].append(msg)
+                else:
+                    self.god_inboxes[self._normalize_god_name(msg.to_god)].append(msg)
+                
+                loaded_messages += 1
+            
+            # Load debates
+            debates_data = self._persistence.load_debates(limit=self.debate_limit)
+            loaded_debates = 0
+            for debate_data in debates_data:
+                debate = Debate(
+                    topic=debate_data.get('topic', ''),
+                    initiator=debate_data.get('initiator', ''),
+                    opponent=debate_data.get('opponent', ''),
+                    context=debate_data.get('context'),
+                )
+                debate.id = debate_data.get('id', debate.id)
+                debate.status = debate_data.get('status', 'active')
+                debate.arguments = debate_data.get('arguments', [])
+                debate.winner = debate_data.get('winner')
+                debate.arbiter = debate_data.get('arbiter')
+                debate.resolution = debate_data.get('resolution')
+                if debate_data.get('started_at'):
+                    try:
+                        debate.started_at = datetime.fromisoformat(debate_data['started_at'].replace('Z', '+00:00'))
+                    except:
+                        pass
+                
+                self.debates[debate.id] = debate
+                if debate.status == 'active':
+                    self.active_debates.append(debate.id)
+                else:
+                    self.resolved_debates.append(debate.id)
+                
+                loaded_debates += 1
+            
+            # Load knowledge transfers
+            transfers_data = self._persistence.load_knowledge_transfers(limit=200)
+            self.knowledge_transfers = transfers_data
+            loaded_transfers = len(transfers_data)
+            
+            if loaded_messages > 0 or loaded_debates > 0 or loaded_transfers > 0:
+                print(f"[PantheonChat] Hydrated from DB: {loaded_messages} messages, {loaded_debates} debates, {loaded_transfers} transfers")
+            else:
+                print("[PantheonChat] No existing messages/debates in DB, starting fresh")
+                
+        except Exception as e:
+            print(f"[PantheonChat] Failed to hydrate from database: {e}")
 
     def send_message(
         self,
@@ -186,6 +286,10 @@ class PantheonChat:
         self._trigger_handlers(msg_type, message)
 
         self._cleanup_messages()
+        
+        # Persist to database
+        if self._persistence:
+            self._persistence.save_message(message.to_dict())
 
         return message
 
@@ -262,6 +366,10 @@ class PantheonChat:
             msg_type='warning',
             metadata={'debate_id': debate.id}
         )
+        
+        # Persist debate to database
+        if self._persistence:
+            self._persistence.save_debate(debate.to_dict())
 
         return debate
 
@@ -294,6 +402,10 @@ class PantheonChat:
             content=argument,
             metadata={'debate_id': debate_id, 'evidence': evidence}
         )
+        
+        # Persist updated debate to database
+        if self._persistence:
+            self._persistence.save_debate(debate.to_dict())
 
         return True
 
@@ -325,6 +437,10 @@ class PantheonChat:
             msg_type='insight',
             metadata={'debate_id': debate_id, 'resolution': resolution}
         )
+        
+        # Persist resolved debate to database
+        if self._persistence:
+            self._persistence.save_debate(debate.to_dict())
 
         return resolution
 
@@ -366,6 +482,10 @@ class PantheonChat:
             content=f"Knowledge transfer: {knowledge.get('topic', 'general')}",
             metadata={'knowledge': knowledge}
         )
+        
+        # Persist knowledge transfer to database
+        if self._persistence:
+            self._persistence.save_knowledge_transfer(transfer)
 
         if len(self.knowledge_transfers) > 500:
             self.knowledge_transfers = self.knowledge_transfers[-250:]
