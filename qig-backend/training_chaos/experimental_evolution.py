@@ -31,6 +31,7 @@ try:
     from persistence import KernelPersistence
     PERSISTENCE_AVAILABLE = True
 except ImportError:
+    KernelPersistence = None  # Define as None when import fails
     PERSISTENCE_AVAILABLE = False
     print("[Chaos] Persistence not available - running without database")
 
@@ -97,7 +98,9 @@ class ExperimentalKernelEvolution:
         self.logger = ChaosLogger()
 
         # Persistence (database operations)
-        self.kernel_persistence = KernelPersistence() if PERSISTENCE_AVAILABLE else None
+        self.kernel_persistence = None
+        if PERSISTENCE_AVAILABLE and KernelPersistence is not None:
+            self.kernel_persistence = KernelPersistence()
 
         # Evolution thread
         self._evolution_running = False
@@ -230,6 +233,13 @@ class ExperimentalKernelEvolution:
         self.enable_mutation = True
         self.enable_god_fusion = True
 
+        # Evolution probabilities
+        self.breed_probability = 0.3
+        self.mutation_probability = 0.2
+        self.cannibalism_probability = 0.1
+        self.phi_requirement = 0.3
+        self.max_population = 60
+
         # Resource allocation
         self.compute_budget = 1000
         self.memory_budget = 4096  # 4GB
@@ -256,6 +266,13 @@ class ExperimentalKernelEvolution:
         self.enable_mutation = True
         self.enable_god_fusion = False
 
+        # Evolution probabilities
+        self.breed_probability = 0.2
+        self.mutation_probability = 0.15
+        self.cannibalism_probability = 0.0
+        self.phi_requirement = 0.4
+        self.max_population = 20
+
         # Resource allocation
         self.compute_budget = 100
         self.memory_budget = 1024  # 1GB
@@ -280,6 +297,13 @@ class ExperimentalKernelEvolution:
         self.enable_cannibalism = True
         self.enable_mutation = True
         self.enable_god_fusion = True
+
+        # Evolution probabilities
+        self.breed_probability = 0.25
+        self.mutation_probability = 0.2
+        self.cannibalism_probability = 0.1
+        self.phi_requirement = 0.35
+        self.max_population = 40
 
         self.compute_budget = 500
         self.memory_budget = 2048
@@ -380,7 +404,7 @@ class ExperimentalKernelEvolution:
                     phi=kernel.kernel.compute_phi(),
                     kappa=0.0,
                     regime='e8_aligned',
-                    primitive_root=root_index
+                    metadata={'primitive_root': root_index}
                 )
             except Exception as e:
                 print(f"[Chaos] Failed to persist E8 kernel: {e}")
@@ -704,7 +728,8 @@ class ExperimentalKernelEvolution:
 
             if phi < self.phi_requirement:
                 autopsy = kernel.die(cause=f'phi_too_low_{phi:.2f}')
-                self.kernel_graveyard.append(autopsy)
+                if autopsy is not None:
+                    self.kernel_graveyard.append(autopsy)
                 killed.append(kernel.kernel_id)
                 self.logger.log_death(kernel.kernel_id, 'phi_selection', autopsy)
                 
@@ -845,7 +870,8 @@ class ExperimentalKernelEvolution:
             weakest = min(living, key=lambda k: k.kernel.compute_phi())
             final_phi = weakest.kernel.compute_phi()
             autopsy = weakest.die(cause='overpopulation')
-            self.kernel_graveyard.append(autopsy)
+            if autopsy is not None:
+                self.kernel_graveyard.append(autopsy)
             
             # Persist death event to PostgreSQL
             if self.kernel_persistence:
