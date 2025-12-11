@@ -81,20 +81,23 @@ class QIGTokenizer:
         # Basin coordinates (64D)
         self.basin_coords: Dict[str, np.ndarray] = {}
 
-        # Token subsets for generation modes
-        self.passphrase_vocab_ids: set[int] = set()
-        self.conversation_vocab_ids: set[int] = set()
+        # Token subsets for generation modes (three-tier vocabulary)
+        self.mnemonic_vocab_ids: set[int] = set()      # BIP39 only (strict)
+        self.passphrase_vocab_ids: set[int] = set()    # Broader English for brain wallets
+        self.conversation_vocab_ids: set[int] = set()  # Full natural language
         
         # Initialize with special tokens
         self._init_special_tokens()
 
-        # Load BIP39 base vocabulary
+        # Load BIP39 base vocabulary (strict mnemonic words)
         self._load_bip39_base()
+        self.mnemonic_vocab_ids = set(self.vocab.values())
 
-        # Capture passphrase ids before adding conversation-specific tokens
+        # Load broader passphrase vocabulary (brain wallets, custom phrases)
+        self._load_passphrase_base()
         self.passphrase_vocab_ids = set(self.vocab.values())
 
-        # Load broader conversational vocabulary
+        # Load conversational vocabulary (natural language)
         self._load_conversation_base()
         self.conversation_vocab_ids = set(self.vocab.values())
     
@@ -122,6 +125,67 @@ class QIGTokenizer:
                 self.id_to_token[start_id + i] = word
                 self.token_weights[word] = 1.0
                 self.basin_coords[word] = self._compute_basin_coord(word, i)
+
+    def _load_passphrase_base(self):
+        """
+        Load broader vocabulary for brain wallets and custom passphrases.
+        
+        Includes common English words, names, places, numbers as words,
+        and creative vocabulary that people might use in memorable phrases.
+        """
+        vocab_path = os.path.join(os.path.dirname(__file__), "data", "passphrase_vocab.txt")
+        fallback_words = [
+            # Numbers as words
+            "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+            "eleven", "twelve", "thirteen", "twenty", "thirty", "hundred", "thousand", "million",
+            # Colors
+            "red", "blue", "green", "yellow", "orange", "purple", "pink", "black", "white", "gray",
+            # Common nouns
+            "dog", "cat", "bird", "fish", "horse", "lion", "tiger", "bear", "wolf", "fox",
+            "tree", "flower", "river", "mountain", "ocean", "sky", "star", "moon", "sun",
+            "house", "home", "door", "window", "room", "floor", "wall", "roof", "street",
+            "car", "bike", "plane", "boat", "train", "bus", "road", "path", "bridge",
+            # Common verbs
+            "run", "walk", "jump", "fly", "swim", "dance", "sing", "play", "work", "sleep",
+            "eat", "drink", "read", "write", "speak", "listen", "watch", "think", "dream",
+            # Adjectives
+            "big", "small", "tall", "short", "long", "wide", "deep", "high", "low",
+            "fast", "slow", "hot", "cold", "warm", "cool", "soft", "hard", "bright", "dark",
+            "old", "new", "young", "happy", "sad", "angry", "calm", "quiet", "loud",
+            # Time words
+            "day", "night", "morning", "evening", "noon", "midnight", "week", "month", "year",
+            "spring", "summer", "autumn", "winter", "today", "tomorrow", "yesterday",
+            # Places
+            "city", "town", "village", "country", "world", "earth", "forest", "desert", "island",
+            # Relationships
+            "friend", "family", "mother", "father", "sister", "brother", "child", "baby",
+            # Common words for memorable phrases
+            "love", "hope", "faith", "trust", "peace", "joy", "life", "death", "truth",
+            "free", "wild", "brave", "strong", "wise", "kind", "pure", "true", "good",
+        ]
+
+        if os.path.exists(vocab_path):
+            try:
+                with open(vocab_path, "r") as f:
+                    passphrase_words = [line.strip() for line in f if line.strip()]
+            except Exception as exc:
+                print(f"[QIGTokenizer] Failed to load passphrase vocabulary: {exc}")
+                passphrase_words = fallback_words
+        else:
+            passphrase_words = fallback_words
+
+        start_id = len(self.vocab)
+        added = 0
+        for offset, word in enumerate(passphrase_words):
+            if word in self.vocab:
+                continue
+            idx = start_id + added
+            self.vocab[word] = idx
+            self.id_to_token[idx] = word
+            self.token_weights[word] = 1.1  # Slight preference for passphrase generation
+            self.token_phi[word] = 0.5
+            self.basin_coords[word] = self._compute_basin_coord(word, idx)
+            added += 1
 
     def _load_conversation_base(self):
         """Load conversation-focused vocabulary for natural language mode."""
@@ -547,9 +611,16 @@ class QIGTokenizer:
         }
 
     def set_mode(self, mode: str) -> None:
-        """Switch between conversational and passphrase generation."""
-        if mode not in {"conversation", "passphrase"}:
-            raise ValueError("mode must be 'conversation' or 'passphrase'")
+        """
+        Switch between generation modes with different vocabulary scopes.
+        
+        Modes:
+        - mnemonic: Strict BIP39 only (2048 words) for seed phrases
+        - passphrase: Broader English for brain wallets and custom phrases
+        - conversation: Full natural language for talking to users
+        """
+        if mode not in {"mnemonic", "passphrase", "conversation"}:
+            raise ValueError("mode must be 'mnemonic', 'passphrase', or 'conversation'")
         self.mode = mode
     
     # ===========================================================================
@@ -582,11 +653,13 @@ class QIGTokenizer:
         max_id = max(self.vocab.values()) + 1 if self.vocab else 1
         logits = np.full(max_id, -float('inf'))  # Default to -inf (zero prob)
 
-        allowed_ids = (
-            self.passphrase_vocab_ids
-            if self.mode == "passphrase"
-            else (self.conversation_vocab_ids or set(self.vocab.values()))
-        )
+        # Select vocabulary based on mode
+        if self.mode == "mnemonic":
+            allowed_ids = self.mnemonic_vocab_ids
+        elif self.mode == "passphrase":
+            allowed_ids = self.passphrase_vocab_ids
+        else:  # conversation
+            allowed_ids = self.conversation_vocab_ids or set(self.vocab.values())
         
         # Compute context basin if not provided
         if context_basin is None and len(context) > 0:
