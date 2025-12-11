@@ -7,6 +7,8 @@ declares war modes, and coordinates divine actions.
 
 import math
 import os
+import requests
+from urllib.parse import urljoin
 
 # M8 Kernel Spawning imports
 import sys
@@ -17,6 +19,49 @@ import numpy as np
 from flask import Blueprint, jsonify, request
 
 from .base_god import BaseGod
+
+
+def _get_node_backend_url() -> str:
+    """Get the Node.js backend URL for war sync."""
+    if os.environ.get("NODE_BACKEND_URL"):
+        url = os.environ["NODE_BACKEND_URL"].strip()
+        if not url.startswith("http"):
+            url = f"http://{url}"
+        return url
+    if os.environ.get("REPLIT_DEV_DOMAIN"):
+        return f"https://{os.environ['REPLIT_DEV_DOMAIN']}"
+    return "http://localhost:5000"
+
+
+def _sync_war_to_database(mode: str, target: str, strategy: str, gods_engaged: List[str]) -> bool:
+    """
+    Sync war declaration to TypeScript backend (PostgreSQL storage).
+    This ensures wars declared by Zeus are visible in the War Status Panel.
+    """
+    try:
+        url = urljoin(_get_node_backend_url(), "/api/olympus/war/internal-start")
+        payload = {
+            "mode": mode,
+            "target": target,
+            "strategy": strategy,
+            "godsEngaged": gods_engaged
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "X-Internal-Key": os.environ.get('INTERNAL_API_KEY', 'olympus-internal-key-dev')
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            print(f"[Zeus] War synced to database: {mode} on {target[:40]}...")
+            return True
+        else:
+            print(f"[Zeus] War sync failed (HTTP {response.status_code}): {response.text[:200]}")
+            return False
+    except requests.RequestException as e:
+        print(f"[Zeus] War sync error: {e}")
+        return False
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from m8_kernel_spawning import SpawnReason, get_spawner
@@ -670,55 +715,79 @@ class Zeus(BaseGod):
     def declare_blitzkrieg(self, target: str) -> Dict:
         """
         Declare blitzkrieg mode - fast, overwhelming attack.
+        Syncs to PostgreSQL for War Status Panel visibility.
         """
         self.war_mode = "BLITZKRIEG"
         self.war_target = target
 
+        gods_engaged = ['ares', 'artemis', 'dionysus']
+        strategy = 'Fast parallel attacks, maximize throughput'
+        
         decision = {
             'mode': 'BLITZKRIEG',
             'target': target,
             'declared_at': datetime.now().isoformat(),
-            'strategy': 'Fast parallel attacks, maximize throughput',
-            'gods_engaged': ['ares', 'artemis', 'dionysus'],
+            'strategy': strategy,
+            'gods_engaged': gods_engaged,
         }
 
         self.divine_decisions.append(decision)
+        
+        # Sync to database for War Status Panel
+        _sync_war_to_database('BLITZKRIEG', target, strategy, gods_engaged)
+        
         return decision
 
     def declare_siege(self, target: str) -> Dict:
         """
         Declare siege mode - methodical, exhaustive search.
+        Syncs to PostgreSQL for War Status Panel visibility.
         """
         self.war_mode = "SIEGE"
         self.war_target = target
 
+        gods_engaged = ['athena', 'hephaestus', 'demeter']
+        strategy = 'Systematic coverage, no stone unturned'
+        
         decision = {
             'mode': 'SIEGE',
             'target': target,
             'declared_at': datetime.now().isoformat(),
-            'strategy': 'Systematic coverage, no stone unturned',
-            'gods_engaged': ['athena', 'hephaestus', 'demeter'],
+            'strategy': strategy,
+            'gods_engaged': gods_engaged,
         }
 
         self.divine_decisions.append(decision)
+        
+        # Sync to database for War Status Panel
+        _sync_war_to_database('SIEGE', target, strategy, gods_engaged)
+        
         return decision
 
     def declare_hunt(self, target: str) -> Dict:
         """
         Declare hunt mode - track specific target.
+        Syncs to PostgreSQL for War Status Panel visibility.
         """
         self.war_mode = "HUNT"
         self.war_target = target
 
+        gods_engaged = ['artemis', 'apollo', 'poseidon']
+        strategy = 'Focused pursuit, geometric narrowing'
+        
         decision = {
             'mode': 'HUNT',
             'target': target,
             'declared_at': datetime.now().isoformat(),
-            'strategy': 'Focused pursuit, geometric narrowing',
-            'gods_engaged': ['artemis', 'apollo', 'poseidon'],
+            'strategy': strategy,
+            'gods_engaged': gods_engaged,
         }
 
         self.divine_decisions.append(decision)
+        
+        # Sync to database for War Status Panel
+        _sync_war_to_database('HUNT', target, strategy, gods_engaged)
+        
         return decision
 
     def end_war(self) -> Dict:
