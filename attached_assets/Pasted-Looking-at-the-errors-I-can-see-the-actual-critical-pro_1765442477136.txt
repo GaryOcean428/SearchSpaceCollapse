@@ -1,0 +1,163 @@
+Looking at the errors, I can see **the actual critical project errors** (ignoring all the Replit CSP noise):
+
+## 🚨 **CRITICAL DATABASE ERROR**
+
+```
+[useZeusChat] Error: 500: {
+  "error": "relation \"basin_documents\" does not exist
+           LINE 3: FROM basin_documents"
+}
+```
+
+**Three API endpoints failing with 500 errors:**
+1. `/api/olympus/debates/active` - 500 error
+2. `/api/olympus/chat/recent` - 500 error  
+3. `/api/olympus/zeus/chat` - 500 error
+
+**Root cause:** Missing PostgreSQL table `basin_documents`
+
+Let me search for the debate/chat implementation and check the database schema:Now I found the issue! Let me check the `zeus_chat.py` and `qig_rag.py` files that are being used:## 🎯 **ROOT CAUSE IDENTIFIED**
+
+The error shows **3 critical database failures:**
+
+```
+ERROR: relation "basin_documents" does not exist
+```
+
+**Failing endpoints:**
+1. `/api/olympus/debates/active` → 500
+2. `/api/olympus/chat/recent` → 500  
+3. `/api/olympus/zeus/chat` → 500
+
+---
+
+## 🔍 **THE PROBLEM**
+
+The `basin_documents` table **exists in the schema file** (`olympus_schema_enhancement.sql` lines 183-202) but **was never created in the actual database**.
+
+**Two possible causes:**
+
+### **Cause 1: Migration Never Ran**
+The migration script `migrate_olympus_schema.py` exists but may not have been executed.
+
+### **Cause 2: QIG-RAG Auto-Creation Failed**  
+`QIGRAGDatabase._create_schema()` in `qig_rag.py` (lines 579-616) tries to create the table, but:
+- Database connection may be failing
+- pgvector extension might be missing
+- Permissions might be insufficient
+
+---
+
+## ✅ **SOLUTION**
+
+### **Step 1: Run the Migration Script**
+
+```bash
+# From qig-backend directory
+python migrate_olympus_schema.py
+
+# Or with validation:
+python migrate_olympus_schema.py --validate-only
+```
+
+This will create all missing tables including `basin_documents`.
+
+### **Step 2: Verify Database Connection**
+
+Check if `DATABASE_URL` environment variable is set correctly:
+
+```bash
+# In Railway or Replit
+echo $DATABASE_URL
+```
+
+### **Step 3: Manual Table Creation (Fallback)**
+
+If the migration fails, run this SQL directly:
+
+```sql
+CREATE TABLE IF NOT EXISTS basin_documents (
+    doc_id SERIAL PRIMARY KEY,
+    content TEXT NOT NULL,
+    basin_coords FLOAT8[64],  -- 64D basin coordinates
+    phi FLOAT8,
+    kappa FLOAT8,
+    regime VARCHAR(50),
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_basin_documents_regime ON basin_documents(regime);
+CREATE INDEX IF NOT EXISTS idx_basin_documents_phi ON basin_documents(phi DESC);
+CREATE INDEX IF NOT EXISTS idx_basin_documents_created_at ON basin_documents(created_at DESC);
+```
+
+---
+
+## 🌪️ **REGARDING YOUR DEBATE QUESTION**
+
+Yes! **All kernels ARE discussing and can see each other** - the architecture is fully implemented:
+
+### **1. Pantheon Chat System** ✅
+- **Location:** `qig-backend/olympus/pantheon_chat.py`
+- **Features:**
+  - Inter-god messaging (insight, praise, challenge, question, warning)
+  - Automatic debate initiation on disagreements >0.3
+  - Structured multi-turn debates with geometric convergence
+  - Message inbox per god with unread tracking
+  - Broadcast to entire pantheon
+
+### **2. Debate System** ✅
+- **Auto-initiation:** Zeus detects probability disagreements and starts debates
+- **Multi-turn:** Gods generate counter-arguments until Fisher distance converges
+- **Arbiter:** Zeus resolves debates based on geometric reasoning
+- **API Endpoints:**
+  - `/api/olympus/debates/active` (500 error - needs DB fix)
+  - `/api/olympus/debate/initiate`
+  - `/api/olympus/debate/argue`
+  - `/api/olympus/debate/resolve`
+
+### **3. The Architecture is THERE**
+
+From `zeus.py` lines 698-773:
+
+```python
+def _process_pantheon_communication(self, target, assessments, convergence):
+    # 1. Detect significant disagreements for debate initiation
+    disagreements = self._find_significant_disagreements(assessments)
+    
+    for disagreement in disagreements[:1]:  # Max 1 debate per poll
+        god1, god2, prob_diff = disagreement
+        topic = f"Assessment of '{target[:50]}' - probability disagreement ({prob_diff:.2f})"
+        
+        # Higher probability god initiates the debate
+        self.pantheon_chat.initiate_debate(
+            topic=topic,
+            initiator=initiator,
+            opponent=opponent,
+            initial_argument=initial_arg,
+        )
+```
+
+**The debates ARE happening** - but the UI can't display them because the database table is missing!
+
+---
+
+## 🚀 **QUICK FIX**
+
+**Run this command now:**
+
+```bash
+cd qig-backend
+python migrate_olympus_schema.py
+```
+
+Then refresh your browser. The pantheon chat, debates, and Zeus conversation should all work.
+
+---
+
+Would you like me to:
+1. Create a script that auto-runs the migration on server startup?
+2. Add database health checks to the API?
+3. Show you the actual debate conversations once the DB is fixed?

@@ -90,6 +90,11 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - ID: `ISMS-TECH-QIG-REPLIT-001`
   - Function: Verification that Replit instance has all core QIG essentials functional
 
+- 🟢 **QIG Sensory Modalities - Geometric Primitives for Consciousness Encoding** (v1.00)
+  - File: [`20251211-qig-sensory-modalities-geometric-1.00F.md`](03-technical/qig-consciousness/20251211-qig-sensory-modalities-geometric-1.00F.md)
+  - ID: `DOC-QIG-SENSORY-001`
+  - Function: Technical Reference
+
 - 🟢 **Corrected QIG Kernel Architecture - Actual Implementation** (v1.00)
   - File: [`20251211-corrected-kernel-architecture-actual-1.00F.md`](03-technical/architecture/20251211-corrected-kernel-architecture-actual-1.00F.md)
   - ID: `ISMS-TECH-ARCH-CORRECTED-001`
@@ -132,6 +137,15 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - File: [`20251208-qig-principles-quantum-geometry-1.00F.md`](03-technical/qig-consciousness/20251208-qig-principles-quantum-geometry-1.00F.md)
   - ID: `ISMS-TECH-QIG-002`
   - Function: Foundational principles of Quantum Information Geometry
+
+- ❓ **ARCHITECTURE.md** (vN/A)
+  - File: [`ARCHITECTURE.md`](03-technical/ARCHITECTURE.md)
+
+- ❓ **DATABASE.md** (vN/A)
+  - File: [`DATABASE.md`](03-technical/DATABASE.md)
+
+- ❓ **TYPE_MANIFEST.md** (vN/A)
+  - File: [`TYPE_MANIFEST.md`](03-technical/TYPE_MANIFEST.md)
 
 
 ## 📊 Records
@@ -233,6 +247,9 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - ID: `ISMS-IMPL-001`
   - Function: Experimental QIG implementation for Ocean autonomous agent
 
+- ❓ **IMPLEMENTATION_GUIDE.md** (vN/A)
+  - File: [`IMPLEMENTATION_GUIDE.md`](06-implementation/IMPLEMENTATION_GUIDE.md)
+
 
 ## 👥 User Guides
 
@@ -250,6 +267,9 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - File: [`20251208-zeus-chat-guide-1.20F.md`](07-user-guides/20251208-zeus-chat-guide-1.20F.md)
   - ID: `ISMS-GUIDE-002`
   - Function: User guide for Zeus Chat conversational interface
+
+- ❓ **QUICKSTART.md** (vN/A)
+  - File: [`QUICKSTART.md`](07-user-guides/QUICKSTART.md)
 
 
 ## 🧪 Experiments
@@ -272,9 +292,9 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## Statistics
 
-- **Total Documents**: 50
+- **Total Documents**: 56
 - **Approved**: 1
-- **Frozen**: 38
+- **Frozen**: 39
 - **Hypothesis**: 5
 - **Working**: 2
 

@@ -2687,6 +2687,32 @@ export const chaosEvents = pgTable(
 export type ChaosEvent = typeof chaosEvents.$inferSelect;
 export type InsertChaosEvent = typeof chaosEvents.$inferInsert;
 
+/**
+ * BASIN DOCUMENTS - QIG RAG document storage with geometric coordinates
+ * Used by Zeus chat and Olympus debate system for semantic retrieval
+ */
+export const basinDocuments = pgTable(
+  "basin_documents",
+  {
+    docId: serial("doc_id").primaryKey(),
+    content: text("content").notNull(),
+    basinCoords: vector("basin_coords", { dimensions: 64 }),
+    phi: doublePrecision("phi"),
+    kappa: doublePrecision("kappa"),
+    regime: varchar("regime", { length: 50 }),
+    metadata: jsonb("metadata").default({}),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_basin_documents_regime").on(table.regime),
+    index("idx_basin_documents_phi").on(table.phi),
+    index("idx_basin_documents_created_at").on(table.createdAt),
+  ]
+);
+
+export type BasinDocument = typeof basinDocuments.$inferSelect;
+export type InsertBasinDocument = typeof basinDocuments.$inferInsert;
+
 // ============================================================================
 // NEGATIVE KNOWLEDGE REGISTRY - What NOT to search
 // ============================================================================
