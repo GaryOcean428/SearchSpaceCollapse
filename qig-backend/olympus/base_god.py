@@ -11,6 +11,7 @@ All gods share:
 - Holographic dimensional transforms (1D↔5D)
 - Running coupling β=0.44 scale-adaptive processing
 - Sensory-enhanced basin encoding
+- Persistent state via PostgreSQL
 """
 
 import hashlib
@@ -28,6 +29,13 @@ from qig_core.geometric_primitives.sensory_modalities import (
 from qig_core.holographic_transform.holographic_mixin import HolographicTransformMixin
 from qig_core.universal_cycle.beta_coupling import modulate_kappa_computation
 from scipy.linalg import sqrtm
+
+# Import persistence layer for god state
+try:
+    from qig_persistence import get_persistence
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +78,7 @@ class BaseGod(ABC, HolographicTransformMixin):
         # Therapy event log
         self._therapy_events: List[Dict] = []
 
-        # Agentic learning state
+        # Agentic learning state - defaults
         self.reputation: float = 1.0  # Range [0.0, 2.0], 1.0 = neutral
         self.skills: Dict[str, float] = {}  # Domain-specific skill levels
         self.peer_evaluations: List[Dict] = []  # Evaluations received from peers
@@ -78,10 +86,57 @@ class BaseGod(ABC, HolographicTransformMixin):
         self.learning_history: List[Dict] = []  # Outcomes learned from
         self.knowledge_base: List[Dict] = []  # Transferred knowledge from peers
         self.pending_messages: List[Dict] = []  # Messages to send via pantheon chat
+        self._learning_events_count: int = 0  # Total learning events for persistence
+
+        # Load persisted state from database if available
+        self._load_persisted_state()
 
         # CHAOS MODE: Kernel assignment for experimental evolution
         self.chaos_kernel = None  # Assigned SelfSpawningKernel
         self.kernel_assessments: List[Dict] = []  # Assessment history with kernel
+
+    def _load_persisted_state(self) -> None:
+        """Load reputation and skills from database if available."""
+        if not PERSISTENCE_AVAILABLE:
+            return
+        
+        try:
+            persistence = get_persistence()
+            state = persistence.load_god_state(self.name)
+            if state:
+                self.reputation = float(state.get('reputation', 1.0))
+                self.skills = state.get('skills', {}) or {}
+                self._learning_events_count = state.get('learning_events_count', 0)
+                logger.info(f"[{self.name}] Loaded persisted state: reputation={self.reputation:.3f}")
+        except Exception as e:
+            logger.warning(f"[{self.name}] Failed to load persisted state: {e}")
+
+    def _persist_state(self) -> None:
+        """Save current reputation and skills to database."""
+        if not PERSISTENCE_AVAILABLE:
+            return
+        
+        try:
+            persistence = get_persistence()
+            success_rate = self._compute_success_rate()
+            persistence.save_god_state(
+                god_name=self.name,
+                reputation=self.reputation,
+                skills=self.skills,
+                learning_events_count=self._learning_events_count,
+                success_rate=success_rate
+            )
+            logger.debug(f"[{self.name}] Persisted state: reputation={self.reputation:.3f}")
+        except Exception as e:
+            logger.warning(f"[{self.name}] Failed to persist state: {e}")
+
+    def _compute_success_rate(self) -> float:
+        """Compute recent success rate from learning history."""
+        recent = self.learning_history[-100:] if self.learning_history else []
+        if not recent:
+            return 0.5
+        successes = sum(1 for e in recent if e.get('success', False))
+        return successes / len(recent)
 
     @abstractmethod
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
@@ -392,6 +447,10 @@ class BaseGod(ABC, HolographicTransformMixin):
         # Trim history
         if len(self.learning_history) > 500:
             self.learning_history = self.learning_history[-250:]
+
+        # Persist state to database
+        self._learning_events_count += 1
+        self._persist_state()
 
         return {
             'learned': True,
