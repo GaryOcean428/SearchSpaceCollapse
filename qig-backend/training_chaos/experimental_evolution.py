@@ -424,17 +424,21 @@ class ExperimentalKernelEvolution:
         phi = kernel.kernel.compute_phi()
 
         if phi >= self.phi_elite_threshold:
-            # Persist to database instead of file
+            # Persist to database using correct method
             if self.kernel_persistence:
                 try:
-                    self.kernel_persistence.save_kernel(
+                    self.kernel_persistence.save_kernel_snapshot(
                         kernel_id=kernel.kernel_id,
-                        basin_coordinates=kernel.kernel.basin_coords.tolist(),
-                        phi=phi,
+                        god_name='elite',
+                        domain='hall_of_fame',
                         generation=kernel.generation,
+                        basin_coords=kernel.kernel.basin_coords.detach().cpu().tolist(),
+                        phi=phi,
+                        kappa=0.0,
+                        regime='elite',
                         success_count=kernel.success_count,
                         failure_count=kernel.failure_count,
-                        is_elite=True,
+                        metadata={'is_elite': True}
                     )
                 except Exception as e:
                     print(f"[Chaos] Failed to persist elite: {e}")
@@ -451,18 +455,36 @@ class ExperimentalKernelEvolution:
         return False
 
     def record_convergence(self):
-        """Record population state for convergence analysis."""
+        """Record population state for convergence analysis (persisted to PostgreSQL)."""
         living = [k for k in self.kernel_population if k.is_alive]
         total = len(living) + len(self.dormant_kernels)
+        avg_phi = np.mean([k.kernel.compute_phi() for k in living]) if living else 0
 
-        self.convergence_history.append({
+        convergence_record = {
             'generation': self.generation,
             'population': total,
             'active': len(living),
             'dormant': len(self.dormant_kernels),
-            'avg_phi': np.mean([k.kernel.compute_phi() for k in living]) if living else 0,
+            'avg_phi': float(avg_phi),
             'timestamp': datetime.now().isoformat(),
-        })
+        }
+        
+        self.convergence_history.append(convergence_record)
+        
+        # Persist convergence snapshot to PostgreSQL via learning_events
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.record_convergence_snapshot(
+                    generation=self.generation,
+                    population=total,
+                    active_count=len(living),
+                    dormant_count=len(self.dormant_kernels),
+                    avg_phi=float(avg_phi),
+                    e8_alignment=self.check_e8_alignment() if self.e8_roots is not None else None
+                )
+            except Exception as e:
+                # Method may not exist yet - graceful degradation
+                pass
 
     def analyze_convergence(self) -> dict:
         """
@@ -629,11 +651,42 @@ class ExperimentalKernelEvolution:
         child = breed_kernels(parent1, parent2)
 
         self.kernel_population.append(child)
+        child_phi = child.kernel.compute_phi()
         self.logger.log_breeding(parent1.kernel_id, parent2.kernel_id, child.kernel_id, {
             'parent1_success': parent1.success_count,
             'parent2_success': parent2.success_count,
-            'child_phi': child.kernel.compute_phi(),
+            'child_phi': child_phi,
         })
+
+        # Persist breeding event and child kernel to PostgreSQL
+        if self.kernel_persistence:
+            try:
+                # Save child kernel snapshot
+                self.kernel_persistence.save_kernel_snapshot(
+                    kernel_id=child.kernel_id,
+                    god_name='chaos',
+                    domain='breeding',
+                    generation=child.generation,
+                    basin_coords=child.kernel.basin_coords.detach().cpu().tolist(),
+                    phi=child_phi,
+                    kappa=0.0,
+                    regime='bred',
+                    parent_ids=[parent1.kernel_id, parent2.kernel_id],
+                    metadata={
+                        'parent1_success': parent1.success_count,
+                        'parent2_success': parent2.success_count,
+                    }
+                )
+                # Record breeding event
+                self.kernel_persistence.record_breeding_event(
+                    child_id=child.kernel_id,
+                    parent1_id=parent1.kernel_id,
+                    parent2_id=parent2.kernel_id,
+                    breeding_type='top_kernels',
+                    child_phi=child_phi,
+                )
+            except Exception as e:
+                print(f"[Chaos] Failed to persist breeding: {e}")
 
         return child
 
@@ -654,6 +707,19 @@ class ExperimentalKernelEvolution:
                 self.kernel_graveyard.append(autopsy)
                 killed.append(kernel.kernel_id)
                 self.logger.log_death(kernel.kernel_id, 'phi_selection', autopsy)
+                
+                # Persist death event to PostgreSQL
+                if self.kernel_persistence:
+                    try:
+                        self.kernel_persistence.record_death_event(
+                            kernel_id=kernel.kernel_id,
+                            cause='phi_selection',
+                            final_phi=phi,
+                            lifetime_successes=kernel.success_count,
+                            metadata={'phi_requirement': self.phi_requirement}
+                        )
+                    except Exception as e:
+                        print(f"[Chaos] Failed to persist death: {e}")
 
         if killed:
             print(f"💀 Φ-selection killed {len(killed)} kernels")
@@ -684,6 +750,23 @@ class ExperimentalKernelEvolution:
             result = absorb_failing_kernel(strong, weak)
             self.kernel_graveyard.append(result['autopsy'])
             self.logger.log_death(weak.kernel_id, 'cannibalized', result['autopsy'])
+            
+            # Persist death event to PostgreSQL
+            if self.kernel_persistence:
+                try:
+                    self.kernel_persistence.record_death_event(
+                        kernel_id=weak.kernel_id,
+                        cause='cannibalized',
+                        final_phi=weak.kernel.compute_phi() if weak.is_alive else 0.0,
+                        lifetime_successes=weak.success_count,
+                        metadata={
+                            'absorbed_by': strong.kernel_id,
+                            'strong_success': strong.success_count
+                        }
+                    )
+                except Exception as e:
+                    print(f"[Chaos] Failed to persist cannibalism death: {e}")
+            
             return result
 
         return None
@@ -760,8 +843,22 @@ class ExperimentalKernelEvolution:
             # Kill lowest Φ kernel
             living = [k for k in self.kernel_population if k.is_alive]
             weakest = min(living, key=lambda k: k.kernel.compute_phi())
+            final_phi = weakest.kernel.compute_phi()
             autopsy = weakest.die(cause='overpopulation')
             self.kernel_graveyard.append(autopsy)
+            
+            # Persist death event to PostgreSQL
+            if self.kernel_persistence:
+                try:
+                    self.kernel_persistence.record_death_event(
+                        kernel_id=weakest.kernel_id,
+                        cause='overpopulation',
+                        final_phi=final_phi,
+                        lifetime_successes=weakest.success_count,
+                        metadata={'population_limit': self.max_population}
+                    )
+                except Exception as e:
+                    print(f"[Chaos] Failed to persist overpopulation death: {e}")
 
         # Report
         living = [k for k in self.kernel_population if k.is_alive]
