@@ -773,8 +773,15 @@ app.use((req, res, next) => {
   console.log("[Startup] Starting Python QIG Backend early (before routes)...");
   startPythonBackend();
   
-  // Give Python a moment to start before continuing (non-blocking)
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // Await explicit Python health readiness with retries (30 attempts, 1s delay each = 30s max)
+  // Python backend has heavy initialization (Olympus pantheon, QIG core, etc.)
+  // This ensures Python is ACTUALLY ready before AutoCycleManager resumes Ocean
+  const pythonReady = await oceanQIGBackend.checkHealthWithRetry(30, 1000);
+  if (pythonReady) {
+    console.log("[Startup] ✅ Python QIG Backend is ready");
+  } else {
+    console.warn("[Startup] ⚠️ Python backend not available - continuing with degraded mode");
+  }
   
   // CRITICAL: Hydrate Memory BEFORE starting server
   // This prevents "resurfacing hits" by loading all tested phrases from PostgreSQL
