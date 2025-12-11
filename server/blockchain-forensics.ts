@@ -131,8 +131,14 @@ async function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_M
 
 /**
  * Rate-limited fetch with exponential backoff and timeout
+ * @param apiName - Name of the API for rate limit tracking
  */
-async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Response> {
+async function rateLimitedFetch(url: string, apiName: keyof typeof rateLimitState = 'blockchainInfo', retries = MAX_RETRIES): Promise<Response> {
+  // Check if API is currently rate-limited - skip immediately
+  if (isApiRateLimited(apiName)) {
+    throw new Error(`${apiName} is rate-limited, skipping`);
+  }
+  
   // Enforce minimum delay between API calls
   const now = Date.now();
   const timeSinceLastCall = now - lastBlockchainInfoCall;
@@ -149,12 +155,10 @@ async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Res
         return response;
       }
       
-      // Handle rate limiting (429)
+      // Handle rate limiting (429) - mark API as rate-limited and throw immediately
       if (response.status === 429) {
-        const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-        console.log(`[BlockchainForensics] Rate limited (429), waiting ${retryDelay/1000}s before retry ${attempt + 1}/${retries}`);
-        await sleep(retryDelay);
-        continue;
+        markApiRateLimited(apiName);
+        throw new Error(`${apiName} rate limited (429)`);
       }
       
       // For other errors, throw immediately
@@ -165,7 +169,7 @@ async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Res
       }
       const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
       const errorMsg = error instanceof Error ? error.message : 'unknown';
-      console.log(`[BlockchainForensics] Request failed (${errorMsg}), waiting ${retryDelay/1000}s before retry ${attempt + 1}/${retries}`);
+      console.log(`[BlockchainForensics] Request failed (${errorMsg}), retrying ${attempt + 1}/${retries}`);
       await sleep(retryDelay);
     }
   }
@@ -279,61 +283,71 @@ export class BlockchainForensics {
 
   /**
    * Fetch address data from blockchain.info (better historical data)
-   * Uses rate limiting and falls back to Blockstream on failure
+   * Uses rate limiting and falls back to other APIs on failure
+   * Skips rate-limited APIs entirely for faster fallback
    */
   private async fetchFromBlockchainInfo(address: string): Promise<any> {
-    try {
-      const response = await rateLimitedFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`);
-      return response.json();
-    } catch {
-      console.log(`[BlockchainForensics] blockchain.info failed, falling back to Blockstream for ${address}`);
-      
-      // Fallback to Blockstream API
+    // Check if all APIs are rate-limited - skip straight to address format analysis
+    const allRateLimited = isApiRateLimited('blockchainInfo') && 
+                           isApiRateLimited('blockstream') && 
+                           isApiRateLimited('mempool') && 
+                           isApiRateLimited('blockcypher');
+    if (allRateLimited) {
+      console.log(`[BlockchainForensics] All APIs rate-limited - using address format analysis for ${address}`);
+      throw new Error(`All APIs rate-limited for ${address}`);
+    }
+    
+    // Try blockchain.info first (skip if rate-limited)
+    if (!isApiRateLimited('blockchainInfo')) {
       try {
-        const bsResponse = await fetch(`${BLOCKSTREAM_API}/address/${address}`);
-        if (!bsResponse.ok) {
-          throw new Error(`Blockstream returned ${bsResponse.status}`);
+        const response = await rateLimitedFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`, 'blockchainInfo');
+        return response.json();
+      } catch (e) {
+        console.log(`[BlockchainForensics] blockchain.info failed for ${address}`);
+      }
+    }
+    
+    // Try Blockstream (skip if rate-limited)
+    if (!isApiRateLimited('blockstream')) {
+      try {
+        const bsResponse = await fetchWithTimeout(`${BLOCKSTREAM_API}/address/${address}`, FETCH_TIMEOUT_MS);
+        if (bsResponse.status === 429) {
+          markApiRateLimited('blockstream');
+        } else if (bsResponse.ok) {
+          const bsData = await bsResponse.json();
+          const allTxs = await this.fetchAllBlockstreamTxs(address);
+          return {
+            address,
+            total_received: bsData.chain_stats.funded_txo_sum + bsData.mempool_stats.funded_txo_sum,
+            total_sent: bsData.chain_stats.spent_txo_sum + bsData.mempool_stats.spent_txo_sum,
+            final_balance: (bsData.chain_stats.funded_txo_sum - bsData.chain_stats.spent_txo_sum) +
+                           (bsData.mempool_stats.funded_txo_sum - bsData.mempool_stats.spent_txo_sum),
+            n_tx: bsData.chain_stats.tx_count + bsData.mempool_stats.tx_count,
+            txs: allTxs.map((tx: any) => ({
+              hash: tx.txid,
+              time: tx.status.block_time,
+              block_height: tx.status.block_height,
+              vin: tx.vin,
+              vout: tx.vout,
+            })),
+            _blockstreamFallback: true,
+          };
         }
-        
-        const bsData = await bsResponse.json();
-        
-        // Fetch ALL transactions with pagination to find the oldest one
-        const allTxs = await this.fetchAllBlockstreamTxs(address);
-        
-        // Convert Blockstream format to blockchain.info-like format
-        return {
-          address,
-          total_received: bsData.chain_stats.funded_txo_sum + bsData.mempool_stats.funded_txo_sum,
-          total_sent: bsData.chain_stats.spent_txo_sum + bsData.mempool_stats.spent_txo_sum,
-          final_balance: (bsData.chain_stats.funded_txo_sum - bsData.chain_stats.spent_txo_sum) +
-                         (bsData.mempool_stats.funded_txo_sum - bsData.mempool_stats.spent_txo_sum),
-          n_tx: bsData.chain_stats.tx_count + bsData.mempool_stats.tx_count,
-          txs: allTxs.map((tx: any) => ({
-            hash: tx.txid,
-            time: tx.status.block_time,
-            block_height: tx.status.block_height,
-            vin: tx.vin,
-            vout: tx.vout,
-          })),
-          _blockstreamFallback: true, // Flag for fetchOldestTransaction
-        };
-      } catch (bsError) {
-        console.log(`[BlockchainForensics] Blockstream also failed, trying Mempool.space for ${address}`);
-        
-        // Third fallback: Mempool.space API (same format as Blockstream)
-        try {
-          const mpResponse = await fetch(`${MEMPOOL_API}/address/${address}`);
-          if (!mpResponse.ok) {
-            throw new Error(`Mempool.space returned ${mpResponse.status}`);
-          }
-          
+      } catch (e) {
+        console.log(`[BlockchainForensics] Blockstream failed for ${address}`);
+      }
+    }
+    
+    // Try Mempool.space (skip if rate-limited)
+    if (!isApiRateLimited('mempool')) {
+      try {
+        const mpResponse = await fetchWithTimeout(`${MEMPOOL_API}/address/${address}`, FETCH_TIMEOUT_MS);
+        if (mpResponse.status === 429) {
+          markApiRateLimited('mempool');
+        } else if (mpResponse.ok) {
           const mpData = await mpResponse.json();
-          
-          // Fetch transactions from mempool.space
-          const txResponse = await fetch(`${MEMPOOL_API}/address/${address}/txs`);
+          const txResponse = await fetchWithTimeout(`${MEMPOOL_API}/address/${address}/txs`, FETCH_TIMEOUT_MS);
           const txs = txResponse.ok ? await txResponse.json() : [];
-          
-          // Convert mempool.space format to blockchain.info-like format
           return {
             address,
             total_received: mpData.chain_stats.funded_txo_sum + (mpData.mempool_stats?.funded_txo_sum || 0),
@@ -348,42 +362,44 @@ export class BlockchainForensics {
               vin: tx.vin,
               vout: tx.vout,
             })),
-            _mempoolFallback: true, // Flag for third fallback
+            _mempoolFallback: true,
           };
-        } catch {
-          console.log(`[BlockchainForensics] Mempool.space also failed, trying BlockCypher for ${address}`);
-          
-          // Fourth fallback: BlockCypher API
-          try {
-            const bcyResponse = await fetch(`${BLOCKCYPHER_API}/addrs/${address}?limit=50`);
-            if (!bcyResponse.ok) {
-              throw new Error(`BlockCypher returned ${bcyResponse.status}`);
-            }
-            
-            const bcyData = await bcyResponse.json();
-            
-            // Convert BlockCypher format to blockchain.info-like format
-            return {
-              address,
-              total_received: bcyData.total_received || 0,
-              total_sent: bcyData.total_sent || 0,
-              final_balance: bcyData.balance || 0,
-              n_tx: bcyData.n_tx || 0,
-              txs: (bcyData.txrefs || []).map((tx: any) => ({
-                hash: tx.tx_hash,
-                time: tx.confirmed ? Math.floor(new Date(tx.confirmed).getTime() / 1000) : null,
-                block_height: tx.block_height,
-                value: tx.value,
-              })),
-              _blockcypherFallback: true, // Flag for fourth fallback
-            };
-          } catch {
-            console.log(`[BlockchainForensics] All 4 APIs failed for ${address} - using address format analysis`);
-            throw new Error(`All APIs failed for ${address}`);
-          }
         }
+      } catch (e) {
+        console.log(`[BlockchainForensics] Mempool.space failed for ${address}`);
       }
     }
+    
+    // Try BlockCypher (skip if rate-limited)
+    if (!isApiRateLimited('blockcypher')) {
+      try {
+        const bcyResponse = await fetchWithTimeout(`${BLOCKCYPHER_API}/addrs/${address}?limit=50`, FETCH_TIMEOUT_MS);
+        if (bcyResponse.status === 429) {
+          markApiRateLimited('blockcypher');
+        } else if (bcyResponse.ok) {
+          const bcyData = await bcyResponse.json();
+          return {
+            address,
+            total_received: bcyData.total_received || 0,
+            total_sent: bcyData.total_sent || 0,
+            final_balance: bcyData.balance || 0,
+            n_tx: bcyData.n_tx || 0,
+            txs: (bcyData.txrefs || []).map((tx: any) => ({
+              hash: tx.tx_hash,
+              time: tx.confirmed ? Math.floor(new Date(tx.confirmed).getTime() / 1000) : null,
+              block_height: tx.block_height,
+              value: tx.value,
+            })),
+            _blockcypherFallback: true,
+          };
+        }
+      } catch (e) {
+        console.log(`[BlockchainForensics] BlockCypher failed for ${address}`);
+      }
+    }
+    
+    console.log(`[BlockchainForensics] All APIs failed for ${address} - using address format analysis`);
+    throw new Error(`All APIs failed for ${address}`);
   }
 
   /**
