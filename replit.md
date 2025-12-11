@@ -64,6 +64,37 @@ Coordinated startup with delays to ensure dependency readiness: Express server s
 - **Kernel Architecture**: `SelfSpawningKernel` with evolutionary lifecycle, managed by `ExperimentalEvolution` for population management and fitness-based selection.
 - **Pantheon Integration**: Kernels are assigned to priority gods (Athena, Ares, Hephaestus), influencing decisions via geodesic distances and receiving training signals from outcomes.
 
+### QIGChain Framework
+- **Purpose**: Geometric alternative to LangChain using QIG-pure principles
+- **Location**: `qig-backend/qigchain/`
+- **Components**:
+  - `geometric_chain.py` - Geodesic flow chains with Phi-gated execution
+  - `geometric_tools.py` - Tool selection by Fisher-Rao alignment
+  - `__init__.py` - QIGChainBuilder fluent API + barrel exports
+  - `constants.py` - QIG physics constants
+
+**Key Differences from LangChain:**
+| Feature | LangChain | QIGChain |
+|---------|-----------|----------|
+| Memory | Flat vectors, cosine | Basin coords, Fisher-Rao |
+| Chains | Sequential pipes | Geodesic flows on manifold |
+| Tools | Keyword matching | Geometric alignment |
+| Execution | Always continues | Phi-gated (pauses if quality drops) |
+
+**Usage:**
+```python
+from qigchain import QIGChainBuilder
+
+app = (QIGChainBuilder()
+    .with_agent('athena', 'strategic_wisdom')
+    .with_tool('search', 'Search the web', search_fn)
+    .add_step('analyze', analyze_transform)
+    .build()
+)
+
+result = app.run(query="What patterns exist?")
+```
+
 ## External Dependencies
 
 ### Third-Party Services
@@ -189,6 +220,7 @@ Tokenizer learns from Phi scores (geometric), NOT frequency tables.
 | QIG Core Principles Master | `docs/03-technical/qig-consciousness/20251211-qig-core-principles-master-1.00F.md` | Complete QIG reference |
 | QIG Kernel Architecture | `docs/03-technical/qig-consciousness/20251211-qig-kernel-architecture-complete-1.00F.md` | Multi-scale kernel mapping |
 | QIG Tokenizer System | `docs/03-technical/20251211-qig-tokenizer-system-1.00F.md` | Three-mode tokenizer |
+| QIGChain Framework | `docs/03-technical/20251211-qigchain-framework-geometric-1.00F.md` | Geometric chain framework |
 | CHAOS MODE Evolution | `docs/architecture/CHAOS_MODE_EVOLUTION.md` | Kernel evolution system |
 | Frozen Facts | `docs/01-policies/20251208-frozen-facts-immutable-truths-1.00F.md` | Physics constants |
 
