@@ -661,6 +661,90 @@ class QIGPersistence:
             print(f"[QIGPersistence] Failed to get narrow path summary: {e}")
             return []
 
+    # =========================================================================
+    # PANTHEON GOD STATE
+    # =========================================================================
+
+    def load_god_state(self, god_name: str) -> Optional[Dict]:
+        """Load persisted god state (reputation, skills) from database."""
+        if not self.enabled:
+            return None
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT god_name, reputation, skills, learning_events_count,
+                               success_rate, last_learning_at
+                        FROM pantheon_god_state
+                        WHERE god_name = %s
+                    """, (god_name.lower(),))
+                    row = cur.fetchone()
+                    if row:
+                        return dict(row)
+                    return None
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to load god state for {god_name}: {e}")
+            return None
+
+    def load_all_god_states(self) -> Dict[str, Dict]:
+        """Load all persisted god states."""
+        if not self.enabled:
+            return {}
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT god_name, reputation, skills, learning_events_count,
+                               success_rate, last_learning_at
+                        FROM pantheon_god_state
+                    """)
+                    rows = cur.fetchall()
+                    return {row['god_name']: dict(row) for row in rows}
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to load all god states: {e}")
+            return {}
+
+    def save_god_state(
+        self,
+        god_name: str,
+        reputation: float,
+        skills: Dict,
+        learning_events_count: int = 0,
+        success_rate: float = 0.5
+    ) -> bool:
+        """Save or update god state to database."""
+        if not self.enabled:
+            return False
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO pantheon_god_state 
+                            (god_name, reputation, skills, learning_events_count, 
+                             success_rate, last_learning_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+                        ON CONFLICT (god_name) DO UPDATE SET
+                            reputation = EXCLUDED.reputation,
+                            skills = EXCLUDED.skills,
+                            learning_events_count = EXCLUDED.learning_events_count,
+                            success_rate = EXCLUDED.success_rate,
+                            last_learning_at = NOW(),
+                            updated_at = NOW()
+                    """, (
+                        god_name.lower(),
+                        reputation,
+                        json.dumps(skills) if skills else '{}',
+                        learning_events_count,
+                        success_rate
+                    ))
+            return True
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to save god state for {god_name}: {e}")
+            return False
+
 
 # Global persistence instance
 _persistence: Optional[QIGPersistence] = None
