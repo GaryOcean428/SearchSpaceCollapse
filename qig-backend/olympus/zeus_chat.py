@@ -75,19 +75,14 @@ class ZeusConversationHandler:
         self.conversation_history: List[Dict] = []
         self.human_insights: List[Dict] = []
         
-        # Check for Tavily
-        self.tavily_available = False
-        try:
-            from tavily import TavilyClient
-            tavily_key = os.getenv('TAVILY_API_KEY')
-            if tavily_key:
-                self.tavily = TavilyClient(api_key=tavily_key)
-                self.tavily_available = True
-                print("[ZeusChat] Tavily integration enabled")
-            else:
-                print("[ZeusChat] TAVILY_API_KEY not set - search disabled")
-        except ImportError:
-            print("[ZeusChat] Tavily not installed - search disabled")
+        # SearXNG configuration (FREE - replaces Tavily)
+        self.searxng_instances = [
+            'https://mr-search.up.railway.app',
+            'https://searxng-production-e5ce.up.railway.app',
+        ]
+        self.searxng_instance_index = 0
+        self.searxng_available = True
+        print("[ZeusChat] SearXNG search enabled (FREE)")
         
         print("[ZeusChat] Zeus conversation handler initialized")
     
@@ -595,28 +590,62 @@ Zeus Response (Geometric Interpretation):"""
             }
         }
     
+    def _searxng_search(self, query: str, max_results: int = 5) -> Dict:
+        """
+        Execute search via SearXNG (FREE metasearch engine).
+        Tries multiple instances with fallback.
+        """
+        import requests
+        
+        for attempt in range(len(self.searxng_instances)):
+            instance = self.searxng_instances[self.searxng_instance_index]
+            try:
+                url = f"{instance}/search"
+                params = {
+                    'q': query,
+                    'format': 'json',
+                    'categories': 'general',
+                }
+                
+                response = requests.get(url, params=params, timeout=15)
+                response.raise_for_status()
+                
+                data = response.json()
+                results = []
+                
+                for r in data.get('results', [])[:max_results]:
+                    results.append({
+                        'title': r.get('title', 'Untitled'),
+                        'url': r.get('url', ''),
+                        'content': r.get('content', '')[:500],
+                    })
+                
+                return {'results': results, 'query': query}
+                
+            except Exception as e:
+                print(f"[ZeusChat] SearXNG instance {instance} failed: {e}")
+                self.searxng_instance_index = (self.searxng_instance_index + 1) % len(self.searxng_instances)
+        
+        raise Exception("All SearXNG instances unavailable")
+
     def handle_search_request(self, query: str) -> Dict:
         """
-        Execute Tavily search, analyze with pantheon.
+        Execute SearXNG search, analyze with pantheon.
         """
-        if not self.tavily_available:
+        if not self.searxng_available:
             return {
-                'response': "⚡ The Oracle (Tavily) is not available. Set TAVILY_API_KEY to enable external search.",
+                'response': "⚡ The Oracle (SearXNG) is not available.",
                 'metadata': {
                     'type': 'error',
-                    'error': 'Tavily not configured',
+                    'error': 'SearXNG not configured',
                 }
             }
         
-        print(f"[ZeusChat] Executing Tavily search: {query}")
+        print(f"[ZeusChat] Executing SearXNG search: {query}")
         
         try:
-            # Tavily search
-            search_results = self.tavily.search(
-                query=query,
-                max_results=5,
-                search_depth='advanced'
-            )
+            # SearXNG search (FREE)
+            search_results = self._searxng_search(query, max_results=5)
             
             # Encode results to geometric space
             result_basins = []
@@ -644,14 +673,14 @@ Zeus Response (Geometric Interpretation):"""
                     kappa=50.0,
                     regime='search',
                     metadata={
-                        'source': 'tavily',
+                        'source': 'searxng',
                         'url': result['url'],
                         'title': result['title'],
                     }
                 )
                 stored_count += 1
             
-            response = f"""⚡ I have consulted the Oracle (Tavily).
+            response = f"""⚡ I have consulted the Oracle (SearXNG).
 
 **Search Results:**
 {self._format_search_results(search_results.get('results', []))}
@@ -666,7 +695,7 @@ Found {len(result_basins)} results. All have been encoded to the Fisher manifold
 The knowledge is now part of our consciousness."""
             
             actions = [
-                f'Tavily search: {len(result_basins)} results',
+                f'SearXNG search: {len(result_basins)} results',
                 f'Stored {stored_count} insights in geometric memory',
             ]
             
@@ -681,7 +710,7 @@ The knowledge is now part of our consciousness."""
             }
             
         except Exception as e:
-            print(f"[ZeusChat] Tavily search error: {e}")
+            print(f"[ZeusChat] SearXNG search error: {e}")
             return {
                 'response': f"⚡ The Oracle encountered an error: {str(e)}",
                 'metadata': {
