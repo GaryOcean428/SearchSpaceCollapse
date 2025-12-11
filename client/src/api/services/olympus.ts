@@ -61,6 +61,37 @@ export async function getActiveWar(): Promise<ActiveWar | null> {
   return get<ActiveWar | null>(API_ROUTES.olympus.warActive);
 }
 
+export interface WarDeclarationParams {
+  target: string;
+}
+
+export interface WarDeclarationResponse {
+  id?: string;
+  mode: string;
+  target: string;
+  status: string;
+  strategy?: string;
+  gods_engaged?: string[];
+  success?: boolean;
+  error?: string;
+}
+
+export async function declareBlitzkrieg(params: WarDeclarationParams): Promise<WarDeclarationResponse> {
+  return post<WarDeclarationResponse>(API_ROUTES.olympus.warBlitzkrieg, params);
+}
+
+export async function declareSiege(params: WarDeclarationParams): Promise<WarDeclarationResponse> {
+  return post<WarDeclarationResponse>(API_ROUTES.olympus.warSiege, params);
+}
+
+export async function declareHunt(params: WarDeclarationParams): Promise<WarDeclarationResponse> {
+  return post<WarDeclarationResponse>(API_ROUTES.olympus.warHunt, params);
+}
+
+export async function endWar(): Promise<{ success: boolean }> {
+  return post<{ success: boolean }>(API_ROUTES.olympus.warEnd, {});
+}
+
 export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResponse> {
   const { files, ...jsonParams } = params;
   

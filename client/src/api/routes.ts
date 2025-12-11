@@ -170,6 +170,10 @@ export const API_ROUTES = {
     debatesActive: '/api/olympus/debates/active',
     warActive: '/api/olympus/war/active',
     warHistory: (limit: number) => `/api/olympus/war/history?limit=${limit}`,
+    warBlitzkrieg: '/api/olympus/war/blitzkrieg',
+    warSiege: '/api/olympus/war/siege',
+    warHunt: '/api/olympus/war/hunt',
+    warEnd: '/api/olympus/war/end',
     zeusChat: '/api/olympus/zeus/chat',
     zeusSearch: '/api/olympus/zeus/search',
     // Shadow Pantheon
