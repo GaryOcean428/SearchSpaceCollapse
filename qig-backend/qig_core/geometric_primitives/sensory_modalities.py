@@ -26,6 +26,30 @@ import numpy as np
 
 BASIN_DIMENSION = 64
 
+MODALITY_KAPPA: dict = {
+    'sight': 150.0,
+    'hearing': 75.0,
+    'touch': 50.0,
+    'smell': 20.0,
+    'proprioception': 60.0,
+}
+
+MODALITY_BANDWIDTH: dict = {
+    'sight': 1e7,
+    'hearing': 1e5,
+    'touch': 1e4,
+    'smell': 1e3,
+    'proprioception': 1e4,
+}
+
+MODALITY_TAU: dict = {
+    'sight': 0.1,
+    'hearing': 0.3,
+    'touch': 0.5,
+    'smell': 5.0,
+    'proprioception': 0.2,
+}
+
 
 class SensoryModality(Enum):
     """Fundamental sensory channels for consciousness encoding"""
@@ -58,6 +82,21 @@ class SensoryModality(Enum):
             SensoryModality.PROPRIOCEPTION: 0.15,  # Body awareness
         }
         return weights[self]
+
+    @property
+    def kappa(self) -> float:
+        """Coupling strength κ for this modality (higher = tighter binding)"""
+        return MODALITY_KAPPA.get(self.value, 50.0)
+
+    @property
+    def bandwidth(self) -> float:
+        """Information bandwidth B in bits/second"""
+        return MODALITY_BANDWIDTH.get(self.value, 1e4)
+
+    @property
+    def tau(self) -> float:
+        """Temporal integration window τ in seconds"""
+        return MODALITY_TAU.get(self.value, 0.5)
 
 
 # Sensory keyword mappings for text analysis
@@ -550,6 +589,117 @@ class SensoryFusionEngine:
                 modality_data[modality] = encoder(data)
 
         return self.fuse_modalities(modality_data, weights)
+
+    def compute_superadditive_phi(
+        self,
+        modality_data: Dict[SensoryModality, np.ndarray]
+    ) -> float:
+        """
+        Compute superadditive Φ when features overlap across modalities.
+        
+        Φ_total > Σ Φ_individual when cross-modal features are synchronized.
+        
+        Args:
+            modality_data: Dict mapping modalities to their 64D encodings
+            
+        Returns:
+            Total Φ including cross-modal integration bonus
+        """
+        if len(modality_data) < 2:
+            return 0.0
+            
+        phi_individual = 0.0
+        phi_cross = 0.0
+        
+        modalities = list(modality_data.keys())
+        encodings = list(modality_data.values())
+        
+        for i, (m, enc) in enumerate(modality_data.items()):
+            start, end = m.dimension_range
+            energy = np.sum(enc[start:end] ** 2)
+            phi_individual += energy * 0.5
+        
+        for i in range(len(modalities)):
+            for j in range(i + 1, len(modalities)):
+                m1, m2 = modalities[i], modalities[j]
+                e1, e2 = encodings[i], encodings[j]
+                
+                kappa_cross = np.sqrt(m1.kappa * m2.kappa)
+                
+                norm1 = np.linalg.norm(e1)
+                norm2 = np.linalg.norm(e2)
+                if norm1 > 1e-10 and norm2 > 1e-10:
+                    overlap = np.abs(np.dot(e1, e2) / (norm1 * norm2))
+                    if overlap > 0.1:
+                        coherence = overlap * kappa_cross / 100.0
+                        phi_cross += coherence
+        
+        return float(np.clip(phi_individual + phi_cross, 0.0, 1.0))
+
+
+class GeometricAttention:
+    """
+    Geometric attention via κ modulation.
+    
+    Attention is NOT a separate mechanism—it's local κ increase.
+    Higher κ means tighter coupling to the environment, finer discrimination.
+    """
+    
+    def __init__(self):
+        self.attention_state: Dict[SensoryModality, float] = {
+            m: 1.0 for m in SensoryModality
+        }
+        self.max_attention_gain = 5.0
+    
+    def attend_to(
+        self,
+        modality: SensoryModality,
+        attention_gain: float = 2.0
+    ) -> float:
+        """
+        Increase κ for a specific modality (attend to it).
+        
+        Args:
+            modality: Which sensory modality to attend to
+            attention_gain: Multiplicative gain [1.0, max_attention_gain]
+            
+        Returns:
+            New effective κ for this modality
+        """
+        gain = np.clip(attention_gain, 1.0, self.max_attention_gain)
+        self.attention_state[modality] = gain
+        
+        kappa_base = modality.kappa
+        kappa_attended = kappa_base * gain
+        
+        return float(kappa_attended)
+    
+    def release_attention(self, modality: SensoryModality) -> None:
+        """Release attention from a modality (return to baseline κ)."""
+        self.attention_state[modality] = 1.0
+    
+    def get_effective_kappa(self, modality: SensoryModality) -> float:
+        """Get current effective κ including attention modulation."""
+        gain = self.attention_state.get(modality, 1.0)
+        return modality.kappa * gain
+    
+    def get_attention_weights(self) -> Dict[SensoryModality, float]:
+        """
+        Get fusion weights scaled by attention.
+        
+        Higher attention = higher weight in multi-modal fusion.
+        """
+        total = sum(
+            m.weight_default * self.attention_state.get(m, 1.0)
+            for m in SensoryModality
+        )
+        if total < 1e-10:
+            total = 1.0
+            
+        return {
+            m: (m.weight_default * self.attention_state.get(m, 1.0)) / total
+            for m in SensoryModality
+        }
 
 
 def text_to_sensory_hint(text: str) -> Dict[SensoryModality, float]:

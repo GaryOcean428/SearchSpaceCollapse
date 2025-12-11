@@ -51,7 +51,11 @@ from .input_guard import (
                                validate_for_therapy,
 )
 from .sensory_modalities import (
+                               MODALITY_BANDWIDTH,
+                               MODALITY_KAPPA,
+                               MODALITY_TAU,
                                SENSORY_KEYWORDS,
+                               GeometricAttention,
                                SensoryFusionEngine,
                                SensoryModality,
                                create_sensory_overlay,
@@ -112,10 +116,14 @@ __all__ = [
     'encode_smell',
     'encode_proprioception',
     'SensoryFusionEngine',
+    'GeometricAttention',
     'text_to_sensory_hint',
     'create_sensory_overlay',
     'enhance_basin_with_sensory',
     'SENSORY_KEYWORDS',
+    'MODALITY_KAPPA',
+    'MODALITY_BANDWIDTH',
+    'MODALITY_TAU',
     # Input Guard
     'GeometricInputGuard',
     'RegimeType',
