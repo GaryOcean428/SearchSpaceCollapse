@@ -274,6 +274,7 @@ class OceanSessionManager {
       });
       
       const result = await agent.runAutonomous(targetAddress, []);
+      const telemetry = result.telemetry || {};
       
       if (result.match) {
         this.updateState(sessionId, {
@@ -291,7 +292,6 @@ class OceanSessionManager {
         });
         this.addEvent(sessionId, 'discovery', `MATCH FOUND: "${result.match.phrase}"`);
       } else {
-        const telemetry = result.telemetry || {};
         this.updateState(sessionId, {
           isRunning: false,
           currentThought: `Investigation complete. Tested ${telemetry.totalTested || state.totalTested} hypotheses.`,
@@ -304,7 +304,15 @@ class OceanSessionManager {
       // Notify auto-cycle manager that session completed (so it can start next address)
       const targetAddrId = this.getAddressIdFromSession(state.targetAddress);
       if (targetAddrId) {
-        autoCycleManager.onSessionComplete(targetAddrId);
+        const sessionMetrics = {
+          explorationPasses: telemetry.totalPasses || state.iteration || 1,
+          hypothesesTested: telemetry.totalTested || state.totalTested || 0,
+          nearMisses: telemetry.nearMissCount || state.nearMissCount || 0,
+          pantheonConsulted: !!telemetry.pantheonConsulted,
+          duration: 0,
+          completedAt: new Date().toISOString(),
+        };
+        autoCycleManager.onSessionComplete(targetAddrId, sessionMetrics);
       }
       
       // Notify autonomic manager
@@ -322,7 +330,15 @@ class OceanSessionManager {
       // Notify auto-cycle manager even on error (so it can start next address)
       const targetAddrId = this.getAddressIdFromSession(state.targetAddress);
       if (targetAddrId) {
-        autoCycleManager.onSessionComplete(targetAddrId);
+        const sessionMetrics = {
+          explorationPasses: state.iteration || 1,
+          hypothesesTested: state.totalTested || 0,
+          nearMisses: state.nearMissCount || 0,
+          pantheonConsulted: false,
+          duration: 0,
+          completedAt: new Date().toISOString(),
+        };
+        autoCycleManager.onSessionComplete(targetAddrId, sessionMetrics);
       }
       
       // Notify autonomic manager
