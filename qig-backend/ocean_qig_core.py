@@ -3539,6 +3539,89 @@ def olympus_observe():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/olympus/report-outcome', methods=['POST'])
+def olympus_report_outcome():
+    """Report discovery outcome to trigger learning for all gods.
+    
+    Called when:
+    - A balance hit is found (success=True) 
+    - A near-miss is recorded (success=False, details contain phi)
+    - A hypothesis fails (success=False)
+    
+    Updates god reputation and skills based on their prior assessments.
+    """
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        target = data.get('target', '')
+        success = data.get('success', False)
+        details = data.get('details', {})
+        
+        if not target:
+            return jsonify({'error': 'target required'}), 400
+        
+        gods_updated = 0
+        learning_events = []
+        
+        # Get all gods from the pantheon
+        for god_name, god in zeus.pantheon.items():
+            try:
+                # Check if this god previously assessed this target
+                recent_assessments = getattr(god, 'assessment_history', [])
+                matching = [a for a in recent_assessments if target[:20] in str(a.get('target', ''))[:20]]
+                
+                if matching:
+                    # God had assessed this target - trigger learning
+                    assessment = matching[-1]  # Most recent
+                    actual_outcome = {
+                        'success': success,
+                        'balance': details.get('balance', 0),
+                        'address': details.get('address', ''),
+                        'phi': details.get('phi', 0),
+                        'domain': god.domain,
+                    }
+                    
+                    result = god.learn_from_outcome(
+                        target=target,
+                        assessment=assessment,
+                        actual_outcome=actual_outcome,
+                        success=success
+                    )
+                    
+                    learning_events.append({
+                        'god': god_name,
+                        'learned': result.get('learned', False),
+                        'reputation_change': result.get('reputation_change', 0),
+                        'new_reputation': result.get('new_reputation', god.reputation),
+                    })
+                    gods_updated += 1
+                    
+            except Exception as god_error:
+                print(f"[Olympus] Learning failed for {god_name}: {god_error}")
+        
+        # Also train CHAOS kernels if active
+        if zeus.chaos_enabled and zeus.chaos:
+            try:
+                zeus.train_kernel_from_outcome(target, success, details)
+            except Exception as chaos_error:
+                print(f"[Olympus] CHAOS training failed: {chaos_error}")
+        
+        print(f"[Olympus] 📚 Learning complete: {gods_updated} gods updated, success={success}")
+        
+        return jsonify({
+            'success': True,
+            'gods_updated': gods_updated,
+            'learning_events': learning_events[:5],  # Top 5 for debugging
+            'chaos_trained': zeus.chaos_enabled,
+        })
+        
+    except Exception as e:
+        print(f"[Olympus] Report outcome error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/olympus/war/blitzkrieg', methods=['POST'])
 def olympus_war_blitzkrieg():
     """Declare blitzkrieg war mode."""

@@ -2665,6 +2665,20 @@ export class OceanAgent {
           }).catch((err) =>
             console.warn("[Ocean] Learning event persistence failed:", err)
           );
+
+          // TRIGGER OLYMPUS LEARNING - Near-miss is partial success
+          olympusClient.reportDiscoveryOutcome(hypo.phrase, false, {
+            phi: hypo.qigScore.phi,
+            kappa: hypo.qigScore.kappa,
+            regime: hypo.qigScore.regime,
+            tier,
+            address: this.targetAddress,
+            nearMiss: true,
+          }).then(result => {
+            if (result?.godsUpdated) {
+              console.log(`[Ocean] 🏛️ Olympus learned from near-miss: ${result.godsUpdated} gods updated`);
+            }
+          }).catch(() => {});
         }
 
         if (hypo.qigScore && hypo.qigScore.inResonance) {
