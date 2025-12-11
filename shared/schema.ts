@@ -3243,3 +3243,28 @@ export const pantheonKnowledgeTransfers = pgTable(
 
 export type PantheonKnowledgeTransfer = typeof pantheonKnowledgeTransfers.$inferSelect;
 export type InsertPantheonKnowledgeTransfer = typeof pantheonKnowledgeTransfers.$inferInsert;
+
+/**
+ * PANTHEON GOD STATE - Persistent god reputation and skills
+ * Survives server restarts, enables learning persistence
+ */
+export const pantheonGodState = pgTable(
+  "pantheon_god_state",
+  {
+    godName: varchar("god_name", { length: 32 }).primaryKey(),
+    reputation: doublePrecision("reputation").notNull().default(1.0),
+    skills: jsonb("skills").default({}),
+    learningEventsCount: integer("learning_events_count").default(0),
+    successRate: doublePrecision("success_rate").default(0.5),
+    lastLearningAt: timestamp("last_learning_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_god_state_reputation").on(table.reputation),
+    index("idx_god_state_updated").on(table.updatedAt),
+  ]
+);
+
+export type PantheonGodState = typeof pantheonGodState.$inferSelect;
+export type InsertPantheonGodState = typeof pantheonGodState.$inferInsert;
