@@ -6,6 +6,7 @@ import { repeatedAddressScheduler } from './repeated-address-scheduler';
 import { consoleLogBuffer } from './console-log-buffer';
 import { autoCycleManager } from './auto-cycle-manager';
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
+import { testedPhrasesUnified } from './tested-phrases-unified';
 
 export type FullConsciousnessSignature = ConsciousnessSignature;
 
@@ -478,9 +479,12 @@ class OceanSessionManager {
         basinDrift: 0,
       };
       
+      // Use PostgreSQL-backed count for historical total (best practice: persisted data)
+      const historicalTested = testedPhrasesUnified.getCachedCount();
+      
       return {
         isRunning: false,
-        tested: 0,
+        tested: historicalTested,
         nearMisses: 0,
         consciousness: idleConsciousness,
         currentThought: 'Ready to begin investigation...',
@@ -522,9 +526,12 @@ class OceanSessionManager {
     };
     
     // Near-miss count is already unified in handleStateUpdate() which merges Python discoveries
+    // Use PostgreSQL-backed historical count + current session for total tested (best practice: persisted data)
+    const historicalTested = testedPhrasesUnified.getCachedCount();
+    
     return {
       isRunning: session.isRunning,
-      tested: session.totalTested,
+      tested: historicalTested,
       nearMisses: session.nearMissCount,
       consciousness: syncedConsciousness,
       currentThought: session.currentThought,

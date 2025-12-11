@@ -238,7 +238,7 @@ export class TestedPhrasesUnified {
   }
 
   /**
-   * Get total count
+   * Get total count (async - queries database)
    */
   async count(): Promise<number> {
     const registry = await getRegistry();
@@ -249,6 +249,15 @@ export class TestedPhrasesUnified {
       // In-memory fallback
       return memoryRegistry.size;
     }
+  }
+
+  /**
+   * Get cached count (sync - uses hydrated cache)
+   * Returns the count of historical tested phrases from PostgreSQL
+   * This is fast and safe to call frequently (e.g., for UI stats)
+   */
+  getCachedCount(): number {
+    return memoryCache.size + memoryRegistry.size;
   }
 }
 
