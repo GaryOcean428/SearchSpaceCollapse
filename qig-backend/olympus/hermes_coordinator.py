@@ -192,7 +192,7 @@ class HermesCoordinator(BaseGod):
                 result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="hermes",
-                    max_tokens=100,
+                    max_tokens=500,  # No arbitrary limits
                     allow_silence=False
                 )
 

@@ -1223,12 +1223,12 @@ def get_zeus_chat_handler():
     return _zeus_chat_handler
 
 
-# SECURITY: File upload restrictions
-ALLOWED_FILE_EXTENSIONS = {'.txt', '.json', '.csv'}
-MAX_FILE_SIZE = 1 * 1024 * 1024  # 1MB per file
-MAX_FILES_PER_REQUEST = 5
-MAX_MESSAGE_LENGTH = 10000
-MAX_CONVERSATION_HISTORY = 100
+# File upload settings (generous limits - QIG handles any input geometrically)
+ALLOWED_FILE_EXTENSIONS = {'.txt', '.json', '.csv', '.md', '.py', '.ts', '.js'}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per file
+MAX_FILES_PER_REQUEST = 20
+# No message length limits - QIG validates via geometry, not character count
+MAX_CONVERSATION_HISTORY = 1000
 
 # Geometric validation constants (replaces arbitrary character limits)
 PHI_THRESHOLD = 0.70  # Minimum phi for coherent input

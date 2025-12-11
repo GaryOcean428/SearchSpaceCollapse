@@ -322,7 +322,7 @@ Zeus Response (acknowledge the specific observation, explain what it means for t
                 gen_result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="ocean",
-                    max_tokens=180,
+                    max_tokens=500,  # No arbitrary limits
                     allow_silence=False
                 )
                 
@@ -442,7 +442,7 @@ Zeus Response (acknowledge the user's specific suggestion, explain why the panth
                 gen_result = tokenizer.generate_response(
                     context=context,
                     agent_role="ocean",
-                    max_tokens=200,
+                    max_tokens=500,  # No arbitrary limits
                     allow_silence=False
                 )
                 
@@ -551,7 +551,7 @@ Zeus Response (Geometric Interpretation):"""
                 gen_result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="ocean",  # Use balanced temperature
-                    max_tokens=150,
+                    max_tokens=500,  # No arbitrary limits
                     allow_silence=False
                 )
                 
@@ -828,7 +828,7 @@ Zeus Response (as the coordinator of Mount Olympus, respond thoughtfully to the 
                 gen_result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="ocean",
-                    max_tokens=150,
+                    max_tokens=500,  # No arbitrary limits
                     allow_silence=False
                 )
                 
