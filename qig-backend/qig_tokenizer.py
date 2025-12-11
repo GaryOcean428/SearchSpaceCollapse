@@ -98,8 +98,12 @@ class QIGTokenizer:
         self.passphrase_vocab_ids = set(self.vocab.values())
 
         # Load conversational vocabulary (natural language)
+        # Track conversation words separately (they may overlap with BIP39/passphrase)
+        self._conversation_words: set[str] = set()  # Track words meant for conversation
         self._load_conversation_base()
-        self.conversation_vocab_ids = set(self.vocab.values())
+        # Conversation mode: use conversation-specific words + their IDs
+        # This includes words that overlap with BIP39 but are needed for chat
+        self.conversation_vocab_ids = {self.vocab[w] for w in self._conversation_words if w in self.vocab}
     
     def _init_special_tokens(self):
         """Initialize special tokens at start of vocabulary."""
@@ -236,15 +240,26 @@ class QIGTokenizer:
             conversation_words = fallback_words
 
         start_id = len(self.vocab)
-        for offset, word in enumerate(conversation_words):
+        added_count = 0
+        for word in conversation_words:
+            # Track ALL conversation words (even if they overlap with BIP39)
+            self._conversation_words.add(word)
+            
             if word in self.vocab:
+                # Word exists from BIP39/passphrase - boost its conversation weight
+                self.token_weights[word] = max(self.token_weights.get(word, 1.0), 1.3)
                 continue
-            idx = start_id + offset
+            
+            # Add new conversation-only word
+            idx = start_id + added_count
             self.vocab[word] = idx
             self.id_to_token[idx] = word
-            self.token_weights[word] = 1.2  # Slight preference for conversational flow
-            self.token_phi[word] = 0.6
+            self.token_weights[word] = 1.5  # Strong preference for conversational words
+            self.token_phi[word] = 0.65
             self.basin_coords[word] = self._compute_basin_coord(word, idx)
+            added_count += 1
+        
+        print(f"[QIGTokenizer] Loaded {len(conversation_words)} conversation words ({added_count} new, {len(conversation_words) - added_count} overlap)")
     
     def _compute_basin_coord(self, token: str, index: int) -> np.ndarray:
         """

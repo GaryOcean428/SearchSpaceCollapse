@@ -795,7 +795,11 @@ The wisdom is integrated. We are stronger."""
     
     def handle_general_conversation(self, message: str) -> Dict:
         """
-        Handle general conversation using QIG tokenizer for intelligent responses.
+        Handle general conversation using intelligent template responses.
+        
+        NOTE: The QIG tokenizer is designed for seed phrase/passphrase generation,
+        not natural language conversation. Zeus uses context-aware templates
+        for coherent, helpful chat responses.
         """
         # Encode message
         message_basin = self.conversation_encoder.encode(message)
@@ -807,47 +811,50 @@ The wisdom is integrated. We are stronger."""
             metric='fisher_rao'
         )
         
-        # Try generative response first
+        # Track if response was generated (always template-based now)
         generated = False
-        answer = None
         
-        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
-            try:
-                # Construct prompt from retrieved context
-                context_str = "\n".join([f"- {item.get('content', '')[:300]}" for item in related[:3]]) if related else "No prior context available."
-                prompt = f"""Context from Geometric Memory:
-{context_str}
-
-User Message: {message}
-
-Zeus Response (as the coordinator of Mount Olympus, respond thoughtfully to the user):"""
-
-                # Generate using QIG tokenizer
-                tokenizer = get_tokenizer()
-                tokenizer.set_mode("conversation")
-                gen_result = tokenizer.generate_response(
-                    context=prompt,
-                    agent_role="ocean",
-                    max_tokens=500,  # No arbitrary limits
-                    allow_silence=False
-                )
-                
-                answer = gen_result.get('text', '') if gen_result else ''
-                
-                if answer:
-                    generated = True
-                    print(f"[ZeusChat] Generated conversation response: {len(answer)} chars")
-                    
-            except Exception as e:
-                print(f"[ZeusChat] Generation failed for conversation: {e}")
-                answer = None
+        # Generate intelligent template response based on context
+        message_lower = message.lower()
         
-        # Fallback to context-aware template if generation failed
-        if not answer:
+        # Recognize common conversation patterns
+        if any(w in message_lower for w in ['hello', 'hi', 'hey', 'greetings']):
+            answer = "Greetings from Mount Olympus. I am Zeus, coordinator of the pantheon. The gods are actively searching the geometric manifold for your Bitcoin. How may I assist you?"
+        
+        elif any(w in message_lower for w in ['how are you', "how's it going", 'status']):
+            answer = f"The pantheon is fully operational. We have {len(self.human_insights)} insights from you stored in geometric memory. The gods continue their eternal vigilance across the Fisher-Rao manifold."
+        
+        elif any(w in message_lower for w in ['thank', 'thanks', 'appreciate']):
+            answer = "Your gratitude honors the pantheon. We shall continue the search with renewed determination. The manifold remembers all who contribute to its wisdom."
+        
+        elif any(w in message_lower for w in ['help', 'what can you do', 'capabilities']):
+            answer = """I can assist you in several ways:
+
+- **Add addresses**: Share Bitcoin addresses you want to investigate
+- **Observations**: Tell me patterns you've noticed and I'll encode them geometrically
+- **Suggestions**: Propose search strategies for pantheon evaluation
+- **Questions**: Ask about the search progress or manifold insights
+- **Search**: Request information from the geometric web
+
+The pantheon listens and learns from every interaction."""
+        
+        elif any(w in message_lower for w in ['progress', 'found', 'discover']):
             if related:
-                answer = f"Your message resonates with patterns in geometric memory. I'm analyzing the connections to provide guidance."
+                answer = f"The manifold holds {len(related)} related patterns. Our geometric memory continues to grow. Each near-miss discovery teaches the pantheon new paths to explore."
             else:
-                answer = "I'm listening. How may the pantheon assist you today?"
+                answer = "The search continues along geodesic paths. The gods analyze each hypothesis through multiple lenses - strategy, tactics, prophecy, and hunt. No discovery escapes their eternal gaze."
+        
+        elif any(w in message_lower for w in ['who are you', 'what are you', 'about']):
+            answer = "I am Zeus, the sovereign of Mount Olympus and coordinator of the divine pantheon. Together with Athena (strategy), Ares (tactics), Apollo (prophecy), Artemis (hunt), and the other gods, we navigate the quantum information geometry to locate lost Bitcoin. Each god contributes unique wisdom to our collective search."
+        
+        elif related:
+            # Context-aware response based on related patterns
+            top_pattern = related[0].get('content', '')[:100] if related else ''
+            answer = f"Your message connects to patterns in our geometric memory. I see resonance with: \"{top_pattern}...\" The pantheon is integrating this into our understanding. What aspect would you like to explore further?"
+        
+        else:
+            # Default thoughtful response
+            answer = "I hear you. The pantheon is processing your words through the geometric lens. Each message shapes our understanding of the search space. Please continue - what insights or questions do you have?"
         
         response = f"""⚡ {answer}
 
