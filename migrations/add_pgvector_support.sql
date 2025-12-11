@@ -210,7 +210,7 @@ DROP INDEX IF EXISTS idx_manifold_probes_coordinates_hnsw;
 --   - ef_construction = 64: Size of dynamic candidate list (higher = better quality)
 CREATE INDEX idx_manifold_probes_basin_hnsw
   ON manifold_probes
-  USING hnsw (basin_coordinates vector_cosine_ops)
+  USING hnsw (basin_coordinates vector_l2_ops)
   WITH (m = 16, ef_construction = 64);
 
 -- ============================================================================
