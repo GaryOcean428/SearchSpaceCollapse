@@ -195,7 +195,11 @@ The CHAOS system enables experimental basin exploration through self-spawning ke
 - **PostgreSQL**: Primary persistence via Neon serverless
   - Connection pooling (max 20 connections)
   - Automatic retry logic for transient failures
-  - Fallback to JSON if unavailable
+  - **pgvector 0.8.0**: Native vector similarity search with HNSW indexes
+    - 6 HNSW indexes for 64D basin coordinates (cosine similarity)
+    - Tables indexed: `basin_history`, `manifold_probes`, `learning_events`, `narrow_path_events`, `ocean_waypoints`, `shadow_intel`
+    - Sub-millisecond similarity search on 100K+ vectors
+    - Query pattern: `ORDER BY basin_coords <=> query_vector::vector`
 
 ### Python Libraries
 - **Core**: NumPy, SciPy for numerical computations

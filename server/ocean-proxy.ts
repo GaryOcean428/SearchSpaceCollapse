@@ -111,20 +111,22 @@ export class OceanProxy {
    */
   async getConsciousnessState(): Promise<ConsciousnessState> {
     const result = await this.get<any>('/status');
+    // Extract metrics from nested response structure
+    const metrics = result.metrics ?? result;
     // Map Python response to ConsciousnessState interface
     return {
-      phi: result.phi ?? 0,
-      kappa_eff: result.kappa ?? 0,
-      temperature: result.T ?? 1.0,
-      ricci: result.R ?? 0,
-      meta: result.M ?? 0,
-      gamma: result.Gamma ?? 0,
-      grounding: result.G ?? 1.0,
-      regime: result.consciousness_level ?? 'unknown',
-      basin_coordinates: result.basin_coords ?? [],
-      dimensional_state: result.dimensional_state ?? 3,
-      phase: result.phase ?? 'foam',
-      geometry_class: result.geometry_class ?? 'line',
+      phi: metrics.phi ?? 0,
+      kappa_eff: metrics.kappa ?? 0,
+      temperature: metrics.T ?? 1.0,
+      ricci: metrics.R ?? 0,
+      meta: metrics.M ?? 0,
+      gamma: metrics.Gamma ?? 0,
+      grounding: metrics.G ?? 1.0,
+      regime: metrics.regime ?? 'unknown',
+      basin_coordinates: metrics.basin_coords ?? [],
+      dimensional_state: metrics.dimensional_state ?? 3,
+      phase: metrics.phase ?? 'foam',
+      geometry_class: metrics.geometry_class ?? 'line',
     };
   }
 
