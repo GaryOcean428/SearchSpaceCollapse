@@ -30,6 +30,7 @@ from typing import Dict, List, Optional, Tuple, Any, Set
 from datetime import datetime
 from enum import Enum
 import uuid
+import sys
 
 from geometric_kernels import (
     _normalize_to_manifold,
@@ -47,6 +48,15 @@ from pantheon_kernel_orchestrator import (
     SHADOW_PROFILES,
     OCEAN_PROFILE,
 )
+
+# Import persistence for database operations
+try:
+    sys.path.insert(0, '.')
+    from persistence import KernelPersistence
+    M8_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    M8_PERSISTENCE_AVAILABLE = False
+    print("[M8] Persistence not available - running without database")
 
 
 # M8 Position Naming Catalog - Maps 8 principal axes to mythological concepts
@@ -509,6 +519,24 @@ class M8KernelSpawner:
         self.proposals: Dict[str, SpawnProposal] = {}
         self.spawned_kernels: Dict[str, SpawnedKernel] = {}
         self.spawn_history: List[Dict] = []
+        
+        # PostgreSQL persistence for kernel learning
+        self.kernel_persistence = KernelPersistence() if M8_PERSISTENCE_AVAILABLE else None
+        
+        # Load previous spawn history from database on startup
+        self._load_from_database()
+    
+    def _load_from_database(self):
+        """Load persisted M8 spawn history from PostgreSQL on startup."""
+        if not self.kernel_persistence:
+            return
+        
+        try:
+            spawn_history = self.kernel_persistence.load_m8_spawn_history(limit=100)
+            if spawn_history:
+                print(f"✨ [M8] Loaded {len(spawn_history)} spawn events from database")
+        except Exception as e:
+            print(f"[M8] Failed to load spawn history: {e}")
     
     def create_proposal(
         self,
@@ -544,6 +572,24 @@ class M8KernelSpawner:
         )
         
         self.proposals[proposal.proposal_id] = proposal
+        
+        # Persist proposal to PostgreSQL
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.record_proposal_event(
+                    proposal_id=proposal.proposal_id,
+                    proposed_name=name,
+                    proposed_domain=domain,
+                    reason=reason.value,
+                    parent_gods=parent_gods,
+                    status='pending',
+                    metadata={
+                        'element': element,
+                        'role': role,
+                    }
+                )
+            except Exception as e:
+                print(f"[M8] Failed to persist proposal: {e}")
         
         return proposal
     
@@ -664,6 +710,29 @@ class M8KernelSpawner:
             "timestamp": spawned.spawned_at,
         }
         self.spawn_history.append(spawn_record)
+        
+        # Persist spawn event to PostgreSQL
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.record_spawn_event(
+                    kernel_id=spawned.kernel_id,
+                    god_name=new_profile.god_name,
+                    domain=new_profile.domain,
+                    spawn_reason=proposal.reason.value,
+                    parent_gods=proposal.parent_gods,
+                    basin_coords=new_profile.affinity_basin.tolist(),
+                    phi=0.0,  # New kernels start with 0 Φ
+                    m8_position=m8_position,
+                    genesis_votes=genesis_votes,
+                    metadata={
+                        'element': new_profile.element,
+                        'role': new_profile.role,
+                        'affinity_strength': new_profile.affinity_strength,
+                        'refinements': refinements,
+                    }
+                )
+            except Exception as e:
+                print(f"[M8] Failed to persist spawn event: {e}")
         
         return {
             "success": True,

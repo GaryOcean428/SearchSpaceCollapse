@@ -259,3 +259,152 @@ class KernelPersistence(BasePersistence):
         except Exception as e:
             print(f"[KernelPersistence] Failed to record death: {e}")
             return False
+
+    def record_convergence_snapshot(
+        self,
+        generation: int,
+        population: int,
+        active_count: int,
+        dormant_count: int,
+        avg_phi: float,
+        e8_alignment: Optional[Dict] = None,
+        metadata: Optional[Dict] = None
+    ) -> bool:
+        """Record a convergence snapshot for E8 hypothesis tracking."""
+        query = """
+            INSERT INTO learning_events (
+                event_type, kernel_id, phi, metadata, created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s
+            )
+        """
+        event_metadata = {
+            'generation': generation,
+            'population': population,
+            'active_count': active_count,
+            'dormant_count': dormant_count,
+            'e8_alignment': e8_alignment,
+            **(metadata or {})
+        }
+
+        try:
+            self.execute_query(
+                query,
+                ('convergence', f'gen_{generation}', avg_phi, json.dumps(event_metadata), datetime.utcnow()),
+                fetch=False
+            )
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to record convergence: {e}")
+            return False
+
+    def record_spawn_event(
+        self,
+        kernel_id: str,
+        god_name: str,
+        domain: str,
+        spawn_reason: str,
+        parent_gods: List[str],
+        basin_coords: List[float],
+        phi: float = 0.0,
+        m8_position: Optional[Dict] = None,
+        genesis_votes: Optional[Dict] = None,
+        metadata: Optional[Dict] = None
+    ) -> bool:
+        """Record an M8 kernel spawn event."""
+        # First save the kernel snapshot
+        self.save_kernel_snapshot(
+            kernel_id=kernel_id,
+            god_name=god_name,
+            domain=domain,
+            generation=0,
+            basin_coords=basin_coords,
+            phi=phi,
+            kappa=0.0,
+            regime='m8_spawned',
+            parent_ids=parent_gods,
+            metadata={
+                'spawn_reason': spawn_reason,
+                'm8_position': m8_position,
+                'genesis_votes': genesis_votes,
+                **(metadata or {})
+            }
+        )
+        
+        # Then record as learning event
+        query = """
+            INSERT INTO learning_events (
+                event_type, kernel_id, phi, metadata, created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s
+            )
+        """
+        event_metadata = {
+            'spawn_reason': spawn_reason,
+            'parent_gods': parent_gods,
+            'm8_position': m8_position,
+            'genesis_votes': genesis_votes,
+            **(metadata or {})
+        }
+
+        try:
+            self.execute_query(
+                query,
+                ('m8_spawn', kernel_id, phi, json.dumps(event_metadata), datetime.utcnow()),
+                fetch=False
+            )
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to record M8 spawn: {e}")
+            return False
+
+    def record_proposal_event(
+        self,
+        proposal_id: str,
+        proposed_name: str,
+        proposed_domain: str,
+        reason: str,
+        parent_gods: List[str],
+        status: str = 'pending',
+        votes: Optional[Dict] = None,
+        metadata: Optional[Dict] = None
+    ) -> bool:
+        """Record an M8 kernel proposal event."""
+        query = """
+            INSERT INTO learning_events (
+                event_type, kernel_id, phi, metadata, created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s
+            )
+        """
+        event_metadata = {
+            'proposed_name': proposed_name,
+            'proposed_domain': proposed_domain,
+            'reason': reason,
+            'parent_gods': parent_gods,
+            'status': status,
+            'votes': votes,
+            **(metadata or {})
+        }
+
+        try:
+            self.execute_query(
+                query,
+                ('m8_proposal', proposal_id, 0.0, json.dumps(event_metadata), datetime.utcnow()),
+                fetch=False
+            )
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to record M8 proposal: {e}")
+            return False
+
+    def load_m8_spawn_history(self, limit: int = 100) -> List[Dict]:
+        """Load M8 spawn history for recovery on restart."""
+        query = """
+            SELECT * FROM learning_events
+            WHERE event_type = 'm8_spawn'
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+        results = self.execute_query(query, (limit,))
+        return [dict(r) for r in results] if results else []
