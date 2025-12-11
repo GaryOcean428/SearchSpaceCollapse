@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_ROUTES } from '@/api';
+import { API_ROUTES, QUERY_KEYS } from '@/api';
 import {
   getM8Client,
   type M8Status,
@@ -22,6 +22,41 @@ import {
   type ListKernelsResponse,
   type ProposalStatus,
 } from '@/lib/m8-kernel-spawning';
+
+export interface PostgresKernel {
+  kernel_id: string;
+  god_name: string;
+  domain: string;
+  primitive_root: number | null;
+  basin_coordinates: number[] | null;
+  parent_kernels: string[];
+  spawn_reason: string;
+  position_rationale: string | null;
+  affinity_strength: number;
+  entropy_threshold: number;
+  spawned_at: string;
+  spawned_during_war_id: string | null;
+  phi: number;
+  kappa: number;
+  regime: string | null;
+  generation: number;
+  success_count: number;
+  failure_count: number;
+  reputation: string;
+  element_group: string | null;
+  ecological_niche: string | null;
+  target_function: string | null;
+  valence: number | null;
+  breeding_target: string | null;
+  merge_candidate: boolean;
+  split_candidate: boolean;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface PostgresKernelsResponse {
+  kernels: PostgresKernel[];
+  total: number;
+}
 
 const M8_KEYS = {
   status: ['m8', 'status'] as const,
@@ -84,10 +119,17 @@ export function useGetProposal(proposalId: string | null) {
 }
 
 export function useListSpawnedKernels() {
-  return useQuery<ListKernelsResponse>({
-    queryKey: M8_KEYS.kernels,
-    queryFn: () => getM8Client().listKernels(),
+  return useQuery<PostgresKernelsResponse>({
+    queryKey: QUERY_KEYS.olympus.kernels(),
+    queryFn: async () => {
+      const response = await fetch(API_ROUTES.olympus.kernels);
+      if (!response.ok) {
+        throw new Error('Failed to fetch kernels');
+      }
+      return response.json();
+    },
     staleTime: 30000,
+    refetchInterval: 60000,
   });
 }
 

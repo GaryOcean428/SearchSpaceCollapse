@@ -44,8 +44,9 @@ import {
   type WarHistoryRecord,
   type WarMode,
   type WarOutcome,
+  type PostgresKernel,
 } from '@/hooks/use-m8-spawning';
-import type { SpawnProposal, SpawnedKernel, SpawnReason, ProposalStatus, M8Position } from '@/lib/m8-kernel-spawning';
+import type { SpawnProposal, SpawnReason, ProposalStatus, M8Position } from '@/lib/m8-kernel-spawning';
 import { Swords, Target, Timer, Trophy, AlertTriangle, Activity, Compass, MapPin } from 'lucide-react';
 
 const ELEMENT_ICONS: Record<string, typeof Sparkles> = {
@@ -213,87 +214,151 @@ function ProposalCard({ proposal, onVote, onSpawn, isVoting, isSpawning }: {
   );
 }
 
-function KernelCard({ kernel }: { kernel: SpawnedKernel }) {
+const SPAWN_REASON_COLORS: Record<string, string> = {
+  auto_spawn: 'bg-purple-500/20 text-purple-400',
+  domain_gap: 'bg-blue-500/20 text-blue-400',
+  overload: 'bg-amber-500/20 text-amber-400',
+  specialization: 'bg-cyan-500/20 text-cyan-400',
+  emergence: 'bg-green-500/20 text-green-400',
+  user_request: 'bg-indigo-500/20 text-indigo-400',
+  unknown: 'bg-gray-500/20 text-gray-400',
+};
+
+function KernelCard({ kernel }: { kernel: PostgresKernel }) {
   if (!kernel) return null;
   
-  const element = (kernel.metadata?.element as string)?.toLowerCase() || 'aether';
+  const element = kernel.element_group?.toLowerCase() || 'aether';
   const ElementIcon = ELEMENT_ICONS[element] || Sparkles;
   const elementColor = ELEMENT_COLORS[element] || 'text-primary';
-  const m8 = kernel.m8_position;
+  const spawnReasonColor = SPAWN_REASON_COLORS[kernel.spawn_reason] || SPAWN_REASON_COLORS.unknown;
+  
+  const totalPredictions = kernel.success_count + kernel.failure_count;
+  const reputationValue = totalPredictions > 0 
+    ? (kernel.success_count / totalPredictions * 100).toFixed(1)
+    : null;
 
   return (
     <Card className="hover-elevate" data-testid={`card-kernel-${kernel.kernel_id || 'unknown'}`}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <ElementIcon className={`h-5 w-5 ${elementColor}`} />
             <CardTitle className="text-lg">{kernel.god_name || 'Unknown'}</CardTitle>
           </div>
-          <Badge variant="secondary" className="bg-purple-500/20 text-purple-400">
-            <Crown className="h-3 w-3 mr-1" />
-            Spawned
-          </Badge>
+          <div className="flex items-center gap-2 flex-wrap">
+            {kernel.merge_candidate && (
+              <Badge variant="outline" className="text-xs bg-pink-500/20 text-pink-400 border-pink-500/30">
+                Merge Target
+              </Badge>
+            )}
+            {kernel.split_candidate && (
+              <Badge variant="outline" className="text-xs bg-violet-500/20 text-violet-400 border-violet-500/30">
+                Split Ready
+              </Badge>
+            )}
+            <Badge className={spawnReasonColor} data-testid={`badge-spawn-reason-${kernel.kernel_id}`}>
+              {kernel.spawn_reason.replace('_', ' ')}
+            </Badge>
+          </div>
         </div>
         <CardDescription className="text-sm">{kernel.domain || 'Unknown domain'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">{(kernel.metadata?.role as string) || 'No role specified'}</p>
-        
-        {m8 && (
-          <div className="rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-2" data-testid={`panel-m8-position-${kernel.kernel_id}`}>
-            <div className="flex items-center gap-2">
-              <Compass className="h-4 w-4 text-indigo-400" />
-              <span className="text-sm font-medium text-indigo-300">M8 Geometric Position</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-xs text-muted-foreground">Position Name</span>
-                <div className="font-mono font-medium text-indigo-300" data-testid={`text-m8-name-${kernel.kernel_id}`}>
-                  {m8.m8_position_name}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground">Octant</span>
-                <div className="font-mono font-medium text-indigo-400" data-testid={`text-m8-octant-${kernel.kernel_id}`}>
-                  {m8.m8_octant} (0x{m8.m8_octant.toString(16).toUpperCase().padStart(2, '0')})
-                </div>
-              </div>
-            </div>
-            {m8.m8_relative_position && (
-              <div className="flex items-center gap-2 pt-1">
-                <MapPin className="h-3 w-3 text-indigo-400" />
-                <span className="text-xs text-indigo-300" data-testid={`text-m8-relative-${kernel.kernel_id}`}>
-                  {m8.m8_relative_position}
-                </span>
-              </div>
-            )}
-            <div className="text-xs text-muted-foreground">
-              Radial: <span className="font-mono text-indigo-400">{m8.m8_radial.toFixed(3)}</span>
-            </div>
-          </div>
+        {kernel.target_function && (
+          <p className="text-sm text-muted-foreground">{kernel.target_function}</p>
         )}
         
+        {kernel.position_rationale && (
+          <p className="text-xs text-muted-foreground italic">"{kernel.position_rationale}"</p>
+        )}
+
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div>
+            <span className="text-xs text-muted-foreground">Generation</span>
+            <div className="font-mono font-medium text-purple-400" data-testid={`text-generation-${kernel.kernel_id}`}>
+              Gen {kernel.generation}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">Reputation</span>
+            <div className={`font-mono font-medium ${reputationValue && parseFloat(reputationValue) > 50 ? 'text-green-400' : 'text-amber-400'}`} data-testid={`text-reputation-${kernel.kernel_id}`}>
+              {reputationValue ? `${reputationValue}%` : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">Predictions</span>
+            <div className="font-mono font-medium text-muted-foreground" data-testid={`text-predictions-${kernel.kernel_id}`}>
+              {kernel.success_count}W / {kernel.failure_count}L
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="text-xs text-muted-foreground">Φ (Phi)</span>
+            <div className="font-mono font-medium text-cyan-400" data-testid={`text-phi-${kernel.kernel_id}`}>
+              {kernel.phi.toFixed(3)}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground">κ (Kappa)</span>
+            <div className="font-mono font-medium text-amber-400" data-testid={`text-kappa-${kernel.kernel_id}`}>
+              {kernel.kappa.toFixed(1)}
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
             <span className="text-xs text-muted-foreground">Affinity</span>
             <div className="font-mono font-medium text-cyan-400">
-              {(kernel.affinity_strength ?? 0).toFixed(2)}
+              {kernel.affinity_strength.toFixed(2)}
             </div>
           </div>
           <div>
             <span className="text-xs text-muted-foreground">Entropy</span>
             <div className="font-mono font-medium text-amber-400">
-              {(kernel.entropy_threshold ?? 0).toFixed(2)}
+              {kernel.entropy_threshold.toFixed(2)}
             </div>
           </div>
         </div>
 
-        {kernel.parent_gods && kernel.parent_gods.length > 0 && (
+        {kernel.regime && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Regime:</span>
+            <Badge variant="outline" className="text-xs capitalize">{kernel.regime.replace('_', ' ')}</Badge>
+          </div>
+        )}
+
+        {kernel.ecological_niche && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Niche:</span>
+            <Badge variant="outline" className="text-xs">{kernel.ecological_niche}</Badge>
+          </div>
+        )}
+
+        {kernel.breeding_target && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Breeding with:</span>
+            <Badge variant="outline" className="text-xs bg-pink-500/10 text-pink-400 border-pink-500/30">
+              {kernel.breeding_target}
+            </Badge>
+          </div>
+        )}
+
+        {kernel.parent_kernels && kernel.parent_kernels.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground">Parents:</span>
-            {kernel.parent_gods.map(god => (
-              <Badge key={god} variant="outline" className="text-xs capitalize">{god}</Badge>
+            {kernel.parent_kernels.map(parent => (
+              <Badge key={parent} variant="outline" className="text-xs">{parent}</Badge>
             ))}
+          </div>
+        )}
+
+        {kernel.spawned_during_war_id && (
+          <div className="flex items-center gap-1 text-xs text-amber-400">
+            <Swords className="h-3 w-3" />
+            Spawned during war
           </div>
         )}
 

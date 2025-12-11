@@ -31,7 +31,7 @@ import {
   type WarMode,
   type WarOutcome,
 } from '../war-history-storage';
-import { storeConversation, storeShadowIntel, storeKernelGeometry } from '../qig-db';
+import { storeConversation, storeShadowIntel, storeKernelGeometry, getKernelGeometry } from '../qig-db';
 
 const router = Router();
 const olympusClient = new OlympusClient(
@@ -891,6 +891,59 @@ router.get('/spawn/status', isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('[Olympus] Spawn status error:', error);
     res.status(500).json({ error: 'Failed to get spawn status' });
+  }
+});
+
+/**
+ * Get all spawned kernels from PostgreSQL
+ * Returns kernels with full attributes including spawn reason, reputation, merge/split status
+ */
+router.get('/kernels', isAuthenticated, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const godName = req.query.godName as string | undefined;
+    
+    const kernels = await getKernelGeometry(godName, limit);
+    
+    const enrichedKernels = kernels.map(k => ({
+      kernel_id: k.kernelId,
+      god_name: k.godName,
+      domain: k.domain,
+      primitive_root: k.primitiveRoot,
+      basin_coordinates: k.basinCoordinates,
+      parent_kernels: k.parentKernels || [],
+      spawn_reason: k.placementReason || 'unknown',
+      position_rationale: k.positionRationale,
+      affinity_strength: k.affinityStrength || 0,
+      entropy_threshold: k.entropyThreshold || 0,
+      spawned_at: k.spawnedAt,
+      spawned_during_war_id: k.spawnedDuringWarId,
+      phi: k.phi || 0,
+      kappa: k.kappa || 0,
+      regime: k.regime,
+      generation: k.generation || 0,
+      success_count: k.successCount || 0,
+      failure_count: k.failureCount || 0,
+      reputation: ((k.successCount ?? 0) + (k.failureCount ?? 0)) > 0
+        ? ((k.successCount ?? 0) / Math.max(1, (k.successCount ?? 0) + (k.failureCount ?? 0))).toFixed(3)
+        : 'N/A',
+      element_group: k.elementGroup,
+      ecological_niche: k.ecologicalNiche,
+      target_function: k.targetFunction,
+      valence: k.valence,
+      breeding_target: k.breedingTarget,
+      merge_candidate: k.breedingTarget ? true : false,
+      split_candidate: (k.successCount || 0) > 10 && (k.generation || 0) < 3,
+      metadata: k.metadata,
+    }));
+    
+    res.json({
+      kernels: enrichedKernels,
+      total: enrichedKernels.length,
+    });
+  } catch (error) {
+    console.error('[Olympus] Kernels list error:', error);
+    res.json({ kernels: [], total: 0 });
   }
 });
 

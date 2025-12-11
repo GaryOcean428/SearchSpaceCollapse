@@ -176,6 +176,7 @@ export const API_ROUTES = {
     warEnd: '/api/olympus/war/end',
     zeusChat: '/api/olympus/zeus/chat',
     zeusSearch: '/api/olympus/zeus/search',
+    kernels: '/api/olympus/kernels',
     // Shadow Pantheon
     shadow: {
       status: '/api/olympus/shadow/status',
@@ -332,5 +333,6 @@ export const QUERY_KEYS = {
     debatesActive: () => [API_ROUTES.olympus.debatesActive] as const,
     warActive: () => [API_ROUTES.olympus.warActive] as const,
     shadowStatus: () => [API_ROUTES.olympus.shadow.status] as const,
+    kernels: () => [API_ROUTES.olympus.kernels] as const,
   },
 } as const;
