@@ -1254,6 +1254,19 @@ export class OceanAgent {
           passHypothesesTested += testResults.tested.length;
           passNearMisses += testResults.nearMisses.length;
 
+          // Update war metrics if war is active
+          if (this.olympusWarMode) {
+            const activeWar = await getActiveWar();
+            if (activeWar) {
+              const currentPhrases = (activeWar as any).phrasesTestedDuringWar || 0;
+              const currentDiscoveries = (activeWar as any).discoveriesDuringWar || 0;
+              await updateWarMetrics(activeWar.id, {
+                phrasesTested: currentPhrases + testResults.tested.length,
+                discoveries: currentDiscoveries + testResults.nearMisses.length,
+              });
+            }
+          }
+
           if (testResults.match) {
             console.log(
               `[Ocean] ╔═══════════════════════════════════════════════════════════════╗`

@@ -27,6 +27,7 @@ import {
   getActiveWar,
   getWarHistory,
   getWarById,
+  updateWarMetrics,
   type WarMode,
   type WarOutcome,
 } from '../war-history-storage';
@@ -832,6 +833,15 @@ router.post('/spawn/auto', isAuthenticated, validateInput(targetSchema), async (
           affinityStrength: typeof k.affinity === 'number' ? k.affinity : undefined,
           metadata: { phi: k.phi, generation: k.generation },
         }).catch(err => console.error('[Olympus] Failed to persist kernel:', err));
+      }
+      
+      // Update war metrics with kernel count if war is active
+      const activeWar = await getActiveWar();
+      if (activeWar) {
+        const currentKernels = (activeWar as any).kernelsSpawnedDuringWar || 0;
+        await updateWarMetrics(activeWar.id, {
+          kernelsSpawned: currentKernels + data.spawned_kernels.length,
+        });
       }
     }
     
