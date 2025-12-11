@@ -59,7 +59,6 @@ class ExperimentalKernelEvolution:
 
     def __init__(
         self,
-        checkpoint_dir: str = None,
         max_population: int = 20,
         min_population: int = 3,
     ):
@@ -94,20 +93,8 @@ class ExperimentalKernelEvolution:
         if self.architecture == 'e8_hybrid':
             self.e8_roots = self._initialize_e8_roots()
 
-        # Checkpoint management
-        if checkpoint_dir is None:
-            if self.is_replit:
-                checkpoint_dir = '/home/runner/workspace/persistent_data/chaos_checkpoints'
-            else:
-                checkpoint_dir = '/tmp/chaos_checkpoints'
-
-        self.checkpoint_dir = Path(checkpoint_dir)
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        (self.checkpoint_dir / 'elite').mkdir(exist_ok=True)
-        (self.checkpoint_dir / 'dormant').mkdir(exist_ok=True)
-
-        # Logging
-        self.logger = ChaosLogger(log_dir=str(self.checkpoint_dir / 'logs'))
+        # Logging (PostgreSQL-backed, no file directories needed)
+        self.logger = ChaosLogger()
 
         # Persistence (database operations)
         self.kernel_persistence = KernelPersistence() if PERSISTENCE_AVAILABLE else None
@@ -306,7 +293,7 @@ class ExperimentalKernelEvolution:
         print(f"   Max total: {self.max_total}")
         print(f"   Max active: {self.max_active}")
         print(f"   Memory available: {self.memory_available_gb:.1f}GB")
-        print(f"   Checkpoint dir: {self.checkpoint_dir}")
+        print(f"   Persistence: PostgreSQL-backed")
         if self.architecture == 'e8_hybrid':
             print(f"   E8 hypothesis: Testing convergence to {self.E8_ROOTS}\n")
 
@@ -433,24 +420,28 @@ class ExperimentalKernelEvolution:
         }
 
     def track_elite(self, kernel: SelfSpawningKernel) -> bool:
-        """Add kernel to hall of fame if elite."""
+        """Add kernel to hall of fame if elite (persisted to PostgreSQL)."""
         phi = kernel.kernel.compute_phi()
 
         if phi >= self.phi_elite_threshold:
-            elite_path = self.checkpoint_dir / 'elite' / f"{kernel.kernel_id}_phi_{phi:.3f}.pt"
-
-            torch.save({
-                'kernel_state': kernel.kernel.state_dict(),
-                'phi': phi,
-                'success_count': kernel.success_count,
-                'generation': kernel.generation,
-                'basin_coords': kernel.kernel.basin_coords.tolist(),
-            }, elite_path)
+            # Persist to database instead of file
+            if self.kernel_persistence:
+                try:
+                    self.kernel_persistence.save_kernel(
+                        kernel_id=kernel.kernel_id,
+                        basin_coordinates=kernel.kernel.basin_coords.tolist(),
+                        phi=phi,
+                        generation=kernel.generation,
+                        success_count=kernel.success_count,
+                        failure_count=kernel.failure_count,
+                        is_elite=True,
+                    )
+                except Exception as e:
+                    print(f"[Chaos] Failed to persist elite: {e}")
 
             self.elite_hall_of_fame.append({
                 'kernel_id': kernel.kernel_id,
                 'phi': phi,
-                'path': str(elite_path),
                 'timestamp': datetime.now().isoformat(),
             })
 

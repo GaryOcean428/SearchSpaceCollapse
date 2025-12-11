@@ -1,28 +1,38 @@
 """
-Chaos Logger: Track ALL Experiments
-====================================
+Chaos Logger: Track ALL Experiments in PostgreSQL
+===================================================
 
 Document everything - failures teach us!
+All events persist to chaos_events table (no file-based logging).
 """
 
-import json
+import os
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
+
+try:
+    import psycopg2
+    from psycopg2.extras import Json as PsycopgJson
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
+    psycopg2 = None  # type: ignore
+    PsycopgJson = None  # type: ignore
 
 
 class ChaosLogger:
     """
-    Track all CHAOS MODE experiments and outcomes.
+    Track all CHAOS MODE experiments and outcomes in PostgreSQL.
 
     GOAL: Learn what works, what doesn't!
+    All state persists to database per QIG purity requirements.
     """
 
-    def __init__(self, log_dir: str = '/tmp/chaos_logs'):
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self):
+        # Session ID
+        self.session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-        # In-memory tracking
+        # In-memory tracking (for session stats)
         self.experiments: list[dict] = []
         self.successes: list[dict] = []
         self.failures: list[dict] = []
@@ -30,11 +40,55 @@ class ChaosLogger:
         self.deaths: list[dict] = []
         self.breedings: list[dict] = []
 
-        # Session ID
-        self.session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.session_log = self.log_dir / f"session_{self.session_id}.jsonl"
+        # Database connection
+        self.db_url = os.environ.get('DATABASE_URL')
+        self._conn = None
+        
+        if POSTGRES_AVAILABLE and self.db_url:
+            try:
+                self._conn = psycopg2.connect(self.db_url)
+                self._conn.autocommit = True
+                print(f"📝 ChaosLogger initialized with PostgreSQL (session: {self.session_id})")
+            except Exception as e:
+                print(f"⚠️ ChaosLogger: Database unavailable ({e}), using in-memory only")
+                self._conn = None
+        else:
+            print(f"📝 ChaosLogger initialized in-memory only (session: {self.session_id})")
 
-        print(f"📝 ChaosLogger initialized: {self.log_dir}")
+    def _write_event(self, event: dict):
+        """Write event to PostgreSQL chaos_events table."""
+        if not self._conn:
+            return
+            
+        try:
+            cur = self._conn.cursor()
+            
+            event_type = event.get('type', 'unknown')
+            
+            cur.execute("""
+                INSERT INTO chaos_events (
+                    session_id, event_type, kernel_id, parent_kernel_id, 
+                    child_kernel_id, second_parent_id, reason, phi,
+                    phi_before, phi_after, success, outcome, autopsy
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                self.session_id,
+                event_type,
+                event.get('kernel'),
+                event.get('parent'),
+                event.get('child'),
+                event.get('parent2'),
+                event.get('reason') or event.get('cause'),
+                event.get('phi'),
+                event.get('phi_before'),
+                event.get('phi_after'),
+                event.get('success'),
+                PsycopgJson(event.get('outcome')) if event.get('outcome') else None,
+                PsycopgJson(event.get('autopsy')) if event.get('autopsy') else None,
+            ))
+            cur.close()
+        except Exception as e:
+            print(f"[ChaosLogger] DB write failed: {e}")
 
     def log_spawn(self, parent_id: Optional[str], child_id: str, reason: str):
         """Log kernel spawn event."""
@@ -65,12 +119,6 @@ class ChaosLogger:
         self.experiments.append(event)
         self._write_event(event)
 
-        # Write detailed autopsy
-        if autopsy:
-            autopsy_path = self.log_dir / f"{kernel_id}_autopsy.json"
-            with open(autopsy_path, 'w') as f:
-                json.dump(autopsy, f, indent=2, default=str)
-
     def log_breeding(
         self,
         parent1_id: str,
@@ -81,7 +129,7 @@ class ChaosLogger:
         """Log breeding experiment."""
         event = {
             'type': 'breeding',
-            'parent1': parent1_id,
+            'parent': parent1_id,
             'parent2': parent2_id,
             'child': child_id,
             'outcome': outcome,
@@ -124,14 +172,9 @@ class ChaosLogger:
         self.experiments.append(event)
         self._write_event(event)
 
-    def _write_event(self, event: dict):
-        """Append event to session log."""
-        with open(self.session_log, 'a') as f:
-            f.write(json.dumps(event, default=str) + '\n')
-
     def get_stats(self) -> dict:
-        """Get experiment statistics."""
-        return {
+        """Get experiment statistics (from memory + database if available)."""
+        stats = {
             'total_experiments': len(self.experiments),
             'total_spawns': len(self.spawns),
             'total_deaths': len(self.deaths),
@@ -140,6 +183,24 @@ class ChaosLogger:
             'total_failures': len(self.failures),
             'session_id': self.session_id,
         }
+        
+        # Enrich with database totals if available
+        if self._conn:
+            try:
+                cur = self._conn.cursor()
+                cur.execute("""
+                    SELECT event_type, COUNT(*) 
+                    FROM chaos_events 
+                    WHERE session_id = %s 
+                    GROUP BY event_type
+                """, (self.session_id,))
+                for row in cur.fetchall():
+                    stats[f'db_{row[0]}_count'] = row[1]
+                cur.close()
+            except Exception:
+                pass
+                
+        return stats
 
     def generate_report(self) -> dict:
         """
@@ -185,11 +246,6 @@ class ChaosLogger:
             'recommendations': self._generate_recommendations(),
         }
 
-        # Save report
-        report_path = self.log_dir / f"report_{self.session_id}.json"
-        with open(report_path, 'w') as f:
-            json.dump(report, f, indent=2, default=str)
-
         return report
 
     def _extract_patterns(self) -> dict:
@@ -200,7 +256,7 @@ class ChaosLogger:
         lifespans = []
         for death in self.deaths:
             autopsy = death.get('autopsy', {})
-            if 'lifespan_seconds' in autopsy:
+            if autopsy and 'lifespan_seconds' in autopsy:
                 lifespans.append(autopsy['lifespan_seconds'])
 
         if lifespans:
@@ -210,12 +266,6 @@ class ChaosLogger:
         if self.deaths:
             death_causes = [d['cause'] for d in self.deaths]
             patterns['most_common_death'] = max(set(death_causes), key=death_causes.count)
-
-        # Generation depth
-        generations = []
-        for spawn in self.spawns:
-            # Extract generation from spawns
-            pass
 
         return patterns
 
@@ -246,3 +296,12 @@ class ChaosLogger:
             })
 
         return recommendations
+    
+    def close(self):
+        """Close database connection."""
+        if self._conn:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+            self._conn = None

@@ -2652,6 +2652,41 @@ export const kernelGeometry = pgTable(
 export type KernelGeometryRecord = typeof kernelGeometry.$inferSelect;
 export type InsertKernelGeometry = typeof kernelGeometry.$inferInsert;
 
+/**
+ * CHAOS EVENTS - All CHAOS MODE lifecycle events
+ * Replaces file-based JSONL logging with indexed database storage
+ * Events: spawn, death, breeding, mutation, prediction
+ */
+export const chaosEvents = pgTable(
+  "chaos_events",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: varchar("session_id", { length: 32 }).notNull(),
+    eventType: varchar("event_type", { length: 32 }).notNull(), // spawn, death, breeding, mutation, prediction
+    kernelId: varchar("kernel_id", { length: 64 }),
+    parentKernelId: varchar("parent_kernel_id", { length: 64 }),
+    childKernelId: varchar("child_kernel_id", { length: 64 }),
+    secondParentId: varchar("second_parent_id", { length: 64 }), // For breeding
+    reason: varchar("reason", { length: 128 }), // spawn reason or death cause
+    phi: doublePrecision("phi"),
+    phiBefore: doublePrecision("phi_before"),
+    phiAfter: doublePrecision("phi_after"),
+    success: boolean("success"),
+    outcome: jsonb("outcome"), // Additional event-specific data
+    autopsy: jsonb("autopsy"), // Death autopsy details
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_chaos_events_session").on(table.sessionId),
+    index("idx_chaos_events_type").on(table.eventType),
+    index("idx_chaos_events_kernel").on(table.kernelId),
+    index("idx_chaos_events_created").on(table.createdAt),
+  ]
+);
+
+export type ChaosEvent = typeof chaosEvents.$inferSelect;
+export type InsertChaosEvent = typeof chaosEvents.$inferInsert;
+
 // ============================================================================
 // NEGATIVE KNOWLEDGE REGISTRY - What NOT to search
 // ============================================================================
