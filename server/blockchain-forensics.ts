@@ -80,9 +80,27 @@ const _TX_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 // Rate limiting state for blockchain.info API
 let lastBlockchainInfoCall = 0;
 const BLOCKCHAIN_INFO_MIN_DELAY = 2000; // 2 seconds between calls
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 3000; // 3 seconds (reduced from 5s for faster fallback)
-const FETCH_TIMEOUT_MS = 10000; // 10 second timeout per request
+const MAX_RETRIES = 2; // Reduced from 3 for faster fallback
+const INITIAL_RETRY_DELAY = 2000; // 2 seconds (reduced from 3s for faster fallback)
+const FETCH_TIMEOUT_MS = 8000; // 8 second timeout per request (reduced from 10s)
+
+// Global rate limit tracking - skip APIs entirely when recently rate-limited
+let rateLimitState = {
+  blockchainInfo: { rateLimitedUntil: 0 },
+  blockstream: { rateLimitedUntil: 0 },
+  mempool: { rateLimitedUntil: 0 },
+  blockcypher: { rateLimitedUntil: 0 },
+};
+const RATE_LIMIT_COOLDOWN_MS = 60000; // 1 minute cooldown after rate limit
+
+function isApiRateLimited(api: keyof typeof rateLimitState): boolean {
+  return Date.now() < rateLimitState[api].rateLimitedUntil;
+}
+
+function markApiRateLimited(api: keyof typeof rateLimitState): void {
+  rateLimitState[api].rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+  console.log(`[BlockchainForensics] ${api} rate-limited, skipping for ${RATE_LIMIT_COOLDOWN_MS/1000}s`);
+}
 
 /**
  * Sleep utility for delays

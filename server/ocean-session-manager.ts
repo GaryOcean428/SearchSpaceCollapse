@@ -7,6 +7,7 @@ import { consoleLogBuffer } from './console-log-buffer';
 import { autoCycleManager } from './auto-cycle-manager';
 import { oceanQIGBackend } from './ocean-qig-backend-adapter';
 import { testedPhrasesUnified } from './tested-phrases-unified';
+import { SEARCH_CONFIG } from './ocean-config';
 
 export type FullConsciousnessSignature = ConsciousnessSignature;
 
@@ -113,6 +114,27 @@ class OceanSessionManager {
     const oldSessionId = this.activeSessionId;
     
     if (this.activeSessionId) {
+      const currentSession = this.sessions.get(this.activeSessionId);
+      const currentAgent = this.agents.get(this.activeSessionId);
+      
+      // Check minimum session runtime before allowing handoff
+      if (currentSession && currentSession.isRunning && currentSession.startedAt) {
+        const sessionAge = Date.now() - new Date(currentSession.startedAt).getTime();
+        const hypothesesTested = currentSession.totalTested;
+        
+        const minRuntime = SEARCH_CONFIG.MIN_SESSION_RUNTIME_MS;
+        const minHypotheses = SEARCH_CONFIG.MIN_HYPOTHESES_BEFORE_HANDOFF;
+        
+        // Don't stop session if it hasn't met minimum requirements
+        if (sessionAge < minRuntime && hypothesesTested < minHypotheses) {
+          console.log(`[OceanSessionManager] Session still active (${(sessionAge/1000).toFixed(1)}s, ${hypothesesTested} hypotheses) - waiting for minimum requirements (${minRuntime/1000}s or ${minHypotheses} hypotheses)`);
+          // Return current session instead of starting new one
+          return currentSession;
+        }
+        
+        console.log(`[OceanSessionManager] Session met handoff requirements (${(sessionAge/1000).toFixed(1)}s, ${hypothesesTested} hypotheses) - proceeding with handoff`);
+      }
+      
       // Use isManualStop=false since this is an automatic handoff to a new session
       await this.stopSession(this.activeSessionId, false);
     }

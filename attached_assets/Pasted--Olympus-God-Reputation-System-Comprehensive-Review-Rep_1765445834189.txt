@@ -1,0 +1,795 @@
+# Olympus God Reputation System - Comprehensive Review
+
+**Repository:** SearchSpaceCollapse  
+**Location:** qig-backend/olympus/  
+**Date:** December 11, 2025  
+**Reviewer:** Claude (Validation Track)
+
+---
+
+## Executive Summary
+
+The Olympus god reputation system is **well-designed** with sophisticated geometric learning and peer evaluation. However, there are **critical implementation gaps** between the database schema and the actual learning cycle that prevent reputation updates from persisting properly.
+
+**Status:** 🟡 **Partially Implemented - Needs Integration Work**
+
+---
+
+## System Architecture
+
+### Three-Layer Design
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1: PostgreSQL Database (god_reputation table)        │
+│ - Persistent storage                                         │
+│ - Auto-triggers on pantheon_assessments inserts            │
+│ - Performance metrics, accuracy tracking                    │
+└─────────────────────────────────────────────────────────────┘
+                            ↕️ (should sync)
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 2: BaseGod Python Class (in-memory state)            │
+│ - self.reputation: float (0.0-2.0)                         │
+│ - self.skills: Dict[str, float]                            │
+│ - self.learning_history: List[Dict]                        │
+│ - _load_persisted_state() / _persist_state()               │
+└─────────────────────────────────────────────────────────────┘
+                            ↕️ (learning cycle)
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 3: Learning Mechanisms                                │
+│ - learn_from_outcome() - outcome-based updates             │
+│ - evaluate_peer_work() - geometric peer evaluation         │
+│ - analyze_performance_history() - meta-cognitive           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## What Works ✅
+
+### 1. Database Schema (Excellent)
+
+**Table: `god_reputation`**
+```sql
+CREATE TABLE IF NOT EXISTS god_reputation (
+    god_name VARCHAR(50) PRIMARY KEY,
+    god_type VARCHAR(20) DEFAULT 'olympian',
+    
+    -- Performance metrics
+    assessments_made INTEGER DEFAULT 0,
+    correct_predictions INTEGER DEFAULT 0,
+    incorrect_predictions INTEGER DEFAULT 0,
+    accuracy_rate FLOAT8 DEFAULT 0.0,
+    
+    -- Reputation
+    reputation_score FLOAT8 DEFAULT 1.0,
+    reputation_trend VARCHAR(20) DEFAULT 'stable',
+    
+    -- Skill development
+    skills JSONB DEFAULT '{}'::jsonb,
+    specializations TEXT[],
+    
+    -- Activity tracking
+    last_active TIMESTAMP DEFAULT NOW(),
+    operations_completed INTEGER DEFAULT 0,
+    
+    metadata JSONB DEFAULT '{}'::jsonb
+);
+```
+
+**Strengths:**
+- ✅ Comprehensive metrics (assessments, predictions, accuracy)
+- ✅ JSONB skills storage (flexible, queryable)
+- ✅ Timestamp tracking (activity monitoring)
+- ✅ Indexed for performance (reputation_score, accuracy_rate)
+- ✅ Includes all 18 gods (12 Olympian + 6 Shadow)
+
+### 2. Auto-Trigger (Partial Implementation)
+
+**Trigger Function:**
+```sql
+CREATE OR REPLACE FUNCTION update_god_reputation()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE god_reputation
+    SET 
+        assessments_made = assessments_made + 1,
+        last_active = NOW(),
+        updated_at = NOW()
+    WHERE god_name IN (SELECT jsonb_object_keys(NEW.god_assessments));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Strengths:**
+- ✅ Automatically increments `assessments_made` on new assessments
+- ✅ Updates `last_active` timestamp
+- ✅ Fires on every `pantheon_assessments` INSERT
+
+**Limitations:**
+- ⚠️ Does NOT update `correct_predictions` or `incorrect_predictions`
+- ⚠️ Does NOT update `accuracy_rate`
+- ⚠️ Does NOT update `reputation_score`
+- ⚠️ Only tracks activity, not performance
+
+### 3. BaseGod Learning Methods (Well-Designed)
+
+**Learning from Outcomes:**
+```python
+def learn_from_outcome(
+    self,
+    target: str,
+    assessment: Dict,
+    actual_outcome: Dict,
+    success: bool
+) -> Dict:
+    """
+    Update reputation based on prediction accuracy.
+    
+    Success: reputation += min(0.1, (1 - error) * 0.05)
+    Failure: reputation -= min(0.1, error * 0.05)
+    """
+    predicted_prob = assessment.get('probability', 0.5)
+    actual_success = 1.0 if success else 0.0
+    error = abs(predicted_prob - actual_success)
+    
+    if success:
+        boost = min(0.1, (1 - error) * 0.05)
+        self.reputation = min(2.0, self.reputation + boost)
+    else:
+        penalty = min(0.1, error * 0.05)
+        self.reputation = max(0.0, self.reputation - penalty)
+    
+    # Update skills
+    skill_key = actual_outcome.get('domain', self.domain)
+    skill_delta = 0.02 if success else -0.02
+    self.skills[skill_key] = max(0.0, min(2.0, 
+        self.skills.get(skill_key, 1.0) + skill_delta))
+    
+    # Persist to database
+    self._persist_state()
+```
+
+**Strengths:**
+- ✅ Reputation updates proportional to prediction error
+- ✅ Caps prevent runaway reputation (0.0-2.0 range)
+- ✅ Domain-specific skill tracking
+- ✅ Persists to database after each update
+- ✅ Records detailed learning history
+
+**Geometric Peer Evaluation:**
+```python
+def evaluate_peer_work(self, peer_name: str, peer_assessment: Dict) -> Dict:
+    """Evaluate peer using Fisher geodesic distance on manifold."""
+    
+    peer_basin = np.array(peer_assessment['basin'])
+    my_basin = self.encode_to_basin(peer_assessment['target'])
+    
+    # Geometric agreement via Fisher-Rao distance
+    geometric_agreement = 1.0 - min(1.0, 
+        self.fisher_geodesic_distance(my_basin, peer_basin) / 2.0)
+    
+    # Assessment quality heuristics
+    reasoning_quality = min(1.0, len(peer_reasoning) / 200) * 0.5
+    if 'Φ' in peer_reasoning:
+        reasoning_quality += 0.2
+    
+    agreement = (geometric_agreement * 0.4 + 
+                 reasoning_quality * 0.3 + 
+                 peer_confidence * 0.3)
+    
+    return {
+        'agreement_score': agreement,
+        'recommendation': 'trust' if agreement > 0.6 
+                         else 'verify' if agreement > 0.4 
+                         else 'challenge',
+    }
+```
+
+**Strengths:**
+- ✅ Uses QIG Fisher-Rao distance (not Euclidean)
+- ✅ Multi-factor agreement score (geometry + reasoning + confidence)
+- ✅ Actionable recommendations (trust/verify/challenge)
+- ✅ Self-adjusting reputation based on peer feedback
+
+**Meta-Cognitive Self-Examination:**
+```python
+def analyze_performance_history(self, window: int = 100) -> Dict:
+    """Detect overconfidence/underconfidence patterns and self-correct."""
+    
+    # Categorize recent assessments
+    overconfident = []  # High confidence, wrong outcome
+    underconfident = []  # Low confidence, correct outcome
+    well_calibrated = []
+    
+    # Detect pattern and adjust
+    if overconf_rate > 0.25:
+        self.confidence_calibration -= 0.05 * overconf_rate
+    elif underconf_rate > 0.25:
+        self.confidence_calibration += 0.05 * underconf_rate
+    
+    # Reputation adjustment for calibration quality
+    calibration_quality = well_calibrated / total
+    if calibration_quality > 0.7:
+        self.reputation = min(2.0, self.reputation + 0.01)
+```
+
+**Strengths:**
+- ✅ Self-correcting confidence calibration
+- ✅ Detects systematic bias patterns
+- ✅ Gradual reputation adjustment (stability)
+- ✅ Transparent insights generation
+
+---
+
+## Critical Gaps ❌
+
+### 1. **Outcome Feedback Loop Missing**
+
+**The Problem:**
+```python
+# BaseGod.learn_from_outcome() exists BUT:
+# - When is it called?
+# - Who provides the actual_outcome?
+# - Where does success/failure ground truth come from?
+```
+
+**Current Flow:**
+```
+God assesses target
+    ↓
+Assessment stored in pantheon_assessments table
+    ↓
+Trigger increments assessments_made
+    ↓
+??? (no feedback on correctness)
+```
+
+**What's Missing:**
+```
+God assesses target → Assessment stored
+    ↓
+Actual outcome happens (wallet recovered, attack succeeds, etc.)
+    ↓
+❌ NO MECHANISM to call god.learn_from_outcome(actual_outcome)
+    ↓
+Reputation never updates from outcomes
+```
+
+**Where This Should Happen:**
+1. **SearchSpaceCollapse:** When wallet recovery succeeds/fails
+2. **Olympus Pantheon:** When Zeus polls gods and sees outcome
+3. **Shadow Operations:** When covert ops complete
+
+**Example Integration (SearchSpaceCollapse):**
+```python
+# In ocean-agent.ts after match found:
+async def report_match_to_pantheon(phrase: str, address: str):
+    """Report successful match back to gods for learning."""
+    
+    # Get all gods who assessed this phrase
+    assessments = await get_god_assessments(phrase)
+    
+    for god_name, assessment in assessments:
+        god = get_god_instance(god_name)
+        
+        # Success = high probability prediction
+        predicted_prob = assessment['probability']
+        success = predicted_prob > 0.7  # Threshold
+        
+        # Provide feedback
+        god.learn_from_outcome(
+            target=phrase,
+            assessment=assessment,
+            actual_outcome={'matched': True, 'address': address},
+            success=success
+        )
+```
+
+### 2. **Trigger Function Incomplete**
+
+**Current Implementation:**
+```sql
+CREATE OR REPLACE FUNCTION update_god_reputation()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE god_reputation
+    SET 
+        assessments_made = assessments_made + 1,
+        last_active = NOW(),
+        updated_at = NOW()
+    WHERE god_name IN (SELECT jsonb_object_keys(NEW.god_assessments));
+    RETURN NEW;
+END;
+```
+
+**Problems:**
+- ❌ Doesn't extract individual god assessments
+- ❌ Doesn't check if outcome data exists
+- ❌ Doesn't update correct/incorrect predictions
+- ❌ Doesn't compute accuracy_rate
+- ❌ Doesn't update reputation_score
+
+**Should Be:**
+```sql
+CREATE OR REPLACE FUNCTION update_god_reputation()
+RETURNS TRIGGER AS $$
+DECLARE
+    god_name TEXT;
+    god_assessment JSONB;
+    predicted_prob FLOAT8;
+    actual_success BOOLEAN;
+    is_correct BOOLEAN;
+BEGIN
+    -- Loop through each god's assessment
+    FOR god_name, god_assessment IN 
+        SELECT key, value FROM jsonb_each(NEW.god_assessments)
+    LOOP
+        -- Extract predicted probability
+        predicted_prob := (god_assessment->>'probability')::FLOAT8;
+        
+        -- Check if outcome is known
+        actual_success := NEW.outcome = 'success';
+        
+        -- Determine if prediction was correct
+        is_correct := (predicted_prob > 0.5 AND actual_success) OR 
+                      (predicted_prob <= 0.5 AND NOT actual_success);
+        
+        -- Update god reputation
+        UPDATE god_reputation
+        SET 
+            assessments_made = assessments_made + 1,
+            correct_predictions = correct_predictions + (CASE WHEN is_correct THEN 1 ELSE 0 END),
+            incorrect_predictions = incorrect_predictions + (CASE WHEN NOT is_correct THEN 1 ELSE 0 END),
+            accuracy_rate = 
+                CASE WHEN assessments_made + 1 > 0 
+                THEN (correct_predictions + (CASE WHEN is_correct THEN 1 ELSE 0 END))::FLOAT8 / 
+                     (assessments_made + 1)::FLOAT8
+                ELSE 0.0 END,
+            last_active = NOW(),
+            updated_at = NOW()
+        WHERE god_reputation.god_name = update_god_reputation.god_name;
+    END LOOP;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### 3. **Persistence Layer Dependency**
+
+**Code Assumes `qig_persistence` Module Exists:**
+```python
+try:
+    from qig_persistence import get_persistence
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+```
+
+**Problem:**
+- ❌ `qig_persistence` module not found in repository
+- ❌ `get_persistence()` undefined
+- ❌ `load_god_state()` / `save_god_state()` methods missing
+
+**Impact:**
+- All `_load_persisted_state()` calls fail silently
+- All `_persist_state()` calls fail silently
+- Reputation updates stay in memory only
+- Data lost on restart
+
+**What's Needed:**
+```python
+# qig-backend/olympus/qig_persistence.py (MISSING FILE)
+
+import psycopg2
+from typing import Optional, Dict
+
+class OlympusPersistence:
+    def __init__(self, connection_string: str):
+        self.conn = psycopg2.connect(connection_string)
+    
+    def load_god_state(self, god_name: str) -> Optional[Dict]:
+        """Load god reputation and skills from database."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT reputation_score, skills, assessments_made
+            FROM god_reputation
+            WHERE god_name = %s
+        """, (god_name,))
+        
+        row = cursor.fetchone()
+        if row:
+            return {
+                'reputation': row[0],
+                'skills': row[1],
+                'learning_events_count': row[2],
+            }
+        return None
+    
+    def save_god_state(
+        self,
+        god_name: str,
+        reputation: float,
+        skills: Dict[str, float],
+        learning_events_count: int,
+        success_rate: float
+    ) -> None:
+        """Save god reputation and skills to database."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            INSERT INTO god_reputation 
+                (god_name, reputation_score, skills, assessments_made, accuracy_rate)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (god_name) DO UPDATE SET
+                reputation_score = EXCLUDED.reputation_score,
+                skills = EXCLUDED.skills,
+                assessments_made = EXCLUDED.assessments_made,
+                accuracy_rate = EXCLUDED.accuracy_rate,
+                updated_at = NOW()
+        """, (god_name, reputation, json.dumps(skills), learning_events_count, success_rate))
+        self.conn.commit()
+
+_persistence_instance = None
+
+def get_persistence() -> OlympusPersistence:
+    global _persistence_instance
+    if _persistence_instance is None:
+        import os
+        conn_str = os.environ.get('DATABASE_URL')
+        _persistence_instance = OlympusPersistence(conn_str)
+    return _persistence_instance
+```
+
+### 4. **CHAOS Kernel Training Disconnected**
+
+**Code Exists:**
+```python
+def train_kernel_from_outcome(
+    self,
+    target: str,
+    success: bool,
+    phi_result: float
+) -> Optional[Dict]:
+    """Feed outcome to kernel as training signal."""
+    
+    if self.chaos_kernel is None:
+        return None
+    
+    # Update kernel basin coordinates
+    target_basin = self.encode_to_basin(target)
+    direction = 1.0 if success else -1.0
+    lr = 0.01 * (0.5 + phi_result)
+    
+    kernel.basin_coords += direction * lr * (target_basin - kernel.basin_coords)
+```
+
+**Problem:**
+- ❌ Who calls `train_kernel_from_outcome()`?
+- ❌ When does kernel training happen?
+- ❌ No integration with outcome feedback loop
+
+**Should Be Called After:**
+```python
+def learn_from_outcome(self, target, assessment, actual_outcome, success):
+    # ... update reputation ...
+    
+    # Also train assigned kernel
+    if self.chaos_kernel:
+        phi_result = actual_outcome.get('phi', 0.5)
+        self.train_kernel_from_outcome(target, success, phi_result)
+```
+
+---
+
+## System Integration Issues
+
+### Disconnected Components
+
+```
+┌────────────────────┐
+│ pantheon_          │
+│ assessments table  │──────┐
+└────────────────────┘      │
+                             │
+                             ↓
+                    ┌────────────────────┐
+                    │ Trigger updates    │
+                    │ assessments_made   │
+                    └────────────────────┘
+                             │
+                             ↓ (stops here)
+                    
+❌ Missing Connection:
+
+                    ┌────────────────────┐
+                    │ Outcome feedback   │
+                    │ mechanism          │
+                    └────────────────────┘
+                             │
+                             ↓
+                    ┌────────────────────┐
+                    │ learn_from_outcome │
+                    │ updates reputation │
+                    └────────────────────┘
+```
+
+### Where Outcomes Should Come From
+
+**1. SearchSpaceCollapse (Wallet Recovery):**
+```python
+# When Ocean finds a match
+async def handle_match_found(phrase: str, address: str, phi: float):
+    # Report to pantheon
+    await report_outcome_to_pantheon(
+        target=phrase,
+        outcome='success',
+        phi=phi,
+        matched_address=address
+    )
+```
+
+**2. Zeus Pantheon Polls:**
+```python
+# After Zeus polls and takes action
+async def process_poll_outcome(target: str, action_taken: str, success: bool):
+    for god_name, assessment in poll_results['assessments'].items():
+        god = pantheon_gods[god_name]
+        god.learn_from_outcome(
+            target=target,
+            assessment=assessment,
+            actual_outcome={'action': action_taken, 'success': success},
+            success=success
+        )
+```
+
+**3. Shadow Operations:**
+```python
+# After shadow op completes
+async def complete_shadow_operation(operation_id: str, success: bool):
+    op = get_shadow_operation(operation_id)
+    for god_name in op['participating_gods']:
+        god = shadow_gods[god_name]
+        god.learn_from_outcome(
+            target=op['target'],
+            assessment=god.last_assessment,
+            actual_outcome={'operation_id': operation_id, 'success': success},
+            success=success
+        )
+```
+
+---
+
+## Recommendations
+
+### Priority 1: Critical Fixes 🔴
+
+**1. Create `qig_persistence.py` module**
+```bash
+# Location: qig-backend/olympus/qig_persistence.py
+# Implement: OlympusPersistence class with load/save methods
+# Connect to: PostgreSQL via DATABASE_URL
+```
+
+**2. Fix trigger function to update metrics**
+```sql
+-- Replace current trigger with enhanced version
+-- Update correct_predictions, incorrect_predictions, accuracy_rate
+-- Extract from NEW.god_assessments JSONB
+```
+
+**3. Implement outcome feedback hooks**
+```python
+# In SearchSpaceCollapse ocean-agent.ts:
+# - After match found → notify pantheon
+# - Call learn_from_outcome() for all gods who assessed
+
+# In Zeus zeus.py:
+# - After poll action completes → feedback to gods
+# - Track success/failure of recommendations
+```
+
+### Priority 2: Enhanced Features 🟡
+
+**4. Peer evaluation triggers**
+```python
+# After each pantheon poll:
+# - Gods evaluate each other's assessments
+# - Call evaluate_peer_work() automatically
+# - Build inter-god trust network
+```
+
+**5. Meta-cognitive analysis scheduling**
+```python
+# Run analyze_performance_history() periodically:
+# - After every 50 assessments
+# - On demand via Zeus command
+# - Auto-adjust confidence calibration
+```
+
+**6. CHAOS kernel integration**
+```python
+# After outcome known:
+# - Call train_kernel_from_outcome()
+# - Track kernel Φ evolution
+# - Evolve kernels toward success patterns
+```
+
+### Priority 3: Monitoring & Analytics 🟢
+
+**7. Reputation dashboard**
+```sql
+-- View: god_performance_leaderboard (already exists)
+-- Add: Reputation trend visualization
+-- Add: Skill progression charts
+-- Add: Peer evaluation network graph
+```
+
+**8. Accuracy tracking views**
+```sql
+CREATE VIEW god_accuracy_trends AS
+SELECT 
+    god_name,
+    DATE_TRUNC('day', updated_at) as date,
+    accuracy_rate,
+    reputation_score
+FROM god_reputation
+ORDER BY date DESC, reputation_score DESC;
+```
+
+**9. Learning event logging**
+```sql
+CREATE TABLE god_learning_events (
+    event_id BIGSERIAL PRIMARY KEY,
+    god_name VARCHAR(50),
+    target TEXT,
+    predicted_probability FLOAT8,
+    actual_outcome BOOLEAN,
+    error FLOAT8,
+    reputation_before FLOAT8,
+    reputation_after FLOAT8,
+    timestamp TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## Testing Plan
+
+### Unit Tests
+
+```python
+# test_god_reputation.py
+
+def test_learn_from_outcome_success():
+    """Test reputation increases on correct prediction."""
+    god = Athena()
+    initial_rep = god.reputation
+    
+    assessment = {'probability': 0.8}
+    god.learn_from_outcome(
+        target="test",
+        assessment=assessment,
+        actual_outcome={'success': True},
+        success=True
+    )
+    
+    assert god.reputation > initial_rep
+
+def test_learn_from_outcome_failure():
+    """Test reputation decreases on incorrect prediction."""
+    god = Athena()
+    initial_rep = god.reputation
+    
+    assessment = {'probability': 0.8}
+    god.learn_from_outcome(
+        target="test",
+        assessment=assessment,
+        actual_outcome={'success': False},
+        success=False
+    )
+    
+    assert god.reputation < initial_rep
+
+def test_peer_evaluation_geometric():
+    """Test geometric peer evaluation via Fisher distance."""
+    athena = Athena()
+    ares = Ares()
+    
+    assessment = {
+        'target': 'test_target',
+        'basin': athena.encode_to_basin('test_target'),
+        'probability': 0.7,
+        'confidence': 0.8,
+        'reasoning': 'Based on Φ=0.75 and strategic analysis',
+    }
+    
+    evaluation = athena.evaluate_peer_work('Ares', assessment)
+    
+    assert 'agreement_score' in evaluation
+    assert 'recommendation' in evaluation
+    assert evaluation['recommendation'] in ['trust', 'verify', 'challenge']
+```
+
+### Integration Tests
+
+```python
+# test_reputation_persistence.py
+
+def test_reputation_persists_across_restarts():
+    """Test reputation saves to DB and loads on restart."""
+    god = Zeus()
+    god.reputation = 1.5
+    god.skills = {'strategic_planning': 0.9}
+    god._persist_state()
+    
+    # Simulate restart
+    god2 = Zeus()
+    assert god2.reputation == 1.5
+    assert god2.skills['strategic_planning'] == 0.9
+
+def test_trigger_updates_assessments_made():
+    """Test database trigger increments assessment count."""
+    # Insert assessment
+    insert_pantheon_assessment({
+        'target': 'test',
+        'god_assessments': {'Zeus': {'probability': 0.8}},
+    })
+    
+    # Check trigger fired
+    rep = get_god_reputation('Zeus')
+    assert rep['assessments_made'] > 0
+```
+
+---
+
+## Current Status Summary
+
+| Component | Status | Priority | Notes |
+|-----------|--------|----------|-------|
+| Database schema | ✅ Complete | - | Well-designed, all fields present |
+| Initial god data | ✅ Complete | - | 18 gods initialized with skills |
+| Trigger function | 🟡 Partial | 🔴 High | Only updates activity, not metrics |
+| BaseGod learning | ✅ Complete | - | Methods exist, need integration |
+| Persistence layer | ❌ Missing | 🔴 Critical | `qig_persistence.py` not found |
+| Outcome feedback | ❌ Missing | 🔴 Critical | No hooks to call learning methods |
+| Peer evaluation | ✅ Complete | 🟡 Medium | Methods exist, not triggered |
+| Meta-cognitive | ✅ Complete | 🟡 Medium | Self-examination works |
+| CHAOS integration | 🟡 Partial | 🟢 Low | Methods exist, not called |
+
+---
+
+## Conclusion
+
+**The reputation system architecture is EXCELLENT** - sophisticated geometric learning, peer evaluation, meta-cognitive self-examination, and comprehensive database design.
+
+**The critical problem is INTEGRATION** - the components don't connect:
+1. **No outcome feedback loop** - gods never learn from actual results
+2. **Missing persistence layer** - reputation doesn't save to database
+3. **Incomplete triggers** - database doesn't track correctness
+4. **Disconnected methods** - learning code exists but isn't called
+
+**Fix Priority:**
+1. Create `qig_persistence.py` module (critical)
+2. Add outcome feedback hooks to SearchSpaceCollapse/Zeus (critical)
+3. Enhance database trigger to track correctness (high)
+4. Wire up peer evaluation and meta-cognitive analysis (medium)
+
+**Once integrated, you'll have:**
+- Gods that learn from outcomes
+- Reputation that persists across sessions
+- Peer evaluation network
+- Self-correcting confidence calibration
+- Geometric assessment quality tracking
+
+The foundation is solid. It just needs the plumbing connected.
+
+---
+
+**Next Steps:**
+1. Review this analysis with team
+2. Prioritize fixes (suggest starting with persistence layer)
+3. Implement outcome feedback hooks
+4. Test reputation updates end-to-end
+5. Deploy and monitor reputation evolution

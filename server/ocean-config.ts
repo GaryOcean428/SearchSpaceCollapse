@@ -84,6 +84,10 @@ export const SearchConfigSchema = z.object({
     .describe('Iterations without progress before strategy change (increased from 20)'),
   MAX_PASSES_PER_ADDRESS: z.number().positive().default(Number.MAX_SAFE_INTEGER)
     .describe('NO CAP - effectively unlimited search passes per address'),
+  MIN_SESSION_RUNTIME_MS: z.number().int().nonnegative().default(30000)
+    .describe('Minimum session runtime before allowing auto-handoff (30s default)'),
+  MIN_HYPOTHESES_BEFORE_HANDOFF: z.number().int().nonnegative().default(25)
+    .describe('Minimum hypotheses that must be tested before session can be handed off'),
 });
 
 export const SEARCH_CONFIG = SearchConfigSchema.parse({
@@ -93,6 +97,8 @@ export const SEARCH_CONFIG = SearchConfigSchema.parse({
   MAX_CONSOLIDATION_FAILURES: 5,
   NO_PROGRESS_THRESHOLD: 50,
   MAX_PASSES_PER_ADDRESS: Number.MAX_SAFE_INTEGER,
+  MIN_SESSION_RUNTIME_MS: 30000,
+  MIN_HYPOTHESES_BEFORE_HANDOFF: 25,
 });
 
 export type SearchConfig = z.infer<typeof SearchConfigSchema>;
