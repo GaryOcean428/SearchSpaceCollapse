@@ -115,7 +115,6 @@ class OceanSessionManager {
     
     if (this.activeSessionId) {
       const currentSession = this.sessions.get(this.activeSessionId);
-      const currentAgent = this.agents.get(this.activeSessionId);
       
       // Check minimum session runtime before allowing handoff
       if (currentSession && currentSession.isRunning && currentSession.startedAt) {
@@ -125,11 +124,11 @@ class OceanSessionManager {
         const minRuntime = SEARCH_CONFIG.MIN_SESSION_RUNTIME_MS;
         const minHypotheses = SEARCH_CONFIG.MIN_HYPOTHESES_BEFORE_HANDOFF;
         
-        // Don't stop session if it hasn't met minimum requirements
+        // Don't stop session if it hasn't met minimum requirements - throw to block caller
         if (sessionAge < minRuntime && hypothesesTested < minHypotheses) {
           console.log(`[OceanSessionManager] Session still active (${(sessionAge/1000).toFixed(1)}s, ${hypothesesTested} hypotheses) - waiting for minimum requirements (${minRuntime/1000}s or ${minHypotheses} hypotheses)`);
-          // Return current session instead of starting new one
-          return currentSession;
+          // Throw error to signal caller to back off
+          throw new Error(`SESSION_BUSY: Current session needs more time (${(sessionAge/1000).toFixed(1)}s/${minRuntime/1000}s, ${hypothesesTested}/${minHypotheses} hypotheses)`);
         }
         
         console.log(`[OceanSessionManager] Session met handoff requirements (${(sessionAge/1000).toFixed(1)}s, ${hypothesesTested} hypotheses) - proceeding with handoff`);

@@ -77,29 +77,33 @@ export interface GitHubRepo {
 const addressCache = new Map<string, AddressForensics>();
 const _TX_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
-// Rate limiting state for blockchain.info API
-let lastBlockchainInfoCall = 0;
-const BLOCKCHAIN_INFO_MIN_DELAY = 2000; // 2 seconds between calls
-const MAX_RETRIES = 2; // Reduced from 3 for faster fallback
-const INITIAL_RETRY_DELAY = 2000; // 2 seconds (reduced from 3s for faster fallback)
-const FETCH_TIMEOUT_MS = 8000; // 8 second timeout per request (reduced from 10s)
-
-// Global rate limit tracking - skip APIs entirely when recently rate-limited
-let rateLimitState = {
-  blockchainInfo: { rateLimitedUntil: 0 },
-  blockstream: { rateLimitedUntil: 0 },
-  mempool: { rateLimitedUntil: 0 },
-  blockcypher: { rateLimitedUntil: 0 },
+// Per-provider rate limiting state
+const providerState = {
+  blockchainInfo: { lastCallAt: 0, rateLimitedUntil: 0, minDelay: 2000 },
+  blockstream: { lastCallAt: 0, rateLimitedUntil: 0, minDelay: 500 },
+  mempool: { lastCallAt: 0, rateLimitedUntil: 0, minDelay: 500 },
+  blockcypher: { lastCallAt: 0, rateLimitedUntil: 0, minDelay: 1000 },
 };
 const RATE_LIMIT_COOLDOWN_MS = 60000; // 1 minute cooldown after rate limit
+const FETCH_TIMEOUT_MS = 8000; // 8 second timeout per request
 
-function isApiRateLimited(api: keyof typeof rateLimitState): boolean {
-  return Date.now() < rateLimitState[api].rateLimitedUntil;
+function isApiRateLimited(api: keyof typeof providerState): boolean {
+  return Date.now() < providerState[api].rateLimitedUntil;
 }
 
-function markApiRateLimited(api: keyof typeof rateLimitState): void {
-  rateLimitState[api].rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+function markApiRateLimited(api: keyof typeof providerState): void {
+  providerState[api].rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
   console.log(`[BlockchainForensics] ${api} rate-limited, skipping for ${RATE_LIMIT_COOLDOWN_MS/1000}s`);
+}
+
+async function delayForProvider(api: keyof typeof providerState): Promise<void> {
+  const state = providerState[api];
+  const now = Date.now();
+  const timeSinceLastCall = now - state.lastCallAt;
+  if (timeSinceLastCall < state.minDelay) {
+    await sleep(state.minDelay - timeSinceLastCall);
+  }
+  providerState[api].lastCallAt = Date.now();
 }
 
 /**
@@ -130,51 +134,37 @@ async function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_M
 }
 
 /**
- * Rate-limited fetch with exponential backoff and timeout
+ * Fetch from a specific provider with rate limiting - no retries for rate limits
  * @param apiName - Name of the API for rate limit tracking
  */
-async function rateLimitedFetch(url: string, apiName: keyof typeof rateLimitState = 'blockchainInfo', retries = MAX_RETRIES): Promise<Response> {
+async function providerFetch(url: string, apiName: keyof typeof providerState): Promise<Response> {
   // Check if API is currently rate-limited - skip immediately
   if (isApiRateLimited(apiName)) {
     throw new Error(`${apiName} is rate-limited, skipping`);
   }
   
-  // Enforce minimum delay between API calls
-  const now = Date.now();
-  const timeSinceLastCall = now - lastBlockchainInfoCall;
-  if (timeSinceLastCall < BLOCKCHAIN_INFO_MIN_DELAY) {
-    await sleep(BLOCKCHAIN_INFO_MIN_DELAY - timeSinceLastCall);
-  }
-  lastBlockchainInfoCall = Date.now();
+  // Enforce per-provider delay
+  await delayForProvider(apiName);
 
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const response = await fetchWithTimeout(url, FETCH_TIMEOUT_MS);
-      
-      if (response.ok) {
-        return response;
-      }
-      
-      // Handle rate limiting (429) - mark API as rate-limited and throw immediately
-      if (response.status === 429) {
-        markApiRateLimited(apiName);
-        throw new Error(`${apiName} rate limited (429)`);
-      }
-      
-      // For other errors, throw immediately
-      throw new Error(`API request failed: ${response.status}`);
-    } catch (error) {
-      if (attempt === retries - 1) {
-        throw error;
-      }
-      const retryDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-      const errorMsg = error instanceof Error ? error.message : 'unknown';
-      console.log(`[BlockchainForensics] Request failed (${errorMsg}), retrying ${attempt + 1}/${retries}`);
-      await sleep(retryDelay);
+  try {
+    const response = await fetchWithTimeout(url, FETCH_TIMEOUT_MS);
+    
+    if (response.ok) {
+      return response;
     }
+    
+    // Handle rate limiting (429) - mark API as rate-limited and throw immediately (no retry)
+    if (response.status === 429) {
+      markApiRateLimited(apiName);
+      throw new Error(`${apiName} rate limited (429)`);
+    }
+    
+    // For other errors, throw immediately
+    throw new Error(`${apiName} request failed: ${response.status}`);
+  } catch (error) {
+    // Re-throw all errors - let caller handle fallback to next provider
+    throw error;
   }
-  
-  throw new Error('Max retries exceeded');
 }
 
 // Clear specific address from cache (for reanalysis)
@@ -283,24 +273,25 @@ export class BlockchainForensics {
 
   /**
    * Fetch address data from blockchain.info (better historical data)
-   * Uses rate limiting and falls back to other APIs on failure
+   * Uses per-provider rate limiting and fast fallback chain
    * Skips rate-limited APIs entirely for faster fallback
+   * Returns format-based fallback data when all APIs unavailable (no throw)
    */
   private async fetchFromBlockchainInfo(address: string): Promise<any> {
-    // Check if all APIs are rate-limited - skip straight to address format analysis
+    // Check if all APIs are rate-limited - return format-based fallback immediately
     const allRateLimited = isApiRateLimited('blockchainInfo') && 
                            isApiRateLimited('blockstream') && 
                            isApiRateLimited('mempool') && 
                            isApiRateLimited('blockcypher');
     if (allRateLimited) {
-      console.log(`[BlockchainForensics] All APIs rate-limited - using address format analysis for ${address}`);
-      throw new Error(`All APIs rate-limited for ${address}`);
+      console.log(`[BlockchainForensics] All APIs rate-limited - returning format-based fallback for ${address}`);
+      return this.createFormatBasedFallback(address);
     }
     
     // Try blockchain.info first (skip if rate-limited)
     if (!isApiRateLimited('blockchainInfo')) {
       try {
-        const response = await rateLimitedFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`, 'blockchainInfo');
+        const response = await providerFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=50`, 'blockchainInfo');
         return response.json();
       } catch (e) {
         console.log(`[BlockchainForensics] blockchain.info failed for ${address}`);
@@ -310,6 +301,7 @@ export class BlockchainForensics {
     // Try Blockstream (skip if rate-limited)
     if (!isApiRateLimited('blockstream')) {
       try {
+        await delayForProvider('blockstream');
         const bsResponse = await fetchWithTimeout(`${BLOCKSTREAM_API}/address/${address}`, FETCH_TIMEOUT_MS);
         if (bsResponse.status === 429) {
           markApiRateLimited('blockstream');
@@ -341,6 +333,7 @@ export class BlockchainForensics {
     // Try Mempool.space (skip if rate-limited)
     if (!isApiRateLimited('mempool')) {
       try {
+        await delayForProvider('mempool');
         const mpResponse = await fetchWithTimeout(`${MEMPOOL_API}/address/${address}`, FETCH_TIMEOUT_MS);
         if (mpResponse.status === 429) {
           markApiRateLimited('mempool');
@@ -373,6 +366,7 @@ export class BlockchainForensics {
     // Try BlockCypher (skip if rate-limited)
     if (!isApiRateLimited('blockcypher')) {
       try {
+        await delayForProvider('blockcypher');
         const bcyResponse = await fetchWithTimeout(`${BLOCKCYPHER_API}/addrs/${address}?limit=50`, FETCH_TIMEOUT_MS);
         if (bcyResponse.status === 429) {
           markApiRateLimited('blockcypher');
@@ -398,8 +392,49 @@ export class BlockchainForensics {
       }
     }
     
-    console.log(`[BlockchainForensics] All APIs failed for ${address} - using address format analysis`);
-    throw new Error(`All APIs failed for ${address}`);
+    console.log(`[BlockchainForensics] All APIs failed for ${address} - returning format-based fallback`);
+    return this.createFormatBasedFallback(address);
+  }
+
+  /**
+   * Create format-based fallback data when all APIs are unavailable
+   * Uses address format to estimate era and provide basic structure
+   */
+  private createFormatBasedFallback(address: string): any {
+    // Estimate era from address format
+    let estimatedEra = 'unknown';
+    let estimatedYear = 2012; // Default
+    
+    if (address.startsWith('1')) {
+      // Legacy P2PKH - likely early era
+      estimatedEra = 'early-adopter';
+      estimatedYear = 2010;
+    } else if (address.startsWith('3')) {
+      // P2SH - started mid-2012
+      estimatedEra = 'post-mtgox';
+      estimatedYear = 2013;
+    } else if (address.startsWith('bc1q')) {
+      // Native SegWit - 2017+
+      estimatedEra = 'segwit';
+      estimatedYear = 2018;
+    } else if (address.startsWith('bc1p')) {
+      // Taproot - 2021+
+      estimatedEra = 'taproot';
+      estimatedYear = 2022;
+    }
+    
+    // Return minimal but valid data structure
+    return {
+      address,
+      total_received: 0,
+      total_sent: 0,
+      final_balance: 0,
+      n_tx: 0,
+      txs: [],
+      _formatFallback: true, // Flag for downstream consumers
+      _estimatedEra: estimatedEra,
+      _estimatedYear: estimatedYear,
+    };
   }
 
   /**
@@ -449,7 +484,7 @@ export class BlockchainForensics {
   private async fetchOldestTransaction(address: string, totalTxs: number): Promise<any> {
     try {
       const offset = Math.max(0, totalTxs - 1);
-      const response = await rateLimitedFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=1&offset=${offset}`);
+      const response = await providerFetch(`${BLOCKCHAIN_INFO_API}/rawaddr/${address}?limit=1&offset=${offset}`, 'blockchainInfo');
       
       const data = await response.json();
       if (data.txs && data.txs.length > 0) {

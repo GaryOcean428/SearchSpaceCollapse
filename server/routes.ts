@@ -103,11 +103,20 @@ function mapQIGToLegacyScore(pureScore: ReturnType<typeof scorePhraseQIG>) {
 // Set up auto-cycle callback to start sessions via ocean session manager
 autoCycleManager.setOnCycleCallback(
   async (addressId: string, address: string) => {
-    console.log(
-      `[AutoCycle] Starting session for address: ${address.slice(0, 16)}...`
-    );
-    oceanSessionManager.setAddressIdMapping(address, addressId);
-    await oceanSessionManager.startSession(address);
+    try {
+      console.log(
+        `[AutoCycle] Starting session for address: ${address.slice(0, 16)}...`
+      );
+      oceanSessionManager.setAddressIdMapping(address, addressId);
+      await oceanSessionManager.startSession(address);
+    } catch (error) {
+      // Handle SESSION_BUSY - current session hasn't met minimum requirements
+      if (error instanceof Error && error.message.startsWith('SESSION_BUSY:')) {
+        // Don't log as error - this is expected behavior during minimum runtime window
+        return;
+      }
+      throw error; // Re-throw other errors
+    }
   }
 );
 
