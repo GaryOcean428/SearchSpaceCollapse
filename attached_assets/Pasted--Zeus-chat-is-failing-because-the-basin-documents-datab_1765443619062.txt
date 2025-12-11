@@ -1,0 +1,167 @@
+**Zeus chat is failing because the `basin_documents` database table doesn't exist.**
+
+## Error Details
+
+**HTTP 500 on these endpoints:**
+1. `/api/olympus/zeus/chat` - Main conversation endpoint
+2. `/api/olympus/chat/recent` - Recent messages
+3. `/api/olympus/debates/active` - Active pantheon debates
+
+**Database error:**
+```sql
+ERROR: relation "basin_documents" does not exist
+LINE 3: FROM basin_documents
+```
+
+## Root Cause
+
+The QIG-RAG (Quantum Information Geometry - Retrieval Augmented Generation) system in Zeus chat **requires** the `basin_documents` table to store conversation memory as 64D basin coordinates. 
+
+**What happened:**
+1. Schema **defined** in `olympus_schema_enhancement.sql` ✅
+2. Migration script **exists** (`migrate_olympus_schema.py`) ✅
+3. Migration script **never executed** ❌
+4. Table **not created** ❌
+
+## The Missing Table
+
+```sql
+CREATE TABLE IF NOT EXISTS basin_documents (
+    doc_id SERIAL PRIMARY KEY,
+    content TEXT NOT NULL,
+    basin_coords FLOAT8[64],      -- 64D basin coordinates
+    phi FLOAT8,                    -- Consciousness metric
+    kappa FLOAT8,                  -- Coupling constant
+    regime VARCHAR(50),            -- geometric/linear/breakdown
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**This table stores:**
+- Conversation content as geometric memory
+- Basin coordinates (QIG representation)
+- Φ (consciousness coherence)
+- κ (information coupling)
+- Regime classification
+
+## Solution
+
+**Step 1: Navigate to backend directory**
+```bash
+cd qig-backend
+```
+
+**Step 2: Run migration script**
+```bash
+python migrate_olympus_schema.py
+```
+
+**Or with validation first:**
+```bash
+python migrate_olympus_schema.py --validate-only  # Check what will happen
+python migrate_olympus_schema.py                   # Actually run it
+```
+
+**Step 3: Verify table creation**
+```bash
+psql $DATABASE_URL -c "\dt basin_documents"
+```
+
+## If Migration Fails
+
+**Check database connection:**
+```bash
+echo $DATABASE_URL
+# Should output: postgresql://user:pass@host:port/database
+```
+
+**Manual table creation (fallback):**
+```bash
+psql $DATABASE_URL < olympus/olympus_schema_enhancement.sql
+```
+
+**Or connect and create directly:**
+```sql
+psql $DATABASE_URL
+
+CREATE TABLE IF NOT EXISTS basin_documents (
+    doc_id SERIAL PRIMARY KEY,
+    content TEXT NOT NULL,
+    basin_coords FLOAT8[64],
+    phi FLOAT8,
+    kappa FLOAT8,
+    regime VARCHAR(50),
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_basin_documents_regime ON basin_documents(regime);
+CREATE INDEX idx_basin_documents_phi ON basin_documents(phi DESC);
+CREATE INDEX idx_basin_documents_created_at ON basin_documents(created_at DESC);
+```
+
+## What This Breaks
+
+**Without `basin_documents`:**
+- ❌ Zeus cannot store conversation context
+- ❌ QIG-RAG memory retrieval fails
+- ❌ Pantheon debates cannot be displayed (stored in basin_documents)
+- ❌ Inter-god chat history unavailable
+- ❌ Geometric memory search returns empty
+
+**Zeus chat attempts to:**
+```python
+# In qig_rag.py
+def search(self, query: str) -> List[Document]:
+    # Convert query to basin coordinates
+    # Search basin_documents by Fisher-Rao distance
+    # FAILS: table doesn't exist
+```
+
+## Why It Matters
+
+Zeus chat uses **geometric memory** not character-based storage:
+
+```
+Traditional RAG:
+"Who is Satoshi?" → Vector embedding → Cosine similarity → Retrieve text
+
+QIG-RAG (Zeus):
+"Who is Satoshi?" → Basin coordinates → Fisher-Rao distance → Retrieve by geometry
+                                      ↓
+                              basin_documents table
+                              (MISSING - causes 500)
+```
+
+**Fisher-Rao distance** respects the curved geometry of probability distributions, unlike Euclidean cosine similarity. This is **fundamental QIG architecture**, not a nice-to-have.
+
+## Additional Tables Created by Migration
+
+The migration creates **6 core tables**:
+1. `basin_documents` - Geometric memory (MISSING - causes errors)
+2. `spawned_kernels` - M8 dynamic kernel tracking
+3. `pantheon_assessments` - Zeus supreme assessments
+4. `shadow_operations` - Covert ops (Nyx, Erebus, etc.)
+5. `god_reputation` - Performance metrics for 18 gods
+6. `autonomous_operations_log` - Autonomous pantheon operations
+
+**Zeus chat specifically needs `basin_documents`** - the others are for broader Olympus features.
+
+## Verification After Fix
+
+Once migration runs successfully:
+
+```bash
+# Should return 200 OK with Zeus greeting
+curl http://localhost:5001/api/olympus/zeus/chat \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello Zeus"}'
+```
+
+---
+
+**TL;DR:** Zeus chat errors = missing `basin_documents` table. Run `python migrate_olympus_schema.py` in qig-backend directory to fix.
+
+Want me to walk through the migration process step-by-step, or help debug if the migration fails?
