@@ -3096,3 +3096,85 @@ export const autonomicCycleHistory = pgTable(
 export type AutonomicCycleHistory = typeof autonomicCycleHistory.$inferSelect;
 export type InsertAutonomicCycleHistory =
   typeof autonomicCycleHistory.$inferInsert;
+
+/**
+ * PANTHEON MESSAGES - Inter-god communication history
+ * Messages between gods in the Olympus system
+ */
+export const pantheonMessages = pgTable(
+  "pantheon_messages",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    msgType: varchar("msg_type", { length: 32 }).notNull(),
+    fromGod: varchar("from_god", { length: 32 }).notNull(),
+    toGod: varchar("to_god", { length: 32 }).notNull(),
+    content: text("content").notNull(),
+    metadata: jsonb("metadata"),
+    isRead: boolean("is_read").default(false),
+    isResponded: boolean("is_responded").default(false),
+    debateId: varchar("debate_id", { length: 64 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_pantheon_messages_from").on(table.fromGod),
+    index("idx_pantheon_messages_to").on(table.toGod),
+    index("idx_pantheon_messages_created").on(table.createdAt),
+    index("idx_pantheon_messages_type").on(table.msgType),
+  ]
+);
+
+export type PantheonMessage = typeof pantheonMessages.$inferSelect;
+export type InsertPantheonMessage = typeof pantheonMessages.$inferInsert;
+
+/**
+ * PANTHEON DEBATES - Formal disagreements between gods
+ * Tracks active and resolved debates with arguments
+ */
+export const pantheonDebates = pgTable(
+  "pantheon_debates",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    topic: text("topic").notNull(),
+    initiator: varchar("initiator", { length: 32 }).notNull(),
+    opponent: varchar("opponent", { length: 32 }).notNull(),
+    context: jsonb("context"),
+    status: varchar("status", { length: 32 }).default("active"),
+    arguments: jsonb("arguments").$type<Array<{god: string, argument: string, timestamp: string}>>(),
+    winner: varchar("winner", { length: 32 }),
+    arbiter: varchar("arbiter", { length: 32 }),
+    resolution: jsonb("resolution"),
+    startedAt: timestamp("started_at").defaultNow(),
+    resolvedAt: timestamp("resolved_at"),
+  },
+  (table) => [
+    index("idx_pantheon_debates_status").on(table.status),
+    index("idx_pantheon_debates_initiator").on(table.initiator),
+    index("idx_pantheon_debates_started").on(table.startedAt),
+  ]
+);
+
+export type PantheonDebate = typeof pantheonDebates.$inferSelect;
+export type InsertPantheonDebate = typeof pantheonDebates.$inferInsert;
+
+/**
+ * PANTHEON KNOWLEDGE TRANSFERS - Knowledge sharing events between gods
+ */
+export const pantheonKnowledgeTransfers = pgTable(
+  "pantheon_knowledge_transfers",
+  {
+    id: serial("id").primaryKey(),
+    fromGod: varchar("from_god", { length: 32 }).notNull(),
+    toGod: varchar("to_god", { length: 32 }).notNull(),
+    knowledgeType: varchar("knowledge_type", { length: 64 }),
+    content: jsonb("content"),
+    accepted: boolean("accepted").default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_pantheon_transfers_from").on(table.fromGod),
+    index("idx_pantheon_transfers_to").on(table.toGod),
+  ]
+);
+
+export type PantheonKnowledgeTransfer = typeof pantheonKnowledgeTransfers.$inferSelect;
+export type InsertPantheonKnowledgeTransfer = typeof pantheonKnowledgeTransfers.$inferInsert;
