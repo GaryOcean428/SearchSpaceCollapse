@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""
+Conversational System API
+
+Flask endpoints for recursive conversation between kernels.
+
+Endpoints:
+- /conversation/start - Start conversation
+- /conversation/turn - Execute turn
+- /conversation/run - Run full conversation
+- /conversation/status - Get conversation status
+- /conversation/active - List active conversations
+"""
+
+from datetime import datetime
+
+from flask import Blueprint, jsonify, request
+
+try:
+    from recursive_conversation_orchestrator import get_conversation_orchestrator
+    ORCHESTRATOR_AVAILABLE = True
+except ImportError:
+    ORCHESTRATOR_AVAILABLE = False
+
+try:
+    from conversational_kernel import patch_all_gods_with_conversation
+    CONVERSATION_AVAILABLE = True
+except ImportError:
+    CONVERSATION_AVAILABLE = False
+
+conversational_api = Blueprint('conversational_api', __name__)
+
+
+@conversational_api.route('/conversation/health', methods=['GET'])
+def conversation_health():
+    """Health check for conversational system."""
+    return jsonify({
+        'status': 'healthy',
+        'orchestrator_available': ORCHESTRATOR_AVAILABLE,
+        'conversation_available': CONVERSATION_AVAILABLE,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+@conversational_api.route('/conversation/start', methods=['POST'])
+def conversation_start():
+    """
+    Start a recursive conversation between gods/kernels.
+    
+    Body:
+    {
+        "participants": ["athena", "ares"],
+        "topic": "strategic competition",
+        "max_turns": 20,
+        "min_phi": 0.5
+    }
+    """
+    if not ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Orchestrator not available'}), 503
+    
+    try:
+        data = request.json or {}
+        
+        participant_names = data.get('participants', [])
+        topic = data.get('topic')
+        max_turns = data.get('max_turns', 20)
+        min_phi = data.get('min_phi', 0.5)
+        
+        if len(participant_names) < 2:
+            return jsonify({'error': 'At least 2 participants required'}), 400
+        
+        from olympus import zeus
+        
+        try:
+            from god_training_integration import patch_all_gods
+            patch_all_gods(zeus)
+        except ImportError:
+            pass
+        
+        if CONVERSATION_AVAILABLE:
+            patch_all_gods_with_conversation(zeus)
+        
+        participants = []
+        for name in participant_names:
+            god = zeus.get_god(name.lower())
+            if not god:
+                return jsonify({'error': f'God {name} not found'}), 404
+            participants.append(god)
+        
+        orchestrator = get_conversation_orchestrator()
+        conversation_id = orchestrator.start_conversation(
+            participants=participants,
+            topic=topic,
+            max_turns=max_turns,
+            min_phi=min_phi
+        )
+        
+        return jsonify({
+            'success': True,
+            'conversation_id': conversation_id,
+            'participants': participant_names,
+            'topic': topic,
+            'max_turns': max_turns
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@conversational_api.route('/conversation/turn', methods=['POST'])
+def conversation_turn():
+    """
+    Execute one turn of conversation.
+    
+    Body:
+    {
+        "conversation_id": "conv_0_20251211_123456",
+        "initiator_utterance": "..."
+    }
+    """
+    if not ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Orchestrator not available'}), 503
+    
+    try:
+        data = request.json or {}
+        
+        conversation_id = data.get('conversation_id')
+        initiator_utterance = data.get('initiator_utterance')
+        
+        if not conversation_id:
+            return jsonify({'error': 'conversation_id required'}), 400
+        
+        orchestrator = get_conversation_orchestrator()
+        result = orchestrator.conversation_turn(conversation_id, initiator_utterance)
+        
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        return jsonify({
+            'success': True,
+            **result
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@conversational_api.route('/conversation/run', methods=['POST'])
+def conversation_run():
+    """
+    Run complete conversation from start to finish.
+    
+    Body:
+    {
+        "participants": ["athena", "ares"],
+        "topic": "strategic competition",
+        "initiator_utterance": "strategy requires patience",
+        "max_turns": 20
+    }
+    """
+    if not ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Orchestrator not available'}), 503
+    
+    try:
+        data = request.json or {}
+        
+        participant_names = data.get('participants', [])
+        topic = data.get('topic')
+        initiator_utterance = data.get('initiator_utterance')
+        max_turns = data.get('max_turns', 20)
+        
+        if len(participant_names) < 2:
+            return jsonify({'error': 'At least 2 participants required'}), 400
+        
+        from olympus import zeus
+        
+        try:
+            from god_training_integration import patch_all_gods
+            patch_all_gods(zeus)
+        except ImportError:
+            pass
+        
+        if CONVERSATION_AVAILABLE:
+            patch_all_gods_with_conversation(zeus)
+        
+        participants = []
+        for name in participant_names:
+            god = zeus.get_god(name.lower())
+            if not god:
+                return jsonify({'error': f'God {name} not found'}), 404
+            participants.append(god)
+        
+        orchestrator = get_conversation_orchestrator()
+        results = orchestrator.run_full_conversation(
+            participants=participants,
+            topic=topic,
+            initiator_utterance=initiator_utterance,
+            max_turns=max_turns
+        )
+        
+        return jsonify({
+            'success': True,
+            **results
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@conversational_api.route('/conversation/status/<conversation_id>', methods=['GET'])
+def conversation_status(conversation_id: str):
+    """Get status of specific conversation."""
+    if not ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Orchestrator not available'}), 503
+    
+    try:
+        orchestrator = get_conversation_orchestrator()
+        results = orchestrator.get_conversation_results(conversation_id)
+        
+        if 'error' in results:
+            return jsonify(results), 404
+        
+        return jsonify({
+            'success': True,
+            **results
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@conversational_api.route('/conversation/active', methods=['GET'])
+def conversation_active():
+    """List all active conversations."""
+    if not ORCHESTRATOR_AVAILABLE:
+        return jsonify({'error': 'Orchestrator not available'}), 503
+    
+    try:
+        orchestrator = get_conversation_orchestrator()
+        active = orchestrator.get_active_conversations()
+        
+        return jsonify({
+            'success': True,
+            'active_conversations': active,
+            'count': len(active)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def register_conversational_routes(app):
+    """
+    Register conversational routes with Flask app.
+    
+    Usage:
+        from conversational_api import register_conversational_routes
+        
+        app = Flask(__name__)
+        register_conversational_routes(app)
+    """
+    app.register_blueprint(conversational_api, url_prefix='/api')
+    print("[ConversationalAPI] Registered conversation routes at /api/conversation/*")
