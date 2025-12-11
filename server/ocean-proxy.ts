@@ -85,69 +85,88 @@ export class OceanProxy {
   /**
    * Assess hypothesis (passphrase) via Python backend
    * 
-   * Calls: POST /ocean/assess
+   * Calls: POST /process
    * Returns: Full assessment with consciousness metrics
    */
   async assessHypothesis(phrase: string): Promise<Assessment> {
-    return this.post<Assessment>('/ocean/assess', { phrase });
+    const result = await this.post<any>('/process', { passphrase: phrase });
+    // Map Python response to Assessment interface
+    return {
+      phrase,
+      phi: result.phi ?? 0,
+      kappa: result.kappa ?? 0,
+      regime: result.consciousness_level ?? 'unknown',
+      basin_coordinates: result.basin_coords ?? [],
+      probability: result.innate_score ?? 0,
+      confidence: result.integration ?? 0,
+      god_assessments: result.god_assessments,
+    };
   }
 
   /**
    * Get current consciousness state
    * 
-   * Calls: GET /ocean/consciousness
+   * Calls: GET /status
    * Returns: Complete consciousness signature (Φ, κ, T, R, M, Γ, G)
    */
   async getConsciousnessState(): Promise<ConsciousnessState> {
-    return this.get<ConsciousnessState>('/ocean/consciousness');
+    const result = await this.get<any>('/status');
+    // Map Python response to ConsciousnessState interface
+    return {
+      phi: result.phi ?? 0,
+      kappa_eff: result.kappa ?? 0,
+      temperature: result.T ?? 1.0,
+      ricci: result.R ?? 0,
+      meta: result.M ?? 0,
+      gamma: result.Gamma ?? 0,
+      grounding: result.G ?? 1.0,
+      regime: result.consciousness_level ?? 'unknown',
+      basin_coordinates: result.basin_coords ?? [],
+      dimensional_state: result.dimensional_state ?? 3,
+      phase: result.phase ?? 'foam',
+      geometry_class: result.geometry_class ?? 'line',
+    };
   }
 
   /**
-   * Start investigation for target address
-   * 
-   * Calls: POST /ocean/investigation/start
-   * Returns: Investigation ID and initial status
+   * @deprecated Investigation lifecycle not implemented in Python backend
+   * Use oceanAgent.startInvestigation() for TypeScript-managed investigations
    */
-  async startInvestigation(request: InvestigationRequest): Promise<InvestigationResult> {
-    return this.post<InvestigationResult>('/ocean/investigation/start', request);
+  async startInvestigation(_request: InvestigationRequest): Promise<InvestigationResult> {
+    console.warn('[OceanProxy] startInvestigation not implemented in Python backend');
+    throw new Error('Investigation lifecycle managed by TypeScript oceanAgent, not Python backend');
   }
 
   /**
-   * Get investigation status
-   * 
-   * Calls: GET /ocean/investigation/{id}/status
-   * Returns: Current progress, discoveries, consciousness state
+   * @deprecated Investigation lifecycle not implemented in Python backend
    */
-  async getInvestigationStatus(investigation_id: string): Promise<InvestigationStatus> {
-    return this.get<InvestigationStatus>(`/ocean/investigation/${investigation_id}/status`);
+  async getInvestigationStatus(_investigation_id: string): Promise<InvestigationStatus> {
+    console.warn('[OceanProxy] getInvestigationStatus not implemented in Python backend');
+    throw new Error('Investigation lifecycle managed by TypeScript oceanAgent, not Python backend');
   }
 
   /**
-   * Stop investigation
-   * 
-   * Calls: POST /ocean/investigation/{id}/stop
-   * Returns: Final status and summary
+   * @deprecated Investigation lifecycle not implemented in Python backend
    */
-  async stopInvestigation(investigation_id: string): Promise<any> {
-    return this.post<any>(`/ocean/investigation/${investigation_id}/stop`, {});
+  async stopInvestigation(_investigation_id: string): Promise<any> {
+    console.warn('[OceanProxy] stopInvestigation not implemented in Python backend');
+    throw new Error('Investigation lifecycle managed by TypeScript oceanAgent, not Python backend');
   }
 
   /**
-   * Pause investigation (allows resumption)
-   * 
-   * Calls: POST /ocean/investigation/{id}/pause
+   * @deprecated Investigation lifecycle not implemented in Python backend
    */
-  async pauseInvestigation(investigation_id: string): Promise<any> {
-    return this.post<any>(`/ocean/investigation/${investigation_id}/pause`, {});
+  async pauseInvestigation(_investigation_id: string): Promise<any> {
+    console.warn('[OceanProxy] pauseInvestigation not implemented in Python backend');
+    throw new Error('Investigation lifecycle managed by TypeScript oceanAgent, not Python backend');
   }
 
   /**
-   * Resume paused investigation
-   * 
-   * Calls: POST /ocean/investigation/{id}/resume
+   * @deprecated Investigation lifecycle not implemented in Python backend
    */
-  async resumeInvestigation(investigation_id: string): Promise<any> {
-    return this.post<any>(`/ocean/investigation/${investigation_id}/resume`, {});
+  async resumeInvestigation(_investigation_id: string): Promise<any> {
+    console.warn('[OceanProxy] resumeInvestigation not implemented in Python backend');
+    throw new Error('Investigation lifecycle managed by TypeScript oceanAgent, not Python backend');
   }
 
   /**
