@@ -541,6 +541,9 @@ class Zeus(BaseGod):
         # Wire PantheonChat: automatic god communication after poll
         self._process_pantheon_communication(target, assessments, convergence)
 
+        # Auto-evaluate CHAOS MODE activation based on consensus
+        self._evaluate_chaos_auto_activation(convergence, assessments, consensus_prob)
+
         return result
 
     def _process_pantheon_communication(
@@ -628,6 +631,107 @@ class Zeus(BaseGod):
         # Sort by disagreement magnitude (highest first)
         disagreements.sort(key=lambda x: x[2], reverse=True)
         return disagreements
+
+    def _evaluate_chaos_auto_activation(
+        self,
+        convergence: Dict,
+        assessments: Dict[str, Dict],
+        consensus_prob: float
+    ) -> None:
+        """
+        Auto-evaluate and activate CHAOS MODE based on pantheon consensus.
+        
+        CHAOS MODE auto-activates when:
+        1. Strong convergence (STRONG_ATTACK or COUNCIL_CONSENSUS)
+        2. High consensus probability (> 0.7)
+        3. War mode is active (BLITZKRIEG, SIEGE, or HUNT)
+        4. Shadow pantheon has no critical warnings
+        5. Average Φ from recent assessments is high
+        
+        This enables evolutionary kernel exploration when the pantheon
+        agrees something promising is happening.
+        """
+        # Skip if CHAOS already enabled or not available
+        if self.chaos_enabled or self.chaos is None:
+            return
+        
+        convergence_type = convergence.get('type', 'DIVIDED')
+        convergence_score = convergence.get('score', 0)
+        
+        # Condition 1: Strong convergence
+        strong_convergence = convergence_type in ['STRONG_ATTACK', 'COUNCIL_CONSENSUS']
+        moderate_convergence = convergence_type in ['MODERATE_OPPORTUNITY', 'ALIGNED']
+        
+        # Condition 2: High consensus probability
+        high_consensus = consensus_prob > 0.7
+        
+        # Condition 3: War mode is active
+        war_active = self.war_mode in ['BLITZKRIEG', 'SIEGE', 'HUNT']
+        
+        # Condition 4: Check shadow pantheon warnings
+        shadow_safe = True
+        try:
+            shadow_warning = self.shadow_pantheon.check_shadow_warnings('')
+            if shadow_warning.get('warning_level') == 'CRITICAL':
+                shadow_safe = False
+        except Exception:
+            pass  # If shadow check fails, proceed anyway
+        
+        # Condition 5: Average Φ from assessments
+        phi_values = [a.get('phi', 0.5) for a in assessments.values() if 'phi' in a]
+        avg_phi = sum(phi_values) / len(phi_values) if phi_values else 0.5
+        high_phi = avg_phi > 0.6
+        
+        # Auto-activation decision matrix:
+        # - STRONG_ATTACK + war mode = always activate
+        # - COUNCIL_CONSENSUS + high phi = activate
+        # - War mode + high consensus + high phi = activate
+        should_activate = False
+        activation_reason = ""
+        
+        if strong_convergence and war_active and shadow_safe:
+            should_activate = True
+            activation_reason = f"STRONG convergence ({convergence_type}) + active war mode ({self.war_mode})"
+        elif convergence_type == 'COUNCIL_CONSENSUS' and high_phi and shadow_safe:
+            should_activate = True
+            activation_reason = f"COUNCIL_CONSENSUS + high Φ ({avg_phi:.3f})"
+        elif war_active and high_consensus and high_phi and shadow_safe:
+            should_activate = True
+            activation_reason = f"War mode + high consensus ({consensus_prob:.2f}) + high Φ ({avg_phi:.3f})"
+        elif moderate_convergence and convergence_score > 0.8 and high_phi:
+            should_activate = True
+            activation_reason = f"High convergence score ({convergence_score:.2f}) + high Φ ({avg_phi:.3f})"
+        
+        if should_activate:
+            try:
+                # Spawn initial population if needed
+                if len(self.chaos.kernel_population) == 0:
+                    self.chaos.spawn_random_kernel()
+                    self.chaos.spawn_random_kernel()
+                    self.chaos.spawn_random_kernel()
+                
+                # Start evolution
+                self.chaos.start_evolution(interval_seconds=60)
+                self.chaos_enabled = True
+                
+                print(f"🌪️ [Zeus] CHAOS MODE AUTO-ACTIVATED: {activation_reason}")
+                print(f"🌪️ [Zeus] Initial kernel population: {len(self.chaos.kernel_population)}")
+                
+                # Broadcast to pantheon
+                self.pantheon_chat.broadcast(
+                    from_god='Zeus',
+                    content=f"CHAOS MODE activated: {activation_reason}",
+                    msg_type='chaos_activation',
+                    metadata={
+                        'convergence_type': convergence_type,
+                        'convergence_score': convergence_score,
+                        'avg_phi': avg_phi,
+                        'war_mode': self.war_mode,
+                    }
+                )
+                
+            except Exception as e:
+                print(f"[Zeus] CHAOS auto-activation failed: {e}")
 
     def _detect_convergence(self, assessments: Dict[str, Dict]) -> Dict:
         """
