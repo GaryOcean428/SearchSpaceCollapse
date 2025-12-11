@@ -459,7 +459,8 @@ def persist_observations_to_db(
 def train_tokenizer_from_database(
     cycle_number: Optional[int] = None,
     min_phi: float = 0.5,
-    persist: bool = True
+    persist: bool = True,
+    limit_per_source: int = 1000
 ) -> Tuple[int, int, bool]:
     """
     Train tokenizer from all SearchSpaceCollapse database sources.
@@ -468,23 +469,24 @@ def train_tokenizer_from_database(
         cycle_number: Optional cycle number to record
         min_phi: Minimum Φ threshold for filtering
         persist: Whether to persist observations back to DB
+        limit_per_source: Maximum observations per source (prevents memory issues)
     
     Returns:
         Tuple of (observations_count, new_tokens, weights_updated)
     """
     print("=" * 60)
     print("QIG TOKENIZER TRAINING FROM SEARCHSPACECOLLAPSE DATA")
-    print("Extracting geometric observations from PostgreSQL")
+    print(f"Extracting geometric observations (limit={limit_per_source}/source)")
     print("=" * 60)
     
     conn = get_db_connection()
     
     observations = []
-    observations.extend(extract_from_hermes_conversations(conn))
-    observations.extend(extract_from_manifold_probes(conn))
-    observations.extend(extract_from_learning_events(conn))
-    observations.extend(extract_from_near_miss_clusters(conn))
-    observations.extend(extract_from_vocabulary_observations(conn))
+    observations.extend(extract_from_hermes_conversations(conn, min_phi=min_phi, limit=limit_per_source))
+    observations.extend(extract_from_manifold_probes(conn, min_phi=min_phi, limit=limit_per_source))
+    observations.extend(extract_from_learning_events(conn, min_phi=min_phi, limit=limit_per_source))
+    observations.extend(extract_from_near_miss_clusters(conn, min_phi=min_phi, limit=limit_per_source))
+    observations.extend(extract_from_vocabulary_observations(conn, min_phi=min_phi, limit=limit_per_source))
     
     print(f"\n[Total] Raw observations: {len(observations)}")
     
