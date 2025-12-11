@@ -53,6 +53,22 @@ from .zeus import Zeus, olympus_app, zeus
 # Zeus Chat (voice integration)
 from .zeus_chat import ZeusConversationHandler
 
+# Conversational Kernel System
+try:
+    from conversational_kernel import (
+        ConversationalKernelMixin,
+        ConversationState,
+        patch_god_with_conversation,
+        patch_all_gods_with_conversation,
+    )
+    from recursive_conversation_orchestrator import (
+        RecursiveConversationOrchestrator,
+        get_conversation_orchestrator,
+    )
+    CONVERSATION_AVAILABLE = True
+except ImportError:
+    CONVERSATION_AVAILABLE = False
+
 __all__ = [
     # Hierarchy
     'Zeus',
@@ -93,4 +109,13 @@ __all__ = [
     'Hypnos',
     'Thanatos',
     'Nemesis',
+
+    # Conversational Kernel System
+    'ConversationalKernelMixin',
+    'ConversationState',
+    'patch_god_with_conversation',
+    'patch_all_gods_with_conversation',
+    'RecursiveConversationOrchestrator',
+    'get_conversation_orchestrator',
+    'CONVERSATION_AVAILABLE',
 ]

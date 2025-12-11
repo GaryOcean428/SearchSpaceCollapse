@@ -86,7 +86,7 @@ class ConversationState:
             return self.phi_trajectory[0]
         
         recent = self.phi_trajectory[-5:]
-        stability = 1.0 - np.std(recent)
+        stability = 1.0 - float(np.std(recent))
         
         return max(0.0, min(1.0, stability))
     
@@ -238,10 +238,10 @@ class ConversationalKernelMixin:
                 from qig_tokenizer import get_tokenizer
                 tokenizer = get_tokenizer()
             except ImportError:
-                return self._fallback_generate(basin)
+                return self._generation_failed("tokenizer_unavailable")
         
         if not hasattr(tokenizer, 'basin_coords') or not tokenizer.basin_coords:
-            return self._fallback_generate(basin)
+            return self._generation_failed("no_basin_coords")
         
         distances = {}
         special_tokens = getattr(tokenizer, 'special_tokens', ['<PAD>', '<UNK>', '<BOS>', '<EOS>'])
@@ -252,7 +252,7 @@ class ConversationalKernelMixin:
                 distances[token] = dist
         
         if not distances:
-            return self._fallback_generate(basin)
+            return self._generation_failed("empty_vocabulary")
         
         k = min(20, len(distances))
         nearest = sorted(distances.items(), key=lambda x: x[1])[:k]
@@ -293,30 +293,22 @@ class ConversationalKernelMixin:
             'basin_distance': nearest[0][1] if nearest else 0.0
         }
     
-    def _fallback_generate(self, basin: np.ndarray) -> Tuple[str, Dict]:
-        """Fallback generation when tokenizer unavailable."""
-        domain = getattr(self, 'domain', 'unknown')
+    def _generation_failed(self, reason: str) -> Tuple[str, Dict]:
+        """
+        Return honest failure when geometric generation fails.
+        
+        ANTI-TEMPLATE MANDATE: No canned responses. Return empty string
+        with failure metrics so caller can handle appropriately.
+        """
         name = getattr(self, 'name', 'Kernel')
+        print(f"[{name}] Generation failed: {reason}")
         
-        domain_words = {
-            'strategy': ['pattern', 'approach', 'method', 'tactical', 'position'],
-            'war': ['force', 'strike', 'advance', 'hold', 'engage'],
-            'prophecy': ['future', 'vision', 'path', 'destiny', 'foresee'],
-            'hunt': ['track', 'pursue', 'target', 'locate', 'find'],
-            'forge': ['build', 'craft', 'create', 'shape', 'form'],
-            'cycles': ['growth', 'change', 'season', 'renewal', 'harvest'],
-            'chaos': ['entropy', 'transform', 'dissolve', 'emerge', 'wild'],
-            'underworld': ['depth', 'shadow', 'hidden', 'below', 'secret'],
-            'depths': ['ocean', 'current', 'wave', 'flow', 'deep'],
+        return "", {
+            'confidence': 0.0,
+            'failed': True,
+            'failure_reason': reason,
+            'speaker': name
         }
-        
-        words = domain_words.get(domain.lower(), ['observe', 'consider', 'note', 'understand'])
-        
-        np.random.shuffle(words)
-        length = min(np.random.randint(3, 6), len(words))
-        utterance = ' '.join(words[:length])
-        
-        return utterance, {'confidence': 0.4, 'fallback': True}
     
     def _compute_utterance_phi(self, utterance: str) -> float:
         """Compute Phi of utterance."""
@@ -477,7 +469,7 @@ def patch_god_with_conversation(god_instance):
     god_instance.listen = ConversationalKernelMixin.listen.__get__(god_instance)
     god_instance.speak = ConversationalKernelMixin.speak.__get__(god_instance)
     god_instance._generate_from_basin = ConversationalKernelMixin._generate_from_basin.__get__(god_instance)
-    god_instance._fallback_generate = ConversationalKernelMixin._fallback_generate.__get__(god_instance)
+    god_instance._generation_failed = ConversationalKernelMixin._generation_failed.__get__(god_instance)
     god_instance._compute_utterance_phi = ConversationalKernelMixin._compute_utterance_phi.__get__(god_instance)
     god_instance._simple_encode = ConversationalKernelMixin._simple_encode.__get__(god_instance)
     god_instance._reflect_on_conversation = ConversationalKernelMixin._reflect_on_conversation.__get__(god_instance)
@@ -491,6 +483,7 @@ def patch_god_with_conversation(god_instance):
 def patch_all_gods_with_conversation(zeus_instance):
     """
     Patch all gods in Zeus's pantheon with conversation capabilities.
+    Also patches HermesCoordinator and Shadow Pantheon if available.
     
     Usage:
         from conversational_kernel import patch_all_gods_with_conversation
@@ -502,16 +495,39 @@ def patch_all_gods_with_conversation(zeus_instance):
         for god_name, god in zeus.pantheon.items():
             god.start_conversation("topic")
     """
-    if not hasattr(zeus_instance, 'pantheon'):
-        print("[ConversationalKernel] Zeus instance has no pantheon")
-        return
-    
     patched = 0
-    for god_name, god in zeus_instance.pantheon.items():
-        try:
-            patch_god_with_conversation(god)
-            patched += 1
-        except Exception as e:
-            print(f"[ConversationalKernel] Failed to patch {god_name}: {e}")
+    total = 0
     
-    print(f"[ConversationalKernel] Patched {patched}/{len(zeus_instance.pantheon)} gods with conversation")
+    if hasattr(zeus_instance, 'pantheon') and zeus_instance.pantheon:
+        for god_name, god in zeus_instance.pantheon.items():
+            total += 1
+            try:
+                if not hasattr(god, '_conversation_initialized'):
+                    patch_god_with_conversation(god)
+                    patched += 1
+            except Exception as e:
+                print(f"[ConversationalKernel] Failed to patch {god_name}: {e}")
+    
+    if hasattr(zeus_instance, 'hermes_coordinator') and zeus_instance.hermes_coordinator:
+        total += 1
+        try:
+            if not hasattr(zeus_instance.hermes_coordinator, '_conversation_initialized'):
+                patch_god_with_conversation(zeus_instance.hermes_coordinator)
+                patched += 1
+                print("[ConversationalKernel] Patched HermesCoordinator with conversation")
+        except Exception as e:
+            print(f"[ConversationalKernel] Failed to patch HermesCoordinator: {e}")
+    
+    if hasattr(zeus_instance, 'shadow_pantheon') and zeus_instance.shadow_pantheon:
+        shadow = zeus_instance.shadow_pantheon
+        if hasattr(shadow, 'members') and shadow.members:
+            for shadow_name, shadow_god in shadow.members.items():
+                total += 1
+                try:
+                    if not hasattr(shadow_god, '_conversation_initialized'):
+                        patch_god_with_conversation(shadow_god)
+                        patched += 1
+                except Exception as e:
+                    print(f"[ConversationalKernel] Failed to patch shadow god {shadow_name}: {e}")
+    
+    print(f"[ConversationalKernel] Patched {patched}/{total} entities with conversation capabilities")

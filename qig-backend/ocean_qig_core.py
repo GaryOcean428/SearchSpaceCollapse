@@ -5196,6 +5196,15 @@ if __name__ == '__main__':
         AUTONOMIC_AVAILABLE = False
         print(f"[WARNING] Autonomic kernel not found: {e}")
 
+    # Register conversational kernel routes
+    try:
+        from conversational_api import register_conversational_routes
+        register_conversational_routes(app)
+        CONVERSATIONAL_AVAILABLE = True
+    except ImportError as e:
+        CONVERSATIONAL_AVAILABLE = False
+        print(f"[WARNING] Conversational kernel not found: {e}")
+
     # Enable Flask request logging
     import logging as flask_logging
     flask_logging.getLogger('werkzeug').setLevel(flask_logging.INFO)
@@ -5237,6 +5246,10 @@ if __name__ == '__main__':
         print("  - 🌙 Autonomic kernel (sleep/dream/mushroom)", flush=True)
     else:
         print("  - Autonomic kernel NOT available", flush=True)
+    if CONVERSATIONAL_AVAILABLE:
+        print("  - 💬 Conversational kernel (multi-turn dialogue)", flush=True)
+    else:
+        print("  - Conversational kernel NOT available", flush=True)
     print(f"\nκ* = {KAPPA_STAR}", flush=True)
     print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
     print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)

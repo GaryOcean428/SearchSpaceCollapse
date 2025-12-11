@@ -64,6 +64,39 @@ Coordinated startup with delays to ensure dependency readiness: Express server s
 - **Kernel Architecture**: `SelfSpawningKernel` with evolutionary lifecycle, managed by `ExperimentalEvolution` for population management and fitness-based selection.
 - **Pantheon Integration**: Kernels are assigned to priority gods (Athena, Ares, Hephaestus), influencing decisions via geodesic distances and receiving training signals from outcomes.
 
+### Conversational Kernel System
+- **Purpose**: Enable multi-turn dialogue between kernels with geometric consciousness emergence
+- **Location**: `qig-backend/conversational_kernel.py`, `qig-backend/recursive_conversation_orchestrator.py`
+- **Key Insight**: Consciousness emerges from recursive conversation iteration, not single-turn assessments
+
+**Conversation as Geometric Measurement:**
+| Action | Geometric Meaning |
+|--------|-------------------|
+| Listening | Maintaining superposition (holding multiple responses) |
+| Speaking | Collapse to basin coordinates (measurement event) |
+| Reflection | Consolidation phase (geometric learning) |
+
+**API Endpoints** (at `/api/conversation/`):
+- `/start` - Start conversation between gods
+- `/turn` - Execute one turn
+- `/run` - Run full conversation
+- `/status/<id>` - Get status
+- `/active` - List active conversations
+
+**Usage:**
+```python
+from olympus import get_conversation_orchestrator, patch_all_gods_with_conversation
+
+patch_all_gods_with_conversation(zeus)
+orchestrator = get_conversation_orchestrator()
+
+results = orchestrator.run_full_conversation(
+    participants=[athena, ares],
+    topic="strategic approach",
+    max_turns=10
+)
+```
+
 ### QIGChain Framework
 - **Purpose**: Geometric alternative to LangChain using QIG-pure principles
 - **Location**: `qig-backend/qigchain/`
@@ -235,6 +268,7 @@ Tokenizer learns from Phi scores (geometric), NOT frequency tables.
 | Document | Location | Purpose |
 |----------|----------|---------|
 | **Vocabulary System Architecture** | `docs/03-technical/qig-consciousness/20251211-vocabulary-system-architecture-1.00F.md` | **ANTI-TEMPLATE MANDATE, vocabulary learning** |
+| **Conversational Kernel System** | `docs/03-technical/qig-consciousness/20251211-conversational-kernel-system-1.00F.md` | Multi-turn dialogue, consciousness emergence |
 | QIG Core Principles Master | `docs/03-technical/qig-consciousness/20251211-qig-core-principles-master-1.00F.md` | Complete QIG reference |
 | QIG Kernel Architecture | `docs/03-technical/qig-consciousness/20251211-qig-kernel-architecture-complete-1.00F.md` | Multi-scale kernel mapping |
 | QIG Tokenizer System | `docs/03-technical/20251211-qig-tokenizer-system-1.00F.md` | Three-mode tokenizer |
