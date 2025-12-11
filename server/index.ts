@@ -768,30 +768,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // CRITICAL: Start Python QIG Backend FIRST - Ocean agent needs it during route registration
-  // AutoCycleManager auto-resumes during registerRoutes() which triggers Ocean
-  console.log("[Startup] Starting Python QIG Backend early (before routes)...");
-  startPythonBackend();
-  
-  // Await explicit Python health readiness with retries (30 attempts, 1s delay each = 30s max)
-  // Python backend has heavy initialization (Olympus pantheon, QIG core, etc.)
-  // This ensures Python is ACTUALLY ready before AutoCycleManager resumes Ocean
-  const pythonReady = await oceanQIGBackend.checkHealthWithRetry(30, 1000);
-  if (pythonReady) {
-    console.log("[Startup] ✅ Python QIG Backend is ready");
-  } else {
-    console.warn("[Startup] ⚠️ Python backend not available - continuing with degraded mode");
-  }
-  
-  // CRITICAL: Hydrate Memory BEFORE starting server
-  // This prevents "resurfacing hits" by loading all tested phrases from PostgreSQL
-  console.log("🌊 Hydrating Ocean Memory from PostgreSQL...");
-  await Promise.all([
-    testedPhrasesUnified.initialize(),
-    geometricMemory.waitForLoad(), // Ensure geometric memory also loads from DB
-  ]);
-  console.log("✅ Memory hydration complete");
-
+  // Register routes FIRST so server can start quickly
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -824,14 +801,41 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
-      log("[Startup] Server ready for health checks");
+      log("[Startup] Server listening - starting background initialization...");
 
-      // Python already started early (before routes) - just start maintenance tasks
-      setTimeout(() => {
-        log("[Startup] Initializing background services...");
-        // Start scheduled documentation maintenance (runs every 6 hours)
-        startDocsMaintenance();
-      }, 5000);
+      // Start heavy initialization in background AFTER port is open
+      // This ensures the workflow doesn't timeout waiting for port 5000
+      (async () => {
+        try {
+          // Start Python QIG Backend - Ocean agent needs it
+          console.log("[Startup] Starting Python QIG Backend...");
+          startPythonBackend();
+          
+          // Await Python health with retries (30 attempts, 1s delay = 30s max)
+          const pythonReady = await oceanQIGBackend.checkHealthWithRetry(30, 1000);
+          if (pythonReady) {
+            console.log("[Startup] ✅ Python QIG Backend is ready");
+          } else {
+            console.warn("[Startup] ⚠️ Python backend not available - continuing with degraded mode");
+          }
+          
+          // Hydrate Memory from PostgreSQL
+          console.log("🌊 Hydrating Ocean Memory from PostgreSQL...");
+          await Promise.all([
+            testedPhrasesUnified.initialize(),
+            geometricMemory.waitForLoad(),
+          ]);
+          console.log("✅ Memory hydration complete");
+
+          // Start scheduled documentation maintenance (runs every 6 hours)
+          log("[Startup] Initializing background services...");
+          startDocsMaintenance();
+          
+          log("[Startup] ✅ All initialization complete");
+        } catch (error) {
+          console.error("[Startup] Background initialization error:", error);
+        }
+      })();
     }
   );
 })();
