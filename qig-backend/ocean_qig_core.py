@@ -3566,30 +3566,85 @@ def olympus_report_outcome():
         learning_events = []
         
         # Get all gods from the pantheon
+        # Match by address (if provided) OR target - addresses are what gods assess
+        match_target = details.get('address', target)[:20] if details.get('address') else target[:20]
+        
         for god_name, god in zeus.pantheon.items():
             try:
-                # Check if this god previously assessed this target
+                # Check if this god previously assessed this target/address
                 recent_assessments = getattr(god, 'assessment_history', [])
-                matching = [a for a in recent_assessments if target[:20] in str(a.get('target', ''))[:20]]
+                matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:20]]
+                
+                actual_outcome = {
+                    'success': success,
+                    'balance': details.get('balance', 0),
+                    'address': details.get('address', ''),
+                    'phi': details.get('phi', 0),
+                    'domain': god.domain,
+                }
                 
                 if matching:
-                    # God had assessed this target - trigger learning
+                    # God had assessed this target - full learning
                     assessment = matching[-1]  # Most recent
-                    actual_outcome = {
-                        'success': success,
-                        'balance': details.get('balance', 0),
-                        'address': details.get('address', ''),
-                        'phi': details.get('phi', 0),
-                        'domain': god.domain,
-                    }
-                    
                     result = god.learn_from_outcome(
                         target=target,
                         assessment=assessment,
                         actual_outcome=actual_outcome,
                         success=success
                     )
+                else:
+                    # No prior assessment - differential learning based on domain relevance
+                    # This creates reputation differentiation even without prior assessments
+                    phi = details.get('phi', 0.5)
+                    is_near_miss = details.get('nearMiss', False)
+                    domain_lower = god.domain.lower() if god.domain else ''
                     
+                    # Domain-based reputation adjustment (case-insensitive)
+                    # Actual domains: Athena=Strategy, Ares=War, Apollo=Prophecy,
+                    # Artemis=Hunt, Hermes=Coordination/Communication, Hephaestus=Forge,
+                    # Demeter=Cycles, Dionysus=Chaos, Hades=Underworld, Poseidon=Depths,
+                    # Hera=Coherence, Aphrodite=Motivation
+                    domain_relevance = 0.0
+                    if domain_lower == 'strategy' and is_near_miss:
+                        domain_relevance = 0.02  # Athena gets credit for near-misses
+                    elif domain_lower == 'war' and success:
+                        domain_relevance = 0.03  # Ares gets credit for successes
+                    elif domain_lower == 'prophecy' and phi > 0.8:
+                        domain_relevance = 0.02  # Apollo for high-phi discoveries
+                    elif domain_lower in ('coordination', 'communication'):
+                        domain_relevance = 0.01  # Hermes always learns a bit
+                    elif domain_lower == 'hunt' and is_near_miss:
+                        domain_relevance = 0.02  # Artemis for tracking near-misses
+                    elif domain_lower == 'forge':
+                        domain_relevance = 0.01 if success else -0.005  # Hephaestus
+                    elif domain_lower == 'cycles' and phi > 0.7:
+                        domain_relevance = 0.015  # Demeter for growth patterns
+                    elif domain_lower == 'chaos' and not success:
+                        domain_relevance = 0.01  # Dionysus learns from failures
+                    elif domain_lower == 'underworld' and not success:
+                        domain_relevance = 0.02  # Hades tracks dead ends
+                    elif domain_lower == 'depths':
+                        domain_relevance = 0.01 if phi > 0.6 else -0.005  # Poseidon
+                    elif domain_lower == 'coherence' and is_near_miss:
+                        domain_relevance = 0.01  # Hera for coherent near-misses
+                    elif domain_lower == 'motivation' and phi > 0.9:
+                        domain_relevance = 0.02  # Aphrodite for high motivation scores
+                    
+                    # Only apply and persist if there's actual learning
+                    if domain_relevance != 0:
+                        old_rep = god.reputation
+                        god.reputation = max(0.0, min(2.0, god.reputation + domain_relevance))
+                        god._persist_state()
+                        print(f"[Olympus] 📈 {god_name} domain learning: {old_rep:.4f} → {god.reputation:.4f} (Δ={domain_relevance:.4f})")
+                        result = {
+                            'learned': True,
+                            'reputation_change': god.reputation - old_rep,
+                            'new_reputation': god.reputation,
+                        }
+                    else:
+                        result = {'learned': False}
+                
+                if result.get('learned', False):
                     learning_events.append({
                         'god': god_name,
                         'learned': result.get('learned', False),

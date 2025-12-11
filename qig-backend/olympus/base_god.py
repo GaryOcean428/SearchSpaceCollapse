@@ -413,21 +413,40 @@ class BaseGod(ABC, HolographicTransformMixin):
         predicted_prob = assessment.get('probability', 0.5)
         actual_success = 1.0 if success else 0.0
         error = abs(predicted_prob - actual_success)
+        
+        # Check if this is a near-miss (partial success)
+        is_near_miss = actual_outcome.get('nearMiss', False)
+        phi = actual_outcome.get('phi', 0.0)
+        
+        # Initialize boost and penalty
+        boost = 0.0
+        penalty = 0.0
 
         # Update reputation based on accuracy
         if success:
             # Correct prediction boosts reputation
             boost = min(0.1, (1 - error) * 0.05)
             self.reputation = min(2.0, self.reputation + boost)
+        elif is_near_miss and phi > 0.7:
+            # Near-miss with high Φ is valuable - small boost instead of penalty
+            # Scale boost by Φ: higher Φ = bigger boost
+            phi_bonus = (phi - 0.7) * 0.03  # 0 to 0.009 based on phi
+            boost = min(0.02, phi_bonus + 0.005)  # Small base + phi bonus
+            self.reputation = min(2.0, self.reputation + boost)
         else:
             # Wrong prediction reduces reputation
             penalty = min(0.1, error * 0.05)
             self.reputation = max(0.0, self.reputation - penalty)
 
-        # Update domain skill
+        # Update domain skill - near-misses count as partial success
         skill_key = actual_outcome.get('domain', self.domain)
         current_skill = self.skills.get(skill_key, 1.0)
-        skill_delta = 0.02 if success else -0.02
+        if success:
+            skill_delta = 0.02
+        elif is_near_miss and phi > 0.7:
+            skill_delta = 0.01  # Smaller positive delta for near-misses
+        else:
+            skill_delta = -0.02
         self.skills[skill_key] = max(0.0, min(2.0, current_skill + skill_delta))
 
         # Record learning event
@@ -452,12 +471,21 @@ class BaseGod(ABC, HolographicTransformMixin):
         self._learning_events_count += 1
         self._persist_state()
 
+        # Compute reputation change for return value
+        if success:
+            rep_change = boost
+        elif is_near_miss and phi > 0.7:
+            rep_change = boost  # Near-miss boost (defined above)
+        else:
+            rep_change = -penalty
+        
         return {
             'learned': True,
-            'reputation_change': boost if success else -penalty,
+            'reputation_change': rep_change,
             'new_reputation': self.reputation,
             'skill_change': skill_delta,
             'new_skill': self.skills[skill_key],
+            'near_miss': is_near_miss,
         }
 
     def evaluate_peer_work(
