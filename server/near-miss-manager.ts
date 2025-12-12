@@ -23,6 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { NEAR_MISS_CONFIG } from './ocean-config';
 import { oceanPersistence } from './ocean/ocean-persistence';
+import { isValidBIP39Phrase } from './bip39-words';
 
 export type NearMissTier = 'hot' | 'warm' | 'cool';
 
@@ -52,6 +53,7 @@ export interface StructuralSignature {
   hasSpecialChars: boolean;
   startsWithCapital: boolean;
   entropyEstimate: number;
+  isBip39Valid: boolean; // True if all words are valid BIP-39 words
 }
 
 export interface NearMissCluster {
@@ -1003,6 +1005,9 @@ export class NearMissManager {
       entropy -= p * Math.log2(p);
     }
 
+    // Check if phrase is a valid BIP-39 seed (all words in wordlist)
+    const isBip39Valid = isValidBIP39Phrase(phrase);
+
     return {
       wordCount: words.length,
       avgWordLength: words.reduce((s, w) => s + w.length, 0) / words.length,
@@ -1011,6 +1016,7 @@ export class NearMissManager {
       hasSpecialChars: /[^a-zA-Z0-9\s]/.test(phrase),
       startsWithCapital: /^[A-Z]/.test(phrase),
       entropyEstimate: entropy,
+      isBip39Valid,
     };
   }
 
@@ -1148,7 +1154,58 @@ export class NearMissManager {
   }
 
   /**
-   * Rebuild all clusters from scratch
+   * Rebuild all clusters from scratch with fresh structural signatures
+   * Also recomputes isBip39Valid for all entries
+   */
+  rebuildClustersWithValidation(): { entriesProcessed: number; clustersCreated: number; bip39Valid: number; bip39Invalid: number } {
+    console.log('[NearMiss] 🔄 Rebuilding clusters with BIP-39 validation...');
+    
+    // Recompute structural signatures for all entries
+    let bip39Valid = 0;
+    let bip39Invalid = 0;
+    const VALID_SEED_WORD_COUNTS = [12, 15, 18, 21, 24];
+    
+    for (const entry of this.entries.values()) {
+      entry.structuralSignature = this.computeStructuralSignature(entry.phrase);
+      entry.clusterId = undefined;
+      
+      // Track BIP-39 stats for seed-length phrases
+      if (VALID_SEED_WORD_COUNTS.includes(entry.structuralSignature.wordCount)) {
+        if (entry.structuralSignature.isBip39Valid) {
+          bip39Valid++;
+        } else {
+          bip39Invalid++;
+        }
+      }
+    }
+    
+    // Clear and rebuild clusters
+    this.clusters.clear();
+    for (const entry of this.entries.values()) {
+      this.assignToCluster(entry);
+    }
+    
+    // Update all cluster patterns
+    for (const cluster of this.clusters.values()) {
+      const members = this.getClusterMembers(cluster.id);
+      if (members.length > 0 && members[0].structuralSignature) {
+        cluster.structuralPattern = this.describeStructure(members[0].structuralSignature);
+      }
+    }
+    
+    this.isDirty = true;
+    console.log(`[NearMiss] ✅ Rebuilt ${this.clusters.size} clusters from ${this.entries.size} entries (BIP-39: ${bip39Valid} valid, ${bip39Invalid} invalid)`);
+    
+    return {
+      entriesProcessed: this.entries.size,
+      clustersCreated: this.clusters.size,
+      bip39Valid,
+      bip39Invalid,
+    };
+  }
+
+  /**
+   * Legacy rebuild without validation logging
    */
   private rebuildClusters(): void {
     this.clusters.clear();
@@ -1166,6 +1223,16 @@ export class NearMissManager {
   private describeStructure(sig: StructuralSignature): string {
     const parts: string[] = [];
     parts.push(`${sig.wordCount}-word`);
+
+    // For 12/15/18/21/24 word phrases, indicate BIP-39 validity
+    const VALID_SEED_WORD_COUNTS = [12, 15, 18, 21, 24];
+    if (VALID_SEED_WORD_COUNTS.includes(sig.wordCount)) {
+      if (sig.isBip39Valid) {
+        parts.push('BIP-39');  // Valid seed phrase format
+      } else {
+        parts.push('invalid-seed');  // Has non-BIP-39 words like "output267"
+      }
+    }
 
     if (sig.hasNumbers) parts.push('with-numbers');
     if (sig.hasSpecialChars) parts.push('with-special');

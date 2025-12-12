@@ -291,6 +291,28 @@ nearMissRouter.post("/decay", generousLimiter, async (req: Request, res: Respons
   }
 });
 
+// Rebuild clusters with BIP-39 validation
+nearMissRouter.post("/rebuild-clusters", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const result = nearMissManager.rebuildClustersWithValidation();
+    const clusters = nearMissManager.getClusters();
+    
+    res.json({
+      ...result,
+      clusters: clusters.slice(0, 20).map(c => ({
+        id: c.id,
+        memberCount: c.memberCount,
+        structuralPattern: c.structuralPattern,
+        avgPhi: c.avgPhi,
+      })),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("[Near-Miss Rebuild] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get members of a specific cluster
 nearMissRouter.get("/cluster/:clusterId/members", generousLimiter, async (req: Request, res: Response) => {
   try {
@@ -326,6 +348,8 @@ nearMissRouter.get("/cluster/:clusterId/members", generousLimiter, async (req: R
         explorationCount: e.explorationCount,
         isEscalating: e.isEscalating,
         phiHistory: e.phiHistory?.slice(-10),
+        isBip39Valid: e.structuralSignature?.isBip39Valid ?? null,
+        wordCount: e.structuralSignature?.wordCount ?? null,
       })),
       timestamp: new Date().toISOString(),
     });

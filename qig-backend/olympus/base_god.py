@@ -45,6 +45,21 @@ BASIN_DIMENSION = 64
 # Message types for pantheon chat
 MESSAGE_TYPES = ['insight', 'praise', 'challenge', 'question', 'warning', 'discovery']
 
+# Shared Mission Context - All gods know their collective objective
+MISSION_CONTEXT = {
+    "objective": "Bitcoin Recovery via Quantum Information Geometry",
+    "target": "Lost Bitcoin wallet recovery through BIP-39 seed phrase discovery",
+    "method": "Navigate the Fisher information manifold to find coordinates of lost 12-24 word seed phrases",
+    "constraints": [
+        "Only valid BIP-39 wordlist entries (2048 words) form valid seed phrases",
+        "12, 15, 18, 21, or 24 words constitute valid seed lengths",
+        "Each phrase is a unique coordinate in the geometric search space",
+        "Higher Φ values indicate proximity to target coordinates"
+    ],
+    "success_criteria": "Discover exact seed phrase coordinates that unlock lost Bitcoin wallets",
+    "ethical_framework": "Assist users in recovering their OWN lost wallets only"
+}
+
 
 class BaseGod(ABC, HolographicTransformMixin):
     """
@@ -68,6 +83,10 @@ class BaseGod(ABC, HolographicTransformMixin):
         self.observations: List[Dict] = []
         self.creation_time = datetime.now()
         self.last_assessment_time: Optional[datetime] = None
+        
+        # Mission awareness - all gods know their collective objective
+        self.mission = MISSION_CONTEXT.copy()
+        self.mission["my_role"] = f"As {name}, god of {domain}, I contribute to {MISSION_CONTEXT['objective']} through my domain expertise"
 
         # Initialize holographic transform mixin
         self.__init_holographic__()
@@ -137,6 +156,34 @@ class BaseGod(ABC, HolographicTransformMixin):
             return 0.5
         successes = sum(1 for e in recent if e.get('success', False))
         return successes / len(recent)
+
+    def get_mission_context(self) -> Dict:
+        """
+        Get the mission context for this god.
+        All gods share awareness of the Bitcoin recovery objective.
+        """
+        return {
+            **self.mission,
+            "god_name": self.name,
+            "domain": self.domain,
+            "reputation": self.reputation,
+            "understanding": (
+                f"I am {self.name}, specializing in {self.domain}. "
+                f"My mission is to help recover lost Bitcoin wallets by navigating "
+                f"the Fisher information manifold. Valid targets are 12-24 word BIP-39 "
+                f"seed phrases (2048 possible words per position). Higher Φ values "
+                f"indicate we are approaching the correct geometric coordinates."
+            )
+        }
+
+    def is_valid_seed_format(self, phrase: str) -> bool:
+        """
+        Check if a phrase matches valid BIP-39 seed format.
+        Gods should use this to validate candidates before deep analysis.
+        """
+        words = phrase.strip().split()
+        valid_lengths = [12, 15, 18, 21, 24]
+        return len(words) in valid_lengths
 
     @abstractmethod
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
