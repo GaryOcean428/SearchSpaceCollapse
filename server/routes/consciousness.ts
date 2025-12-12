@@ -506,6 +506,70 @@ attentionMetricsRouter.get("/physics-reference", generousLimiter, (req: Request,
 
 export const ucpRouter = Router();
 
+export const vocabularyRouter = Router();
+
+vocabularyRouter.post("/classify", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { phrase } = req.body;
+    if (!phrase || typeof phrase !== 'string') {
+      return res.status(400).json({ error: 'phrase is required' });
+    }
+
+    const { BIP39_WORDLIST } = await import("../bip39-words");
+    const words = phrase.trim().toLowerCase().split(/\s+/);
+    const wordCount = words.length;
+    const validSeedLengths = [12, 15, 18, 21, 24];
+    
+    const bip39Words = words.filter(w => BIP39_WORDLIST.has(w));
+    const nonBip39Words = words.filter(w => !BIP39_WORDLIST.has(w));
+    const bip39Ratio = wordCount > 0 ? bip39Words.length / wordCount : 0;
+    
+    let category: 'bip39_seed' | 'passphrase' | 'mutation';
+    let explanation: string;
+    
+    if (validSeedLengths.includes(wordCount) && nonBip39Words.length === 0) {
+      category = 'bip39_seed';
+      explanation = `Valid ${wordCount}-word BIP-39 seed phrase - all words are valid`;
+    } else if (validSeedLengths.includes(wordCount) && nonBip39Words.length > 0) {
+      category = 'mutation';
+      explanation = `Invalid ${wordCount}-word seed: ${nonBip39Words.length} non-BIP-39 word(s): ${nonBip39Words.slice(0, 5).join(', ')}`;
+    } else {
+      category = 'passphrase';
+      explanation = `Arbitrary passphrase (${wordCount} word${wordCount !== 1 ? 's' : ''})`;
+    }
+    
+    res.json({
+      phrase: phrase.slice(0, 50) + (phrase.length > 50 ? '...' : ''),
+      category,
+      explanation,
+      wordCount,
+      bip39Ratio: parseFloat(bip39Ratio.toFixed(3)),
+      bip39Words: bip39Words.slice(0, 10),
+      nonBip39Words: nonBip39Words.slice(0, 10),
+      isValidSeedLength: validSeedLengths.includes(wordCount),
+    });
+  } catch (error: any) {
+    console.error("[Vocabulary Classify] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+vocabularyRouter.get("/stats", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { vocabularyTracker } = await import("../vocabulary-tracker");
+    const stats = vocabularyTracker.getCategoryStats();
+    
+    res.json({
+      success: true,
+      stats,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("[Vocabulary Stats] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 ucpRouter.get("/stats", async (req: Request, res: Response) => {
   try {
     const { oceanAgent } = await import("../ocean-agent");

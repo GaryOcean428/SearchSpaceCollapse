@@ -143,6 +143,14 @@ const COMMON_ENGLISH = new Set([
   'executed', 'information', 'and', 'or', 'but', 'if', 'then', 'else', 'when',
 ]);
 
+// Phrase categories for kernel learning
+// bip39_seed: Valid 12/15/18/21/24 word phrases with ALL words from BIP-39 wordlist
+// passphrase: Arbitrary text (any length, may have special chars/numbers, not a seed)
+// mutation: Seed-length (12/15/18/21/24 words) but contains non-BIP-39 words
+// bip39_word: Single word from BIP-39 wordlist
+// unknown: Not yet classified
+export type PhraseCategory = 'bip39_seed' | 'passphrase' | 'mutation' | 'bip39_word' | 'unknown';
+
 interface PhraseObservation {
   text: string;
   frequency: number;
@@ -152,7 +160,9 @@ interface PhraseObservation {
   lastSeen: Date;
   contexts: string[];
   isRealWord: boolean;
+  isBip39Word: boolean;
   type: 'word' | 'phrase' | 'sequence';
+  phraseCategory: PhraseCategory;
 }
 
 interface SequenceObservation {
@@ -246,6 +256,59 @@ export class VocabularyTracker {
   }
   
   /**
+   * Check if a single word is in the BIP-39 wordlist
+   */
+  private isBip39Word(word: string): boolean {
+    return BIP39_WORDS.has(word.toLowerCase());
+  }
+  
+  /**
+   * Classify a phrase into categories for kernel learning
+   * This teaches kernels the difference between:
+   * - Valid BIP-39 seed phrases (recoverable wallets)
+   * - Passphrases (arbitrary text, not seeds)
+   * - Mutations (seed-length but invalid)
+   */
+  classifyPhraseCategory(text: string): PhraseCategory {
+    const trimmed = text.trim();
+    const words = trimmed.split(/\s+/);
+    const wordCount = words.length;
+    const VALID_SEED_LENGTHS = [12, 15, 18, 21, 24];
+    
+    // Single word classification
+    if (wordCount === 1) {
+      const word = words[0].toLowerCase();
+      if (BIP39_WORDS.has(word)) {
+        return 'bip39_word';
+      }
+      // Contains special chars or numbers = passphrase
+      if (/[^a-z]/.test(word)) {
+        return 'passphrase';
+      }
+      return 'unknown';
+    }
+    
+    // Multi-word: check if it's seed-length
+    if (VALID_SEED_LENGTHS.includes(wordCount)) {
+      // Check if ALL words are valid BIP-39 words
+      const allBip39 = words.every(w => BIP39_WORDS.has(w.toLowerCase()));
+      
+      if (allBip39) {
+        return 'bip39_seed';  // Valid BIP-39 seed phrase!
+      } else {
+        return 'mutation';  // Seed-length but contains invalid words
+      }
+    }
+    
+    // Not a seed-length phrase = passphrase
+    // This includes:
+    // - Arbitrary text like "correct horse battery staple"
+    // - Concatenated words like "bitcoinpassword123"
+    // - Any other non-seed patterns
+    return 'passphrase';
+  }
+  
+  /**
    * Observe a phrase from search results
    */
   observe(
@@ -266,6 +329,8 @@ export class VocabularyTracker {
       
       const type = this.classifyType(token);
       const isReal = type === 'word';
+      const isBip39 = this.isBip39Word(token);
+      const category = this.classifyPhraseCategory(token);
       
       const existing = this.phraseObservations.get(token);
       if (existing) {
@@ -286,7 +351,9 @@ export class VocabularyTracker {
           lastSeen: now,
           contexts: [phrase],
           isRealWord: isReal,
+          isBip39Word: isBip39,
           type,
+          phraseCategory: category,
         });
       }
       
@@ -563,7 +630,9 @@ export class VocabularyTracker {
         await db.insert(vocabularyObservations).values({
           text: obs.text,
           type: obs.type,
+          phraseCategory: obs.phraseCategory,
           isRealWord: obs.isRealWord,
+          isBip39Word: obs.isBip39Word,
           frequency: obs.frequency,
           avgPhi: obs.avgPhi,
           maxPhi: obs.maxPhi,
@@ -577,6 +646,8 @@ export class VocabularyTracker {
             frequency: obs.frequency,
             avgPhi: obs.avgPhi,
             maxPhi: obs.maxPhi,
+            phraseCategory: obs.phraseCategory,
+            isBip39Word: obs.isBip39Word,
             lastSeen: obs.lastSeen,
             contexts: obs.contexts.slice(0, 10),
           }
@@ -649,7 +720,9 @@ export class VocabularyTracker {
               lastSeen: row.lastSeen || new Date(),
               contexts: row.contexts || [],
               isRealWord: row.isRealWord,
+              isBip39Word: row.isBip39Word ?? false,
               type: row.type as 'word' | 'phrase',
+              phraseCategory: (row.phraseCategory as PhraseCategory) ?? 'unknown',
             });
           }
         }
@@ -690,7 +763,8 @@ export class VocabularyTracker {
   }
   
   /**
-   * Export observations for Python tokenizer
+   * Export observations for Python tokenizer with phrase category
+   * Kernels use this to learn the difference between BIP-39 seeds and passphrases
    */
   async exportForTokenizer(): Promise<Array<{
     text: string;
@@ -699,6 +773,8 @@ export class VocabularyTracker {
     maxPhi: number;
     type: 'word' | 'phrase' | 'sequence';
     isRealWord: boolean;
+    isBip39Word: boolean;
+    phraseCategory: PhraseCategory;
   }>> {
     await this.dataLoaded;
     
@@ -709,9 +785,11 @@ export class VocabularyTracker {
       maxPhi: number;
       type: 'word' | 'phrase' | 'sequence';
       isRealWord: boolean;
+      isBip39Word: boolean;
+      phraseCategory: PhraseCategory;
     }> = [];
     
-    // Export phrase observations
+    // Export phrase observations with category
     for (const [_text, obs] of Array.from(this.phraseObservations.entries())) {
       if (obs.frequency >= this.minFrequency && obs.avgPhi >= this.minPhi) {
         exports.push({
@@ -721,13 +799,16 @@ export class VocabularyTracker {
           maxPhi: obs.maxPhi,
           type: obs.type,
           isRealWord: obs.isRealWord,
+          isBip39Word: obs.isBip39Word,
+          phraseCategory: obs.phraseCategory,
         });
       }
     }
     
-    // Export sequence observations
+    // Export sequence observations (classified as passphrase or seed)
     for (const [_seq, obs] of Array.from(this.sequenceObservations.entries())) {
       if (obs.frequency >= 3 && obs.avgPhi >= 0.4) {
+        const category = this.classifyPhraseCategory(obs.sequence);
         exports.push({
           text: obs.sequence,
           frequency: obs.frequency,
@@ -735,13 +816,21 @@ export class VocabularyTracker {
           maxPhi: obs.maxPhi,
           type: 'sequence',
           isRealWord: false,
+          isBip39Word: false,
+          phraseCategory: category,
         });
       }
     }
     
     exports.sort((a, b) => b.avgPhi - a.avgPhi);
     
-    console.log(`[VocabularyTracker] Exported ${exports.length} observations for tokenizer`);
+    // Log category distribution for debugging
+    const categories = exports.reduce((acc, e) => {
+      acc[e.phraseCategory] = (acc[e.phraseCategory] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log(`[VocabularyTracker] Exported ${exports.length} observations: ${JSON.stringify(categories)}`);
+    
     return exports;
   }
   

@@ -184,6 +184,83 @@ class BaseGod(ABC, HolographicTransformMixin):
         words = phrase.strip().split()
         valid_lengths = [12, 15, 18, 21, 24]
         return len(words) in valid_lengths
+    
+    def classify_phrase_category(self, phrase: str, bip39_words: set = None) -> str:
+        """
+        Classify a phrase for kernel learning.
+        This teaches kernels the difference between:
+        - bip39_seed: Valid 12/15/18/21/24 word phrases with ALL BIP-39 words
+        - passphrase: Arbitrary text (not a seed format)
+        - mutation: Seed-length but contains non-BIP-39 words
+        - bip39_word: Single word from BIP-39 wordlist
+        - unknown: Cannot classify
+        
+        Kernels use this to learn different patterns for different input types.
+        """
+        # Import BIP-39 wordlist if not provided
+        if bip39_words is None:
+            try:
+                from bip39_wordlist import BIP39_WORDS
+                bip39_words = BIP39_WORDS
+            except ImportError:
+                # Minimal fallback - real implementation should have full list
+                bip39_words = set()
+        
+        words = phrase.strip().split()
+        word_count = len(words)
+        valid_seed_lengths = [12, 15, 18, 21, 24]
+        
+        # Single word classification
+        if word_count == 1:
+            word = words[0].lower()
+            if word in bip39_words:
+                return 'bip39_word'
+            # Contains special chars or numbers = passphrase
+            if not word.isalpha():
+                return 'passphrase'
+            return 'unknown'
+        
+        # Multi-word: check if it's seed-length
+        if word_count in valid_seed_lengths:
+            # Check if ALL words are valid BIP-39 words
+            if bip39_words:
+                all_bip39 = all(w.lower() in bip39_words for w in words)
+                if all_bip39:
+                    return 'bip39_seed'  # Valid BIP-39 seed phrase!
+                else:
+                    return 'mutation'  # Seed-length but invalid words
+            else:
+                return 'unknown'  # Can't validate without wordlist
+        
+        # Not a seed-length phrase = passphrase
+        return 'passphrase'
+    
+    def get_phrase_learning_context(self, phrase: str, phi: float, category: str = None) -> Dict:
+        """
+        Generate learning context for a phrase that kernels can use.
+        Includes category classification and geometric metrics.
+        """
+        if category is None:
+            category = self.classify_phrase_category(phrase)
+        
+        words = phrase.strip().split()
+        
+        return {
+            "phrase_preview": phrase[:50] + "..." if len(phrase) > 50 else phrase,
+            "word_count": len(words),
+            "category": category,
+            "phi": phi,
+            "is_valid_seed": category == 'bip39_seed',
+            "is_mutation": category == 'mutation',
+            "is_passphrase": category == 'passphrase',
+            "learning_notes": {
+                "bip39_seed": "Valid seed phrase - learn this pattern for recovery",
+                "mutation": "Invalid seed (wrong words) - learn what NOT to generate",
+                "passphrase": "Not a seed phrase - different pattern than BIP-39",
+                "bip39_word": "Single BIP-39 word - building block for seeds",
+                "unknown": "Unable to classify - needs more context"
+            }.get(category, "Unknown category")
+        }
 
     @abstractmethod
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:

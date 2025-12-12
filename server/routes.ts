@@ -65,6 +65,7 @@ import {
   sweepsRouter,
   ucpRouter,
   unifiedRecoveryRouter,
+  vocabularyRouter,
 } from "./routes/index";
 
 import {
@@ -240,6 +241,7 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   app.use("/api/near-misses", nearMissRouter);
   app.use("/api/attention-metrics", attentionMetricsRouter);
   app.use("/api/ucp", ucpRouter);
+  app.use("/api/vocabulary", vocabularyRouter);
   app.use("/api/balance", balanceRouter);
   app.use("/api", searchRouter);
   app.use("/api/format", formatRouter);

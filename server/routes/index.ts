@@ -4,7 +4,8 @@ export {
   consciousnessRouter, 
   nearMissRouter, 
   attentionMetricsRouter, 
-  ucpRouter 
+  ucpRouter,
+  vocabularyRouter
 } from "./consciousness";
 
 export { balanceRouter } from "./balance";

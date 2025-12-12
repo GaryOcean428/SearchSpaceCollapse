@@ -449,8 +449,16 @@ export const vocabularyObservations = pgTable(
     text: varchar("text", { length: 255 }).notNull().unique(),
     // Type classification - 'word' for real vocabulary, 'phrase' for mutations/concatenations, 'sequence' for multi-word
     type: varchar("type", { length: 20 }).notNull().default("phrase"), // word, phrase, sequence
+    // Phrase category - distinguishes BIP-39 seeds from passphrases
+    // bip39_seed: Valid 12/15/18/21/24 word phrases with all BIP-39 words
+    // passphrase: Arbitrary text (any length, may have special chars/numbers)
+    // mutation: Seed-length but contains non-BIP-39 words
+    // bip39_word: Single word from BIP-39 wordlist
+    phraseCategory: varchar("phrase_category", { length: 20 }).default("unknown"), // bip39_seed, passphrase, mutation, bip39_word, unknown
     // Is this an actual vocabulary word (BIP-39 or standard English)?
     isRealWord: boolean("is_real_word").notNull().default(false),
+    // Is this from the BIP-39 wordlist?
+    isBip39Word: boolean("is_bip39_word").default(false),
     frequency: integer("frequency").notNull().default(1),
     avgPhi: doublePrecision("avg_phi").notNull().default(0),
     maxPhi: doublePrecision("max_phi").notNull().default(0),
