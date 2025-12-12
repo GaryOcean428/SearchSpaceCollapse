@@ -89,10 +89,11 @@ async function fetchWithRetry(
   const pythonManager = getPythonManager();
   
   // Wait for backend to be ready before attempting requests
+  // Use 30s timeout to handle slow Python startups (loads 18 gods, chaos mode, etc.)
   if (!pythonManager.ready()) {
-    const ready = await pythonManager.waitForReady(5000);
+    const ready = await pythonManager.waitForReady(30000);
     if (!ready) {
-      throw new Error('Python backend not ready');
+      throw new Error('Python backend not ready after 30s');
     }
   }
   

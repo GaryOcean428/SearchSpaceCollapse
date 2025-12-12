@@ -83,3 +83,30 @@ Fixed all gods having uniform 2.0 reputation:
   - Each domain has contextual learning based on outcome characteristics
 - **Database Reset**: Set varied starting reputations (0.9 to 1.5) to enable visual differentiation
 - **Verified**: UI shows Zeus 1.50, Dionysus 0.90, Nyx 1.30, Erebus 0.95
+
+### Python Backend Resilience Architecture
+Implemented robust inter-process communication between Node.js and Python Flask:
+
+**PythonProcessManager** (`server/python-process-manager.ts`):
+- Supervises Flask process lifecycle with spawn/restart/shutdown
+- Health check polling every 1 second with readiness signaling
+- Exponential backoff for restarts (1s → 2s → 4s → 8s → max 15s)
+- Global singleton ensures coordinated process management
+- `ready()` and `waitForReady(timeout)` methods for request gating
+
+**OlympusClient Improvements** (`server/olympus-client.ts`):
+- Readiness gating: All requests wait up to 30s for backend health before proceeding
+- Exponential backoff with jitter on retries (prevents thundering herd)
+- Batch outcome reporting: Combines 2+ discovery outcomes into single `/olympus/report-outcomes-batch` call
+- Reduces per-discovery database pressure by 50-75%
+
+**Python Batch Endpoint** (`qig-backend/ocean_qig_core.py`):
+- `POST /olympus/report-outcomes-batch` accepts array of outcomes
+- Single transaction for multiple god reputation updates
+- Returns `{success: true, total_gods_updated: N}`
+
+**Circuit Breaker Pattern** (used in VocabularyTracker, NearMissManager):
+- States: CLOSED → OPEN → HALF-OPEN
+- Max 3 failures before opening circuit
+- 30s reset timeout before allowing test request
+- Exponential backoff with 1s base delay
