@@ -67,9 +67,12 @@ jobs:
             - name: Check for raw fetch in components
               run: |
                   echo "🔍 Checking for raw fetch() in React components..."
-                  if find client/src/components -name "*.tsx" -exec grep -l "fetch(" {} \; 2>/dev/null; then
-                    echo "❌ ERROR: Raw fetch() found in component files!"
-                    echo "Rule: Use centralized API client from @/lib/api"
+                  # Use word boundaries to avoid matching "refetch"
+                  VIOLATIONS=$(find client/src/components -name "*.tsx" -exec grep -l '\bfetch(' {} \; 2>/dev/null | grep -v "refetch" || true)
+                  if [ -n "$VIOLATIONS" ]; then
+                    echo "❌ ERROR: Raw fetch() found in component files:"
+                    echo "$VIOLATIONS"
+                    echo "Rule: Use centralized API client from @/api"
                     echo "See .github/copilot-instructions.md Pattern #2"
                     exit 1
                   fi
