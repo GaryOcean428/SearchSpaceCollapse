@@ -101,9 +101,9 @@ class QIGTokenizer:
         # Track conversation words separately (they may overlap with BIP39/passphrase)
         self._conversation_words: set[str] = set()  # Track words meant for conversation
         self._load_conversation_base()
-        # Conversation mode: use ALL vocabulary (BIP39 + passphrase + conversation)
-        # This enables natural language responses that can include any learned word
-        self.conversation_vocab_ids = set(self.vocab.values())
+        # Conversation mode: use conversation-specific words + their IDs
+        # This includes words that overlap with BIP39 but are needed for chat
+        self.conversation_vocab_ids = {self.vocab[w] for w in self._conversation_words if w in self.vocab}
     
     def _init_special_tokens(self):
         """Initialize special tokens at start of vocabulary."""
