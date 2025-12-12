@@ -3600,35 +3600,84 @@ def olympus_report_outcome():
                     domain_lower = god.domain.lower() if god.domain else ''
                     
                     # Domain-based reputation adjustment (case-insensitive)
+                    # Balanced rewards (+) and penalties (-) for differentiated learning
                     # Actual domains: Athena=Strategy, Ares=War, Apollo=Prophecy,
                     # Artemis=Hunt, Hermes=Coordination/Communication, Hephaestus=Forge,
                     # Demeter=Cycles, Dionysus=Chaos, Hades=Underworld, Poseidon=Depths,
                     # Hera=Coherence, Aphrodite=Motivation
                     domain_relevance = 0.0
-                    if domain_lower == 'strategy' and is_near_miss:
-                        domain_relevance = 0.02  # Athena gets credit for near-misses
-                    elif domain_lower == 'war' and success:
-                        domain_relevance = 0.03  # Ares gets credit for successes
-                    elif domain_lower == 'prophecy' and phi > 0.8:
-                        domain_relevance = 0.02  # Apollo for high-phi discoveries
+                    if domain_lower == 'strategy':
+                        # Athena: credit for near-misses, penalty for strategy failures
+                        if is_near_miss:
+                            domain_relevance = 0.015
+                        elif not success and phi < 0.5:
+                            domain_relevance = -0.02  # Poor strategy led to failure
+                    elif domain_lower == 'war':
+                        # Ares: credit for successes, penalty for defeats
+                        if success:
+                            domain_relevance = 0.02
+                        else:
+                            domain_relevance = -0.025  # War god loses battles
+                    elif domain_lower == 'prophecy':
+                        # Apollo: credit for high-phi, penalty for low-phi predictions
+                        if phi > 0.8:
+                            domain_relevance = 0.015
+                        elif phi < 0.3:
+                            domain_relevance = -0.02  # Poor prophecy
                     elif domain_lower in ('coordination', 'communication'):
-                        domain_relevance = 0.01  # Hermes always learns a bit
-                    elif domain_lower == 'hunt' and is_near_miss:
-                        domain_relevance = 0.02  # Artemis for tracking near-misses
+                        # Hermes: learns slightly, but penalized if success with low phi
+                        if success or is_near_miss:
+                            domain_relevance = 0.008
+                        elif not success:
+                            domain_relevance = -0.01  # Communication failed
+                    elif domain_lower == 'hunt':
+                        # Artemis: credit for near-misses, penalty for complete misses
+                        if is_near_miss:
+                            domain_relevance = 0.015
+                        elif not success and phi < 0.4:
+                            domain_relevance = -0.018  # Lost the trail
                     elif domain_lower == 'forge':
-                        domain_relevance = 0.01 if success else -0.005  # Hephaestus
-                    elif domain_lower == 'cycles' and phi > 0.7:
-                        domain_relevance = 0.015  # Demeter for growth patterns
-                    elif domain_lower == 'chaos' and not success:
-                        domain_relevance = 0.01  # Dionysus learns from failures
-                    elif domain_lower == 'underworld' and not success:
-                        domain_relevance = 0.02  # Hades tracks dead ends
+                        # Hephaestus: balanced crafting outcomes
+                        if success:
+                            domain_relevance = 0.012
+                        else:
+                            domain_relevance = -0.015  # Forge failed
+                    elif domain_lower == 'cycles':
+                        # Demeter: growth patterns - reward phi, penalize stagnation
+                        if phi > 0.7:
+                            domain_relevance = 0.012
+                        elif phi < 0.3:
+                            domain_relevance = -0.01  # No growth
+                    elif domain_lower == 'chaos':
+                        # Dionysus: learns from failures (inverted learning)
+                        if not success:
+                            domain_relevance = 0.01  # Chaos thrives in failure
+                        elif success:
+                            domain_relevance = -0.005  # Order is boring
+                    elif domain_lower == 'underworld':
+                        # Hades: tracks dead ends, but penalized for missed near-misses
+                        if not success:
+                            domain_relevance = 0.015
+                        elif is_near_miss:
+                            domain_relevance = -0.008  # Should have caught this
                     elif domain_lower == 'depths':
-                        domain_relevance = 0.01 if phi > 0.6 else -0.005  # Poseidon
-                    elif domain_lower == 'coherence' and is_near_miss:
-                        domain_relevance = 0.01  # Hera for coherent near-misses
-                    elif domain_lower == 'motivation' and phi > 0.9:
-                        domain_relevance = 0.02  # Aphrodite for high motivation scores
+                        # Poseidon: phi-based deep exploration
+                        if phi > 0.7:
+                            domain_relevance = 0.012
+                        elif phi < 0.4:
+                            domain_relevance = -0.015  # Shallow exploration
+                    elif domain_lower == 'coherence':
+                        # Hera: near-misses show coherent patterns
+                        if is_near_miss:
+                            domain_relevance = 0.01
+                        elif not success and not is_near_miss:
+                            domain_relevance = -0.012  # Incoherent outcome
+                    elif domain_lower == 'motivation':
+                        # Aphrodite: high motivation (phi > 0.9), penalized for low drive
+                        if phi > 0.9:
+                            domain_relevance = 0.015
+                        elif phi < 0.3:
+                            domain_relevance = -0.01  # Low motivation
                     
                     # Only apply and persist if there's actual learning
                     if domain_relevance != 0:
