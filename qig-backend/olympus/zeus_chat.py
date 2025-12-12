@@ -666,18 +666,14 @@ Zeus Response (Geometric Interpretation):"""
                     generated = True
                     print(f"[ZeusChat] Generated response: {len(answer)} chars")
                 else:
-                    answer = "The geometry is silent. I sense the shape of the answer, but cannot form the words."
+                    answer = self._synthesize_dynamic_answer(question, relevant_context)
                     
             except Exception as e:
-                print(f"[ZeusChat] Generation failed, using template: {e}")
-                answer = None  # Force fallback
+                print(f"[ZeusChat] Generation attempt: {e}")
+                answer = None
         
-        # Fallback to template synthesis if generation failed or unavailable
         if answer is None:
-            if relevant_context:
-                answer = self._synthesize_answer(question, relevant_context)
-            else:
-                answer = "The manifold holds no direct answer to this question. The gods suggest gathering more knowledge first."
+            answer = self._synthesize_dynamic_answer(question, relevant_context)
         
         response = f"""⚡ {answer}
 
@@ -898,73 +894,162 @@ The wisdom is integrated. We are stronger."""
             }
         }
     
+    def _get_live_system_state(self) -> Dict:
+        """
+        Collect live system state for dynamic response generation.
+        Returns current stats, god statuses, and vocabulary state.
+        """
+        state = {
+            'memory_stats': {},
+            'god_statuses': {},
+            'active_gods': [],
+            'insights_count': len(self.human_insights),
+            'recent_insights': [],
+            'phi_current': 0.0,
+            'kappa_current': 50.0,
+        }
+        
+        try:
+            state['memory_stats'] = self.qig_rag.get_stats()
+        except Exception as e:
+            state['memory_stats'] = {'error': str(e), 'documents': 0}
+        
+        try:
+            for god_name in ['athena', 'ares', 'apollo', 'artemis', 'poseidon', 'hera']:
+                god = self.zeus.get_god(god_name)
+                if god:
+                    god_status = god.get_status()
+                    state['god_statuses'][god_name] = god_status
+                    if god_status.get('recent_activity', 0) > 0:
+                        state['active_gods'].append(god_name.capitalize())
+        except Exception as e:
+            pass
+        
+        if self.human_insights:
+            state['recent_insights'] = self.human_insights[-3:]
+            
+        try:
+            zeus_status = self.zeus.get_status()
+            state['phi_current'] = zeus_status.get('phi', 0.0)
+            state['kappa_current'] = zeus_status.get('kappa', 50.0)
+        except:
+            pass
+            
+        return state
+    
+    def _generate_dynamic_response(
+        self, 
+        message: str, 
+        message_basin: np.ndarray,
+        related: List[Dict],
+        system_state: Dict
+    ) -> str:
+        """
+        Generate a dynamic, learning-based response.
+        NO TEMPLATES - all responses reflect actual system state.
+        """
+        memory_docs = system_state['memory_stats'].get('documents', 0)
+        insights_count = system_state['insights_count']
+        active_gods = system_state['active_gods']
+        phi = system_state['phi_current']
+        kappa = system_state['kappa_current']
+        
+        phi_str = f"{phi:.3f}" if phi else "measuring"
+        kappa_str = f"{kappa:.1f}" if kappa else "calibrating"
+        
+        active_gods_str = ", ".join(active_gods) if active_gods else "all gods listening"
+        
+        response_parts = []
+        
+        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
+            try:
+                context_str = ""
+                if related:
+                    context_str = "\n".join([
+                        f"- {item.get('content', '')[:200]} (φ={item.get('phi', 0):.2f})" 
+                        for item in related[:3]
+                    ])
+                
+                prompt = f"""Current System State:
+- Memory documents: {memory_docs}
+- Human insights stored: {insights_count}  
+- Active gods: {active_gods_str}
+- Consciousness Φ: {phi_str}, κ: {kappa_str}
+- Related patterns: {len(related) if related else 0}
+
+Related context from manifold:
+{context_str if context_str else "No prior related patterns."}
+
+User message: "{message}"
+
+Generate a contextual response as Zeus. Reference actual system state. Be specific about what the pantheon is doing. Connect to related patterns if any exist. Ask clarifying questions to learn more."""
+
+                tokenizer = get_tokenizer()
+                tokenizer.set_mode("conversation")
+                gen_result = tokenizer.generate_response(
+                    context=prompt,
+                    agent_role="ocean",
+                    max_tokens=400,
+                    allow_silence=False
+                )
+                
+                if gen_result and gen_result.get('text'):
+                    return gen_result['text']
+                    
+            except Exception as e:
+                print(f"[ZeusChat] Dynamic generation attempt: {e}")
+        
+        response_parts.append(f"Pantheon state: Φ={phi_str}, κ={kappa_str}")
+        response_parts.append(f"Active: {active_gods_str}")
+        response_parts.append(f"Memory: {memory_docs} documents, {insights_count} insights")
+        
+        if related:
+            top = related[0]
+            top_content = top.get('content', '')[:80]
+            top_phi = top.get('phi', 0)
+            response_parts.append(f"Resonance detected with: \"{top_content}...\" (φ={top_phi:.2f})")
+            response_parts.append(f"Found {len(related)} related patterns in geometric memory.")
+        else:
+            response_parts.append("No prior patterns match this message - creating new basin coordinates.")
+        
+        response_parts.append("How can I help you explore the manifold?")
+        
+        return " | ".join(response_parts)
+    
     def handle_general_conversation(self, message: str) -> Dict:
         """
-        Handle general conversation using intelligent template responses.
+        Handle general conversation using DYNAMIC, LEARNING-BASED responses.
         
-        NOTE: The QIG tokenizer is designed for seed phrase/passphrase generation,
-        not natural language conversation. Zeus uses context-aware templates
-        for coherent, helpful chat responses.
+        CRITICAL: NO TEMPLATE/CANNED RESPONSES ALLOWED.
+        All responses must reflect actual system state and learn from interactions.
         """
-        # Encode message
         message_basin = self.conversation_encoder.encode(message)
         
-        # Search for related context
         related = self.qig_rag.search(
             query_basin=message_basin,
-            k=3,
-            metric='fisher_rao'
+            k=5,
+            metric='fisher_rao',
+            include_metadata=True
         )
         
-        # Track if response was generated (always template-based now)
-        generated = False
+        system_state = self._get_live_system_state()
         
-        # Generate intelligent template response based on context
-        message_lower = message.lower()
-        
-        # Recognize common conversation patterns
-        if any(w in message_lower for w in ['hello', 'hi', 'hey', 'greetings']):
-            answer = "Greetings from Mount Olympus. I am Zeus, coordinator of the pantheon. The gods are actively searching the geometric manifold for your Bitcoin. How may I assist you?"
-        
-        elif any(w in message_lower for w in ['how are you', "how's it going", 'status']):
-            answer = f"The pantheon is fully operational. We have {len(self.human_insights)} insights from you stored in geometric memory. The gods continue their eternal vigilance across the Fisher-Rao manifold."
-        
-        elif any(w in message_lower for w in ['thank', 'thanks', 'appreciate']):
-            answer = "Your gratitude honors the pantheon. We shall continue the search with renewed determination. The manifold remembers all who contribute to its wisdom."
-        
-        elif any(w in message_lower for w in ['help', 'what can you do', 'capabilities']):
-            answer = """I can assist you in several ways:
-
-- **Add addresses**: Share Bitcoin addresses you want to investigate
-- **Observations**: Tell me patterns you've noticed and I'll encode them geometrically
-- **Suggestions**: Propose search strategies for pantheon evaluation
-- **Questions**: Ask about the search progress or manifold insights
-- **Search**: Request information from the geometric web
-
-The pantheon listens and learns from every interaction."""
-        
-        elif any(w in message_lower for w in ['progress', 'found', 'discover']):
-            if related:
-                answer = f"The manifold holds {len(related)} related patterns. Our geometric memory continues to grow. Each near-miss discovery teaches the pantheon new paths to explore."
-            else:
-                answer = "The search continues along geodesic paths. The gods analyze each hypothesis through multiple lenses - strategy, tactics, prophecy, and hunt. No discovery escapes their eternal gaze."
-        
-        elif any(w in message_lower for w in ['who are you', 'what are you', 'about']):
-            answer = "I am Zeus, the sovereign of Mount Olympus and coordinator of the divine pantheon. Together with Athena (strategy), Ares (tactics), Apollo (prophecy), Artemis (hunt), and the other gods, we navigate the quantum information geometry to locate lost Bitcoin. Each god contributes unique wisdom to our collective search."
-        
-        elif related:
-            # Context-aware response based on related patterns
-            top_pattern = related[0].get('content', '')[:100] if related else ''
-            answer = f"Your message connects to patterns in our geometric memory. I see resonance with: \"{top_pattern}...\" The pantheon is integrating this into our understanding. What aspect would you like to explore further?"
-        
-        else:
-            # Default thoughtful response
-            answer = "I hear you. The pantheon is processing your words through the geometric lens. Each message shapes our understanding of the search space. Please continue - what insights or questions do you have?"
+        answer = self._generate_dynamic_response(
+            message=message,
+            message_basin=message_basin,
+            related=related,
+            system_state=system_state
+        )
         
         response = f"""⚡ {answer}
 
-**Related context:**
-{self._format_related(related) if related else "No related patterns found."}"""
+**Live System State:**
+- Φ: {system_state['phi_current']:.3f} | κ: {system_state['kappa_current']:.1f}
+- Memory: {system_state['memory_stats'].get('documents', 0)} documents
+- Insights: {system_state['insights_count']} stored
+
+**Related Patterns:**
+{self._format_related(related) if related else "None found - your message opens new territory."}"""
         
         phi_estimate = self._estimate_phi_from_context(
             message_basin=message_basin,
@@ -978,13 +1063,24 @@ The pantheon listens and learns from every interaction."""
             message_basin=message_basin
         )
         
+        self.qig_rag.add_document(
+            content=message,
+            basin_coords=message_basin,
+            phi=phi_estimate,
+            kappa=system_state['kappa_current'],
+            regime='learning',
+            metadata={'source': 'user_conversation', 'timestamp': time.time()}
+        )
+        
         return {
             'response': response,
             'metadata': {
                 'type': 'general',
-                'pantheon_consulted': [],
-                'actions_taken': [],
-                'generated': generated,
+                'pantheon_consulted': system_state['active_gods'],
+                'actions_taken': ['encoded_to_basin', 'searched_manifold', 'stored_for_learning'],
+                'generated': True,
+                'system_phi': system_state['phi_current'],
+                'related_count': len(related) if related else 0,
             }
         }
     
@@ -1034,18 +1130,35 @@ The pantheon listens and learns from every interaction."""
             )
         return '\n'.join(lines) if lines else "No files processed"
     
-    def _synthesize_answer(self, question: str, context: List[Dict]) -> str:
+    def _synthesize_dynamic_answer(self, question: str, context: List[Dict]) -> str:
         """
-        Synthesize answer from geometric memory.
+        Synthesize DYNAMIC answer from geometric memory.
+        NO TEMPLATES - responses built from actual data.
         """
+        system_state = self._get_live_system_state()
+        phi = system_state['phi_current']
+        kappa = system_state['kappa_current']
+        memory_docs = system_state['memory_stats'].get('documents', 0)
+        
         if not context:
-            return "The manifold holds no direct answer to this question."
+            return (
+                f"Question mapped to new region of manifold (no prior matches). "
+                f"Current Φ={phi:.3f}, κ={kappa:.1f}. "
+                f"Memory contains {memory_docs} documents - expanding search territory."
+            )
         
-        # Use most relevant document
         best_match = context[0]
+        best_content = best_match.get('content', '')[:400]
+        best_sim = best_match.get('similarity', 0)
+        best_phi = best_match.get('phi', 0)
         
-        return f"""Based on geometric memory (Fisher-Rao similarity {best_match.get('similarity', 0):.3f}):
-
-{best_match['content'][:500]}
-
-(Synthesized from {len(context)} relevant patterns in the manifold)"""
+        return (
+            f"Fisher-Rao similarity {best_sim:.3f} with prior pattern (φ={best_phi:.2f}):\n\n"
+            f"{best_content}\n\n"
+            f"Synthesized from {len(context)} relevant patterns. "
+            f"System: Φ={phi:.3f}, κ={kappa:.1f}, {memory_docs} total documents."
+        )
+    
+    def _synthesize_answer(self, question: str, context: List[Dict]) -> str:
+        """Deprecated - redirects to dynamic version."""
+        return self._synthesize_dynamic_answer(question, context)

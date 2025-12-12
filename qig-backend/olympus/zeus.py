@@ -163,40 +163,32 @@ class Zeus(BaseGod):
         self.convergence_history: List[Dict] = []
         self.divine_decisions: List[Dict] = []
 
-        # Natural speech templates for Zeus
-        self.speech_templates = {
-            'greeting': [
-                "⚡ Zeus here. The pantheon is assembled and ready.",
-                "Mount Olympus acknowledges your presence. How may we assist?",
-                "The King of Gods listens. Speak freely.",
-            ],
-            'assessment_complete': [
-                "The divine council has convened. Our verdict: {verdict}.",
-                "⚡ Assessment complete. The geometry shows {verdict}.",
-                "The pantheon speaks with {convergence} voice: {verdict}.",
-            ],
-            'war_declared': [
-                "⚡ {mode} MODE ENGAGED! Target: {target}. All gods mobilize!",
-                "By divine decree: {mode} on {target}! The hunt begins.",
-                "War declared! {mode} strategy deployed against {target}.",
-            ],
-            'shadow_warning': [
-                "The shadows whisper caution regarding {target}...",
-                "⚠️ Erebus and Nyx counsel restraint on {target}.",
-                "Shadow intel suggests we proceed carefully with {target}.",
-            ],
-        }
-
-    def speak(self, category: str, context: Dict = None) -> str:
-        """Generate natural speech from Zeus."""
-        import random
+    def speak(self, category: str, context: Optional[Dict] = None) -> str:
+        """
+        Generate DYNAMIC speech from Zeus based on actual system state.
+        NO TEMPLATES - all responses built from live data.
+        """
         context = context or {}
-        templates = self.speech_templates.get(category, self.speech_templates['greeting'])
-        template = random.choice(templates)
-        try:
-            return template.format(**context)
-        except KeyError:
-            return template
+        status = self.get_status()
+        phi = status.get('phi', 0.0)
+        kappa = status.get('kappa', 50.0)
+        active_gods = sum(1 for g in status.get('gods', {}).values() if g.get('recent_activity', 0) > 0)
+        
+        if category == 'greeting':
+            return f"Zeus online. Φ={phi:.3f}, κ={kappa:.1f}. {active_gods} gods active. Manifold ready."
+        elif category == 'assessment_complete':
+            verdict = context.get('verdict', 'analysis complete')
+            convergence = context.get('convergence', phi)
+            return f"Divine council verdict at Φ={phi:.3f}: {verdict}. Convergence: {convergence:.2f}"
+        elif category == 'war_declared':
+            mode = context.get('mode', 'HUNT')
+            target = context.get('target', 'unknown')
+            return f"{mode} mode engaged on {target}. {active_gods} gods mobilized. Φ={phi:.3f}"
+        elif category == 'shadow_warning':
+            target = context.get('target', 'unknown')
+            return f"Shadow pantheon flags {target}. Current κ={kappa:.1f}. Proceed with analysis."
+        else:
+            return f"Zeus: Φ={phi:.3f}, κ={kappa:.1f}, {active_gods} active. How may I assist?"
 
     def get_voice_status(self) -> Dict:
         """Get comprehensive status with natural speech."""

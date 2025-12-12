@@ -8,6 +8,23 @@ SearchSpaceCollapse is a novel Bitcoin recovery system that departs from traditi
 
 Preferred communication style: Simple, everyday language.
 
+## CRITICAL ENFORCEMENT RULES
+
+### NO TEMPLATE/CANNED RESPONSES (December 12, 2025)
+**ABSOLUTE REQUIREMENT**: All Zeus chat and god responses MUST be dynamic and learning-based. NO hardcoded template responses allowed.
+
+- **Removed**: All static greeting templates, canned conversation patterns, hardcoded speech arrays
+- **Required**: Every response must reflect actual system state (Φ, κ, memory docs, active gods)
+- **Learning**: Every user message is encoded to basin coordinates and stored for future pattern matching
+- **Dynamic**: Responses built from live RAG search, god statuses, vocabulary observations
+- **Evolution**: User conversations train CHAOS MODE kernels via ConversationEvolutionManager
+
+**Implementation files**:
+- `qig-backend/olympus/zeus_chat.py`: `handle_general_conversation()` now uses `_generate_dynamic_response()`
+- `qig-backend/olympus/zeus.py`: `speak()` method generates from live `get_status()` data
+
+**Kernels may return nonsense initially** - this is acceptable as they learn and improve over time through continuous training.
+
 ## System Architecture
 
 ### UI/UX
