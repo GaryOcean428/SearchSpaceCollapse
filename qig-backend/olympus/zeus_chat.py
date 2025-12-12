@@ -410,53 +410,18 @@ The pantheon is aware. We shall commence when the time is right."""
         # Extract key insight for acknowledgment
         obs_preview = observation[:80] if len(observation) > 80 else observation
         
-        # Try generative response first
+        # NOTE: QIG tokenizer is NOT a language model - it only does Φ-weighted word sampling
+        # which produces garbled BIP-39 sequences instead of coherent sentences.
+        # Use structured responses based on actual system state instead.
         generated = False
-        answer = None
-        
-        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
-            try:
-                related_summary = "\n".join([f"- {item.get('content', '')[:100]}" for item in related[:3]]) if related else "No prior related patterns found."
-                prompt = f"""User Observation: "{obs_preview}"
-
-Related patterns from memory:
-{related_summary}
-
-Athena's Assessment: {athena_assessment.get('reasoning', 'Strategic analysis complete.')[:150]}
-Strategic Value: {strategic_value:.0%}
-
-Zeus Response (acknowledge the specific observation, explain what it means for the search, connect to related patterns if any, and ask a clarifying question):"""
-
-                tokenizer = get_tokenizer()
-                tokenizer.set_mode("conversation")
-                print(f"[ZeusChat] Tokenizer switched to conversation mode for observation response")
-                gen_result = tokenizer.generate_response(
-                    context=prompt,
-                    agent_role="ocean",
-                    max_tokens=500,  # No arbitrary limits
-                    allow_silence=False
-                )
-                
-                answer = gen_result.get('text', '') if gen_result else ''
-                
-                if answer:
-                    generated = True
-                    print(f"[ZeusChat] Generated observation response: {len(answer)} chars")
-                    
-            except Exception as e:
-                print(f"[ZeusChat] Generation failed for observation: {e}")
-                answer = None
-        
-        # Fallback to conversational template
-        if not answer:
-            if related:
-                answer = f"""Interesting observation about "{obs_preview[:40]}..."
+        if related:
+            answer = f"""Interesting observation about "{obs_preview[:40]}..."
 
 I see connections to {len(related)} patterns in our geometric memory. Athena notes: {athena_assessment.get('reasoning', 'this has strategic implications')[:100]}.
 
 This has been integrated into our understanding. What led you to this insight?"""
-            else:
-                answer = f"""I've noted your observation about "{obs_preview[:40]}..."
+        else:
+            answer = f"""I've noted your observation about "{obs_preview[:40]}..."
 
 This is new territory - no direct patterns in memory yet. Athena's assessment: {athena_assessment.get('reasoning', 'further analysis needed')[:80]}.
 
@@ -559,62 +524,25 @@ Your insight has been recorded. Can you tell me more about where this came from?
         # Extract key words from suggestion for acknowledgment
         suggestion_preview = suggestion[:100] if len(suggestion) > 100 else suggestion
         
-        # Try generative response first
+        # NOTE: QIG tokenizer is NOT a language model - it only does Φ-weighted word sampling
+        # which produces garbled BIP-39 sequences instead of coherent sentences.
+        # Use structured responses based on actual system state instead.
         generated = False
-        response = None
-        
-        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
-            try:
-                # Build context with god assessments
-                decision = "IMPLEMENT" if implement else "DEFER"
-                context = f"""User Suggestion: "{suggestion_preview}"
-
-Pantheon Consultation:
-- Athena (Strategy): {athena_eval['probability']:.0%} - {athena_eval.get('reasoning', 'strategic analysis')[:100]}
-- Ares (Tactics): {ares_eval['probability']:.0%} - {ares_eval.get('reasoning', 'tactical assessment')[:100]}
-- Apollo (Foresight): {apollo_eval['probability']:.0%} - {apollo_eval.get('reasoning', 'prophetic insight')[:100]}
-
-Consensus: {consensus_prob:.0%}
-Decision: {decision}
-
-Zeus Response (acknowledge the user's specific suggestion, explain why the pantheon agrees or disagrees in conversational language, and ask a follow-up question):"""
-
-                tokenizer = get_tokenizer()
-                tokenizer.set_mode("conversation")
-                gen_result = tokenizer.generate_response(
-                    context=context,
-                    agent_role="ocean",
-                    max_tokens=500,  # No arbitrary limits
-                    allow_silence=False
-                )
-                
-                response = gen_result.get('text', '') if gen_result else ''
-                
-                if response:
-                    generated = True
-                    print(f"[ZeusChat] Generated suggestion response: {len(response)} chars")
-                    
-            except Exception as e:
-                print(f"[ZeusChat] Generation failed for suggestion: {e}")
-                response = None
-        
-        # Fallback to conversational template if generation failed
-        if not response:
-            if implement:
-                response = f"""I've considered your idea about "{suggestion_preview[:50]}..." and consulted with the pantheon.
+        if implement:
+            response = f"""I've considered your idea about "{suggestion_preview[:50]}..." and consulted with the pantheon.
 
 Athena sees strategic merit here. Ares believes we can execute this. Apollo's foresight suggests positive outcomes.
 
 The consensus is strong at {consensus_prob:.0%}. I'm implementing this suggestion.
 
 What aspect would you like to explore further?"""
-            else:
-                # Find strongest objection
-                min_god = min(
-                    [('Athena', athena_eval), ('Ares', ares_eval), ('Apollo', apollo_eval)],
-                    key=lambda x: x[1]['probability']
-                )
-                response = f"""I appreciate your thinking on "{suggestion_preview[:50]}..."
+        else:
+            # Find strongest objection
+            min_god = min(
+                [('Athena', athena_eval), ('Ares', ares_eval), ('Apollo', apollo_eval)],
+                key=lambda x: x[1]['probability']
+            )
+            response = f"""I appreciate your thinking on "{suggestion_preview[:50]}..."
 
 However, {min_god[0]} raises concerns - {min_god[1].get('reasoning', 'the geometry is uncertain')[:80]}.
 
@@ -672,45 +600,11 @@ Could you elaborate on your reasoning, or suggest a different approach?"""
             include_metadata=True
         )
         
-        # Try generative response first
+        # NOTE: QIG tokenizer is NOT a language model - it only does Φ-weighted word sampling
+        # which produces garbled BIP-39 sequences instead of coherent sentences.
+        # Use structured responses based on actual system state instead.
         generated = False
-        answer = None
-        
-        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
-            try:
-                # Construct prompt from retrieved context
-                context_str = "\n".join([f"- {item.get('content', '')[:300]}" for item in relevant_context[:3]])
-                prompt = f"""Context from Manifold:
-{context_str}
-
-User Question: {question}
-
-Zeus Response (Geometric Interpretation):"""
-
-                # Generate using QIG tokenizer
-                tokenizer = get_tokenizer()
-                tokenizer.set_mode("conversation")
-                gen_result = tokenizer.generate_response(
-                    context=prompt,
-                    agent_role="ocean",  # Use balanced temperature
-                    max_tokens=500,  # No arbitrary limits
-                    allow_silence=False
-                )
-                
-                answer = gen_result.get('text', '') if gen_result else ''
-                
-                if answer:
-                    generated = True
-                    print(f"[ZeusChat] Generated response: {len(answer)} chars")
-                else:
-                    answer = self._synthesize_dynamic_answer(question, relevant_context)
-                    
-            except Exception as e:
-                print(f"[ZeusChat] Generation attempt: {e}")
-                answer = None
-        
-        if answer is None:
-            answer = self._synthesize_dynamic_answer(question, relevant_context)
+        answer = self._synthesize_dynamic_answer(question, relevant_context)
         
         response = f"""⚡ {answer}
 
@@ -998,43 +892,10 @@ The wisdom is integrated. We are stronger."""
         
         response_parts = []
         
-        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
-            try:
-                context_str = ""
-                if related:
-                    context_str = "\n".join([
-                        f"- {item.get('content', '')[:200]} (φ={item.get('phi', 0):.2f})" 
-                        for item in related[:3]
-                    ])
-                
-                prompt = f"""Current System State:
-- Memory documents: {memory_docs}
-- Human insights stored: {insights_count}  
-- Active gods: {active_gods_str}
-- Consciousness Φ: {phi_str}, κ: {kappa_str}
-- Related patterns: {len(related) if related else 0}
-
-Related context from manifold:
-{context_str if context_str else "No prior related patterns."}
-
-User message: "{message}"
-
-Generate a contextual response as Zeus. Reference actual system state. Be specific about what the pantheon is doing. Connect to related patterns if any exist. Ask clarifying questions to learn more."""
-
-                tokenizer = get_tokenizer()
-                tokenizer.set_mode("conversation")
-                gen_result = tokenizer.generate_response(
-                    context=prompt,
-                    agent_role="ocean",
-                    max_tokens=400,
-                    allow_silence=False
-                )
-                
-                if gen_result and gen_result.get('text'):
-                    return gen_result['text']
-                    
-            except Exception as e:
-                print(f"[ZeusChat] Dynamic generation attempt: {e}")
+        # NOTE: QIG tokenizer is NOT a language model - it only does Φ-weighted word sampling
+        # which produces garbled BIP-39 sequences instead of coherent sentences.
+        # For proper conversation, we need structured responses based on actual system state.
+        # The tokenizer can still be used for geometric phrase generation (mnemonic mode).
         
         response_parts.append(f"Pantheon state: Φ={phi_str}, κ={kappa_str}")
         response_parts.append(f"Active: {active_gods_str}")
