@@ -68,13 +68,15 @@ async function checkDatabaseHealth(): Promise<SubsystemHealth> {
 
 /**
  * Check Python QIG backend health
+ * Uses silent mode to avoid spamming logs during startup
  */
 async function checkPythonBackendHealth(): Promise<SubsystemHealth> {
   const start = Date.now();
   try {
     const { oceanQIGBackend } = await import("./ocean-qig-backend-adapter");
     
-    const isHealthy = await oceanQIGBackend.checkHealth();
+    // Use silent mode - we handle the result gracefully
+    const isHealthy = await oceanQIGBackend.checkHealth(true);
     const latency = Date.now() - start;
     
     if (isHealthy) {
