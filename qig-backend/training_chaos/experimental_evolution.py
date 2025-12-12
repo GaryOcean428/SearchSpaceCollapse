@@ -24,6 +24,71 @@ import torch
 from .chaos_logger import ChaosLogger
 from .self_spawning import SelfSpawningKernel, absorb_failing_kernel, breed_kernels
 
+# God names for spawned kernels - mapped by domain/role
+# Each domain maps to appropriate gods from Greek pantheon
+GOD_NAME_POOLS = {
+    'exploration': ['Hermes', 'Artemis', 'Apollo'],  # Discovery and travel
+    'analysis': ['Athena', 'Apollo', 'Hephaestus'],   # Wisdom and craft
+    'combat': ['Ares', 'Athena', 'Artemis'],          # War and strategy
+    'pattern': ['Demeter', 'Dionysus', 'Hera'],       # Cycles and patterns
+    'depth': ['Hades', 'Poseidon', 'Hestia'],         # Depths and foundations
+    'random': ['Zeus', 'Prometheus', 'Chronos', 'Helios', 'Nyx', 'Eos', 'Selene', 'Pan', 'Morpheus', 'Hypnos'],
+    'e8_root': ['Atlas', 'Hyperion', 'Cronus', 'Rhea', 'Themis', 'Mnemosyne', 'Oceanus', 'Tethys'],
+    'elite': ['Nike', 'Tyche', 'Astraea'],            # Victory and fortune
+    'breeding': ['Aphrodite', 'Eros', 'Gaia'],        # Love and creation
+}
+
+# Counter for unique naming
+_kernel_name_counters: dict = {}
+
+
+def assign_god_name(domain: str, phi: float = 0.0) -> str:
+    """
+    Assign a god name based on domain and characteristics.
+    
+    Higher phi kernels get more prestigious names.
+    Returns format: "GodName_123" for uniqueness.
+    """
+    global _kernel_name_counters
+    
+    # Map domain to pool
+    if phi >= 0.8:
+        pool_key = 'elite'
+    elif domain.startswith('e8_root'):
+        pool_key = 'e8_root'
+    elif domain in ('exploration', 'random_exploration'):
+        pool_key = 'exploration'
+    elif domain in ('analysis', 'pattern_detection'):
+        pool_key = 'analysis'
+    elif domain in ('combat', 'war_mode'):
+        pool_key = 'combat'
+    elif domain in ('pattern', 'cycle_detection'):
+        pool_key = 'pattern'
+    elif domain in ('depth', 'deep_search'):
+        pool_key = 'depth'
+    elif domain in ('breeding', 'reproduction'):
+        pool_key = 'breeding'
+    else:
+        pool_key = 'random'
+    
+    # Get appropriate pool
+    pool = GOD_NAME_POOLS.get(pool_key, GOD_NAME_POOLS['random'])
+    
+    # Pick a god (round-robin within pool)
+    if pool_key not in _kernel_name_counters:
+        _kernel_name_counters[pool_key] = 0
+    
+    god_name = pool[_kernel_name_counters[pool_key] % len(pool)]
+    _kernel_name_counters[pool_key] += 1
+    
+    # Get global counter for uniqueness
+    if 'global' not in _kernel_name_counters:
+        _kernel_name_counters['global'] = 0
+    _kernel_name_counters['global'] += 1
+    
+    return f"{god_name}_{_kernel_name_counters['global']}"
+
+
 # Import persistence for database operations
 try:
     import sys
@@ -373,7 +438,7 @@ class ExperimentalKernelEvolution:
         Each kernel occupies a root in E8 space.
         """
         if self.e8_roots is None:
-            return self.spawn_random_kernel()
+            return self.spawn_random_kernel(domain='e8_exploration')
 
         root_vector = self.e8_roots[root_index]
         basin_coords = self._root_to_basin(root_vector)
@@ -390,24 +455,31 @@ class ExperimentalKernelEvolution:
         kernel.kernel_id = f"e8_{root_index}_{kernel.kernel_id.split('_')[1]}"
         self.kernel_to_root_mapping[kernel.kernel_id] = root_index
         self.kernel_population.append(kernel)
-        self.logger.log_spawn(None, kernel.kernel_id, f'e8_root_{root_index}')
+        
+        # Compute phi and assign god name
+        phi = kernel.kernel.compute_phi()
+        domain = f'e8_root_{root_index}'
+        god_name = assign_god_name(domain, phi)
+        
+        self.logger.log_spawn(None, kernel.kernel_id, domain)
 
-        # Save to database
+        # Save to database with god name
         if self.kernel_persistence:
             try:
                 self.kernel_persistence.save_kernel_snapshot(
                     kernel_id=kernel.kernel_id,
-                    god_name='chaos',
-                    domain=f'e8_root_{root_index}',
+                    god_name=god_name,
+                    domain=domain,
                     generation=kernel.generation,
                     basin_coords=kernel.kernel.basin_coords.detach().cpu().tolist(),
-                    phi=kernel.kernel.compute_phi(),
+                    phi=phi,
                     kappa=0.0,
                     regime='e8_aligned',
                     metadata={'primitive_root': root_index}
                 )
+                print(f"[Chaos] 🏛️ Spawned {god_name} at E8 root {root_index} (Φ={phi:.3f})")
             except Exception as e:
-                print(f"[Chaos] Failed to persist E8 kernel: {e}")
+                print(f"[Chaos] Failed to persist E8 kernel {god_name}: {e}")
 
         return kernel
 
@@ -609,9 +681,9 @@ class ExperimentalKernelEvolution:
             'e8_alignment': self.check_e8_alignment() if self.e8_roots is not None else None,
         }
 
-    def spawn_random_kernel(self) -> SelfSpawningKernel:
+    def spawn_random_kernel(self, domain: str = 'random_exploration') -> SelfSpawningKernel:
         """
-        YOLO: Spawn completely random kernel.
+        Spawn kernel with appropriate god name based on domain.
         """
         kernel = SelfSpawningKernel(
             spawn_threshold=self.spawn_threshold,
@@ -620,23 +692,31 @@ class ExperimentalKernelEvolution:
         )
 
         self.kernel_population.append(kernel)
-        self.logger.log_spawn(None, kernel.kernel_id, 'random')
+        
+        # Compute phi for god name assignment
+        phi = kernel.kernel.compute_phi()
+        
+        # Assign god name based on domain and characteristics
+        god_name = assign_god_name(domain, phi)
+        
+        self.logger.log_spawn(None, kernel.kernel_id, domain)
 
-        # Save to database
+        # Save to database with god name
         if self.kernel_persistence:
             try:
                 self.kernel_persistence.save_kernel_snapshot(
                     kernel_id=kernel.kernel_id,
-                    god_name='chaos',
-                    domain='random_exploration',
+                    god_name=god_name,
+                    domain=domain,
                     generation=kernel.generation,
                     basin_coords=kernel.kernel.basin_coords.detach().cpu().tolist(),
-                    phi=kernel.kernel.compute_phi(),
-                    kappa=0.0,  # TODO: compute kappa
-                    regime='unknown'
+                    phi=phi,
+                    kappa=0.0,
+                    regime='chaos_spawned'
                 )
+                print(f"[Chaos] 🏛️ Spawned {god_name} (Φ={phi:.3f}) - persisted to PostgreSQL")
             except Exception as e:
-                print(f"[Chaos] Failed to persist kernel: {e}")
+                print(f"[Chaos] Failed to persist kernel {god_name}: {e}")
 
         return kernel
 
@@ -650,7 +730,30 @@ class ExperimentalKernelEvolution:
 
         child = parent.spawn_child()
         self.kernel_population.append(child)
+        
+        # Compute phi and assign god name
+        phi = child.kernel.compute_phi()
+        god_name = assign_god_name('exploration', phi)
+        
         self.logger.log_spawn(parent_id, child.kernel_id, 'reproduction')
+        
+        # Persist to database
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.save_kernel_snapshot(
+                    kernel_id=child.kernel_id,
+                    god_name=god_name,
+                    domain='reproduction',
+                    generation=child.generation,
+                    basin_coords=child.kernel.basin_coords.detach().cpu().tolist(),
+                    phi=phi,
+                    kappa=0.0,
+                    regime='spawned',
+                    parent_ids=[parent_id]
+                )
+                print(f"[Chaos] 🏛️ Spawned {god_name} from parent {parent_id} (Φ={phi:.3f})")
+            except Exception as e:
+                print(f"[Chaos] Failed to persist child {god_name}: {e}")
 
         return child
 
@@ -676,19 +779,24 @@ class ExperimentalKernelEvolution:
 
         self.kernel_population.append(child)
         child_phi = child.kernel.compute_phi()
+        
+        # Assign god name for bred kernel
+        god_name = assign_god_name('breeding', child_phi)
+        
         self.logger.log_breeding(parent1.kernel_id, parent2.kernel_id, child.kernel_id, {
             'parent1_success': parent1.success_count,
             'parent2_success': parent2.success_count,
             'child_phi': child_phi,
+            'god_name': god_name,
         })
 
         # Persist breeding event and child kernel to PostgreSQL
         if self.kernel_persistence:
             try:
-                # Save child kernel snapshot
+                # Save child kernel snapshot with god name
                 self.kernel_persistence.save_kernel_snapshot(
                     kernel_id=child.kernel_id,
-                    god_name='chaos',
+                    god_name=god_name,
                     domain='breeding',
                     generation=child.generation,
                     basin_coords=child.kernel.basin_coords.detach().cpu().tolist(),
@@ -709,8 +817,9 @@ class ExperimentalKernelEvolution:
                     breeding_type='top_kernels',
                     child_phi=child_phi,
                 )
+                print(f"[Chaos] 🏛️ Bred {god_name} from parents (Φ={child_phi:.3f})")
             except Exception as e:
-                print(f"[Chaos] Failed to persist breeding: {e}")
+                print(f"[Chaos] Failed to persist breeding {god_name}: {e}")
 
         return child
 

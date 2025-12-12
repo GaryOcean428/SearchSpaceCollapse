@@ -13,6 +13,18 @@ from typing import Any, Dict, List, Optional
 from .base_persistence import BasePersistence
 
 
+def ensure_64d_coords(coords: List[float]) -> List[float]:
+    """
+    Ensure basin coordinates are exactly 64 dimensions for pgvector storage.
+    Pads with zeros if needed, truncates if too long.
+    """
+    if not coords:
+        return [0.0] * 64
+    if len(coords) >= 64:
+        return coords[:64]
+    return coords + [0.0] * (64 - len(coords))
+
+
 class KernelPersistence(BasePersistence):
     """Persistence layer for kernel evolution state."""
 
@@ -68,8 +80,11 @@ class KernelPersistence(BasePersistence):
                 metadata = EXCLUDED.metadata
         """
 
+        # Ensure 64D basin coordinates for pgvector storage
+        coords_64d = ensure_64d_coords(basin_coords)
+        
         params = (
-            kernel_id, god_name, domain, generation, basin_coords,
+            kernel_id, god_name, domain, generation, coords_64d,
             phi, kappa, regime, success_count, failure_count,
             e8_root_index, element_group, ecological_niche,
             target_function, valence, breeding_target,
@@ -202,11 +217,13 @@ class KernelPersistence(BasePersistence):
         metadata: Optional[Dict] = None
     ) -> bool:
         """Record a breeding event for lineage tracking."""
+        import uuid
+        event_id = f"breed_{uuid.uuid4().hex[:16]}"
         query = """
             INSERT INTO learning_events (
-                event_type, kernel_id, phi, metadata, created_at
+                event_id, event_type, kernel_id, phi, metadata, created_at
             ) VALUES (
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s
             )
         """
         event_metadata = {
@@ -219,7 +236,7 @@ class KernelPersistence(BasePersistence):
         try:
             self.execute_query(
                 query,
-                ('breeding', child_id, child_phi, json.dumps(event_metadata), datetime.utcnow()),
+                (event_id, 'breeding', child_id, child_phi, json.dumps(event_metadata), datetime.utcnow()),
                 fetch=False
             )
             return True
@@ -236,11 +253,13 @@ class KernelPersistence(BasePersistence):
         metadata: Optional[Dict] = None
     ) -> bool:
         """Record a kernel death event."""
+        import uuid
+        event_id = f"death_{uuid.uuid4().hex[:16]}"
         query = """
             INSERT INTO learning_events (
-                event_type, kernel_id, phi, metadata, created_at
+                event_id, event_type, kernel_id, phi, metadata, created_at
             ) VALUES (
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s
             )
         """
         event_metadata = {
@@ -252,7 +271,7 @@ class KernelPersistence(BasePersistence):
         try:
             self.execute_query(
                 query,
-                ('death', kernel_id, final_phi, json.dumps(event_metadata), datetime.utcnow()),
+                (event_id, 'death', kernel_id, final_phi, json.dumps(event_metadata), datetime.utcnow()),
                 fetch=False
             )
             return True
@@ -271,11 +290,13 @@ class KernelPersistence(BasePersistence):
         metadata: Optional[Dict] = None
     ) -> bool:
         """Record a convergence snapshot for E8 hypothesis tracking."""
+        import uuid
+        event_id = f"conv_{uuid.uuid4().hex[:16]}"
         query = """
             INSERT INTO learning_events (
-                event_type, kernel_id, phi, metadata, created_at
+                event_id, event_type, kernel_id, phi, metadata, created_at
             ) VALUES (
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s
             )
         """
         event_metadata = {
@@ -290,7 +311,7 @@ class KernelPersistence(BasePersistence):
         try:
             self.execute_query(
                 query,
-                ('convergence', f'gen_{generation}', avg_phi, json.dumps(event_metadata), datetime.utcnow()),
+                (event_id, 'convergence', f'gen_{generation}', avg_phi, json.dumps(event_metadata), datetime.utcnow()),
                 fetch=False
             )
             return True
@@ -332,11 +353,13 @@ class KernelPersistence(BasePersistence):
         )
         
         # Then record as learning event
+        import uuid
+        event_id = f"spawn_{uuid.uuid4().hex[:16]}"
         query = """
             INSERT INTO learning_events (
-                event_type, kernel_id, phi, metadata, created_at
+                event_id, event_type, kernel_id, phi, metadata, created_at
             ) VALUES (
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s
             )
         """
         event_metadata = {
@@ -350,7 +373,7 @@ class KernelPersistence(BasePersistence):
         try:
             self.execute_query(
                 query,
-                ('m8_spawn', kernel_id, phi, json.dumps(event_metadata), datetime.utcnow()),
+                (event_id, 'm8_spawn', kernel_id, phi, json.dumps(event_metadata), datetime.utcnow()),
                 fetch=False
             )
             return True
@@ -370,11 +393,13 @@ class KernelPersistence(BasePersistence):
         metadata: Optional[Dict] = None
     ) -> bool:
         """Record an M8 kernel proposal event."""
+        import uuid
+        event_id = f"prop_{uuid.uuid4().hex[:16]}"
         query = """
             INSERT INTO learning_events (
-                event_type, kernel_id, phi, metadata, created_at
+                event_id, event_type, kernel_id, phi, metadata, created_at
             ) VALUES (
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s
             )
         """
         event_metadata = {
@@ -390,7 +415,7 @@ class KernelPersistence(BasePersistence):
         try:
             self.execute_query(
                 query,
-                ('m8_proposal', proposal_id, 0.0, json.dumps(event_metadata), datetime.utcnow()),
+                (event_id, 'm8_proposal', proposal_id, 0.0, json.dumps(event_metadata), datetime.utcnow()),
                 fetch=False
             )
             return True

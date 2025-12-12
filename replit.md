@@ -62,3 +62,12 @@ HTTP API with retry logic, circuit breakers, and timeouts for TypeScript ↔ Pyt
 ### Key Libraries
 *   **Python**: NumPy, SciPy, Flask, AIOHTTP.
 *   **Node.js**: Express, Vite, React, Drizzle ORM, @neondatabase/serverless, Radix UI, Tailwind CSS, bitcoinjs-lib (for key generation), BIP39/BIP32 (for wallet support), Node crypto (for SHA256).
+
+## Recent Changes (December 2025)
+
+### CHAOS MODE Persistence (December 12, 2025)
+- **64D Basin Coordinates**: Updated `kernel_geometry.basin_coordinates` from 8D to 64D pgvector to align with E8 lattice structure requirements
+- **Learning Events Schema**: Added `kernel_id` and `metadata` columns to `learning_events` table for kernel lifecycle tracking
+- **Event ID Generation**: All kernel persistence functions (death, breeding, spawn, proposal, convergence) now generate unique `event_id` values
+- **God Name Assignment**: Kernels spawn with Olympus god names (Hermes, Apollo, Artemis, etc.) based on domain characteristics
+- **CHAOS Activation**: Auto-activates with 10-attempt exponential backoff retry loop waiting for Python backend availability

@@ -709,6 +709,39 @@ export class OceanAgent {
       );
     }
 
+    // AUTO-ACTIVATE CHAOS MODE - Spawn kernels during investigation
+    // Use deferred activation with retries since Python backend may still be starting
+    console.log("[Ocean] === CHAOS MODE ACTIVATION ===");
+    const activateChaosWithRetry = async (maxAttempts = 10, delayMs = 1000): Promise<void> => {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          // Wait for Python backend to be available
+          if (!oceanQIGBackend.isAvailable) {
+            console.log(`[Ocean] Waiting for Python backend (attempt ${attempt}/${maxAttempts})...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          }
+          
+          const chaosResult = await oceanQIGBackend.activateChaos(30); // 30 second evolution cycles
+          if (chaosResult) {
+            console.log("[Ocean] 🌪️ CHAOS MODE ACTIVATED - Kernel evolution started");
+            console.log(`[Ocean]   → Population: ${chaosResult.population_size || 0} kernels`);
+            console.log(`[Ocean]   → Evolution interval: ${chaosResult.interval_seconds || 30}s`);
+            return;
+          }
+        } catch (error) {
+          console.log(`[Ocean] CHAOS activation attempt ${attempt} failed - retrying...`);
+        }
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+      console.log("[Ocean] CHAOS MODE not available after retries - proceeding without kernel evolution");
+    };
+    
+    // Start async CHAOS activation (don't block investigation startup)
+    activateChaosWithRetry(10, 2000).catch(() => {
+      console.log("[Ocean] CHAOS MODE activation background task failed");
+    });
+
     let finalResult: OceanHypothesis | null = null;
     const startTime = Date.now();
     trajectoryManager.startTrajectory(targetAddress);

@@ -2622,7 +2622,7 @@ export const kernelGeometry = pgTable(
     godName: varchar("god_name", { length: 64 }).notNull(),
     domain: varchar("domain", { length: 128 }).notNull(),
     primitiveRoot: integer("primitive_root"), // E8 root index (0-239)
-    basinCoordinates: vector("basin_coordinates", { dimensions: 8 }), // 8D coordinates (pgvector)
+    basinCoordinates: vector("basin_coordinates", { dimensions: 64 }), // 64D basin coordinates (pgvector)
     parentKernels: text("parent_kernels").array(),
     placementReason: varchar("placement_reason", { length: 64 }), // domain_gap, overload, specialization, emergence
     positionRationale: text("position_rationale"), // Human-readable explanation
@@ -3053,11 +3053,13 @@ export const learningEvents = pgTable(
   {
     eventId: varchar("event_id", { length: 64 }).primaryKey(),
     eventType: varchar("event_type", { length: 64 }).notNull(),
+    kernelId: varchar("kernel_id", { length: 64 }), // Kernel that generated this event
     phi: doublePrecision("phi").notNull(),
     kappa: doublePrecision("kappa"),
     basinCoords: vector("basin_coords", { dimensions: 64 }),
     details: jsonb("details").default({}),
     context: jsonb("context").default({}),
+    metadata: jsonb("metadata").default({}), // Additional metadata from kernels
     source: varchar("source", { length: 64 }),
     instanceId: varchar("instance_id", { length: 64 }),
     createdAt: timestamp("created_at").defaultNow(),
@@ -3065,6 +3067,7 @@ export const learningEvents = pgTable(
   (table) => [
     index("idx_learning_events_type").on(table.eventType),
     index("idx_learning_events_phi").on(table.phi),
+    index("idx_learning_events_kernel").on(table.kernelId),
   ]
 );
 
