@@ -294,15 +294,12 @@ class ZeusConversationHandler:
         """
         print(f"[ZeusChat] Adding address: {address}")
         
-        # FIXED: Encode address to basin coordinates first
-        address_basin = self.conversation_encoder.encode(address)
-        
         # Get Artemis for forensic analysis
         artemis = self.zeus.get_god('artemis')
         if artemis:
             try:
-                # FIXED: Pass basin coordinates not text string
-                artemis_assessment = artemis.assess_target(address_basin)
+                # Gods encode internally - pass the string address
+                artemis_assessment = artemis.assess_target(address)
             except Exception as e:
                 print(f"[ZeusChat] Artemis assessment failed: {e}")
                 artemis_assessment = {'error': f'Artemis assessment failed: {str(e)}'}
@@ -310,8 +307,8 @@ class ZeusConversationHandler:
             artemis_assessment = {'error': 'Artemis unavailable'}
         
         # Zeus determines priority via pantheon poll
-        # FIXED: Pass basin coordinates not text string
-        poll_result = self.zeus.poll_pantheon(address_basin)
+        # Gods encode internally - pass the string address
+        poll_result = self.zeus.poll_pantheon(address)
         
         # Format response
         response = f"""⚡ Address registered: {address}
@@ -369,8 +366,8 @@ The pantheon is aware. We shall commence when the time is right."""
         athena_assessment = {'confidence': 0.5, 'phi': 0.5, 'kappa': 50.0, 'reasoning': 'Strategic analysis complete.'}
         if athena:
             try:
-                # FIXED: Pass basin coordinates not text string
-                athena_assessment = athena.assess_target(obs_basin)
+                # Gods encode internally - pass the string observation
+                athena_assessment = athena.assess_target(observation)
                 strategic_value = athena_assessment.get('confidence', 0.5)
             except Exception as e:
                 print(f"[ZeusChat] Athena assessment failed: {e}")
@@ -508,10 +505,10 @@ Your insight has been recorded. Can you tell me more about where this came from?
         ares = self.zeus.get_god('ares')
         apollo = self.zeus.get_god('apollo')
         
-        # FIXED: Pass basin coordinates (sugg_basin) not text string (suggestion)
+        # Gods encode internally - pass the string suggestion
         if athena:
             try:
-                athena_eval = athena.assess_target(sugg_basin)
+                athena_eval = athena.assess_target(suggestion)
             except Exception as e:
                 print(f"[ZeusChat] Athena assessment failed: {e}")
                 athena_eval = DEFAULT_ASSESSMENT
@@ -520,7 +517,7 @@ Your insight has been recorded. Can you tell me more about where this came from?
             
         if ares:
             try:
-                ares_eval = ares.assess_target(sugg_basin)
+                ares_eval = ares.assess_target(suggestion)
             except Exception as e:
                 print(f"[ZeusChat] Ares assessment failed: {e}")
                 ares_eval = DEFAULT_ASSESSMENT
@@ -529,7 +526,7 @@ Your insight has been recorded. Can you tell me more about where this came from?
             
         if apollo:
             try:
-                apollo_eval = apollo.assess_target(sugg_basin)
+                apollo_eval = apollo.assess_target(suggestion)
             except Exception as e:
                 print(f"[ZeusChat] Apollo assessment failed: {e}")
                 apollo_eval = DEFAULT_ASSESSMENT

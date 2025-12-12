@@ -144,3 +144,23 @@ Implemented a robust vocabulary system that classifies phrase types and suggests
 - Invalid 12-word phrases are kept as learning data (not discarded)
 - Kernels use correction suggestions to understand user intent
 - Mutations inform god kernel training through vocabulary observations
+
+### Zeus Chat Type Mismatch Fix
+Fixed NumPy type error when using Zeus chat:
+- **Error**: `ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U32'), dtype('<U490'))`
+- **Root Cause**: `zeus_chat.py` was incorrectly passing numpy arrays to `assess_target()` and `poll_pantheon()` which expect strings
+- **Solution**: Changed 6 call sites to pass original string instead of pre-encoded basin coordinates - gods encode internally via `encode_to_basin(target)`
+- **Files Fixed**: `qig-backend/olympus/zeus_chat.py` lines 305, 314, 373, 514, 523, 532
+
+### Request Body Limit Increased
+Fixed 413 "Request Entity Too Large" errors:
+- **Problem**: Default express.json limit (100kb) too small for file uploads
+- **Solution**: Increased `express.json({ limit: '10mb' })` and `express.urlencoded({ limit: '10mb' })`
+- **File**: `server/index.ts`
+
+### Chat/File Feedback System
+Added three-layer visibility for Zeus chat operations:
+- **Toast notifications**: "Message received by Zeus", "Files processed successfully"
+- **Activity log entries**: Chat messages and file uploads logged with timestamps
+- **Status indicator**: Shows Processing/Synced/Error near chat input
+- **Files**: `client/src/hooks/useZeusChat.ts`, `client/src/components/ZeusChat.tsx`, `server/routes/olympus.ts`
