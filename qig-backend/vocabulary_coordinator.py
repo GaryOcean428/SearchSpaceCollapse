@@ -129,6 +129,71 @@ class VocabularyCoordinator:
         if self.vocab_db and self.vocab_db.enabled:
             stats['database'] = self.vocab_db.get_vocabulary_stats()
         return stats
+    
+    def train_from_text(self, text: str, domain: Optional[str] = None) -> Dict:
+        """
+        Train vocabulary from arbitrary text.
+        
+        Used by research module to learn from Wikipedia, arXiv, etc.
+        Extracts words, updates vocabulary, returns training metrics.
+        
+        Args:
+            text: Text to train from
+            domain: Optional domain tag for organizing vocabulary
+        
+        Returns:
+            Training metrics
+        """
+        import re
+        
+        words = re.findall(r'\b[a-z]{3,}\b', text.lower())
+        
+        stopwords = {'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are', 
+                     'has', 'have', 'been', 'were', 'from', 'which', 'also', 
+                     'but', 'not', 'can', 'may', 'will', 'would', 'could',
+                     'their', 'there', 'these', 'those', 'than', 'then'}
+        
+        filtered_words = [w for w in words if w not in stopwords and len(w) >= 4]
+        
+        word_counts: Dict[str, int] = {}
+        for word in filtered_words:
+            word_counts[word] = word_counts.get(word, 0) + 1
+        
+        observations = []
+        for word, count in word_counts.items():
+            if count >= 2 or len(word) >= 6:
+                phi = min(0.8, 0.5 + (count * 0.05))
+                observations.append({
+                    'word': word,
+                    'phrase': text[:100] if len(text) > 100 else text,
+                    'phi': phi,
+                    'kappa': 50.0,
+                    'source': domain or 'research',
+                    'type': 'word',
+                    'frequency': count
+                })
+        
+        recorded = 0
+        new_tokens = 0
+        
+        if observations:
+            if self.vocab_db and self.vocab_db.enabled:
+                recorded = self.vocab_db.record_vocabulary_batch(observations)
+                self.observations_recorded += recorded
+            
+            if self.tokenizer:
+                new_tokens, _updated = self.tokenizer.add_vocabulary_observations(observations)
+                self.words_learned += new_tokens
+        
+        return {
+            'words_processed': len(words),
+            'unique_words': len(word_counts),
+            'observations_created': len(observations),
+            'new_words_learned': new_tokens,
+            'recorded_to_db': recorded,
+            'vocabulary_size': len(self.tokenizer.vocab) if self.tokenizer else 0,
+            'domain': domain,
+        }
 
 
 _vocabulary_coordinator: Optional[VocabularyCoordinator] = None

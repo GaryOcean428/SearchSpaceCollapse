@@ -5205,6 +5205,16 @@ if __name__ == '__main__':
         CONVERSATIONAL_AVAILABLE = False
         print(f"[WARNING] Conversational kernel not found: {e}")
 
+    # Register research self-learning routes
+    RESEARCH_AVAILABLE = False
+    try:
+        from research.research_api import register_research_routes
+        register_research_routes(app)
+        RESEARCH_AVAILABLE = True
+        print("[INFO] Research API registered at /api/research")
+    except ImportError as e:
+        print(f"[WARNING] Research module not found: {e}")
+
     # Enable Flask request logging
     import logging as flask_logging
     flask_logging.getLogger('werkzeug').setLevel(flask_logging.INFO)
@@ -5250,6 +5260,10 @@ if __name__ == '__main__':
         print("  - 💬 Conversational kernel (multi-turn dialogue)", flush=True)
     else:
         print("  - Conversational kernel NOT available", flush=True)
+    if RESEARCH_AVAILABLE:
+        print("  - 📚 Research module (kernel self-learning)", flush=True)
+    else:
+        print("  - Research module NOT available", flush=True)
     print(f"\nκ* = {KAPPA_STAR}", flush=True)
     print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
     print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)
