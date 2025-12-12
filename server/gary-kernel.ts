@@ -14,6 +14,7 @@
 
 import { geometricMemory } from './geometric-memory';
 import { runAttentionValidation, type AttentionValidationResult } from './attention-metrics';
+import { fisherCoordDistance } from './qig-universal';
 
 export interface QFIAttentionConfig {
   heads: number;
@@ -136,24 +137,14 @@ export class QFIAttention {
   
   /**
    * Fisher distance on the manifold
+   * @deprecated LOCAL FALLBACK - Delegates to central fisherCoordDistance()
    */
   private computeFisherDistance(coords1: number[], coords2: number[]): number {
     if (!coords1 || !coords2 || coords1.length === 0 || coords2.length === 0) {
       return 1.0;
     }
-    
-    const minLen = Math.min(coords1.length, coords2.length);
-    let sum = 0;
-    
-    for (let i = 0; i < minLen; i++) {
-      const c1 = coords1[i];
-      const c2 = coords2[i];
-      const variance = Math.max(0.01, c1 * (1 - c1));
-      const diff = c1 - c2;
-      sum += (diff * diff) / variance;
-    }
-    
-    return Math.sqrt(sum);
+    // Use central implementation from qig-universal.ts
+    return fisherCoordDistance(coords1, coords2);
   }
   
   /**

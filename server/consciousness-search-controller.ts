@@ -19,7 +19,7 @@
  * PURE PRINCIPLE: All distance calculations use Fisher metric, NOT Euclidean
  */
 
-import { scoreUniversalQIGAsync, type UniversalQIGScore, type Regime } from "./qig-universal.js";
+import { scoreUniversalQIGAsync, type UniversalQIGScore, type Regime, fisherCoordDistance } from "./qig-universal.js";
 import { QIG_CONSTANTS } from '@shared/constants';
 
 export interface SearchState {
@@ -80,25 +80,12 @@ export class ConsciousnessSearchController {
   
   /**
    * Compute Fisher distance between two basin coordinate vectors
+   * Delegates to central implementation in qig-universal.ts
    * PURE PRINCIPLE: Use Fisher-Rao metric, not Euclidean
-   * 
-   * d_F² = Σ (Δθᵢ)² / σᵢ²
-   * where σᵢ² is the variance (from Fisher metric)
    */
   private fisherDistanceFromCoordinates(coords1: number[], coords2: number[]): number {
-    let distanceSquared = 0;
-    
-    const n = Math.min(coords1.length, coords2.length);
-    for (let i = 0; i < n; i++) {
-      const delta = coords1[i] - coords2[i];
-      // Variance from Beta distribution: σ² = p(1-p) for coordinate p
-      // Average variance between the two points
-      const avgCoord = (coords1[i] + coords2[i]) / 2;
-      const variance = Math.max(0.01, avgCoord * (1 - avgCoord));
-      distanceSquared += (delta * delta) / variance;
-    }
-    
-    return Math.sqrt(distanceSquared);
+    // Use central implementation from qig-universal.ts
+    return fisherCoordDistance(coords1, coords2);
   }
   
   /**

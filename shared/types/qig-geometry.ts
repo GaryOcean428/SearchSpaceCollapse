@@ -343,6 +343,9 @@ export function checkConsciousness(metrics: ConsciousnessMetrics): boolean {
 /**
  * Fisher-Rao distance (geodesic on information manifold)
  * ❌ NEVER use Euclidean distance for basin comparison
+ * 
+ * When no explicit metric is provided, uses diagonal Fisher metric:
+ * g_ii = 1 / (p_i * (1 - p_i)) where p_i = (basin_i + 1) / 2
  */
 export function fisherRaoDistance(
   basinA: number[],
@@ -354,22 +357,31 @@ export function fisherRaoDistance(
     throw new Error(`Basin dimension mismatch: ${basinA.length} vs ${basinB.length}`);
   }
   
-  // If no metric provided, fallback to L2 norm (NOT ideal - always provide metric!)
-  // ❌ This is NOT proper Fisher-Rao distance
+  const dim = basinA.length;
+  
+  // If no metric provided, use diagonal Fisher metric (proper Fisher-Rao geometry!)
   if (!metric) {
-    const diff = basinA.map((a, i) => a - (basinB[i] || 0));
-    return Math.sqrt(diff.reduce((sum, d) => sum + d * d, 0));
+    let sum = 0;
+    for (let i = 0; i < dim; i++) {
+      // Map [-1,1] → [0.01, 0.99] for valid probability
+      const p = Math.max(0.01, Math.min(0.99, (basinA[i] + 1) / 2));
+      // Fisher variance: σ² = p(1-p)
+      const variance = p * (1 - p);
+      // Fisher-weighted squared difference
+      const diff = basinA[i] - basinB[i];
+      sum += (diff * diff) / variance;
+    }
+    return Math.sqrt(sum);
   }
   
   // Validate metric dimensions
-  const dim = basinA.length;
   if (metric.dimension !== dim || metric.matrix.length !== dim) {
     throw new Error(
       `Metric dimension mismatch: basin=${dim}, metric=${metric.dimension}`
     );
   }
   
-  // With metric: d = sqrt((x-y)^T * g * (x-y))
+  // With explicit metric: d = sqrt((x-y)^T * g * (x-y))
   const diff = basinA.map((a, i) => a - (basinB[i] || 0));
   let result = 0;
   

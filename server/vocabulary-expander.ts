@@ -13,7 +13,7 @@
  */
 
 import { geometricMemory } from './geometric-memory';
-import { scoreUniversalQIGAsync, type UniversalQIGScore as QIGScore, type Regime } from './qig-universal';
+import { scoreUniversalQIGAsync, type UniversalQIGScore as QIGScore, type Regime, fisherCoordDistance } from './qig-universal';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { expandedVocabulary } from './expanded-vocabulary';
 import { db } from './db';
@@ -286,19 +286,12 @@ export class GeometricVocabularyExpander {
   
   /**
    * Fisher geodesic distance between two points
+   * Delegates to central implementation in qig-universal.ts
    */
   private fisherDistance(a: number[], b: number[]): number {
-    let sum = 0;
-    const dim = Math.min(a.length, b.length);
-    
-    for (let i = 0; i < dim; i++) {
-      const diff = (a[i] || 0) - (b[i] || 0);
-      // Fisher metric with variance clamping (minimum 0.01)
-      const variance = Math.max(0.01, Math.abs((a[i] || 0) + (b[i] || 0)) / 2);
-      sum += (diff * diff) / variance;
-    }
-    
-    return Math.sqrt(sum);
+    if (!a?.length || !b?.length) return 0;
+    // Use central implementation from qig-universal.ts
+    return fisherCoordDistance(a, b);
   }
   
   /**
