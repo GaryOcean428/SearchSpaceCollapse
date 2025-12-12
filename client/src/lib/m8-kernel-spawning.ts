@@ -128,10 +128,13 @@ export interface ListKernelsResponse {
   total: number;
 }
 
-const QIG_BACKEND_URL = 'http://localhost:5001';
+const M8_API_BASE = '/api/olympus/m8';
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, options);
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include',
+  });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: response.statusText }));
     throw new Error(error.error || 'Request failed');
@@ -142,16 +145,16 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 export class M8SpawningClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = QIG_BACKEND_URL) {
+  constructor(baseUrl: string = M8_API_BASE) {
     this.baseUrl = baseUrl;
   }
 
   async getStatus(): Promise<M8Status> {
-    return fetchJson<M8Status>(`${this.baseUrl}/m8/status`);
+    return fetchJson<M8Status>(`${this.baseUrl}/status`);
   }
 
   async createProposal(request: CreateProposalRequest): Promise<CreateProposalResponse> {
-    return fetchJson<CreateProposalResponse>(`${this.baseUrl}/m8/propose`, {
+    return fetchJson<CreateProposalResponse>(`${this.baseUrl}/propose`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
@@ -159,7 +162,7 @@ export class M8SpawningClient {
   }
 
   async vote(proposalId: string, request: VoteRequest = {}): Promise<VoteResponse> {
-    return fetchJson<VoteResponse>(`${this.baseUrl}/m8/vote/${proposalId}`, {
+    return fetchJson<VoteResponse>(`${this.baseUrl}/vote/${proposalId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
@@ -167,7 +170,7 @@ export class M8SpawningClient {
   }
 
   async spawn(proposalId: string, request: SpawnRequest = {}): Promise<SpawnResponse> {
-    return fetchJson<SpawnResponse>(`${this.baseUrl}/m8/spawn/${proposalId}`, {
+    return fetchJson<SpawnResponse>(`${this.baseUrl}/spawn/${proposalId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
@@ -175,7 +178,7 @@ export class M8SpawningClient {
   }
 
   async spawnDirect(request: SpawnDirectRequest): Promise<SpawnDirectResponse> {
-    return fetchJson<SpawnDirectResponse>(`${this.baseUrl}/m8/spawn-direct`, {
+    return fetchJson<SpawnDirectResponse>(`${this.baseUrl}/spawn-direct`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
@@ -184,21 +187,21 @@ export class M8SpawningClient {
 
   async listProposals(status?: ProposalStatus): Promise<ListProposalsResponse> {
     const url = status 
-      ? `${this.baseUrl}/m8/proposals?status=${status}`
-      : `${this.baseUrl}/m8/proposals`;
+      ? `${this.baseUrl}/proposals?status=${status}`
+      : `${this.baseUrl}/proposals`;
     return fetchJson<ListProposalsResponse>(url);
   }
 
   async getProposal(proposalId: string): Promise<SpawnProposal> {
-    return fetchJson<SpawnProposal>(`${this.baseUrl}/m8/proposal/${proposalId}`);
+    return fetchJson<SpawnProposal>(`${this.baseUrl}/proposal/${proposalId}`);
   }
 
   async listKernels(): Promise<ListKernelsResponse> {
-    return fetchJson<ListKernelsResponse>(`${this.baseUrl}/m8/kernels`);
+    return fetchJson<ListKernelsResponse>(`${this.baseUrl}/kernels`);
   }
 
   async getKernel(kernelId: string): Promise<SpawnedKernel> {
-    return fetchJson<SpawnedKernel>(`${this.baseUrl}/m8/kernel/${kernelId}`);
+    return fetchJson<SpawnedKernel>(`${this.baseUrl}/kernel/${kernelId}`);
   }
 }
 

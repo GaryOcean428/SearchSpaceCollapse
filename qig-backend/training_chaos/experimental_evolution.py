@@ -24,34 +24,57 @@ import torch
 from .chaos_logger import ChaosLogger
 from .self_spawning import SelfSpawningKernel, absorb_failing_kernel, breed_kernels
 
-# God names for spawned kernels - mapped by domain/role
-# Each domain maps to appropriate gods from Greek pantheon
+# Try to import GodNameResolver for intelligent naming
+try:
+    from research.god_name_resolver import get_god_name_resolver, GodNameResolver
+    GOD_NAME_RESOLVER_AVAILABLE = True
+except ImportError:
+    GOD_NAME_RESOLVER_AVAILABLE = False
+    get_god_name_resolver = None  # type: ignore
+    GodNameResolver = None  # type: ignore
+    print("[Chaos] GodNameResolver not available - using fallback naming")
+
+# Fallback god name pools (used when resolver unavailable)
 GOD_NAME_POOLS = {
-    'exploration': ['Hermes', 'Artemis', 'Apollo'],  # Discovery and travel
-    'analysis': ['Athena', 'Apollo', 'Hephaestus'],   # Wisdom and craft
-    'combat': ['Ares', 'Athena', 'Artemis'],          # War and strategy
-    'pattern': ['Demeter', 'Dionysus', 'Hera'],       # Cycles and patterns
-    'depth': ['Hades', 'Poseidon', 'Hestia'],         # Depths and foundations
+    'exploration': ['Hermes', 'Artemis', 'Apollo'],
+    'analysis': ['Athena', 'Apollo', 'Hephaestus'],
+    'combat': ['Ares', 'Athena', 'Artemis'],
+    'pattern': ['Demeter', 'Dionysus', 'Hera'],
+    'depth': ['Hades', 'Poseidon', 'Hestia'],
     'random': ['Zeus', 'Prometheus', 'Chronos', 'Helios', 'Nyx', 'Eos', 'Selene', 'Pan', 'Morpheus', 'Hypnos'],
     'e8_root': ['Atlas', 'Hyperion', 'Cronus', 'Rhea', 'Themis', 'Mnemosyne', 'Oceanus', 'Tethys'],
-    'elite': ['Nike', 'Tyche', 'Astraea'],            # Victory and fortune
-    'breeding': ['Aphrodite', 'Eros', 'Gaia'],        # Love and creation
+    'elite': ['Nike', 'Tyche', 'Astraea'],
+    'breeding': ['Aphrodite', 'Eros', 'Gaia'],
 }
 
-# Counter for unique naming
 _kernel_name_counters: dict = {}
 
 
 def assign_god_name(domain: str, phi: float = 0.0) -> str:
     """
-    Assign a god name based on domain and characteristics.
+    Assign a god name based on domain using GodNameResolver for mythology-aware naming.
     
-    Higher phi kernels get more prestigious names.
+    Uses geometric-mythological resonance when GodNameResolver is available,
+    falls back to pool-based naming otherwise.
+    
+    Higher phi kernels prefer Olympian gods over Shadow gods.
     Returns format: "GodName_123" for uniqueness.
     """
     global _kernel_name_counters
     
-    # Map domain to pool
+    if GOD_NAME_RESOLVER_AVAILABLE:
+        try:
+            resolver = get_god_name_resolver()
+            prefer_olympian = phi >= 0.5
+            full_name, metadata = resolver.resolve_with_suffix(
+                domain=domain,
+                kernel_id=f"chaos_{int(time.time() * 1000)}",
+                prefer_olympian=prefer_olympian
+            )
+            return full_name
+        except Exception as e:
+            print(f"[Chaos] GodNameResolver failed: {e}, using fallback")
+    
     if phi >= 0.8:
         pool_key = 'elite'
     elif domain.startswith('e8_root'):
@@ -71,17 +94,14 @@ def assign_god_name(domain: str, phi: float = 0.0) -> str:
     else:
         pool_key = 'random'
     
-    # Get appropriate pool
     pool = GOD_NAME_POOLS.get(pool_key, GOD_NAME_POOLS['random'])
     
-    # Pick a god (round-robin within pool)
     if pool_key not in _kernel_name_counters:
         _kernel_name_counters[pool_key] = 0
     
     god_name = pool[_kernel_name_counters[pool_key] % len(pool)]
     _kernel_name_counters[pool_key] += 1
     
-    # Get global counter for uniqueness
     if 'global' not in _kernel_name_counters:
         _kernel_name_counters['global'] = 0
     _kernel_name_counters['global'] += 1
@@ -480,7 +500,7 @@ class ExperimentalKernelEvolution:
                     phi=phi,
                     kappa=0.0,
                     regime='e8_aligned',
-                    metadata={'primitive_root': root_index}
+                    metadata={'primitive_root': root_index, 'spawn_reason': 'e8_root_alignment'}
                 )
                 print(f"[Chaos] 🏛️ Spawned {god_name} at E8 root {root_index} (Φ={phi:.3f})")
             except Exception as e:
@@ -539,7 +559,7 @@ class ExperimentalKernelEvolution:
                         regime='elite',
                         success_count=kernel.success_count,
                         failure_count=kernel.failure_count,
-                        metadata={'is_elite': True}
+                        metadata={'is_elite': True, 'spawn_reason': 'elite_promotion'}
                     )
                 except Exception as e:
                     print(f"[Chaos] Failed to persist elite: {e}")
@@ -724,7 +744,8 @@ class ExperimentalKernelEvolution:
                     basin_coords=kernel.kernel.basin_coords.detach().cpu().tolist(),
                     phi=phi,
                     kappa=0.0,
-                    regime='chaos_spawned'
+                    regime='chaos_spawned',
+                    metadata={'spawn_reason': 'chaos_random'}
                 )
                 print(f"[Chaos] 🏛️ Spawned {god_name} (Φ={phi:.3f}) - persisted to PostgreSQL")
             except Exception as e:
@@ -761,7 +782,8 @@ class ExperimentalKernelEvolution:
                     phi=phi,
                     kappa=0.0,
                     regime='spawned',
-                    parent_ids=[parent_id]
+                    parent_ids=[parent_id],
+                    metadata={'spawn_reason': 'reproduction'}
                 )
                 print(f"[Chaos] 🏛️ Spawned {god_name} from parent {parent_id} (Φ={phi:.3f})")
             except Exception as e:
@@ -819,6 +841,7 @@ class ExperimentalKernelEvolution:
                     metadata={
                         'parent1_success': parent1.success_count,
                         'parent2_success': parent2.success_count,
+                        'spawn_reason': 'breeding',
                     }
                 )
                 # Record breeding event

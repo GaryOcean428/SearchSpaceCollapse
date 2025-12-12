@@ -895,6 +895,242 @@ router.get('/spawn/status', isAuthenticated, async (req, res) => {
 });
 
 /**
+ * M8 Kernel Spawning Status - Proxy to Python M8 endpoint
+ * Returns kernel counts, god statistics, and evolution metrics from PostgreSQL
+ */
+router.get('/m8/status', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 status error:', error);
+    res.json({
+      consensus_type: 'supermajority',
+      total_proposals: 0,
+      pending_proposals: 0,
+      approved_proposals: 0,
+      spawned_kernels: 0,
+      spawn_history_count: 0,
+      orchestrator_gods: 0,
+      avg_phi: 0,
+      max_phi: 0,
+      total_successes: 0,
+      total_failures: 0,
+      unique_domains: 0,
+      error: 'Python backend unavailable',
+    });
+  }
+});
+
+/**
+ * M8 Proposals - Proxy to Python M8 endpoint
+ */
+router.get('/m8/proposals', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const status = req.query.status ? `?status=${req.query.status}` : '';
+    
+    const response = await fetch(`${backendUrl}/m8/proposals${status}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 proposals error:', error);
+    res.json({ proposals: [], total: 0, status_filter: null });
+  }
+});
+
+/**
+ * M8 Create Proposal - Proxy to Python M8 endpoint
+ */
+router.post('/m8/propose', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/propose`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 propose error:', error);
+    res.status(500).json({ success: false, error: 'Python backend unavailable' });
+  }
+});
+
+/**
+ * M8 Vote - Proxy to Python M8 endpoint
+ */
+router.post('/m8/vote/:proposalId', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/vote/${req.params.proposalId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 vote error:', error);
+    res.status(500).json({ success: false, error: 'Python backend unavailable' });
+  }
+});
+
+/**
+ * M8 Spawn - Proxy to Python M8 endpoint
+ */
+router.post('/m8/spawn/:proposalId', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/spawn/${req.params.proposalId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 spawn error:', error);
+    res.status(500).json({ success: false, error: 'Python backend unavailable' });
+  }
+});
+
+/**
+ * M8 Spawn Direct - Proxy to Python M8 endpoint
+ */
+router.post('/m8/spawn-direct', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/spawn-direct`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 spawn-direct error:', error);
+    res.status(500).json({ success: false, error: 'Python backend unavailable' });
+  }
+});
+
+/**
+ * M8 Get Proposal - Proxy to Python M8 endpoint
+ */
+router.get('/m8/proposal/:proposalId', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/proposal/${req.params.proposalId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 get proposal error:', error);
+    res.status(500).json({ error: 'Python backend unavailable' });
+  }
+});
+
+/**
+ * M8 List Kernels - Proxy to Python M8 endpoint
+ */
+router.get('/m8/kernels', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/kernels`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 list kernels error:', error);
+    res.json({ kernels: [], total: 0 });
+  }
+});
+
+/**
+ * M8 Get Kernel - Proxy to Python M8 endpoint
+ */
+router.get('/m8/kernel/:kernelId', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/kernel/${req.params.kernelId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 get kernel error:', error);
+    res.status(500).json({ error: 'Python backend unavailable' });
+  }
+});
+
+/**
  * Get all spawned kernels from PostgreSQL
  * Returns kernels with full attributes including spawn reason, reputation, merge/split status
  */

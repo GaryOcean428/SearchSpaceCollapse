@@ -829,15 +829,33 @@ class M8KernelSpawner:
         return [k.to_dict() for k in self.spawned_kernels.values()]
     
     def get_status(self) -> Dict:
-        """Get spawner status."""
+        """Get spawner status - reads from PostgreSQL for real kernel counts."""
+        # Get real kernel stats from PostgreSQL
+        db_stats = {}
+        if M8_PERSISTENCE_AVAILABLE:
+            try:
+                persistence = KernelPersistence()
+                db_stats = persistence.get_evolution_stats()
+            except Exception as e:
+                print(f"[M8] Could not load DB stats: {e}")
+        
+        total_kernels = int(db_stats.get('total_kernels', 0) or 0)
+        unique_gods = int(db_stats.get('unique_gods', 0) or 0)
+        
         return {
             "consensus_type": self.consensus.consensus_type.value,
             "total_proposals": len(self.proposals),
             "pending_proposals": sum(1 for p in self.proposals.values() if p.status == "pending"),
             "approved_proposals": sum(1 for p in self.proposals.values() if p.status == "approved"),
-            "spawned_kernels": len(self.spawned_kernels),
-            "spawn_history_count": len(self.spawn_history),
-            "orchestrator_gods": len(self.orchestrator.all_profiles),
+            "spawned_kernels": total_kernels,  # From PostgreSQL
+            "spawn_history_count": total_kernels,  # Use DB count only (avoid double-counting)
+            "orchestrator_gods": unique_gods if unique_gods > 0 else len(self.orchestrator.all_profiles),
+            # Additional stats from DB
+            "avg_phi": float(db_stats.get('avg_phi', 0) or 0),
+            "max_phi": float(db_stats.get('max_phi', 0) or 0),
+            "total_successes": int(db_stats.get('total_successes', 0) or 0),
+            "total_failures": int(db_stats.get('total_failures', 0) or 0),
+            "unique_domains": int(db_stats.get('unique_domains', 0) or 0),
         }
 
 
