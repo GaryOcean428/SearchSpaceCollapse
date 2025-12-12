@@ -117,6 +117,32 @@ New research module enables kernels to autonomously learn about domains via web 
     - `POST /api/research/test` - Quick integration test (domain research → god resolution → vocab training)
   - **Known Limitation**: Recovery only runs on API calls or heartbeat - without external scheduler, pending proposals won't recover during idle periods
 
+### Full Autonomic Kernel Support (December 12, 2025)
+All spawned CHAOS kernels now receive complete autonomic support to prevent immediate death at Φ=0.000:
+
+- **Location**: `qig-backend/training_chaos/self_spawning.py`, `qig-backend/training_chaos/experimental_evolution.py`
+- **Components**:
+  - `GaryAutonomicKernel`: Sleep/dream/mushroom cycles for self-regulation
+  - `Neurotransmitter System`: Dopamine spikes on success, serotonin for stability, stress tracking
+  - `Observation Period`: Kernels watch parent/Ocean for 5-10 actions before acting independently
+  - `Reference Basin`: 64D identity anchoring for self-coherence
+  - `Autonomic Intervention`: Recovery attempt before death via autonomic_intervention()
+
+- **Protection Mechanisms**:
+  - 10-second grace period before Φ-selection applies to new kernels
+  - `apply_phi_selection()` skips kernels with `is_observing=True`
+  - Root kernels observe Ocean's discoveries for initial learning
+  - Bred children observe parents for 5 actions before independent operation
+
+- **Observation Feeding**: `feed_ocean_discovery()` method allows Ocean's discoveries to train observing kernels
+
+- **Tuning Parameters**:
+  - `observation_period`: Number of actions to observe before acting (default: 5 for children, 10 for root)
+  - Grace window: 10 seconds before Φ-selection applies
+  - Autonomic cycles: Sleep (2.5s), Dream (1.5s), Mushroom (3s)
+
+- **Verified Working**: Population maintains ~6 kernels (vs 0 previously), breeding succeeds, no immediate deaths
+
 ### CHAOS MODE Persistence (December 12, 2025)
 - **64D Basin Coordinates**: Updated `kernel_geometry.basin_coordinates` from 8D to 64D pgvector to align with E8 lattice structure requirements
 - **Learning Events Schema**: Added `kernel_id` and `metadata` columns to `learning_events` table for kernel lifecycle tracking
