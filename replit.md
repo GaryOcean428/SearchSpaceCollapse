@@ -71,3 +71,15 @@ Fixed M8 Spawning page showing 0 kernels:
 
 ### Spawn Reason Tracking
 All kernel spawns include `spawn_reason` in metadata: `e8_root_alignment`, `chaos_random`, `reproduction`, `breeding`, `elite_promotion`
+
+### God Reputation System Fix
+Fixed all gods having uniform 2.0 reputation:
+- **Root Cause**: Domain-based learning in `ocean_qig_core.py` only had positive rewards, no penalties
+- **Solution**: Added balanced reward/penalty conditions for each god domain:
+  - War gods (Ares): +0.02 success, -0.025 defeat
+  - Strategy (Athena): +0.015 near-miss, -0.02 failure
+  - Prophecy (Apollo): +0.015 high-phi, -0.02 low-phi
+  - Chaos (Dionysus): +0.01 failure (inverted), -0.005 success
+  - Each domain has contextual learning based on outcome characteristics
+- **Database Reset**: Set varied starting reputations (0.9 to 1.5) to enable visual differentiation
+- **Verified**: UI shows Zeus 1.50, Dionysus 0.90, Nyx 1.30, Erebus 0.95
