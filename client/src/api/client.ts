@@ -3,10 +3,27 @@
  * 
  * Type-safe HTTP client with JSON parsing.
  * All services use this client for consistent behavior.
+ * 
+ * Includes session expiration handling via 401 event emission.
  */
+
+/**
+ * Emit custom event for 401 (session expired) responses
+ */
+function emit401Event(): void {
+  const event = new CustomEvent('auth:expired', {
+    detail: { status: 401, timestamp: Date.now() },
+  });
+  window.dispatchEvent(event);
+}
 
 async function throwIfNotOk(res: Response): Promise<void> {
   if (!res.ok) {
+    // Emit session expiration event for 401 responses
+    if (res.status === 401) {
+      emit401Event();
+    }
+    
     const text = await res.text().catch(() => res.statusText);
     throw new Error(`${res.status}: ${text}`);
   }

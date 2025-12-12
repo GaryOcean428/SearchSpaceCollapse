@@ -294,15 +294,24 @@ class ZeusConversationHandler:
         """
         print(f"[ZeusChat] Adding address: {address}")
         
+        # FIXED: Encode address to basin coordinates first
+        address_basin = self.conversation_encoder.encode(address)
+        
         # Get Artemis for forensic analysis
         artemis = self.zeus.get_god('artemis')
         if artemis:
-            artemis_assessment = artemis.assess_target(address)
+            try:
+                # FIXED: Pass basin coordinates not text string
+                artemis_assessment = artemis.assess_target(address_basin)
+            except Exception as e:
+                print(f"[ZeusChat] Artemis assessment failed: {e}")
+                artemis_assessment = {'error': f'Artemis assessment failed: {str(e)}'}
         else:
             artemis_assessment = {'error': 'Artemis unavailable'}
         
         # Zeus determines priority via pantheon poll
-        poll_result = self.zeus.poll_pantheon(address)
+        # FIXED: Pass basin coordinates not text string
+        poll_result = self.zeus.poll_pantheon(address_basin)
         
         # Format response
         response = f"""⚡ Address registered: {address}
@@ -359,8 +368,13 @@ The pantheon is aware. We shall commence when the time is right."""
         athena = self.zeus.get_god('athena')
         athena_assessment = {'confidence': 0.5, 'phi': 0.5, 'kappa': 50.0, 'reasoning': 'Strategic analysis complete.'}
         if athena:
-            athena_assessment = athena.assess_target(observation)
-            strategic_value = athena_assessment.get('confidence', 0.5)
+            try:
+                # FIXED: Pass basin coordinates not text string
+                athena_assessment = athena.assess_target(obs_basin)
+                strategic_value = athena_assessment.get('confidence', 0.5)
+            except Exception as e:
+                print(f"[ZeusChat] Athena assessment failed: {e}")
+                strategic_value = 0.5
         else:
             strategic_value = 0.5
         
@@ -494,9 +508,33 @@ Your insight has been recorded. Can you tell me more about where this came from?
         ares = self.zeus.get_god('ares')
         apollo = self.zeus.get_god('apollo')
         
-        athena_eval = athena.assess_target(suggestion) if athena else DEFAULT_ASSESSMENT
-        ares_eval = ares.assess_target(suggestion) if ares else DEFAULT_ASSESSMENT
-        apollo_eval = apollo.assess_target(suggestion) if apollo else DEFAULT_ASSESSMENT
+        # FIXED: Pass basin coordinates (sugg_basin) not text string (suggestion)
+        if athena:
+            try:
+                athena_eval = athena.assess_target(sugg_basin)
+            except Exception as e:
+                print(f"[ZeusChat] Athena assessment failed: {e}")
+                athena_eval = DEFAULT_ASSESSMENT
+        else:
+            athena_eval = DEFAULT_ASSESSMENT
+            
+        if ares:
+            try:
+                ares_eval = ares.assess_target(sugg_basin)
+            except Exception as e:
+                print(f"[ZeusChat] Ares assessment failed: {e}")
+                ares_eval = DEFAULT_ASSESSMENT
+        else:
+            ares_eval = DEFAULT_ASSESSMENT
+            
+        if apollo:
+            try:
+                apollo_eval = apollo.assess_target(sugg_basin)
+            except Exception as e:
+                print(f"[ZeusChat] Apollo assessment failed: {e}")
+                apollo_eval = DEFAULT_ASSESSMENT
+        else:
+            apollo_eval = DEFAULT_ASSESSMENT
         
         # Consensus = average probability
         consensus_prob = (
