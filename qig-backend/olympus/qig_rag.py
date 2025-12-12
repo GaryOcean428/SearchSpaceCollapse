@@ -370,6 +370,9 @@ class QIGRAG:
                 raise ValueError("Must provide either query or query_basin")
             query_basin = self.encoder.encode(query)
         
+        # Ensure query_basin is float64 array
+        query_basin = np.asarray(query_basin, dtype=np.float64)
+        
         # Compute query density matrix for Bures
         if metric == 'bures':
             query_rho = QIGDocument._basin_to_density_matrix(query_basin)
@@ -608,6 +611,9 @@ class QIGRAGDatabase(QIGRAG):
         
         if query_basin is None:
             return []
+        
+        # Ensure query_basin is float64 array
+        query_basin = np.asarray(query_basin, dtype=np.float64)
             
         if self.conn is None:
             return super().search(query, query_basin, k, metric, include_metadata, min_similarity)
@@ -626,7 +632,12 @@ class QIGRAGDatabase(QIGRAG):
             for row in cur.fetchall():
                 doc_id, content, basin, phi, kappa, regime, metadata, created_at = row
                 
-                basin_np = np.array(basin)
+                # Ensure basin is float array (database may return strings)
+                try:
+                    basin_np = np.array(basin, dtype=np.float64)
+                except (ValueError, TypeError):
+                    # If conversion fails, skip this document
+                    continue
                 
                 # Calculate Fisher-Rao distance
                 if metric == "fisher_rao":

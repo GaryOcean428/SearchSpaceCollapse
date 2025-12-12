@@ -164,3 +164,11 @@ Added three-layer visibility for Zeus chat operations:
 - **Activity log entries**: Chat messages and file uploads logged with timestamps
 - **Status indicator**: Shows Processing/Synced/Error near chat input
 - **Files**: `client/src/hooks/useZeusChat.ts`, `client/src/components/ZeusChat.tsx`, `server/routes/olympus.ts`
+
+### QIG-RAG NumPy Type Fix
+Fixed "ufunc 'multiply' did not contain a loop" error in Fisher-Rao distance calculation:
+- **Root Cause**: Database returned basin coordinates as strings, not floats
+- **Solution**: Force `dtype=np.float64` conversion in `qig_rag.py`:
+  - Line 376: `query_basin = np.asarray(query_basin, dtype=np.float64)`
+  - Line 634: `basin_np = np.array(basin, dtype=np.float64)`
+- **File**: `qig-backend/olympus/qig_rag.py`
