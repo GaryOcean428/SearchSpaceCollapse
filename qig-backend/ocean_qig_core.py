@@ -3726,6 +3726,110 @@ def olympus_report_outcome():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/olympus/report-outcomes-batch', methods=['POST'])
+def olympus_report_outcomes_batch():
+    """Batch report multiple discovery outcomes to reduce database load.
+    
+    Accepts an array of outcomes and processes them efficiently in a single request.
+    Used by TypeScript OlympusClient to batch rapid-fire outcome reports.
+    """
+    if not OLYMPUS_AVAILABLE:
+        return jsonify({'error': 'Olympus not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        outcomes = data.get('outcomes', [])
+        
+        if not outcomes:
+            return jsonify({'error': 'outcomes array required'}), 400
+        
+        total_gods_updated = 0
+        processed = 0
+        
+        for outcome in outcomes:
+            target = outcome.get('target', '')
+            success = outcome.get('success', False)
+            details = outcome.get('details', {})
+            
+            if not target:
+                continue
+            
+            processed += 1
+            
+            # Get all gods from the pantheon
+            match_target = details.get('address', target)[:20] if details.get('address') else target[:20]
+            
+            for god_name, god in zeus.pantheon.items():
+                try:
+                    # Check if this god previously assessed this target/address
+                    recent_assessments = getattr(god, 'assessment_history', [])
+                    matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:20]]
+                    
+                    actual_outcome = {
+                        'success': success,
+                        'balance': details.get('balance', 0),
+                        'address': details.get('address', ''),
+                        'phi': details.get('phi', 0),
+                        'domain': god.domain,
+                    }
+                    
+                    if matching:
+                        assessment = matching[-1]
+                        result = god.learn_from_outcome(
+                            target=target,
+                            assessment=assessment,
+                            actual_outcome=actual_outcome,
+                            success=success
+                        )
+                        if result.get('learned', False):
+                            total_gods_updated += 1
+                    else:
+                        # Domain-based learning without prior assessment
+                        phi = details.get('phi', 0.5)
+                        is_near_miss = details.get('nearMiss', False)
+                        domain_lower = god.domain.lower() if god.domain else ''
+                        
+                        domain_relevance = 0.0
+                        if domain_lower == 'strategy' and is_near_miss:
+                            domain_relevance = 0.015
+                        elif domain_lower == 'war' and success:
+                            domain_relevance = 0.02
+                        elif domain_lower == 'prophecy' and phi > 0.8:
+                            domain_relevance = 0.015
+                        
+                        if domain_relevance != 0:
+                            god.reputation = max(0.0, min(2.0, god.reputation + domain_relevance))
+                            god._persist_state()
+                            total_gods_updated += 1
+                            
+                except Exception:
+                    pass  # Silent fail for individual gods in batch
+        
+        # Train CHAOS kernels if active
+        if zeus.chaos_enabled and zeus.chaos:
+            try:
+                for outcome in outcomes:
+                    zeus.train_kernel_from_outcome(
+                        outcome.get('target', ''),
+                        outcome.get('success', False),
+                        outcome.get('details', {})
+                    )
+            except Exception:
+                pass
+        
+        print(f"[Olympus] 📦 Batch learning: {processed} outcomes, {total_gods_updated} god updates")
+        
+        return jsonify({
+            'success': True,
+            'processed': processed,
+            'total_gods_updated': total_gods_updated,
+        })
+        
+    except Exception as e:
+        print(f"[Olympus] Batch report error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/olympus/war/blitzkrieg', methods=['POST'])
 def olympus_war_blitzkrieg():
     """Declare blitzkrieg war mode."""

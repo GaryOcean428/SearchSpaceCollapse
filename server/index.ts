@@ -451,140 +451,42 @@ function startDocsMaintenance(): void {
   }, DOCS_MAINTENANCE_INTERVAL);
 }
 
-// Python process death spiral prevention
-let pythonRestartCount = 0;
-const MAX_PYTHON_RESTARTS = 5;
-const PYTHON_RESTART_DELAYS = [5000, 10000, 20000, 40000, 60000]; // Exponential backoff
+// Import the centralized Python process manager
+import { getPythonManager, createPythonManager } from './python-process-manager';
 
-// Start Python QIG Backend as a child process
-function startPythonBackend(): void {
-  const isProduction = process.env.NODE_ENV === "production";
-  const pythonPath = process.env.PYTHON_PATH || "python3";
-  const qigBackendDir = path.join(process.cwd(), "qig-backend");
+// Create and configure the Python process manager
+const pythonManager = createPythonManager('http://localhost:5001');
 
-  let spawnArgs: string[];
-  let spawnCommand: string;
+// Listen for lifecycle events
+pythonManager.on('ready', () => {
+  console.log('[PythonManager] ✅ Backend is ready for requests');
+});
 
-  if (isProduction) {
-    // Use Gunicorn for production with increased timeout
-    spawnCommand = "gunicorn";
-    spawnArgs = [
-      "--bind",
-      "0.0.0.0:5001",
-      "--workers",
-      "2",
-      "--threads",
-      "4",
-      "--timeout",
-      "120", // 2 minute timeout for long QIG operations
-      "--keep-alive",
-      "5",
-      "--access-logfile",
-      "-",
-      "--error-logfile",
-      "-",
-      "--capture-output",
-      "wsgi:app",
-    ];
-    console.log(
-      "[PythonQIG] Starting Python QIG Backend (Gunicorn production mode)..."
-    );
+pythonManager.on('notReady', () => {
+  console.warn('[PythonManager] ⚠️ Backend is no longer ready');
+});
+
+pythonManager.on('unhealthy', () => {
+  console.error('[PythonManager] ❌ Backend is unhealthy - requests will be queued');
+});
+
+pythonManager.on('maxRestartsReached', () => {
+  console.error('[PythonManager] ❌ Max restarts reached - manual intervention required');
+});
+
+// Start Python QIG Backend using the managed process
+async function startPythonBackend(): Promise<void> {
+  const ready = await pythonManager.start();
+  
+  if (ready) {
+    console.log("[PythonQIG] Backend ready, syncing geometric memory...");
+    await syncProbesToPython();
+    startPythonSync();
   } else {
-    // Use Flask development server
-    spawnCommand = pythonPath;
-    spawnArgs = ["-u", path.join(qigBackendDir, "ocean_qig_core.py")];
-    console.log(
-      "[PythonQIG] Starting Python QIG Backend (Flask development mode)..."
+    console.warn(
+      "[PythonQIG] Backend not available after retries - will retry on next sync cycle"
     );
   }
-
-  const pythonProcess = spawn(spawnCommand, spawnArgs, {
-    cwd: qigBackendDir,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
-    env: {
-      ...process.env,
-      PYTHONUNBUFFERED: "1", // Ensure unbuffered Python output
-    },
-  });
-
-  // Reset restart count on successful spawn
-  pythonProcess.on("spawn", () => {
-    pythonRestartCount = 0;
-  });
-
-  // Handle stdout - preserve multi-line output without truncation
-  pythonProcess.stdout?.on("data", (data: Buffer) => {
-    const output = data.toString();
-    // Split by newlines and log each line with prefix (preserves structure)
-    const lines = output.split("\n");
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed) {
-        console.log(`[PythonQIG] ${trimmed}`);
-      }
-    }
-  });
-
-  // Handle stderr - preserve multi-line output without truncation
-  pythonProcess.stderr?.on("data", (data: Buffer) => {
-    const output = data.toString();
-    const lines = output.split("\n");
-    for (const line of lines) {
-      const trimmed = line.trim();
-      // Filter out Flask development server warnings but show everything else
-      if (
-        trimmed &&
-        !trimmed.includes("WARNING: This is a development server")
-      ) {
-        console.log(`[PythonQIG] ${trimmed}`);
-      }
-    }
-  });
-
-  pythonProcess.on("close", (code: number | null) => {
-    console.log(`[PythonQIG] Process exited with code ${code}`);
-    // Restart with exponential backoff if it crashes, up to max restarts
-    if (code !== 0) {
-      if (pythonRestartCount < MAX_PYTHON_RESTARTS) {
-        const delay =
-          PYTHON_RESTART_DELAYS[
-            Math.min(pythonRestartCount, PYTHON_RESTART_DELAYS.length - 1)
-          ];
-        pythonRestartCount++;
-        console.log(
-          `[PythonQIG] Restart ${pythonRestartCount}/${MAX_PYTHON_RESTARTS} in ${delay}ms...`
-        );
-        setTimeout(() => startPythonBackend(), delay);
-      } else {
-        console.error(
-          `[PythonQIG] Max restarts (${MAX_PYTHON_RESTARTS}) reached. Python backend stopped.`
-        );
-        console.error(
-          "[PythonQIG] Manual intervention required. Check logs for root cause."
-        );
-      }
-    }
-  });
-
-  pythonProcess.on("error", (err: Error) => {
-    console.error("[PythonQIG] Failed to start:", err.message);
-  });
-
-  // Wait for Python to be ready with retry logic, then sync probes
-  setTimeout(async () => {
-    // Use retry logic to handle startup race condition
-    const isAvailable = await oceanQIGBackend.checkHealthWithRetry(5, 2000);
-    if (isAvailable) {
-      console.log("[PythonQIG] Backend ready, syncing geometric memory...");
-      await syncProbesToPython();
-      startPythonSync();
-    } else {
-      console.warn(
-        "[PythonQIG] Backend not available after retries - will retry on next sync cycle"
-      );
-    }
-  }, 3000);
 }
 
 // Handle uncaught exceptions gracefully to prevent crashes
@@ -807,13 +709,12 @@ app.use((req, res, next) => {
       // This ensures the workflow doesn't timeout waiting for port 5000
       (async () => {
         try {
-          // Start Python QIG Backend - Ocean agent needs it
-          console.log("[Startup] Starting Python QIG Backend...");
-          startPythonBackend();
+          // Start Python QIG Backend using the managed process
+          console.log("[Startup] Starting Python QIG Backend via PythonProcessManager...");
+          await startPythonBackend();
           
-          // Await Python health with retries (30 attempts, 1s delay = 30s max)
-          const pythonReady = await oceanQIGBackend.checkHealthWithRetry(30, 1000);
-          if (pythonReady) {
+          // Check if Python is ready
+          if (pythonManager.ready()) {
             console.log("[Startup] ✅ Python QIG Backend is ready");
           } else {
             console.warn("[Startup] ⚠️ Python backend not available - continuing with degraded mode");

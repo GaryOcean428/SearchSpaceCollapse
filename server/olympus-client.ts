@@ -55,13 +55,30 @@ export type {
   OrchestrationResult,
 };
 
+import { getPythonManager } from './python-process-manager';
+
 const DEFAULT_RETRY_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 2000;
 const FETCH_TIMEOUT_MS = 15000;
 
+// Batching configuration for report-outcome calls
+interface PendingOutcome {
+  target: string;
+  success: boolean;
+  details?: Record<string, unknown>;
+  resolve: (result: { godsUpdated: number; success: boolean } | null) => void;
+}
+
+const pendingOutcomes: PendingOutcome[] = [];
+let outcomeBatchTimer: NodeJS.Timeout | null = null;
+const OUTCOME_BATCH_DELAY_MS = 500; // Wait 500ms to batch multiple outcomes
+const OUTCOME_BATCH_MAX_SIZE = 20;
+
 /**
  * Fetch with timeout and retry for transient Python backend failures.
  * Retries on ECONNREFUSED and network errors with exponential backoff.
+ * 
+ * IMPROVED: Better exponential backoff, jitter, and readiness gating.
  */
 async function fetchWithRetry(
   url: string,
@@ -69,6 +86,16 @@ async function fetchWithRetry(
   maxRetries: number = 3,
   timeoutMs: number = FETCH_TIMEOUT_MS
 ): Promise<Response> {
+  const pythonManager = getPythonManager();
+  
+  // Wait for backend to be ready before attempting requests
+  if (!pythonManager.ready()) {
+    const ready = await pythonManager.waitForReady(5000);
+    if (!ready) {
+      throw new Error('Python backend not ready');
+    }
+  }
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -82,8 +109,9 @@ async function fetchWithRetry(
       
       // Retry on 503 Service Unavailable
       if (response.status === 503 && attempt < maxRetries) {
-        const delay = Math.min(200 * Math.pow(2, attempt), 2000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const baseDelay = Math.min(500 * Math.pow(2, attempt - 1), 5000);
+        const jitter = Math.random() * 200;
+        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
         continue;
       }
       
@@ -91,16 +119,71 @@ async function fetchWithRetry(
     } catch (error: any) {
       clearTimeout(timeoutId);
       
+      // Log connection errors for debugging
+      if (error.cause?.code === 'ECONNREFUSED') {
+        console.warn(`[OlympusClient] ECONNREFUSED on attempt ${attempt}/${maxRetries}`);
+      }
+      
       // Retry on network errors (ECONNREFUSED, timeout, etc)
       if (attempt < maxRetries) {
-        const delay = Math.min(200 * Math.pow(2, attempt), 2000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const baseDelay = Math.min(500 * Math.pow(2, attempt - 1), 5000);
+        const jitter = Math.random() * 200;
+        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
         continue;
       }
       throw error;
     }
   }
   throw new Error(`fetchWithRetry exhausted ${maxRetries} retries for ${url}`);
+}
+
+/**
+ * Flush pending outcome reports as a batch
+ */
+async function flushOutcomeBatch(backendUrl: string): Promise<void> {
+  if (pendingOutcomes.length === 0) return;
+  
+  const batch = pendingOutcomes.splice(0, OUTCOME_BATCH_MAX_SIZE);
+  outcomeBatchTimer = null;
+  
+  try {
+    const response = await fetchWithRetry(`${backendUrl}/olympus/report-outcomes-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        outcomes: batch.map(o => ({
+          target: o.target,
+          success: o.success,
+          details: o.details || {},
+        })),
+      }),
+    });
+    
+    if (!response.ok) {
+      console.error('[OlympusClient] Batch report failed:', response.statusText);
+      for (const pending of batch) {
+        pending.resolve(null);
+      }
+      return;
+    }
+    
+    const data = await response.json();
+    console.log(`[OlympusClient] Batch reported: ${batch.length} outcomes, ${data.total_gods_updated} gods updated`);
+    
+    for (const pending of batch) {
+      pending.resolve({ godsUpdated: data.total_gods_updated, success: true });
+    }
+  } catch (error) {
+    console.error('[OlympusClient] Batch report exception:', error);
+    for (const pending of batch) {
+      pending.resolve(null);
+    }
+  }
+  
+  // If more pending, schedule next batch
+  if (pendingOutcomes.length > 0 && !outcomeBatchTimer) {
+    outcomeBatchTimer = setTimeout(() => flushOutcomeBatch(backendUrl), OUTCOME_BATCH_DELAY_MS);
+  }
 }
 
 export class OlympusClient {
@@ -527,8 +610,47 @@ export class OlympusClient {
    * 
    * Called when a balance hit is found (success=true) or tested phrase fails.
    * Updates god reputation and skills based on their assessments.
+   * 
+   * IMPROVED: Now uses batching to reduce database load. Multiple outcomes
+   * within 500ms are combined into a single request.
    */
   async reportDiscoveryOutcome(
+    target: string,
+    success: boolean,
+    details?: { balance?: number; address?: string; [key: string]: unknown }
+  ): Promise<{ godsUpdated: number; success: boolean } | null> {
+    return new Promise((resolve) => {
+      pendingOutcomes.push({
+        target,
+        success,
+        details,
+        resolve,
+      });
+      
+      // Start batch timer if not already running
+      if (!outcomeBatchTimer) {
+        outcomeBatchTimer = setTimeout(
+          () => flushOutcomeBatch(this.backendUrl),
+          OUTCOME_BATCH_DELAY_MS
+        );
+      }
+      
+      // Force flush if batch is full
+      if (pendingOutcomes.length >= OUTCOME_BATCH_MAX_SIZE) {
+        if (outcomeBatchTimer) {
+          clearTimeout(outcomeBatchTimer);
+          outcomeBatchTimer = null;
+        }
+        flushOutcomeBatch(this.backendUrl);
+      }
+    });
+  }
+  
+  /**
+   * Report a single outcome immediately (bypasses batching)
+   * Use for high-priority outcomes like balance hits
+   */
+  async reportDiscoveryOutcomeImmediate(
     target: string,
     success: boolean,
     details?: { balance?: number; address?: string; [key: string]: unknown }
