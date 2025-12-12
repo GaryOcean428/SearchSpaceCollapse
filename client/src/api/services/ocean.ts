@@ -31,11 +31,11 @@ export interface BoostResponse {
 }
 
 export async function triggerCycle(
-  type: CycleType,
+  type: CycleType | 'sleep' | 'dream' | 'mushroom',
   params?: TriggerCycleParams
 ): Promise<TriggerCycleResponse> {
   return post<TriggerCycleResponse>(
-    API_ROUTES.ocean.triggerCycle(type),
+    API_ROUTES.ocean.triggerCycle(type as CycleType),
     params
   );
 }
@@ -49,14 +49,42 @@ export async function boostNeurochemistry(
   });
 }
 
+export interface NeurochemistryBoost {
+  dopamine: number;
+  serotonin: number;
+  norepinephrine: number;
+  gaba: number;
+  acetylcholine: number;
+  endorphins: number;
+  expiresAt: number;
+}
+
 export interface NeurochemistryAdminState {
-  activeBoost: any;
+  activeBoost: NeurochemistryBoost | null;
   mushroomCooldownSeconds: number;
-  [key: string]: any;
+}
+
+export interface CycleTrigger {
+  trigger: boolean;
+  reason: string;
+}
+
+export interface CycleTriggers {
+  sleep: CycleTrigger;
+  dream: CycleTrigger;
+  mushroom: CycleTrigger;
+}
+
+export interface RecentCycle {
+  id: string;
+  type: 'sleep' | 'dream' | 'mushroom';
+  triggeredAt: string;
+  duration?: number;
 }
 
 export interface CyclesState {
-  [key: string]: any;
+  triggers: CycleTriggers | null;
+  recentCycles: RecentCycle[];
 }
 
 /**
@@ -71,6 +99,19 @@ export async function getNeurochemistryAdmin(): Promise<NeurochemistryAdminState
  */
 export async function getCycles(): Promise<CyclesState> {
   return get<CyclesState>(API_ROUTES.ocean.cycles);
+}
+
+/**
+ * Clear active neurochemistry boost
+ */
+export async function clearBoost(): Promise<BoostResponse> {
+  const response = await fetch(API_ROUTES.ocean.neurochemistryBoost, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error(`${response.status}: ${await response.text()}`);
+  }
+  return response.json();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

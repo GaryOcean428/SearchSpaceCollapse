@@ -112,7 +112,7 @@ export default function NeurochemistryAdminPanel() {
     setIsLoading(`cycle-${type}`);
     try {
       const payload = type === 'mushroom' ? { bypassCooldown } : {};
-      await api.ocean.triggerCycle(type as any, payload);
+      await api.ocean.triggerCycle(type, payload);
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Cycle Executed`,
         description: `Manual ${type} cycle completed successfully`,
@@ -132,8 +132,7 @@ export default function NeurochemistryAdminPanel() {
   const clearBoost = async () => {
     setIsLoading("clear");
     try {
-      // Use apiRequest for DELETE since it's not in the service layer yet
-      await apiRequest("DELETE", "/api/ocean/neurochemistry/boost", {});
+      await api.ocean.clearBoost();
       toast({
         title: "Boost Cleared",
         description: "All active boosts have been removed",
