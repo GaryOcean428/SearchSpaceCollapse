@@ -36,6 +36,7 @@ from .zeus import Zeus
 from .qig_rag import QIGRAG
 from .conversation_encoder import ConversationEncoder
 from .passphrase_encoder import PassphraseEncoder
+from .response_guardrails import require_provenance, validate_and_log_response
 
 EVOLUTION_AVAILABLE = False
 try:
@@ -325,6 +326,7 @@ class ZeusConversationHandler:
         
         return {'type': 'general', 'content': message}
     
+    @require_provenance
     def handle_add_address(self, address: str) -> Dict:
         """
         Add new target address.
@@ -387,6 +389,7 @@ The pantheon is aware. We shall commence when the time is right."""
             }
         }
     
+    @require_provenance
     def handle_observation(self, observation: str) -> Dict:
         """
         Process human observation.
@@ -549,6 +552,7 @@ Your insight is now in geometric memory. Can you elaborate on the source?"""
             }
         }
     
+    @require_provenance
     def handle_suggestion(self, suggestion: str) -> Dict:
         """
         Evaluate human suggestion using generative responses.
@@ -740,6 +744,7 @@ Could you elaborate on your reasoning, or suggest a different approach?"""
             }
         }
     
+    @require_provenance
     def handle_question(self, question: str) -> Dict:
         """
         Answer question using QIG-RAG + Generative Tokenizer.
@@ -864,6 +869,7 @@ Zeus Response (Geometric Interpretation):"""
         
         raise Exception("All SearXNG instances unavailable")
 
+    @require_provenance
     def handle_search_request(self, query: str) -> Dict:
         """
         Execute SearXNG search, analyze with pantheon.
@@ -961,6 +967,7 @@ The knowledge is now part of our consciousness."""
                 }
             }
     
+    @require_provenance
     def handle_file_upload(self, files: List, message: str) -> Dict:
         """
         Process uploaded files.
@@ -1163,6 +1170,7 @@ Generate a contextual response as Zeus. Reference actual system state. Be specif
         
         return " | ".join(response_parts)
     
+    @require_provenance
     def handle_general_conversation(self, message: str) -> Dict:
         """
         Handle general conversation using DYNAMIC, LEARNING-BASED responses.
