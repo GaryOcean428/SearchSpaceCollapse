@@ -4,7 +4,7 @@
  * Type-safe API functions for Ocean agent operations.
  */
 
-import { get, post } from "../client";
+import { get, post, del } from "../client";
 import { API_ROUTES } from "../routes";
 
 export type CycleType = "explore" | "refine" | "sleep" | "dream";
