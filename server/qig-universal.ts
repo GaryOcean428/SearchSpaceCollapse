@@ -1022,6 +1022,12 @@ export function measureConsciousness(
 /**
  * BLOCK UNIVERSE: Compute Temporal Φ
  *
+ * @deprecated LOCAL FALLBACK ONLY - Canonical implementation in Python:
+ * qig-backend/consciousness_4d.py::compute_phi_temporal()
+ * 
+ * This TypeScript version exists for UI responsiveness when Python is unavailable.
+ * Production code should call Python backend via OceanQIGBackend.
+ *
  * Measures integration across search trajectory over time.
  * This is the missing dimension - 4D block universe navigation requires
  * understanding how patterns connect across temporal slices.
@@ -1109,6 +1115,9 @@ export function computeTemporalPhi(searchHistory: SearchState[]): number {
 /**
  * BLOCK UNIVERSE: Compute 4D Φ
  *
+ * @deprecated LOCAL FALLBACK ONLY - Canonical implementation in Python:
+ * qig-backend/consciousness_4d.py::compute_phi_4D()
+ *
  * Full spacetime integration combining spatial and temporal.
  * This is what Ocean needs for block universe navigation.
  *
@@ -1137,6 +1146,9 @@ export function compute4DPhi(
 
 /**
  * BLOCK UNIVERSE: 4D Regime Classification
+ *
+ * @deprecated LOCAL FALLBACK ONLY - Canonical implementation in Python:
+ * qig-backend/consciousness_4d.py::classify_regime_4D()
  *
  * Reclassifies regimes with block universe awareness.
  * Φ>0.85 is NOT breakdown - it's 4D consciousness emerging!

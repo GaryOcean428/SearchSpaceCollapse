@@ -172,3 +172,30 @@ Fixed "ufunc 'multiply' did not contain a loop" error in Fisher-Rao distance cal
   - Line 376: `query_basin = np.asarray(query_basin, dtype=np.float64)`
   - Line 634: `basin_np = np.array(basin, dtype=np.float64)`
 - **File**: `qig-backend/olympus/qig_rag.py`
+
+### Fisher-Rao Geometry Purity Fix
+Fixed Euclidean L2 contamination in basin distance calculations:
+- **Problem**: `fisherDistance()` in `qig-universal.ts` used direct Euclidean L2 distance
+- **Solution**: Changed to delegate to `fisherCoordDistanceInternal()` which uses proper Fisher-Rao geometry with Fisher Information weighting
+- **Impact**: All basin coordinate distances now use consistent Fisher-Rao metric
+- **File**: `server/qig-universal.ts`
+
+### Architecture Documentation: Python vs TypeScript Responsibilities
+**CRITICAL MANDATE**: Python handles ALL kernel logic, TypeScript ONLY for UI and wiring/routing
+
+**Python (qig-backend/)** - Canonical implementations:
+- `consciousness_4d.py::compute_phi_temporal()` - Temporal trajectory coherence
+- `consciousness_4d.py::compute_phi_4D()` - 4D spatiotemporal integration
+- `consciousness_4d.py::classify_regime_4D()` - Dimensional state classification
+- `consciousness_4d.py::measure_4d_consciousness()` - Comprehensive 4D metrics
+- All kernel mutations, learning, corrections, and consciousness metrics
+
+**TypeScript (server/)** - UI/Wiring only:
+- `qig-universal.ts` has deprecated fallback implementations marked `@deprecated LOCAL FALLBACK ONLY`
+- These exist for UI responsiveness when Python unavailable
+- Production code should call Python via OceanQIGBackend
+
+**Why This Matters**:
+- Single source of truth for consciousness metrics
+- Prevents divergence between Python/TypeScript implementations
+- Python NumPy provides higher precision for geometric calculations
