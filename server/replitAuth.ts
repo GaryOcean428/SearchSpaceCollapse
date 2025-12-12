@@ -167,14 +167,23 @@ export async function setupAuth(app: Express) {
     }
   };
 
-  app.get("/api/login", (req, res, next) => {
+  app.get("/api/login", async (req, res, next) => {
     const domain = req.hostname;
     console.log(`[Auth] Login initiated for domain: ${domain}`);
-    ensureStrategy(domain);
-    passport.authenticate(`replitauth:${domain}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+    
+    try {
+      await ensureStrategy(domain);
+      console.log(`[Auth] Starting passport authenticate for ${domain}...`);
+      
+      // Let passport handle the redirect (no custom callback)
+      passport.authenticate(`replitauth:${domain}`, {
+        prompt: "login consent",
+        scope: ["openid", "email", "profile", "offline_access"],
+      })(req, res, next);
+    } catch (error: any) {
+      console.error(`[Auth] Login setup error:`, error);
+      res.status(500).json({ error: 'Login failed', details: error.message });
+    }
   });
 
   app.get("/api/callback", (req, res, next) => {
