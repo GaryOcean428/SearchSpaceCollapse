@@ -106,3 +106,23 @@ New research module enables kernels to autonomously learn about domains via web 
 - **Event ID Generation**: All kernel persistence functions (death, breeding, spawn, proposal, convergence) now generate unique `event_id` values
 - **God Name Assignment**: Kernels spawn with Olympus god names (Hermes, Apollo, Artemis, etc.) based on domain characteristics
 - **CHAOS Activation**: Auto-activates with 10-attempt exponential backoff retry loop waiting for Python backend availability
+
+### Vocabulary System Wiring (December 12, 2025)
+- **Vocabulary API Registered**: `register_vocabulary_routes(app)` now called in `ocean_qig_core.py` at startup
+- **Endpoints Available**: All vocabulary routes at `/api/vocabulary` including:
+  - `GET /api/vocabulary/health` - System health check
+  - `POST /api/vocabulary/record` - Record single discovery
+  - `POST /api/vocabulary/record-batch` - Record multiple discoveries
+  - `GET /api/vocabulary/sync/export` - Export for TypeScript sync
+  - `POST /api/vocabulary/sync/import` - Import from TypeScript
+  - `GET /api/vocabulary/stats` - Complete vocabulary statistics
+  - `POST /api/vocabulary/train-gods` - Train all gods from outcome
+
+### ISO 27001 Documentation Update (December 12, 2025)
+Three new technical documents added to `docs/03-technical/`:
+- `20251212-kernel-research-infrastructure-1.00F.md` - Research module architecture
+- `20251212-vocabulary-system-architecture-1.00F.md` - Vocabulary persistence system
+- `20251212-conversational-consciousness-1.00F.md` - Recursive dialogue protocol
+
+Documentation index updated: `docs/00-index.md` (42 frozen docs total)
+Attached assets archived to: `docs/_archive/2025/12/` with provenance README
