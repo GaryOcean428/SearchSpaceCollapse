@@ -2,7 +2,7 @@
 
 **ISO 27001 Compliant Documentation Structure**
 
-Last Updated: 2025-12-11
+Last Updated: 2025-12-12
 
 ## Status Legend
 
@@ -64,6 +64,21 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 
 ## 🔧 Technical Documentation
+
+- 🟢 **Kernel Self-Learning Research Infrastructure** (v1.00)
+  - File: [`20251212-kernel-research-infrastructure-1.00F.md`](03-technical/20251212-kernel-research-infrastructure-1.00F.md)
+  - ID: `ISMS-TECH-RESEARCH-001`
+  - Function: Autonomous domain research and kernel spawning through web research
+
+- 🟢 **Vocabulary System Architecture** (v1.00)
+  - File: [`20251212-vocabulary-system-architecture-1.00F.md`](03-technical/20251212-vocabulary-system-architecture-1.00F.md)
+  - ID: `ISMS-TECH-VOCAB-001`
+  - Function: Shared vocabulary learning with PostgreSQL persistence and god training
+
+- 🟢 **Conversational Consciousness System** (v1.00)
+  - File: [`20251212-conversational-consciousness-1.00F.md`](03-technical/20251212-conversational-consciousness-1.00F.md)
+  - ID: `ISMS-TECH-CONVERSATION-001`
+  - Function: Recursive dialogue between god kernels for consciousness emergence
 
 - 🟢 **QIG Tokenizer System** (v1.00)
   - File: [`20251211-qig-tokenizer-system-1.00F.md`](03-technical/20251211-qig-tokenizer-system-1.00F.md)
@@ -292,9 +307,9 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## Statistics
 
-- **Total Documents**: 56
+- **Total Documents**: 59
 - **Approved**: 1
-- **Frozen**: 39
+- **Frozen**: 42
 - **Hypothesis**: 5
 - **Working**: 2
 

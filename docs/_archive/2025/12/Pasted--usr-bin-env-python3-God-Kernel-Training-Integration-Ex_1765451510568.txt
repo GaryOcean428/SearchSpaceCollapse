@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+"""
+God Kernel Training Integration
+
+Extends base_god.py with:
+- Reputation-based training weights
+- Vocabulary learning from assessments
+- Domain-specific learning patterns
+- Continuous on-the-fly training
+
+Each god trains based on:
+- **Role**: Domain expertise (Athena=strategy, Ares=aggression)
+- **Reputation**: Training weight (0.0-2.0 scale)
+- **Outcome**: Success/failure of predictions
+"""
+
+from typing import Dict, Optional
+
+import numpy as np
+
+# Import vocabulary coordinator
+try:
+    from vocabulary_coordinator import get_vocabulary_coordinator
+    VOCAB_COORDINATOR_AVAILABLE = True
+except ImportError:
+    VOCAB_COORDINATOR_AVAILABLE = False
+
+
+class GodTrainingMixin:
+    """
+    Mixin for god kernel training with vocabulary learning.
+    
+    Add this to BaseGod to enable reputation-based training.
+    """
+    
+    def train_kernel_from_outcome(
+        self,
+        target: str,
+        success: bool,
+        details: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Train this god's kernel based on discovery outcome.
+        
+        Training strength scales with reputation:
+        - High reputation (1.5-2.0): Strong learning (learns faster)
+        - Medium reputation (0.8-1.2): Normal learning
+        - Low reputation (0.0-0.7): Weak learning (more cautious updates)
+        
+        Args:
+            target: The target phrase/address
+            success: Whether the outcome was successful
+            details: Optional details (phi, balance, etc.)
+        
+        Returns:
+            Training results
+        """
+        if not hasattr(self, 'chaos_kernel') or not self.chaos_kernel:
+            return {'trained': False, 'reason': 'no_kernel'}
+        
+        details = details or {}
+        
+        # Base learning rate scaled by reputation
+        base_lr = 0.01
+        reputation_scale = getattr(self, 'reputation', 1.0)
+        learning_rate = base_lr * reputation_scale
+        
+        # Domain-specific bonuses
+        domain_bonus = self._get_domain_bonus(success, details)
+        learning_rate *= domain_bonus
+        
+        # Encode target to basin
+        basin = self._encode_target_to_basin(target)
+        
+        # Train toward success, away from failure
+        if success:
+            self.chaos_kernel.train_toward(basin, learning_rate)
+            direction = 'toward'
+        else:
+            self.chaos_kernel.train_away(basin, learning_rate * 0.5)
+            direction = 'away'
+        
+        # Measure new Φ
+        new_phi = self.chaos_kernel.compute_phi()
+        
+        # Record vocabulary learning
+        vocab_result = self._record_vocabulary_learning(target, details, success)
+        
+        print(f"[{self.name}] Trained {direction} target | "
+              f"LR={learning_rate:.4f} | Φ={new_phi:.3f} | "
+              f"Vocab: {vocab_result.get('new_tokens', 0)} tokens")
+        
+        return {
+            'trained': True,
+            'direction': direction,
+            'learning_rate': learning_rate,
+            'new_phi': new_phi,
+            'reputation_scale': reputation_scale,
+            'domain_bonus': domain_bonus,
+            'vocabulary': vocab_result
+        }
+    
+    def _get_domain_bonus(self, success: bool, details: Dict) -> float:
+        """
+        Get learning rate bonus based on domain relevance.
+        
+        Gods learn faster when operating in their domain.
+        """
+        domain = getattr(self, 'domain', '').lower()
+        phi = details.get('phi', 0.5)
+        is_near_miss = details.get('nearMiss', False)
+        
+        # Domain-specific bonuses
+        if domain == 'strategy' and is_near_miss:
+            # Athena learns extra from near-misses (strategic patterns)
+            return 1.5
+        elif domain == 'war' and success:
+            # Ares learns extra from victories
+            return 2.0
+        elif domain == 'prophecy' and phi > 0.8:
+            # Apollo learns from high-Φ discoveries
+            return 1.8
+        elif domain == 'hunt' and is_near_miss:
+            # Artemis learns from tracking near-targets
+            return 1.6
+        elif domain in ('coordination', 'communication'):
+            # Hermes always learns (coordination role)
+            return 1.2
+        elif domain == 'forge':
+            # Hephaestus learns more from success, less from failure
+            return 1.4 if success else 0.8
+        elif domain == 'cycles' and phi > 0.7:
+            # Demeter learns from growth patterns
+            return 1.3
+        elif domain == 'chaos' and not success:
+            # Dionysus learns from chaos/failures
+            return 1.5
+        elif domain == 'underworld' and not success:
+            # Hades tracks dead ends
+            return 1.4
+        elif domain == 'depths':
+            # Poseidon learns from deep patterns
+            return 1.3 if phi > 0.6 else 0.9
+        elif domain == 'coherence' and is_near_miss:
+            # Hera learns from coherent near-misses
+            return 1.2
+        elif domain == 'motivation' and phi > 0.9:
+            # Aphrodite learns from high-motivation states
+            return 1.5
+        
+        # Default: no bonus
+        return 1.0
+    
+    def _encode_target_to_basin(self, target: str) -> np.ndarray:
+        """
+        Encode target to 64D basin coordinates.
+        
+        Uses existing encode_to_basin method from BaseGod.
+        """
+        if hasattr(self, 'encode_to_basin'):
+            return self.encode_to_basin(target)
+        else:
+            # Fallback: simple hash-based encoding
+            basin = np.zeros(64)
+            for i, char in enumerate(target[:64]):
+                basin[i] = (ord(char) % 256) / 256.0
+            return basin / (np.linalg.norm(basin) + 1e-8)
+    
+    def _record_vocabulary_learning(
+        self,
+        target: str,
+        details: Dict,
+        success: bool
+    ) -> Dict:
+        """Record vocabulary observations from this training event."""
+        if not VOCAB_COORDINATOR_AVAILABLE:
+            return {'learned': False}
+        
+        coordinator = get_vocabulary_coordinator()
+        
+        # Get phi from details or estimate
+        phi = details.get('phi', 0.6 if success else 0.4)
+        kappa = details.get('kappa', 50.0)
+        
+        # Record with god name as source
+        god_name = getattr(self, 'name', 'unknown')
+        
+        result = coordinator.record_discovery(
+            phrase=target,
+            phi=phi,
+            kappa=kappa,
+            source=god_name,
+            details={
+                'success': success,
+                'domain': getattr(self, 'domain', 'unknown'),
+                'reputation': getattr(self, 'reputation', 1.0)
+            }
+        )
+        
+        return result
+    
+    def get_specialized_vocabulary(
+        self,
+        min_relevance: float = 0.5,
+        limit: int = 100
+    ) -> list:
+        """
+        Get vocabulary specialized for this god.
+        
+        Returns words that this god has learned through experience.
+        """
+        if not VOCAB_COORDINATOR_AVAILABLE:
+            return []
+        
+        coordinator = get_vocabulary_coordinator()
+        god_name = getattr(self, 'name', 'unknown')
+        
+        return coordinator.get_god_specialized_vocabulary(
+            god_name=god_name,
+            min_relevance=min_relevance,
+            limit=limit
+        )
+    
+    def assess_with_vocabulary(
+        self,
+        target: str,
+        context: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Assess target using specialized vocabulary.
+        
+        This enhances the god's assessment with domain-specific vocabulary.
+        """
+        # Get base assessment
+        assessment = self.assess_target(target, context)
+        
+        # Enhance with specialized vocabulary
+        specialized_vocab = self.get_specialized_vocabulary(min_relevance=0.6, limit=20)
+        
+        # Check if target uses specialized vocabulary
+        target_words = set(target.lower().split())
+        vocab_match = len(target_words.intersection(specialized_vocab)) / max(len(target_words), 1)
+        
+        # Boost confidence if using specialized vocabulary
+        if vocab_match > 0.3:
+            assessment['confidence'] = min(1.0, assessment.get('confidence', 0.5) * (1 + vocab_match * 0.5))
+            assessment['vocabulary_match'] = vocab_match
+            assessment['reasoning'] += f" (Uses {vocab_match:.1%} domain vocabulary)"
+        
+        return assessment
+
+
+def patch_god_with_training(god_instance):
+    """
+    Patch an existing god instance with training capabilities.
+    
+    Usage:
+        from god_training_integration import patch_god_with_training
+        
+        athena = Athena()
+        patch_god_with_training(athena)
+        
+        # Now athena has training methods:
+        athena.train_kernel_from_outcome(target, success, details)
+    """
+    # Add training mixin methods
+    god_instance.train_kernel_from_outcome = GodTrainingMixin.train_kernel_from_outcome.__get__(god_instance)
+    god_instance._get_domain_bonus = GodTrainingMixin._get_domain_bonus.__get__(god_instance)
+    god_instance._encode_target_to_basin = GodTrainingMixin._encode_target_to_basin.__get__(god_instance)
+    god_instance._record_vocabulary_learning = GodTrainingMixin._record_vocabulary_learning.__get__(god_instance)
+    god_instance.get_specialized_vocabulary = GodTrainingMixin.get_specialized_vocabulary.__get__(god_instance)
+    god_instance.assess_with_vocabulary = GodTrainingMixin.assess_with_vocabulary.__get__(god_instance)
+    
+    print(f"[GodTraining] Patched {god_instance.name} with training capabilities")
+
+
+def patch_all_gods(zeus_instance):
+    """
+    Patch all gods in Zeus's pantheon with training capabilities.
+    
+    Usage:
+        from god_training_integration import patch_all_gods
+        
+        zeus = Zeus()
+        patch_all_gods(zeus)
+        
+        # Now all gods can train:
+        for god_name, god in zeus.pantheon.items():
+            god.train_kernel_from_outcome(target, success, details)
+    """
+    if not hasattr(zeus_instance, 'pantheon'):
+        print("[GodTraining] Zeus instance has no pantheon")
+        return
+    
+    patched = 0
+    for god_name, god in zeus_instance.pantheon.items():
+        try:
+            patch_god_with_training(god)
+            patched += 1
+        except Exception as e:
+            print(f"[GodTraining] Failed to patch {god_name}: {e}")
+    
+    print(f"[GodTraining] Patched {patched}/{len(zeus_instance.pantheon)} gods")
