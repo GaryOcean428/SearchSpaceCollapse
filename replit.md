@@ -180,6 +180,28 @@ Fixed Euclidean L2 contamination in basin distance calculations:
 - **Impact**: All basin coordinate distances now use consistent Fisher-Rao metric
 - **File**: `server/qig-universal.ts`
 
+### Centralized Geometry Architecture
+Established single source of truth for all geometric distance operations:
+
+**Central Module**: `server/qig-universal.ts`
+- `fisherCoordDistance(coords1, coords2)` - Canonical Fisher-Rao distance for basin coordinates
+- `fisherDistance(phrase1, phrase2)` - Delegates to `fisherCoordDistance()` after encoding
+- All other modules import from this central location
+
+**Migrated Files** (now delegate to central implementation):
+- `server/gary-kernel.ts::computeFisherDistance()` → imports `fisherCoordDistance`
+- `server/vocabulary-expander.ts::fisherDistance()` → imports `fisherCoordDistance`
+- `server/consciousness-search-controller.ts::fisherDistanceFromCoordinates()` → imports `fisherCoordDistance`
+
+**Shared Types**: `shared/types/qig-geometry.ts`
+- `fisherRaoDistance()` - Fixed to use diagonal Fisher metric (not Euclidean L2 fallback)
+- Uses `variance = p * (1 - p)` Fisher variance weighting
+
+**Why This Matters**:
+- Single source of truth prevents implementation drift
+- All basin distances use consistent Fisher-Rao geometry
+- Easy to audit and maintain geometric purity
+
 ### Architecture Documentation: Python vs TypeScript Responsibilities
 **CRITICAL MANDATE**: Python handles ALL kernel logic, TypeScript ONLY for UI and wiring/routing
 
