@@ -197,6 +197,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Emergency session clear (no auth required) - for auth loop recovery
+  app.get("/api/clear-session", (req, res) => {
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("[Auth] Session destroy error:", err);
+        }
+        res.clearCookie("connect.sid");
+        res.redirect("/");
+      });
+    } else {
+      res.clearCookie("connect.sid");
+      res.redirect("/");
+    }
+  });
+
   // ============================================================
   // MOUNT SUB-ROUTERS (Modular Route Organization)
   // ============================================================
