@@ -32,6 +32,7 @@ import {
   type WarOutcome,
 } from '../war-history-storage';
 import { storeConversation, storeShadowIntel, storeKernelGeometry, getKernelGeometry } from '../qig-db';
+import { activityLogStore } from '../activity-log-store';
 
 const router = Router();
 const olympusClient = new OlympusClient(
@@ -167,6 +168,18 @@ router.post('/zeus/chat', isAuthenticated, async (req, res) => {
         ).catch(err => console.warn('[Olympus] Conversation persistence failed:', err));
       }
       
+      // Log to activity stream for visibility
+      activityLogStore.log({
+        source: 'system',
+        category: 'zeus_chat',
+        message: `Zeus received message: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}"`,
+        type: 'success',
+        metadata: {
+          responding_god: data.metadata?.responding_god || 'zeus',
+          phi: data.metadata?.phi,
+        },
+      });
+      
       res.json(data);
       return;
     }
@@ -200,6 +213,19 @@ router.post('/zeus/chat', isAuthenticated, async (req, res) => {
       proxyRes.on('end', () => {
         try {
           const jsonData = JSON.parse(data);
+          
+          // Log file upload to activity stream
+          activityLogStore.log({
+            source: 'system',
+            category: 'zeus_chat',
+            message: `Zeus processed file upload successfully`,
+            type: 'success',
+            metadata: {
+              content_type: 'multipart/form-data',
+              responding_god: jsonData.metadata?.responding_god || 'zeus',
+            },
+          });
+          
           res.status(proxyRes.statusCode || 200).json(jsonData);
         } catch {
           res.status(proxyRes.statusCode || 500).send(data);

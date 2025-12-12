@@ -37,10 +37,13 @@ export interface ZeusChatError {
 }
 
 export interface ZeusChatSuccess {
-  type: 'actions_taken';
+  type: 'actions_taken' | 'message_sent' | 'file_processed';
   message: string;
-  actions: string[];
+  actions?: string[];
+  fileCount?: number;
 }
+
+export type SyncStatus = 'idle' | 'sending' | 'synced' | 'error';
 
 export interface UseZeusChatReturn {
   messages: ZeusMessage[];
@@ -56,6 +59,7 @@ export interface UseZeusChatReturn {
   lastSuccess: ZeusChatSuccess | null;
   clearLastError: () => void;
   clearLastSuccess: () => void;
+  syncStatus: SyncStatus;
 }
 
 export function useZeusChat(): UseZeusChatReturn {
@@ -65,6 +69,7 @@ export function useZeusChat(): UseZeusChatReturn {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [lastError, setLastError] = useState<ZeusChatError | null>(null);
   const [lastSuccess, setLastSuccess] = useState<ZeusChatSuccess | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -80,6 +85,7 @@ export function useZeusChat(): UseZeusChatReturn {
     
     setLastError(null);
     setLastSuccess(null);
+    setSyncStatus('sending');
     
     const humanMessage: ZeusMessage = {
       id: `msg-${Date.now()}`,
@@ -89,6 +95,7 @@ export function useZeusChat(): UseZeusChatReturn {
     };
     setMessages(prev => [...prev, humanMessage]);
     const messageToSend = input;
+    const fileCount = uploadedFiles.length;
     setInput('');
     
     setIsThinking(true);
@@ -109,7 +116,23 @@ export function useZeusChat(): UseZeusChatReturn {
         metadata: data.metadata as ZeusMessage['metadata'],
       };
       setMessages(prev => [...prev, zeusMessage]);
+      setSyncStatus('synced');
       
+      // Emit success notification based on what was sent
+      if (fileCount > 0) {
+        setLastSuccess({
+          type: 'file_processed',
+          message: `${fileCount} file${fileCount > 1 ? 's' : ''} processed by Zeus`,
+          fileCount,
+        });
+      } else {
+        setLastSuccess({
+          type: 'message_sent',
+          message: 'Message received by Zeus',
+        });
+      }
+      
+      // Override with actions_taken if present (more important)
       if ((data.metadata?.actions_taken?.length ?? 0) > 0) {
         setLastSuccess({
           type: 'actions_taken',
@@ -120,6 +143,7 @@ export function useZeusChat(): UseZeusChatReturn {
       
     } catch (error: unknown) {
       console.error('[useZeusChat] Error:', error);
+      setSyncStatus('error');
       
       const errorData = (error as { response?: { data?: { validation_type?: string; phi?: number; kappa?: number; regime?: string; error?: string } } })?.response?.data;
       const isGeometricError = errorData?.validation_type === 'geometric';
@@ -208,5 +232,6 @@ export function useZeusChat(): UseZeusChatReturn {
     lastSuccess,
     clearLastError,
     clearLastSuccess,
+    syncStatus,
   };
 }

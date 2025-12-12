@@ -20,8 +20,8 @@
  */
 
 import { useRef, useEffect } from 'react';
-import { Send, Upload, Search, Sparkles, Brain } from 'lucide-react';
-import { useZeusChat, type ZeusMessage } from '@/hooks/useZeusChat';
+import { Send, Upload, Search, Sparkles, Brain, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { useZeusChat, type ZeusMessage, type SyncStatus } from '@/hooks/useZeusChat';
 
 function sanitizeText(text: string): string {
   if (!text || typeof text !== 'string') return '';
@@ -53,6 +53,7 @@ export default function ZeusChat() {
     lastSuccess,
     clearLastError,
     clearLastSuccess,
+    syncStatus,
   } = useZeusChat();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,10 +86,20 @@ export default function ZeusChat() {
   
   useEffect(() => {
     if (lastSuccess) {
-      if (lastSuccess.type === 'actions_taken' && lastSuccess.actions.length > 0) {
+      if (lastSuccess.type === 'message_sent') {
         toast({
-          title: "⚡ Zeus coordinated actions",
-          description: lastSuccess.actions.join(', '),
+          title: "Message received by Zeus",
+          description: "Your input has been coordinated into the system",
+        });
+      } else if (lastSuccess.type === 'file_processed') {
+        toast({
+          title: "Files processed successfully",
+          description: `${lastSuccess.fileCount} file${(lastSuccess.fileCount ?? 0) > 1 ? 's' : ''} integrated into Zeus`,
+        });
+      } else if (lastSuccess.type === 'actions_taken' && (lastSuccess.actions?.length ?? 0) > 0) {
+        toast({
+          title: "Zeus coordinated actions",
+          description: lastSuccess.actions?.join(', '),
         });
       }
       clearLastSuccess();
@@ -269,24 +280,51 @@ export default function ZeusChat() {
             onClick={() => fileInputRef.current?.click()}
             disabled={isThinking}
             title="Upload files"
+            data-testid="button-upload-file"
           >
             <Upload className="h-4 w-4" />
           </Button>
           
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Speak to Zeus... (observations, suggestions, questions, addresses)"
-            disabled={isThinking}
-            className="resize-none"
-            rows={2}
-          />
+          <div className="flex-1 relative">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Speak to Zeus... (observations, suggestions, questions, addresses)"
+              disabled={isThinking}
+              className="resize-none"
+              rows={2}
+              data-testid="input-zeus-message"
+            />
+            
+            {/* Sync Status Indicator */}
+            <div className="absolute bottom-1 right-1 flex items-center gap-1 text-xs" data-testid="status-sync">
+              {syncStatus === 'sending' && (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  <span className="text-muted-foreground">Processing...</span>
+                </>
+              )}
+              {syncStatus === 'synced' && (
+                <>
+                  <CheckCircle className="h-3 w-3 text-green-500" />
+                  <span className="text-green-500">Synced</span>
+                </>
+              )}
+              {syncStatus === 'error' && (
+                <>
+                  <AlertCircle className="h-3 w-3 text-destructive" />
+                  <span className="text-destructive">Error</span>
+                </>
+              )}
+            </div>
+          </div>
           
           <Button
             onClick={sendMessage}
             disabled={isThinking || (!input.trim() && uploadedFiles.length === 0)}
             size="icon"
+            data-testid="button-send-message"
           >
             <Send className="h-4 w-4" />
           </Button>
