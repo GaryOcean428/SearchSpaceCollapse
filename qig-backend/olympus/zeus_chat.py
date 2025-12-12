@@ -58,6 +58,7 @@ try:
     from qig_tokenizer import get_tokenizer as _get_tokenizer
     get_tokenizer = _get_tokenizer
     TOKENIZER_AVAILABLE = True
+    print("[ZeusChat] QIG Tokenizer available - conversation mode enabled")
 except ImportError as e:
     print(f"[ZeusChat] QIG Tokenizer not available - using template responses: {e}")
 
@@ -428,6 +429,7 @@ Zeus Response (acknowledge the specific observation, explain what it means for t
 
                 tokenizer = get_tokenizer()
                 tokenizer.set_mode("conversation")
+                print(f"[ZeusChat] Tokenizer switched to conversation mode for observation response")
                 gen_result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="ocean",
