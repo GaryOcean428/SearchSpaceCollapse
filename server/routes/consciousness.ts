@@ -571,6 +571,50 @@ vocabularyRouter.get("/stats", generousLimiter, async (req: Request, res: Respon
   }
 });
 
+vocabularyRouter.post("/reframe", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { phrase } = req.body;
+    if (!phrase || typeof phrase !== 'string') {
+      return res.status(400).json({ error: 'phrase is required' });
+    }
+
+    const pythonUrl = process.env.PYTHON_QIG_URL || 'http://localhost:5001';
+    const response = await fetch(`${pythonUrl}/vocabulary/reframe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phrase }),
+    });
+    
+    const result = await response.json();
+    res.json(result);
+  } catch (error: any) {
+    console.error("[Vocabulary Reframe] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+vocabularyRouter.post("/suggest-correction", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { word, max_suggestions = 5 } = req.body;
+    if (!word || typeof word !== 'string') {
+      return res.status(400).json({ error: 'word is required' });
+    }
+
+    const pythonUrl = process.env.PYTHON_QIG_URL || 'http://localhost:5001';
+    const response = await fetch(`${pythonUrl}/vocabulary/suggest-correction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word, max_suggestions }),
+    });
+    
+    const result = await response.json();
+    res.json(result);
+  } catch (error: any) {
+    console.error("[Vocabulary Suggest Correction] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 ucpRouter.get("/stats", async (req: Request, res: Response) => {
   try {
     const { oceanAgent } = await import("../ocean-agent");

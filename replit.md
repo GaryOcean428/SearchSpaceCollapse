@@ -110,3 +110,37 @@ Implemented robust inter-process communication between Node.js and Python Flask:
 - Max 3 failures before opening circuit
 - 30s reset timeout before allowing test request
 - Exponential backoff with 1s base delay
+
+### BIP-39 Phrase Classification & Mutation Reframing System
+Implemented a robust vocabulary system that classifies phrase types and suggests corrections for invalid mutations:
+
+**Architecture Separation (CRITICAL)**:
+- **Python handles ALL kernel logic**: Mutations, learning, corrections, Levenshtein distance calculations
+- **TypeScript is UI + wiring ONLY**: Thin proxy routes that forward requests to Python
+
+**Python Implementation** (`qig-backend/bip39_wordlist.py`):
+- `suggest_bip39_correction(word, max_suggestions=5, max_distance=5)`: Levenshtein-based word similarity
+- `reframe_mutation(phrase)`: Reframes entire invalid phrases to valid BIP-39 seeds
+- BIP-39 wordlist loaded from embedded 2048 words
+
+**Flask Endpoints** (`qig-backend/ocean_qig_core.py`):
+- `POST /vocabulary/suggest-correction`: Single word correction (e.g., "bitcoin" → "bacon"(3), "coin"(3))
+- `POST /vocabulary/reframe`: Full phrase reframing with position-aware corrections
+- `POST /vocabulary/classify`: Classify phrase as `bip39_seed`, `mutation`, or `passphrase`
+- `GET /vocabulary/stats`: Category statistics from PostgreSQL
+
+**TypeScript Proxy Routes** (`server/routes/consciousness.ts`):
+- `/api/vocabulary/reframe` → proxies to Python `/vocabulary/reframe`
+- `/api/vocabulary/suggest-correction` → proxies to Python `/vocabulary/suggest-correction`
+- Uses direct `fetch()` to Python backend with proper error handling
+
+**Word Correction Examples**:
+- "bitcoin" → "bacon" (distance 3), "coin" (3), "icon" (3)
+- "wallet" → "alley" (2), "bullet" (2), "valley" (2)
+- "password" → "sword" (3), "absorb" (4), "absurd" (4)
+- "money" → "honey" (1), "monkey" (1), "bone" (2)
+
+**Learning Data Retention**:
+- Invalid 12-word phrases are kept as learning data (not discarded)
+- Kernels use correction suggestions to understand user intent
+- Mutations inform god kernel training through vocabulary observations

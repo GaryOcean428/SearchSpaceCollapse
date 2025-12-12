@@ -3203,6 +3203,116 @@ def vocabulary_status():
     return tokenizer_status()
 
 
+@app.route('/vocabulary/classify', methods=['POST'])
+def vocabulary_classify():
+    """
+    Classify a phrase into BIP-39 categories.
+    Python-native kernel learning endpoint.
+    """
+    try:
+        data = request.get_json() or {}
+        phrase = data.get('phrase', '')
+        phi = data.get('phi', 0.0)
+        
+        if not phrase:
+            return jsonify({'error': 'phrase is required'}), 400
+        
+        from bip39_wordlist import get_learning_context
+        context = get_learning_context(phrase, phi)
+        
+        return jsonify({
+            'success': True,
+            **context
+        })
+    except Exception as e:
+        print(f"[Flask] vocabulary/classify error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/vocabulary/reframe', methods=['POST'])
+def vocabulary_reframe():
+    """
+    Reframe a mutation (invalid BIP-39 seed) into valid seed suggestions.
+    
+    This is the core kernel learning endpoint for mutation correction.
+    Invalid words are matched to similar BIP-39 words using edit distance.
+    """
+    try:
+        data = request.get_json() or {}
+        phrase = data.get('phrase', '')
+        
+        if not phrase:
+            return jsonify({'error': 'phrase is required'}), 400
+        
+        from bip39_wordlist import reframe_mutation, classify_phrase
+        
+        # First classify
+        category = classify_phrase(phrase)
+        
+        if category == 'bip39_seed':
+            return jsonify({
+                'success': True,
+                'category': 'already_valid',
+                'original': phrase,
+                'message': 'Phrase is already a valid BIP-39 seed',
+                'suggestions': []
+            })
+        
+        if category != 'mutation':
+            return jsonify({
+                'success': False,
+                'category': category,
+                'original': phrase,
+                'message': f'Not a seed-length phrase (category: {category})',
+                'suggestions': []
+            })
+        
+        # Reframe the mutation
+        result = reframe_mutation(phrase)
+        
+        return jsonify({
+            'success': result.get('success', False),
+            **result
+        })
+    except Exception as e:
+        print(f"[Flask] vocabulary/reframe error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/vocabulary/suggest-correction', methods=['POST'])
+def vocabulary_suggest_correction():
+    """
+    Suggest BIP-39 word corrections for a single invalid word.
+    """
+    try:
+        data = request.get_json() or {}
+        word = data.get('word', '')
+        max_suggestions = data.get('max_suggestions', 5)
+        
+        if not word:
+            return jsonify({'error': 'word is required'}), 400
+        
+        from bip39_wordlist import suggest_bip39_correction, is_bip39_word
+        
+        if is_bip39_word(word):
+            return jsonify({
+                'word': word,
+                'is_valid': True,
+                'suggestions': []
+            })
+        
+        suggestions = suggest_bip39_correction(word, max_suggestions)
+        
+        return jsonify({
+            'word': word,
+            'is_valid': False,
+            'suggestions': suggestions
+        })
+    except Exception as e:
+        print(f"[Flask] vocabulary/suggest-correction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 # =============================================================================
 # QIG GEODESIC CORRECTION - GEOMETRIC LEARNING FUNCTIONS
 # Orthogonal complement calculation for trajectory refinement
