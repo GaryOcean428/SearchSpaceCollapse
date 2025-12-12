@@ -140,12 +140,24 @@ async function fetchWithRetry(
 
 /**
  * Flush pending outcome reports as a batch
+ * Gracefully handles Python backend not being ready by re-queuing items
  */
 async function flushOutcomeBatch(backendUrl: string): Promise<void> {
   if (pendingOutcomes.length === 0) return;
   
   const batch = pendingOutcomes.splice(0, OUTCOME_BATCH_MAX_SIZE);
   outcomeBatchTimer = null;
+  
+  // Check if Python backend is ready before attempting
+  const pythonManager = getPythonManager();
+  if (!pythonManager.ready()) {
+    // Backend not ready - re-queue items and try later
+    pendingOutcomes.push(...batch);
+    if (!outcomeBatchTimer) {
+      outcomeBatchTimer = setTimeout(() => flushOutcomeBatch(backendUrl), 5000); // Retry in 5s
+    }
+    return;
+  }
   
   try {
     const response = await fetchWithRetry(`${backendUrl}/olympus/report-outcomes-batch`, {
@@ -174,7 +186,15 @@ async function flushOutcomeBatch(backendUrl: string): Promise<void> {
     for (const pending of batch) {
       pending.resolve({ godsUpdated: data.total_gods_updated, success: true });
     }
-  } catch (error) {
+  } catch (error: any) {
+    // If backend not ready error, re-queue and retry later
+    if (error.message?.includes('not ready')) {
+      pendingOutcomes.push(...batch);
+      if (!outcomeBatchTimer) {
+        outcomeBatchTimer = setTimeout(() => flushOutcomeBatch(backendUrl), 5000);
+      }
+      return;
+    }
     console.error('[OlympusClient] Batch report exception:', error);
     for (const pending of batch) {
       pending.resolve(null);
