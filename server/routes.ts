@@ -197,6 +197,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Emergency reset page - static HTML that clears cookies client-side
+  app.get("/reset", (req, res) => {
+    res.clearCookie("connect.sid");
+    res.send(`<!DOCTYPE html>
+<html><head><title>Reset Session</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:50px">
+<h1>Session Reset</h1>
+<p>Clearing your session...</p>
+<script>
+document.cookie.split(';').forEach(c => {
+  document.cookie = c.trim().split('=')[0] + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+});
+localStorage.clear();
+sessionStorage.clear();
+setTimeout(() => { window.location.href = '/'; }, 1000);
+</script>
+</body></html>`);
+  });
+
   // Emergency session clear (no auth required) - for auth loop recovery
   app.get("/api/clear-session", (req, res) => {
     if (req.session) {
