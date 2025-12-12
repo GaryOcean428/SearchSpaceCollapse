@@ -290,72 +290,131 @@ class BaseGod(ABC, HolographicTransformMixin):
 
     def encode_to_basin(self, target) -> np.ndarray:
         """
-        Encode target to 64D basin coordinates.
-        Uses hash-based geometric embedding.
+        Encode target to 64D basin coordinates with robust type handling.
+        
+        Handles multiple input types:
+        - Plain text: "try this strategy"
+        - JSON arrays: "[0.1, 0.2, ...]"
+        - Numpy repr: "array([0.1, 0.2, ...])"
+        - Already arrays: np.ndarray (pass-through)
+        - Lists: [0.1, 0.2, ...]
         
         Args:
-            target: Can be str (text), np.ndarray (basin), or list (basin as list)
-            
+            target: Text to encode, or basin coordinates in various formats
+        
         Returns:
-            64D normalized numpy array
-            
+            64D numpy array of basin coordinates (normalized to unit hypersphere)
+        
         Raises:
-            TypeError: If target type is unsupported
+            TypeError: If input type is not supported
+            ValueError: If array dimensions are wrong or contains invalid values
         """
-        # Already a numpy array - validate and return
+        import json
+        import re
+        
+        # CASE 1: Already a numpy array - validate and return
         if isinstance(target, np.ndarray):
             if target.dtype not in [np.float32, np.float64]:
-                raise TypeError(f"Basin must be float array, got dtype {target.dtype}")
+                logger.warning(
+                    f"[{self.name}] Basin array has dtype {target.dtype}, converting to float64"
+                )
+                target = target.astype(np.float64)
+            
             if target.shape != (BASIN_DIMENSION,):
-                raise ValueError(f"Basin must be {BASIN_DIMENSION}D, got shape {target.shape}")
+                raise ValueError(
+                    f"Basin array must have shape ({BASIN_DIMENSION},), got {target.shape}"
+                )
+            
+            if not np.isfinite(target).all():
+                raise ValueError("Basin array contains NaN or Inf values")
+            
+            norm = np.linalg.norm(target)
+            if not (0.99 < norm < 1.01):
+                logger.debug(f"[{self.name}] Normalizing basin (norm={norm:.4f})")
+                if norm > 0:
+                    target = target / norm
+                else:
+                    raise ValueError("Basin array is zero vector")
+            
             return target
         
-        # List of numbers - convert to array
+        # CASE 2: List of numbers - convert to array
         if isinstance(target, list):
+            if len(target) != BASIN_DIMENSION:
+                raise ValueError(
+                    f"Basin list must have {BASIN_DIMENSION} elements, got {len(target)}"
+                )
+            
             try:
                 arr = np.array(target, dtype=np.float64)
-                if arr.shape != (BASIN_DIMENSION,):
-                    raise ValueError(f"Basin must be {BASIN_DIMENSION}D, got shape {arr.shape}")
-                return arr
             except (ValueError, TypeError) as e:
-                raise TypeError(f"Cannot convert list to basin: {e}")
-        
-        # String - check if it's a stringified array or text
-        if isinstance(target, str):
-            # Try parsing as JSON array (handles serialized basins)
-            if target.startswith('[') or target.startswith('array(['):
-                try:
-                    import json
-                    # Handle both "[...]" and "array([...])"
-                    if target.startswith('array('):
-                        target = target.replace('array(', '').replace(')', '')
-                    arr = np.array(json.loads(target), dtype=np.float64)
-                    if arr.shape != (BASIN_DIMENSION,):
-                        logger.warning(f"Parsed array has wrong shape {arr.shape}, treating as text")
-                    else:
-                        return arr
-                except (json.JSONDecodeError, ValueError):
-                    pass  # Fall through to text encoding
+                raise TypeError(f"Cannot convert list to basin array: {e}")
             
-            # Encode text to basin coordinates
-            coord = np.zeros(BASIN_DIMENSION)
+            if not np.isfinite(arr).all():
+                raise ValueError("Basin list contains NaN or Inf values")
             
-            h = hashlib.sha256(target.encode()).digest()
-            
-            for i in range(min(32, len(h))):
-                coord[i] = (h[i] / 255.0) * 2 - 1
-            
-            for i, char in enumerate(target[:32]):
-                if 32 + i < BASIN_DIMENSION:
-                    coord[32 + i] = (ord(char) % 256) / 128.0 - 1
-            
-            norm = np.linalg.norm(coord)
+            norm = np.linalg.norm(arr)
             if norm > 0:
-                coord = coord / norm
+                arr = arr / norm
+            else:
+                raise ValueError("Basin list is zero vector")
             
-            return coord
+            return arr
         
-        raise TypeError(f"Cannot encode {type(target)} to basin. Expected str, np.ndarray, or list.")
+        # CASE 3: String - could be text OR stringified array
+        if not isinstance(target, str):
+            raise TypeError(
+                f"encode_to_basin expects str, np.ndarray, or list, got {type(target).__name__}"
+            )
+        
+        text = target.strip()
+        
+        # Check if it's a stringified array
+        if text.startswith('[') or text.startswith('array(['):
+            try:
+                parse_text = text
+                if parse_text.startswith('array('):
+                    match = re.match(r'array\((.*?)\)', parse_text, re.DOTALL)
+                    if match:
+                        parse_text = match.group(1)
+                
+                parsed = json.loads(parse_text)
+                
+                if isinstance(parsed, list):
+                    if len(parsed) == BASIN_DIMENSION:
+                        logger.debug(
+                            f"[{self.name}] Detected stringified basin array, parsing"
+                        )
+                        return self.encode_to_basin(parsed)
+                    else:
+                        logger.debug(
+                            f"[{self.name}] String starts with [ but length {len(parsed)} != {BASIN_DIMENSION}, treating as text"
+                        )
+            except (json.JSONDecodeError, ValueError, AttributeError) as e:
+                logger.debug(
+                    f"[{self.name}] Failed to parse as array ({e}), treating as text"
+                )
+        
+        # CASE 4: Regular text - hash-based encoding
+        coord = np.zeros(BASIN_DIMENSION)
+        
+        h = hashlib.sha256(text.encode()).digest()
+        
+        for i in range(min(32, len(h))):
+            coord[i] = (h[i] / 255.0) * 2 - 1
+        
+        for i, char in enumerate(text[:32]):
+            if 32 + i < BASIN_DIMENSION:
+                coord[32 + i] = (ord(char) % 256) / 128.0 - 1
+        
+        norm = np.linalg.norm(coord)
+        if norm > 0:
+            coord = coord / norm
+        else:
+            logger.warning(f"[{self.name}] Zero norm basin for text: {text[:50]}")
+            coord[0] = 1.0
+        
+        return coord
 
     def encode_to_basin_sensory(
         self,
