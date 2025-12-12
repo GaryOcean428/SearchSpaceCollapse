@@ -515,13 +515,14 @@ vocabularyRouter.post("/classify", generousLimiter, async (req: Request, res: Re
       return res.status(400).json({ error: 'phrase is required' });
     }
 
-    const { BIP39_WORDLIST } = await import("../bip39-words");
+    const { BIP39_WORDS } = await import("../bip39-words");
+    const bip39Set = new Set(BIP39_WORDS);
     const words = phrase.trim().toLowerCase().split(/\s+/);
     const wordCount = words.length;
     const validSeedLengths = [12, 15, 18, 21, 24];
     
-    const bip39Words = words.filter(w => BIP39_WORDLIST.has(w));
-    const nonBip39Words = words.filter(w => !BIP39_WORDLIST.has(w));
+    const bip39Words = words.filter(w => bip39Set.has(w));
+    const nonBip39Words = words.filter(w => !bip39Set.has(w));
     const bip39Ratio = wordCount > 0 ? bip39Words.length / wordCount : 0;
     
     let category: 'bip39_seed' | 'passphrase' | 'mutation';

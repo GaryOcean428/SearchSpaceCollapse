@@ -616,6 +616,56 @@ export class VocabularyTracker {
   }
   
   /**
+   * Get category statistics for kernel learning insights
+   */
+  getCategoryStats(): {
+    categories: Record<string, { count: number; avgPhi: number; examples: string[] }>;
+    bip39Coverage: number;
+    totalObservations: number;
+  } {
+    const categories: Record<string, { count: number; totalPhi: number; examples: string[] }> = {
+      bip39_seed: { count: 0, totalPhi: 0, examples: [] },
+      passphrase: { count: 0, totalPhi: 0, examples: [] },
+      mutation: { count: 0, totalPhi: 0, examples: [] },
+      bip39_word: { count: 0, totalPhi: 0, examples: [] },
+      unknown: { count: 0, totalPhi: 0, examples: [] },
+    };
+    
+    let bip39WordCount = 0;
+    
+    for (const obs of this.phraseObservations.values()) {
+      const cat = obs.phraseCategory || 'unknown';
+      if (!categories[cat]) {
+        categories[cat] = { count: 0, totalPhi: 0, examples: [] };
+      }
+      categories[cat].count++;
+      categories[cat].totalPhi += obs.avgPhi;
+      if (categories[cat].examples.length < 5) {
+        categories[cat].examples.push(obs.text.slice(0, 30));
+      }
+      if (obs.isBip39Word) bip39WordCount++;
+    }
+    
+    const result: Record<string, { count: number; avgPhi: number; examples: string[] }> = {};
+    for (const [key, value] of Object.entries(categories)) {
+      if (value.count > 0) {
+        result[key] = {
+          count: value.count,
+          avgPhi: parseFloat((value.totalPhi / value.count).toFixed(4)),
+          examples: value.examples,
+        };
+      }
+    }
+    
+    const total = this.phraseObservations.size;
+    return {
+      categories: result,
+      bip39Coverage: total > 0 ? parseFloat((bip39WordCount / total).toFixed(4)) : 0,
+      totalObservations: total,
+    };
+  }
+  
+  /**
    * Force save all observations to PostgreSQL
    */
   async saveToStorage(): Promise<void> {
