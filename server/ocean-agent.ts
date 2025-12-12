@@ -716,7 +716,7 @@ export class OceanAgent {
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           // Wait for Python backend to be available
-          if (!oceanQIGBackend.isAvailable) {
+          if (!oceanQIGBackend.available()) {
             console.log(`[Ocean] Waiting for Python backend (attempt ${attempt}/${maxAttempts})...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
             continue;

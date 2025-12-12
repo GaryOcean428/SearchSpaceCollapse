@@ -4,7 +4,7 @@
  * Type-safe API functions for Ocean agent operations.
  */
 
-import { post } from "../client";
+import { get, post } from "../client";
 import { API_ROUTES } from "../routes";
 
 export type CycleType = "explore" | "refine" | "sleep" | "dream";
@@ -47,6 +47,30 @@ export async function boostNeurochemistry(
     ...params,
     duration: params.duration ?? 60000,
   });
+}
+
+export interface NeurochemistryAdminState {
+  activeBoost: any;
+  mushroomCooldownSeconds: number;
+  [key: string]: any;
+}
+
+export interface CyclesState {
+  [key: string]: any;
+}
+
+/**
+ * Get neurochemistry admin state
+ */
+export async function getNeurochemistryAdmin(): Promise<NeurochemistryAdminState> {
+  return get<NeurochemistryAdminState>(API_ROUTES.ocean.neurochemistryAdmin);
+}
+
+/**
+ * Get cycles state
+ */
+export async function getCycles(): Promise<CyclesState> {
+  return get<CyclesState>(API_ROUTES.ocean.cycles);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
