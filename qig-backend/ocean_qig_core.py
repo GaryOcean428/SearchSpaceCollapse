@@ -5205,6 +5205,16 @@ if __name__ == '__main__':
         CONVERSATIONAL_AVAILABLE = False
         print(f"[WARNING] Conversational kernel not found: {e}")
 
+    # Register vocabulary system routes
+    VOCABULARY_API_AVAILABLE = False
+    try:
+        from vocabulary_api import register_vocabulary_routes
+        register_vocabulary_routes(app)
+        VOCABULARY_API_AVAILABLE = True
+        print("[INFO] Vocabulary API registered at /api/vocabulary")
+    except ImportError as e:
+        print(f"[WARNING] Vocabulary API not found: {e}")
+
     # Register research self-learning routes
     RESEARCH_AVAILABLE = False
     try:
@@ -5264,6 +5274,10 @@ if __name__ == '__main__':
         print("  - 📚 Research module (kernel self-learning)", flush=True)
     else:
         print("  - Research module NOT available", flush=True)
+    if VOCABULARY_API_AVAILABLE:
+        print("  - 📖 Vocabulary API (shared learning system)", flush=True)
+    else:
+        print("  - Vocabulary API NOT available", flush=True)
     print(f"\nκ* = {KAPPA_STAR}", flush=True)
     print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
     print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)
