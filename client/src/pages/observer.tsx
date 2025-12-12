@@ -344,6 +344,20 @@ export default function ObserverPage() {
     staleTime: 5000,
   });
 
+  // State for viewing cluster members
+  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
+
+  // Query cluster members when a cluster is selected
+  const { data: clusterMembersData, isLoading: clusterMembersLoading } = useQuery<{
+    cluster: NearMissCluster & { createdAt?: string; lastUpdated?: string };
+    members: NearMissEntry[];
+    timestamp: string;
+  }>({
+    queryKey: ['/api/near-misses/cluster', selectedClusterId, 'members'],
+    enabled: !!selectedClusterId,
+    staleTime: 5000,
+  });
+
   // Start QIG search mutation
   const startQIGSearchMutation = useMutation({
     mutationFn: async ({ address, kappaRecovery, tier }: { 
@@ -2386,7 +2400,14 @@ export default function ObserverPage() {
                     {(nearMissData?.clusters || []).map((cluster) => (
                       <div
                         key={cluster.id}
-                        className="p-3 rounded-lg border bg-card hover-elevate"
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                          selectedClusterId === cluster.id 
+                            ? 'bg-primary/10 border-primary' 
+                            : 'bg-card hover-elevate'
+                        }`}
+                        onClick={() => setSelectedClusterId(
+                          selectedClusterId === cluster.id ? null : cluster.id
+                        )}
                         data-testid={`cluster-${cluster.id}`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
@@ -2409,12 +2430,93 @@ export default function ObserverPage() {
                             ))}
                           </div>
                         )}
+                        <div className="text-xs text-primary mt-2 text-center">
+                          Click to view phrases
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Cluster Members Detail View */}
+            {selectedClusterId && (
+              <Card data-testid="card-cluster-members">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Eye className="w-5 h-5 text-purple-500" />
+                        Cluster Members
+                      </CardTitle>
+                      <CardDescription>
+                        {clusterMembersData?.cluster?.structuralPattern || 'Loading...'} - 
+                        {' '}{clusterMembersData?.members?.length || 0} phrases
+                      </CardDescription>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => setSelectedClusterId(null)}
+                      data-testid="button-close-cluster-members"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {clusterMembersLoading ? (
+                    <div className="text-center py-4 text-muted-foreground">Loading phrases...</div>
+                  ) : !clusterMembersData?.members?.length ? (
+                    <div className="text-center py-4 text-muted-foreground">No members found</div>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {clusterMembersData.members.map((member, index) => (
+                        <div
+                          key={member.id || index}
+                          className="p-3 rounded-lg border bg-muted/30 font-mono text-sm"
+                          data-testid={`cluster-member-${index}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div className="flex-1 min-w-0 break-all">
+                              {member.phrase}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Badge 
+                                variant="outline" 
+                                className={
+                                  member.tier === 'hot' 
+                                    ? 'bg-red-500/10 text-red-600 border-red-500/30' 
+                                    : member.tier === 'warm' 
+                                      ? 'bg-orange-500/10 text-orange-600 border-orange-500/30'
+                                      : 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                }
+                              >
+                                {member.tier?.toUpperCase()}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                Φ: {member.phi?.toFixed(3)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2 flex-wrap">
+                            <span>κ: {member.kappa?.toFixed(1)}</span>
+                            <span>{member.regime}</span>
+                            <span>Explored: {member.explorationCount || 0}x</span>
+                            {member.isEscalating && (
+                              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 text-xs px-1">
+                                Escalating
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Cluster Aging Analytics */}
             <Card data-testid="card-cluster-aging-analytics">

@@ -291,6 +291,50 @@ nearMissRouter.post("/decay", generousLimiter, async (req: Request, res: Respons
   }
 });
 
+// Get members of a specific cluster
+nearMissRouter.get("/cluster/:clusterId/members", generousLimiter, async (req: Request, res: Response) => {
+  try {
+    const { clusterId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 100;
+    
+    const members = nearMissManager.getClusterMembers(clusterId);
+    const cluster = nearMissManager.getClusters().find(c => c.id === clusterId);
+    
+    if (!cluster) {
+      return res.status(404).json({ error: 'Cluster not found' });
+    }
+    
+    res.json({
+      cluster: {
+        id: cluster.id,
+        memberCount: cluster.memberCount,
+        avgPhi: cluster.avgPhi,
+        maxPhi: cluster.maxPhi,
+        commonWords: cluster.commonWords,
+        structuralPattern: cluster.structuralPattern,
+        createdAt: cluster.createdAt,
+        lastUpdatedAt: cluster.lastUpdatedAt,
+      },
+      members: members.slice(0, limit).map(e => ({
+        id: e.id,
+        phrase: e.phrase,
+        phi: e.phi,
+        kappa: e.kappa,
+        tier: e.tier,
+        regime: e.regime,
+        discoveredAt: e.discoveredAt,
+        explorationCount: e.explorationCount,
+        isEscalating: e.isEscalating,
+        phiHistory: e.phiHistory?.slice(-10),
+      })),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error("[Near-Miss Cluster Members] Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 nearMissRouter.get("/cluster-analytics", generousLimiter, async (req: Request, res: Response) => {
   try {
     const cadence = req.query.cadence as 'immediate' | 'priority' | 'standard' | 'deferred' | undefined;
