@@ -103,16 +103,15 @@ export async function getCycles(): Promise<CyclesState> {
 
 /**
  * Clear active neurochemistry boost
- */
-export async function clearBoost(): Promise<BoostResponse> {
-  const response = await fetch(API_ROUTES.ocean.neurochemistryBoost, {
-    method: 'DELETE',
-  });
-  if (!response.ok) {
-    throw new Error(`${response.status}: ${await response.text()}`);
-  }
-  return response.json();
-}
+ import { get, post, del } from "../client";
+ // ... (other code)
+
+ /**
+  * Clear active neurochemistry boost
+  */
+ export async function clearBoost(): Promise<BoostResponse> {
+   return del<BoostResponse>(API_ROUTES.ocean.neurochemistryBoost);
+ }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PYTHON AUTONOMIC KERNEL API
