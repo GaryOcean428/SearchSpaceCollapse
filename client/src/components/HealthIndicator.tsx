@@ -12,7 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { get } from '@/lib/api/client';
+import { get } from '@/api/client';
 
 interface SubsystemHealth {
   status: 'healthy' | 'degraded' | 'down';
