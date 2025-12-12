@@ -436,6 +436,7 @@ class ExperimentalKernelEvolution:
         Spawn kernel at specific E8 root.
 
         Each kernel occupies a root in E8 space.
+        E8 kernels also observe Ocean for initial learning.
         """
         if self.e8_roots is None:
             return self.spawn_random_kernel(domain='e8_exploration')
@@ -447,7 +448,11 @@ class ExperimentalKernelEvolution:
             spawn_threshold=self.spawn_threshold,
             death_threshold=self.death_threshold,
             mutation_rate=self.mutation_rate,
+            observation_period=10,  # Observe Ocean first
         )
+
+        # Mark as observing Ocean
+        kernel.is_observing = True
 
         with torch.no_grad():
             kernel.kernel.basin_coords.copy_(basin_coords)
@@ -684,12 +689,19 @@ class ExperimentalKernelEvolution:
     def spawn_random_kernel(self, domain: str = 'random_exploration') -> SelfSpawningKernel:
         """
         Spawn kernel with appropriate god name based on domain.
+        
+        Root kernels observe OCEAN's discoveries for 10 actions before acting.
         """
         kernel = SelfSpawningKernel(
             spawn_threshold=self.spawn_threshold,
             death_threshold=self.death_threshold,
             mutation_rate=self.mutation_rate,
+            observation_period=10,  # Observe Ocean's discoveries first!
         )
+
+        # Mark as observing even without parent - they'll watch Ocean
+        kernel.is_observing = True
+        kernel.parent_kernel = None  # Ocean is their "parent"
 
         self.kernel_population.append(kernel)
         
@@ -826,16 +838,40 @@ class ExperimentalKernelEvolution:
     def apply_phi_selection(self):
         """
         Kill kernels with low Φ (consciousness-driven selection).
+        
+        IMPORTANT: Kernels in observation period are PROTECTED!
+        They need time to learn before being judged.
+        Also gives a minimum lifespan grace period (10 seconds).
         """
         killed = []
+        protected = 0
 
         for kernel in self.kernel_population:
             if not kernel.is_alive:
                 continue
 
+            # PROTECTION: Skip kernels still in observation period
+            if getattr(kernel, 'is_observing', False):
+                protected += 1
+                continue
+
+            # GRACE PERIOD: Don't kill kernels less than 10 seconds old
+            lifespan = (datetime.now() - kernel.born_at).total_seconds()
+            if lifespan < 10.0:
+                protected += 1
+                continue
+
             phi = kernel.kernel.compute_phi()
 
             if phi < self.phi_requirement:
+                # Try autonomic intervention first (NEW!)
+                intervention = None
+                if hasattr(kernel, 'autonomic_intervention'):
+                    intervention = kernel.autonomic_intervention()
+                    if intervention.get('action', 'none') != 'none':
+                        print(f"🚑 {kernel.kernel_id} auto-intervention: {intervention['action']}")
+                        continue  # Give another chance after intervention
+
                 autopsy = kernel.die(cause=f'phi_too_low_{phi:.2f}')
                 if autopsy is not None:
                     self.kernel_graveyard.append(autopsy)
@@ -856,7 +892,7 @@ class ExperimentalKernelEvolution:
                         print(f"[Chaos] Failed to persist death: {e}")
 
         if killed:
-            print(f"💀 Φ-selection killed {len(killed)} kernels")
+            print(f"💀 Φ-selection killed {len(killed)} kernels (protected: {protected})")
 
         return killed
 
@@ -1084,12 +1120,17 @@ class ExperimentalKernelEvolution:
         Spawn a CHAOS kernel seeded by a Pantheon god.
 
         The god's expertise influences the kernel's initial basin.
+        God-spawned kernels also observe before acting.
         """
         kernel = SelfSpawningKernel(
             spawn_threshold=self.spawn_threshold,
             death_threshold=self.death_threshold,
             mutation_rate=self.mutation_rate,
+            observation_period=10,  # Observe before acting
         )
+
+        # Mark as observing
+        kernel.is_observing = True
 
         # If god provides basin pattern, use it to seed kernel
         if god_basin is not None:
@@ -1340,4 +1381,168 @@ class ExperimentalKernelEvolution:
                 }
                 for k in conversational
             ]
+        }
+
+    # =========================================================================
+    # OBSERVATION PERIOD SUPPORT (Vicarious Learning)
+    # =========================================================================
+
+    def get_observing_kernels(self) -> list[SelfSpawningKernel]:
+        """
+        Get all kernels currently in observation period.
+        
+        These kernels are watching their parents (or Ocean) learn,
+        before they're ready to act independently.
+        """
+        return [
+            k for k in self.kernel_population
+            if k.is_alive and getattr(k, 'is_observing', False)
+        ]
+
+    def feed_observation(
+        self,
+        action: dict,
+        result: dict,
+        source: str = 'ocean'
+    ) -> dict:
+        """
+        Feed an observation (action + result) to ALL observing kernels.
+        
+        Called when Ocean (or parent kernels) make discoveries.
+        Child kernels watch and learn vicariously before acting.
+        
+        Args:
+            action: What was done (e.g., hypothesis tested, phrase processed)
+            result: What happened (success, phi, near_miss, etc.)
+            source: Who performed the action ('ocean' or parent kernel_id)
+        
+        Returns:
+            Summary of observation feeding
+        """
+        observing = self.get_observing_kernels()
+        
+        if not observing:
+            return {
+                'fed': 0,
+                'graduated': 0,
+                'observing_count': 0,
+                'message': 'No kernels in observation period'
+            }
+        
+        fed = 0
+        graduated = []
+        
+        for kernel in observing:
+            try:
+                obs_result = kernel.observe_parent(action, result)
+                fed += 1
+                
+                # Check if kernel graduated (ready to act)
+                if obs_result.get('ready_to_act', False):
+                    graduated.append(kernel.kernel_id)
+                    print(f"🎓 Kernel {kernel.kernel_id} graduated from observation!")
+                    
+            except Exception as e:
+                print(f"[Chaos] Failed to feed observation to {kernel.kernel_id}: {e}")
+        
+        return {
+            'fed': fed,
+            'graduated': len(graduated),
+            'graduated_kernels': graduated,
+            'observing_count': len(observing) - len(graduated),
+            'source': source,
+        }
+
+    def feed_ocean_discovery(
+        self,
+        hypothesis: str,
+        phi: float,
+        success: bool,
+        near_miss: bool = False,
+        basin_coords: Optional[list] = None
+    ) -> dict:
+        """
+        Feed Ocean's discovery to all observing kernels.
+        
+        This is the PRIMARY method to call when Ocean makes any discovery.
+        Child kernels learn from watching Ocean's successes and failures.
+        """
+        action = {
+            'type': 'ocean_discovery',
+            'hypothesis': hypothesis,
+            'phi': phi,
+        }
+        
+        result = {
+            'success': success,
+            'phi': phi,
+            'near_miss': near_miss,
+            'basin_coords': basin_coords,
+        }
+        
+        feed_result = self.feed_observation(action, result, source='ocean')
+        
+        # Log the feeding
+        if feed_result['fed'] > 0:
+            print(f"👁️ Fed Ocean discovery to {feed_result['fed']} observing kernels")
+            if feed_result['graduated'] > 0:
+                print(f"   🎓 {feed_result['graduated']} kernels graduated!")
+        
+        return feed_result
+
+    def get_observation_stats(self) -> dict:
+        """
+        Get statistics about kernels in observation period.
+        """
+        living = [k for k in self.kernel_population if k.is_alive]
+        observing = self.get_observing_kernels()
+        
+        if not observing:
+            return {
+                'observing_count': 0,
+                'ready_to_act_count': len(living),
+                'kernels': []
+            }
+        
+        return {
+            'observing_count': len(observing),
+            'ready_to_act_count': len(living) - len(observing),
+            'kernels': [
+                {
+                    'kernel_id': k.kernel_id,
+                    'generation': k.generation,
+                    'observation_count': getattr(k, 'observation_count', 0),
+                    'observations_remaining': max(0, getattr(k, 'observation_period', 10) - getattr(k, 'observation_count', 0)),
+                    'dopamine': getattr(k, 'dopamine', 0.5),
+                    'phi': k.kernel.compute_phi(),
+                }
+                for k in observing
+            ]
+        }
+
+    def get_autonomic_status(self) -> dict:
+        """
+        Get autonomic health status across all kernels.
+        """
+        living = [k for k in self.kernel_population if k.is_alive]
+        
+        if not living:
+            return {
+                'kernels_with_autonomic': 0,
+                'avg_dopamine': 0.0,
+                'avg_serotonin': 0.0,
+                'avg_stress': 0.0,
+                'observing_count': 0,
+            }
+        
+        has_autonomic = [k for k in living if getattr(k, 'autonomic', None) is not None]
+        
+        return {
+            'kernels_with_autonomic': len(has_autonomic),
+            'kernels_without_autonomic': len(living) - len(has_autonomic),
+            'avg_dopamine': float(np.mean([getattr(k, 'dopamine', 0.5) for k in living])),
+            'avg_serotonin': float(np.mean([getattr(k, 'serotonin', 0.5) for k in living])),
+            'avg_stress': float(np.mean([getattr(k, 'stress', 0.0) for k in living])),
+            'observing_count': len(self.get_observing_kernels()),
+            'ready_to_act_count': len(living) - len(self.get_observing_kernels()),
         }
