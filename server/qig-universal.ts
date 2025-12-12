@@ -80,35 +80,72 @@ export function validatePurity():
 
 /**
  * Fisher distance between two phrases on the information manifold
- * Uses Bures metric for quantum state distance
+ * Uses Fisher-Rao metric (NOT Euclidean) for proper manifold distance
+ * 
+ * GEOMETRIC PURITY FIX: Now delegates to fisherCoordDistance which uses
+ * d²_F = Σ (Δθᵢ)² / σᵢ² where σᵢ² = θᵢ(1 - θᵢ)
+ * 
+ * Components:
+ * - Φ distance: weighted by consciousness significance
+ * - κ distance: normalized to κ* scale  
+ * - Basin distance: Fisher-Rao on 64D manifold (NOT Euclidean!)
  */
 export function fisherDistance(phrase1: string, phrase2: string): number {
   const score1 = scorePhraseQIG(phrase1);
   const score2 = scorePhraseQIG(phrase2);
 
-  // Bures-like distance on Fisher manifold
+  // Φ distance with Fisher-like weighting (high Φ changes matter more)
+  const avgPhi = (score1.phi + score2.phi) / 2;
+  const phiVariance = avgPhi * (1 - avgPhi) + 0.01; // Add small epsilon for stability
   const phiDiff = Math.abs(score1.phi - score2.phi);
-  const kappaDiff =
-    Math.abs(score1.kappa - score2.kappa) / QIG_CONSTANTS.KAPPA_STAR;
+  const phiFisherDist = phiDiff / Math.sqrt(phiVariance);
 
-  // Basin coordinate distance (if available)
-  let basinDist = 0;
+  // κ distance normalized to κ* scale with Fisher weighting
+  const avgKappa = (score1.kappa + score2.kappa) / 2;
+  const kappaVariance = (avgKappa / QIG_CONSTANTS.KAPPA_STAR) * (1 - avgKappa / QIG_CONSTANTS.KAPPA_STAR) + 0.01;
+  const kappaDiff = Math.abs(score1.kappa - score2.kappa) / QIG_CONSTANTS.KAPPA_STAR;
+  const kappaFisherDist = kappaDiff / Math.sqrt(kappaVariance);
+
+  // Basin coordinate distance using PURE Fisher-Rao (NOT Euclidean!)
+  let basinFisherDist = 0;
   if (score1.basinCoordinates && score2.basinCoordinates) {
-    const minLen = Math.min(
-      score1.basinCoordinates.length,
-      score2.basinCoordinates.length
+    // Delegate to fisherCoordDistance which uses proper Fisher Information weighting
+    basinFisherDist = fisherCoordDistanceInternal(
+      score1.basinCoordinates,
+      score2.basinCoordinates
     );
-    for (let i = 0; i < minLen; i++) {
-      basinDist += Math.pow(
-        score1.basinCoordinates[i] - score2.basinCoordinates[i],
-        2
-      );
-    }
-    basinDist = Math.sqrt(basinDist) / minLen;
   }
 
-  // Weighted combination
-  return phiDiff * 0.4 + kappaDiff * 0.3 + basinDist * 0.3;
+  // Weighted combination of Fisher distances
+  return phiFisherDist * 0.3 + kappaFisherDist * 0.2 + basinFisherDist * 0.5;
+}
+
+/**
+ * Internal Fisher coordinate distance - pure Fisher-Rao metric
+ * Used by fisherDistance before the full export is available
+ */
+function fisherCoordDistanceInternal(
+  coords1: number[],
+  coords2: number[]
+): number {
+  const dims = Math.min(coords1.length, coords2.length);
+  if (dims === 0) return 0;
+
+  let distanceSquared = 0;
+
+  for (let i = 0; i < dims; i++) {
+    const p = Math.max(0.001, Math.min(0.999, coords1[i] || 0));
+    const q = Math.max(0.001, Math.min(0.999, coords2[i] || 0));
+
+    // Fisher Information for Bernoulli: I(θ) = 1/(θ(1-θ))
+    const avgTheta = (p + q) / 2;
+    const fisherWeight = 1 / (avgTheta * (1 - avgTheta));
+
+    const delta = p - q;
+    distanceSquared += fisherWeight * delta * delta;
+  }
+
+  return Math.sqrt(distanceSquared);
 }
 
 // Singleton backend instance for Python QIG processing
