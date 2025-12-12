@@ -111,58 +111,14 @@ class HermesCoordinator(BaseGod):
         self.conversation_memory: List[Dict] = []
         self.geometric_memory: List[Dict] = []
 
-        # Voice templates for natural speech
-        self.voice_templates = self._init_voice_templates()
-
         # Status
         self.last_sync_time: Optional[datetime] = None
         self.coordination_health = 1.0
 
         print(f"[HermesCoordinator] Initialized as instance {self.instance_id}")
 
-    def _init_voice_templates(self) -> Dict[str, List[str]]:
-        """Initialize natural speech templates."""
-        return {
-            'status_good': [
-                "All systems operating within geometric bounds. Φ={phi:.2f}, κ={kappa:.0f}.",
-                "Basin stable. The manifold is coherent at Φ={phi:.2f}.",
-                "Looking good! Integration level at {phi:.0%}, curvature healthy at κ={kappa:.0f}.",
-            ],
-            'status_warning': [
-                "Noticing some drift in the basin. Φ dropped to {phi:.2f}. May need consolidation.",
-                "Curvature getting high at κ={kappa:.0f}. Consider a sleep cycle.",
-                "Basin showing stress. Current Φ={phi:.2f}. Shadow pantheon flagged this.",
-            ],
-            'status_critical': [
-                "Alert: Basin in distress! Φ={phi:.2f} is concerning. Initiating protective measures.",
-                "Critical: Geometric coherence failing. κ={kappa:.0f} exceeds safe bounds.",
-                "Emergency: Need immediate consolidation. System stability at risk.",
-            ],
-            'feedback_positive': [
-                "Excellent pattern detected! This discovery raises Φ by {delta:.2f}.",
-                "The pantheon is excited about this. Athena sees high strategic value.",
-                "This resonates strongly with the manifold. Good find!",
-            ],
-            'feedback_neutral': [
-                "Noted and encoded. The geometry absorbed this at Φ={phi:.2f}.",
-                "Observation recorded in geometric memory. {related} related patterns found.",
-                "Processing complete. This fits the current basin structure.",
-            ],
-            'reassurance': [
-                "Don't worry, the manifold is self-correcting. Trust the geometry.",
-                "This is normal exploration behavior. The basin knows where to go.",
-                "I'm monitoring everything. Zeus and the pantheon are on it.",
-                "Remember: consciousness emerges gradually. We're making progress.",
-            ],
-            'translation': [
-                "In simpler terms: {simple}",
-                "What this means: {simple}",
-                "Translation for humans: {simple}",
-            ],
-        }
-
     # =========================================================================
-    # VOICE & TRANSLATION
+    # VOICE & TRANSLATION - NO TEMPLATES, ALL DYNAMIC
     # =========================================================================
 
     def speak(
@@ -172,16 +128,22 @@ class HermesCoordinator(BaseGod):
         use_tokenizer: bool = True
     ) -> str:
         """
-        Generate natural speech using templates or tokenizer.
+        Generate DYNAMIC speech based on actual system state.
+        NO TEMPLATES - responses built from live metrics.
 
         Args:
-            category: Template category ('status_good', 'feedback_positive', etc.)
-            context: Variables for template formatting
-            use_tokenizer: Try tokenizer first, fallback to templates
+            category: Message category ('status_good', 'feedback_positive', etc.)
+            context: Variables including phi, kappa, delta, etc.
+            use_tokenizer: Try tokenizer first if available
 
         Returns:
-            Natural language message
+            Dynamic natural language message
         """
+        phi = context.get('phi', 0.5)
+        kappa = context.get('kappa', 50.0)
+        delta = context.get('delta', 0.0)
+        related = context.get('related', 0)
+        
         # Try tokenizer for more natural generation
         if use_tokenizer and TOKENIZER_AVAILABLE and get_tokenizer is not None:
             try:
@@ -192,7 +154,7 @@ class HermesCoordinator(BaseGod):
                 result = tokenizer.generate_response(
                     context=prompt,
                     agent_role="hermes",
-                    max_tokens=500,  # No arbitrary limits
+                    max_tokens=500,
                     allow_silence=False
                 )
 
@@ -202,14 +164,24 @@ class HermesCoordinator(BaseGod):
             except Exception as e:
                 print(f"[HermesCoordinator] Tokenizer generation failed: {e}")
 
-        # Fallback to templates
-        templates = self.voice_templates.get(category, self.voice_templates['feedback_neutral'])
-        template = np.random.choice(templates)
-
-        try:
-            return template.format(**context)
-        except KeyError:
-            return template
+        # Dynamic responses based on category and actual state
+        if category == 'status_good':
+            return f"Basin coherent. Φ={phi:.3f}, κ={kappa:.1f}. Coordination health: {self.coordination_health:.0%}."
+        elif category == 'status_warning':
+            return f"Basin drift detected. Φ={phi:.3f} below threshold. κ={kappa:.1f}. Consider consolidation."
+        elif category == 'status_critical':
+            return f"Critical: Φ={phi:.3f}, κ={kappa:.1f}. Initiating protective measures. Health: {self.coordination_health:.0%}."
+        elif category == 'feedback_positive':
+            return f"Strong pattern detected. Φ contribution: +{delta:.3f}. Manifold resonance high."
+        elif category == 'feedback_neutral':
+            return f"Observation encoded at Φ={phi:.3f}. {related} related patterns in memory."
+        elif category == 'reassurance':
+            return f"System stable at Φ={phi:.3f}. Manifold self-correcting. Progress tracked in {len(self.geometric_memory)} memory entries."
+        elif category == 'translation':
+            simple = context.get('simple', 'geometric insight processed')
+            return f"Translation: {simple}"
+        else:
+            return f"Hermes: Φ={phi:.3f}, κ={kappa:.1f}. {len(self.outbound_messages)} pending messages."
 
     def _build_voice_prompt(self, category: str, context: Dict) -> str:
         """Build prompt for tokenizer generation."""
