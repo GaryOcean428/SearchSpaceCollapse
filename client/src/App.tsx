@@ -8,6 +8,7 @@ import { ConsciousnessProvider } from "@/contexts/ConsciousnessContext";
 import { ErrorBoundary, PageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
+import { HealthIndicator } from "@/components/HealthIndicator";
 import RecoveryPage from "@/pages/recovery";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -28,9 +29,12 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center gap-2 p-2 border-b h-12 shrink-0">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <span className="text-sm text-muted-foreground">Observer Archaeology System</span>
+          <header className="flex items-center justify-between gap-2 p-2 border-b h-12 shrink-0">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <span className="text-sm text-muted-foreground">Observer Archaeology System</span>
+            </div>
+            <HealthIndicator />
           </header>
           <div className="flex-1 overflow-auto">
             <PageErrorBoundary>
