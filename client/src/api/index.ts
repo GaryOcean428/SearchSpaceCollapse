@@ -86,7 +86,7 @@ export {
 // Re-export types from services for convenience
 export type { StartRecoveryParams, StartRecoveryResponse, StopRecoveryResponse } from './services/recovery';
 export type { CreateSessionParams, CreateSessionResponse, StopSessionResponse } from './services/unifiedRecovery';
-export type { CycleType, TriggerCycleParams, TriggerCycleResponse, BoostParams, BoostResponse } from './services/ocean';
+export type { CycleType, TriggerCycleParams, TriggerCycleResponse, BoostParams, BoostResponse, NeurochemistryAdminState, CyclesState } from './services/ocean';
 export type { AutoCycleStatus, AutoCycleResponse } from './services/autoCycle';
 export type { CreateTargetAddressParams, CreateTargetAddressResponse, DeleteTargetAddressResponse } from './services/targetAddresses';
 export type { QueueActionResponse } from './services/balanceQueue';
@@ -95,6 +95,6 @@ export type { SweepActionResponse, RejectSweepParams } from './services/sweeps';
 export type { StartQigSearchParams, QigSearchResponse, ClassifyAddressParams, ClassifyAddressResponse } from './services/observer';
 export type { GeometricMode, EncodeParams, EncodeResponse, SimilarityParams, SimilarityResponse } from './services/qig';
 export type { WarHistoryEntry, ActiveWar, ZeusChatParams, ZeusChatResponse, ZeusSearchParams, ZeusSearchResponse } from './services/olympus';
-export type { ConsciousnessState } from './services/consciousness';
+export type { ConsciousnessState, ConsciousnessAPIResponse } from './services/consciousness';
 export type { ForensicAnalysisResult, ForensicHypothesis, ForensicHypothesesResponse } from './services/forensic';
 export type { ZeusChatMetadata } from './services/olympus';

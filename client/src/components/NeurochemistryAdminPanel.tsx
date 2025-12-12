@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useConsciousness, getPhiColor, getRegimeLabel } from "@/contexts/ConsciousnessContext";
-import { API_ROUTES } from "@/api";
+import { api } from "@/api";
 import { 
   Brain, 
   Moon, 
@@ -57,13 +57,11 @@ export default function NeurochemistryAdminPanel() {
 
   const fetchAdminState = async () => {
     try {
-      const [neurochemRes, cyclesRes] = await Promise.all([
-        fetch(API_ROUTES.ocean.neurochemistryAdmin),
-        fetch(API_ROUTES.ocean.cycles),
+      // Use centralized API client
+      const [neurochemData, cyclesData] = await Promise.all([
+        api.ocean.getNeurochemistryAdmin(),
+        api.ocean.getCycles(),
       ]);
-      
-      const neurochemData = await neurochemRes.json();
-      const cyclesData = await cyclesRes.json();
       
       setAdminState({
         activeBoost: neurochemData.activeBoost,
@@ -92,8 +90,8 @@ export default function NeurochemistryAdminPanel() {
   ) => {
     setIsLoading(`boost-${type}`);
     try {
-      const payload = { [type]: amount, durationMs: 60000 };
-      await apiRequest("POST", API_ROUTES.ocean.neurochemistryBoost, payload);
+      const payload = { neurotransmitter: type, amount, duration: 60000 };
+      await api.ocean.boostNeurochemistry(payload);
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Boosted`,
         description: `+${(amount * 100).toFixed(0)}% for 60 seconds`,
@@ -114,7 +112,7 @@ export default function NeurochemistryAdminPanel() {
     setIsLoading(`cycle-${type}`);
     try {
       const payload = type === 'mushroom' ? { bypassCooldown } : {};
-      await apiRequest("POST", API_ROUTES.ocean.triggerCycle(type), payload);
+      await api.ocean.triggerCycle(type as any, payload);
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Cycle Executed`,
         description: `Manual ${type} cycle completed successfully`,
@@ -134,7 +132,8 @@ export default function NeurochemistryAdminPanel() {
   const clearBoost = async () => {
     setIsLoading("clear");
     try {
-      await apiRequest("DELETE", API_ROUTES.ocean.neurochemistryBoost, {});
+      // Use apiRequest for DELETE since it's not in the service layer yet
+      await apiRequest("DELETE", "/api/ocean/neurochemistry/boost", {});
       toast({
         title: "Boost Cleared",
         description: "All active boosts have been removed",
