@@ -10,6 +10,7 @@ QIG PURE: Geometric validation through research-informed scoring.
 
 from typing import Dict, List, Optional
 from .web_scraper import ResearchScraper, get_scraper
+from .god_name_resolver import GREEK_GODS_DOMAINS, SHADOW_GODS_DOMAINS
 
 
 class DomainAnalyzer:
@@ -152,19 +153,37 @@ class DomainAnalyzer:
     
     def _evaluate_overlap(self, domain: str, existing_gods: List[str]) -> float:
         """Evaluate overlap with existing gods (0-1)."""
-        domain_words = set(domain.lower().split())
-        
-        overlap_count = 0
-        for god in existing_gods:
-            god_words = set(god.lower().replace('_', ' ').split())
-            if domain_words & god_words:
-                overlap_count += 1
-        
         if len(existing_gods) == 0:
             return 0.0
         
-        overlap_ratio = overlap_count / len(existing_gods)
-        return min(1.0, overlap_ratio * 2)
+        domain_words = set(domain.lower().split())
+        
+        overlap_score = 0.0
+        max_overlap = 0.0
+        
+        for god in existing_gods:
+            base_god_name = god.split('_')[0]
+            
+            god_data = GREEK_GODS_DOMAINS.get(base_god_name) or SHADOW_GODS_DOMAINS.get(base_god_name, {})
+            
+            god_domain_words = set()
+            god_domain_words.update(god_data.get('primary', []))
+            god_domain_words.update(god_data.get('secondary', []))
+            
+            god_words = set(god.lower().replace('_', ' ').split())
+            god_domain_words.update(god_words)
+            
+            name_overlap = len(domain_words & god_words)
+            domain_overlap = len(domain_words & god_domain_words)
+            
+            god_score = (name_overlap * 2.0 + domain_overlap * 1.0) / max(1, len(domain_words))
+            max_overlap = max(max_overlap, god_score)
+            overlap_score += god_score
+        
+        avg_overlap = overlap_score / len(existing_gods)
+        combined = (max_overlap * 0.6) + (avg_overlap * 0.4)
+        
+        return min(1.0, combined)
     
     def _evaluate_mythology_fit(self, proposed_name: str, god_matches: List[Dict]) -> float:
         """Evaluate how well proposed name fits Greek mythology."""

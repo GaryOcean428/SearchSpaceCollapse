@@ -26,6 +26,16 @@ except ImportError as e:
     AUTONOMIC_AVAILABLE = False
     print(f"[WARNING] Autonomic kernel not found: {e}")
 
+# Register research self-learning routes
+RESEARCH_AVAILABLE = False
+try:
+    from research.research_api import register_research_routes
+    register_research_routes(app)
+    RESEARCH_AVAILABLE = True
+    print("[INFO] Research API registered at /api/research")
+except ImportError as e:
+    print(f"[WARNING] Research module not found: {e}")
+
 # Add request/response logging for production
 from flask import request
 

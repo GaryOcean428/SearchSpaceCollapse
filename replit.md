@@ -65,6 +65,41 @@ HTTP API with retry logic, circuit breakers, and timeouts for TypeScript ↔ Pyt
 
 ## Recent Changes (December 2025)
 
+### Kernel Self-Learning Research Infrastructure (December 12, 2025)
+New research module enables kernels to autonomously learn about domains via web research:
+
+- **Location**: `qig-backend/research/` with barrel exports in `__init__.py`
+- **Components**:
+  - `web_scraper.py`: Wikipedia, arXiv, GitHub research for domain learning
+  - `domain_analyzer.py`: Evaluates domain validity/complexity/overlap for spawn decisions
+  - `god_name_resolver.py`: Maps domains to Greek gods via static mythology + Wikipedia research
+  - `vocabulary_trainer.py`: Trains vocabulary coordinator from research findings
+  - `enhanced_m8_spawner.py`: Research-driven kernel spawning workflow
+  - `research_api.py`: Flask API routes at `/api/research`
+
+- **Greek God Mapping**: 18 Olympian gods + 6 Shadow gods with domain/symbol metadata
+  - Domains like "wisdom strategy" → Athena
+  - Domains like "darkness night shadow" → Nyx (shadow god)
+  - Research-informed god name assignment via Wikipedia concept extraction
+
+- **API Endpoints**:
+  - `POST /api/research/domain` - Research a domain
+  - `POST /api/research/resolve-god-name` - Get best Greek god for domain
+  - `POST /api/research/analyze` - Full domain analysis with spawn recommendation
+  - `POST /api/research/train-vocabulary` - Train vocabulary from domain research
+  - `POST /api/research/spawn` - Complete research-driven kernel spawn
+
+- **Vocabulary Integration**: `train_from_text()` method added to VocabularyCoordinator
+
+- **Heartbeat & Recovery System**: The research infrastructure requires external monitoring for reliable idle recovery:
+  - **Heartbeat Endpoint**: `GET /api/research/heartbeat` triggers recovery checks for pending proposals and vocabulary reconciliation
+  - **Monitoring Setup**: Configure external uptime monitoring (e.g., UptimeRobot, Pingdom) to ping `/api/research/heartbeat` every 30 seconds
+  - **Health Checks**: 
+    - `GET /api/research/status` - Component status and deployment notes
+    - `GET /api/research/analytics` - Training metrics, pending proposals, recovery stats
+    - `POST /api/research/test` - Quick integration test (domain research → god resolution → vocab training)
+  - **Known Limitation**: Recovery only runs on API calls or heartbeat - without external scheduler, pending proposals won't recover during idle periods
+
 ### CHAOS MODE Persistence (December 12, 2025)
 - **64D Basin Coordinates**: Updated `kernel_geometry.basin_coordinates` from 8D to 64D pgvector to align with E8 lattice structure requirements
 - **Learning Events Schema**: Added `kernel_id` and `metadata` columns to `learning_events` table for kernel lifecycle tracking

@@ -8,9 +8,14 @@ Kernels learn new words from Wikipedia, arXiv, and god mythology.
 QIG PURE: Vocabulary emerges from geometric research patterns.
 """
 
+import os
+import json
+import time
 from typing import Dict, List, Optional
 from .web_scraper import ResearchScraper, get_scraper
 from .god_name_resolver import GodNameResolver, get_god_name_resolver
+
+FALLBACK_VOCABULARY_FILE = '/tmp/fallback_vocabulary.json'
 
 
 class ResearchVocabularyTrainer:
@@ -30,10 +35,16 @@ class ResearchVocabularyTrainer:
         
         self.vocab = None
         self.available = False
+        self._training_event_count = 0
+        self._total_words_trained = 0
+        self._reconciliation_attempts = 0
+        self._reconciled_words = 0
+        self._reconciliation_failures = 0
+        self._last_reconciliation_time: float = 0
+        self._reconciliation_interval_seconds: float = 60.0
         
         try:
             import sys
-            import os
             parent = os.path.dirname(os.path.dirname(__file__))
             if parent not in sys.path:
                 sys.path.insert(0, parent)
@@ -44,12 +55,55 @@ class ResearchVocabularyTrainer:
         except ImportError as e:
             print(f"[ResearchVocab] Vocabulary coordinator not available: {e}")
     
+    def auto_reconcile(self) -> Optional[Dict]:
+        """
+        Automatically reconcile fallback vocabulary if conditions are met.
+        
+        Only reconciles if:
+        - Vocab coordinator is available
+        - /tmp/fallback_vocabulary.json exists and has entries
+        - Last reconciliation was > 60 seconds ago
+        
+        Returns reconciliation result or None if skipped.
+        """
+        if not self.available:
+            self._try_reconnect_vocab()
+        
+        if not self.available:
+            return None
+        
+        if not os.path.exists(FALLBACK_VOCABULARY_FILE):
+            return None
+        
+        now = time.time()
+        time_since_last = now - self._last_reconciliation_time
+        
+        if time_since_last < self._reconciliation_interval_seconds:
+            return None
+        
+        fallback_entries = self.get_fallback_words()
+        if not fallback_entries:
+            return None
+        
+        self._last_reconciliation_time = now
+        
+        try:
+            result = self.reconcile_fallback_vocabulary()
+            if result.get('imported', 0) > 0:
+                print(f"[ResearchVocab] Auto-reconciled {result.get('imported', 0)} words")
+            return result
+        except Exception as e:
+            print(f"[ResearchVocab] Auto-reconcile error: {e}")
+            return {'success': False, 'error': str(e)}
+    
     def train_from_research(self, research: Dict) -> Dict:
         """
         Train vocabulary from research results.
         
         Extracts text from all sources and trains vocabulary.
         """
+        self.auto_reconcile()
+        
         if not self.available:
             return {'success': False, 'reason': 'vocab_unavailable'}
         
@@ -166,22 +220,69 @@ class ResearchVocabularyTrainer:
     
     def _train_text(self, text: str, domain: Optional[str] = None) -> Dict:
         """Internal method to train vocabulary from text."""
+        if not text or not text.strip():
+            return {'success': False, 'reason': 'empty_text'}
+        
+        self._training_event_count += 1
+        
         if not self.available or not self.vocab:
-            return {'success': False, 'reason': 'vocab_unavailable'}
+            return self._fallback_train(text, domain)
         
         try:
             if hasattr(self.vocab, 'train_from_text'):
                 result = self.vocab.train_from_text(text, domain)
+                new_words = 0
+                if isinstance(result, dict):
+                    new_words = result.get('new_words_learned', result.get('words_added', 0))
+                    self._total_words_trained += new_words
+                    return {
+                        'success': True,
+                        'text_length': len(text),
+                        'domain': domain,
+                        'result': result,
+                        'new_words_learned': new_words,
+                        'training_event': self._training_event_count,
+                        'total_words_trained': self._total_words_trained,
+                    }
+                else:
+                    return {
+                        'success': True,
+                        'text_length': len(text),
+                        'domain': domain,
+                        'trained': True,
+                        'new_words_learned': 0,
+                        'training_event': self._training_event_count,
+                    }
+            elif hasattr(self.vocab, 'learn_text'):
+                self.vocab.learn_text(text, source=domain)
                 return {
                     'success': True,
                     'text_length': len(text),
-                    'result': result,
-                    'new_words_learned': result.get('new_words_learned', 0),
+                    'domain': domain,
+                    'method': 'learn_text',
+                    'new_words_learned': 0,
+                    'training_event': self._training_event_count,
+                }
+            elif hasattr(self.vocab, 'add_words'):
+                import re
+                words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
+                unique_words = list(set(words))
+                self.vocab.add_words(unique_words, domain=domain)
+                self._total_words_trained += len(unique_words)
+                return {
+                    'success': True,
+                    'text_length': len(text),
+                    'domain': domain,
+                    'method': 'add_words',
+                    'new_words_learned': len(unique_words),
+                    'training_event': self._training_event_count,
+                    'total_words_trained': self._total_words_trained,
                 }
             else:
                 return self._fallback_train(text, domain)
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            fallback_result = self._fallback_train(text, domain)
+            return {'success': False, 'error': str(e), 'fallback': fallback_result}
     
     def _fallback_train(self, text: str, domain: Optional[str] = None) -> Dict:
         """Fallback training when train_from_text not available."""
@@ -190,13 +291,223 @@ class ResearchVocabularyTrainer:
         words = re.findall(r'\b[a-z]{4,}\b', text.lower())
         unique_words = list(set(words))
         
+        print(f"[ResearchVocab] Fallback extracted {len(unique_words)} words for domain '{domain}': {unique_words[:5]}...")
+        
+        persisted = self._persist_fallback_words(unique_words, domain)
+        
+        reconnected = self._try_reconnect_vocab()
+        if reconnected and unique_words:
+            try:
+                if hasattr(self.vocab, 'add_words'):
+                    self.vocab.add_words(unique_words, domain=domain)
+                    print(f"[ResearchVocab] Reconnected and added {len(unique_words)} words")
+            except Exception as e:
+                print(f"[ResearchVocab] Reconnection add_words failed: {e}")
+        
         return {
             'success': True,
             'fallback': True,
             'text_length': len(text),
             'words_extracted': len(unique_words),
             'sample_words': unique_words[:10],
+            'all_words': unique_words,
             'domain': domain,
+            'persisted': persisted,
+            'reconnected': reconnected,
+        }
+    
+    def _persist_fallback_words(self, words: List[str], domain: Optional[str]) -> bool:
+        """Persist extracted words to file for recovery."""
+        try:
+            fallback_data = []
+            if os.path.exists(FALLBACK_VOCABULARY_FILE):
+                with open(FALLBACK_VOCABULARY_FILE, 'r') as f:
+                    fallback_data = json.load(f)
+            
+            fallback_data.append({
+                'domain': domain,
+                'words': words,
+                'extracted_at': time.time(),
+                'word_count': len(words),
+            })
+            
+            if len(fallback_data) > 100:
+                fallback_data = fallback_data[-100:]
+            
+            with open(FALLBACK_VOCABULARY_FILE, 'w') as f:
+                json.dump(fallback_data, f, indent=2)
+            
+            return True
+        except Exception as e:
+            print(f"[ResearchVocab] Failed to persist fallback words: {e}")
+            return False
+    
+    def _try_reconnect_vocab(self) -> bool:
+        """Try to reconnect to vocabulary coordinator if not available."""
+        if self.available and self.vocab:
+            return True
+        
+        try:
+            import sys
+            parent = os.path.dirname(os.path.dirname(__file__))
+            if parent not in sys.path:
+                sys.path.insert(0, parent)
+            from vocabulary_coordinator import get_vocabulary_coordinator
+            self.vocab = get_vocabulary_coordinator()
+            self.available = True
+            print("[ResearchVocab] Reconnected to vocabulary coordinator")
+            return True
+        except Exception:
+            return False
+    
+    def get_fallback_words(self) -> List[Dict]:
+        """Retrieve all persisted fallback words."""
+        try:
+            if os.path.exists(FALLBACK_VOCABULARY_FILE):
+                with open(FALLBACK_VOCABULARY_FILE, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"[ResearchVocab] Failed to read fallback words: {e}")
+        return []
+    
+    def reconcile_fallback_vocabulary(self) -> Dict:
+        """
+        Reconcile fallback vocabulary when coordinator becomes available.
+        
+        Reads /tmp/fallback_vocabulary.json and imports all stored words
+        into the vocabulary coordinator. Tracks analytics for reconciliation.
+        """
+        self._reconciliation_attempts += 1
+        
+        if not self._try_reconnect_vocab():
+            return {
+                'success': False,
+                'reason': 'vocab_coordinator_unavailable',
+                'reconciliation_attempt': self._reconciliation_attempts,
+            }
+        
+        fallback_entries = self.get_fallback_words()
+        if not fallback_entries:
+            return {
+                'success': True,
+                'imported': 0,
+                'message': 'No fallback vocabulary to reconcile',
+                'reconciliation_attempt': self._reconciliation_attempts,
+            }
+        
+        imported_count = 0
+        failed_count = 0
+        processed_indices = []
+        domains_processed = []
+        
+        for idx, entry in enumerate(fallback_entries):
+            words = entry.get('words', [])
+            domain = entry.get('domain')
+            
+            if not words:
+                processed_indices.append(idx)
+                continue
+            
+            try:
+                if hasattr(self.vocab, 'add_words'):
+                    self.vocab.add_words(words, domain=domain)
+                    imported_count += len(words)
+                    processed_indices.append(idx)
+                    domains_processed.append(domain)
+                    self._reconciled_words += len(words)
+                    print(f"[ResearchVocab] Reconciled {len(words)} words for domain '{domain}'")
+                elif hasattr(self.vocab, 'train_from_text'):
+                    combined_text = ' '.join(words)
+                    result = self.vocab.train_from_text(combined_text, domain)
+                    new_words = 0
+                    if isinstance(result, dict):
+                        new_words = result.get('new_words_learned', result.get('words_added', 0))
+                    imported_count += new_words
+                    processed_indices.append(idx)
+                    domains_processed.append(domain)
+                    self._reconciled_words += new_words
+                    print(f"[ResearchVocab] Trained {new_words} words for domain '{domain}'")
+                else:
+                    failed_count += 1
+                    self._reconciliation_failures += 1
+                    print(f"[ResearchVocab] No suitable method to import words for '{domain}'")
+            except Exception as e:
+                failed_count += 1
+                self._reconciliation_failures += 1
+                print(f"[ResearchVocab] Failed to reconcile domain '{domain}': {e}")
+        
+        self._archive_reconciled_entries(processed_indices)
+        
+        return {
+            'success': True,
+            'imported': imported_count,
+            'failed': failed_count,
+            'entries_processed': len(processed_indices),
+            'domains_processed': domains_processed,
+            'reconciliation_attempt': self._reconciliation_attempts,
+            'total_reconciled_words': self._reconciled_words,
+            'total_failures': self._reconciliation_failures,
+        }
+    
+    def _archive_reconciled_entries(self, processed_indices: List[int]) -> bool:
+        """Archive or remove reconciled fallback entries."""
+        try:
+            if not os.path.exists(FALLBACK_VOCABULARY_FILE):
+                return True
+            
+            with open(FALLBACK_VOCABULARY_FILE, 'r') as f:
+                fallback_data = json.load(f)
+            
+            remaining = [
+                entry for idx, entry in enumerate(fallback_data)
+                if idx not in processed_indices
+            ]
+            
+            if not remaining:
+                archive_path = f"/tmp/fallback_vocabulary_archived_{int(time.time())}.json"
+                os.rename(FALLBACK_VOCABULARY_FILE, archive_path)
+                print(f"[ResearchVocab] All fallback vocabulary reconciled, archived to {archive_path}")
+            else:
+                with open(FALLBACK_VOCABULARY_FILE, 'w') as f:
+                    json.dump(remaining, f, indent=2)
+                print(f"[ResearchVocab] {len(remaining)} fallback entries remaining")
+            
+            return True
+        except Exception as e:
+            print(f"[ResearchVocab] Failed to archive reconciled entries: {e}")
+            return False
+    
+    def get_reconciliation_analytics(self) -> Dict:
+        """Get analytics about vocabulary reconciliation."""
+        return {
+            'reconciliation_attempts': self._reconciliation_attempts,
+            'total_reconciled_words': self._reconciled_words,
+            'total_failures': self._reconciliation_failures,
+            'training_events': self._training_event_count,
+            'total_words_trained': self._total_words_trained,
+            'vocab_available': self.available,
+            'pending_fallback_entries': len(self.get_fallback_words()),
+        }
+    
+    def get_analytics(self) -> Dict:
+        """
+        Get analytics for monitoring vocabulary training.
+        
+        Returns dict with:
+        - Training events count
+        - Words trained
+        - Reconciliation stats
+        """
+        return {
+            'training_event_count': self._training_event_count,
+            'total_words_trained': self._total_words_trained,
+            'reconciliation_attempts': self._reconciliation_attempts,
+            'reconciled_words': self._reconciled_words,
+            'reconciliation_failures': self._reconciliation_failures,
+            'vocab_available': self.available,
+            'pending_fallback_entries': len(self.get_fallback_words()),
+            'last_reconciliation_time': self._last_reconciliation_time,
+            'reconciliation_interval_seconds': self._reconciliation_interval_seconds,
         }
 
 

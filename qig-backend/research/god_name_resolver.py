@@ -166,16 +166,24 @@ class GodNameResolver:
         """
         domain_words = set(domain.lower().split())
         
-        scores = self._score_all_gods(domain_words, allow_shadow)
+        all_scores = self._score_all_gods(domain_words, allow_shadow)
         
-        if prefer_olympian:
-            olympian_scores = {k: v for k, v in scores.items() if k in GREEK_GODS_DOMAINS}
-            if olympian_scores:
-                best_olympian = max(olympian_scores.items(), key=lambda x: x[1])
-                if best_olympian[1] > 0:
-                    scores = olympian_scores
+        olympian_scores = {k: v for k, v in all_scores.items() if k in GREEK_GODS_DOMAINS}
+        shadow_scores = {k: v for k, v in all_scores.items() if k in SHADOW_GODS_DOMAINS}
         
-        if not scores or max(scores.values()) == 0:
+        best_olympian = max(olympian_scores.items(), key=lambda x: x[1]) if olympian_scores else (None, 0)
+        best_shadow = max(shadow_scores.items(), key=lambda x: x[1]) if shadow_scores else (None, 0)
+        
+        if prefer_olympian and olympian_scores and best_olympian[1] > 0:
+            scores = olympian_scores
+        elif allow_shadow and shadow_scores and best_shadow[1] > best_olympian[1]:
+            scores = all_scores
+        elif olympian_scores:
+            scores = olympian_scores
+        else:
+            scores = all_scores
+        
+        if not scores or max(scores.values(), default=0) == 0:
             wiki_matches = self.scraper.research_greek_gods_for_domain(domain)
             if wiki_matches:
                 best = wiki_matches[0]
@@ -184,6 +192,8 @@ class GodNameResolver:
                     'score': best['score'],
                     'domain_overlap': best.get('domain_overlap', 0),
                     'god_domains': best.get('god_domains', []),
+                    'alternatives': [m['god_name'] for m in wiki_matches[1:3]],
+                    'is_shadow': best['god_name'] in SHADOW_GODS_DOMAINS,
                 }
         
         if not scores:
@@ -191,15 +201,23 @@ class GodNameResolver:
                 'source': 'default_fallback',
                 'score': 0,
                 'reason': 'No matching god found',
+                'is_shadow': False,
             }
         
         best_god = max(scores.items(), key=lambda x: x[1])
         god_name = best_god[0]
         score = best_god[1]
+        is_shadow = god_name in SHADOW_GODS_DOMAINS
         
         god_data = GREEK_GODS_DOMAINS.get(god_name) or SHADOW_GODS_DOMAINS.get(god_name, {})
         matched_domains = [d for d in god_data.get('primary', []) if d in domain_words]
         matched_secondary = [d for d in god_data.get('secondary', []) if d in domain_words]
+        
+        alternatives = sorted(
+            [(k, v) for k, v in all_scores.items() if k != god_name],
+            key=lambda x: x[1],
+            reverse=True
+        )[:3]
         
         self._usage_counts[god_name] = self._usage_counts.get(god_name, 0) + 1
         
@@ -209,6 +227,12 @@ class GodNameResolver:
             'matched_primary': matched_domains,
             'matched_secondary': matched_secondary,
             'usage_count': self._usage_counts[god_name],
+            'is_shadow': is_shadow,
+            'alternatives': [a[0] for a in alternatives],
+            'best_olympian': best_olympian[0] if best_olympian[0] else None,
+            'best_shadow': best_shadow[0] if best_shadow[0] else None,
+            'olympian_score': best_olympian[1],
+            'shadow_score': best_shadow[1],
         }
     
     def resolve_with_suffix(
