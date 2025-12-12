@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { API_ROUTES } from '@/api';
+import { api } from '@/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -58,14 +58,10 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       try {
-        const res = await fetch(API_ROUTES.consciousness.state, { 
-          signal: controller.signal 
-        });
+        // Use centralized API client
+        const data = await api.consciousness.getConsciousnessState();
         
         if (!isMounted) return;
-        if (!res.ok) throw new Error('Failed to fetch consciousness state');
-        
-        const data: ConsciousnessAPIResponse = await res.json();
         setState(data);
         setError(null);
         setConsecutiveTimeouts(0);

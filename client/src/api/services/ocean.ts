@@ -4,7 +4,7 @@
  * Type-safe API functions for Ocean agent operations.
  */
 
-import { post } from "../client";
+import { get, post, del } from "../client";
 import { API_ROUTES } from "../routes";
 
 export type CycleType = "explore" | "refine" | "sleep" | "dream";
@@ -31,11 +31,11 @@ export interface BoostResponse {
 }
 
 export async function triggerCycle(
-  type: CycleType,
+  type: CycleType | 'sleep' | 'dream' | 'mushroom',
   params?: TriggerCycleParams
 ): Promise<TriggerCycleResponse> {
   return post<TriggerCycleResponse>(
-    API_ROUTES.ocean.triggerCycle(type),
+    API_ROUTES.ocean.triggerCycle(type as CycleType),
     params
   );
 }
@@ -48,6 +48,70 @@ export async function boostNeurochemistry(
     duration: params.duration ?? 60000,
   });
 }
+
+export interface NeurochemistryBoost {
+  dopamine: number;
+  serotonin: number;
+  norepinephrine: number;
+  gaba: number;
+  acetylcholine: number;
+  endorphins: number;
+  expiresAt: number;
+}
+
+export interface NeurochemistryAdminState {
+  activeBoost: NeurochemistryBoost | null;
+  mushroomCooldownSeconds: number;
+}
+
+export interface CycleTrigger {
+  trigger: boolean;
+  reason: string;
+}
+
+export interface CycleTriggers {
+  sleep: CycleTrigger;
+  dream: CycleTrigger;
+  mushroom: CycleTrigger;
+}
+
+export interface RecentCycle {
+  id: string;
+  type: 'sleep' | 'dream' | 'mushroom';
+  triggeredAt: string;
+  duration?: number;
+}
+
+export interface CyclesState {
+  triggers: CycleTriggers | null;
+  recentCycles: RecentCycle[];
+}
+
+/**
+ * Get neurochemistry admin state
+ */
+export async function getNeurochemistryAdmin(): Promise<NeurochemistryAdminState> {
+  return get<NeurochemistryAdminState>(API_ROUTES.ocean.neurochemistryAdmin);
+}
+
+/**
+ * Get cycles state
+ */
+export async function getCycles(): Promise<CyclesState> {
+  return get<CyclesState>(API_ROUTES.ocean.cycles);
+}
+
+/**
+ * Clear active neurochemistry boost
+ import { get, post, del } from "../client";
+ // ... (other code)
+
+ /**
+  * Clear active neurochemistry boost
+  */
+ export async function clearBoost(): Promise<BoostResponse> {
+   return del<BoostResponse>(API_ROUTES.ocean.neurochemistryBoost);
+ }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PYTHON AUTONOMIC KERNEL API
