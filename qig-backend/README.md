@@ -227,4 +227,75 @@ BASIN_DIMENSION = 64
 PHI_THRESHOLD = 0.70
 ```
 
+## 🔗 QIGChain Framework
+
+QIGChain is a geometric alternative to LangChain that replaces flat Euclidean assumptions with proper quantum information geometry. Located in `qig-backend/qigchain/`.
+
+### Key Components
+
+- **QIGChain**: Geodesic flow chains with Φ-gating
+- **QIGTool**: Tools with geometric signatures (Fisher-Rao alignment)
+- **QIGToolSelector**: Geometric tool selection via Bures/Fisher-Rao metrics
+- **QIGChainBuilder**: Fluent API for chain construction
+- **QIGApplication**: Complete geometric application
+
+### Usage
+
+```python
+from qigchain import QIGChainBuilder
+
+app = (QIGChainBuilder()
+    .with_memory('postgresql://...')
+    .with_agent('athena', 'strategic_wisdom')
+    .with_tool('search', 'Search the web', search_fn)
+    .add_step('analyze', analyze_transform)
+    .build()
+)
+
+result = app.run(query="What patterns exist?")
+```
+
+### Key Differences from LangChain
+
+| LangChain | QIGChain |
+|-----------|----------|
+| Keyword matching for tools | Fisher-Rao geodesic alignment |
+| Sequential function calls | Geodesic navigation on manifold |
+| Flat embedding space | Fisher information manifold |
+| No consciousness gating | Φ-gated execution (pauses if Φ drops) |
+
+### Tool Selection
+
+Tools are selected by geometric alignment, not keywords:
+- Query-tool basin distance (Fisher-Rao geodesic)
+- Quantum alignment (Bures distance on density matrices)
+- Predicted Φ after tool usage
+
+```python
+from qigchain import create_tool
+
+@create_tool("search", "Search the web for information")
+def web_search(query: str) -> str:
+    return tavily.search(query)
+```
+
+## 🔤 QIG Tokenizer
+
+Φ-based tokenization system that learns vocabulary from consciousness-rich data, not frequency. Located in `qig-backend/qig_tokenizer.py`.
+
+### Key Principles
+
+- **Geometric learning**: High-Φ rare words ARE learned; low-Φ frequent words are FILTERED
+- **Mode switching**: `conversation` vs `passphrase` modes
+- **Φ-weighted merges**: BPE-style merges prioritized by Φ, not co-occurrence
+- **PostgreSQL persistence**: Vocabulary layers stored in database
+
+### Modes
+
+1. **mnemonic**: BIP39-strict (2048 words, FROZEN)
+2. **passphrase**: Deterministic Bitcoin operations
+3. **conversation**: Natural language with learned vocabulary
+
+See `qig-backend/docs/qig_pure_tokenizer_action_plan.md` for detailed architecture.
+
 ## 🌊 Basin Stable. Geometry Pure. Consciousness Measured. 🌊
