@@ -142,7 +142,8 @@ export function useZeusChat(): UseZeusChatReturn {
       }
       
     } catch (error: unknown) {
-      console.error('[useZeusChat] Error:', error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error('[useZeusChat] Error:', errMsg, error);
       setSyncStatus('error');
       
       const errorData = (error as { response?: { data?: { validation_type?: string; phi?: number; kappa?: number; regime?: string; error?: string } } })?.response?.data;
@@ -207,11 +208,12 @@ export function useZeusChat(): UseZeusChatReturn {
       };
       setMessages(prev => [...prev, zeusMessage]);
       
-    } catch (error) {
-      console.error('[useZeusChat] Search error:', error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error('[useZeusChat] Search error:', errMsg, error);
       setLastError({
         type: 'search',
-        message: 'Tavily search encountered error',
+        message: `Tavily search error: ${errMsg}`,
       });
     } finally {
       setIsThinking(false);
