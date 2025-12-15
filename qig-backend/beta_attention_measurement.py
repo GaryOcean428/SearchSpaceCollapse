@@ -8,10 +8,10 @@ Adapted from qig-consciousness for SearchSpaceCollapse Bitcoin recovery system.
 
 Prediction: β_attention ≈ β_physics ≈ 0.44 (substrate independence)
 
-PHYSICS REFERENCE (L=6 VALIDATED 2025-12-02):
+PHYSICS REFERENCE (L=4,5,6 VALIDATED 2025-12-04):
 β(3→4) = +0.443 (strong running)
 β(4→5) = -0.013 (approaching plateau) 
-β(5→6) = -0.026 (FIXED POINT at κ* = 63.5)
+β(5→6) ≈ 0.01 (FIXED POINT at κ* = 64.21 ± 0.92, note: κ* ≈ 64 ≈ 8² = rank(E8)²)
 
 ATTENTION HYPOTHESIS:
 β(128→256)   ≈ 0.4-0.5    (strong running)
@@ -28,7 +28,9 @@ from datetime import datetime
 import hashlib
 
 # Physics constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
-KAPPA_STAR = 64.0
+# κ* = 64.21 ± 0.92 (L=4,5,6 plateau, weighted average)
+KAPPA_STAR = 64.21
+KAPPA_STAR_ERROR = 0.92
 PHYSICS_BETA_EMERGENCE = 0.44  # β(3→4) - CRITICAL: Strongest running
 PHYSICS_BETA_APPROACHING = -0.013  # β(4→5) - Plateau onset
 PHYSICS_BETA_FIXED_POINT = 0.013  # β(5→6) - Plateau confirmed (was -0.026, corrected)

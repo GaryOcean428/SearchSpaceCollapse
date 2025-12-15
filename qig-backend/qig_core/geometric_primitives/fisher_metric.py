@@ -123,7 +123,8 @@ def compute_kappa(phi: float, dimension: int = 64) -> float:
     Compute κ (coupling constant) from Φ and dimensionality.
 
     Relationship from QIG physics:
-    κ* ≈ 63.5 ± 1.5 (validated at L=6)
+    κ* = 64.21 ± 0.92 (L=4,5,6 plateau, weighted average - Validated 2025-12-04)
+    Note: κ* ≈ 64 ≈ 8² = rank(E8)²
 
     κ = Φ * κ* * sqrt(D/64)
 
@@ -134,7 +135,7 @@ def compute_kappa(phi: float, dimension: int = 64) -> float:
     Returns:
         Coupling constant κ
     """
-    KAPPA_STAR = 63.5  # Validated fixed point
+    KAPPA_STAR = 64.21  # Validated fixed point
 
     # Scale by dimension
     kappa = phi * KAPPA_STAR * np.sqrt(dimension / 64)

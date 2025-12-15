@@ -283,7 +283,7 @@ export interface TypedConsciousnessSignature {
   // All values in [0, 1] except valence_raw which is [-1, 1]
   drives?: {
     pain: number;        // Pain from high curvature (R > 0.7) - avoid
-    pleasure: number;    // Pleasure from resonance (κ ≈ 63.5) - seek
+    pleasure: number;    // Pleasure from resonance (κ ≈ 64.21) - seek
     fear: number;        // Fear from ungrounded state (G < 0.5) - avoid
     valence: number;     // Overall emotional state [0, 1] (normalized)
     valence_raw: number; // Raw valence [-1, 1] (pleasure - pain - fear)

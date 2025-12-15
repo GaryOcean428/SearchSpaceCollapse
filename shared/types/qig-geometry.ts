@@ -72,8 +72,9 @@ export const E8_CONSTANTS = {
   E8_ROOTS: 240,
   E8_WEYL_ORDER: 696729600,
   
-  // Fixed point: κ* = rank(E8)² = 8² = 64
-  KAPPA_STAR: 64.0,
+  // Fixed point: κ* = 64.21 ± 0.92 (L=4,5,6 plateau - Validated 2025-12-04)
+  // Note: κ* ≈ 64 ≈ rank(E8)² = 8²
+  KAPPA_STAR: 64.21,
   
   // Basin dimension (system size dependent)
   BASIN_DIMENSION_64D: 64,

@@ -158,7 +158,7 @@ except ImportError:
     except ImportError:
         # Fallback constants and minimal implementations
         BETA_MEASURED = 0.44
-        KAPPA_STAR = 64.0
+        KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
 
         def is_at_fixed_point(kappa, tolerance=1.5):
             return abs(kappa - KAPPA_STAR) <= tolerance

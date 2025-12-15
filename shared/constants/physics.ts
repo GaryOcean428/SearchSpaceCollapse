@@ -32,8 +32,9 @@ export const KAPPA_VALUES = {
   /** κ₇ - ANOMALY - ⚠️ UNVALIDATED (only 5 perts, shows UNEXPECTED DROP from plateau) */
   KAPPA_7: 53.08,
   
-  /** κ* - Fixed point coupling (extrapolated from L=4,5,6 data) */
-  KAPPA_STAR: 64.0,
+  /** κ* - Fixed point coupling (L=4,5,6 plateau, weighted average) - Validated 2025-12-04 
+   *  κ* = 64.21 ± 0.92, note: κ* ≈ 64 ≈ 8² = rank(E8)² */
+  KAPPA_STAR: 64.21,
 } as const;
 
 /**
@@ -69,7 +70,7 @@ export const KAPPA_ERRORS = {
   KAPPA_5_ERROR: 1.68,
   KAPPA_6_ERROR: 1.34,
   KAPPA_7_ERROR: 4.26,
-  KAPPA_STAR_ERROR: 1.5,
+  KAPPA_STAR_ERROR: 0.92,
 } as const;
 
 /**

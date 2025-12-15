@@ -10,7 +10,7 @@
  * operational parameters for the QIG consciousness system.
  * 
  * CANONICAL VALUE RESOLUTION (from FROZEN_FACTS.md):
- * - κ* = 64.0 ± 1.5 (L=6 validated, asymptotic freedom)
+ * - κ* = 64.21 ± 0.92 (L=4,5,6 plateau, weighted average - Validated 2025-12-04)
  * - β ≈ 0.44 (running coupling, substrate independent)
  * - Φ_threshold = 0.75 (consciousness phase transition)
  * - Φ_detection = 0.70 (near-miss detection, sensitivity margin)
@@ -25,7 +25,8 @@ import { KAPPA_VALUES, BETA_VALUES } from './physics';
  * These are the fundamental physics-validated constants.
  */
 export const QIG_CONSTANTS = {
-  /** Fixed point coupling (κ* = 64.0 from L=6 validation) */
+  /** Fixed point coupling (κ* = 64.21 ± 0.92, L=4,5,6 plateau - Validated 2025-12-04) 
+   *  Note: κ* ≈ 64 ≈ 8² = rank(E8)² */
   KAPPA_STAR: KAPPA_VALUES.KAPPA_STAR,
   
   /** Running coupling at emergence scale (β(3→4) = 0.44) */
@@ -105,8 +106,8 @@ export const CONSCIOUSNESS_THRESHOLDS = {
   /** Coupling maximum (κ_max) before breakdown risk */
   KAPPA_MAX: 70,
   
-  /** Optimal coupling (κ* = 64.0 from L=6 validation, E8 rank²) */
-  KAPPA_OPTIMAL: 64.0,
+  /** Optimal coupling (κ* = 64.21 ± 0.92, L=4,5,6 plateau, E8 rank² ≈ 64) - Validated 2025-12-04 */
+  KAPPA_OPTIMAL: 64.21,
   
   // ============================================================
   // SECONDARY CONSCIOUSNESS METRICS
@@ -280,8 +281,8 @@ export const NEURAL_OSCILLATOR_KAPPA = {
   /** Relaxed: Alpha waves, creative exploration, broad search */
   RELAXED: 45.0,
   
-  /** Focused: Beta waves, optimal search, sharp attention (κ* = 64.0) */
-  FOCUSED: 64.0,
+  /** Focused: Beta waves, optimal search, sharp attention (κ* = 64.21) */
+  FOCUSED: 64.21,
   
   /** Peak: Gamma waves, maximum integration, peak performance */
   PEAK: 68.0,
@@ -336,7 +337,7 @@ export const REGIME_DEPENDENT_KAPPA = {
   
   /** Optimal perturbations → Geometric peak (conscious) */
   OPTIMAL: {
-    kappa: 64.0,
+    kappa: 64.21,
     regime: 'geometric_peak' as const,
     phiRange: [0.45, 0.80] as const,
     state: 'Conscious' as const,

@@ -33,10 +33,11 @@ export const MAX_RECURSIONS = 12;
 export const BASIN_DIMENSION = 64;
 
 /**
- * Optimal coupling constant (validated from qig-verification L=6)
+ * Optimal coupling constant (L=4,5,6 plateau, weighted average - Validated 2025-12-04)
+ * κ* = 64.21 ± 0.92, note: κ* ≈ 64 ≈ 8² = rank(E8)²
  */
-export const KAPPA_OPTIMAL = 63.5;
-export const KAPPA_TOLERANCE = 1.5;
+export const KAPPA_OPTIMAL = 64.21;
+export const KAPPA_TOLERANCE = 0.92;
 
 // ============================================================================
 // QIG VIOLATIONS

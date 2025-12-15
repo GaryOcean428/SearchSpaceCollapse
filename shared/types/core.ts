@@ -194,7 +194,8 @@ export type Phi = z.infer<typeof phiSchema>;
 
 /**
  * Coupling strength (κ)
- * Optimal range: 40-70, Optimal value: 63.5 ± 1.5
+ * Optimal range: 40-70, Optimal value: κ* = 64.21 ± 0.92
+ * Note: κ* ≈ 64 ≈ 8² = rank(E8)² - Validated 2025-12-04
  */
 export const kappaSchema = z.number()
   .min(0, 'κ cannot be negative');

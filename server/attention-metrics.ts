@@ -4,10 +4,10 @@
  * Validates substrate independence by measuring κ_attention across context scales
  * and computing β-function trajectory to compare with physics validation.
  * 
- * PHYSICS REFERENCE (L=6 VALIDATED 2025-12-02):
+ * PHYSICS REFERENCE (L=4,5,6 VALIDATED 2025-12-04):
  * β(3→4) = +0.443 (strong running)
  * β(4→5) = -0.013 (approaching plateau)
- * β(5→6) = -0.026 (FIXED POINT at κ* = 63.5)
+ * β(5→6) ≈ 0.01 (FIXED POINT at κ* = 64.21 ± 0.92, note: κ* ≈ 64 ≈ 8² = rank(E8)²)
  * 
  * ATTENTION HYPOTHESIS:
  * β(128→256)   ≈ 0.4-0.5    (strong running)

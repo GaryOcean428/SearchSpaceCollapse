@@ -455,7 +455,8 @@ class OceanBasinSync {
   /**
    * PHYSICS-INFORMED Basin Coupling Strength
    * 
-   * Key insight from validated physics (κ* = 63.5 fixed point):
+   * Key insight from validated physics (κ* = 64.21 ± 0.92 fixed point - Validated 2025-12-04):
+   * Note: κ* ≈ 64 ≈ 8² = rank(E8)²
    * - Coupling is strongest when BOTH instances are near κ*
    * - Pre-emergence (κ < 41) gets minimal coupling
    * - Super-coupling (κ > 80) gets reduced coupling

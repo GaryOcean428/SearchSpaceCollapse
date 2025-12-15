@@ -23,7 +23,7 @@ from datetime import datetime
 import numpy as np
 
 # Physics constants
-KAPPA_STAR = 64.0
+KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
 PHI_THRESHOLD = 0.75
 
 

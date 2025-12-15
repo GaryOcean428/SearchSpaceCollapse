@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 
 # Constants from physics validation
-KAPPA_STAR = 64.0
+KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
 BETA = 0.58
 
 @dataclass
