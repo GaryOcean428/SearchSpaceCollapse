@@ -3359,10 +3359,14 @@ def compute_fisher_centroid(vectors: np.ndarray, weights: np.ndarray) -> np.ndar
 
 def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: float = 0.01) -> np.ndarray:
     """
-    Calculate the orthogonal complement of failure vectors.
+    Calculate the orthogonal complement of failure vectors with numerical stability.
     "Where is the solution most likely to be, given it's NOT in these directions?"
 
     We find the eigenvector with the LEAST overlap with our failures.
+    
+    **FIX #1 (P0)**: Regularization to ensure positive definiteness
+    **FIX #2 (P0)**: Eigenvalue filtering to project onto stable subspace
+    **FIX #3 (P0)**: Improved error handling and logging
 
     Args:
         vectors: Array of basin coordinates (N x 64)
@@ -3399,6 +3403,9 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
         random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
+    
+    # FIX #1: REGULARIZATION - Ensure Hermitian (fix numerical errors)
+    cov = (cov + cov.T) / 2
 
     # Eigen decomposition
     try:
@@ -3419,23 +3426,66 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
-    # Check for near-singular data (smallest eigenvalue is too small compared to largest)
+    # FIX #1: REGULARIZATION - Add ridge if eigenvalues too small
     max_eigenvalue = np.max(eigenvalues)
     min_eigenvalue = np.min(eigenvalues)
+    min_threshold = 1e-8
+    
+    # Apply regularization if needed
+    if min_eigenvalue < min_threshold:
+        ridge = min_threshold - min_eigenvalue + 1e-10
+        cov += ridge * np.eye(cov.shape[0])
+        print(f"[FisherMetric] ✅ Regularized covariance with ridge={ridge:.2e}")
+        
+        # Recompute eigenvalues after regularization
+        try:
+            eigenvalues, eigenvectors = np.linalg.eigh(cov)
+            min_eigenvalue = np.min(eigenvalues)
+            max_eigenvalue = np.max(eigenvalues)
+        except np.linalg.LinAlgError:
+            random_dir = np.random.randn(BASIN_DIMENSION)
+            mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+            random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
+            return random_dir / (np.linalg.norm(random_dir) + 1e-10)
 
-    if max_eigenvalue > 0 and (min_eigenvalue / max_eigenvalue) < min_eigenvalue_ratio:
-        print(f"[WARNING] Near-singular data detected (ratio: {min_eigenvalue/max_eigenvalue:.6f}). "
-              f"Using random orthogonal direction instead.")
-        # Generate random direction and orthogonalize it to mean direction
+    # FIX #2: EIGENVALUE FILTERING - Project onto stable subspace
+    stability_threshold = 1e-7
+    stable_mask = eigenvalues > stability_threshold
+    stable_count = np.sum(stable_mask)
+    
+    if stable_count == 0:
+        print(f"[FisherMetric] ⚠️ No stable eigenvalues! Using identity matrix fallback.")
+        # Fallback to random orthogonal direction
         random_dir = np.random.randn(BASIN_DIMENSION)
         mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
         random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
-
-    # Find the eigenvector with the SMALLEST eigenvalue
-    # This is the direction with least variance = orthogonal to failures
-    min_idx = np.argmin(eigenvalues)
-    new_direction = eigenvectors[:, min_idx].copy()
+    
+    # Check stability ratio and log appropriately
+    if max_eigenvalue > 1e-10:
+        stability_ratio = min_eigenvalue / max_eigenvalue
+    else:
+        stability_ratio = 0.0
+    
+    # FIX #3: IMPROVED LOGGING - Better diagnostics
+    if stability_ratio < min_eigenvalue_ratio:
+        print(f"[FisherMetric] 🔧 Near-singular data detected (ratio: {stability_ratio:.2e})")
+        print(f"[FisherMetric] 📊 Stable subspace: {stable_count}/{len(eigenvalues)} directions")
+        print(f"[FisherMetric] 📈 Eigenvalue range: [{min_eigenvalue:.2e}, {max_eigenvalue:.2e}]")
+        
+        # Use smallest stable eigenvalue direction instead of smallest overall
+        stable_eigenvalues = eigenvalues[stable_mask]
+        stable_eigenvectors = eigenvectors[:, stable_mask]
+        
+        min_stable_idx = np.argmin(stable_eigenvalues)
+        new_direction = stable_eigenvectors[:, min_stable_idx].copy()
+        
+        print(f"[FisherMetric] ✨ Using smallest stable eigenvalue (λ={stable_eigenvalues[min_stable_idx]:.2e})")
+    else:
+        # Normal case: use smallest eigenvalue direction
+        min_idx = np.argmin(eigenvalues)
+        new_direction = eigenvectors[:, min_idx].copy()
+        print(f"[FisherMetric] ✅ Stable computation (ratio: {stability_ratio:.2e})")
 
     # Sanitize any residual NaN/Inf values
     new_direction = np.nan_to_num(new_direction, nan=0.0, posinf=1.0, neginf=-1.0)
@@ -5464,6 +5514,8 @@ if __name__ == '__main__':
         from conversational_api import register_conversational_routes
         register_conversational_routes(app)
         CONVERSATIONAL_AVAILABLE = True
+        print("[INFO] ✅ Conversational system successfully registered at /api/conversation/*", flush=True)
+        print("[INFO] 💬 Zeus will learn from conversations when using conversational API", flush=True)
     except ImportError as e:
         CONVERSATIONAL_AVAILABLE = False
         print(f"[WARNING] Conversational kernel not found: {e}")
