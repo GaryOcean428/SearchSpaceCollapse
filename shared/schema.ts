@@ -3294,3 +3294,135 @@ export const pantheonGodState = pgTable(
 
 export type PantheonGodState = typeof pantheonGodState.$inferSelect;
 export type InsertPantheonGodState = typeof pantheonGodState.$inferInsert;
+
+// ============================================================================
+// QIG TOKENIZER TABLES - Persistent tokenizer state (replaces JSON storage)
+// ============================================================================
+
+/**
+ * TOKENIZER MERGE RULES - BPE-style merge rules learned from high-Φ patterns
+ * Stores token pairs that should be merged, with their Φ scores
+ */
+export const tokenizerMergeRules = pgTable(
+  "tokenizer_merge_rules",
+  {
+    id: serial("id").primaryKey(),
+    tokenA: text("token_a").notNull(),
+    tokenB: text("token_b").notNull(),
+    mergedToken: text("merged_token").notNull(),
+    phiScore: doublePrecision("phi_score").notNull(),
+    frequency: integer("frequency").default(1),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("idx_tokenizer_merge_rules_pair").on(table.tokenA, table.tokenB),
+    index("idx_tokenizer_merge_rules_phi").on(table.phiScore),
+    index("idx_tokenizer_merge_rules_merged").on(table.mergedToken),
+  ]
+);
+
+export type TokenizerMergeRule = typeof tokenizerMergeRules.$inferSelect;
+export type InsertTokenizerMergeRule = typeof tokenizerMergeRules.$inferInsert;
+
+/**
+ * TOKENIZER METADATA - Key-value store for tokenizer configuration
+ * Stores version, vocabulary size, training stats, etc.
+ */
+export const tokenizerMetadata = pgTable(
+  "tokenizer_metadata",
+  {
+    key: text("key").primaryKey(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  }
+);
+
+export type TokenizerMetadataRow = typeof tokenizerMetadata.$inferSelect;
+export type InsertTokenizerMetadata = typeof tokenizerMetadata.$inferInsert;
+
+/**
+ * TOKENIZER VOCABULARY - Extended token vocabulary with geometric embeddings
+ * Links tokens to 64D basin embeddings for Fisher-Rao operations
+ */
+export const tokenizerVocabulary = pgTable(
+  "tokenizer_vocabulary",
+  {
+    id: serial("id").primaryKey(),
+    token: text("token").notNull().unique(),
+    tokenId: integer("token_id").notNull().unique(),
+    weight: doublePrecision("weight").default(1.0),
+    frequency: integer("frequency").default(1),
+    phiScore: doublePrecision("phi_score").default(0),
+    basinEmbedding: vector("basin_embedding", { dimensions: 64 }),
+    sourceType: varchar("source_type", { length: 32 }).default("base"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_tokenizer_vocab_token_id").on(table.tokenId),
+    index("idx_tokenizer_vocab_phi").on(table.phiScore),
+    index("idx_tokenizer_vocab_weight").on(table.weight),
+  ]
+);
+
+export type TokenizerVocabularyRow = typeof tokenizerVocabulary.$inferSelect;
+export type InsertTokenizerVocabulary = typeof tokenizerVocabulary.$inferInsert;
+
+/**
+ * SHADOW PANTHEON INTEL - Persistent storage for shadow ops intelligence
+ * Stores underworld search results and shadow warnings
+ */
+export const shadowPantheonIntel = pgTable(
+  "shadow_pantheon_intel",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    target: text("target").notNull(),
+    searchType: varchar("search_type", { length: 32 }).default("comprehensive"),
+    intelligence: jsonb("intelligence"),
+    sourceCount: integer("source_count").default(0),
+    sourcesUsed: text("sources_used").array(),
+    riskLevel: varchar("risk_level", { length: 16 }).default("low"),
+    validated: boolean("validated").default(false),
+    validationReason: text("validation_reason"),
+    anonymous: boolean("anonymous").default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_shadow_pantheon_intel_target").on(table.target),
+    index("idx_shadow_pantheon_intel_risk").on(table.riskLevel),
+    index("idx_shadow_pantheon_intel_created").on(table.createdAt),
+  ]
+);
+
+export type ShadowPantheonIntel = typeof shadowPantheonIntel.$inferSelect;
+export type InsertShadowPantheonIntel = typeof shadowPantheonIntel.$inferInsert;
+
+/**
+ * SHADOW OPERATIONS LOG - Audit trail for shadow pantheon operations
+ * Tracks all shadow ops for accountability
+ */
+export const shadowOperationsLog = pgTable(
+  "shadow_operations_log",
+  {
+    id: serial("id").primaryKey(),
+    operationType: varchar("operation_type", { length: 32 }).notNull(),
+    godName: varchar("god_name", { length: 32 }).notNull(),
+    target: text("target"),
+    status: varchar("status", { length: 16 }).default("completed"),
+    networkMode: varchar("network_mode", { length: 16 }).default("clear"),
+    opsecLevel: varchar("opsec_level", { length: 16 }),
+    result: jsonb("result"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_shadow_ops_god").on(table.godName),
+    index("idx_shadow_ops_type").on(table.operationType),
+    index("idx_shadow_ops_created").on(table.createdAt),
+  ]
+);
+
+export type ShadowOperationsLogRow = typeof shadowOperationsLog.$inferSelect;
+export type InsertShadowOperationsLog = typeof shadowOperationsLog.$inferInsert;
