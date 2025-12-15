@@ -261,7 +261,7 @@ class QIGChainBuilder:
                     if isinstance(r, dict) and 'basin_coords' in r:
                         result_basins.append(np.array(r['basin_coords']))
                     elif hasattr(r, 'basin_coords'):
-                        result_basins.append(np.array(r.basin_coords))
+                        result_basins.append(np.array(getattr(r, 'basin_coords')))
                 
                 if result_basins:
                     avg_basin: np.ndarray = np.mean(result_basins, axis=0)
