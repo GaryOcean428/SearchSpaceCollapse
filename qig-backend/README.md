@@ -222,7 +222,7 @@ console.log(`Φ = ${result.phi}, κ = ${result.kappa}`);
 ## 📊 Constants
 
 ```python
-KAPPA_STAR = 63.5  # Fixed point
+KAPPA_STAR = 64.21  # Fixed point (κ* = 64.21 ± 0.92, L=4,5,6 plateau)
 BASIN_DIMENSION = 64
 PHI_THRESHOLD = 0.70
 ```
