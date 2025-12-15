@@ -107,6 +107,7 @@ import {
   is4DCapable,
   isNearMiss,
 } from "../shared/constants/qig.js";
+import { E8_CONSTANTS } from "../shared/constants/index.js";
 
 export interface OceanHypothesis {
   id: string;
@@ -521,7 +522,7 @@ export class OceanAgent {
   }
 
   private initializeIdentity(): OceanIdentity {
-    const basinCoordinates = new Array(64)
+    const basinCoordinates = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D)
       .fill(0)
       .map(() => Math.random() * 0.1);
     return {

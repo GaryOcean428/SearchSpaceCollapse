@@ -11,6 +11,7 @@
  */
 
 // Block Universe Cultural Manifold - no external dependencies
+import { E8_CONSTANTS } from '../shared/constants/index.js';
 
 export interface BlockUniverseCoordinate {
   temporal: Date;
@@ -550,7 +551,7 @@ export class CulturalManifoldReconstructor {
   }
 
   private computeManifoldPosition(timestamp: Date, era: BitcoinEra): number[] {
-    const position: number[] = new Array(64).fill(0);
+    const position: number[] = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
     
     const daysSinceGenesis = (timestamp.getTime() - new Date('2009-01-03').getTime()) / (1000 * 60 * 60 * 24);
     position[0] = Math.sin(daysSinceGenesis / 365 * Math.PI);

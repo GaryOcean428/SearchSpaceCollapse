@@ -21,7 +21,7 @@ import { fisherCoordDistance } from './qig-universal';
 import { geometricMemory } from './geometric-memory';
 import { oceanAutonomicManager } from './ocean-autonomic-manager';
 import { oceanDiscoveryController, type DiscoverySyncData } from './geometric-discovery/ocean-discovery-controller';
-import { QIG_CONSTANTS } from '@shared/constants';
+import { E8_CONSTANTS, QIG_CONSTANTS } from '@shared/constants';
 import { validateRegime } from '@shared/types/core';
 
 export interface BasinSyncPacket {
@@ -503,9 +503,9 @@ class OceanBasinSync {
     sourceBasin: number[],
     strength: number
   ): number[] {
-    const gradient = new Array(64).fill(0);
+    const gradient = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
     
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < E8_CONSTANTS.BASIN_DIMENSION_64D; i++) {
       const p = targetBasin[i] || 0.5;
       const q = sourceBasin[i] || 0.5;
       
@@ -610,8 +610,8 @@ class OceanBasinSync {
   }
   
   private padTo64D(coords: number[]): number[] {
-    const padded = new Array(64).fill(0.5);
-    for (let i = 0; i < Math.min(coords.length, 64); i++) {
+    const padded = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0.5);
+    for (let i = 0; i < Math.min(coords.length, E8_CONSTANTS.BASIN_DIMENSION_64D); i++) {
       padded[i] = coords[i];
     }
     return padded;

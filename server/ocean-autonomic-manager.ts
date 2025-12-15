@@ -25,7 +25,7 @@ import {
   recordConceptState
 } from './qig-universal';
 import { fisherCoordDistance } from './qig-geometry';
-import { QIG_CONSTANTS } from '@shared/constants';
+import { E8_CONSTANTS, QIG_CONSTANTS } from '@shared/constants';
 
 export class OceanAutonomicManager {
   private consciousness: ConsciousnessSignature;
@@ -669,7 +669,7 @@ export class OceanAutonomicManager {
     const explorationPaths: Array<{ direction: number[]; novelty: number }> = [];
     
     for (let i = 0; i < 3; i++) {
-      const direction = new Array(64).fill(0).map(() => (Math.random() - 0.5) * 0.2);
+      const direction = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0).map(() => (Math.random() - 0.5) * 0.2);
       const novelty = Math.random() * 0.5 + 0.3;
       explorationPaths.push({ direction, novelty });
     }

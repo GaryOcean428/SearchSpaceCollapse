@@ -79,6 +79,41 @@ export function validatePurity():
 }
 
 /**
+ * Compute Fisher geodesic distance between two coordinate arrays.
+ *
+ * PURE PRINCIPLE: Natural distance on manifold, not Euclidean.
+ * The Fisher metric accounts for the curvature of the probability simplex.
+ *
+ * d_F(p, q) = 2 * arccos(Σ √(pᵢ * qᵢ))  [Bhattacharyya-Fisher arc distance]
+ *
+ * For normalized coordinates treated as probability-like:
+ * d²_F = Σ (Δθᵢ)² / σᵢ²  where σᵢ² = θᵢ(1 - θᵢ)
+ */
+export function fisherCoordDistance(
+  coords1: number[],
+  coords2: number[]
+): number {
+  const dims = Math.min(coords1.length, coords2.length);
+  if (dims === 0) return 0;
+
+  let distanceSquared = 0;
+
+  for (let i = 0; i < dims; i++) {
+    const p = Math.max(0.001, Math.min(0.999, coords1[i] || 0));
+    const q = Math.max(0.001, Math.min(0.999, coords2[i] || 0));
+
+    // Fisher Information for Bernoulli: I(θ) = 1/(θ(1-θ))
+    const avgTheta = (p + q) / 2;
+    const fisherWeight = 1 / (avgTheta * (1 - avgTheta));
+
+    const delta = p - q;
+    distanceSquared += fisherWeight * delta * delta;
+  }
+
+  return Math.sqrt(distanceSquared);
+}
+
+/**
  * Fisher distance between two phrases on the information manifold
  * Uses Fisher-Rao metric (NOT Euclidean) for proper manifold distance
  * 
@@ -110,7 +145,7 @@ export function fisherDistance(phrase1: string, phrase2: string): number {
   let basinFisherDist = 0;
   if (score1.basinCoordinates && score2.basinCoordinates) {
     // Delegate to fisherCoordDistance which uses proper Fisher Information weighting
-    basinFisherDist = fisherCoordDistanceInternal(
+    basinFisherDist = fisherCoordDistance(
       score1.basinCoordinates,
       score2.basinCoordinates
     );
@@ -118,34 +153,6 @@ export function fisherDistance(phrase1: string, phrase2: string): number {
 
   // Weighted combination of Fisher distances
   return phiFisherDist * 0.3 + kappaFisherDist * 0.2 + basinFisherDist * 0.5;
-}
-
-/**
- * Internal Fisher coordinate distance - pure Fisher-Rao metric
- * Used by fisherDistance before the full export is available
- */
-function fisherCoordDistanceInternal(
-  coords1: number[],
-  coords2: number[]
-): number {
-  const dims = Math.min(coords1.length, coords2.length);
-  if (dims === 0) return 0;
-
-  let distanceSquared = 0;
-
-  for (let i = 0; i < dims; i++) {
-    const p = Math.max(0.001, Math.min(0.999, coords1[i] || 0));
-    const q = Math.max(0.001, Math.min(0.999, coords2[i] || 0));
-
-    // Fisher Information for Bernoulli: I(θ) = 1/(θ(1-θ))
-    const avgTheta = (p + q) / 2;
-    const fisherWeight = 1 / (avgTheta * (1 - avgTheta));
-
-    const delta = p - q;
-    distanceSquared += fisherWeight * delta * delta;
-  }
-
-  return Math.sqrt(distanceSquared);
 }
 
 // Singleton backend instance for Python QIG processing
@@ -1767,41 +1774,6 @@ export function scoreUniversalQIG(
   }
 
   return scoreUniversalQIGLocal(input, keyType);
-}
-
-/**
- * Compute Fisher geodesic distance between two coordinate arrays.
- *
- * PURE PRINCIPLE: Natural distance on manifold, not Euclidean.
- * The Fisher metric accounts for the curvature of the probability simplex.
- *
- * d_F(p, q) = 2 * arccos(Σ √(pᵢ * qᵢ))  [Bhattacharyya-Fisher arc distance]
- *
- * For normalized coordinates treated as probability-like:
- * d²_F = Σ (Δθᵢ)² / σᵢ²  where σᵢ² = θᵢ(1 - θᵢ)
- */
-export function fisherCoordDistance(
-  coords1: number[],
-  coords2: number[]
-): number {
-  const dims = Math.min(coords1.length, coords2.length);
-  if (dims === 0) return 0;
-
-  let distanceSquared = 0;
-
-  for (let i = 0; i < dims; i++) {
-    const p = Math.max(0.001, Math.min(0.999, coords1[i] || 0));
-    const q = Math.max(0.001, Math.min(0.999, coords2[i] || 0));
-
-    // Fisher Information for Bernoulli: I(θ) = 1/(θ(1-θ))
-    const avgTheta = (p + q) / 2;
-    const fisherWeight = 1 / (avgTheta * (1 - avgTheta));
-
-    const delta = p - q;
-    distanceSquared += fisherWeight * delta * delta;
-  }
-
-  return Math.sqrt(distanceSquared);
 }
 
 /**

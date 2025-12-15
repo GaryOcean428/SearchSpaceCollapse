@@ -4,6 +4,7 @@ import { autoCycleManager } from "../auto-cycle-manager";
 import { oceanAutonomicManager } from "../ocean-autonomic-manager";
 import { oceanSessionManager } from "../ocean-session-manager";
 import { isAuthenticated } from "../replitAuth";
+import { E8_CONSTANTS } from "../../shared/constants/index.js";
 
 const generousLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -329,8 +330,8 @@ oceanRouter.post(
 
       console.log("[Admin] Manual sleep cycle triggered");
 
-      const basinCoords = new Array(64).fill(0).map(() => Math.random() * 0.1);
-      const refCoords = new Array(64).fill(0);
+      const basinCoords = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0).map(() => Math.random() * 0.1);
+      const refCoords = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
 
       const result = await oceanAutonomicManager.executeSleepCycle(
         basinCoords,

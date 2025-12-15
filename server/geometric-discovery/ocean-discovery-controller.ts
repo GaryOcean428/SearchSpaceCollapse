@@ -31,6 +31,7 @@ import {
 } from './types';
 import { geometricMemory } from '../geometric-memory';
 import { vocabularyTracker } from '../vocabulary-tracker';
+import { E8_CONSTANTS } from '../../shared/constants/index.js';
 
 /**
  * Discovery session configuration
@@ -222,12 +223,12 @@ export class OceanDiscoveryController {
       );
       
       // Average the coordinates
-      const avgCultural = new Array(64).fill(0);
+      const avgCultural = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
       let avgT = 0;
       
       for (const coords of combinedCoords) {
         avgT += coords.spacetime.t;
-        for (let i = 0; i < Math.min(64, coords.cultural.length); i++) {
+        for (let i = 0; i < Math.min(E8_CONSTANTS.BASIN_DIMENSION_64D, coords.cultural.length); i++) {
           avgCultural[i] += coords.cultural[i];
         }
       }
@@ -444,7 +445,7 @@ export class OceanDiscoveryController {
    */
   private getCurrentPosition(): BlockUniverseMap {
     const now = Date.now() / 1000;
-    const cultural = new Array(64).fill(0.5);  // Neutral position
+    const cultural = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0.5);  // Neutral position
     const geometry = this.computeLocalGeometry(cultural);
     
     return {
