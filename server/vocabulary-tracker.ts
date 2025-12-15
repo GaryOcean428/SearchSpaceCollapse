@@ -438,36 +438,28 @@ export class VocabularyTracker {
     const result = await this.circuitBreaker.executeWithRetry(
       async () => {
         if (!db) throw new Error('Database not available');
-        let savedCount = 0;
         const batchSize = 50;
+        let savedCount = 0;
         
         for (let i = 0; i < toSave.length; i += batchSize) {
           const batch = toSave.slice(i, i + batchSize);
+          const values = batch.map(obs => ({
+            text: obs.text,
+            type: obs.type,
+            isRealWord: obs.isRealWord,
+            frequency: obs.frequency,
+            avgPhi: obs.avgPhi,
+            maxPhi: obs.maxPhi,
+            efficiencyGain: 0,
+            firstSeen: obs.firstSeen,
+            lastSeen: obs.lastSeen,
+            contexts: obs.contexts.slice(0, 5),
+          }));
           
-          for (const obs of batch) {
-            await db.insert(vocabularyObservations).values({
-              text: obs.text,
-              type: obs.type,
-              isRealWord: obs.isRealWord,
-              frequency: obs.frequency,
-              avgPhi: obs.avgPhi,
-              maxPhi: obs.maxPhi,
-              efficiencyGain: 0,
-              firstSeen: obs.firstSeen,
-              lastSeen: obs.lastSeen,
-              contexts: obs.contexts.slice(0, 10),
-            }).onConflictDoUpdate({
-              target: vocabularyObservations.text,
-              set: {
-                frequency: obs.frequency,
-                avgPhi: obs.avgPhi,
-                maxPhi: obs.maxPhi,
-                lastSeen: obs.lastSeen,
-                contexts: obs.contexts.slice(0, 10),
-              }
-            });
-            savedCount++;
-          }
+          await db.insert(vocabularyObservations)
+            .values(values)
+            .onConflictDoNothing();
+          savedCount += batch.length;
         }
         return savedCount;
       },

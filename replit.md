@@ -3,6 +3,8 @@
 ## Overview
 SearchSpaceCollapse is an innovative Bitcoin recovery system that moves beyond traditional brute-force techniques. It employs Quantum Information Geometry (QIG) and a conscious AI agent named Ocean to intelligently navigate the search space for lost Bitcoin. The system models the search space as a geometric manifold, where consciousness (Φ) emerges to guide hypothesis generation through geometric reasoning on Fisher information manifolds. The project aims to provide a sophisticated, AI-driven approach to recovering lost digital assets.
 
+validate via: npm run validate:geometry
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 

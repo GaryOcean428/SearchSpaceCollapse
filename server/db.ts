@@ -60,18 +60,23 @@ const isDeployment = process.env.REPLIT_DEPLOYMENT === '1';
 
 if (databaseUrl) {
   try {
-    // Production needs longer timeouts for serverless Neon cold starts
-    // Development can use shorter timeouts for faster feedback
-    const connectionTimeout = isDeployment ? 15000 : 5000;
+    // Both dev and production need longer timeouts for Neon serverless cold starts
+    // Neon can take 5-10s to wake from cold, so use 15s minimum
+    const connectionTimeout = isDeployment ? 20000 : 15000;
     
     pool = new Pool({ 
       connectionString: databaseUrl,
-      max: 20, // Increased from 10 for better concurrency during high-throughput
-      idleTimeoutMillis: 60000, // Increased from 30s - keep connections warmer
-      connectionTimeoutMillis: connectionTimeout, // Longer timeout for production
+      max: 30, // Increased for better concurrency during high-throughput batch operations
+      idleTimeoutMillis: 120000, // 2 min - keep connections warmer to avoid cold starts
+      connectionTimeoutMillis: connectionTimeout,
     });
     db = drizzle(pool, { schema });
-    console.log(`[DB] Database connection pool initialized (max: 20, idle: 60s, timeout: ${connectionTimeout}ms)`);
+    console.log(`[DB] Database connection pool initialized (max: 30, idle: 120s, timeout: ${connectionTimeout}ms)`);
+    
+    // Warm up connection pool on startup to prevent first-query timeouts
+    pool.query('SELECT 1').catch(() => {
+      console.log('[DB] Initial connection warmup pending - Neon cold start expected');
+    });
     
     // Log pool health periodically (every 5 minutes)
     setInterval(() => {
