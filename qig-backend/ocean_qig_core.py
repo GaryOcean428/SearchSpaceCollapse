@@ -3410,6 +3410,8 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     # Eigen decomposition
     try:
         eigenvalues, eigenvectors = np.linalg.eigh(cov)
+        # P0 FIX: Clamp eigenvalues to non-negative to prevent negative ratio
+        eigenvalues = np.maximum(eigenvalues, 0.0)
     except np.linalg.LinAlgError:
         # Fallback if eigenvalue decomposition fails
         random_dir = np.random.randn(BASIN_DIMENSION)
@@ -3440,6 +3442,8 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         # Recompute eigenvalues after regularization
         try:
             eigenvalues, eigenvectors = np.linalg.eigh(cov)
+            # P0 FIX: Clamp eigenvalues to non-negative to prevent negative ratio
+            eigenvalues = np.maximum(eigenvalues, 0.0)
             min_eigenvalue = np.min(eigenvalues)
             max_eigenvalue = np.max(eigenvalues)
         except np.linalg.LinAlgError:
