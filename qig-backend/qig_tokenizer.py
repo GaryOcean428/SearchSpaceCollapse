@@ -26,6 +26,13 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor, execute_values
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+
 # Default paths
 DEFAULT_VOCAB_PATH = "data/qig_tokenizer/vocab.json"
 DEFAULT_MERGES_PATH = "data/qig_tokenizer/merges.txt"
@@ -608,6 +615,186 @@ class QIGTokenizer:
         
         print(f"[QIGTokenizer] Loaded {len(tokenizer.vocab)} tokens from {path}")
         return tokenizer
+
+    # =========================================================================
+    # POSTGRESQL PERSISTENCE
+    # =========================================================================
+
+    def save_to_postgres(self, database_url: Optional[str] = None) -> bool:
+        """
+        Save tokenizer state to PostgreSQL tables.
+        
+        Tables used:
+        - tokenizer_vocabulary: tokens with weights, phi, basin embeddings
+        - tokenizer_merge_rules: BPE merge rules with phi scores
+        - tokenizer_metadata: key-value config store
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        if not PSYCOPG2_AVAILABLE:
+            print("[QIGTokenizer] psycopg2 not available - PostgreSQL save disabled")
+            return False
+        
+        db_url = database_url or os.environ.get('DATABASE_URL')
+        if not db_url:
+            print("[QIGTokenizer] DATABASE_URL not set - PostgreSQL save disabled")
+            return False
+        
+        try:
+            conn = psycopg2.connect(db_url)
+            cursor = conn.cursor()
+            
+            # Save vocabulary
+            vocab_rows = []
+            for token, token_id in self.vocab.items():
+                weight = self.token_weights.get(token, 1.0)
+                phi = self.token_phi.get(token, 0.0)
+                freq = self.token_frequency.get(token, 1)
+                source_type = 'special' if token in self.special_tokens else 'base'
+                
+                # Basin embedding
+                basin = self.basin_coords.get(token)
+                basin_str = None
+                if basin is not None:
+                    basin_str = '[' + ','.join(str(x) for x in basin.tolist()) + ']'
+                
+                vocab_rows.append((token, token_id, weight, freq, phi, basin_str, source_type))
+            
+            # Upsert vocabulary
+            if vocab_rows:
+                insert_sql = """
+                    INSERT INTO tokenizer_vocabulary 
+                    (token, token_id, weight, frequency, phi_score, basin_embedding, source_type, updated_at)
+                    VALUES %s
+                    ON CONFLICT (token) DO UPDATE SET
+                        token_id = EXCLUDED.token_id,
+                        weight = EXCLUDED.weight,
+                        frequency = EXCLUDED.frequency,
+                        phi_score = EXCLUDED.phi_score,
+                        basin_embedding = EXCLUDED.basin_embedding,
+                        source_type = EXCLUDED.source_type,
+                        updated_at = NOW()
+                """
+                template = "(%s, %s, %s, %s, %s, %s::vector(64), %s, NOW())"
+                execute_values(cursor, insert_sql, vocab_rows, template=template, page_size=1000)
+            
+            # Save merge rules
+            merge_rows = []
+            for pair in self.merge_rules:
+                a, b = pair
+                merged = f"{a}_{b}"
+                phi_score = self.merge_scores.get(pair, 0.5)
+                merge_rows.append((a, b, merged, phi_score, 1))
+            
+            if merge_rows:
+                merge_sql = """
+                    INSERT INTO tokenizer_merge_rules 
+                    (token_a, token_b, merged_token, phi_score, frequency, updated_at)
+                    VALUES %s
+                    ON CONFLICT (token_a, token_b) DO UPDATE SET
+                        merged_token = EXCLUDED.merged_token,
+                        phi_score = EXCLUDED.phi_score,
+                        updated_at = NOW()
+                """
+                execute_values(cursor, merge_sql, merge_rows, page_size=500)
+            
+            # Save metadata
+            metadata = [
+                ('vocab_size', str(len(self.vocab))),
+                ('merge_rules_count', str(len(self.merge_rules))),
+                ('saved_at', datetime.utcnow().isoformat()),
+            ]
+            for key, value in metadata:
+                cursor.execute("""
+                    INSERT INTO tokenizer_metadata (key, value, updated_at)
+                    VALUES (%s, %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+                """, (key, value))
+            
+            conn.commit()
+            conn.close()
+            print(f"[QIGTokenizer] Saved {len(self.vocab)} tokens to PostgreSQL")
+            return True
+            
+        except Exception as e:
+            print(f"[QIGTokenizer] PostgreSQL save failed: {e}")
+            return False
+
+    @classmethod
+    def load_from_postgres(cls, database_url: Optional[str] = None) -> Optional['QIGTokenizer']:
+        """
+        Load tokenizer state from PostgreSQL.
+        
+        Returns:
+            QIGTokenizer instance if successful, None otherwise
+        """
+        if not PSYCOPG2_AVAILABLE:
+            print("[QIGTokenizer] psycopg2 not available - PostgreSQL load disabled")
+            return None
+        
+        db_url = database_url or os.environ.get('DATABASE_URL')
+        if not db_url:
+            print("[QIGTokenizer] DATABASE_URL not set - PostgreSQL load disabled")
+            return None
+        
+        try:
+            conn = psycopg2.connect(db_url)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # Check if we have vocabulary data
+            cursor.execute("SELECT COUNT(*) as cnt FROM tokenizer_vocabulary")
+            row = cursor.fetchone()
+            if not row or row['cnt'] == 0:
+                print("[QIGTokenizer] No vocabulary data in PostgreSQL")
+                conn.close()
+                return None
+            
+            # Create tokenizer instance
+            tokenizer = cls()
+            
+            # Load vocabulary
+            cursor.execute("""
+                SELECT token, token_id, weight, frequency, phi_score, basin_embedding::text
+                FROM tokenizer_vocabulary
+                ORDER BY token_id
+            """)
+            
+            for row in cursor.fetchall():
+                token = row['token']
+                token_id = row['token_id']
+                
+                tokenizer.vocab[token] = token_id
+                tokenizer.id_to_token[token_id] = token
+                tokenizer.token_weights[token] = row['weight'] or 1.0
+                tokenizer.token_phi[token] = row['phi_score'] or 0.0
+                tokenizer.token_frequency[token] = row['frequency'] or 1
+                
+                # Parse basin embedding
+                basin_str = row['basin_embedding']
+                if basin_str:
+                    values = basin_str.strip('[]').split(',')
+                    tokenizer.basin_coords[token] = np.array([float(x) for x in values])
+            
+            # Load merge rules
+            cursor.execute("""
+                SELECT token_a, token_b, phi_score
+                FROM tokenizer_merge_rules
+                ORDER BY phi_score DESC
+            """)
+            
+            for row in cursor.fetchall():
+                pair = (row['token_a'], row['token_b'])
+                tokenizer.merge_rules.append(pair)
+                tokenizer.merge_scores[pair] = row['phi_score'] or 0.5
+            
+            conn.close()
+            print(f"[QIGTokenizer] Loaded {len(tokenizer.vocab)} tokens, {len(tokenizer.merge_rules)} rules from PostgreSQL")
+            return tokenizer
+            
+        except Exception as e:
+            print(f"[QIGTokenizer] PostgreSQL load failed: {e}")
+            return None
     
     def export_for_training(self) -> Dict:
         """
