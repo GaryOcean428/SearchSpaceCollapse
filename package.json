@@ -19,6 +19,7 @@
     "playwright:install": "playwright install --with-deps",
     "docs:maintain": "python3 scripts/maintain-docs.py",
     "constants:export": "tsx scripts/export-constants-to-python.ts",
+    "validate:geometry": "tsx scripts/validate-geometric-purity.ts",
     "prepare": "[ -d .git ] && chmod +x .husky/pre-commit || true"
   },
   "dependencies": {
