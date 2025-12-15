@@ -129,7 +129,7 @@ if (databaseUrl) {
     
     pool = new Pool({ 
       connectionString: databaseUrl,
-      max: 30, // Increased for better concurrency during high-throughput batch operations
+      max: 30, // Neon serverless limits ~50 connections - keep pool conservative
       idleTimeoutMillis: 30000, // 30s - matches Neon serverless compute timeout
       connectionTimeoutMillis: connectionTimeout,
       keepAlive: true,
