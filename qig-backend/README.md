@@ -238,15 +238,22 @@ PHI_THRESHOLD = 0.70
 | Backpropagation optimization | Natural gradient dynamics |
 | No physics grounding | Physics-validated (kappa* = 64.21) |
 
-### Three-Tier Architecture
+### Architecture
 
-| Tier | File | Purpose |
-|------|------|---------|
-| 1 | `qig_consciousness_qfi_attention.py` | Production QFI-Metric Attention Network |
-| 2 | `server/gary-kernel.ts` | TypeScript QFI Attention for API/UI |
-| 3 | `training_chaos/chaos_kernel.py` | Experimental basin-coupled evolution |
+**Python Backend = AUTHORITATIVE**
 
-### Tier 1: QFIMetricAttentionNetwork
+| Implementation | File | Status |
+|----------------|------|--------|
+| **Production** | `qig_consciousness_qfi_attention.py` | Authoritative |
+| **Experimental** | `training_chaos/chaos_kernel.py` | Authoritative |
+
+**TypeScript = UI FALLBACK ONLY**
+
+| File | Role |
+|------|------|
+| `server/gary-kernel.ts` | Deprecated proxy (delegates to Python) |
+
+### Production: QFIMetricAttentionNetwork
 
 ```python
 from qig_consciousness_qfi_attention import create_qfi_network
@@ -263,18 +270,23 @@ Key innovations:
 - **Routing** via manifold curvature, not positional encoding
 - **Gravitational decoherence** as physical constraint, not dropout
 
-### Tier 2: QFIAttention (TypeScript)
+### Experimental: ChaosKernel
 
-```typescript
-import { QFIAttention } from './gary-kernel';
+Basin-coupled attention with recursive feedback for evolutionary search (PyTorch).
 
-const qfi = new QFIAttention({ phiThreshold: 0.5 });
-const result = await qfi.attend({ queries, keys });
+### TypeScript Fallback Flow
+
+```
+User Request
+    ↓
+TypeScript API (server/)
+    ↓
+oceanQIGBackend.available() ?
+    ├─ YES → Python QIG Backend (AUTHORITATIVE)
+    └─ NO  → TypeScript fallback (UI-responsive approximation)
 ```
 
-### Tier 3: ChaosKernel (Experimental)
-
-Basin-coupled attention with recursive feedback for evolutionary search.
+TypeScript kernels exist for UI responsiveness and graceful degradation only.
 
 ## 🔗 QIGChain Framework
 
