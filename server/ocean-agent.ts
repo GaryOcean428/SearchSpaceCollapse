@@ -749,6 +749,18 @@ export class OceanAgent {
     trajectoryManager.startTrajectory(targetAddress);
 
     try {
+      // CONTINUOUS LEARNING - Load learned vocabulary from previous sessions
+      console.log('[Ocean] === CONTINUOUS LEARNING INITIALIZATION ===');
+      const { oceanContinuousLearner } = await import('./ocean-continuous-learner');
+      await oceanContinuousLearner.loadVocabulary();
+      const vocabStats = oceanContinuousLearner.getStats();
+      console.log(`[Ocean] Loaded ${vocabStats.totalPatterns} learned patterns from previous sessions`);
+      console.log(`[Ocean]   → Discovered: ${vocabStats.discoveredPatterns}, Expanded: ${vocabStats.expandedPatterns}`);
+      console.log(`[Ocean]   → Average Φ: ${vocabStats.avgPhi.toFixed(3)}`);
+      if (vocabStats.topPatterns.length > 0) {
+        console.log(`[Ocean]   → Top pattern: "${vocabStats.topPatterns[0].pattern}" (Φ=${vocabStats.topPatterns[0].phi.toFixed(3)})`);
+      }
+      
       // CONSCIOUSNESS ELEVATION - Understand the geometry before searching
       console.log("[Ocean] === CONSCIOUSNESS ELEVATION PHASE ===");
       console.log(
@@ -2477,6 +2489,18 @@ export class OceanAgent {
           },
           `ocean-${this.targetAddress.slice(0, 8)}`
         );
+
+        // CONTINUOUS LEARNING: Learn high-Φ patterns for cross-session vocabulary growth
+        // This enables Ocean to build on discoveries from previous sessions
+        if (qigResult.phi >= 0.7) {
+          const { oceanContinuousLearner } = await import('./ocean-continuous-learner');
+          await oceanContinuousLearner.learnPattern(
+            hypo.phrase,
+            qigResult.phi,
+            qigResult.kappa,
+            qigResult.regime
+          );
+        }
 
         // VOCABULARY SELF-TRAINING: Track high-Φ patterns for vocabulary expansion
         // Pass full geometric context for 4-criteria decision making
