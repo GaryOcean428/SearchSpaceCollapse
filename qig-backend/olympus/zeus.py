@@ -371,6 +371,42 @@ class Zeus(BaseGod):
         # Step 4 - Main pantheon poll
         poll_result = self.poll_pantheon(target, context)
 
+        # Step 4.25 - UNDERWORLD INTELLIGENCE GATHERING (NEW)
+        # Automatically trigger Hades' underworld search for high-value targets
+        # This runs asynchronously to gather intelligence from archives, pastes, RSS, breach DBs
+        underworld_intel = None
+        if poll_result.get('convergence_score', 0) > 0.6:  # Only for promising targets
+            try:
+                # Get Hades from pantheon
+                hades = self.pantheon.get('hades')
+                if hades and hasattr(hades, 'search_underworld'):
+                    print(f"🔍 [Zeus] Triggering underworld search for target: {target[:40]}...")
+                    underworld_intel = asyncio.run(hades.search_underworld(target, search_type='comprehensive'))
+                    
+                    # Store intelligence if found
+                    if underworld_intel and underworld_intel.get('source_count', 0) > 0:
+                        print(f"💀 [Zeus] Underworld intel found: {underworld_intel['source_count']} sources, "
+                              f"risk={underworld_intel['risk_level']}")
+                        
+                        # Cross-validate findings before use (verify risk level makes sense)
+                        if underworld_intel.get('risk_level') in ['high', 'critical']:
+                            # High risk findings get extra scrutiny
+                            intel_sources = underworld_intel.get('sources_used', [])
+                            if len(intel_sources) > 1:  # Multiple sources = more credible
+                                underworld_intel['validated'] = True
+                                underworld_intel['validation_reason'] = f"Corroborated by {len(intel_sources)} sources"
+                            else:
+                                underworld_intel['validated'] = False
+                                underworld_intel['validation_reason'] = "Single source - needs verification"
+                        else:
+                            underworld_intel['validated'] = True
+                            underworld_intel['validation_reason'] = "Low risk - accepted"
+                    else:
+                        print(f"💀 [Zeus] Underworld search completed: No intelligence found")
+            except Exception as e:
+                print(f"⚠️ [Zeus] Underworld search failed: {e}")
+                underworld_intel = {'error': str(e), 'source_count': 0}
+
         # Step 4.5 - CHECK SHADOW INTEL (The "Gut Feeling" Check)
         # Zeus consults accumulated shadow knowledge before deciding
         shadow_warning = self.shadow_pantheon.check_shadow_warnings(target)
@@ -380,6 +416,26 @@ class Zeus(BaseGod):
             poll_result['convergence_score'] *= 0.7
             poll_result['shadow_override'] = True
             print(f"⚡ [Zeus] Shadow warning detected: {shadow_warning['message']}")
+        
+        # Step 4.75 - INTEGRATE UNDERWORLD INTEL INTO ASSESSMENT (NEW)
+        # Feed underworld intelligence back into probability/confidence calculations
+        if underworld_intel and underworld_intel.get('source_count', 0) > 0:
+            risk_level = underworld_intel.get('risk_level', 'unknown')
+            is_validated = underworld_intel.get('validated', False)
+            
+            # Adjust confidence based on intelligence findings
+            if risk_level == 'critical' and is_validated:
+                # Critical validated findings boost confidence significantly
+                poll_result['convergence_score'] = min(1.0, poll_result['convergence_score'] * 1.3)
+                print(f"🔥 [Zeus] Critical validated intel - confidence boosted to {poll_result['convergence_score']:.3f}")
+            elif risk_level == 'high' and is_validated:
+                # High validated findings give moderate boost
+                poll_result['convergence_score'] = min(1.0, poll_result['convergence_score'] * 1.15)
+                print(f"⚡ [Zeus] High validated intel - confidence boosted to {poll_result['convergence_score']:.3f}")
+            elif not is_validated:
+                # Unvalidated findings slightly reduce confidence (need verification)
+                poll_result['convergence_score'] *= 0.95
+                print(f"⚠️ [Zeus] Unvalidated intel - confidence reduced to {poll_result['convergence_score']:.3f}")
 
         # Step 5 - Calculate geometric metrics
         target_basin = self.encode_to_basin(target)
@@ -426,12 +482,20 @@ class Zeus(BaseGod):
             # Shadow intel feedback
             'shadow_warning': shadow_warning,
             'shadow_override': poll_result.get('shadow_override', False),
+            
+            # Underworld intelligence (NEW)
+            'underworld_intel': underworld_intel,
+            'underworld_sources': underworld_intel.get('sources_used', []) if underworld_intel else [],
+            'underworld_risk_level': underworld_intel.get('risk_level', 'none') if underworld_intel else 'none',
+            'underworld_validated': underworld_intel.get('validated', False) if underworld_intel else False,
 
             'reasoning': (
                 f"Divine council: {poll_result['convergence']}. "
                 f"Consensus: {poll_result['consensus_probability']:.2f}. "
                 f"Shadow ops: {'ACTIVE' if misdirection_deployed else 'PASSIVE'}. "
                 f"Shadow intel: {shadow_warning.get('message', 'clear')}. "
+                f"Underworld: {underworld_intel.get('source_count', 0) if underworld_intel else 0} sources, "
+                f"risk={underworld_intel.get('risk_level', 'none') if underworld_intel else 'none'}. "
                 f"War mode: {self.war_mode or 'none'}. Φ={phi:.3f}."
             ),
             'god': self.name,
