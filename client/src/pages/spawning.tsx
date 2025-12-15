@@ -45,6 +45,7 @@ import {
   type WarMode,
   type WarOutcome,
   type PostgresKernel,
+  type KernelStatus,
 } from '@/hooks/use-m8-spawning';
 import type { SpawnProposal, SpawnReason, ProposalStatus, M8Position } from '@/lib/m8-kernel-spawning';
 import { Swords, Target, Timer, Trophy, AlertTriangle, Activity, Compass, MapPin } from 'lucide-react';
@@ -224,6 +225,15 @@ const SPAWN_REASON_COLORS: Record<string, string> = {
   unknown: 'bg-gray-500/20 text-gray-400',
 };
 
+const KERNEL_STATUS_COLORS: Record<KernelStatus, string> = {
+  active: 'bg-green-500/20 text-green-400',
+  idle: 'bg-gray-500/20 text-gray-400',
+  breeding: 'bg-pink-500/20 text-pink-400',
+  dormant: 'bg-blue-500/20 text-blue-400',
+  dead: 'bg-red-500/20 text-red-400',
+  shadow: 'bg-purple-500/20 text-purple-400',
+};
+
 function KernelCard({ kernel }: { kernel: PostgresKernel }) {
   if (!kernel) return null;
   
@@ -231,6 +241,7 @@ function KernelCard({ kernel }: { kernel: PostgresKernel }) {
   const ElementIcon = ELEMENT_ICONS[element] || Sparkles;
   const elementColor = ELEMENT_COLORS[element] || 'text-primary';
   const spawnReasonColor = SPAWN_REASON_COLORS[kernel.spawn_reason] || SPAWN_REASON_COLORS.unknown;
+  const statusColor = KERNEL_STATUS_COLORS[kernel.status] || KERNEL_STATUS_COLORS.idle;
   
   const totalPredictions = kernel.success_count + kernel.failure_count;
   const reputationValue = totalPredictions > 0 
@@ -244,6 +255,9 @@ function KernelCard({ kernel }: { kernel: PostgresKernel }) {
           <div className="flex items-center gap-2">
             <ElementIcon className={`h-5 w-5 ${elementColor}`} />
             <CardTitle className="text-lg">{kernel.god_name || 'Unknown'}</CardTitle>
+            <Badge className={statusColor} data-testid={`badge-status-${kernel.kernel_id}`}>
+              {kernel.status}
+            </Badge>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {kernel.merge_candidate && (
@@ -264,6 +278,20 @@ function KernelCard({ kernel }: { kernel: PostgresKernel }) {
         <CardDescription className="text-sm">{kernel.domain || 'Unknown domain'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Spawned by:</span>
+          <Badge variant="outline" className="text-xs" data-testid={`badge-spawned-by-${kernel.kernel_id}`}>
+            {kernel.spawned_by || 'Genesis'}
+          </Badge>
+        </div>
+
+        {kernel.spawn_rationale && (
+          <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded" data-testid={`text-spawn-rationale-${kernel.kernel_id}`}>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Rationale: </span>
+            {kernel.spawn_rationale}
+          </div>
+        )}
+
         {kernel.target_function && (
           <p className="text-sm text-muted-foreground">{kernel.target_function}</p>
         )}

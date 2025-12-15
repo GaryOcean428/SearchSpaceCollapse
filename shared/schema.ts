@@ -2620,6 +2620,19 @@ export type AutoCycleStateRecord = typeof autoCycleState.$inferSelect;
 export type InsertAutoCycleState = typeof autoCycleState.$inferInsert;
 
 /**
+ * Kernel status types - lifecycle states for spawned kernels
+ */
+export const kernelStatusTypes = [
+  "active",      // Currently participating in searches
+  "idle",        // Spawned but not currently engaged
+  "breeding",    // In process of breeding with another kernel
+  "dormant",     // Temporarily suspended
+  "dead",        // No longer functional
+  "shadow",      // Shadow pantheon kernel (covert)
+] as const;
+export type KernelStatus = (typeof kernelStatusTypes)[number];
+
+/**
  * M8 KERNEL GEOMETRY - Tracks geometric placement of spawned kernels
  * Records basin coordinates, parent lineage, and position rationale
  */
@@ -2629,6 +2642,7 @@ export const kernelGeometry = pgTable(
     kernelId: varchar("kernel_id", { length: 64 }).primaryKey(),
     godName: varchar("god_name", { length: 64 }).notNull(),
     domain: varchar("domain", { length: 128 }).notNull(),
+    status: varchar("status", { length: 32 }).default("idle"), // active, idle, breeding, dormant, dead, shadow
     primitiveRoot: integer("primitive_root"), // E8 root index (0-239)
     basinCoordinates: vector("basin_coordinates", { dimensions: 64 }), // 64D basin coordinates (pgvector)
     parentKernels: text("parent_kernels").array(),
@@ -2638,6 +2652,7 @@ export const kernelGeometry = pgTable(
     entropyThreshold: doublePrecision("entropy_threshold"),
     spawnedAt: timestamp("spawned_at").defaultNow().notNull(),
     spawnedDuringWarId: varchar("spawned_during_war_id", { length: 64 }),
+    lastActiveAt: timestamp("last_active_at"), // Last time kernel was active
     metadata: jsonb("metadata"),
     phi: doublePrecision("phi"),
     kappa: doublePrecision("kappa"),

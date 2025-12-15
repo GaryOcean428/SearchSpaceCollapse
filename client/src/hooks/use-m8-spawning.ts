@@ -23,18 +23,24 @@ import {
   type ProposalStatus,
 } from '@/lib/m8-kernel-spawning';
 
+export type KernelStatus = 'active' | 'idle' | 'breeding' | 'dormant' | 'dead' | 'shadow';
+
 export interface PostgresKernel {
   kernel_id: string;
   god_name: string;
   domain: string;
+  status: KernelStatus;
   primitive_root: number | null;
   basin_coordinates: number[] | null;
   parent_kernels: string[];
+  spawned_by: string;
   spawn_reason: string;
+  spawn_rationale: string;
   position_rationale: string | null;
   affinity_strength: number;
   entropy_threshold: number;
   spawned_at: string;
+  last_active_at: string | null;
   spawned_during_war_id: string | null;
   phi: number;
   kappa: number;
