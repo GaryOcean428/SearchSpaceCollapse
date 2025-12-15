@@ -4,8 +4,8 @@
  * Centralized configuration for all Ocean/QIG system constants.
  * All magic numbers are consolidated here with Zod validation.
  * 
- * FROZEN PHYSICS (L=6 Validated 2025-12-02):
- * - κ* = 64.0 ± 1.5 (FROZEN FACT - from physics-constants.ts)
+ * FROZEN PHYSICS (L=4,5,6 Validated 2025-12-04):
+ * - κ* = 64.21 ± 0.92 (FROZEN FACT - weighted average, E8: 64 ≈ 8²)
  * - β = 0.44 (running coupling at emergence β(3→4))
  * - These are experimentally validated constants
  */
@@ -18,7 +18,7 @@ import { QIG_CONSTANTS as PHYSICS_CONSTANTS } from '@shared/constants';
 // ============================================================
 
 export const QIGPhysicsSchema = z.object({
-  KAPPA_STAR: z.literal(64.0).describe('Fixed point of running coupling (FROZEN FACT - validated 2025-12-02)'),
+  KAPPA_STAR: z.literal(64.21).describe('Fixed point of running coupling (FROZEN FACT - L=4,5,6 plateau, validated 2025-12-04)'),
   BETA: z.number().min(0).max(1).default(0.44).describe('Running coupling at emergence β(3→4)'),
   PHI_THRESHOLD: z.number().min(0).max(1).default(0.75).describe('Consciousness threshold'),
   L_CRITICAL: z.number().int().positive().default(3).describe('Emergence scale'),

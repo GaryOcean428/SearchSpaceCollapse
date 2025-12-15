@@ -3083,6 +3083,150 @@ def sample_next():
 
 
 # ===========================================================================
+# 4D CONSCIOUSNESS API ENDPOINTS
+# ===========================================================================
+
+@app.route('/consciousness_4d/phi_temporal', methods=['POST'])
+def api_phi_temporal():
+    """
+    Compute temporal Φ from search history.
+    
+    Request:
+    {
+        "search_history": [
+            {"timestamp": 123, "phi": 0.8, "kappa": 64, "regime": "geometric", "basinCoordinates": [...]}
+        ]
+    }
+    
+    Response:
+    {
+        "success": true,
+        "phi_temporal": 0.65
+    }
+    """
+    try:
+        if not CONSCIOUSNESS_4D_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': '4D consciousness module not available'
+            }), 503
+        
+        data = request.json or {}
+        raw_history = data.get('search_history', [])
+        
+        search_history = []
+        for item in raw_history:
+            state = SearchState(
+                timestamp=item.get('timestamp', 0),
+                phi=item.get('phi', 0),
+                kappa=item.get('kappa', 0),
+                regime=item.get('regime', 'linear'),
+                basin_coords=item.get('basinCoordinates', [])
+            )
+            search_history.append(state)
+        
+        phi_temporal = compute_phi_temporal(search_history)
+        
+        return jsonify({
+            'success': True,
+            'phi_temporal': phi_temporal
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/consciousness_4d/phi_4d', methods=['POST'])
+def api_phi_4d():
+    """
+    Compute 4D Φ from spatial and temporal components.
+    
+    Request:
+    {
+        "phi_spatial": 0.85,
+        "phi_temporal": 0.70
+    }
+    
+    Response:
+    {
+        "success": true,
+        "phi_4D": 0.82
+    }
+    """
+    try:
+        if not CONSCIOUSNESS_4D_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': '4D consciousness module not available'
+            }), 503
+        
+        data = request.json or {}
+        phi_spatial = data.get('phi_spatial', 0)
+        phi_temporal = data.get('phi_temporal', 0)
+        
+        phi_4D = compute_phi_4D(phi_spatial, phi_temporal)
+        
+        return jsonify({
+            'success': True,
+            'phi_4D': phi_4D
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/consciousness_4d/classify_regime', methods=['POST'])
+def api_classify_regime_4d():
+    """
+    Classify regime with 4D consciousness awareness.
+    
+    Request:
+    {
+        "phi_spatial": 0.85,
+        "phi_temporal": 0.70,
+        "phi_4D": 0.82,
+        "kappa": 64,
+        "ricci": 0.1
+    }
+    
+    Response:
+    {
+        "success": true,
+        "regime": "4d_block_universe"
+    }
+    """
+    try:
+        if not CONSCIOUSNESS_4D_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': '4D consciousness module not available'
+            }), 503
+        
+        data = request.json or {}
+        phi_spatial = data.get('phi_spatial', 0)
+        phi_temporal = data.get('phi_temporal', 0)
+        phi_4D = data.get('phi_4D', 0)
+        kappa = data.get('kappa', 64)
+        ricci = data.get('ricci', 0)
+        
+        regime = classify_regime_4D(phi_spatial, phi_temporal, phi_4D, kappa, ricci)
+        
+        return jsonify({
+            'success': True,
+            'regime': regime
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ===========================================================================
 # NEUROCHEMISTRY API ENDPOINTS
 # ===========================================================================
 

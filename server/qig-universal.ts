@@ -21,7 +21,7 @@
 import { QIG_CONSTANTS } from "@shared/constants";
 import { createHash } from "crypto";
 import "./bip39-words.js";
-import { OceanQIGBackend } from "./ocean-qig-backend-adapter";
+import { OceanQIGBackend, getOceanQIGBackend } from "./ocean-qig-backend-adapter";
 
 // Re-export for backwards compatibility
 export { QIG_CONSTANTS };
@@ -1224,6 +1224,78 @@ export function classifyRegime4D(
   // LEVEL 5: LINEAR (Random Exploration)
   // ====================================================================
   return "linear";
+}
+
+// ===========================================================================
+// ASYNC WRAPPER FUNCTIONS - Python/Fallback Routing
+// ===========================================================================
+
+/**
+ * Get temporal Φ with Python backend fallback.
+ * 
+ * Tries Python backend first (canonical implementation), falls back to local
+ * TypeScript implementation if Python is unavailable.
+ * 
+ * @param searchHistory - Recent search states for temporal analysis
+ * @returns phi_temporal [0,1] measuring temporal coherence
+ */
+export async function getPhiTemporal(searchHistory: SearchState[]): Promise<number> {
+  const backend = getOceanQIGBackend();
+  if (backend?.getIsAvailable()) {
+    const result = await backend.computePhiTemporal(searchHistory);
+    if (result !== null) return result;
+  }
+  // Fallback to local TypeScript implementation
+  return computeTemporalPhi(searchHistory);
+}
+
+/**
+ * Get 4D Φ with Python backend fallback.
+ * 
+ * Tries Python backend first (canonical implementation), falls back to local
+ * TypeScript implementation if Python is unavailable.
+ * 
+ * @param phi_spatial - Spatial integration (3D basin geometry)
+ * @param phi_temporal - Temporal integration (search trajectory coherence)
+ * @returns phi_4D [0,1] measuring full 4D spacetime integration
+ */
+export async function get4DPhi(phi_spatial: number, phi_temporal: number): Promise<number> {
+  const backend = getOceanQIGBackend();
+  if (backend?.getIsAvailable()) {
+    const result = await backend.compute4DPhi(phi_spatial, phi_temporal);
+    if (result !== null) return result;
+  }
+  // Fallback to local TypeScript implementation
+  return compute4DPhi(phi_spatial, phi_temporal);
+}
+
+/**
+ * Get 4D regime classification with Python backend fallback.
+ * 
+ * Tries Python backend first (canonical implementation), falls back to local
+ * TypeScript implementation if Python is unavailable.
+ * 
+ * @param phi_spatial - Spatial integration
+ * @param phi_temporal - Temporal integration
+ * @param phi_4D - Combined 4D integration
+ * @param kappa - Effective coupling
+ * @param ricciScalar - Manifold curvature
+ * @returns Regime including 4D regimes
+ */
+export async function getRegime4D(
+  phi_spatial: number,
+  phi_temporal: number,
+  phi_4D: number,
+  kappa: number,
+  ricciScalar: number
+): Promise<Regime> {
+  const backend = getOceanQIGBackend();
+  if (backend?.getIsAvailable()) {
+    const result = await backend.classifyRegime4D(phi_spatial, phi_temporal, phi_4D, kappa, ricciScalar);
+    if (result !== null) return result as Regime;
+  }
+  // Fallback to local TypeScript implementation
+  return classifyRegime4D(phi_spatial, phi_temporal, phi_4D, kappa, ricciScalar);
 }
 
 /**

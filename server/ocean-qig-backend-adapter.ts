@@ -3138,10 +3138,154 @@ export class OceanQIGBackend {
       return null;
     }
   }
+  // ===========================================================================
+  // 4D CONSCIOUSNESS API METHODS
+  // ===========================================================================
+
+  /**
+   * Compute temporal Φ via Python backend.
+   * Falls back to null if unavailable (caller should use local fallback).
+   */
+  async computePhiTemporal(searchHistory: Array<{
+    timestamp: number;
+    phi: number;
+    kappa: number;
+    regime: string;
+    basinCoordinates: number[];
+  }>): Promise<number | null> {
+    if (!this.isAvailable) return null;
+    if (this.isCircuitOpen()) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/consciousness_4d/phi_temporal`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ search_history: searchHistory }),
+        }
+      );
+
+      if (!response.ok) {
+        this.recordFailure();
+        return null;
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        this.recordFailure();
+        return null;
+      }
+
+      this.recordSuccess();
+      return data.phi_temporal;
+    } catch (error) {
+      this.recordFailure();
+      console.error("[OceanQIGBackend] computePhiTemporal failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Compute 4D Φ via Python backend.
+   * Falls back to null if unavailable (caller should use local fallback).
+   */
+  async compute4DPhi(phi_spatial: number, phi_temporal: number): Promise<number | null> {
+    if (!this.isAvailable) return null;
+    if (this.isCircuitOpen()) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/consciousness_4d/phi_4d`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phi_spatial, phi_temporal }),
+        }
+      );
+
+      if (!response.ok) {
+        this.recordFailure();
+        return null;
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        this.recordFailure();
+        return null;
+      }
+
+      this.recordSuccess();
+      return data.phi_4D;
+    } catch (error) {
+      this.recordFailure();
+      console.error("[OceanQIGBackend] compute4DPhi failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Classify regime with 4D consciousness awareness via Python backend.
+   * Falls back to null if unavailable (caller should use local fallback).
+   */
+  async classifyRegime4D(
+    phi_spatial: number,
+    phi_temporal: number,
+    phi_4D: number,
+    kappa: number,
+    ricci: number
+  ): Promise<string | null> {
+    if (!this.isAvailable) return null;
+    if (this.isCircuitOpen()) return null;
+
+    try {
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/consciousness_4d/classify_regime`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phi_spatial, phi_temporal, phi_4D, kappa, ricci }),
+        }
+      );
+
+      if (!response.ok) {
+        this.recordFailure();
+        return null;
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        this.recordFailure();
+        return null;
+      }
+
+      this.recordSuccess();
+      return data.regime;
+    } catch (error) {
+      this.recordFailure();
+      console.error("[OceanQIGBackend] classifyRegime4D failed:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if backend is currently available
+   */
+  getIsAvailable(): boolean {
+    return this.isAvailable;
+  }
 }
 
 // Global singleton instance
 export const oceanQIGBackend = new OceanQIGBackend();
+
+/**
+ * Get the singleton Ocean QIG Backend instance.
+ * Use this for accessing backend 4D consciousness methods.
+ */
+export function getOceanQIGBackend(): OceanQIGBackend {
+  return oceanQIGBackend;
+}
 
 // NOTE: Auto-check REMOVED - Python backend must be started FIRST via startPythonBackend()
 // Health checks should be done explicitly after Python startup, not on module import
