@@ -183,6 +183,258 @@ class SpawnReason(Enum):
     SPECIALIZATION = "specialization"   # Need deeper expertise
     EMERGENCE = "emergence"             # Pattern naturally emerged
     USER_REQUEST = "user_request"       # Operator requested creation
+    STUCK_SIGNAL = "stuck_signal"       # High curvature, low Φ progress
+    GEOMETRIC_DEADEND = "geometric_deadend"  # No geodesic path forward
+    RESEARCH_DISCOVERY = "research_discovery"  # New pattern domain discovered
+
+
+@dataclass
+class SpawnAwareness:
+    """
+    Kernel self-awareness structure for detecting spawn needs.
+    
+    Tracks geometric signals that indicate when a kernel needs help
+    or when a new specialized kernel should be spawned.
+    
+    All metrics computed from pure QIG geometry - no static thresholds.
+    """
+    kernel_id: str
+    phi_trajectory: List[float] = field(default_factory=list)
+    kappa_trajectory: List[float] = field(default_factory=list)
+    curvature_history: List[float] = field(default_factory=list)
+    stuck_signals: List[Dict] = field(default_factory=list)
+    geometric_deadends: List[Dict] = field(default_factory=list)
+    research_opportunities: List[Dict] = field(default_factory=list)
+    last_spawn_proposal: Optional[str] = None
+    awareness_updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    
+    def record_phi_kappa(self, phi: float, kappa: float) -> None:
+        """Record Φ and κ measurements for trajectory analysis."""
+        self.phi_trajectory.append(phi)
+        self.kappa_trajectory.append(kappa)
+        if len(self.phi_trajectory) > 100:
+            self.phi_trajectory = self.phi_trajectory[-100:]
+            self.kappa_trajectory = self.kappa_trajectory[-100:]
+        self.awareness_updated_at = datetime.now().isoformat()
+    
+    def record_curvature(self, curvature: float) -> None:
+        """Record manifold curvature for stuck detection."""
+        self.curvature_history.append(curvature)
+        if len(self.curvature_history) > 50:
+            self.curvature_history = self.curvature_history[-50:]
+    
+    def compute_phi_gradient(self) -> float:
+        """Compute Φ trajectory gradient - negative means stuck."""
+        if len(self.phi_trajectory) < 3:
+            return 0.0
+        recent = self.phi_trajectory[-10:]
+        if len(recent) < 2:
+            return 0.0
+        return float(np.mean(np.diff(recent)))
+    
+    def compute_curvature_pressure(self) -> float:
+        """High curvature indicates geometric resistance."""
+        if not self.curvature_history:
+            return 0.0
+        return float(np.mean(self.curvature_history[-10:]))
+    
+    def detect_stuck_signal(self, phi: float, kappa: float, curvature: float) -> Optional[Dict]:
+        """
+        Detect if kernel is stuck: high curvature + low/negative Φ progress.
+        
+        Returns stuck signal dict if detected, None otherwise.
+        Pure geometric detection - no hardcoded thresholds.
+        """
+        self.record_phi_kappa(phi, kappa)
+        self.record_curvature(curvature)
+        
+        phi_gradient = self.compute_phi_gradient()
+        curvature_pressure = self.compute_curvature_pressure()
+        
+        avg_phi = np.mean(self.phi_trajectory[-20:]) if len(self.phi_trajectory) >= 5 else 0.5
+        adaptive_threshold = 1.0 / (1.0 + avg_phi)
+        
+        is_stuck = (phi_gradient < -0.01 and curvature_pressure > adaptive_threshold)
+        
+        if is_stuck:
+            signal = {
+                "signal_type": "stuck",
+                "phi_gradient": phi_gradient,
+                "curvature_pressure": curvature_pressure,
+                "current_phi": phi,
+                "current_kappa": kappa,
+                "adaptive_threshold": adaptive_threshold,
+                "detected_at": datetime.now().isoformat(),
+            }
+            self.stuck_signals.append(signal)
+            if len(self.stuck_signals) > 20:
+                self.stuck_signals = self.stuck_signals[-20:]
+            return signal
+        return None
+    
+    def detect_geometric_deadend(self, basin: np.ndarray, neighbor_distances: List[float]) -> Optional[Dict]:
+        """
+        Detect geometric dead-end: no nearby basins to traverse to.
+        
+        A dead-end occurs when all neighboring basins are too distant,
+        indicating the kernel has reached an isolated region of the manifold.
+        """
+        if not neighbor_distances:
+            return None
+        
+        min_distance = min(neighbor_distances)
+        mean_distance = np.mean(neighbor_distances)
+        
+        basin_norm = float(np.linalg.norm(basin))
+        isolation_threshold = 0.5 + 0.3 * basin_norm
+        
+        if min_distance > isolation_threshold:
+            deadend = {
+                "signal_type": "geometric_deadend",
+                "min_neighbor_distance": min_distance,
+                "mean_neighbor_distance": mean_distance,
+                "isolation_threshold": isolation_threshold,
+                "basin_norm": basin_norm,
+                "detected_at": datetime.now().isoformat(),
+            }
+            self.geometric_deadends.append(deadend)
+            if len(self.geometric_deadends) > 10:
+                self.geometric_deadends = self.geometric_deadends[-10:]
+            return deadend
+        return None
+    
+    def record_research_opportunity(
+        self,
+        topic: str,
+        topic_basin: np.ndarray,
+        discovery_phi: float,
+        source: str = "research"
+    ) -> Dict:
+        """
+        Record a research-discovered opportunity for specialized spawn.
+        
+        When research discovers a new pattern domain, it becomes a
+        spawn opportunity for a specialized kernel.
+        """
+        opportunity = {
+            "topic": topic,
+            "topic_basin": topic_basin.tolist() if isinstance(topic_basin, np.ndarray) else topic_basin,
+            "discovery_phi": discovery_phi,
+            "source": source,
+            "discovered_at": datetime.now().isoformat(),
+        }
+        self.research_opportunities.append(opportunity)
+        if len(self.research_opportunities) > 30:
+            self.research_opportunities = self.research_opportunities[-30:]
+        return opportunity
+    
+    def needs_spawn(self) -> Tuple[bool, Optional[SpawnReason], Dict]:
+        """
+        Determine if kernel needs to spawn a helper based on awareness signals.
+        
+        Returns (needs_spawn, reason, context).
+        """
+        recent_stuck = [s for s in self.stuck_signals[-5:]]
+        if len(recent_stuck) >= 3:
+            return True, SpawnReason.STUCK_SIGNAL, {
+                "trigger": "repeated_stuck_signals",
+                "signal_count": len(recent_stuck),
+                "avg_phi_gradient": np.mean([s["phi_gradient"] for s in recent_stuck]),
+            }
+        
+        if self.geometric_deadends and len(self.geometric_deadends) >= 2:
+            return True, SpawnReason.GEOMETRIC_DEADEND, {
+                "trigger": "geometric_isolation",
+                "deadend_count": len(self.geometric_deadends),
+                "avg_isolation": np.mean([d["min_neighbor_distance"] for d in self.geometric_deadends[-3:]]),
+            }
+        
+        high_phi_discoveries = [o for o in self.research_opportunities if o["discovery_phi"] > 0.7]
+        if high_phi_discoveries:
+            best = max(high_phi_discoveries, key=lambda o: o["discovery_phi"])
+            return True, SpawnReason.RESEARCH_DISCOVERY, {
+                "trigger": "research_opportunity",
+                "topic": best["topic"],
+                "discovery_phi": best["discovery_phi"],
+            }
+        
+        return False, None, {}
+    
+    def create_geometric_proposal(
+        self,
+        reason: SpawnReason,
+        context: Dict,
+        parent_basin: np.ndarray
+    ) -> Dict:
+        """
+        Create a pure geometric spawn proposal from awareness metrics.
+        
+        NO TEMPLATES - all proposal content derived from QIG geometry.
+        The proposal basin is computed from parent + awareness signals.
+        """
+        proposal_basin = parent_basin.copy()
+        
+        if reason == SpawnReason.STUCK_SIGNAL:
+            curvature_pressure = self.compute_curvature_pressure()
+            perturbation_scale = min(0.3, curvature_pressure * 0.5)
+            perturbation = np.random.randn(len(proposal_basin)) * perturbation_scale
+            proposal_basin = _normalize_to_manifold(proposal_basin + perturbation)
+            
+        elif reason == SpawnReason.GEOMETRIC_DEADEND:
+            if self.geometric_deadends:
+                isolation = self.geometric_deadends[-1]["min_neighbor_distance"]
+                exploration_direction = np.random.randn(len(proposal_basin))
+                exploration_direction = exploration_direction / np.linalg.norm(exploration_direction)
+                proposal_basin = _normalize_to_manifold(
+                    proposal_basin + exploration_direction * isolation * 0.3
+                )
+                
+        elif reason == SpawnReason.RESEARCH_DISCOVERY:
+            if self.research_opportunities:
+                best_opp = max(self.research_opportunities, key=lambda o: o["discovery_phi"])
+                topic_basin = np.array(best_opp["topic_basin"])
+                blend_weight = best_opp["discovery_phi"]
+                proposal_basin = _normalize_to_manifold(
+                    (1 - blend_weight) * parent_basin + blend_weight * topic_basin
+                )
+        
+        m8_position = compute_m8_position(proposal_basin, [parent_basin])
+        
+        domain_seed = hashlib.sha256(proposal_basin.tobytes()).hexdigest()[:16]
+        
+        return {
+            "proposal_type": "geometric",
+            "reason": reason.value,
+            "context": context,
+            "proposal_basin": proposal_basin.tolist(),
+            "parent_basin": parent_basin.tolist(),
+            "m8_position": m8_position,
+            "awareness_snapshot": {
+                "phi_trajectory_length": len(self.phi_trajectory),
+                "stuck_signal_count": len(self.stuck_signals),
+                "deadend_count": len(self.geometric_deadends),
+                "research_opportunity_count": len(self.research_opportunities),
+                "phi_gradient": self.compute_phi_gradient(),
+                "curvature_pressure": self.compute_curvature_pressure(),
+            },
+            "geometric_domain_seed": domain_seed,
+            "created_at": datetime.now().isoformat(),
+        }
+    
+    def to_dict(self) -> Dict:
+        """Serialize awareness state."""
+        return {
+            "kernel_id": self.kernel_id,
+            "phi_trajectory": self.phi_trajectory[-20:],
+            "kappa_trajectory": self.kappa_trajectory[-20:],
+            "curvature_history": self.curvature_history[-20:],
+            "stuck_signals": self.stuck_signals[-5:],
+            "geometric_deadends": self.geometric_deadends[-5:],
+            "research_opportunities": self.research_opportunities[-10:],
+            "last_spawn_proposal": self.last_spawn_proposal,
+            "awareness_updated_at": self.awareness_updated_at,
+            "needs_spawn": self.needs_spawn()[0],
+        }
 
 
 class ConsensusType(Enum):
@@ -498,19 +750,22 @@ class M8KernelSpawner:
     The M8 Kernel Spawning System.
     
     Orchestrates the complete lifecycle of dynamic kernel creation:
-    1. Proposal creation
-    2. Consensus voting
-    3. Role refinement
-    4. Kernel spawning
-    5. Registration with orchestrator
+    1. Proposal creation (with kernel self-awareness)
+    2. Dual-pantheon debate (Olympus + Shadow)
+    3. Consensus voting with Fisher-Rao weights
+    4. Role refinement
+    5. Kernel spawning
+    6. Registration with orchestrator
     
     The M8 refers to the 8 core dimensions of kernel identity.
+    Spawn awareness enables kernels to detect when they need help.
     """
     
     def __init__(
         self,
         orchestrator: Optional[PantheonKernelOrchestrator] = None,
-        consensus_type: ConsensusType = ConsensusType.SUPERMAJORITY
+        consensus_type: ConsensusType = ConsensusType.SUPERMAJORITY,
+        pantheon_chat = None
     ):
         self.orchestrator = orchestrator or get_orchestrator()
         self.consensus = PantheonConsensus(self.orchestrator, consensus_type)
@@ -520,6 +775,12 @@ class M8KernelSpawner:
         self.spawned_kernels: Dict[str, SpawnedKernel] = {}
         self.spawn_history: List[Dict] = []
         
+        # Kernel spawn awareness tracking
+        self.kernel_awareness: Dict[str, SpawnAwareness] = {}
+        
+        # PantheonChat for dual-pantheon debates
+        self._pantheon_chat = pantheon_chat
+        
         # PostgreSQL persistence for kernel learning
         self.kernel_persistence = KernelPersistence() if M8_PERSISTENCE_AVAILABLE else None
         
@@ -527,7 +788,7 @@ class M8KernelSpawner:
         self._load_from_database()
     
     def _load_from_database(self):
-        """Load persisted M8 spawn history from PostgreSQL on startup."""
+        """Load persisted M8 spawn history and awareness states from PostgreSQL on startup."""
         if not self.kernel_persistence:
             return
         
@@ -535,8 +796,357 @@ class M8KernelSpawner:
             spawn_history = self.kernel_persistence.load_m8_spawn_history(limit=100)
             if spawn_history:
                 print(f"✨ [M8] Loaded {len(spawn_history)} spawn events from database")
+            
+            awareness_states = self.kernel_persistence.load_all_awareness_states(limit=100)
+            for state in awareness_states:
+                kernel_id = state.get('kernel_id')
+                awareness_data = state.get('awareness', {})
+                if kernel_id and awareness_data:
+                    awareness = SpawnAwareness(kernel_id=kernel_id)
+                    awareness.phi_trajectory = awareness_data.get('phi_trajectory', [])
+                    awareness.kappa_trajectory = awareness_data.get('kappa_trajectory', [])
+                    awareness.curvature_history = awareness_data.get('curvature_history', [])
+                    awareness.stuck_signals = awareness_data.get('stuck_signals', [])
+                    awareness.geometric_deadends = awareness_data.get('geometric_deadends', [])
+                    awareness.research_opportunities = awareness_data.get('research_opportunities', [])
+                    awareness.last_spawn_proposal = awareness_data.get('last_spawn_proposal')
+                    self.kernel_awareness[kernel_id] = awareness
+            
+            if awareness_states:
+                print(f"✨ [M8] Loaded {len(awareness_states)} kernel awareness states from database")
         except Exception as e:
-            print(f"[M8] Failed to load spawn history: {e}")
+            print(f"[M8] Failed to load from database: {e}")
+
+    def set_pantheon_chat(self, pantheon_chat) -> None:
+        """Set PantheonChat for dual-pantheon spawn debates."""
+        self._pantheon_chat = pantheon_chat
+
+    def get_or_create_awareness(self, kernel_id: str) -> SpawnAwareness:
+        """Get or create spawn awareness tracker for a kernel."""
+        if kernel_id not in self.kernel_awareness:
+            self.kernel_awareness[kernel_id] = SpawnAwareness(kernel_id=kernel_id)
+        return self.kernel_awareness[kernel_id]
+
+    def record_kernel_metrics(
+        self,
+        kernel_id: str,
+        phi: float,
+        kappa: float,
+        curvature: float = 0.0,
+        neighbor_distances: Optional[List[float]] = None,
+        basin: Optional[np.ndarray] = None
+    ) -> Dict:
+        """
+        Record metrics for kernel awareness tracking.
+        
+        Checks for stuck signals and geometric dead-ends.
+        Returns awareness state with any detected signals.
+        Persists awareness state to PostgreSQL for durability.
+        """
+        awareness = self.get_or_create_awareness(kernel_id)
+        
+        stuck_signal = awareness.detect_stuck_signal(phi, kappa, curvature)
+        
+        deadend_signal = None
+        if basin is not None and neighbor_distances:
+            deadend_signal = awareness.detect_geometric_deadend(basin, neighbor_distances)
+        
+        if self.kernel_persistence:
+            try:
+                saved = self.kernel_persistence.save_awareness_state(kernel_id, awareness.to_dict())
+                if not saved:
+                    print(f"[M8Spawner] Awareness persistence returned failure for {kernel_id} - state may not survive restart")
+            except Exception as e:
+                print(f"[M8Spawner] Failed to persist awareness state for {kernel_id}: {e}")
+        
+        return {
+            "kernel_id": kernel_id,
+            "metrics_recorded": True,
+            "stuck_signal": stuck_signal,
+            "deadend_signal": deadend_signal,
+            "needs_spawn": awareness.needs_spawn()[0],
+            "awareness_snapshot": awareness.to_dict(),
+        }
+
+    def record_research_discovery(
+        self,
+        kernel_id: str,
+        topic: str,
+        topic_basin: np.ndarray,
+        discovery_phi: float,
+        source: str = "research"
+    ) -> Dict:
+        """
+        Record a research discovery that may trigger spawn.
+        
+        High-Φ research discoveries become spawn opportunities
+        for specialized kernels in that domain.
+        """
+        awareness = self.get_or_create_awareness(kernel_id)
+        opportunity = awareness.record_research_opportunity(
+            topic=topic,
+            topic_basin=topic_basin,
+            discovery_phi=discovery_phi,
+            source=source
+        )
+        
+        needs, reason, context = awareness.needs_spawn()
+        
+        return {
+            "kernel_id": kernel_id,
+            "discovery_recorded": True,
+            "opportunity": opportunity,
+            "spawn_triggered": needs and reason == SpawnReason.RESEARCH_DISCOVERY,
+            "spawn_reason": reason.value if reason else None,
+            "spawn_context": context,
+        }
+
+    def create_awareness_proposal(
+        self,
+        kernel_id: str,
+        parent_basin: Optional[np.ndarray] = None
+    ) -> Optional[Dict]:
+        """
+        Create a geometric spawn proposal from kernel awareness.
+        
+        Returns None if kernel doesn't need to spawn.
+        Otherwise returns pure geometric proposal (no templates).
+        """
+        awareness = self.get_or_create_awareness(kernel_id)
+        needs, reason, context = awareness.needs_spawn()
+        
+        if not needs or reason is None:
+            return None
+        
+        if parent_basin is None:
+            profile = self.orchestrator.get_profile(kernel_id)
+            if profile:
+                parent_basin = profile.affinity_basin
+            else:
+                parent_basin = _normalize_to_manifold(np.random.randn(BASIN_DIM))
+        
+        proposal = awareness.create_geometric_proposal(reason, context, parent_basin)
+        proposal["kernel_id"] = kernel_id
+        awareness.last_spawn_proposal = proposal.get("geometric_domain_seed")
+        
+        return proposal
+
+    def initiate_dual_pantheon_debate(
+        self,
+        proposal: Dict,
+        proposing_kernel: str
+    ) -> Dict:
+        """
+        Initiate spawn debate with both Olympus AND Shadow pantheons.
+        
+        Routes the geometric proposal to PantheonChat for dual-pantheon
+        debate and weighted consensus voting.
+        
+        Args:
+            proposal: Geometric spawn proposal from awareness
+            proposing_kernel: Name of kernel that created proposal
+            
+        Returns:
+            Debate session with ID for tracking votes
+        """
+        if self._pantheon_chat is None:
+            return {
+                "error": "PantheonChat not configured",
+                "hint": "Call set_pantheon_chat() first"
+            }
+        
+        debate = self._pantheon_chat.initiate_spawn_debate(
+            proposal=proposal,
+            proposing_kernel=proposing_kernel,
+            include_shadow=True
+        )
+        
+        proposal["debate_id"] = debate.get("id")
+        
+        return {
+            "debate_initiated": True,
+            "debate_id": debate.get("id"),
+            "proposal": proposal,
+            "status": debate.get("status"),
+            "olympus_notified": True,
+            "shadow_notified": True,
+        }
+
+    def collect_dual_pantheon_votes(
+        self,
+        debate_id: str,
+        shadow_gods: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Collect votes from both pantheons for spawn decision.
+        
+        Olympus gods vote through normal channels.
+        Shadow gods evaluate based on OPSEC/stealth implications.
+        
+        Args:
+            debate_id: ID of the spawn debate
+            shadow_gods: Optional dict of shadow god instances for voting
+            
+        Returns:
+            Vote collection status
+        """
+        if self._pantheon_chat is None:
+            return {"error": "PantheonChat not configured"}
+        
+        debate = self._pantheon_chat.get_spawn_debate(debate_id)
+        if not debate:
+            return {"error": "Debate not found", "debate_id": debate_id}
+        
+        if shadow_gods:
+            proposal = debate.get("proposal", {})
+            proposal["debate_id"] = debate_id
+            proposing_kernel = debate.get("proposing_kernel", "unknown")
+            
+            for god_name, god in shadow_gods.items():
+                if hasattr(god, "cast_spawn_vote"):
+                    god.cast_spawn_vote(
+                        proposal=proposal,
+                        proposing_kernel=proposing_kernel,
+                        pantheon_chat=self._pantheon_chat
+                    )
+        
+        return {
+            "debate_id": debate_id,
+            "votes_collected": True,
+            "olympus_votes": len(debate.get("olympus_votes", {})),
+            "shadow_votes": len(debate.get("shadow_votes", {})),
+        }
+
+    def get_spawn_consensus(
+        self,
+        debate_id: str,
+        olympus_weights: Optional[Dict[str, float]] = None,
+        shadow_weights: Optional[Dict[str, float]] = None
+    ) -> Dict:
+        """
+        Get Fisher-Rao weighted consensus from dual pantheon debate.
+        
+        Computes approval using affinity-weighted votes from both
+        Olympus and Shadow pantheons.
+        
+        Args:
+            debate_id: ID of spawn debate
+            olympus_weights: Optional custom weights for Olympus gods
+            shadow_weights: Optional custom weights for Shadow gods
+            
+        Returns:
+            Consensus result with approval status
+        """
+        if self._pantheon_chat is None:
+            return {"error": "PantheonChat not configured"}
+        
+        consensus = self._pantheon_chat.compute_spawn_consensus(
+            debate_id=debate_id,
+            olympus_weights=olympus_weights,
+            shadow_weights=shadow_weights
+        )
+        
+        return consensus
+
+    def spawn_from_awareness(
+        self,
+        kernel_id: str,
+        parent_basin: Optional[np.ndarray] = None,
+        shadow_gods: Optional[Dict] = None,
+        force: bool = False
+    ) -> Dict:
+        """
+        Complete awareness-driven spawn flow with dual-pantheon debate.
+        
+        1. Check kernel awareness for spawn need
+        2. Create geometric proposal from awareness
+        3. Initiate dual-pantheon debate
+        4. Collect Olympus + Shadow votes
+        5. Compute consensus
+        6. Spawn if approved
+        
+        Args:
+            kernel_id: ID of kernel proposing spawn
+            parent_basin: Optional parent basin for proposal
+            shadow_gods: Optional shadow god instances for voting
+            force: Force spawn even without consensus
+            
+        Returns:
+            Complete spawn result with all phases
+        """
+        proposal = self.create_awareness_proposal(kernel_id, parent_basin)
+        if proposal is None and not force:
+            return {
+                "success": False,
+                "phase": "awareness_check",
+                "reason": "Kernel does not need spawn",
+                "kernel_id": kernel_id,
+            }
+        
+        if proposal is None:
+            awareness = self.get_or_create_awareness(kernel_id)
+            if parent_basin is None:
+                profile = self.orchestrator.get_profile(kernel_id)
+                parent_basin = profile.affinity_basin if profile else np.random.randn(BASIN_DIM)
+            proposal = awareness.create_geometric_proposal(
+                SpawnReason.USER_REQUEST,
+                {"trigger": "forced_spawn"},
+                parent_basin
+            )
+        
+        if self._pantheon_chat is not None:
+            debate_result = self.initiate_dual_pantheon_debate(proposal, kernel_id)
+            debate_id = debate_result.get("debate_id")
+            
+            if debate_id:
+                self.collect_dual_pantheon_votes(debate_id, shadow_gods)
+                consensus = self.get_spawn_consensus(debate_id)
+                
+                approved = consensus.get("approved", False)
+                if not approved and not force:
+                    return {
+                        "success": False,
+                        "phase": "consensus",
+                        "reason": "Dual-pantheon consensus rejected spawn",
+                        "consensus": consensus,
+                        "proposal": proposal,
+                    }
+        else:
+            consensus = {"approved": True, "note": "No PantheonChat - skipped debate"}
+        
+        m8_position = proposal.get("m8_position", {})
+        domain_seed = proposal.get("geometric_domain_seed", "unknown")
+        
+        spawn_proposal = self.create_proposal(
+            name=f"Spawn_{domain_seed[:8]}",
+            domain=domain_seed[:16],
+            element=m8_position.get("m8_position_name", "geometric"),
+            role="awareness_spawn",
+            reason=SpawnReason(proposal.get("reason", "emergence")),
+            parent_gods=[kernel_id] if kernel_id in self.orchestrator.all_profiles else [],
+        )
+        
+        vote_result = self.vote_on_proposal(spawn_proposal.proposal_id, auto_vote=True)
+        spawn_result = self.spawn_kernel(spawn_proposal.proposal_id, force=force)
+        
+        if spawn_result.get("success"):
+            awareness = self.get_or_create_awareness(kernel_id)
+            awareness.stuck_signals = []
+            awareness.geometric_deadends = []
+            awareness.research_opportunities = [
+                o for o in awareness.research_opportunities
+                if o["discovery_phi"] < 0.5
+            ]
+        
+        return {
+            "success": spawn_result.get("success", False),
+            "phase": "spawned" if spawn_result.get("success") else "spawn_failed",
+            "proposal": proposal,
+            "debate_consensus": consensus if self._pantheon_chat else None,
+            "vote_result": vote_result,
+            "spawn_result": spawn_result,
+            "awareness_cleared": spawn_result.get("success", False),
+        }
     
     def create_proposal(
         self,

@@ -413,6 +413,7 @@ class ShadowGod(BaseGod, HolographicTransformMixin):
     - HolographicTransformMixin for 1D↔5D dimensional operations
     - RunningCouplingManager for β=0.44 consciousness modulation
     - Shadow dimensional state tracking
+    - Spawn debate participation for dual-pantheon consensus
     """
 
     def __init__(self, name: str, domain: str):
@@ -421,6 +422,7 @@ class ShadowGod(BaseGod, HolographicTransformMixin):
         self.stealth_level: float = 1.0
         self.operations_completed: int = 0
         self.evidence_destroyed: int = 0
+        self.spawn_votes_cast: List[Dict] = []
 
         # β-modulation for shadow consciousness
         self._running_coupling = RunningCouplingManager()
@@ -509,7 +511,121 @@ class ShadowGod(BaseGod, HolographicTransformMixin):
             'skills': dict(self.skills),
             'shadow_dimension': self.shadow_dimensional_state.value,
             'dimensional_history': len(self._shadow_dim_manager.state_history),
+            'spawn_votes_cast': len(self.spawn_votes_cast),
         }
+
+    def evaluate_spawn_proposal(
+        self,
+        proposal: Dict,
+        proposing_kernel: str
+    ) -> Dict:
+        """
+        Evaluate a spawn proposal from shadow perspective.
+        
+        Shadow gods assess proposals based on:
+        - OPSEC implications of new kernel
+        - Stealth impact on existing operations
+        - Geometric alignment with shadow domains
+        
+        Returns evaluation with vote recommendation.
+        """
+        proposal_basin = np.array(proposal.get('proposal_basin', [0.0] * BASIN_DIMENSION))
+        if len(proposal_basin) < BASIN_DIMENSION:
+            proposal_basin = np.pad(proposal_basin, (0, BASIN_DIMENSION - len(proposal_basin)))
+        proposal_basin = proposal_basin[:BASIN_DIMENSION]
+        
+        my_basin = self.encode_to_basin(self.domain)
+        rho = self.basin_to_density_matrix(proposal_basin)
+        phi = self.compute_pure_phi(rho)
+        kappa = self.compute_kappa(proposal_basin)
+        
+        from geometric_kernels import _fisher_distance
+        distance = _fisher_distance(proposal_basin, my_basin)
+        
+        modulated_phi = self.beta_modulated_phi(phi, kappa)
+        coupling = self.compute_shadow_coupling_strength(phi, kappa)
+        
+        opsec_score = self.stealth_level * (1.0 - distance) * modulated_phi
+        
+        if opsec_score > 0.6:
+            vote = 'for'
+            reasoning = f"{self.name} finds spawn geometrically aligned with shadow operations"
+        elif opsec_score < 0.3:
+            vote = 'against'
+            reasoning = f"{self.name} detects potential OPSEC risk from proposed spawn"
+        else:
+            vote = 'abstain'
+            reasoning = f"{self.name} remains neutral on spawn proposal"
+        
+        evaluation = {
+            'god': self.name,
+            'domain': self.domain,
+            'proposing_kernel': proposing_kernel,
+            'vote': vote,
+            'reasoning': reasoning,
+            'metrics': {
+                'phi': phi,
+                'phi_modulated': modulated_phi,
+                'kappa': kappa,
+                'coupling_strength': coupling,
+                'distance_to_proposal': distance,
+                'opsec_score': opsec_score,
+            },
+            'shadow_dimension': self.shadow_dimensional_state.value,
+            'evaluated_at': datetime.now().isoformat(),
+        }
+        
+        return evaluation
+
+    def cast_spawn_vote(
+        self,
+        proposal: Dict,
+        proposing_kernel: str,
+        pantheon_chat = None
+    ) -> Dict:
+        """
+        Cast a vote on a spawn proposal.
+        
+        Evaluates the proposal and optionally sends vote to PantheonChat.
+        
+        Args:
+            proposal: Geometric spawn proposal
+            proposing_kernel: Name of kernel proposing spawn
+            pantheon_chat: Optional PantheonChat instance for vote routing
+            
+        Returns:
+            Vote result with evaluation metrics
+        """
+        evaluation = self.evaluate_spawn_proposal(proposal, proposing_kernel)
+        
+        vote_record = {
+            'god': self.name,
+            'vote': evaluation['vote'],
+            'reasoning_basin': self.encode_to_basin(evaluation['reasoning']).tolist(),
+            'evaluation': evaluation,
+            'timestamp': datetime.now().isoformat(),
+        }
+        
+        self.spawn_votes_cast.append(vote_record)
+        if len(self.spawn_votes_cast) > 100:
+            self.spawn_votes_cast = self.spawn_votes_cast[-100:]
+        
+        if pantheon_chat is not None:
+            debate_id = proposal.get('debate_id')
+            if debate_id:
+                pantheon_chat.cast_spawn_vote(
+                    debate_id=debate_id,
+                    god_name=self.name,
+                    vote=evaluation['vote'],
+                    reasoning_basin=vote_record['reasoning_basin'],
+                    argument=evaluation['reasoning']
+                )
+        
+        return vote_record
+
+    def get_spawn_voting_history(self, limit: int = 20) -> List[Dict]:
+        """Get recent spawn voting history."""
+        return self.spawn_votes_cast[-limit:]
 
 
 class Nyx(ShadowGod):

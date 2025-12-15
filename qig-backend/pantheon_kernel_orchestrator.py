@@ -40,6 +40,60 @@ class KernelMode(Enum):
 
 
 @dataclass
+class KernelAwarenessState:
+    """
+    Tracks kernel self-awareness metrics for spawn detection.
+    
+    Lightweight awareness tracking embedded in each KernelProfile.
+    Full SpawnAwareness is created when spawn is triggered.
+    """
+    phi_history: List[float] = field(default_factory=list)
+    kappa_history: List[float] = field(default_factory=list)
+    curvature_samples: List[float] = field(default_factory=list)
+    stuck_count: int = 0
+    deadend_count: int = 0
+    research_discoveries: int = 0
+    last_spawn_check: Optional[str] = None
+    
+    def record_metrics(self, phi: float, kappa: float, curvature: float = 0.0) -> None:
+        """Record geometric metrics for awareness tracking."""
+        self.phi_history.append(phi)
+        self.kappa_history.append(kappa)
+        if curvature > 0:
+            self.curvature_samples.append(curvature)
+        if len(self.phi_history) > 50:
+            self.phi_history = self.phi_history[-50:]
+            self.kappa_history = self.kappa_history[-50:]
+            self.curvature_samples = self.curvature_samples[-50:]
+    
+    def compute_awareness_signal(self) -> Dict[str, float]:
+        """Compute aggregate awareness signal from history."""
+        if len(self.phi_history) < 3:
+            return {"phi_trend": 0.0, "kappa_stability": 0.0, "pressure": 0.0}
+        
+        phi_trend = float(np.mean(np.diff(self.phi_history[-10:])))
+        kappa_std = float(np.std(self.kappa_history[-10:])) if len(self.kappa_history) >= 2 else 0.0
+        pressure = float(np.mean(self.curvature_samples[-10:])) if self.curvature_samples else 0.0
+        
+        return {
+            "phi_trend": phi_trend,
+            "kappa_stability": 1.0 / (1.0 + kappa_std),
+            "pressure": pressure,
+            "stuck_count": self.stuck_count,
+            "deadend_count": self.deadend_count,
+        }
+    
+    def should_consider_spawn(self) -> bool:
+        """Quick check if spawn should be considered."""
+        if self.stuck_count >= 3 or self.deadend_count >= 2:
+            return True
+        if self.research_discoveries > 0:
+            return True
+        signal = self.compute_awareness_signal()
+        return signal["phi_trend"] < -0.05 and signal["pressure"] > 0.5
+
+
+@dataclass
 class KernelProfile:
     """
     Profile mapping a god to a specialized kernel configuration.
@@ -49,6 +103,7 @@ class KernelProfile:
     - Domain-specific parameter overrides
     - An affinity basin (geometric signature of their domain)
     - Optional post-processing callbacks
+    - Awareness state for self-monitoring and spawn detection
     """
     god_name: str
     domain: str
@@ -59,6 +114,8 @@ class KernelProfile:
     affinity_strength: float = 1.0
     post_processors: List[Callable] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    awareness: KernelAwarenessState = field(default_factory=KernelAwarenessState)
+    spawn_history: List[str] = field(default_factory=list)
     
     def __post_init__(self):
         if np.allclose(self.affinity_basin, 0):
@@ -73,6 +130,30 @@ class KernelProfile:
             for i in range(0, self.basin_dim * 4, 4)
         ])
         return _normalize_to_manifold(coords)
+    
+    def record_awareness_metrics(self, phi: float, kappa: float, curvature: float = 0.0) -> None:
+        """Record metrics for awareness tracking."""
+        self.awareness.record_metrics(phi, kappa, curvature)
+    
+    def check_spawn_awareness(self) -> Dict:
+        """Check if this kernel should propose a spawn."""
+        self.awareness.last_spawn_check = datetime.now().isoformat()
+        should_spawn = self.awareness.should_consider_spawn()
+        signal = self.awareness.compute_awareness_signal()
+        return {
+            "god_name": self.god_name,
+            "domain": self.domain,
+            "should_consider_spawn": should_spawn,
+            "awareness_signal": signal,
+            "spawn_history_count": len(self.spawn_history),
+            "checked_at": self.awareness.last_spawn_check,
+        }
+    
+    def record_spawn(self, spawn_id: str) -> None:
+        """Record that this kernel spawned a child."""
+        self.spawn_history.append(spawn_id)
+        if len(self.spawn_history) > 50:
+            self.spawn_history = self.spawn_history[-50:]
 
 
 OLYMPUS_PROFILES: Dict[str, KernelProfile] = {

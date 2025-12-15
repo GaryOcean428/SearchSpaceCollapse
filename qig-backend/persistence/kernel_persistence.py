@@ -433,3 +433,90 @@ class KernelPersistence(BasePersistence):
         """
         results = self.execute_query(query, (limit,))
         return [dict(r) for r in results] if results else []
+
+    def save_awareness_state(
+        self,
+        kernel_id: str,
+        awareness_data: Dict
+    ) -> bool:
+        """
+        Persist kernel awareness state to PostgreSQL.
+        
+        Stores phi/kappa trajectories, stuck signals, deadends,
+        and research opportunities so awareness survives restarts.
+        """
+        import uuid
+        event_id = f"awareness_{uuid.uuid4().hex[:16]}"
+        query = """
+            INSERT INTO learning_events (
+                event_id, event_type, kernel_id, phi, metadata, created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s
+            )
+            ON CONFLICT (event_id) DO UPDATE SET
+                metadata = EXCLUDED.metadata,
+                created_at = EXCLUDED.created_at
+        """
+        
+        phi_value = 0.0
+        if awareness_data.get('phi_trajectory'):
+            phi_value = awareness_data['phi_trajectory'][-1]
+        
+        try:
+            self.execute_query(
+                query,
+                (event_id, 'kernel_awareness', kernel_id, phi_value, 
+                 json.dumps(awareness_data), datetime.utcnow()),
+                fetch=False
+            )
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to save awareness state: {e}")
+            return False
+
+    def load_awareness_state(self, kernel_id: str) -> Optional[Dict]:
+        """
+        Load kernel awareness state from PostgreSQL.
+        
+        Returns the most recent awareness state for a kernel,
+        or None if no state exists.
+        """
+        query = """
+            SELECT metadata FROM learning_events
+            WHERE event_type = 'kernel_awareness' AND kernel_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+        """
+        result = self.execute_one(query, (kernel_id,))
+        if result:
+            row = dict(result)
+            metadata = row.get('metadata')
+            if metadata:
+                if isinstance(metadata, str):
+                    return json.loads(metadata)
+                return metadata
+        return None
+
+    def load_all_awareness_states(self, limit: int = 100) -> List[Dict]:
+        """Load recent awareness states for all kernels."""
+        query = """
+            SELECT DISTINCT ON (kernel_id) 
+                kernel_id, metadata, created_at
+            FROM learning_events
+            WHERE event_type = 'kernel_awareness'
+            ORDER BY kernel_id, created_at DESC
+            LIMIT %s
+        """
+        results = self.execute_query(query, (limit,))
+        states = []
+        for r in (results or []):
+            row = dict(r)
+            metadata = row.get('metadata', {})
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            states.append({
+                'kernel_id': row.get('kernel_id'),
+                'awareness': metadata,
+                'saved_at': row.get('created_at')
+            })
+        return states

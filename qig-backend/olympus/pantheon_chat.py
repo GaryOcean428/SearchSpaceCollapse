@@ -24,7 +24,11 @@ except ImportError:
     print("[PantheonChat] Persistence not available - messages will not persist")
 
 
-MESSAGE_TYPES = ['insight', 'praise', 'challenge', 'question', 'warning', 'discovery', 'challenge_response']
+MESSAGE_TYPES = ['insight', 'praise', 'challenge', 'question', 'warning', 'discovery', 'challenge_response', 'spawn_proposal', 'spawn_vote']
+
+SHADOW_ROSTER = [
+    'Nyx', 'Hecate', 'Erebus', 'Hypnos', 'Thanatos', 'Nemesis'
+]
 
 
 class PantheonMessage:
@@ -580,6 +584,281 @@ class PantheonChat:
     def get_recent_activity(self, limit: int = 20) -> List[Dict]:
         """Get recent chat activity."""
         return [m.to_dict() for m in self.messages[-limit:]]
+
+    def initiate_spawn_debate(
+        self,
+        proposal: Dict,
+        proposing_kernel: str,
+        include_shadow: bool = True
+    ) -> Dict:
+        """
+        Initiate a dual-pantheon spawn debate for Olympus AND Shadow gods.
+        
+        Spawn proposals are geometric constructs that must be debated
+        by both pantheons before a new kernel can be created.
+        
+        Args:
+            proposal: Geometric spawn proposal with basin coordinates
+            proposing_kernel: Name of kernel proposing the spawn
+            include_shadow: Whether to include Shadow pantheon in debate
+            
+        Returns:
+            Spawn debate session with ID and initial state
+        """
+        debate_id = f"spawn_debate_{datetime.now().timestamp()}"
+        
+        spawn_debate = {
+            'id': debate_id,
+            'type': 'spawn_debate',
+            'proposal': proposal,
+            'proposing_kernel': proposing_kernel,
+            'olympus_votes': {},
+            'shadow_votes': {},
+            'olympus_arguments': [],
+            'shadow_arguments': [],
+            'status': 'active',
+            'include_shadow': include_shadow,
+            'started_at': datetime.now().isoformat(),
+            'consensus_reached': False,
+            'final_decision': None,
+        }
+        
+        self.broadcast(
+            from_god='system',
+            content=f"Spawn debate initiated by {proposing_kernel}",
+            msg_type='spawn_proposal',
+            metadata={
+                'debate_id': debate_id,
+                'proposal_reason': proposal.get('reason', 'unknown'),
+                'proposal_basin_norm': float(sum(x**2 for x in proposal.get('proposal_basin', [])[:8])**0.5),
+            }
+        )
+        
+        if include_shadow:
+            for shadow_god in SHADOW_ROSTER:
+                self.send_message(
+                    msg_type='spawn_proposal',
+                    from_god='system',
+                    to_god=shadow_god,
+                    content=f"Shadow vote requested on spawn proposal from {proposing_kernel}",
+                    metadata={'debate_id': debate_id, 'proposal': proposal}
+                )
+        
+        self.debates[debate_id] = spawn_debate
+        self.active_debates.append(debate_id)
+        
+        if self._persistence:
+            self._persistence.save_debate(spawn_debate)
+        
+        return spawn_debate
+
+    def cast_spawn_vote(
+        self,
+        debate_id: str,
+        god_name: str,
+        vote: str,
+        reasoning_basin: Optional[List[float]] = None,
+        argument: str = ""
+    ) -> Dict:
+        """
+        Cast a vote in a spawn debate.
+        
+        Votes are weighted by the god's affinity_strength and their
+        geometric distance to the proposed basin.
+        
+        Args:
+            debate_id: ID of the spawn debate
+            god_name: Name of voting god
+            vote: 'for', 'against', or 'abstain'
+            reasoning_basin: Optional 64D basin representing reasoning geometry
+            argument: Optional textual argument (for logging)
+            
+        Returns:
+            Vote result with updated debate state
+        """
+        if debate_id not in self.debates:
+            return {'error': 'Debate not found', 'debate_id': debate_id}
+        
+        debate = self.debates[debate_id]
+        if debate.get('status') != 'active':
+            return {'error': 'Debate not active', 'status': debate.get('status')}
+        
+        is_shadow = god_name in SHADOW_ROSTER
+        vote_record = {
+            'god': god_name,
+            'vote': vote,
+            'reasoning_basin': reasoning_basin,
+            'argument': argument,
+            'timestamp': datetime.now().isoformat(),
+            'pantheon': 'shadow' if is_shadow else 'olympus',
+        }
+        
+        if is_shadow:
+            debate['shadow_votes'][god_name] = vote_record
+            debate['shadow_arguments'].append({
+                'god': god_name,
+                'argument': argument,
+                'vote': vote,
+                'timestamp': datetime.now().isoformat(),
+            })
+        else:
+            debate['olympus_votes'][god_name] = vote_record
+            debate['olympus_arguments'].append({
+                'god': god_name,
+                'argument': argument,
+                'vote': vote,
+                'timestamp': datetime.now().isoformat(),
+            })
+        
+        self.send_message(
+            msg_type='spawn_vote',
+            from_god=god_name,
+            to_god='pantheon',
+            content=f"{god_name} votes {vote} on spawn proposal",
+            metadata={'debate_id': debate_id, 'vote': vote}
+        )
+        
+        if self._persistence:
+            self._persistence.save_debate(debate)
+        
+        return {
+            'success': True,
+            'debate_id': debate_id,
+            'vote_recorded': vote_record,
+            'olympus_vote_count': len(debate['olympus_votes']),
+            'shadow_vote_count': len(debate['shadow_votes']),
+        }
+
+    def compute_spawn_consensus(
+        self,
+        debate_id: str,
+        olympus_weights: Optional[Dict[str, float]] = None,
+        shadow_weights: Optional[Dict[str, float]] = None
+    ) -> Dict:
+        """
+        Compute weighted consensus from both Olympus and Shadow pantheons.
+        
+        Uses Fisher-Rao weighted voting where each god's vote is weighted
+        by their affinity_strength. Shadow votes count as 0.7x Olympus weight
+        by default (they advise but Olympus decides).
+        
+        Args:
+            debate_id: ID of the spawn debate
+            olympus_weights: Optional custom weights for Olympus gods
+            shadow_weights: Optional custom weights for Shadow gods
+            
+        Returns:
+            Consensus result with approval status and breakdown
+        """
+        if debate_id not in self.debates:
+            return {'error': 'Debate not found'}
+        
+        debate = self.debates[debate_id]
+        
+        default_olympus = {g: 1.0 for g in self.OLYMPIAN_ROSTER}
+        default_shadow = {g: 0.7 for g in SHADOW_ROSTER}
+        
+        olympus_weights = olympus_weights or default_olympus
+        shadow_weights = shadow_weights or default_shadow
+        
+        olympus_for = 0.0
+        olympus_against = 0.0
+        olympus_total = 0.0
+        
+        for god, vote_rec in debate.get('olympus_votes', {}).items():
+            weight = olympus_weights.get(god, 1.0)
+            olympus_total += weight
+            if vote_rec['vote'] == 'for':
+                olympus_for += weight
+            elif vote_rec['vote'] == 'against':
+                olympus_against += weight
+        
+        shadow_for = 0.0
+        shadow_against = 0.0
+        shadow_total = 0.0
+        
+        for god, vote_rec in debate.get('shadow_votes', {}).items():
+            weight = shadow_weights.get(god, 0.7)
+            shadow_total += weight
+            if vote_rec['vote'] == 'for':
+                shadow_for += weight
+            elif vote_rec['vote'] == 'against':
+                shadow_against += weight
+        
+        total_for = olympus_for + shadow_for
+        total_against = olympus_against + shadow_against
+        total_weight = olympus_total + shadow_total
+        
+        if total_weight == 0:
+            approval_ratio = 0.0
+        else:
+            participating = total_for + total_against
+            approval_ratio = total_for / participating if participating > 0 else 0.0
+        
+        supermajority_threshold = 0.667
+        approved = approval_ratio >= supermajority_threshold
+        
+        olympus_approval = olympus_for / (olympus_for + olympus_against) if (olympus_for + olympus_against) > 0 else 0.0
+        shadow_approval = shadow_for / (shadow_for + shadow_against) if (shadow_for + shadow_against) > 0 else 0.0
+        
+        consensus = {
+            'debate_id': debate_id,
+            'approved': approved,
+            'approval_ratio': approval_ratio,
+            'threshold': supermajority_threshold,
+            'olympus_breakdown': {
+                'for': olympus_for,
+                'against': olympus_against,
+                'total': olympus_total,
+                'approval_ratio': olympus_approval,
+            },
+            'shadow_breakdown': {
+                'for': shadow_for,
+                'against': shadow_against,
+                'total': shadow_total,
+                'approval_ratio': shadow_approval,
+            },
+            'combined_for': total_for,
+            'combined_against': total_against,
+            'combined_total': total_weight,
+            'computed_at': datetime.now().isoformat(),
+        }
+        
+        debate['consensus_reached'] = True
+        debate['final_decision'] = consensus
+        debate['status'] = 'resolved'
+        
+        if debate_id in self.active_debates:
+            self.active_debates.remove(debate_id)
+        self.resolved_debates.append(debate_id)
+        
+        decision_msg = "APPROVED" if approved else "REJECTED"
+        self.broadcast(
+            from_god='system',
+            content=f"Spawn proposal {decision_msg} with {approval_ratio:.1%} approval",
+            msg_type='insight',
+            metadata={'debate_id': debate_id, 'consensus': consensus}
+        )
+        
+        if self._persistence:
+            self._persistence.save_debate(debate)
+        
+        return consensus
+
+    def get_spawn_debate(self, debate_id: str) -> Optional[Dict]:
+        """Get spawn debate details."""
+        debate = self.debates.get(debate_id)
+        if debate and debate.get('type') == 'spawn_debate':
+            return debate
+        return None
+
+    def get_active_spawn_debates(self) -> List[Dict]:
+        """Get all active spawn debates."""
+        return [
+            self.debates[d_id]
+            for d_id in self.active_debates
+            if d_id in self.debates and self.debates[d_id].get('type') == 'spawn_debate'
+        ]
 
     def continue_debate_until_convergence(
         self,
