@@ -8,7 +8,7 @@
  * with in-memory cache for fast lookups.
  */
 
-import { db } from './db';
+import { db, withDbRetry } from './db';
 import { testedPhrases } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import * as crypto from 'crypto';
@@ -34,13 +34,23 @@ class TestedEmptyTracker {
     if (!db) return;
     
     try {
-      const emptyAddresses = await db.select({ address: testedPhrases.address })
-        .from(testedPhrases)
-        .where(and(
-          eq(testedPhrases.balanceSats, 0),
-          sql`${testedPhrases.address} IS NOT NULL`
-        ))
-        .limit(50000);
+      const emptyAddresses = await withDbRetry(
+        async () => {
+          return await db!.select({ address: testedPhrases.address })
+            .from(testedPhrases)
+            .where(and(
+              eq(testedPhrases.balanceSats, 0),
+              sql`${testedPhrases.address} IS NOT NULL`
+            ))
+            .limit(50000);
+        },
+        'select-tested-empty-addresses'
+      );
+      
+      if (!emptyAddresses) {
+        console.warn('[TestedEmpty] Failed to load tested-empty addresses from DB after retries');
+        return;
+      }
       
       this.addressCache.clear();
       for (const row of emptyAddresses) {
@@ -74,13 +84,23 @@ class TestedEmptyTracker {
     if (!db) return false;
     
     try {
-      const result = await db.select({ address: testedPhrases.address })
-        .from(testedPhrases)
-        .where(and(
-          eq(testedPhrases.address, address),
-          eq(testedPhrases.balanceSats, 0)
-        ))
-        .limit(1);
+      const result = await withDbRetry(
+        async () => {
+          return await db!.select({ address: testedPhrases.address })
+            .from(testedPhrases)
+            .where(and(
+              eq(testedPhrases.address, address),
+              eq(testedPhrases.balanceSats, 0)
+            ))
+            .limit(1);
+        },
+        'select-tested-empty-check'
+      );
+      
+      if (!result) {
+        console.warn(`[TestedEmpty] Failed to check address ${address.substring(0, 20)}... after retries`);
+        return false;
+      }
       
       if (result.length > 0) {
         this.addressCache.add(address);
@@ -95,50 +115,69 @@ class TestedEmptyTracker {
   
   /**
    * Mark an address as tested and empty (stores in DB)
+   * Returns true if successfully persisted, false if persistence failed
    */
-  async markAsTestedEmpty(address: string, phi: number, source: string): Promise<void> {
-    if (this.addressCache.has(address)) return;
+  async markAsTestedEmpty(address: string, phi: number, source: string): Promise<boolean> {
+    if (this.addressCache.has(address)) return true;
     
     this.addressCache.add(address);
     
-    if (!db) return;
+    if (!db) return false;
     
-    try {
-      const id = crypto.createHash('sha256').update(`${address}-${Date.now()}`).digest('hex').substring(0, 64);
-      
-      await db.insert(testedPhrases).values({
-        id,
-        phrase: `addr:${address}`,
-        address,
-        balanceSats: 0,
-        txCount: 0,
-        phi,
-        regime: source,
-        testedAt: new Date(),
-        retestCount: 0,
-      }).onConflictDoNothing();
-      
-      console.log(`[TestedEmpty] ⊗ Marked as tested-empty: ${address.substring(0, 20)}... (Φ=${phi.toFixed(3)})`);
-    } catch (error) {
-      console.error('[TestedEmpty] Error marking as tested-empty:', error);
+    const id = crypto.createHash('sha256').update(`${address}-${Date.now()}`).digest('hex').substring(0, 64);
+    
+    const result = await withDbRetry(
+      async () => {
+        await db!.insert(testedPhrases).values({
+          id,
+          phrase: `addr:${address}`,
+          address,
+          balanceSats: 0,
+          txCount: 0,
+          phi,
+          regime: source,
+          testedAt: new Date(),
+          retestCount: 0,
+        }).onConflictDoNothing();
+        return true;
+      },
+      'insert-tested-empty-phrase'
+    );
+    
+    if (!result) {
+      console.error(`[TestedEmpty] Failed to persist tested-empty address ${address.substring(0, 20)}... after retries`);
+      return false;
     }
+    
+    console.log(`[TestedEmpty] ⊗ Marked as tested-empty: ${address.substring(0, 20)}... (Φ=${phi.toFixed(3)})`);
+    return true;
   }
   
   /**
    * Remove an address from tested-empty list (e.g., if balance appears later)
+   * Returns true if successfully removed from DB, false if removal failed
    */
-  async unmark(address: string): Promise<void> {
+  async unmark(address: string): Promise<boolean> {
     this.addressCache.delete(address);
     
-    if (!db) return;
+    if (!db) return false;
     
-    try {
-      await db.delete(testedPhrases)
-        .where(eq(testedPhrases.address, address));
-      console.log(`[TestedEmpty] ✓ Unmarked: ${address.substring(0, 20)}...`);
-    } catch (error) {
-      console.error('[TestedEmpty] Error unmarking:', error);
+    const result = await withDbRetry(
+      async () => {
+        await db!.delete(testedPhrases)
+          .where(eq(testedPhrases.address, address));
+        return true;
+      },
+      'delete-tested-empty-phrase'
+    );
+    
+    if (!result) {
+      console.error(`[TestedEmpty] Failed to unmark address ${address.substring(0, 20)}... after retries`);
+      return false;
     }
+    
+    console.log(`[TestedEmpty] ✓ Unmarked: ${address.substring(0, 20)}...`);
+    return true;
   }
   
   /**

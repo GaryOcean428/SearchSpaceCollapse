@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, withDbRetry } from "./db";
 import { pendingSweeps, sweepAuditLog, type PendingSweep, type InsertPendingSweep, type SweepStatus } from "@shared/schema";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import { bitcoinSweepService } from "./bitcoin-sweep";
@@ -32,17 +32,27 @@ class SweepApprovalService {
     }
     
     try {
-      const existing = await db
-        .select()
-        .from(pendingSweeps)
-        .where(and(
-          eq(pendingSweeps.address, options.address),
-          or(
-            eq(pendingSweeps.status, "pending"),
-            eq(pendingSweeps.status, "approved")
-          )
-        ))
-        .limit(1);
+      const existing = await withDbRetry(
+        async () => {
+          return await db!
+            .select()
+            .from(pendingSweeps)
+            .where(and(
+              eq(pendingSweeps.address, options.address),
+              or(
+                eq(pendingSweeps.status, "pending"),
+                eq(pendingSweeps.status, "approved")
+              )
+            ))
+            .limit(1);
+        },
+        'select-existing-pending-sweep'
+      );
+
+      if (!existing) {
+        console.error("[SweepApproval] Failed to check for existing sweep after retries");
+        return null;
+      }
 
       if (existing.length > 0) {
         console.log(`[SweepApproval] Address ${options.address.slice(0, 15)}... already has pending sweep`);
@@ -82,7 +92,18 @@ class SweepApprovalService {
         destinationAddress: bitcoinSweepService.getDestinationAddress(),
       };
 
-      const [result] = await db.insert(pendingSweeps).values(insertData).returning();
+      const result = await withDbRetry(
+        async () => {
+          const [inserted] = await db!.insert(pendingSweeps).values(insertData).returning();
+          return inserted;
+        },
+        'insert-pending-sweep'
+      );
+
+      if (!result) {
+        console.error("[SweepApproval] Failed to insert pending sweep after retries");
+        return null;
+      }
 
       await this.logAuditEvent(result.id, "created", null, "pending", "system", 
         `Balance: ${balanceBtc} BTC, Source: ${options.source || "typescript"}`);
@@ -106,17 +127,27 @@ class SweepApprovalService {
     if (!db) return [];
     
     try {
-      if (status) {
-        return await db
-          .select()
-          .from(pendingSweeps)
-          .where(eq(pendingSweeps.status, status))
-          .orderBy(desc(pendingSweeps.balanceSats));
+      const result = await withDbRetry(
+        async () => {
+          if (status) {
+            return await db!
+              .select()
+              .from(pendingSweeps)
+              .where(eq(pendingSweeps.status, status))
+              .orderBy(desc(pendingSweeps.balanceSats));
+          }
+          return await db!
+            .select()
+            .from(pendingSweeps)
+            .orderBy(desc(pendingSweeps.discoveredAt));
+        },
+        'select-pending-sweeps'
+      );
+      if (!result) {
+        console.warn("[SweepApproval] Failed to get pending sweeps after retries");
+        return [];
       }
-      return await db
-        .select()
-        .from(pendingSweeps)
-        .orderBy(desc(pendingSweeps.discoveredAt));
+      return result;
     } catch (error) {
       console.error("[SweepApproval] Error getting pending sweeps:", error);
       return [];
@@ -127,12 +158,18 @@ class SweepApprovalService {
     if (!db) return null;
     
     try {
-      const [result] = await db
-        .select()
-        .from(pendingSweeps)
-        .where(eq(pendingSweeps.id, id))
-        .limit(1);
-      return result || null;
+      const result = await withDbRetry(
+        async () => {
+          const [row] = await db!
+            .select()
+            .from(pendingSweeps)
+            .where(eq(pendingSweeps.id, id))
+            .limit(1);
+          return row || null;
+        },
+        'select-sweep-by-id'
+      );
+      return result;
     } catch (error) {
       console.error("[SweepApproval] Error getting sweep by id:", error);
       return null;
@@ -152,15 +189,26 @@ class SweepApprovalService {
         return { success: false, error: `Sweep is not pending (current status: ${sweep.status})` };
       }
 
-      await db
-        .update(pendingSweeps)
-        .set({
-          status: "approved",
-          approvedAt: new Date(),
-          approvedBy,
-          updatedAt: new Date(),
-        })
-        .where(eq(pendingSweeps.id, id));
+      const updateSuccess = await withDbRetry(
+        async () => {
+          await db!
+            .update(pendingSweeps)
+            .set({
+              status: "approved",
+              approvedAt: new Date(),
+              approvedBy,
+              updatedAt: new Date(),
+            })
+            .where(eq(pendingSweeps.id, id));
+          return true;
+        },
+        'update-approve-sweep'
+      );
+      
+      if (!updateSuccess) {
+        console.error("[SweepApproval] Failed to approve sweep after retries");
+        return { success: false, error: "Failed to update sweep status after retries" };
+      }
 
       await this.logAuditEvent(id, "approved", "pending", "approved", approvedBy,
         `Approved for broadcast`);
@@ -190,14 +238,25 @@ class SweepApprovalService {
         return { success: false, error: `Sweep must be approved first (current status: ${sweep.status})` };
       }
 
-      await db
-        .update(pendingSweeps)
-        .set({
-          status: "broadcasting",
-          broadcastAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(pendingSweeps.id, id));
+      const broadcastingSuccess = await withDbRetry(
+        async () => {
+          await db!
+            .update(pendingSweeps)
+            .set({
+              status: "broadcasting",
+              broadcastAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(pendingSweeps.id, id));
+          return true;
+        },
+        'update-broadcast-status'
+      );
+      
+      if (!broadcastingSuccess) {
+        console.error("[SweepApproval] Failed to set broadcasting status after retries");
+        return { success: false, error: "Failed to update sweep status" };
+      }
 
       await this.logAuditEvent(id, "broadcast_started", "approved", "broadcasting", "system",
         "Starting transaction broadcast");
@@ -208,16 +267,26 @@ class SweepApprovalService {
       );
 
       if (result.success && result.txId) {
-        await db
-          .update(pendingSweeps)
-          .set({
-            status: "completed",
-            txId: result.txId,
-            txHex: result.txHex,
-            completedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(pendingSweeps.id, id));
+        const completedSuccess = await withDbRetry(
+          async () => {
+            await db!
+              .update(pendingSweeps)
+              .set({
+                status: "completed",
+                txId: result.txId,
+                txHex: result.txHex,
+                completedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(pendingSweeps.id, id));
+            return true;
+          },
+          'update-sweep-completed'
+        );
+
+        if (!completedSuccess) {
+          console.error(`[SweepApproval] CRITICAL: Sweep ${id} broadcast succeeded but DB update failed! TX: ${result.txId}`);
+        }
 
         await this.logAuditEvent(id, "completed", "broadcasting", "completed", "system",
           `TX: ${result.txId}`);
@@ -233,14 +302,24 @@ class SweepApprovalService {
           txHex: result.txHex,
         };
       } else {
-        await db
-          .update(pendingSweeps)
-          .set({
-            status: "failed",
-            errorMessage: result.error,
-            updatedAt: new Date(),
-          })
-          .where(eq(pendingSweeps.id, id));
+        const failedSuccess = await withDbRetry(
+          async () => {
+            await db!
+              .update(pendingSweeps)
+              .set({
+                status: "failed",
+                errorMessage: result.error,
+                updatedAt: new Date(),
+              })
+              .where(eq(pendingSweeps.id, id));
+            return true;
+          },
+          'update-sweep-failed'
+        );
+
+        if (!failedSuccess) {
+          console.error(`[SweepApproval] Failed to update sweep ${id} failure status in DB`);
+        }
 
         await this.logAuditEvent(id, "failed", "broadcasting", "failed", "system",
           `Error: ${result.error}`);
@@ -254,14 +333,23 @@ class SweepApprovalService {
       console.error("[SweepApproval] Error broadcasting sweep:", error);
       
       if (db) {
-        await db
-          .update(pendingSweeps)
-          .set({
-            status: "failed",
-            errorMessage: error instanceof Error ? error.message : "Unknown error",
-            updatedAt: new Date(),
-          })
-          .where(eq(pendingSweeps.id, id));
+        const errorSuccess = await withDbRetry(
+          async () => {
+            await db!
+              .update(pendingSweeps)
+              .set({
+                status: "failed",
+                errorMessage: error instanceof Error ? error.message : "Unknown error",
+                updatedAt: new Date(),
+              })
+              .where(eq(pendingSweeps.id, id));
+            return true;
+          },
+          'update-sweep-error'
+        );
+        if (!errorSuccess) {
+          console.error(`[SweepApproval] Failed to update sweep ${id} error status in DB`);
+        }
       }
 
       return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
@@ -281,14 +369,25 @@ class SweepApprovalService {
         return { success: false, error: `Can only reject pending sweeps (current status: ${sweep.status})` };
       }
 
-      await db
-        .update(pendingSweeps)
-        .set({
-          status: "rejected",
-          errorMessage: reason,
-          updatedAt: new Date(),
-        })
-        .where(eq(pendingSweeps.id, id));
+      const rejectSuccess = await withDbRetry(
+        async () => {
+          await db!
+            .update(pendingSweeps)
+            .set({
+              status: "rejected",
+              errorMessage: reason,
+              updatedAt: new Date(),
+            })
+            .where(eq(pendingSweeps.id, id));
+          return true;
+        },
+        'update-reject-sweep'
+      );
+      
+      if (!rejectSuccess) {
+        console.error("[SweepApproval] Failed to reject sweep after retries");
+        return { success: false, error: "Failed to update sweep status after retries" };
+      }
 
       await this.logAuditEvent(id, "rejected", "pending", "rejected", "operator", reason);
 
@@ -316,14 +415,24 @@ class SweepApprovalService {
 
       if (!estimate.canSweep) {
         if (sweep.status === "pending") {
-          await db
-            .update(pendingSweeps)
-            .set({
-              status: "expired",
-              errorMessage: estimate.error || "Balance no longer available",
-              updatedAt: new Date(),
-            })
-            .where(eq(pendingSweeps.id, id));
+          const expiredSuccess = await withDbRetry(
+            async () => {
+              await db!
+                .update(pendingSweeps)
+                .set({
+                  status: "expired",
+                  errorMessage: estimate.error || "Balance no longer available",
+                  updatedAt: new Date(),
+                })
+                .where(eq(pendingSweeps.id, id));
+              return true;
+            },
+            'update-sweep-expired'
+          );
+
+          if (!expiredSuccess) {
+            console.error(`[SweepApproval] Failed to update sweep ${id} expired status in DB`);
+          }
 
           await this.logAuditEvent(id, "expired", sweep.status, "expired", "system",
             "Balance no longer available on refresh");
@@ -333,17 +442,23 @@ class SweepApprovalService {
 
       const newBalance = estimate.totalBalance;
       
-      await db
-        .update(pendingSweeps)
-        .set({
-          balanceSats: newBalance,
-          balanceBtc: (newBalance / 100000000).toFixed(8),
-          estimatedFeeSats: estimate.estimatedFee,
-          netAmountSats: estimate.estimatedOutput,
-          utxoCount: estimate.utxoCount,
-          updatedAt: new Date(),
-        })
-        .where(eq(pendingSweeps.id, id));
+      await withDbRetry(
+        async () => {
+          await db!
+            .update(pendingSweeps)
+            .set({
+              balanceSats: newBalance,
+              balanceBtc: (newBalance / 100000000).toFixed(8),
+              estimatedFeeSats: estimate.estimatedFee,
+              netAmountSats: estimate.estimatedOutput,
+              utxoCount: estimate.utxoCount,
+              updatedAt: new Date(),
+            })
+            .where(eq(pendingSweeps.id, id));
+          return true;
+        },
+        'update-sweep-balance'
+      );
 
       return { success: true, newBalance };
     } catch (error) {
@@ -374,14 +489,32 @@ class SweepApprovalService {
     }
     
     try {
-      const counts = await db
-        .select({
-          status: pendingSweeps.status,
-          count: sql<number>`count(*)::int`,
-          totalSats: sql<number>`COALESCE(sum(${pendingSweeps.balanceSats}), 0)::bigint`,
-        })
-        .from(pendingSweeps)
-        .groupBy(pendingSweeps.status);
+      const counts = await withDbRetry(
+        async () => {
+          return await db!
+            .select({
+              status: pendingSweeps.status,
+              count: sql<number>`count(*)::int`,
+              totalSats: sql<number>`COALESCE(sum(${pendingSweeps.balanceSats}), 0)::bigint`,
+            })
+            .from(pendingSweeps)
+            .groupBy(pendingSweeps.status);
+        },
+        'select-sweep-stats'
+      );
+      
+      if (!counts) {
+        console.warn("[SweepApproval] Failed to get stats after retries");
+        return {
+          pending: 0,
+          approved: 0,
+          completed: 0,
+          failed: 0,
+          rejected: 0,
+          totalPendingBtc: "0.00000000",
+          totalSweptBtc: "0.00000000",
+        };
+      }
 
       const stats = {
         pending: 0,
@@ -453,18 +586,28 @@ class SweepApprovalService {
     if (!db) return [];
     
     try {
-      if (sweepId) {
-        return await db
-          .select()
-          .from(sweepAuditLog)
-          .where(eq(sweepAuditLog.sweepId, sweepId))
-          .orderBy(desc(sweepAuditLog.timestamp));
+      const result = await withDbRetry(
+        async () => {
+          if (sweepId) {
+            return await db!
+              .select()
+              .from(sweepAuditLog)
+              .where(eq(sweepAuditLog.sweepId, sweepId))
+              .orderBy(desc(sweepAuditLog.timestamp));
+          }
+          return await db!
+            .select()
+            .from(sweepAuditLog)
+            .orderBy(desc(sweepAuditLog.timestamp))
+            .limit(100);
+        },
+        'select-audit-log'
+      );
+      if (!result) {
+        console.warn("[SweepApproval] Failed to get audit log after retries");
+        return [];
       }
-      return await db
-        .select()
-        .from(sweepAuditLog)
-        .orderBy(desc(sweepAuditLog.timestamp))
-        .limit(100);
+      return result;
     } catch (error) {
       console.error("[SweepApproval] Error getting audit log:", error);
       return [];
@@ -482,14 +625,19 @@ class SweepApprovalService {
     if (!db) return;
     
     try {
-      await db.insert(sweepAuditLog).values({
-        sweepId,
-        action,
-        previousStatus,
-        newStatus,
-        actor,
-        details,
-      });
+      await withDbRetry(
+        async () => {
+          await db!.insert(sweepAuditLog).values({
+            sweepId,
+            action,
+            previousStatus,
+            newStatus,
+            actor,
+            details,
+          });
+        },
+        'insert-sweep-audit-log'
+      );
     } catch (error) {
       console.error("[SweepApproval] Error logging audit event:", error);
     }

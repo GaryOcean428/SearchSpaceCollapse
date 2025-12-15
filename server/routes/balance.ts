@@ -74,21 +74,26 @@ balanceRouter.patch("/hits/:address/dormant", standardLimiter, async (req: Reque
       return res.status(400).json({ error: 'isDormantConfirmed must be a boolean' });
     }
     
-    const { db } = await import("../db");
+    const { db, withDbRetry } = await import("../db");
     if (db) {
       const { balanceHits: balanceHitsTable } = await import("@shared/schema");
       const { eq } = await import("drizzle-orm");
       
-      const result = await db.update(balanceHitsTable)
-        .set({
-          isDormantConfirmed,
-          dormantConfirmedAt: isDormantConfirmed ? new Date() : null,
-          updatedAt: new Date(),
-        })
-        .where(eq(balanceHitsTable.address, address))
-        .returning();
+      const result = await withDbRetry(
+        async () => {
+          return await db!.update(balanceHitsTable)
+            .set({
+              isDormantConfirmed,
+              dormantConfirmedAt: isDormantConfirmed ? new Date() : null,
+              updatedAt: new Date(),
+            })
+            .where(eq(balanceHitsTable.address, address))
+            .returning();
+        },
+        'update-balance-hit-dormant'
+      );
       
-      if (result.length === 0) {
+      if (!result || result.length === 0) {
         return res.status(404).json({ error: 'Balance hit not found' });
       }
       

@@ -22,7 +22,7 @@
 
 import { fisherCoordDistance, type Regime } from './qig-universal';
 import { vocabularyTracker } from './vocabulary-tracker';
-import { db } from './db';
+import { db, withDbRetry } from './db';
 import { vocabDecisionState, vocabDecisionObservations } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
@@ -807,57 +807,67 @@ export class VocabConsolidationCycle {
     }
     try {
       // Save global state
-      await db.insert(vocabDecisionState)
-        .values({
-          id: 'singleton',
-          cycleNumber: this.cycleNumber,
-          iterationsSinceSleep: this.iterationsSinceSleep,
-          lastConsolidation: this.lastConsolidation,
-          pendingCandidates: Array.from(this.pendingCandidates),
-          learnedWords: Array.from(this.learnedWords),
-          prunedWords: Array.from(this.prunedWords),
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: vocabDecisionState.id,
-          set: {
-            cycleNumber: this.cycleNumber,
-            iterationsSinceSleep: this.iterationsSinceSleep,
-            lastConsolidation: this.lastConsolidation,
-            pendingCandidates: Array.from(this.pendingCandidates),
-            learnedWords: Array.from(this.learnedWords),
-            prunedWords: Array.from(this.prunedWords),
-            updatedAt: new Date(),
-          },
-        });
+      await withDbRetry(
+        async () => {
+          await db!.insert(vocabDecisionState)
+            .values({
+              id: 'singleton',
+              cycleNumber: this.cycleNumber,
+              iterationsSinceSleep: this.iterationsSinceSleep,
+              lastConsolidation: this.lastConsolidation,
+              pendingCandidates: Array.from(this.pendingCandidates),
+              learnedWords: Array.from(this.learnedWords),
+              prunedWords: Array.from(this.prunedWords),
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: vocabDecisionState.id,
+              set: {
+                cycleNumber: this.cycleNumber,
+                iterationsSinceSleep: this.iterationsSinceSleep,
+                lastConsolidation: this.lastConsolidation,
+                pendingCandidates: Array.from(this.pendingCandidates),
+                learnedWords: Array.from(this.learnedWords),
+                prunedWords: Array.from(this.prunedWords),
+                updatedAt: new Date(),
+              },
+            });
+        },
+        'upsert-vocab-decision-state'
+      );
 
       // Batch save observations (limit to most recent 500 to avoid bloat)
       const obsArray = Array.from(this.observations.values()).slice(-500);
       
       for (const obs of obsArray) {
-        await db.insert(vocabDecisionObservations)
-          .values({
-            word: obs.word,
-            avgPhi: obs.avgPhi,
-            maxPhi: obs.maxPhi,
-            frequency: obs.frequency,
-            firstSeen: obs.firstSeen,
-            lastSeen: obs.lastSeen,
-            contexts: obs.contexts.slice(-20) as any,
-            contextEmbeddings: obs.contextEmbeddings.slice(-20) as any,
-          })
-          .onConflictDoUpdate({
-            target: vocabDecisionObservations.word,
-            set: {
-              avgPhi: obs.avgPhi,
-              maxPhi: obs.maxPhi,
-              frequency: obs.frequency,
-              lastSeen: obs.lastSeen,
-              contexts: obs.contexts.slice(-20) as any,
-              contextEmbeddings: obs.contextEmbeddings.slice(-20) as any,
-              updatedAt: new Date(),
-            },
-          });
+        await withDbRetry(
+          async () => {
+            await db!.insert(vocabDecisionObservations)
+              .values({
+                word: obs.word,
+                avgPhi: obs.avgPhi,
+                maxPhi: obs.maxPhi,
+                frequency: obs.frequency,
+                firstSeen: obs.firstSeen,
+                lastSeen: obs.lastSeen,
+                contexts: obs.contexts.slice(-20) as any,
+                contextEmbeddings: obs.contextEmbeddings.slice(-20) as any,
+              })
+              .onConflictDoUpdate({
+                target: vocabDecisionObservations.word,
+                set: {
+                  avgPhi: obs.avgPhi,
+                  maxPhi: obs.maxPhi,
+                  frequency: obs.frequency,
+                  lastSeen: obs.lastSeen,
+                  contexts: obs.contexts.slice(-20) as any,
+                  contextEmbeddings: obs.contextEmbeddings.slice(-20) as any,
+                  updatedAt: new Date(),
+                },
+              });
+          },
+          'upsert-vocab-decision-observation'
+        );
       }
       
       console.log(`[VocabDecision] Saved to DB: ${this.observations.size} observations, ${this.learnedWords.size} learned`);

@@ -16,7 +16,7 @@ import { geometricMemory } from './geometric-memory';
 import { scoreUniversalQIGAsync, type UniversalQIGScore as QIGScore, type Regime, fisherCoordDistance } from './qig-universal';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { expandedVocabulary } from './expanded-vocabulary';
-import { db } from './db';
+import { db, withDbRetry } from './db';
 import { vocabManifoldWords, vocabManifoldState } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
@@ -385,53 +385,63 @@ export class GeometricVocabularyExpander {
         : 0;
 
       // Save global state
-      await db.insert(vocabManifoldState)
-        .values({
-          id: 'singleton',
-          totalExpansions: this.state.totalExpansions,
-          totalWords: this.state.words.size,
-          avgPhi,
-          maxPhi,
-          lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: vocabManifoldState.id,
-          set: {
-            totalExpansions: this.state.totalExpansions,
-            totalWords: this.state.words.size,
-            avgPhi,
-            maxPhi,
-            lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
-            updatedAt: new Date(),
-          },
-        });
+      await withDbRetry(
+        async () => {
+          await db!.insert(vocabManifoldState)
+            .values({
+              id: 'singleton',
+              totalExpansions: this.state.totalExpansions,
+              totalWords: this.state.words.size,
+              avgPhi,
+              maxPhi,
+              lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: vocabManifoldState.id,
+              set: {
+                totalExpansions: this.state.totalExpansions,
+                totalWords: this.state.words.size,
+                avgPhi,
+                maxPhi,
+                lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
+                updatedAt: new Date(),
+              },
+            });
+        },
+        'upsert-vocab-manifold-state'
+      );
 
       // Batch save words (limit to avoid bloat)
       const wordsToSave = words.slice(-1000);
       
       for (const word of wordsToSave) {
-        await db.insert(vocabManifoldWords)
-          .values({
-            text: word.text,
-            phi: word.phi,
-            kappa: word.kappa,
-            regime: undefined,
-            geodesicOrigin: word.geodesicOrigin,
-            geodesicDistance: 0,
-            basinCoordinates: word.coordinates,
-            expansionCount: word.frequency,
-          })
-          .onConflictDoUpdate({
-            target: vocabManifoldWords.text,
-            set: {
-              phi: word.phi,
-              kappa: word.kappa,
-              basinCoordinates: word.coordinates,
-              expansionCount: word.frequency,
-              updatedAt: new Date(),
-            },
-          });
+        await withDbRetry(
+          async () => {
+            await db!.insert(vocabManifoldWords)
+              .values({
+                text: word.text,
+                phi: word.phi,
+                kappa: word.kappa,
+                regime: undefined,
+                geodesicOrigin: word.geodesicOrigin,
+                geodesicDistance: 0,
+                basinCoordinates: word.coordinates,
+                expansionCount: word.frequency,
+              })
+              .onConflictDoUpdate({
+                target: vocabManifoldWords.text,
+                set: {
+                  phi: word.phi,
+                  kappa: word.kappa,
+                  basinCoordinates: word.coordinates,
+                  expansionCount: word.frequency,
+                  updatedAt: new Date(),
+                },
+              });
+          },
+          'upsert-vocab-manifold-word'
+        );
       }
       
       console.log(`[VocabExpander] Saved to DB: ${this.state.words.size} manifold words`);

@@ -20,7 +20,7 @@ import { observerStorage } from "./observer-storage";
 import { updateAddressDormancy } from "./dormancy-updater";
 import { createHash } from "crypto";
 import bs58check from "bs58check";
-import { db } from "./db";
+import { db, withDbRetry } from "./db";
 import { eq } from "drizzle-orm";
 import { getAddressData } from "./blockchain-api-router";
 import { bitcoinSweepService } from "./bitcoin-sweep";
@@ -324,48 +324,56 @@ async function saveBalanceHitToDb(hit: BalanceHit, userId: string = DEFAULT_USER
       .limit(1);
     
     if (existing.length > 0) {
-      await db.update(balanceHitsTable)
-        .set({
-          balanceSats: hit.balanceSats,
-          balanceBtc: hit.balanceBTC,
-          txCount: hit.txCount,
-          lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
-          previousBalanceSats: hit.previousBalanceSats ?? null,
-          balanceChanged: hit.balanceChanged ?? false,
-          changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
-          updatedAt: new Date(),
-          // Update recovery metadata if provided
-          recoveryType: hit.recoveryType ?? existing[0].recoveryType ?? 'unknown',
-          isDormantConfirmed: hit.isDormantConfirmed ?? existing[0].isDormantConfirmed ?? false,
-          dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : existing[0].dormantConfirmedAt,
-          originalInput: hit.originalInput ?? existing[0].originalInput,
-          derivationPath: hit.derivationPath ?? existing[0].derivationPath,
-          mnemonicWordCount: hit.mnemonicWordCount ?? existing[0].mnemonicWordCount,
-        })
-        .where(eq(balanceHitsTable.address, hit.address));
+      await withDbRetry(
+        async () => {
+          await db!.update(balanceHitsTable)
+            .set({
+              balanceSats: hit.balanceSats,
+              balanceBtc: hit.balanceBTC,
+              txCount: hit.txCount,
+              lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+              previousBalanceSats: hit.previousBalanceSats ?? null,
+              balanceChanged: hit.balanceChanged ?? false,
+              changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+              updatedAt: new Date(),
+              recoveryType: hit.recoveryType ?? existing[0].recoveryType ?? 'unknown',
+              isDormantConfirmed: hit.isDormantConfirmed ?? existing[0].isDormantConfirmed ?? false,
+              dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : existing[0].dormantConfirmedAt,
+              originalInput: hit.originalInput ?? existing[0].originalInput,
+              derivationPath: hit.derivationPath ?? existing[0].derivationPath,
+              mnemonicWordCount: hit.mnemonicWordCount ?? existing[0].mnemonicWordCount,
+            })
+            .where(eq(balanceHitsTable.address, hit.address));
+        },
+        'update-balance-hit'
+      );
     } else {
-      await db.insert(balanceHitsTable).values({
-        userId,
-        address: hit.address,
-        passphrase: hit.passphrase,
-        wif: hit.wif,
-        balanceSats: hit.balanceSats,
-        balanceBtc: hit.balanceBTC,
-        txCount: hit.txCount,
-        isCompressed: hit.isCompressed,
-        discoveredAt: new Date(hit.discoveredAt),
-        lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
-        previousBalanceSats: hit.previousBalanceSats ?? null,
-        balanceChanged: hit.balanceChanged ?? false,
-        changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
-        // Recovery tracking fields
-        recoveryType: hit.recoveryType ?? 'unknown',
-        isDormantConfirmed: hit.isDormantConfirmed ?? false,
-        dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : null,
-        originalInput: hit.originalInput ?? null,
-        derivationPath: hit.derivationPath ?? null,
-        mnemonicWordCount: hit.mnemonicWordCount ?? null,
-      });
+      await withDbRetry(
+        async () => {
+          await db!.insert(balanceHitsTable).values({
+            userId,
+            address: hit.address,
+            passphrase: hit.passphrase,
+            wif: hit.wif,
+            balanceSats: hit.balanceSats,
+            balanceBtc: hit.balanceBTC,
+            txCount: hit.txCount,
+            isCompressed: hit.isCompressed,
+            discoveredAt: new Date(hit.discoveredAt),
+            lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+            previousBalanceSats: hit.previousBalanceSats ?? null,
+            balanceChanged: hit.balanceChanged ?? false,
+            changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+            recoveryType: hit.recoveryType ?? 'unknown',
+            isDormantConfirmed: hit.isDormantConfirmed ?? false,
+            dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : null,
+            originalInput: hit.originalInput ?? null,
+            derivationPath: hit.derivationPath ?? null,
+            mnemonicWordCount: hit.mnemonicWordCount ?? null,
+          });
+        },
+        'insert-balance-hit'
+      );
       console.log(`[BlockchainScanner] Saved balance hit to PostgreSQL: ${hit.address} (type: ${hit.recoveryType ?? 'unknown'})`);
     }
   } catch (error) {
@@ -385,14 +393,19 @@ async function saveBalanceChangeEventToDb(
   if (!db) return;
   
   try {
-    await db.insert(balanceChangeEventsTable).values({
-      balanceHitId: balanceHitId ?? null,
-      address,
-      previousBalanceSats: previousBalance,
-      newBalanceSats: newBalance,
-      deltaSats: newBalance - previousBalance,
-      detectedAt: new Date(),
-    });
+    await withDbRetry(
+      async () => {
+        await db!.insert(balanceChangeEventsTable).values({
+          balanceHitId: balanceHitId ?? null,
+          address,
+          previousBalanceSats: previousBalance,
+          newBalanceSats: newBalance,
+          deltaSats: newBalance - previousBalance,
+          detectedAt: new Date(),
+        });
+      },
+      'insert-balance-change-event'
+    );
     console.log(`[BlockchainScanner] Saved balance change event to PostgreSQL: ${address}`);
   } catch (error) {
     console.error('[BlockchainScanner] Error saving balance change event to PostgreSQL:', error);
@@ -676,46 +689,56 @@ async function saveBalanceHitToDbStrict(hit: BalanceHit, userId: string = DEFAUL
     .limit(1);
   
   if (existing.length > 0) {
-    await db.update(balanceHitsTable)
-      .set({
-        balanceSats: hit.balanceSats,
-        balanceBtc: hit.balanceBTC,
-        txCount: hit.txCount,
-        lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
-        previousBalanceSats: hit.previousBalanceSats ?? null,
-        balanceChanged: hit.balanceChanged ?? false,
-        changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
-        updatedAt: new Date(),
-        recoveryType: hit.recoveryType ?? existing[0].recoveryType ?? 'unknown',
-        isDormantConfirmed: hit.isDormantConfirmed ?? existing[0].isDormantConfirmed ?? false,
-        dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : existing[0].dormantConfirmedAt,
-        originalInput: hit.originalInput ?? existing[0].originalInput,
-        derivationPath: hit.derivationPath ?? existing[0].derivationPath,
-        mnemonicWordCount: hit.mnemonicWordCount ?? existing[0].mnemonicWordCount,
-      })
-      .where(eq(balanceHitsTable.address, hit.address));
+    await withDbRetry(
+      async () => {
+        await db!.update(balanceHitsTable)
+          .set({
+            balanceSats: hit.balanceSats,
+            balanceBtc: hit.balanceBTC,
+            txCount: hit.txCount,
+            lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+            previousBalanceSats: hit.previousBalanceSats ?? null,
+            balanceChanged: hit.balanceChanged ?? false,
+            changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+            updatedAt: new Date(),
+            recoveryType: hit.recoveryType ?? existing[0].recoveryType ?? 'unknown',
+            isDormantConfirmed: hit.isDormantConfirmed ?? existing[0].isDormantConfirmed ?? false,
+            dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : existing[0].dormantConfirmedAt,
+            originalInput: hit.originalInput ?? existing[0].originalInput,
+            derivationPath: hit.derivationPath ?? existing[0].derivationPath,
+            mnemonicWordCount: hit.mnemonicWordCount ?? existing[0].mnemonicWordCount,
+          })
+          .where(eq(balanceHitsTable.address, hit.address));
+      },
+      'update-balance-hit-strict'
+    );
   } else {
-    await db.insert(balanceHitsTable).values({
-      userId,
-      address: hit.address,
-      passphrase: hit.passphrase,
-      wif: hit.wif,
-      balanceSats: hit.balanceSats,
-      balanceBtc: hit.balanceBTC,
-      txCount: hit.txCount,
-      isCompressed: hit.isCompressed,
-      discoveredAt: new Date(hit.discoveredAt),
-      lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
-      previousBalanceSats: hit.previousBalanceSats ?? null,
-      balanceChanged: hit.balanceChanged ?? false,
-      changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
-      recoveryType: hit.recoveryType ?? 'unknown',
-      isDormantConfirmed: hit.isDormantConfirmed ?? false,
-      dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : null,
-      originalInput: hit.originalInput ?? null,
-      derivationPath: hit.derivationPath ?? null,
-      mnemonicWordCount: hit.mnemonicWordCount ?? null,
-    });
+    await withDbRetry(
+      async () => {
+        await db!.insert(balanceHitsTable).values({
+          userId,
+          address: hit.address,
+          passphrase: hit.passphrase,
+          wif: hit.wif,
+          balanceSats: hit.balanceSats,
+          balanceBtc: hit.balanceBTC,
+          txCount: hit.txCount,
+          isCompressed: hit.isCompressed,
+          discoveredAt: new Date(hit.discoveredAt),
+          lastChecked: hit.lastChecked ? new Date(hit.lastChecked) : null,
+          previousBalanceSats: hit.previousBalanceSats ?? null,
+          balanceChanged: hit.balanceChanged ?? false,
+          changeDetectedAt: hit.changeDetectedAt ? new Date(hit.changeDetectedAt) : null,
+          recoveryType: hit.recoveryType ?? 'unknown',
+          isDormantConfirmed: hit.isDormantConfirmed ?? false,
+          dormantConfirmedAt: hit.dormantConfirmedAt ? new Date(hit.dormantConfirmedAt) : null,
+          originalInput: hit.originalInput ?? null,
+          derivationPath: hit.derivationPath ?? null,
+          mnemonicWordCount: hit.mnemonicWordCount ?? null,
+        });
+      },
+      'insert-balance-hit-strict'
+    );
     console.log(`[BlockchainScanner] Saved balance hit to PostgreSQL: ${hit.address} (type: ${hit.recoveryType ?? 'unknown'})`);
   }
 }

@@ -10,7 +10,7 @@
  * just require different recovery approaches (legal, estate, etc.)
  */
 
-import { db } from './db';
+import { db, withDbRetry } from './db';
 import { balanceHits } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
@@ -240,14 +240,19 @@ export class AddressEntityClassifier {
       return;
     }
     
-    await db.update(balanceHits)
-      .set({
-        addressEntityType: classification.entityType,
-        entityTypeConfidence: classification.confidence,
-        entityTypeName: classification.entityName,
-        entityTypeConfirmedAt: classification.confidence === 'confirmed' ? new Date() : null
-      })
-      .where(eq(balanceHits.id, balanceHitId));
+    await withDbRetry(
+      async () => {
+        await db!.update(balanceHits)
+          .set({
+            addressEntityType: classification.entityType,
+            entityTypeConfidence: classification.confidence,
+            entityTypeName: classification.entityName,
+            entityTypeConfirmedAt: classification.confidence === 'confirmed' ? new Date() : null
+          })
+          .where(eq(balanceHits.id, balanceHitId));
+      },
+      'update-balance-hit-classification'
+    );
 
     console.log(`[EntityClassifier] Updated balance hit ${balanceHitId}: ${classification.entityType} (${classification.entityName || 'unknown'})`);
   }
@@ -265,14 +270,19 @@ export class AddressEntityClassifier {
       return;
     }
     
-    await db.update(balanceHits)
-      .set({
-        addressEntityType: entityType,
-        entityTypeConfidence: 'confirmed',
-        entityTypeName: entityName || null,
-        entityTypeConfirmedAt: new Date()
-      })
-      .where(eq(balanceHits.id, balanceHitId));
+    await withDbRetry(
+      async () => {
+        await db!.update(balanceHits)
+          .set({
+            addressEntityType: entityType,
+            entityTypeConfidence: 'confirmed',
+            entityTypeName: entityName || null,
+            entityTypeConfirmedAt: new Date()
+          })
+          .where(eq(balanceHits.id, balanceHitId));
+      },
+      'confirm-balance-hit-classification'
+    );
 
     console.log(`[EntityClassifier] Manually confirmed balance hit ${balanceHitId}: ${entityType} (${entityName || 'N/A'})`);
   }

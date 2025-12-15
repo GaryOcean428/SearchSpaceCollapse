@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, withDbRetry } from "./db";
 import {
   blocks,
   transactions,
@@ -178,10 +178,16 @@ export class ObserverStorage implements IObserverStorage {
 
   async saveBlock(block: Omit<Block, "createdAt">): Promise<Block> {
     if (!db) throw new Error("Database not initialized");
-    const [saved] = await db.insert(blocks)
-      .values(block)
-      .onConflictDoNothing({ target: blocks.height })
-      .returning();
+    const saved = await withDbRetry(
+      async () => {
+        const [result] = await db!.insert(blocks)
+          .values(block)
+          .onConflictDoNothing({ target: blocks.height })
+          .returning();
+        return result;
+      },
+      'insert-block'
+    );
     // If conflict (block already exists), fetch and return it
     if (!saved) {
       const existing = await this.getBlock(block.height);
@@ -193,34 +199,62 @@ export class ObserverStorage implements IObserverStorage {
 
   async getBlock(height: number): Promise<Block | null> {
     if (!db) throw new Error("Database not initialized");
-    const [block] = await db.select().from(blocks).where(eq(blocks.height, height)).limit(1);
-    return block || null;
+    const result = await withDbRetry(
+      async () => {
+        const [block] = await db!.select().from(blocks).where(eq(blocks.height, height)).limit(1);
+        return block || null;
+      },
+      'select-block'
+    );
+    return result;
   }
 
   async getBlocks(startHeight: number, endHeight: number): Promise<Block[]> {
     if (!db) throw new Error("Database not initialized");
-    return await db.select().from(blocks)
-      .where(and(
-        gte(blocks.height, startHeight),
-        lte(blocks.height, endHeight)
-      ))
-      .orderBy(asc(blocks.height));
+    const result = await withDbRetry(
+      async () => {
+        return await db!.select().from(blocks)
+          .where(and(
+            gte(blocks.height, startHeight),
+            lte(blocks.height, endHeight)
+          ))
+          .orderBy(asc(blocks.height));
+      },
+      'select-blocks-range'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get blocks range after retries');
+      return [];
+    }
+    return result;
   }
 
   async getLatestBlockHeight(): Promise<number | null> {
     if (!db) throw new Error("Database not initialized");
-    const [result] = await db.select({ maxHeight: sql<number>`MAX(${blocks.height})` })
-      .from(blocks)
-      .limit(1);
-    return result?.maxHeight ?? null;
+    const result = await withDbRetry(
+      async () => {
+        const [row] = await db!.select({ maxHeight: sql<number>`MAX(${blocks.height})` })
+          .from(blocks)
+          .limit(1);
+        return row?.maxHeight ?? null;
+      },
+      'select-latest-block-height'
+    );
+    return result;
   }
 
   async saveTransaction(tx: Omit<Transaction, "createdAt">): Promise<Transaction> {
     if (!db) throw new Error("Database not initialized");
-    const [saved] = await db.insert(transactions)
-      .values(tx)
-      .onConflictDoNothing({ target: transactions.txid })
-      .returning();
+    const saved = await withDbRetry(
+      async () => {
+        const [result] = await db!.insert(transactions)
+          .values(tx)
+          .onConflictDoNothing({ target: transactions.txid })
+          .returning();
+        return result;
+      },
+      'insert-transaction'
+    );
     // If conflict (transaction already exists), fetch and return it
     if (!saved) {
       const existing = await this.getTransaction(tx.txid);
@@ -232,66 +266,104 @@ export class ObserverStorage implements IObserverStorage {
 
   async getTransaction(txid: string): Promise<Transaction | null> {
     if (!db) throw new Error("Database not initialized");
-    const [tx] = await db.select().from(transactions).where(eq(transactions.txid, txid)).limit(1);
-    return tx || null;
+    const result = await withDbRetry(
+      async () => {
+        const [tx] = await db!.select().from(transactions).where(eq(transactions.txid, txid)).limit(1);
+        return tx || null;
+      },
+      'select-transaction'
+    );
+    return result;
   }
 
   async getTransactionsForBlock(blockHeight: number): Promise<Transaction[]> {
     if (!db) throw new Error("Database not initialized");
-    return await db.select().from(transactions)
-      .where(eq(transactions.blockHeight, blockHeight));
+    const result = await withDbRetry(
+      async () => {
+        return await db!.select().from(transactions)
+          .where(eq(transactions.blockHeight, blockHeight));
+      },
+      'select-transactions-for-block'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get transactions for block after retries');
+      return [];
+    }
+    return result;
   }
 
   async saveAddress(address: Omit<Address, "createdAt" | "updatedAt">): Promise<Address> {
     if (!db) throw new Error("Database not initialized");
     
     // Use SQL to preserve first-seen data and intelligently merge signatures
-    const [saved] = await db.insert(addresses)
-      .values(address)
-      .onConflictDoUpdate({
-        target: addresses.address,
-        set: {
-          // Only update if new activity is MORE RECENT
-          lastActivityHeight: sql`GREATEST(${addresses.lastActivityHeight}, ${address.lastActivityHeight})`,
-          lastActivityTxid: sql`CASE WHEN ${address.lastActivityHeight} > ${addresses.lastActivityHeight} THEN ${address.lastActivityTxid} ELSE ${addresses.lastActivityTxid} END`,
-          lastActivityTimestamp: sql`CASE WHEN ${address.lastActivityHeight} > ${addresses.lastActivityHeight} THEN ${address.lastActivityTimestamp} ELSE ${addresses.lastActivityTimestamp} END`,
-          
-          // Update balance ONLY if observation is more recent (or equal - to handle same-block updates)
-          // Note: Proper UTXO tracking in Phase 2 will compute balance from full UTXO set
-          currentBalance: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.currentBalance} ELSE ${addresses.currentBalance} END`,
-          
-          // Dormancy is calculated by dormancy-updater, preserve existing value
-          dormancyBlocks: addresses.dormancyBlocks,
-          isDormant: addresses.isDormant,
-          
-          // Update geometric signatures ONLY if observation is more recent
-          // This prevents rescanning old blocks from corrupting modern signatures
-          temporalSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.temporalSignature} ELSE ${addresses.temporalSignature} END`,
-          
-          valueSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.valueSignature} ELSE ${addresses.valueSignature} END`,
-          
-          graphSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.graphSignature} ELSE ${addresses.graphSignature} END`,
-          
-          scriptSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.scriptSignature} ELSE ${addresses.scriptSignature} END`,
-          
-          updatedAt: new Date(),
-        }
-      })
-      .returning();
+    const saved = await withDbRetry(
+      async () => {
+        const [result] = await db!.insert(addresses)
+          .values(address)
+          .onConflictDoUpdate({
+            target: addresses.address,
+            set: {
+              // Only update if new activity is MORE RECENT
+              lastActivityHeight: sql`GREATEST(${addresses.lastActivityHeight}, ${address.lastActivityHeight})`,
+              lastActivityTxid: sql`CASE WHEN ${address.lastActivityHeight} > ${addresses.lastActivityHeight} THEN ${address.lastActivityTxid} ELSE ${addresses.lastActivityTxid} END`,
+              lastActivityTimestamp: sql`CASE WHEN ${address.lastActivityHeight} > ${addresses.lastActivityHeight} THEN ${address.lastActivityTimestamp} ELSE ${addresses.lastActivityTimestamp} END`,
+              
+              // Update balance ONLY if observation is more recent (or equal - to handle same-block updates)
+              // Note: Proper UTXO tracking in Phase 2 will compute balance from full UTXO set
+              currentBalance: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.currentBalance} ELSE ${addresses.currentBalance} END`,
+              
+              // Dormancy is calculated by dormancy-updater, preserve existing value
+              dormancyBlocks: addresses.dormancyBlocks,
+              isDormant: addresses.isDormant,
+              
+              // Update geometric signatures ONLY if observation is more recent
+              // This prevents rescanning old blocks from corrupting modern signatures
+              temporalSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.temporalSignature} ELSE ${addresses.temporalSignature} END`,
+              
+              valueSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.valueSignature} ELSE ${addresses.valueSignature} END`,
+              
+              graphSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.graphSignature} ELSE ${addresses.graphSignature} END`,
+              
+              scriptSignature: sql`CASE WHEN ${address.lastActivityHeight} >= ${addresses.lastActivityHeight} THEN ${address.scriptSignature} ELSE ${addresses.scriptSignature} END`,
+              
+              updatedAt: new Date(),
+            }
+          })
+          .returning();
+        return result;
+      },
+      'upsert-address'
+    );
+    if (!saved) throw new Error(`Failed to save address ${address.address}`);
     return saved;
   }
 
   async updateAddress(addressStr: string, updates: Partial<Address>): Promise<void> {
     if (!db) throw new Error("Database not initialized");
-    await db.update(addresses)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(addresses.address, addressStr));
+    const result = await withDbRetry(
+      async () => {
+        await db!.update(addresses)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(addresses.address, addressStr));
+        return true;
+      },
+      'update-address'
+    );
+    if (!result) {
+      throw new Error(`[ObserverStorage] Failed to update address ${addressStr} after retries`);
+    }
   }
 
   async getAddress(addressStr: string): Promise<Address | null> {
     if (!db) throw new Error("Database not initialized");
-    const [address] = await db.select().from(addresses).where(eq(addresses.address, addressStr)).limit(1);
-    return address || null;
+    const result = await withDbRetry(
+      async () => {
+        const [address] = await db!.select().from(addresses).where(eq(addresses.address, addressStr)).limit(1);
+        return address || null;
+      },
+      'select-address'
+    );
+    return result;
   }
 
   async getDormantAddresses(filters?: {
@@ -302,77 +374,129 @@ export class ObserverStorage implements IObserverStorage {
   }): Promise<Address[]> {
     if (!db) throw new Error("Database not initialized");
     
-    const conditions = [];
-    
-    // CRITICAL: Always filter for dormant addresses only
-    conditions.push(eq(addresses.isDormant, true));
-    
-    if (filters?.minBalance !== undefined) {
-      conditions.push(gte(addresses.currentBalance, BigInt(filters.minBalance)));
+    const result = await withDbRetry(
+      async () => {
+        const conditions = [];
+        
+        // CRITICAL: Always filter for dormant addresses only
+        conditions.push(eq(addresses.isDormant, true));
+        
+        if (filters?.minBalance !== undefined) {
+          conditions.push(gte(addresses.currentBalance, BigInt(filters.minBalance)));
+        }
+        
+        if (filters?.minInactivityDays !== undefined) {
+          const inactivityThreshold = new Date();
+          inactivityThreshold.setDate(inactivityThreshold.getDate() - filters.minInactivityDays);
+          conditions.push(lte(addresses.lastActivityTimestamp, inactivityThreshold));
+        }
+        
+        let query = db!.select().from(addresses).where(and(...conditions));
+        
+        query = query.orderBy(desc(addresses.currentBalance)) as any;
+        
+        if (filters?.limit !== undefined) {
+          query = query.limit(filters.limit) as any;
+        }
+        
+        if (filters?.offset !== undefined) {
+          query = query.offset(filters.offset) as any;
+        }
+        
+        return await query;
+      },
+      'select-dormant-addresses'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get dormant addresses after retries');
+      return [];
     }
-    
-    if (filters?.minInactivityDays !== undefined) {
-      const inactivityThreshold = new Date();
-      inactivityThreshold.setDate(inactivityThreshold.getDate() - filters.minInactivityDays);
-      conditions.push(lte(addresses.lastActivityTimestamp, inactivityThreshold));
-    }
-    
-    let query = db.select().from(addresses).where(and(...conditions));
-    
-    query = query.orderBy(desc(addresses.currentBalance)) as any;
-    
-    if (filters?.limit !== undefined) {
-      query = query.limit(filters.limit) as any;
-    }
-    
-    if (filters?.offset !== undefined) {
-      query = query.offset(filters.offset) as any;
-    }
-    
-    return await query;
+    return result;
   }
 
   async getAllAddresses(limit?: number, offset?: number): Promise<Address[]> {
     if (!db) throw new Error("Database not initialized");
     
-    let query = db.select().from(addresses).orderBy(asc(addresses.firstSeenHeight));
-    
-    if (limit !== undefined) {
-      query = query.limit(limit) as any;
+    const result = await withDbRetry(
+      async () => {
+        let query = db!.select().from(addresses).orderBy(asc(addresses.firstSeenHeight));
+        
+        if (limit !== undefined) {
+          query = query.limit(limit) as any;
+        }
+        
+        if (offset !== undefined) {
+          query = query.offset(offset) as any;
+        }
+        
+        return await query;
+      },
+      'select-all-addresses'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get all addresses after retries');
+      return [];
     }
-    
-    if (offset !== undefined) {
-      query = query.offset(offset) as any;
-    }
-    
-    return await query;
+    return result;
   }
 
   async saveEntity(entity: Omit<Entity, "createdAt" | "updatedAt">): Promise<Entity> {
     if (!db) throw new Error("Database not initialized");
-    const [saved] = await db.insert(entities).values(entity).returning();
+    const saved = await withDbRetry(
+      async () => {
+        const [result] = await db!.insert(entities).values(entity).returning();
+        return result;
+      },
+      'insert-entity'
+    );
+    if (!saved) throw new Error(`Failed to save entity ${entity.id}`);
     return saved;
   }
 
   async getEntity(id: string): Promise<Entity | null> {
     if (!db) throw new Error("Database not initialized");
-    const [entity] = await db.select().from(entities).where(eq(entities.id, id)).limit(1);
-    return entity || null;
+    const result = await withDbRetry(
+      async () => {
+        const [entity] = await db!.select().from(entities).where(eq(entities.id, id)).limit(1);
+        return entity || null;
+      },
+      'select-entity'
+    );
+    return result;
   }
 
   async getEntities(type?: string): Promise<Entity[]> {
     if (!db) throw new Error("Database not initialized");
-    if (type) {
-      return await db.select().from(entities).where(eq(entities.type, type));
+    const result = await withDbRetry(
+      async () => {
+        if (type) {
+          return await db!.select().from(entities).where(eq(entities.type, type));
+        }
+        return await db!.select().from(entities);
+      },
+      'select-entities'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get entities after retries');
+      return [];
     }
-    return await db.select().from(entities);
+    return result;
   }
 
   async updateEntity(id: string, updates: Partial<Entity>): Promise<void> {
     if (!db) throw new Error("Database not initialized");
-    await db.update(entities)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(entities.id, id));
+    const result = await withDbRetry(
+      async () => {
+        await db!.update(entities)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(entities.id, id));
+        return true;
+      },
+      'update-entity'
+    );
+    if (!result) {
+      throw new Error(`[ObserverStorage] Failed to update entity ${id} after retries`);
+    }
   }
 
   async searchEntities(filters?: {
@@ -387,54 +511,60 @@ export class ObserverStorage implements IObserverStorage {
   }): Promise<Entity[]> {
     if (!db) throw new Error("Database not initialized");
     
-    const conditions = [];
-    
-    if (filters?.name) {
-      // Case-insensitive name search
-      conditions.push(sql`LOWER(${entities.name}) LIKE LOWER(${'%' + filters.name + '%'})`);
+    const result = await withDbRetry(
+      async () => {
+        const conditions = [];
+        
+        if (filters?.name) {
+          conditions.push(sql`LOWER(${entities.name}) LIKE LOWER(${'%' + filters.name + '%'})`);
+        }
+        
+        if (filters?.bitcoinTalkUsername) {
+          conditions.push(eq(entities.bitcoinTalkUsername, filters.bitcoinTalkUsername));
+        }
+        
+        if (filters?.githubUsername) {
+          conditions.push(eq(entities.githubUsername, filters.githubUsername));
+        }
+        
+        if (filters?.email) {
+          conditions.push(sql`${filters.email} = ANY(${entities.emailAddresses})`);
+        }
+        
+        if (filters?.alias) {
+          conditions.push(sql`${filters.alias} = ANY(${entities.aliases})`);
+        }
+        
+        if (filters?.type) {
+          conditions.push(eq(entities.type, filters.type));
+        }
+        
+        let query = db!.select().from(entities);
+        
+        if (conditions.length > 0) {
+          const whereClause = conditions.length === 1 
+            ? conditions[0] 
+            : and(...conditions);
+          query = query.where(whereClause) as any;
+        }
+        
+        if (filters?.limit !== undefined) {
+          query = query.limit(filters.limit) as any;
+        }
+        
+        if (filters?.offset !== undefined) {
+          query = query.offset(filters.offset) as any;
+        }
+        
+        return await query;
+      },
+      'search-entities'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to search entities after retries');
+      return [];
     }
-    
-    if (filters?.bitcoinTalkUsername) {
-      conditions.push(eq(entities.bitcoinTalkUsername, filters.bitcoinTalkUsername));
-    }
-    
-    if (filters?.githubUsername) {
-      conditions.push(eq(entities.githubUsername, filters.githubUsername));
-    }
-    
-    if (filters?.email) {
-      // Search in emailAddresses array
-      conditions.push(sql`${filters.email} = ANY(${entities.emailAddresses})`);
-    }
-    
-    if (filters?.alias) {
-      // Search in aliases array
-      conditions.push(sql`${filters.alias} = ANY(${entities.aliases})`);
-    }
-    
-    if (filters?.type) {
-      conditions.push(eq(entities.type, filters.type));
-    }
-    
-    let query = db.select().from(entities);
-    
-    if (conditions.length > 0) {
-      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
-      const whereClause = conditions.length === 1 
-        ? conditions[0] 
-        : and(...conditions);
-      query = query.where(whereClause) as any;
-    }
-    
-    if (filters?.limit !== undefined) {
-      query = query.limit(filters.limit) as any;
-    }
-    
-    if (filters?.offset !== undefined) {
-      query = query.offset(filters.offset) as any;
-    }
-    
-    return await query;
+    return result;
   }
 
   async findEntityByIdentity(identity: {
@@ -455,7 +585,6 @@ export class ObserverStorage implements IObserverStorage {
     }
     
     if (identity.email) {
-      // Search in emailAddresses array
       conditions.push(sql`${identity.email} = ANY(${entities.emailAddresses})`);
     }
     
@@ -463,74 +592,128 @@ export class ObserverStorage implements IObserverStorage {
       return null;
     }
     
-    // Use OR logic to find entity matching any identity
-    // CRITICAL: or() requires at least 2 conditions, so handle single condition case
-    const whereClause = conditions.length === 1 
-      ? conditions[0] 
-      : or(...conditions);
-    
-    const [entity] = await db.select().from(entities)
-      .where(whereClause)
-      .limit(1);
-    
-    return entity || null;
+    const result = await withDbRetry(
+      async () => {
+        const whereClause = conditions.length === 1 
+          ? conditions[0] 
+          : or(...conditions);
+        
+        const [entity] = await db!.select().from(entities)
+          .where(whereClause)
+          .limit(1);
+        
+        return entity || null;
+      },
+      'find-entity-by-identity'
+    );
+    return result;
   }
 
   async saveArtifact(artifact: Omit<Artifact, "createdAt">): Promise<Artifact> {
     if (!db) throw new Error("Database not initialized");
-    const [saved] = await db.insert(artifacts).values(artifact).returning();
+    const saved = await withDbRetry(
+      async () => {
+        const [result] = await db!.insert(artifacts).values(artifact).returning();
+        return result;
+      },
+      'insert-artifact'
+    );
+    if (!saved) throw new Error(`Failed to save artifact ${artifact.id}`);
     return saved;
   }
 
   async getArtifacts(filters?: { entityId?: string; source?: string }): Promise<Artifact[]> {
     if (!db) throw new Error("Database not initialized");
     
-    const conditions = [];
-    
-    if (filters?.entityId) {
-      conditions.push(eq(artifacts.entityId, filters.entityId));
+    const result = await withDbRetry(
+      async () => {
+        const conditions = [];
+        
+        if (filters?.entityId) {
+          conditions.push(eq(artifacts.entityId, filters.entityId));
+        }
+        
+        if (filters?.source) {
+          conditions.push(eq(artifacts.source, filters.source));
+        }
+        
+        if (conditions.length > 0) {
+          const whereClause = conditions.length === 1 
+            ? conditions[0] 
+            : and(...conditions);
+          return await db!.select().from(artifacts).where(whereClause);
+        }
+        
+        return await db!.select().from(artifacts);
+      },
+      'select-artifacts'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get artifacts after retries');
+      return [];
     }
-    
-    if (filters?.source) {
-      conditions.push(eq(artifacts.source, filters.source));
-    }
-    
-    if (conditions.length > 0) {
-      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
-      const whereClause = conditions.length === 1 
-        ? conditions[0] 
-        : and(...conditions);
-      return await db.select().from(artifacts).where(whereClause);
-    }
-    
-    return await db.select().from(artifacts);
+    return result;
   }
   
   async getEntitiesByAddress(address: string): Promise<Entity[]> {
     if (!db) throw new Error("Database not initialized");
-    // Find entities that have this address in their knownAddresses array
-    return await db.select().from(entities)
-      .where(sql`${address} = ANY(${entities.knownAddresses})`);
+    const result = await withDbRetry(
+      async () => {
+        return await db!.select().from(entities)
+          .where(sql`${address} = ANY(${entities.knownAddresses})`);
+      },
+      'select-entities-by-address'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get entities by address after retries');
+      return [];
+    }
+    return result;
   }
   
   async getArtifactsByAddress(address: string): Promise<Artifact[]> {
     if (!db) throw new Error("Database not initialized");
-    // Find artifacts that have this address in their relatedAddresses array
-    return await db.select().from(artifacts)
-      .where(sql`${address} = ANY(${artifacts.relatedAddresses})`);
+    const result = await withDbRetry(
+      async () => {
+        return await db!.select().from(artifacts)
+          .where(sql`${address} = ANY(${artifacts.relatedAddresses})`);
+      },
+      'select-artifacts-by-address'
+    );
+    if (!result) {
+      console.warn('[ObserverStorage] Failed to get artifacts by address after retries');
+      return [];
+    }
+    return result;
   }
 
   async saveRecoveryPriority(priority: Omit<RecoveryPriority, "createdAt" | "updatedAt">): Promise<RecoveryPriority> {
     if (!db) throw new Error("Database not initialized");
-    const [saved] = await db.insert(recoveryPriorities).values(priority).returning();
+    const saved = await withDbRetry(
+      async () => {
+        const [result] = await db!.insert(recoveryPriorities).values(priority).returning();
+        return result;
+      },
+      'insert-recovery-priority'
+    );
+    if (!saved) throw new Error(`Failed to save recovery priority ${priority.id}`);
     return saved;
   }
 
   async updateRecoveryPriority(id: string, updates: Partial<RecoveryPriority>): Promise<void> {
     if (!db) throw new Error("Database not initialized");
-    await db.update(recoveryPriorities)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(recoveryPriorities.id, id));
+    const result = await withDbRetry(
+      async () => {
+        await db!.update(recoveryPriorities)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(recoveryPriorities.id, id));
+        return true;
+      },
+      'update-recovery-priority'
+    );
+    if (!result) {
+      throw new Error(`[ObserverStorage] Failed to update recovery priority ${id} after retries`);
+    }
   }
 
   async getRecoveryPriorities(filters?: {
@@ -542,41 +725,50 @@ export class ObserverStorage implements IObserverStorage {
   }): Promise<RecoveryPriority[]> {
     if (!db) throw new Error("Database not initialized");
     
-    const conditions = [];
+    const priorities = await withDbRetry(
+      async () => {
+        const conditions = [];
+        
+        if (filters?.minKappa !== undefined) {
+          conditions.push(gte(recoveryPriorities.kappaRecovery, filters.minKappa));
+        }
+        
+        if (filters?.maxKappa !== undefined) {
+          conditions.push(lte(recoveryPriorities.kappaRecovery, filters.maxKappa));
+        }
+        
+        if (filters?.status) {
+          conditions.push(eq(recoveryPriorities.recoveryStatus, filters.status));
+        }
+        
+        let query = db!.select().from(recoveryPriorities);
+        
+        if (conditions.length > 0) {
+          const whereClause = conditions.length === 1 
+            ? conditions[0] 
+            : and(...conditions);
+          query = query.where(whereClause) as any;
+        }
+        
+        query = query.orderBy(desc(recoveryPriorities.kappaRecovery)) as any;
+        
+        if (filters?.limit !== undefined) {
+          query = query.limit(filters.limit) as any;
+        }
+        
+        if (filters?.offset !== undefined) {
+          query = query.offset(filters.offset) as any;
+        }
+        
+        return await query;
+      },
+      'select-recovery-priorities'
+    );
     
-    if (filters?.minKappa !== undefined) {
-      conditions.push(gte(recoveryPriorities.kappaRecovery, filters.minKappa));
+    if (!priorities) {
+      console.warn('[ObserverStorage] Failed to get recovery priorities after retries');
+      return [];
     }
-    
-    if (filters?.maxKappa !== undefined) {
-      conditions.push(lte(recoveryPriorities.kappaRecovery, filters.maxKappa));
-    }
-    
-    if (filters?.status) {
-      conditions.push(eq(recoveryPriorities.recoveryStatus, filters.status));
-    }
-    
-    let query = db.select().from(recoveryPriorities);
-    
-    if (conditions.length > 0) {
-      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
-      const whereClause = conditions.length === 1 
-        ? conditions[0] 
-        : and(...conditions);
-      query = query.where(whereClause) as any;
-    }
-    
-    query = query.orderBy(desc(recoveryPriorities.kappaRecovery)) as any;
-    
-    if (filters?.limit !== undefined) {
-      query = query.limit(filters.limit) as any;
-    }
-    
-    if (filters?.offset !== undefined) {
-      query = query.offset(filters.offset) as any;
-    }
-    
-    const priorities = await query;
     
     // Normalize old field names to new schema (Task 7 migration)
     for (const priority of priorities) {
@@ -588,9 +780,14 @@ export class ObserverStorage implements IObserverStorage {
       // Persist normalized constraints back to database (write-through migration)
       if (hadLegacy) {
         console.log(`[ObserverStorage] Write-through migration: priority ${priority.address}`);
-        await db.update(recoveryPriorities)
-          .set({ constraints: normalized, updatedAt: new Date() })
-          .where(eq(recoveryPriorities.address, priority.address));
+        await withDbRetry(
+          async () => {
+            await db!.update(recoveryPriorities)
+              .set({ constraints: normalized, updatedAt: new Date() })
+              .where(eq(recoveryPriorities.address, priority.address));
+          },
+          'migrate-recovery-priority-constraints'
+        );
       }
     }
     
@@ -599,7 +796,13 @@ export class ObserverStorage implements IObserverStorage {
 
   async getRecoveryPriority(address: string): Promise<RecoveryPriority | null> {
     if (!db) throw new Error("Database not initialized");
-    const [priority] = await db.select().from(recoveryPriorities).where(eq(recoveryPriorities.address, address)).limit(1);
+    const priority = await withDbRetry(
+      async () => {
+        const [row] = await db!.select().from(recoveryPriorities).where(eq(recoveryPriorities.address, address)).limit(1);
+        return row || null;
+      },
+      'select-recovery-priority'
+    );
     
     if (!priority) return null;
     
@@ -613,9 +816,14 @@ export class ObserverStorage implements IObserverStorage {
     // TODO: Consider batch migration script for high-traffic scenarios
     if (hadLegacy) {
       console.log(`[ObserverStorage] Write-through migration: priority ${address}`);
-      await db.update(recoveryPriorities)
-        .set({ constraints: normalized, updatedAt: new Date() })
-        .where(eq(recoveryPriorities.address, address));
+      await withDbRetry(
+        async () => {
+          await db!.update(recoveryPriorities)
+            .set({ constraints: normalized, updatedAt: new Date() })
+            .where(eq(recoveryPriorities.address, address));
+        },
+        'migrate-recovery-priority-constraints'
+      );
     }
     
     return priority;
@@ -623,15 +831,31 @@ export class ObserverStorage implements IObserverStorage {
 
   async saveRecoveryWorkflow(workflow: Omit<RecoveryWorkflow, "createdAt" | "updatedAt">): Promise<RecoveryWorkflow> {
     if (!db) throw new Error("Database not initialized");
-    const [saved] = await db.insert(recoveryWorkflows).values(workflow).returning();
+    const saved = await withDbRetry(
+      async () => {
+        const [result] = await db!.insert(recoveryWorkflows).values(workflow).returning();
+        return result;
+      },
+      'insert-recovery-workflow'
+    );
+    if (!saved) throw new Error(`Failed to save recovery workflow ${workflow.id}`);
     return saved;
   }
 
   async updateRecoveryWorkflow(id: string, updates: Partial<RecoveryWorkflow>): Promise<void> {
     if (!db) throw new Error("Database not initialized");
-    await db.update(recoveryWorkflows)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(recoveryWorkflows.id, id));
+    const result = await withDbRetry(
+      async () => {
+        await db!.update(recoveryWorkflows)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(recoveryWorkflows.id, id));
+        return true;
+      },
+      'update-recovery-workflow'
+    );
+    if (!result) {
+      throw new Error(`[ObserverStorage] Failed to update recovery workflow ${id} after retries`);
+    }
   }
 
   async getRecoveryWorkflows(filters?: {
@@ -655,15 +879,23 @@ export class ObserverStorage implements IObserverStorage {
       conditions.push(eq(recoveryWorkflows.status, filters.status));
     }
     
-    let workflows;
-    if (conditions.length > 0) {
-      // CRITICAL: and() requires at least 2 conditions, so handle single condition case
-      const whereClause = conditions.length === 1 
-        ? conditions[0] 
-        : and(...conditions);
-      workflows = await db.select().from(recoveryWorkflows).where(whereClause);
-    } else {
-      workflows = await db.select().from(recoveryWorkflows);
+    const workflows = await withDbRetry(
+      async () => {
+        if (conditions.length > 0) {
+          const whereClause = conditions.length === 1 
+            ? conditions[0] 
+            : and(...conditions);
+          return await db!.select().from(recoveryWorkflows).where(whereClause);
+        } else {
+          return await db!.select().from(recoveryWorkflows);
+        }
+      },
+      'select-recovery-workflows'
+    );
+    
+    if (!workflows) {
+      console.warn('[ObserverStorage] Failed to get recovery workflows after retries');
+      return [];
     }
     
     // Normalize workflow progress for constrained_search workflows
@@ -673,9 +905,14 @@ export class ObserverStorage implements IObserverStorage {
       // Persist normalized progress back to database (write-through migration)
       if (wasNormalized) {
         console.log(`[ObserverStorage] Write-through migration: workflow ${workflow.id} progress`);
-        await db.update(recoveryWorkflows)
-          .set({ progress: workflow.progress, updatedAt: new Date() })
-          .where(eq(recoveryWorkflows.id, workflow.id));
+        await withDbRetry(
+          async () => {
+            await db!.update(recoveryWorkflows)
+              .set({ progress: workflow.progress, updatedAt: new Date() })
+              .where(eq(recoveryWorkflows.id, workflow.id));
+          },
+          'migrate-recovery-workflow-progress'
+        );
       }
     }
     
@@ -684,7 +921,13 @@ export class ObserverStorage implements IObserverStorage {
 
   async getRecoveryWorkflow(id: string): Promise<RecoveryWorkflow | null> {
     if (!db) throw new Error("Database not initialized");
-    const [workflow] = await db.select().from(recoveryWorkflows).where(eq(recoveryWorkflows.id, id)).limit(1);
+    const workflow = await withDbRetry(
+      async () => {
+        const [row] = await db!.select().from(recoveryWorkflows).where(eq(recoveryWorkflows.id, id)).limit(1);
+        return row || null;
+      },
+      'select-recovery-workflow'
+    );
     
     if (!workflow) return null;
     
@@ -694,9 +937,14 @@ export class ObserverStorage implements IObserverStorage {
     // Persist normalized progress back to database (write-through migration)
     if (wasNormalized) {
       console.log(`[ObserverStorage] Write-through migration: workflow ${id} progress`);
-      await db.update(recoveryWorkflows)
-        .set({ progress: workflow.progress, updatedAt: new Date() })
-        .where(eq(recoveryWorkflows.id, id));
+      await withDbRetry(
+        async () => {
+          await db!.update(recoveryWorkflows)
+            .set({ progress: workflow.progress, updatedAt: new Date() })
+            .where(eq(recoveryWorkflows.id, id));
+        },
+        'migrate-recovery-workflow-progress'
+      );
     }
     
     return workflow;
@@ -705,7 +953,17 @@ export class ObserverStorage implements IObserverStorage {
   async findWorkflowBySearchJobId(searchJobId: string): Promise<RecoveryWorkflow | null> {
     if (!db) throw new Error("Database not initialized");
     
-    const allWorkflows = await db.select().from(recoveryWorkflows);
+    const allWorkflows = await withDbRetry(
+      async () => {
+        return await db!.select().from(recoveryWorkflows);
+      },
+      'select-all-workflows-for-search'
+    );
+    
+    if (!allWorkflows) {
+      console.warn('[ObserverStorage] Failed to get workflows for search after retries');
+      return null;
+    }
     
     for (const workflow of allWorkflows) {
       const progress = workflow.progress as any;

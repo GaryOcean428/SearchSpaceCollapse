@@ -15,7 +15,7 @@ import {
   type BalanceChangeEvent,
 } from './blockchain-scanner';
 
-import { db } from './db';
+import { db, withDbRetry } from './db';
 import { balanceMonitorState } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
@@ -67,8 +67,16 @@ class BalanceMonitor {
     // Try PostgreSQL first
     if (db) {
       try {
-        const rows = await db.select().from(balanceMonitorState).where(eq(balanceMonitorState.id, STATE_ID));
-        if (rows.length > 0) {
+        const rows = await withDbRetry(
+          async () => {
+            return await db!.select().from(balanceMonitorState).where(eq(balanceMonitorState.id, STATE_ID));
+          },
+          'select-balance-monitor-state'
+        );
+        
+        if (!rows) {
+          console.warn('[BalanceMonitor] Failed to load state from PostgreSQL after retries');
+        } else if (rows.length > 0) {
           const row = rows[0];
           this.state = {
             enabled: row.enabled,
@@ -86,8 +94,9 @@ class BalanceMonitor {
           };
           console.log(`[BalanceMonitor] Loaded state from PostgreSQL: enabled=${this.state.enabled}`);
           return;
+        } else {
+          console.log(`[BalanceMonitor] No PostgreSQL state found, creating default...`);
         }
-        console.log(`[BalanceMonitor] No PostgreSQL state found, creating default...`);
       } catch (error) {
         console.error('[BalanceMonitor] PostgreSQL load error:', error);
       }
@@ -95,26 +104,34 @@ class BalanceMonitor {
 
     // Default state - insert into PostgreSQL
     if (db) {
-      try {
-        await db.insert(balanceMonitorState).values({
-          id: STATE_ID,
-          enabled: this.state.enabled,
-          refreshIntervalMinutes: this.state.refreshIntervalMinutes,
-          totalRefreshes: 0,
-          isRefreshing: false,
-        }).onConflictDoNothing();
+      const insertResult = await withDbRetry(
+        async () => {
+          await db!.insert(balanceMonitorState).values({
+            id: STATE_ID,
+            enabled: this.state.enabled,
+            refreshIntervalMinutes: this.state.refreshIntervalMinutes,
+            totalRefreshes: 0,
+            isRefreshing: false,
+          }).onConflictDoNothing();
+          return true;
+        },
+        'insert-balance-monitor-default-state'
+      );
+      if (insertResult) {
         console.log(`[BalanceMonitor] Created default state in PostgreSQL`);
-      } catch (error) {
-        console.error('[BalanceMonitor] Failed to create default state:', error);
+      } else {
+        console.warn(`[BalanceMonitor] Failed to create default state in PostgreSQL after retries`);
       }
     }
   }
 
-  private async saveState(): Promise<void> {
+  private async saveState(): Promise<boolean> {
     // Save to PostgreSQL using upsert
-    if (db) {
-      try {
-        await db.insert(balanceMonitorState).values({
+    if (!db) return false;
+    
+    const result = await withDbRetry(
+      async () => {
+        await db!.insert(balanceMonitorState).values({
           id: STATE_ID,
           enabled: this.state.enabled,
           refreshIntervalMinutes: this.state.refreshIntervalMinutes,
@@ -140,10 +157,16 @@ class BalanceMonitor {
             updatedAt: new Date(),
           }
         });
-      } catch (error) {
-        console.error('[BalanceMonitor] PostgreSQL save error:', error);
-      }
+        return true;
+      },
+      'upsert-balance-monitor-state'
+    );
+    
+    if (!result) {
+      console.error('[BalanceMonitor] Failed to save state to PostgreSQL after retries');
+      return false;
     }
+    return true;
   }
 
   /**
