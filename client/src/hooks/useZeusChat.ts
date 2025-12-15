@@ -142,8 +142,17 @@ export function useZeusChat(): UseZeusChatReturn {
       }
       
     } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      console.error('[useZeusChat] Error:', errMsg, error);
+      // Properly serialize error for logging
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error('[useZeusChat] Error:', {
+        message: errorMessage,
+        stack: errorStack,
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+        } : error,
+      });
       setSyncStatus('error');
       
       const errorData = (error as { response?: { data?: { validation_type?: string; phi?: number; kappa?: number; regime?: string; error?: string } } })?.response?.data;
@@ -209,8 +218,17 @@ export function useZeusChat(): UseZeusChatReturn {
       setMessages(prev => [...prev, zeusMessage]);
       
     } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      console.error('[useZeusChat] Search error:', errMsg, error);
+      // Properly serialize error for logging
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error('[useZeusChat] Search error:', {
+        message: errorMessage,
+        stack: errorStack,
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+        } : error,
+      });
       setLastError({
         type: 'search',
         message: `Tavily search error: ${errMsg}`,
