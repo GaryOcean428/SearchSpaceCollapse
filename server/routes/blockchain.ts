@@ -23,7 +23,7 @@ balanceHitsRouter.get("/", standardLimiter, async (req: Request, res: Response) 
     res.set('Cache-Control', 'no-store');
     const activeOnly = req.query.active === 'true';
     
-    const hits = activeOnly ? getActiveBalanceHits() : getBalanceHits();
+    const hits = activeOnly ? await getActiveBalanceHits() : await getBalanceHits();
     const totalBalance = hits.reduce((sum, h) => sum + h.balanceSats, 0);
     
     res.json({
@@ -167,7 +167,7 @@ balanceMonitorRouter.get("/status", standardLimiter, async (req: Request, res: R
   try {
     res.set('Cache-Control', 'no-store');
     const { balanceMonitor } = await import("../balance-monitor");
-    const status = balanceMonitor.getStatus();
+    const status = await balanceMonitor.getStatus();
     res.json(status);
   } catch (error: any) {
     console.error("[BalanceMonitor] Status error:", error);
@@ -178,7 +178,7 @@ balanceMonitorRouter.get("/status", standardLimiter, async (req: Request, res: R
 balanceMonitorRouter.post("/enable", isAuthenticated, standardLimiter, async (req: any, res: Response) => {
   try {
     const { balanceMonitor } = await import("../balance-monitor");
-    const result = balanceMonitor.enable();
+    const result = await balanceMonitor.enable();
     res.json(result);
   } catch (error: any) {
     console.error("[BalanceMonitor] Enable error:", error);
@@ -347,7 +347,7 @@ balanceQueueRouter.post("/clear-failed", isAuthenticated, standardLimiter, (req:
 balanceQueueRouter.get("/background", standardLimiter, async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
-    const dbHits = getBalanceHits();
+    const dbHits = await getBalanceHits();
     const dbHitCount = dbHits.length;
     
     if (!balanceQueue.isReady()) {

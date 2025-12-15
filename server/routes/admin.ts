@@ -170,7 +170,7 @@ adminRouter.get("/admin/metrics", generousLimiter, async (req: Request, res: Res
   try {
     const jobs = await storage.getSearchJobs();
     const candidates = await storage.getCandidates();
-    const balanceHits = getActiveBalanceHits();
+    const balanceHits = await getActiveBalanceHits();
     const queueStats = getQueueIntegrationStats();
 
     const completedJobs = jobs.filter(j => j.status === 'completed');

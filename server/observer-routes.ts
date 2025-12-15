@@ -2631,8 +2631,8 @@ router.get("/discoveries/stats", async (req: Request, res: Response) => {
     await dormantCrossRef.ensureLoaded();
     
     const queueStats = getQueueIntegrationStats();
-    const allHits = getBalanceHits();
-    const activeHits = getActiveBalanceHits();
+    const allHits = await getBalanceHits();
+    const activeHits = await getActiveBalanceHits();
     const dormantStats = dormantCrossRef.getStats();
     
     res.json({
@@ -2671,7 +2671,7 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
     
     await dormantCrossRef.ensureLoaded();
     
-    let hits = getBalanceHits();
+    let hits = await getBalanceHits();
     const dormantMatches = dormantCrossRef.getAllMatches();
     
     // Filter to specific address if requested
@@ -2739,8 +2739,8 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
         matchedAt: m.matchedAt,
       })),
       summary: {
-        totalHits: getBalanceHits().length,
-        withBalance: getBalanceHits().filter(h => h.balanceSats > 0).length,
+        totalHits: hits.length,
+        withBalance: hits.filter(h => h.balanceSats > 0).length,
         dormantMatchCount: dormantMatches.length,
       },
       timestamp: new Date().toISOString(),
@@ -3133,7 +3133,7 @@ async function runTargetedQIGSearch(
         
         // Check for discovery after each batch
         if (session.phrasesTestedSinceStart % batchSize === 0) {
-          const hits = getBalanceHits();
+          const hits = await getBalanceHits();
           const newDiscoveries = hits.filter(h => 
             h.discoveredAt && 
             new Date(h.discoveredAt) > new Date(session.startedAt)

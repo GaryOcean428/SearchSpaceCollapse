@@ -253,12 +253,12 @@ class BalanceMonitor {
   /**
    * Enable the balance monitor
    */
-  enable(): { success: boolean; message: string } {
+  async enable(): Promise<{ success: boolean; message: string }> {
     if (this.state.enabled) {
       return { success: true, message: 'Balance monitor is already enabled.' };
     }
 
-    const balanceHits = getBalanceHits();
+    const balanceHits = await getBalanceHits();
     if (balanceHits.length === 0) {
       return { 
         success: false, 
@@ -355,7 +355,7 @@ class BalanceMonitor {
   /**
    * Get the current status of the balance monitor
    */
-  getStatus(): {
+  async getStatus(): Promise<{
     enabled: boolean;
     isRefreshing: boolean;
     refreshIntervalMinutes: number;
@@ -366,9 +366,9 @@ class BalanceMonitor {
     activeAddresses: number;
     staleAddresses: number;
     recentChanges: BalanceChangeEvent[];
-  } {
-    const balanceHits = getBalanceHits();
-    const activeHits = getActiveBalanceHits();
+  }> {
+    const balanceHits = await getBalanceHits();
+    const activeHits = await getActiveBalanceHits();
     const staleHits = getStaleBalanceHits(this.state.refreshIntervalMinutes);
     const recentChanges = getBalanceChanges().slice(-10); // Last 10 changes
 

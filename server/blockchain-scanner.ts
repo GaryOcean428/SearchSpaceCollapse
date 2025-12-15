@@ -577,17 +577,63 @@ export async function checkAndRecordBalance(
 }
 
 /**
- * Get all recorded balance hits
+ * Get all recorded balance hits from PostgreSQL
+ * Returns user-scoped balance hits if userId provided, otherwise all
  */
-export function getBalanceHits(): BalanceHit[] {
-  return [...balanceHits];
+export async function getBalanceHits(userId?: string): Promise<BalanceHit[]> {
+  if (!db) {
+    console.warn('[BlockchainScanner] Database not available');
+    return [];
+  }
+
+  try {
+    const { desc } = await import("drizzle-orm");
+
+    let results;
+    if (userId) {
+      results = await db
+        .select()
+        .from(balanceHitsTable)
+        .where(eq(balanceHitsTable.userId, userId))
+        .orderBy(desc(balanceHitsTable.discoveredAt));
+    } else {
+      results = await db
+        .select()
+        .from(balanceHitsTable)
+        .orderBy(desc(balanceHitsTable.discoveredAt));
+    }
+
+    return results.map(row => ({
+      address: row.address,
+      passphrase: row.passphrase ?? '',
+      balanceSats: row.balanceSats ?? 0,
+      balanceBTC: row.balanceBtc ?? '0',
+      txCount: row.txCount ?? 0,
+      walletType: row.walletType ?? 'unknown',
+      recoveryType: row.recoveryType ?? 'unknown',
+      discoveredAt: row.discoveredAt?.toISOString() ?? new Date().toISOString(),
+      lastChecked: row.lastChecked?.toISOString(),
+      previousBalanceSats: row.previousBalanceSats ?? undefined,
+      balanceChanged: row.balanceChanged ?? false,
+      changeDetectedAt: row.changeDetectedAt?.toISOString(),
+      isDormantConfirmed: row.isDormantConfirmed ?? false,
+      dormantConfirmedAt: row.dormantConfirmedAt?.toISOString(),
+      originalInput: row.originalInput ?? undefined,
+      derivationPath: row.derivationPath ?? undefined,
+      mnemonicWordCount: row.mnemonicWordCount ?? undefined,
+    }));
+  } catch (error) {
+    console.error('[BlockchainScanner] Error fetching balance hits from DB:', error);
+    return [];
+  }
 }
 
 /**
- * Get balance hits with non-zero balance
+ * Get balance hits with non-zero balance from PostgreSQL
  */
-export function getActiveBalanceHits(): BalanceHit[] {
-  return balanceHits.filter(h => h.balanceSats > 0);
+export async function getActiveBalanceHits(userId?: string): Promise<BalanceHit[]> {
+  const allHits = await getBalanceHits(userId);
+  return allHits.filter(h => h.balanceSats > 0);
 }
 
 /**

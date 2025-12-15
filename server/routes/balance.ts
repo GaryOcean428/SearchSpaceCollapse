@@ -21,7 +21,7 @@ balanceRouter.get("/hits", standardLimiter, async (req: Request, res: Response) 
     res.set('Cache-Control', 'no-store');
     const activeOnly = req.query.active === 'true';
     
-    const hits = activeOnly ? getActiveBalanceHits() : getBalanceHits();
+    const hits = activeOnly ? await getActiveBalanceHits() : await getBalanceHits();
     const totalBalance = hits.reduce((sum, h) => sum + h.balanceSats, 0);
     
     res.json({

@@ -41,14 +41,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-# PostgreSQL support for persistence
+# PostgreSQL support for persistence - REQUIRED, no fallback
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
-    PSYCOPG2_AVAILABLE = True
 except ImportError:
-    PSYCOPG2_AVAILABLE = False
-    print("[ShadowPantheon] WARNING: psycopg2 not installed - persistence disabled")
+    raise ImportError("[ShadowPantheon] FATAL: psycopg2 not installed - PostgreSQL is REQUIRED, no fallback")
 
 from .base_god import BASIN_DIMENSION, BaseGod
 
@@ -211,22 +209,17 @@ class ShadowPantheonPersistence:
     """
 
     def __init__(self):
-        """Initialize persistence layer with DATABASE_URL from environment."""
+        """Initialize persistence layer - PostgreSQL REQUIRED, no fallback."""
         self.database_url = os.environ.get('DATABASE_URL')
-        self.enabled = PSYCOPG2_AVAILABLE and bool(self.database_url)
         
-        if self.enabled:
-            print("[ShadowPantheonPersistence] ✓ PostgreSQL persistence enabled")
-        else:
-            print("[ShadowPantheonPersistence] Running in memory-only mode (no DB)")
+        if not self.database_url:
+            raise RuntimeError("[ShadowPantheonPersistence] FATAL: DATABASE_URL not set - PostgreSQL is REQUIRED")
+        
+        print("[ShadowPantheonPersistence] ✓ PostgreSQL persistence enabled (NO FALLBACK)")
 
     @contextmanager
     def get_connection(self):
-        """Get a database connection with automatic cleanup."""
-        if not self.enabled:
-            yield None
-            return
-
+        """Get a database connection with automatic cleanup. PostgreSQL REQUIRED."""
         conn = None
         try:
             conn = psycopg2.connect(self.database_url)
@@ -285,51 +278,42 @@ class ShadowPantheonPersistence:
             anonymous: Whether operation was anonymous
             
         Returns:
-            intel_id (UUID) if successful, None otherwise
+            intel_id (UUID) if successful
+            
+        Raises:
+            RuntimeError: If database operation fails (NO FALLBACK)
         """
-        if not self.enabled:
-            return None
-
         intel_id = str(uuid.uuid4())
         
-        try:
-            with self.get_connection() as conn:
-                if conn is None:
-                    return None
-                with conn.cursor() as cur:
-                    # Prepare sources_used as a proper PostgreSQL TEXT[] array
-                    # psycopg2 handles Python lists, but we ensure it's a list of strings
-                    sources_array = list(sources_used) if sources_used else []
-                    
-                    cur.execute("""
-                        INSERT INTO shadow_pantheon_intel (
-                            id, target, search_type, intelligence, 
-                            source_count, sources_used, risk_level,
-                            validated, validation_reason, anonymous,
-                            created_at
-                        ) VALUES (
-                            %s, %s, %s, %s::jsonb, %s, %s::text[], %s, %s, %s, %s, NOW()
-                        )
-                        RETURNING id
-                    """, (
-                        intel_id,
-                        target[:500] if target else '',
-                        search_type[:32] if search_type else 'unknown',
-                        json.dumps(intelligence),  # JSONB: serialize dict to JSON string
-                        source_count,
-                        sources_array,  # TEXT[]: psycopg2 converts Python list to PG array
-                        risk_level[:16] if risk_level else 'unknown',
-                        validated,
-                        validation_reason[:500] if validation_reason else '',
-                        anonymous
-                    ))
-                    result = cur.fetchone()
-                    stored_id = result[0] if result else intel_id
-                    print(f"[ShadowPantheonPersistence] 🌑 Stored intel: {stored_id}")
-                    return stored_id
-        except Exception as e:
-            print(f"[ShadowPantheonPersistence] Failed to store intel: {e}")
-            return None
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                sources_array = list(sources_used) if sources_used else []
+                cur.execute("""
+                    INSERT INTO shadow_pantheon_intel (
+                        id, target, search_type, intelligence, 
+                        source_count, sources_used, risk_level,
+                        validated, validation_reason, anonymous,
+                        created_at
+                    ) VALUES (
+                        %s, %s, %s, %s::jsonb, %s, %s::text[], %s, %s, %s, %s, NOW()
+                    )
+                    RETURNING id
+                """, (
+                    intel_id,
+                    target[:500] if target else '',
+                    search_type[:32] if search_type else 'unknown',
+                    json.dumps(intelligence),
+                    source_count,
+                    sources_array,
+                    risk_level[:16] if risk_level else 'unknown',
+                    validated,
+                    validation_reason[:500] if validation_reason else '',
+                    anonymous
+                ))
+                result = cur.fetchone()
+                stored_id = result[0] if result else intel_id
+                print(f"[ShadowPantheonPersistence] 🌑 Stored intel: {stored_id}")
+                return stored_id
 
     def get_intel(
         self,
@@ -345,34 +329,27 @@ class ShadowPantheonPersistence:
             
         Returns:
             List of intel records as dicts
+            
+        Raises:
+            RuntimeError: If database operation fails (NO FALLBACK)
         """
-        if not self.enabled:
-            return []
-
-        try:
-            with self.get_connection() as conn:
-                if conn is None:
-                    return []
-                with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    if target:
-                        cur.execute("""
-                            SELECT * FROM shadow_pantheon_intel
-                            WHERE target ILIKE %s
-                            ORDER BY created_at DESC
-                            LIMIT %s
-                        """, (f'%{target}%', limit))
-                    else:
-                        cur.execute("""
-                            SELECT * FROM shadow_pantheon_intel
-                            ORDER BY created_at DESC
-                            LIMIT %s
-                        """, (limit,))
-
-                    results = cur.fetchall()
-                    return [dict(r) for r in results]
-        except Exception as e:
-            print(f"[ShadowPantheonPersistence] Failed to get intel: {e}")
-            return []
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                if target:
+                    cur.execute("""
+                        SELECT * FROM shadow_pantheon_intel
+                        WHERE target ILIKE %s
+                        ORDER BY created_at DESC
+                        LIMIT %s
+                    """, (f'%{target}%', limit))
+                else:
+                    cur.execute("""
+                        SELECT * FROM shadow_pantheon_intel
+                        ORDER BY created_at DESC
+                        LIMIT %s
+                    """, (limit,))
+                results = cur.fetchall()
+                return [dict(r) for r in results]
 
     def log_operation(
         self,
@@ -397,40 +374,34 @@ class ShadowPantheonPersistence:
             result: JSONB result data
             
         Returns:
-            operation_id if successful, None otherwise
+            operation_id if successful
+            
+        Raises:
+            RuntimeError: If database operation fails (NO FALLBACK)
         """
-        if not self.enabled:
-            return None
-
-        try:
-            with self.get_connection() as conn:
-                if conn is None:
-                    return None
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        INSERT INTO shadow_operations_log (
-                            operation_type, god_name, target, status,
-                            network_mode, opsec_level, result, created_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, NOW()
-                        )
-                        RETURNING id
-                    """, (
-                        operation_type[:32] if operation_type else 'unknown',
-                        god_name[:32] if god_name else 'unknown',
-                        target[:500] if target else '',
-                        status[:16] if status else 'unknown',
-                        network_mode[:16] if network_mode else 'unknown',
-                        opsec_level[:16] if opsec_level else 'unknown',
-                        json.dumps(result)
-                    ))
-                    result_row = cur.fetchone()
-                    op_id = result_row[0] if result_row else None
-                    print(f"[ShadowPantheonPersistence] 📝 Logged operation: {op_id}")
-                    return op_id
-        except Exception as e:
-            print(f"[ShadowPantheonPersistence] Failed to log operation: {e}")
-            return None
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO shadow_operations_log (
+                        operation_type, god_name, target, status,
+                        network_mode, opsec_level, result, created_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, NOW()
+                    )
+                    RETURNING id
+                """, (
+                    operation_type[:32] if operation_type else 'unknown',
+                    god_name[:32] if god_name else 'unknown',
+                    target[:500] if target else '',
+                    status[:16] if status else 'unknown',
+                    network_mode[:16] if network_mode else 'unknown',
+                    opsec_level[:16] if opsec_level else 'unknown',
+                    json.dumps(result)
+                ))
+                result_row = cur.fetchone()
+                op_id = result_row[0] if result_row else None
+                print(f"[ShadowPantheonPersistence] 📝 Logged operation: {op_id}")
+                return op_id
 
 
 class ShadowGod(BaseGod, HolographicTransformMixin):
@@ -2019,10 +1990,7 @@ class ShadowPantheon:
         self.operations: List[Dict] = []
         
         self.persistence = ShadowPantheonPersistence()
-        if self.persistence.enabled:
-            print("[ShadowPantheon] ✓ PostgreSQL persistence connected")
-        else:
-            print("[ShadowPantheon] ⚠ Running with in-memory storage only")
+        print("[ShadowPantheon] ✓ PostgreSQL persistence connected (NO FALLBACK)")
 
     async def execute_covert_operation(
         self,
@@ -2446,13 +2414,13 @@ class ShadowPantheon:
 
     def store_shadow_intel(self, target: str, poll_result: Dict) -> Dict:
         """
-        Store shadow intel to PostgreSQL database with in-memory fallback.
+        Store shadow intel to PostgreSQL database (NO FALLBACK).
 
         This is the FEEDBACK LOOP that makes Shadow Pantheon meaningful:
-        - High-value shadow intel gets written to PostgreSQL (primary)
-        - Falls back to in-memory storage if DB unavailable
+        - High-value shadow intel gets written to PostgreSQL (REQUIRED)
         - Ocean agent and Zeus can read this for future decisions
         - Creates persistent "dark knowledge" that influences the system
+        - PostgreSQL is REQUIRED - no in-memory fallback
 
         Args:
             target: The target being assessed
@@ -2460,6 +2428,9 @@ class ShadowPantheon:
 
         Returns:
             Storage result with intel_id
+            
+        Raises:
+            RuntimeError: If PostgreSQL storage fails (NO FALLBACK)
         """
         assessments = poll_result.get('assessments', {})
         consensus = poll_result.get('shadow_consensus', 'unknown')
@@ -2500,69 +2471,19 @@ class ShadowPantheon:
             anonymous=False
         )
         
-        if intel_id:
-            print(f"[ShadowPantheon] 🌑 Stored intel to PostgreSQL: {intel_id} | {consensus} | Φ={avg_conf:.2f}")
-            return {
-                'success': True,
-                'intel_id': intel_id,
-                'consensus': consensus,
-                'confidence': avg_conf,
-                'warnings': len(warnings),
-                'storage': 'postgresql',
-            }
-        
-        try:
-            try:
-                from ocean_qig_core import geometricMemory
-            except ImportError:
-                from ..ocean_qig_core import geometricMemory
-
-            shadow_basin = np.zeros(BASIN_DIMENSION)
-            for name, assessment in assessments.items():
-                god = self.gods.get(name)
-                if god:
-                    god_basin = god.encode_to_basin(target)
-                    shadow_basin += god_basin * assessment.get('confidence', 0.5)
-
-            norm = np.linalg.norm(shadow_basin)
-            if norm > 0:
-                shadow_basin = shadow_basin / norm
-
-            fallback_id = f"shadow_{hashlib.sha256(target.encode()).hexdigest()[:12]}_{datetime.now().timestamp()}"
-
-            intel_doc = {
-                'id': fallback_id,
-                'target': target[:50],
-                'basin_coords': shadow_basin.tolist(),
-                **intelligence,
-                'timestamp': datetime.now().isoformat(),
-            }
-
-            if not hasattr(geometricMemory, 'shadow_intel'):
-                geometricMemory.shadow_intel = []
-            geometricMemory.shadow_intel.append(intel_doc)
-
-            print(f"[ShadowPantheon] 🌑 Stored intel to memory (fallback): {fallback_id}")
-
-            return {
-                'success': True,
-                'intel_id': fallback_id,
-                'consensus': consensus,
-                'confidence': avg_conf,
-                'warnings': len(warnings),
-                'storage': 'memory',
-            }
-
-        except Exception as e:
-            print(f"[ShadowPantheon] ⚠️ Failed to store intel: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-            }
+        print(f"[ShadowPantheon] 🌑 Stored intel to PostgreSQL: {intel_id} | {consensus} | Φ={avg_conf:.2f}")
+        return {
+            'success': True,
+            'intel_id': intel_id,
+            'consensus': consensus,
+            'confidence': avg_conf,
+            'warnings': len(warnings),
+            'storage': 'postgresql',
+        }
 
     def get_shadow_intel(self, target: Optional[str] = None, limit: int = 10) -> List[Dict]:
         """
-        Retrieve stored shadow intel from PostgreSQL with in-memory fallback.
+        Retrieve stored shadow intel from PostgreSQL (NO FALLBACK).
 
         This allows other systems (Ocean, Zeus, Athena) to read
         the accumulated shadow knowledge.
@@ -2573,33 +2494,11 @@ class ShadowPantheon:
 
         Returns:
             List of shadow intel documents
+            
+        Raises:
+            RuntimeError: If PostgreSQL retrieval fails (NO FALLBACK)
         """
-        db_intel = self.persistence.get_intel(target=target, limit=limit)
-        
-        if db_intel:
-            return db_intel
-        
-        try:
-            try:
-                from ocean_qig_core import geometricMemory
-            except ImportError:
-                from ..ocean_qig_core import geometricMemory
-
-            if not hasattr(geometricMemory, 'shadow_intel'):
-                return []
-
-            intel = geometricMemory.shadow_intel
-
-            if target:
-                intel = [i for i in intel if target.lower() in i.get('target', '').lower()]
-
-            intel = sorted(intel, key=lambda x: x.get('timestamp', ''), reverse=True)
-
-            return intel[:limit]
-
-        except Exception as e:
-            print(f"[ShadowPantheon] ⚠️ Failed to retrieve intel: {e}")
-            return []
+        return self.persistence.get_intel(target=target, limit=limit)
 
     def check_shadow_warnings(self, target: str) -> Dict:
         """
