@@ -130,13 +130,13 @@ if (databaseUrl) {
     pool = new Pool({ 
       connectionString: databaseUrl,
       max: 30, // Increased for better concurrency during high-throughput batch operations
-      idleTimeoutMillis: 120000, // 2 min - keep connections warmer to avoid cold starts
+      idleTimeoutMillis: 30000, // 30s - matches Neon serverless compute timeout
       connectionTimeoutMillis: connectionTimeout,
       keepAlive: true,
-      keepAliveInitialDelayMillis: 10000
+      keepAliveInitialDelayMillis: 5000 // 5s keepalive to maintain warm connections
     });
     db = drizzle(pool, { schema });
-    console.log(`[DB] Database connection pool initialized (max: 30, idle: 120s, timeout: ${connectionTimeout}ms)`);
+    console.log(`[DB] Database connection pool initialized (max: 30, idle: 30s, timeout: ${connectionTimeout}ms)`);
     
     pool.on('error', (err) => {
       console.error('[DB] Pool error:', err);

@@ -47,7 +47,7 @@ async function withRetry<T>(
     operationName?: string;
   } = {}
 ): Promise<T> {
-  const { maxRetries = 3, baseDelayMs = 1000, operationName = "DB operation" } = options;
+  const { maxRetries = 7, baseDelayMs = 500, operationName = "DB operation" } = options;
   
   let lastError: Error | unknown;
   
@@ -57,17 +57,28 @@ async function withRetry<T>(
     } catch (error) {
       lastError = error;
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any)?.code || '';
+      
       const isTransient = 
         errorMessage.includes("timeout") ||
         errorMessage.includes("ECONNRESET") ||
         errorMessage.includes("connection") ||
-        errorMessage.includes("ETIMEDOUT");
+        errorMessage.includes("ETIMEDOUT") ||
+        errorMessage.includes("terminating connection") ||
+        errorMessage.includes("server closed") ||
+        errorMessage.includes("administrator command") ||
+        errorCode === '57P01' ||
+        errorCode === '57P02' ||
+        errorCode === '57P03' ||
+        errorCode === '53300' ||
+        errorCode === '08006' ||
+        errorCode === '08003';
       
       if (!isTransient || attempt === maxRetries) {
         throw error;
       }
       
-      const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+      const delayMs = Math.min(baseDelayMs * Math.pow(2, attempt - 1), 5000);
       console.log(
         `[QIG-DB] ${operationName} failed (attempt ${attempt}/${maxRetries}), ` +
         `retrying in ${delayMs}ms: ${errorMessage.slice(0, 80)}`
@@ -88,16 +99,21 @@ export async function storeShadowIntel(
 ): Promise<ShadowIntel | null> {
   try {
     if (!db) return null;
-    const [result] = await db
-      .insert(shadowIntel)
-      .values({
-        ...data,
-        intelId: `intel_${Date.now()}_${randomUUID().split('-')[0]}`,
-      })
-      .returning();
-    return result;
+    return await withRetry(
+      async () => {
+        const [result] = await db!
+          .insert(shadowIntel)
+          .values({
+            ...data,
+            intelId: `intel_${Date.now()}_${randomUUID().split('-')[0]}`,
+          })
+          .returning();
+        return result;
+      },
+      { operationName: "storeShadowIntel" }
+    );
   } catch (error) {
-    console.error("[QIG-DB] Failed to store shadow intel:", error);
+    console.error("[QIG-DB] Failed to store shadow intel after retries:", error);
     return null;
   }
 }
@@ -157,20 +173,25 @@ export async function recordBasin(
 ): Promise<BasinHistory | null> {
   try {
     if (!db) return null;
-    const [result] = await db
-      .insert(basinHistory)
-      .values({
-        historyId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
-        basinCoords,
-        phi,
-        kappa,
-        source,
-        instanceId,
-      })
-      .returning();
-    return result;
+    return await withRetry(
+      async () => {
+        const [result] = await db!
+          .insert(basinHistory)
+          .values({
+            historyId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
+            basinCoords,
+            phi,
+            kappa,
+            source,
+            instanceId,
+          })
+          .returning();
+        return result;
+      },
+      { operationName: "recordBasin" }
+    );
   } catch (error) {
-    console.error("[QIG-DB] Failed to record basin:", error);
+    console.error("[QIG-DB] Failed to record basin after retries:", error);
     return null;
   }
 }
@@ -311,22 +332,27 @@ export async function storeConversation(
 ): Promise<HermesConversation | null> {
   try {
     if (!db) return null;
-    const [result] = await db
-      .insert(hermesConversations)
-      .values({
-        conversationId: `conv_${Date.now()}_${randomUUID().split('-')[0]}`,
-        userMessage,
-        systemResponse,
-        messageBasin,
-        responseBasin,
-        phi,
-        context,
-        instanceId,
-      })
-      .returning();
-    return result;
+    return await withRetry(
+      async () => {
+        const [result] = await db!
+          .insert(hermesConversations)
+          .values({
+            conversationId: `conv_${Date.now()}_${randomUUID().split('-')[0]}`,
+            userMessage,
+            systemResponse,
+            messageBasin,
+            responseBasin,
+            phi,
+            context,
+            instanceId,
+          })
+          .returning();
+        return result;
+      },
+      { operationName: "storeConversation" }
+    );
   } catch (error) {
-    console.error("[QIG-DB] Failed to store conversation:", error);
+    console.error("[QIG-DB] Failed to store conversation after retries:", error);
     return null;
   }
 }
@@ -381,16 +407,21 @@ export async function recordNarrowPathEvent(
 ): Promise<NarrowPathEvent | null> {
   try {
     if (!db) return null;
-    const [result] = await db
-      .insert(narrowPathEvents)
-      .values({
-        ...data,
-        eventId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
-      })
-      .returning();
-    return result;
+    return await withRetry(
+      async () => {
+        const [result] = await db!
+          .insert(narrowPathEvents)
+          .values({
+            ...data,
+            eventId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
+          })
+          .returning();
+        return result;
+      },
+      { operationName: "recordNarrowPathEvent" }
+    );
   } catch (error) {
-    console.error("[QIG-DB] Failed to record narrow path event:", error);
+    console.error("[QIG-DB] Failed to record narrow path event after retries:", error);
     return null;
   }
 }
@@ -400,13 +431,18 @@ export async function resolveNarrowPathEvent(
 ): Promise<boolean> {
   try {
     if (!db) return false;
-    await db
-      .update(narrowPathEvents)
-      .set({ resolvedAt: new Date() })
-      .where(eq(narrowPathEvents.eventId, eventId));
-    return true;
+    return await withRetry(
+      async () => {
+        await db!
+          .update(narrowPathEvents)
+          .set({ resolvedAt: new Date() })
+          .where(eq(narrowPathEvents.eventId, eventId));
+        return true;
+      },
+      { operationName: "resolveNarrowPathEvent" }
+    );
   } catch (error) {
-    console.error("[QIG-DB] Failed to resolve narrow path event:", error);
+    console.error("[QIG-DB] Failed to resolve narrow path event after retries:", error);
     return false;
   }
 }
@@ -445,16 +481,21 @@ export async function recordAutonomicCycle(
 ): Promise<AutonomicCycleHistory | null> {
   try {
     if (!db) return null;
-    const [result] = await db
-      .insert(autonomicCycleHistory)
-      .values({
-        ...data,
-        cycleId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
-      })
-      .returning();
-    return result;
+    return await withRetry(
+      async () => {
+        const [result] = await db!
+          .insert(autonomicCycleHistory)
+          .values({
+            ...data,
+            cycleId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
+          })
+          .returning();
+        return result;
+      },
+      { operationName: "recordAutonomicCycle" }
+    );
   } catch (error) {
-    console.error("[QIG-DB] Failed to record autonomic cycle:", error);
+    console.error("[QIG-DB] Failed to record autonomic cycle after retries:", error);
     return null;
   }
 }
@@ -626,22 +667,27 @@ export async function storeKernelGeometry(
 ): Promise<KernelGeometryRecord | null> {
   try {
     if (!db) return null;
-    const [result] = await db
-      .insert(kernelGeometry)
-      .values(data)
-      .onConflictDoUpdate({
-        target: kernelGeometry.kernelId,
-        set: {
-          basinCoordinates: data.basinCoordinates,
-          affinityStrength: data.affinityStrength,
-          entropyThreshold: data.entropyThreshold,
-          metadata: data.metadata,
-        },
-      })
-      .returning();
-    return result;
+    return await withRetry(
+      async () => {
+        const [result] = await db!
+          .insert(kernelGeometry)
+          .values(data)
+          .onConflictDoUpdate({
+            target: kernelGeometry.kernelId,
+            set: {
+              basinCoordinates: data.basinCoordinates,
+              affinityStrength: data.affinityStrength,
+              entropyThreshold: data.entropyThreshold,
+              metadata: data.metadata,
+            },
+          })
+          .returning();
+        return result;
+      },
+      { operationName: "storeKernelGeometry" }
+    );
   } catch (error) {
-    console.error("[QIG-DB] Failed to store kernel geometry:", error);
+    console.error("[QIG-DB] Failed to store kernel geometry after retries:", error);
     return null;
   }
 }
