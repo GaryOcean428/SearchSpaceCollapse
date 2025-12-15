@@ -401,6 +401,21 @@ class Zeus(BaseGod):
                         else:
                             underworld_intel['validated'] = True
                             underworld_intel['validation_reason'] = "Low risk - accepted"
+                        
+                        # Store underworld intel to PostgreSQL
+                        if underworld_intel and underworld_intel.get('source_count', 0) > 0:
+                            self.shadow_pantheon.persistence.store_intel(
+                                target=target,
+                                search_type=underworld_intel.get('search_type', 'comprehensive'),
+                                intelligence=underworld_intel.get('intelligence', []),
+                                source_count=underworld_intel.get('source_count', 0),
+                                sources_used=underworld_intel.get('sources_used', []),
+                                risk_level=underworld_intel.get('risk_level', 'low'),
+                                validated=underworld_intel.get('validated', False),
+                                validation_reason=underworld_intel.get('validation_reason', ''),
+                                anonymous=underworld_intel.get('anonymous', True)
+                            )
+                            print(f"[Zeus] Stored underworld intel to PostgreSQL")
                     else:
                         print(f"💀 [Zeus] Underworld search completed: No intelligence found")
             except Exception as e:
