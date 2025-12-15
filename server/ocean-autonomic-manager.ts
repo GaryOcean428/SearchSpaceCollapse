@@ -24,6 +24,7 @@ import {
   extractConceptsFromSearch,
   recordConceptState
 } from './qig-universal';
+import { fisherCoordDistance } from './qig-geometry';
 import { QIG_CONSTANTS } from '@shared/constants';
 
 export class OceanAutonomicManager {
@@ -780,13 +781,12 @@ export class OceanAutonomicManager {
     return { temperatureIncrease, basinExpansion, neuroplasticityGain };
   }
 
+  /**
+   * Compute Fisher-Rao distance between basin coordinates
+   * ✅ GEOMETRIC PURITY: Uses Fisher metric, NOT Euclidean
+   */
   private computeBasinDistance(current: number[], reference: number[]): number {
-    let sum = 0;
-    for (let i = 0; i < Math.min(current.length, reference.length); i++) {
-      const diff = (current[i] || 0) - (reference[i] || 0);
-      sum += diff * diff;
-    }
-    return Math.sqrt(sum);
+    return fisherCoordDistance(current, reference);
   }
 
   getState(): OceanAutonomicState {

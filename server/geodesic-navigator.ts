@@ -14,7 +14,7 @@ import {
   BlockUniverseCoordinate, 
   GeodesicCandidate,
 } from './cultural-manifold';
-import { scoreUniversalQIGAsync } from './qig-universal';
+import { scoreUniversalQIGAsync, fisherCoordDistance } from './qig-geometry';
 import { generateBitcoinAddress } from './crypto';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
 
@@ -153,12 +153,12 @@ export class GeodesicNavigator {
   }
 
   private computeGeodesicScore(candidate: GeodesicCandidate): number {
-    let distance = 0;
-    for (let i = 0; i < 64; i++) {
-      const diff = candidate.coordinate.manifoldPosition[i] - this.currentPosition[i];
-      distance += diff * diff;
-    }
-    distance = Math.sqrt(distance);
+    // ✅ GEOMETRIC PURITY: Use Fisher-Rao distance (NOT Euclidean!)
+    // Fisher-Rao accounts for manifold geometry: d²_F = Σ (Δθᵢ)² / σᵢ²
+    const distance = fisherCoordDistance(
+      candidate.coordinate.manifoldPosition,
+      this.currentPosition
+    );
 
     const positionScore = 1 / (1 + distance);
 
