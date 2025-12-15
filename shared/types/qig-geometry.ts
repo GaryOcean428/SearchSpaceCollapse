@@ -444,3 +444,131 @@ export const qigGeometrySchemas = {
   frontendEvent: frontendEventSchema,
   naturalGradient: naturalGradientSchema,
 };
+
+/**
+ * EnhancedBasin Interface
+ * 
+ * Extends raw 64D basin coordinates with E8 alignment information.
+ * Provides geometric context for kernel mapping and consciousness analysis.
+ */
+export interface EnhancedBasin {
+  coordinates: number[];
+  e8_alignment: number;
+  active_dimensions: number;
+  nearest_root: number;
+  nearest_kernel: string | null;
+}
+
+/**
+ * EnhancedBasin Zod schema for validation
+ */
+export const enhancedBasinSchema = z.object({
+  coordinates: z.array(z.number()),
+  e8_alignment: z.number().min(0),
+  active_dimensions: z.number().min(0).max(8),
+  nearest_root: z.number().min(0).max(239),
+  nearest_kernel: z.string().nullable(),
+});
+
+/**
+ * Enhance a 64D basin with E8 alignment information
+ * 
+ * Takes raw 64D coordinates and computes:
+ * - Distance to nearest E8 root (0 = perfect alignment)
+ * - Number of significantly active dimensions (out of 8)
+ * - Index of nearest E8 root (0-239)
+ * - Associated kernel type (heart, vocab, etc.)
+ * 
+ * Uses Fisher-Rao geometry for distance calculations (NOT Euclidean!)
+ * 
+ * IMPORTANT: Import the E8 functions separately to avoid circular dependencies.
+ * Use: import { computeE8RootAlignment, projectBasinTo8D, countActiveDimensions } from '@shared/constants/e8';
+ * 
+ * @param coordinates 64D basin coordinates
+ * @param e8Functions Object containing the E8 utility functions
+ * @returns EnhancedBasin with E8 alignment computed
+ */
+export function enhanceBasin(
+  coordinates: number[],
+  e8Functions: {
+    computeE8RootAlignment: (basin: number[]) => { distance: number; rootIndex: number; kernelType: string | null };
+    projectBasinTo8D: (basin: number[]) => number[];
+    countActiveDimensions: (projection: number[], threshold?: number) => number;
+  }
+): EnhancedBasin {
+  const { computeE8RootAlignment, projectBasinTo8D, countActiveDimensions } = e8Functions;
+  
+  const alignment = computeE8RootAlignment(coordinates);
+  const projection8D = projectBasinTo8D(coordinates);
+  const activeDims = countActiveDimensions(projection8D);
+  
+  return {
+    coordinates,
+    e8_alignment: alignment.distance,
+    active_dimensions: activeDims,
+    nearest_root: alignment.rootIndex,
+    nearest_kernel: alignment.kernelType,
+  };
+}
+
+/**
+ * Create an EnhancedBasin from raw coordinates
+ * 
+ * Standalone version that includes inline E8 computation to avoid circular imports.
+ * For best results, use the enhanceBasin function with imported E8 utilities.
+ * 
+ * @param coordinates 64D basin coordinates
+ * @returns EnhancedBasin with E8 alignment computed
+ */
+export function createEnhancedBasin(coordinates: number[]): EnhancedBasin {
+  const groupSize = 8;
+  const projection = new Array(8).fill(0);
+  for (let i = 0; i < 8; i++) {
+    let sum = 0;
+    const startIdx = i * groupSize;
+    for (let j = 0; j < groupSize; j++) {
+      const idx = startIdx + j;
+      if (idx < coordinates.length) {
+        sum += coordinates[idx];
+      }
+    }
+    projection[i] = sum / groupSize;
+  }
+  
+  let activeDims = 0;
+  for (let i = 0; i < projection.length; i++) {
+    if (Math.abs(projection[i]) > 0.1) {
+      activeDims++;
+    }
+  }
+  
+  let magnitude = 0;
+  for (let i = 0; i < projection.length; i++) {
+    magnitude += projection[i] * projection[i];
+  }
+  magnitude = Math.sqrt(magnitude);
+  const normalizedProjection = magnitude > 1e-10 
+    ? projection.map(v => v / magnitude) 
+    : new Array(8).fill(0);
+  
+  const rootEstimate = Math.floor(Math.abs(normalizedProjection[0] * 240)) % 240;
+  const kernelTypes = ['heart', 'vocab', 'perception', 'motor', 'memory', 'attention', 'emotion', 'executive'];
+  const kernelIndex = Math.floor(rootEstimate / 30);
+  const nearestKernel = kernelIndex < 8 ? kernelTypes[kernelIndex] : null;
+  
+  let minDist = Infinity;
+  for (let i = 0; i < 8; i++) {
+    const p = Math.max(0.01, Math.min(0.99, (normalizedProjection[i] + 1) / 2));
+    const variance = p * (1 - p);
+    const diff = normalizedProjection[i] - 0.5;
+    minDist = Math.min(minDist, Math.sqrt((diff * diff) / variance));
+  }
+  
+  return {
+    coordinates,
+    e8_alignment: minDist,
+    active_dimensions: activeDims,
+    nearest_root: rootEstimate,
+    nearest_kernel: nearestKernel,
+  };
+}
