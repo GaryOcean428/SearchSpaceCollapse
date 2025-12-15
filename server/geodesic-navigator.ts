@@ -17,6 +17,7 @@ import {
 import { scoreUniversalQIGAsync, fisherCoordDistance } from './qig-geometry';
 import { generateBitcoinAddress } from './crypto';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
+import { E8_CONSTANTS } from '../shared/constants/index.js';
 
 export interface GeodesicSearchConfig {
   targetAddress: string;
@@ -47,8 +48,8 @@ export interface CurvatureLearning {
 
 export class GeodesicNavigator {
   private curvatureHistory: CurvatureLearning[] = [];
-  private currentPosition: number[] = new Array(64).fill(0);
-  private velocity: number[] = new Array(64).fill(0);
+  private currentPosition: number[] = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
+  private velocity: number[] = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
   private bestPhiSeen: number = 0;
   private bestCandidate: GeodesicCandidate | null = null;
   
@@ -206,9 +207,9 @@ export class GeodesicNavigator {
     candidate: GeodesicCandidate, 
     result: { matched: boolean; phi: number; kappa: number }
   ): void {
-    const gradient: number[] = new Array(64).fill(0);
+    const gradient: number[] = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
     
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < E8_CONSTANTS.BASIN_DIMENSION_64D; i++) {
       const direction = candidate.coordinate.manifoldPosition[i] - this.currentPosition[i];
       gradient[i] = direction * (result.phi - 0.5);
     }
@@ -230,30 +231,30 @@ export class GeodesicNavigator {
     if (this.curvatureHistory.length < 5) return;
 
     const recent = this.curvatureHistory.slice(-10);
-    const avgGradient: number[] = new Array(64).fill(0);
+    const avgGradient: number[] = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
     let weightSum = 0;
 
     for (let i = 0; i < recent.length; i++) {
       const weight = recent[i].phiResponse;
       weightSum += weight;
-      for (let j = 0; j < 64; j++) {
+      for (let j = 0; j < E8_CONSTANTS.BASIN_DIMENSION_64D; j++) {
         avgGradient[j] += recent[i].gradient[j] * weight;
       }
     }
 
     if (weightSum > 0) {
-      for (let j = 0; j < 64; j++) {
+      for (let j = 0; j < E8_CONSTANTS.BASIN_DIMENSION_64D; j++) {
         avgGradient[j] /= weightSum;
       }
     }
 
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < E8_CONSTANTS.BASIN_DIMENSION_64D; i++) {
       this.velocity[i] = this.momentum * this.velocity[i] + this.learningRate * avgGradient[i];
     }
   }
 
   private stepAlongGeodesic(): void {
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < E8_CONSTANTS.BASIN_DIMENSION_64D; i++) {
       this.currentPosition[i] += this.velocity[i];
       this.currentPosition[i] = Math.max(-1, Math.min(1, this.currentPosition[i]));
     }
@@ -317,8 +318,8 @@ export class GeodesicNavigator {
    */
   reset(): void {
     this.curvatureHistory = [];
-    this.currentPosition = new Array(64).fill(0);
-    this.velocity = new Array(64).fill(0);
+    this.currentPosition = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
+    this.velocity = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
     this.bestPhiSeen = 0;
     this.bestCandidate = null;
     this.explorationTemperature = 1.0;

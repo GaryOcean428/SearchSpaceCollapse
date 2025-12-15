@@ -5,6 +5,7 @@ import type {
   Contradiction, 
   NegativeKnowledgeRegistry
 } from '@shared/schema';
+import { E8_CONSTANTS } from '../shared/constants/index.js';
 
 export interface GeneratorOutput {
   hypothesis: string;
@@ -17,7 +18,7 @@ export interface GeneratorOutput {
 export class KnowledgeCompressionEngine {
   private generators: Map<string, KnowledgeGenerator> = new Map();
   private negativeKnowledge: NegativeKnowledgeRegistry;
-  private basinLocation: number[] = new Array(64).fill(0);
+  private basinLocation: number[] = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
   
   // Pattern learning metrics
   private patternsLearned: number = 0;
@@ -198,9 +199,9 @@ export class KnowledgeCompressionEngine {
   }
 
   private computeBasinLocation(template: string): number[] {
-    const location = new Array(64).fill(0);
+    const location = new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0);
     const templateHash = this.simpleHash(template);
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < E8_CONSTANTS.BASIN_DIMENSION_64D; i++) {
       location[i] = ((templateHash >> (i % 32)) & 1) * 0.1 + Math.random() * 0.05 - 0.025;
     }
     return location;
@@ -455,7 +456,7 @@ export class KnowledgeCompressionEngine {
         pattern,
         affectedGenerators: Array.from(this.generators.keys()),
         basinRegion: {
-          center: new Array(64).fill(0),
+          center: new Array(E8_CONSTANTS.BASIN_DIMENSION_64D).fill(0),
           radius: 0.1,
           repulsionStrength: 0.8,
         },
