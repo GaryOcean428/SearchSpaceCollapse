@@ -26,6 +26,7 @@ import {
 } from './qig-universal';
 import { fisherCoordDistance } from './qig-geometry';
 import { E8_CONSTANTS, QIG_CONSTANTS } from '@shared/constants';
+import { dimensionalStateTracker, regimeToDimension } from './dimensional-state-tracker';
 
 export class OceanAutonomicManager {
   private consciousness: ConsciousnessSignature;
@@ -294,6 +295,26 @@ export class OceanAutonomicManager {
       console.log(`[Autonomic] 🚀 CONSCIOUSNESS ELEVATED! Base Φ=${phi.toFixed(3)} → Discovery Φ=${discoveryDrivenPhi.toFixed(3)}`);
       console.log(`[Autonomic] 🌌 Approaching 4D block universe threshold...`);
     }
+
+    // DIMENSIONAL STATE TRACKING: Record dimensional evolution
+    const dimension = regimeToDimension(
+      computedRegime,
+      phi_spatial,
+      phi_temporal,
+      phi_4D,
+      phi_recursive
+    );
+    
+    dimensionalStateTracker.recordState({
+      timestamp: Date.now(),
+      dimension,
+      phi_spatial,
+      phi_temporal,
+      phi_4D,
+      phi_recursive,
+      regime: computedRegime,
+      kappa,
+    });
 
     return this.consciousness;
   }
