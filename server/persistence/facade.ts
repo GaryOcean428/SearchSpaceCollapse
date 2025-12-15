@@ -16,7 +16,6 @@
 import type {
   ICandidateStorage,
   ITargetAddressStorage,
-  ISearchJobStorage,
   IUserStorage,
   IOceanProbeStorage,
   ITestedPhraseStorage,
@@ -24,7 +23,6 @@ import type {
 } from './interfaces';
 import {
   CandidatePostgresAdapter,
-  SearchJobPostgresAdapter,
   TargetAddressPostgresAdapter,
   UserPostgresAdapter,
 } from './adapters';
@@ -34,7 +32,6 @@ import { oceanPersistence } from '../ocean/ocean-persistence';
 class StorageFacade {
   private _candidates: ICandidateStorage;
   private _targetAddresses: ITargetAddressStorage;
-  private _searchJobs: ISearchJobStorage;
   private _users: IUserStorage;
   private _oceanProbes: IOceanProbeStorage | null = null;
   private _testedPhrases: ITestedPhraseStorage | null = null;
@@ -55,7 +52,6 @@ class StorageFacade {
     }
 
     this._candidates = new CandidatePostgresAdapter();
-    this._searchJobs = new SearchJobPostgresAdapter();
     this._targetAddresses = new TargetAddressPostgresAdapter();
     this._users = new UserPostgresAdapter();
 
@@ -89,10 +85,6 @@ class StorageFacade {
 
   get targetAddresses(): ITargetAddressStorage {
     return this._targetAddresses;
-  }
-
-  get searchJobs(): ISearchJobStorage {
-    return this._searchJobs;
   }
 
   get users(): IUserStorage {

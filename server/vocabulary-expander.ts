@@ -16,9 +16,10 @@ import { geometricMemory } from './geometric-memory';
 import { scoreUniversalQIGAsync, type UniversalQIGScore as QIGScore, type Regime, fisherCoordDistance } from './qig-universal';
 import { vocabularyTracker } from './vocabulary-tracker';
 import { expandedVocabulary } from './expanded-vocabulary';
-import { db, withDbRetry } from './db';
-import { vocabManifoldWords, vocabManifoldState } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+
+// NOTE: Database persistence removed - vocabulary expansion now works entirely in-memory
+// The actual vocab expansion uses vocabularyTracker which persists to vocabulary_observations
+// Removed imports: db, withDbRetry, vocabManifoldWords, vocabManifoldState, eq
 
 // ============================================================================
 // FISHER MANIFOLD VOCABULARY TYPES
@@ -359,151 +360,23 @@ export class GeometricVocabularyExpander {
   }
   
   /**
-   * Save to PostgreSQL
+   * Save state (now in-memory only)
+   * NOTE: Database persistence removed - vocabulary expansion works in-memory
+   * Actual vocab expansion uses vocabularyTracker which persists to vocabulary_observations
    */
   saveToDisk(): void {
-    this.saveToDatabase().catch(err => {
-      console.error('[VocabExpander] Failed to save:', err);
-    });
+    // In-memory only - no database persistence needed
+    // expandedVocabulary.learnWord() is still called in addWord() for cross-module state
   }
 
   /**
-   * Async save to PostgreSQL database
-   */
-  private async saveToDatabase(): Promise<void> {
-    if (!db) {
-      console.warn('[VocabExpander] Database not available, skipping save');
-      return;
-    }
-    try {
-      const words = Array.from(this.state.words.values());
-      const avgPhi = words.length > 0
-        ? words.reduce((sum, w) => sum + w.phi, 0) / words.length
-        : 0;
-      const maxPhi = words.length > 0
-        ? Math.max(...words.map(w => w.phi))
-        : 0;
-
-      // Save global state
-      await withDbRetry(
-        async () => {
-          await db!.insert(vocabManifoldState)
-            .values({
-              id: 'singleton',
-              totalExpansions: this.state.totalExpansions,
-              totalWords: this.state.words.size,
-              avgPhi,
-              maxPhi,
-              lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
-              updatedAt: new Date(),
-            })
-            .onConflictDoUpdate({
-              target: vocabManifoldState.id,
-              set: {
-                totalExpansions: this.state.totalExpansions,
-                totalWords: this.state.words.size,
-                avgPhi,
-                maxPhi,
-                lastExpansionAt: this.state.lastExpansionTime ? new Date(this.state.lastExpansionTime) : null,
-                updatedAt: new Date(),
-              },
-            });
-        },
-        'upsert-vocab-manifold-state'
-      );
-
-      // Batch save words (limit to avoid bloat)
-      const wordsToSave = words.slice(-1000);
-      
-      for (const word of wordsToSave) {
-        await withDbRetry(
-          async () => {
-            await db!.insert(vocabManifoldWords)
-              .values({
-                text: word.text,
-                phi: word.phi,
-                kappa: word.kappa,
-                regime: undefined,
-                geodesicOrigin: word.geodesicOrigin,
-                geodesicDistance: 0,
-                basinCoordinates: word.coordinates,
-                expansionCount: word.frequency,
-              })
-              .onConflictDoUpdate({
-                target: vocabManifoldWords.text,
-                set: {
-                  phi: word.phi,
-                  kappa: word.kappa,
-                  basinCoordinates: word.coordinates,
-                  expansionCount: word.frequency,
-                  updatedAt: new Date(),
-                },
-              });
-          },
-          'upsert-vocab-manifold-word'
-        );
-      }
-      
-      console.log(`[VocabExpander] Saved to DB: ${this.state.words.size} manifold words`);
-    } catch (error) {
-      console.error('[VocabExpander] Failed to save to database:', error);
-    }
-  }
-
-  /**
-   * Load from PostgreSQL database
+   * Load state (now in-memory only)
+   * NOTE: Database persistence removed - starting fresh each session
+   * Can bootstrap from geometric memory if needed
    */
   private loadFromDisk(): void {
-    this.loadFromDatabase().catch(err => {
-      console.error('[VocabExpander] Failed to load:', err);
-    });
-  }
-
-  /**
-   * Async load from PostgreSQL database
-   */
-  private async loadFromDatabase(): Promise<void> {
-    if (!db) {
-      console.warn('[VocabExpander] Database not available, starting fresh');
-      return;
-    }
-    try {
-      // Load global state
-      const state = await db.select()
-        .from(vocabManifoldState)
-        .where(eq(vocabManifoldState.id, 'singleton'))
-        .limit(1);
-      
-      if (state.length === 0) {
-        console.log('[VocabExpander] No saved manifold found in DB, starting fresh');
-        return;
-      }
-
-      const s = state[0];
-      this.state.totalExpansions = s.totalExpansions ?? 0;
-      this.state.lastExpansionTime = s.lastExpansionAt?.toISOString() ?? null;
-
-      // Load words
-      const words = await db.select()
-        .from(vocabManifoldWords)
-        .limit(2000);
-      
-      for (const word of words) {
-        this.state.words.set(word.text, {
-          text: word.text,
-          phi: word.phi,
-          kappa: word.kappa,
-          frequency: word.expansionCount,
-          coordinates: (word.basinCoordinates as number[]) ?? [],
-          geodesicOrigin: word.geodesicOrigin ?? undefined,
-        });
-      }
-      
-      console.log(`[VocabExpander] Loaded from DB: ${this.state.words.size} manifold words, ${this.state.totalExpansions} expansions`);
-    } catch (error) {
-      console.error('[VocabExpander] Failed to load from database:', error);
-      console.log('[VocabExpander] Starting fresh due to load error');
-    }
+    console.log('[VocabExpander] Starting fresh (in-memory mode)');
+    // bootstrapFromGeometricMemory() can be called manually if needed
   }
   
   /**

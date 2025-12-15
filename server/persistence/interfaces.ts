@@ -5,7 +5,7 @@
  * Each interface represents a bounded context with its own storage needs.
  */
 
-import type { Candidate, TargetAddress, SearchJob, User, UpsertUser } from '@shared/schema';
+import type { Candidate, TargetAddress, User, UpsertUser } from '@shared/schema';
 
 export interface ICandidateStorage {
   getCandidates(): Promise<Candidate[]>;
@@ -17,15 +17,6 @@ export interface ITargetAddressStorage {
   getTargetAddresses(): Promise<TargetAddress[]>;
   addTargetAddress(address: TargetAddress): Promise<void>;
   removeTargetAddress(id: string): Promise<void>;
-}
-
-export interface ISearchJobStorage {
-  getSearchJobs(): Promise<SearchJob[]>;
-  getSearchJob(id: string): Promise<SearchJob | null>;
-  addSearchJob(job: SearchJob): Promise<void>;
-  updateSearchJob(id: string, updates: Partial<SearchJob>): Promise<void>;
-  appendJobLog(id: string, log: { message: string; type: 'info' | 'success' | 'error' }): Promise<void>;
-  deleteSearchJob(id: string): Promise<void>;
 }
 
 export interface IUserStorage {

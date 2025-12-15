@@ -22,9 +22,10 @@
 
 import { fisherCoordDistance, type Regime } from './qig-universal';
 import { vocabularyTracker } from './vocabulary-tracker';
-import { db, withDbRetry } from './db';
-import { vocabDecisionState, vocabDecisionObservations } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+
+// NOTE: Database persistence removed - vocabulary learning now works entirely in-memory
+// The actual vocab learning already goes through vocabulary_observations via vocabularyTracker
+// Removed imports: db, withDbRetry, vocabDecisionState, vocabDecisionObservations, eq
 
 // ============================================================================
 // TYPES
@@ -789,153 +790,23 @@ export class VocabConsolidationCycle {
   }
   
   /**
-   * Force save to PostgreSQL
+   * Save state (now in-memory only)
+   * NOTE: Database persistence removed - vocabulary learning works in-memory
+   * Actual vocab learning goes through vocabulary_observations via vocabularyTracker
    */
   saveToDisk(): void {
-    this.saveToDatabase().catch(err => {
-      console.error('[VocabDecision] Failed to save:', err);
-    });
+    // In-memory only - no database persistence needed
+    // vocabularyTracker handles persistence to vocabulary_observations table
   }
 
   /**
-   * Async save to PostgreSQL database
-   */
-  private async saveToDatabase(): Promise<void> {
-    if (!db) {
-      console.warn('[VocabDecision] Database not available, skipping save');
-      return;
-    }
-    try {
-      // Save global state
-      await withDbRetry(
-        async () => {
-          await db!.insert(vocabDecisionState)
-            .values({
-              id: 'singleton',
-              cycleNumber: this.cycleNumber,
-              iterationsSinceSleep: this.iterationsSinceSleep,
-              lastConsolidation: this.lastConsolidation,
-              pendingCandidates: Array.from(this.pendingCandidates),
-              learnedWords: Array.from(this.learnedWords),
-              prunedWords: Array.from(this.prunedWords),
-              updatedAt: new Date(),
-            })
-            .onConflictDoUpdate({
-              target: vocabDecisionState.id,
-              set: {
-                cycleNumber: this.cycleNumber,
-                iterationsSinceSleep: this.iterationsSinceSleep,
-                lastConsolidation: this.lastConsolidation,
-                pendingCandidates: Array.from(this.pendingCandidates),
-                learnedWords: Array.from(this.learnedWords),
-                prunedWords: Array.from(this.prunedWords),
-                updatedAt: new Date(),
-              },
-            });
-        },
-        'upsert-vocab-decision-state'
-      );
-
-      // Batch save observations (limit to most recent 500 to avoid bloat)
-      const obsArray = Array.from(this.observations.values()).slice(-500);
-      
-      for (const obs of obsArray) {
-        await withDbRetry(
-          async () => {
-            await db!.insert(vocabDecisionObservations)
-              .values({
-                word: obs.word,
-                avgPhi: obs.avgPhi,
-                maxPhi: obs.maxPhi,
-                frequency: obs.frequency,
-                firstSeen: obs.firstSeen,
-                lastSeen: obs.lastSeen,
-                contexts: obs.contexts.slice(-20) as any,
-                contextEmbeddings: obs.contextEmbeddings.slice(-20) as any,
-              })
-              .onConflictDoUpdate({
-                target: vocabDecisionObservations.word,
-                set: {
-                  avgPhi: obs.avgPhi,
-                  maxPhi: obs.maxPhi,
-                  frequency: obs.frequency,
-                  lastSeen: obs.lastSeen,
-                  contexts: obs.contexts.slice(-20) as any,
-                  contextEmbeddings: obs.contextEmbeddings.slice(-20) as any,
-                  updatedAt: new Date(),
-                },
-              });
-          },
-          'upsert-vocab-decision-observation'
-        );
-      }
-      
-      console.log(`[VocabDecision] Saved to DB: ${this.observations.size} observations, ${this.learnedWords.size} learned`);
-    } catch (error) {
-      console.error('[VocabDecision] Failed to save to database:', error);
-    }
-  }
-
-  /**
-   * Load from PostgreSQL database
+   * Load state (now in-memory only)
+   * NOTE: Database persistence removed - starting fresh each session
+   * Bootstrap from vocabularyTracker if needed
    */
   private loadFromDisk(): void {
-    this.loadFromDatabase().catch(err => {
-      console.error('[VocabDecision] Failed to load:', err);
-    });
-  }
-
-  /**
-   * Async load from PostgreSQL database
-   */
-  private async loadFromDatabase(): Promise<void> {
-    if (!db) {
-      console.warn('[VocabDecision] Database not available, starting fresh');
-      return;
-    }
-    try {
-      // Load global state
-      const state = await db.select()
-        .from(vocabDecisionState)
-        .where(eq(vocabDecisionState.id, 'singleton'))
-        .limit(1);
-      
-      if (state.length === 0) {
-        console.log('[VocabDecision] No saved state found in DB, starting fresh');
-        return;
-      }
-
-      const s = state[0];
-      this.cycleNumber = s.cycleNumber ?? 0;
-      this.iterationsSinceSleep = s.iterationsSinceSleep ?? 0;
-      this.lastConsolidation = s.lastConsolidation ?? Date.now();
-      this.pendingCandidates = new Set(s.pendingCandidates ?? []);
-      this.learnedWords = new Set(s.learnedWords ?? []);
-      this.prunedWords = new Set(s.prunedWords ?? []);
-
-      // Load observations
-      const observations = await db.select()
-        .from(vocabDecisionObservations)
-        .limit(1000);
-      
-      for (const obs of observations) {
-        this.observations.set(obs.word, {
-          word: obs.word,
-          avgPhi: obs.avgPhi,
-          maxPhi: obs.maxPhi,
-          frequency: obs.frequency,
-          firstSeen: obs.firstSeen ?? Date.now(),
-          lastSeen: obs.lastSeen ?? Date.now(),
-          contexts: (obs.contexts as WordContext[]) ?? [],
-          contextEmbeddings: (obs.contextEmbeddings as number[][]) ?? [],
-        });
-      }
-      
-      console.log(`[VocabDecision] Loaded from DB: ${this.observations.size} observations, ${this.learnedWords.size} learned, ${this.prunedWords.size} pruned`);
-    } catch (error) {
-      console.error('[VocabDecision] Failed to load from database:', error);
-      console.log('[VocabDecision] Starting fresh due to load error');
-    }
+    console.log('[VocabDecision] Starting fresh (in-memory mode)');
+    // Bootstrap from vocabularyTracker can be called manually if needed
   }
   
   /**

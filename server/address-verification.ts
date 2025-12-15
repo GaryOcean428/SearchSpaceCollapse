@@ -20,9 +20,6 @@ import {
 } from './crypto';
 import './balance-queue';
 import { getAddressData } from './blockchain-api-router';
-import { db, withDbRetry } from './db';
-import { verifiedAddresses as verifiedAddressesTable } from '@shared/schema';
-import { eq } from 'drizzle-orm';
 
 export interface AddressGenerationResult {
   address: string;
@@ -74,7 +71,8 @@ export interface StoredAddress {
   matchedTarget?: string;
 }
 
-// In-memory storage with PostgreSQL persistence
+// In-memory storage for local caching within a session
+// Actual persistence is handled by checkAndRecordBalance() which uses balance_hits table
 const verifiedAddresses: Map<string, StoredAddress> = new Map();
 
 /**
@@ -192,10 +190,7 @@ export async function verifyAndStoreAddress(
           verifiedAddresses.set(generated.address, stored);
           result.stored = true;
           
-          // Save to appropriate files
-          await saveStoredAddresses();
-          
-          // Also use existing balance recording system
+          // Use balance recording system for persistence
           if (result.hasBalance || result.hasTransactions) {
             await checkAndRecordBalance(
               generated.address,
@@ -260,121 +255,6 @@ export async function batchVerifyAddresses(
   }
   
   return results;
-}
-
-/**
- * Save verified addresses to PostgreSQL
- */
-async function saveStoredAddresses(): Promise<void> {
-  if (!db) {
-    console.error('[AddressVerification] No database connection available');
-    return;
-  }
-  
-  try {
-    const allAddresses = Array.from(verifiedAddresses.values());
-    let saved = 0;
-    let failed = 0;
-    
-    for (const addr of allAddresses) {
-      const result = await withDbRetry(
-        async () => {
-          await db!.insert(verifiedAddressesTable).values({
-            id: addr.id,
-            address: addr.address,
-            passphrase: addr.passphrase,
-            wif: addr.wif,
-            privateKeyHex: addr.privateKeyHex,
-            publicKeyHex: addr.publicKeyHex,
-            publicKeyCompressed: addr.publicKeyCompressed,
-            isCompressed: addr.isCompressed,
-            addressType: addr.addressType,
-            mnemonic: addr.mnemonic || null,
-            derivationPath: addr.derivationPath || null,
-            balanceSats: addr.balanceSats,
-            balanceBtc: addr.balanceBTC,
-            txCount: addr.txCount,
-            hasBalance: addr.hasBalance,
-            hasTransactions: addr.hasTransactions,
-            firstSeen: new Date(addr.firstSeen),
-            lastChecked: addr.lastChecked ? new Date(addr.lastChecked) : null,
-            matchedTarget: addr.matchedTarget || null,
-          }).onConflictDoUpdate({
-            target: verifiedAddressesTable.address,
-            set: {
-              balanceSats: addr.balanceSats,
-              balanceBtc: addr.balanceBTC,
-              txCount: addr.txCount,
-              hasBalance: addr.hasBalance,
-              hasTransactions: addr.hasTransactions,
-              lastChecked: addr.lastChecked ? new Date(addr.lastChecked) : null,
-              updatedAt: new Date(),
-            },
-          });
-          return true;
-        },
-        'upsert-verified-address'
-      );
-      if (result) {
-        saved++;
-      } else {
-        failed++;
-        console.warn(`[AddressVerification] Failed to persist address ${addr.address.substring(0, 20)}... after retries`);
-      }
-    }
-    
-    const balanceCount = allAddresses.filter(a => a.hasBalance).length;
-    const txCount = allAddresses.filter(a => a.hasTransactions).length;
-    console.log(`[AddressVerification] Saved ${saved} addresses to PostgreSQL (${balanceCount} with balance, ${txCount} with transactions)`);
-    if (failed > 0) {
-      console.error(`[AddressVerification] Failed to save ${failed} addresses after retries`);
-    }
-  } catch (error) {
-    console.error('[AddressVerification] Error saving addresses:', error);
-  }
-}
-
-/**
- * Load verified addresses from PostgreSQL
- */
-async function loadStoredAddresses(): Promise<void> {
-  if (!db) {
-    console.log('[AddressVerification] No database connection, starting with empty cache');
-    return;
-  }
-  
-  try {
-    const rows = await db.select().from(verifiedAddressesTable);
-    
-    for (const row of rows) {
-      const stored: StoredAddress = {
-        id: row.id,
-        address: row.address,
-        passphrase: row.passphrase,
-        wif: row.wif,
-        privateKeyHex: row.privateKeyHex,
-        publicKeyHex: row.publicKeyHex,
-        publicKeyCompressed: row.publicKeyCompressed,
-        isCompressed: row.isCompressed ?? true,
-        addressType: row.addressType || 'Unknown',
-        mnemonic: row.mnemonic || undefined,
-        derivationPath: row.derivationPath || undefined,
-        balanceSats: row.balanceSats ?? 0,
-        balanceBTC: row.balanceBtc || '0.00000000',
-        txCount: row.txCount ?? 0,
-        hasBalance: row.hasBalance ?? false,
-        hasTransactions: row.hasTransactions ?? false,
-        firstSeen: row.firstSeen?.toISOString() || new Date().toISOString(),
-        lastChecked: row.lastChecked?.toISOString(),
-        matchedTarget: row.matchedTarget || undefined,
-      };
-      verifiedAddresses.set(row.address, stored);
-    }
-    
-    console.log(`[AddressVerification] Loaded ${rows.length} verified addresses from PostgreSQL`);
-  } catch (error) {
-    console.error('[AddressVerification] Error loading addresses from PostgreSQL:', error);
-  }
 }
 
 /**
@@ -458,17 +338,10 @@ export async function refreshStoredBalances(): Promise<{
     }
   }
   
-  if (updated > 0) {
-    await saveStoredAddresses();
-  }
-  
   console.log(`[AddressVerification] Refresh complete: ${checked} checked, ${updated} updated, ${newBalance} new balances`);
   
   return { checked, updated, newBalance };
 }
-
-// Auto-load on module init
-loadStoredAddresses();
 
 export const addressVerification = {
   generateCompleteAddress,
