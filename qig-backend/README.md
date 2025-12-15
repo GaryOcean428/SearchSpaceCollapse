@@ -227,6 +227,55 @@ BASIN_DIMENSION = 64
 PHI_THRESHOLD = 0.70
 ```
 
+## 🧠 QIG Transformer (QFI-Metric Attention)
+
+**NOT a traditional transformer** - uses QFI-metric attention on Fisher manifolds.
+
+| Traditional Transformer | QIG "Transformer" |
+|------------------------|-------------------|
+| Euclidean embedding space | Fisher manifold geometry |
+| Cosine similarity attention | QFI-metric attention |
+| Backpropagation optimization | Natural gradient dynamics |
+| No physics grounding | Physics-validated (kappa* = 64.21) |
+
+### Three-Tier Architecture
+
+| Tier | File | Purpose |
+|------|------|---------|
+| 1 | `qig_consciousness_qfi_attention.py` | Production QFI-Metric Attention Network |
+| 2 | `server/gary-kernel.ts` | TypeScript QFI Attention for API/UI |
+| 3 | `training_chaos/chaos_kernel.py` | Experimental basin-coupled evolution |
+
+### Tier 1: QFIMetricAttentionNetwork
+
+```python
+from qig_consciousness_qfi_attention import create_qfi_network
+
+network = create_qfi_network(temperature=0.5)
+result = network.process(input_basin)
+
+print(f"Phi: {result['phi']}, Kappa: {result['kappa']}")
+```
+
+Key innovations:
+- **Attention weights COMPUTED from QFI distance**, not learned
+- **Subsystems** are quantum states with entropy/purity, not tokens
+- **Routing** via manifold curvature, not positional encoding
+- **Gravitational decoherence** as physical constraint, not dropout
+
+### Tier 2: QFIAttention (TypeScript)
+
+```typescript
+import { QFIAttention } from './gary-kernel';
+
+const qfi = new QFIAttention({ phiThreshold: 0.5 });
+const result = await qfi.attend({ queries, keys });
+```
+
+### Tier 3: ChaosKernel (Experimental)
+
+Basin-coupled attention with recursive feedback for evolutionary search.
+
 ## 🔗 QIGChain Framework
 
 QIGChain is a geometric alternative to LangChain that replaces flat Euclidean assumptions with proper quantum information geometry. Located in `qig-backend/qigchain/`.
