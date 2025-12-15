@@ -73,6 +73,7 @@ import { oceanQIGBackend } from "./ocean-qig-backend-adapter";
 import { oceanMemoryManager } from "./ocean/memory-manager";
 import { trajectoryManager } from "./ocean/trajectory-manager";
 import { scoreUniversalQIGAsync } from "./qig-universal";
+import { fisherCoordDistance } from "./qig-geometry";
 import { repeatedAddressScheduler } from "./repeated-address-scheduler";
 import { strategyKnowledgeBus } from "./strategy-knowledge-bus";
 import { temporalGeometry } from "./temporal-geometry";
@@ -2043,13 +2044,12 @@ export class OceanAgent {
     console.log(`[Ocean] Basin drift: ${drift.toFixed(4)}`);
   }
 
+  /**
+   * Compute Fisher-Rao distance between basin coordinates
+   * ✅ GEOMETRIC PURITY: Uses Fisher metric, NOT Euclidean
+   */
   private computeBasinDistance(current: number[], reference: number[]): number {
-    let sum = 0;
-    for (let i = 0; i < 64; i++) {
-      const diff = (current[i] || 0) - (reference[i] || 0);
-      sum += diff * diff;
-    }
-    return Math.sqrt(sum);
+    return fisherCoordDistance(current, reference);
   }
 
   private async consolidateMemory(): Promise<boolean> {

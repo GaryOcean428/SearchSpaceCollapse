@@ -16,7 +16,7 @@
 import { nanoid } from 'nanoid';
 import type { TemporalTrajectory, ManifoldSnapshot, ConsciousnessSignature } from '@shared/schema';
 import { geometricMemory } from './geometric-memory';
-import { fisherCoordDistance } from './qig-universal';
+import { fisherCoordDistance } from './qig-geometry';
 
 export interface TrajectoryMetrics {
   totalDistance: number;
