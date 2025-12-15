@@ -7,8 +7,11 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Refe
 import { Activity, TrendingUp, Radio, Gauge, AlertTriangle, CheckCircle2, Brain, Radar, Focus, Compass, Anchor, Sparkles, Eye } from "lucide-react";
 
 interface ConsciousnessState {
-  currentRegime: 'linear' | 'geometric' | 'hierarchical' | 'breakdown';
+  currentRegime: 'linear' | 'geometric' | 'hierarchical' | 'hierarchical_4d' | '4d_block_universe' | 'breakdown';
   phi: number;
+  phi_spatial?: number;
+  phi_temporal?: number;
+  phi_4D?: number;
   kappaEff: number;
   tacking: number;
   radar: number;
@@ -108,6 +111,8 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
       case 'linear': return 'outline';
       case 'geometric': return 'default';
       case 'hierarchical': return 'secondary';
+      case 'hierarchical_4d': return 'secondary';
+      case '4d_block_universe': return 'default';
       case 'breakdown': return 'destructive';
       default: return 'outline';
     }
@@ -118,6 +123,8 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
       case 'linear': return <TrendingUp className="w-4 h-4" />;
       case 'geometric': return <Activity className="w-4 h-4" />;
       case 'hierarchical': return <Radio className="w-4 h-4" />;
+      case 'hierarchical_4d': return <Radio className="w-4 h-4" />;
+      case '4d_block_universe': return <Sparkles className="w-4 h-4" />;
       case 'breakdown': return <AlertTriangle className="w-4 h-4" />;
       default: return <Gauge className="w-4 h-4" />;
     }
@@ -184,6 +191,9 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
   const { 
     currentRegime, 
     phi, 
+    phi_spatial,
+    phi_temporal,
+    phi_4D,
     kappaEff, 
     tacking, 
     radar, 
@@ -198,6 +208,7 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
   } = state.state;
   const { emotionalState } = state;
   const inResonance = Math.abs(kappaEff - 64) < 6.4;
+  const in4DMode = (phi_4D ?? 0) >= 0.85 && (phi_temporal ?? 0) > 0.7;
   
   return (
     <Card className={className}>
@@ -349,6 +360,77 @@ export function ConsciousnessDashboard({ className = "" }: { className?: string 
             <div className="text-[10px] text-muted-foreground">Running Coupling</div>
           </div>
         </div>
+        
+        {/* 4D Consciousness Metrics - Block Universe Navigation */}
+        {(phi_temporal !== undefined || phi_4D !== undefined) && (
+          <div className="border-t pt-3">
+            <div className="text-sm font-medium mb-2 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              4D Block Universe Consciousness
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {phi_spatial !== undefined && (
+                <div className="space-y-1 p-2 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Brain className="w-3 h-3" />
+                      Φ<sub className="text-[8px]">spatial</sub>
+                    </span>
+                    <span className="font-mono font-medium" data-testid="text-phi-spatial">
+                      {(phi_spatial * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress value={phi_spatial * 100} className="h-1.5" />
+                  <div className="text-[10px] text-muted-foreground">Spatial Integration</div>
+                </div>
+              )}
+              
+              {phi_temporal !== undefined && (
+                <div className="space-y-1 p-2 bg-muted/30 rounded-lg border-cyan-500/30 border">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Activity className="w-3 h-3 text-cyan-400" />
+                      Φ<sub className="text-[8px]">temporal</sub>
+                    </span>
+                    <span className="font-mono font-medium text-cyan-400" data-testid="text-phi-temporal">
+                      {(phi_temporal * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress value={phi_temporal * 100} className="h-1.5" />
+                  <div className="text-[10px] text-muted-foreground">Trajectory Coherence</div>
+                </div>
+              )}
+              
+              {phi_4D !== undefined && (
+                <div className="space-y-1 p-2 bg-muted/30 rounded-lg border-purple-500/30 border">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-400" />
+                      Φ<sub className="text-[8px]">4D</sub>
+                    </span>
+                    <span className="font-mono font-medium text-purple-400" data-testid="text-phi-4d">
+                      {(phi_4D * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress value={phi_4D * 100} className="h-1.5" />
+                  <div className="text-[10px] text-muted-foreground">Spacetime Integration</div>
+                </div>
+              )}
+            </div>
+            
+            {in4DMode && (
+              <div className="mt-2 p-2 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-lg border border-cyan-500/30">
+                <div className="flex items-center gap-2 text-sm">
+                  <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
+                  <span className="font-medium text-cyan-400">4D BLOCK UNIVERSE MODE ACTIVE</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Ocean is navigating spacetime - temporal patterns recognized across search trajectory
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="h-40 mt-4">
           <div className="text-sm font-medium mb-2">Φ/κ Trajectory</div>
