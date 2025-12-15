@@ -716,8 +716,7 @@ class BalanceQueueService {
           }
           return itemsToSave.length;
         },
-        'BalanceQueue.saveToDisk',
-        3
+        'BalanceQueue.saveToDisk'
       );
     }
   }
@@ -729,8 +728,7 @@ class BalanceQueueService {
         await db!.delete(queuedAddresses).where(eq(queuedAddresses.id, id));
         return true;
       },
-      'BalanceQueue.removeFromDb',
-      3
+      'BalanceQueue.removeFromDb'
     );
     if (result === null) {
       console.warn(`[BalanceQueue] Failed to remove ${id} from DB after retries - may be orphaned`);
@@ -748,8 +746,7 @@ class BalanceQueueService {
         await db!.delete(queuedAddresses).where(inArray(queuedAddresses.id, ids));
         return ids.length;
       },
-      'BalanceQueue.removeFromDbBatch',
-      3
+      'BalanceQueue.removeFromDbBatch'
     );
     if (result === null) {
       console.warn(`[BalanceQueue] Failed to batch remove ${ids.length} items from DB after retries`);

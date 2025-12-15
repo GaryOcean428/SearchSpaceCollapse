@@ -1171,14 +1171,18 @@ router.get('/kernels', isAuthenticated, async (req, res) => {
       kernel_id: k.kernelId,
       god_name: k.godName,
       domain: k.domain,
+      status: (k as any).status || 'idle',
       primitive_root: k.primitiveRoot,
       basin_coordinates: k.basinCoordinates,
       parent_kernels: k.parentKernels || [],
+      spawned_by: k.parentKernels?.join(', ') || 'Genesis',
       spawn_reason: k.placementReason || 'unknown',
+      spawn_rationale: k.positionRationale || 'No rationale recorded',
       position_rationale: k.positionRationale,
       affinity_strength: k.affinityStrength || 0,
       entropy_threshold: k.entropyThreshold || 0,
       spawned_at: k.spawnedAt,
+      last_active_at: (k as any).lastActiveAt,
       spawned_during_war_id: k.spawnedDuringWarId,
       phi: k.phi || 0,
       kappa: k.kappa || 0,
@@ -1206,6 +1210,152 @@ router.get('/kernels', isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('[Olympus] Kernels list error:', error);
     res.json({ kernels: [], total: 0 });
+  }
+});
+
+// Kernel sync validation schema
+const kernelSyncSchema = z.object({
+  kernel_id: z.string().min(1).max(64),
+  god_name: z.string().min(1).max(64).optional(),
+  domain: z.string().max(128).optional(),
+  status: z.enum(['active', 'idle', 'breeding', 'dormant', 'dead', 'shadow']).optional(),
+  parent_kernels: z.array(z.string()).optional(),
+  spawn_reason: z.string().max(64).optional(),
+  spawn_rationale: z.string().optional(),
+  phi: z.number().optional(),
+  kappa: z.number().optional(),
+  regime: z.string().max(64).optional(),
+  generation: z.number().optional(),
+  success_count: z.number().optional(),
+  failure_count: z.number().optional(),
+  element_group: z.string().max(64).optional(),
+  ecological_niche: z.string().max(128).optional(),
+  target_function: z.string().max(128).optional(),
+  affinity_strength: z.number().optional(),
+  entropy_threshold: z.number().optional(),
+  breeding_target: z.string().max(64).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
+/**
+ * Internal kernel sync endpoint for Python to update kernel status/metrics
+ * Authenticated via X-Internal-Key header (shared secret between Node and Python)
+ */
+router.post('/kernels/sync', validateInput(kernelSyncSchema), async (req, res) => {
+  try {
+    const internalKey = req.headers['x-internal-key'];
+    const expectedKey = process.env.INTERNAL_API_KEY || 'olympus-internal-key-dev';
+    
+    if (internalKey !== expectedKey) {
+      console.warn('[Olympus] Rejected kernel sync - invalid or missing X-Internal-Key');
+      res.status(403).json({ error: 'Unauthorized - invalid internal key' });
+      return;
+    }
+    
+    const data = req.body;
+    console.log(`[Olympus] Kernel sync: ${data.kernel_id} status=${data.status || 'unchanged'}`);
+    
+    const updateData: any = {};
+    if (data.status) updateData.status = data.status;
+    if (data.phi !== undefined) updateData.phi = data.phi;
+    if (data.kappa !== undefined) updateData.kappa = data.kappa;
+    if (data.regime) updateData.regime = data.regime;
+    if (data.generation !== undefined) updateData.generation = data.generation;
+    if (data.success_count !== undefined) updateData.successCount = data.success_count;
+    if (data.failure_count !== undefined) updateData.failureCount = data.failure_count;
+    if (data.element_group) updateData.elementGroup = data.element_group;
+    if (data.ecological_niche) updateData.ecologicalNiche = data.ecological_niche;
+    if (data.target_function) updateData.targetFunction = data.target_function;
+    if (data.affinity_strength !== undefined) updateData.affinityStrength = data.affinity_strength;
+    if (data.entropy_threshold !== undefined) updateData.entropyThreshold = data.entropy_threshold;
+    if (data.breeding_target) updateData.breedingTarget = data.breeding_target;
+    if (data.parent_kernels) updateData.parentKernels = data.parent_kernels;
+    if (data.spawn_reason) updateData.placementReason = data.spawn_reason;
+    if (data.spawn_rationale) updateData.positionRationale = data.spawn_rationale;
+    if (data.metadata) updateData.metadata = data.metadata;
+    if (data.status === 'active') updateData.lastActiveAt = new Date();
+    
+    if (Object.keys(updateData).length === 0) {
+      res.json({ success: true, message: 'No updates to apply' });
+      return;
+    }
+    
+    const result = await storeKernelGeometry({
+      kernelId: data.kernel_id,
+      godName: data.god_name || data.kernel_id,
+      domain: data.domain || 'unknown',
+      ...updateData,
+    });
+    
+    if (result) {
+      res.json({ success: true, kernel_id: data.kernel_id, updated_fields: Object.keys(updateData) });
+    } else {
+      res.status(500).json({ success: false, error: 'Failed to sync kernel' });
+    }
+  } catch (error) {
+    console.error('[Olympus] Kernel sync error:', error);
+    res.status(500).json({ success: false, error: 'Kernel sync failed' });
+  }
+});
+
+/**
+ * Internal batch kernel sync for Python to update multiple kernels at once
+ */
+router.post('/kernels/sync-batch', async (req, res) => {
+  try {
+    const internalKey = req.headers['x-internal-key'];
+    const expectedKey = process.env.INTERNAL_API_KEY || 'olympus-internal-key-dev';
+    
+    if (internalKey !== expectedKey) {
+      res.status(403).json({ error: 'Unauthorized - invalid internal key' });
+      return;
+    }
+    
+    const { kernels } = req.body;
+    if (!Array.isArray(kernels)) {
+      res.status(400).json({ error: 'kernels must be an array' });
+      return;
+    }
+    
+    console.log(`[Olympus] Batch kernel sync: ${kernels.length} kernels`);
+    
+    const results = await Promise.all(
+      kernels.map(async (k: any) => {
+        try {
+          const result = await storeKernelGeometry({
+            kernelId: k.kernel_id,
+            godName: k.god_name || k.kernel_id,
+            domain: k.domain || 'unknown',
+            status: k.status,
+            phi: k.phi,
+            kappa: k.kappa,
+            regime: k.regime,
+            generation: k.generation,
+            successCount: k.success_count,
+            failureCount: k.failure_count,
+            elementGroup: k.element_group,
+            ecologicalNiche: k.ecological_niche,
+            targetFunction: k.target_function,
+            affinityStrength: k.affinity_strength,
+            entropyThreshold: k.entropy_threshold,
+            breedingTarget: k.breeding_target,
+            parentKernels: k.parent_kernels,
+            placementReason: k.spawn_reason,
+            positionRationale: k.spawn_rationale,
+            metadata: k.metadata,
+          } as any);
+          return { kernel_id: k.kernel_id, success: !!result };
+        } catch (err) {
+          return { kernel_id: k.kernel_id, success: false, error: String(err) };
+        }
+      })
+    );
+    
+    const succeeded = results.filter(r => r.success).length;
+    res.json({ success: true, synced: succeeded, total: kernels.length, results });
+  } catch (error) {
+    console.error('[Olympus] Batch kernel sync error:', error);
+    res.status(500).json({ success: false, error: 'Batch sync failed' });
   }
 });
 

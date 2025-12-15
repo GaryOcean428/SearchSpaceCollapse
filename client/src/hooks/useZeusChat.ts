@@ -231,7 +231,7 @@ export function useZeusChat(): UseZeusChatReturn {
       });
       setLastError({
         type: 'search',
-        message: 'Tavily search encountered error',
+        message: `Tavily search error: ${errMsg}`,
       });
     } finally {
       setIsThinking(false);

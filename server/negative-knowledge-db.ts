@@ -67,8 +67,7 @@ export class NegativeKnowledgeRegistryDB {
           
           return contradictions;
         },
-        'warm-cache',
-        3
+        'warm-cache'
       );
       
       if (recent) {
@@ -130,8 +129,7 @@ export class NegativeKnowledgeRegistryDB {
               })
               .where(eq(negativeKnowledge.id, existing.id));
           },
-          'update-contradiction',
-          3
+          'update-contradiction'
         );
       }
       
@@ -167,8 +165,7 @@ export class NegativeKnowledgeRegistryDB {
         async () => {
           await db!.insert(negativeKnowledge).values(contradiction);
         },
-        'insert-contradiction',
-        3
+        'insert-contradiction'
       );
     }
     
@@ -204,8 +201,7 @@ export class NegativeKnowledgeRegistryDB {
             .from(negativeKnowledge)
             .where(sql`LOWER(${negativeKnowledge.pattern}) = ${normalized.toLowerCase()}`);
         },
-        'find-similar-contradiction',
-        2
+        'find-similar-contradiction'
       );
       
       if (results && results.length > 0) {

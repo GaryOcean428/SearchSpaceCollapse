@@ -62,8 +62,7 @@ export class TestedPhrasesRegistryDB {
             })
             .from(testedPhrases);
         },
-        'retest-stats',
-        2
+        'retest-stats'
       );
       
       if (retestStats && retestStats[0]) {
@@ -101,8 +100,7 @@ export class TestedPhrasesRegistryDB {
           .limit(1);
         return results[0] || null;
       },
-      'check-tested-phrase',
-      2
+      'check-tested-phrase'
     );
     
     if (result) {
@@ -156,8 +154,7 @@ export class TestedPhrasesRegistryDB {
               })
               .where(eq(testedPhrases.id, existing.id));
           },
-          'update-tested-phrase',
-          3
+          'update-tested-phrase'
         );
       }
       
@@ -191,8 +188,7 @@ export class TestedPhrasesRegistryDB {
           // Use onConflictDoNothing to handle race conditions where cache doesn't have phrase but DB does
           await db!.insert(testedPhrases).values(record).onConflictDoNothing();
         },
-        'insert-tested-phrase',
-        3
+        'insert-tested-phrase'
       );
     }
     
@@ -224,8 +220,7 @@ export class TestedPhrasesRegistryDB {
           .where(sql`${testedPhrases.balanceSats} > 0`)
           .orderBy(desc(testedPhrases.balanceSats));
       },
-      'get-balance-hits',
-      2
+      'get-balance-hits'
     );
     
     return hits || [];
@@ -266,8 +261,7 @@ export class TestedPhrasesRegistryDB {
         
         return counts;
       },
-      'get-tested-stats',
-      2
+      'get-tested-stats'
     );
     
     return stats || {
@@ -296,8 +290,7 @@ export class TestedPhrasesRegistryDB {
           .orderBy(desc(testedPhrases.retestCount))
           .limit(100);
       },
-      'get-wasted-retests',
-      2
+      'get-wasted-retests'
     );
     
     return wasted || [];
@@ -340,8 +333,7 @@ export class TestedPhrasesRegistryDB {
         
         return { removed: toDelete.count };
       },
-      'prune-tested-phrases',
-      2
+      'prune-tested-phrases'
     );
     
     const removed = result?.removed || 0;
