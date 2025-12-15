@@ -1505,7 +1505,7 @@ export default function ObserverPage() {
                             type="number" 
                             dataKey="phi" 
                             name="Φ_constraints"
-                            label={{ value: 'Φ_constraints (Integrated Information)', position: 'insideBottom', offset: -10 }}
+                            label={{ value: 'Φ_constraints (Constraint Density)', position: 'insideBottom', offset: -10 }}
                             domain={[0, 'auto']}
                           />
                           <YAxis 
