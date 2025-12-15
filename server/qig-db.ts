@@ -10,6 +10,7 @@
  * - Autonomic Cycle History
  */
 
+import { randomUUID } from "crypto";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
@@ -91,7 +92,7 @@ export async function storeShadowIntel(
       .insert(shadowIntel)
       .values({
         ...data,
-        intelId: `intel_${Date.now()}`,
+        intelId: `intel_${Date.now()}_${randomUUID().split('-')[0]}`,
       })
       .returning();
     return result;
@@ -159,7 +160,7 @@ export async function recordBasin(
     const [result] = await db
       .insert(basinHistory)
       .values({
-        historyId: Date.now(),
+        historyId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
         basinCoords,
         phi,
         kappa,
@@ -232,7 +233,7 @@ export async function recordLearningEvent(
           .insert(learningEvents)
           .values({
             ...data,
-            eventId: `learn_${Date.now()}`,
+            eventId: `learn_${Date.now()}_${randomUUID().split('-')[0]}`,
           })
           .returning();
         return result;
@@ -313,7 +314,7 @@ export async function storeConversation(
     const [result] = await db
       .insert(hermesConversations)
       .values({
-        conversationId: `conv_${Date.now()}`,
+        conversationId: `conv_${Date.now()}_${randomUUID().split('-')[0]}`,
         userMessage,
         systemResponse,
         messageBasin,
@@ -384,7 +385,7 @@ export async function recordNarrowPathEvent(
       .insert(narrowPathEvents)
       .values({
         ...data,
-        eventId: Date.now(),
+        eventId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
       })
       .returning();
     return result;
@@ -448,7 +449,7 @@ export async function recordAutonomicCycle(
       .insert(autonomicCycleHistory)
       .values({
         ...data,
-        cycleId: Date.now(),
+        cycleId: parseInt(`${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-15)),
       })
       .returning();
     return result;

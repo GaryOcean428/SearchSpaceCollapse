@@ -5,6 +5,8 @@ import * as schema from "@shared/schema";
 import { readFileSync } from 'fs';
 
 neonConfig.webSocketConstructor = ws;
+neonConfig.fetchConnectionCache = true;
+neonConfig.poolQueryViaFetch = true;
 
 // Database initialization is required for persistence-backed services.
 // The code will still skip initialization if DATABASE_URL is absent, but
@@ -69,9 +71,19 @@ if (databaseUrl) {
       max: 30, // Increased for better concurrency during high-throughput batch operations
       idleTimeoutMillis: 120000, // 2 min - keep connections warmer to avoid cold starts
       connectionTimeoutMillis: connectionTimeout,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000
     });
     db = drizzle(pool, { schema });
     console.log(`[DB] Database connection pool initialized (max: 30, idle: 120s, timeout: ${connectionTimeout}ms)`);
+    
+    pool.on('error', (err) => {
+      console.error('[DB] Pool error:', err);
+    });
+
+    pool.on('connect', () => {
+      console.log('[DB] New connection acquired');
+    });
     
     // Warm up connection pool on startup to prevent first-query timeouts
     pool.query('SELECT 1').catch(() => {
