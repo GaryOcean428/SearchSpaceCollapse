@@ -268,9 +268,10 @@ export class OceanPersistence {
           }
         }
         
-        // Small delay between chunks to prevent connection saturation
+        // Longer delay between chunks to prevent connection pool saturation
+        // 50ms gives the pool time to recycle connections
         if (i + CHUNK_SIZE < probes.length) {
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
       }
       

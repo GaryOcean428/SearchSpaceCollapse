@@ -7,6 +7,68 @@ import { readFileSync } from 'fs';
 neonConfig.webSocketConstructor = ws;
 neonConfig.poolQueryViaFetch = true;
 
+// ============================================================================
+// CONNECTION SEMAPHORE - Prevents pool exhaustion
+// ============================================================================
+// Neon serverless has connection limits. This semaphore ensures we don't
+// queue more operations than the pool can handle, preventing the
+// "terminating connection due to administrator command" errors.
+
+class ConnectionSemaphore {
+  private currentCount = 0;
+  private readonly maxConcurrent: number;
+  private readonly queue: Array<() => void> = [];
+  private readonly name: string;
+  
+  constructor(maxConcurrent: number, name: string = 'DB') {
+    this.maxConcurrent = maxConcurrent;
+    this.name = name;
+  }
+  
+  async acquire(): Promise<void> {
+    if (this.currentCount < this.maxConcurrent) {
+      this.currentCount++;
+      return;
+    }
+    
+    // Queue and wait
+    return new Promise((resolve) => {
+      this.queue.push(() => {
+        this.currentCount++;
+        resolve();
+      });
+    });
+  }
+  
+  release(): void {
+    this.currentCount--;
+    if (this.queue.length > 0 && this.currentCount < this.maxConcurrent) {
+      const next = this.queue.shift();
+      if (next) next();
+    }
+  }
+  
+  get stats() {
+    return {
+      active: this.currentCount,
+      waiting: this.queue.length,
+      max: this.maxConcurrent
+    };
+  }
+}
+
+// Global semaphore: limit to 20 concurrent operations (leaving headroom for pool's 30)
+const dbSemaphore = new ConnectionSemaphore(20, 'DB');
+
+// Export for monitoring
+export function getDbSemaphoreStats() {
+  return dbSemaphore.stats;
+}
+
+// ============================================================================
+// DATABASE INITIALIZATION
+// ============================================================================
+
 // Database initialization is required for persistence-backed services.
 // The code will still skip initialization if DATABASE_URL is absent, but
 // higher-level storage layers now fail fast without a database to avoid
@@ -92,7 +154,8 @@ if (databaseUrl) {
     // Log pool health periodically (every 5 minutes)
     setInterval(() => {
       if (pool) {
-        console.log(`[DB] Pool health: total=${pool.totalCount}, idle=${pool.idleCount}, waiting=${pool.waitingCount}`);
+        const semStats = dbSemaphore.stats;
+        console.log(`[DB] Pool health: total=${pool.totalCount}, idle=${pool.idleCount}, waiting=${pool.waitingCount} | Semaphore: active=${semStats.active}/${semStats.max}, queued=${semStats.waiting}`);
       }
     }, 300000);
   } catch (err) {
@@ -106,7 +169,23 @@ if (databaseUrl) {
 }
 
 /**
- * Helper function to execute database operations with retry logic
+ * Execute a database operation with semaphore protection
+ * Prevents pool exhaustion by limiting concurrent operations
+ */
+export async function withDbSemaphore<T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T> {
+  await dbSemaphore.acquire();
+  try {
+    return await operation();
+  } finally {
+    dbSemaphore.release();
+  }
+}
+
+/**
+ * Helper function to execute database operations with retry logic AND semaphore protection
  * Useful for handling transient connection issues in serverless environments
  * Returns operation result on success, or null on failure with proper logging
  * 
@@ -120,57 +199,65 @@ export async function withDbRetry<T>(
 ): Promise<T | null> {
   if (!db) return null;
   
+  // Acquire semaphore before attempting any database operation
+  await dbSemaphore.acquire();
+  
   let lastError: Error | null = null;
   let delay = 500; // Start with 500ms
   let attempts = 0;
   
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    attempts++;
-    try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-      
-      // Detect retryable errors - covers Neon serverless transient failures
-      const errorMessage = error.message?.toLowerCase() || '';
-      const errorCode = error.code || '';
-      
-      const isRetryable = 
-        // Timeout errors
-        errorMessage.includes('timeout') || 
-        errorCode === 'ETIMEDOUT' ||
-        // Connection errors  
-        errorMessage.includes('connect') || 
-        errorCode === 'ECONNREFUSED' ||
-        errorCode === 'ECONNRESET' ||
-        // Neon/PostgreSQL transient errors
-        errorCode === '57P01' ||  // admin_shutdown
-        errorCode === '57P02' ||  // crash_shutdown  
-        errorCode === '57P03' ||  // cannot_connect_now
-        errorCode === '53300' ||  // too_many_connections
-        errorCode === '08006' ||  // connection_failure
-        errorCode === '08003' ||  // connection_does_not_exist
-        // Server closed connection unexpectedly
-        errorMessage.includes('server closed') ||
-        errorMessage.includes('connection unexpectedly') ||
-        errorMessage.includes('terminating connection') ||
-        // AbortError from fetch timeouts
-        error.name === 'AbortError';
-      
-      if (attempt < maxRetries && isRetryable) {
-        console.log(`[DB] ${operationName} retry ${attempt}/${maxRetries} after ${delay}ms`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay = Math.min(delay * 2, 5000); // Exponential backoff, cap at 5s
-      } else {
-        // Log with full error for debugging
-        const errorType = isRetryable ? 'exhausted retries' : 'non-retryable';
-        console.error(`[DB] ${operationName} failed (${errorType}, ${attempts} attempts):`, error);
-        break;
+  try {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      attempts++;
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Detect retryable errors - covers Neon serverless transient failures
+        const errorMessage = error.message?.toLowerCase() || '';
+        const errorCode = error.code || '';
+        
+        const isRetryable = 
+          // Timeout errors
+          errorMessage.includes('timeout') || 
+          errorCode === 'ETIMEDOUT' ||
+          // Connection errors  
+          errorMessage.includes('connect') || 
+          errorCode === 'ECONNREFUSED' ||
+          errorCode === 'ECONNRESET' ||
+          // Neon/PostgreSQL transient errors
+          errorCode === '57P01' ||  // admin_shutdown
+          errorCode === '57P02' ||  // crash_shutdown  
+          errorCode === '57P03' ||  // cannot_connect_now
+          errorCode === '53300' ||  // too_many_connections
+          errorCode === '08006' ||  // connection_failure
+          errorCode === '08003' ||  // connection_does_not_exist
+          // Server closed connection unexpectedly
+          errorMessage.includes('server closed') ||
+          errorMessage.includes('connection unexpectedly') ||
+          errorMessage.includes('terminating connection') ||
+          // AbortError from fetch timeouts
+          error.name === 'AbortError';
+        
+        if (attempt < maxRetries && isRetryable) {
+          console.log(`[DB] ${operationName} retry ${attempt}/${maxRetries} after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay = Math.min(delay * 2, 5000); // Exponential backoff, cap at 5s
+        } else {
+          // Log with full error for debugging
+          const errorType = isRetryable ? 'exhausted retries' : 'non-retryable';
+          console.error(`[DB] ${operationName} failed (${errorType}, ${attempts} attempts):`, error);
+          break;
+        }
       }
     }
+    
+    return null;
+  } finally {
+    // Always release semaphore
+    dbSemaphore.release();
   }
-  
-  return null;
 }
 
 export { pool, db };
