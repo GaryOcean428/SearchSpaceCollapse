@@ -5464,6 +5464,8 @@ if __name__ == '__main__':
         from conversational_api import register_conversational_routes
         register_conversational_routes(app)
         CONVERSATIONAL_AVAILABLE = True
+        print("[INFO] ✅ Conversational system successfully registered at /api/conversation/*", flush=True)
+        print("[INFO] 💬 Zeus will learn from conversations when using conversational API", flush=True)
     except ImportError as e:
         CONVERSATIONAL_AVAILABLE = False
         print(f"[WARNING] Conversational kernel not found: {e}")
