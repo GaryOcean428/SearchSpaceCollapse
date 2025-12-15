@@ -5,7 +5,6 @@ import * as schema from "@shared/schema";
 import { readFileSync } from 'fs';
 
 neonConfig.webSocketConstructor = ws;
-neonConfig.fetchConnectionCache = true;
 neonConfig.poolQueryViaFetch = true;
 
 // Database initialization is required for persistence-backed services.
