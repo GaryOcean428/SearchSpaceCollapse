@@ -1912,6 +1912,49 @@ class Thanatos(ShadowGod):
             'timestamp': datetime.now().isoformat(),
         }
 
+    async def void_all_traces(self) -> Dict:
+        """
+        Void ALL active traces and evidence across all operations.
+        
+        "Nothing remains. The void consumes all."
+        
+        This is more comprehensive than destroy_evidence - 
+        it clears everything Thanatos has tracked.
+        """
+        voided = {
+            'operations': 0,
+            'files_shredded': 0,
+            'caches_cleared': 0,
+            'memory_wiped': True,
+        }
+        
+        # Clear all tracked operations
+        operations_count = len(self.destruction_log)
+        self.destruction_log.clear()
+        voided['operations'] = operations_count
+        
+        # Record files shredded then reset
+        voided['files_shredded'] = self.files_shredded
+        self.files_shredded = 0
+        self.total_destroyed = 0
+        
+        # Clear temp files
+        temp_patterns = ['/tmp/ocean_*', '/tmp/qig_*', '/tmp/*.tmp']
+        for pattern in temp_patterns:
+            await self._secure_delete_files(pattern)
+        voided['caches_cleared'] = 1
+        
+        # Force garbage collection
+        import gc
+        gc.collect()
+        
+        return {
+            'status': 'VOID_COMPLETE',
+            'message': 'All traces have been consumed by the void',
+            'voided': voided,
+            'timestamp': datetime.now().isoformat(),
+        }
+
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """Assess target for evidence destruction needs."""
         base = super().assess_target(target, context)

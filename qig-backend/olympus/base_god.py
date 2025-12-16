@@ -18,7 +18,10 @@ import hashlib
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from training_chaos.self_spawning import SelfSpawningKernel
 
 import numpy as np
 from qig_core.geometric_primitives.sensory_modalities import (
@@ -111,7 +114,7 @@ class BaseGod(ABC, HolographicTransformMixin):
         self._load_persisted_state()
 
         # CHAOS MODE: Kernel assignment for experimental evolution
-        self.chaos_kernel = None  # Assigned SelfSpawningKernel
+        self.chaos_kernel: Optional['SelfSpawningKernel'] = None  # Assigned SelfSpawningKernel
         self.kernel_assessments: List[Dict] = []  # Assessment history with kernel
 
     def _load_persisted_state(self) -> None:
