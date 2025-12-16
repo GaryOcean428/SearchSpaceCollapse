@@ -1119,6 +1119,47 @@ class BalanceQueueService {
   }
 
   /**
+   * Retry all failed items by resetting their status to pending
+   * This allows them to be reprocessed by the background worker
+   */
+  async retryFailed(): Promise<{ retried: number; inMemory: number; inDb: number }> {
+    let inMemory = 0;
+    let inDb = 0;
+    
+    // Reset in-memory failed items
+    const entries = Array.from(this.queue.entries());
+    for (const [id, item] of entries) {
+      if (item.status === 'failed') {
+        item.status = 'pending';
+        item.retryCount = 0;
+        item.error = undefined;
+        inMemory++;
+      }
+    }
+    
+    // Also reset failed items in the database
+    if (db) {
+      try {
+        const result = await db.update(queuedAddresses)
+          .set({ 
+            status: 'pending',
+            retryCount: 0,
+            error: null
+          })
+          .where(eq(queuedAddresses.status, 'failed'));
+        inDb = (result as any)?.rowCount || 0;
+      } catch (e) {
+        console.error('[BalanceQueue] Error resetting failed items in DB:', e);
+      }
+    }
+    
+    this.scheduleSave();
+    console.log(`[BalanceQueue] Retrying ${inMemory + inDb} failed items (${inMemory} in-memory, ${inDb} in DB)`);
+    
+    return { retried: inMemory + inDb, inMemory, inDb };
+  }
+
+  /**
    * Get queue size
    */
   size(): number {

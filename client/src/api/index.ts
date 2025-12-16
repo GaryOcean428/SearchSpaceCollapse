@@ -89,7 +89,7 @@ export type { CreateSessionParams, CreateSessionResponse, StopSessionResponse } 
 export type { CycleType, TriggerCycleParams, TriggerCycleResponse, BoostParams, BoostResponse, NeurochemistryAdminState, CyclesState } from './services/ocean';
 export type { AutoCycleStatus, AutoCycleResponse } from './services/autoCycle';
 export type { CreateTargetAddressParams, CreateTargetAddressResponse, DeleteTargetAddressResponse } from './services/targetAddresses';
-export type { QueueActionResponse } from './services/balanceQueue';
+export type { QueueActionResponse, RetryFailedResponse } from './services/balanceQueue';
 export type { RefreshResponse } from './services/balanceMonitor';
 export type { SweepActionResponse, RejectSweepParams } from './services/sweeps';
 export type { StartQigSearchParams, QigSearchResponse, ClassifyAddressParams, ClassifyAddressResponse } from './services/observer';

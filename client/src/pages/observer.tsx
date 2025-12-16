@@ -591,6 +591,27 @@ export default function ObserverPage() {
     },
   });
 
+  // Retry failed addresses mutation
+  const retryFailedMutation = useMutation({
+    mutationFn: async () => {
+      return api.balanceQueue.retryFailed();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balanceQueue.status() });
+      toast({
+        title: "Retrying Failed Addresses",
+        description: `${data.retried} addresses reset to pending`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to retry addresses",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Add target address mutation
   const addTargetMutation = useMutation({
     mutationFn: async (data: { address: string; label?: string }) => {
@@ -801,6 +822,23 @@ export default function ObserverPage() {
                   {balanceQueueLoading || balanceQueueData?.initializing ? "..." : balanceQueueData?.failed || 0}
                 </div>
                 <p className="text-xs text-muted-foreground">Failed</p>
+                {(balanceQueueData?.failed || 0) > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 text-xs h-6"
+                    onClick={() => retryFailedMutation.mutate()}
+                    disabled={retryFailedMutation.isPending}
+                    data-testid="button-retry-failed"
+                  >
+                    {retryFailedMutation.isPending ? (
+                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                    )}
+                    Retry
+                  </Button>
+                )}
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold" data-testid="text-queue-total">

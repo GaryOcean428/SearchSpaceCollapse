@@ -93,6 +93,7 @@ export const API_ROUTES = {
     background: '/api/balance-queue/background',
     backgroundStart: '/api/balance-queue/background/start',
     backgroundStop: '/api/balance-queue/background/stop',
+    retryFailed: '/api/observer/balance-queue/retry-failed',
   },
 
   balanceMonitor: {

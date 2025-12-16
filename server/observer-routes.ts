@@ -402,6 +402,24 @@ router.post("/test/cleanup", async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/observer/balance-queue/retry-failed
+ * Reset all failed addresses back to pending so they can be retried
+ */
+router.post("/balance-queue/retry-failed", async (req: Request, res: Response) => {
+  try {
+    const result = await balanceQueue.retryFailed();
+    res.json({
+      success: true,
+      retried: result.retried,
+      inMemory: result.inMemory,
+      inDb: result.inDb,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/observer/test/sweep/:address
  * Check if a sweep exists for an address
  * Only available in development mode

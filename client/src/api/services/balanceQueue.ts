@@ -19,3 +19,14 @@ export async function startBackgroundQueue(): Promise<QueueActionResponse> {
 export async function stopBackgroundQueue(): Promise<QueueActionResponse> {
   return post<QueueActionResponse>(API_ROUTES.balanceQueue.backgroundStop);
 }
+
+export interface RetryFailedResponse {
+  success: boolean;
+  retried: number;
+  inMemory: number;
+  inDb: number;
+}
+
+export async function retryFailed(): Promise<RetryFailedResponse> {
+  return post<RetryFailedResponse>(API_ROUTES.balanceQueue.retryFailed);
+}
