@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
 import { 
   LineChart, 
   Line, 
@@ -18,7 +19,9 @@ import {
   Tooltip, 
   ResponsiveContainer,
   ComposedChart,
-  Legend
+  Legend,
+  AreaChart,
+  Area
 } from 'recharts';
 import { 
   Brain, 
@@ -32,7 +35,15 @@ import {
   Clock,
   Target,
   Zap,
-  Database
+  Database,
+  Eye,
+  Layers,
+  ArrowRightLeft,
+  Sparkles,
+  Wrench,
+  FlaskConical,
+  GitBranch,
+  Moon
 } from 'lucide-react';
 
 interface LearnerStats {
@@ -84,7 +95,85 @@ interface ReplayHistoryItem {
   created_at: string;
 }
 
+interface ForesightPrediction {
+  cycle: number;
+  confidence: number;
+  projected_phi: number;
+  projected_discoveries: number;
+  projected_clusters: number;
+}
+
+interface ShadowLearningData {
+  learning: {
+    knowledge_items: number;
+    completed_research: number;
+    foresight_4d: {
+      status: string;
+      temporal_coherence: number;
+      trajectory: {
+        current_phi: number;
+        current_discoveries: number;
+        phi_velocity: number;
+        discovery_acceleration: number;
+        trend: string;
+      };
+      next_prediction: ForesightPrediction;
+    };
+    last_reflection?: {
+      cycle: number;
+      cluster_count: number;
+      phi_computed: number;
+      knowledge_density: number;
+      discoveries_added: number;
+    };
+  };
+}
+
+interface ForesightData {
+  foresight: {
+    cycle: number;
+    foresight: {
+      computed_at: string;
+      horizon_cycles: number;
+      predictions: ForesightPrediction[];
+    };
+  };
+}
+
+interface ToolFactoryStats {
+  patterns_learned: number;
+  tools_registered: number;
+  generation_attempts: number;
+  successful_generations: number;
+  pattern_observations: number;
+  pending_searches: number;
+  success_rate: number;
+  avg_tool_success_rate: number;
+  generativity_score: number;
+  complexity_ceiling: string;
+  total_tool_uses: number;
+  patterns_by_source: Record<string, number>;
+}
+
+interface QueueStatus {
+  pending: number;
+  completed: number;
+  by_type: Record<string, number>;
+  recursive_count: number;
+}
+
+interface BridgeStatus {
+  queue_status: QueueStatus;
+  tool_factory_wired: boolean;
+  research_api_wired: boolean;
+  improvements_applied: number;
+  tools_requested: number;
+  research_from_tools: number;
+}
+
 const API_BASE = '/api/olympus/zeus/search/learner';
+const SHADOW_API = '/api/olympus/shadow';
+const TOOL_API = '/api/olympus/zeus/tools';
 
 export default function LearningDashboard() {
   const [testQuery, setTestQuery] = useState('');
@@ -103,6 +192,26 @@ export default function LearningDashboard() {
   const { data: replayHistory, isLoading: historyLoading, refetch: refetchHistory } = useQuery<ReplayHistoryItem[]>({
     queryKey: [`${API_BASE}/replay/history`],
     refetchInterval: 30000,
+  });
+
+  const { data: shadowLearning, isLoading: shadowLoading, refetch: refetchShadow } = useQuery<ShadowLearningData>({
+    queryKey: [`${SHADOW_API}/learning`],
+    refetchInterval: 10000,
+  });
+
+  const { data: foresightData, isLoading: foresightLoading } = useQuery<ForesightData>({
+    queryKey: [`${SHADOW_API}/foresight`],
+    refetchInterval: 15000,
+  });
+
+  const { data: toolStats, isLoading: toolStatsLoading, refetch: refetchTools } = useQuery<ToolFactoryStats>({
+    queryKey: [`${TOOL_API}/stats`],
+    refetchInterval: 15000,
+  });
+
+  const { data: bridgeStatus, isLoading: bridgeLoading } = useQuery<BridgeStatus>({
+    queryKey: [`${TOOL_API}/bridge/status`],
+    refetchInterval: 10000,
   });
 
   const replayMutation = useMutation({
