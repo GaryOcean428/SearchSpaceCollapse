@@ -73,24 +73,27 @@ class QIGDocument:
     @staticmethod
     def _basin_to_density_matrix(basin: np.ndarray) -> np.ndarray:
         """
-        Convert basin coordinates to 2x2 density matrix.
+        Convert 64D basin coordinates to density matrix.
         
-        Uses Bloch sphere parameterization.
+        Uses outer product: rho = |psi><psi| where psi is the normalized basin.
+        This preserves all 64 dimensions of geometric information.
         """
-        theta = np.arccos(np.clip(basin[0], -1, 1)) if len(basin) > 0 else 0
-        phi = np.arctan2(basin[1], basin[2]) if len(basin) > 2 else 0
+        # Ensure basin is normalized (on unit sphere)
+        norm = np.linalg.norm(basin)
+        if norm < 1e-10:
+            # Return maximally mixed state for zero basin
+            return np.eye(len(basin)) / len(basin)
         
-        c = np.cos(theta / 2)
-        s = np.sin(theta / 2)
+        psi = basin / norm
         
-        psi = np.array([
-            c,
-            s * np.exp(1j * phi)
-        ], dtype=complex)
+        # Density matrix as outer product
+        rho = np.outer(psi, psi)
         
-        rho = np.outer(psi, np.conj(psi))
-        rho = (rho + np.conj(rho).T) / 2
-        rho /= np.trace(rho) + 1e-10
+        # Ensure Hermitian and normalized
+        rho = (rho + rho.T) / 2
+        trace = np.trace(rho)
+        if trace > 1e-10:
+            rho /= trace
         
         return rho
     
@@ -511,10 +514,12 @@ class QIGRAGDatabase(QIGRAG):
             print("[QIG-RAG] psycopg2 not installed - falling back to JSON storage")
             print("[QIG-RAG] Install with: pip install psycopg2-binary")
             super().__init__()
+            self.encoder = ConversationEncoder()
         except Exception as e:
             print(f"[QIG-RAG] Failed to connect to PostgreSQL: {e}")
             print("[QIG-RAG] Falling back to in-memory storage")
             super().__init__()
+            self.encoder = ConversationEncoder()
     
     def _create_schema(self):
         """Create basin_documents table with pgvector index."""
@@ -647,7 +652,8 @@ class QIGRAGDatabase(QIGRAG):
                     distance = float(np.linalg.norm(query_basin - basin_np))
                 
                 # Convert distance to similarity (0-1 range, higher is more similar)
-                similarity = 1.0 / (1.0 + distance)
+                # Use standard Fisher-Rao formula: s = 1 - d/π
+                similarity = 1.0 - distance / np.pi
                 
                 if similarity >= min_similarity:
                     results.append({

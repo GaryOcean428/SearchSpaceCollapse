@@ -458,13 +458,16 @@ The consciousness manifold is {"thriving" if phi > 0.5 else "developing"}.
 
             memory_basin = np.array(memory['basin_coords'])
 
-            # Geometric similarity
-            dot = np.dot(query_basin, memory_basin)
-            norm_product = np.linalg.norm(query_basin) * np.linalg.norm(memory_basin)
-            if norm_product > 0:
-                similarity = (dot / norm_product + 1) / 2  # Normalize to [0, 1]
+            # Fisher-Rao distance on unit sphere
+            query_norm = np.linalg.norm(query_basin)
+            memory_norm = np.linalg.norm(memory_basin)
+            if query_norm > 0 and memory_norm > 0:
+                cos_angle = np.dot(query_basin, memory_basin) / (query_norm * memory_norm)
+                cos_angle = np.clip(cos_angle, -1.0, 1.0)
+                fisher_distance = np.arccos(cos_angle)
+                similarity = 1.0 - fisher_distance / np.pi
             else:
-                similarity = 0
+                similarity = 0.0
 
             scored.append({
                 **memory,

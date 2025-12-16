@@ -294,10 +294,17 @@ class SemanticBasinEncoder(BasinEncoder):
             return super().encode_text(text)
 
     def _get_embedding(self, text: str) -> np.ndarray:
-        """Get embedding from model (placeholder)"""
-        # This would call actual embedding model
-        # For now, return random vector
-        return np.random.randn(512)
+        """Get embedding from text using hash-based projection."""
+        import hashlib
+        # Create deterministic embedding from text hash
+        text_hash = hashlib.sha256(text.encode()).digest()
+        # Expand hash to 512 dimensions deterministically
+        expanded = []
+        for i in range(16):
+            chunk_hash = hashlib.sha256(text_hash + bytes([i])).digest()
+            for b in chunk_hash:
+                expanded.append((b / 255.0) * 2 - 1)  # Map to [-1, 1]
+        return np.array(expanded[:512])
 
 
 _DEFAULT_ENCODER = BasinEncoder(dimension=64)

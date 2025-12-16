@@ -172,7 +172,12 @@ class Hephaestus(BaseGod):
         word_scores = []
         for word, weight in self.vocabulary.items():
             word_basin = self.encode_to_basin(word)
-            similarity = float(np.dot(target_basin, word_basin))
+            # Fisher-Rao distance: d = arccos(p·q) for unit vectors
+            dot_product = float(np.dot(target_basin, word_basin))
+            dot_product = np.clip(dot_product, -1.0, 1.0)
+            fisher_distance = np.arccos(dot_product)
+            # Convert to similarity: s = 1 - d/π (range [0,1])
+            similarity = 1.0 - fisher_distance / np.pi
             phi = self.word_phi_scores.get(word, 0.3)
             score = similarity * 0.5 + phi * 0.3 + weight * 0.2
             word_scores.append((word, score))
