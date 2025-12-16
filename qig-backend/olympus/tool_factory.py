@@ -38,7 +38,7 @@ from collections import Counter
 # Handle both relative and absolute imports depending on execution context
 try:
     from ..qig_geometry import fisher_rao_distance as centralized_fisher_rao
-    from ..redis_cache import ToolPatternCache
+    from ..redis_cache import ToolPatternBuffer
 except ImportError:
     # When run from different context, try absolute import
     import sys
@@ -48,7 +48,7 @@ except ImportError:
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
     from qig_geometry import fisher_rao_distance as centralized_fisher_rao
-    from redis_cache import ToolPatternCache
+    from redis_cache import ToolPatternBuffer
 # Centralized geometry is required - module will fail if neither import works
 
 
@@ -341,9 +341,9 @@ class ToolFactory:
         self._load_patterns_from_cache()
     
     def _load_patterns_from_cache(self):
-        """Load learned patterns from Redis cache."""
+        """Load learned patterns from Redis buffer."""
         try:
-            cached_patterns = ToolPatternCache.get_all_patterns()
+            cached_patterns = ToolPatternBuffer.get_all_patterns()
             for p_data in cached_patterns:
                 try:
                     source_type = CodeSourceType(p_data.get('source_type', 'user_provided'))
@@ -374,7 +374,7 @@ class ToolFactory:
             print(f"[ToolFactory] Redis cache load failed (running in memory-only): {e}")
     
     def _save_pattern_to_cache(self, pattern: LearnedPattern):
-        """Save a pattern to Redis cache."""
+        """Save a pattern to Redis buffer, then persist to PostgreSQL."""
         try:
             p_data = {
                 'pattern_id': pattern.pattern_id,
@@ -389,9 +389,45 @@ class ToolFactory:
                 'success_rate': pattern.success_rate,
                 'created_at': pattern.created_at
             }
-            ToolPatternCache.save_pattern(pattern.pattern_id, p_data)
+            
+            # Use write-through buffer: Redis → PostgreSQL
+            ToolPatternBuffer.buffer_pattern(
+                pattern.pattern_id, 
+                p_data,
+                persist_fn=self._persist_pattern_to_db if self.db_pool else None
+            )
         except Exception as e:
-            print(f"[ToolFactory] Redis cache save failed: {e}")
+            print(f"[ToolFactory] Pattern buffer failed: {e}")
+    
+    def _persist_pattern_to_db(self, p_data: Dict):
+        """Persist pattern to PostgreSQL via db_pool."""
+        if not self.db_pool:
+            return
+        
+        try:
+            with self.db_pool.get_connection() as conn:
+                if conn is None:
+                    return
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO tool_observations (request, request_basin, context, timestamp)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                """, (
+                    p_data['description'],
+                    p_data.get('basin_coords'),
+                    json.dumps({
+                        'pattern_id': p_data['pattern_id'],
+                        'source_type': p_data['source_type'],
+                        'code_snippet': p_data['code_snippet'][:500]
+                    }),
+                    p_data.get('created_at', time.time())
+                ))
+                cur.close()
+                print(f"[ToolFactory] Pattern persisted to PostgreSQL: {p_data['pattern_id']}")
+        except Exception as e:
+            print(f"[ToolFactory] PostgreSQL persist failed: {e}")
+            raise  # Re-raise so buffer can queue for retry
 
     def learn_from_user_template(
         self,
