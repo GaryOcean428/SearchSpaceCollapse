@@ -354,6 +354,194 @@ class SearchFeedbackPersistence:
         except Exception as e:
             print(f"[SearchFeedbackPersistence] Failed to delete record: {e}")
             return False
+    
+    def get_time_series_metrics(self, days: int = 30) -> List[Dict[str, Any]]:
+        """
+        Query time-series metrics from search_feedback table grouped by date.
+        
+        Args:
+            days: Number of days to look back (default 30)
+        
+        Returns:
+            List of dicts with date, total_records, avg_outcome_quality,
+            total_confirmations, positive_confirmations, strategies_applied
+        """
+        if not self.enabled:
+            return []
+        
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT 
+                            DATE(created_at) as date,
+                            COUNT(*) as total_records,
+                            AVG(outcome_quality) as avg_outcome_quality,
+                            SUM(confirmations_positive + confirmations_negative) as total_confirmations,
+                            SUM(confirmations_positive) as positive_confirmations,
+                            COUNT(*) as strategies_applied
+                        FROM search_feedback
+                        WHERE created_at >= NOW() - INTERVAL '%s days'
+                        GROUP BY DATE(created_at)
+                        ORDER BY date DESC
+                    """, (days,))
+                    rows = cur.fetchall()
+                    
+                    metrics = []
+                    for row in rows:
+                        metrics.append({
+                            "date": row['date'].isoformat() if row.get('date') else None,
+                            "total_records": int(row.get('total_records', 0)),
+                            "avg_outcome_quality": float(row.get('avg_outcome_quality', 0.0) or 0.0),
+                            "total_confirmations": int(row.get('total_confirmations', 0) or 0),
+                            "positive_confirmations": int(row.get('positive_confirmations', 0) or 0),
+                            "strategies_applied": int(row.get('strategies_applied', 0)),
+                        })
+                    
+                    return metrics
+        except Exception as e:
+            print(f"[SearchFeedbackPersistence] Failed to get time series metrics: {e}")
+            return []
+    
+    def _ensure_replay_table_exists(self) -> bool:
+        """Create the search_replay_tests table if it doesn't exist."""
+        if not self.enabled:
+            return False
+        
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS search_replay_tests (
+                            replay_id VARCHAR(64) PRIMARY KEY,
+                            original_query TEXT,
+                            original_query_basin vector(64),
+                            run_with_learning_results JSONB,
+                            run_without_learning_results JSONB,
+                            learning_applied INTEGER DEFAULT 0,
+                            improvement_score DOUBLE PRECISION DEFAULT 0.0,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_replay_tests_created_at 
+                        ON search_replay_tests (created_at DESC)
+                    """)
+            print("[SearchFeedbackPersistence] Table search_replay_tests ensured")
+            return True
+        except Exception as e:
+            print(f"[SearchFeedbackPersistence] Failed to create replay table: {e}")
+            return False
+    
+    def store_replay_result(
+        self,
+        replay_id: str,
+        query: str,
+        query_basin: np.ndarray,
+        with_learning: Dict[str, Any],
+        without_learning: Dict[str, Any],
+        strategies_count: int,
+        improvement: float,
+    ) -> bool:
+        """
+        Store a replay test result in the database.
+        
+        Args:
+            replay_id: Unique identifier for this replay test
+            query: The original query tested
+            query_basin: 64D basin encoding of the query
+            with_learning: Results from search with learning applied
+            without_learning: Results from search without learning
+            strategies_count: Number of strategies applied
+            improvement: Computed improvement score (delta in quality)
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.enabled:
+            return False
+        
+        self._ensure_replay_table_exists()
+        
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO search_replay_tests (
+                            replay_id, original_query, original_query_basin,
+                            run_with_learning_results, run_without_learning_results,
+                            learning_applied, improvement_score, created_at
+                        ) VALUES (
+                            %s, %s, %s::vector, %s, %s, %s, %s, NOW()
+                        )
+                        ON CONFLICT (replay_id) DO UPDATE SET
+                            run_with_learning_results = EXCLUDED.run_with_learning_results,
+                            run_without_learning_results = EXCLUDED.run_without_learning_results,
+                            learning_applied = EXCLUDED.learning_applied,
+                            improvement_score = EXCLUDED.improvement_score
+                    """, (
+                        replay_id,
+                        query,
+                        self._vector_to_pg(query_basin),
+                        json.dumps(with_learning),
+                        json.dumps(without_learning),
+                        strategies_count,
+                        improvement,
+                    ))
+            return True
+        except Exception as e:
+            print(f"[SearchFeedbackPersistence] Failed to store replay result: {e}")
+            return False
+    
+    def get_replay_history(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Fetch recent replay test results.
+        
+        Args:
+            limit: Maximum number of results to return (default 20)
+        
+        Returns:
+            List of replay test results with improvement scores
+        """
+        if not self.enabled:
+            return []
+        
+        self._ensure_replay_table_exists()
+        
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT 
+                            replay_id,
+                            original_query,
+                            run_with_learning_results,
+                            run_without_learning_results,
+                            learning_applied,
+                            improvement_score,
+                            created_at
+                        FROM search_replay_tests
+                        ORDER BY created_at DESC
+                        LIMIT %s
+                    """, (limit,))
+                    rows = cur.fetchall()
+                    
+                    results = []
+                    for row in rows:
+                        results.append({
+                            "replay_id": row['replay_id'],
+                            "original_query": row.get('original_query', ''),
+                            "with_learning": row.get('run_with_learning_results', {}),
+                            "without_learning": row.get('run_without_learning_results', {}),
+                            "learning_applied": int(row.get('learning_applied', 0)),
+                            "improvement_score": float(row.get('improvement_score', 0.0)),
+                            "created_at": row['created_at'].isoformat() if row.get('created_at') else None,
+                        })
+                    
+                    return results
+        except Exception as e:
+            print(f"[SearchFeedbackPersistence] Failed to get replay history: {e}")
+            return []
 
 
 class SearchStrategyLearner:
@@ -748,6 +936,166 @@ class SearchStrategyLearner:
             "success": True,
             "records_cleared": count,
         }
+    
+    def get_time_series_metrics(self, days: int = 30) -> List[Dict[str, Any]]:
+        """
+        Get time-series metrics for search learning.
+        
+        If persistence is enabled, queries the database. Otherwise,
+        generates metrics from in-memory records.
+        
+        Args:
+            days: Number of days to look back (default 30)
+        
+        Returns:
+            List of daily metrics dicts
+        """
+        if self.persistence and self.persistence.enabled:
+            return self.persistence.get_time_series_metrics(days)
+        
+        if not self.feedback_records:
+            return []
+        
+        now = time.time()
+        cutoff = now - (days * 86400)
+        
+        daily_data: Dict[str, Dict[str, Any]] = {}
+        
+        for record in self.feedback_records:
+            if record.timestamp < cutoff:
+                continue
+            
+            date_str = datetime.fromtimestamp(record.timestamp).strftime('%Y-%m-%d')
+            
+            if date_str not in daily_data:
+                daily_data[date_str] = {
+                    "date": date_str,
+                    "total_records": 0,
+                    "outcome_qualities": [],
+                    "total_confirmations": 0,
+                    "positive_confirmations": 0,
+                    "strategies_applied": 0,
+                }
+            
+            day = daily_data[date_str]
+            day["total_records"] += 1
+            day["outcome_qualities"].append(record.outcome_quality)
+            day["total_confirmations"] += record.confirmations_positive + record.confirmations_negative
+            day["positive_confirmations"] += record.confirmations_positive
+            day["strategies_applied"] += 1
+        
+        metrics = []
+        for date_str in sorted(daily_data.keys(), reverse=True):
+            day = daily_data[date_str]
+            qualities = day.pop("outcome_qualities")
+            day["avg_outcome_quality"] = float(np.mean(qualities)) if qualities else 0.0
+            metrics.append(day)
+        
+        return metrics
+    
+    def run_replay_test(self, query: str) -> Dict[str, Any]:
+        """
+        Run a replay test comparing search with vs without learning.
+        
+        This method:
+        1. Runs the query with strategies applied (learning ON)
+        2. Runs the same query without strategies (learning OFF)
+        3. Compares results using quality heuristics
+        4. Stores the comparison in the replay table
+        5. Returns the comparison data
+        
+        Args:
+            query: The search query to test
+        
+        Returns:
+            Dict with replay test results and improvement score
+        """
+        replay_id = f"rp_{int(time.time() * 1000)}"
+        
+        query_basin = self.encoder.encode(query)
+        
+        with_learning = self.apply_strategies_to_search(query, {})
+        strategies_applied = with_learning.get("strategies_applied", 0)
+        modification_magnitude = with_learning.get("modification_magnitude", 0.0)
+        
+        without_learning = {
+            "original_basin": query_basin,
+            "adjusted_basin": query_basin,
+            "params": {},
+            "strategies_applied": 0,
+            "total_weight": 0.0,
+            "modification_magnitude": 0.0,
+            "similar_strategies_found": 0,
+        }
+        
+        with_basin = with_learning.get("adjusted_basin", query_basin)
+        without_basin = without_learning.get("adjusted_basin", query_basin)
+        
+        if isinstance(with_basin, np.ndarray) and isinstance(without_basin, np.ndarray):
+            basin_delta = float(np.linalg.norm(with_basin - without_basin))
+        else:
+            basin_delta = 0.0
+        
+        improvement_score = 0.0
+        if strategies_applied > 0:
+            improvement_score = min(1.0, modification_magnitude * 0.5 + basin_delta * 0.5)
+            avg_quality = 0.0
+            if self.feedback_records:
+                similar_records = [
+                    r for r in self.feedback_records
+                    if fisher_rao_distance(query_basin, r.combined_basin) < self.distance_threshold
+                ]
+                if similar_records:
+                    avg_quality = float(np.mean([r.outcome_quality for r in similar_records]))
+            improvement_score = improvement_score * (0.5 + avg_quality * 0.5)
+        
+        with_learning_serializable = {
+            k: v.tolist() if isinstance(v, np.ndarray) else v
+            for k, v in with_learning.items()
+        }
+        without_learning_serializable = {
+            k: v.tolist() if isinstance(v, np.ndarray) else v
+            for k, v in without_learning.items()
+        }
+        
+        if self.persistence and self.persistence.enabled:
+            self.persistence.store_replay_result(
+                replay_id=replay_id,
+                query=query,
+                query_basin=query_basin,
+                with_learning=with_learning_serializable,
+                without_learning=without_learning_serializable,
+                strategies_count=strategies_applied,
+                improvement=improvement_score,
+            )
+        
+        return {
+            "replay_id": replay_id,
+            "query": query,
+            "strategies_applied": strategies_applied,
+            "modification_magnitude": float(modification_magnitude),
+            "basin_delta": basin_delta,
+            "improvement_score": float(improvement_score),
+            "with_learning": with_learning_serializable,
+            "without_learning": without_learning_serializable,
+            "persisted": self.persistence is not None and self.persistence.enabled,
+            "timestamp": time.time(),
+        }
+    
+    def get_replay_history(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        Get recent replay test results.
+        
+        Args:
+            limit: Maximum number of results to return (default 20)
+        
+        Returns:
+            List of replay test results
+        """
+        if self.persistence and self.persistence.enabled:
+            return self.persistence.get_replay_history(limit)
+        
+        return []
 
 
 _global_strategy_learner: Optional[SearchStrategyLearner] = None
