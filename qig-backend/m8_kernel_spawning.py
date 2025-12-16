@@ -471,12 +471,258 @@ class SpawnProposal:
             self.proposal_id = f"spawn_{uuid.uuid4().hex[:8]}"
 
 
+class KernelObservationStatus(Enum):
+    """Status of a spawned kernel's observation period."""
+    OBSERVING = "observing"      # Still learning from parents
+    GRADUATED = "graduated"      # Completed observation, promoted to active
+    ACTIVE = "active"            # Fully operational
+    SUSPENDED = "suspended"      # Temporarily suspended from observation
+    FAILED = "failed"            # Failed to demonstrate alignment
+
+
+# Observation period requirements
+OBSERVATION_MIN_CYCLES = 10      # Minimum cycles before graduation
+OBSERVATION_MIN_HOURS = 1.0      # Minimum hours before graduation
+OBSERVATION_ALIGNMENT_THRESHOLD = 0.6  # Min alignment score to graduate
+
+
+@dataclass
+class KernelObservationState:
+    """
+    Tracks observation period state for a spawned kernel.
+    
+    During observation, kernels receive copies of parent activity
+    and must demonstrate alignment before graduating to active status.
+    """
+    status: KernelObservationStatus = KernelObservationStatus.OBSERVING
+    observation_start: str = field(default_factory=lambda: datetime.now().isoformat())
+    observation_end: Optional[str] = None
+    observing_parents: List[str] = field(default_factory=list)
+    cycles_completed: int = 0
+    
+    # Activity feed from parents
+    parent_assessments: List[Dict] = field(default_factory=list)
+    parent_debates: List[Dict] = field(default_factory=list)
+    parent_searches: List[Dict] = field(default_factory=list)
+    parent_basin_updates: List[Dict] = field(default_factory=list)
+    
+    # Alignment tracking
+    alignment_scores: List[float] = field(default_factory=list)
+    alignment_avg: float = 0.0
+    graduated_at: Optional[str] = None
+    graduation_reason: Optional[str] = None
+    
+    def record_cycle(self) -> int:
+        """Record an observation cycle completion."""
+        self.cycles_completed += 1
+        return self.cycles_completed
+    
+    def record_alignment(self, score: float) -> None:
+        """Record an alignment score from parent-child comparison."""
+        self.alignment_scores.append(score)
+        if self.alignment_scores:
+            self.alignment_avg = float(np.mean(self.alignment_scores[-20:]))
+    
+    def add_parent_assessment(self, assessment: Dict) -> None:
+        """Add a parent's assessment for learning."""
+        self.parent_assessments.append(assessment)
+        if len(self.parent_assessments) > 100:
+            self.parent_assessments = self.parent_assessments[-100:]
+    
+    def add_parent_debate(self, debate: Dict) -> None:
+        """Add a parent's debate argument for learning."""
+        self.parent_debates.append(debate)
+        if len(self.parent_debates) > 50:
+            self.parent_debates = self.parent_debates[-50:]
+    
+    def add_parent_search(self, search: Dict) -> None:
+        """Add a parent's search query/result for learning."""
+        self.parent_searches.append(search)
+        if len(self.parent_searches) > 100:
+            self.parent_searches = self.parent_searches[-100:]
+    
+    def add_parent_basin_update(self, update: Dict) -> None:
+        """Add a parent's basin coordinate update for learning."""
+        self.parent_basin_updates.append(update)
+        if len(self.parent_basin_updates) > 50:
+            self.parent_basin_updates = self.parent_basin_updates[-50:]
+    
+    def can_graduate(self) -> Tuple[bool, str]:
+        """
+        Check if kernel can graduate from observation.
+        
+        Requirements:
+        - Minimum 10 cycles OR 1 hour elapsed
+        - Alignment score >= 0.6 threshold
+        
+        Returns:
+            (can_graduate, reason)
+        """
+        # Check time elapsed
+        try:
+            start = datetime.fromisoformat(self.observation_start)
+            elapsed_hours = (datetime.now() - start).total_seconds() / 3600
+        except:
+            elapsed_hours = 0.0
+        
+        # Check cycle requirement
+        cycles_ok = self.cycles_completed >= OBSERVATION_MIN_CYCLES
+        time_ok = elapsed_hours >= OBSERVATION_MIN_HOURS
+        
+        if not (cycles_ok or time_ok):
+            return False, f"Need {OBSERVATION_MIN_CYCLES} cycles or {OBSERVATION_MIN_HOURS}h (have {self.cycles_completed} cycles, {elapsed_hours:.2f}h)"
+        
+        # Check alignment
+        if self.alignment_avg < OBSERVATION_ALIGNMENT_THRESHOLD:
+            return False, f"Alignment {self.alignment_avg:.2f} below threshold {OBSERVATION_ALIGNMENT_THRESHOLD}"
+        
+        return True, f"Completed {self.cycles_completed} cycles, {elapsed_hours:.2f}h, alignment {self.alignment_avg:.2f}"
+    
+    def graduate(self, reason: str = "alignment_achieved") -> bool:
+        """Graduate kernel from observation to active status."""
+        can_grad, check_reason = self.can_graduate()
+        if not can_grad:
+            return False
+        
+        self.status = KernelObservationStatus.GRADUATED
+        self.observation_end = datetime.now().isoformat()
+        self.graduated_at = datetime.now().isoformat()
+        self.graduation_reason = reason
+        return True
+    
+    def to_dict(self) -> Dict:
+        """Serialize observation state."""
+        return {
+            "status": self.status.value,
+            "observation_start": self.observation_start,
+            "observation_end": self.observation_end,
+            "observing_parents": self.observing_parents,
+            "cycles_completed": self.cycles_completed,
+            "alignment_avg": self.alignment_avg,
+            "alignment_history_count": len(self.alignment_scores),
+            "parent_assessments_count": len(self.parent_assessments),
+            "parent_debates_count": len(self.parent_debates),
+            "parent_searches_count": len(self.parent_searches),
+            "parent_basin_updates_count": len(self.parent_basin_updates),
+            "graduated_at": self.graduated_at,
+            "graduation_reason": self.graduation_reason,
+        }
+
+
+@dataclass
+class KernelAutonomicSupport:
+    """
+    Full autonomic support system for spawned kernels.
+    
+    Provides all features of pantheon gods:
+    - Neurochemistry system (dopamine, serotonin, stress)
+    - Sleep/dream cycles via GaryAutonomicKernel
+    - Debate participation capability
+    - Research/search integration
+    - Knowledge transfer ability
+    - Voting rights in pantheon consensus
+    - Shadow capabilities if applicable
+    """
+    # Neurochemistry levels
+    dopamine: float = 0.5      # Motivation / reward
+    serotonin: float = 0.5     # Stability / contentment
+    stress: float = 0.0        # Stress / anxiety
+    endorphin: float = 0.3     # Pain relief / euphoria
+    
+    # Autonomic kernel reference
+    has_autonomic: bool = False
+    
+    # Capability flags
+    can_debate: bool = True
+    can_research: bool = True
+    can_transfer_knowledge: bool = True
+    can_vote: bool = True
+    
+    # Shadow pantheon capabilities (if applicable)
+    has_shadow_affinity: bool = False
+    can_darknet_route: bool = False
+    can_underworld_search: bool = False
+    can_shadow_intel: bool = False
+    shadow_god_link: Optional[str] = None  # Which shadow god routes through (e.g., "nyx")
+    
+    # Metrics
+    total_debates: int = 0
+    total_searches: int = 0
+    total_knowledge_transfers: int = 0
+    total_votes_cast: int = 0
+    
+    def update_neurochemistry(
+        self,
+        dopamine_delta: float = 0.0,
+        serotonin_delta: float = 0.0,
+        stress_delta: float = 0.0,
+        endorphin_delta: float = 0.0
+    ) -> Dict[str, float]:
+        """Update neurochemistry levels with bounds [0, 1]."""
+        self.dopamine = float(np.clip(self.dopamine + dopamine_delta, 0.0, 1.0))
+        self.serotonin = float(np.clip(self.serotonin + serotonin_delta, 0.0, 1.0))
+        self.stress = float(np.clip(self.stress + stress_delta, 0.0, 1.0))
+        self.endorphin = float(np.clip(self.endorphin + endorphin_delta, 0.0, 1.0))
+        return self.get_neurochemistry()
+    
+    def get_neurochemistry(self) -> Dict[str, float]:
+        """Get current neurochemistry levels."""
+        return {
+            "dopamine": self.dopamine,
+            "serotonin": self.serotonin,
+            "stress": self.stress,
+            "endorphin": self.endorphin,
+        }
+    
+    def enable_shadow_capabilities(self, shadow_god: str = "nyx") -> None:
+        """Enable shadow pantheon capabilities."""
+        self.has_shadow_affinity = True
+        self.can_darknet_route = True
+        self.can_underworld_search = True
+        self.can_shadow_intel = True
+        self.shadow_god_link = shadow_god
+    
+    def to_dict(self) -> Dict:
+        """Serialize autonomic support state."""
+        return {
+            "neurochemistry": self.get_neurochemistry(),
+            "has_autonomic": self.has_autonomic,
+            "capabilities": {
+                "can_debate": self.can_debate,
+                "can_research": self.can_research,
+                "can_transfer_knowledge": self.can_transfer_knowledge,
+                "can_vote": self.can_vote,
+            },
+            "shadow": {
+                "has_affinity": self.has_shadow_affinity,
+                "can_darknet_route": self.can_darknet_route,
+                "can_underworld_search": self.can_underworld_search,
+                "can_shadow_intel": self.can_shadow_intel,
+                "shadow_god_link": self.shadow_god_link,
+            },
+            "metrics": {
+                "total_debates": self.total_debates,
+                "total_searches": self.total_searches,
+                "total_knowledge_transfers": self.total_knowledge_transfers,
+                "total_votes_cast": self.total_votes_cast,
+            }
+        }
+
+
 @dataclass
 class SpawnedKernel:
     """
     A kernel that was dynamically spawned.
     
-    Contains genesis information and lineage.
+    Contains genesis information, lineage, observation state,
+    and full autonomic support system.
+    
+    LIFECYCLE:
+    1. Born from parent(s) - starts in "observing" status
+    2. Receives copies of parent activity during observation
+    3. Demonstrates alignment through assessment comparisons
+    4. Graduates to "active" status after meeting criteria
+    5. Operates with full autonomic support (sleep/dream/neurochemistry)
     """
     kernel_id: str
     profile: KernelProfile
@@ -487,6 +733,67 @@ class SpawnedKernel:
     genesis_votes: Dict[str, str]  # god -> vote
     basin_lineage: Dict[str, float]  # parent -> contribution
     m8_position: Optional[Dict] = None  # M8 geometric position
+    
+    # Observation period tracking (NEW)
+    observation: KernelObservationState = field(default_factory=KernelObservationState)
+    
+    # Full autonomic support (NEW)
+    autonomic: KernelAutonomicSupport = field(default_factory=KernelAutonomicSupport)
+    
+    def __post_init__(self):
+        """Initialize observation state with parent gods."""
+        if self.parent_gods and not self.observation.observing_parents:
+            self.observation.observing_parents = list(self.parent_gods)
+    
+    def is_observing(self) -> bool:
+        """Check if kernel is still in observation period."""
+        return self.observation.status == KernelObservationStatus.OBSERVING
+    
+    def is_active(self) -> bool:
+        """Check if kernel is fully active (graduated from observation)."""
+        return self.observation.status in [
+            KernelObservationStatus.GRADUATED,
+            KernelObservationStatus.ACTIVE
+        ]
+    
+    def receive_parent_activity(
+        self,
+        activity_type: str,
+        activity_data: Dict,
+        parent_god: str
+    ) -> bool:
+        """
+        Receive activity from a parent god during observation.
+        
+        Args:
+            activity_type: Type of activity (assessment, debate, search, basin_update)
+            activity_data: Activity data to learn from
+            parent_god: Name of parent god
+            
+        Returns:
+            True if activity was recorded
+        """
+        if not self.is_observing():
+            return False
+        
+        if parent_god not in self.observation.observing_parents:
+            return False
+        
+        activity_data["from_parent"] = parent_god
+        activity_data["received_at"] = datetime.now().isoformat()
+        
+        if activity_type == "assessment":
+            self.observation.add_parent_assessment(activity_data)
+        elif activity_type == "debate":
+            self.observation.add_parent_debate(activity_data)
+        elif activity_type == "search":
+            self.observation.add_parent_search(activity_data)
+        elif activity_type == "basin_update":
+            self.observation.add_parent_basin_update(activity_data)
+        else:
+            return False
+        
+        return True
     
     def to_dict(self) -> Dict:
         result = {
@@ -503,6 +810,11 @@ class SpawnedKernel:
             "genesis_votes": self.genesis_votes,
             "basin_lineage": self.basin_lineage,
             "metadata": self.profile.metadata,
+            # New observation and autonomic fields
+            "observation": self.observation.to_dict(),
+            "autonomic": self.autonomic.to_dict(),
+            "is_observing": self.is_observing(),
+            "is_active": self.is_active(),
         }
         if self.m8_position:
             result["m8_position"] = self.m8_position
@@ -1437,6 +1749,274 @@ class M8KernelSpawner:
     def list_spawned_kernels(self) -> List[Dict]:
         """List all spawned kernels."""
         return [k.to_dict() for k in self.spawned_kernels.values()]
+    
+    def list_observing_kernels(self) -> List[Dict]:
+        """List all kernels currently in observation period."""
+        return [
+            k.to_dict() for k in self.spawned_kernels.values()
+            if k.is_observing()
+        ]
+    
+    def list_active_kernels(self) -> List[Dict]:
+        """List all kernels that have graduated to active status."""
+        return [
+            k.to_dict() for k in self.spawned_kernels.values()
+            if k.is_active()
+        ]
+    
+    def promote_kernel(
+        self,
+        kernel_id: str,
+        force: bool = False,
+        reason: str = "alignment_achieved"
+    ) -> Dict:
+        """
+        Promote a kernel from observation to active status.
+        
+        Graduation requires:
+        - 10 cycles OR 1 hour minimum observation
+        - Alignment score >= 0.6 threshold
+        
+        Args:
+            kernel_id: ID of the kernel to promote
+            force: If True, promote even without meeting criteria
+            reason: Graduation reason for audit trail
+            
+        Returns:
+            Promotion result with status and details
+        """
+        if kernel_id not in self.spawned_kernels:
+            return {"error": f"Kernel {kernel_id} not found"}
+        
+        kernel = self.spawned_kernels[kernel_id]
+        
+        if not kernel.is_observing():
+            return {
+                "error": f"Kernel {kernel_id} is not in observation (status: {kernel.observation.status.value})",
+                "current_status": kernel.observation.status.value,
+            }
+        
+        can_graduate, check_reason = kernel.observation.can_graduate()
+        
+        if not can_graduate and not force:
+            return {
+                "success": False,
+                "kernel_id": kernel_id,
+                "reason": check_reason,
+                "observation": kernel.observation.to_dict(),
+                "hint": "Use force=True for operator override",
+            }
+        
+        # Graduate the kernel
+        kernel.observation.status = KernelObservationStatus.GRADUATED
+        kernel.observation.observation_end = datetime.now().isoformat()
+        kernel.observation.graduated_at = datetime.now().isoformat()
+        kernel.observation.graduation_reason = reason if not force else f"forced: {reason}"
+        
+        # Initialize full autonomic support
+        kernel.autonomic.has_autonomic = True
+        
+        # Give dopamine boost for graduation
+        kernel.autonomic.update_neurochemistry(dopamine_delta=0.2, serotonin_delta=0.1)
+        
+        # Persist graduation event
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.save_kernel_snapshot(
+                    kernel_id=kernel_id,
+                    god_name=kernel.profile.god_name,
+                    domain=kernel.profile.domain,
+                    generation=0,
+                    basin_coords=kernel.profile.affinity_basin.tolist(),
+                    phi=kernel.observation.alignment_avg,
+                    kappa=64.21,
+                    regime='geometric',
+                    metadata={
+                        'graduated': True,
+                        'graduation_reason': kernel.observation.graduation_reason,
+                        'observation_cycles': kernel.observation.cycles_completed,
+                        'alignment_avg': kernel.observation.alignment_avg,
+                    }
+                )
+            except Exception as e:
+                print(f"[M8] Failed to persist graduation: {e}")
+        
+        return {
+            "success": True,
+            "kernel_id": kernel_id,
+            "god_name": kernel.profile.god_name,
+            "graduated_at": kernel.observation.graduated_at,
+            "graduation_reason": kernel.observation.graduation_reason,
+            "observation_cycles": kernel.observation.cycles_completed,
+            "alignment_avg": kernel.observation.alignment_avg,
+            "autonomic": kernel.autonomic.to_dict(),
+        }
+    
+    def get_parent_activity_feed(
+        self,
+        kernel_id: str,
+        activity_type: Optional[str] = None,
+        limit: int = 50
+    ) -> Dict:
+        """
+        Get the activity feed that observing kernel has received from parents.
+        
+        During observation, kernels receive copies of parent activity:
+        - Assessments and reasoning
+        - Debate arguments and resolutions
+        - Search queries and results
+        - Basin coordinate updates
+        
+        Args:
+            kernel_id: ID of the kernel
+            activity_type: Filter by type (assessment, debate, search, basin_update)
+            limit: Maximum items to return per type
+            
+        Returns:
+            Activity feed with parent activity by type
+        """
+        if kernel_id not in self.spawned_kernels:
+            return {"error": f"Kernel {kernel_id} not found"}
+        
+        kernel = self.spawned_kernels[kernel_id]
+        obs = kernel.observation
+        
+        feed = {
+            "kernel_id": kernel_id,
+            "observing_parents": obs.observing_parents,
+            "status": obs.status.value,
+            "cycles_completed": obs.cycles_completed,
+            "alignment_avg": obs.alignment_avg,
+        }
+        
+        if activity_type is None or activity_type == "assessment":
+            feed["assessments"] = obs.parent_assessments[-limit:]
+        if activity_type is None or activity_type == "debate":
+            feed["debates"] = obs.parent_debates[-limit:]
+        if activity_type is None or activity_type == "search":
+            feed["searches"] = obs.parent_searches[-limit:]
+        if activity_type is None or activity_type == "basin_update":
+            feed["basin_updates"] = obs.parent_basin_updates[-limit:]
+        
+        return feed
+    
+    def route_parent_activity(
+        self,
+        parent_god: str,
+        activity_type: str,
+        activity_data: Dict
+    ) -> Dict:
+        """
+        Route parent god activity to all observing child kernels.
+        
+        Called when a parent god performs an action, this routes
+        copies of the activity to all kernels observing that parent.
+        
+        Args:
+            parent_god: Name of the parent god performing activity
+            activity_type: Type of activity (assessment, debate, search, basin_update)
+            activity_data: Activity data to route
+            
+        Returns:
+            Routing result with count of kernels updated
+        """
+        routed_to = []
+        
+        for kernel_id, kernel in self.spawned_kernels.items():
+            if kernel.is_observing() and parent_god in kernel.observation.observing_parents:
+                success = kernel.receive_parent_activity(
+                    activity_type=activity_type,
+                    activity_data=activity_data,
+                    parent_god=parent_god
+                )
+                if success:
+                    routed_to.append(kernel_id)
+        
+        return {
+            "parent_god": parent_god,
+            "activity_type": activity_type,
+            "routed_to_count": len(routed_to),
+            "routed_to": routed_to,
+        }
+    
+    def record_observation_cycle(
+        self,
+        kernel_id: str,
+        alignment_score: Optional[float] = None
+    ) -> Dict:
+        """
+        Record an observation cycle completion for a kernel.
+        
+        Called when a kernel completes an observation cycle.
+        Optionally records an alignment score.
+        
+        Args:
+            kernel_id: ID of the kernel
+            alignment_score: Optional alignment score to record
+            
+        Returns:
+            Updated observation state
+        """
+        if kernel_id not in self.spawned_kernels:
+            return {"error": f"Kernel {kernel_id} not found"}
+        
+        kernel = self.spawned_kernels[kernel_id]
+        
+        if not kernel.is_observing():
+            return {"error": f"Kernel {kernel_id} is not observing"}
+        
+        cycles = kernel.observation.record_cycle()
+        
+        if alignment_score is not None:
+            kernel.observation.record_alignment(alignment_score)
+        
+        # Check if kernel can now graduate
+        can_graduate, reason = kernel.observation.can_graduate()
+        
+        return {
+            "kernel_id": kernel_id,
+            "cycles_completed": cycles,
+            "alignment_avg": kernel.observation.alignment_avg,
+            "can_graduate": can_graduate,
+            "graduation_reason": reason,
+            "observation": kernel.observation.to_dict(),
+        }
+    
+    def enable_shadow_affinity(
+        self,
+        kernel_id: str,
+        shadow_god: str = "nyx"
+    ) -> Dict:
+        """
+        Enable shadow pantheon capabilities for a kernel.
+        
+        Grants darknet routing, underworld search, and shadow intel
+        collection abilities through the specified shadow god.
+        
+        Args:
+            kernel_id: ID of the kernel
+            shadow_god: Shadow god to route through (default: nyx)
+            
+        Returns:
+            Updated autonomic state with shadow capabilities
+        """
+        if kernel_id not in self.spawned_kernels:
+            return {"error": f"Kernel {kernel_id} not found"}
+        
+        kernel = self.spawned_kernels[kernel_id]
+        kernel.autonomic.enable_shadow_capabilities(shadow_god)
+        
+        return {
+            "success": True,
+            "kernel_id": kernel_id,
+            "shadow_capabilities": {
+                "has_affinity": kernel.autonomic.has_shadow_affinity,
+                "can_darknet_route": kernel.autonomic.can_darknet_route,
+                "can_underworld_search": kernel.autonomic.can_underworld_search,
+                "can_shadow_intel": kernel.autonomic.can_shadow_intel,
+                "shadow_god_link": kernel.autonomic.shadow_god_link,
+            }
+        }
     
     def get_status(self) -> Dict:
         """Get spawner status - reads from PostgreSQL for real kernel counts."""

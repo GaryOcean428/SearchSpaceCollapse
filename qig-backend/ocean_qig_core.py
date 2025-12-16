@@ -5691,6 +5691,23 @@ if __name__ == '__main__':
     except ImportError as e:
         print(f"[WARNING] Research module not found: {e}")
 
+    # Initialize Autonomous Debate Service (background thread)
+    AUTONOMOUS_DEBATE_AVAILABLE = False
+    try:
+        from autonomous_debate_service import init_autonomous_debate_service
+        if OLYMPUS_AVAILABLE and zeus:
+            autonomous_debate_service = init_autonomous_debate_service(
+                app,
+                pantheon_chat=zeus.pantheon_chat if hasattr(zeus, 'pantheon_chat') else pantheon_chat,
+                shadow_pantheon=zeus.shadow_pantheon if hasattr(zeus, 'shadow_pantheon') else shadow_pantheon
+            )
+            AUTONOMOUS_DEBATE_AVAILABLE = True
+            print("[INFO] 🗣️ Autonomous Debate Service started (background thread)")
+        else:
+            print("[WARNING] Autonomous Debate Service requires Olympus - skipped")
+    except ImportError as e:
+        print(f"[WARNING] Autonomous Debate Service not found: {e}")
+
     # Enable Flask request logging
     import logging as flask_logging
     flask_logging.getLogger('werkzeug').setLevel(flask_logging.INFO)
@@ -5744,6 +5761,10 @@ if __name__ == '__main__':
         print("  - 📖 Vocabulary API (shared learning system)", flush=True)
     else:
         print("  - Vocabulary API NOT available", flush=True)
+    if AUTONOMOUS_DEBATE_AVAILABLE:
+        print("  - 🗣️ Autonomous Debate Service (background monitor)", flush=True)
+    else:
+        print("  - Autonomous Debate Service NOT available", flush=True)
     print(f"\nκ* = {KAPPA_STAR}", flush=True)
     print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
     print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)

@@ -2407,6 +2407,8 @@ export type InsertAutoCycleState = typeof autoCycleState.$inferInsert;
  * Kernel status types - lifecycle states for spawned kernels
  */
 export const kernelStatusTypes = [
+  "observing",   // New kernel in observation period (learning from parents)
+  "graduated",   // Completed observation, promoted to active
   "active",      // Currently participating in searches
   "idle",        // Spawned but not currently engaged
   "breeding",    // In process of breeding with another kernel
@@ -2415,6 +2417,18 @@ export const kernelStatusTypes = [
   "shadow",      // Shadow pantheon kernel (covert)
 ] as const;
 export type KernelStatus = (typeof kernelStatusTypes)[number];
+
+/**
+ * Observation status for kernel graduation
+ */
+export const observationStatusTypes = [
+  "observing",   // Still learning from parents
+  "graduated",   // Completed observation requirements
+  "active",      // Fully operational
+  "suspended",   // Temporarily suspended from observation
+  "failed",      // Failed to demonstrate alignment
+] as const;
+export type ObservationStatus = (typeof observationStatusTypes)[number];
 
 /**
  * M8 KERNEL GEOMETRY - Tracks geometric placement of spawned kernels
@@ -2426,7 +2440,7 @@ export const kernelGeometry = pgTable(
     kernelId: varchar("kernel_id", { length: 64 }).primaryKey(),
     godName: varchar("god_name", { length: 64 }).notNull(),
     domain: varchar("domain", { length: 128 }).notNull(),
-    status: varchar("status", { length: 32 }).default("idle"), // active, idle, breeding, dormant, dead, shadow
+    status: varchar("status", { length: 32 }).default("observing"), // observing, graduated, active, idle, breeding, dormant, dead, shadow
     primitiveRoot: integer("primitive_root"), // E8 root index (0-239)
     basinCoordinates: vector("basin_coordinates", { dimensions: 64 }), // 64D basin coordinates (pgvector)
     parentKernels: text("parent_kernels").array(),
@@ -2449,10 +2463,24 @@ export const kernelGeometry = pgTable(
     targetFunction: varchar("target_function", { length: 128 }),
     valence: integer("valence"),
     breedingTarget: varchar("breeding_target", { length: 64 }),
+    // Observation period tracking (M8 kernel graduation system)
+    observationStatus: varchar("observation_status", { length: 32 }).default("observing"), // observing, graduated, active, suspended, failed
+    observationStart: timestamp("observation_start").defaultNow(),
+    observationEnd: timestamp("observation_end"),
+    observingParents: text("observing_parents").array(), // Parent gods being observed
+    observationCycles: integer("observation_cycles").default(0),
+    alignmentAvg: doublePrecision("alignment_avg").default(0), // Average alignment score with parents
+    graduatedAt: timestamp("graduated_at"),
+    graduationReason: varchar("graduation_reason", { length: 128 }),
+    // Autonomic support flags
+    hasAutonomic: boolean("has_autonomic").default(false),
+    hasShadowAffinity: boolean("has_shadow_affinity").default(false),
+    shadowGodLink: varchar("shadow_god_link", { length: 32 }), // nyx, erebus, etc.
   },
   (table) => [
     index("idx_kernel_geometry_domain").on(table.domain),
     index("idx_kernel_geometry_spawned_at").on(table.spawnedAt),
+    index("idx_kernel_geometry_observation_status").on(table.observationStatus),
   ]
 );
 
