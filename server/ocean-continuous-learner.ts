@@ -37,7 +37,7 @@ export class OceanContinuousLearner {
   private vocabulary = new Map<string, LearnedPattern>();
   private loadedFromDb = false;
   private readonly PHI_LEARNING_THRESHOLD = 0.7;  // Learn words with Φ ≥ 0.7
-  private readonly MAX_VOCABULARY_SIZE = 50000;    // Prevent unbounded growth
+  // NO CAP on vocabulary size - learning should be unbounded
   private readonly LEVENSHTEIN_DISTANCE = 2;       // Max edit distance for typo variants
   
   constructor() {
@@ -116,9 +116,10 @@ export class OceanContinuousLearner {
       existing.phi = Math.max(existing.phi, phi); // Keep highest Φ seen
       console.log(`[OceanContinuousLearner] Updated pattern "${pattern}" (Φ=${phi.toFixed(3)}, freq=${existing.frequency})`);
     } else {
-      // Learn new pattern
-      if (this.vocabulary.size >= this.MAX_VOCABULARY_SIZE) {
-        console.warn(`[OceanContinuousLearner] Vocabulary at max size (${this.MAX_VOCABULARY_SIZE}), not learning new pattern`);
+      // Learn new pattern - no size cap, learning is unbounded
+      // Validate: only full words or contractions allowed
+      if (!this.isValidWord(pattern)) {
+        console.log(`[OceanContinuousLearner] Skipping invalid pattern (not a full word): "${pattern}"`);
         return false;
       }
       
@@ -183,7 +184,7 @@ export class OceanContinuousLearner {
     
     // Add expanded variants to vocabulary as generated patterns
     for (const variant of variantArray) {
-      if (!this.vocabulary.has(variant) && this.vocabulary.size < this.MAX_VOCABULARY_SIZE) {
+      if (!this.vocabulary.has(variant) && this.isValidWord(variant)) {
         this.vocabulary.set(variant, {
           pattern: variant,
           phi: learned?.phi || 0,
@@ -199,11 +200,34 @@ export class OceanContinuousLearner {
     }
     
     // Also add to expanded vocabulary system
-    expandedVocabulary.recordHighPhiWord(pattern, learned?.phi || 0);
+    expandedVocabulary.learnWord(pattern);
     
     console.log(`[OceanContinuousLearner] 🌟 Expanded "${pattern}" → ${variantArray.length} variants`);
     
     return variantArray;
+  }
+  
+  /**
+   * Validate that a pattern is a full word or contraction
+   * Rejects partial tokens, fragments, and non-word patterns
+   */
+  private isValidWord(pattern: string): boolean {
+    if (!pattern || pattern.length < 2) return false;
+    
+    // Must be alphanumeric with optional apostrophe for contractions
+    // Full words: "bitcoin", "satoshi", "wallet"
+    // Contractions: "don't", "can't", "I'm"
+    const fullWordPattern = /^[a-zA-Z][a-zA-Z0-9]*('[a-zA-Z]+)?$/;
+    
+    // Also allow simple numeric patterns for years/numbers
+    const numericPattern = /^[0-9]+$/;
+    
+    // Allow common crypto patterns with numbers
+    const cryptoPattern = /^[a-zA-Z]+[0-9]+$/;
+    
+    return fullWordPattern.test(pattern) || 
+           numericPattern.test(pattern) || 
+           cryptoPattern.test(pattern);
   }
   
   /**
