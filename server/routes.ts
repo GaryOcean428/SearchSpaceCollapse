@@ -137,6 +137,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Comprehensive health endpoint for frontend monitoring
+  // Returns detailed subsystem status including database and Python backend
+  app.get("/api/health", async (req, res) => {
+    const startTime = Date.now();
+    const subsystems: Record<string, any> = {
+      database: { status: 'down' as const, message: 'Not checked' },
+      pythonBackend: { status: 'down' as const, message: 'Not checked' },
+      storage: { status: 'healthy' as const, message: 'In-memory storage active' },
+    };
+
+    // Check database
+    try {
+      const { db } = await import("./db");
+      if (db) {
+        const dbStart = Date.now();
+        await db.execute('SELECT 1');
+        subsystems.database = {
+          status: 'healthy',
+          latency: Date.now() - dbStart,
+          message: 'PostgreSQL connected',
+        };
+      } else {
+        subsystems.database = { status: 'degraded', message: 'No database configured' };
+      }
+    } catch (error) {
+      subsystems.database = { status: 'down', message: 'Database connection failed' };
+    }
+
+    // Check Python backend
+    try {
+      const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+      const pyStart = Date.now();
+      const response = await fetch(`${backendUrl}/health`, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+      if (response.ok) {
+        subsystems.pythonBackend = {
+          status: 'healthy',
+          latency: Date.now() - pyStart,
+          message: 'Python QIG backend running',
+        };
+      } else {
+        subsystems.pythonBackend = { status: 'degraded', message: 'Python backend returned error' };
+      }
+    } catch (error) {
+      subsystems.pythonBackend = { status: 'down', message: 'Python backend unreachable' };
+    }
+
+    // Determine overall status
+    const statuses = Object.values(subsystems).map((s: any) => s.status);
+    let overallStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
+    if (statuses.includes('down')) {
+      overallStatus = statuses.every(s => s === 'down') ? 'down' : 'degraded';
+    } else if (statuses.includes('degraded')) {
+      overallStatus = 'degraded';
+    }
+
+    res.status(200).json({
+      status: overallStatus,
+      timestamp: Date.now(),
+      uptime: process.uptime(),
+      subsystems,
+      version: process.env.npm_package_version || '1.0.0',
+    });
+  });
+
   // Replit Auth: Only setup auth if database connection is available
   const { db } = await import("./db");
   const authEnabled = !!db;
