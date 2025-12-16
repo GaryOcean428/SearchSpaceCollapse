@@ -7,6 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { API_ROUTES, QUERY_KEYS } from '@/api';
+import { useAuth } from '@/hooks/useAuth';
 import {
   getM8Client,
   type M8Status,
@@ -100,19 +101,23 @@ export interface WarHistoryRecord {
 }
 
 export function useM8Status() {
+  const { isAuthenticated } = useAuth();
   return useQuery<M8Status>({
     queryKey: M8_KEYS.status,
     queryFn: () => getM8Client().getStatus(),
     staleTime: 30000,
     refetchInterval: 60000,
+    enabled: isAuthenticated,
   });
 }
 
 export function useListProposals(status?: ProposalStatus) {
+  const { isAuthenticated } = useAuth();
   return useQuery<ListProposalsResponse>({
     queryKey: [...M8_KEYS.proposals, status],
     queryFn: () => getM8Client().listProposals(status),
     staleTime: 30000,
+    enabled: isAuthenticated,
   });
 }
 
@@ -129,10 +134,11 @@ export function useGetProposal(proposalId: string | null) {
 }
 
 export function useListSpawnedKernels() {
+  const { isAuthenticated } = useAuth();
   return useQuery<PostgresKernelsResponse>({
     queryKey: QUERY_KEYS.olympus.kernels(),
     queryFn: async () => {
-      const response = await fetch(API_ROUTES.olympus.kernels);
+      const response = await fetch(API_ROUTES.olympus.kernels, { credentials: 'include' });
       if (!response.ok) {
         throw new Error('Failed to fetch kernels');
       }
@@ -140,6 +146,7 @@ export function useListSpawnedKernels() {
     },
     staleTime: 30000,
     refetchInterval: 60000,
+    enabled: isAuthenticated,
   });
 }
 
@@ -239,10 +246,11 @@ export function useM8Spawning(): M8SpawningHook {
 }
 
 export function useWarHistory(limit: number = 50) {
+  const { isAuthenticated } = useAuth();
   return useQuery<WarHistoryRecord[]>({
     queryKey: [...M8_KEYS.warHistory, limit],
     queryFn: async () => {
-      const response = await fetch(API_ROUTES.olympus.warHistory(limit));
+      const response = await fetch(API_ROUTES.olympus.warHistory(limit), { credentials: 'include' });
       if (!response.ok) {
         throw new Error('Failed to fetch war history');
       }
@@ -251,14 +259,16 @@ export function useWarHistory(limit: number = 50) {
     },
     staleTime: 30000,
     refetchInterval: 60000,
+    enabled: isAuthenticated,
   });
 }
 
 export function useActiveWar() {
+  const { isAuthenticated } = useAuth();
   return useQuery<WarHistoryRecord | null>({
     queryKey: M8_KEYS.activeWar,
     queryFn: async () => {
-      const response = await fetch(API_ROUTES.olympus.warActive);
+      const response = await fetch(API_ROUTES.olympus.warActive, { credentials: 'include' });
       if (!response.ok) {
         throw new Error('Failed to fetch active war');
       }
@@ -267,6 +277,7 @@ export function useActiveWar() {
     },
     staleTime: 10000,
     refetchInterval: 15000,
+    enabled: isAuthenticated,
   });
 }
 
@@ -312,6 +323,7 @@ export interface MergeKernelsResponse {
 }
 
 export function useIdleKernels(threshold_seconds: number = 300) {
+  const { isAuthenticated } = useAuth();
   return useQuery<IdleKernelsResponse>({
     queryKey: ['m8', 'idleKernels', threshold_seconds],
     queryFn: async () => {
@@ -325,6 +337,7 @@ export function useIdleKernels(threshold_seconds: number = 300) {
     },
     staleTime: 30000,
     refetchInterval: 30000,
+    enabled: isAuthenticated,
   });
 }
 
