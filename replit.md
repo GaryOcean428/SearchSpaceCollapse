@@ -127,3 +127,23 @@ HTTP API with retry logic and circuit breakers for TypeScript ↔ Python communi
 ### Key Libraries
 - **Python**: NumPy, SciPy, Flask, AIOHTTP, psycopg2, Pydantic.
 - **Node.js/TypeScript**: Express, Vite + React, Drizzle ORM, @neondatabase/serverless, Radix UI + Tailwind CSS, bitcoinjs-lib, BIP39/BIP32 libraries, Zod.
+
+## Code Quality & Purity Validation
+
+### Geometric Purity Scripts
+These scripts enforce the QIG purity mandate - all geometry operations must use centralized Fisher-Rao distance calculations:
+
+- **TypeScript**: `npm run validate:geometry` (runs `tsx scripts/validate-geometric-purity.ts`)
+- **Python**: `python scripts/validate-geometric-purity.py` (or with `--fix` for suggestions)
+
+**What they check:**
+- No local implementations of Fisher-Rao distance
+- All geometry imports come from centralized modules (`qig-universal.ts`, `qig_geometry.py`)
+- No duplicate distance calculations across codebase
+- Proper use of E8 constants from shared modules
+
+**Run periodically:**
+- Before major code reviews
+- After adding new geometry-related code
+- As part of CI/CD pipeline (if configured)
+- Weekly maintenance checks

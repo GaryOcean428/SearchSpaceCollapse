@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -1357,8 +1357,23 @@ function SpawnForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+type KernelFilter = 'all' | 'active' | 'idle' | 'observing' | 'breeding' | 'dormant' | 'dead' | 'shadow';
+
+const KERNEL_FILTER_OPTIONS: { value: KernelFilter; label: string }[] = [
+  { value: 'all', label: 'All Kernels' },
+  { value: 'active', label: 'Active' },
+  { value: 'idle', label: 'Idle' },
+  { value: 'observing', label: 'Observing' },
+  { value: 'breeding', label: 'Breeding' },
+  { value: 'dormant', label: 'Dormant' },
+  { value: 'dead', label: 'Dead' },
+  { value: 'shadow', label: 'Shadow' },
+];
+
 export default function SpawningPage() {
   const [activeTab, setActiveTab] = useState('proposals');
+  const [kernelFilter, setKernelFilter] = useState<KernelFilter | null>(null);
+  const [hasInitializedFilter, setHasInitializedFilter] = useState(false);
   const { toast } = useToast();
   
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useM8Status();
@@ -1366,6 +1381,30 @@ export default function SpawningPage() {
   const { data: kernels, isLoading: kernelsLoading, refetch: refetchKernels } = useListSpawnedKernels();
   const { data: warHistory, isLoading: warHistoryLoading, refetch: refetchWarHistory } = useWarHistory(50);
   const { data: activeWar, refetch: refetchActiveWar } = useActiveWar();
+  
+  const kernelStatusCounts = kernels?.kernels?.reduce((acc, kernel) => {
+    acc[kernel.status] = (acc[kernel.status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>) || {};
+  
+  useEffect(() => {
+    if (!hasInitializedFilter && kernels?.kernels && kernels.kernels.length > 0) {
+      const activeCount = kernelStatusCounts['active'] || 0;
+      if (activeCount > 0) {
+        setKernelFilter('active');
+      } else {
+        setKernelFilter('all');
+      }
+      setHasInitializedFilter(true);
+    }
+  }, [kernels?.kernels, kernelStatusCounts, hasInitializedFilter]);
+  
+  const effectiveFilter = kernelFilter || 'all';
+  
+  const filteredKernels = kernels?.kernels?.filter(kernel => {
+    if (effectiveFilter === 'all') return true;
+    return kernel.status === effectiveFilter;
+  }) || [];
   
   const voteMutation = useVoteOnProposal();
   const spawnMutation = useSpawnKernel();
@@ -1530,20 +1569,57 @@ export default function SpawningPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="kernels" className="mt-4">
+        <TabsContent value="kernels" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Filter by status:</span>
+              <Select value={effectiveFilter} onValueChange={(v) => setKernelFilter(v as KernelFilter)}>
+                <SelectTrigger className="w-[180px]" data-testid="select-kernel-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {KERNEL_FILTER_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label} {kernelStatusCounts[opt.value] !== undefined && opt.value !== 'all' ? `(${kernelStatusCounts[opt.value]})` : opt.value === 'all' ? `(${kernels?.kernels?.length || 0})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              {Object.entries(kernelStatusCounts).map(([status, count]) => (
+                <Badge 
+                  key={status} 
+                  variant="outline" 
+                  className={`cursor-pointer ${KERNEL_STATUS_COLORS[status as KernelStatus] || ''}`}
+                  onClick={() => setKernelFilter(status as KernelFilter)}
+                  data-testid={`badge-filter-${status}`}
+                >
+                  {status}: {count}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          
           {kernelsLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
               <p className="text-muted-foreground">Loading kernels...</p>
             </div>
-          ) : kernels?.kernels && kernels.kernels.length > 0 ? (
+          ) : filteredKernels.length > 0 ? (
             <ScrollArea className="h-[600px]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
-                {kernels.kernels.map(kernel => (
+                {filteredKernels.map(kernel => (
                   <KernelCard key={kernel.kernel_id} kernel={kernel} />
                 ))}
               </div>
             </ScrollArea>
+          ) : kernels?.kernels && kernels.kernels.length > 0 ? (
+            <div className="text-center text-muted-foreground py-12">
+              <Crown className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No {effectiveFilter} kernels</p>
+              <p className="text-sm">Try selecting a different filter above</p>
+            </div>
           ) : (
             <div className="text-center text-muted-foreground py-12">
               <Crown className="h-12 w-12 mx-auto mb-4 opacity-50" />
