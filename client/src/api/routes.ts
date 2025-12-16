@@ -142,11 +142,6 @@ export const API_ROUTES = {
     clusterAnalytics: '/api/near-misses/cluster-analytics',
   },
 
-  // Activity Stream
-  activityStream: {
-    list: '/api/activity-stream',
-  },
-
   // Sweeps
   sweeps: {
     list: '/api/sweeps',
@@ -307,12 +302,6 @@ export const QUERY_KEYS = {
       tier ? [API_ROUTES.nearMisses.list, { tier }] as const 
            : [API_ROUTES.nearMisses.list] as const,
     clusterAnalytics: () => [API_ROUTES.nearMisses.clusterAnalytics] as const,
-  },
-  
-  activityStream: {
-    list: (limit?: number) => 
-      limit ? [API_ROUTES.activityStream.list, { limit }] as const 
-            : [API_ROUTES.activityStream.list] as const,
   },
   
   sweeps: {
