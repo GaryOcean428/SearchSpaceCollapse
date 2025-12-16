@@ -7,7 +7,7 @@ Tracks kernel snapshots, breeding history, and evolution statistics.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from .base_persistence import BasePersistence
@@ -649,3 +649,214 @@ class KernelPersistence(BasePersistence):
             kernels.append(kernel)
         
         return kernels
+
+    def get_live_kernel_count(self) -> int:
+        """
+        Get count of live kernels (active, observing, shadow) that count toward E8 cap.
+        
+        Live statuses: 'active', 'observing', 'shadow'
+        Does NOT count: 'dead', 'cannibalized', 'idle'
+        """
+        query = """
+            SELECT COUNT(*) as live_count
+            FROM kernel_geometry
+            WHERE regime IN ('active', 'observing', 'shadow', 'm8_spawned')
+               OR (regime IS NULL AND metadata->>'status' IN ('active', 'observing', 'shadow'))
+        """
+        result = self.execute_one(query)
+        if result:
+            return int(result.get('live_count', 0) or 0)
+        return 0
+
+    def get_kernels_by_status(self, statuses: List[str], limit: int = 300) -> List[Dict]:
+        """
+        Get kernels filtered by status.
+        
+        Args:
+            statuses: List of status values to include (e.g., ['active', 'observing'])
+            limit: Maximum number of kernels to return (default 300 for cap headroom)
+        
+        Returns:
+            List of kernel dictionaries matching the status filter
+        """
+        if not statuses:
+            return []
+        
+        placeholders = ', '.join(['%s'] * len(statuses))
+        query = f"""
+            SELECT 
+                kernel_id, god_name, domain, primitive_root, basin_coordinates,
+                parent_kernels, phi, kappa, regime, generation,
+                success_count, failure_count, element_group, ecological_niche,
+                target_function, valence, breeding_target, metadata,
+                spawned_at
+            FROM kernel_geometry
+            WHERE regime IN ({placeholders})
+               OR metadata->>'status' IN ({placeholders})
+            ORDER BY spawned_at DESC
+            LIMIT %s
+        """
+        params = tuple(statuses) + tuple(statuses) + (limit,)
+        results = self.execute_query(query, params)
+        
+        kernels = []
+        for r in (results or []):
+            row = dict(r)
+            metadata = row.get('metadata', {})
+            if metadata and isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {}
+            elif metadata is None:
+                metadata = {}
+            
+            spawned_at = row.get('spawned_at')
+            if spawned_at and hasattr(spawned_at, 'isoformat'):
+                spawned_at = spawned_at.isoformat()
+            
+            basin_coords = row.get('basin_coordinates')
+            if basin_coords is not None and not isinstance(basin_coords, list):
+                try:
+                    basin_coords = list(basin_coords)
+                except (TypeError, ValueError):
+                    basin_coords = None
+            
+            kernels.append({
+                'kernel_id': row.get('kernel_id'),
+                'god_name': row.get('god_name'),
+                'domain': row.get('domain'),
+                'status': row.get('regime') or metadata.get('status', 'active'),
+                'primitive_root': row.get('primitive_root'),
+                'basin_coordinates': basin_coords,
+                'parent_kernels': row.get('parent_kernels', []) or [],
+                'phi': float(row.get('phi', 0.0) or 0.0),
+                'kappa': float(row.get('kappa', 0.0) or 0.0),
+                'regime': row.get('regime'),
+                'generation': int(row.get('generation', 0) or 0),
+                'success_count': int(row.get('success_count', 0) or 0),
+                'failure_count': int(row.get('failure_count', 0) or 0),
+                'element_group': row.get('element_group'),
+                'ecological_niche': row.get('ecological_niche'),
+                'spawned_at': spawned_at,
+                'metadata': metadata,
+            })
+        
+        return kernels
+
+    def mark_kernel_dead(self, kernel_id: str, cause: str = 'terminated') -> bool:
+        """
+        Mark a kernel as dead (terminated, pending archival).
+        
+        Sets status='dead' and records retirement timestamp.
+        Dead kernels don't count toward E8 cap.
+        """
+        query = """
+            UPDATE kernel_geometry
+            SET regime = 'dead',
+                metadata = jsonb_set(
+                    COALESCE(metadata, '{}'::jsonb),
+                    '{status}',
+                    '"dead"'
+                ) || jsonb_build_object(
+                    'retired_at', %s,
+                    'death_cause', %s
+                )
+            WHERE kernel_id = %s
+        """
+        try:
+            self.execute_query(query, (datetime.utcnow().isoformat(), cause, kernel_id), fetch=False)
+            print(f"[KernelPersistence] Marked kernel {kernel_id} as dead: {cause}")
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to mark kernel dead: {e}")
+            return False
+
+    def mark_kernel_cannibalized(self, kernel_id: str, merged_into: str) -> bool:
+        """
+        Mark a kernel as cannibalized (merged into another kernel).
+        
+        Sets status='cannibalized' and records which kernel it merged into.
+        Cannibalized kernels don't count toward E8 cap.
+        """
+        query = """
+            UPDATE kernel_geometry
+            SET regime = 'cannibalized',
+                metadata = jsonb_set(
+                    COALESCE(metadata, '{}'::jsonb),
+                    '{status}',
+                    '"cannibalized"'
+                ) || jsonb_build_object(
+                    'cannibalized_at', %s,
+                    'merged_into', %s
+                )
+            WHERE kernel_id = %s
+        """
+        try:
+            self.execute_query(
+                query, 
+                (datetime.utcnow().isoformat(), merged_into, kernel_id), 
+                fetch=False
+            )
+            print(f"[KernelPersistence] Marked kernel {kernel_id} as cannibalized -> {merged_into}")
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to mark kernel cannibalized: {e}")
+            return False
+
+    def archive_dead_kernels(self, hours_old: int = 24) -> Dict:
+        """
+        Archive kernels that have been dead or cannibalized for over 24 hours.
+        
+        Moves matching kernels from kernel_geometry to kernel_archive table.
+        This keeps the main table lean for live kernel queries.
+        
+        Args:
+            hours_old: Minimum hours since death before archiving (default 24)
+        
+        Returns:
+            Dict with archived_count and any errors
+        """
+        cutoff = datetime.utcnow() - timedelta(hours=hours_old)
+        
+        check_archive_table = """
+            CREATE TABLE IF NOT EXISTS kernel_archive (
+                LIKE kernel_geometry INCLUDING ALL
+            )
+        """
+        try:
+            self.execute_query(check_archive_table, fetch=False)
+        except Exception:
+            pass
+        
+        archive_query = """
+            WITH archived AS (
+                DELETE FROM kernel_geometry
+                WHERE regime IN ('dead', 'cannibalized')
+                  AND (
+                      (metadata->>'retired_at')::timestamp < %s
+                      OR (metadata->>'cannibalized_at')::timestamp < %s
+                  )
+                RETURNING *
+            )
+            INSERT INTO kernel_archive
+            SELECT * FROM archived
+            RETURNING kernel_id
+        """
+        
+        try:
+            results = self.execute_query(archive_query, (cutoff, cutoff))
+            archived_ids = [r.get('kernel_id') for r in (results or [])]
+            print(f"[KernelPersistence] Archived {len(archived_ids)} dead/cannibalized kernels")
+            return {
+                'success': True,
+                'archived_count': len(archived_ids),
+                'archived_kernel_ids': archived_ids,
+            }
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to archive dead kernels: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'archived_count': 0,
+            }

@@ -58,6 +58,11 @@ except ImportError:
     M8_PERSISTENCE_AVAILABLE = False
     print("[M8] Persistence not available - running without database")
 
+# E8 Kernel Cap - Maximum number of live kernels (E8 has 240 roots)
+# Live kernels include: active, observing, shadow
+# Does NOT count: dead, cannibalized, idle
+E8_KERNEL_CAP = 240
+
 
 # M8 Position Naming Catalog - Maps 8 principal axes to mythological concepts
 M8_AXIS_NAMES = [
@@ -1099,6 +1104,38 @@ class M8KernelSpawner:
         # Load previous spawn history from database on startup
         self._load_from_database()
     
+    def get_live_kernel_count(self) -> int:
+        """
+        Get count of live kernels that count toward E8 cap.
+        
+        Live kernels include status: 'active', 'observing', 'shadow'
+        Does NOT count: 'dead', 'cannibalized', 'idle'
+        
+        Uses database for accurate count, falls back to in-memory count.
+        """
+        if self.kernel_persistence:
+            try:
+                return self.kernel_persistence.get_live_kernel_count()
+            except Exception as e:
+                print(f"[M8Spawner] Database count failed, using memory count: {e}")
+        
+        # Fallback to in-memory count
+        return sum(
+            1 for k in self.spawned_kernels.values()
+            if k.is_active() or k.is_observing()
+        )
+    
+    def can_spawn_kernel(self) -> Tuple[bool, int, int]:
+        """
+        Check if a new kernel can be spawned (E8 cap not reached).
+        
+        Returns:
+            (can_spawn, current_count, cap)
+        """
+        live_count = self.get_live_kernel_count()
+        can_spawn = live_count < E8_KERNEL_CAP
+        return can_spawn, live_count, E8_KERNEL_CAP
+    
     def _load_from_database(self):
         """Load persisted M8 spawn history and awareness states from PostgreSQL on startup."""
         if not self.kernel_persistence:
@@ -1572,7 +1609,23 @@ class M8KernelSpawner:
         Args:
             proposal_id: ID of the approved proposal
             force: If True, spawn even without approval (operator override)
+        
+        Returns:
+            Dict with success/error and kernel details.
+            Returns 409 status if E8 kernel cap (240) is reached.
         """
+        # Check E8 kernel cap FIRST - before any other validation
+        can_spawn, live_count, cap = self.can_spawn_kernel()
+        if not can_spawn and not force:
+            return {
+                "error": f"E8 kernel cap reached ({live_count}/{cap})",
+                "status_code": 409,
+                "live_count": live_count,
+                "cap": cap,
+                "available": 0,
+                "hint": "Cannot spawn new kernel - retire or cannibalize existing kernels first"
+            }
+        
         if proposal_id not in self.proposals:
             return {"error": f"Proposal {proposal_id} not found"}
         

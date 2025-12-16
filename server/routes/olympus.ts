@@ -1116,14 +1116,26 @@ router.get('/m8/proposal/:proposalId', isAuthenticated, async (req, res) => {
   }
 });
 
+// E8 Kernel Cap - maximum live kernels (matches Python E8_KERNEL_CAP)
+const E8_KERNEL_CAP = 240;
+
 /**
  * M8 List Kernels - Proxy to Python M8 endpoint
+ * Accepts optional ?status=active,observing query param to filter by status
+ * Returns cap info: { kernels: [...], total: N, cap: 240, available: 240-N }
  */
 router.get('/m8/kernels', isAuthenticated, async (req, res) => {
   try {
     const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const statusParam = req.query.status as string | undefined;
     
-    const response = await fetch(`${backendUrl}/m8/kernels`, {
+    // Build query string for Python backend
+    let queryString = '';
+    if (statusParam) {
+      queryString = `?status=${encodeURIComponent(statusParam)}`;
+    }
+    
+    const response = await fetch(`${backendUrl}/m8/kernels${queryString}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1133,10 +1145,29 @@ router.get('/m8/kernels', isAuthenticated, async (req, res) => {
     }
     
     const data = await response.json();
-    res.json(data);
+    
+    // Ensure cap info is included in response
+    const kernels = data.kernels || [];
+    const liveCount = data.live_count ?? kernels.length;
+    
+    res.json({
+      kernels: kernels,
+      total: kernels.length,
+      live_count: liveCount,
+      cap: E8_KERNEL_CAP,
+      available: Math.max(0, E8_KERNEL_CAP - liveCount),
+      status_filter: statusParam || null,
+    });
   } catch (error) {
     console.error('[Olympus] M8 list kernels error:', error);
-    res.json({ kernels: [], total: 0 });
+    res.json({ 
+      kernels: [], 
+      total: 0, 
+      live_count: 0,
+      cap: E8_KERNEL_CAP, 
+      available: E8_KERNEL_CAP,
+      status_filter: null,
+    });
   }
 });
 
