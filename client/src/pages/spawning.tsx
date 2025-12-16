@@ -47,6 +47,13 @@ import {
   type PostgresKernel,
   type KernelStatus,
 } from '@/hooks/use-m8-spawning';
+import {
+  useDebateServiceStatus,
+  useObservingKernels,
+  useGraduateKernel,
+  type ObservingKernel,
+} from '@/hooks/use-autonomous-debates';
+import { Eye, GraduationCap, MessageSquare } from 'lucide-react';
 import type { SpawnProposal, SpawnReason, ProposalStatus, M8Position } from '@/lib/m8-kernel-spawning';
 import { Swords, Target, Timer, Trophy, AlertTriangle, Activity, Compass, MapPin } from 'lucide-react';
 
@@ -489,6 +496,189 @@ function WarCard({ war, isActive }: { war: WarHistoryRecord; isActive?: boolean 
   );
 }
 
+function ObservingKernelCard({ kernel, onGraduate, isGraduating }: { 
+  kernel: ObservingKernel; 
+  onGraduate: (id: string) => void;
+  isGraduating: boolean;
+}) {
+  const observation = kernel.observation;
+  const progressPercent = Math.min(100, (observation.observation_cycles / 10) * 100);
+  
+  return (
+    <Card className="border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Eye className="h-4 w-4 text-amber-400" />
+            {kernel.profile.god_name}
+          </CardTitle>
+          <Badge variant="outline" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+            Observing
+          </Badge>
+        </div>
+        <CardDescription>{kernel.profile.domain}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Parents:</span>
+          {observation.observing_parents.map(parent => (
+            <Badge key={parent} variant="outline" className="text-xs capitalize">{parent}</Badge>
+          ))}
+        </div>
+        
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Observation Progress</span>
+            <span>{observation.observation_cycles}/10 cycles</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-amber-500 transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="text-muted-foreground">Alignment:</span>
+            <span className="ml-1 font-mono">{(observation.alignment_avg * 100).toFixed(1)}%</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Started:</span>
+            <span className="ml-1">{new Date(observation.observation_start).toLocaleDateString()}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-xs text-muted-foreground">
+            Spawn reason: {kernel.spawn_reason}
+          </span>
+          <Button 
+            size="sm" 
+            variant="outline"
+            disabled={!observation.can_graduate || isGraduating}
+            onClick={() => onGraduate(kernel.kernel_id)}
+            className="gap-1"
+            data-testid={`button-graduate-${kernel.kernel_id}`}
+          >
+            <GraduationCap className="h-3 w-3" />
+            Graduate
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ObservingKernelsPanel() {
+  const { data: debateStatus, isLoading: debateLoading } = useDebateServiceStatus();
+  const { data: observingData, isLoading: observingLoading } = useObservingKernels();
+  const graduateMutation = useGraduateKernel();
+  const { toast } = useToast();
+  
+  const handleGraduate = async (kernelId: string) => {
+    try {
+      await graduateMutation.mutateAsync({ kernelId });
+      toast({
+        title: 'Kernel Graduated',
+        description: 'The kernel has been promoted to active status.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Graduation Failed',
+        description: error instanceof Error ? error.message : 'Failed to graduate kernel',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-blue-400" />
+            Autonomous Debate Service
+          </CardTitle>
+          <CardDescription>
+            Background service monitoring debates and spawning specialist kernels
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {debateLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : debateStatus ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono" data-testid="text-debates-resolved">
+                  {debateStatus.debates_resolved}
+                </div>
+                <div className="text-xs text-muted-foreground">Debates Resolved</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono" data-testid="text-arguments-generated">
+                  {debateStatus.arguments_generated}
+                </div>
+                <div className="text-xs text-muted-foreground">Arguments Generated</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono" data-testid="text-spawns-triggered">
+                  {debateStatus.spawns_triggered}
+                </div>
+                <div className="text-xs text-muted-foreground">Kernels Spawned</div>
+              </div>
+              <div className="text-center">
+                <div className={`text-2xl font-bold font-mono ${debateStatus.running ? 'text-green-400' : 'text-red-400'}`} data-testid="text-service-status">
+                  {debateStatus.running ? 'Active' : 'Stopped'}
+                </div>
+                <div className="text-xs text-muted-foreground">Service Status</div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">Debate service unavailable</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Eye className="h-5 w-5 text-amber-400" />
+          Observing Kernels ({observingData?.count || 0})
+        </h3>
+        
+        {observingLoading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground">Loading observing kernels...</p>
+          </div>
+        ) : observingData?.observing_kernels && observingData.observing_kernels.length > 0 ? (
+          <ScrollArea className="h-[400px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
+              {observingData.observing_kernels.map(kernel => (
+                <ObservingKernelCard 
+                  key={kernel.kernel_id} 
+                  kernel={kernel}
+                  onGraduate={handleGraduate}
+                  isGraduating={graduateMutation.isPending}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="text-center text-muted-foreground py-12">
+            <Eye className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-lg">No kernels currently observing</p>
+            <p className="text-sm">New kernels spawned from debates start in observation mode</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SpawnForm({ onSuccess }: { onSuccess: () => void }) {
   const { toast } = useToast();
   const createProposal = useCreateProposal();
@@ -812,6 +1002,10 @@ export default function SpawningPage() {
             <Plus className="h-4 w-4 mr-2" />
             Spawn New
           </TabsTrigger>
+          <TabsTrigger value="observing" data-testid="tab-observing">
+            <Eye className="h-4 w-4 mr-2" />
+            Observing
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="proposals" className="mt-4">
@@ -925,6 +1119,10 @@ export default function SpawningPage() {
               <SpawnForm onSuccess={() => setActiveTab('proposals')} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="observing" className="mt-4">
+          <ObservingKernelsPanel />
         </TabsContent>
       </Tabs>
     </div>

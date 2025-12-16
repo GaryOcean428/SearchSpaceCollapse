@@ -5196,6 +5196,126 @@ def m8_get_spawned_kernel(kernel_id: str):
 
 
 # ============================================================================
+# KERNEL OBSERVATION ENDPOINTS (Olympus API)
+# Routes for observing kernel apprenticeship and graduation
+# ============================================================================
+
+@app.route('/olympus/kernels/observing', methods=['GET'])
+def olympus_kernels_observing():
+    """Get kernels currently in observation period."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        spawner = get_spawner()
+        all_kernels = spawner.list_spawned_kernels()
+        observing = [k for k in all_kernels if k.get('observation', {}).get('status') == 'observing']
+
+        return jsonify({
+            'observing_kernels': observing,
+            'count': len(observing),
+            'total_kernels': len(all_kernels),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/kernels/all', methods=['GET'])
+def olympus_kernels_all():
+    """Get all spawned kernels (active and observing)."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        spawner = get_spawner()
+        kernels = spawner.list_spawned_kernels()
+
+        active = [k for k in kernels if k.get('observation', {}).get('status') != 'observing']
+        observing = [k for k in kernels if k.get('observation', {}).get('status') == 'observing']
+
+        return jsonify({
+            'kernels': kernels,
+            'total': len(kernels),
+            'active_count': len(active),
+            'observing_count': len(observing),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/kernels/<kernel_id>/graduate', methods=['POST'])
+def olympus_kernel_graduate(kernel_id: str):
+    """Graduate a kernel from observation to active status."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        reason = data.get('reason', 'manual_graduation')
+
+        spawner = get_spawner()
+        kernel = spawner.spawned_kernels.get(kernel_id)
+
+        if not kernel:
+            return jsonify({'error': f'Kernel {kernel_id} not found'}), 404
+
+        if not kernel.is_observing():
+            return jsonify({'error': f'Kernel {kernel_id} is not in observation mode'}), 400
+
+        success = kernel.observation.graduate(reason)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'kernel_id': kernel_id,
+                'status': 'graduated',
+                'reason': reason,
+            })
+        else:
+            can_grad, check_reason = kernel.observation.can_graduate()
+            return jsonify({
+                'success': False,
+                'kernel_id': kernel_id,
+                'reason': check_reason,
+            }), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/kernels/route-activity', methods=['POST'])
+def olympus_kernels_route_activity():
+    """Route parent activity to observing kernels."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        activity_type = data.get('activity_type', '')
+        activity_data = data.get('activity_data', {})
+        parent_god = data.get('parent_god', '')
+
+        if not parent_god:
+            return jsonify({'error': 'parent_god is required'}), 400
+
+        spawner = get_spawner()
+        routed_count = 0
+
+        for kernel in spawner.spawned_kernels.values():
+            if kernel.is_observing() and parent_god in kernel.observation.observing_parents:
+                kernel.receive_parent_activity(parent_god, activity_type, activity_data)
+                routed_count += 1
+
+        return jsonify({
+            'success': True,
+            'routed_to': routed_count,
+            'activity_type': activity_type,
+            'parent_god': parent_god,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
 # FEEDBACK LOOP API ENDPOINTS
 # Recursive learning and activity balance
 # ============================================================================

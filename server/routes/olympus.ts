@@ -1454,4 +1454,167 @@ router.post('/shadow/:godName/act', isAuthenticated, async (req, res) => {
   }
 });
 
+// ============================================================================
+// AUTONOMOUS DEBATE SERVICE ROUTES
+// ============================================================================
+
+/**
+ * Get autonomous debate service status
+ * Returns: running status, polls completed, arguments generated, debates resolved
+ */
+router.get('/debates/status', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/debates/status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Debate status error:', error);
+    res.status(503).json({ error: 'Autonomous debate service unreachable' });
+  }
+});
+
+/**
+ * Get active debates currently being monitored
+ */
+router.get('/debates/active', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/debates/active`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Active debates error:', error);
+    res.status(503).json({ error: 'Autonomous debate service unreachable' });
+  }
+});
+
+// ============================================================================
+// KERNEL OBSERVATION ROUTES
+// ============================================================================
+
+/**
+ * Get kernels currently in observation period
+ * Returns: list of observing kernels with parent info and graduation progress
+ */
+router.get('/kernels/observing', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/kernels/observing`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Observing kernels error:', error);
+    res.status(503).json({ error: 'Kernel observation service unreachable' });
+  }
+});
+
+/**
+ * Get all spawned kernels (active and observing)
+ */
+router.get('/kernels/all', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/kernels/all`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] All kernels error:', error);
+    res.status(503).json({ error: 'Kernel service unreachable' });
+  }
+});
+
+/**
+ * Graduate a kernel from observation to active status
+ * POST body: { reason?: string }
+ */
+router.post('/kernels/:kernelId/graduate', isAuthenticated, async (req, res) => {
+  try {
+    const { kernelId } = req.params;
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/kernels/${kernelId}/graduate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    auditLog(req, 'kernel_graduate', kernelId, true);
+    res.json(data);
+  } catch (error) {
+    console.error(`[Olympus] Kernel ${req.params.kernelId} graduation error:`, error);
+    auditLog(req, 'kernel_graduate', req.params.kernelId, false);
+    res.status(503).json({ error: 'Kernel graduation failed' });
+  }
+});
+
+/**
+ * Route parent activity to observing kernels (internal use)
+ * POST body: { activity_type: string, activity_data: object, parent_god: string }
+ */
+router.post('/kernels/route-activity', async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/kernels/route-activity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Activity routing error:', error);
+    res.status(503).json({ error: 'Activity routing failed' });
+  }
+});
+
 export default router;

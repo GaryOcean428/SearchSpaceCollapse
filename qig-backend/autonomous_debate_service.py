@@ -26,17 +26,7 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from geometric_kernels import _fisher_distance, _normalize_to_manifold, BASIN_DIM
-    GEOMETRIC_AVAILABLE = True
-except ImportError:
-    GEOMETRIC_AVAILABLE = False
-    BASIN_DIM = 64
-    def _fisher_distance(a, b):
-        return float(np.linalg.norm(np.array(a) - np.array(b)))
-    def _normalize_to_manifold(basin):
-        norm = np.linalg.norm(basin)
-        return basin / (norm + 1e-10) if norm > 0 else basin
+from geometric_kernels import _fisher_distance, _normalize_to_manifold, BASIN_DIM
 
 try:
     from m8_kernel_spawning import M8KernelSpawner, SpawnReason, get_spawner
@@ -864,6 +854,23 @@ def init_autonomous_debate_service(app, pantheon_chat=None, shadow_pantheon=None
     def autonomous_debate_force_poll():
         from flask import jsonify
         return jsonify(service.force_poll())
+    
+    @app.route('/olympus/debates/status', methods=['GET'])
+    def olympus_debates_status():
+        from flask import jsonify
+        return jsonify(service.get_status())
+    
+    @app.route('/olympus/debates/active', methods=['GET'])
+    def olympus_debates_active():
+        from flask import jsonify
+        if service._pantheon_chat:
+            debates = service._pantheon_chat.get_active_debates()
+            return jsonify({
+                'debates': debates,
+                'count': len(debates),
+                'service_status': 'running' if service._running else 'stopped'
+            })
+        return jsonify({'debates': [], 'count': 0, 'service_status': 'no_pantheon_chat'})
     
     print("[AutonomousDebate] Service initialized and wired to Flask app")
     return service
