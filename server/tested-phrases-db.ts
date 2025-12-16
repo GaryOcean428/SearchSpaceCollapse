@@ -68,7 +68,7 @@ export class TestedPhrasesRegistryDB {
       if (retestStats && retestStats[0]) {
         const { totalRetests, phrasesRetested } = retestStats[0];
         if (totalRetests > 0) {
-          console.warn(`[TestedPhrasesDB] WARNING: ${phrasesRetested} phrases have been wastefully re-tested ${totalRetests} times total`);
+          console.log(`[TestedPhrasesDB] Historical retest stats: ${phrasesRetested} phrases retested ${totalRetests} times (use getWastefullyRetestedPhrases() to investigate)`);
         }
       }
     } catch (error) {

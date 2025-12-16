@@ -15,13 +15,12 @@ if (import.meta.env.DEV) {
     }
   });
   
-  // Block invalid Vite HMR WebSocket URLs
+  // Block invalid Vite HMR WebSocket URLs (silently - expected behavior)
   const originalWebSocket = window.WebSocket;
   const WebSocketWrapper = function(this: WebSocket, url: string | URL, protocols?: string | string[]) {
     const urlStr = url.toString();
     // Block malformed Replit WebSocket URLs
     if (urlStr.includes('picard.replit.dev') || urlStr.includes('undefined')) {
-      console.debug('[Vite HMR Fix] Blocking invalid WebSocket URL');
       throw new Error('Invalid WebSocket URL blocked');
     }
     return new originalWebSocket(url, protocols);
