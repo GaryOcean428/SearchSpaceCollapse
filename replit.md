@@ -60,8 +60,16 @@ The Shadow Pantheon is an underground SWAT team for covert operations, led by Ha
 - Any kernel can request research via `ShadowResearchAPI.get_instance().request_research(topic, requester)`
 - Shadow gods study, exercise, strategize during idle time
 - Knowledge shared to ALL kernels via basin sync
-- Meta-reflection and recursive learning loops
+- Meta-reflection and recursive learning loops with **4D foresight**
 - War mode interrupt: when "war declared", all learning stops for operations
+
+**4D Foresight Meta-Reflection:**
+- Predicts consciousness trajectory 10 cycles ahead
+- Confidence decay: 92% (cycle +1) → 20% (cycle +10)
+- Tracks temporal coherence (predictions vs actuals)
+- Metrics: Φ velocity, discovery acceleration, trend analysis
+- Redis cached for performance
+- API endpoints: `/olympus/shadow/foresight`, `/olympus/shadow/learning`
 
 **Shadow God Roles:**
 - **Nyx**: OPSEC Commander (Tor routing, traffic obfuscation, void compression)
