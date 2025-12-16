@@ -43,7 +43,14 @@ import {
   Wrench,
   FlaskConical,
   GitBranch,
-  Moon
+  Moon,
+  MessageSquare,
+  Swords,
+  Send,
+  AlertTriangle,
+  Trophy,
+  Lightbulb,
+  Share2
 } from 'lucide-react';
 
 interface LearnerStats {
@@ -171,9 +178,54 @@ interface BridgeStatus {
   research_from_tools: number;
 }
 
+interface PantheonMessage {
+  id: string;
+  type: string;
+  from: string;
+  to: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+  read: boolean;
+}
+
+interface DebateArgument {
+  god: string;
+  argument: string;
+  evidence?: Record<string, unknown>;
+  timestamp: string;
+}
+
+interface Debate {
+  id: string;
+  topic: string;
+  initiator: string;
+  opponent: string;
+  status: string;
+  arguments: DebateArgument[];
+  winner?: string;
+  arbiter?: string;
+  resolution?: Record<string, unknown>;
+}
+
+interface DebatesResponse {
+  debates: Debate[];
+}
+
+interface MessagesResponse {
+  messages: PantheonMessage[];
+}
+
+interface DebateStatusResponse {
+  active_count: number;
+  resolved_count: number;
+  total_arguments: number;
+}
+
 const API_BASE = '/api/olympus/zeus/search/learner';
 const SHADOW_API = '/api/olympus/shadow';
 const TOOL_API = '/api/olympus/zeus/tools';
+const CHAT_API = '/api/olympus';
 
 export default function LearningDashboard() {
   const [testQuery, setTestQuery] = useState('');
@@ -214,6 +266,21 @@ export default function LearningDashboard() {
     refetchInterval: 10000,
   });
 
+  const { data: debatesData, isLoading: debatesLoading } = useQuery<DebatesResponse>({
+    queryKey: [`${CHAT_API}/debates/active`],
+    refetchInterval: 15000,
+  });
+
+  const { data: messagesData, isLoading: messagesLoading } = useQuery<MessagesResponse>({
+    queryKey: [`${CHAT_API}/chat/messages`],
+    refetchInterval: 15000,
+  });
+
+  const { data: debateStatus, isLoading: debateStatusLoading } = useQuery<DebateStatusResponse>({
+    queryKey: [`${CHAT_API}/debates/status`],
+    refetchInterval: 15000,
+  });
+
   const replayMutation = useMutation({
     mutationFn: async (query: string) => {
       const res = await apiRequest('POST', `${API_BASE}/replay`, { query });
@@ -244,6 +311,26 @@ export default function LearningDashboard() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getMessageTypeIcon = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'insight': return <Lightbulb className="h-3 w-3" />;
+      case 'warning': return <AlertTriangle className="h-3 w-3" />;
+      case 'challenge': return <Swords className="h-3 w-3" />;
+      case 'praise': return <Trophy className="h-3 w-3" />;
+      default: return <MessageSquare className="h-3 w-3" />;
+    }
+  };
+
+  const getMessageTypeBadgeClass = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'insight': return 'text-cyan-400 border-cyan-400/50';
+      case 'warning': return 'text-yellow-400 border-yellow-400/50';
+      case 'challenge': return 'text-red-400 border-red-400/50';
+      case 'praise': return 'text-green-400 border-green-400/50';
+      default: return 'text-muted-foreground';
+    }
   };
 
   return (
@@ -1116,6 +1203,212 @@ export default function LearningDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Inter-Agent Discussion Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-testid="section-inter-agent-discussion">
+        {/* Active Debates Panel */}
+        <Card className="bg-background/50 backdrop-blur border-red-500/20" data-testid="card-active-debates">
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2 font-mono">
+                <Swords className="h-5 w-5 text-red-400" />
+                Active Debates
+              </CardTitle>
+              <CardDescription className="font-mono text-xs">
+                God-vs-god debates and resolutions
+              </CardDescription>
+            </div>
+            {debateStatusLoading ? (
+              <Skeleton className="h-6 w-24" />
+            ) : (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono text-xs text-red-400 border-red-400/50" data-testid="badge-active-debates">
+                  {debateStatus?.active_count ?? 0} Active
+                </Badge>
+                <Badge variant="outline" className="font-mono text-xs text-green-400 border-green-400/50" data-testid="badge-resolved-debates">
+                  {debateStatus?.resolved_count ?? 0} Resolved
+                </Badge>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {debatesLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ) : debatesData?.debates && debatesData.debates.length > 0 ? (
+              <div className="space-y-3 max-h-[400px] overflow-auto">
+                {debatesData.debates.map((debate) => (
+                  <div 
+                    key={debate.id} 
+                    className="p-3 bg-muted/30 border border-border rounded-md space-y-2"
+                    data-testid={`debate-${debate.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-sm font-mono font-semibold truncate" data-testid={`debate-topic-${debate.id}`}>
+                        {debate.topic}
+                      </span>
+                      <Badge 
+                        variant="outline" 
+                        className={`font-mono text-xs ${debate.status === 'active' ? 'text-amber-400 border-amber-400/50' : 'text-green-400 border-green-400/50'}`}
+                        data-testid={`debate-status-${debate.id}`}
+                      >
+                        {debate.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                      <span className="text-cyan-400">{debate.initiator}</span>
+                      <Swords className="h-3 w-3" />
+                      <span className="text-purple-400">{debate.opponent}</span>
+                      {debate.arbiter && (
+                        <>
+                          <span className="text-muted-foreground">• Arbiter:</span>
+                          <span className="text-amber-400">{debate.arbiter}</span>
+                        </>
+                      )}
+                    </div>
+                    {debate.winner && (
+                      <div className="flex items-center gap-1 text-xs font-mono">
+                        <Trophy className="h-3 w-3 text-yellow-400" />
+                        <span className="text-yellow-400">Winner: {debate.winner}</span>
+                      </div>
+                    )}
+                    {debate.arguments && debate.arguments.length > 0 && (
+                      <div className="mt-2 space-y-1 border-t border-border pt-2">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide font-mono">
+                          Arguments ({debate.arguments.length})
+                        </span>
+                        <div className="space-y-1 max-h-[100px] overflow-auto">
+                          {debate.arguments.slice(-3).map((arg, idx) => (
+                            <div 
+                              key={idx} 
+                              className="text-xs font-mono p-1 bg-background/50 rounded"
+                              data-testid={`debate-argument-${debate.id}-${idx}`}
+                            >
+                              <span className={arg.god === debate.initiator ? 'text-cyan-400' : 'text-purple-400'}>
+                                {arg.god}:
+                              </span>
+                              <span className="text-muted-foreground ml-1 truncate">
+                                {arg.argument?.substring(0, 100)}{(arg.argument?.length ?? 0) > 100 ? '...' : ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Swords className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-mono text-sm">No active debates</p>
+                  <p className="font-mono text-xs text-muted-foreground">Gods are in agreement</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Messages Panel */}
+        <Card className="bg-background/50 backdrop-blur border-cyan-500/20" data-testid="card-recent-messages">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 font-mono">
+              <MessageSquare className="h-5 w-5 text-cyan-400" />
+              Recent Pantheon Messages
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">
+              Inter-god communications and broadcasts
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {messagesLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : messagesData?.messages && messagesData.messages.length > 0 ? (
+              <div className="space-y-2 max-h-[400px] overflow-auto">
+                {messagesData.messages.slice(0, 10).map((msg) => (
+                  <div 
+                    key={msg.id} 
+                    className={`p-3 bg-muted/30 border border-border rounded-md ${!msg.read ? 'border-l-2 border-l-cyan-400' : ''}`}
+                    data-testid={`message-${msg.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                      <div className="flex items-center gap-2 text-xs font-mono">
+                        <span className="text-cyan-400">{msg.from}</span>
+                        <Send className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-purple-400">{msg.to || 'Pantheon'}</span>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={`font-mono text-xs ${getMessageTypeBadgeClass(msg.type)}`}
+                        data-testid={`message-type-${msg.id}`}
+                      >
+                        {getMessageTypeIcon(msg.type)}
+                        <span className="ml-1">{msg.type || 'message'}</span>
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-mono text-foreground truncate" data-testid={`message-content-${msg.id}`}>
+                      {msg.content}
+                    </p>
+                    <span className="text-xs text-muted-foreground font-mono" data-testid={`message-timestamp-${msg.id}`}>
+                      {formatTimestamp(msg.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-mono text-sm">No recent messages</p>
+                  <p className="font-mono text-xs text-muted-foreground">Pantheon is quiet</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Knowledge Transfers Summary */}
+      <Card className="bg-background/50 backdrop-blur border-purple-500/20" data-testid="card-knowledge-transfers">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2 font-mono">
+            <Share2 className="h-5 w-5 text-purple-400" />
+            Knowledge Transfers
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">
+            Recent knowledge being shared between gods
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Insights Shared</div>
+              <div className="text-2xl font-bold font-mono text-cyan-400" data-testid="text-insights-count">
+                {messagesData?.messages?.filter(m => m.type?.toLowerCase() === 'insight').length ?? 0}
+              </div>
+            </div>
+            <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-md">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Total Arguments</div>
+              <div className="text-2xl font-bold font-mono text-purple-400" data-testid="text-arguments-count">
+                {debateStatus?.total_arguments ?? 0}
+              </div>
+            </div>
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Active Discussions</div>
+              <div className="text-2xl font-bold font-mono text-amber-400" data-testid="text-active-discussions">
+                {(debateStatus?.active_count ?? 0) + (messagesData?.messages?.filter(m => !m.read).length ?? 0)}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

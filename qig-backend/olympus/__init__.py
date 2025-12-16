@@ -47,6 +47,9 @@ from .poseidon import Poseidon
 # Shadow Pantheon
 from .shadow_pantheon import Erebus, Hecate, Hypnos, Nemesis, Nyx, ShadowGod, ShadowPantheon, Thanatos
 
+# Lightning Bolt Insight Kernel
+from .lightning_kernel import LightningKernel, get_lightning_kernel, InsightDomain, CrossDomainInsight
+
 # Core hierarchy
 from .zeus import Zeus, olympus_app, zeus
 
@@ -118,4 +121,10 @@ __all__ = [
     'RecursiveConversationOrchestrator',
     'get_conversation_orchestrator',
     'CONVERSATION_AVAILABLE',
+    
+    # Lightning Bolt Insight Kernel
+    'LightningKernel',
+    'get_lightning_kernel',
+    'InsightDomain',
+    'CrossDomainInsight',
 ]

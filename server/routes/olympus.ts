@@ -812,6 +812,92 @@ router.get('/zeus/tools/bridge/status', isAuthenticated, async (req, res) => {
   }
 });
 
+// ============================================================================
+// INTER-AGENT DISCUSSION API ENDPOINTS
+// Pantheon chat, debates, and knowledge transfer
+// ============================================================================
+
+/**
+ * Get recent pantheon chat messages
+ * Returns inter-god communication history
+ */
+router.get('/chat/messages', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const limit = req.query.limit || 50;
+    
+    const response = await fetch(`${backendUrl}/olympus/chat/messages?limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Chat messages error:', error);
+    res.status(500).json({ messages: [], error: 'Failed to retrieve chat messages' });
+  }
+});
+
+/**
+ * Get active debates between gods
+ * Returns ongoing god-vs-god debates
+ */
+router.get('/debates/active', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/debates/active`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Active debates error:', error);
+    res.status(500).json({ debates: [], error: 'Failed to retrieve active debates' });
+  }
+});
+
+/**
+ * Get debate status summary
+ * Returns overview of debate system activity
+ */
+router.get('/debates/status', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/debates/status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Debate status error:', error);
+    res.status(500).json({ 
+      active_count: 0, 
+      resolved_count: 0,
+      total_arguments: 0,
+      error: 'Failed to retrieve debate status' 
+    });
+  }
+});
+
 /**
  * Zeus Memory Stats endpoint
  * Requires authentication
