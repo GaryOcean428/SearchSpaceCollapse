@@ -1,5 +1,5 @@
 import { olympusClient, type ObservationContext } from './olympus-client';
-import { updateWarMetrics, getActiveWar } from './war-history-storage';
+import { updateWarMetrics, getActiveWar, getActiveWars, getWarForGod } from './war-history-storage';
 import { storeShadowIntel } from './qig-db';
 
 export interface ShadowWarDecision {

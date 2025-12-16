@@ -97,7 +97,7 @@ import {
 } from "./olympus-client";
 import { recordLearningEvent } from "./qig-db";
 import { executeShadowOperations } from "./shadow-war-orchestrator";
-import { getActiveWar, updateWarMetrics } from "./war-history-storage";
+import { getActiveWar, getActiveWars, updateWarMetrics, findWarForDiscovery } from "./war-history-storage";
 
 // Import centralized constants (SINGLE SOURCE OF TRUTH)
 import {
