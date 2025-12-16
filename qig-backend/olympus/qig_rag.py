@@ -325,13 +325,16 @@ class QIGRAG:
         
         d_Bures = sqrt(2(1 - F))
         where F is fidelity
+        
+        Works with density matrices of any dimension (including 64x64).
         """
         try:
             from scipy.linalg import sqrtm
             
+            dim = rho1.shape[0]
             eps = 1e-10
-            rho1_reg = rho1 + eps * np.eye(2, dtype=complex)
-            rho2_reg = rho2 + eps * np.eye(2, dtype=complex)
+            rho1_reg = rho1 + eps * np.eye(dim, dtype=rho1.dtype)
+            rho2_reg = rho2 + eps * np.eye(dim, dtype=rho2.dtype)
             
             sqrt_rho1 = sqrtm(rho1_reg)
             product = sqrt_rho1 @ rho2_reg @ sqrt_rho1
@@ -340,7 +343,7 @@ class QIGRAG:
             fidelity = float(np.clip(fidelity, 0, 1))
             
             return float(np.sqrt(2 * (1 - fidelity)))
-        except:
+        except Exception:
             # Fallback: Frobenius distance
             diff = rho1 - rho2
             return float(np.sqrt(np.real(np.trace(diff @ diff))))
