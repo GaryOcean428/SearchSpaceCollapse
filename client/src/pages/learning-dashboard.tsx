@@ -48,30 +48,40 @@ interface LearnerStats {
 
 interface TimeSeriesPoint {
   date: string;
-  outcome_quality: number;
-  records_created: number;
+  avg_outcome_quality: number;
+  total_records: number;
+  total_confirmations: number;
+  positive_confirmations: number;
+  strategies_applied: number;
 }
 
 interface ReplayResult {
   query: string;
+  replay_id: string;
   with_learning: {
-    strategies_applied: string[];
+    strategies_applied: number;
     modification_magnitude: number;
-    response_quality: number;
+    basin_quality?: number;
   };
   without_learning: {
-    response_quality: number;
+    basin_quality?: number;
   };
   improvement_score: number;
-  timestamp: string;
+  modification_magnitude: number;
+  strategies_applied: number;
+  basin_delta: number;
+  timestamp: number;
+  persisted: boolean;
 }
 
 interface ReplayHistoryItem {
-  id: string;
-  query: string;
-  strategies_applied: string[];
+  replay_id: string;
+  original_query: string;
+  with_learning?: Record<string, unknown>;
+  without_learning?: Record<string, unknown>;
+  learning_applied: number;
   improvement_score: number;
-  timestamp: string;
+  created_at: string;
 }
 
 const API_BASE = '/api/olympus/zeus/search/learner';
@@ -315,14 +325,14 @@ export default function LearningDashboard() {
                 <Legend />
                 <Bar 
                   yAxisId="right"
-                  dataKey="records_created" 
+                  dataKey="total_records" 
                   fill="hsl(220 70% 50% / 0.3)" 
                   name="Records Created"
                 />
                 <Line 
                   yAxisId="left"
                   type="monotone" 
-                  dataKey="outcome_quality" 
+                  dataKey="avg_outcome_quality" 
                   stroke="#22d3ee" 
                   strokeWidth={2}
                   dot={{ fill: '#22d3ee', strokeWidth: 0, r: 3 }}
@@ -398,21 +408,13 @@ export default function LearningDashboard() {
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm font-mono">
                     <div>
-                      <span className="text-muted-foreground">Strategies:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {replayResult.with_learning.strategies_applied.length > 0 ? (
-                          replayResult.with_learning.strategies_applied.map((s, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">{s}</Badge>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground text-xs">None</span>
-                        )}
-                      </div>
+                      <span className="text-muted-foreground">Strategies Applied:</span>
+                      <span className="ml-2 text-green-400">{replayResult.strategies_applied}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Magnitude:</span>
                       <span className="ml-2 text-green-400" data-testid="text-magnitude">
-                        {replayResult.with_learning.modification_magnitude.toFixed(3)}
+                        {replayResult.modification_magnitude?.toFixed(3) ?? '0.000'}
                       </span>
                     </div>
                   </div>
@@ -424,9 +426,9 @@ export default function LearningDashboard() {
                     <span className="text-sm font-mono text-muted-foreground uppercase tracking-wide">Without Learning</span>
                   </div>
                   <div className="text-sm font-mono">
-                    <span className="text-muted-foreground">Baseline Quality:</span>
+                    <span className="text-muted-foreground">Basin Delta:</span>
                     <span className="ml-2" data-testid="text-baseline">
-                      {replayResult.without_learning.response_quality.toFixed(3)}
+                      {replayResult.basin_delta?.toFixed(3) ?? '0.000'}
                     </span>
                   </div>
                 </div>
@@ -482,25 +484,20 @@ export default function LearningDashboard() {
                   </TableHeader>
                   <TableBody>
                     {replayHistory.map((item) => (
-                      <TableRow key={item.id} data-testid={`row-history-${item.id}`}>
+                      <TableRow key={item.replay_id} data-testid={`row-history-${item.replay_id}`}>
                         <TableCell className="font-mono text-sm max-w-[200px] truncate">
-                          {item.query}
+                          {item.original_query}
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {item.strategies_applied.slice(0, 2).map((s, i) => (
-                              <Badge key={i} variant="outline" className="text-xs font-mono">{s}</Badge>
-                            ))}
-                            {item.strategies_applied.length > 2 && (
-                              <Badge variant="outline" className="text-xs font-mono">+{item.strategies_applied.length - 2}</Badge>
-                            )}
-                          </div>
+                          <Badge variant="outline" className="text-xs font-mono">
+                            {item.learning_applied} applied
+                          </Badge>
                         </TableCell>
                         <TableCell className={`font-mono text-sm text-right ${item.improvement_score > 0 ? 'text-green-400' : item.improvement_score < 0 ? 'text-red-400' : ''}`}>
                           {item.improvement_score > 0 ? '+' : ''}{(item.improvement_score * 100).toFixed(1)}%
                         </TableCell>
                         <TableCell className="font-mono text-xs text-right text-muted-foreground">
-                          {formatTimestamp(item.timestamp)}
+                          {formatTimestamp(item.created_at)}
                         </TableCell>
                       </TableRow>
                     ))}

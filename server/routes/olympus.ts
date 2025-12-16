@@ -296,6 +296,109 @@ router.post('/zeus/search', isAuthenticated, validateInput(searchQuerySchema), a
 });
 
 /**
+ * Zeus Search Learner Stats endpoint
+ * Get statistics about the search strategy learner
+ */
+router.get('/zeus/search/learner/stats', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/search/learner/stats`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Learner stats error:', error);
+    res.status(500).json({ error: 'Failed to retrieve learner stats' });
+  }
+});
+
+/**
+ * Zeus Search Learner Time-Series endpoint
+ * Get time-series metrics for the effectiveness dashboard
+ */
+router.get('/zeus/search/learner/timeseries', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const days = req.query.days || 30;
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/search/learner/timeseries?days=${days}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Learner timeseries error:', error);
+    res.status(500).json({ error: 'Failed to retrieve time series data' });
+  }
+});
+
+/**
+ * Zeus Search Learner Replay endpoint
+ * Run a replay test comparing learning ON vs OFF
+ */
+router.post('/zeus/search/learner/replay', isAuthenticated, validateInput(searchQuerySchema), async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/search/learner/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Learner replay error:', error);
+    res.status(500).json({ error: 'Failed to run replay test' });
+  }
+});
+
+/**
+ * Zeus Search Learner Replay History endpoint
+ * Get history of replay tests
+ */
+router.get('/zeus/search/learner/replay/history', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const limit = req.query.limit || 20;
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/search/learner/replay/history?limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Learner replay history error:', error);
+    res.status(500).json({ error: 'Failed to retrieve replay history' });
+  }
+});
+
+/**
  * Zeus Memory Stats endpoint
  * Requires authentication
  */
