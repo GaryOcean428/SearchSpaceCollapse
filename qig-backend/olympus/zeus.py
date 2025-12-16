@@ -1170,8 +1170,9 @@ class Zeus(BaseGod):
         When Shadow gods discover knowledge, share it with all kernels.
         """
         try:
-            # Log the knowledge discovery
-            print(f"[Zeus] Shadow discovery: {knowledge.get('topic', 'unknown')[:50]}")
+            # Log the knowledge discovery (full topic, no truncation for visibility)
+            topic = knowledge.get('topic', 'unknown')
+            print(f"[Zeus] Shadow discovery: {topic}")
             
             # Share with main Pantheon gods
             for god_name, god in self.pantheon.items():
