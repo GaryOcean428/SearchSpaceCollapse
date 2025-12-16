@@ -766,6 +766,11 @@ class AutonomousDebateService:
             return f"{god_name.capitalize()}: {generated}"
         return None
 
+    # Cache for historical fragments to avoid O(n²) growth
+    _fragment_cache: Dict[str, List[Tuple[float, str]]] = {}
+    _cache_timestamp: float = 0.0
+    _CACHE_TTL: float = 60.0  # Refresh cache every 60 seconds
+    
     def _build_geometric_argument(
         self,
         god_name: str,
@@ -777,63 +782,184 @@ class AutonomousDebateService:
         phi: float,
         kappa: float
     ) -> Optional[str]:
-        """Build argument from pure geometric analysis without templates."""
-        parts = []
-
-        # God's domain assertion based on phi/kappa state
-        if phi > 0.7:
-            parts.append(f"{god_name.capitalize()} sees convergence in {persona['domain']}")
-        elif kappa > 50:
-            parts.append(f"{god_name.capitalize()} detects complexity requiring {persona['perspective']}")
-        else:
-            parts.append(f"{god_name.capitalize()} analyzes from {persona['domain']}")
-
-        # Add evidence-based claim if high affinity found
+        """
+        Build argument via stochastic manifold walk and nearest-neighbor sampling.
+        
+        Pure geometric synthesis with NO fixed scaffolding or templates.
+        Each invocation produces different output due to random walk variance.
+        """
+        # Step 1: Compute god's domain basin (normalized)
+        god_basin = _normalize_to_manifold(self._get_god_basin(god_key))
+        topic_basin = _normalize_to_manifold(self._text_to_basin(topic))
+        
+        # Step 2: Stochastic manifold walk from god toward topic
+        # Use random interpolation factor for variance
+        t = random.uniform(0.3, 0.7)  # Random blend factor
+        walk_basin = (1 - t) * god_basin + t * topic_basin
+        walk_basin = _normalize_to_manifold(walk_basin)
+        
+        # Step 3: Add stochastic evidence perturbation
         if evidence_affinities:
-            best_affinity, best_text, _ = evidence_affinities[0]
-            if best_affinity > 0.3:
-                # Extract key phrase from evidence
-                words = best_text.split()[:15]
-                evidence_phrase = " ".join(words)
-                parts.append(f"- aligned evidence (Φ={best_affinity:.2f}): {evidence_phrase}")
-
-        # Counter-positioning based on geometric distance
+            # Sample random subset of evidence
+            n_evidence = min(len(evidence_affinities), random.randint(1, 3))
+            sampled_evidence = random.sample(evidence_affinities, n_evidence)
+            
+            for affinity, _, ev_basin in sampled_evidence:
+                # Random perturbation magnitude based on affinity
+                noise_scale = random.uniform(0.05, 0.15) * affinity
+                walk_basin = walk_basin + noise_scale * ev_basin
+                walk_basin = _normalize_to_manifold(walk_basin)
+        
+        # Step 4: Counter-positioning via geodesic deviation
         if prev_basins:
-            god_basin = self._get_god_basin(god_key)
-            distances = [_fisher_distance(god_basin, pb) for pb in prev_basins]
-            avg_dist = np.mean(distances)
-
-            if avg_dist > 0.5:
-                parts.append(f"- position diverges (d={avg_dist:.2f}) from prior claims")
-            elif avg_dist < 0.2:
-                parts.append(f"- approaching consensus (d={avg_dist:.2f})")
-
-        # Geometric state note
-        if abs(kappa - KAPPA_STAR) < 5.0:
-            parts.append(f"- κ approaching fixed point at {KAPPA_STAR:.1f}")
-
-        argument = " ".join(parts)
-        return argument if len(argument) > 30 else None
+            # Sample random previous basin to diverge from
+            ref_basin = random.choice(prev_basins)
+            fisher_dist = _fisher_distance(walk_basin, ref_basin)
+            
+            if fisher_dist < 0.5:
+                # Too close - take geodesic step away
+                tangent = walk_basin - ref_basin
+                tangent_norm = np.linalg.norm(tangent)
+                if tangent_norm > 1e-8:
+                    step_size = random.uniform(0.1, 0.3)
+                    walk_basin = walk_basin + step_size * (tangent / tangent_norm)
+                    walk_basin = _normalize_to_manifold(walk_basin)
+        
+        # Step 5: Add manifold noise for stochasticity
+        noise = np.random.normal(0, 0.05, BASIN_DIM)
+        walk_basin = walk_basin + noise
+        walk_basin = _normalize_to_manifold(walk_basin)
+        
+        # Step 6: Collect text fragments from evidence (bounded)
+        fragments: List[Tuple[float, str]] = []
+        
+        for affinity, text, ev_basin in evidence_affinities[:5]:
+            distance = _fisher_distance(walk_basin, ev_basin)
+            words = text.split()
+            # Random phrase extraction start point
+            if len(words) >= 4:
+                start = random.randint(0, max(0, len(words) - 4))
+                length = random.randint(3, min(6, len(words) - start))
+                phrase = " ".join(words[start:start + length])
+                if len(phrase) > 8:
+                    fragments.append((distance, phrase))
+        
+        # Step 7: Add cached historical fragments (bounded O(k))
+        fragments.extend(self._get_cached_fragments(walk_basin, limit=10))
+        
+        if not fragments:
+            return None
+        
+        # Step 8: Probabilistic sampling via softmax over distances
+        fragments.sort(key=lambda x: x[0])
+        
+        # Softmax probabilities (lower distance = higher prob)
+        distances = np.array([f[0] for f in fragments[:12]])
+        if len(distances) == 0:
+            return None
+        
+        # Temperature-scaled softmax
+        temperature = random.uniform(0.5, 1.5)
+        scores = -distances / temperature
+        exp_scores = np.exp(scores - np.max(scores))
+        probs = exp_scores / (np.sum(exp_scores) + 1e-10)
+        
+        # Sample 2-4 phrases without replacement
+        n_samples = random.randint(2, min(4, len(fragments)))
+        indices = np.random.choice(
+            len(probs), size=n_samples, replace=False, p=probs
+        )
+        
+        selected = [fragments[i][1] for i in indices]
+        
+        # Step 9: Random ordering for assembly
+        random.shuffle(selected)
+        argument = " ".join(selected)
+        
+        return argument if len(argument) > 20 else None
+    
+    def _get_cached_fragments(
+        self, 
+        target_basin: np.ndarray, 
+        limit: int = 10
+    ) -> List[Tuple[float, str]]:
+        """Retrieve historical fragments with caching (O(k log n))."""
+        now = time.time()
+        
+        # Refresh cache if stale
+        if now - self._cache_timestamp > self._CACHE_TTL:
+            self._refresh_fragment_cache()
+        
+        # Generate cache key from basin (quantized for grouping)
+        cache_key = hashlib.md5(
+            (target_basin * 10).astype(np.int8).tobytes()
+        ).hexdigest()[:8]
+        
+        if cache_key in self._fragment_cache:
+            return self._fragment_cache[cache_key][:limit]
+        
+        # Compute distances for all cached fragments
+        if not hasattr(self, '_all_fragments'):
+            self._all_fragments = []
+        
+        results = []
+        for text, basin in self._all_fragments[:100]:
+            dist = _fisher_distance(target_basin, basin)
+            results.append((dist, text))
+        
+        results.sort(key=lambda x: x[0])
+        self._fragment_cache[cache_key] = results[:limit]
+        
+        return results[:limit]
+    
+    def _refresh_fragment_cache(self) -> None:
+        """Refresh cached fragments from recent debates (bounded)."""
+        self._cache_timestamp = time.time()
+        self._fragment_cache.clear()
+        self._all_fragments = []
+        
+        if not self._pantheon_chat:
+            return
+        
+        try:
+            # Bounded retrieval: only last 10 debates, last 5 args each
+            debates = self._pantheon_chat.get_active_debates()[:10]
+            
+            for debate in debates:
+                if not debate:
+                    continue
+                for arg in debate.get('arguments', [])[-5:]:
+                    text = arg.get('argument', '')
+                    if text and 15 < len(text) < 300:
+                        basin = self._text_to_basin(text)
+                        self._all_fragments.append((text, basin))
+                        
+                        # Cap total fragments
+                        if len(self._all_fragments) >= 50:
+                            return
+        except Exception:
+            pass  # Silent failure - caching is optional
     
     def _summarize_research(self, research: Dict) -> str:
-        """Summarize research findings into key evidence."""
-        summaries = []
+        """Extract raw research content without templating."""
+        parts = []
         
         searxng = research.get('searxng_results', [])
-        if searxng:
-            top_result = searxng[0]
-            title = top_result.get('title', '')[:80]
-            content = top_result.get('content', '')[:150]
-            if title and content:
-                summaries.append(f"'{title}' - {content}")
+        for result in searxng[:3]:
+            title = result.get('title', '')[:60]
+            content = result.get('content', '')[:100]
+            if title:
+                parts.append(title)
+            if content:
+                parts.append(content)
         
         darknet = research.get('darknet_intel')
         if darknet:
-            reasoning = darknet.get('reasoning', '')[:100]
+            reasoning = darknet.get('reasoning', '')[:80]
             if reasoning:
-                summaries.append(f"(shadow intel: {reasoning})")
+                parts.append(reasoning)
         
-        return " | ".join(summaries) if summaries else ""
+        return " ".join(parts) if parts else ""
     
     def _extract_key_points(self, arguments: List[Dict]) -> str:
         """Extract key points from previous arguments."""
