@@ -62,6 +62,10 @@ export interface PostgresKernel {
 export interface PostgresKernelsResponse {
   kernels: PostgresKernel[];
   total: number;
+  live_count: number;
+  cap: number;
+  available: number;
+  status_filter?: string[];
 }
 
 const M8_KEYS = {

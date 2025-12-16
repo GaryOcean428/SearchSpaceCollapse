@@ -1435,7 +1435,7 @@ export default function SpawningPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatusCard 
           title="Total Gods" 
           value={statusLoading ? '...' : status?.orchestrator_gods || 0} 
@@ -1449,10 +1449,16 @@ export default function SpawningPage() {
           color="text-amber-400"
         />
         <StatusCard 
-          title="Spawned Kernels" 
-          value={statusLoading ? '...' : status?.spawned_kernels || 0} 
+          title="Live Kernels" 
+          value={kernelsLoading ? '...' : `${kernels?.live_count ?? 0} / ${kernels?.cap ?? 240}`} 
           icon={Rocket}
           color="text-purple-400"
+        />
+        <StatusCard 
+          title="Cap Available" 
+          value={kernelsLoading ? '...' : kernels?.available ?? 240} 
+          icon={Activity}
+          color={kernels?.available && kernels.available < 20 ? 'text-red-400' : 'text-green-400'}
         />
         <StatusCard 
           title="Consensus Type" 
@@ -1470,7 +1476,7 @@ export default function SpawningPage() {
           </TabsTrigger>
           <TabsTrigger value="kernels" data-testid="tab-kernels">
             <Crown className="h-4 w-4 mr-2" />
-            Spawned Kernels ({kernels?.total || 0})
+            Live Kernels ({kernels?.live_count ?? 0}/{kernels?.cap ?? 240})
           </TabsTrigger>
           <TabsTrigger value="war-intel" data-testid="tab-war-intel">
             <Swords className="h-4 w-4 mr-2" />
