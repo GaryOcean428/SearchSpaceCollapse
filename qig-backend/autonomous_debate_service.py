@@ -78,6 +78,20 @@ except ImportError:
     SHADOW_AVAILABLE = False
     logger.warning("Shadow Pantheon not available")
 
+try:
+    from vocabulary_coordinator import get_vocabulary_coordinator, VocabularyCoordinator
+    VOCABULARY_AVAILABLE = True
+except ImportError:
+    VOCABULARY_AVAILABLE = False
+    logger.warning("VocabularyCoordinator not available")
+
+try:
+    from qig_persistence import QIGPersistence
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
+    logger.warning("QIGPersistence not available")
+
 KAPPA_STAR = 64.21
 STALE_THRESHOLD_SECONDS = 5 * 60
 POLL_INTERVAL_SECONDS = 30
@@ -194,9 +208,18 @@ class AutonomousDebateService:
         self._debates_resolved = 0
         self._spawns_triggered = 0
         self._debates_continued = 0
+        self._vocabulary_learning_events = 0
         
         self._debate_basin_cache: Dict[str, np.ndarray] = {}
         self._god_position_cache: Dict[str, Dict[str, np.ndarray]] = {}
+        
+        self._vocabulary_coordinator = get_vocabulary_coordinator() if VOCABULARY_AVAILABLE else None
+        self._persistence = QIGPersistence() if PERSISTENCE_AVAILABLE else None
+        
+        if self._vocabulary_coordinator:
+            logger.info("VocabularyCoordinator connected for research learning")
+        if self._persistence:
+            logger.info("QIGPersistence connected for learning event recording")
         
         logger.info("Service initialized")
     
@@ -488,6 +511,7 @@ class AutonomousDebateService:
                 logger.error(f"Darknet query failed: {e}", exc_info=True)
         
         # Route search activity to observing kernels
+        debate_id = debate_dict.get('id', '')
         initiator = debate_dict.get('initiator', '')
         opponent = debate_dict.get('opponent', '')
         for god_name in [initiator, opponent]:
@@ -499,9 +523,16 @@ class AutonomousDebateService:
                         "topic": topic,
                         "query": topic,
                         "results": research,
-                        "debate_id": debate_dict.get('id', ''),
+                        "debate_id": debate_id,
                     }
                 )
+        
+        vocab_training = self._train_vocabulary_from_research(
+            research=research,
+            topic=topic,
+            debate_id=debate_id
+        )
+        research['vocabulary_training'] = vocab_training
         
         return research
     
@@ -549,6 +580,131 @@ class AutonomousDebateService:
         except Exception as e:
             logger.error(f"Failed to route activity to observing kernels: {e}", exc_info=True)
             return {"routed": False, "error": str(e)}
+    
+    def _train_vocabulary_from_research(
+        self,
+        research: Dict,
+        topic: str,
+        debate_id: str
+    ) -> Dict:
+        """
+        Train vocabulary from research results.
+        
+        Feeds SearXNG and darknet intel into the vocabulary coordinator
+        so that new concepts are learned into the shared vocabulary.
+        Also records learning events to PostgreSQL for audit trail.
+        
+        Args:
+            research: Research results from _research_topic
+            topic: The debate topic that was researched
+            debate_id: ID of the debate for context
+            
+        Returns:
+            Training result with learned word count
+        """
+        if not self._vocabulary_coordinator:
+            return {"trained": False, "reason": "vocabulary_unavailable"}
+        
+        learned_count = 0
+        training_results = []
+        persisted_successfully = False
+        
+        try:
+            searxng = research.get('searxng_results', [])
+            if isinstance(searxng, list):
+                for result in searxng:
+                    if not isinstance(result, dict):
+                        continue
+                    title = result.get('title', '') or ''
+                    content = result.get('content', '') or ''
+                    combined_text = f"{title} {content}".strip()
+                    
+                    if combined_text and len(combined_text) > 10:
+                        try:
+                            train_result = self._vocabulary_coordinator.train_from_text(
+                                text=combined_text,
+                                domain=f"searxng_{topic[:20]}"
+                            )
+                            if train_result.get('new_words_learned', 0) > 0:
+                                learned_count += train_result['new_words_learned']
+                                training_results.append({
+                                    "source": "searxng",
+                                    "words_learned": train_result['new_words_learned']
+                                })
+                        except Exception as e:
+                            logger.warning(f"SearXNG vocab training failed: {e}")
+            
+            darknet = research.get('darknet_intel')
+            if darknet and isinstance(darknet, dict):
+                reasoning = darknet.get('reasoning')
+                if isinstance(reasoning, str) and reasoning.strip():
+                    phi = float(darknet.get('phi', 0.5)) if darknet.get('phi') is not None else 0.5
+                    kappa = float(darknet.get('kappa', KAPPA_STAR)) if darknet.get('kappa') is not None else KAPPA_STAR
+                    source_god = darknet.get('source', 'nyx')
+                    
+                    if phi >= 0.5:
+                        try:
+                            discovery_result = self._vocabulary_coordinator.record_discovery(
+                                phrase=reasoning.strip(),
+                                phi=phi,
+                                kappa=kappa,
+                                source="shadow_darknet",
+                                details={
+                                    "topic": topic,
+                                    "debate_id": debate_id,
+                                    "source_god": source_god if isinstance(source_god, str) else 'nyx',
+                                }
+                            )
+                            if discovery_result.get('learned'):
+                                learned_count += discovery_result.get('new_tokens', 0)
+                                training_results.append({
+                                    "source": "shadow_darknet",
+                                    "words_learned": discovery_result.get('new_tokens', 0),
+                                    "phi": phi,
+                                })
+                        except Exception as e:
+                            logger.warning(f"Darknet vocab training failed: {e}")
+            
+            if learned_count > 0 and self._persistence:
+                try:
+                    event_id = self._persistence.record_learning_event(
+                        event_type="research_vocabulary_training",
+                        phi=0.6,
+                        details={
+                            "topic": topic,
+                            "debate_id": debate_id,
+                            "words_learned": learned_count,
+                            "sources_trained": len(training_results),
+                            "training_results": training_results,
+                        },
+                        source="autonomous_debate_service",
+                    )
+                    persisted_successfully = event_id is not None
+                except Exception as e:
+                    logger.warning(f"Failed to persist learning event: {e}")
+                    persisted_successfully = False
+            
+            if learned_count > 0:
+                self._vocabulary_learning_events += 1
+                logger.info(f"Trained {learned_count} words from research on '{topic[:30]}...'")
+            
+            sources_count = 0
+            if isinstance(searxng, list):
+                sources_count += len(searxng)
+            if darknet and isinstance(darknet, dict):
+                sources_count += 1
+            
+            return {
+                "trained": learned_count > 0,
+                "words_learned": learned_count,
+                "sources_processed": sources_count,
+                "training_results": training_results,
+                "persisted": persisted_successfully,
+            }
+            
+        except Exception as e:
+            logger.error(f"Vocabulary training from research failed: {e}", exc_info=True)
+            return {"trained": False, "error": str(e), "persisted": False}
     
     def _search_searxng(self, query: str) -> List[Dict]:
         """Search SearXNG instances for evidence."""
@@ -1104,6 +1260,13 @@ class AutonomousDebateService:
     
     def get_status(self) -> Dict:
         """Get service status for monitoring."""
+        vocab_stats = {}
+        if self._vocabulary_coordinator:
+            try:
+                vocab_stats = self._vocabulary_coordinator.get_stats()
+            except Exception:
+                pass
+        
         return {
             'running': self._running,
             'last_poll': self._last_poll_time.isoformat() if self._last_poll_time else None,
@@ -1112,11 +1275,15 @@ class AutonomousDebateService:
             'debates_resolved': self._debates_resolved,
             'debates_continued': self._debates_continued,
             'spawns_triggered': self._spawns_triggered,
+            'vocabulary_learning_events': self._vocabulary_learning_events,
             'pantheon_chat_connected': self._pantheon_chat is not None,
             'shadow_pantheon_connected': self._shadow_pantheon is not None,
             'm8_spawner_connected': self._m8_spawner is not None,
+            'vocabulary_coordinator_connected': self._vocabulary_coordinator is not None,
+            'persistence_connected': self._persistence is not None,
             'pantheon_gods_connected': len(self._pantheon_gods) > 0,
             'gods_available': list(self._pantheon_gods.keys()) if self._pantheon_gods else [],
+            'vocabulary_stats': vocab_stats,
             'config': {
                 'poll_interval_seconds': POLL_INTERVAL_SECONDS,
                 'stale_threshold_seconds': STALE_THRESHOLD_SECONDS,
