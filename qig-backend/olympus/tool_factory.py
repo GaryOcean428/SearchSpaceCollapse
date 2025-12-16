@@ -739,6 +739,9 @@ class ToolFactory:
         NO hardcoded templates - all from learned knowledge.
         """
         self.generation_attempts += 1
+        print(f"[ToolFactory] ===== GENERATION ATTEMPT #{self.generation_attempts} =====")
+        print(f"[ToolFactory] Description: {description[:80]}...")
+        print(f"[ToolFactory] Learned patterns available: {len(self.learned_patterns)}")
 
         purpose_basin = self.encoder.encode(description)
         complexity = self._estimate_complexity(description, examples)
@@ -746,6 +749,8 @@ class ToolFactory:
         # First find matching patterns to check compatibility
         matching_patterns = self.find_matching_patterns(description)
         current_matching_ids = set(p.pattern_id for p in matching_patterns)
+        print(f"[ToolFactory] Matching patterns found: {len(matching_patterns)}")
+        print(f"[ToolFactory] Pattern sources: {[p.source_type.value for p in matching_patterns[:3]]}")
 
         # Check if this description previously failed and no NEW COMPATIBLE patterns were learned
         if description in self.failed_descriptions:
@@ -772,7 +777,9 @@ class ToolFactory:
             self.failed_descriptions[description] = datetime.now().timestamp()
             self.pattern_ids_at_last_fail[description] = current_matching_ids
             # Queue proactive search for this topic
+            print(f"[ToolFactory] Queuing proactive search for: {description[:50]}...")
             self.proactive_search(description)
+            print(f"[ToolFactory] ❌ FAILED: No patterns - pending searches: {len(self.pending_searches)}")
             return None
 
         code, func_name = self._generate_code_from_patterns(
@@ -780,7 +787,8 @@ class ToolFactory:
         )
 
         if code is None:
-            print("[ToolFactory] Failed to generate code from patterns")
+            print(f"[ToolFactory] ❌ FAILED (attempt #{self.generation_attempts}): Code generation failed")
+            print(f"[ToolFactory] Stats: {self.successful_generations}/{self.generation_attempts} successful ({100*self.successful_generations/max(1,self.generation_attempts):.1f}%)")
             return None
 
         is_safe, errors = self.sandbox.validate_code(code)
@@ -803,6 +811,8 @@ class ToolFactory:
 
         if not is_safe:
             print(f"[ToolFactory] Generated tool failed validation: {errors}")
+            print(f"[ToolFactory] ❌ FAILED (attempt #{self.generation_attempts}): Validation errors")
+            print(f"[ToolFactory] Stats: {self.successful_generations}/{self.generation_attempts} successful ({100*self.successful_generations/max(1,self.generation_attempts):.1f}%)")
             return tool
 
         test_results = self._test_tool(tool, examples)
@@ -831,7 +841,9 @@ class ToolFactory:
                     }
                 )
 
-            print(f"[ToolFactory] Successfully generated tool: {tool.name}")
+            print(f"[ToolFactory] ✅ SUCCESS: Generated tool '{tool.name}' (ID: {tool.tool_id})")
+            print(f"[ToolFactory] Total tools registered: {len(self.tool_registry)}")
+            print(f"[ToolFactory] Success rate: {self.successful_generations}/{self.generation_attempts} ({100*self.successful_generations/max(1,self.generation_attempts):.1f}%)")
 
             if self.successful_generations % 3 == 0:
                 self._increase_complexity_ceiling()
@@ -851,6 +863,8 @@ class ToolFactory:
             self.failed_descriptions[description] = datetime.now().timestamp()
             self.pattern_ids_at_last_fail[description] = current_matching_ids
             print(f"[ToolFactory] Blocking retries until new compatible patterns are learned")
+            print(f"[ToolFactory] ❌ FAILED (attempt #{self.generation_attempts}): Tests did not pass")
+            print(f"[ToolFactory] Stats: {self.successful_generations}/{self.generation_attempts} successful ({100*self.successful_generations/max(1,self.generation_attempts):.1f}%)")
 
         return tool
 

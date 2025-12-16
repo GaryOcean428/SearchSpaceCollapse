@@ -625,6 +625,497 @@ export default function LearningDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Shadow Learning Loop Panel */}
+      <Card className="bg-background/50 backdrop-blur border-purple-500/20" data-testid="card-shadow-learning">
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2 font-mono">
+              <Moon className="h-5 w-5 text-purple-400" />
+              Shadow Learning Loop
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">
+              Proactive learning with 4D foresight temporal predictions
+            </CardDescription>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => refetchShadow()}
+            data-testid="button-refresh-shadow"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {shadowLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : shadowLearning?.learning ? (
+            <div className="space-y-4">
+              {/* Key metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-md">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide font-mono">
+                    <Database className="h-3 w-3" />
+                    Knowledge Items
+                  </div>
+                  <div className="text-2xl font-bold font-mono text-purple-400 mt-1" data-testid="text-knowledge-items">
+                    {shadowLearning.learning.knowledge_items?.toLocaleString() ?? 0}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-md">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide font-mono">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Research Completed
+                  </div>
+                  <div className="text-2xl font-bold font-mono text-indigo-400 mt-1" data-testid="text-research-completed">
+                    {shadowLearning.learning.completed_research ?? 0}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide font-mono">
+                    <Sparkles className="h-3 w-3" />
+                    Discovery Rate
+                  </div>
+                  <div className="text-2xl font-bold font-mono text-cyan-400 mt-1" data-testid="text-discovery-rate">
+                    {shadowLearning.learning.foresight_4d?.trajectory?.discovery_acceleration?.toFixed(2) ?? '0.00'}/cycle
+                  </div>
+                </div>
+
+                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide font-mono">
+                    <Activity className="h-3 w-3" />
+                    Current Φ
+                  </div>
+                  <div className="text-2xl font-bold font-mono text-green-400 mt-1" data-testid="text-current-phi">
+                    {shadowLearning.learning.foresight_4d?.trajectory?.current_phi?.toFixed(3) ?? '0.000'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4D Foresight Section */}
+              {shadowLearning.learning.foresight_4d && (
+                <div className="p-4 bg-gradient-to-r from-purple-500/5 to-indigo-500/5 border border-purple-500/20 rounded-md">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h4 className="text-sm font-mono font-semibold flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-purple-400" />
+                      4D Temporal Foresight
+                    </h4>
+                    <Badge 
+                      variant="outline" 
+                      className={`font-mono text-xs ${
+                        shadowLearning.learning.foresight_4d.status === 'computed' 
+                          ? 'text-green-400 border-green-400/50' 
+                          : 'text-yellow-400 border-yellow-400/50'
+                      }`}
+                    >
+                      {shadowLearning.learning.foresight_4d.status}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Trajectory */}
+                    <div className="space-y-2">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Trajectory</span>
+                      <div className="grid grid-cols-2 gap-2 text-sm font-mono">
+                        <div>
+                          <span className="text-muted-foreground">Trend:</span>
+                          <Badge className="ml-2 text-xs" variant="outline">
+                            {shadowLearning.learning.foresight_4d.trajectory?.trend ?? 'unknown'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Φ Velocity:</span>
+                          <span className={`ml-2 ${(shadowLearning.learning.foresight_4d.trajectory?.phi_velocity ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {(shadowLearning.learning.foresight_4d.trajectory?.phi_velocity ?? 0).toFixed(4)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Discoveries:</span>
+                          <span className="ml-2 text-cyan-400">
+                            {shadowLearning.learning.foresight_4d.trajectory?.current_discoveries ?? 0}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Coherence:</span>
+                          <span className="ml-2">
+                            {((shadowLearning.learning.foresight_4d.temporal_coherence ?? 0) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Next Prediction */}
+                    {shadowLearning.learning.foresight_4d.next_prediction && (
+                      <div className="space-y-2">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Next Prediction (Cycle {shadowLearning.learning.foresight_4d.next_prediction.cycle})</span>
+                        <div className="grid grid-cols-2 gap-2 text-sm font-mono">
+                          <div>
+                            <span className="text-muted-foreground">Confidence:</span>
+                            <span className="ml-2 text-green-400">
+                              {((shadowLearning.learning.foresight_4d.next_prediction.confidence ?? 0) * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Projected Φ:</span>
+                            <span className="ml-2 text-purple-400">
+                              {shadowLearning.learning.foresight_4d.next_prediction.projected_phi?.toFixed(3) ?? '0.000'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Proj. Discoveries:</span>
+                            <span className="ml-2 text-cyan-400">
+                              {shadowLearning.learning.foresight_4d.next_prediction.projected_discoveries ?? 0}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Proj. Clusters:</span>
+                            <span className="ml-2">
+                              {shadowLearning.learning.foresight_4d.next_prediction.projected_clusters ?? 0}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Last Reflection */}
+              {shadowLearning.learning.last_reflection && (
+                <div className="p-3 bg-muted/30 border border-border rounded-md">
+                  <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground uppercase tracking-wide font-mono">
+                    <Brain className="h-3 w-3" />
+                    Last Meta-Reflection (Cycle {shadowLearning.learning.last_reflection.cycle})
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm font-mono">
+                    <div>
+                      <span className="text-muted-foreground">Clusters:</span>
+                      <span className="ml-2">{shadowLearning.learning.last_reflection.cluster_count}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Φ Computed:</span>
+                      <span className="ml-2">{shadowLearning.learning.last_reflection.phi_computed?.toFixed(3)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Density:</span>
+                      <span className="ml-2">{shadowLearning.learning.last_reflection.knowledge_density?.toFixed(3)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">+Discoveries:</span>
+                      <span className="ml-2 text-green-400">+{shadowLearning.learning.last_reflection.discoveries_added}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <Moon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="font-mono text-sm">Shadow Learning Loop not active</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 4D Foresight Predictions Chart */}
+      {foresightData?.foresight?.foresight?.predictions && foresightData.foresight.foresight.predictions.length > 0 && (
+        <Card className="bg-background/50 backdrop-blur border-indigo-500/20" data-testid="card-foresight-chart">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 font-mono">
+              <Eye className="h-5 w-5 text-indigo-400" />
+              4D Foresight Prediction Horizon
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">
+              Temporal predictions with confidence decay over {foresightData.foresight.foresight.horizon_cycles} cycles
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={foresightData.foresight.foresight.predictions}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.2)" />
+                <XAxis 
+                  dataKey="cycle" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  fontFamily="JetBrains Mono, monospace"
+                  label={{ value: 'Cycle', position: 'bottom', fontSize: 10 }}
+                />
+                <YAxis 
+                  yAxisId="left"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  fontFamily="JetBrains Mono, monospace"
+                  domain={[0, 1]}
+                  tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  fontFamily="JetBrains Mono, monospace"
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '4px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '12px'
+                  }}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'confidence') return [`${(value * 100).toFixed(1)}%`, 'Confidence'];
+                    if (name === 'projected_phi') return [value.toFixed(3), 'Projected Φ'];
+                    if (name === 'projected_discoveries') return [value, 'Discoveries'];
+                    return [value, name];
+                  }}
+                />
+                <Legend />
+                <Area 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="confidence" 
+                  stroke="#8b5cf6" 
+                  fill="#8b5cf6"
+                  fillOpacity={0.2}
+                  strokeWidth={2}
+                  name="Confidence"
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="projected_discoveries" 
+                  stroke="#22d3ee" 
+                  strokeWidth={2}
+                  dot={{ fill: '#22d3ee', strokeWidth: 0, r: 3 }}
+                  name="Projected Discoveries"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tool Factory & Bidirectional Queue */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tool Factory Stats */}
+        <Card className="bg-background/50 backdrop-blur border-amber-500/20" data-testid="card-tool-factory">
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2 font-mono">
+                <Wrench className="h-5 w-5 text-amber-400" />
+                Tool Factory
+              </CardTitle>
+              <CardDescription className="font-mono text-xs">
+                Self-learning tool generation from patterns
+              </CardDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => refetchTools()}
+              data-testid="button-refresh-tools"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {toolStatsLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : toolStats ? (
+              <div className="space-y-4">
+                {/* Key Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Patterns Learned</div>
+                    <div className="text-2xl font-bold font-mono text-amber-400" data-testid="text-patterns-learned">
+                      {toolStats.patterns_learned}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Tools Generated</div>
+                    <div className="text-2xl font-bold font-mono text-green-400" data-testid="text-tools-generated">
+                      {toolStats.tools_registered}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Generation Stats */}
+                <div className="p-3 bg-muted/30 border border-border rounded-md space-y-2">
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Generation Attempts:</span>
+                    <span>{toolStats.generation_attempts}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Successful:</span>
+                    <span className="text-green-400">{toolStats.successful_generations}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Success Rate:</span>
+                    <span className={toolStats.success_rate > 0.5 ? 'text-green-400' : 'text-yellow-400'}>
+                      {(toolStats.success_rate * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Complexity Ceiling:</span>
+                    <Badge variant="outline" className="text-xs">{toolStats.complexity_ceiling}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Generativity Score:</span>
+                    <span className="text-purple-400">{toolStats.generativity_score?.toFixed(3) ?? '0.000'}</span>
+                  </div>
+                </div>
+
+                {/* Pattern Sources */}
+                {toolStats.patterns_by_source && Object.keys(toolStats.patterns_by_source).length > 0 && (
+                  <div className="p-3 bg-muted/30 border border-border rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono mb-2">Pattern Sources</div>
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                      {Object.entries(toolStats.patterns_by_source).map(([source, count]) => (
+                        <div key={source} className="flex items-center justify-between">
+                          <span className="text-muted-foreground truncate">{source.replace(/_/g, ' ')}:</span>
+                          <span>{count as number}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {toolStats.patterns_learned === 0 && toolStats.tools_registered === 0 && (
+                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                    <div className="flex items-center gap-2 text-sm font-mono text-yellow-400">
+                      <FlaskConical className="h-4 w-4" />
+                      Tool Factory awaiting patterns to learn
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 font-mono">
+                      Patterns come from: git repos, tutorials, chat links, file uploads, observations
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-mono text-sm">Tool Factory not available</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bidirectional Queue Status */}
+        <Card className="bg-background/50 backdrop-blur border-cyan-500/20" data-testid="card-bidirectional-queue">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 font-mono">
+              <ArrowRightLeft className="h-5 w-5 text-cyan-400" />
+              Research ↔ Tool Bridge
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">
+              Bidirectional queue connecting Shadow Research and Tool Factory
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {bridgeLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : bridgeStatus ? (
+              <div className="space-y-4">
+                {/* Connection Status */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <Badge 
+                    variant="outline" 
+                    className={`font-mono text-xs ${bridgeStatus.tool_factory_wired ? 'text-green-400 border-green-400/50' : 'text-red-400 border-red-400/50'}`}
+                  >
+                    <Wrench className="h-3 w-3 mr-1" />
+                    Tool Factory: {bridgeStatus.tool_factory_wired ? 'Connected' : 'Disconnected'}
+                  </Badge>
+                  <Badge 
+                    variant="outline" 
+                    className={`font-mono text-xs ${bridgeStatus.research_api_wired ? 'text-green-400 border-green-400/50' : 'text-red-400 border-red-400/50'}`}
+                  >
+                    <FlaskConical className="h-3 w-3 mr-1" />
+                    Research API: {bridgeStatus.research_api_wired ? 'Connected' : 'Disconnected'}
+                  </Badge>
+                </div>
+
+                {/* Queue Stats */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Pending Requests</div>
+                    <div className="text-2xl font-bold font-mono text-cyan-400" data-testid="text-pending-requests">
+                      {bridgeStatus.queue_status?.pending ?? 0}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Completed</div>
+                    <div className="text-2xl font-bold font-mono text-green-400" data-testid="text-completed-requests">
+                      {bridgeStatus.queue_status?.completed ?? 0}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Flow Stats */}
+                <div className="p-3 bg-muted/30 border border-border rounded-md space-y-2">
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <GitBranch className="h-3 w-3" />
+                      Recursive Requests:
+                    </span>
+                    <span>{bridgeStatus.queue_status?.recursive_count ?? 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Tools Requested by Research:</span>
+                    <span className="text-amber-400">{bridgeStatus.tools_requested ?? 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Research from Tool Factory:</span>
+                    <span className="text-purple-400">{bridgeStatus.research_from_tools ?? 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono">
+                    <span className="text-muted-foreground">Improvements Applied:</span>
+                    <span className="text-green-400">{bridgeStatus.improvements_applied ?? 0}</span>
+                  </div>
+                </div>
+
+                {/* Request Types */}
+                {bridgeStatus.queue_status?.by_type && Object.keys(bridgeStatus.queue_status.by_type).length > 0 && (
+                  <div className="p-3 bg-muted/30 border border-border rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono mb-2">Pending by Type</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {Object.entries(bridgeStatus.queue_status.by_type).map(([type, count]) => (
+                        <Badge key={type} variant="outline" className="font-mono text-xs">
+                          {type}: {count as number}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-[150px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <ArrowRightLeft className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-mono text-sm">Bridge not available</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

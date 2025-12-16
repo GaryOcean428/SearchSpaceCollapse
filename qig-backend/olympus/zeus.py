@@ -3375,6 +3375,33 @@ def zeus_tools_match_patterns_endpoint():
         return jsonify({'error': str(e)}), 500
 
 
+@olympus_app.route('/zeus/tools/bridge/status', methods=['GET'])
+def zeus_tools_bridge_status_endpoint():
+    """Get Tool Factory <-> Shadow Research bridge status."""
+    try:
+        from .shadow_research import ToolResearchBridge
+        bridge = ToolResearchBridge.get_instance()
+        status = bridge.get_status()
+        return jsonify(sanitize_for_json({
+            'queue_status': status.get('queue', {}),
+            'tool_factory_wired': status.get('tool_factory_wired', False),
+            'research_api_wired': status.get('research_api_wired', False),
+            'improvements_applied': status.get('improvements_applied', 0),
+            'tools_requested': status.get('tools_requested', 0),
+            'research_from_tools': status.get('research_from_tools', 0)
+        }))
+    except Exception as e:
+        return jsonify({
+            'queue_status': {'pending': 0, 'completed': 0, 'by_type': {}, 'recursive_count': 0},
+            'tool_factory_wired': False,
+            'research_api_wired': False,
+            'improvements_applied': 0,
+            'tools_requested': 0,
+            'research_from_tools': 0,
+            'error': str(e)
+        })
+
+
 # =========================================================================
 # 🌪️ CHAOS MODE API REGISTRATION
 # =========================================================================

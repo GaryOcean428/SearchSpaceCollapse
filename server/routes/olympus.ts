@@ -780,6 +780,39 @@ router.post('/zeus/tools/patterns/match', isAuthenticated, async (req, res) => {
 });
 
 /**
+ * Get Tool Factory <-> Shadow Research bridge status
+ * Requires authentication
+ */
+router.get('/zeus/tools/bridge/status', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/bridge/status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Bridge status error:', error);
+    res.status(500).json({ 
+      queue_status: { pending: 0, completed: 0, by_type: {}, recursive_count: 0 },
+      tool_factory_wired: false,
+      research_api_wired: false,
+      improvements_applied: 0,
+      tools_requested: 0,
+      research_from_tools: 0,
+      error: 'Bridge status unavailable'
+    });
+  }
+});
+
+/**
  * Zeus Memory Stats endpoint
  * Requires authentication
  */
@@ -2005,6 +2038,56 @@ router.get('/shadow/status', isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('[Olympus] Shadow status error:', error);
     res.status(503).json({ error: 'Shadow Pantheon unreachable' });
+  }
+});
+
+/**
+ * Get Shadow Learning Loop status with 4D foresight
+ * Requires authentication
+ */
+router.get('/shadow/learning', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/shadow/learning`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Shadow learning error:', error);
+    res.status(503).json({ error: 'Shadow Learning unreachable' });
+  }
+});
+
+/**
+ * Get 4D Foresight temporal predictions
+ * Requires authentication
+ */
+router.get('/shadow/foresight', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/shadow/foresight`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Shadow foresight error:', error);
+    res.status(503).json({ error: 'Shadow Foresight unreachable' });
   }
 });
 
