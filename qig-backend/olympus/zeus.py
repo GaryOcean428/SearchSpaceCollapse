@@ -1737,6 +1737,115 @@ def zeus_memory_stats_endpoint():
         return jsonify({'error': str(e)}), 500
 
 
+@olympus_app.route('/zeus/search/feedback', methods=['POST'])
+def zeus_search_feedback_endpoint():
+    """
+    Record feedback on search results for geometric learning.
+    
+    NO keyword templates - all feedback encoded to 64D basin coordinates.
+    Learning happens via Fisher-Rao distance similarity.
+    
+    Request body:
+        query: str - The original search query
+        feedback: str - User's feedback on the results
+        results_summary: str (optional) - Summary of the search results
+    
+    Returns:
+        Confirmation with geometric learning info
+    """
+    try:
+        data = request.get_json() or {}
+        query = data.get('query', '')
+        feedback = data.get('feedback', '')
+        results_summary = data.get('results_summary', '')
+        
+        if not query or not feedback:
+            return jsonify({
+                'error': 'query and feedback are required',
+                'hint': 'Provide the search query and your feedback on the results'
+            }), 400
+        
+        handler = get_zeus_chat_handler()
+        result = handler.handle_search_feedback(
+            query=query,
+            feedback=feedback,
+            results_summary=results_summary
+        )
+        
+        return jsonify(sanitize_for_json(result))
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'response': 'Failed to record feedback geometrically.',
+            'metadata': {'type': 'error'}
+        }), 500
+
+
+@olympus_app.route('/zeus/search/confirm', methods=['POST'])
+def zeus_search_confirm_endpoint():
+    """
+    Confirm whether a search strategy improvement worked.
+    
+    This reinforces or penalizes the recent feedback via geometric basin updates.
+    
+    Request body:
+        query: str - The search query to confirm
+        improved: bool - True if results improved, False if not
+    
+    Returns:
+        Confirmation with reinforcement outcome
+    """
+    try:
+        data = request.get_json() or {}
+        query = data.get('query', '')
+        improved = data.get('improved', True)
+        
+        if not query:
+            return jsonify({
+                'error': 'query is required',
+                'hint': 'Provide the search query you want to confirm'
+            }), 400
+        
+        handler = get_zeus_chat_handler()
+        result = handler.confirm_search_improvement(
+            query=query,
+            improved=bool(improved)
+        )
+        
+        return jsonify(sanitize_for_json(result))
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'response': 'Failed to confirm search improvement.',
+            'metadata': {'type': 'error'}
+        }), 500
+
+
+@olympus_app.route('/zeus/search/learner/stats', methods=['GET'])
+def zeus_search_learner_stats_endpoint():
+    """
+    Get statistics about the search strategy learner.
+    
+    Returns information about:
+    - Total feedback records stored
+    - Total strategies applied
+    - Positive/negative confirmations
+    - Learning effectiveness
+    """
+    try:
+        handler = get_zeus_chat_handler()
+        stats = handler.strategy_learner.get_stats()
+        return jsonify(sanitize_for_json(stats))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ========================================
 # PANTHEON CHAT API ENDPOINTS
 # Inter-god communication system
