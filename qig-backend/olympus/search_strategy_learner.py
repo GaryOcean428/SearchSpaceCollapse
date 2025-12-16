@@ -21,11 +21,15 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, cast
 
 import numpy as np
 
 from .conversation_encoder import ConversationEncoder
+
+if TYPE_CHECKING:
+    import psycopg2
+    from psycopg2.extensions import connection as PgConnection, cursor as PgCursor
 
 try:
     import psycopg2
@@ -33,6 +37,7 @@ try:
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     PSYCOPG2_AVAILABLE = False
+    RealDictCursor = None  # type: ignore
     print("[SearchFeedbackPersistence] WARNING: psycopg2 not installed - persistence disabled")
 
 try:
@@ -120,25 +125,24 @@ class SearchFeedbackPersistence:
             print("[SearchFeedbackPersistence] Running in memory-only mode (no DB)")
     
     @contextmanager
-    def get_connection(self):
-        """Get a database connection with automatic cleanup."""
-        if not self.enabled:
-            yield None
-            return
+    def get_connection(self) -> Generator[Any, None, None]:
+        """Get a database connection with automatic cleanup.
         
-        conn = None
+        Returns a psycopg2 connection when enabled, raises RuntimeError otherwise.
+        """
+        if not self.enabled or not PSYCOPG2_AVAILABLE:
+            raise RuntimeError("Database persistence not enabled")
+        
+        conn = psycopg2.connect(self.database_url)  # type: ignore[union-attr]
         try:
-            conn = psycopg2.connect(self.database_url)
             yield conn
             conn.commit()
         except Exception as e:
-            if conn:
-                conn.rollback()
+            conn.rollback()
             print(f"[SearchFeedbackPersistence] Database error: {e}")
             raise
         finally:
-            if conn:
-                conn.close()
+            conn.close()
     
     def _vector_to_pg(self, vec: np.ndarray) -> Optional[str]:
         """Convert numpy array to PostgreSQL vector format."""
@@ -147,10 +151,10 @@ class SearchFeedbackPersistence:
         arr = vec.tolist() if isinstance(vec, np.ndarray) else vec
         return '[' + ','.join(str(float(x)) for x in arr) + ']'
     
-    def _pg_to_vector(self, pg_vec: str) -> Optional[np.ndarray]:
-        """Convert PostgreSQL vector string to numpy array."""
+    def _pg_to_vector(self, pg_vec: Optional[str]) -> np.ndarray:
+        """Convert PostgreSQL vector string to numpy array. Returns zero vector if None."""
         if pg_vec is None:
-            return None
+            return np.zeros(BASIN_DIMENSION)
         values = pg_vec.strip('[]').split(',')
         return np.array([float(x) for x in values])
     

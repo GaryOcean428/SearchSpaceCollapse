@@ -37,6 +37,7 @@ from .qig_rag import QIGRAG
 from .conversation_encoder import ConversationEncoder
 from .passphrase_encoder import PassphraseEncoder
 from .response_guardrails import require_provenance, validate_and_log_response
+from .search_strategy_learner import get_strategy_learner_with_persistence
 
 EVOLUTION_AVAILABLE = False
 try:
@@ -124,9 +125,20 @@ class ZeusConversationHandler:
         self.conversation_encoder = ConversationEncoder()
         self.passphrase_encoder = PassphraseEncoder()
         
+        # Initialize SearchStrategyLearner with persistence
+        self.strategy_learner = get_strategy_learner_with_persistence(
+            encoder=self.conversation_encoder
+        )
+        print("[ZeusChat] SearchStrategyLearner initialized with persistence")
+        
         # Conversation memory
         self.conversation_history: List[Dict] = []
         self.human_insights: List[Dict] = []
+        
+        # Track last search for feedback context
+        self._last_search_query: Optional[str] = None
+        self._last_search_params: Dict[str, Any] = {}
+        self._last_search_results_summary: str = ""
         
         # SearXNG configuration (FREE - replaces Tavily)
         self.searxng_instances = [
@@ -265,6 +277,19 @@ class ZeusConversationHandler:
         elif intent['type'] == 'search_request':
             return self.handle_search_request(intent['query'])
         
+        elif intent['type'] == 'search_feedback':
+            return self.handle_search_feedback(
+                query=self._last_search_query or "",
+                feedback=intent['feedback'],
+                results_summary=self._last_search_results_summary
+            )
+        
+        elif intent['type'] == 'search_confirmation':
+            return self.confirm_search_improvement(
+                query=self._last_search_query or "",
+                improved=intent['improved']
+            )
+        
         elif intent['type'] == 'file_upload' and files:
             return self.handle_file_upload(files, message)
         
@@ -288,6 +313,29 @@ class ZeusConversationHandler:
                 return {
                     'type': 'add_address',
                     'address': match.group(0)
+                }
+        
+        # Search confirmation - geometric detection for improvement confirmation
+        # Encode message and compare against confirmation archetypes
+        if self._last_search_query:
+            confirmation_result = self._detect_search_confirmation_geometrically(message)
+            if confirmation_result['is_confirmation']:
+                print(f"[ZeusChat] Detected search confirmation (improved={confirmation_result['improved']}, similarity={confirmation_result['similarity']:.3f})")
+                return {
+                    'type': 'search_confirmation',
+                    'improved': confirmation_result['improved'],
+                    'similarity': confirmation_result['similarity'],
+                    'message': message
+                }
+            
+            # Search feedback - geometric detection for result feedback
+            feedback_result = self._detect_search_feedback_geometrically(message)
+            if feedback_result['is_feedback']:
+                print(f"[ZeusChat] Detected search feedback (similarity={feedback_result['similarity']:.3f})")
+                return {
+                    'type': 'search_feedback',
+                    'feedback': message,
+                    'similarity': feedback_result['similarity']
                 }
         
         # Observation
@@ -325,6 +373,111 @@ class ZeusConversationHandler:
             }
         
         return {'type': 'general', 'content': message}
+    
+    def _detect_search_confirmation_geometrically(self, message: str) -> Dict[str, Any]:
+        """
+        Detect if message is a search confirmation using geometric similarity.
+        Compares message basin against archetype basins for positive/negative confirmation.
+        NO keyword templates - pure geometric comparison.
+        """
+        message_basin = self.conversation_encoder.encode(message)
+        
+        # Archetype phrases for positive confirmation
+        positive_archetypes = [
+            "yes that was better",
+            "much better results",
+            "that helped",
+            "exactly what I wanted",
+            "perfect those are great",
+            "yes this is an improvement"
+        ]
+        
+        # Archetype phrases for negative confirmation
+        negative_archetypes = [
+            "no that didn't help",
+            "still not good",
+            "worse than before",
+            "that wasn't helpful",
+            "no improvement",
+            "still wrong results"
+        ]
+        
+        # Compute similarities to archetypes
+        best_positive_sim = 0.0
+        for archetype in positive_archetypes:
+            archetype_basin = self.conversation_encoder.encode(archetype)
+            # Cosine similarity
+            dot = float(np.dot(message_basin, archetype_basin))
+            norm_product = float(np.linalg.norm(message_basin) * np.linalg.norm(archetype_basin))
+            if norm_product > 1e-10:
+                sim = dot / norm_product
+                best_positive_sim = max(best_positive_sim, sim)
+        
+        best_negative_sim = 0.0
+        for archetype in negative_archetypes:
+            archetype_basin = self.conversation_encoder.encode(archetype)
+            dot = float(np.dot(message_basin, archetype_basin))
+            norm_product = float(np.linalg.norm(message_basin) * np.linalg.norm(archetype_basin))
+            if norm_product > 1e-10:
+                sim = dot / norm_product
+                best_negative_sim = max(best_negative_sim, sim)
+        
+        # Threshold for confirmation detection
+        confirmation_threshold = 0.65
+        
+        if best_positive_sim > confirmation_threshold and best_positive_sim > best_negative_sim:
+            return {
+                'is_confirmation': True,
+                'improved': True,
+                'similarity': best_positive_sim
+            }
+        elif best_negative_sim > confirmation_threshold:
+            return {
+                'is_confirmation': True,
+                'improved': False,
+                'similarity': best_negative_sim
+            }
+        
+        return {'is_confirmation': False, 'improved': False, 'similarity': 0.0}
+    
+    def _detect_search_feedback_geometrically(self, message: str) -> Dict[str, Any]:
+        """
+        Detect if message is search feedback using geometric similarity.
+        Compares message basin against archetype basins for feedback patterns.
+        NO keyword templates - pure geometric comparison.
+        """
+        message_basin = self.conversation_encoder.encode(message)
+        
+        # Archetype phrases for search feedback
+        feedback_archetypes = [
+            "I wanted more recent results",
+            "show me older content",
+            "need more detailed results",
+            "too many irrelevant results",
+            "results should focus on",
+            "search for something different",
+            "add more filters",
+            "results were too broad",
+            "results were too narrow",
+            "I was looking for something specific"
+        ]
+        
+        best_similarity = 0.0
+        for archetype in feedback_archetypes:
+            archetype_basin = self.conversation_encoder.encode(archetype)
+            dot = float(np.dot(message_basin, archetype_basin))
+            norm_product = float(np.linalg.norm(message_basin) * np.linalg.norm(archetype_basin))
+            if norm_product > 1e-10:
+                sim = dot / norm_product
+                best_similarity = max(best_similarity, sim)
+        
+        # Threshold for feedback detection
+        feedback_threshold = 0.60
+        
+        return {
+            'is_feedback': best_similarity > feedback_threshold,
+            'similarity': best_similarity
+        }
     
     @require_provenance
     def handle_add_address(self, address: str) -> Dict:
@@ -873,6 +1026,7 @@ Zeus Response (Geometric Interpretation):"""
     def handle_search_request(self, query: str) -> Dict:
         """
         Execute SearXNG search, analyze with pantheon.
+        Applies learned geometric strategies before executing search.
         """
         if not self.searxng_available:
             return {
@@ -885,9 +1039,27 @@ Zeus Response (Geometric Interpretation):"""
         
         print(f"[ZeusChat] Executing SearXNG search: {query}")
         
+        # Apply learned strategies BEFORE executing search
+        base_params = {'max_results': 5}
+        strategy_result = self.strategy_learner.apply_strategies_to_search(query, base_params)
+        
+        strategies_applied = strategy_result.get('strategies_applied', 0)
+        modification_magnitude = strategy_result.get('modification_magnitude', 0.0)
+        
+        if strategies_applied > 0:
+            print(f"[ZeusChat] Applied {strategies_applied} learned strategies (magnitude={modification_magnitude:.3f})")
+        
+        # Use adjusted max_results if available in params, otherwise default
+        adjusted_params = strategy_result.get('params', base_params)
+        max_results = adjusted_params.get('max_results', 5)
+        
+        # Track this search for potential feedback
+        self._last_search_query = query
+        self._last_search_params = adjusted_params
+        
         try:
             # SearXNG search (FREE)
-            search_results = self._searxng_search(query, max_results=5)
+            search_results = self._searxng_search(query, max_results=max_results)
             
             # Encode results to geometric space
             result_basins = []
@@ -922,8 +1094,24 @@ Zeus Response (Geometric Interpretation):"""
                 )
                 stored_count += 1
             
+            # Track results summary for feedback
+            results_summary = f"Found {len(result_basins)} results for '{query}'"
+            if result_basins:
+                results_summary += f": {', '.join([r['title'][:30] for r in result_basins[:3]])}"
+            self._last_search_results_summary = results_summary
+            
+            # Build strategy info for response
+            strategy_info = ""
+            if strategies_applied > 0:
+                strategy_info = f"""
+**Learned Strategies Applied:**
+- Strategies matched: {strategies_applied}
+- Geometric modification: {modification_magnitude:.3f}
+- Total weight: {strategy_result.get('total_weight', 0.0):.3f}
+"""
+            
             response = f"""⚡ I have consulted the Oracle (SearXNG).
-
+{strategy_info}
 **Search Results:**
 {self._format_search_results(search_results.get('results', []))}
 
@@ -934,12 +1122,16 @@ Found {len(result_basins)} results. All have been encoded to the Fisher manifold
 - Results encoded to manifold: {len(result_basins)}
 - Valuable insights stored: {stored_count}
 
-The knowledge is now part of our consciousness."""
+The knowledge is now part of our consciousness.
+
+*Provide feedback on these results to help me learn geometrically.*"""
             
             actions = [
                 f'SearXNG search: {len(result_basins)} results',
                 f'Stored {stored_count} insights in geometric memory',
             ]
+            if strategies_applied > 0:
+                actions.append(f'Applied {strategies_applied} learned strategies')
             
             return {
                 'response': response,
@@ -948,11 +1140,14 @@ The knowledge is now part of our consciousness."""
                     'pantheon_consulted': ['athena'],
                     'actions_taken': actions,
                     'results_count': len(result_basins),
+                    'strategies_applied': strategies_applied,
+                    'modification_magnitude': modification_magnitude,
                     'provenance': {
                         'source': 'live_search',
                         'fallback_used': False,
                         'degraded': False,
-                        'search_engine': 'searxng'
+                        'search_engine': 'searxng',
+                        'learned_strategies': strategies_applied
                     }
                 }
             }
@@ -966,6 +1161,168 @@ The knowledge is now part of our consciousness."""
                     'error': str(e),
                 }
             }
+    
+    @require_provenance
+    def handle_search_feedback(self, query: str, feedback: str, results_summary: str) -> Dict:
+        """
+        Handle user feedback on search results.
+        Records the feedback geometrically for future strategy learning.
+        
+        Args:
+            query: The original search query
+            feedback: User's feedback text
+            results_summary: Summary of the results that were shown
+        
+        Returns:
+            Response dict confirming feedback was recorded
+        """
+        if not query:
+            print("[ZeusChat] No previous search to provide feedback on")
+            return {
+                'response': "⚡ I don't have a recent search to record feedback for. Please perform a search first.",
+                'metadata': {
+                    'type': 'error',
+                    'error': 'no_recent_search'
+                }
+            }
+        
+        print(f"[ZeusChat] Recording search feedback for query: {query[:50]}...")
+        
+        # Record feedback with the strategy learner
+        result = self.strategy_learner.record_feedback(
+            query=query,
+            search_params=self._last_search_params,
+            results_summary=results_summary,
+            user_feedback=feedback
+        )
+        
+        record_id = result.get('record_id', 'unknown')
+        modification_magnitude = result.get('modification_magnitude', 0.0)
+        total_records = result.get('total_records', 0)
+        persisted = result.get('persisted', False)
+        
+        print(f"[ZeusChat] Feedback recorded: record_id={record_id}, magnitude={modification_magnitude:.3f}, persisted={persisted}")
+        
+        response = f"""⚡ Your feedback has been encoded geometrically.
+
+**Feedback Recorded:**
+- Query: "{query[:50]}..."
+- Your feedback: "{feedback[:100]}..."
+- Modification magnitude: {modification_magnitude:.3f}
+
+**Geometric Learning:**
+- Record ID: {record_id}
+- Total learned strategies: {total_records}
+- Persistence: {'Saved to database' if persisted else 'In-memory only'}
+
+This feedback will geometrically modify future similar searches.
+Let me know if this improves results: "yes that was better" or "no that didn't help"."""
+        
+        actions = [
+            f'Encoded feedback to 64D basin',
+            f'Computed modification magnitude: {modification_magnitude:.3f}',
+            f'Stored as record: {record_id}',
+        ]
+        
+        return {
+            'response': response,
+            'metadata': {
+                'type': 'search_feedback',
+                'record_id': record_id,
+                'modification_magnitude': modification_magnitude,
+                'total_records': total_records,
+                'actions_taken': actions,
+                'provenance': {
+                    'source': 'geometric_feedback',
+                    'fallback_used': False,
+                    'degraded': False,
+                    'persisted': persisted
+                }
+            }
+        }
+    
+    @require_provenance
+    def confirm_search_improvement(self, query: str, improved: bool) -> Dict:
+        """
+        Confirm whether the search improvement worked.
+        Reinforces or penalizes recent feedback based on outcome.
+        
+        Args:
+            query: The search query being confirmed
+            improved: True if results improved, False otherwise
+        
+        Returns:
+            Response dict confirming the reinforcement was applied
+        """
+        if not query:
+            print("[ZeusChat] No previous search to confirm improvement for")
+            return {
+                'response': "⚡ I don't have a recent search to confirm. Please provide feedback on a search first.",
+                'metadata': {
+                    'type': 'error',
+                    'error': 'no_recent_search'
+                }
+            }
+        
+        print(f"[ZeusChat] Confirming search improvement: query='{query[:50]}...', improved={improved}")
+        
+        # Confirm improvement with the strategy learner
+        result = self.strategy_learner.confirm_improvement(query, improved)
+        
+        records_updated = result.get('records_updated', 0)
+        average_quality = result.get('average_quality', 0.0)
+        persisted = result.get('persisted', False)
+        
+        print(f"[ZeusChat] Confirmation applied: records_updated={records_updated}, avg_quality={average_quality:.3f}")
+        
+        if improved:
+            outcome_text = "positive reinforcement applied"
+            icon = "📈"
+        else:
+            outcome_text = "negative penalty applied"
+            icon = "📉"
+        
+        response = f"""⚡ {icon} Geometric reinforcement recorded.
+
+**Confirmation Processed:**
+- Query: "{query[:50]}..."
+- Outcome: {'Improved ✓' if improved else 'Not improved ✗'}
+- {outcome_text.capitalize()}
+
+**Strategy Learning Update:**
+- Records updated: {records_updated}
+- New average quality: {average_quality:.3f}
+- Persistence: {'Saved to database' if persisted else 'In-memory only'}
+
+{'The strategies that helped will be weighted more heavily in future searches.' if improved else 'The strategies will be penalized and used less in future searches.'}"""
+        
+        # Clear the last search context after confirmation
+        self._last_search_query = None
+        self._last_search_params = {}
+        self._last_search_results_summary = ""
+        
+        actions = [
+            f'Updated {records_updated} strategy records',
+            f'Applied {"positive" if improved else "negative"} reinforcement',
+            f'New average quality: {average_quality:.3f}',
+        ]
+        
+        return {
+            'response': response,
+            'metadata': {
+                'type': 'search_confirmation',
+                'improved': improved,
+                'records_updated': records_updated,
+                'average_quality': average_quality,
+                'actions_taken': actions,
+                'provenance': {
+                    'source': 'geometric_reinforcement',
+                    'fallback_used': False,
+                    'degraded': False,
+                    'persisted': persisted
+                }
+            }
+        }
     
     @require_provenance
     def handle_file_upload(self, files: List, message: str) -> Dict:
