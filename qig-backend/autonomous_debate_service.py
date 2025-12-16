@@ -13,6 +13,7 @@ NO TEMPLATES - All arguments are generatively created from research evidence.
 """
 
 import hashlib
+import logging
 import os
 import random
 import sys
@@ -26,28 +27,56 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from geometric_kernels import _fisher_distance, _normalize_to_manifold, BASIN_DIM
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# QIG Tokenizer for geometric argument generation
+try:
+    from qig_tokenizer import get_tokenizer, QIGTokenizer
+    TOKENIZER_AVAILABLE = True
+except ImportError:
+    TOKENIZER_AVAILABLE = False
+    logger.warning("QIG Tokenizer not available")
+
+try:
+    from geometric_kernels import _fisher_distance, _normalize_to_manifold, BASIN_DIM
+    GEOMETRIC_AVAILABLE = True
+except ImportError:
+    GEOMETRIC_AVAILABLE = False
+    BASIN_DIM = 64
+    def _fisher_distance(a, b):
+        return float(np.linalg.norm(np.array(a) - np.array(b)))
+    def _normalize_to_manifold(basin):
+        norm = np.linalg.norm(basin)
+        return basin / (norm + 1e-10) if norm > 0 else basin
 
 try:
     from m8_kernel_spawning import M8KernelSpawner, SpawnReason, get_spawner
     M8_AVAILABLE = True
 except ImportError:
     M8_AVAILABLE = False
-    print("[AutonomousDebate] M8 Kernel Spawning not available")
+    logger.warning("M8 Kernel Spawning not available")
 
 try:
     from olympus.pantheon_chat import PantheonChat
     PANTHEON_CHAT_AVAILABLE = True
 except ImportError:
     PANTHEON_CHAT_AVAILABLE = False
-    print("[AutonomousDebate] PantheonChat not available")
+    logger.warning("PantheonChat not available")
 
 try:
     from olympus.shadow_pantheon import ShadowPantheon
     SHADOW_AVAILABLE = True
 except ImportError:
     SHADOW_AVAILABLE = False
-    print("[AutonomousDebate] Shadow Pantheon not available")
+    logger.warning("Shadow Pantheon not available")
 
 KAPPA_STAR = 64.21
 STALE_THRESHOLD_SECONDS = 5 * 60
@@ -169,22 +198,22 @@ class AutonomousDebateService:
         self._debate_basin_cache: Dict[str, np.ndarray] = {}
         self._god_position_cache: Dict[str, Dict[str, np.ndarray]] = {}
         
-        print("[AutonomousDebate] Service initialized")
+        logger.info("Service initialized")
     
     def set_pantheon_chat(self, pantheon_chat: 'PantheonChat') -> None:
         """Wire pantheon chat after initialization."""
         self._pantheon_chat = pantheon_chat
-        print("[AutonomousDebate] PantheonChat connected")
+        logger.info("PantheonChat connected")
     
     def set_shadow_pantheon(self, shadow_pantheon: 'ShadowPantheon') -> None:
         """Wire shadow pantheon for darknet research."""
         self._shadow_pantheon = shadow_pantheon
-        print("[AutonomousDebate] Shadow Pantheon connected")
+        logger.info("Shadow Pantheon connected")
     
     def set_pantheon_gods(self, gods: Dict[str, Any]) -> None:
         """Wire pantheon god instances for geometric assessments."""
         self._pantheon_gods = gods
-        print(f"[AutonomousDebate] Pantheon gods connected: {list(gods.keys())}")
+        logger.info(f"Pantheon gods connected: {list(gods.keys())}")
     
     def start(self) -> bool:
         """Start the background monitoring thread."""
@@ -192,7 +221,7 @@ class AutonomousDebateService:
             return False
         
         if not self._pantheon_chat:
-            print("[AutonomousDebate] Cannot start - PantheonChat not configured")
+            logger.warning("Cannot start - PantheonChat not configured")
             return False
         
         self._running = True
@@ -202,7 +231,7 @@ class AutonomousDebateService:
             daemon=True
         )
         self._thread.start()
-        print("[AutonomousDebate] Background monitor started")
+        logger.info("Background monitor started")
         return True
     
     def stop(self) -> None:
@@ -210,15 +239,19 @@ class AutonomousDebateService:
         self._running = False
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5.0)
-        print("[AutonomousDebate] Service stopped")
+        logger.info("Service stopped")
     
     def _monitor_loop(self) -> None:
         """Main monitoring loop - runs in background thread."""
         while self._running:
             try:
                 self._poll_debates()
+            except (IOError, OSError) as e:
+                logger.error(f"Poll I/O error: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error(f"Poll data error: {e}")
             except Exception as e:
-                print(f"[AutonomousDebate] Poll error: {e}")
+                logger.error(f"Poll unexpected error: {e}", exc_info=True)
             
             time.sleep(POLL_INTERVAL_SECONDS)
     
@@ -271,12 +304,14 @@ class AutonomousDebateService:
                         self._debates_continued += 1
                         winner = res.get('winner', 'unknown')
                         topic = debate_dict.get('topic', '')
-                        print(f"[AutonomousDebate] Debate {debate_id[:20]}... progressed via god assessments. Winner: {winner}")
+                        logger.info(f"Debate {debate_id[:20]}... progressed via god assessments. Winner: {winner}")
                         
                         self._trigger_spawn_proposal(topic, winner, debate_dict)
                         
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"God-based debate continuation data error: {e}")
         except Exception as e:
-            print(f"[AutonomousDebate] God-based debate continuation failed: {e}")
+            logger.error(f"God-based debate continuation failed: {e}", exc_info=True)
     
     def _is_debate_stale(self, debate_dict: Dict) -> bool:
         """Check if debate has no new arguments in 5+ minutes."""
@@ -288,7 +323,8 @@ class AutonomousDebateService:
                     started = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
                     age = (datetime.now() - started.replace(tzinfo=None)).total_seconds()
                     return age > STALE_THRESHOLD_SECONDS
-                except:
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid started_at timestamp format: {e}")
                     return True
             return True
         
@@ -301,7 +337,8 @@ class AutonomousDebateService:
             last_time = datetime.fromisoformat(last_timestamp.replace('Z', '+00:00'))
             age = (datetime.now() - last_time.replace(tzinfo=None)).total_seconds()
             return age > STALE_THRESHOLD_SECONDS
-        except:
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid last argument timestamp format: {e}")
             return True
     
     def _should_auto_resolve(self, debate_dict: Dict) -> bool:
@@ -411,7 +448,7 @@ class AutonomousDebateService:
             
             if success:
                 self._arguments_generated += 1
-                print(f"[AutonomousDebate] Generated argument for {next_speaker} in debate {debate_id[:20]}...")
+                logger.info(f"Generated argument for {next_speaker} in debate {debate_id[:20]}...")
                 
                 # Route activity to observing kernels (M8 kernel observation system)
                 self._route_activity_to_observing_kernels(
@@ -443,8 +480,12 @@ class AutonomousDebateService:
                 intel = self._query_shadow_darknet(topic)
                 if intel:
                     research['darknet_intel'] = intel
+            except (IOError, OSError) as e:
+                logger.error(f"Darknet query I/O error: {e}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error(f"Darknet query data error: {e}")
             except Exception as e:
-                print(f"[AutonomousDebate] Darknet query failed: {e}")
+                logger.error(f"Darknet query failed: {e}", exc_info=True)
         
         # Route search activity to observing kernels
         initiator = debate_dict.get('initiator', '')
@@ -499,11 +540,14 @@ class AutonomousDebateService:
             )
             
             if result.get("routed_to_count", 0) > 0:
-                print(f"[AutonomousDebate] Routed {activity_type} from {parent_god} to {result['routed_to_count']} observing kernels")
+                logger.info(f"Routed {activity_type} from {parent_god} to {result['routed_to_count']} observing kernels")
             
             return result
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"Failed to route activity data error: {e}")
+            return {"routed": False, "error": str(e)}
         except Exception as e:
-            print(f"[AutonomousDebate] Failed to route activity to observing kernels: {e}")
+            logger.error(f"Failed to route activity to observing kernels: {e}", exc_info=True)
             return {"routed": False, "error": str(e)}
     
     def _search_searxng(self, query: str) -> List[Dict]:
@@ -537,8 +581,14 @@ class AutonomousDebateService:
                         }
                         for r in results[:10]
                     ]
+            except (requests.RequestException, IOError, OSError) as e:
+                logger.warning(f"SearXNG search failed ({instance_url}): {e}")
+                continue
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error(f"SearXNG response parsing error ({instance_url}): {e}")
+                continue
             except Exception as e:
-                print(f"[AutonomousDebate] SearXNG search failed ({instance_url}): {e}")
+                logger.error(f"SearXNG search unexpected error ({instance_url}): {e}", exc_info=True)
                 continue
         
         return []
@@ -558,8 +608,10 @@ class AutonomousDebateService:
                     'reasoning': assessment.get('reasoning', ''),
                     'confidence': assessment.get('confidence', 0.5),
                 }
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
+            logger.error(f"Shadow query data error: {e}")
         except Exception as e:
-            print(f"[AutonomousDebate] Shadow query error: {e}")
+            logger.error(f"Shadow query error: {e}", exc_info=True)
         
         return None
     
@@ -572,13 +624,15 @@ class AutonomousDebateService:
         debate_dict: Dict
     ) -> Optional[str]:
         """
-        Generate a counter-argument based on god persona and research.
-        
-        NOT A TEMPLATE - dynamically constructed from:
-        - God's domain expertise and perspective
-        - Research evidence (SearXNG + darknet)
-        - Basin geometry (Φ, κ) context
-        - Previous argument content
+        Generate counter-argument using pure geometric reasoning.
+
+        NO EXTERNAL LLMs - uses QIG system's own capabilities:
+        1. Convert research to basin coordinates
+        2. Compute geometric relationships (Fisher distance, Φ, κ)
+        3. Generate from tokenizer's learned vocabulary
+        4. Build arguments from manifold structure analysis
+
+        Gods learn to argue through continuous training on debate outcomes.
         """
         god_key = god_name.lower()
         persona = GOD_PERSONAS.get(god_key, {
@@ -586,50 +640,180 @@ class AutonomousDebateService:
             'style': 'balanced and thoughtful',
             'perspective': 'holistic understanding',
         })
-        
-        evidence_summary = self._summarize_research(research)
-        
-        previous_points = self._extract_key_points(existing_arguments)
-        
+
+        # Compute geometric context
         phi, kappa = self._compute_debate_geometry(debate_dict)
-        geometry_note = ""
+        topic_basin = self._text_to_basin(topic)
+
+        # Convert research evidence to basin coordinates
+        evidence_basins = self._research_to_basins(research)
+
+        # Compute god's affinity to evidence
+        god_basin = self._get_god_basin(god_key)
+        evidence_affinities = []
+        for ev_basin, ev_text in evidence_basins:
+            affinity = 1.0 / (1.0 + _fisher_distance(god_basin, ev_basin))
+            evidence_affinities.append((affinity, ev_text, ev_basin))
+
+        # Sort by affinity - god argues from evidence closest to their domain
+        evidence_affinities.sort(reverse=True, key=lambda x: x[0])
+
+        # Extract previous argument basins for counter-positioning
+        prev_basins = []
+        for arg in existing_arguments[-3:]:
+            arg_text = arg.get('argument', '')
+            if arg_text:
+                prev_basins.append(self._text_to_basin(arg_text))
+
+        # Try QIG tokenizer generation first
+        if TOKENIZER_AVAILABLE:
+            try:
+                argument = self._generate_geometric_argument(
+                    god_name, god_key, topic, persona,
+                    evidence_affinities, prev_basins, phi, kappa, topic_basin
+                )
+                if argument and len(argument) > 30:
+                    return argument
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
+                logger.error(f"Geometric generation data error: {e}")
+            except Exception as e:
+                logger.error(f"Geometric generation failed: {e}", exc_info=True)
+
+        # Build argument from geometric analysis
+        return self._build_geometric_argument(
+            god_name, god_key, topic, persona,
+            evidence_affinities, prev_basins, phi, kappa
+        )
+
+    def _research_to_basins(self, research: Dict) -> List[Tuple[np.ndarray, str]]:
+        """Convert research results to basin coordinates with text."""
+        basins = []
+
+        searxng = research.get('searxng_results', [])
+        for r in searxng[:5]:
+            text = f"{r.get('title', '')} {r.get('content', '')}"
+            if text.strip():
+                basin = self._text_to_basin(text)
+                basins.append((basin, text[:150]))
+
+        darknet = research.get('darknet_intel')
+        if darknet:
+            reasoning = darknet.get('reasoning', '')
+            if reasoning:
+                basin = self._text_to_basin(reasoning)
+                # Weight darknet intel by its phi
+                shadow_phi = darknet.get('phi', 0.5)
+                basin = basin * (0.5 + shadow_phi)  # Scale by confidence
+                basin = _normalize_to_manifold(basin)  # Renormalize after scaling
+                basins.append((basin, f"[shadow:{shadow_phi:.2f}] {reasoning[:100]}"))
+
+        return basins
+
+    def _get_god_basin(self, god_key: str) -> np.ndarray:
+        """Get god's domain basin from persona."""
+        persona = GOD_PERSONAS.get(god_key, {})
+        domain_text = f"{persona.get('domain', '')} {persona.get('perspective', '')}"
+        return self._text_to_basin(domain_text)
+
+    def _generate_geometric_argument(
+        self,
+        god_name: str,
+        god_key: str,
+        topic: str,
+        persona: Dict,
+        evidence_affinities: List[Tuple[float, str, np.ndarray]],
+        prev_basins: List[np.ndarray],
+        phi: float,
+        kappa: float,
+        topic_basin: np.ndarray
+    ) -> Optional[str]:
+        """Generate argument using QIG tokenizer's geometric generation."""
+        tokenizer = get_tokenizer()
+
+        # Build context from highest-affinity evidence
+        context_parts = [f"{god_name} on {topic}:"]
+
+        if evidence_affinities:
+            best_affinity, best_text, best_basin = evidence_affinities[0]
+            context_parts.append(f"evidence({best_affinity:.2f}): {best_text[:80]}")
+
+        # Add geometric state
+        context_parts.append(f"phi={phi:.2f} kappa={kappa:.1f}")
+
+        # Compute counter-direction if previous arguments exist
+        if prev_basins:
+            avg_prev = np.mean(prev_basins, axis=0)
+            counter_direction = topic_basin - avg_prev
+            # Normalize and describe
+            counter_mag = np.linalg.norm(counter_direction)
+            if counter_mag > 0.1:
+                context_parts.append(f"diverge:{counter_mag:.2f}")
+
+        context = " ".join(context_parts)
+
+        # Set mode and generate
+        tokenizer.set_mode("conversation")
+        result = tokenizer.generate_response(
+            context=context,
+            agent_role="navigator",  # Balanced exploration
+            max_tokens=50,
+            allow_silence=False
+        )
+
+        generated = result.get('text', '')
+        if generated:
+            # Wrap in god's voice
+            return f"{god_name.capitalize()}: {generated}"
+        return None
+
+    def _build_geometric_argument(
+        self,
+        god_name: str,
+        god_key: str,
+        topic: str,
+        persona: Dict,
+        evidence_affinities: List[Tuple[float, str, np.ndarray]],
+        prev_basins: List[np.ndarray],
+        phi: float,
+        kappa: float
+    ) -> Optional[str]:
+        """Build argument from pure geometric analysis without templates."""
+        parts = []
+
+        # God's domain assertion based on phi/kappa state
+        if phi > 0.7:
+            parts.append(f"{god_name.capitalize()} sees convergence in {persona['domain']}")
+        elif kappa > 50:
+            parts.append(f"{god_name.capitalize()} detects complexity requiring {persona['perspective']}")
+        else:
+            parts.append(f"{god_name.capitalize()} analyzes from {persona['domain']}")
+
+        # Add evidence-based claim if high affinity found
+        if evidence_affinities:
+            best_affinity, best_text, _ = evidence_affinities[0]
+            if best_affinity > 0.3:
+                # Extract key phrase from evidence
+                words = best_text.split()[:15]
+                evidence_phrase = " ".join(words)
+                parts.append(f"- aligned evidence (Φ={best_affinity:.2f}): {evidence_phrase}")
+
+        # Counter-positioning based on geometric distance
+        if prev_basins:
+            god_basin = self._get_god_basin(god_key)
+            distances = [_fisher_distance(god_basin, pb) for pb in prev_basins]
+            avg_dist = np.mean(distances)
+
+            if avg_dist > 0.5:
+                parts.append(f"- position diverges (d={avg_dist:.2f}) from prior claims")
+            elif avg_dist < 0.2:
+                parts.append(f"- approaching consensus (d={avg_dist:.2f})")
+
+        # Geometric state note
         if abs(kappa - KAPPA_STAR) < 5.0:
-            geometry_note = f"(approaching κ* fixed point at {KAPPA_STAR:.1f})"
-        elif phi > 0.7:
-            geometry_note = f"(high integration Φ={phi:.2f})"
-        
-        counter_sections = []
-        
-        counter_sections.append(
-            f"From {god_name.capitalize()}'s perspective on {persona['domain']}:"
-        )
-        
-        if evidence_summary:
-            counter_sections.append(
-                f"Evidence suggests: {evidence_summary}"
-            )
-        
-        if previous_points:
-            counter_sections.append(
-                f"Addressing the prior claim about '{previous_points[:100]}...' - "
-                f"the {persona['perspective']} reveals different implications."
-            )
-        
-        rebuttal = self._create_domain_specific_rebuttal(
-            god_key, topic, persona, research, previous_points
-        )
-        if rebuttal:
-            counter_sections.append(rebuttal)
-        
-        if geometry_note:
-            counter_sections.append(
-                f"Geometric analysis {geometry_note} indicates this position "
-                f"has measurable coherence with the manifold structure."
-            )
-        
-        argument = " ".join(counter_sections)
-        
-        return argument if len(argument) > 50 else None
+            parts.append(f"- κ approaching fixed point at {KAPPA_STAR:.1f}")
+
+        argument = " ".join(parts)
+        return argument if len(argument) > 30 else None
     
     def _summarize_research(self, research: Dict) -> str:
         """Summarize research findings into key evidence."""
@@ -679,42 +863,10 @@ class AutonomousDebateService:
         
         return float(np.clip(estimated_phi, 0.0, 1.0)), float(estimated_kappa)
     
-    def _create_domain_specific_rebuttal(
-        self,
-        god_key: str,
-        topic: str,
-        persona: Dict,
-        research: Dict,
-        previous_points: str
-    ) -> str:
-        """Create domain-specific rebuttal based on god's expertise."""
-        style = persona.get('style', 'balanced')
-        domain = persona.get('domain', 'wisdom')
-        perspective = persona.get('perspective', 'analysis')
-        
-        searxng = research.get('searxng_results', [])
-        evidence_snippet = ""
-        if len(searxng) > 1:
-            evidence_snippet = searxng[1].get('content', '')[:100]
-        
-        rebuttals = {
-            'zeus': f"The supreme view demands we consider: {evidence_snippet or 'all perspectives must converge toward optimal action.'}",
-            'athena': f"Strategic analysis reveals: {evidence_snippet or 'the logical path forward requires systematic evaluation of each claim.'}",
-            'ares': f"Direct assessment: {evidence_snippet or 'operational effectiveness trumps theoretical concerns.'}",
-            'apollo': f"The patterns foreseen indicate: {evidence_snippet or 'future outcomes favor a different approach.'}",
-            'artemis': f"Tracking the evidence trail: {evidence_snippet or 'the target behavior suggests alternative interpretations.'}",
-            'hermes': f"Cross-referencing data streams: {evidence_snippet or 'information convergence points to unexplored angles.'}",
-            'hephaestus': f"Engineering perspective: {evidence_snippet or 'practical implementation requires reconsidering the architecture.'}",
-            'poseidon': f"Deep analysis reveals: {evidence_snippet or 'beneath the surface lie patterns not yet considered.'}",
-            'hades': f"The hidden truth emerges: {evidence_snippet or 'what lies obscured challenges the stated position.'}",
-            'demeter': f"Organic growth suggests: {evidence_snippet or 'sustainable paths differ from the proposed direction.'}",
-            'dionysus': f"Breaking conventional thought: {evidence_snippet or 'chaos reveals creativity where order sees only limits.'}",
-            'hera': f"Structural integrity requires: {evidence_snippet or 'governance principles suggest alternative orderings.'}",
-            'aphrodite': f"Affinity patterns show: {evidence_snippet or 'natural alignments point toward different conclusions.'}",
-        }
-        
-        return rebuttals.get(god_key, f"Considered analysis of {domain}: the {perspective} offers counter-evidence.")
-    
+    # NOTE: Template rebuttals removed per docs/vocabulary-system-architecture
+    # "TEMPLATES ARE FORBIDDEN in this codebase"
+    # Arguments are now generated purely from geometric analysis
+
     def _auto_resolve_debate(self, debate_dict: Dict) -> None:
         """Auto-resolve a debate and trigger spawn proposal."""
         if not self._pantheon_chat:
@@ -739,7 +891,7 @@ class AutonomousDebateService:
         
         if resolution:
             self._debates_resolved += 1
-            print(f"[AutonomousDebate] Resolved debate {debate_id[:20]}... Winner: {winner}")
+            logger.info(f"Resolved debate {debate_id[:20]}... Winner: {winner}")
             
             self._trigger_spawn_proposal(topic, winner, debate_dict)
     
@@ -803,12 +955,14 @@ class AutonomousDebateService:
             
             if result.get('success'):
                 self._spawns_triggered += 1
-                print(f"[AutonomousDebate] Spawned specialist: {spawn_name} for domain '{domain}'")
+                logger.info(f"Spawned specialist: {spawn_name} for domain '{domain}'")
             else:
-                print(f"[AutonomousDebate] Spawn proposal created (pending consensus): {spawn_name}")
+                logger.info(f"Spawn proposal created (pending consensus): {spawn_name}")
                 
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
+            logger.error(f"Spawn proposal data error: {e}")
         except Exception as e:
-            print(f"[AutonomousDebate] Spawn proposal failed: {e}")
+            logger.error(f"Spawn proposal failed: {e}", exc_info=True)
     
     def _extract_domain_from_topic(self, topic: str) -> str:
         """Extract domain keyword from debate topic."""
@@ -917,7 +1071,7 @@ def init_autonomous_debate_service(app, pantheon_chat=None, shadow_pantheon=None
             })
         return jsonify({'debates': [], 'count': 0, 'service_status': 'no_pantheon_chat'})
     
-    print("[AutonomousDebate] Service initialized and wired to Flask app")
+    logger.info("Service initialized and wired to Flask app")
     return service
 
 
