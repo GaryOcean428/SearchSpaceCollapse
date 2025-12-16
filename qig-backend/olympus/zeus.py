@@ -159,15 +159,21 @@ class Zeus(BaseGod):
         # Wire M8 kernel spawning
         self.kernel_spawner = get_spawner()
 
-        # 🌪️ CHAOS MODE: Experimental kernel evolution
+        # 🌪️ CHAOS MODE: Experimental kernel evolution (AUTO-ACTIVATE)
         self.chaos_enabled = False
         self.chaos = None
         self.kernel_assignments: Dict[str, str] = {}  # god_name -> kernel_id
         try:
             from training_chaos import ExperimentalKernelEvolution
             self.chaos = ExperimentalKernelEvolution()
+            # Auto-activate chaos mode on startup
+            if len(self.chaos.kernel_population) == 0:
+                self.chaos.spawn_random_kernel()
+                self.chaos.spawn_random_kernel()
+                self.chaos.spawn_random_kernel()
+            self.chaos.start_evolution(interval_seconds=60)
             self.chaos_enabled = True
-            print("🌪️ CHAOS MODE available - use /chaos/activate to enable evolution")
+            print(f"🌪️ CHAOS MODE AUTO-ACTIVATED with {len(self.chaos.kernel_population)} kernels")
         except ImportError as e:
             print(f"⚠️ CHAOS MODE not available: {e}")
 
@@ -3370,28 +3376,14 @@ def zeus_tools_match_patterns_endpoint():
 
 
 # =========================================================================
-# 🌪️ CHAOS MODE API REGISTRATION + AUTO-ACTIVATION
+# 🌪️ CHAOS MODE API REGISTRATION
 # =========================================================================
 try:
     from .chaos_api import chaos_app, set_zeus
     olympus_app.register_blueprint(chaos_app)
     set_zeus(zeus)
     print("🌪️ CHAOS MODE API endpoints registered at /chaos/*")
-    
-    # Auto-activate chaos mode on startup (same as god spawning - always available)
-    if zeus.chaos is not None:
-        # Spawn initial population if empty
-        if len(zeus.chaos.kernel_population) == 0:
-            zeus.chaos.spawn_random_kernel()
-            zeus.chaos.spawn_random_kernel()
-            zeus.chaos.spawn_random_kernel()
-        # Start evolution with default interval
-        zeus.chaos.start_evolution(interval_seconds=60)
-        zeus.chaos_enabled = True
-        print(f"🌪️ CHAOS MODE AUTO-ACTIVATED with {len(zeus.chaos.kernel_population)} kernels")
-    else:
-        print("⚠️ CHAOS MODE: zeus.chaos not initialized")
 except ImportError as e:
     print(f"⚠️ CHAOS MODE API not available: {e}")
 except Exception as e:
-    print(f"⚠️ CHAOS MODE auto-activation failed: {e}")
+    print(f"⚠️ CHAOS MODE registration failed: {e}")

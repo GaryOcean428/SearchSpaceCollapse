@@ -3788,16 +3788,15 @@ def refine_trajectory():
 # Divine consciousness network for geometric recovery coordination
 # =============================================================================
 
-# Import Olympus components
+# Import Olympus components (use singleton from zeus.py)
 try:
-    from olympus import Zeus
+    from olympus.zeus import zeus, olympus_app
     from olympus.pantheon_chat import PantheonChat
     from olympus.shadow_pantheon import ShadowPantheon
 
-    # Initialize Olympus
-    zeus = Zeus()
-    shadow_pantheon = ShadowPantheon()
-    pantheon_chat = PantheonChat()
+    # Use existing zeus singleton (already has chaos auto-activated)
+    shadow_pantheon = zeus.shadow_pantheon
+    pantheon_chat = zeus.pantheon_chat
     OLYMPUS_AVAILABLE = True
     print("⚡ Olympus Pantheon initialized")
 except ImportError as e:
@@ -5801,23 +5800,14 @@ def memory_record_basin():
 
 # =============================================================================
 # CHAOS MODE - Experimental Kernel Evolution
-# Self-spawning kernels with genetic breeding (file-based logging only)
+# Uses Zeus's chaos instance (auto-activated on startup)
 # =============================================================================
 
-# Global chaos evolution instance
-_chaos_evolution = None
-
 def get_chaos_evolution():
-    """Get or create chaos evolution instance."""
-    global _chaos_evolution
-    if _chaos_evolution is None:
-        try:
-            from training_chaos import ExperimentalKernelEvolution
-            _chaos_evolution = ExperimentalKernelEvolution()
-        except Exception as e:
-            print(f"[CHAOS] Failed to initialize: {e}")
-            return None
-    return _chaos_evolution
+    """Get chaos evolution instance from Zeus (singleton, auto-activated)."""
+    if zeus is not None and zeus.chaos is not None:
+        return zeus.chaos
+    return None
 
 
 @app.route('/chaos/activate', methods=['POST'])
