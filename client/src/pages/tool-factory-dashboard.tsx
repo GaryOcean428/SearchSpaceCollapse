@@ -273,6 +273,42 @@ export default function ToolFactoryDashboard() {
         </Badge>
       </div>
 
+      {/* How It Works */}
+      <Card className="bg-muted/30 border-dashed">
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            <div className="flex items-start gap-2">
+              <div className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">1</div>
+              <div>
+                <p className="font-medium">Teach Patterns</p>
+                <p className="text-muted-foreground">Give the kernel code examples via templates, git links, or file uploads</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">2</div>
+              <div>
+                <p className="font-medium">Kernel Learns</p>
+                <p className="text-muted-foreground">Patterns are stored with 64D basin coordinates for geometric matching</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">3</div>
+              <div>
+                <p className="font-medium">Generate Tools</p>
+                <p className="text-muted-foreground">Describe what you need and the kernel creates tools from learned patterns</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shrink-0">4</div>
+              <div>
+                <p className="font-medium">Execute & Rate</p>
+                <p className="text-muted-foreground">Test tools, rate them, and watch the kernel improve over time</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <Card>
@@ -403,40 +439,55 @@ export default function ToolFactoryDashboard() {
                 <Play className="h-5 w-5" />
                 Execute Tool
               </CardTitle>
+              <CardDescription>
+                Test a generated tool by running it with arguments. Copy the Tool ID from the list above and provide JSON arguments matching the tool's input schema.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Tool ID</label>
-                  <Input
-                    value={testToolId}
-                    onChange={(e) => setTestToolId(e.target.value)}
-                    placeholder="Enter tool ID"
-                    data-testid="input-test-tool-id"
-                  />
+              {tools.length === 0 ? (
+                <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                  <p className="font-medium mb-2">No tools available to execute yet.</p>
+                  <p>First, teach the kernel some patterns in the "Teach" tab, then generate tools in the "Generate" tab. Once tools are created, you can test them here.</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Arguments (JSON)</label>
-                  <Input
-                    value={testArgs}
-                    onChange={(e) => setTestArgs(e.target.value)}
-                    placeholder='{"text": "hello"}'
-                    data-testid="input-test-args"
-                  />
-                </div>
-              </div>
-              <Button 
-                onClick={handleExecute}
-                disabled={!testToolId || executeToolMutation.isPending}
-                data-testid="button-execute-tool"
-              >
-                {executeToolMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                Execute
-              </Button>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Tool ID</label>
+                      <Input
+                        value={testToolId}
+                        onChange={(e) => setTestToolId(e.target.value)}
+                        placeholder="e.g., tool_abc123"
+                        data-testid="input-test-tool-id"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Arguments (JSON)</label>
+                      <Input
+                        value={testArgs}
+                        onChange={(e) => setTestArgs(e.target.value)}
+                        placeholder='{"text": "hello world"}'
+                        data-testid="input-test-args"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Example: If tool expects text input, use: {"{"}"text": "your input here"{"}"}
+                  </div>
+                  <Button 
+                    onClick={handleExecute}
+                    disabled={!testToolId || executeToolMutation.isPending}
+                    data-testid="button-execute-tool"
+                  >
+                    {executeToolMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
+                    Execute
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
