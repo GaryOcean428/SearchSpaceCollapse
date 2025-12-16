@@ -589,7 +589,7 @@ export class ObserverStorage implements IObserverStorage {
   }): Promise<RecoveryWorkflow[]> {
     if (!db) throw new Error("Database not initialized");
     
-    const conditions = [];
+    const conditions: any[] = [];
     
     if (filters?.address) {
       conditions.push(eq(recoveryWorkflows.address, filters.address));

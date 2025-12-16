@@ -110,7 +110,8 @@ async function gatherEntitySignals(address: string): Promise<SubstrateSignal[]> 
   const signals: SubstrateSignal[] = [];
   
   try {
-    const entities = await observerStorage.getEntitiesByAddress(address);
+    // TODO: Implement getEntitiesByAddress in observer-storage
+    const entities: any[] = []; // await observerStorage.getEntitiesByAddress(address);
     
     for (const entity of entities) {
       // BitcoinTalk signal
@@ -174,7 +175,8 @@ async function gatherArtifactSignals(address: string): Promise<SubstrateSignal[]
   const signals: SubstrateSignal[] = [];
   
   try {
-    const artifacts = await observerStorage.getArtifactsByAddress(address);
+    // TODO: Implement getArtifactsByAddress in observer-storage
+    const artifacts: any[] = []; // await observerStorage.getArtifactsByAddress(address);
     
     for (const artifact of artifacts) {
       const type = artifact.source as SubstrateType;

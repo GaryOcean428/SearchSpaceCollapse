@@ -271,8 +271,8 @@ router.get("/test/near-miss/:id", async (req: Request, res: Response) => {
     return res.status(403).json({ error: "Not available in production" });
   }
   
-  const stats = nearMissManager.getStats();
-  const entry = stats.entries?.find((e: any) => e.id === req.params.id);
+  const entries = nearMissManager.getAllEntries();
+  const entry = entries.find((e: any) => e.id === req.params.id);
   
   if (!entry) {
     return res.status(404).json({ error: "Near-miss not found" });
