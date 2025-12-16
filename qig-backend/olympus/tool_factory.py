@@ -476,11 +476,17 @@ class ToolFactory:
         print(f"[ToolFactory] Learned pattern from user: {description[:50]}...")
         return pattern
 
-    def learn_from_git_link(self, git_url: str, description: str) -> Optional[LearnedPattern]:
+    def learn_from_git_link(self, git_url: str, description: str, secret_key_name: Optional[str] = None) -> Optional[LearnedPattern]:
         """
         Learn code pattern from a git repository link provided in chat.
         Fetches and parses the code, extracts patterns.
+        
+        Args:
+            git_url: URL to git repository
+            description: Description of what patterns to learn
+            secret_key_name: Name of Replit secret containing API key (e.g., 'GITHUB_TOKEN')
         """
+        from datetime import datetime
         pattern_id = self._generate_pattern_id(f"git:{git_url}")
         basin = self.encoder.encode(description)
 
@@ -490,11 +496,47 @@ class ToolFactory:
             'description': description,
             'pattern_id': pattern_id,
             'basin': basin,
-            'status': 'pending'
+            'status': 'pending',
+            'secret_key_name': secret_key_name,
+            'queued_at': datetime.now().isoformat(),
+            'error': None
         })
 
-        print(f"[ToolFactory] Queued git link for learning: {git_url}")
+        auth_info = f"(auth via {secret_key_name})" if secret_key_name else "(no auth)"
+        print(f"[ToolFactory] Queued git link for learning: {git_url} {auth_info}")
         return None
+
+    def get_git_queue_status(self) -> List[Dict]:
+        """Get status of queued git links for learning."""
+        git_items = [
+            {
+                'url': item.get('url'),
+                'description': item.get('description', ''),
+                'status': item.get('status', 'pending'),
+                'secret_key_name': item.get('secret_key_name'),
+                'queued_at': item.get('queued_at'),
+                'error': item.get('error')
+            }
+            for item in self.pending_searches
+            if item.get('type') == 'git_link'
+        ]
+        return git_items
+
+    def update_git_item_status(self, url: str, status: str, error: Optional[str] = None):
+        """Update status of a git queue item."""
+        for item in self.pending_searches:
+            if item.get('type') == 'git_link' and item.get('url') == url:
+                item['status'] = status
+                if error:
+                    item['error'] = error
+                break
+
+    def clear_completed_git_items(self):
+        """Remove completed/failed items from the queue."""
+        self.pending_searches = [
+            item for item in self.pending_searches
+            if not (item.get('type') == 'git_link' and item.get('status') in ['completed', 'failed'])
+        ]
 
     def learn_from_file_upload(
         self,

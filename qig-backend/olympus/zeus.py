@@ -3071,6 +3071,7 @@ def zeus_tools_learn_git_endpoint():
         data = request.get_json() or {}
         git_url = data.get('url', '')
         description = data.get('description', 'Git repository patterns')
+        secret_key_name = data.get('secret_key_name')  # e.g., 'GITHUB_TOKEN'
         
         if not git_url:
             return jsonify({'error': 'url is required'}), 400
@@ -3079,13 +3080,57 @@ def zeus_tools_learn_git_endpoint():
         if not any(host in git_url for host in ['github.com', 'gitlab.com', 'bitbucket.org', 'git://', '.git']):
             return jsonify({'error': 'Invalid git URL format'}), 400
         
-        tool_factory.learn_from_git_link(git_url, description)
+        tool_factory.learn_from_git_link(git_url, description, secret_key_name)
         
         return jsonify({
             'success': True,
             'url': git_url,
             'status': 'queued',
+            'secret_key_name': secret_key_name,
             'message': 'Git link queued for pattern learning'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/learn/git/queue', methods=['GET'])
+def zeus_tools_git_queue_endpoint():
+    """
+    Get status of queued git links for learning.
+    """
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        queue = tool_factory.get_git_queue_status()
+        
+        return jsonify({
+            'queue': queue,
+            'total': len(queue),
+            'pending': len([q for q in queue if q.get('status') == 'pending']),
+            'completed': len([q for q in queue if q.get('status') == 'completed']),
+            'failed': len([q for q in queue if q.get('status') == 'failed'])
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/learn/git/queue/clear', methods=['POST'])
+def zeus_tools_git_queue_clear_endpoint():
+    """
+    Clear completed/failed items from the git queue.
+    """
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        tool_factory.clear_completed_git_items()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Completed and failed items cleared from queue'
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
