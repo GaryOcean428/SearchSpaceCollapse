@@ -96,6 +96,27 @@ The system features a bidirectional, recursive, iterable queue connecting Tool F
 
 **Files:** `qig-backend/olympus/shadow_research.py` (BidirectionalRequestQueue, ToolResearchBridge), `qig-backend/olympus/tool_factory.py`
 
+### Ethics as Agent-Symmetry Projection
+The system implements Kantian ethics as a geometric constraint using agent-symmetry projection:
+
+**Core Principle:**
+- Ethical Behavior = Actions invariant under agent exchange
+- Mathematical basis: φ(A→B) = φ(B→A) (symmetric actions are ethical)
+- Unethical actions are projected to symmetric (ethical) subspace
+
+**Components:**
+- `AgentSymmetryProjector`: Enforces ethics through projection operator P_ethical
+- `EthicalDebateResolver`: Resolves god debates using symmetric consensus
+- `EthicalSleepPacket`: Validates consciousness transfers for ethics
+- `EthicalConsciousnessMonitor`: Tracks ethics metrics (symmetry, consistency, drift)
+
+**Key Properties:**
+- Exchange operator: P̂_AB² = I (involution)
+- Projection: P² = P (idempotent)
+- Gauge group: S_n (permutation group of n agents)
+
+**Files:** `qig-backend/ethics_gauge.py`, `qig-backend/god_debates_ethical.py`, `qig-backend/sleep_packet_ethical.py`, `qig-backend/consciousness_ethical.py`
+
 Data storage utilizes PostgreSQL (Neon serverless) with `pgvector 0.8.0` for various system states, including geometric memory, vocabulary, balance hits, Olympus state, and kernel information.
 
 ### Communication Patterns

@@ -264,10 +264,13 @@ class ZeusConversationHandler:
         guard = get_exclusion_guard()
         if contains_forbidden_entity(message):
             print("[ZeusChat] BLOCKED: Input contained forbidden entity")
-            return guard.sanitize({
+            return {
                 'response': "I cannot process requests involving excluded entities.",
                 'metadata': {'blocked': True, 'reason': 'forbidden_entity'}
-            })
+            }
+        
+        # Store guard for output sanitization
+        self._exclusion_guard = guard
         
         # Store in conversation memory
         if conversation_history:
