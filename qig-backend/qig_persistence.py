@@ -16,6 +16,7 @@ Uses psycopg2 with pgvector support for 64D vector operations.
 import json
 import os
 import threading
+import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -30,6 +31,10 @@ try:
 except ImportError:
     PSYCOPG2_AVAILABLE = False
     print("[QIGPersistence] WARNING: psycopg2 not installed - persistence disabled")
+
+# Retry configuration for Neon serverless connection drops
+MAX_RETRIES = 3
+RETRY_DELAY_BASE = 0.5
 
 # Constants
 BASIN_DIMENSION = 64
@@ -61,26 +66,76 @@ class QIGPersistence:
         else:
             print("[QIGPersistence] Running in memory-only mode (no DB)")
 
+    def _create_connection(self):
+        """Create a new database connection with Neon-optimized settings."""
+        return psycopg2.connect(
+            self.database_url,
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5,
+            connect_timeout=10,
+        )
+
     @contextmanager
     def get_connection(self):
-        """Get a database connection with automatic cleanup."""
+        """Get a database connection with automatic retry for Neon SSL resets."""
         if not self.enabled:
             yield None
             return
 
         conn = None
-        try:
-            conn = psycopg2.connect(self.database_url)
-            yield conn
-            conn.commit()
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            print(f"[QIGPersistence] Database error: {e}")
-            raise
-        finally:
-            if conn:
-                conn.close()
+        last_error = None
+        
+        for attempt in range(MAX_RETRIES):
+            try:
+                conn = self._create_connection()
+                yield conn
+                conn.commit()
+                return
+            except psycopg2.OperationalError as e:
+                last_error = e
+                error_msg = str(e).lower()
+                if conn:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    conn = None
+                
+                is_transient = any(x in error_msg for x in [
+                    'ssl connection has been closed',
+                    'connection reset',
+                    'connection refused',
+                    'could not connect',
+                    'server closed the connection',
+                ])
+                
+                if is_transient and attempt < MAX_RETRIES - 1:
+                    delay = RETRY_DELAY_BASE * (2 ** attempt)
+                    print(f"[QIGPersistence] Connection lost (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+                    continue
+                else:
+                    print(f"[QIGPersistence] Database connection failed: {e}")
+                    raise
+            except Exception as e:
+                if conn:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                print(f"[QIGPersistence] Database error: {e}")
+                raise
+            finally:
+                if conn:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+        
+        if last_error:
+            raise last_error
 
     def _vector_to_pg(self, vec: np.ndarray) -> str:
         """Convert numpy array to PostgreSQL vector format."""
