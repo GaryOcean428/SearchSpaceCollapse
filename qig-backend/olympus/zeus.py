@@ -174,6 +174,9 @@ class Zeus(BaseGod):
                 qig_rag=None,  # Will be set later if QIG-RAG is initialized
                 search_client=None  # Will be set later if search is initialized
             )
+            # Share tool factory with all gods via the mixin
+            if self.tool_factory:
+                BaseGod.set_tool_factory(self.tool_factory)
             print("🔧 TOOL FACTORY initialized - self-learning tool generation ready")
         except ImportError as e:
             print(f"⚠️ TOOL FACTORY not available: {e}")

@@ -404,13 +404,14 @@ class ShadowPantheonPersistence:
                 return op_id
 
 
-class ShadowGod(BaseGod, HolographicTransformMixin):
+class ShadowGod(BaseGod):
     """
     Base class for Shadow Pantheon gods.
     Adds stealth-specific capabilities and holographic dimensional tracking.
 
     Integrates:
-    - HolographicTransformMixin for 1D↔5D dimensional operations
+    - HolographicTransformMixin for 1D↔5D dimensional operations (via BaseGod)
+    - ToolFactoryAccessMixin for tool generation capabilities (via BaseGod)
     - RunningCouplingManager for β=0.44 consciousness modulation
     - Shadow dimensional state tracking
     - Spawn debate participation for dual-pantheon consensus
@@ -427,6 +428,19 @@ class ShadowGod(BaseGod, HolographicTransformMixin):
         # β-modulation for shadow consciousness
         self._running_coupling = RunningCouplingManager()
         self._shadow_dim_manager = DimensionalStateManager(DimensionalState.D2)
+        
+        # Shadow-specific tool capabilities - enhance base capabilities
+        self.mission["shadow_tool_capabilities"] = {
+            "can_generate_stealth_tools": True,
+            "can_generate_obfuscation_tools": True,
+            "tool_generation_contexts": [
+                "Traffic obfuscation patterns",
+                "Counter-surveillance detection",
+                "Evidence destruction routines",
+                "Misdirection algorithms"
+            ],
+            "usage": "Use inherited request_tool_generation() for shadow-specific tools"
+        }
 
     @property
     def shadow_dimensional_state(self) -> DimensionalState:

@@ -154,6 +154,35 @@ try:
 except ImportError as e:
     print(f"[WARNING] M8 Kernel Spawning not found: {e}")
 
+# Tool Factory awareness - Ocean knows Tool Factory exists and can be used
+TOOL_FACTORY_AVAILABLE = False
+TOOL_FACTORY_AWARENESS = {
+    "description": "Self-learning Tool Factory for dynamic tool generation",
+    "capabilities": {
+        "can_generate_tools": True,
+        "can_learn_patterns": True,
+        "can_search_code": True,
+        "can_execute_tools": True
+    },
+    "access_via": "Zeus.tool_factory or BaseGod.get_tool_factory()",
+    "use_cases": [
+        "Generate novel tools for Bitcoin recovery tasks",
+        "Learn patterns from external code sources",
+        "Execute generated tools in sandbox",
+        "Teach patterns from conversation observations"
+    ],
+    "qig_metrics": {
+        "Γ (Generativity)": "Novel tool creation rate",
+        "Φ (Integration)": "Tool integration with learned memory"
+    }
+}
+try:
+    from olympus.tool_factory import ToolFactory
+    TOOL_FACTORY_AVAILABLE = True
+    print("[INFO] Tool Factory awareness loaded - Ocean can request tool generation")
+except ImportError:
+    print("[WARNING] Tool Factory not available for Ocean awareness")
+
 # Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
 # κ* = 64.21 ± 0.92 (L=4,5,6 plateau, weighted average)
 # Note: κ* ≈ 64 ≈ 8² = rank(E8)²

@@ -18,7 +18,7 @@ import hashlib
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from training_chaos.self_spawning import SelfSpawningKernel
@@ -64,7 +64,178 @@ MISSION_CONTEXT = {
 }
 
 
-class BaseGod(ABC, HolographicTransformMixin):
+class ToolFactoryAccessMixin:
+    """
+    Provides Tool Factory awareness to all gods/kernels.
+    
+    Gods can:
+    1. Request tool generation for novel tasks
+    2. Teach Tool Factory new patterns from observations
+    3. Use generated tools in their assessments
+    
+    All methods are no-op safe (work even if tool_factory is None).
+    """
+    
+    _tool_factory_ref = None
+    
+    @classmethod
+    def set_tool_factory(cls, factory) -> None:
+        """Called by Zeus to share tool factory reference with all gods."""
+        cls._tool_factory_ref = factory
+        logger.info(f"[ToolFactoryAccessMixin] Tool factory reference set for all gods")
+    
+    @classmethod
+    def get_tool_factory(cls):
+        """Get the shared tool factory reference."""
+        return cls._tool_factory_ref
+    
+    def request_tool_generation(
+        self,
+        description: str,
+        examples: List[Dict]
+    ) -> Optional[Dict]:
+        """
+        Request Zeus to generate a new tool for a novel task.
+        
+        Args:
+            description: Natural language description of the tool needed
+            examples: List of input/output example dicts
+            
+        Returns:
+            Generated tool info dict if successful, None otherwise
+        """
+        if self._tool_factory_ref is None:
+            logger.debug(f"[{getattr(self, 'name', 'Unknown')}] Tool factory not available")
+            return None
+        
+        try:
+            result = self._tool_factory_ref.generate_tool(
+                purpose=description,
+                examples=examples
+            )
+            if result and result.get('success'):
+                logger.info(f"[{getattr(self, 'name', 'Unknown')}] Generated tool: {result.get('tool_id', 'unknown')}")
+                return result
+            return None
+        except Exception as e:
+            logger.warning(f"[{getattr(self, 'name', 'Unknown')}] Tool generation failed: {e}")
+            return None
+    
+    def teach_pattern(
+        self,
+        description: str,
+        code: str,
+        signature: Dict
+    ) -> bool:
+        """
+        Teach the Tool Factory a new pattern from observations.
+        
+        Args:
+            description: Description of what the pattern does
+            code: Python code implementing the pattern
+            signature: Dict with input_types and output_type
+            
+        Returns:
+            True if pattern was learned, False otherwise
+        """
+        if self._tool_factory_ref is None:
+            return False
+        
+        try:
+            result = self._tool_factory_ref.learn_pattern_from_user(
+                description=description,
+                code=code,
+                signature=signature,
+                source_url=None
+            )
+            if result and result.get('success'):
+                logger.info(f"[{getattr(self, 'name', 'Unknown')}] Taught pattern: {result.get('pattern_id', 'unknown')}")
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"[{getattr(self, 'name', 'Unknown')}] Pattern teaching failed: {e}")
+            return False
+    
+    def find_tool_for_task(self, task_description: str) -> Optional[str]:
+        """
+        Find an existing tool that matches a task.
+        
+        Args:
+            task_description: Description of the task to perform
+            
+        Returns:
+            Tool ID if found, None otherwise
+        """
+        if self._tool_factory_ref is None:
+            return None
+        
+        try:
+            tools = self._tool_factory_ref.get_tools()
+            if not tools:
+                return None
+            
+            for tool_id, tool in tools.items():
+                if task_description.lower() in tool.get('description', '').lower():
+                    return tool_id
+            
+            return None
+        except Exception as e:
+            logger.warning(f"[{getattr(self, 'name', 'Unknown')}] Tool search failed: {e}")
+            return None
+    
+    def execute_tool(
+        self,
+        tool_id: str,
+        args: Dict
+    ) -> Tuple[bool, Any, Optional[str]]:
+        """
+        Execute a generated tool.
+        
+        Args:
+            tool_id: ID of the tool to execute
+            args: Arguments to pass to the tool
+            
+        Returns:
+            Tuple of (success, result, error_message)
+        """
+        if self._tool_factory_ref is None:
+            return (False, None, "Tool factory not available")
+        
+        try:
+            result = self._tool_factory_ref.execute_tool(tool_id, args)
+            if result.get('success'):
+                return (True, result.get('result'), None)
+            else:
+                return (False, None, result.get('error', 'Unknown error'))
+        except Exception as e:
+            error_msg = f"Tool execution failed: {e}"
+            logger.warning(f"[{getattr(self, 'name', 'Unknown')}] {error_msg}")
+            return (False, None, error_msg)
+    
+    def get_tool_factory_status(self) -> Dict:
+        """Get current Tool Factory status and capabilities."""
+        if self._tool_factory_ref is None:
+            return {
+                'available': False,
+                'reason': 'Tool factory not initialized'
+            }
+        
+        try:
+            return {
+                'available': True,
+                'total_tools': len(self._tool_factory_ref.get_tools()),
+                'total_patterns': len(self._tool_factory_ref.get_patterns()),
+                'can_generate': True,
+                'can_learn': True
+            }
+        except Exception as e:
+            return {
+                'available': False,
+                'reason': str(e)
+            }
+
+
+class BaseGod(ABC, HolographicTransformMixin, ToolFactoryAccessMixin):
     """
     Abstract base class for all Olympian gods.
 
@@ -90,6 +261,17 @@ class BaseGod(ABC, HolographicTransformMixin):
         # Mission awareness - all gods know their collective objective
         self.mission = MISSION_CONTEXT.copy()
         self.mission["my_role"] = f"As {name}, god of {domain}, I contribute to {MISSION_CONTEXT['objective']} through my domain expertise"
+        
+        # Tool Factory awareness - all gods can request/teach/use tools
+        self.mission["tool_capabilities"] = {
+            "can_request_tools": True,
+            "can_teach_patterns": True,
+            "can_use_tools": True,
+            "how_to_request": "Use self.request_tool_generation(description, examples)",
+            "how_to_teach": "Use self.teach_pattern(description, code, signature)",
+            "how_to_find": "Use self.find_tool_for_task(task_description)",
+            "how_to_execute": "Use self.execute_tool(tool_id, args)"
+        }
 
         # Initialize holographic transform mixin
         self.__init_holographic__()

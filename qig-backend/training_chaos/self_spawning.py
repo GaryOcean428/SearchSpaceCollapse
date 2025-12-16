@@ -36,6 +36,17 @@ except ImportError:
     print("[SelfSpawning] WARNING: GaryAutonomicKernel not available - kernels will lack autonomic support")
 
 
+# Tool Factory awareness - shared reference from Zeus
+_tool_factory_ref = None
+
+
+def set_kernel_tool_factory(factory) -> None:
+    """Set the shared tool factory reference for all kernels."""
+    global _tool_factory_ref
+    _tool_factory_ref = factory
+    print("[SelfSpawning] Tool factory reference set for kernel tool generation")
+
+
 class SelfSpawningKernel:
     """
     Kernel with COMPLETE autonomic support and parental observation.
@@ -150,6 +161,70 @@ class SelfSpawningKernel:
             # Root kernel (no parent) - can act immediately
             self.is_observing = False
             print(f"🐣 SelfSpawningKernel {self.kernel_id} born (gen {self.generation})")
+
+    # =========================================================================
+    # TOOL FACTORY INTEGRATION
+    # =========================================================================
+
+    def request_tool_for_recovery(self, stuck_context: Dict) -> Optional[Dict]:
+        """
+        Request tool generation when kernel is stuck.
+        
+        Called during autonomic_intervention as a recovery strategy.
+        The Tool Factory can generate novel tools to help unstuck the kernel.
+        
+        Args:
+            stuck_context: Context about why the kernel is stuck
+            
+        Returns:
+            Generated tool info if successful, None otherwise
+        """
+        global _tool_factory_ref
+        
+        if _tool_factory_ref is None:
+            return None
+        
+        try:
+            description = f"Recovery tool for stuck kernel: {stuck_context.get('reason', 'unknown')}"
+            examples = [
+                {
+                    'input': {'basin_coords': self.kernel.basin_coords.detach().cpu().tolist()[:5]},
+                    'output': {'action': 'perturb_basin', 'magnitude': 0.1}
+                }
+            ]
+            
+            result = _tool_factory_ref.generate_tool(
+                purpose=description,
+                examples=examples
+            )
+            
+            if result and result.validated:
+                print(f"🔧 {self.kernel_id} generated recovery tool: {result.tool_id}")
+                return {
+                    'tool_id': result.tool_id,
+                    'name': result.name,
+                    'success': True
+                }
+            return None
+        except Exception as e:
+            print(f"[{self.kernel_id}] Tool generation failed: {e}")
+            return None
+    
+    def get_tool_factory_status(self) -> Dict:
+        """Get current Tool Factory status and availability."""
+        global _tool_factory_ref
+        
+        if _tool_factory_ref is None:
+            return {'available': False, 'reason': 'Tool factory not set'}
+        
+        try:
+            return {
+                'available': True,
+                'total_tools': len(_tool_factory_ref.get_tools()),
+                'can_generate': True
+            }
+        except Exception as e:
+            return {'available': False, 'reason': str(e)}
 
     # =========================================================================
     # OBSERVATION PERIOD (Vicarious Learning)
@@ -484,8 +559,21 @@ class SelfSpawningKernel:
         Automatic intervention when kernel is struggling.
 
         Called BEFORE death to attempt recovery.
+        
+        Recovery actions include:
+        - dream: Creative exploration
+        - mushroom: Break rigidity
+        - sleep: Consolidation
+        - tool_generation: Generate recovery tool via Tool Factory (NEW!)
         """
         if self.autonomic is None:
+            # Even without autonomic support, try tool generation
+            tool_result = self.request_tool_for_recovery({
+                'reason': 'struggling_no_autonomic',
+                'failure_count': self.failure_count
+            })
+            if tool_result:
+                return {'action': 'tool_generated', 'tool': tool_result}
             return {'action': 'none', 'reason': 'no_autonomic_support'}
 
         try:
@@ -498,6 +586,15 @@ class SelfSpawningKernel:
                 self.execute_mushroom()
             elif action == 'sleep':
                 self.execute_sleep()
+            elif action == 'none':
+                # If autonomic suggests no action, try Tool Factory as last resort
+                tool_result = self.request_tool_for_recovery({
+                    'reason': 'autonomic_exhausted',
+                    'failure_count': self.failure_count,
+                    'stress': self.stress
+                })
+                if tool_result:
+                    intervention = {'action': 'tool_generated', 'tool': tool_result}
 
             return intervention
         except Exception as e:
