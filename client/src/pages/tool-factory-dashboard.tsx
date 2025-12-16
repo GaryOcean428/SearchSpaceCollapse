@@ -453,21 +453,25 @@ export default function ToolFactoryDashboard() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="text-sm font-medium">Tool ID</label>
                       <Input
                         value={testToolId}
                         onChange={(e) => setTestToolId(e.target.value)}
                         placeholder="e.g., tool_abc123"
                         data-testid="input-test-tool-id"
+                        aria-label="Tool ID"
                       />
                     </div>
                     <div>
+                      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                       <label className="text-sm font-medium">Arguments (JSON)</label>
                       <Input
                         value={testArgs}
                         onChange={(e) => setTestArgs(e.target.value)}
                         placeholder='{"text": "hello world"}'
                         data-testid="input-test-args"
+                        aria-label="Arguments in JSON format"
                       />
                     </div>
                   </div>
@@ -727,15 +731,18 @@ export default function ToolFactoryDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="text-sm font-medium">Description</label>
                 <Input
                   value={generateDesc}
                   onChange={(e) => setGenerateDesc(e.target.value)}
                   placeholder="What should this tool do? e.g., 'Convert text to uppercase'"
                   data-testid="input-generate-desc"
+                  aria-label="Tool description"
                 />
               </div>
               <div>
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
                 <label className="text-sm font-medium">Examples (JSON array)</label>
                 <Textarea
                   value={generateExamples}
@@ -743,6 +750,7 @@ export default function ToolFactoryDashboard() {
                   placeholder='[{"input": "hello", "expected_output": "HELLO"}]'
                   className="font-mono min-h-[100px]"
                   data-testid="input-generate-examples"
+                  aria-label="Examples in JSON array format"
                 />
               </div>
               <Button

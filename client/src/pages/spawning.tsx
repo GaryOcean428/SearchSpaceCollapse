@@ -890,9 +890,10 @@ function KernelLifecycleActionsPanel() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="text-xs text-muted-foreground">Source (to be consumed)</label>
               <Select value={cannibalizeSource} onValueChange={setCannibalizeSource}>
-                <SelectTrigger data-testid="select-cannibalize-source">
+                <SelectTrigger data-testid="select-cannibalize-source" aria-label="Source kernel to be consumed">
                   <SelectValue placeholder="Select source kernel" />
                 </SelectTrigger>
                 <SelectContent>
@@ -908,9 +909,10 @@ function KernelLifecycleActionsPanel() {
               <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="text-xs text-muted-foreground">Target (receives traits)</label>
               <Select value={cannibalizeTarget} onValueChange={setCannibalizeTarget}>
-                <SelectTrigger data-testid="select-cannibalize-target">
+                <SelectTrigger data-testid="select-cannibalize-target" aria-label="Target kernel that receives traits">
                   <SelectValue placeholder="Select target kernel" />
                 </SelectTrigger>
                 <SelectContent>
@@ -950,12 +952,14 @@ function KernelLifecycleActionsPanel() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="text-xs text-muted-foreground">New Kernel Name</label>
               <Input
                 placeholder="MERGED_KERNEL"
                 value={mergeName}
                 onChange={e => setMergeName(e.target.value)}
                 data-testid="input-merge-name"
+                aria-label="New kernel name"
               />
             </div>
             <div className="space-y-2">
