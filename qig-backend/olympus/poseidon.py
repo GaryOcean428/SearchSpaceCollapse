@@ -123,7 +123,7 @@ class Poseidon(BaseGod):
                     matches.append({
                         'memory': memory,
                         'distance': distance,
-                        'similarity': 1.0 / (1.0 + distance)
+                        'similarity': 1.0 - distance / np.pi
                     })
         
         matches.sort(key=lambda x: x['distance'])

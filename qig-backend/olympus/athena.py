@@ -90,7 +90,7 @@ class Athena(BaseGod):
                     similar.append({
                         'observation': obs,
                         'distance': distance,
-                        'similarity': 1.0 / (1.0 + distance)
+                        'similarity': 1.0 - distance / np.pi
                     })
         
         similar.sort(key=lambda x: x['distance'])

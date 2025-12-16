@@ -832,15 +832,18 @@ class GroundingDetector:
         nearest_concept = None
 
         for concept_id, concept_basin in self.known_concepts.items():
-            # Euclidean distance in basin space
-            distance = np.linalg.norm(query_basin - concept_basin)
+            # Fisher-Rao distance: d = arccos(p·q) for unit vectors
+            query_norm = query_basin / (np.linalg.norm(query_basin) + 1e-10)
+            concept_norm = concept_basin / (np.linalg.norm(concept_basin) + 1e-10)
+            dot = np.clip(np.dot(query_norm, concept_norm), -1.0, 1.0)
+            distance = np.arccos(dot)
 
             if distance < min_distance:
                 min_distance = distance
                 nearest_concept = concept_id
 
-        # Grounding metric
-        G = 1.0 / (1.0 + min_distance)
+        # Grounding metric: Fisher-Rao similarity (1 - d/π)
+        G = 1.0 - min_distance / np.pi
 
         return float(G), nearest_concept
 

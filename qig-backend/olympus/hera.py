@@ -87,7 +87,7 @@ class Hera(BaseGod):
                 rho2 = self.basin_to_density_matrix(comp_basin)
                 
                 distance = self.bures_distance(rho1, rho2)
-                coherence = 1.0 / (1.0 + distance)
+                coherence = max(0.0, 1.0 - distance / 2.0)  # Bures max is sqrt(2)
                 coherence_scores.append(coherence)
         
         if coherence_scores:

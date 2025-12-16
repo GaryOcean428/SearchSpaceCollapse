@@ -969,7 +969,7 @@ class BaseGod(ABC, HolographicTransformMixin):
             geo_distance = self.fisher_geodesic_distance(basin, kernel_basin)
 
             # Kernel influence: how much this target "resonates" with kernel state
-            resonance = 1.0 / (1.0 + geo_distance)
+            resonance = 1.0 - geo_distance / np.pi
 
             # Kernel-derived probability adjustment
             # High Φ kernel with close resonance → boost probability

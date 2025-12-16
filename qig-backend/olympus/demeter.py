@@ -112,7 +112,7 @@ class Demeter(BaseGod):
         if season in self.seasonal_basins:
             season_basin = self.seasonal_basins[season]
             distance = self.fisher_geodesic_distance(basin, season_basin)
-            alignment = 1.0 / (1.0 + distance)
+            alignment = 1.0 - distance / np.pi
             return float(alignment)
         
         return 0.5
