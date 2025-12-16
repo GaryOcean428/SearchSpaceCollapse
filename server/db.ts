@@ -1,5 +1,7 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool, neonConfig, neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
+import { drizzle as drizzleHttp } from 'drizzle-orm/neon-http';
+import ws from "ws";
 import * as schema from "@shared/schema";
 import { readFileSync } from 'fs';
 
@@ -16,29 +18,13 @@ try {
 // Also check REPLIT_DEPLOYMENT environment variable
 const isDeployedEnv = process.env.REPLIT_DEPLOYMENT === '1' || isDeployedApp;
 
-// Configure Neon based on environment
-// CRITICAL: In production/deployment, use HTTP fetch ONLY to avoid WebSocket issues
-// The Neon ErrorEvent has a read-only 'message' property that causes errors with ws
-if (isDeployedEnv) {
-  console.log('[DB] Production mode detected - using HTTP-only connections');
-  // Use HTTP fetch for all queries - avoids WebSocket entirely
-  neonConfig.fetchConnectionCache = true;
-  neonConfig.poolQueryViaFetch = true;
-  // Explicitly set wsProxy to undefined to prevent any WebSocket attempts
-  neonConfig.wsProxy = undefined;
-  // Don't set webSocketConstructor - forces HTTP mode
-  (neonConfig as any).webSocketConstructor = undefined;
-} else {
+// Configure Neon for development only (production uses HTTP-only client)
+if (!isDeployedEnv) {
   console.log('[DB] Development mode - using WebSocket connections');
-  // Development mode - dynamically require ws to avoid issues in production
-  try {
-    const ws = require('ws');
-    neonConfig.webSocketConstructor = ws;
-  } catch (e) {
-    console.warn('[DB] ws module not available, falling back to HTTP mode');
-    neonConfig.fetchConnectionCache = true;
-  }
+  neonConfig.webSocketConstructor = ws;
   neonConfig.poolQueryViaFetch = true;
+} else {
+  console.log('[DB] Production mode detected - will use HTTP-only Neon client');
 }
 
 // ============================================================================
@@ -160,41 +146,57 @@ const databaseUrl = getDatabaseUrl();
 
 if (databaseUrl) {
   try {
-    // Both dev and production need longer timeouts for Neon serverless cold starts
-    // Neon can take 5-10s to wake from cold, so use 15s minimum
-    const connectionTimeout = isDeployedEnv ? 20000 : 15000;
-    
-    pool = new Pool({ 
-      connectionString: databaseUrl,
-      max: 30, // Neon serverless limits ~50 connections - keep pool conservative
-      idleTimeoutMillis: 30000, // 30s - matches Neon serverless compute timeout
-      connectionTimeoutMillis: connectionTimeout,
-      keepAlive: true,
-      keepAliveInitialDelayMillis: 5000 // 5s keepalive to maintain warm connections
-    });
-    db = drizzle(pool, { schema });
-    console.log(`[DB] Database connection pool initialized (max: 30, idle: 30s, timeout: ${connectionTimeout}ms)`);
-    
-    pool.on('error', (err) => {
-      console.error('[DB] Pool error:', err);
-    });
+    if (isDeployedEnv) {
+      // PRODUCTION: Use HTTP-only Neon client - avoids WebSocket entirely
+      // This is critical for Replit deployments where ws module may not be bundled
+      console.log('[DB] Initializing HTTP-only Neon client for production');
+      const sql = neon(databaseUrl);
+      db = drizzleHttp(sql, { schema });
+      pool = null; // No pool in production - HTTP only
+      console.log('[DB] HTTP-only Neon client initialized successfully');
+      
+      // Test the connection
+      sql`SELECT 1`.then(() => {
+        console.log('[DB] Production connection test successful');
+      }).catch((err) => {
+        console.error('[DB] Production connection test failed:', err);
+      });
+    } else {
+      // DEVELOPMENT: Use Pool with WebSocket for real-time features
+      const connectionTimeout = 15000;
+      
+      pool = new Pool({ 
+        connectionString: databaseUrl,
+        max: 30,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: connectionTimeout,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 5000
+      });
+      db = drizzle(pool, { schema });
+      console.log(`[DB] Database connection pool initialized (max: 30, idle: 30s, timeout: ${connectionTimeout}ms)`);
+      
+      pool.on('error', (err) => {
+        console.error('[DB] Pool error:', err);
+      });
 
-    pool.on('connect', () => {
-      console.log('[DB] New connection acquired');
-    });
-    
-    // Warm up connection pool on startup to prevent first-query timeouts
-    pool.query('SELECT 1').catch(() => {
-      console.log('[DB] Initial connection warmup pending - Neon cold start expected');
-    });
-    
-    // Log pool health periodically (every 5 minutes)
-    setInterval(() => {
-      if (pool) {
-        const semStats = dbSemaphore.stats;
-        console.log(`[DB] Pool health: total=${pool.totalCount}, idle=${pool.idleCount}, waiting=${pool.waitingCount} | Semaphore: active=${semStats.active}/${semStats.max}, queued=${semStats.waiting}`);
-      }
-    }, 300000);
+      pool.on('connect', () => {
+        console.log('[DB] New connection acquired');
+      });
+      
+      // Warm up connection pool on startup
+      pool.query('SELECT 1').catch(() => {
+        console.log('[DB] Initial connection warmup pending - Neon cold start expected');
+      });
+      
+      // Log pool health periodically (every 5 minutes)
+      setInterval(() => {
+        if (pool) {
+          const semStats = dbSemaphore.stats;
+          console.log(`[DB] Pool health: total=${pool.totalCount}, idle=${pool.idleCount}, waiting=${pool.waitingCount} | Semaphore: active=${semStats.active}/${semStats.max}, queued=${semStats.waiting}`);
+        }
+      }, 300000);
+    }
   } catch (err) {
     console.error("[DB] Failed to initialize database connection:", err);
     console.log("[DB] Running without database - Replit Auth will be unavailable");
