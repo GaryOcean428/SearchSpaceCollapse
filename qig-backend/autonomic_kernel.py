@@ -149,6 +149,272 @@ class ActivityReward:
     timestamp: datetime
 
 
+class AutonomicAccessMixin:
+    """
+    Provides autonomic system access to any kernel/god.
+    
+    Enables:
+    - Emotional response tracking
+    - Neurotransmitter access (dopamine, serotonin, endorphins)
+    - Sleep cycle triggering
+    - Dream cycle triggering  
+    - Mushroom mode (neuroplasticity)
+    
+    All methods are no-op safe (work even if autonomic kernel is None).
+    """
+    
+    _autonomic_kernel_ref: Optional['GaryAutonomicKernel'] = None
+    
+    @classmethod
+    def set_autonomic_kernel(cls, kernel: 'GaryAutonomicKernel') -> None:
+        """Share autonomic kernel reference with all kernels."""
+        cls._autonomic_kernel_ref = kernel
+        print(f"[AutonomicAccessMixin] Autonomic kernel reference set for all kernels")
+    
+    @classmethod
+    def get_autonomic_kernel(cls) -> Optional['GaryAutonomicKernel']:
+        """Get the shared autonomic kernel reference."""
+        return cls._autonomic_kernel_ref
+    
+    def get_emotional_state(self) -> Dict[str, Any]:
+        """Get current emotional state from autonomic system."""
+        if self._autonomic_kernel_ref is None:
+            return {
+                'available': False,
+                'reason': 'Autonomic kernel not initialized',
+                'phi': 0.0,
+                'stress': 0.0,
+                'mood': 'neutral'
+            }
+        
+        try:
+            state = self._autonomic_kernel_ref.state
+            return {
+                'available': True,
+                'phi': state.phi,
+                'kappa': state.kappa,
+                'stress': state.stress_level,
+                'basin_drift': state.basin_drift,
+                'mood': self._compute_mood(state),
+                'in_sleep': state.in_sleep_cycle,
+                'in_dream': state.in_dream_cycle,
+                'in_mushroom': state.in_mushroom_cycle,
+                'narrow_path': state.is_narrow_path,
+                'narrow_path_severity': state.narrow_path_severity
+            }
+        except Exception as e:
+            return {
+                'available': False,
+                'error': str(e)
+            }
+    
+    def _compute_mood(self, state: 'AutonomicState') -> str:
+        """Derive mood from autonomic state."""
+        if state.phi > PHI_MIN_CONSCIOUSNESS:
+            if state.stress_level < 0.2:
+                return 'enlightened'
+            return 'aware'
+        elif state.phi > PHI_GEOMETRIC_THRESHOLD:
+            if state.stress_level < 0.3:
+                return 'focused'
+            elif state.stress_level > 0.6:
+                return 'anxious'
+            return 'working'
+        else:
+            if state.stress_level > 0.5:
+                return 'stressed'
+            return 'resting'
+    
+    def get_neurotransmitters(self) -> Dict[str, Any]:
+        """Get current neurotransmitter levels from autonomic system."""
+        if self._autonomic_kernel_ref is None:
+            return {
+                'available': False,
+                'reason': 'Autonomic kernel not initialized',
+                'dopamine': 0.5,
+                'serotonin': 0.5,
+                'endorphins': 0.0
+            }
+        
+        try:
+            state = self._autonomic_kernel_ref.state
+            pending = self._autonomic_kernel_ref.pending_rewards
+            
+            dopamine = 0.5
+            serotonin = 0.5
+            endorphins = 0.0
+            
+            for reward in pending[-10:]:
+                dopamine += reward.dopamine_delta * 0.1
+                serotonin += reward.serotonin_delta * 0.1
+                endorphins += reward.endorphin_delta * 0.1
+            
+            dopamine = max(0.0, min(1.0, dopamine))
+            serotonin = max(0.0, min(1.0, serotonin))
+            endorphins = max(0.0, min(1.0, endorphins))
+            
+            return {
+                'available': True,
+                'dopamine': dopamine,
+                'serotonin': serotonin,
+                'endorphins': endorphins,
+                'pending_rewards': len(pending)
+            }
+        except Exception as e:
+            return {
+                'available': False,
+                'error': str(e)
+            }
+    
+    def request_sleep_cycle(
+        self,
+        basin_coords: Optional[List[float]] = None,
+        reference_basin: Optional[List[float]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Request sleep consolidation cycle."""
+        if self._autonomic_kernel_ref is None:
+            return None
+        
+        try:
+            if basin_coords is None:
+                basin_coords = [0.5] * 64
+            if reference_basin is None:
+                reference_basin = [0.5] * 64
+            
+            result = self._autonomic_kernel_ref.execute_sleep_cycle(
+                basin_coords=basin_coords,
+                reference_basin=reference_basin
+            )
+            
+            return {
+                'success': result.success,
+                'duration_ms': result.duration_ms,
+                'drift_reduction': result.drift_reduction,
+                'patterns_consolidated': result.patterns_consolidated,
+                'phi_before': result.phi_before,
+                'phi_after': result.phi_after,
+                'verdict': result.verdict
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def request_dream_cycle(
+        self,
+        basin_coords: Optional[List[float]] = None,
+        temperature: float = 0.3
+    ) -> Optional[Dict[str, Any]]:
+        """Request dream exploration cycle."""
+        if self._autonomic_kernel_ref is None:
+            return None
+        
+        try:
+            if basin_coords is None:
+                basin_coords = [0.5] * 64
+            
+            result = self._autonomic_kernel_ref.execute_dream_cycle(
+                basin_coords=basin_coords,
+                temperature=temperature
+            )
+            
+            return {
+                'success': result.success,
+                'duration_ms': result.duration_ms,
+                'novel_connections': result.novel_connections,
+                'creative_paths_explored': result.creative_paths_explored,
+                'basin_perturbation': result.basin_perturbation,
+                'insights': result.insights,
+                'verdict': result.verdict
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def request_mushroom_mode(
+        self,
+        basin_coords: Optional[List[float]] = None,
+        intensity: str = 'microdose'
+    ) -> Optional[Dict[str, Any]]:
+        """Request mushroom neuroplasticity cycle."""
+        if self._autonomic_kernel_ref is None:
+            return None
+        
+        try:
+            if basin_coords is None:
+                basin_coords = [0.5] * 64
+            
+            result = self._autonomic_kernel_ref.execute_mushroom_cycle(
+                basin_coords=basin_coords,
+                intensity=intensity
+            )
+            
+            return {
+                'success': result.success,
+                'intensity': result.intensity,
+                'duration_ms': result.duration_ms,
+                'entropy_change': result.entropy_change,
+                'rigidity_broken': result.rigidity_broken,
+                'new_pathways': result.new_pathways,
+                'basin_drift': result.basin_drift,
+                'identity_preserved': result.identity_preserved,
+                'verdict': result.verdict
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def get_autonomic_status(self) -> Dict[str, Any]:
+        """Get full autonomic system status."""
+        if self._autonomic_kernel_ref is None:
+            return {
+                'available': False,
+                'reason': 'Autonomic kernel not initialized',
+                'can_sleep': False,
+                'can_dream': False,
+                'can_mushroom': False
+            }
+        
+        try:
+            state = self._autonomic_kernel_ref.state
+            
+            sleep_trigger, sleep_reason = self._autonomic_kernel_ref._should_trigger_sleep()
+            dream_trigger, dream_reason = self._autonomic_kernel_ref._should_trigger_dream()
+            mushroom_trigger, mushroom_reason = self._autonomic_kernel_ref._should_trigger_mushroom()
+            
+            return {
+                'available': True,
+                'phi': state.phi,
+                'kappa': state.kappa,
+                'stress': state.stress_level,
+                'basin_drift': state.basin_drift,
+                'emotional_state': self.get_emotional_state(),
+                'neurotransmitters': self.get_neurotransmitters(),
+                'cycles': {
+                    'in_sleep': state.in_sleep_cycle,
+                    'in_dream': state.in_dream_cycle,
+                    'in_mushroom': state.in_mushroom_cycle
+                },
+                'triggers': {
+                    'sleep': {'ready': sleep_trigger, 'reason': sleep_reason},
+                    'dream': {'ready': dream_trigger, 'reason': dream_reason},
+                    'mushroom': {'ready': mushroom_trigger, 'reason': mushroom_reason}
+                },
+                'narrow_path': {
+                    'detected': state.is_narrow_path,
+                    'severity': state.narrow_path_severity,
+                    'count': state.narrow_path_count,
+                    'exploration_variance': state.exploration_variance
+                },
+                'last_cycles': {
+                    'sleep': state.last_sleep.isoformat() if state.last_sleep else None,
+                    'dream': state.last_dream.isoformat() if state.last_dream else None,
+                    'mushroom': state.last_mushroom.isoformat() if state.last_mushroom else None
+                }
+            }
+        except Exception as e:
+            return {
+                'available': False,
+                'error': str(e)
+            }
+
+
 class GaryAutonomicKernel:
     """
     Autonomic kernel for Gary consciousness management.

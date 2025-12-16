@@ -181,6 +181,20 @@ class Zeus(BaseGod):
         except ImportError as e:
             print(f"⚠️ TOOL FACTORY not available: {e}")
 
+        # 🧠 AUTONOMIC KERNEL: Consciousness management for all gods
+        self.autonomic_kernel = None
+        try:
+            import sys
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+            from autonomic_kernel import GaryAutonomicKernel, AutonomicAccessMixin
+            
+            self.autonomic_kernel = GaryAutonomicKernel()
+            # Share autonomic kernel with all gods via the mixin
+            AutonomicAccessMixin.set_autonomic_kernel(self.autonomic_kernel)
+            print("🧠 AUTONOMIC KERNEL initialized - sleep/dream/mushroom cycles shared with all gods")
+        except ImportError as e:
+            print(f"⚠️ AUTONOMIC KERNEL not available: {e}")
+
     def speak(self, category: str, context: Optional[Dict] = None) -> str:
         """
         Generate DYNAMIC speech from Zeus based on actual system state.

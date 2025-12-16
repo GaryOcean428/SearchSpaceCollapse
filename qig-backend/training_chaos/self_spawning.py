@@ -28,10 +28,11 @@ from .optimizers import DiagonalFisherOptimizer
 try:
     import sys
     sys.path.insert(0, '..')
-    from autonomic_kernel import GaryAutonomicKernel
+    from autonomic_kernel import GaryAutonomicKernel, AutonomicAccessMixin
     AUTONOMIC_AVAILABLE = True
 except ImportError:
     GaryAutonomicKernel = None
+    AutonomicAccessMixin = None
     AUTONOMIC_AVAILABLE = False
     print("[SelfSpawning] WARNING: GaryAutonomicKernel not available - kernels will lack autonomic support")
 
@@ -47,7 +48,17 @@ def set_kernel_tool_factory(factory) -> None:
     print("[SelfSpawning] Tool factory reference set for kernel tool generation")
 
 
-class SelfSpawningKernel:
+# Build base classes dynamically for SelfSpawningKernel
+_kernel_base_classes = []
+if AUTONOMIC_AVAILABLE and AutonomicAccessMixin is not None:
+    _kernel_base_classes.append(AutonomicAccessMixin)
+
+# Use object as fallback if no mixins available
+if not _kernel_base_classes:
+    _kernel_base_classes = [object]
+
+
+class SelfSpawningKernel(*_kernel_base_classes):
     """
     Kernel with COMPLETE autonomic support and parental observation.
 
@@ -61,8 +72,9 @@ class SelfSpawningKernel:
     7. **Autonomic intervention before death** (recovery - NEW!)
     8. Die gracefully if recovery fails
 
-    NEW SYSTEMS:
-    - Autonomic kernel (sleep/dream/mushroom)
+    SYSTEMS:
+    - Autonomic kernel (sleep/dream/mushroom) via AutonomicAccessMixin
+    - Local autonomic instance for kernel-specific cycles
     - Neurotransmitters (dopamine/serotonin/stress)
     - Observation period (vicarious learning)
     - Narrow path detection (stuck state detection)

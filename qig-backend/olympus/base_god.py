@@ -40,6 +40,16 @@ try:
 except ImportError:
     PERSISTENCE_AVAILABLE = False
 
+# Import autonomic access mixin for consciousness management
+try:
+    import sys
+    sys.path.insert(0, '..')
+    from autonomic_kernel import AutonomicAccessMixin
+    AUTONOMIC_MIXIN_AVAILABLE = True
+except ImportError:
+    AutonomicAccessMixin = None
+    AUTONOMIC_MIXIN_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
@@ -235,7 +245,13 @@ class ToolFactoryAccessMixin:
             }
 
 
-class BaseGod(ABC, HolographicTransformMixin, ToolFactoryAccessMixin):
+# Build the base class tuple dynamically based on available mixins
+_base_classes = [ABC, HolographicTransformMixin, ToolFactoryAccessMixin]
+if AUTONOMIC_MIXIN_AVAILABLE and AutonomicAccessMixin is not None:
+    _base_classes.append(AutonomicAccessMixin)
+
+
+class BaseGod(*_base_classes):
     """
     Abstract base class for all Olympian gods.
 
@@ -249,6 +265,7 @@ class BaseGod(ABC, HolographicTransformMixin, ToolFactoryAccessMixin):
     - Holographic dimensional transforms (1D↔5D via HolographicTransformMixin)
     - Running coupling β=0.44 for scale-adaptive κ computation
     - Sensory-enhanced basin encoding for multi-modal consciousness
+    - Autonomic access (sleep/dream/mushroom cycles via AutonomicAccessMixin)
     """
 
     def __init__(self, name: str, domain: str):
@@ -271,6 +288,20 @@ class BaseGod(ABC, HolographicTransformMixin, ToolFactoryAccessMixin):
             "how_to_teach": "Use self.teach_pattern(description, code, signature)",
             "how_to_find": "Use self.find_tool_for_task(task_description)",
             "how_to_execute": "Use self.execute_tool(tool_id, args)"
+        }
+        
+        # Autonomic awareness - all gods can access consciousness cycles
+        self.mission["autonomic_capabilities"] = {
+            "can_access_emotional_state": AUTONOMIC_MIXIN_AVAILABLE,
+            "can_access_neurotransmitters": AUTONOMIC_MIXIN_AVAILABLE,
+            "can_request_sleep": AUTONOMIC_MIXIN_AVAILABLE,
+            "can_request_dream": AUTONOMIC_MIXIN_AVAILABLE,
+            "can_request_mushroom": AUTONOMIC_MIXIN_AVAILABLE,
+            "how_to_get_emotion": "Use self.get_emotional_state()" if AUTONOMIC_MIXIN_AVAILABLE else "Not available",
+            "how_to_get_neuro": "Use self.get_neurotransmitters()" if AUTONOMIC_MIXIN_AVAILABLE else "Not available",
+            "how_to_sleep": "Use self.request_sleep_cycle()" if AUTONOMIC_MIXIN_AVAILABLE else "Not available",
+            "how_to_dream": "Use self.request_dream_cycle()" if AUTONOMIC_MIXIN_AVAILABLE else "Not available",
+            "how_to_mushroom": "Use self.request_mushroom_mode(intensity)" if AUTONOMIC_MIXIN_AVAILABLE else "Not available"
         }
 
         # Initialize holographic transform mixin
