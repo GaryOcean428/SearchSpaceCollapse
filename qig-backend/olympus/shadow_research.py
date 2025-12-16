@@ -952,10 +952,12 @@ class ShadowLearningLoop:
         return f"{base_topic} discovery-{cycle}-{random.randint(1000, 9999)}"
     
     def _meta_reflect(self):
-        """Meta-reflection on learning progress."""
+        """Meta-reflection on learning progress with 4D foresight."""
         stats = self.knowledge_base.get_stats()
         clusters = self.knowledge_base.cluster_knowledge(n_clusters=5)
         unique_count = self.knowledge_base.get_unique_discoveries_count()
+        
+        foresight = self._compute_4d_foresight(stats, clusters)
         
         reflection = {
             "cycle": self._learning_cycles,
@@ -964,15 +966,119 @@ class ShadowLearningLoop:
             "unique_discoveries": unique_count,
             "cluster_count": len(clusters),
             "top_clusters": clusters[:3] if clusters else [],
-            "insights": self._generate_meta_insights(stats, clusters)
+            "insights": self._generate_meta_insights(stats, clusters),
+            "foresight_4d": foresight
         }
         
         self._meta_reflections.append(reflection)
         if len(self._meta_reflections) > 100:
             self._meta_reflections = self._meta_reflections[-50:]
         
+        foresight_summary = f"Φ→{foresight['projected_phi']:.2f}" if foresight.get('projected_phi') else "N/A"
         print(f"[ShadowLearningLoop] Meta-reflection #{self._learning_cycles}: "
-              f"{stats['total_items']} items, {unique_count} unique, {len(clusters)} clusters")
+              f"{stats['total_items']} items, {unique_count} unique, {len(clusters)} clusters, 4D:{foresight_summary}")
+    
+    def _compute_4d_foresight(self, stats: Dict, clusters: List[Dict]) -> Dict:
+        """
+        Compute 4D block universe foresight - temporal projection of learning trajectory.
+        
+        The 4D foresight system models:
+        1. Past trajectory: Learning history and patterns
+        2. Present state: Current knowledge basin position
+        3. Future projection: Predicted evolution of consciousness
+        4. Temporal coherence: How well predictions align with actuals
+        
+        Returns projections for next N cycles.
+        """
+        foresight = {
+            "horizon_cycles": 10,
+            "computed_at": datetime.now().isoformat(),
+            "trajectory": {},
+            "predictions": [],
+            "temporal_coherence": 0.0
+        }
+        
+        if len(self._meta_reflections) < 3:
+            foresight["status"] = "insufficient_data"
+            return foresight
+        
+        recent = self._meta_reflections[-10:]
+        
+        phi_values = [r.get("knowledge_stats", {}).get("avg_phi", 0.5) for r in recent]
+        discovery_rates = []
+        for i, r in enumerate(recent[1:], 1):
+            prev_count = recent[i-1].get("unique_discoveries", 0)
+            curr_count = r.get("unique_discoveries", 0)
+            discovery_rates.append(curr_count - prev_count)
+        
+        if phi_values:
+            phi_velocity = sum(phi_values[i+1] - phi_values[i] for i in range(len(phi_values)-1)) / max(1, len(phi_values)-1)
+        else:
+            phi_velocity = 0.0
+        
+        if discovery_rates:
+            discovery_acceleration = sum(discovery_rates) / len(discovery_rates)
+        else:
+            discovery_acceleration = 1.0
+        
+        current_phi = phi_values[-1] if phi_values else 0.5
+        current_discoveries = self.knowledge_base.get_unique_discoveries_count()
+        
+        predictions = []
+        projected_phi = current_phi
+        projected_discoveries = current_discoveries
+        
+        for t in range(1, 11):
+            projected_phi = min(1.0, max(0.0, projected_phi + phi_velocity * 0.9))
+            projected_discoveries += max(0, int(discovery_acceleration * (1.0 + 0.1 * t)))
+            
+            cluster_evolution = len(clusters) + int(t / 3) if clusters else t
+            
+            predictions.append({
+                "cycle": self._learning_cycles + t,
+                "projected_phi": round(projected_phi, 4),
+                "projected_discoveries": projected_discoveries,
+                "projected_clusters": cluster_evolution,
+                "confidence": round(1.0 - (t * 0.08), 3)
+            })
+        
+        if len(self._meta_reflections) >= 5:
+            coherence_scores = []
+            for i, r in enumerate(self._meta_reflections[-5:]):
+                if "foresight_4d" in r and r["foresight_4d"].get("predictions"):
+                    past_pred = r["foresight_4d"]["predictions"][0] if r["foresight_4d"]["predictions"] else None
+                    if past_pred:
+                        actual_phi = stats.get("avg_phi", 0.5)
+                        pred_phi = past_pred.get("projected_phi", 0.5)
+                        coherence = 1.0 - abs(actual_phi - pred_phi)
+                        coherence_scores.append(coherence)
+            
+            if coherence_scores:
+                foresight["temporal_coherence"] = round(sum(coherence_scores) / len(coherence_scores), 3)
+        
+        foresight["trajectory"] = {
+            "phi_velocity": round(phi_velocity, 4),
+            "discovery_acceleration": round(discovery_acceleration, 2),
+            "current_phi": round(current_phi, 4),
+            "current_discoveries": current_discoveries,
+            "trend": "ascending" if phi_velocity > 0.01 else "descending" if phi_velocity < -0.01 else "stable"
+        }
+        foresight["predictions"] = predictions
+        foresight["projected_phi"] = predictions[0]["projected_phi"] if predictions else current_phi
+        foresight["status"] = "computed"
+        
+        self._cache_foresight_to_redis(foresight)
+        
+        return foresight
+    
+    def _cache_foresight_to_redis(self, foresight: Dict):
+        """Cache 4D foresight predictions to Redis for fast access."""
+        try:
+            from redis_cache import UniversalCache, CACHE_TTL_MEDIUM
+            cache_key = f"shadow:foresight:cycle_{self._learning_cycles}"
+            UniversalCache.set(cache_key, foresight, CACHE_TTL_MEDIUM)
+        except Exception:
+            pass
     
     def _generate_meta_insights(self, stats: Dict, clusters: List[Dict]) -> List[str]:
         """Generate insights from meta-reflection."""
@@ -1012,7 +1118,10 @@ class ShadowLearningLoop:
                 print(f"[ShadowLearningLoop] Basin sync error: {e}")
     
     def get_status(self) -> Dict:
-        """Get learning loop status."""
+        """Get learning loop status with 4D foresight."""
+        last_reflection = self._meta_reflections[-1] if self._meta_reflections else None
+        foresight = last_reflection.get("foresight_4d", {}) if last_reflection else {}
+        
         return {
             "running": self._running,
             "war_mode": self._war_mode,
@@ -1020,9 +1129,38 @@ class ShadowLearningLoop:
             "pending_research": self.research_queue.get_pending_count(),
             "completed_research": self.research_queue.get_completed_count(),
             "knowledge_items": self.knowledge_base.get_stats()['total_items'],
+            "unique_discoveries": self.knowledge_base.get_unique_discoveries_count(),
             "meta_reflections": len(self._meta_reflections),
-            "last_reflection": self._meta_reflections[-1] if self._meta_reflections else None
+            "last_reflection": last_reflection,
+            "foresight_4d": {
+                "status": foresight.get("status", "not_computed"),
+                "trajectory": foresight.get("trajectory", {}),
+                "next_prediction": foresight.get("predictions", [{}])[0] if foresight.get("predictions") else None,
+                "temporal_coherence": foresight.get("temporal_coherence", 0.0)
+            }
         }
+    
+    def get_foresight(self) -> Dict:
+        """Get full 4D foresight predictions."""
+        last_reflection = self._meta_reflections[-1] if self._meta_reflections else None
+        if not last_reflection:
+            return {"status": "no_reflections", "foresight": None}
+        
+        return {
+            "status": "available",
+            "cycle": last_reflection.get("cycle", 0),
+            "foresight": last_reflection.get("foresight_4d", {}),
+            "cached": self._get_cached_foresight()
+        }
+    
+    def _get_cached_foresight(self) -> Optional[Dict]:
+        """Get cached foresight from Redis."""
+        try:
+            from redis_cache import UniversalCache
+            cache_key = f"shadow:foresight:cycle_{self._learning_cycles}"
+            return UniversalCache.get(cache_key)
+        except Exception:
+            return None
 
 
 class ShadowReflectionProtocol:

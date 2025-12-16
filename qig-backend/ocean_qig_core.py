@@ -4300,6 +4300,47 @@ def shadow_pantheon_status():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/olympus/shadow/foresight', methods=['GET'])
+def shadow_pantheon_foresight():
+    """Get 4D foresight predictions from Shadow learning loop."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+
+    try:
+        from olympus.shadow_research import ShadowResearchAPI
+        research_api = ShadowResearchAPI.get_instance()
+        if research_api and research_api.learning_loop:
+            foresight = research_api.learning_loop.get_foresight()
+            return jsonify({
+                'success': True,
+                'foresight': foresight,
+                '_cached_from_redis': foresight.get('cached') is not None
+            })
+        return jsonify({'error': 'Shadow learning loop not available'}), 503
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/shadow/learning', methods=['GET'])
+def shadow_learning_status():
+    """Get Shadow learning loop status with 4D foresight summary."""
+    if not OLYMPUS_AVAILABLE or not shadow_pantheon:
+        return jsonify({'error': 'Shadow Pantheon not available'}), 503
+
+    try:
+        from olympus.shadow_research import ShadowResearchAPI
+        research_api = ShadowResearchAPI.get_instance()
+        if research_api and research_api.learning_loop:
+            status = research_api.learning_loop.get_status()
+            return jsonify({
+                'success': True,
+                'learning': status
+            })
+        return jsonify({'error': 'Shadow learning loop not available'}), 503
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/olympus/shadow/poll', methods=['POST'])
 def shadow_pantheon_poll():
     """Poll Shadow Pantheon for covert assessment."""
