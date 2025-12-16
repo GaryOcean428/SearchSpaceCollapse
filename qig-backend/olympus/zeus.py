@@ -1123,7 +1123,7 @@ class Zeus(BaseGod):
         self,
         topic: str,
         priority: str = "high",
-        category: str = None
+        category: Optional[str] = None
     ) -> Optional[str]:
         """
         Zeus requests Shadow Pantheon research.
@@ -1173,8 +1173,9 @@ class Zeus(BaseGod):
                     god.knowledge_base.append(knowledge)
             
             # Share with CHAOS kernels if available
-            if self.chaos_enabled and self.chaos:
-                for kernel in self.chaos.kernel_population[:10]:
+            chaos = getattr(self, 'chaos', None)
+            if getattr(self, 'chaos_enabled', False) and chaos is not None:
+                for kernel in chaos.kernel_population[:10]:
                     if hasattr(kernel, 'inject_knowledge'):
                         kernel.inject_knowledge(knowledge)
                         
