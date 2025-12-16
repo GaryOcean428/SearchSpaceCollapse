@@ -23,7 +23,11 @@ import {
   Eye,
   Upload,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  Key,
+  Trash2,
+  Clock,
+  AlertCircle
 } from "lucide-react";
 
 interface GeneratedTool {
@@ -72,6 +76,23 @@ interface ToolFactoryStats {
   pending_searches: number;
 }
 
+interface GitQueueItem {
+  url: string;
+  description: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  secret_key_name: string | null;
+  queued_at: string;
+  error: string | null;
+}
+
+interface GitQueueResponse {
+  queue: GitQueueItem[];
+  total: number;
+  pending: number;
+  completed: number;
+  failed: number;
+}
+
 export default function ToolFactoryDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("tools");
@@ -80,6 +101,7 @@ export default function ToolFactoryDashboard() {
   const [templateCode, setTemplateCode] = useState("");
   const [gitUrl, setGitUrl] = useState("");
   const [gitDesc, setGitDesc] = useState("");
+  const [gitSecretKeyName, setGitSecretKeyName] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [fileDesc, setFileDesc] = useState("");
   const [searchTopic, setSearchTopic] = useState("");
@@ -105,6 +127,25 @@ export default function ToolFactoryDashboard() {
     refetchInterval: 15000,
   });
 
+  const { data: gitQueueData, isLoading: gitQueueLoading } = useQuery<GitQueueResponse>({
+    queryKey: ["/api/olympus/zeus/tools/learn/git/queue"],
+    refetchInterval: 5000,
+  });
+
+  const clearGitQueueMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/git/queue/clear", {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Cleared completed items from queue" });
+      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/learn/git/queue"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to clear queue", description: error.message, variant: "destructive" });
+    }
+  });
+
   const learnTemplateMutation = useMutation({
     mutationFn: async (data: { description: string; code: string }) => {
       const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/template", data);
@@ -123,15 +164,17 @@ export default function ToolFactoryDashboard() {
   });
 
   const learnGitMutation = useMutation({
-    mutationFn: async (data: { url: string; description: string }) => {
+    mutationFn: async (data: { url: string; description: string; secret_key_name?: string }) => {
       const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/git", data);
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Git link queued for learning" });
       queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/learn/git/queue"] });
       setGitUrl("");
       setGitDesc("");
+      setGitSecretKeyName("");
     },
     onError: (error: Error) => {
       toast({ title: "Failed to queue git link", description: error.message, variant: "destructive" });
@@ -612,7 +655,7 @@ export default function ToolFactoryDashboard() {
                 Learn from Git Repository
               </CardTitle>
               <CardDescription>
-                Provide a git link to learn patterns from
+                Provide a git link to learn patterns from. For private repos, add your API key to Replit Secrets.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -628,8 +671,25 @@ export default function ToolFactoryDashboard() {
                 placeholder="Description: e.g., 'Bitcoin address validation utilities'"
                 data-testid="input-git-desc"
               />
+              <div className="flex items-center gap-2">
+                <Key className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={gitSecretKeyName}
+                  onChange={(e) => setGitSecretKeyName(e.target.value)}
+                  placeholder="Secret name (e.g., GITHUB_TOKEN) - optional for private repos"
+                  data-testid="input-git-secret-key"
+                  className="flex-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                For private repos: Add your API key to Replit Secrets, then enter the secret name above.
+              </p>
               <Button
-                onClick={() => learnGitMutation.mutate({ url: gitUrl, description: gitDesc })}
+                onClick={() => learnGitMutation.mutate({ 
+                  url: gitUrl, 
+                  description: gitDesc,
+                  secret_key_name: gitSecretKeyName || undefined
+                })}
                 disabled={!gitUrl || learnGitMutation.isPending}
                 data-testid="button-learn-git"
               >
@@ -640,6 +700,64 @@ export default function ToolFactoryDashboard() {
                 )}
                 Queue Git Learning
               </Button>
+
+              {/* Git Queue Status */}
+              {gitQueueData && gitQueueData.queue.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Queue ({gitQueueData.pending} pending)
+                    </h4>
+                    {(gitQueueData.completed > 0 || gitQueueData.failed > 0) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => clearGitQueueMutation.mutate()}
+                        disabled={clearGitQueueMutation.isPending}
+                        data-testid="button-clear-queue"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Clear Done
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {gitQueueData.queue.map((item, idx) => (
+                      <div 
+                        key={`${item.url}-${idx}`}
+                        className="text-xs p-2 rounded border bg-muted/30"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          {item.status === 'pending' && <Clock className="h-3 w-3 text-yellow-500" />}
+                          {item.status === 'processing' && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
+                          {item.status === 'completed' && <CheckCircle className="h-3 w-3 text-green-500" />}
+                          {item.status === 'failed' && <AlertCircle className="h-3 w-3 text-red-500" />}
+                          <Badge variant={
+                            item.status === 'completed' ? 'default' :
+                            item.status === 'failed' ? 'destructive' :
+                            item.status === 'processing' ? 'secondary' : 'outline'
+                          }>
+                            {item.status}
+                          </Badge>
+                          {item.secret_key_name && (
+                            <Badge variant="outline">
+                              <Key className="h-2 w-2 mr-1" />
+                              {item.secret_key_name}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground truncate" title={item.url}>
+                          {item.url}
+                        </p>
+                        {item.error && (
+                          <p className="text-destructive mt-1">{item.error}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
