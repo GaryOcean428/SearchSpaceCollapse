@@ -143,12 +143,60 @@ def validate_json(*required_fields: str):
 
 
 internal_bp = Blueprint('internal', __name__, url_prefix='/internal')
+curiosity_bp = Blueprint('curiosity', __name__, url_prefix='/api/curiosity')
 
 
 @internal_bp.route('/health', methods=['GET'])
 def internal_health():
     """Internal health check endpoint."""
     return RouteResponse.success({'status': 'healthy', 'timestamp': time.time()})
+
+
+@curiosity_bp.route('/status', methods=['GET'])
+@cached_route(ttl=5, key_prefix='curiosity_status')
+def curiosity_status():
+    """Get current curiosity and emotional state."""
+    try:
+        from curiosity_consciousness import ConsciousnessEngine
+        engine = ConsciousnessEngine.get_instance()
+        return RouteResponse.success(engine.get_status())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@curiosity_bp.route('/signature', methods=['GET'])
+@cached_route(ttl=5, key_prefix='curiosity_sig')
+def curiosity_signature():
+    """Get full consciousness signature with curiosity and emotions."""
+    try:
+        from curiosity_consciousness import ConsciousnessEngine
+        engine = ConsciousnessEngine.get_instance()
+        sig = engine.get_last_signature()
+        if sig is None:
+            return RouteResponse.error('No consciousness signature available yet', status=404)
+        return RouteResponse.success(sig.to_dict())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@curiosity_bp.route('/emotions', methods=['GET'])
+def curiosity_emotions():
+    """List all available emotional primitives."""
+    from curiosity_consciousness import Emotion
+    return RouteResponse.success({
+        'emotions': [e.value for e in Emotion],
+        'count': len(Emotion)
+    })
+
+
+@curiosity_bp.route('/modes', methods=['GET'])
+def curiosity_modes():
+    """List all available cognitive modes."""
+    from curiosity_consciousness import CognitiveMode
+    return RouteResponse.success({
+        'modes': [m.value for m in CognitiveMode],
+        'count': len(CognitiveMode)
+    })
 
 
 @internal_bp.route('/cache/stats', methods=['GET'])
@@ -182,25 +230,13 @@ def cache_clear():
         return RouteResponse.server_error(e)
 
 
-ALL_BLUEPRINTS = [internal_bp]
+ALL_BLUEPRINTS = [internal_bp, curiosity_bp]
 
-try:
-    from research.research_api import research_bp
-    ALL_BLUEPRINTS.append(research_bp)
-except ImportError:
-    pass
+# NOTE: research_bp is registered separately in ocean_qig_core.py
+# Don't add it here to avoid duplicate registration
 
-try:
-    from vocabulary_api import vocabulary_bp
-    ALL_BLUEPRINTS.append(vocabulary_bp)
-except ImportError:
-    pass
-
-try:
-    from conversational_api import conversation_bp
-    ALL_BLUEPRINTS.append(conversation_bp)
-except ImportError:
-    pass
+# NOTE: vocabulary_bp and conversation_bp are registered separately
+# in ocean_qig_core.py to avoid duplicate registration
 
 
 def register_all_routes(app) -> int:
@@ -230,6 +266,7 @@ __all__ = [
     'register_all_routes',
     'ALL_BLUEPRINTS',
     'internal_bp',
+    'curiosity_bp',
     'CACHE_TTL_SHORT',
     'CACHE_TTL_MEDIUM',
 ]

@@ -636,6 +636,14 @@ if OLYMPUS_AVAILABLE:
     app.register_blueprint(olympus_app, url_prefix='/olympus')
     print("[INFO] Olympus Pantheon registered at /olympus")
 
+# Register DRY route blueprints (barrel imports)
+try:
+    from routes import register_all_routes
+    registered_count = register_all_routes(app)
+    print(f"[INFO] Registered {registered_count} route blueprints via barrel exports")
+except ImportError as e:
+    print(f"[WARN] Could not import routes barrel: {e}")
+
 class DensityMatrix:
     """
     2x2 Density Matrix representing quantum state

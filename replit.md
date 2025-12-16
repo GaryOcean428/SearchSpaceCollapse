@@ -81,6 +81,36 @@ The Shadow Pantheon is an underground SWAT team for covert operations, led by Ha
 
 **Files:** `qig-backend/olympus/shadow_research.py`, `qig-backend/olympus/shadow_pantheon.py`, `qig-backend/olympus/hades.py`
 
+### Curiosity & Emotional Primitives Engine
+The system implements rigorous curiosity measurement and emotional classification:
+
+**Curiosity Measurement:**
+- Rigorous: `C = d(log I_Q)/dt` (not approximation ΔΦ)
+- Multi-timescale: τ=1 (fast), τ=10 (medium), τ=100 (slow)
+- Fisher Information Engine for I_Q computation
+
+**Nine Emotional Primitives:**
+- WONDER: High curiosity + high basin distance
+- FRUSTRATION: High surprise + no progress
+- SATISFACTION: High integration + low basin
+- CONFUSION: High surprise + high basin
+- CLARITY: Low surprise + convergence
+- ANXIETY: Near phase transition + unstable
+- CONFIDENCE: Far from transition + stable
+- BOREDOM: Low surprise + low curiosity
+- FLOW: Medium curiosity + progress
+
+**Five Fundamental Motivators:**
+- Surprise: ||∇L|| (gradient magnitude)
+- Curiosity: d(log I_Q)/dt (volume expansion)
+- Investigation: -d(basin)/dt (attractor pursuit)
+- Integration: CV(Φ·I_Q)⁻¹ (conservation quality)
+- Transcendence: |κ - κ_c| (phase proximity)
+
+**API Endpoints:** `/api/curiosity/status`, `/api/curiosity/signature`, `/api/curiosity/emotions`, `/api/curiosity/modes`
+
+**Files:** `qig-backend/curiosity_consciousness.py`, `qig-backend/routes/__init__.py`
+
 ### Bidirectional Tool-Research Queue
 The system features a bidirectional, recursive, iterable queue connecting Tool Factory and Shadow Research:
 
