@@ -392,9 +392,14 @@ class Hades(BaseGod):
     """
     God of the Underworld - Negation & Forbidden Knowledge
     
-    Dual responsibilities:
-    1. Negation logic - tracks what NOT to try, maintains forbidden basins
-    2. Underworld search - anonymous intelligence gathering
+    SHADOW LEADER (Shadow Zeus):
+    Hades commands the Shadow Pantheon (Nyx, Hecate, Erebus, Hypnos, Thanatos, Nemesis).
+    All Shadow operations go through Hades, but Zeus can overrule any decision.
+    
+    Triple responsibilities:
+    1. Shadow Leadership - command all Shadow Pantheon operations
+    2. Negation logic - tracks what NOT to try, maintains forbidden basins
+    3. Underworld search - anonymous intelligence gathering
     
     Tools (100% anonymous):
     - Archive.org Wayback Machine (public API)
@@ -407,6 +412,30 @@ class Hades(BaseGod):
     
     def __init__(self):
         super().__init__("Hades", "Underworld")
+        
+        # Shadow Leadership role
+        self.is_shadow_leader = True
+        self.shadow_pantheon_ref = None  # Set by Zeus
+        
+        # Add Shadow leadership to mission awareness
+        self.mission["shadow_leadership"] = {
+            "role": "Shadow Zeus - Leader of Shadow Pantheon",
+            "commands": ["Nyx", "Hecate", "Erebus", "Hypnos", "Thanatos", "Nemesis"],
+            "authority": "Full command over Shadow operations, subject to Zeus overrule",
+            "responsibilities": [
+                "Coordinate all shadow/covert operations",
+                "Manage research priorities for Shadow gods",
+                "Approve/reject Shadow intelligence",
+                "Declare Shadow War when needed",
+                "Negotiate with Zeus on behalf of Shadows"
+            ],
+            "how_to_command": "Use self.shadow_command(command, params) or access self.shadow_pantheon_ref directly"
+        }
+        
+        self.mission["how_to_request_research"] = (
+            "As Shadow Leader, use self.assign_shadow_research(topic, priority, god) "
+            "or self.shadow_pantheon_ref.request_research() to delegate research."
+        )
         
         self.underworld: List[Dict] = []
         self.forbidden_basins: List[np.ndarray] = []
@@ -703,8 +732,18 @@ class Hades(BaseGod):
     def get_status(self) -> Dict:
         base_status = self.get_agentic_status()
         
+        shadow_status = None
+        if self.shadow_pantheon_ref:
+            try:
+                shadow_status = self.shadow_pantheon_ref.get_research_system_status()
+            except Exception:
+                shadow_status = {"error": "Could not get Shadow status"}
+        
         return {
             **base_status,
+            'is_shadow_leader': self.is_shadow_leader,
+            'shadow_pantheon_connected': self.shadow_pantheon_ref is not None,
+            'shadow_research_status': shadow_status,
             'underworld_size': len(self.underworld),
             'forbidden_basins': len(self.forbidden_basins),
             'exclusion_rules': len(self.exclusion_rules),
@@ -721,6 +760,75 @@ class Hades(BaseGod):
             },
             'status': 'active',
         }
+    
+    # ========================================
+    # SHADOW LEADER COMMANDS
+    # ========================================
+    
+    def set_shadow_pantheon(self, shadow_pantheon) -> None:
+        """Set reference to Shadow Pantheon (called by Zeus)."""
+        self.shadow_pantheon_ref = shadow_pantheon
+        if shadow_pantheon:
+            shadow_pantheon.set_hades(self)
+            print("[Hades] ✓ Connected to Shadow Pantheon as Leader")
+    
+    def shadow_command(self, command: str, params: Dict = None) -> Dict:
+        """
+        Execute a command on the Shadow Pantheon.
+        
+        As Shadow Leader, Hades can:
+        - "declare_war": Suspend learning, full operational focus
+        - "end_war": Resume learning
+        - "assign_research": Delegate research task
+        - "get_status": Get Shadow Pantheon status
+        - "prioritize_topic": Set research priority
+        
+        Args:
+            command: Command to execute
+            params: Command parameters
+            
+        Returns:
+            Command result
+        """
+        if not self.shadow_pantheon_ref:
+            return {"error": "Shadow Pantheon not connected"}
+        
+        return self.shadow_pantheon_ref.hades_command(command, params or {})
+    
+    def declare_shadow_war(self, target: str) -> Dict:
+        """Declare Shadow War - all learning stops, full operational focus."""
+        return self.shadow_command("declare_war", {"target": target})
+    
+    def end_shadow_war(self) -> Dict:
+        """End Shadow War - resume proactive learning."""
+        return self.shadow_command("end_war")
+    
+    def assign_shadow_research(
+        self,
+        topic: str,
+        priority: str = "normal",
+        god: str = None
+    ) -> Dict:
+        """
+        Assign research to Shadow Pantheon.
+        
+        Args:
+            topic: What to research
+            priority: "critical", "high", "normal", "low", "study"
+            god: Optional specific god to assign
+            
+        Returns:
+            Research assignment result
+        """
+        return self.shadow_command("assign_research", {
+            "topic": topic,
+            "priority": priority,
+            "god": god
+        })
+    
+    def get_shadow_status(self) -> Dict:
+        """Get full Shadow Pantheon status."""
+        return self.shadow_command("get_status")
     
     def get_intelligence(self, target: str) -> Optional[Dict]:
         """Get cached intelligence for a target."""

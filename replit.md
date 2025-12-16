@@ -25,6 +25,31 @@ A Centralized Geometry Architecture dictates that all geometric operations must 
 
 An Autonomous Debate System monitors and auto-continues pantheon debates, integrating research and generating arguments. New kernels spawned from debates undergo an observation period before becoming active. A Parallel War System supports up to 3 concurrent wars with assigned gods and kernels. A Self-Learning Tool Factory generates new tools from learned patterns, prioritizing Python kernels for code generation from observation rather than hardcoded templates.
 
+### Shadow Pantheon (Proactive Learning System)
+The Shadow Pantheon is an underground SWAT team for covert operations, led by Hades (Shadow Zeus). Key features:
+
+**Leadership Hierarchy:**
+- Hades is Shadow Leader (subject to Zeus overrule)
+- Commands: Nyx, Hecate, Erebus, Hypnos, Thanatos, Nemesis
+- Zeus can override any Shadow decision
+
+**Proactive Learning:**
+- Any kernel can request research via `ShadowResearchAPI.get_instance().request_research(topic, requester)`
+- Shadow gods study, exercise, strategize during idle time
+- Knowledge shared to ALL kernels via basin sync
+- Meta-reflection and recursive learning loops
+- War mode interrupt: when "war declared", all learning stops for operations
+
+**Shadow God Roles:**
+- **Nyx**: OPSEC Commander (Tor routing, traffic obfuscation, void compression)
+- **Hecate**: Misdirection Specialist (false trails, decoys, multi-path attacks)
+- **Erebus**: Counter-Surveillance (detect watchers, honeypots)
+- **Hypnos**: Silent Operations (stealth execution, passive recon)
+- **Thanatos**: Evidence Destruction (cleanup, erasure, pattern death)
+- **Nemesis**: Relentless Pursuit (never gives up, persistent tracking)
+
+**Files:** `qig-backend/olympus/shadow_research.py`, `qig-backend/olympus/shadow_pantheon.py`, `qig-backend/olympus/hades.py`
+
 Data storage utilizes PostgreSQL (Neon serverless) with `pgvector 0.8.0` for various system states, including geometric memory, vocabulary, balance hits, Olympus state, and kernel information.
 
 ### Communication Patterns

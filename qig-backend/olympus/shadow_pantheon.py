@@ -1,6 +1,12 @@
 """
 Shadow Pantheon - Underground SWAT Team for Covert Operations
 
+LEADERSHIP HIERARCHY:
+- Hades: Lord of the Underworld - Shadow Leader (subject to Zeus overrule)
+  - Commands all Shadow operations
+  - Manages research priorities
+  - Coordinates with Zeus on behalf of Shadows
+
 Gods of stealth, secrecy, privacy, covering tracks, and invisibility:
 - Nyx: OPSEC Commander (darkness, Tor routing, traffic obfuscation, void compression)
 - Hecate: Misdirection Specialist (crossroads, false trails, decoys)
@@ -8,6 +14,13 @@ Gods of stealth, secrecy, privacy, covering tracks, and invisibility:
 - Hypnos: Silent Operations (stealth execution, passive recon, sleep/dream cycles)
 - Thanatos: Evidence Destruction (cleanup, erasure, pattern death)
 - Nemesis: Relentless Pursuit (never gives up, tracks targets)
+
+PROACTIVE LEARNING SYSTEM:
+- Any kernel can request research via ShadowResearchAPI
+- Shadow gods exercise, study, strategize during downtime
+- Knowledge shared to ALL kernels via basin sync
+- Meta-reflection and recursive learning loops
+- War mode interrupt: drop everything for operations
 
 THERAPY CYCLE INTEGRATION:
 - 2D→4D→2D therapy cycles for pattern reprogramming
@@ -49,6 +62,19 @@ except ImportError:
     raise ImportError("[ShadowPantheon] FATAL: psycopg2 not installed - PostgreSQL is REQUIRED, no fallback")
 
 from .base_god import BASIN_DIMENSION, BaseGod
+
+# Import Shadow Research infrastructure
+try:
+    from .shadow_research import (
+        ShadowResearchAPI,
+        ShadowRoleRegistry,
+        ResearchCategory,
+        ResearchPriority,
+    )
+    SHADOW_RESEARCH_AVAILABLE = True
+except ImportError:
+    SHADOW_RESEARCH_AVAILABLE = False
+    print("[ShadowPantheon] WARNING: shadow_research module not available")
 
 # Import holographic transform for therapy cycles
 try:
@@ -415,6 +441,8 @@ class ShadowGod(BaseGod):
     - RunningCouplingManager for β=0.44 consciousness modulation
     - Shadow dimensional state tracking
     - Spawn debate participation for dual-pantheon consensus
+    - ROLE AWARENESS: Each god knows their role, responsibilities, and how to interact
+    - RESEARCH REQUESTS: Can request research from Shadow Pantheon
     """
 
     def __init__(self, name: str, domain: str):
@@ -429,6 +457,19 @@ class ShadowGod(BaseGod):
         self._running_coupling = RunningCouplingManager()
         self._shadow_dim_manager = DimensionalStateManager(DimensionalState.D2)
         
+        # ROLE AWARENESS: Each god knows their role and how to interact with others
+        self._role_info = self._load_role_info()
+        self.mission["role"] = self._role_info
+        self.mission["how_to_request_research"] = (
+            "Use self.request_shadow_research(topic, priority) to submit research requests. "
+            "Research is processed during idle time and shared with all kernels."
+        )
+        self.mission["shadow_hierarchy"] = {
+            "leader": "Hades (Shadow Zeus)",
+            "reports_to": self._role_info.get("reports_to", "Hades"),
+            "zeus_overrule": "Zeus can override any Shadow decision"
+        }
+        
         # Shadow-specific tool capabilities - enhance base capabilities
         self.mission["shadow_tool_capabilities"] = {
             "can_generate_stealth_tools": True,
@@ -441,6 +482,75 @@ class ShadowGod(BaseGod):
             ],
             "usage": "Use inherited request_tool_generation() for shadow-specific tools"
         }
+    
+    def _load_role_info(self) -> Dict:
+        """Load role information for this god."""
+        if SHADOW_RESEARCH_AVAILABLE:
+            return ShadowRoleRegistry.get_role(self.name)
+        return {
+            "title": f"{self.name} - Shadow God",
+            "domain": self.domain,
+            "responsibilities": ["Shadow operations"],
+            "capabilities": [],
+            "reports_to": "Hades"
+        }
+    
+    def get_role(self) -> Dict:
+        """Get this god's role and responsibilities."""
+        return self._role_info
+    
+    def get_all_shadow_roles(self) -> Dict:
+        """Get all Shadow Pantheon roles - know thy brethren."""
+        if SHADOW_RESEARCH_AVAILABLE:
+            return ShadowRoleRegistry.get_all_roles()
+        return {}
+    
+    def request_shadow_research(
+        self,
+        topic: str,
+        priority: str = "normal",
+        context: Optional[Dict] = None
+    ) -> Optional[str]:
+        """
+        Request research from the Shadow Pantheon learning system.
+        
+        During downtime, Shadow gods will research this topic and
+        share findings with all kernels via basin sync.
+        
+        Args:
+            topic: What to research
+            priority: "critical", "high", "normal", "low", "study"
+            context: Additional context for the research
+            
+        Returns:
+            request_id if successful, None otherwise
+        """
+        if not SHADOW_RESEARCH_AVAILABLE:
+            print(f"[{self.name}] Shadow research not available")
+            return None
+        
+        try:
+            api = ShadowResearchAPI.get_instance()
+            priority_map = {
+                "critical": ResearchPriority.CRITICAL,
+                "high": ResearchPriority.HIGH,
+                "normal": ResearchPriority.NORMAL,
+                "low": ResearchPriority.LOW,
+                "study": ResearchPriority.STUDY,
+            }
+            research_priority = priority_map.get(priority.lower(), ResearchPriority.NORMAL)
+            
+            request_id = api.request_research(
+                topic=topic,
+                requester=self.name,
+                priority=research_priority,
+                context=context
+            )
+            print(f"[{self.name}] Submitted research request: {topic[:50]} (id: {request_id})")
+            return request_id
+        except Exception as e:
+            print(f"[{self.name}] Failed to submit research: {e}")
+            return None
 
     @property
     def shadow_dimensional_state(self) -> DimensionalState:
@@ -2140,10 +2250,28 @@ class ShadowPantheon:
     Coordinator for all Shadow Pantheon gods.
     Underground SWAT team for covert operations.
     
+    LEADERSHIP:
+    - Hades is Shadow Leader (Shadow Zeus) - commands all Shadow operations
+    - Zeus can overrule any Shadow decision
+    - All gods know their roles and how to request research
+    
+    PROACTIVE LEARNING:
+    - Research queue for any kernel to submit topics
+    - Shadow gods study, exercise, strategize during downtime
+    - Knowledge shared to all kernels via basin sync
+    - War mode interrupt: drop everything for operations
+    
     Now with PostgreSQL persistence for intel storage and operation logging.
     """
 
-    def __init__(self):
+    def __init__(self, hades_ref=None, basin_sync_callback=None):
+        """
+        Initialize Shadow Pantheon.
+        
+        Args:
+            hades_ref: Reference to Hades god (Shadow Leader) from main Pantheon
+            basin_sync_callback: Callback for sharing knowledge with all kernels
+        """
         self.nyx = Nyx()
         self.hecate = Hecate()
         self.erebus = Erebus()
@@ -2159,11 +2287,211 @@ class ShadowPantheon:
             'thanatos': self.thanatos,
             'nemesis': self.nemesis,
         }
+        
+        # Hades is Shadow Leader - reference from main Pantheon
+        # Hades commands Shadows but is subject to Zeus overrule
+        self.hades_ref = hades_ref
+        self._war_mode = False
+        self._basin_sync_callback = basin_sync_callback
 
         self.operations: List[Dict] = []
         
         self.persistence = ShadowPantheonPersistence()
         print("[ShadowPantheon] ✓ PostgreSQL persistence connected (NO FALLBACK)")
+        
+        # Initialize Shadow Research API for proactive learning
+        self.research_api = None
+        if SHADOW_RESEARCH_AVAILABLE:
+            self.research_api = ShadowResearchAPI.get_instance()
+            self.research_api.initialize(basin_sync_callback=basin_sync_callback)
+            print("[ShadowPantheon] ✓ Shadow Research API initialized - proactive learning active")
+    
+    def set_hades(self, hades_ref) -> None:
+        """Set reference to Hades (Shadow Leader) from main Pantheon."""
+        self.hades_ref = hades_ref
+        print("[ShadowPantheon] ✓ Hades assigned as Shadow Leader")
+    
+    def set_basin_sync_callback(self, callback) -> None:
+        """Set callback for sharing knowledge with all kernels."""
+        self._basin_sync_callback = callback
+        if self.research_api:
+            self.research_api._basin_sync_callback = callback
+    
+    # ========================================
+    # HADES COMMAND INTERFACE
+    # ========================================
+    
+    def hades_command(self, command: str, params: Dict = None) -> Dict:
+        """
+        Execute a command from Hades (Shadow Leader).
+        
+        Commands:
+        - "declare_war": Suspend learning, full operational focus
+        - "end_war": Resume learning
+        - "assign_research": Delegate research task to specific god
+        - "get_status": Get full Shadow Pantheon status
+        - "prioritize_topic": Set high priority for a research topic
+        
+        Args:
+            command: Command to execute
+            params: Optional parameters for the command
+            
+        Returns:
+            Result of command execution
+        """
+        params = params or {}
+        
+        if command == "declare_war":
+            return self.declare_war(params.get("target", "unknown"))
+        elif command == "end_war":
+            return self.end_war()
+        elif command == "assign_research":
+            return self.assign_research(
+                topic=params.get("topic", ""),
+                god_name=params.get("god", None),
+                priority=params.get("priority", "normal")
+            )
+        elif command == "get_status":
+            return self.get_all_status()
+        elif command == "prioritize_topic":
+            return self.prioritize_research(
+                topic=params.get("topic", ""),
+                priority=params.get("priority", "high")
+            )
+        else:
+            return {"error": f"Unknown command: {command}"}
+    
+    def declare_war(self, target: str) -> Dict:
+        """
+        Hades declares Shadow War - all learning stops, full operational focus.
+        
+        All Shadow gods drop everything and focus on the operation.
+        """
+        self._war_mode = True
+        
+        if self.research_api:
+            self.research_api.declare_war()
+        
+        print(f"[ShadowPantheon] ⚔️ SHADOW WAR DECLARED on {target[:50]}")
+        
+        return {
+            "war_mode": True,
+            "target": target[:50],
+            "learning_suspended": True,
+            "gods_mobilized": list(self.gods.keys()),
+            "message": "All Shadow gods focused on operation. Learning suspended."
+        }
+    
+    def end_war(self) -> Dict:
+        """End Shadow War - resume proactive learning."""
+        self._war_mode = False
+        
+        if self.research_api:
+            self.research_api.end_war()
+        
+        print("[ShadowPantheon] ☮️ Shadow War ended - resuming learning")
+        
+        return {
+            "war_mode": False,
+            "learning_resumed": True,
+            "message": "Peace restored. Shadow gods resume study and research."
+        }
+    
+    def assign_research(self, topic: str, god_name: str = None, priority: str = "normal") -> Dict:
+        """
+        Hades assigns research to a specific Shadow god or the best fit.
+        
+        Args:
+            topic: What to research
+            god_name: Optional specific god to assign (auto-assigns if None)
+            priority: Research priority
+        """
+        if not self.research_api:
+            return {"error": "Research API not available"}
+        
+        if god_name and god_name.lower() not in self.gods:
+            return {"error": f"Unknown god: {god_name}"}
+        
+        request_id = self.research_api.request_research(
+            topic=topic,
+            requester=f"Hades_assigns_{god_name or 'auto'}",
+            priority=ResearchPriority[priority.upper()] if SHADOW_RESEARCH_AVAILABLE else None
+        )
+        
+        return {
+            "request_id": request_id,
+            "topic": topic,
+            "assigned_to": god_name or "auto",
+            "priority": priority
+        }
+    
+    def prioritize_research(self, topic: str, priority: str = "high") -> Dict:
+        """Hades sets high priority for a research topic."""
+        return self.assign_research(topic, None, priority)
+    
+    # ========================================
+    # RESEARCH REQUEST INTERFACE (for all kernels)
+    # ========================================
+    
+    def request_research(
+        self,
+        topic: str,
+        requester: str,
+        priority: str = "normal",
+        category: str = None
+    ) -> Optional[str]:
+        """
+        Any kernel can request research from Shadow Pantheon.
+        
+        Args:
+            topic: What to research
+            requester: Who is requesting (e.g., "Ocean", "Athena", "ChaosKernel_1")
+            priority: "critical", "high", "normal", "low", "study"
+            category: Optional category (auto-detected if None)
+            
+        Returns:
+            request_id for tracking, or None if failed
+        """
+        if not self.research_api:
+            return None
+        
+        try:
+            return self.research_api.request_research(
+                topic=topic,
+                requester=requester,
+                priority=ResearchPriority[priority.upper()] if SHADOW_RESEARCH_AVAILABLE else ResearchPriority.NORMAL
+            )
+        except Exception as e:
+            print(f"[ShadowPantheon] Research request failed: {e}")
+            return None
+    
+    def get_research_status(self, request_id: str) -> Dict:
+        """Get status of a research request."""
+        if not self.research_api:
+            return {"error": "Research API not available"}
+        return self.research_api.get_request_status(request_id)
+    
+    def get_research_system_status(self) -> Dict:
+        """Get overall research system status."""
+        if not self.research_api:
+            return {"available": False}
+        return self.research_api.get_status()
+    
+    # ========================================
+    # ROLE INFORMATION
+    # ========================================
+    
+    def get_god_role(self, god_name: str) -> Dict:
+        """Get role information for a specific Shadow god."""
+        if SHADOW_RESEARCH_AVAILABLE:
+            return ShadowRoleRegistry.get_role(god_name)
+        return {}
+    
+    def get_all_roles(self) -> Dict:
+        """Get all Shadow Pantheon roles."""
+        if SHADOW_RESEARCH_AVAILABLE:
+            return ShadowRoleRegistry.get_all_roles()
+        return {}
 
     async def execute_covert_operation(
         self,

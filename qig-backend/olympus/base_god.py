@@ -303,6 +303,21 @@ class BaseGod(*_base_classes):
             "how_to_dream": "Use self.request_dream_cycle()" if AUTONOMIC_MIXIN_AVAILABLE else "Not available",
             "how_to_mushroom": "Use self.request_mushroom_mode(intensity)" if AUTONOMIC_MIXIN_AVAILABLE else "Not available"
         }
+        
+        # Shadow Research awareness - all gods can request research from Shadow Pantheon
+        self.mission["shadow_research_capabilities"] = {
+            "can_request_research": True,
+            "how_to_request": (
+                "Use Zeus's request_shadow_research(topic, priority) method, or "
+                "access ShadowResearchAPI.get_instance().request_research() directly"
+            ),
+            "shadow_leadership": "Hades (Shadow Zeus) commands all Shadow operations",
+            "research_categories": [
+                "tools", "knowledge", "concepts", "reasoning", "creativity",
+                "language", "strategy", "security", "bitcoin", "geometry"
+            ],
+            "note": "Research is processed during Shadow idle time and shared with all kernels"
+        }
 
         # Initialize holographic transform mixin
         self.__init_holographic__()

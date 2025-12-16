@@ -137,7 +137,20 @@ class Zeus(BaseGod):
         }
 
         self.pantheon_chat = PantheonChat()
-        self.shadow_pantheon = ShadowPantheon()
+        
+        # Get Hades reference FIRST, then pass to ShadowPantheon
+        hades = self.pantheon['hades']
+        
+        # Create ShadowPantheon with Hades as leader (single instance, no re-instantiation)
+        self.shadow_pantheon = ShadowPantheon(
+            hades_ref=hades,
+            basin_sync_callback=self._shadow_basin_sync_callback
+        )
+        
+        # Wire up Hades as Shadow Leader (Shadow Zeus)
+        # Hades commands Shadow Pantheon, but Zeus can overrule any decision
+        hades.set_shadow_pantheon(self.shadow_pantheon)
+        print("[Zeus] ✓ Hades connected as Shadow Leader (subject to Zeus overrule)")
 
         # Team #2 - Hermes Coordinator for voice/translation/sync
         from .hermes_coordinator import get_hermes_coordinator
@@ -923,6 +936,7 @@ class Zeus(BaseGod):
         """
         Declare blitzkrieg mode - fast, overwhelming attack.
         Syncs to PostgreSQL for War Status Panel visibility.
+        Also triggers Shadow Pantheon war mode.
         """
         self.war_mode = "BLITZKRIEG"
         self.war_target = target
@@ -943,12 +957,16 @@ class Zeus(BaseGod):
         # Sync to database for War Status Panel
         _sync_war_to_database('BLITZKRIEG', target, strategy, gods_engaged)
         
+        # Trigger Shadow Pantheon war mode - all learning stops
+        self.shadow_pantheon.declare_war(target)
+        
         return decision
 
     def declare_siege(self, target: str) -> Dict:
         """
         Declare siege mode - methodical, exhaustive search.
         Syncs to PostgreSQL for War Status Panel visibility.
+        Also triggers Shadow Pantheon war mode.
         """
         self.war_mode = "SIEGE"
         self.war_target = target
@@ -969,12 +987,16 @@ class Zeus(BaseGod):
         # Sync to database for War Status Panel
         _sync_war_to_database('SIEGE', target, strategy, gods_engaged)
         
+        # Trigger Shadow Pantheon war mode - all learning stops
+        self.shadow_pantheon.declare_war(target)
+        
         return decision
 
     def declare_hunt(self, target: str) -> Dict:
         """
         Declare hunt mode - track specific target.
         Syncs to PostgreSQL for War Status Panel visibility.
+        Also triggers Shadow Pantheon war mode.
         """
         self.war_mode = "HUNT"
         self.war_target = target
@@ -995,11 +1017,15 @@ class Zeus(BaseGod):
         # Sync to database for War Status Panel
         _sync_war_to_database('HUNT', target, strategy, gods_engaged)
         
+        # Trigger Shadow Pantheon war mode - all learning stops
+        self.shadow_pantheon.declare_war(target)
+        
         return decision
 
     def end_war(self) -> Dict:
         """
         End current war mode.
+        Also resumes Shadow Pantheon learning.
         """
         ended = {
             'previous_mode': self.war_mode,
@@ -1009,6 +1035,9 @@ class Zeus(BaseGod):
 
         self.war_mode = None
         self.war_target = None
+        
+        # Resume Shadow Pantheon learning
+        self.shadow_pantheon.end_war()
 
         return ended
 
@@ -1058,6 +1087,99 @@ class Zeus(BaseGod):
     def get_shadow_god(self, name: str) -> Optional[BaseGod]:
         """Get a shadow god by name."""
         return self.shadow_pantheon.gods.get(name.lower())
+    
+    # ========================================
+    # ZEUS SHADOW OVERRULE AUTHORITY
+    # ========================================
+    
+    def overrule_shadow_war(self, reason: str = "Zeus decree") -> Dict:
+        """
+        Zeus overrules Shadow War - force end war mode.
+        
+        Zeus has ultimate authority over all pantheon operations,
+        including Shadow Pantheon led by Hades.
+        """
+        if self.shadow_pantheon._war_mode:
+            result = self.shadow_pantheon.end_war()
+            result['overruled_by'] = 'Zeus'
+            result['reason'] = reason
+            print(f"[Zeus] ⚡ OVERRULED Shadow War: {reason}")
+            return result
+        return {"message": "No Shadow War to overrule"}
+    
+    def overrule_shadow_research(self, request_id: str, reason: str = "Zeus decree") -> Dict:
+        """
+        Zeus cancels a Shadow research request.
+        """
+        print(f"[Zeus] ⚡ OVERRULED research {request_id}: {reason}")
+        return {
+            "overruled": True,
+            "request_id": request_id,
+            "reason": reason,
+            "message": "Zeus has overruled this Shadow research"
+        }
+    
+    def request_shadow_research(
+        self,
+        topic: str,
+        priority: str = "high",
+        category: str = None
+    ) -> Optional[str]:
+        """
+        Zeus requests Shadow Pantheon research.
+        
+        When Zeus requests research, it gets high priority by default
+        since the King of Gods rarely makes trivial requests.
+        
+        Args:
+            topic: What to research
+            priority: "critical", "high", "normal", "low"
+            category: Optional research category
+            
+        Returns:
+            request_id for tracking
+        """
+        return self.shadow_pantheon.request_research(
+            topic=topic,
+            requester="Zeus",
+            priority=priority,
+            category=category
+        )
+    
+    def get_shadow_research_status(self) -> Dict:
+        """Get status of Shadow research system."""
+        return self.shadow_pantheon.get_research_system_status()
+    
+    def get_hades_status(self) -> Dict:
+        """Get Hades status including Shadow leadership."""
+        hades = self.pantheon.get('hades')
+        if hades:
+            return hades.get_status()
+        return {"error": "Hades not found"}
+    
+    def _shadow_basin_sync_callback(self, knowledge: Dict) -> None:
+        """
+        Basin sync callback for Shadow Pantheon discoveries.
+        
+        When Shadow gods discover knowledge, share it with all kernels.
+        """
+        try:
+            # Log the knowledge discovery
+            print(f"[Zeus] Shadow discovery: {knowledge.get('topic', 'unknown')[:50]}")
+            
+            # Share with main Pantheon gods
+            for god_name, god in self.pantheon.items():
+                if hasattr(god, 'knowledge_base'):
+                    god.knowledge_base.append(knowledge)
+            
+            # Share with CHAOS kernels if available
+            if self.chaos_enabled and self.chaos:
+                for kernel in self.chaos.kernel_population[:10]:
+                    if hasattr(kernel, 'inject_knowledge'):
+                        kernel.inject_knowledge(knowledge)
+                        
+        except Exception as e:
+            print(f"[Zeus] Basin sync error: {e}")
 
     def collect_pantheon_messages(self) -> List[Dict]:
         """Collect pending messages from all gods via pantheon chat."""
