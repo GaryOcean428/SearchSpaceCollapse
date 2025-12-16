@@ -633,6 +633,54 @@ router.post('/zeus/tools/learn/git', isAuthenticated, async (req, res) => {
 });
 
 /**
+ * Get status of queued git links for learning
+ */
+router.get('/zeus/tools/learn/git/queue', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/git/queue`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Git queue status error:', error);
+    res.status(500).json({ error: 'Failed to get git queue status' });
+  }
+});
+
+/**
+ * Clear completed/failed items from git queue
+ */
+router.post('/zeus/tools/learn/git/queue/clear', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/git/queue/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Git queue clear error:', error);
+    res.status(500).json({ error: 'Failed to clear git queue' });
+  }
+});
+
+/**
  * Learn patterns from uploaded file content
  */
 router.post('/zeus/tools/learn/file', isAuthenticated, async (req, res) => {
