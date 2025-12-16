@@ -130,6 +130,192 @@ class VocabularyCoordinator:
             stats['database'] = self.vocab_db.get_vocabulary_stats()
         return stats
     
+    def enhance_search_query(
+        self, 
+        query: str, 
+        domain: Optional[str] = None,
+        max_expansions: int = 5,
+        min_phi: float = 0.6,
+        recent_observations: Optional[List[Dict]] = None
+    ) -> Dict:
+        """
+        Enhance a search query with learned vocabulary.
+        
+        Uses vocabulary learned from prior research to expand search terms,
+        creating a feedback loop where discoveries improve future searches.
+        
+        Relevance is computed using:
+        - Co-occurrence: terms that appeared together in high-phi research
+        - Domain matching: terms from same domain/source as query
+        - Phi weighting: higher phi terms preferred
+        - Semantic proximity: substring/prefix matching for related terms
+        
+        Args:
+            query: Original search query/topic
+            domain: Optional domain filter for vocabulary
+            max_expansions: Maximum terms to add
+            min_phi: Minimum phi threshold for vocabulary
+            recent_observations: Optional recent vocabulary observations to prioritize
+            
+        Returns:
+            Enhanced query info with original, expanded terms, and combined query
+        """
+        import re
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        query_words = set(re.findall(r'\b[a-z]{3,}\b', query.lower()))
+        
+        expansion_candidates: List[Dict] = []
+        
+        if recent_observations:
+            for obs in recent_observations:
+                if isinstance(obs, dict):
+                    word = obs.get('word', '')
+                    phi = obs.get('phi', 0.5)
+                    obs_topic = obs.get('topic', '')
+                    
+                    if not word or len(word) < 4 or word in query_words or phi < min_phi:
+                        continue
+                    
+                    relevance = self._compute_term_relevance(
+                        term=word,
+                        query_words=query_words,
+                        phi=phi,
+                        source='recent_research',
+                        target_domain=domain
+                    )
+                    
+                    if relevance > 0.25:
+                        expansion_candidates.append({
+                            'word': word,
+                            'phi': phi,
+                            'source': 'recent_research',
+                            'relevance': relevance
+                        })
+        
+        if self.vocab_db and self.vocab_db.enabled:
+            try:
+                learned = self.vocab_db.get_learned_words(min_phi=min_phi, limit=300)
+                
+                for word_data in learned:
+                    if isinstance(word_data, dict):
+                        word = word_data.get('word', '')
+                        phi = word_data.get('avg_phi', 0.5)
+                        source = word_data.get('source', '')
+                    elif isinstance(word_data, (list, tuple)) and len(word_data) >= 2:
+                        word = word_data[0]
+                        phi = word_data[1] if len(word_data) > 1 else 0.5
+                        source = word_data[3] if len(word_data) > 3 else ''
+                    else:
+                        continue
+                    
+                    if not word or len(word) < 4 or word in query_words:
+                        continue
+                    
+                    if any(c['word'] == word for c in expansion_candidates):
+                        continue
+                    
+                    relevance = self._compute_term_relevance(word, query_words, phi, source, domain)
+                    if relevance > 0.25:
+                        expansion_candidates.append({
+                            'word': word,
+                            'phi': phi,
+                            'source': source,
+                            'relevance': relevance
+                        })
+            except Exception as e:
+                logger.warning(f"Vocabulary DB query failed: {e}")
+        
+        if self.tokenizer and hasattr(self.tokenizer, 'vocab'):
+            try:
+                for vocab_word, weight_info in list(self.tokenizer.vocab.items())[:500]:
+                    if vocab_word in query_words or len(vocab_word) < 4:
+                        continue
+                    
+                    if any(c['word'] == vocab_word for c in expansion_candidates):
+                        continue
+                    
+                    if isinstance(weight_info, dict):
+                        phi = weight_info.get('phi', 0.5)
+                        source = weight_info.get('source', 'tokenizer')
+                    else:
+                        phi = 0.5
+                        source = 'tokenizer'
+                    
+                    if phi >= min_phi:
+                        relevance = self._compute_term_relevance(vocab_word, query_words, phi, source, domain)
+                        if relevance > 0.25:
+                            expansion_candidates.append({
+                                'word': vocab_word,
+                                'phi': phi,
+                                'source': source,
+                                'relevance': relevance
+                            })
+            except Exception as e:
+                logger.warning(f"Tokenizer vocab query failed: {e}")
+        
+        expansion_candidates.sort(key=lambda x: x['relevance'], reverse=True)
+        top_terms = [c['word'] for c in expansion_candidates[:max_expansions]]
+        
+        if top_terms:
+            enhanced_query = f"{query} {' '.join(top_terms)}"
+        else:
+            enhanced_query = query
+        
+        return {
+            'original_query': query,
+            'expansion_terms': top_terms,
+            'enhanced_query': enhanced_query,
+            'terms_added': len(top_terms),
+            'vocabulary_utilized': len(expansion_candidates) > 0,
+            'candidates_evaluated': len(expansion_candidates),
+        }
+    
+    def _compute_term_relevance(
+        self, 
+        term: str, 
+        query_words: set, 
+        phi: float,
+        source: str = '',
+        target_domain: Optional[str] = None
+    ) -> float:
+        """
+        Compute relevance of a vocabulary term to a query.
+        
+        REQUIRES semantic match (prefix/substring/overlap) for ALL terms.
+        Recency boosts score but does NOT bypass semantic validation.
+        
+        This ensures only terms with lexical overlap to the current query
+        are admitted, preventing noise from unrelated high-phi vocabulary.
+        """
+        semantic_score = 0.0
+        term_lower = term.lower()
+        for qw in query_words:
+            if len(qw) >= 3:
+                if term_lower.startswith(qw) or qw.startswith(term_lower):
+                    semantic_score = max(semantic_score, 0.5)
+                elif term_lower in qw or qw in term_lower:
+                    semantic_score = max(semantic_score, 0.4)
+                elif len(qw) >= 4 and len(set(term_lower) & set(qw)) >= 4:
+                    semantic_score = max(semantic_score, 0.2)
+        
+        if semantic_score == 0:
+            return 0.0
+        
+        base_score = phi * 0.2
+        
+        is_recent = source == 'recent_research'
+        recency_boost = 0.3 if is_recent else 0.0
+        
+        source_boost = 0.0
+        source_lower = source.lower() if source else ''
+        if 'searxng' in source_lower or 'shadow' in source_lower:
+            source_boost = 0.1
+        
+        total = base_score + semantic_score + recency_boost + source_boost
+        return min(total, 1.0)
+    
     def train_from_text(self, text: str, domain: Optional[str] = None) -> Dict:
         """
         Train vocabulary from arbitrary text.

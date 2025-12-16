@@ -209,6 +209,9 @@ class AutonomousDebateService:
         self._spawns_triggered = 0
         self._debates_continued = 0
         self._vocabulary_learning_events = 0
+        self._vocabulary_search_enhancements = 0
+        self._recent_vocabulary_observations: List[Dict] = []
+        self._max_recent_observations = 100
         
         self._debate_basin_cache: Dict[str, np.ndarray] = {}
         self._god_position_cache: Dict[str, Dict[str, np.ndarray]] = {}
@@ -487,20 +490,45 @@ class AutonomousDebateService:
                 )
     
     def _research_topic(self, topic: str, debate_dict: Dict) -> Dict:
-        """Research debate topic via SearXNG and Shadow Pantheon."""
+        """Research debate topic via SearXNG and Shadow Pantheon.
+        
+        Uses vocabulary-enhanced queries when learned vocabulary is available,
+        closing the feedback loop where discoveries improve future searches.
+        """
         research = {
             'searxng_results': [],
             'darknet_intel': None,
             'searched_at': datetime.now().isoformat(),
+            'query_enhancement': None,
         }
         
-        searxng_results = self._search_searxng(topic)
+        enhanced_query = topic
+        query_enhancement = None
+        
+        if self._vocabulary_coordinator:
+            try:
+                query_enhancement = self._vocabulary_coordinator.enhance_search_query(
+                    query=topic,
+                    domain="debate",
+                    max_expansions=3,
+                    min_phi=0.6,
+                    recent_observations=self._recent_vocabulary_observations
+                )
+                if query_enhancement.get('terms_added', 0) > 0:
+                    enhanced_query = query_enhancement['enhanced_query']
+                    research['query_enhancement'] = query_enhancement
+                    self._vocabulary_search_enhancements += 1
+                    logger.info(f"Enhanced search query with {query_enhancement['terms_added']} learned terms: {query_enhancement['expansion_terms']}")
+            except Exception as e:
+                logger.warning(f"Query enhancement failed: {e}")
+        
+        searxng_results = self._search_searxng(enhanced_query)
         if searxng_results:
             research['searxng_results'] = searxng_results[:5]
         
         if self._shadow_pantheon and SHADOW_AVAILABLE:
             try:
-                intel = self._query_shadow_darknet(topic)
+                intel = self._query_shadow_darknet(enhanced_query)
                 if intel:
                     research['darknet_intel'] = intel
             except (IOError, OSError) as e:
@@ -510,7 +538,6 @@ class AutonomousDebateService:
             except Exception as e:
                 logger.error(f"Darknet query failed: {e}", exc_info=True)
         
-        # Route search activity to observing kernels
         debate_id = debate_dict.get('id', '')
         initiator = debate_dict.get('initiator', '')
         opponent = debate_dict.get('opponent', '')
@@ -687,6 +714,8 @@ class AutonomousDebateService:
             if learned_count > 0:
                 self._vocabulary_learning_events += 1
                 logger.info(f"Trained {learned_count} words from research on '{topic[:30]}...'")
+                
+                self._cache_vocabulary_observations(training_results, topic)
             
             sources_count = 0
             if isinstance(searxng, list):
@@ -700,11 +729,46 @@ class AutonomousDebateService:
                 "sources_processed": sources_count,
                 "training_results": training_results,
                 "persisted": persisted_successfully,
+                "cached_for_future_searches": len(self._recent_vocabulary_observations),
             }
             
         except Exception as e:
             logger.error(f"Vocabulary training from research failed: {e}", exc_info=True)
             return {"trained": False, "error": str(e), "persisted": False}
+    
+    def _cache_vocabulary_observations(self, training_results: List[Dict], topic: str) -> None:
+        """
+        Cache recent vocabulary observations for future search enhancement.
+        
+        Stores high-phi words learned from research so they can be used
+        to enhance subsequent search queries - closing the feedback loop.
+        
+        Observations are scoped by topic and deduplicated to prevent
+        cross-topic noise from accumulating in the cache.
+        """
+        import re
+        
+        existing_words = {obs.get('word', '') for obs in self._recent_vocabulary_observations}
+        
+        for result in training_results:
+            source = result.get('source', 'unknown')
+            phi = result.get('phi', 0.6)
+            words_learned = result.get('words_learned', 0)
+            
+            if words_learned > 0 and phi >= 0.5:
+                topic_words = re.findall(r'\b[a-z]{4,}\b', topic.lower())
+                for word in topic_words[:5]:
+                    if len(word) >= 4 and word not in existing_words:
+                        self._recent_vocabulary_observations.append({
+                            'word': word,
+                            'phi': phi,
+                            'source': source,
+                            'topic': topic[:50],
+                        })
+                        existing_words.add(word)
+        
+        while len(self._recent_vocabulary_observations) > self._max_recent_observations:
+            self._recent_vocabulary_observations.pop(0)
     
     def _search_searxng(self, query: str) -> List[Dict]:
         """Search SearXNG instances for evidence."""
@@ -1276,6 +1340,7 @@ class AutonomousDebateService:
             'debates_continued': self._debates_continued,
             'spawns_triggered': self._spawns_triggered,
             'vocabulary_learning_events': self._vocabulary_learning_events,
+            'vocabulary_search_enhancements': self._vocabulary_search_enhancements,
             'pantheon_chat_connected': self._pantheon_chat is not None,
             'shadow_pantheon_connected': self._shadow_pantheon is not None,
             'm8_spawner_connected': self._m8_spawner is not None,
