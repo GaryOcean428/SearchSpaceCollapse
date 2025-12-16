@@ -1647,8 +1647,8 @@ class M8KernelSpawner:
                     m8_position=m8_position,
                     genesis_votes=genesis_votes,
                     metadata={
-                        'element': new_profile.element,
-                        'role': new_profile.role,
+                        'element': proposal.proposed_element,
+                        'role': proposal.proposed_role,
                         'affinity_strength': new_profile.affinity_strength,
                         'refinements': refinements,
                     }

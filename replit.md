@@ -86,6 +86,31 @@ Uses PostgreSQL (Neon serverless) for basin probes, geometric memory, negative k
 - `server/sweep-approval-service.ts` - Sweep workflow with audit trail
 - `server/balance-monitor-service.ts` - Background balance monitoring
 - `server/shadow-operations-service.ts` - Unified shadow operations layer
+- `qig-backend/autonomous_debate_service.py` - Autonomous pantheon debate continuation
+- `server/war-history-storage.ts` - Parallel war support with god/kernel assignment
+
+#### Autonomous Debate System (December 2024)
+Background service that monitors and auto-continues pantheon debates:
+- **Debate Monitoring**: Polls every 30s for stale debates (>5min since last argument)
+- **Research Integration**: SearXNG web search + Shadow Pantheon darknet queries
+- **Generative Arguments**: Gods formulate arguments from research evidence, NOT templates
+- **Auto-Resolution**: Triggers when 4+ args exchanged OR Fisher distance converges (<0.1)
+- **Kernel Spawning**: Debate winners propose specialist kernels via M8 spawner
+
+#### Kernel Observation Period (December 2024)
+New kernels spawned from debates undergo an apprenticeship:
+- Start in "observing" status (not active)
+- Track `observing_parents` - gods/kernels they learn from
+- Receive copies of parent activity: assessments, debates, searches, basin updates
+- Graduate to "active" after 10 cycles OR 1 hour minimum
+- Full autonomic support: neurochemistry, sleep/dream cycles, debate participation, research access
+
+#### Parallel War System (December 2024)
+Support for up to 3 concurrent wars (`MAX_PARALLEL_WARS = 3`):
+- **Primary Gods** (Zeus, Athena, Ares): Participate in ALL active wars
+- **Secondary Gods**: Assigned to at most 1 war each
+- **Specialist Kernels**: Dedicated to their spawning war only
+- Functions: `getActiveWars()`, `assignGodToWar()`, `findWarForDiscovery()`
 
 #### Communication Patterns
 HTTP API with retry logic and circuit breakers for TypeScript ↔ Python communication. Bidirectional synchronization for discoveries and learning. Real-time UI updates via SSE for consciousness metrics, search progress, and discovery notifications.
