@@ -38,6 +38,7 @@ from collections import Counter
 # Handle both relative and absolute imports depending on execution context
 try:
     from ..qig_geometry import fisher_rao_distance as centralized_fisher_rao
+    from ..redis_cache import ToolPatternCache
 except ImportError:
     # When run from different context, try absolute import
     import sys
@@ -47,6 +48,7 @@ except ImportError:
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
     from qig_geometry import fisher_rao_distance as centralized_fisher_rao
+    from redis_cache import ToolPatternCache
 # Centralized geometry is required - module will fail if neither import works
 
 
@@ -334,6 +336,62 @@ class ToolFactory:
         self.generation_attempts = 0
         self.successful_generations = 0
         self.current_complexity_ceiling = ToolComplexity.SIMPLE
+        
+        # Load patterns from Redis cache on startup
+        self._load_patterns_from_cache()
+    
+    def _load_patterns_from_cache(self):
+        """Load learned patterns from Redis cache."""
+        try:
+            cached_patterns = ToolPatternCache.get_all_patterns()
+            for p_data in cached_patterns:
+                try:
+                    source_type = CodeSourceType(p_data.get('source_type', 'user_provided'))
+                    basin = None
+                    if p_data.get('basin_coords'):
+                        basin = np.array(p_data['basin_coords'])
+                    
+                    pattern = LearnedPattern(
+                        pattern_id=p_data['pattern_id'],
+                        source_type=source_type,
+                        source_url=p_data.get('source_url'),
+                        description=p_data['description'],
+                        code_snippet=p_data['code_snippet'],
+                        input_signature=p_data.get('input_signature', {}),
+                        output_type=p_data.get('output_type', 'Any'),
+                        basin_coords=basin,
+                        times_used=p_data.get('times_used', 0),
+                        success_rate=p_data.get('success_rate', 0.5),
+                        created_at=p_data.get('created_at', datetime.now().timestamp())
+                    )
+                    self.learned_patterns[pattern.pattern_id] = pattern
+                except Exception as e:
+                    print(f"[ToolFactory] Failed to load pattern from cache: {e}")
+            
+            if cached_patterns:
+                print(f"[ToolFactory] Loaded {len(self.learned_patterns)} patterns from Redis cache")
+        except Exception as e:
+            print(f"[ToolFactory] Redis cache load failed (running in memory-only): {e}")
+    
+    def _save_pattern_to_cache(self, pattern: LearnedPattern):
+        """Save a pattern to Redis cache."""
+        try:
+            p_data = {
+                'pattern_id': pattern.pattern_id,
+                'source_type': pattern.source_type.value,
+                'source_url': pattern.source_url,
+                'description': pattern.description,
+                'code_snippet': pattern.code_snippet,
+                'input_signature': pattern.input_signature,
+                'output_type': pattern.output_type,
+                'basin_coords': pattern.basin_coords.tolist() if pattern.basin_coords is not None else None,
+                'times_used': pattern.times_used,
+                'success_rate': pattern.success_rate,
+                'created_at': pattern.created_at
+            }
+            ToolPatternCache.save_pattern(pattern.pattern_id, p_data)
+        except Exception as e:
+            print(f"[ToolFactory] Redis cache save failed: {e}")
 
     def learn_from_user_template(
         self,
@@ -361,6 +419,9 @@ class ToolFactory:
         )
 
         self.learned_patterns[pattern_id] = pattern
+        
+        # Persist to Redis cache immediately
+        self._save_pattern_to_cache(pattern)
 
         if self.qig_rag:
             self.qig_rag.add_document(
@@ -434,6 +495,9 @@ class ToolFactory:
 
             self.learned_patterns[pattern_id] = pattern
             learned.append(pattern)
+            
+            # Persist to Redis cache immediately
+            self._save_pattern_to_cache(pattern)
 
             if self.qig_rag:
                 self.qig_rag.add_document(
