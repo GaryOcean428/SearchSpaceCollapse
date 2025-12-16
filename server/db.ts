@@ -4,8 +4,21 @@ import ws from "ws";
 import * as schema from "@shared/schema";
 import { readFileSync } from 'fs';
 
-neonConfig.webSocketConstructor = ws;
-neonConfig.poolQueryViaFetch = true;
+// Detect deployment mode early for Neon configuration
+const isDeployedEnv = process.env.REPLIT_DEPLOYMENT === '1' || !process.env.DATABASE_URL;
+
+// In production/deployment, use HTTP fetch exclusively to avoid WebSocket issues
+// The Neon ErrorEvent has a read-only 'message' property that causes errors with ws
+if (isDeployedEnv) {
+  // Use HTTP fetch for all queries - avoids WebSocket entirely
+  neonConfig.fetchConnectionCache = true;
+  neonConfig.poolQueryViaFetch = true;
+  // Don't set webSocketConstructor - forces HTTP mode
+} else {
+  // Development mode - use WebSocket for real-time features
+  neonConfig.webSocketConstructor = ws;
+  neonConfig.poolQueryViaFetch = true;
+}
 
 // ============================================================================
 // CONNECTION SEMAPHORE - Prevents pool exhaustion
