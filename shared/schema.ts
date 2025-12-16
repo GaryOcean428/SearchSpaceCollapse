@@ -676,77 +676,6 @@ export const addresses = pgTable(
   ]
 );
 
-// Known entities (people, organizations, miners) from Era Manifold
-export const entities = pgTable(
-  "entities",
-  {
-    id: varchar("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    name: varchar("name", { length: 255 }).notNull(),
-    type: varchar("type", { length: 50 }).notNull(), // 'person', 'organization', 'miner', 'developer'
-
-    // Identity data
-    aliases: varchar("aliases", { length: 255 }).array(),
-    knownAddresses: varchar("known_addresses", { length: 35 }).array(),
-
-    // Contextual data
-    bitcoinTalkUsername: varchar("bitcointalk_username", { length: 100 }),
-    githubUsername: varchar("github_username", { length: 100 }),
-    emailAddresses: varchar("email_addresses", { length: 255 }).array(),
-
-    // Temporal context
-    firstActivityDate: timestamp("first_activity_date"),
-    lastActivityDate: timestamp("last_activity_date"),
-
-    // Status
-    isDeceased: boolean("is_deceased").default(false),
-    estateContact: varchar("estate_contact", { length: 500 }),
-
-    // Metadata
-    metadata: jsonb("metadata"), // Additional flexible data
-
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-  },
-  (table) => [
-    index("idx_entities_type").on(table.type),
-    index("idx_entities_bitcointalk").on(table.bitcoinTalkUsername),
-  ]
-);
-
-// Historical artifacts (forum posts, mailing lists, code commits)
-export const artifacts = pgTable(
-  "artifacts",
-  {
-    id: varchar("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    type: varchar("type", { length: 50 }).notNull(), // 'forum_post', 'mailing_list', 'code_commit', 'news'
-    source: varchar("source", { length: 255 }).notNull(), // 'bitcointalk', 'cryptography_ml', 'github'
-
-    // Content
-    title: varchar("title", { length: 500 }),
-    content: text("content"),
-    author: varchar("author", { length: 255 }),
-    timestamp: timestamp("timestamp"),
-
-    // References
-    entityId: varchar("entity_id"),
-    relatedAddresses: varchar("related_addresses", { length: 35 }).array(),
-
-    // URL and metadata
-    url: varchar("url", { length: 1000 }),
-    metadata: jsonb("metadata"),
-
-    createdAt: timestamp("created_at").defaultNow(),
-  },
-  (table) => [
-    index("idx_artifacts_type").on(table.type),
-    index("idx_artifacts_author").on(table.author),
-    index("idx_artifacts_timestamp").on(table.timestamp),
-  ]
-);
 
 // Recovery priorities: κ_recovery rankings for each address
 export const recoveryPriorities = pgTable(
@@ -831,8 +760,6 @@ export const recoveryWorkflows = pgTable(
 export type Block = typeof blocks.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
 export type Address = typeof addresses.$inferSelect;
-export type Entity = typeof entities.$inferSelect;
-export type Artifact = typeof artifacts.$inferSelect;
 export type RecoveryPriority = typeof recoveryPriorities.$inferSelect;
 export type RecoveryWorkflow = typeof recoveryWorkflows.$inferSelect;
 

@@ -10,7 +10,7 @@
  * Higher κ = harder to recover (low constraints, high entropy)
  */
 
-import type { Address, Entity, Artifact } from "@shared/schema";
+import type { Address } from "@shared/schema";
 
 // ============================================================================
 // CONSTRAINT ANALYSIS
@@ -45,15 +45,16 @@ export interface ConstraintBreakdown {
  * Compute Φ_constraints (integrated information from constraints)
  * 
  * Higher Φ = more information available to constrain search space
+ * 
+ * NOTE: Entity and Artifact tracking removed - blockchain forensics not in scope.
+ * Entity/artifact scores are now 0.
  */
 export function computePhiConstraints(
-  address: Address,
-  entities: Entity[],
-  artifacts: Artifact[]
+  address: Address
 ): { phi: number; breakdown: ConstraintBreakdown } {
   
   const breakdown: ConstraintBreakdown = {
-    entityLinkage: entities.length,
+    entityLinkage: 0,
     entityConfidence: 0,
     artifactDensity: 0,
     temporalPrecisionHours: 0,
@@ -66,28 +67,15 @@ export function computePhiConstraints(
     scriptComplexity: 0,
   };
   
-  // Entity linkage score (0-30 points)
-  const entityScore = Math.min(entities.length * 10, 30);
+  // Entity linkage score - blockchain forensics removed, score is 0
+  const entityScore = 0;
   
-  // Entity confidence: higher if multiple identity fields match
-  if (entities.length > 0) {
-    const confidenceScores = entities.map(e => {
-      let score = 0;
-      if (e.knownAddresses && e.knownAddresses.includes(address.address)) score += 0.4;
-      if (e.bitcoinTalkUsername) score += 0.2;
-      if (e.githubUsername) score += 0.2;
-      if (e.emailAddresses && e.emailAddresses.length > 0) score += 0.2;
-      return Math.min(score, 1.0);
-    });
-    breakdown.entityConfidence = Math.max(...confidenceScores);
-  }
-  
-  // Artifact density score (0-25 points)
+  // Artifact density score - blockchain forensics removed, score is 0
   const daysSinceCreation = Math.max(1, 
     (Date.now() - new Date(address.firstSeenTimestamp).getTime()) / (1000 * 60 * 60 * 24)
   );
-  breakdown.artifactDensity = artifacts.length / daysSinceCreation;
-  const artifactScore = Math.min(artifacts.length * 5, 25);
+  breakdown.artifactDensity = 0;
+  const artifactScore = 0;
   
   // Temporal precision (0-15 points)
   // Narrow time window = better constraints
@@ -230,14 +218,14 @@ export interface KappaRecoveryResult {
  * κ_recovery = Φ_constraints / H_creation
  * 
  * Lower κ = easier to recover (prioritize these)
+ * 
+ * NOTE: Entity/Artifact data removed - blockchain forensics not in scope.
  */
 export function computeKappaRecovery(
-  address: Address,
-  entities: Entity[],
-  artifacts: Artifact[]
+  address: Address
 ): KappaRecoveryResult {
   
-  const { phi, breakdown: constraints } = computePhiConstraints(address, entities, artifacts);
+  const { phi, breakdown: constraints } = computePhiConstraints(address);
   const { h, breakdown: entropy } = computeHCreation(address);
   
   // Compute κ_recovery
@@ -260,22 +248,13 @@ export function computeKappaRecovery(
   }
   
   // Recommend recovery vector
+  // NOTE: Estate/social vectors removed as they required entity/artifact data
   let recommendedVector: 'estate' | 'constrained_search' | 'social' | 'temporal';
-  
-  // Estate vector: if we have entity with estate contact
-  const hasEstateContact = entities.some(e => e.isDeceased && e.estateContact);
-  
-  // Social vector: if we have many artifacts
-  const hasManyArtifacts = artifacts.length >= 5;
   
   // Temporal vector: if we have meaningful temporal signature (≥1 hour precision = hourPattern exists)
   const hasTemporalSignature = constraints.temporalPrecisionHours >= 1.0;
   
-  if (hasEstateContact) {
-    recommendedVector = 'estate';
-  } else if (hasManyArtifacts) {
-    recommendedVector = 'social';
-  } else if (hasTemporalSignature || constraints.graphSignature > 0) {
+  if (hasTemporalSignature || constraints.graphSignature > 0) {
     recommendedVector = 'constrained_search';
   } else {
     recommendedVector = 'temporal';
@@ -313,20 +292,17 @@ export interface RankedRecoveryResult {
  * Compute κ_recovery for all dormant addresses and rank them
  * 
  * Returns addresses sorted by κ_recovery (ascending = easier to recover first)
+ * 
+ * NOTE: Entity/Artifact data removed - blockchain forensics not in scope.
  */
 export function rankRecoveryPriorities(
   addresses: Address[],
-  entitiesByAddress: Map<string, Entity[]>,
-  artifactsByAddress: Map<string, Artifact[]>,
   btcPriceUSD: number = 100000 // Default BTC price
 ): RankedRecoveryResult[] {
   
   // Compute κ_recovery for each address
   const results = addresses.map(address => {
-    const entities = entitiesByAddress.get(address.address) || [];
-    const artifacts = artifactsByAddress.get(address.address) || [];
-    
-    const result = computeKappaRecovery(address, entities, artifacts);
+    const result = computeKappaRecovery(address);
     
     // Estimate value in USD
     const balanceBTC = Number(address.currentBalance) / 1e8;

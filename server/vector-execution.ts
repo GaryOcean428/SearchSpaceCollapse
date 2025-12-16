@@ -11,7 +11,7 @@
  */
 
 import { observerStorage } from "./observer-storage";
-import type { Entity, Artifact, RecoveryWorkflow, RecoveryPriority } from "@shared/schema";
+import type { RecoveryWorkflow, RecoveryPriority } from "@shared/schema";
 
 // ============================================================================
 // ESTATE VECTOR: Find heirs and send contact letters
@@ -39,62 +39,39 @@ export interface EstateVectorState {
 
 /**
  * Execute estate research phase
+ * 
+ * NOTE: Entity/Artifact data removed - blockchain forensics not in scope.
+ * Returns recommendations for manual research.
  */
 export async function executeEstateResearch(
   workflow: RecoveryWorkflow,
   _priority: RecoveryPriority
-): Promise<{ entities: Entity[], artifacts: Artifact[], recommendations: string[] }> {
+): Promise<{ recommendations: string[] }> {
   const recommendations: string[] = [];
   
-  // Get entities linked to this address
-  const entities = await observerStorage.getEntitiesByAddress(workflow.address);
-  const artifacts = await observerStorage.getArtifactsByAddress(workflow.address);
+  // No entity/artifact data available - suggest research approaches
+  recommendations.push("Entity/artifact tracking not available. Consider:");
+  recommendations.push("  - BitcoinTalk forum search for address mentions");
+  recommendations.push("  - Cryptography mailing list archives");
+  recommendations.push("  - GitHub/SourceForge early Bitcoin contributors");
+  recommendations.push("  - Archive.org snapshots of early Bitcoin sites");
+  recommendations.push(`  - Search for address: ${workflow.address}`);
   
-  // Analyze entities for estate contact potential
-  for (const entity of entities) {
-    if (entity.isDeceased) {
-      recommendations.push(`Entity "${entity.name}" is marked as deceased. Check for estate contact.`);
-      if (entity.estateContact) {
-        recommendations.push(`Estate contact available: ${entity.estateContact}`);
-      } else {
-        recommendations.push(`No estate contact on file. Consider public records search.`);
-      }
-    }
-    
-    if (entity.emailAddresses && entity.emailAddresses.length > 0) {
-      recommendations.push(`Email addresses available for "${entity.name}": ${entity.emailAddresses.join(", ")}`);
-    }
-    
-    if (entity.lastActivityDate) {
-      const yearsSinceActivity = (Date.now() - entity.lastActivityDate.getTime()) / (365 * 24 * 60 * 60 * 1000);
-      if (yearsSinceActivity > 10) {
-        recommendations.push(`"${entity.name}" has been inactive for ${yearsSinceActivity.toFixed(1)} years. May be deceased or unreachable.`);
-      }
-    }
-  }
-  
-  // If no entities found, suggest research approaches
-  if (entities.length === 0) {
-    recommendations.push("No entities linked to this address. Consider:");
-    recommendations.push("  - BitcoinTalk forum search for address mentions");
-    recommendations.push("  - Cryptography mailing list archives");
-    recommendations.push("  - GitHub/SourceForge early Bitcoin contributors");
-    recommendations.push("  - Archive.org snapshots of early Bitcoin sites");
-  }
-  
-  return { entities, artifacts, recommendations };
+  return { recommendations };
 }
 
 /**
  * Generate estate contact letter
+ * 
+ * NOTE: Entity data removed - uses placeholder name.
  */
 export function generateEstateContactLetter(
-  entity: Entity,
+  entityName: string | null,
   address: string,
   estimatedValue: string
 ): string {
   const template = `
-Dear ${entity.name || "Bitcoin Holder"} or Estate Representative,
+Dear ${entityName || "Bitcoin Holder"} or Estate Representative,
 
 I am reaching out regarding a dormant Bitcoin address that may be associated with you 
 or your family:
@@ -102,7 +79,7 @@ or your family:
 Address: ${address}
 Estimated Value: ${estimatedValue}
 
-This address has been inactive since approximately ${entity.lastActivityDate?.toISOString().split('T')[0] || "2009-2011"}, 
+This address has been inactive since approximately 2009-2011, 
 a period during early Bitcoin development. Many addresses from this era contain 
 significant value that the original holders may have forgotten or lost access to.
 
@@ -268,6 +245,8 @@ export async function searchWaybackMachine(
 
 /**
  * Build timeline from various sources
+ * 
+ * NOTE: Artifact data removed - blockchain forensics not in scope.
  */
 export async function buildAddressTimeline(
   address: string
@@ -289,19 +268,6 @@ export async function buildAddressTimeline(
         date: addressData.lastActivityTimestamp,
         event: `Last activity on blockchain (block ${addressData.lastActivityHeight})`,
         source: "blockchain",
-      });
-    }
-  }
-  
-  // Get artifacts for this address
-  const artifacts = await observerStorage.getArtifactsByAddress(address);
-  
-  for (const artifact of artifacts) {
-    if (artifact.timestamp) {
-      timeline.push({
-        date: artifact.timestamp,
-        event: `${artifact.type}: "${artifact.title || 'Untitled'}"`,
-        source: artifact.source,
       });
     }
   }
@@ -363,39 +329,24 @@ async function executeEstateVector(
   workflow: RecoveryWorkflow,
   priority: RecoveryPriority
 ): Promise<VectorExecutionResult> {
-  const { entities, artifacts, recommendations } = await executeEstateResearch(workflow, priority);
+  const { recommendations } = await executeEstateResearch(workflow, priority);
   
   const findings: string[] = [];
   const nextSteps: string[] = [];
   
-  if (entities.length > 0) {
-    findings.push(`Found ${entities.length} linked entities`);
-    
-    for (const entity of entities) {
-      if (entity.isDeceased) {
-        findings.push(`Entity "${entity.name}" is deceased`);
-        if (entity.estateContact) {
-          nextSteps.push(`Contact estate: ${entity.estateContact}`);
-        } else {
-          nextSteps.push(`Research estate for "${entity.name}"`);
-        }
-      } else if (entity.emailAddresses?.length) {
-        nextSteps.push(`Contact "${entity.name}" via email`);
-      }
-    }
-  } else {
-    findings.push("No entities linked to address");
-    nextSteps.push("Perform social vector research to identify owner");
-  }
+  // Entity/artifact tracking not available - blockchain forensics not in scope
+  findings.push("Entity tracking not available - blockchain forensics not in scope");
+  nextSteps.push("Perform social vector research to identify owner");
+  nextSteps.push("Use forum/archive searches for address mentions");
   
   return {
     vector: "estate",
-    status: entities.length > 0 ? "success" : "partial",
-    progress: entities.length > 0 ? 50 : 10,
+    status: "partial",
+    progress: 10,
     findings,
     recommendations,
     nextSteps,
-    data: { entities, artifacts },
+    data: {},
   };
 }
 
@@ -419,23 +370,11 @@ async function executeSocialVector(
     }
   }
   
-  // Get existing artifacts
-  const artifacts = await observerStorage.getArtifactsByAddress(workflow.address);
-  const bitcoinTalkArtifacts = artifacts.filter(a => a.source === "bitcointalk");
-  
-  if (bitcoinTalkArtifacts.length > 0) {
-    findings.push(`${bitcoinTalkArtifacts.length} BitcoinTalk artifacts already cataloged`);
-    for (const artifact of bitcoinTalkArtifacts) {
-      findings.push(`  - ${artifact.title || artifact.type}: ${artifact.author || 'unknown author'}`);
-    }
-  }
-  
   recommendations.push("Search BitcoinTalk forum for address mentions");
   recommendations.push("Check Reddit r/Bitcoin historical posts");
   recommendations.push("Search early Bitcoin Twitter archives");
   
   nextSteps.push("Execute all generated search queries");
-  nextSteps.push("Cross-reference authors with entity database");
   nextSteps.push("Consider community outreach post if no direct contacts found");
   
   return {
@@ -445,7 +384,7 @@ async function executeSocialVector(
     findings,
     recommendations,
     nextSteps,
-    data: { queries, existingArtifacts: artifacts.length },
+    data: { queries },
   };
 }
 

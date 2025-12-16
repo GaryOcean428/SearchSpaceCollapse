@@ -8,7 +8,7 @@
  * - Temporal Archive: Historical data analysis
  */
 
-import type { RecoveryPriority, Entity, Artifact } from "@shared/schema";
+import type { RecoveryPriority } from "@shared/schema";
 
 // ============================================================================
 // WORKFLOW TYPES & STATUS
@@ -63,13 +63,12 @@ export interface EstateProgress {
  * 6. Verify legal documentation
  * 7. Execute recovery with estate cooperation
  */
+/**
+ * NOTE: Entity data removed - blockchain forensics not in scope.
+ */
 export function initializeEstateWorkflow(
-  priority: RecoveryPriority,
-  entities: Entity[]
+  priority: RecoveryPriority
 ): WorkflowProgress {
-  
-  // Find deceased entity with estate contact
-  const deceasedEntity = entities.find(e => e.isDeceased && e.estateContact);
   
   const progress: WorkflowProgress = {
     startedAt: new Date(),
@@ -77,8 +76,8 @@ export function initializeEstateWorkflow(
     tasksTotal: 7,
     notes: [],
     estateProgress: {
-      estateContactIdentified: !!deceasedEntity,
-      estateContactInfo: deceasedEntity?.estateContact || undefined,
+      estateContactIdentified: false,
+      estateContactInfo: undefined,
       outreachAttempts: 0,
       responseReceived: false,
       legalDocumentsRequested: false,
@@ -88,12 +87,8 @@ export function initializeEstateWorkflow(
     },
   };
   
-  if (deceasedEntity) {
-    progress.notes.push(`Estate contact identified: ${deceasedEntity.estateContact}`);
-    progress.tasksCompleted = 1;
-  } else {
-    progress.notes.push('WARNING: No estate contact found. Estate workflow cannot proceed.');
-  }
+  progress.notes.push('Entity tracking not available - blockchain forensics not in scope.');
+  progress.notes.push('Consider manual research for estate contacts.');
   
   return progress;
 }
@@ -189,10 +184,11 @@ export function formatConstraintsForDisplay(constraints: any): string[] {
  * 5. Monitor high-Φ candidates
  * 6. Verify matches against target address
  */
+/**
+ * NOTE: Entity/Artifact data removed - blockchain forensics not in scope.
+ */
 export function initializeConstrainedSearchWorkflow(
-  priority: RecoveryPriority,
-  _entities: Entity[],
-  _artifacts: Artifact[]
+  priority: RecoveryPriority
 ): WorkflowProgress {
   
   // Generate canonical constraint display strings (Task 7 normalized labels)
@@ -276,35 +272,23 @@ export interface SocialProgress {
  * 6. Verify leads
  * 7. Follow up with promising contacts
  */
+/**
+ * NOTE: Entity/Artifact data removed - blockchain forensics not in scope.
+ */
 export function initializeSocialWorkflow(
-  priority: RecoveryPriority,
-  entities: Entity[],
-  artifacts: Artifact[]
+  priority: RecoveryPriority
 ): WorkflowProgress {
   
-  const platforms = new Set<string>();
-  
-  // Identify platforms from artifacts
-  artifacts.forEach(artifact => {
-    if (artifact.source) {
-      platforms.add(artifact.source);
-    }
-  });
-  
-  // Identify platforms from entities
-  entities.forEach(entity => {
-    if (entity.bitcoinTalkUsername) platforms.add('bitcointalk');
-    if (entity.githubUsername) platforms.add('github');
-    if (entity.emailAddresses && entity.emailAddresses.length > 0) platforms.add('email');
-  });
+  // Default platforms to search - entity/artifact tracking not available
+  const platforms = new Set<string>(['bitcointalk', 'reddit', 'twitter']);
   
   const progress: WorkflowProgress = {
     startedAt: new Date(),
     tasksCompleted: 1, // Platforms identified
     tasksTotal: 7,
     notes: [
-      `Platforms identified: ${Array.from(platforms).join(', ')}`,
-      `${entities.length} entities, ${artifacts.length} artifacts`,
+      `Default platforms: ${Array.from(platforms).join(', ')}`,
+      'Entity/artifact tracking not available - blockchain forensics not in scope.',
     ],
     socialProgress: {
       platformsIdentified: Array.from(platforms),
@@ -377,22 +361,23 @@ export interface TemporalProgress {
  * 6. Cross-reference with other addresses
  * 7. Generate temporal fingerprint
  */
+/**
+ * NOTE: Entity/Artifact data removed - blockchain forensics not in scope.
+ */
 export function initializeTemporalWorkflow(
-  priority: RecoveryPriority,
-  entities: Entity[],
-  artifacts: Artifact[]
+  priority: RecoveryPriority
 ): WorkflowProgress {
   
-  const archives = new Set<string>();
-  artifacts.forEach(a => archives.add(a.source));
+  // Default archives to search - artifact tracking not available
+  const archives = new Set<string>(['archive.org', 'wayback', 'google_cache']);
   
   const progress: WorkflowProgress = {
     startedAt: new Date(),
     tasksCompleted: 1, // Archives identified
     tasksTotal: 7,
     notes: [
-      `Archives identified: ${Array.from(archives).join(', ')}`,
-      `${artifacts.length} artifacts in time period`,
+      `Default archives: ${Array.from(archives).join(', ')}`,
+      'Artifact tracking not available - blockchain forensics not in scope.',
     ],
     temporalProgress: {
       archivesIdentified: Array.from(archives),
@@ -444,25 +429,26 @@ export function updateTemporalProgress(
 /**
  * Initialize recovery workflow for a given vector
  */
+/**
+ * NOTE: Entity/Artifact data removed - blockchain forensics not in scope.
+ */
 export function initializeWorkflow(
   vector: RecoveryVector,
-  priority: RecoveryPriority,
-  entities: Entity[],
-  artifacts: Artifact[]
+  priority: RecoveryPriority
 ): WorkflowProgress {
   
   switch (vector) {
     case 'estate':
-      return initializeEstateWorkflow(priority, entities);
+      return initializeEstateWorkflow(priority);
     
     case 'constrained_search':
-      return initializeConstrainedSearchWorkflow(priority, entities, artifacts);
+      return initializeConstrainedSearchWorkflow(priority);
     
     case 'social':
-      return initializeSocialWorkflow(priority, entities, artifacts);
+      return initializeSocialWorkflow(priority);
     
     case 'temporal':
-      return initializeTemporalWorkflow(priority, entities, artifacts);
+      return initializeTemporalWorkflow(priority);
     
     default:
       throw new Error(`Unknown recovery vector: ${vector}`);
