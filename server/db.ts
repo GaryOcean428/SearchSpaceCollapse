@@ -118,7 +118,7 @@ export function getDbSemaphoreStats() {
 // higher-level storage layers now fail fast without a database to avoid
 // falling back to JSON or in-memory paths.
 let pool: Pool | null = null;
-let db: ReturnType<typeof drizzle> | null = null;
+let db: ReturnType<typeof drizzle> | ReturnType<typeof drizzleHttp> | null = null;
 
 // Get DATABASE_URL from environment or /tmp/replitdb (for deployed apps)
 // Automatically converts to pooler URL for deployed apps

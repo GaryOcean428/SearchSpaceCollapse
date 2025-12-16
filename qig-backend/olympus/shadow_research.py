@@ -417,7 +417,10 @@ class KnowledgeBase:
         """Find knowledge items near a basin coordinate."""
         neighbors = []
         
-        for knowledge in self._knowledge.values():
+        with self._lock:
+            knowledge_items = list(self._knowledge.values())
+        
+        for knowledge in knowledge_items:
             if knowledge.basin_coords is not None:
                 distance = self._fisher_distance(basin_coords, knowledge.basin_coords)
                 if distance < threshold:
@@ -489,12 +492,16 @@ class KnowledgeBase:
     
     def get_stats(self) -> Dict:
         """Get knowledge base statistics."""
+        with self._lock:
+            knowledge_items = list(self._knowledge.values())
+            category_counts = {cat.value: len(ids) for cat, ids in self._by_category.items()}
+        
         return {
-            "total_items": len(self._knowledge),
-            "by_category": {cat.value: len(ids) for cat, ids in self._by_category.items()},
+            "total_items": len(knowledge_items),
+            "by_category": category_counts,
             "clusters": len(self._clusters),
-            "avg_phi": np.mean([k.phi for k in self._knowledge.values()]) if self._knowledge else 0.0,
-            "avg_confidence": np.mean([k.confidence for k in self._knowledge.values()]) if self._knowledge else 0.0
+            "avg_phi": np.mean([k.phi for k in knowledge_items]) if knowledge_items else 0.0,
+            "avg_confidence": np.mean([k.confidence for k in knowledge_items]) if knowledge_items else 0.0
         }
 
 
