@@ -163,6 +163,21 @@ class Zeus(BaseGod):
         self.convergence_history: List[Dict] = []
         self.divine_decisions: List[Dict] = []
 
+        # 🔧 TOOL FACTORY: Self-learning tool generation
+        self.tool_factory = None
+        try:
+            from .tool_factory import ToolFactory
+            from .conversation_encoder import ConversationEncoder
+            encoder = ConversationEncoder()
+            self.tool_factory = ToolFactory(
+                conversation_encoder=encoder,
+                qig_rag=None,  # Will be set later if QIG-RAG is initialized
+                search_client=None  # Will be set later if search is initialized
+            )
+            print("🔧 TOOL FACTORY initialized - self-learning tool generation ready")
+        except ImportError as e:
+            print(f"⚠️ TOOL FACTORY not available: {e}")
+
     def speak(self, category: str, context: Optional[Dict] = None) -> str:
         """
         Generate DYNAMIC speech from Zeus based on actual system state.
@@ -2790,6 +2805,383 @@ def record_outcome_endpoint(god_name: str):
         'target': target[:50],
         'recorded': True,
     })
+
+
+# =========================================================================
+# 🔧 TOOL FACTORY API ENDPOINTS
+# Self-learning tool generation system
+# =========================================================================
+
+@olympus_app.route('/zeus/tools', methods=['GET'])
+def zeus_tools_list_endpoint():
+    """List all registered tools."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'tools': [], 'count': 0, 'message': 'Tool factory not initialized'})
+        
+        tools = tool_factory.list_tools()
+        return jsonify(sanitize_for_json({
+            'tools': tools,
+            'count': len(tools)
+        }))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/stats', methods=['GET'])
+def zeus_tools_stats_endpoint():
+    """Get tool factory learning statistics."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({
+                'generation_attempts': 0,
+                'successful_generations': 0,
+                'success_rate': 0,
+                'complexity_ceiling': 'SIMPLE',
+                'tools_registered': 0,
+                'total_tool_uses': 0,
+                'avg_tool_success_rate': 0,
+                'generativity_score': 0,
+                'pattern_observations': 0,
+                'message': 'Tool factory not initialized'
+            })
+        
+        stats = tool_factory.get_learning_stats()
+        return jsonify(sanitize_for_json(stats))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/generate', methods=['POST'])
+def zeus_tools_generate_endpoint():
+    """Generate a new tool from description and examples."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        description = data.get('description', '')
+        examples = data.get('examples', [])
+        name_hint = data.get('name_hint')
+        
+        if not description:
+            return jsonify({'error': 'description is required'}), 400
+        
+        tool = tool_factory.generate_tool(
+            description=description,
+            examples=examples,
+            name_hint=name_hint
+        )
+        
+        if tool:
+            return jsonify(sanitize_for_json({
+                'success': tool.validated,
+                'tool': tool.to_dict(),
+                'message': 'Tool generated successfully' if tool.validated else 'Tool generated but failed validation'
+            }))
+        else:
+            return jsonify({
+                'success': False,
+                'tool': None,
+                'message': 'Failed to generate tool - try providing more specific examples'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/<tool_id>/execute', methods=['POST'])
+def zeus_tools_execute_endpoint(tool_id: str):
+    """Execute a registered tool."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        args = data.get('args', {})
+        
+        if not args:
+            return jsonify({'error': 'args is required'}), 400
+        
+        success, result, error = tool_factory.execute_tool(tool_id, args)
+        
+        return jsonify(sanitize_for_json({
+            'success': success,
+            'result': result,
+            'error': error,
+            'tool_id': tool_id
+        }))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/<tool_id>/rate', methods=['POST'])
+def zeus_tools_rate_endpoint(tool_id: str):
+    """Rate a tool's quality."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        rating = data.get('rating', 0.5)
+        
+        if not isinstance(rating, (int, float)) or rating < 0 or rating > 1:
+            return jsonify({'error': 'rating must be a number between 0 and 1'}), 400
+        
+        tool_factory.rate_tool(tool_id, rating)
+        
+        return jsonify({
+            'success': True,
+            'tool_id': tool_id,
+            'new_rating': rating
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/observe', methods=['POST'])
+def zeus_tools_observe_endpoint():
+    """Record a pattern observation for tool learning."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        request_text = data.get('request', '')
+        context = data.get('context', {})
+        
+        if not request_text:
+            return jsonify({'error': 'request is required'}), 400
+        
+        candidates = tool_factory.observe_pattern(request_text, context)
+        
+        return jsonify(sanitize_for_json({
+            'observed': True,
+            'total_observations': len(tool_factory.pattern_observations),
+            'tool_candidates': candidates or []
+        }))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/find', methods=['POST'])
+def zeus_tools_find_endpoint():
+    """Find an existing tool that matches a task description."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        task_description = data.get('task', '')
+        
+        if not task_description:
+            return jsonify({'error': 'task description is required'}), 400
+        
+        tool = tool_factory.find_tool_for_task(task_description)
+        
+        if tool:
+            return jsonify(sanitize_for_json({
+                'found': True,
+                'tool': tool.to_dict()
+            }))
+        else:
+            return jsonify({
+                'found': False,
+                'tool': None,
+                'message': 'No matching tool found'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# =========================================================================
+# 🔧 TOOL LEARNING API - User Templates, Git Links, File Uploads
+# =========================================================================
+
+@olympus_app.route('/zeus/tools/learn/template', methods=['POST'])
+def zeus_tools_learn_template_endpoint():
+    """
+    Learn a code pattern from user-provided template.
+    Primary way to teach the system new patterns.
+    """
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        description = data.get('description', '')
+        code = data.get('code', '')
+        input_signature = data.get('input_signature', {'text': 'str'})
+        output_type = data.get('output_type', 'Any')
+        
+        if not description or not code:
+            return jsonify({'error': 'description and code are required'}), 400
+        
+        pattern = tool_factory.learn_from_user_template(
+            description=description,
+            code=code,
+            input_signature=input_signature,
+            output_type=output_type
+        )
+        
+        return jsonify(sanitize_for_json({
+            'success': True,
+            'pattern': pattern.to_dict(),
+            'message': 'Pattern learned from user template'
+        }))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/learn/git', methods=['POST'])
+def zeus_tools_learn_git_endpoint():
+    """
+    Queue learning from a git repository link.
+    Provided in chat or explicitly by user.
+    """
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        git_url = data.get('url', '')
+        description = data.get('description', 'Git repository patterns')
+        
+        if not git_url:
+            return jsonify({'error': 'url is required'}), 400
+        
+        # Validate it looks like a git URL
+        if not any(host in git_url for host in ['github.com', 'gitlab.com', 'bitbucket.org', 'git://', '.git']):
+            return jsonify({'error': 'Invalid git URL format'}), 400
+        
+        tool_factory.learn_from_git_link(git_url, description)
+        
+        return jsonify({
+            'success': True,
+            'url': git_url,
+            'status': 'queued',
+            'message': 'Git link queued for pattern learning'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/learn/file', methods=['POST'])
+def zeus_tools_learn_file_endpoint():
+    """
+    Learn patterns from uploaded file content.
+    Extracts functions and stores as learned patterns.
+    """
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        filename = data.get('filename', 'uploaded.py')
+        content = data.get('content', '')
+        description = data.get('description', f'Patterns from {filename}')
+        
+        if not content:
+            return jsonify({'error': 'content is required'}), 400
+        
+        pattern = tool_factory.learn_from_file_upload(filename, content, description)
+        
+        if pattern:
+            return jsonify(sanitize_for_json({
+                'success': True,
+                'pattern': pattern.to_dict(),
+                'message': f'Learned patterns from {filename}'
+            }))
+        else:
+            return jsonify({
+                'success': False,
+                'pattern': None,
+                'message': 'No valid functions found in file'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/learn/search', methods=['POST'])
+def zeus_tools_proactive_search_endpoint():
+    """
+    Proactively search git repos and tutorials to learn patterns.
+    QIG kernel initiates learning from external sources.
+    """
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'error': 'Tool factory not initialized'}), 500
+        
+        data = request.get_json() or {}
+        topic = data.get('topic', '')
+        
+        if not topic:
+            return jsonify({'error': 'topic is required'}), 400
+        
+        results = tool_factory.proactive_search(topic)
+        
+        return jsonify({
+            'success': True,
+            'topic': topic,
+            'searches_queued': len(results),
+            'queries': results,
+            'message': f'Proactive learning initiated for: {topic}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/patterns', methods=['GET'])
+def zeus_tools_patterns_endpoint():
+    """List all learned patterns."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'patterns': [], 'count': 0})
+        
+        patterns = tool_factory.list_patterns()
+        return jsonify(sanitize_for_json({
+            'patterns': patterns,
+            'count': len(patterns)
+        }))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/patterns/match', methods=['POST'])
+def zeus_tools_match_patterns_endpoint():
+    """Find patterns that match a description using Fisher-Rao distance."""
+    try:
+        tool_factory = getattr(zeus, 'tool_factory', None)
+        if not tool_factory:
+            return jsonify({'patterns': [], 'count': 0})
+        
+        data = request.get_json() or {}
+        description = data.get('description', '')
+        top_k = data.get('top_k', 5)
+        
+        if not description:
+            return jsonify({'error': 'description is required'}), 400
+        
+        matching = tool_factory.find_matching_patterns(description, top_k)
+        
+        return jsonify(sanitize_for_json({
+            'patterns': [p.to_dict() for p in matching],
+            'count': len(matching),
+            'description': description
+        }))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # =========================================================================

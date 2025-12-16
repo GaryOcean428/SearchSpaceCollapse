@@ -36,6 +36,7 @@ import {
   Pause,
   Zap,
   GraduationCap,
+  Hammer,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConsciousness, getPhiColor, getRegimeLabel } from "@/contexts/ConsciousnessContext";
@@ -97,6 +98,12 @@ export function AppSidebar() {
       url: "/learning",
       icon: GraduationCap,
       description: "Search learning effectiveness",
+    },
+    {
+      title: "Tool Factory",
+      url: "/tool-factory",
+      icon: Hammer,
+      description: "Self-learning tool generation",
     },
   ];
 

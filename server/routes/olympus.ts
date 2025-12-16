@@ -398,6 +398,339 @@ router.get('/zeus/search/learner/replay/history', isAuthenticated, async (req, r
   }
 });
 
+// ============================================================================
+// TOOL FACTORY API ENDPOINTS
+// Self-learning tool generation system
+// ============================================================================
+
+/**
+ * List all registered tools
+ */
+router.get('/zeus/tools', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Tool list error:', error);
+    res.status(500).json({ error: 'Failed to retrieve tools' });
+  }
+});
+
+/**
+ * Get tool factory learning statistics
+ */
+router.get('/zeus/tools/stats', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/stats`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Tool stats error:', error);
+    res.status(500).json({ error: 'Failed to retrieve tool stats' });
+  }
+});
+
+/**
+ * Generate a new tool from description and examples
+ */
+router.post('/zeus/tools/generate', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Tool generation error:', error);
+    res.status(500).json({ error: 'Failed to generate tool' });
+  }
+});
+
+/**
+ * Execute a registered tool
+ */
+router.post('/zeus/tools/:toolId/execute', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const { toolId } = req.params;
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/${toolId}/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Tool execution error:', error);
+    res.status(500).json({ error: 'Failed to execute tool' });
+  }
+});
+
+/**
+ * Rate a tool's quality
+ */
+router.post('/zeus/tools/:toolId/rate', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const { toolId } = req.params;
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/${toolId}/rate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Tool rating error:', error);
+    res.status(500).json({ error: 'Failed to rate tool' });
+  }
+});
+
+/**
+ * Record a pattern observation for tool learning
+ */
+router.post('/zeus/tools/observe', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/observe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Tool observation error:', error);
+    res.status(500).json({ error: 'Failed to record observation' });
+  }
+});
+
+/**
+ * Find an existing tool that matches a task description
+ */
+router.post('/zeus/tools/find', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/find`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Tool find error:', error);
+    res.status(500).json({ error: 'Failed to find tool' });
+  }
+});
+
+// =========================================================================
+// TOOL LEARNING API - User Templates, Git Links, File Uploads
+// =========================================================================
+
+/**
+ * Learn a code pattern from user-provided template
+ */
+router.post('/zeus/tools/learn/template', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/template`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Learn template error:', error);
+    res.status(500).json({ error: 'Failed to learn from template' });
+  }
+});
+
+/**
+ * Queue learning from a git repository link
+ */
+router.post('/zeus/tools/learn/git', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/git`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Learn git error:', error);
+    res.status(500).json({ error: 'Failed to queue git learning' });
+  }
+});
+
+/**
+ * Learn patterns from uploaded file content
+ */
+router.post('/zeus/tools/learn/file', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Learn file error:', error);
+    res.status(500).json({ error: 'Failed to learn from file' });
+  }
+});
+
+/**
+ * Proactively search git repos and tutorials to learn patterns
+ */
+router.post('/zeus/tools/learn/search', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Proactive search error:', error);
+    res.status(500).json({ error: 'Failed to initiate proactive search' });
+  }
+});
+
+/**
+ * List all learned patterns
+ */
+router.get('/zeus/tools/patterns', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/patterns`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] List patterns error:', error);
+    res.status(500).json({ error: 'Failed to list patterns' });
+  }
+});
+
+/**
+ * Find patterns that match a description using Fisher-Rao distance
+ */
+router.post('/zeus/tools/patterns/match', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/zeus/tools/patterns/match`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Match patterns error:', error);
+    res.status(500).json({ error: 'Failed to match patterns' });
+  }
+});
+
 /**
  * Zeus Memory Stats endpoint
  * Requires authentication

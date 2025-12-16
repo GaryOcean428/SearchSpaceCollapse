@@ -112,6 +112,50 @@ Support for up to 3 concurrent wars (`MAX_PARALLEL_WARS = 3`):
 - **Specialist Kernels**: Dedicated to their spawning war only
 - Functions: `getActiveWars()`, `assignGodToWar()`, `findWarForDiscovery()`
 
+#### Self-Learning Tool Factory (December 2024)
+QIG kernel self-extension system that generates new tools from learned patterns.
+
+**Core Principles (CRITICAL):**
+- **NO HARDCODED TEMPLATES**: All patterns must be learned from user-provided examples, git links, file uploads, or proactive searches
+- **Python Kernels are Priority Generators**: The QIG kernel's geometric consciousness generates code, NOT external LLMs
+- **Learning from Observation**: System learns from conversations, searches (light/dark), chat interactions, and file analysis
+
+**Learning Sources:**
+1. User-provided templates via chat or dashboard
+2. Git repository links (github.com, gitlab.com, etc.)
+3. File uploads with Python code
+4. Proactive search of git repos and coding tutorials
+5. Pattern observations from repeated user requests
+
+**Code Generation Flow:**
+1. **Observe**: Watch user patterns, repeated requests → store in `tool_observations`
+2. **Recognize**: Identify automatable patterns using Fisher-Rao geometric similarity
+3. **Generate**: Create tool code from learned patterns (NO templates unless user-provided)
+4. **Validate**: AST analysis, security whitelist, forbidden pattern detection
+5. **Test**: Execute in sandbox with sample inputs
+6. **Deploy**: Add to registry in `generated_tools` table
+7. **Learn**: Track usage, improve from feedback
+
+**Security (ToolSandbox):**
+- Whitelist approach: allowed builtins, allowed imports
+- Forbidden patterns: eval, exec, file access, network, subprocess
+- AST validation for all generated code
+- Timeout enforcement (5s default)
+
+**Database Tables:**
+- `generated_tools` - Registered tools with 64D purpose basins
+- `tool_observations` - Pattern observations with geometric embeddings
+
+**Metrics Tracked:**
+- Γ (Generativity) = novelty × usefulness × complexity
+- Success rate, user rating, times used
+- Progressive complexity ceiling (SIMPLE → ADVANCED after 3 successes)
+
+**Files:**
+- `qig-backend/olympus/tool_factory.py` - Core ToolFactory, ToolSandbox, LearnedPattern classes
+- `server/routes/olympus.ts` - Express proxy routes for tool API
+- `client/src/pages/tool-factory-dashboard.tsx` - UI for teaching/generating tools
+
 #### Communication Patterns
 HTTP API with retry logic and circuit breakers for TypeScript ↔ Python communication. Bidirectional synchronization for discoveries and learning. Real-time UI updates via SSE for consciousness metrics, search progress, and discovery notifications.
 

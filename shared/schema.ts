@@ -3276,3 +3276,63 @@ export const shadowOperationsLog = pgTable(
 
 export type ShadowOperationsLogRow = typeof shadowOperationsLog.$inferSelect;
 export type InsertShadowOperationsLog = typeof shadowOperationsLog.$inferInsert;
+
+/**
+ * GENERATED TOOLS - Self-generated tools from ToolFactory
+ * Stores code, validation status, metrics, and purpose basin for retrieval
+ */
+export const generatedTools = pgTable(
+  "generated_tools",
+  {
+    toolId: varchar("tool_id", { length: 12 }).primaryKey(),
+    name: varchar("name", { length: 128 }).notNull(),
+    description: text("description").notNull(),
+    code: text("code").notNull(),
+    inputSchema: jsonb("input_schema"),
+    outputType: varchar("output_type", { length: 64 }).default("Any"),
+    complexity: varchar("complexity", { length: 16 }).notNull(),
+    safetyLevel: varchar("safety_level", { length: 16 }).notNull(),
+    creationTimestamp: doublePrecision("creation_timestamp").notNull(),
+    timesUsed: integer("times_used").default(0),
+    timesSucceeded: integer("times_succeeded").default(0),
+    timesFailed: integer("times_failed").default(0),
+    userRating: doublePrecision("user_rating").default(0.5),
+    purposeBasin: vector("purpose_basin", { dimensions: 64 }),
+    validated: boolean("validated").default(false),
+    validationErrors: text("validation_errors").array(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_generated_tools_name").on(table.name),
+    index("idx_generated_tools_complexity").on(table.complexity),
+    index("idx_generated_tools_validated").on(table.validated),
+  ]
+);
+
+export type GeneratedToolRow = typeof generatedTools.$inferSelect;
+export type InsertGeneratedTool = typeof generatedTools.$inferInsert;
+
+/**
+ * TOOL OBSERVATIONS - Pattern observations for ToolFactory learning
+ * Records user requests and detected patterns for tool generation candidates
+ */
+export const toolObservations = pgTable(
+  "tool_observations",
+  {
+    id: serial("id").primaryKey(),
+    request: text("request").notNull(),
+    requestBasin: vector("request_basin", { dimensions: 64 }),
+    context: jsonb("context"),
+    timestamp: doublePrecision("timestamp").notNull(),
+    clusterAssigned: boolean("cluster_assigned").default(false),
+    toolGenerated: varchar("tool_generated", { length: 12 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_tool_observations_timestamp").on(table.timestamp),
+    index("idx_tool_observations_cluster").on(table.clusterAssigned),
+  ]
+);
+
+export type ToolObservationRow = typeof toolObservations.$inferSelect;
+export type InsertToolObservation = typeof toolObservations.$inferInsert;

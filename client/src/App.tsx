@@ -17,6 +17,7 @@ import InvestigationPage from "@/pages/investigation";
 import OlympusPage from "@/pages/olympus";
 import SpawningPage from "@/pages/spawning";
 import LearningDashboard from "@/pages/learning-dashboard";
+import ToolFactoryDashboard from "@/pages/tool-factory-dashboard";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -78,6 +79,7 @@ function Router() {
         <Route path="/olympus" component={OlympusPage} />
         <Route path="/spawning" component={SpawningPage} />
         <Route path="/learning" component={LearningDashboard} />
+        <Route path="/tool-factory" component={ToolFactoryDashboard} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
