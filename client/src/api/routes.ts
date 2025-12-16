@@ -192,6 +192,11 @@ export const API_ROUTES = {
     search: '/api/memory-search',
     testPhrase: '/api/test-phrase',
   },
+
+  // Activity Stream
+  activityStream: {
+    list: '/api/activity-stream',
+  },
 } as const;
 
 /**
@@ -323,5 +328,9 @@ export const QUERY_KEYS = {
     warActive: () => [API_ROUTES.olympus.warActive] as const,
     shadowStatus: () => [API_ROUTES.olympus.shadow.status] as const,
     kernels: () => [API_ROUTES.olympus.kernels] as const,
+  },
+
+  activityStream: {
+    list: () => [API_ROUTES.activityStream.list] as const,
   },
 } as const;
