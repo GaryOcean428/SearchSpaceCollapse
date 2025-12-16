@@ -1,22 +1,43 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
 import * as schema from "@shared/schema";
 import { readFileSync } from 'fs';
 
-// Detect deployment mode early for Neon configuration
-const isDeployedEnv = process.env.REPLIT_DEPLOYMENT === '1' || !process.env.DATABASE_URL;
+// Check for deployed app by looking for /tmp/replitdb file FIRST
+// This is more reliable than checking REPLIT_DEPLOYMENT or DATABASE_URL
+let isDeployedApp = false;
+try {
+  readFileSync('/tmp/replitdb', 'utf-8');
+  isDeployedApp = true;
+} catch {
+  // File doesn't exist - we're in development
+}
 
-// In production/deployment, use HTTP fetch exclusively to avoid WebSocket issues
+// Also check REPLIT_DEPLOYMENT environment variable
+const isDeployedEnv = process.env.REPLIT_DEPLOYMENT === '1' || isDeployedApp;
+
+// Configure Neon based on environment
+// CRITICAL: In production/deployment, use HTTP fetch ONLY to avoid WebSocket issues
 // The Neon ErrorEvent has a read-only 'message' property that causes errors with ws
 if (isDeployedEnv) {
+  console.log('[DB] Production mode detected - using HTTP-only connections');
   // Use HTTP fetch for all queries - avoids WebSocket entirely
   neonConfig.fetchConnectionCache = true;
   neonConfig.poolQueryViaFetch = true;
+  // Explicitly set wsProxy to undefined to prevent any WebSocket attempts
+  neonConfig.wsProxy = undefined;
   // Don't set webSocketConstructor - forces HTTP mode
+  (neonConfig as any).webSocketConstructor = undefined;
 } else {
-  // Development mode - use WebSocket for real-time features
-  neonConfig.webSocketConstructor = ws;
+  console.log('[DB] Development mode - using WebSocket connections');
+  // Development mode - dynamically require ws to avoid issues in production
+  try {
+    const ws = require('ws');
+    neonConfig.webSocketConstructor = ws;
+  } catch (e) {
+    console.warn('[DB] ws module not available, falling back to HTTP mode');
+    neonConfig.fetchConnectionCache = true;
+  }
   neonConfig.poolQueryViaFetch = true;
 }
 
@@ -93,11 +114,11 @@ let db: ReturnType<typeof drizzle> | null = null;
 // Automatically converts to pooler URL for deployed apps
 function getDatabaseUrl(): string | undefined {
   let dbUrl: string | undefined;
-  let isDeployedApp = false;
   
   // First check environment variable (development)
   if (process.env.DATABASE_URL) {
     dbUrl = process.env.DATABASE_URL;
+    console.log("[DB] Using DATABASE_URL from environment variable");
   } else {
     // Check /tmp/replitdb (deployed/published apps)
     try {
@@ -105,7 +126,6 @@ function getDatabaseUrl(): string | undefined {
       if (urlFromFile) {
         console.log("[DB] Using DATABASE_URL from /tmp/replitdb (deployed app)");
         dbUrl = urlFromFile;
-        isDeployedApp = true;
       }
     } catch {
       // File doesn't exist - this is fine, we're probably in dev mode
@@ -116,13 +136,20 @@ function getDatabaseUrl(): string | undefined {
     return undefined;
   }
   
-  // For deployed apps using Neon, convert to pooler URL to avoid DNS issues
+  // For deployed apps using Neon, convert to pooler URL to avoid WebSocket/DNS issues
   // Replace .us-east-2 (or other regions) with -pooler.us-east-2
-  if (isDeployedApp && dbUrl.includes('.neon.tech')) {
-    const poolerUrl = dbUrl.replace(/\.([a-z0-9-]+)\.neon\.tech/, '-pooler.$1.neon.tech');
-    if (poolerUrl !== dbUrl) {
-      console.log("[DB] Converted to pooler URL for deployed app");
-      return poolerUrl;
+  // This is REQUIRED for HTTP-only mode in production
+  if (isDeployedEnv && dbUrl.includes('.neon.tech')) {
+    // Check if already a pooler URL
+    if (!dbUrl.includes('-pooler.')) {
+      const poolerUrl = dbUrl.replace(/\.([a-z0-9-]+)\.neon\.tech/, '-pooler.$1.neon.tech');
+      if (poolerUrl !== dbUrl) {
+        console.log("[DB] Converted to pooler URL for HTTP-only mode");
+        console.log("[DB] Pooler URL pattern: *-pooler.*.neon.tech");
+        return poolerUrl;
+      }
+    } else {
+      console.log("[DB] Already using pooler URL");
     }
   }
   
@@ -131,14 +158,11 @@ function getDatabaseUrl(): string | undefined {
 
 const databaseUrl = getDatabaseUrl();
 
-// Detect if we're in production/deployment
-const isDeployment = process.env.REPLIT_DEPLOYMENT === '1';
-
 if (databaseUrl) {
   try {
     // Both dev and production need longer timeouts for Neon serverless cold starts
     // Neon can take 5-10s to wake from cold, so use 15s minimum
-    const connectionTimeout = isDeployment ? 20000 : 15000;
+    const connectionTimeout = isDeployedEnv ? 20000 : 15000;
     
     pool = new Pool({ 
       connectionString: databaseUrl,
