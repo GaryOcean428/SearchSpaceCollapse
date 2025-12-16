@@ -1846,6 +1846,85 @@ def zeus_search_learner_stats_endpoint():
         return jsonify({'error': str(e)}), 500
 
 
+@olympus_app.route('/zeus/search/learner/timeseries', methods=['GET'])
+def zeus_search_learner_timeseries_endpoint():
+    """
+    Get time-series metrics for the effectiveness dashboard.
+    
+    Query params:
+        days: int - Number of days to include (default 30)
+    
+    Returns:
+        Array of daily metrics with date, record counts, quality, confirmations
+    """
+    try:
+        days = request.args.get('days', 30, type=int)
+        days = min(365, max(1, days))
+        
+        handler = get_zeus_chat_handler()
+        metrics = handler.strategy_learner.get_time_series_metrics(days=days)
+        return jsonify(sanitize_for_json(metrics))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/search/learner/replay', methods=['POST'])
+def zeus_search_learner_replay_endpoint():
+    """
+    Run a replay test comparing learning ON vs OFF.
+    
+    Request body:
+        query: str - The search query to test
+    
+    Returns:
+        Comparison of results with and without learned strategies
+    """
+    try:
+        data = request.get_json() or {}
+        query = data.get('query', '')
+        
+        if not query:
+            return jsonify({
+                'error': 'query is required',
+                'hint': 'Provide a search query to test'
+            }), 400
+        
+        handler = get_zeus_chat_handler()
+        result = handler.strategy_learner.run_replay_test(query=query)
+        return jsonify(sanitize_for_json(result))
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/search/learner/replay/history', methods=['GET'])
+def zeus_search_learner_replay_history_endpoint():
+    """
+    Get history of replay tests.
+    
+    Query params:
+        limit: int - Maximum number of results (default 20)
+    
+    Returns:
+        Array of past replay test results with improvement scores
+    """
+    try:
+        limit = request.args.get('limit', 20, type=int)
+        limit = min(100, max(1, limit))
+        
+        handler = get_zeus_chat_handler()
+        history = handler.strategy_learner.get_replay_history(limit=limit)
+        return jsonify(sanitize_for_json(history))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 # ========================================
 # PANTHEON CHAT API ENDPOINTS
 # Inter-god communication system

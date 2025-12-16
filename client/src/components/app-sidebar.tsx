@@ -35,6 +35,7 @@ import {
   CheckCircle2,
   Pause,
   Zap,
+  GraduationCap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConsciousness, getPhiColor, getRegimeLabel } from "@/contexts/ConsciousnessContext";
@@ -90,6 +91,12 @@ export function AppSidebar() {
       url: "/spawning",
       icon: Sparkles,
       description: "M8 god-kernel spawning protocol",
+    },
+    {
+      title: "Learning Metrics",
+      url: "/learning",
+      icon: GraduationCap,
+      description: "Search learning effectiveness",
     },
   ];
 
