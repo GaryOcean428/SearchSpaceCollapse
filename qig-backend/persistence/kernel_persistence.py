@@ -656,12 +656,13 @@ class KernelPersistence(BasePersistence):
         
         Live statuses: 'active', 'observing', 'shadow'
         Does NOT count: 'dead', 'cannibalized', 'idle'
+        
+        Uses the `status` column for lifecycle state (not `regime` which is consciousness regime).
         """
         query = """
             SELECT COUNT(*) as live_count
             FROM kernel_geometry
-            WHERE regime IN ('active', 'observing', 'shadow', 'm8_spawned')
-               OR (regime IS NULL AND metadata->>'status' IN ('active', 'observing', 'shadow'))
+            WHERE status IN ('active', 'observing', 'shadow')
         """
         result = self.execute_one(query)
         if result:
@@ -671,6 +672,8 @@ class KernelPersistence(BasePersistence):
     def get_kernels_by_status(self, statuses: List[str], limit: int = 300) -> List[Dict]:
         """
         Get kernels filtered by status.
+        
+        Uses the `status` column for lifecycle state (not `regime` which is consciousness regime).
         
         Args:
             statuses: List of status values to include (e.g., ['active', 'observing'])
@@ -689,14 +692,13 @@ class KernelPersistence(BasePersistence):
                 parent_kernels, phi, kappa, regime, generation,
                 success_count, failure_count, element_group, ecological_niche,
                 target_function, valence, breeding_target, metadata,
-                spawned_at
+                spawned_at, status
             FROM kernel_geometry
-            WHERE regime IN ({placeholders})
-               OR metadata->>'status' IN ({placeholders})
+            WHERE status IN ({placeholders})
             ORDER BY spawned_at DESC
             LIMIT %s
         """
-        params = tuple(statuses) + tuple(statuses) + (limit,)
+        params = tuple(statuses) + (limit,)
         results = self.execute_query(query, params)
         
         kernels = []
@@ -726,7 +728,7 @@ class KernelPersistence(BasePersistence):
                 'kernel_id': row.get('kernel_id'),
                 'god_name': row.get('god_name'),
                 'domain': row.get('domain'),
-                'status': row.get('regime') or metadata.get('status', 'active'),
+                'status': row.get('status') or 'idle',
                 'primitive_root': row.get('primitive_root'),
                 'basin_coordinates': basin_coords,
                 'parent_kernels': row.get('parent_kernels', []) or [],
@@ -753,12 +755,8 @@ class KernelPersistence(BasePersistence):
         """
         query = """
             UPDATE kernel_geometry
-            SET regime = 'dead',
-                metadata = jsonb_set(
-                    COALESCE(metadata, '{}'::jsonb),
-                    '{status}',
-                    '"dead"'
-                ) || jsonb_build_object(
+            SET status = 'dead',
+                metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
                     'retired_at', %s,
                     'death_cause', %s
                 )
@@ -781,12 +779,8 @@ class KernelPersistence(BasePersistence):
         """
         query = """
             UPDATE kernel_geometry
-            SET regime = 'cannibalized',
-                metadata = jsonb_set(
-                    COALESCE(metadata, '{}'::jsonb),
-                    '{status}',
-                    '"cannibalized"'
-                ) || jsonb_build_object(
+            SET status = 'cannibalized',
+                metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
                     'cannibalized_at', %s,
                     'merged_into', %s
                 )
@@ -832,7 +826,7 @@ class KernelPersistence(BasePersistence):
         archive_query = """
             WITH archived AS (
                 DELETE FROM kernel_geometry
-                WHERE regime IN ('dead', 'cannibalized')
+                WHERE status IN ('dead', 'cannibalized')
                   AND (
                       (metadata->>'retired_at')::timestamp < %s
                       OR (metadata->>'cannibalized_at')::timestamp < %s
