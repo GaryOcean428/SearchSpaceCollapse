@@ -111,8 +111,10 @@ export const API_ROUTES = {
 
   // Observer System
   observer: {
+    health: '/api/observer/health',
     dormantAddresses: '/api/observer/addresses/dormant',
     recoveryPriorities: '/api/observer/recovery/priorities',
+    recoveryRefresh: '/api/observer/recovery/refresh',
     workflows: '/api/observer/workflows',
     workflowSearchProgress: (workflowId: string) => `/api/observer/workflows/${workflowId}/search-progress`,
     qigSearchActive: '/api/observer/qig-search/active',
@@ -278,10 +280,12 @@ export const QUERY_KEYS = {
   },
   
   observer: {
+    health: () => [API_ROUTES.observer.health] as const,
     dormantAddresses: () => [API_ROUTES.observer.dormantAddresses] as const,
     recoveryPriorities: (tier?: string) => 
       tier ? [API_ROUTES.observer.recoveryPriorities, { tier }] as const 
            : [API_ROUTES.observer.recoveryPriorities] as const,
+    recoveryRefresh: () => [API_ROUTES.observer.recoveryRefresh] as const,
     workflows: (vector?: string) => 
       vector ? [API_ROUTES.observer.workflows, { vector }] as const 
              : [API_ROUTES.observer.workflows] as const,

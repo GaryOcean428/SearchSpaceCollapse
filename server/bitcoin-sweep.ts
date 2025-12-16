@@ -40,6 +40,39 @@ interface AddressType {
 const BLOCKSTREAM_API = 'https://blockstream.info/api';
 const MEMPOOL_API = 'https://mempool.space/api';
 
+// ============================================================================
+// TEST MODE SWEEP REGISTRY (Development only)
+// Allows deterministic sweep estimates for integration testing
+// ============================================================================
+const testModeSweepRegistry: Map<string, { balanceSats: number; utxoCount: number }> = new Map();
+
+/**
+ * Register a test sweep estimate for an address (development mode only)
+ * When registered, estimateSweep will return this instead of calling external APIs
+ */
+export function registerTestModeSweep(address: string, balanceSats: number, utxoCount: number = 1): void {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[BitcoinSweep] Test mode sweeps not available in production');
+    return;
+  }
+  testModeSweepRegistry.set(address, { balanceSats, utxoCount });
+  console.log(`[BitcoinSweep] 🧪 Registered test sweep: ${address} → ${balanceSats} sats`);
+}
+
+/**
+ * Clear a test sweep registration
+ */
+export function clearTestModeSweep(address: string): void {
+  testModeSweepRegistry.delete(address);
+}
+
+/**
+ * Clear all test sweeps
+ */
+export function clearAllTestModeSweeps(): void {
+  testModeSweepRegistry.clear();
+}
+
 // SECURITY: Hardcoded destination address - NEVER load from environment
 // This is the user's Electrum wallet for receiving recovered funds
 // Changing this requires code change + review, not just env modification
@@ -530,6 +563,22 @@ class BitcoinSweepService {
     canSweep: boolean;
     error?: string;
   }> {
+    // Check test mode registry first (development only)
+    if (process.env.NODE_ENV !== 'production' && testModeSweepRegistry.has(address)) {
+      const testData = testModeSweepRegistry.get(address)!;
+      console.log(`[BitcoinSweep] 🧪 Using test mode sweep for ${address}: ${testData.balanceSats} sats`);
+      // Return mock estimate with typical fee calculation
+      const mockFee = 200 * testData.utxoCount; // ~200 sats per UTXO (P2PKH)
+      const mockOutput = testData.balanceSats - mockFee;
+      return {
+        utxoCount: testData.utxoCount,
+        totalBalance: testData.balanceSats,
+        estimatedFee: mockFee,
+        estimatedOutput: mockOutput,
+        canSweep: mockOutput > 546,
+      };
+    }
+    
     try {
       const utxos = await this.fetchUTXOs(address);
       

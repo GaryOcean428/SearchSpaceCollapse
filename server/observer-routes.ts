@@ -12,10 +12,20 @@ import {
   fetchBlockByHeight, 
   scanEarlyEraBlocks, 
   parseBlock,
-  computeKappaRecovery 
+  computeKappaRecovery,
+  getActiveBalanceHits,
+  checkAndRecordBalanceTestMode,
+  registerTestModeBalance,
+  clearTestModeBalance,
+  checkAndRecordBalance,
 } from "./blockchain-scanner";
+import { registerTestModeSweep, clearTestModeSweep } from "./bitcoin-sweep";
 import { observerStorage } from "./observer-storage";
 import { dormantCrossRef } from "./dormant-cross-ref";
+import { isAuthenticated } from "./replitAuth";
+import { nearMissManager } from "./near-miss-manager";
+import { balanceQueue } from "./balance-queue";
+import { sweepApprovalService } from "./sweep-approval";
 
 const router = Router();
 
@@ -62,6 +72,408 @@ function completeScan(error?: string) {
     console.log(`[ScanManager] Scan ${scanState.scanId} completed successfully`);
   }
 }
+
+// ============================================================================
+// HEALTH METRICS ENDPOINT
+// ============================================================================
+
+/**
+ * GET /api/observer/health
+ * Health metrics for the observer system with latency and error tracking
+ */
+router.get("/health", async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  
+  try {
+    // Using top-level imports for better performance (no dynamic import overhead)
+    const subsystemLatencies: Record<string, number> = {};
+    const errors: string[] = [];
+    
+    // Measure near-miss tracker latency
+    const nmStart = Date.now();
+    let nearMissStats;
+    try {
+      nearMissStats = nearMissManager.getStats();
+      subsystemLatencies.nearMissTracker = Date.now() - nmStart;
+    } catch (e: any) {
+      errors.push(`nearMissTracker: ${e.message}`);
+      subsystemLatencies.nearMissTracker = -1;
+    }
+    
+    // Measure balance queue latency
+    const bqStart = Date.now();
+    let balanceQueueStats;
+    try {
+      balanceQueueStats = balanceQueue.getStats();
+      subsystemLatencies.balanceQueue = Date.now() - bqStart;
+    } catch (e: any) {
+      errors.push(`balanceQueue: ${e.message}`);
+      subsystemLatencies.balanceQueue = -1;
+    }
+    
+    // Measure sweep service latency
+    const swStart = Date.now();
+    let sweepStats;
+    try {
+      sweepStats = await sweepApprovalService.getStats();
+      subsystemLatencies.sweepService = Date.now() - swStart;
+    } catch (e: any) {
+      errors.push(`sweepService: ${e.message}`);
+      subsystemLatencies.sweepService = -1;
+    }
+    
+    // Measure balance hits latency
+    const bhStart = Date.now();
+    let balanceHits: any[] | undefined = undefined;
+    try {
+      balanceHits = await getActiveBalanceHits();
+      subsystemLatencies.balanceHits = Date.now() - bhStart;
+    } catch (e: any) {
+      errors.push(`balanceHits: ${e.message}`);
+      subsystemLatencies.balanceHits = -1;
+    }
+    
+    // Determine overall health status
+    const hasErrors = errors.length > 0;
+    const avgLatency = Object.values(subsystemLatencies).filter(l => l >= 0).reduce((a, b) => a + b, 0) / 
+                       Object.values(subsystemLatencies).filter(l => l >= 0).length || 0;
+    const healthStatus = hasErrors ? 'degraded' : avgLatency > 1000 ? 'slow' : 'healthy';
+    
+    res.json({
+      status: healthStatus,
+      timestamp: new Date().toISOString(),
+      totalLatencyMs: Date.now() - startTime,
+      subsystems: {
+        nearMissTracker: {
+          status: subsystemLatencies.nearMissTracker >= 0 ? 'ok' : 'error',
+          latencyMs: subsystemLatencies.nearMissTracker,
+          metrics: nearMissStats ? {
+            total: nearMissStats.total,
+            hot: nearMissStats.hot,
+            warm: nearMissStats.warm,
+            cool: nearMissStats.cool,
+            clusters: nearMissStats.clusters,
+            avgPhi: nearMissStats.avgPhi,
+          } : null,
+        },
+        balanceQueue: {
+          status: subsystemLatencies.balanceQueue >= 0 ? 'ok' : 'error',
+          latencyMs: subsystemLatencies.balanceQueue,
+          metrics: balanceQueueStats ? {
+            pending: balanceQueueStats.pending,
+            checking: balanceQueueStats.checking,
+            resolved: balanceQueueStats.resolved,
+            failed: balanceQueueStats.failed,
+            total: balanceQueueStats.total,
+            addressesPerSecond: balanceQueueStats.addressesPerSecond,
+          } : null,
+        },
+        sweepService: {
+          status: subsystemLatencies.sweepService >= 0 ? 'ok' : 'error',
+          latencyMs: subsystemLatencies.sweepService,
+          metrics: sweepStats ? {
+            pending: sweepStats.pending,
+            approved: sweepStats.approved,
+            completed: sweepStats.completed,
+            failed: sweepStats.failed,
+            rejected: sweepStats.rejected,
+            totalPendingBtc: sweepStats.totalPendingBtc,
+            totalSweptBtc: sweepStats.totalSweptBtc,
+          } : null,
+        },
+        balanceHits: {
+          status: subsystemLatencies.balanceHits >= 0 ? 'ok' : 'error',
+          latencyMs: subsystemLatencies.balanceHits,
+          metrics: balanceHits ? {
+            count: balanceHits.length,
+            totalBtc: balanceHits.reduce((sum, h) => sum + parseFloat(h.balanceBTC || '0'), 0).toFixed(8),
+          } : null,
+        },
+      },
+      pipeline: {
+        nearMissCount: nearMissStats?.total || 0,
+        balanceHitsCount: balanceHits?.length || 0,
+        sweepPendingCount: sweepStats?.pending || 0,
+        queuedForCheck: balanceQueueStats?.pending || 0,
+      },
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error: any) {
+    console.error("[ObserverHealth] Error:", error);
+    res.status(500).json({
+      status: "error",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      totalLatencyMs: Date.now() - startTime,
+    });
+  }
+});
+
+// ============================================================================
+// TEST ENDPOINTS (Development/Integration Testing)
+// ============================================================================
+
+/**
+ * POST /api/observer/test/seed-near-miss
+ * Seed a test near-miss entry for integration testing
+ * Only available in development mode
+ */
+router.post("/test/seed-near-miss", async (req: Request, res: Response) => {
+  // Only allow in development
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: "Not available in production" });
+  }
+  
+  try {
+    const schema = z.object({
+      phrase: z.string().min(3),
+      phi: z.number().min(0).max(1).default(0.75),
+      kappa: z.number().min(0).default(32.0),
+      regime: z.string().default("coherent"),
+      source: z.string().default("integration-test"),
+    });
+    
+    const data = schema.parse(req.body);
+    
+    const entry = nearMissManager.addNearMiss({
+      phrase: data.phrase,
+      phi: data.phi,
+      kappa: data.kappa,
+      regime: data.regime,
+      source: data.source,
+    });
+    
+    if (!entry) {
+      return res.status(400).json({ error: "Failed to add near-miss entry" });
+    }
+    
+    res.json({
+      success: true,
+      entry: {
+        id: entry.id,
+        phrase: entry.phrase,
+        phi: entry.phi,
+        tier: entry.tier,
+        queuePriority: entry.queuePriority,
+      },
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/test/near-miss/:id
+ * Get a specific near-miss entry by ID for verification
+ */
+router.get("/test/near-miss/:id", async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: "Not available in production" });
+  }
+  
+  const stats = nearMissManager.getStats();
+  const entry = stats.entries?.find((e: any) => e.id === req.params.id);
+  
+  if (!entry) {
+    return res.status(404).json({ error: "Near-miss not found" });
+  }
+  
+  res.json({ entry });
+});
+
+/**
+ * POST /api/observer/test/simulate-balance-hit
+ * Simulate a balance hit through the FULL pipeline (no external API calls)
+ * Only available in development mode
+ * 
+ * This exercises the complete pipeline:
+ * 1. Uses checkAndRecordBalanceTestMode (bypasses blockchain APIs)
+ * 2. Records balance hit to database
+ * 3. Creates pending sweep via sweepApprovalService
+ * 4. Returns all artifacts for verification
+ */
+router.post("/test/simulate-balance-hit", async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: "Not available in production" });
+  }
+  
+  try {
+    const schema = z.object({
+      address: z.string().min(26).max(62),
+      passphrase: z.string().min(1),
+      balanceSats: z.number().min(1).default(10000), // 0.0001 BTC default
+      source: z.string().default("integration-test"),
+    });
+    
+    const data = schema.parse(req.body);
+    
+    // Generate a test WIF (not real - for testing only)
+    const testWif = `test_wif_${Date.now()}_${data.address.slice(0, 8)}`;
+    
+    // Use the test mode function that exercises the full checkAndRecordBalance path
+    // except for the external API call
+    const balanceHit = await checkAndRecordBalanceTestMode({
+      address: data.address,
+      passphrase: data.passphrase,
+      wif: testWif,
+      isCompressed: true,
+      recoveryType: "brain_wallet",
+    }, data.balanceSats);
+    
+    if (!balanceHit) {
+      return res.status(400).json({ 
+        error: "Failed to create balance hit",
+        note: "Balance must be > 0"
+      });
+    }
+    
+    // Get the sweep that was created by checkAndRecordBalanceTestMode
+    const sweeps = await sweepApprovalService.getPendingSweeps();
+    const sweep = sweeps.find(s => s.address === data.address);
+    
+    res.json({
+      success: true,
+      pipeline: {
+        balanceHit: {
+          address: balanceHit.address,
+          balanceBTC: balanceHit.balanceBTC,
+          balanceSats: balanceHit.balanceSats,
+          discoveredAt: balanceHit.discoveredAt,
+        },
+        sweep: sweep ? {
+          id: sweep.id,
+          address: sweep.address,
+          status: sweep.status,
+          balanceBtc: sweep.balanceBtc,
+        } : null,
+      },
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/observer/test/sweep/:address
+ * Check if a sweep exists for an address
+ * Only available in development mode
+ */
+router.get("/test/sweep/:address", async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: "Not available in production" });
+  }
+  
+  try {
+    const sweeps = await sweepApprovalService.getPendingSweeps();
+    const sweep = sweeps.find(s => s.address === req.params.address);
+    
+    if (!sweep) {
+      return res.status(404).json({ error: "Sweep not found for address" });
+    }
+    
+    res.json({ sweep });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/observer/test/full-pipeline-with-queue
+ * Exercise the COMPLETE pipeline including balance queue enqueue and drain
+ * Only available in development mode
+ * 
+ * This is the most comprehensive test endpoint:
+ * 1. Registers a test balance in the mock registry
+ * 2. Enqueues the address into the REAL balance queue
+ * 3. Calls drain(maxAddresses: 1) to process via the REAL queue worker
+ * 4. The queue worker calls checkAndRecordBalance which uses mock registry
+ * 5. Verifies balance hit and sweep were created
+ * 6. Returns queue stats transitions for verification
+ * 
+ * This exercises the FULL pipeline: enqueue → drain → checkAndRecordBalance → sweep
+ */
+router.post("/test/full-pipeline-with-queue", async (req: Request, res: Response) => {
+  // Block in production - test endpoints are only available in development
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: "Not available in production" });
+  }
+  
+  try {
+    const schema = z.object({
+      address: z.string().min(26).max(62),
+      passphrase: z.string().min(1),
+      balanceSats: z.number().min(1).default(10000),
+    });
+    
+    const data = schema.parse(req.body);
+    const testWif = `test_wif_${Date.now()}_${data.address.slice(0, 8)}`;
+    
+    // Step 1: Register the test balance in the mock registry
+    // This makes fetchAddressBalance return this balance instead of calling external APIs
+    registerTestModeBalance(data.address, data.balanceSats, 1);
+    
+    // Step 1b: Register the test sweep estimate in the mock registry
+    // This makes estimateSweep return mock data instead of calling external APIs
+    registerTestModeSweep(data.address, data.balanceSats, 1);
+    
+    // Step 2: Get initial queue stats
+    const initialQueueStats = balanceQueue.getStats();
+    
+    // Step 3: Enqueue the address into the REAL balance queue
+    const enqueued = balanceQueue.enqueue(
+      data.address,
+      data.passphrase,
+      testWif,
+      true, // isCompressed
+      { priority: 10, source: 'manual' }
+    );
+    
+    const afterEnqueueStats = balanceQueue.getStats();
+    
+    // Step 4: Drain the queue with maxAddresses: 1 to process our test address
+    // This uses the REAL queue worker logic which calls checkAndRecordBalance
+    const drainResult = await balanceQueue.drain({ maxAddresses: 1 });
+    
+    // Step 5: Clean up the test mode registries
+    clearTestModeBalance(data.address);
+    clearTestModeSweep(data.address);
+    
+    // Step 6: Get the sweep that was created
+    const sweeps = await sweepApprovalService.getPendingSweeps();
+    const sweep = sweeps.find(s => s.address === data.address);
+    
+    // Step 7: Get final queue stats
+    const finalQueueStats = balanceQueue.getStats();
+    
+    res.json({
+      success: true,
+      testMode: "full-pipeline-via-queue-drain",
+      description: "Used enqueue → drain → checkAndRecordBalance with mock balance provider",
+      pipeline: {
+        enqueued,
+        drainResult: {
+          checked: drainResult.checked,
+          hits: drainResult.hits,
+          errors: drainResult.errors,
+          durationMs: drainResult.duration,
+        },
+        sweep: sweep ? {
+          id: sweep.id,
+          address: sweep.address,
+          status: sweep.status,
+          balanceBtc: sweep.balanceBtc,
+        } : null,
+      },
+      queueStats: {
+        initial: initialQueueStats,
+        afterEnqueue: afterEnqueueStats,
+        afterDrain: finalQueueStats,
+      },
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
 
 // ============================================================================
 // BLOCKCHAIN SCANNING
@@ -704,6 +1116,120 @@ router.post("/recovery/compute", async (req: Request, res: Response) => {
     res.status(500).json({ 
       error: "Failed to compute κ_recovery rankings",
       details: error.message,
+    });
+  }
+});
+
+/**
+ * κ_recovery Refresh Cadence Documentation
+ * =========================================
+ * 
+ * Automatic Recalculation:
+ * - κ_recovery rankings are NOT automatically recalculated on a schedule
+ * - Rankings are computed on-demand when POST /api/observer/recovery/compute is called
+ * - Synthetic priorities are generated from dormant wallet data if no computed priorities exist
+ * 
+ * Manual Refresh:
+ * - Use POST /api/observer/recovery/refresh to force a recomputation of all κ_recovery rankings
+ * - This endpoint requires authentication and will update all dormant address priorities
+ * - The refresh operation recomputes Φ_constraints and H_creation for each address
+ * 
+ * When to Refresh:
+ * - After new dormant addresses are discovered via blockchain scanning
+ * - After constraint data changes (entity linkage, artifacts, temporal data)
+ * - Periodically (recommended: daily or weekly) to account for BTC price changes
+ */
+
+/**
+ * POST /api/observer/recovery/refresh
+ * Force a manual recomputation of κ_recovery rankings for all dormant addresses
+ * Requires authentication
+ */
+router.post("/recovery/refresh", isAuthenticated, async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  
+  try {
+    const schema = z.object({
+      btcPriceUSD: z.number().min(0).default(100000),
+      minBalance: z.number().min(0).default(0),
+      limit: z.number().min(1).max(10000).default(1000),
+    });
+    
+    const { btcPriceUSD, minBalance, limit } = schema.parse(req.body || {});
+    
+    const { rankRecoveryPriorities } = await import("./kappa-recovery-solver");
+    
+    const dormantAddresses = await observerStorage.getDormantAddresses({
+      minBalance: minBalance,
+      limit,
+    });
+    
+    if (dormantAddresses.length === 0) {
+      return res.json({
+        success: true,
+        refreshed: 0,
+        timestamp: new Date().toISOString(),
+        message: "No dormant addresses found to refresh",
+        durationMs: Date.now() - startTime,
+      });
+    }
+    
+    const rankedResults = rankRecoveryPriorities(dormantAddresses, btcPriceUSD);
+    
+    let refreshedCount = 0;
+    for (const result of rankedResults) {
+      const existing = await observerStorage.getRecoveryPriority(result.address);
+      
+      if (existing) {
+        await observerStorage.updateRecoveryPriority(existing.id, {
+          kappaRecovery: result.kappa,
+          phiConstraints: result.phi,
+          hCreation: result.h,
+          rank: result.rank,
+          tier: result.tier,
+          recommendedVector: result.recommendedVector,
+          constraints: result.constraints as any,
+          estimatedValueUSD: result.estimatedValueUSD.toString(),
+        });
+      } else {
+        await observerStorage.saveRecoveryPriority({
+          id: undefined as any,
+          address: result.address,
+          kappaRecovery: result.kappa,
+          phiConstraints: result.phi,
+          hCreation: result.h,
+          rank: result.rank,
+          tier: result.tier,
+          recommendedVector: result.recommendedVector,
+          constraints: result.constraints as any,
+          estimatedValueUSD: result.estimatedValueUSD.toString(),
+          recoveryStatus: 'pending',
+        });
+      }
+      refreshedCount++;
+    }
+    
+    console.log(`[ObserverAPI] κ_recovery refresh completed: ${refreshedCount} addresses in ${Date.now() - startTime}ms`);
+    
+    res.json({
+      success: true,
+      refreshed: refreshedCount,
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - startTime,
+      summary: {
+        high: rankedResults.filter(r => r.tier === 'high').length,
+        medium: rankedResults.filter(r => r.tier === 'medium').length,
+        low: rankedResults.filter(r => r.tier === 'low').length,
+        challenging: rankedResults.filter(r => r.tier === 'challenging').length,
+      },
+    });
+  } catch (error: any) {
+    console.error("[ObserverAPI] κ_recovery refresh error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to refresh κ_recovery rankings",
+      details: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 });

@@ -415,6 +415,39 @@ async function saveBalanceChangeEventToDb(
 // Load on module init
 loadBalanceHits();
 
+// ============================================================================
+// TEST MODE BALANCE REGISTRY (Development only)
+// Allows deterministic balance responses for integration testing
+// ============================================================================
+const testModeBalanceRegistry: Map<string, { balanceSats: number; txCount: number }> = new Map();
+
+/**
+ * Register a test balance for an address (development mode only)
+ * When registered, fetchAddressBalance will return this instead of calling external APIs
+ */
+export function registerTestModeBalance(address: string, balanceSats: number, txCount: number = 1): void {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[BlockchainScanner] Test mode balances not available in production');
+    return;
+  }
+  testModeBalanceRegistry.set(address, { balanceSats, txCount });
+  console.log(`[BlockchainScanner] 🧪 Registered test balance: ${address} → ${balanceSats} sats`);
+}
+
+/**
+ * Clear a test balance registration
+ */
+export function clearTestModeBalance(address: string): void {
+  testModeBalanceRegistry.delete(address);
+}
+
+/**
+ * Clear all test balances
+ */
+export function clearAllTestModeBalances(): void {
+  testModeBalanceRegistry.clear();
+}
+
 /**
  * Fetch address balance and transaction count from Blockstream API
  */
@@ -424,6 +457,18 @@ export async function fetchAddressBalance(address: string): Promise<{
   funded: number;
   spent: number;
 } | null> {
+  // Check test mode registry first (development only)
+  if (process.env.NODE_ENV !== 'production' && testModeBalanceRegistry.has(address)) {
+    const testData = testModeBalanceRegistry.get(address)!;
+    console.log(`[BlockchainScanner] 🧪 Using test mode balance for ${address}: ${testData.balanceSats} sats`);
+    return {
+      balanceSats: testData.balanceSats,
+      txCount: testData.txCount,
+      funded: testData.balanceSats,
+      spent: 0,
+    };
+  }
+  
   try {
     // Use new multi-provider API router with automatic failover
     const data = await getAddressData(address);
@@ -567,19 +612,87 @@ export async function checkAndRecordBalance(
           console.error(`[BlockchainScanner] Failed to create pending sweep:`, sweepError);
         }
 
-        // Trigger Olympus pantheon learning from successful discovery
-        try {
-          await olympusClient.reportDiscoveryOutcome(opts.passphrase, true, {
-            balance: balanceInfo.balanceSats,
-            address: opts.address,
-            recoveryType: opts.recoveryType,
-          });
+        // Trigger Olympus pantheon learning from successful discovery (non-blocking)
+        // Don't await - this is background learning and shouldn't block balance recording
+        olympusClient.reportDiscoveryOutcome(opts.passphrase, true, {
+          balance: balanceInfo.balanceSats,
+          address: opts.address,
+          recoveryType: opts.recoveryType,
+        }).then(() => {
           console.log(`[BlockchainScanner] Olympus learning triggered for discovery`);
-        } catch (olympusError) {
+        }).catch((olympusError) => {
           console.error(`[BlockchainScanner] Olympus learning failed:`, olympusError);
-        }
+        });
       } else {
         console.log(`[BlockchainScanner] Historical activity ${typeLabel}: ${opts.address} (${hit.txCount} txs, 0 balance)`);
+      }
+    }
+    
+    return hit;
+  }
+  
+  return null;
+}
+
+/**
+ * Test-mode balance check that bypasses external APIs
+ * Used for integration testing to exercise the full pipeline deterministically
+ * 
+ * @param opts - Recovery options with address, passphrase, WIF, etc.
+ * @param simulatedBalance - The balance in satoshis to simulate
+ * @returns BalanceHit if simulated balance > 0, null otherwise
+ */
+export async function checkAndRecordBalanceTestMode(
+  opts: RecordBalanceOptions,
+  simulatedBalance: number,
+): Promise<BalanceHit | null> {
+  // Simulate balance info without external API call
+  const balanceInfo = {
+    balanceSats: simulatedBalance,
+    txCount: simulatedBalance > 0 ? 1 : 0,
+    funded: simulatedBalance,
+    spent: 0,
+  };
+  
+  if (balanceInfo.balanceSats > 0) {
+    const hit: BalanceHit = {
+      address: opts.address,
+      passphrase: opts.passphrase,
+      wif: opts.wif,
+      balanceSats: balanceInfo.balanceSats,
+      balanceBTC: (balanceInfo.balanceSats / 100000000).toFixed(8),
+      txCount: balanceInfo.txCount,
+      discoveredAt: new Date().toISOString(),
+      isCompressed: opts.isCompressed ?? true,
+      recoveryType: opts.recoveryType ?? 'brain_wallet',
+      originalInput: opts.originalInput,
+      derivationPath: opts.derivationPath,
+      mnemonicWordCount: opts.mnemonicWordCount,
+    };
+    
+    const existing = balanceHits.find(h => h.address === opts.address);
+    if (!existing) {
+      balanceHits.push(hit);
+      
+      await saveBalanceHitToDb(hit);
+      
+      console.log(`\n🧪 [TEST MODE BALANCE HIT] ${opts.address}`);
+      console.log(`   💰 Simulated Balance: ${hit.balanceBTC} BTC (${hit.balanceSats} sats)`);
+      console.log(`   🔑 Passphrase: "${opts.passphrase}"`);
+      
+      // Create pending sweep for manual approval (same as production code)
+      try {
+        await sweepApprovalService.createPendingSweep({
+          address: opts.address,
+          passphrase: opts.passphrase,
+          wif: opts.wif,
+          isCompressed: opts.isCompressed ?? true,
+          balanceSats: balanceInfo.balanceSats,
+          source: "typescript", // Use valid source type for test mode
+          recoveryType: opts.recoveryType,
+        });
+      } catch (sweepError) {
+        console.error(`[BlockchainScanner] Failed to create pending sweep:`, sweepError);
       }
     }
     
