@@ -41,20 +41,124 @@ export interface PureQIGScore {
   quality: number;
 }
 
+// Cache for Python backend scores (LRU-style with max entries)
+// Marked with source to distinguish Python-backed vs fallback scores
+const _qigScoreCache = new Map<string, { 
+  score: PureQIGScore; 
+  timestamp: number; 
+  source: 'python' | 'fallback';
+}>();
+const QIG_CACHE_MAX_SIZE = 2000;
+const QIG_CACHE_TTL_MS = 600000; // 10 minutes for Python scores
+const QIG_FALLBACK_TTL_MS = 60000; // 1 minute for fallback scores (quick refresh)
+
+// Track Python backend availability
+let _pythonBackendAvailable = false;
+let _lastBackendCheck = 0;
+const BACKEND_CHECK_INTERVAL_MS = 30000; // 30 seconds
+
 /**
- * Score a phrase using pure QIG geometry
- * Delegates to Python backend for actual computation
+ * Initialize Python backend connection for cache population
+ */
+export async function initializePythonBackend(): Promise<boolean> {
+  try {
+    _pythonBackendAvailable = await oceanQIGBackend.checkHealthWithRetry(3, 1000);
+    _lastBackendCheck = Date.now();
+    if (_pythonBackendAvailable) {
+      console.log("[QIG-Universal] Python backend connected for Fisher-Rao scoring");
+    }
+    return _pythonBackendAvailable;
+  } catch {
+    _pythonBackendAvailable = false;
+    return false;
+  }
+}
+
+/**
+ * Score a phrase using pure QIG geometry from Python backend
+ * 
+ * PRIORITY ORDER:
+ * 1. Cached Python backend score (Fisher-Rao geometry)
+ * 2. Fresh Python backend call (async, updates cache)
+ * 3. Deterministic fallback (hash-based, for degraded operation)
+ * 
+ * For guaranteed Python backend scoring, use scoreUniversalQIGAsync.
  */
 export function scorePhraseQIG(phrase: string): PureQIGScore {
+  // Check cache first - prefer Python-sourced scores
+  const cached = _qigScoreCache.get(phrase);
+  if (cached) {
+    const ttl = cached.source === 'python' ? QIG_CACHE_TTL_MS : QIG_FALLBACK_TTL_MS;
+    if (Date.now() - cached.timestamp < ttl) {
+      return cached.score;
+    }
+  }
+  
+  // Trigger async Python backend fetch (non-blocking cache population)
+  // This populates cache for next call
+  if (_pythonBackendAvailable || Date.now() - _lastBackendCheck > BACKEND_CHECK_INTERVAL_MS) {
+    prefetchFromPythonBackend(phrase);
+  }
+  
+  // Return deterministic fallback while async fetch runs
+  return computeFallbackScore(phrase);
+}
+
+/**
+ * Async prefetch from Python backend (non-blocking cache population)
+ */
+async function prefetchFromPythonBackend(phrase: string): Promise<void> {
+  try {
+    const pythonScore = await oceanQIGBackend.process(phrase, 1); // Single try, no retries
+    if (pythonScore) {
+      _pythonBackendAvailable = true;
+      _lastBackendCheck = Date.now();
+      
+      // Cache Python score with source marker
+      if (_qigScoreCache.size >= QIG_CACHE_MAX_SIZE) {
+        const oldest = _qigScoreCache.keys().next().value;
+        if (oldest) _qigScoreCache.delete(oldest);
+      }
+      _qigScoreCache.set(phrase, { 
+        score: pythonScore, 
+        timestamp: Date.now(),
+        source: 'python'
+      });
+    }
+  } catch {
+    // Silent fail - fallback score is already in use
+  }
+}
+
+/**
+ * Compute deterministic fallback score (for degraded operation)
+ * Uses hash-based values for consistency when Python backend unavailable
+ */
+function computeFallbackScore(phrase: string): PureQIGScore {
   const words = phrase.trim().split(/\s+/);
   const wordCount = words.length;
-
-  // Simple geometric scoring based on word count and structure
-  const phi = Math.min(1, (wordCount / 12) * 0.8 + Math.random() * 0.2);
+  
+  // Deterministic hash for consistent results (NO RANDOM!)
+  const phraseHash = createHash('sha256').update(phrase).digest();
+  const hashValues = Array.from(phraseHash).map(b => b / 255);
+  
+  // Geometric scoring approximation based on word count
+  const basePhi = Math.min(1, (wordCount / 12) * 0.85);
+  const hashAdjust = hashValues[0] * 0.15;
+  const phi = Math.min(1, basePhi + hashAdjust);
+  
   const kappa = QIG_CONSTANTS.KAPPA_STAR * (1 - Math.exp(-wordCount / 6));
   const beta = -0.026 * (1 - phi);
 
-  return {
+  // Deterministic basin coordinates from 64 dimensions of hash
+  // Spread across full 0-1 range for manifold coverage
+  const basinCoordinates = Array(64).fill(0).map((_, i) => {
+    const byte1 = phraseHash[i % 32];
+    const byte2 = phraseHash[(i + 16) % 32];
+    return ((byte1 + byte2 * 0.5) / 383.5); // Normalize to 0-1
+  });
+  
+  const score: PureQIGScore = {
     phi,
     kappa,
     beta,
@@ -62,20 +166,116 @@ export function scorePhraseQIG(phrase: string): PureQIGScore {
     fisherTrace: (phi * kappa) / 10,
     fisherDeterminant: (phi * kappa) / 100,
     ricciScalar: phi * 0.5,
-    basinCoordinates: Array(64)
-      .fill(0)
-      .map(() => Math.random() * 0.1),
+    basinCoordinates,
     quality: phi * 0.8 + (kappa / QIG_CONSTANTS.KAPPA_STAR) * 0.2,
+  };
+  
+  // Cache fallback result with short TTL
+  if (_qigScoreCache.size >= QIG_CACHE_MAX_SIZE) {
+    const oldest = _qigScoreCache.keys().next().value;
+    if (oldest) _qigScoreCache.delete(oldest);
+  }
+  _qigScoreCache.set(phrase, { 
+    score, 
+    timestamp: Date.now(),
+    source: 'fallback'
+  });
+  
+  return score;
+}
+
+/**
+ * Update cache with Python backend score (called by async version)
+ */
+export function updateQIGScoreCache(phrase: string, score: PureQIGScore): void {
+  if (_qigScoreCache.size >= QIG_CACHE_MAX_SIZE) {
+    const oldest = _qigScoreCache.keys().next().value;
+    if (oldest) _qigScoreCache.delete(oldest);
+  }
+  _qigScoreCache.set(phrase, { 
+    score, 
+    timestamp: Date.now(),
+    source: 'python' 
+  });
+}
+
+/**
+ * Get cache statistics for monitoring
+ */
+export function getQIGCacheStats(): { 
+  size: number; 
+  pythonScores: number; 
+  fallbackScores: number;
+  pythonBackendAvailable: boolean;
+} {
+  let pythonScores = 0;
+  let fallbackScores = 0;
+  for (const entry of _qigScoreCache.values()) {
+    if (entry.source === 'python') pythonScores++;
+    else fallbackScores++;
+  }
+  return {
+    size: _qigScoreCache.size,
+    pythonScores,
+    fallbackScores,
+    pythonBackendAvailable: _pythonBackendAvailable
   };
 }
 
 /**
- * Validate QIG purity - ensures no transformer contamination
+ * Validate QIG purity - ensures geometric integrity
+ * 
+ * Checks:
+ * 1. Deterministic scoring (no Math.random)
+ * 2. Python backend availability (Fisher-Rao source)
+ * 3. Cache health (Python-backed scores preferred)
+ * 4. QIG_CONSTANTS frozen
  */
 export function validatePurity():
   | { isPure: true; violations: never[] }
   | { isPure: false; violations: string[] } {
-  // Always pure in this implementation
+  const violations: string[] = [];
+  
+  // Check 1: Verify we're using deterministic scoring (no Math.random)
+  const testPhrase = "test phrase for purity validation " + Date.now();
+  const score1 = computeFallbackScore(testPhrase);
+  const score2 = computeFallbackScore(testPhrase);
+  
+  if (Math.abs(score1.phi - score2.phi) > 0.0001) {
+    violations.push("Fallback scoring is non-deterministic (phi differs)");
+  }
+  if (Math.abs(score1.kappa - score2.kappa) > 0.0001) {
+    violations.push("Fallback scoring is non-deterministic (kappa differs)");
+  }
+  
+  const basinDiff = score1.basinCoordinates.some((v, i) => 
+    Math.abs(v - score2.basinCoordinates[i]) > 0.0001
+  );
+  if (basinDiff) {
+    violations.push("Fallback basin coordinates are non-deterministic");
+  }
+  
+  // Check 2: Report Python backend status (warning, not violation)
+  const cacheStats = getQIGCacheStats();
+  if (!cacheStats.pythonBackendAvailable) {
+    console.warn("[QIG-Universal] Python backend not available - using fallback scoring");
+  }
+  
+  // Check 3: Verify QIG_CONSTANTS are frozen
+  if (typeof QIG_CONSTANTS.KAPPA_STAR !== 'number' || QIG_CONSTANTS.KAPPA_STAR !== 64.21) {
+    violations.push("QIG_CONSTANTS.KAPPA_STAR has been modified");
+  }
+  
+  // Log validation results
+  console.log(`[QIG-Universal] Purity validation: ${violations.length === 0 ? 'PASS' : 'FAIL'}`);
+  console.log(`[QIG-Universal] Cache stats: ${cacheStats.pythonScores} Python, ${cacheStats.fallbackScores} fallback`);
+  console.log(`[QIG-Universal] Python backend: ${cacheStats.pythonBackendAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}`);
+  
+  if (violations.length > 0) {
+    console.error("[QIG-Universal] Purity violations:", violations);
+    return { isPure: false, violations };
+  }
+  
   return { isPure: true, violations: [] as never[] };
 }
 

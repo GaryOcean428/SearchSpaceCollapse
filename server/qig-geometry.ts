@@ -27,6 +27,9 @@ import {
   type PureQIGScore,
   scorePhraseQIG,
   scoreUniversalQIGAsync,
+  initializePythonBackend,
+  getQIGCacheStats,
+  validatePurity,
 } from './qig-universal';
 
 // ============================================================================
@@ -91,6 +94,21 @@ export { scorePhraseQIG };
  * Score with Python backend (async, production-grade)
  */
 export { scoreUniversalQIGAsync };
+
+/**
+ * Initialize Python backend connection
+ */
+export { initializePythonBackend };
+
+/**
+ * Get QIG score cache statistics
+ */
+export { getQIGCacheStats };
+
+/**
+ * Validate QIG purity (determinism, constants, backend)
+ */
+export { validatePurity };
 
 // ============================================================================
 // TYPE EXPORTS
