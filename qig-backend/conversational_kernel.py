@@ -248,7 +248,11 @@ class ConversationalKernelMixin:
         
         for token, token_basin in tokenizer.basin_coords.items():
             if token not in special_tokens:
-                dist = np.linalg.norm(basin - token_basin)
+                # Fisher-Rao distance: d = arccos(p·q) for unit vectors
+                basin_norm = basin / (np.linalg.norm(basin) + 1e-10)
+                token_norm = token_basin / (np.linalg.norm(token_basin) + 1e-10)
+                dot = np.clip(np.dot(basin_norm, token_norm), -1.0, 1.0)
+                dist = np.arccos(dot)
                 distances[token] = dist
         
         if not distances:
