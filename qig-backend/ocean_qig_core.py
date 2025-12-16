@@ -5119,9 +5119,17 @@ def m8_spawn_direct():
 @app.route('/m8/proposals', methods=['GET'])
 def m8_list_proposals():
     """
-    List all proposals, optionally filtered by status.
+    List all proposals with full geometric metrics.
 
     Query: ?status=pending|approved|rejected|spawned
+    
+    Returns enhanced proposal data including:
+    - justification text
+    - Fisher deltas (geometric distances to existing gods)
+    - parent basins (basin coordinates for parents)
+    - proposal basin (computed basin for the proposed kernel)
+    - m8_position (position in 8D manifold)
+    - prediction metadata
     """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
@@ -5130,11 +5138,30 @@ def m8_list_proposals():
         status = request.args.get('status', None)
 
         spawner = get_spawner()
-        proposals = spawner.list_proposals(status=status)
+        raw_proposals = spawner.list_proposals(status=status)
+        
+        # Enhance proposals with geometric metadata
+        enhanced_proposals = []
+        for p in raw_proposals:
+            # Add default geometric fields if not present
+            enhanced = {
+                **p,
+                'justification': p.get('proposed_role', ''),
+                'fisher_deltas': p.get('metadata', {}).get('fisher_deltas', {}),
+                'parent_basins': p.get('metadata', {}).get('parent_basins', {}),
+                'proposal_basin': p.get('metadata', {}).get('proposal_basin', None),
+                'm8_position': p.get('metadata', {}).get('m8_position', None),
+                'prediction_metadata': {
+                    'expected_phi': p.get('metadata', {}).get('expected_phi', 0.5),
+                    'domain_alignment': p.get('metadata', {}).get('domain_alignment', 0.5),
+                    'consensus_strength': len(p.get('votes_for', [])) / max(1, len(p.get('votes_for', [])) + len(p.get('votes_against', []))),
+                },
+            }
+            enhanced_proposals.append(enhanced)
 
         return jsonify({
-            'proposals': proposals,
-            'count': len(proposals),
+            'proposals': enhanced_proposals,
+            'count': len(enhanced_proposals),
             'filter': status,
         })
     except Exception as e:
@@ -5161,17 +5188,86 @@ def m8_get_proposal(proposal_id: str):
 
 @app.route('/m8/kernels', methods=['GET'])
 def m8_list_spawned_kernels():
-    """List all spawned kernels."""
+    """
+    List all spawned kernels with full telemetry from PostgreSQL.
+    
+    Returns PostgresKernel interface with all fields:
+    - kernel_id, god_name, domain, status, primitive_root, basin_coordinates
+    - parent_kernels, spawned_by, spawn_reason, spawn_rationale, position_rationale
+    - affinity_strength, entropy_threshold, spawned_at, last_active_at
+    - spawned_during_war_id, phi, kappa, regime, generation
+    - success_count, failure_count, reputation, element_group, ecological_niche
+    - target_function, valence, breeding_target, merge_candidate, split_candidate
+    """
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
 
     try:
+        # First try to load from PostgreSQL for full telemetry
+        db_kernels = []
+        try:
+            from persistence import KernelPersistence
+            persistence = KernelPersistence()
+            db_kernels = persistence.load_all_kernels_for_ui(limit=100)
+        except Exception as db_err:
+            print(f"[M8] PostgreSQL load failed, falling back to in-memory: {db_err}")
+        
+        # Get in-memory spawned kernels from the spawner
         spawner = get_spawner()
-        kernels = spawner.list_spawned_kernels()
+        memory_kernels = spawner.list_spawned_kernels()
+        
+        # Create a set of kernel IDs from DB
+        db_kernel_ids = {k['kernel_id'] for k in db_kernels}
+        
+        # Merge: use DB kernels as base, add in-memory kernels not in DB
+        merged_kernels = list(db_kernels)
+        
+        for mk in memory_kernels:
+            if mk.get('kernel_id') not in db_kernel_ids:
+                # Transform in-memory kernel to match PostgresKernel interface
+                transformed = {
+                    'kernel_id': mk.get('kernel_id'),
+                    'god_name': mk.get('god_name'),
+                    'domain': mk.get('domain'),
+                    'status': 'observing' if mk.get('is_observing') else 'active',
+                    'primitive_root': None,
+                    'basin_coordinates': mk.get('basin_lineage', {}).get('basin', None),
+                    'parent_kernels': mk.get('parent_gods', []),
+                    'spawned_by': mk.get('parent_gods', ['genesis'])[0] if mk.get('parent_gods') else 'genesis',
+                    'spawn_reason': mk.get('spawn_reason', 'emergence'),
+                    'spawn_rationale': mk.get('metadata', {}).get('spawn_rationale', ''),
+                    'position_rationale': mk.get('m8_position', {}).get('position_name', '') if mk.get('m8_position') else '',
+                    'affinity_strength': mk.get('affinity_strength', 0.5),
+                    'entropy_threshold': mk.get('entropy_threshold', 0.3),
+                    'spawned_at': mk.get('spawned_at'),
+                    'last_active_at': mk.get('spawned_at'),
+                    'spawned_during_war_id': None,
+                    'phi': 0.0,
+                    'kappa': 0.0,
+                    'regime': None,
+                    'generation': 0,
+                    'success_count': 0,
+                    'failure_count': 0,
+                    'reputation': 'unknown',
+                    'element_group': mk.get('metadata', {}).get('element'),
+                    'ecological_niche': None,
+                    'target_function': None,
+                    'valence': None,
+                    'breeding_target': None,
+                    'merge_candidate': False,
+                    'split_candidate': False,
+                    'metadata': mk.get('metadata', {}),
+                    # Include observation and autonomic data for in-memory kernels
+                    'observation': mk.get('observation'),
+                    'autonomic': mk.get('autonomic'),
+                    'is_observing': mk.get('is_observing', False),
+                    'is_active': mk.get('is_active', True),
+                }
+                merged_kernels.append(transformed)
 
         return jsonify({
-            'kernels': kernels,
-            'count': len(kernels),
+            'kernels': merged_kernels,
+            'total': len(merged_kernels),
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

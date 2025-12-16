@@ -520,3 +520,132 @@ class KernelPersistence(BasePersistence):
                 'saved_at': row.get('created_at')
             })
         return states
+
+    def load_all_kernels_for_ui(self, limit: int = 100) -> List[Dict]:
+        """
+        Load all kernels with full telemetry for frontend UI.
+        
+        Returns all fields needed by the PostgresKernel frontend interface:
+        - kernel_id, god_name, domain, status, primitive_root, basin_coordinates
+        - parent_kernels, spawned_by, spawn_reason, spawn_rationale
+        - position_rationale, affinity_strength, entropy_threshold
+        - spawned_at, last_active_at, spawned_during_war_id
+        - phi, kappa, regime, generation, success_count, failure_count
+        - reputation, element_group, ecological_niche
+        - target_function, valence, breeding_target, merge_candidate, split_candidate
+        """
+        query = """
+            SELECT 
+                kernel_id, god_name, domain, primitive_root, basin_coordinates,
+                parent_kernels, phi, kappa, regime, generation,
+                success_count, failure_count, element_group, ecological_niche,
+                target_function, valence, breeding_target, metadata,
+                spawned_at
+            FROM kernel_geometry
+            ORDER BY spawned_at DESC
+            LIMIT %s
+        """
+        results = self.execute_query(query, (limit,))
+        
+        kernels = []
+        for r in (results or []):
+            row = dict(r)
+            
+            # Parse metadata for additional fields
+            metadata = row.get('metadata', {})
+            if metadata and isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {}
+            elif metadata is None:
+                metadata = {}
+            
+            # Calculate reputation from success/failure counts
+            success_count = row.get('success_count', 0) or 0
+            failure_count = row.get('failure_count', 0) or 0
+            total = success_count + failure_count
+            if total > 0:
+                reputation_ratio = success_count / total
+                if reputation_ratio >= 0.8:
+                    reputation = 'stellar'
+                elif reputation_ratio >= 0.6:
+                    reputation = 'trusted'
+                elif reputation_ratio >= 0.4:
+                    reputation = 'neutral'
+                elif reputation_ratio >= 0.2:
+                    reputation = 'suspect'
+                else:
+                    reputation = 'hostile'
+            else:
+                reputation = 'unknown'
+            
+            # Get parent kernels as array
+            parent_kernels = row.get('parent_kernels', []) or []
+            
+            # Extract spawn rationale from metadata
+            spawn_rationale = metadata.get('spawn_rationale', '')
+            if not spawn_rationale:
+                spawn_rationale = metadata.get('justification', '')
+            if not spawn_rationale:
+                spawn_rationale = metadata.get('spawn_reason', 'genesis')
+            
+            # Extract position rationale
+            m8_position = metadata.get('m8_position', {})
+            position_rationale = m8_position.get('position_name', '') if m8_position else ''
+            
+            # Convert basin_coordinates if needed
+            basin_coords = row.get('basin_coordinates')
+            if basin_coords is not None and not isinstance(basin_coords, list):
+                try:
+                    basin_coords = list(basin_coords)
+                except (TypeError, ValueError):
+                    basin_coords = None
+            
+            # Spawned timestamp handling
+            spawned_at = row.get('spawned_at')
+            if spawned_at:
+                if hasattr(spawned_at, 'isoformat'):
+                    spawned_at = spawned_at.isoformat()
+                else:
+                    spawned_at = str(spawned_at)
+            else:
+                spawned_at = None
+            
+            # Build the kernel object matching PostgresKernel interface
+            kernel = {
+                'kernel_id': row.get('kernel_id'),
+                'god_name': row.get('god_name'),
+                'domain': row.get('domain'),
+                'status': 'active',  # Default to active for DB kernels
+                'primitive_root': row.get('primitive_root'),
+                'basin_coordinates': basin_coords,
+                'parent_kernels': parent_kernels,
+                'spawned_by': parent_kernels[0] if parent_kernels else 'genesis',
+                'spawn_reason': metadata.get('spawn_reason', 'emergence'),
+                'spawn_rationale': spawn_rationale,
+                'position_rationale': position_rationale,
+                'affinity_strength': metadata.get('affinity_strength', 0.5),
+                'entropy_threshold': metadata.get('entropy_threshold', 0.3),
+                'spawned_at': spawned_at,
+                'last_active_at': spawned_at,  # Use spawned_at as fallback
+                'spawned_during_war_id': metadata.get('spawned_during_war_id'),
+                'phi': float(row.get('phi', 0.0) or 0.0),
+                'kappa': float(row.get('kappa', 0.0) or 0.0),
+                'regime': row.get('regime'),
+                'generation': int(row.get('generation', 0) or 0),
+                'success_count': success_count,
+                'failure_count': failure_count,
+                'reputation': reputation,
+                'element_group': row.get('element_group'),
+                'ecological_niche': row.get('ecological_niche'),
+                'target_function': row.get('target_function'),
+                'valence': row.get('valence'),
+                'breeding_target': row.get('breeding_target'),
+                'merge_candidate': metadata.get('merge_candidate', False),
+                'split_candidate': metadata.get('split_candidate', False),
+                'metadata': metadata,
+            }
+            kernels.append(kernel)
+        
+        return kernels
