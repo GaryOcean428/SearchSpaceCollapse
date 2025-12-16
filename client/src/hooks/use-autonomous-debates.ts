@@ -3,9 +3,11 @@
  * 
  * Provides access to the autonomous debate service status,
  * active debates, and kernel observation tracking.
+ * Uses project's default queryFn with credentials.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 export interface DebateServiceStatus {
   running: boolean;
@@ -94,34 +96,9 @@ export interface GraduateResponse {
   reason: string;
 }
 
-const DEBATE_KEYS = {
-  status: ['debates', 'status'] as const,
-  active: ['debates', 'active'] as const,
-  kernelsObserving: ['kernels', 'observing'] as const,
-  kernelsAll: ['kernels', 'all'] as const,
-};
-
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
-  }
-  
-  return response.json();
-}
-
 export function useDebateServiceStatus() {
   return useQuery<DebateServiceStatus>({
-    queryKey: DEBATE_KEYS.status,
-    queryFn: () => fetchJson('/api/olympus/debates/status'),
+    queryKey: ['/api/olympus/debates/status'],
     staleTime: 30000,
     refetchInterval: 30000,
   });
@@ -129,8 +106,7 @@ export function useDebateServiceStatus() {
 
 export function useActiveDebates() {
   return useQuery<ActiveDebatesResponse>({
-    queryKey: DEBATE_KEYS.active,
-    queryFn: () => fetchJson('/api/olympus/debates/active'),
+    queryKey: ['/api/olympus/debates/active'],
     staleTime: 15000,
     refetchInterval: 15000,
   });
@@ -138,8 +114,7 @@ export function useActiveDebates() {
 
 export function useObservingKernels() {
   return useQuery<ObservingKernelsResponse>({
-    queryKey: DEBATE_KEYS.kernelsObserving,
-    queryFn: () => fetchJson('/api/olympus/kernels/observing'),
+    queryKey: ['/api/olympus/kernels/observing'],
     staleTime: 30000,
     refetchInterval: 30000,
   });
@@ -147,8 +122,7 @@ export function useObservingKernels() {
 
 export function useAllKernels() {
   return useQuery<AllKernelsResponse>({
-    queryKey: DEBATE_KEYS.kernelsAll,
-    queryFn: () => fetchJson('/api/olympus/kernels/all'),
+    queryKey: ['/api/olympus/kernels/all'],
     staleTime: 30000,
     refetchInterval: 60000,
   });
@@ -158,14 +132,15 @@ export function useGraduateKernel() {
   const queryClient = useQueryClient();
   
   return useMutation<GraduateResponse, Error, { kernelId: string; reason?: string }>({
-    mutationFn: ({ kernelId, reason }) =>
-      fetchJson(`/api/olympus/kernels/${kernelId}/graduate`, {
-        method: 'POST',
-        body: JSON.stringify({ reason: reason || 'manual_graduation' }),
-      }),
+    mutationFn: async ({ kernelId, reason }) => {
+      const res = await apiRequest('POST', `/api/olympus/kernels/${kernelId}/graduate`, { 
+        reason: reason || 'manual_graduation' 
+      });
+      return res.json();
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: DEBATE_KEYS.kernelsObserving });
-      queryClient.invalidateQueries({ queryKey: DEBATE_KEYS.kernelsAll });
+      queryClient.invalidateQueries({ queryKey: ['/api/olympus/kernels/observing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/olympus/kernels/all'] });
     },
   });
 }
