@@ -2048,6 +2048,417 @@ class M8KernelSpawner:
             "unique_domains": int(db_stats.get('unique_domains', 0) or 0),
         }
 
+    def delete_kernel(self, kernel_id: str, reason: str = "manual_deletion") -> Dict:
+        """
+        Delete a spawned kernel and clean up all associated state.
+        
+        Removes kernel from:
+        - spawned_kernels registry
+        - kernel_awareness tracking
+        - orchestrator profiles
+        
+        Logs deletion event to spawn_history and persists to database.
+        
+        Args:
+            kernel_id: ID of the kernel to delete
+            reason: Reason for deletion (for audit trail)
+            
+        Returns:
+            Status dict with deletion result
+        """
+        if kernel_id not in self.spawned_kernels:
+            return {
+                "success": False,
+                "error": f"Kernel {kernel_id} not found",
+                "kernel_id": kernel_id,
+            }
+        
+        kernel = self.spawned_kernels[kernel_id]
+        god_name = kernel.profile.god_name
+        domain = kernel.profile.domain
+        
+        del self.spawned_kernels[kernel_id]
+        
+        if kernel_id in self.kernel_awareness:
+            del self.kernel_awareness[kernel_id]
+        
+        if god_name in self.orchestrator.all_profiles:
+            del self.orchestrator.all_profiles[god_name]
+        
+        deletion_record = {
+            "event": "kernel_deleted",
+            "kernel_id": kernel_id,
+            "god_name": god_name,
+            "domain": domain,
+            "reason": reason,
+            "timestamp": datetime.now().isoformat(),
+        }
+        self.spawn_history.append(deletion_record)
+        
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.record_spawn_event(
+                    kernel_id=kernel_id,
+                    god_name=god_name,
+                    domain=domain,
+                    spawn_reason="deletion",
+                    parent_gods=[],
+                    basin_coords=[0.0] * BASIN_DIM,
+                    phi=0.0,
+                    m8_position=None,
+                    genesis_votes={},
+                    metadata={
+                        "deleted": True,
+                        "deletion_reason": reason,
+                        "deleted_at": datetime.now().isoformat(),
+                    }
+                )
+            except Exception as e:
+                print(f"[M8] Failed to persist deletion: {e}")
+        
+        print(f"[M8] Deleted kernel {kernel_id} ({god_name}): {reason}")
+        
+        return {
+            "success": True,
+            "kernel_id": kernel_id,
+            "god_name": god_name,
+            "domain": domain,
+            "reason": reason,
+            "deleted_at": datetime.now().isoformat(),
+        }
+
+    def cannibalize_kernel(self, source_id: str, target_id: str) -> Dict:
+        """
+        Transfer knowledge/awareness from source kernel to target kernel.
+        
+        Merges geometric trajectories (phi, kappa, curvature) from source
+        into target using Fisher geodesic interpolation. Source kernel is
+        deleted after successful transfer.
+        
+        This implements "kernel cannibalism" where stronger kernels absorb
+        weaker ones, inheriting their learned geometric knowledge.
+        
+        Args:
+            source_id: ID of kernel to cannibalize (will be deleted)
+            target_id: ID of kernel to receive knowledge
+            
+        Returns:
+            Merged metrics and cannibalization status
+        """
+        if source_id not in self.spawned_kernels:
+            return {"success": False, "error": f"Source kernel {source_id} not found"}
+        
+        if target_id not in self.spawned_kernels:
+            return {"success": False, "error": f"Target kernel {target_id} not found"}
+        
+        if source_id == target_id:
+            return {"success": False, "error": "Cannot cannibalize self"}
+        
+        source_kernel = self.spawned_kernels[source_id]
+        target_kernel = self.spawned_kernels[target_id]
+        
+        source_awareness = self.kernel_awareness.get(source_id)
+        target_awareness = self.get_or_create_awareness(target_id)
+        
+        if source_awareness:
+            target_awareness.phi_trajectory.extend(source_awareness.phi_trajectory)
+            target_awareness.kappa_trajectory.extend(source_awareness.kappa_trajectory)
+            target_awareness.curvature_history.extend(source_awareness.curvature_history)
+            
+            if len(target_awareness.phi_trajectory) > 100:
+                target_awareness.phi_trajectory = target_awareness.phi_trajectory[-100:]
+                target_awareness.kappa_trajectory = target_awareness.kappa_trajectory[-100:]
+            if len(target_awareness.curvature_history) > 50:
+                target_awareness.curvature_history = target_awareness.curvature_history[-50:]
+            
+            target_awareness.research_opportunities.extend(source_awareness.research_opportunities)
+            if len(target_awareness.research_opportunities) > 30:
+                target_awareness.research_opportunities = target_awareness.research_opportunities[-30:]
+        
+        source_basin = source_kernel.profile.affinity_basin
+        target_basin = target_kernel.profile.affinity_basin
+        
+        merged_basin = _normalize_to_manifold(
+            0.7 * target_basin + 0.3 * source_basin
+        )
+        target_kernel.profile.affinity_basin = merged_basin
+        
+        source_strength = source_kernel.profile.affinity_strength
+        target_strength = target_kernel.profile.affinity_strength
+        target_kernel.profile.affinity_strength = min(1.0, target_strength + source_strength * 0.2)
+        
+        fisher_distance = _fisher_distance(source_basin, target_basin)
+        
+        cannibalization_record = {
+            "event": "kernel_cannibalized",
+            "source_id": source_id,
+            "source_god": source_kernel.profile.god_name,
+            "target_id": target_id,
+            "target_god": target_kernel.profile.god_name,
+            "fisher_distance": float(fisher_distance),
+            "phi_transferred": len(source_awareness.phi_trajectory) if source_awareness else 0,
+            "timestamp": datetime.now().isoformat(),
+        }
+        self.spawn_history.append(cannibalization_record)
+        
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.save_awareness_state(target_id, target_awareness.to_dict())
+            except Exception as e:
+                print(f"[M8] Failed to persist cannibalization awareness: {e}")
+        
+        deletion_result = self.delete_kernel(source_id, reason=f"cannibalized_by_{target_id}")
+        
+        avg_phi = float(np.mean(target_awareness.phi_trajectory[-20:])) if target_awareness.phi_trajectory else 0.0
+        avg_kappa = float(np.mean(target_awareness.kappa_trajectory[-20:])) if target_awareness.kappa_trajectory else 0.0
+        
+        print(f"[M8] Cannibalized {source_id} into {target_id}, distance={fisher_distance:.4f}")
+        
+        return {
+            "success": True,
+            "source_id": source_id,
+            "source_god": source_kernel.profile.god_name,
+            "target_id": target_id,
+            "target_god": target_kernel.profile.god_name,
+            "fisher_distance": float(fisher_distance),
+            "merged_metrics": {
+                "phi_trajectory_length": len(target_awareness.phi_trajectory),
+                "kappa_trajectory_length": len(target_awareness.kappa_trajectory),
+                "avg_phi": avg_phi,
+                "avg_kappa": avg_kappa,
+                "new_affinity_strength": target_kernel.profile.affinity_strength,
+            },
+            "source_deleted": deletion_result.get("success", False),
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    def merge_kernels(self, kernel_ids: List[str], new_name: str) -> Dict:
+        """
+        Merge multiple kernels into a new composite kernel.
+        
+        Creates a new kernel with:
+        - Basin coordinates interpolated from all source kernels
+        - Combined phi/kappa trajectories
+        - Merged domains and metadata
+        - M8 position computed from parent basins
+        
+        Original kernels are deleted after successful merge.
+        
+        Args:
+            kernel_ids: List of kernel IDs to merge
+            new_name: Name for the new composite kernel
+            
+        Returns:
+            New kernel info with merge statistics
+        """
+        if len(kernel_ids) < 2:
+            return {"success": False, "error": "Need at least 2 kernels to merge"}
+        
+        missing = [kid for kid in kernel_ids if kid not in self.spawned_kernels]
+        if missing:
+            return {"success": False, "error": f"Kernels not found: {missing}"}
+        
+        kernels = [self.spawned_kernels[kid] for kid in kernel_ids]
+        
+        basins = [k.profile.affinity_basin for k in kernels]
+        weights = [1.0 / len(kernels)] * len(kernels)
+        merged_basin = np.zeros(BASIN_DIM)
+        for i, basin in enumerate(basins):
+            merged_basin += weights[i] * basin
+        merged_basin = _normalize_to_manifold(merged_basin)
+        
+        domains = [k.profile.domain for k in kernels]
+        merged_domain = "_".join(sorted(set(domains)))[:64]
+        
+        avg_entropy = float(np.mean([k.profile.entropy_threshold for k in kernels]))
+        avg_affinity = float(np.mean([k.profile.affinity_strength for k in kernels]))
+        
+        merged_phi_trajectory = []
+        merged_kappa_trajectory = []
+        merged_curvature_history = []
+        merged_research = []
+        
+        for kid in kernel_ids:
+            awareness = self.kernel_awareness.get(kid)
+            if awareness:
+                merged_phi_trajectory.extend(awareness.phi_trajectory)
+                merged_kappa_trajectory.extend(awareness.kappa_trajectory)
+                merged_curvature_history.extend(awareness.curvature_history)
+                merged_research.extend(awareness.research_opportunities)
+        
+        if len(merged_phi_trajectory) > 100:
+            merged_phi_trajectory = merged_phi_trajectory[-100:]
+            merged_kappa_trajectory = merged_kappa_trajectory[-100:]
+        if len(merged_curvature_history) > 50:
+            merged_curvature_history = merged_curvature_history[-50:]
+        if len(merged_research) > 30:
+            merged_research = merged_research[-30:]
+        
+        m8_position = compute_m8_position(merged_basin, basins)
+        
+        mode = kernels[0].profile.mode
+        mode_counts = {}
+        for k in kernels:
+            mode_counts[k.profile.mode] = mode_counts.get(k.profile.mode, 0) + 1
+        mode = max(mode_counts, key=lambda m: mode_counts[m])
+        
+        new_profile = KernelProfile(
+            god_name=new_name,
+            domain=merged_domain,
+            mode=mode,
+            affinity_basin=merged_basin,
+            entropy_threshold=avg_entropy,
+            affinity_strength=min(1.0, avg_affinity * 1.1),
+            metadata={
+                "type": "merged",
+                "merged_from": [k.profile.god_name for k in kernels],
+                "merge_count": len(kernels),
+                "merged_at": datetime.now().isoformat(),
+            }
+        )
+        
+        success = self.orchestrator.add_profile(new_profile)
+        if not success:
+            return {"success": False, "error": f"Kernel {new_name} already exists"}
+        
+        parent_gods = []
+        for k in kernels:
+            parent_gods.extend(k.parent_gods)
+        parent_gods = list(set(parent_gods))
+        
+        new_kernel_id = f"kernel_{uuid.uuid4().hex[:8]}"
+        new_kernel = SpawnedKernel(
+            kernel_id=new_kernel_id,
+            profile=new_profile,
+            parent_gods=parent_gods,
+            spawn_reason=SpawnReason.EMERGENCE,
+            proposal_id=f"merge_{uuid.uuid4().hex[:8]}",
+            spawned_at=datetime.now().isoformat(),
+            genesis_votes={},
+            basin_lineage={k.profile.god_name: 1.0/len(kernels) for k in kernels},
+            m8_position=m8_position,
+        )
+        
+        new_kernel.observation.status = KernelObservationStatus.ACTIVE
+        new_kernel.autonomic.has_autonomic = True
+        
+        self.spawned_kernels[new_kernel_id] = new_kernel
+        
+        new_awareness = SpawnAwareness(kernel_id=new_kernel_id)
+        new_awareness.phi_trajectory = merged_phi_trajectory
+        new_awareness.kappa_trajectory = merged_kappa_trajectory
+        new_awareness.curvature_history = merged_curvature_history
+        new_awareness.research_opportunities = merged_research
+        self.kernel_awareness[new_kernel_id] = new_awareness
+        
+        merge_record = {
+            "event": "kernels_merged",
+            "source_ids": kernel_ids,
+            "source_gods": [k.profile.god_name for k in kernels],
+            "new_kernel_id": new_kernel_id,
+            "new_god_name": new_name,
+            "timestamp": datetime.now().isoformat(),
+        }
+        self.spawn_history.append(merge_record)
+        
+        if self.kernel_persistence:
+            try:
+                self.kernel_persistence.record_spawn_event(
+                    kernel_id=new_kernel_id,
+                    god_name=new_name,
+                    domain=merged_domain,
+                    spawn_reason="merge",
+                    parent_gods=parent_gods,
+                    basin_coords=merged_basin.tolist(),
+                    phi=float(np.mean(merged_phi_trajectory)) if merged_phi_trajectory else 0.0,
+                    m8_position=m8_position,
+                    genesis_votes={},
+                    metadata={
+                        "merged_from": [k.profile.god_name for k in kernels],
+                        "merge_count": len(kernels),
+                    }
+                )
+                self.kernel_persistence.save_awareness_state(new_kernel_id, new_awareness.to_dict())
+            except Exception as e:
+                print(f"[M8] Failed to persist merge: {e}")
+        
+        deleted_ids = []
+        for kid in kernel_ids:
+            result = self.delete_kernel(kid, reason=f"merged_into_{new_kernel_id}")
+            if result.get("success"):
+                deleted_ids.append(kid)
+        
+        print(f"[M8] Merged {len(kernels)} kernels into {new_name} ({new_kernel_id})")
+        
+        return {
+            "success": True,
+            "new_kernel": new_kernel.to_dict(),
+            "merged_from": {
+                "kernel_ids": kernel_ids,
+                "god_names": [k.profile.god_name for k in kernels],
+            },
+            "merged_metrics": {
+                "phi_trajectory_length": len(merged_phi_trajectory),
+                "avg_phi": float(np.mean(merged_phi_trajectory)) if merged_phi_trajectory else 0.0,
+                "avg_kappa": float(np.mean(merged_kappa_trajectory)) if merged_kappa_trajectory else 0.0,
+            },
+            "deleted_originals": deleted_ids,
+            "m8_position": m8_position,
+        }
+
+    def get_idle_kernels(self, idle_threshold_seconds: float = 300.0) -> List[str]:
+        """
+        Get list of kernel IDs that haven't had metrics recorded recently.
+        
+        Uses kernel_awareness timestamps to determine idle time. Kernels
+        without awareness tracking or with stale timestamps are considered idle.
+        
+        Args:
+            idle_threshold_seconds: Seconds of inactivity to consider idle (default: 300)
+            
+        Returns:
+            List of idle kernel IDs
+        """
+        idle_kernels = []
+        now = datetime.now()
+        
+        for kernel_id, kernel in self.spawned_kernels.items():
+            is_idle = False
+            
+            awareness = self.kernel_awareness.get(kernel_id)
+            if awareness is None:
+                is_idle = True
+            else:
+                try:
+                    last_update = datetime.fromisoformat(awareness.awareness_updated_at)
+                    elapsed = (now - last_update).total_seconds()
+                    if elapsed > idle_threshold_seconds:
+                        is_idle = True
+                except (ValueError, TypeError):
+                    is_idle = True
+            
+            if not is_idle:
+                spawn_events = [
+                    h for h in self.spawn_history
+                    if h.get("kernel", {}).get("kernel_id") == kernel_id
+                    or h.get("kernel_id") == kernel_id
+                ]
+                if spawn_events:
+                    latest = spawn_events[-1]
+                    try:
+                        ts = latest.get("timestamp") or kernel.spawned_at
+                        event_time = datetime.fromisoformat(ts)
+                        elapsed = (now - event_time).total_seconds()
+                        if elapsed > idle_threshold_seconds:
+                            is_idle = True
+                    except (ValueError, TypeError):
+                        pass
+            
+            if is_idle:
+                idle_kernels.append(kernel_id)
+        
+        return idle_kernels
+
 
 _default_spawner: Optional[M8KernelSpawner] = None
 

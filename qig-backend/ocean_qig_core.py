@@ -5195,6 +5195,146 @@ def m8_get_spawned_kernel(kernel_id: str):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/m8/kernel/<kernel_id>', methods=['DELETE'])
+def m8_delete_kernel(kernel_id: str):
+    """
+    Delete a spawned kernel.
+
+    Removes kernel from spawned_kernels, kernel_awareness, and orchestrator.
+    Logs deletion event to spawn_history and persists to database.
+
+    Query: ?reason=manual_deletion (optional deletion reason)
+
+    Returns: { success, kernel_id, god_name, domain, reason, deleted_at }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        reason = request.args.get('reason', 'manual_deletion')
+        spawner = get_spawner()
+        result = spawner.delete_kernel(kernel_id, reason=reason)
+
+        if not result.get('success'):
+            return jsonify(result), 404
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernel/cannibalize', methods=['POST'])
+def m8_cannibalize_kernel():
+    """
+    Cannibalize source kernel into target kernel.
+
+    Transfers knowledge/awareness (phi_trajectory, kappa_trajectory, curvature)
+    from source kernel to target kernel. Source kernel is deleted after transfer.
+
+    Body: {
+        source_id: string,  # Kernel ID to cannibalize (will be deleted)
+        target_id: string   # Kernel ID to receive knowledge
+    }
+
+    Returns: {
+        success, source_id, source_god, target_id, target_god,
+        fisher_distance, merged_metrics, source_deleted, timestamp
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        source_id = data.get('source_id')
+        target_id = data.get('target_id')
+
+        if not source_id or not target_id:
+            return jsonify({'error': 'source_id and target_id are required'}), 400
+
+        spawner = get_spawner()
+        result = spawner.cannibalize_kernel(source_id, target_id)
+
+        if not result.get('success'):
+            return jsonify(result), 400
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernels/merge', methods=['POST'])
+def m8_merge_kernels():
+    """
+    Merge multiple kernels into a new composite kernel.
+
+    Combines basin coordinates, phi/kappa trajectories, domains, and metadata
+    from all source kernels into a new kernel. Original kernels are deleted.
+
+    Body: {
+        kernel_ids: [string],  # List of kernel IDs to merge (min 2)
+        new_name: string       # Name for the new composite kernel
+    }
+
+    Returns: {
+        success, new_kernel, merged_from, merged_metrics,
+        deleted_originals, m8_position
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        kernel_ids = data.get('kernel_ids', [])
+        new_name = data.get('new_name')
+
+        if not kernel_ids or len(kernel_ids) < 2:
+            return jsonify({'error': 'kernel_ids must contain at least 2 kernel IDs'}), 400
+
+        if not new_name:
+            return jsonify({'error': 'new_name is required'}), 400
+
+        spawner = get_spawner()
+        result = spawner.merge_kernels(kernel_ids, new_name)
+
+        if not result.get('success'):
+            return jsonify(result), 400
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernels/idle', methods=['GET'])
+def m8_get_idle_kernels():
+    """
+    Get list of idle kernels.
+
+    Returns kernel IDs that haven't had metrics recorded recently.
+    Uses kernel_awareness timestamps to determine idle time.
+
+    Query: ?threshold=300 (idle threshold in seconds, default: 300)
+
+    Returns: { idle_kernels: [string], count, threshold_seconds }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        threshold = float(request.args.get('threshold', 300.0))
+        spawner = get_spawner()
+        idle_kernels = spawner.get_idle_kernels(idle_threshold_seconds=threshold)
+
+        return jsonify({
+            'idle_kernels': idle_kernels,
+            'count': len(idle_kernels),
+            'threshold_seconds': threshold,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ============================================================================
 # KERNEL OBSERVATION ENDPOINTS (Olympus API)
 # Routes for observing kernel apprenticeship and graduation
