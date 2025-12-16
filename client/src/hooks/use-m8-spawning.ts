@@ -265,3 +265,137 @@ export function useActiveWar() {
     refetchInterval: 15000,
   });
 }
+
+export interface IdleKernel extends PostgresKernel {
+  idle_duration_seconds: number;
+  idle_since: string;
+}
+
+export interface IdleKernelsResponse {
+  kernels: IdleKernel[];
+  total: number;
+}
+
+export interface DeleteKernelResponse {
+  success: boolean;
+  kernel_id: string;
+  message: string;
+}
+
+export interface CannibalizeRequest {
+  source_kernel_id: string;
+  target_kernel_id: string;
+}
+
+export interface CannibalizeResponse {
+  success: boolean;
+  source_kernel_id: string;
+  target_kernel_id: string;
+  traits_absorbed: string[];
+  message: string;
+}
+
+export interface MergeKernelsRequest {
+  kernel_ids: string[];
+  new_name: string;
+}
+
+export interface MergeKernelsResponse {
+  success: boolean;
+  merged_kernel: PostgresKernel;
+  source_kernel_ids: string[];
+  message: string;
+}
+
+export function useIdleKernels(threshold_seconds: number = 300) {
+  return useQuery<IdleKernelsResponse>({
+    queryKey: ['m8', 'idleKernels', threshold_seconds],
+    queryFn: async () => {
+      const response = await fetch(`/api/olympus/m8/kernels/idle?threshold=${threshold_seconds}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch idle kernels');
+      }
+      return response.json();
+    },
+    staleTime: 30000,
+    refetchInterval: 30000,
+  });
+}
+
+export function useDeleteKernel() {
+  const queryClient = useQueryClient();
+
+  return useMutation<DeleteKernelResponse, Error, { kernelId: string }>({
+    mutationFn: async ({ kernelId }) => {
+      const response = await fetch(`/api/olympus/m8/kernel/${kernelId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Delete failed' }));
+        throw new Error(error.error || 'Failed to delete kernel');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
+      queryClient.invalidateQueries({ queryKey: ['m8', 'idleKernels'] });
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.status });
+    },
+  });
+}
+
+export function useCannibalizeKernel() {
+  const queryClient = useQueryClient();
+
+  return useMutation<CannibalizeResponse, Error, CannibalizeRequest>({
+    mutationFn: async (request) => {
+      const response = await fetch('/api/olympus/m8/kernel/cannibalize', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Cannibalize failed' }));
+        throw new Error(error.error || 'Failed to cannibalize kernel');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
+      queryClient.invalidateQueries({ queryKey: ['m8', 'idleKernels'] });
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.status });
+    },
+  });
+}
+
+export function useMergeKernels() {
+  const queryClient = useQueryClient();
+
+  return useMutation<MergeKernelsResponse, Error, MergeKernelsRequest>({
+    mutationFn: async (request) => {
+      const response = await fetch('/api/olympus/m8/kernels/merge', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Merge failed' }));
+        throw new Error(error.error || 'Failed to merge kernels');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
+      queryClient.invalidateQueries({ queryKey: ['m8', 'idleKernels'] });
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.status });
+    },
+  });
+}
