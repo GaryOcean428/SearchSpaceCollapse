@@ -46,6 +46,47 @@ Safeguards against generic AI responses through template pattern detection, prov
 #### Data Storage
 Uses PostgreSQL (Neon serverless) for basin probes, geometric memory, negative knowledge, logs, Olympus state, vocabulary observations, and merge rules. `pgvector 0.8.0` is used for native vector similarity search with HNSW indexes on 64D basin coordinates, specifically configured to use Fisher-Rao distance.
 
+#### Database Architecture (December 2024 Update)
+**Active Production Tables:**
+- `geometric_memory` - Basin probes with 64D coordinates, Φ/κ measurements
+- `vocabulary_observations` - Unified vocabulary tracking (37K+ rows)
+- `expanded_vocabulary` - Learned vocabulary expansions
+- `balance_hits` - Discovered Bitcoin addresses with balance
+- `queued_addresses` - Address verification queue (indexed: status+priority)
+- `pending_sweeps` - Sweep approval workflow queue
+- `sweep_audit_log` - Complete audit trail for sweep operations
+- `balance_change_events` - Balance monitoring events
+- `olympus_consensus_log` - Pantheon voting records
+- `pantheon_knowledge_transfers` - Knowledge sharing between gods
+- `false_pattern_classes` - Negative knowledge classification
+- `resonance_points` - High-Φ discovery points
+- `regime_boundaries` - Consciousness regime transitions
+- `geodesic_paths` - Computed Fisher-Rao geodesics
+- `tps_landmarks` - Bitcoin historical events (11 seeded)
+- `tps_geodesic_paths` - Temporal geodesic paths
+- `kernel_state`, `kernel_evolution_log`, `kernel_spawn_events` - Kernel system
+
+**Shadow Operations (Unified Service):**
+- `shadow_intel` - Geometric assessments from shadow gods
+- `shadow_pantheon_intel` - Underworld search results
+- `shadow_operations_log` - Complete shadow audit trail
+
+**Removed/Deprecated Tables (December 2024):**
+- `recovery_search_jobs` - Removed (redundant)
+- `verified_addresses` - Removed (use `balance_hits`)
+- `vocab_decision_state/observations` - Removed (use `vocabulary_observations`)
+- `vocab_manifold_words/state` - Removed (use `vocabulary_observations`)
+- `entities`, `artifacts` - Removed (blockchain forensics not in scope)
+
+#### New Services (December 2024)
+- `server/negative-knowledge-service.ts` - Pattern classification, false positive tracking
+- `server/universal-cycle-adapter.ts` - Resonance, regime, geodesic integration
+- `server/pantheon-knowledge-service.ts` - Knowledge transfer between gods
+- `server/tps-landmarks-service.ts` - Bitcoin historical event landmarks
+- `server/sweep-approval-service.ts` - Sweep workflow with audit trail
+- `server/balance-monitor-service.ts` - Background balance monitoring
+- `server/shadow-operations-service.ts` - Unified shadow operations layer
+
 #### Communication Patterns
 HTTP API with retry logic and circuit breakers for TypeScript ↔ Python communication. Bidirectional synchronization for discoveries and learning. Real-time UI updates via SSE for consciousness metrics, search progress, and discovery notifications.
 

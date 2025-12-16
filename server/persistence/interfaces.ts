@@ -39,6 +39,15 @@ export interface ITestedPhraseStorage {
   flushTestedPhrases(): Promise<number>;
 }
 
+export interface ISearchJobStorage {
+  getSearchJobs(): Promise<import('@shared/schema').SearchJob[]>;
+  getSearchJob(id: string): Promise<import('@shared/schema').SearchJob | null>;
+  addSearchJob(job: import('@shared/schema').SearchJob): Promise<void>;
+  updateSearchJob(id: string, updates: Partial<import('@shared/schema').SearchJob>): Promise<void>;
+  appendJobLog(id: string, log: { message: string; type: "info" | "success" | "error" }): Promise<void>;
+  deleteSearchJob(id: string): Promise<void>;
+}
+
 export interface PhiKappaRange {
   phiMin?: number;
   phiMax?: number;

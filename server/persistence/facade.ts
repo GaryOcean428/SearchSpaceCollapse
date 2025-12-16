@@ -19,6 +19,7 @@ import type {
   IUserStorage,
   IOceanProbeStorage,
   ITestedPhraseStorage,
+  ISearchJobStorage,
   StorageConfig,
 } from './interfaces';
 import {
@@ -35,6 +36,7 @@ class StorageFacade {
   private _users: IUserStorage;
   private _oceanProbes: IOceanProbeStorage | null = null;
   private _testedPhrases: ITestedPhraseStorage | null = null;
+  private _searchJobs: ISearchJobStorage;
   private _config: StorageConfig;
 
   constructor(config?: Partial<StorageConfig>) {
@@ -54,6 +56,15 @@ class StorageFacade {
     this._candidates = new CandidatePostgresAdapter();
     this._targetAddresses = new TargetAddressPostgresAdapter();
     this._users = new UserPostgresAdapter();
+    
+    this._searchJobs = {
+      getSearchJobs: async () => [],
+      getSearchJob: async () => null,
+      addSearchJob: async () => {},
+      updateSearchJob: async () => {},
+      appendJobLog: async () => {},
+      deleteSearchJob: async () => {},
+    };
 
     if (oceanPersistence.isPersistenceAvailable()) {
       this._oceanProbes = {
@@ -97,6 +108,10 @@ class StorageFacade {
 
   get testedPhrases(): ITestedPhraseStorage | null {
     return this._testedPhrases;
+  }
+
+  get searchJobs(): ISearchJobStorage {
+    return this._searchJobs;
   }
 
   isOceanPersistenceAvailable(): boolean {
