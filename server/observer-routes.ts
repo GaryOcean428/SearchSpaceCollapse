@@ -354,6 +354,54 @@ router.post("/test/simulate-balance-hit", async (req: Request, res: Response) =>
 });
 
 /**
+ * POST /api/observer/test/cleanup
+ * Clean up all test entries from balance_hits and pending_sweeps
+ * Only available in development mode
+ */
+router.post("/test/cleanup", async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: "Not available in production" });
+  }
+  
+  try {
+    const { db } = await import("./db");
+    const { sql } = await import("drizzle-orm");
+    
+    if (!db) {
+      return res.status(500).json({ error: "Database not available" });
+    }
+    
+    // Delete test entries from balance_hits
+    const balanceResult = await db.execute(sql`
+      DELETE FROM balance_hits 
+      WHERE address LIKE '%XYZX%' 
+         OR passphrase LIKE 'queue_drain_test_%'
+         OR passphrase LIKE 'full_pipeline_test_%'
+         OR passphrase LIKE 'integration_test_%'
+         OR wif LIKE 'test_wif_%'
+    `);
+    
+    // Delete test entries from pending_sweeps
+    const sweepResult = await db.execute(sql`
+      DELETE FROM pending_sweeps 
+      WHERE address LIKE '%XYZX%'
+    `);
+    
+    console.log(`[TestCleanup] Cleaned up test entries: ${balanceResult.rowCount || 0} balance_hits, ${sweepResult.rowCount || 0} pending_sweeps`);
+    
+    res.json({
+      success: true,
+      cleaned: {
+        balanceHits: balanceResult.rowCount || 0,
+        pendingSweeps: sweepResult.rowCount || 0,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/observer/test/sweep/:address
  * Check if a sweep exists for an address
  * Only available in development mode
@@ -2741,6 +2789,16 @@ router.get("/discoveries/hits", async (req: Request, res: Response) => {
     
     let hits = await getBalanceHits();
     const dormantMatches = dormantCrossRef.getAllMatches();
+    
+    // Filter out test entries (addresses with XYZX pattern or test passphrases)
+    hits = hits.filter(h => {
+      const isTestAddress = h.address.includes('XYZX');
+      const isTestPassphrase = h.passphrase.startsWith('queue_drain_test_') || 
+                               h.passphrase.startsWith('full_pipeline_test_') ||
+                               h.passphrase.startsWith('integration_test_');
+      const isTestWif = h.wif.startsWith('test_wif_');
+      return !isTestAddress && !isTestPassphrase && !isTestWif;
+    });
     
     // Filter to specific address if requested
     if (filterAddress) {
