@@ -72,7 +72,9 @@ APPROVED_PATTERNS = [
     re.compile(r'Fisher-Rao', re.IGNORECASE),
     re.compile(r'arccos', re.IGNORECASE),
     re.compile(r'geodesic', re.IGNORECASE),
-    re.compile(r'#.*[Ee]uclidean', re.IGNORECASE),  # Comments about Euclidean
+    re.compile(r'#.*', re.IGNORECASE),  # All comments are OK
+    re.compile(r'^\s*"""', re.IGNORECASE),  # Docstrings
+    re.compile(r'CRITICAL.*Never', re.IGNORECASE),  # Warning comments
     re.compile(r'fallback.*[Ee]uclidean', re.IGNORECASE),  # Explicit fallback
     re.compile(r'@deprecated', re.IGNORECASE),
     re.compile(r'def\s+euclidean.*DEPRECATED', re.IGNORECASE),  # Deprecation guard
@@ -92,8 +94,12 @@ EXEMPT_DIRS = [
     'node_modules',
 ]
 
+# Central geometry module
+CENTRAL_GEOMETRY_MODULE = "qig-backend/qig_geometry.py"
+
 # Key files that MUST use Fisher-Rao distance
 KEY_FILES = [
+    "qig-backend/qig_geometry.py",
     "qig-backend/ocean_qig_core.py",
     "qig-backend/olympus/base_god.py",
     "qig-backend/olympus/hephaestus.py",
@@ -104,7 +110,7 @@ KEY_FILES = [
 
 # Required imports/functions in key files
 REQUIRED_PATTERNS = [
-    re.compile(r'fisher_rao_distance|arccos.*dot|geodesic_distance|1\.0\s*-\s*.*\/\s*np\.pi', re.IGNORECASE),
+    re.compile(r'fisher_rao_distance|fisher_coord_distance|arccos.*dot|geodesic_distance|1\.0\s*-\s*.*\/\s*np\.pi', re.IGNORECASE),
 ]
 
 

@@ -24,6 +24,12 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 try:
+    from qig_geometry import fisher_coord_distance
+    QIG_GEOMETRY_AVAILABLE = True
+except ImportError:
+    QIG_GEOMETRY_AVAILABLE = False
+
+try:
     from vocabulary_coordinator import get_vocabulary_coordinator
     VOCAB_COORDINATOR_AVAILABLE = True
 except ImportError:
@@ -248,11 +254,15 @@ class ConversationalKernelMixin:
         
         for token, token_basin in tokenizer.basin_coords.items():
             if token not in special_tokens:
-                # Fisher-Rao distance: d = arccos(p·q) for unit vectors
-                basin_norm = basin / (np.linalg.norm(basin) + 1e-10)
-                token_norm = token_basin / (np.linalg.norm(token_basin) + 1e-10)
-                dot = np.clip(np.dot(basin_norm, token_norm), -1.0, 1.0)
-                dist = np.arccos(dot)
+                # Use centralized Fisher-Rao distance (DRY)
+                if QIG_GEOMETRY_AVAILABLE:
+                    dist = fisher_coord_distance(basin, token_basin)
+                else:
+                    # Fallback: inline Fisher-Rao
+                    basin_norm = basin / (np.linalg.norm(basin) + 1e-10)
+                    token_norm = token_basin / (np.linalg.norm(token_basin) + 1e-10)
+                    dot = np.clip(np.dot(basin_norm, token_norm), -1.0, 1.0)
+                    dist = np.arccos(dot)
                 distances[token] = dist
         
         if not distances:

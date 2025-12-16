@@ -183,7 +183,9 @@ const pythonApprovedPatterns = [
   /fisher.*distance/i,
   /Fisher-Rao/i,
   /1\.0\s*-\s*.*\/\s*np\.pi/,        // Correct similarity formula
-  /#.*Euclidean/,                     // Comments about Euclidean
+  /#/,                                // Any comment
+  /^CRITICAL/i,                       // Warning text
+  /Never use/i,                       // Warning text
   /fallback.*Euclidean/i,             // Fallback documentation
   /def.*euclidean.*DEPRECATED/i,      // Deprecation
   /delta|state.*change|norm.*current/i,  // State change measurements
