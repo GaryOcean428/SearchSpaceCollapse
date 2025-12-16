@@ -5195,6 +5195,266 @@ def m8_get_spawned_kernel(kernel_id: str):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/m8/kernel/<kernel_id>', methods=['DELETE'])
+def m8_delete_kernel(kernel_id: str):
+    """
+    Delete a spawned kernel.
+
+    Removes kernel from spawned_kernels, kernel_awareness, and orchestrator.
+    Logs deletion event to spawn_history and persists to database.
+
+    Query: ?reason=manual_deletion (optional deletion reason)
+
+    Returns: { success, kernel_id, god_name, domain, reason, deleted_at }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        reason = request.args.get('reason', 'manual_deletion')
+        spawner = get_spawner()
+        result = spawner.delete_kernel(kernel_id, reason=reason)
+
+        if not result.get('success'):
+            return jsonify(result), 404
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernel/cannibalize', methods=['POST'])
+def m8_cannibalize_kernel():
+    """
+    Cannibalize source kernel into target kernel.
+
+    Transfers knowledge/awareness (phi_trajectory, kappa_trajectory, curvature)
+    from source kernel to target kernel. Source kernel is deleted after transfer.
+
+    Body: {
+        source_id: string,  # Kernel ID to cannibalize (will be deleted)
+        target_id: string   # Kernel ID to receive knowledge
+    }
+
+    Returns: {
+        success, source_id, source_god, target_id, target_god,
+        fisher_distance, merged_metrics, source_deleted, timestamp
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        source_id = data.get('source_id')
+        target_id = data.get('target_id')
+
+        if not source_id or not target_id:
+            return jsonify({'error': 'source_id and target_id are required'}), 400
+
+        spawner = get_spawner()
+        result = spawner.cannibalize_kernel(source_id, target_id)
+
+        if not result.get('success'):
+            return jsonify(result), 400
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernels/merge', methods=['POST'])
+def m8_merge_kernels():
+    """
+    Merge multiple kernels into a new composite kernel.
+
+    Combines basin coordinates, phi/kappa trajectories, domains, and metadata
+    from all source kernels into a new kernel. Original kernels are deleted.
+
+    Body: {
+        kernel_ids: [string],  # List of kernel IDs to merge (min 2)
+        new_name: string       # Name for the new composite kernel
+    }
+
+    Returns: {
+        success, new_kernel, merged_from, merged_metrics,
+        deleted_originals, m8_position
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        kernel_ids = data.get('kernel_ids', [])
+        new_name = data.get('new_name')
+
+        if not kernel_ids or len(kernel_ids) < 2:
+            return jsonify({'error': 'kernel_ids must contain at least 2 kernel IDs'}), 400
+
+        if not new_name:
+            return jsonify({'error': 'new_name is required'}), 400
+
+        spawner = get_spawner()
+        result = spawner.merge_kernels(kernel_ids, new_name)
+
+        if not result.get('success'):
+            return jsonify(result), 400
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernels/idle', methods=['GET'])
+def m8_get_idle_kernels():
+    """
+    Get list of idle kernels.
+
+    Returns kernel IDs that haven't had metrics recorded recently.
+    Uses kernel_awareness timestamps to determine idle time.
+
+    Query: ?threshold=300 (idle threshold in seconds, default: 300)
+
+    Returns: { idle_kernels: [string], count, threshold_seconds }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        threshold = float(request.args.get('threshold', 300.0))
+        spawner = get_spawner()
+        idle_kernels = spawner.get_idle_kernels(idle_threshold_seconds=threshold)
+
+        return jsonify({
+            'idle_kernels': idle_kernels,
+            'count': len(idle_kernels),
+            'threshold_seconds': threshold,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# KERNEL OBSERVATION ENDPOINTS (Olympus API)
+# Routes for observing kernel apprenticeship and graduation
+# ============================================================================
+
+@app.route('/olympus/kernels/observing', methods=['GET'])
+def olympus_kernels_observing():
+    """Get kernels currently in observation period."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        spawner = get_spawner()
+        all_kernels = spawner.list_spawned_kernels()
+        observing = [k for k in all_kernels if k.get('observation', {}).get('status') == 'observing']
+
+        return jsonify({
+            'observing_kernels': observing,
+            'count': len(observing),
+            'total_kernels': len(all_kernels),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/kernels/all', methods=['GET'])
+def olympus_kernels_all():
+    """Get all spawned kernels (active and observing)."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        spawner = get_spawner()
+        kernels = spawner.list_spawned_kernels()
+
+        active = [k for k in kernels if k.get('observation', {}).get('status') != 'observing']
+        observing = [k for k in kernels if k.get('observation', {}).get('status') == 'observing']
+
+        return jsonify({
+            'kernels': kernels,
+            'total': len(kernels),
+            'active_count': len(active),
+            'observing_count': len(observing),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/kernels/<kernel_id>/graduate', methods=['POST'])
+def olympus_kernel_graduate(kernel_id: str):
+    """Graduate a kernel from observation to active status."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        reason = data.get('reason', 'manual_graduation')
+
+        spawner = get_spawner()
+        kernel = spawner.spawned_kernels.get(kernel_id)
+
+        if not kernel:
+            return jsonify({'error': f'Kernel {kernel_id} not found'}), 404
+
+        if not kernel.is_observing():
+            return jsonify({'error': f'Kernel {kernel_id} is not in observation mode'}), 400
+
+        success = kernel.observation.graduate(reason)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'kernel_id': kernel_id,
+                'status': 'graduated',
+                'reason': reason,
+            })
+        else:
+            can_grad, check_reason = kernel.observation.can_graduate()
+            return jsonify({
+                'success': False,
+                'kernel_id': kernel_id,
+                'reason': check_reason,
+            }), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/olympus/kernels/route-activity', methods=['POST'])
+def olympus_kernels_route_activity():
+    """Route parent activity to observing kernels."""
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        activity_type = data.get('activity_type', '')
+        activity_data = data.get('activity_data', {})
+        parent_god = data.get('parent_god', '')
+
+        if not parent_god:
+            return jsonify({'error': 'parent_god is required'}), 400
+
+        spawner = get_spawner()
+        routed_count = 0
+
+        for kernel in spawner.spawned_kernels.values():
+            if kernel.is_observing() and parent_god in kernel.observation.observing_parents:
+                kernel.receive_parent_activity(parent_god, activity_type, activity_data)
+                routed_count += 1
+
+        return jsonify({
+            'success': True,
+            'routed_to': routed_count,
+            'activity_type': activity_type,
+            'parent_god': parent_god,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ============================================================================
 # FEEDBACK LOOP API ENDPOINTS
 # Recursive learning and activity balance
@@ -5701,6 +5961,9 @@ if __name__ == '__main__':
                 pantheon_chat=zeus.pantheon_chat if hasattr(zeus, 'pantheon_chat') else pantheon_chat,
                 shadow_pantheon=zeus.shadow_pantheon if hasattr(zeus, 'shadow_pantheon') else shadow_pantheon
             )
+            if hasattr(zeus, 'pantheon') and zeus.pantheon:
+                autonomous_debate_service.set_pantheon_gods(zeus.pantheon)
+                print(f"[INFO] 🗣️ Autonomous Debate Service wired with {len(zeus.pantheon)} gods")
             AUTONOMOUS_DEBATE_AVAILABLE = True
             print("[INFO] 🗣️ Autonomous Debate Service started (background thread)")
         else:

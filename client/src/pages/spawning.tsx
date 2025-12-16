@@ -41,12 +41,27 @@ import {
   useSpawnDirect,
   useWarHistory,
   useActiveWar,
+  useIdleKernels,
+  useDeleteKernel,
+  useCannibalizeKernel,
+  useMergeKernels,
   type WarHistoryRecord,
   type WarMode,
   type WarOutcome,
   type PostgresKernel,
   type KernelStatus,
+  type IdleKernel,
 } from '@/hooks/use-m8-spawning';
+import {
+  useDebateServiceStatus,
+  useObservingKernels,
+  useActiveDebates,
+  useGraduateKernel,
+  type ObservingKernel,
+  type ActiveDebate,
+} from '@/hooks/use-autonomous-debates';
+import { Eye, GraduationCap, MessageSquare, Trash2, GitMerge, Scissors, ArrowRightLeft } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { SpawnProposal, SpawnReason, ProposalStatus, M8Position } from '@/lib/m8-kernel-spawning';
 import { Swords, Target, Timer, Trophy, AlertTriangle, Activity, Compass, MapPin } from 'lucide-react';
 
@@ -225,13 +240,14 @@ const SPAWN_REASON_COLORS: Record<string, string> = {
   unknown: 'bg-gray-500/20 text-gray-400',
 };
 
-const KERNEL_STATUS_COLORS: Record<KernelStatus, string> = {
+const KERNEL_STATUS_COLORS: Record<KernelStatus | 'observing', string> = {
   active: 'bg-green-500/20 text-green-400',
   idle: 'bg-gray-500/20 text-gray-400',
   breeding: 'bg-pink-500/20 text-pink-400',
   dormant: 'bg-blue-500/20 text-blue-400',
   dead: 'bg-red-500/20 text-red-400',
   shadow: 'bg-purple-500/20 text-purple-400',
+  observing: 'bg-amber-500/20 text-amber-400',
 };
 
 function KernelCard({ kernel }: { kernel: PostgresKernel }) {
@@ -321,7 +337,7 @@ function KernelCard({ kernel }: { kernel: PostgresKernel }) {
           </div>
         </div>
         
-        <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="grid grid-cols-3 gap-2 text-sm">
           <div>
             <span className="text-xs text-muted-foreground">Φ (Phi)</span>
             <div className="font-mono font-medium text-cyan-400" data-testid={`text-phi-${kernel.kernel_id}`}>
@@ -332,6 +348,21 @@ function KernelCard({ kernel }: { kernel: PostgresKernel }) {
             <span className="text-xs text-muted-foreground">κ (Kappa)</span>
             <div className="font-mono font-medium text-amber-400" data-testid={`text-kappa-${kernel.kernel_id}`}>
               {kernel.kappa.toFixed(1)}
+            </div>
+          </div>
+          <div>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Compass className="h-3 w-3" />
+              Fisher δ
+            </span>
+            <div 
+              className={`font-mono font-medium ${
+                kernel.phi > 0.5 ? 'text-green-400' : 
+                kernel.phi > 0.2 ? 'text-yellow-400' : 'text-red-400'
+              }`}
+              data-testid={`text-fisher-${kernel.kernel_id}`}
+            >
+              {(kernel.phi * (1 - kernel.entropy_threshold)).toFixed(3)}
             </div>
           </div>
         </div>
@@ -486,6 +517,643 @@ function WarCard({ war, isActive }: { war: WarHistoryRecord; isActive?: boolean 
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ObservingKernelCard({ kernel, onGraduate, isGraduating }: { 
+  kernel: ObservingKernel; 
+  onGraduate: (id: string) => void;
+  isGraduating: boolean;
+}) {
+  const observation = kernel.observation;
+  const progressPercent = Math.min(100, (observation.observation_cycles / 10) * 100);
+  
+  return (
+    <Card className="border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Eye className="h-4 w-4 text-amber-400" />
+            {kernel.profile.god_name}
+          </CardTitle>
+          <Badge variant="outline" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+            Observing
+          </Badge>
+        </div>
+        <CardDescription>{kernel.profile.domain}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Parents:</span>
+          {observation.observing_parents.map(parent => (
+            <Badge key={parent} variant="outline" className="text-xs capitalize">{parent}</Badge>
+          ))}
+        </div>
+        
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Observation Progress</span>
+            <span>{observation.observation_cycles}/10 cycles</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-amber-500 transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="text-muted-foreground">Alignment:</span>
+            <span className="ml-1 font-mono">{(observation.alignment_avg * 100).toFixed(1)}%</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Started:</span>
+            <span className="ml-1">{new Date(observation.observation_start).toLocaleDateString()}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-xs text-muted-foreground">
+            Spawn reason: {kernel.spawn_reason}
+          </span>
+          <Button 
+            size="sm" 
+            variant="outline"
+            disabled={!observation.can_graduate || isGraduating}
+            onClick={() => onGraduate(kernel.kernel_id)}
+            className="gap-1"
+            data-testid={`button-graduate-${kernel.kernel_id}`}
+          >
+            <GraduationCap className="h-3 w-3" />
+            Graduate
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ObservingKernelsPanel() {
+  const { data: debateStatus, isLoading: debateLoading } = useDebateServiceStatus();
+  const { data: observingData, isLoading: observingLoading } = useObservingKernels();
+  const graduateMutation = useGraduateKernel();
+  const { toast } = useToast();
+  
+  const handleGraduate = async (kernelId: string) => {
+    try {
+      await graduateMutation.mutateAsync({ kernelId });
+      toast({
+        title: 'Kernel Graduated',
+        description: 'The kernel has been promoted to active status.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Graduation Failed',
+        description: error instanceof Error ? error.message : 'Failed to graduate kernel',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-blue-400" />
+            Autonomous Debate Service
+          </CardTitle>
+          <CardDescription>
+            Background service monitoring debates and spawning specialist kernels
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {debateLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : debateStatus ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono" data-testid="text-debates-resolved">
+                  {debateStatus.debates_resolved}
+                </div>
+                <div className="text-xs text-muted-foreground">Debates Resolved</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono" data-testid="text-arguments-generated">
+                  {debateStatus.arguments_generated}
+                </div>
+                <div className="text-xs text-muted-foreground">Arguments Generated</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono" data-testid="text-spawns-triggered">
+                  {debateStatus.spawns_triggered}
+                </div>
+                <div className="text-xs text-muted-foreground">Kernels Spawned</div>
+              </div>
+              <div className="text-center">
+                <div className={`text-2xl font-bold font-mono ${debateStatus.running ? 'text-green-400' : 'text-red-400'}`} data-testid="text-service-status">
+                  {debateStatus.running ? 'Active' : 'Stopped'}
+                </div>
+                <div className="text-xs text-muted-foreground">Service Status</div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">Debate service unavailable</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Eye className="h-5 w-5 text-amber-400" />
+          Observing Kernels ({observingData?.count || 0})
+        </h3>
+        
+        {observingLoading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground">Loading observing kernels...</p>
+          </div>
+        ) : observingData?.observing_kernels && observingData.observing_kernels.length > 0 ? (
+          <ScrollArea className="h-[400px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
+              {observingData.observing_kernels.map(kernel => (
+                <ObservingKernelCard 
+                  key={kernel.kernel_id} 
+                  kernel={kernel}
+                  onGraduate={handleGraduate}
+                  isGraduating={graduateMutation.isPending}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="text-center text-muted-foreground py-12">
+            <Eye className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-lg">No kernels currently observing</p>
+            <p className="text-sm">New kernels spawned from debates start in observation mode</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getIdleTimeColor(idleDurationSeconds: number): string {
+  if (idleDurationSeconds < 300) return 'text-green-400';
+  if (idleDurationSeconds < 900) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
+function formatIdleTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
+}
+
+function KernelLifecycleActionsPanel() {
+  const { toast } = useToast();
+  const { data: idleData, isLoading: idleLoading } = useIdleKernels(300);
+  const { data: allKernels } = useListSpawnedKernels();
+  const deleteMutation = useDeleteKernel();
+  const cannibalizeMutation = useCannibalizeKernel();
+  const mergeMutation = useMergeKernels();
+  
+  const [cannibalizeSource, setCannibalizeSource] = useState<string>('');
+  const [cannibalizeTarget, setCannibalizeTarget] = useState<string>('');
+  const [selectedForMerge, setSelectedForMerge] = useState<string[]>([]);
+  const [mergeName, setMergeName] = useState<string>('');
+
+  const handleDelete = async (kernelId: string, godName: string) => {
+    try {
+      await deleteMutation.mutateAsync({ kernelId });
+      toast({
+        title: 'Kernel Deleted',
+        description: `${godName} has been removed from the pantheon.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Delete Failed',
+        description: error instanceof Error ? error.message : 'Failed to delete kernel',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCannibalize = async () => {
+    if (!cannibalizeSource || !cannibalizeTarget) {
+      toast({
+        title: 'Selection Required',
+        description: 'Please select both source and target kernels.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      const result = await cannibalizeMutation.mutateAsync({
+        source_kernel_id: cannibalizeSource,
+        target_kernel_id: cannibalizeTarget,
+      });
+      toast({
+        title: 'Cannibalization Complete',
+        description: result.message || 'Traits absorbed successfully.',
+      });
+      setCannibalizeSource('');
+      setCannibalizeTarget('');
+    } catch (error) {
+      toast({
+        title: 'Cannibalization Failed',
+        description: error instanceof Error ? error.message : 'Failed to cannibalize kernel',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleMerge = async () => {
+    if (selectedForMerge.length < 2) {
+      toast({
+        title: 'Selection Required',
+        description: 'Select at least 2 kernels to merge.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!mergeName.trim()) {
+      toast({
+        title: 'Name Required',
+        description: 'Enter a name for the merged kernel.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      const result = await mergeMutation.mutateAsync({
+        kernel_ids: selectedForMerge,
+        new_name: mergeName,
+      });
+      toast({
+        title: 'Merge Complete',
+        description: result.message || `Created ${mergeName} from ${selectedForMerge.length} kernels.`,
+      });
+      setSelectedForMerge([]);
+      setMergeName('');
+    } catch (error) {
+      toast({
+        title: 'Merge Failed',
+        description: error instanceof Error ? error.message : 'Failed to merge kernels',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const toggleMergeSelection = (kernelId: string) => {
+    setSelectedForMerge(prev =>
+      prev.includes(kernelId)
+        ? prev.filter(id => id !== kernelId)
+        : [...prev, kernelId]
+    );
+  };
+
+  const availableKernels = allKernels?.kernels || [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-amber-400" />
+            Idle Kernels
+          </CardTitle>
+          <CardDescription>
+            Kernels inactive for extended periods - candidates for deletion or merging
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {idleLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : idleData?.kernels && idleData.kernels.length > 0 ? (
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-2 pr-4">
+                {idleData.kernels.map((kernel: IdleKernel) => (
+                  <div
+                    key={kernel.kernel_id}
+                    className="flex items-center justify-between gap-4 p-3 border rounded-md"
+                    data-testid={`card-idle-kernel-${kernel.kernel_id}`}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Badge className={KERNEL_STATUS_COLORS.idle}>idle</Badge>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{kernel.god_name}</div>
+                        <div className="text-xs text-muted-foreground truncate">{kernel.domain}</div>
+                      </div>
+                      <div className={`font-mono text-sm ${getIdleTimeColor(kernel.idle_duration_seconds)}`} data-testid={`text-idle-time-${kernel.kernel_id}`}>
+                        {formatIdleTime(kernel.idle_duration_seconds)}
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(kernel.kernel_id, kernel.god_name)}
+                      disabled={deleteMutation.isPending}
+                      data-testid={`button-delete-kernel-${kernel.kernel_id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-400" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No idle kernels detected</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Scissors className="h-4 w-4 text-purple-400" />
+              Cannibalize Kernel
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Absorb traits from source into target (source is destroyed)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Source (to be consumed)</label>
+              <Select value={cannibalizeSource} onValueChange={setCannibalizeSource}>
+                <SelectTrigger data-testid="select-cannibalize-source">
+                  <SelectValue placeholder="Select source kernel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableKernels.map(k => (
+                    <SelectItem key={k.kernel_id} value={k.kernel_id} disabled={k.kernel_id === cannibalizeTarget}>
+                      {k.god_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-center">
+              <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Target (receives traits)</label>
+              <Select value={cannibalizeTarget} onValueChange={setCannibalizeTarget}>
+                <SelectTrigger data-testid="select-cannibalize-target">
+                  <SelectValue placeholder="Select target kernel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableKernels.map(k => (
+                    <SelectItem key={k.kernel_id} value={k.kernel_id} disabled={k.kernel_id === cannibalizeSource}>
+                      {k.god_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleCannibalize}
+              disabled={cannibalizeMutation.isPending || !cannibalizeSource || !cannibalizeTarget}
+              className="w-full"
+              data-testid="button-cannibalize-execute"
+            >
+              {cannibalizeMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Scissors className="h-4 w-4 mr-2" />
+              )}
+              Cannibalize
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GitMerge className="h-4 w-4 text-cyan-400" />
+              Merge Kernels
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Combine multiple kernels into a new unified kernel
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">New Kernel Name</label>
+              <Input
+                placeholder="MERGED_KERNEL"
+                value={mergeName}
+                onChange={e => setMergeName(e.target.value)}
+                data-testid="input-merge-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Select Kernels ({selectedForMerge.length} selected)</label>
+              <ScrollArea className="h-[120px] border rounded-md p-2">
+                <div className="space-y-1">
+                  {availableKernels.map(k => (
+                    <div
+                      key={k.kernel_id}
+                      className="flex items-center gap-2 p-1 rounded hover-elevate cursor-pointer"
+                      onClick={() => toggleMergeSelection(k.kernel_id)}
+                      data-testid={`merge-option-${k.kernel_id}`}
+                    >
+                      <Checkbox
+                        checked={selectedForMerge.includes(k.kernel_id)}
+                        onCheckedChange={() => toggleMergeSelection(k.kernel_id)}
+                        data-testid={`checkbox-merge-kernel-${k.kernel_id}`}
+                      />
+                      <span className="text-sm">{k.god_name}</span>
+                      <Badge variant="outline" className="text-xs ml-auto">{k.domain}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+            <Button
+              onClick={handleMerge}
+              disabled={mergeMutation.isPending || selectedForMerge.length < 2 || !mergeName.trim()}
+              className="w-full"
+              data-testid="button-merge-execute"
+            >
+              {mergeMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <GitMerge className="h-4 w-4 mr-2" />
+              )}
+              Merge {selectedForMerge.length} Kernels
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function DebateProgressionPanel() {
+  const { data: debateStatus, isLoading: debateLoading } = useDebateServiceStatus();
+  const { data: activeDebatesData, isLoading: debatesLoading } = useActiveDebates();
+  const { data: proposals } = useListProposals();
+
+  const activeDebates = activeDebatesData?.debates || [];
+  const resolvedDebates = activeDebates.filter(d => d.status === 'resolved');
+  const ongoingDebates = activeDebates.filter(d => d.status === 'active');
+  
+  const pendingProposals = proposals?.proposals?.filter(p => p.status === 'pending') || [];
+  const approvedProposals = proposals?.proposals?.filter(p => p.status === 'approved') || [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-blue-400" />
+            Debate Progression Status
+          </CardTitle>
+          <CardDescription>
+            Autonomous debate service activity and kernel spawn proposals
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {debateLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : debateStatus ? (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono text-cyan-400" data-testid="text-debates-progressed">
+                  {debateStatus.debates_resolved}
+                </div>
+                <div className="text-xs text-muted-foreground">Debates Progressed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono text-blue-400" data-testid="text-active-debates">
+                  {ongoingDebates.length}
+                </div>
+                <div className="text-xs text-muted-foreground">Active Debates</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono text-green-400" data-testid="text-resolved-debates">
+                  {resolvedDebates.length}
+                </div>
+                <div className="text-xs text-muted-foreground">Recently Resolved</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono text-amber-400" data-testid="text-pending-proposals">
+                  {pendingProposals.length}
+                </div>
+                <div className="text-xs text-muted-foreground">Pending Proposals</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold font-mono text-purple-400" data-testid="text-approved-proposals">
+                  {approvedProposals.length}
+                </div>
+                <div className="text-xs text-muted-foreground">Approved Proposals</div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">Debate service unavailable</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-400" />
+              Active Debates ({ongoingDebates.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {debatesLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : ongoingDebates.length > 0 ? (
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-2 pr-4">
+                  {ongoingDebates.map((debate: ActiveDebate) => (
+                    <div
+                      key={debate.id}
+                      className="p-2 border rounded-md"
+                      data-testid={`card-debate-${debate.id}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-sm font-medium truncate">{debate.topic}</span>
+                        <Badge className="bg-blue-500/20 text-blue-400" data-testid={`badge-debate-status-${debate.id}`}>active</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="capitalize">{debate.initiator}</span>
+                        <span>vs</span>
+                        <span className="capitalize">{debate.opponent}</span>
+                        <span className="ml-auto">{debate.arguments.length} args</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <p className="text-muted-foreground text-center py-4 text-sm">No active debates</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-green-400" />
+              Recent Resolutions ({resolvedDebates.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {debatesLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : resolvedDebates.length > 0 ? (
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-2 pr-4">
+                  {resolvedDebates.map((debate: ActiveDebate) => (
+                    <div
+                      key={debate.id}
+                      className="p-2 border rounded-md"
+                      data-testid={`card-debate-${debate.id}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-sm font-medium truncate">{debate.topic}</span>
+                        <Badge className="bg-green-500/20 text-green-400" data-testid={`badge-debate-status-${debate.id}`}>resolved</Badge>
+                      </div>
+                      {debate.winner && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <Trophy className="h-3 w-3 text-amber-400" />
+                          <span className="capitalize text-amber-400">{debate.winner}</span>
+                          <span className="text-muted-foreground">won</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <p className="text-muted-foreground text-center py-4 text-sm">No recent resolutions</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -812,6 +1480,18 @@ export default function SpawningPage() {
             <Plus className="h-4 w-4 mr-2" />
             Spawn New
           </TabsTrigger>
+          <TabsTrigger value="observing" data-testid="tab-observing">
+            <Eye className="h-4 w-4 mr-2" />
+            Observing
+          </TabsTrigger>
+          <TabsTrigger value="lifecycle" data-testid="tab-lifecycle">
+            <Scissors className="h-4 w-4 mr-2" />
+            Lifecycle
+          </TabsTrigger>
+          <TabsTrigger value="debates" data-testid="tab-debates">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Debates
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="proposals" className="mt-4">
@@ -925,6 +1605,18 @@ export default function SpawningPage() {
               <SpawnForm onSuccess={() => setActiveTab('proposals')} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="observing" className="mt-4">
+          <ObservingKernelsPanel />
+        </TabsContent>
+
+        <TabsContent value="lifecycle" className="mt-4">
+          <KernelLifecycleActionsPanel />
+        </TabsContent>
+
+        <TabsContent value="debates" className="mt-4">
+          <DebateProgressionPanel />
         </TabsContent>
       </Tabs>
     </div>

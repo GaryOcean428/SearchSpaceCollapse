@@ -15,4 +15,17 @@ export { useZeusChat } from './useZeusChat';
 export { useGeometricKernel } from './use-geometric-kernel';
 export { useM8Spawning } from './use-m8-spawning';
 export { usePantheonKernel } from './use-pantheon-kernel';
+export {
+  useDebateServiceStatus,
+  useActiveDebates,
+  useObservingKernels,
+  useAllKernels,
+  useGraduateKernel,
+} from './use-autonomous-debates';
 export type { ZeusMessage, UseZeusChatReturn } from './useZeusChat';
+export type {
+  DebateServiceStatus,
+  ActiveDebate,
+  ObservingKernel,
+  KernelObservation,
+} from './use-autonomous-debates';
