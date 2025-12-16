@@ -147,10 +147,12 @@ class AutonomousDebateService:
         pantheon_chat: Optional['PantheonChat'] = None,
         shadow_pantheon: Optional['ShadowPantheon'] = None,
         m8_spawner: Optional['M8KernelSpawner'] = None,
+        pantheon_gods: Optional[Dict[str, Any]] = None,
     ):
         self._pantheon_chat = pantheon_chat
         self._shadow_pantheon = shadow_pantheon
         self._m8_spawner = m8_spawner or (get_spawner() if M8_AVAILABLE else None)
+        self._pantheon_gods = pantheon_gods or {}
         
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -162,6 +164,7 @@ class AutonomousDebateService:
         self._arguments_generated = 0
         self._debates_resolved = 0
         self._spawns_triggered = 0
+        self._debates_continued = 0
         
         self._debate_basin_cache: Dict[str, np.ndarray] = {}
         self._god_position_cache: Dict[str, Dict[str, np.ndarray]] = {}
@@ -177,6 +180,11 @@ class AutonomousDebateService:
         """Wire shadow pantheon for darknet research."""
         self._shadow_pantheon = shadow_pantheon
         print("[AutonomousDebate] Shadow Pantheon connected")
+    
+    def set_pantheon_gods(self, gods: Dict[str, Any]) -> None:
+        """Wire pantheon god instances for geometric assessments."""
+        self._pantheon_gods = gods
+        print(f"[AutonomousDebate] Pantheon gods connected: {list(gods.keys())}")
     
     def start(self) -> bool:
         """Start the background monitoring thread."""
@@ -215,7 +223,7 @@ class AutonomousDebateService:
             time.sleep(POLL_INTERVAL_SECONDS)
     
     def _poll_debates(self) -> None:
-        """Poll active debates and process stale ones."""
+        """Poll active debates and progress them toward resolution."""
         if not self._pantheon_chat:
             return
         
@@ -223,18 +231,52 @@ class AutonomousDebateService:
         
         active_debates = self._pantheon_chat.get_active_debates()
         
+        if not active_debates:
+            self._debates_processed += 1
+            return
+        
         for debate_dict in active_debates:
             debate_id = debate_dict.get('id')
             if not debate_id:
                 continue
             
+            if self._should_auto_resolve(debate_dict):
+                self._auto_resolve_debate(debate_dict)
+                continue
+            
             if self._is_debate_stale(debate_dict):
                 self._process_stale_debate(debate_dict)
             
-            if self._should_auto_resolve(debate_dict):
-                self._auto_resolve_debate(debate_dict)
+            if self._pantheon_gods and not self._is_debate_stale(debate_dict):
+                self._continue_debate_with_gods(debate_dict)
         
         self._debates_processed += 1
+    
+    def _continue_debate_with_gods(self, debate_dict: Dict) -> None:
+        """Continue debate using actual god assessments for geometric progression."""
+        if not self._pantheon_chat or not self._pantheon_gods:
+            return
+        
+        debate_id = debate_dict.get('id', '')
+        
+        try:
+            result = self._pantheon_chat.auto_continue_active_debates(
+                gods=self._pantheon_gods,
+                max_debates=1
+            )
+            
+            if result:
+                for res in result:
+                    if res.get('status') in ['converged', 'max_turns_reached']:
+                        self._debates_continued += 1
+                        winner = res.get('winner', 'unknown')
+                        topic = debate_dict.get('topic', '')
+                        print(f"[AutonomousDebate] Debate {debate_id[:20]}... progressed via god assessments. Winner: {winner}")
+                        
+                        self._trigger_spawn_proposal(topic, winner, debate_dict)
+                        
+        except Exception as e:
+            print(f"[AutonomousDebate] God-based debate continuation failed: {e}")
     
     def _is_debate_stale(self, debate_dict: Dict) -> bool:
         """Check if debate has no new arguments in 5+ minutes."""
@@ -788,10 +830,13 @@ class AutonomousDebateService:
             'polls_completed': self._debates_processed,
             'arguments_generated': self._arguments_generated,
             'debates_resolved': self._debates_resolved,
+            'debates_continued': self._debates_continued,
             'spawns_triggered': self._spawns_triggered,
             'pantheon_chat_connected': self._pantheon_chat is not None,
             'shadow_pantheon_connected': self._shadow_pantheon is not None,
             'm8_spawner_connected': self._m8_spawner is not None,
+            'pantheon_gods_connected': len(self._pantheon_gods) > 0,
+            'gods_available': list(self._pantheon_gods.keys()) if self._pantheon_gods else [],
             'config': {
                 'poll_interval_seconds': POLL_INTERVAL_SECONDS,
                 'stale_threshold_seconds': STALE_THRESHOLD_SECONDS,

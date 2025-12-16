@@ -5821,6 +5821,9 @@ if __name__ == '__main__':
                 pantheon_chat=zeus.pantheon_chat if hasattr(zeus, 'pantheon_chat') else pantheon_chat,
                 shadow_pantheon=zeus.shadow_pantheon if hasattr(zeus, 'shadow_pantheon') else shadow_pantheon
             )
+            if hasattr(zeus, 'pantheon') and zeus.pantheon:
+                autonomous_debate_service.set_pantheon_gods(zeus.pantheon)
+                print(f"[INFO] 🗣️ Autonomous Debate Service wired with {len(zeus.pantheon)} gods")
             AUTONOMOUS_DEBATE_AVAILABLE = True
             print("[INFO] 🗣️ Autonomous Debate Service started (background thread)")
         else:
