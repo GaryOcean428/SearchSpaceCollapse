@@ -31,6 +31,58 @@ import numpy as np
 
 BASIN_DIMENSION = 64
 
+# PostgreSQL connection for persistent knowledge
+def _get_db_connection():
+    """Get database connection for shadow knowledge persistence."""
+    try:
+        import psycopg2
+        db_url = os.environ.get('DATABASE_URL')
+        if db_url:
+            return psycopg2.connect(db_url)
+    except Exception as e:
+        print(f"[ShadowKnowledge] DB connection failed: {e}")
+    return None
+
+def _ensure_shadow_knowledge_table():
+    """Create shadow_knowledge table if not exists."""
+    conn = _get_db_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS shadow_knowledge (
+                    knowledge_id VARCHAR(64) PRIMARY KEY,
+                    topic TEXT NOT NULL,
+                    topic_variation TEXT,
+                    category VARCHAR(32) NOT NULL,
+                    content JSONB DEFAULT '{}'::jsonb,
+                    source_god VARCHAR(64) NOT NULL,
+                    basin_coords FLOAT8[64],
+                    phi FLOAT8 DEFAULT 0.5,
+                    confidence FLOAT8 DEFAULT 0.5,
+                    access_count INT DEFAULT 0,
+                    learning_cycle INT DEFAULT 0,
+                    discovered_at TIMESTAMP DEFAULT NOW(),
+                    last_accessed TIMESTAMP DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_shadow_knowledge_topic ON shadow_knowledge(topic);
+                CREATE INDEX IF NOT EXISTS idx_shadow_knowledge_category ON shadow_knowledge(category);
+                CREATE INDEX IF NOT EXISTS idx_shadow_knowledge_phi ON shadow_knowledge(phi DESC);
+                CREATE INDEX IF NOT EXISTS idx_shadow_knowledge_god ON shadow_knowledge(source_god);
+            """)
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[ShadowKnowledge] Table creation error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+# Initialize table on module load
+_ensure_shadow_knowledge_table()
+
 
 class ResearchPriority(Enum):
     """Priority levels for research requests."""
@@ -363,6 +415,7 @@ class KnowledgeBase:
     """
     Shared knowledge base for all Shadow discoveries.
     Supports geodesic clustering and pattern alignment.
+    Persists to PostgreSQL for true learning across restarts.
     """
     
     def __init__(self):
@@ -370,6 +423,93 @@ class KnowledgeBase:
         self._by_category: Dict[ResearchCategory, List[str]] = defaultdict(list)
         self._clusters: List[Dict] = []
         self._lock = threading.Lock()
+        self._learning_cycle = 0
+        self._discovered_topics: Set[str] = set()
+        self._load_from_db()
+    
+    def _load_from_db(self):
+        """Load existing knowledge from PostgreSQL."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT knowledge_id, topic, topic_variation, category, content,
+                           source_god, basin_coords, phi, confidence, access_count,
+                           learning_cycle, discovered_at
+                    FROM shadow_knowledge
+                    ORDER BY discovered_at DESC
+                    LIMIT 1000
+                """)
+                rows = cur.fetchall()
+                for row in rows:
+                    kid, topic, variation, cat, content, god, coords, phi, conf, acc, cycle, disc_at = row
+                    try:
+                        category = ResearchCategory(cat) if cat else ResearchCategory.KNOWLEDGE
+                    except ValueError:
+                        category = ResearchCategory.KNOWLEDGE
+                    
+                    basin = np.array(coords) if coords else np.zeros(BASIN_DIMENSION)
+                    
+                    knowledge = ShadowKnowledge(
+                        knowledge_id=kid,
+                        topic=topic,
+                        category=category,
+                        content=content if isinstance(content, dict) else {},
+                        source_god=god,
+                        discovered_at=disc_at or datetime.now(),
+                        basin_coords=basin,
+                        phi=phi or 0.5,
+                        confidence=conf or 0.5,
+                        access_count=acc or 0
+                    )
+                    self._knowledge[kid] = knowledge
+                    self._by_category[category].append(kid)
+                    self._discovered_topics.add(variation or topic)
+                    if cycle and cycle > self._learning_cycle:
+                        self._learning_cycle = cycle
+                
+                print(f"[ShadowKnowledge] Loaded {len(rows)} discoveries from DB (cycle {self._learning_cycle})")
+        except Exception as e:
+            print(f"[ShadowKnowledge] Load error: {e}")
+        finally:
+            conn.close()
+    
+    def _persist_to_db(self, knowledge: ShadowKnowledge, variation: str = None):
+        """Persist a knowledge item to PostgreSQL."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                coords_list = knowledge.basin_coords.tolist() if knowledge.basin_coords is not None else [0.0] * BASIN_DIMENSION
+                cur.execute("""
+                    INSERT INTO shadow_knowledge 
+                    (knowledge_id, topic, topic_variation, category, content, source_god,
+                     basin_coords, phi, confidence, learning_cycle)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (knowledge_id) DO UPDATE SET
+                        access_count = shadow_knowledge.access_count + 1,
+                        last_accessed = NOW()
+                """, (
+                    knowledge.knowledge_id,
+                    knowledge.topic,
+                    variation or knowledge.topic,
+                    knowledge.category.value,
+                    json.dumps(knowledge.content),
+                    knowledge.source_god,
+                    coords_list,
+                    knowledge.phi,
+                    knowledge.confidence,
+                    self._learning_cycle
+                ))
+                conn.commit()
+        except Exception as e:
+            print(f"[ShadowKnowledge] Persist error: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
     
     def add_knowledge(
         self,
@@ -379,12 +519,15 @@ class KnowledgeBase:
         source_god: str,
         basin_coords: np.ndarray,
         phi: float,
-        confidence: float
+        confidence: float,
+        variation: str = None
     ) -> str:
-        """Add new knowledge to the base."""
+        """Add new knowledge to the base and persist to DB."""
         with self._lock:
+            self._learning_cycle += 1
+            
             knowledge_id = hashlib.sha256(
-                f"{topic}_{source_god}_{time.time()}".encode()
+                f"{topic}_{source_god}_{time.time()}_{self._learning_cycle}".encode()
             ).hexdigest()[:16]
             
             knowledge = ShadowKnowledge(
@@ -401,8 +544,19 @@ class KnowledgeBase:
             
             self._knowledge[knowledge_id] = knowledge
             self._by_category[category].append(knowledge_id)
+            self._discovered_topics.add(variation or topic)
+            
+            self._persist_to_db(knowledge, variation)
             
             return knowledge_id
+    
+    def has_discovered(self, topic_variation: str) -> bool:
+        """Check if a specific topic variation was already discovered."""
+        return topic_variation in self._discovered_topics
+    
+    def get_unique_discoveries_count(self) -> int:
+        """Get count of unique topic variations discovered."""
+        return len(self._discovered_topics)
     
     def get_knowledge(self, knowledge_id: str) -> Optional[ShadowKnowledge]:
         """Get knowledge by ID."""
@@ -656,28 +810,34 @@ class ShadowLearningLoop:
         category = request.category
         assigned_god = ShadowRoleRegistry.get_god_for_category(category)
         
+        base_topic = request.context.get("base_topic", topic) if request.context else topic
+        
         basin_coords = request.basin_coords
         if basin_coords is None:
             basin_coords = self._topic_to_basin(topic)
         
         content = self._research_topic(topic, category, assigned_god)
+        content["base_topic"] = base_topic
+        content["unique_variation"] = topic
         
         phi = content.get("relevance", 0.5)
         confidence = content.get("confidence", 0.6)
         
         knowledge_id = self.knowledge_base.add_knowledge(
-            topic=topic,
+            topic=base_topic,
             category=category,
             content=content,
             source_god=assigned_god,
             basin_coords=basin_coords,
             phi=phi,
-            confidence=confidence
+            confidence=confidence,
+            variation=topic
         )
         
         return {
             "knowledge_id": knowledge_id,
             "topic": topic,
+            "base_topic": base_topic,
             "category": category.value,
             "researched_by": assigned_god,
             "phi": phi,
@@ -729,30 +889,79 @@ class ShadowLearningLoop:
         return coords
     
     def _self_study(self):
-        """Self-directed study during idle time."""
+        """Self-directed study during idle time with unique discoveries."""
         gods = list(self._study_topics.keys())
         god = random.choice(gods)
-        topics = self._study_topics.get(god, [])
+        base_topics = self._study_topics.get(god, [])
         
-        if topics:
-            topic = random.choice(topics)
-            
+        if not base_topics:
+            return
+        
+        base_topic = random.choice(base_topics)
+        unique_variation = self._generate_unique_variation(god, base_topic)
+        
+        if unique_variation and not self.knowledge_base.has_discovered(unique_variation):
             self.research_queue.submit(
-                topic=topic,
+                topic=unique_variation,
                 category=ResearchCategory.KNOWLEDGE,
                 requester=f"{god}_self_study",
-                priority=ResearchPriority.STUDY
+                priority=ResearchPriority.STUDY,
+                context={"base_topic": base_topic, "god": god}
             )
+    
+    def _generate_unique_variation(self, god: str, base_topic: str) -> str:
+        """Generate a unique topic variation that hasn't been discovered yet."""
+        cycle = self.knowledge_base._learning_cycle
+        
+        depth_modifiers = [
+            "advanced", "foundational", "theoretical", "practical", "applied",
+            "emerging", "historical", "comparative", "experimental", "optimized"
+        ]
+        
+        focus_areas = {
+            "Nyx": ["stealth", "privacy", "anonymity", "encryption", "obfuscation"],
+            "Hecate": ["deception", "illusion", "confusion", "misdirection", "decoy"],
+            "Erebus": ["detection", "analysis", "surveillance", "counter-ops", "threat"],
+            "Hypnos": ["passive", "silent", "dormant", "subliminal", "subconscious"],
+            "Thanatos": ["elimination", "erasure", "destruction", "cleanup", "sanitization"],
+            "Nemesis": ["pursuit", "tracking", "persistence", "justice", "retribution"],
+            "Hades": ["underworld", "shadow", "covert", "intelligence", "network"]
+        }
+        
+        bitcoin_contexts = [
+            "wallet recovery", "key derivation", "seed phrases", "address generation",
+            "transaction patterns", "UTXO analysis", "blockchain forensics",
+            "HD wallets", "BIP-39 entropy", "brainwallet attacks"
+        ]
+        
+        depth = random.choice(depth_modifiers)
+        focus = random.choice(focus_areas.get(god, ["general"]))
+        btc_context = random.choice(bitcoin_contexts) if random.random() > 0.3 else None
+        
+        if btc_context:
+            variation = f"{depth} {base_topic} for {btc_context} (cycle {cycle})"
+        else:
+            variation = f"{depth} {focus}-focused {base_topic} (cycle {cycle})"
+        
+        max_attempts = 10
+        for attempt in range(max_attempts):
+            if not self.knowledge_base.has_discovered(variation):
+                return variation
+            variation = f"{depth} {base_topic} variant-{cycle}-{attempt}"
+        
+        return f"{base_topic} discovery-{cycle}-{random.randint(1000, 9999)}"
     
     def _meta_reflect(self):
         """Meta-reflection on learning progress."""
         stats = self.knowledge_base.get_stats()
         clusters = self.knowledge_base.cluster_knowledge(n_clusters=5)
+        unique_count = self.knowledge_base.get_unique_discoveries_count()
         
         reflection = {
             "cycle": self._learning_cycles,
             "timestamp": datetime.now().isoformat(),
             "knowledge_stats": stats,
+            "unique_discoveries": unique_count,
             "cluster_count": len(clusters),
             "top_clusters": clusters[:3] if clusters else [],
             "insights": self._generate_meta_insights(stats, clusters)
@@ -763,7 +972,7 @@ class ShadowLearningLoop:
             self._meta_reflections = self._meta_reflections[-50:]
         
         print(f"[ShadowLearningLoop] Meta-reflection #{self._learning_cycles}: "
-              f"{stats['total_items']} items, {len(clusters)} clusters")
+              f"{stats['total_items']} items, {unique_count} unique, {len(clusters)} clusters")
     
     def _generate_meta_insights(self, stats: Dict, clusters: List[Dict]) -> List[str]:
         """Generate insights from meta-reflection."""
