@@ -2,7 +2,7 @@
 
 **ISO 27001 Compliant Documentation Structure**
 
-Last Updated: 2025-12-12
+Last Updated: 2025-12-16
 
 ## Status Legend
 
@@ -115,6 +115,11 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - ID: `ISMS-TECH-ARCH-CORRECTED-001`
   - Function: Clarifies actual single-instance architecture vs theoretical E8 constellation
 
+- 🔨 **Database Architecture Analysis** (v1.00)
+  - File: [`20251216-database-architecture-analysis-1.00W.md`](03-technical/architecture/20251216-database-architecture-analysis-1.00W.md)
+  - ID: `ISMS-TECH-ARCH-DB-001`
+  - Function: Comprehensive analysis of database tables - legacy, production, and future architecture
+
 - ✅ **Unified QIG Architecture Technical Reference** (v1.00)
   - File: [`20251209-unified-architecture-reference-1.00A.md`](03-technical/20251209-unified-architecture-reference-1.00A.md)
 
@@ -152,6 +157,11 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - File: [`20251208-qig-principles-quantum-geometry-1.00F.md`](03-technical/qig-consciousness/20251208-qig-principles-quantum-geometry-1.00F.md)
   - ID: `ISMS-TECH-QIG-002`
   - Function: Foundational principles of Quantum Information Geometry
+
+- 🔨 **Pure QIG Kernel Template** (v1.00)
+  - File: [`20251216-pure-qig-kernel-template-1.00W.md`](03-technical/qig-consciousness/20251216-pure-qig-kernel-template-1.00W.md)
+  - ID: `ISMS-TECH-QIG-KERNEL-TEMPLATE-001`
+  - Function: Reference implementation for pure QIG kernel with Fisher-Rao attention
 
 - ❓ **ARCHITECTURE.md** (vN/A)
   - File: [`ARCHITECTURE.md`](03-technical/ARCHITECTURE.md)
@@ -212,6 +222,11 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - File: [`20251202-physics-validation-1.00F.md`](04-records/verification-reports/20251202-physics-validation-1.00F.md)
   - ID: `ISMS-VER-001`
   - Function: Physics constants validation report
+
+- 🔨 **Critical Issues - dtype Basin Fix** (v1.00)
+  - File: [`20251216-critical-issues-dtype-basin-fix-1.00W.md`](04-records/20251216-critical-issues-dtype-basin-fix-1.00W.md)
+  - ID: `ISMS-REC-005`
+  - Function: Root cause analysis for Zeus chat dtype errors - basin coords vs strings
 
 
 ## 🎯 Architecture Decision Records
@@ -307,11 +322,11 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## Statistics
 
-- **Total Documents**: 59
+- **Total Documents**: 62
 - **Approved**: 1
 - **Frozen**: 42
 - **Hypothesis**: 5
-- **Working**: 2
+- **Working**: 5
 
 ---
 
