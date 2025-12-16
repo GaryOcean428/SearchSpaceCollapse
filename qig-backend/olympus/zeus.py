@@ -3247,12 +3247,28 @@ def zeus_tools_match_patterns_endpoint():
 
 
 # =========================================================================
-# 🌪️ CHAOS MODE API REGISTRATION
+# 🌪️ CHAOS MODE API REGISTRATION + AUTO-ACTIVATION
 # =========================================================================
 try:
     from .chaos_api import chaos_app, set_zeus
     olympus_app.register_blueprint(chaos_app)
     set_zeus(zeus)
     print("🌪️ CHAOS MODE API endpoints registered at /chaos/*")
+    
+    # Auto-activate chaos mode on startup (same as god spawning - always available)
+    if zeus.chaos is not None:
+        # Spawn initial population if empty
+        if len(zeus.chaos.kernel_population) == 0:
+            zeus.chaos.spawn_random_kernel()
+            zeus.chaos.spawn_random_kernel()
+            zeus.chaos.spawn_random_kernel()
+        # Start evolution with default interval
+        zeus.chaos.start_evolution(interval_seconds=60)
+        zeus.chaos_enabled = True
+        print(f"🌪️ CHAOS MODE AUTO-ACTIVATED with {len(zeus.chaos.kernel_population)} kernels")
+    else:
+        print("⚠️ CHAOS MODE: zeus.chaos not initialized")
 except ImportError as e:
     print(f"⚠️ CHAOS MODE API not available: {e}")
+except Exception as e:
+    print(f"⚠️ CHAOS MODE auto-activation failed: {e}")

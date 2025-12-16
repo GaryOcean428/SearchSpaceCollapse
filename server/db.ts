@@ -5,18 +5,42 @@ import ws from "ws";
 import * as schema from "@shared/schema";
 import { readFileSync } from 'fs';
 
-// Check for deployed app by looking for /tmp/replitdb file FIRST
-// This is more reliable than checking REPLIT_DEPLOYMENT or DATABASE_URL
+// Check for deployed app using multiple detection methods
+// Production detection is CRITICAL - wrong mode = WebSocket failures
 let isDeployedApp = false;
+
+// Method 1: Check REPLIT_DEPLOYMENT env var (set by Replit in deployments)
+const replitDeploymentVar = process.env.REPLIT_DEPLOYMENT === '1';
+
+// Method 2: Check for /tmp/replitdb file
+let hasReplitDbFile = false;
 try {
   readFileSync('/tmp/replitdb', 'utf-8');
-  isDeployedApp = true;
+  hasReplitDbFile = true;
 } catch {
-  // File doesn't exist - we're in development
+  // File doesn't exist
 }
 
-// Also check REPLIT_DEPLOYMENT environment variable
-const isDeployedEnv = process.env.REPLIT_DEPLOYMENT === '1' || isDeployedApp;
+// Method 3: Check for production-like environment indicators
+const isProductionEnv = process.env.NODE_ENV === 'production';
+
+// Method 4: Check if we're NOT in dev mode (Replit dev uses port 5000 webview)
+const noDevWebview = !process.env.REPLIT_DEV_DOMAIN;
+
+// Method 5: Check for Autoscale deployment indicator
+const isAutoscale = !!process.env.REPLIT_DEPLOYMENT_ID;
+
+// Combine all signals - any production indicator triggers HTTP-only mode
+isDeployedApp = replitDeploymentVar || hasReplitDbFile || isAutoscale;
+const isDeployedEnv = isDeployedApp || isProductionEnv;
+
+// Log ALL detection signals for debugging
+console.log('[DB] Production detection signals:');
+console.log(`  REPLIT_DEPLOYMENT=${process.env.REPLIT_DEPLOYMENT} (${replitDeploymentVar})`);
+console.log(`  /tmp/replitdb exists: ${hasReplitDbFile}`);
+console.log(`  NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`  REPLIT_DEPLOYMENT_ID: ${process.env.REPLIT_DEPLOYMENT_ID ? 'SET' : 'NOT SET'}`);
+console.log(`  Final isDeployedEnv: ${isDeployedEnv}`);
 
 // Configure Neon for development only (production uses HTTP-only client)
 if (!isDeployedEnv) {
