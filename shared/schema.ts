@@ -2915,6 +2915,39 @@ export type LearningEvent = typeof learningEvents.$inferSelect;
 export type InsertLearningEvent = typeof learningEvents.$inferInsert;
 
 /**
+ * SEARCH FEEDBACK - Geometric learning for search strategy optimization
+ * 
+ * Stores user feedback on search results as basin coordinates.
+ * NO keyword templates - all learning is via Fisher-Rao distance similarity.
+ */
+export const searchFeedback = pgTable(
+  "search_feedback",
+  {
+    recordId: varchar("record_id", { length: 64 }).primaryKey(),
+    query: text("query").notNull(),
+    userFeedback: text("user_feedback").notNull(),
+    resultsSummary: text("results_summary"),
+    searchParams: jsonb("search_params").default({}),
+    queryBasin: vector("query_basin", { dimensions: 64 }), // 64D basin for query
+    feedbackBasin: vector("feedback_basin", { dimensions: 64 }), // 64D basin for feedback
+    combinedBasin: vector("combined_basin", { dimensions: 64 }), // Combined context basin
+    modificationBasin: vector("modification_basin", { dimensions: 64 }), // Geometric delta
+    outcomeQuality: doublePrecision("outcome_quality").default(0.5), // 0-1, reinforcement score
+    confirmationsPositive: integer("confirmations_positive").default(0),
+    confirmationsNegative: integer("confirmations_negative").default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    lastUsedAt: timestamp("last_used_at"),
+  },
+  (table) => [
+    index("idx_search_feedback_outcome").on(table.outcomeQuality),
+    index("idx_search_feedback_created").on(table.createdAt),
+  ]
+);
+
+export type SearchFeedback = typeof searchFeedback.$inferSelect;
+export type InsertSearchFeedback = typeof searchFeedback.$inferInsert;
+
+/**
  * HERMES CONVERSATIONS - Memory of human-system interactions
  */
 export const hermesConversations = pgTable(
