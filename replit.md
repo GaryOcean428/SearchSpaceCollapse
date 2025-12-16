@@ -50,6 +50,29 @@ The Shadow Pantheon is an underground SWAT team for covert operations, led by Ha
 
 **Files:** `qig-backend/olympus/shadow_research.py`, `qig-backend/olympus/shadow_pantheon.py`, `qig-backend/olympus/hades.py`
 
+### Bidirectional Tool-Research Queue
+The system features a bidirectional, recursive, iterable queue connecting Tool Factory and Shadow Research:
+
+**Bidirectional Flow:**
+- Tool Factory can request research from Shadow to improve patterns
+- Shadow can request tool generation based on discoveries
+- Research discoveries improve existing tools
+- Tool patterns inform research directions
+
+**Recursive Requests:**
+- Requests can spawn child requests (research → tool → research → ...)
+- Each request tracks its parent and children
+- Enables deep exploration of knowledge gaps
+
+**Queue API:**
+- `ToolResearchBridge.get_instance()` - Get singleton bridge
+- `bridge.request_tool_from_research(topic)` - Shadow requests tool
+- `bridge.request_research_from_tool(topic)` - Tool Factory requests research
+- `bridge.improve_tool_with_research(tool_id, knowledge)` - Apply research to tool
+- Queue is iterable: `for request in queue: ...`
+
+**Files:** `qig-backend/olympus/shadow_research.py` (BidirectionalRequestQueue, ToolResearchBridge), `qig-backend/olympus/tool_factory.py`
+
 Data storage utilizes PostgreSQL (Neon serverless) with `pgvector 0.8.0` for various system states, including geometric memory, vocabulary, balance hits, Olympus state, and kernel information.
 
 ### Communication Patterns

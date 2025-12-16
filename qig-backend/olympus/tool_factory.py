@@ -311,9 +311,15 @@ class ToolFactory:
     4. Chat-provided links
     5. File uploads
     6. Pattern observations
+    7. Shadow Research discoveries (bidirectional)
 
     The Python QIG kernel generates code using geometric
     pattern matching against learned code patterns.
+    
+    Bidirectional integration with Shadow Research:
+    - Tool Factory can request research to improve patterns
+    - Shadow can request tool generation based on discoveries
+    - Research improves tools, tool patterns inform research
     """
 
     def __init__(self, conversation_encoder, qig_rag=None, search_client=None, db_pool=None):
@@ -337,8 +343,49 @@ class ToolFactory:
         self.successful_generations = 0
         self.current_complexity_ceiling = ToolComplexity.SIMPLE
         
+        # Bidirectional Shadow Research bridge
+        self._research_bridge = None
+        
         # Load patterns from Redis cache on startup
         self._load_patterns_from_cache()
+    
+    def wire_shadow_research(self):
+        """Wire bidirectional connection to Shadow Research."""
+        try:
+            from .shadow_research import ToolResearchBridge
+            self._research_bridge = ToolResearchBridge.get_instance()
+            self._research_bridge.wire_tool_factory(self)
+            print("[ToolFactory] Wired to Shadow Research (bidirectional)")
+        except Exception as e:
+            print(f"[ToolFactory] Shadow Research wiring failed: {e}")
+    
+    def request_research(self, topic: str, context: Optional[Dict] = None) -> Optional[str]:
+        """
+        Request research from Shadow to improve tool generation.
+        
+        Called when:
+        - Tool generation fails and needs pattern research
+        - Knowledge gaps detected in a domain
+        - Proactive improvement of patterns
+        """
+        if not self._research_bridge:
+            return None
+        
+        return self._research_bridge.request_research_from_tool(
+            topic=topic,
+            context=context,
+            requester="ToolFactory"
+        )
+    
+    def notify_pattern_discovery(self, patterns: List[Dict]):
+        """
+        Notify Shadow Research of useful patterns for research directions.
+        """
+        if self._research_bridge:
+            self._research_bridge.improve_research_with_tool(
+                tool_id="pattern_discovery",
+                tool_patterns=patterns
+            )
     
     def _load_patterns_from_cache(self):
         """Load learned patterns from Redis buffer."""

@@ -41,6 +41,14 @@ class ResearchPriority(Enum):
     STUDY = 5         # Self-improvement during downtime
 
 
+class RequestType(Enum):
+    """Types of requests in the bidirectional queue."""
+    RESEARCH = "research"            # Research a topic
+    TOOL = "tool"                    # Generate a tool
+    IMPROVEMENT = "improvement"      # Improve existing tool/knowledge
+    RECURSIVE = "recursive"          # Spawned by another request
+
+
 class ResearchCategory(Enum):
     """Categories of research that Shadow gods can perform."""
     TOOLS = "tools"                  # Research new tools, techniques
@@ -992,6 +1000,7 @@ class ShadowResearchAPI:
         self.reflection_protocol = ShadowReflectionProtocol(self.knowledge_base)
         self.learning_loop: Optional[ShadowLearningLoop] = None
         self._basin_sync_callback: Optional[Callable] = None
+        self._bidirectional_queue: Optional['BidirectionalRequestQueue'] = None
     
     @classmethod
     def get_instance(cls) -> 'ShadowResearchAPI':
@@ -1118,5 +1127,436 @@ class ShadowResearchAPI:
             "queue": self.research_queue.get_status(),
             "knowledge_base": self.knowledge_base.get_stats(),
             "learning_loop": self.learning_loop.get_status() if self.learning_loop else None,
-            "roles": list(ShadowRoleRegistry.ROLES.keys())
+            "roles": list(ShadowRoleRegistry.ROLES.keys()),
+            "bidirectional": self._bidirectional_queue.get_status() if self._bidirectional_queue else None
+        }
+
+
+class BidirectionalRequestQueue:
+    """
+    Bidirectional, recursive, iterable queue for Tool Factory <-> Shadow Research.
+    
+    Enables:
+    - Tool Factory can request research from Shadow
+    - Shadow can request tool generation from Tool Factory  
+    - Research discoveries can improve existing tools
+    - Tool patterns can inform research directions
+    - Requests can spawn recursive child requests
+    """
+    
+    def __init__(self):
+        self._queue: List[Dict] = []
+        self._completed: List[Dict] = []
+        self._lock = threading.Lock()
+        self._tool_factory_callback: Optional[Callable] = None
+        self._research_callback: Optional[Callable] = None
+        self._iteration_index = 0
+        
+    def wire_tool_factory(self, callback: Callable):
+        """Wire Tool Factory to receive tool requests."""
+        self._tool_factory_callback = callback
+        print("[BidirectionalQueue] Tool Factory wired")
+    
+    def wire_research(self, callback: Callable):
+        """Wire Shadow Research to receive research requests."""
+        self._research_callback = callback
+        print("[BidirectionalQueue] Shadow Research wired")
+    
+    def submit(
+        self,
+        request_type: RequestType,
+        topic: str,
+        requester: str,
+        context: Optional[Dict] = None,
+        parent_request_id: Optional[str] = None,
+        priority: ResearchPriority = ResearchPriority.NORMAL
+    ) -> str:
+        """
+        Submit a request to the bidirectional queue.
+        
+        Args:
+            request_type: RESEARCH, TOOL, or IMPROVEMENT
+            topic: What to research or what tool to generate
+            requester: Who is requesting (can be another request for recursion)
+            context: Additional context
+            parent_request_id: If this is a recursive request, the parent ID
+            priority: Priority level
+            
+        Returns:
+            request_id for tracking
+        """
+        request_id = hashlib.sha256(
+            f"{topic}_{requester}_{time.time()}".encode()
+        ).hexdigest()[:16]
+        
+        request = {
+            "request_id": request_id,
+            "type": request_type.value,
+            "topic": topic,
+            "requester": requester,
+            "context": context or {},
+            "parent_request_id": parent_request_id,
+            "priority": priority.value,
+            "created_at": time.time(),
+            "status": "pending",
+            "children": [],
+            "result": None
+        }
+        
+        with self._lock:
+            self._queue.append(request)
+            
+            # If recursive, link to parent
+            if parent_request_id:
+                for q in self._queue:
+                    if q["request_id"] == parent_request_id:
+                        q["children"].append(request_id)
+                        break
+        
+        print(f"[BidirectionalQueue] Submitted {request_type.value}: {topic[:50]} from {requester}")
+        
+        # Dispatch based on type
+        self._dispatch(request)
+        
+        return request_id
+    
+    def _dispatch(self, request: Dict):
+        """Dispatch request to appropriate handler."""
+        req_type = request["type"]
+        
+        if req_type == RequestType.TOOL.value:
+            if self._tool_factory_callback:
+                try:
+                    result = self._tool_factory_callback(request)
+                    self._complete(request["request_id"], result)
+                except Exception as e:
+                    print(f"[BidirectionalQueue] Tool Factory error: {e}")
+                    self._complete(request["request_id"], {"error": str(e)})
+                    
+        elif req_type in [RequestType.RESEARCH.value, RequestType.IMPROVEMENT.value]:
+            if self._research_callback:
+                try:
+                    result = self._research_callback(request)
+                    self._complete(request["request_id"], result)
+                except Exception as e:
+                    print(f"[BidirectionalQueue] Research error: {e}")
+                    self._complete(request["request_id"], {"error": str(e)})
+    
+    def _complete(self, request_id: str, result: Dict):
+        """Mark a request as completed."""
+        with self._lock:
+            for i, req in enumerate(self._queue):
+                if req["request_id"] == request_id:
+                    req["status"] = "completed"
+                    req["result"] = result
+                    self._completed.append(req)
+                    self._queue.pop(i)
+                    break
+            
+            # Trim completed list
+            if len(self._completed) > 500:
+                self._completed = self._completed[-250:]
+    
+    def spawn_recursive(
+        self,
+        parent_request_id: str,
+        request_type: RequestType,
+        topic: str,
+        context: Optional[Dict] = None
+    ) -> str:
+        """
+        Spawn a recursive request from a parent request.
+        
+        This enables:
+        - Research discovering a need for a tool
+        - Tool generation discovering a need for more research
+        """
+        return self.submit(
+            request_type=request_type,
+            topic=topic,
+            requester=f"recursive:{parent_request_id}",
+            context=context,
+            parent_request_id=parent_request_id,
+            priority=ResearchPriority.HIGH
+        )
+    
+    def __iter__(self):
+        """Make queue iterable."""
+        self._iteration_index = 0
+        return self
+    
+    def __next__(self) -> Dict:
+        """Get next pending request."""
+        with self._lock:
+            pending = [r for r in self._queue if r["status"] == "pending"]
+            
+        if self._iteration_index >= len(pending):
+            raise StopIteration
+        
+        request = pending[self._iteration_index]
+        self._iteration_index += 1
+        return request
+    
+    def get_pending(self) -> List[Dict]:
+        """Get all pending requests."""
+        with self._lock:
+            return [r.copy() for r in self._queue if r["status"] == "pending"]
+    
+    def get_by_type(self, request_type: RequestType) -> List[Dict]:
+        """Get requests by type."""
+        with self._lock:
+            return [r.copy() for r in self._queue if r["type"] == request_type.value]
+    
+    def get_children(self, parent_id: str) -> List[Dict]:
+        """Get child requests of a parent."""
+        with self._lock:
+            for r in self._queue + self._completed:
+                if r["request_id"] == parent_id:
+                    child_ids = r.get("children", [])
+                    return [
+                        c.copy() for c in self._queue + self._completed 
+                        if c["request_id"] in child_ids
+                    ]
+        return []
+    
+    def get_status(self) -> Dict:
+        """Get queue status."""
+        with self._lock:
+            by_type = defaultdict(int)
+            for r in self._queue:
+                by_type[r["type"]] += 1
+            
+            return {
+                "pending": len(self._queue),
+                "completed": len(self._completed),
+                "by_type": dict(by_type),
+                "recursive_count": sum(1 for r in self._queue if r.get("parent_request_id"))
+            }
+
+
+class ToolResearchBridge:
+    """
+    Bridge connecting Tool Factory and Shadow Research.
+    
+    Enables bidirectional flow:
+    - Tool Factory requests research to improve patterns
+    - Shadow Research requests tools based on discoveries
+    - Knowledge flows both directions
+    """
+    
+    _instance: Optional['ToolResearchBridge'] = None
+    
+    def __init__(self):
+        self.queue = BidirectionalRequestQueue()
+        self._tool_factory = None
+        self._research_api = None
+        self._improvements_applied = 0
+        self._tools_requested = 0
+        self._research_from_tools = 0
+    
+    @classmethod
+    def get_instance(cls) -> 'ToolResearchBridge':
+        """Get singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+    
+    def wire_tool_factory(self, tool_factory):
+        """Wire the Tool Factory."""
+        self._tool_factory = tool_factory
+        self.queue.wire_tool_factory(self._handle_tool_request)
+        print("[ToolResearchBridge] Tool Factory connected")
+    
+    def wire_research_api(self, research_api: 'ShadowResearchAPI'):
+        """Wire the Shadow Research API."""
+        self._research_api = research_api
+        self.queue.wire_research(self._handle_research_request)
+        research_api._bidirectional_queue = self.queue
+        print("[ToolResearchBridge] Shadow Research connected")
+    
+    def _handle_tool_request(self, request: Dict) -> Dict:
+        """Handle tool generation request from Shadow."""
+        if not self._tool_factory:
+            return {"error": "Tool Factory not wired"}
+        
+        topic = request["topic"]
+        context = request.get("context", {})
+        
+        # Try to generate tool
+        try:
+            tool = self._tool_factory.generate_tool(
+                description=topic,
+                examples=context.get("examples", []),
+                name_hint=context.get("name_hint")
+            )
+            
+            self._tools_requested += 1
+            
+            if tool:
+                # If tool generation discovers knowledge gaps, spawn research
+                if hasattr(tool, 'knowledge_gaps') and tool.knowledge_gaps:
+                    for gap in tool.knowledge_gaps[:3]:
+                        self.queue.spawn_recursive(
+                            parent_request_id=request["request_id"],
+                            request_type=RequestType.RESEARCH,
+                            topic=gap,
+                            context={"source": "tool_generation_gap"}
+                        )
+                
+                return {
+                    "success": True,
+                    "tool_id": tool.tool_id,
+                    "tool_name": tool.name,
+                    "description": tool.description
+                }
+            else:
+                # Spawn research to find patterns
+                self.queue.spawn_recursive(
+                    parent_request_id=request["request_id"],
+                    request_type=RequestType.RESEARCH,
+                    topic=f"Python implementation patterns for: {topic}",
+                    context={"source": "tool_generation_failure"}
+                )
+                return {"success": False, "reason": "No matching patterns"}
+                
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def _handle_research_request(self, request: Dict) -> Dict:
+        """Handle research request from Tool Factory."""
+        if not self._research_api:
+            return {"error": "Research API not wired"}
+        
+        topic = request["topic"]
+        context = request.get("context", {})
+        requester = request.get("requester", "ToolFactory")
+        
+        # Submit to research queue
+        try:
+            request_id = self._research_api.request_research(
+                topic=topic,
+                requester=requester,
+                context=context,
+                priority=ResearchPriority.HIGH
+            )
+            
+            self._research_from_tools += 1
+            
+            return {
+                "success": True,
+                "research_request_id": request_id,
+                "topic": topic
+            }
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def request_tool_from_research(
+        self,
+        topic: str,
+        context: Optional[Dict] = None,
+        requester: str = "ShadowResearch"
+    ) -> str:
+        """
+        Shadow Research requests a tool to be generated.
+        
+        Called when research discovers a need for a new tool.
+        """
+        return self.queue.submit(
+            request_type=RequestType.TOOL,
+            topic=topic,
+            requester=requester,
+            context=context
+        )
+    
+    def request_research_from_tool(
+        self,
+        topic: str,
+        context: Optional[Dict] = None,
+        requester: str = "ToolFactory"
+    ) -> str:
+        """
+        Tool Factory requests research to improve patterns.
+        
+        Called when tool generation needs more knowledge.
+        """
+        return self.queue.submit(
+            request_type=RequestType.RESEARCH,
+            topic=topic,
+            requester=requester,
+            context=context
+        )
+    
+    def improve_tool_with_research(
+        self,
+        tool_id: str,
+        research_knowledge: Dict
+    ) -> bool:
+        """
+        Improve an existing tool with new research knowledge.
+        
+        Called when research discovers something that could improve a tool.
+        """
+        if not self._tool_factory:
+            return False
+        
+        try:
+            # Get the tool
+            tool = self._tool_factory.tool_registry.get(tool_id)
+            if not tool:
+                return False
+            
+            # Submit improvement request
+            self.queue.submit(
+                request_type=RequestType.IMPROVEMENT,
+                topic=f"Improve tool {tool.name} with: {research_knowledge.get('topic', 'new knowledge')}",
+                requester="ShadowResearch",
+                context={
+                    "tool_id": tool_id,
+                    "knowledge": research_knowledge,
+                    "original_description": tool.description
+                }
+            )
+            
+            self._improvements_applied += 1
+            return True
+            
+        except Exception as e:
+            print(f"[ToolResearchBridge] Improvement error: {e}")
+            return False
+    
+    def improve_research_with_tool(
+        self,
+        tool_id: str,
+        tool_patterns: List[Dict]
+    ) -> bool:
+        """
+        Improve research directions based on tool patterns.
+        
+        Called when tool generation reveals useful patterns for research.
+        """
+        if not self._research_api:
+            return False
+        
+        try:
+            for pattern in tool_patterns[:5]:
+                self._research_api.request_research(
+                    topic=f"Deep dive on pattern: {pattern.get('description', 'unknown')[:50]}",
+                    requester="ToolFactory",
+                    category=ResearchCategory.TOOLS,
+                    context={"source_pattern": pattern}
+                )
+            return True
+        except Exception as e:
+            print(f"[ToolResearchBridge] Research improvement error: {e}")
+            return False
+    
+    def get_status(self) -> Dict:
+        """Get bridge status."""
+        return {
+            "queue": self.queue.get_status(),
+            "tools_requested": self._tools_requested,
+            "research_from_tools": self._research_from_tools,
+            "improvements_applied": self._improvements_applied,
+            "tool_factory_wired": self._tool_factory is not None,
+            "research_api_wired": self._research_api is not None
         }
