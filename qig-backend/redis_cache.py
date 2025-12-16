@@ -29,10 +29,132 @@ CACHE_TTL_PERMANENT = 86400 * 7  # 7 days for critical data
 RETRY_QUEUE_MAX_SIZE = 1000
 RETRY_INTERVAL_SECONDS = 5
 
+# Alert thresholds
+QUEUE_SATURATION_THRESHOLD = 0.8  # 80% full = warning
+QUEUE_CRITICAL_THRESHOLD = 0.95  # 95% full = critical
+OUTAGE_DURATION_WARNING = 60  # 1 min of failures = warning
+OUTAGE_DURATION_CRITICAL = 300  # 5 min of failures = critical
+
 _redis_client: Optional[redis.Redis] = None
 _write_queue: Queue = Queue(maxsize=RETRY_QUEUE_MAX_SIZE)
 _retry_thread: Optional[threading.Thread] = None
 _shutdown_flag = threading.Event()
+
+# Metrics tracking
+class BufferMetrics:
+    """Track buffer health metrics for monitoring and alerting."""
+    
+    def __init__(self):
+        self.total_patterns_buffered = 0
+        self.total_retries_attempted = 0
+        self.total_retries_succeeded = 0
+        self.total_retries_failed = 0
+        self.last_successful_sync = time.time()
+        self.last_failed_sync: Optional[float] = None
+        self.consecutive_failures = 0
+        self.peak_queue_size = 0
+        self.alerts_triggered: List[Dict[str, Any]] = []
+    
+    def record_buffer(self):
+        self.total_patterns_buffered += 1
+    
+    def record_retry_attempt(self):
+        self.total_retries_attempted += 1
+    
+    def record_retry_success(self):
+        self.total_retries_succeeded += 1
+        self.last_successful_sync = time.time()
+        self.consecutive_failures = 0
+        self._clear_outage_alert()
+    
+    def record_retry_failure(self):
+        self.total_retries_failed += 1
+        self.last_failed_sync = time.time()
+        self.consecutive_failures += 1
+        self._check_outage_alert()
+    
+    def update_queue_size(self, size: int):
+        self.peak_queue_size = max(self.peak_queue_size, size)
+        self._check_saturation_alert(size)
+    
+    def _check_saturation_alert(self, current_size: int):
+        ratio = current_size / RETRY_QUEUE_MAX_SIZE
+        
+        if ratio >= QUEUE_CRITICAL_THRESHOLD:
+            self._trigger_alert('queue_critical', 
+                f"Queue at {ratio*100:.1f}% capacity ({current_size}/{RETRY_QUEUE_MAX_SIZE})")
+        elif ratio >= QUEUE_SATURATION_THRESHOLD:
+            self._trigger_alert('queue_warning',
+                f"Queue at {ratio*100:.1f}% capacity ({current_size}/{RETRY_QUEUE_MAX_SIZE})")
+    
+    def _check_outage_alert(self):
+        if self.last_failed_sync is None:
+            return
+        
+        outage_duration = time.time() - self.last_successful_sync
+        
+        if outage_duration >= OUTAGE_DURATION_CRITICAL:
+            self._trigger_alert('outage_critical',
+                f"PostgreSQL outage: {outage_duration:.0f}s, {self.consecutive_failures} failures")
+        elif outage_duration >= OUTAGE_DURATION_WARNING:
+            self._trigger_alert('outage_warning',
+                f"PostgreSQL degraded: {outage_duration:.0f}s, {self.consecutive_failures} failures")
+    
+    def _clear_outage_alert(self):
+        self.alerts_triggered = [a for a in self.alerts_triggered 
+                                  if not a['type'].startswith('outage_')]
+    
+    def _trigger_alert(self, alert_type: str, message: str):
+        existing = next((a for a in self.alerts_triggered if a['type'] == alert_type), None)
+        
+        if existing:
+            existing['message'] = message
+            existing['updated_at'] = time.time()
+            existing['count'] += 1
+        else:
+            alert = {
+                'type': alert_type,
+                'message': message,
+                'triggered_at': time.time(),
+                'updated_at': time.time(),
+                'count': 1
+            }
+            self.alerts_triggered.append(alert)
+            print(f"[RedisBuffer] ALERT: {alert_type} - {message}")
+    
+    def get_health_status(self) -> Dict[str, Any]:
+        queue_size = _write_queue.qsize()
+        queue_ratio = queue_size / RETRY_QUEUE_MAX_SIZE
+        
+        if queue_ratio >= QUEUE_CRITICAL_THRESHOLD or self.consecutive_failures >= 10:
+            status = 'critical'
+        elif queue_ratio >= QUEUE_SATURATION_THRESHOLD or self.consecutive_failures >= 5:
+            status = 'degraded'
+        else:
+            status = 'healthy'
+        
+        outage_duration = None
+        if self.last_failed_sync and self.last_failed_sync > self.last_successful_sync:
+            outage_duration = time.time() - self.last_successful_sync
+        
+        return {
+            'status': status,
+            'queue_size': queue_size,
+            'queue_max': RETRY_QUEUE_MAX_SIZE,
+            'queue_percent': round(queue_ratio * 100, 1),
+            'total_buffered': self.total_patterns_buffered,
+            'retries_attempted': self.total_retries_attempted,
+            'retries_succeeded': self.total_retries_succeeded,
+            'retries_failed': self.total_retries_failed,
+            'success_rate': round(self.total_retries_succeeded / max(1, self.total_retries_attempted) * 100, 1),
+            'consecutive_failures': self.consecutive_failures,
+            'peak_queue_size': self.peak_queue_size,
+            'last_successful_sync': self.last_successful_sync,
+            'outage_duration_seconds': outage_duration,
+            'active_alerts': self.alerts_triggered,
+        }
+
+_metrics = BufferMetrics()
 
 
 def get_redis_client() -> Optional[redis.Redis]:
@@ -72,21 +194,30 @@ def _start_retry_worker():
     def retry_worker():
         while not _shutdown_flag.is_set():
             try:
+                # Update queue size metrics
+                _metrics.update_queue_size(_write_queue.qsize())
+                
                 item = _write_queue.get(timeout=RETRY_INTERVAL_SECONDS)
                 if item is None:
                     continue
                 
                 persist_fn, args, kwargs, retry_count = item
+                _metrics.record_retry_attempt()
+                
                 try:
                     persist_fn(*args, **kwargs)
+                    _metrics.record_retry_success()
                     print(f"[RedisBuffer] Retry succeeded after {retry_count} attempts")
                 except Exception as e:
+                    _metrics.record_retry_failure()
                     if retry_count < 5:
                         _write_queue.put((persist_fn, args, kwargs, retry_count + 1))
                         print(f"[RedisBuffer] Retry {retry_count + 1} failed: {e}")
                     else:
                         print(f"[RedisBuffer] Giving up after 5 retries: {e}")
             except Empty:
+                # Still update metrics even when queue is empty
+                _metrics.update_queue_size(_write_queue.qsize())
                 continue
             except Exception as e:
                 print(f"[RedisBuffer] Retry worker error: {e}")
@@ -189,7 +320,9 @@ class ToolPatternBuffer:
             if persist_fn:
                 try:
                     persist_fn(pattern_data)
+                    _metrics.record_retry_success()
                 except Exception as e:
+                    _metrics.record_retry_failure()
                     print(f"[ToolPatternBuffer] Direct persist failed: {e}")
             return False
         
@@ -199,13 +332,16 @@ class ToolPatternBuffer:
             pattern_data['synced_to_db'] = False
             client.setex(key, CACHE_TTL_PERMANENT, json.dumps(pattern_data))
             client.sadd(f"{cls.PREFIX}:index", pattern_id)
+            _metrics.record_buffer()
             
             if persist_fn:
                 try:
                     persist_fn(pattern_data)
                     pattern_data['synced_to_db'] = True
                     client.setex(key, CACHE_TTL_PERMANENT, json.dumps(pattern_data))
+                    _metrics.record_retry_success()
                 except Exception as e:
+                    _metrics.record_retry_failure()
                     print(f"[ToolPatternBuffer] DB persist failed, queued for retry: {e}")
                     queue_for_retry(persist_fn, pattern_data)
             
@@ -476,3 +612,45 @@ def get_buffer_stats() -> Dict[str, Any]:
         }
     except Exception as e:
         return {'connected': False, 'error': str(e)}
+
+
+def get_buffer_health() -> Dict[str, Any]:
+    """
+    Get comprehensive buffer health status with metrics and alerts.
+    Use this for monitoring dashboards and operational alerts.
+    """
+    client = get_redis_client()
+    health = _metrics.get_health_status()
+    
+    if not client:
+        health['redis_connected'] = False
+        health['status'] = 'critical'
+        health['error'] = 'No Redis connection'
+        return health
+    
+    try:
+        info = client.info('memory')
+        health['redis_connected'] = True
+        health['redis_memory'] = info.get('used_memory_human', 'unknown')
+        health['patterns_in_redis'] = client.scard('qig:patterns:index') or 0
+        
+        # Check for unsynced patterns
+        unsynced = 0
+        pattern_ids = client.smembers('qig:patterns:index') or []
+        for pid in list(pattern_ids)[:50]:  # Sample first 50
+            pattern = UniversalCache.get(f"qig:patterns:{pid}")
+            if pattern and not pattern.get('synced_to_db', False):
+                unsynced += 1
+        health['unsynced_patterns_sample'] = unsynced
+        
+    except Exception as e:
+        health['redis_connected'] = False
+        health['error'] = str(e)
+    
+    return health
+
+
+def clear_alerts():
+    """Clear all active alerts (for operational use)."""
+    _metrics.alerts_triggered.clear()
+    print("[RedisBuffer] Alerts cleared")

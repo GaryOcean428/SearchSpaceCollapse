@@ -2098,6 +2098,39 @@ def health():
     })
 
 
+@app.route('/buffer/health', methods=['GET'])
+def buffer_health():
+    """
+    Redis buffer health check with metrics and alerts.
+    Returns queue status, retry metrics, and active alerts.
+    """
+    try:
+        from redis_cache import get_buffer_health, clear_alerts
+        health = get_buffer_health()
+        return jsonify(health)
+    except ImportError:
+        return jsonify({
+            'status': 'unavailable',
+            'error': 'Redis buffer module not loaded'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+
+@app.route('/buffer/alerts/clear', methods=['POST'])
+def clear_buffer_alerts():
+    """Clear all active buffer alerts."""
+    try:
+        from redis_cache import clear_alerts
+        clear_alerts()
+        return jsonify({'success': True, 'message': 'Alerts cleared'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/process', methods=['POST'])
 def process_passphrase():
     """
