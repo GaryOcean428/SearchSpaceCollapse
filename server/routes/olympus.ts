@@ -1165,6 +1165,105 @@ router.get('/m8/kernel/:kernelId', isAuthenticated, async (req, res) => {
 });
 
 /**
+ * M8 Delete Kernel - Proxy to Python M8 endpoint
+ */
+router.delete('/m8/kernel/:kernelId', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/kernel/${req.params.kernelId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 delete kernel error:', error);
+    res.status(500).json({ error: 'Python backend unavailable' });
+  }
+});
+
+/**
+ * M8 Get Idle Kernels - Proxy to Python M8 endpoint
+ */
+router.get('/m8/kernels/idle', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const threshold = req.query.threshold || 300;
+    
+    const response = await fetch(`${backendUrl}/m8/kernels/idle?threshold=${threshold}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 get idle kernels error:', error);
+    res.json({ idle_kernels: [], total: 0, threshold_seconds: 300 });
+  }
+});
+
+/**
+ * M8 Cannibalize Kernel - Proxy to Python M8 endpoint
+ */
+router.post('/m8/kernel/cannibalize', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/kernel/cannibalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 cannibalize kernel error:', error);
+    res.status(500).json({ error: 'Python backend unavailable' });
+  }
+});
+
+/**
+ * M8 Merge Kernels - Proxy to Python M8 endpoint
+ */
+router.post('/m8/kernels/merge', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/m8/kernels/merge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Python backend returned ${response.status}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] M8 merge kernels error:', error);
+    res.status(500).json({ error: 'Python backend unavailable' });
+  }
+});
+
+/**
  * Get all spawned kernels from PostgreSQL
  * Returns kernels with full attributes including spawn reason, reputation, merge/split status
  */
