@@ -2350,6 +2350,7 @@ export type NearMissAdaptiveStateRecord =
 /**
  * WAR HISTORY - Tracks Olympus war mode declarations and outcomes
  * Records BLITZKRIEG, SIEGE, and HUNT operations with results
+ * Supports parallel wars with god/kernel assignments per war
  */
 export const warHistory = pgTable(
   "war_history",
@@ -2368,6 +2369,10 @@ export const warHistory = pgTable(
     discoveriesDuringWar: integer("discoveries_during_war").default(0),
     kernelsSpawnedDuringWar: integer("kernels_spawned_during_war").default(0),
     metadata: jsonb("metadata"),
+    godAssignments: jsonb("god_assignments"), // { godName: warId } - tracks which gods are assigned to this war
+    kernelAssignments: jsonb("kernel_assignments"), // { kernelId: true } - specialist kernels dedicated to this war
+    domain: varchar("domain", { length: 64 }), // Optional domain tag for routing high-Φ discoveries
+    priority: integer("priority").default(1), // War priority (higher = more important)
   },
   (table) => [
     index("idx_war_history_mode").on(table.mode),
