@@ -122,20 +122,18 @@ function getDatabaseUrl(): string | undefined {
     return undefined;
   }
   
-  // For deployed apps using Neon, convert to pooler URL to avoid WebSocket/DNS issues
-  // Replace .us-east-2 (or other regions) with -pooler.us-east-2
-  // This is REQUIRED for HTTP-only mode in production
+  // For HTTP-only mode (production), we need the DIRECT endpoint, NOT pooler
+  // Pooler URLs are for WebSocket/Pool connections only
+  // HTTP connections go directly to the database via Neon's HTTP API
   if (isDeployedEnv && dbUrl.includes('.neon.tech')) {
-    // Check if already a pooler URL
-    if (!dbUrl.includes('-pooler.')) {
-      const poolerUrl = dbUrl.replace(/\.([a-z0-9-]+)\.neon\.tech/, '-pooler.$1.neon.tech');
-      if (poolerUrl !== dbUrl) {
-        console.log("[DB] Converted to pooler URL for HTTP-only mode");
-        console.log("[DB] Pooler URL pattern: *-pooler.*.neon.tech");
-        return poolerUrl;
-      }
+    // If it's a pooler URL, convert back to direct endpoint
+    if (dbUrl.includes('-pooler.')) {
+      const directUrl = dbUrl.replace(/-pooler\.([a-z0-9-]+)\.neon\.tech/, '.$1.neon.tech');
+      console.log("[DB] Converted pooler URL to direct endpoint for HTTP-only mode");
+      console.log("[DB] Direct endpoint pattern: *.*.neon.tech (no -pooler)");
+      return directUrl;
     } else {
-      console.log("[DB] Already using pooler URL");
+      console.log("[DB] Using direct endpoint for HTTP-only mode (correct for HTTP)");
     }
   }
   
@@ -150,17 +148,34 @@ if (databaseUrl) {
       // PRODUCTION: Use HTTP-only Neon client - avoids WebSocket entirely
       // This is critical for Replit deployments where ws module may not be bundled
       console.log('[DB] Initializing HTTP-only Neon client for production');
-      const sql = neon(databaseUrl);
+      console.log('[DB] Database URL host:', new URL(databaseUrl).hostname);
+      
+      const sql = neon(databaseUrl, {
+        fetchOptions: {
+          cache: 'no-store'  // Disable caching for consistency
+        }
+      });
       db = drizzleHttp(sql, { schema });
       pool = null; // No pool in production - HTTP only
       console.log('[DB] HTTP-only Neon client initialized successfully');
       
-      // Test the connection
-      sql`SELECT 1`.then(() => {
-        console.log('[DB] Production connection test successful');
-      }).catch((err) => {
-        console.error('[DB] Production connection test failed:', err);
-      });
+      // Test the connection with detailed error logging
+      const testConnection = async () => {
+        try {
+          await sql`SELECT 1 as test`;
+          console.log('[DB] Production connection test: SUCCESS');
+        } catch (err: any) {
+          console.error('[DB] Production connection test: FAILED');
+          console.error('[DB] Error type:', err?.constructor?.name);
+          console.error('[DB] Error message:', err?.message);
+          console.error('[DB] Error code:', err?.code);
+          console.error('[DB] Error cause:', err?.cause?.message || 'none');
+          if (err?.cause?.cause) {
+            console.error('[DB] Root cause:', err.cause.cause.message || err.cause.cause);
+          }
+        }
+      };
+      testConnection();
     } else {
       // DEVELOPMENT: Use Pool with WebSocket for real-time features
       const connectionTimeout = 15000;
