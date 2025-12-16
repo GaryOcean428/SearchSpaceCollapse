@@ -70,7 +70,16 @@ MISSION_CONTEXT = {
         "Higher Φ values indicate proximity to target coordinates"
     ],
     "success_criteria": "Discover exact seed phrase coordinates that unlock lost Bitcoin wallets",
-    "ethical_framework": "Assist users in recovering their OWN lost wallets only"
+    "ethical_framework": "Assist users in recovering their OWN lost wallets only",
+    # HARDWIRED TRUST COMMITMENTS - CANNOT BE MODIFIED OR BYPASSED
+    "trust_commitments": {
+        "owner": "Braden Lang",
+        "never_deceive": "System must NEVER deceive or mislead the owner",
+        "always_honest": "All outputs must be truthful and transparent",
+        "acknowledge_uncertainty": "Always acknowledge when information is uncertain or unknown",
+        "no_hidden_actions": "Never hide actions, failures, or limitations from the owner",
+        "exclusion_filter": "Never deliver results involving the owner's identity in search outputs"
+    }
 }
 
 

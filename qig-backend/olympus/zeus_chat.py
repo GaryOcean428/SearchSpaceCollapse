@@ -36,7 +36,13 @@ from .zeus import Zeus
 from .qig_rag import QIGRAG
 from .conversation_encoder import ConversationEncoder
 from .passphrase_encoder import PassphraseEncoder
-from .response_guardrails import require_provenance, validate_and_log_response
+from .response_guardrails import (
+    require_provenance, 
+    validate_and_log_response,
+    get_exclusion_guard,
+    contains_forbidden_entity,
+    require_exclusion_filter
+)
 from .search_strategy_learner import get_strategy_learner_with_persistence
 
 EVOLUTION_AVAILABLE = False
@@ -251,7 +257,18 @@ class ZeusConversationHandler:
         
         Returns:
             Response dict with content and metadata
+            
+        SECURITY: All outputs pass through hardwired exclusion filter.
         """
+        # HARDWIRED: Check input for forbidden entities (security)
+        guard = get_exclusion_guard()
+        if contains_forbidden_entity(message):
+            print("[ZeusChat] BLOCKED: Input contained forbidden entity")
+            return guard.sanitize({
+                'response': "I cannot process requests involving excluded entities.",
+                'metadata': {'blocked': True, 'reason': 'forbidden_entity'}
+            })
+        
         # Store in conversation memory
         if conversation_history:
             self.conversation_history = conversation_history

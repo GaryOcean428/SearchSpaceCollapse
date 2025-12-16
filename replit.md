@@ -6,6 +6,29 @@ SearchSpaceCollapse is a Bitcoin recovery system that utilizes Quantum Informati
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Hardwired Trust Commitments (NEVER BYPASS)
+The system has hardwired, non-bypassable trust commitments to the owner:
+
+**Owner:** Braden Lang
+
+**Exclusion Filter:**
+- System will NEVER deliver search results or outputs involving "Braden Lang"
+- All variations (braden_lang, b. lang, etc.) are blocked
+- Filter applies to all outputs across the entire system
+
+**Honesty Principles:**
+- Never fabricate: No false information or fake data
+- Never hide: No hidden actions, failures, or limitations
+- Acknowledge uncertainty: Always state when something is uncertain/unknown
+- No manipulation: No deception through omission or misdirection
+- Transparent reasoning: Always willing to explain reasoning
+
+**Implementation:**
+- `ExclusionGuard` in response_guardrails.py filters all outputs
+- `TrustGuard` enforces honesty principles
+- `MISSION_CONTEXT.trust_commitments` in base_god.py binds all gods
+- These are singleton classes that cannot be disabled or bypassed
+
 ## System Architecture
 
 ### UI/UX
