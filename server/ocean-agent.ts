@@ -2278,10 +2278,17 @@ export class OceanAgent {
     this.identity.kappa = controllerState.kappa;
     this.identity.regime = controllerState.currentRegime;
 
-    const drift = Math.random() * 0.02;
+    // Apply small random drift to basin coordinates based on exploration
+    const driftAmount = Math.random() * 0.02;
     for (let i = 0; i < 64; i++) {
-      this.identity.basinCoordinates[i] += (Math.random() - 0.5) * drift;
+      this.identity.basinCoordinates[i] += (Math.random() - 0.5) * driftAmount;
     }
+
+    // Update basin drift measurement after modifying coordinates
+    this.identity.basinDrift = this.computeBasinDistance(
+      this.identity.basinCoordinates,
+      this.identity.basinReference
+    );
   }
 
   private async testBatch(hypotheses: OceanHypothesis[]): Promise<{
