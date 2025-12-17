@@ -36,8 +36,8 @@ export class CandidatePostgresAdapter implements ICandidateStorage {
     }
 
     await withDbRetry(
-      () =>
-        db!
+      async () => {
+        await db!
           .insert(recoveryCandidates)
           .values({
             id: candidate.id,
@@ -58,7 +58,8 @@ export class CandidatePostgresAdapter implements ICandidateStorage {
               testedAt: new Date(candidate.testedAt),
               type: candidate.type ?? null,
             },
-          }),
+          });
+      },
       'addCandidate'
     );
   }
@@ -68,6 +69,8 @@ export class CandidatePostgresAdapter implements ICandidateStorage {
       throw new Error('Database not available - cannot clear candidates');
     }
 
-    await withDbRetry(() => db!.delete(recoveryCandidates), 'clearCandidates');
+    await withDbRetry(async () => {
+      await db!.delete(recoveryCandidates);
+    }, 'clearCandidates');
   }
 }

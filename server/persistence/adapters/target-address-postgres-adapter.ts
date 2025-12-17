@@ -30,8 +30,8 @@ export class TargetAddressPostgresAdapter implements ITargetAddressStorage {
     }
 
     await withDbRetry(
-      () =>
-        db!
+      async () => {
+        await db!
           .insert(userTargetAddresses)
           .values({
             id: address.id,
@@ -39,7 +39,8 @@ export class TargetAddressPostgresAdapter implements ITargetAddressStorage {
             label: address.label ?? null,
             addedAt: new Date(address.addedAt),
           })
-          .onConflictDoNothing({ target: userTargetAddresses.id }),
+          .onConflictDoNothing({ target: userTargetAddresses.id });
+      },
       'addTargetAddress'
     );
   }
@@ -50,7 +51,9 @@ export class TargetAddressPostgresAdapter implements ITargetAddressStorage {
     }
 
     await withDbRetry(
-      () => db!.delete(userTargetAddresses).where(eq(userTargetAddresses.id, id)),
+      async () => {
+        await db!.delete(userTargetAddresses).where(eq(userTargetAddresses.id, id));
+      },
       'removeTargetAddress'
     );
   }

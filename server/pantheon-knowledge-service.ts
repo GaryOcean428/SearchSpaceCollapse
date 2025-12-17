@@ -109,7 +109,7 @@ export async function recordKnowledgeTransfer(
           content: enrichedPayload,
           accepted: false,
         })
-        .returning({ id: pantheonKnowledgeTransfers.id });
+        .returning();
       
       if (inserted) {
         insertedIds.push(inserted.id);
@@ -192,7 +192,7 @@ export async function markTransferAccepted(
       .update(pantheonKnowledgeTransfers)
       .set({ accepted })
       .where(eq(pantheonKnowledgeTransfers.id, transferId))
-      .returning({ id: pantheonKnowledgeTransfers.id });
+      .returning();
     
     return !!updated;
   }, `markTransferAccepted(${transferId})`);
