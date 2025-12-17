@@ -41,6 +41,23 @@ except ImportError:
 from .base_god import BaseGod
 
 
+# Reference to shared PantheonChat instance (set by Zeus)
+# Type annotation uses string to avoid circular import
+_pantheon_chat: Optional[Any] = None
+
+
+def set_pantheon_chat(chat: Any) -> None:
+    """
+    Set the shared PantheonChat instance for Lightning to use.
+    
+    Called by Zeus after PantheonChat is fully initialized.
+    Uses Any type to avoid circular import (PantheonChat imports from zeus.py).
+    """
+    global _pantheon_chat
+    _pantheon_chat = chat
+    print(f"[Lightning] PantheonChat reference {'updated' if chat else 'cleared'}")
+
+
 class InsightDomain(Enum):
     """Domains that can be connected by lightning bolt insights."""
     ACTIVITY = "activity"              # Ocean exploration, probes, near-misses
@@ -188,9 +205,45 @@ class LightningKernel(BaseGod):
             self.insights_generated += 1
             self.last_insight_time = datetime.now().timestamp()
             print(f"[Lightning] ⚡ INSIGHT GENERATED: {insight.insight_text[:80]}...")
+            
+            # Broadcast to pantheon
+            self.broadcast_insight(insight)
+            
             return insight
         
         return None
+    
+    def broadcast_insight(self, insight: CrossDomainInsight) -> None:
+        """Broadcast a cross-domain insight to the entire pantheon via PantheonChat."""
+        global _pantheon_chat
+        
+        if _pantheon_chat is None:
+            print("[Lightning] Warning: PantheonChat not available for broadcast")
+            return
+        
+        # Format the insight for broadcast
+        domains_str = ", ".join(d.value for d in insight.source_domains)
+        broadcast_content = (
+            f"⚡ LIGHTNING INSIGHT: {insight.insight_text}\n"
+            f"Domains connected: {domains_str}\n"
+            f"Strength: {insight.connection_strength:.2f}, Φ: {insight.phi_at_creation:.3f}"
+        )
+        
+        try:
+            _pantheon_chat.broadcast(
+                from_god="Lightning",
+                content=broadcast_content,
+                msg_type="discovery",
+                metadata={
+                    "insight_id": insight.insight_id,
+                    "source_domains": [d.value for d in insight.source_domains],
+                    "connection_strength": insight.connection_strength,
+                    "confidence": insight.confidence,
+                }
+            )
+            print(f"[Lightning] Broadcast insight {insight.insight_id} to pantheon")
+        except Exception as e:
+            print(f"[Lightning] Broadcast failed: {e}")
     
     def _check_cross_domain_correlations(
         self,
@@ -425,6 +478,55 @@ class LightningKernel(BaseGod):
             'trends': self.get_all_trends(),
             'last_insight_time': self.last_insight_time,
         }
+    
+    def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
+        """
+        Assess a target using cross-domain insight analysis.
+        
+        Required abstract method from BaseGod.
+        Lightning looks for patterns connecting different domains to assess the target.
+        """
+        self.prepare_for_assessment(target)
+        
+        context = context or {}
+        
+        # Check for insights related to target
+        related_insights = [
+            i for i in self.insights[-50:]
+            if target.lower() in i.insight_text.lower() or 
+               target.lower() in i.triggered_by.lower()
+        ]
+        
+        # Calculate cross-domain assessment
+        correlation_summary = self.get_correlation_summary()
+        
+        probability = 0.5
+        confidence = 0.4
+        
+        if related_insights:
+            max_strength = max(i.connection_strength for i in related_insights)
+            probability = 0.5 + (max_strength * 0.3)
+            confidence = min(0.9, 0.4 + len(related_insights) * 0.1)
+        
+        if correlation_summary['near_discharge'] > 0:
+            probability = min(0.95, probability * 1.1)
+        
+        assessment = {
+            'god': 'Lightning',
+            'target': target,
+            'probability': probability,
+            'confidence': confidence,
+            'recommendation': 'PURSUE' if probability > 0.6 else 'MONITOR' if probability > 0.4 else 'IGNORE',
+            'reasoning': f"Cross-domain analysis: {len(related_insights)} related insights, {correlation_summary['near_discharge']} patterns near threshold",
+            'evidence': {
+                'related_insights': len(related_insights),
+                'active_correlations': correlation_summary['total_pairs_tracked'],
+                'domains_active': sum(1 for d in InsightDomain if len(self.domain_buffers[d][TrendTimescale.SHORT]) > 0),
+                'insights_generated': self.insights_generated,
+            }
+        }
+        
+        return self.finalize_assessment(assessment)
     
     def assess_probability(
         self,

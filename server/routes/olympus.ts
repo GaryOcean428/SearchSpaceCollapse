@@ -2400,4 +2400,143 @@ router.post('/kernels/route-activity', async (req, res) => {
   }
 });
 
+// =============================================
+// LIGHTNING KERNEL API ROUTES
+// Cross-domain insight generation endpoints
+// =============================================
+
+/**
+ * Get Lightning Kernel status including recent insights and trends
+ * GET /api/olympus/lightning/status
+ */
+router.get('/lightning/status', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/lightning/status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Lightning status error:', error);
+    res.status(503).json({ error: 'Lightning Kernel not available' });
+  }
+});
+
+/**
+ * Get recent cross-domain insights
+ * GET /api/olympus/lightning/insights?limit=10
+ */
+router.get('/lightning/insights', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    const limit = req.query.limit || 10;
+    
+    const response = await fetch(`${backendUrl}/olympus/lightning/insights?limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Lightning insights error:', error);
+    res.status(503).json({ error: 'Lightning Kernel not available' });
+  }
+});
+
+/**
+ * Get correlation summary between domains
+ * GET /api/olympus/lightning/correlations
+ */
+router.get('/lightning/correlations', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/lightning/correlations`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Lightning correlations error:', error);
+    res.status(503).json({ error: 'Lightning Kernel not available' });
+  }
+});
+
+/**
+ * Get multi-scale trend analysis
+ * GET /api/olympus/lightning/trends
+ */
+router.get('/lightning/trends', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/lightning/trends`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Lightning trends error:', error);
+    res.status(503).json({ error: 'Lightning Kernel not available' });
+  }
+});
+
+/**
+ * Submit an event for Lightning Kernel analysis
+ * POST /api/olympus/lightning/event
+ */
+router.post('/lightning/event', isAuthenticated, async (req, res) => {
+  try {
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+    
+    const response = await fetch(`${backendUrl}/olympus/lightning/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    auditLog(req, 'lightning_event', req.body.domain || 'unknown', true);
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Lightning event error:', error);
+    auditLog(req, 'lightning_event', req.body?.domain || 'unknown', false);
+    res.status(503).json({ error: 'Lightning Kernel not available' });
+  }
+});
+
 export default router;

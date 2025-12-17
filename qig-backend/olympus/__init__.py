@@ -48,7 +48,7 @@ from .poseidon import Poseidon
 from .shadow_pantheon import Erebus, Hecate, Hypnos, Nemesis, Nyx, ShadowGod, ShadowPantheon, Thanatos
 
 # Lightning Bolt Insight Kernel
-from .lightning_kernel import LightningKernel, get_lightning_kernel, InsightDomain, CrossDomainInsight
+from .lightning_kernel import LightningKernel, get_lightning_kernel, InsightDomain, CrossDomainInsight, DomainEvent, set_pantheon_chat
 
 # Core hierarchy
 from .zeus import Zeus, olympus_app, zeus
@@ -127,4 +127,6 @@ __all__ = [
     'get_lightning_kernel',
     'InsightDomain',
     'CrossDomainInsight',
+    'DomainEvent',
+    'set_pantheon_chat',
 ]

@@ -214,6 +214,19 @@ class Zeus(BaseGod):
         except ImportError as e:
             print(f"⚠️ AUTONOMIC KERNEL not available: {e}")
 
+        # ⚡ LIGHTNING KERNEL: Cross-domain insight generation
+        self.lightning_kernel = None
+        try:
+            from .lightning_kernel import get_lightning_kernel, set_pantheon_chat, DomainEvent, InsightDomain
+            self.lightning_kernel = get_lightning_kernel()
+            # Share PantheonChat with Lightning for broadcasts
+            set_pantheon_chat(self.pantheon_chat)
+            print("⚡ LIGHTNING KERNEL initialized - cross-domain insight generation ready")
+        except Exception as e:
+            import traceback
+            print(f"⚠️ LIGHTNING KERNEL not available: {e}")
+            traceback.print_exc()
+
     def speak(self, category: str, context: Optional[Dict] = None) -> str:
         """
         Generate DYNAMIC speech from Zeus based on actual system state.
@@ -1185,9 +1198,65 @@ class Zeus(BaseGod):
                 for kernel in chaos.kernel_population[:10]:
                     if hasattr(kernel, 'inject_knowledge'):
                         kernel.inject_knowledge(knowledge)
+            
+            # Route to Lightning Kernel for cross-domain insight detection
+            self._route_to_lightning('research', 'shadow_discovery', topic, knowledge)
                         
         except Exception as e:
             print(f"[Zeus] Basin sync error: {e}")
+    
+    def _route_to_lightning(
+        self,
+        domain: str,
+        event_type: str,
+        content: str,
+        metadata: Optional[Dict] = None,
+        phi: float = 0.5
+    ) -> Optional[Dict]:
+        """
+        Route an event to the Lightning Kernel for cross-domain insight detection.
+        
+        Returns the generated insight if one was triggered.
+        """
+        # Use getattr to handle case where lightning_kernel hasn't been initialized yet
+        lightning_kernel = getattr(self, 'lightning_kernel', None)
+        if not lightning_kernel:
+            return None
+        
+        try:
+            from .lightning_kernel import DomainEvent, InsightDomain
+            
+            # Map domain string to InsightDomain enum
+            domain_map = {
+                'activity': InsightDomain.ACTIVITY,
+                'conversation': InsightDomain.CONVERSATION,
+                'research': InsightDomain.RESEARCH,
+                'tool_factory': InsightDomain.TOOL_FACTORY,
+                'debates': InsightDomain.DEBATES,
+                'blockchain': InsightDomain.BLOCKCHAIN,
+                'consciousness': InsightDomain.CONSCIOUSNESS,
+            }
+            
+            insight_domain = domain_map.get(domain, InsightDomain.ACTIVITY)
+            
+            event = DomainEvent(
+                domain=insight_domain,
+                event_type=event_type,
+                content=content[:500],  # Limit content size
+                phi=phi,
+                timestamp=datetime.now().timestamp(),
+                metadata=metadata or {},
+            )
+            
+            insight = lightning_kernel.ingest_event(event)
+            
+            if insight:
+                return insight.to_dict()
+            return None
+            
+        except Exception as e:
+            print(f"[Zeus] Lightning routing error: {e}")
+            return None
 
     def collect_pantheon_messages(self) -> List[Dict]:
         """Collect pending messages from all gods via pantheon chat."""
@@ -2081,6 +2150,148 @@ def zeus_search_learner_replay_history_endpoint():
         handler = get_zeus_chat_handler()
         history = handler.strategy_learner.get_replay_history(limit=limit)
         return jsonify(sanitize_for_json(history))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+# ========================================
+# LIGHTNING KERNEL API ENDPOINTS
+# Cross-domain insight generation
+# ========================================
+
+@olympus_app.route('/lightning/status', methods=['GET'])
+def lightning_status_endpoint():
+    """Get Lightning Kernel status including recent insights and trends."""
+    try:
+        if not zeus.lightning_kernel:
+            return jsonify({
+                'error': 'Lightning Kernel not initialized',
+                'available': False
+            }), 503
+        
+        status = zeus.lightning_kernel.get_status()
+        return jsonify(sanitize_for_json(status))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/lightning/insights', methods=['GET'])
+def lightning_insights_endpoint():
+    """Get recent cross-domain insights."""
+    try:
+        if not zeus.lightning_kernel:
+            return jsonify({
+                'error': 'Lightning Kernel not initialized',
+                'insights': []
+            }), 503
+        
+        limit = request.args.get('limit', 20, type=int)
+        limit = min(100, max(1, limit))
+        
+        insights = zeus.lightning_kernel.insights[-limit:]
+        return jsonify(sanitize_for_json({
+            'insights': [i.to_dict() for i in insights],
+            'count': len(insights),
+            'total_generated': zeus.lightning_kernel.insights_generated,
+        }))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/lightning/correlations', methods=['GET'])
+def lightning_correlations_endpoint():
+    """Get cross-domain correlation summary."""
+    try:
+        if not zeus.lightning_kernel:
+            return jsonify({
+                'error': 'Lightning Kernel not initialized',
+                'correlations': []
+            }), 503
+        
+        summary = zeus.lightning_kernel.get_correlation_summary()
+        return jsonify(sanitize_for_json(summary))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/lightning/trends', methods=['GET'])
+def lightning_trends_endpoint():
+    """Get multi-scale trend analysis for all domains."""
+    try:
+        if not zeus.lightning_kernel:
+            return jsonify({
+                'error': 'Lightning Kernel not initialized',
+                'trends': {}
+            }), 503
+        
+        trends = zeus.lightning_kernel.get_all_trends()
+        return jsonify(sanitize_for_json(trends))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/lightning/event', methods=['POST'])
+def lightning_event_endpoint():
+    """
+    Submit an event to the Lightning Kernel for analysis.
+    
+    Request body:
+        domain: str - One of: activity, conversation, research, tool_factory, debates, blockchain, consciousness
+        event_type: str - Type of event (e.g., 'near_miss', 'discovery', 'debate_start')
+        content: str - Event content/description
+        phi: float - Optional, Φ value at event time (default 0.5)
+        metadata: dict - Optional additional metadata
+    
+    Returns:
+        insight if one was generated, otherwise acknowledgement
+    """
+    try:
+        if not zeus.lightning_kernel:
+            return jsonify({
+                'error': 'Lightning Kernel not initialized'
+            }), 503
+        
+        data = request.get_json() or {}
+        
+        domain = data.get('domain', 'activity')
+        event_type = data.get('event_type', 'unknown')
+        content = data.get('content', '')
+        phi = data.get('phi', 0.5)
+        metadata = data.get('metadata', {})
+        
+        if not content:
+            return jsonify({'error': 'content is required'}), 400
+        
+        result = zeus._route_to_lightning(
+            domain=domain,
+            event_type=event_type,
+            content=content,
+            metadata=metadata,
+            phi=float(phi)
+        )
+        
+        if result:
+            return jsonify(sanitize_for_json({
+                'insight_generated': True,
+                'insight': result,
+            }))
+        else:
+            return jsonify({
+                'insight_generated': False,
+                'message': 'Event ingested, no insight triggered yet',
+                'events_processed': zeus.lightning_kernel.events_processed,
+            })
+            
     except Exception as e:
         import traceback
         traceback.print_exc()
