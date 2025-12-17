@@ -385,7 +385,122 @@ def telemetry_categories():
     })
 
 
-ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp]
+capability_mesh_bp = Blueprint('capability_mesh', __name__, url_prefix='/api/mesh')
+
+
+@capability_mesh_bp.route('/status', methods=['GET'])
+def mesh_status():
+    """Get capability mesh status."""
+    try:
+        from olympus.capability_mesh import get_mesh_status
+        return RouteResponse.success(get_mesh_status())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@capability_mesh_bp.route('/events', methods=['GET'])
+def mesh_events():
+    """Get recent mesh events."""
+    try:
+        from olympus.capability_mesh import get_event_bus
+        limit = request.args.get('limit', 50, type=int)
+        source = request.args.get('source')
+        event_type = request.args.get('type')
+        
+        from olympus.capability_mesh import CapabilityType, EventType
+        source_filter = CapabilityType(source) if source else None
+        type_filter = EventType(event_type) if event_type else None
+        
+        events = get_event_bus().get_recent_events(
+            limit=limit,
+            source_filter=source_filter,
+            type_filter=type_filter
+        )
+        return RouteResponse.success({'events': events, 'count': len(events)})
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@capability_mesh_bp.route('/emit', methods=['POST'])
+@validate_json('source', 'event_type', 'content')
+def mesh_emit():
+    """Emit an event to the capability mesh."""
+    try:
+        from olympus.capability_mesh import emit_event, CapabilityType, EventType
+        data = request.get_json()
+        
+        result = emit_event(
+            source=CapabilityType(data['source']),
+            event_type=EventType(data['event_type']),
+            content=data['content'],
+            phi=data.get('phi', 0.5),
+            priority=data.get('priority', 5)
+        )
+        return RouteResponse.success(result)
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@capability_mesh_bp.route('/bridges', methods=['GET'])
+def mesh_bridges():
+    """Get all bridge statistics."""
+    try:
+        from olympus.capability_bridges import get_bridge_stats
+        return RouteResponse.success(get_bridge_stats())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@capability_mesh_bp.route('/war/start', methods=['POST'])
+@validate_json('target', 'war_type')
+def mesh_war_start():
+    """Declare war mode."""
+    try:
+        from olympus.capability_bridges import WarResourceBridge
+        data = request.get_json()
+        bridge = WarResourceBridge.get_instance()
+        result = bridge.declare_war(
+            target=data['target'],
+            war_type=data['war_type'],
+            resources=data.get('resources', []),
+            phi=data.get('phi', 0.5)
+        )
+        return RouteResponse.success(result)
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@capability_mesh_bp.route('/war/end', methods=['POST'])
+def mesh_war_end():
+    """End war mode."""
+    try:
+        from olympus.capability_bridges import WarResourceBridge
+        data = request.get_json() or {}
+        bridge = WarResourceBridge.get_instance()
+        result = bridge.end_war(success=data.get('success', False))
+        return RouteResponse.success(result)
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@capability_mesh_bp.route('/emotion', methods=['POST'])
+@validate_json('emotion')
+def mesh_emotion():
+    """Set emotional state."""
+    try:
+        from olympus.capability_bridges import EmotionCapabilityBridge
+        data = request.get_json()
+        bridge = EmotionCapabilityBridge.get_instance()
+        result = bridge.set_emotion(
+            emotion=data['emotion'],
+            phi=data.get('phi', 0.5)
+        )
+        return RouteResponse.success(result)
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp]
 
 # NOTE: research_bp is registered separately in ocean_qig_core.py
 # Don't add it here to avoid duplicate registration
@@ -423,6 +538,7 @@ __all__ = [
     'internal_bp',
     'curiosity_bp',
     'telemetry_bp',
+    'capability_mesh_bp',
     'CACHE_TTL_SHORT',
     'CACHE_TTL_MEDIUM',
 ]

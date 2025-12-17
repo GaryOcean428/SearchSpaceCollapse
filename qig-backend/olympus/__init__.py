@@ -50,6 +50,18 @@ from .shadow_pantheon import Erebus, Hecate, Hypnos, Nemesis, Nyx, ShadowGod, Sh
 # Lightning Bolt Insight Kernel
 from .lightning_kernel import LightningKernel, get_lightning_kernel, InsightDomain, CrossDomainInsight, DomainEvent, set_pantheon_chat
 
+# Universal Capability Mesh
+from .capability_mesh import (
+    CapabilityEventBus, CapabilityEvent, CapabilityType, EventType,
+    get_event_bus, emit_event, subscribe_to_events, get_mesh_status,
+    SUBSCRIPTION_MATRIX
+)
+from .capability_bridges import (
+    DebateResearchBridge, EmotionCapabilityBridge, ForesightActionBridge,
+    EthicsCapabilityBridge, SleepLearningBridge, BasinCapabilityBridge,
+    WarResourceBridge, KernelMeshBridge, initialize_all_bridges, get_bridge_stats
+)
+
 # Core hierarchy
 from .zeus import Zeus, olympus_app, zeus
 
@@ -129,4 +141,25 @@ __all__ = [
     'CrossDomainInsight',
     'DomainEvent',
     'set_pantheon_chat',
+    
+    # Universal Capability Mesh
+    'CapabilityEventBus',
+    'CapabilityEvent',
+    'CapabilityType',
+    'EventType',
+    'get_event_bus',
+    'emit_event',
+    'subscribe_to_events',
+    'get_mesh_status',
+    'SUBSCRIPTION_MATRIX',
+    'DebateResearchBridge',
+    'EmotionCapabilityBridge',
+    'ForesightActionBridge',
+    'EthicsCapabilityBridge',
+    'SleepLearningBridge',
+    'BasinCapabilityBridge',
+    'WarResourceBridge',
+    'KernelMeshBridge',
+    'initialize_all_bridges',
+    'get_bridge_stats',
 ]
