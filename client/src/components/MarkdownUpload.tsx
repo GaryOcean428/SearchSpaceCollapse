@@ -48,6 +48,7 @@ export function MarkdownUpload() {
         words_learned: 0,
         error: error.message,
       });
+      setSelectedFile(null);
     },
   });
 
@@ -77,8 +78,19 @@ export function MarkdownUpload() {
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-      setResult(null);
+      const file = e.target.files[0];
+      if (file.name.toLowerCase().endsWith('.md')) {
+        setSelectedFile(file);
+        setResult(null);
+      } else {
+        setResult({
+          success: false,
+          filename: file.name,
+          words_processed: 0,
+          words_learned: 0,
+          error: 'Only .md (markdown) files are accepted',
+        });
+      }
     }
   }, []);
 

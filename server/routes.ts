@@ -415,7 +415,17 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   // ============================================================
   // LEARNING UPLOAD ENDPOINT - Proxy to Python backend
   // ============================================================
-  const uploadMiddleware = multer({ storage: multer.memoryStorage() });
+  const uploadMiddleware = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.originalname.toLowerCase().endsWith('.md')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only .md (markdown) files are accepted'));
+      }
+    }
+  });
   
   app.post("/api/learning/upload", uploadMiddleware.single('file'), async (req: any, res) => {
     try {
