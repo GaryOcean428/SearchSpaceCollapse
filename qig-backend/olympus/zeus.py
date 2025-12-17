@@ -184,8 +184,9 @@ class Zeus(BaseGod):
 
         # 🔧 TOOL FACTORY: Self-learning tool generation
         self.tool_factory = None
+        self.autonomous_pipeline = None
         try:
-            from .tool_factory import ToolFactory
+            from .tool_factory import ToolFactory, AutonomousToolPipeline
             from .conversation_encoder import ConversationEncoder
             encoder = ConversationEncoder()
             self.tool_factory = ToolFactory(
@@ -197,6 +198,22 @@ class Zeus(BaseGod):
             if self.tool_factory:
                 BaseGod.set_tool_factory(self.tool_factory)
             print("🔧 TOOL FACTORY initialized - self-learning tool generation ready")
+            
+            # Initialize Autonomous Tool Pipeline
+            self.autonomous_pipeline = AutonomousToolPipeline.get_instance(self.tool_factory)
+            if self.autonomous_pipeline:
+                # Wire to Shadow Research bridge if available
+                try:
+                    from .shadow_research import ToolResearchBridge
+                    bridge = ToolResearchBridge.get_instance()
+                    self.autonomous_pipeline.wire_research_bridge(bridge)
+                    print("🔧 AUTONOMOUS PIPELINE wired to Shadow Research bridge")
+                except Exception as bridge_err:
+                    print(f"⚠️ AUTONOMOUS PIPELINE research bridge wiring failed: {bridge_err}")
+                
+                # Start the autonomous processing loop
+                self.autonomous_pipeline.start()
+                print("🔧 AUTONOMOUS PIPELINE started - self-improving tool generation active")
         except ImportError as e:
             print(f"⚠️ TOOL FACTORY not available: {e}")
 

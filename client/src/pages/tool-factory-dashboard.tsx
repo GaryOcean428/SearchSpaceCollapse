@@ -167,6 +167,16 @@ export default function ToolFactoryDashboard() {
     refetchInterval: 5000,
   });
 
+  const { data: pipelineStatusData } = useQuery<PipelineStatus>({
+    queryKey: ["/api/olympus/zeus/tools/pipeline/status"],
+    refetchInterval: 5000,
+  });
+
+  const { data: pipelineRequestsData } = useQuery<PipelineRequestsResponse>({
+    queryKey: ["/api/olympus/zeus/tools/pipeline/requests"],
+    refetchInterval: 5000,
+  });
+
   const clearGitQueueMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/git/queue/clear", {});
@@ -269,6 +279,39 @@ export default function ToolFactoryDashboard() {
     }
   });
 
+  const pipelineRequestMutation = useMutation({
+    mutationFn: async (data: { description: string; examples: Array<{ input: string; expected_output: string }> }) => {
+      const response = await apiRequest("POST", "/api/olympus/zeus/tools/pipeline/request", data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Autonomous tool request submitted", description: `Request ID: ${data.request_id}` });
+      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/status"] });
+      setGenerateDesc("");
+      setGenerateExamples("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to submit request", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const inventToolMutation = useMutation({
+    mutationFn: async (concept: string) => {
+      const response = await apiRequest("POST", "/api/olympus/zeus/tools/pipeline/invent", { concept });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Tool invention requested", description: `Request ID: ${data.request_id}` });
+      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/status"] });
+      setInventConcept("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to request invention", description: error.message, variant: "destructive" });
+    }
+  });
+
   const executeToolMutation = useMutation({
     mutationFn: async (data: { toolId: string; args: Record<string, unknown> }) => {
       const response = await apiRequest("POST", `/api/olympus/zeus/tools/${data.toolId}/execute`, { args: data.args });
@@ -332,6 +375,34 @@ export default function ToolFactoryDashboard() {
       default: return "bg-gray-500";
     }
   };
+
+  const getPipelineStateColor = (state: string) => {
+    switch (state) {
+      case "requested": return "bg-gray-500";
+      case "researching": return "bg-blue-500";
+      case "prototyping": return "bg-yellow-500";
+      case "testing": return "bg-purple-500";
+      case "improving": return "bg-orange-500";
+      case "deployed": return "bg-green-500";
+      case "failed": return "bg-red-500";
+      default: return "bg-gray-500";
+    }
+  };
+
+  const handlePipelineRequest = () => {
+    let examples: Array<{ input: string; expected_output: string }> = [];
+    try {
+      if (generateExamples.trim()) {
+        examples = JSON.parse(generateExamples);
+      }
+    } catch {
+      toast({ title: "Invalid examples JSON", variant: "destructive" });
+      return;
+    }
+    pipelineRequestMutation.mutate({ description: generateDesc, examples });
+  };
+
+  const pipelineRequests = pipelineRequestsData?.requests || [];
 
   return (
     <div className="container mx-auto p-6 space-y-6" data-testid="tool-factory-dashboard">
@@ -872,52 +943,187 @@ export default function ToolFactoryDashboard() {
 
         {/* Generate Tab */}
         <TabsContent value="generate" className="space-y-4">
+          {/* Pipeline Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Autonomous Pipeline Status
+              </CardTitle>
+              <CardDescription>
+                Self-improving tool generation with research integration
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center gap-2">
+                  <CircleDot className={`h-4 w-4 ${pipelineStatusData?.running ? 'text-green-500' : 'text-gray-400'}`} />
+                  <span className="text-sm">
+                    {pipelineStatusData?.running ? 'Running' : 'Stopped'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Deployed: {pipelineStatusData?.deployed_count || 0}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm">Active: {pipelineStatusData?.active_count || 0}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-sm">Failed: {pipelineStatusData?.failed_count || 0}</span>
+                </div>
+              </div>
+              {pipelineStatusData?.research_bridge_connected && (
+                <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                  <Brain className="h-3 w-3" />
+                  Shadow Research bridge connected
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Active Pipeline Requests */}
+          {pipelineRequests.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Active Requests ({pipelineRequests.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pipelineRequests.map((req) => (
+                    <div
+                      key={req.request_id}
+                      className="p-3 border rounded-lg space-y-2"
+                      data-testid={`pipeline-request-${req.request_id}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <Badge className={getPipelineStateColor(req.state)}>
+                          {req.state}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Iteration {req.iteration}/{req.max_iterations}
+                        </span>
+                      </div>
+                      <p className="text-sm">{req.description}</p>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>From: {req.requester}</span>
+                        {req.error_count > 0 && (
+                          <span className="text-red-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {req.error_count} errors
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Submit New Autonomous Request */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
-                Generate New Tool
+                Request Autonomous Tool
               </CardTitle>
               <CardDescription>
-                Describe what you want and provide examples. The kernel will synthesize from learned patterns.
+                Submit a tool request. The pipeline will research, prototype, test, and improve automatically.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="text-sm font-medium">Description</label>
+                <label className="text-sm font-medium" htmlFor="generate-desc-input">Description</label>
                 <Input
+                  id="generate-desc-input"
                   value={generateDesc}
                   onChange={(e) => setGenerateDesc(e.target.value)}
                   placeholder="What should this tool do? e.g., 'Convert text to uppercase'"
                   data-testid="input-generate-desc"
-                  aria-label="Tool description"
                 />
               </div>
               <div>
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="text-sm font-medium">Examples (JSON array)</label>
+                <label className="text-sm font-medium" htmlFor="generate-examples-input">Examples (JSON array, optional)</label>
                 <Textarea
+                  id="generate-examples-input"
                   value={generateExamples}
                   onChange={(e) => setGenerateExamples(e.target.value)}
                   placeholder='[{"input": "hello", "expected_output": "HELLO"}]'
                   className="font-mono min-h-[100px]"
                   data-testid="input-generate-examples"
-                  aria-label="Examples in JSON array format"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handlePipelineRequest}
+                  disabled={!generateDesc || pipelineRequestMutation.isPending}
+                  className="flex-1"
+                  data-testid="button-pipeline-request"
+                >
+                  {pipelineRequestMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
+                  Submit Autonomous Request
+                </Button>
+                <Button
+                  onClick={handleGenerate}
+                  variant="outline"
+                  disabled={!generateDesc || generateToolMutation.isPending}
+                  data-testid="button-generate-tool"
+                >
+                  {generateToolMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
+                  Generate Now
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Invent New Tool */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5" />
+                Invent New Tool
+              </CardTitle>
+              <CardDescription>
+                Describe a concept and let the kernel research and invent a tool for it
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium" htmlFor="invent-concept-input">Concept</label>
+                <Input
+                  id="invent-concept-input"
+                  value={inventConcept}
+                  onChange={(e) => setInventConcept(e.target.value)}
+                  placeholder="e.g., 'Bitcoin address checksum validator'"
+                  data-testid="input-invent-concept"
                 />
               </div>
               <Button
-                onClick={handleGenerate}
-                disabled={!generateDesc || generateToolMutation.isPending}
+                onClick={() => inventToolMutation.mutate(inventConcept)}
+                disabled={!inventConcept || inventToolMutation.isPending}
                 className="w-full"
-                data-testid="button-generate-tool"
+                data-testid="button-invent-tool"
               >
-                {generateToolMutation.isPending ? (
+                {inventToolMutation.isPending ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <Lightbulb className="h-4 w-4 mr-2" />
                 )}
-                Generate Tool
+                Invent Tool
               </Button>
             </CardContent>
           </Card>
