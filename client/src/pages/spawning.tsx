@@ -280,9 +280,11 @@ function KernelCard({ kernel }: { kernel: PostgresKernel }) {
                 Split Ready
               </Badge>
             )}
-            <Badge className={spawnReasonColor} data-testid={`badge-spawn-reason-${kernel.kernel_id}`}>
-              {kernel.spawn_reason.replace('_', ' ')}
-            </Badge>
+            {kernel.spawn_reason && kernel.spawn_reason !== 'unknown' && (
+              <Badge className={spawnReasonColor} data-testid={`badge-spawn-reason-${kernel.kernel_id}`}>
+                {kernel.spawn_reason.replace('_', ' ')}
+              </Badge>
+            )}
           </div>
         </div>
         <CardDescription className="text-sm">{kernel.domain || 'Unknown domain'}</CardDescription>
