@@ -4,7 +4,7 @@
  * Type-safe API functions for Olympus chat and war operations.
  */
 
-import { get, post, postMultipart } from '../client';
+import { get, post, del, postMultipart } from '../client';
 import { API_ROUTES } from '../routes';
 
 export interface WarHistoryEntry {
@@ -183,4 +183,80 @@ export async function pollShadowPantheon(target: string): Promise<ShadowPollResp
 
 export async function triggerShadowAct(god: string, params: Record<string, unknown>): Promise<ShadowActResponse> {
   return post<ShadowActResponse>(API_ROUTES.olympus.shadow.act(god), params);
+}
+
+// ==================== M8 KERNEL SPAWNING ====================
+
+export interface CannibalizeRequest {
+  source_id: string;
+  target_id: string;
+}
+
+export interface CannibalizeResponse {
+  success: boolean;
+  source_god?: string;
+  target_god?: string;
+  fisher_distance?: number;
+  merged_metrics?: Record<string, number>;
+  error?: string;
+}
+
+export interface MergeKernelsRequest {
+  kernel_ids: string[];
+}
+
+export interface MergeKernelsResponse {
+  success: boolean;
+  new_kernel?: Record<string, unknown>;
+  merged_from?: string[];
+  error?: string;
+}
+
+export interface AutoCannibalizeRequest {
+  idle_threshold?: number;
+}
+
+export interface AutoCannibalizeResponse {
+  success: boolean;
+  source_id?: string;
+  source_god?: string;
+  target_id?: string;
+  target_god?: string;
+  auto_selected: boolean;
+  selection_criteria: Record<string, unknown>;
+  error?: string;
+}
+
+export interface AutoMergeRequest {
+  idle_threshold?: number;
+  max_to_merge?: number;
+}
+
+export interface AutoMergeResponse {
+  success: boolean;
+  new_kernel?: Record<string, unknown>;
+  merged_from?: { kernel_ids: string[]; god_names: string[] };
+  auto_selected: boolean;
+  selection_criteria: Record<string, unknown>;
+  error?: string;
+}
+
+export async function deleteKernel(kernelId: string): Promise<{ success: boolean }> {
+  return del<{ success: boolean }>(API_ROUTES.olympus.m8.kernel(kernelId));
+}
+
+export async function cannibalizeKernel(params: CannibalizeRequest): Promise<CannibalizeResponse> {
+  return post<CannibalizeResponse>(API_ROUTES.olympus.m8.cannibalize, params);
+}
+
+export async function mergeKernels(params: MergeKernelsRequest): Promise<MergeKernelsResponse> {
+  return post<MergeKernelsResponse>(API_ROUTES.olympus.m8.merge, params);
+}
+
+export async function autoCannibalize(params: AutoCannibalizeRequest): Promise<AutoCannibalizeResponse> {
+  return post<AutoCannibalizeResponse>(API_ROUTES.olympus.m8.autoCannibalize, params);
+}
+
+export async function autoMerge(params: AutoMergeRequest): Promise<AutoMergeResponse> {
+  return post<AutoMergeResponse>(API_ROUTES.olympus.m8.autoMerge, params);
 }

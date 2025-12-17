@@ -190,8 +190,7 @@ export interface ActivityReward {
  */
 export async function getAutonomicState(): Promise<AutonomicState | null> {
   try {
-    const response = await fetch("/api/ocean/python/autonomic/state");
-    const data = await response.json();
+    const data = await get<AutonomicState & { success?: boolean }>(API_ROUTES.oceanAutonomic.state);
     return data.success ? data : null;
   } catch {
     return null;
@@ -205,12 +204,7 @@ export async function executeSleepCycle(
   params?: SleepCycleParams
 ): Promise<SleepCycleResponse | null> {
   try {
-    const response = await fetch("/api/ocean/python/autonomic/sleep", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params || {}),
-    });
-    const data = await response.json();
+    const data = await post<SleepCycleResponse>(API_ROUTES.oceanAutonomic.sleep, params || {});
     return data.success !== false ? data : null;
   } catch {
     return null;
@@ -224,12 +218,7 @@ export async function executeDreamCycle(
   params?: DreamCycleParams
 ): Promise<DreamCycleResponse | null> {
   try {
-    const response = await fetch("/api/ocean/python/autonomic/dream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params || {}),
-    });
-    const data = await response.json();
+    const data = await post<DreamCycleResponse>(API_ROUTES.oceanAutonomic.dream, params || {});
     return data.success !== false ? data : null;
   } catch {
     return null;
@@ -243,12 +232,7 @@ export async function executeMushroomCycle(
   params?: MushroomCycleParams
 ): Promise<MushroomCycleResponse | null> {
   try {
-    const response = await fetch("/api/ocean/python/autonomic/mushroom", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params || {}),
-    });
-    const data = await response.json();
+    const data = await post<MushroomCycleResponse>(API_ROUTES.oceanAutonomic.mushroom, params || {});
     return data.success !== false ? data : null;
   } catch {
     return null;
@@ -262,12 +246,7 @@ export async function recordActivityReward(
   params: ActivityRewardParams
 ): Promise<ActivityReward | null> {
   try {
-    const response = await fetch("/api/ocean/python/autonomic/reward", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
-    });
-    const data = await response.json();
+    const data = await post<{ success: boolean; reward: ActivityReward }>(API_ROUTES.oceanAutonomic.reward, params);
     return data.success ? data.reward : null;
   } catch {
     return null;
@@ -281,10 +260,7 @@ export async function getPendingRewards(
   flush: boolean = false
 ): Promise<ActivityReward[]> {
   try {
-    const response = await fetch(
-      `/api/ocean/python/autonomic/rewards?flush=${flush}`
-    );
-    const data = await response.json();
+    const data = await get<{ success: boolean; rewards: ActivityReward[] }>(API_ROUTES.oceanAutonomic.rewards(flush));
     return data.success ? data.rewards : [];
   } catch {
     return [];

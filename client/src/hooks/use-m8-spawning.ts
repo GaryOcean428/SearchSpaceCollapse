@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_ROUTES, QUERY_KEYS } from '@/api';
+import { API_ROUTES, QUERY_KEYS, deleteKernel, cannibalizeKernel, mergeKernels, autoCannibalize, autoMerge } from '@/api';
 import { useAuth } from '@/hooks/useAuth';
 import {
   getM8Client,
@@ -345,17 +345,7 @@ export function useDeleteKernel() {
   const queryClient = useQueryClient();
 
   return useMutation<DeleteKernelResponse, Error, { kernelId: string }>({
-    mutationFn: async ({ kernelId }) => {
-      const response = await fetch(`/api/olympus/m8/kernel/${kernelId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Delete failed' }));
-        throw new Error(error.error || 'Failed to delete kernel');
-      }
-      return response.json();
-    },
+    mutationFn: ({ kernelId }) => deleteKernel(kernelId) as Promise<DeleteKernelResponse>,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
@@ -369,19 +359,7 @@ export function useCannibalizeKernel() {
   const queryClient = useQueryClient();
 
   return useMutation<CannibalizeResponse, Error, CannibalizeRequest>({
-    mutationFn: async (request) => {
-      const response = await fetch('/api/olympus/m8/kernel/cannibalize', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Cannibalize failed' }));
-        throw new Error(error.error || 'Failed to cannibalize kernel');
-      }
-      return response.json();
-    },
+    mutationFn: (request) => cannibalizeKernel({ source_id: request.source_kernel_id, target_id: request.target_kernel_id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
@@ -395,19 +373,7 @@ export function useMergeKernels() {
   const queryClient = useQueryClient();
 
   return useMutation<MergeKernelsResponse, Error, MergeKernelsRequest>({
-    mutationFn: async (request) => {
-      const response = await fetch('/api/olympus/m8/kernels/merge', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Merge failed' }));
-        throw new Error(error.error || 'Failed to merge kernels');
-      }
-      return response.json();
-    },
+    mutationFn: (request) => mergeKernels({ kernel_ids: request.kernel_ids }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
@@ -443,19 +409,7 @@ export function useAutoCannibalize() {
   const queryClient = useQueryClient();
 
   return useMutation<AutoCannibalizeResponse, Error, AutoCannibalizeRequest>({
-    mutationFn: async (request) => {
-      const response = await fetch('/api/olympus/m8/kernel/auto-cannibalize', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Auto-cannibalize failed' }));
-        throw new Error(error.error || 'Failed to auto-cannibalize kernel');
-      }
-      return response.json();
-    },
+    mutationFn: (request) => autoCannibalize(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
@@ -493,19 +447,7 @@ export function useAutoMerge() {
   const queryClient = useQueryClient();
 
   return useMutation<AutoMergeResponse, Error, AutoMergeRequest>({
-    mutationFn: async (request) => {
-      const response = await fetch('/api/olympus/m8/kernels/auto-merge', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Auto-merge failed' }));
-        throw new Error(error.error || 'Failed to auto-merge kernels');
-      }
-      return response.json();
-    },
+    mutationFn: (request) => autoMerge(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });

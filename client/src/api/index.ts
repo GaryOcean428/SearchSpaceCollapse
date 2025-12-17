@@ -98,3 +98,7 @@ export type { WarHistoryEntry, ActiveWar, ZeusChatParams, ZeusChatResponse, Zeus
 export type { ConsciousnessState, ConsciousnessAPIResponse } from './services/consciousness';
 export type { ForensicAnalysisResult, ForensicHypothesis, ForensicHypothesesResponse } from './services/forensic';
 export type { ZeusChatMetadata } from './services/olympus';
+
+// Re-export M8 kernel functions for direct imports
+export { deleteKernel, cannibalizeKernel, mergeKernels, autoCannibalize, autoMerge } from './services/olympus';
+export type { CannibalizeRequest, CannibalizeResponse, MergeKernelsRequest, MergeKernelsResponse, AutoCannibalizeRequest, AutoCannibalizeResponse, AutoMergeRequest, AutoMergeResponse } from './services/olympus';

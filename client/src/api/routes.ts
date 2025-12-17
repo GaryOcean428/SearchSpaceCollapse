@@ -175,12 +175,33 @@ export const API_ROUTES = {
     zeusChat: '/api/olympus/zeus/chat',
     zeusSearch: '/api/olympus/zeus/search',
     kernels: '/api/olympus/kernels',
+    // M8 Kernel Spawning
+    m8: {
+      status: '/api/olympus/m8/status',
+      kernels: '/api/olympus/m8/kernels',
+      kernel: (id: string) => `/api/olympus/m8/kernel/${id}`,
+      cannibalize: '/api/olympus/m8/kernel/cannibalize',
+      autoCannibalize: '/api/olympus/m8/kernel/auto-cannibalize',
+      merge: '/api/olympus/m8/kernels/merge',
+      autoMerge: '/api/olympus/m8/kernels/auto-merge',
+      idleKernels: '/api/olympus/m8/kernels/idle',
+    },
     // Shadow Pantheon
     shadow: {
       status: '/api/olympus/shadow/status',
       poll: '/api/olympus/shadow/poll',
       act: (god: string) => `/api/olympus/shadow/${god}/act`,
     },
+  },
+
+  // Ocean Autonomic (Python backend)
+  oceanAutonomic: {
+    state: '/api/ocean/python/autonomic/state',
+    sleep: '/api/ocean/python/autonomic/sleep',
+    dream: '/api/ocean/python/autonomic/dream',
+    mushroom: '/api/ocean/python/autonomic/mushroom',
+    reward: '/api/ocean/python/autonomic/reward',
+    rewards: (flush: boolean) => `/api/ocean/python/autonomic/rewards?flush=${flush}`,
   },
 
   // Format Detection
@@ -333,6 +354,13 @@ export const QUERY_KEYS = {
     warActive: () => [API_ROUTES.olympus.warActive] as const,
     shadowStatus: () => [API_ROUTES.olympus.shadow.status] as const,
     kernels: () => [API_ROUTES.olympus.kernels] as const,
+    m8Status: () => [API_ROUTES.olympus.m8.status] as const,
+    m8Kernels: () => [API_ROUTES.olympus.m8.kernels] as const,
+    m8IdleKernels: () => [API_ROUTES.olympus.m8.idleKernels] as const,
+  },
+  
+  oceanAutonomic: {
+    state: () => [API_ROUTES.oceanAutonomic.state] as const,
   },
 
   activityStream: {
