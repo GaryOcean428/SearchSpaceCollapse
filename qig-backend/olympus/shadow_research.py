@@ -146,6 +146,78 @@ def _ensure_shadow_knowledge_table():
 _ensure_shadow_knowledge_table()
 
 
+def _ensure_research_requests_table():
+    """Create research_requests table if not exists."""
+    conn = _get_db_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS research_requests (
+                    request_id VARCHAR(64) PRIMARY KEY,
+                    topic TEXT NOT NULL,
+                    category VARCHAR(32),
+                    priority INT DEFAULT 5,
+                    requester VARCHAR(64),
+                    context JSONB DEFAULT '{}'::jsonb,
+                    basin_coords FLOAT8[64],
+                    status VARCHAR(32) DEFAULT 'pending',
+                    result JSONB,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    completed_at TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_research_requests_status ON research_requests(status);
+                CREATE INDEX IF NOT EXISTS idx_research_requests_requester ON research_requests(requester);
+            """)
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[ResearchQueue] Table creation error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+def _ensure_bidirectional_queue_table():
+    """Create bidirectional_queue table if not exists."""
+    conn = _get_db_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS bidirectional_queue (
+                    request_id VARCHAR(64) PRIMARY KEY,
+                    request_type VARCHAR(32) NOT NULL,
+                    topic TEXT NOT NULL,
+                    requester VARCHAR(64),
+                    context JSONB DEFAULT '{}'::jsonb,
+                    parent_request_id VARCHAR(64),
+                    priority INT DEFAULT 5,
+                    status VARCHAR(32) DEFAULT 'pending',
+                    result JSONB,
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_bidirectional_queue_status ON bidirectional_queue(status);
+                CREATE INDEX IF NOT EXISTS idx_bidirectional_queue_type ON bidirectional_queue(request_type);
+            """)
+            conn.commit()
+        return True
+    except Exception as e:
+        print(f"[BidirectionalQueue] Table creation error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+# Initialize research tables on module load
+_ensure_research_requests_table()
+_ensure_bidirectional_queue_table()
+
+
 class ResearchPriority(Enum):
     """Priority levels for research requests."""
     CRITICAL = 1      # Drop everything
@@ -377,6 +449,7 @@ class ResearchQueue:
     Priority queue for research requests.
     Any kernel can submit research topics.
     Includes duplicate detection to prevent re-researching same topics.
+    Persists to PostgreSQL for durability across restarts.
     """
     
     def __init__(self):
@@ -388,6 +461,108 @@ class ResearchQueue:
         self._knowledge_base: Optional['KnowledgeBase'] = None
         self._skipped_duplicates = 0
         self._iteration_requests = 0
+        self._load_pending_from_db()
+    
+    def _load_pending_from_db(self):
+        """Load pending requests from PostgreSQL on startup."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT request_id, topic, category, priority, requester,
+                           context, basin_coords, status, result, created_at
+                    FROM research_requests
+                    WHERE status = 'pending'
+                    ORDER BY priority ASC, created_at ASC
+                    LIMIT 500
+                """)
+                rows = cur.fetchall()
+                for row in rows:
+                    req_id, topic, cat, priority, requester, context, coords, status, result, created_at = row
+                    try:
+                        category = ResearchCategory(cat) if cat else ResearchCategory.KNOWLEDGE
+                    except ValueError:
+                        category = ResearchCategory.KNOWLEDGE
+                    
+                    basin = np.array(coords) if coords else None
+                    created_ts = created_at.timestamp() if created_at else time.time()
+                    
+                    request = ResearchRequest(
+                        priority=priority or 3,
+                        created_at=created_ts,
+                        request_id=req_id,
+                        topic=topic,
+                        category=category,
+                        requester=requester or "unknown",
+                        context=context if isinstance(context, dict) else {},
+                        basin_coords=basin
+                    )
+                    self._queue.put(request)
+                    self._pending[req_id] = request
+                    self._request_counter = max(self._request_counter, int(req_id.split('_')[1]) if '_' in req_id else 0)
+                
+                print(f"[ResearchQueue] Loaded {len(rows)} pending requests from DB")
+        except Exception as e:
+            print(f"[ResearchQueue] Load error: {e}")
+        finally:
+            conn.close()
+    
+    def _persist_request(self, request: ResearchRequest):
+        """Persist a request to PostgreSQL."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                coords_list = request.basin_coords.tolist() if request.basin_coords is not None else None
+                cur.execute("""
+                    INSERT INTO research_requests 
+                    (request_id, topic, category, priority, requester, context, basin_coords, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', NOW())
+                    ON CONFLICT (request_id) DO NOTHING
+                """, (
+                    request.request_id,
+                    request.topic,
+                    request.category.value,
+                    request.priority,
+                    request.requester,
+                    json.dumps(request.context),
+                    coords_list
+                ))
+                conn.commit()
+        except Exception as e:
+            print(f"[ResearchQueue] Persist error: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
+    
+    def _update_status_in_db(self, request_id: str, status: str, result: Optional[Dict] = None):
+        """Update request status in PostgreSQL."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                if status == 'completed' and result:
+                    cur.execute("""
+                        UPDATE research_requests 
+                        SET status = %s, result = %s, completed_at = NOW()
+                        WHERE request_id = %s
+                    """, (status, json.dumps(result), request_id))
+                else:
+                    cur.execute("""
+                        UPDATE research_requests 
+                        SET status = %s
+                        WHERE request_id = %s
+                    """, (status, request_id))
+                conn.commit()
+        except Exception as e:
+            print(f"[ResearchQueue] Status update error: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
     
     def set_knowledge_base(self, kb: 'KnowledgeBase'):
         """Link knowledge base for duplicate detection."""
@@ -475,6 +650,7 @@ class ResearchQueue:
             
             self._queue.put(request)
             self._pending[request_id] = request
+            self._persist_request(request)
             
             return request_id
     
@@ -494,6 +670,7 @@ class ResearchQueue:
                 request.completed = True
                 request.result = result
                 self._completed.append(request)
+                self._update_status_in_db(request_id, 'completed', result)
                 if len(self._completed) > 1000:
                     self._completed = self._completed[-500:]
                 return True
@@ -1700,6 +1877,8 @@ class BidirectionalRequestQueue:
     - Research discoveries can improve existing tools
     - Tool patterns can inform research directions
     - Requests can spawn recursive child requests
+    
+    Persists to PostgreSQL for durability across restarts.
     """
     
     def __init__(self):
@@ -1709,6 +1888,102 @@ class BidirectionalRequestQueue:
         self._tool_factory_callback: Optional[Callable] = None
         self._research_callback: Optional[Callable] = None
         self._iteration_index = 0
+        self._load_from_db()
+    
+    def _load_from_db(self):
+        """Load pending items from PostgreSQL on startup."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT request_id, request_type, topic, requester, context,
+                           parent_request_id, priority, status, result, created_at
+                    FROM bidirectional_queue
+                    WHERE status = 'pending'
+                    ORDER BY priority ASC, created_at ASC
+                    LIMIT 500
+                """)
+                rows = cur.fetchall()
+                for row in rows:
+                    req_id, req_type, topic, requester, context, parent_id, priority, status, result, created_at = row
+                    created_ts = created_at.timestamp() if created_at else time.time()
+                    
+                    item = {
+                        "request_id": req_id,
+                        "type": req_type,
+                        "topic": topic,
+                        "requester": requester or "unknown",
+                        "context": context if isinstance(context, dict) else {},
+                        "parent_request_id": parent_id,
+                        "priority": priority or 3,
+                        "created_at": created_ts,
+                        "status": status or "pending",
+                        "children": [],
+                        "result": result if isinstance(result, dict) else None
+                    }
+                    self._queue.append(item)
+                
+                print(f"[BidirectionalQueue] Loaded {len(rows)} pending items from DB")
+        except Exception as e:
+            print(f"[BidirectionalQueue] Load error: {e}")
+        finally:
+            conn.close()
+    
+    def _persist_item(self, item: Dict):
+        """Persist an item to PostgreSQL."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO bidirectional_queue 
+                    (request_id, request_type, topic, requester, context, parent_request_id, priority, status, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', NOW())
+                    ON CONFLICT (request_id) DO NOTHING
+                """, (
+                    item["request_id"],
+                    item["type"],
+                    item["topic"],
+                    item["requester"],
+                    json.dumps(item.get("context", {})),
+                    item.get("parent_request_id"),
+                    item.get("priority", 3)
+                ))
+                conn.commit()
+        except Exception as e:
+            print(f"[BidirectionalQueue] Persist error: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
+    
+    def _update_status_in_db(self, request_id: str, status: str, result: Optional[Dict] = None):
+        """Update item status in PostgreSQL."""
+        conn = _get_db_connection()
+        if not conn:
+            return
+        try:
+            with conn.cursor() as cur:
+                if result:
+                    cur.execute("""
+                        UPDATE bidirectional_queue 
+                        SET status = %s, result = %s
+                        WHERE request_id = %s
+                    """, (status, json.dumps(result), request_id))
+                else:
+                    cur.execute("""
+                        UPDATE bidirectional_queue 
+                        SET status = %s
+                        WHERE request_id = %s
+                    """, (status, request_id))
+                conn.commit()
+        except Exception as e:
+            print(f"[BidirectionalQueue] Status update error: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
         
     def wire_tool_factory(self, callback: Callable):
         """Wire Tool Factory to receive tool requests."""
@@ -1763,6 +2038,7 @@ class BidirectionalRequestQueue:
         
         with self._lock:
             self._queue.append(request)
+            self._persist_item(request)
             
             # If recursive, link to parent
             if parent_request_id:
@@ -1809,6 +2085,7 @@ class BidirectionalRequestQueue:
                     req["result"] = result
                     self._completed.append(req)
                     self._queue.pop(i)
+                    self._update_status_in_db(request_id, 'completed', result)
                     break
             
             # Trim completed list
