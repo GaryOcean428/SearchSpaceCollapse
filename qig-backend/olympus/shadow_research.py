@@ -247,6 +247,7 @@ class ResearchCategory(Enum):
     SECURITY = "security"            # Security and OPSEC
     BITCOIN = "bitcoin"              # Bitcoin-specific knowledge
     GEOMETRY = "geometry"            # QIG geometry and Fisher manifold
+    VOCABULARY = "vocabulary"        # Vocabulary validation and curation
 
 
 @dataclass(order=True)
@@ -1797,6 +1798,8 @@ class ShadowResearchAPI:
         """Auto-detect research category from topic."""
         topic_lower = topic.lower()
         
+        if any(w in topic_lower for w in ["vocabulary", "word validation", "english word", "dictionary", "lexicon"]):
+            return ResearchCategory.VOCABULARY
         if any(w in topic_lower for w in ["security", "opsec", "crypto", "encrypt"]):
             return ResearchCategory.SECURITY
         if any(w in topic_lower for w in ["bitcoin", "wallet", "seed", "bip39"]):
@@ -1864,6 +1867,163 @@ class ShadowResearchAPI:
             "learning_loop": self.learning_loop.get_status() if self.learning_loop else None,
             "roles": list(ShadowRoleRegistry.ROLES.keys()),
             "bidirectional": self._bidirectional_queue.get_status() if self._bidirectional_queue else None
+        }
+    
+    # =========================================================================
+    # VOCABULARY CURATION RESEARCH
+    # =========================================================================
+    
+    def request_vocabulary_validation(
+        self,
+        words: List[str],
+        requester: str = "VocabularyCoordinator",
+        priority: ResearchPriority = ResearchPriority.NORMAL
+    ) -> str:
+        """
+        Request Shadow research to validate words as real English.
+        
+        The Shadow Pantheon will research each word to confirm it's a valid
+        English word and update the vocabulary system accordingly.
+        
+        Args:
+            words: List of words to validate
+            requester: Who is requesting validation
+            priority: Research priority
+            
+        Returns:
+            request_id for tracking
+        """
+        topic = f"Vocabulary validation: {', '.join(words[:10])}"
+        if len(words) > 10:
+            topic += f" (+{len(words) - 10} more)"
+        
+        context = {
+            "words": words,
+            "validation_type": "english_word",
+            "action": "validate_and_update"
+        }
+        
+        return self.request_research(
+            topic=topic,
+            requester=requester,
+            category=ResearchCategory.VOCABULARY,
+            priority=priority,
+            context=context
+        )
+    
+    def request_vocabulary_cleanup(
+        self,
+        requester: str = "VocabularyCoordinator",
+        priority: ResearchPriority = ResearchPriority.LOW
+    ) -> str:
+        """
+        Request Shadow research to audit and clean vocabulary.
+        
+        The Shadow Pantheon will scan vocabulary for:
+        - Invalid entries (nonsense patterns, alphanumeric junk)
+        - Missing valid words that should be added
+        - Duplicate or redundant entries
+        
+        Returns:
+            request_id for tracking
+        """
+        topic = "Vocabulary audit and cleanup"
+        context = {
+            "action": "audit_and_clean",
+            "checks": ["nonsense_patterns", "alphanumeric_junk", "duplicates"]
+        }
+        
+        return self.request_research(
+            topic=topic,
+            requester=requester,
+            category=ResearchCategory.VOCABULARY,
+            priority=priority,
+            context=context
+        )
+    
+    def request_vocabulary_expansion(
+        self,
+        domain: str,
+        requester: str = "VocabularyCoordinator",
+        priority: ResearchPriority = ResearchPriority.NORMAL
+    ) -> str:
+        """
+        Request Shadow research to expand vocabulary for a domain.
+        
+        The Shadow Pantheon will research domain-specific terminology
+        and add validated English words to the vocabulary.
+        
+        Args:
+            domain: Domain to expand vocabulary for (e.g., "cryptography", "blockchain")
+            requester: Who is requesting
+            priority: Research priority
+            
+        Returns:
+            request_id for tracking
+        """
+        topic = f"Vocabulary expansion: {domain} terminology"
+        context = {
+            "domain": domain,
+            "action": "expand_vocabulary",
+            "validation_required": True
+        }
+        
+        return self.request_research(
+            topic=topic,
+            requester=requester,
+            category=ResearchCategory.VOCABULARY,
+            priority=priority,
+            context=context
+        )
+    
+    def validate_and_add_words(self, words: List[str], source: str = "shadow_research") -> Dict:
+        """
+        Validate words and add valid ones to vocabulary.
+        
+        This is called by Shadow research handlers after validating words.
+        
+        Args:
+            words: List of words to validate and add
+            source: Source of the words
+            
+        Returns:
+            Dict with validation results
+        """
+        try:
+            from vocabulary_coordinator import VocabularyCoordinator, is_valid_english_word
+        except ImportError:
+            return {"error": "VocabularyCoordinator not available"}
+        
+        valid_words = []
+        invalid_words = []
+        
+        for word in words:
+            if is_valid_english_word(word):
+                valid_words.append(word)
+            else:
+                invalid_words.append(word)
+        
+        # Add valid words to vocabulary
+        added = 0
+        if valid_words:
+            coordinator = VocabularyCoordinator()
+            for word in valid_words:
+                result = coordinator.record_discovery(
+                    phrase=word,
+                    phi=0.75,  # Default Φ for validated words
+                    kappa=50.0,
+                    source=source
+                )
+                if result.get("learned"):
+                    added += 1
+        
+        return {
+            "total": len(words),
+            "valid": len(valid_words),
+            "invalid": len(invalid_words),
+            "added": added,
+            "valid_words": valid_words,
+            "invalid_words": invalid_words
         }
 
 
