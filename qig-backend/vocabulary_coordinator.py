@@ -4,59 +4,8 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 import numpy as np
-import re
 
-ENGLISH_WORD_PATTERN = re.compile(r'^[a-z]{2,}$')
-
-STOP_WORDS = {
-    'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are', 'but', 'not',
-    'you', 'all', 'can', 'had', 'her', 'his', 'him', 'one', 'our', 'out',
-    'they', 'what', 'when', 'who', 'will', 'from', 'have', 'been', 'has'
-}
-
-
-def is_valid_english_word(word: str) -> bool:
-    """
-    Check if a token is a valid English word for vocabulary.
-    
-    Valid: "I", "a", and pure alphabetic words (2+ chars)
-    Invalid: Numbers, mixed alphanumeric, special chars, nonsense patterns
-    
-    CRITICAL: Vocabulary = English words ONLY
-    Passphrases, passwords, alphanumeric fragments are NOT vocabulary.
-    """
-    if not word:
-        return False
-    
-    word_lower = word.lower().strip()
-    
-    # Allow specific single-letter English words
-    if len(word_lower) == 1:
-        return word_lower in {'a', 'i'}
-    
-    if len(word_lower) < 2:
-        return False
-    
-    # Reject if contains digits
-    if any(char.isdigit() for char in word_lower):
-        return False
-    
-    # Reject nonsense patterns starting with 'aa' (common junk: aa, aaes, aaaes)
-    if word_lower.startswith('aa'):
-        return False
-    
-    # Must be pure alphabetic for basic validation
-    if not ENGLISH_WORD_PATTERN.match(word_lower) and len(word_lower) > 1:
-        # Allow hyphens and apostrophes in longer words
-        allowed_special = {'-', "'"}
-        for char in word_lower:
-            if not char.isalpha() and char not in allowed_special:
-                return False
-    
-    if word_lower in STOP_WORDS:
-        return False
-    
-    return True
+from word_validation import is_valid_english_word, STOP_WORDS
 
 try:
     from vocabulary_persistence import get_vocabulary_persistence

@@ -10,55 +10,15 @@ Cleans vocabulary contamination by:
 
 CRITICAL: Vocabulary = English words ONLY
 - Passphrases, passwords, alphanumeric fragments are NOT vocabulary
-- They go to tested_passphrases table instead
+- They go to tested_phrases table instead
 """
 
 import os
-import re
 import psycopg2
-from typing import Set, List, Tuple
+from typing import List, Set, Tuple
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
-ENGLISH_WORD_PATTERN = re.compile(r'^[a-z]{2,}$')
-
-COMMON_WORDS = {
-    'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are', 'but', 'not',
-    'you', 'all', 'can', 'had', 'her', 'his', 'him', 'one', 'our', 'out',
-    'they', 'what', 'when', 'who', 'will', 'from', 'have', 'been', 'has',
-    'more', 'she', 'there', 'than', 'into', 'other', 'which', 'its', 'about',
-    'just', 'over', 'such', 'through', 'most', 'your', 'because', 'would',
-    'could', 'some', 'very', 'how', 'now', 'any', 'also', 'like', 'these',
-    'after', 'first', 'new', 'may', 'should', 'only', 'then', 'being',
-    'made', 'well', 'way', 'even', 'too', 'back', 'each', 'same', 'did',
-    'while', 'where', 'before', 'between', 'own', 'still', 'here', 'get',
-    'take', 'say', 'use', 'come', 'make', 'see', 'know', 'time', 'year'
-}
-
-
-def is_valid_english_word(word: str) -> bool:
-    """
-    Check if a token is a valid English word for vocabulary.
-    
-    Valid: Pure alphabetic words (at least 2 chars)
-    Invalid: Numbers, mixed alphanumeric, special chars, fragments
-    
-    NOTE: This function matches the coordinator's is_valid_english_word.
-    We only check for pure alphabetic words - no blacklisting of substrings
-    like "word" or "key" as that would reject valid words like "forward" or "monkey".
-    """
-    if not word:
-        return False
-    
-    word = word.lower().strip()
-    
-    if len(word) < 2:
-        return False
-    
-    if not ENGLISH_WORD_PATTERN.match(word):
-        return False
-    
-    return True
+from word_validation import is_valid_english_word, is_pure_alphabetic, STOP_WORDS
+from persistence.base_persistence import get_db_connection
 
 
 def load_bip39_words(filepath: str = "bip39_wordlist.txt") -> List[str]:
@@ -75,14 +35,6 @@ def load_bip39_words(filepath: str = "bip39_wordlist.txt") -> List[str]:
     
     print(f"[OK] Loaded {len(words)} BIP39 words from {filepath}")
     return words
-
-
-def get_db_connection():
-    """Get database connection."""
-    if not DATABASE_URL:
-        print("[ERROR] DATABASE_URL not set")
-        return None
-    return psycopg2.connect(DATABASE_URL)
 
 
 def populate_bip39_table():
