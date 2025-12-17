@@ -221,15 +221,76 @@ class ToolFactoryAccessMixin:
             return (False, None, "Tool factory not available")
         
         try:
-            result = self._tool_factory_ref.execute_tool(tool_id, args)
-            if result.get('success'):
-                return (True, result.get('result'), None)
-            else:
-                return (False, None, result.get('error', 'Unknown error'))
+            success, result, error = self._tool_factory_ref.execute_tool(tool_id, args)
+            return (success, result, error)
         except Exception as e:
             error_msg = f"Tool execution failed: {e}"
             logger.warning(f"[{getattr(self, 'name', 'Unknown')}] {error_msg}")
             return (False, None, error_msg)
+    
+    def use_tool_for_task(
+        self,
+        task_description: str,
+        args: Dict
+    ) -> Tuple[bool, Any, Optional[str]]:
+        """
+        Convenience method: find and execute a tool for a given task.
+        
+        This enables kernels to easily use tools by describing what they need,
+        without having to know tool IDs.
+        
+        Args:
+            task_description: Natural language description of the task
+            args: Arguments to pass to the found tool
+            
+        Returns:
+            Tuple of (success, result, error_message)
+        """
+        tool_id = self.find_tool_for_task(task_description)
+        
+        if tool_id is None:
+            return (False, None, f"No tool found for task: {task_description}")
+        
+        return self.execute_tool(tool_id, args)
+    
+    def request_tool_creation(
+        self,
+        description: str,
+        examples: Optional[List[Dict]] = None
+    ) -> Optional[str]:
+        """
+        Request creation of a new tool for a capability the kernel needs.
+        
+        This enables kernels to autonomously expand their capabilities
+        by requesting tools they don't have.
+        
+        Args:
+            description: What the tool should do
+            examples: Optional input/output examples
+            
+        Returns:
+            Tool request ID if submitted, None if failed
+        """
+        if self._tool_factory_ref is None:
+            return None
+        
+        try:
+            from .tool_factory import AutonomousToolPipeline
+            pipeline = AutonomousToolPipeline.get_instance()
+            
+            if pipeline:
+                request_id = pipeline.submit_request(
+                    description=description,
+                    requester=f"{getattr(self, 'name', 'Unknown')}",
+                    examples=examples or []
+                )
+                logger.info(f"[{getattr(self, 'name', 'Unknown')}] Requested tool: {description[:50]}...")
+                return request_id
+            
+            return None
+        except Exception as e:
+            logger.warning(f"[{getattr(self, 'name', 'Unknown')}] Tool request failed: {e}")
+            return None
     
     def get_tool_factory_status(self) -> Dict:
         """Get current Tool Factory status and capabilities."""

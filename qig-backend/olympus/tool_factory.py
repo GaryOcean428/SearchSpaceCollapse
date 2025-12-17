@@ -130,6 +130,9 @@ class GeneratedTool:
     purpose_basin: Optional[np.ndarray] = None
     validated: bool = False
     validation_errors: List[str] = field(default_factory=list)
+    learning_iterations: int = 0
+    improvement_research_ids: List[str] = field(default_factory=list)
+    parent_tool_id: Optional[str] = None
 
     @property
     def success_rate(self) -> float:
@@ -1069,8 +1072,84 @@ class ToolFactory:
             tool.times_succeeded += 1
         else:
             tool.times_failed += 1
+            self._trigger_runtime_learning(tool, error, args)
 
         return success, result, error
+    
+    def _trigger_runtime_learning(
+        self,
+        tool: GeneratedTool,
+        error: Optional[str],
+        failed_args: Dict[str, Any]
+    ) -> None:
+        """
+        Trigger learning loop when a tool fails at runtime.
+        
+        This implements the meta-learning feedback loop:
+        1. Record failure pattern
+        2. If failure rate too high, request research for improvement
+        3. Research can spawn tool recreation (recursive improvement)
+        """
+        MIN_USES_BEFORE_LEARNING = 3
+        FAILURE_RATE_THRESHOLD = 0.3
+        
+        if tool.times_used < MIN_USES_BEFORE_LEARNING:
+            return
+        
+        failure_rate = tool.times_failed / tool.times_used
+        if failure_rate < FAILURE_RATE_THRESHOLD:
+            return
+        
+        if not hasattr(tool, 'learning_iterations'):
+            tool.learning_iterations = 0
+        
+        MAX_LEARNING_ITERATIONS = 5
+        if tool.learning_iterations >= MAX_LEARNING_ITERATIONS:
+            print(f"[ToolFactory] ⚠️ Tool '{tool.name}' exceeded max learning iterations")
+            return
+        
+        tool.learning_iterations += 1
+        
+        print(f"[ToolFactory] 🔄 Runtime learning triggered for '{tool.name}' "
+              f"(iteration {tool.learning_iterations}, failure rate: {failure_rate:.1%})")
+        
+        try:
+            from .shadow_research import ToolResearchBridge
+            bridge = ToolResearchBridge.get_instance()
+            
+            if bridge:
+                research_topic = (
+                    f"Fix runtime failure in tool '{tool.name}': {error[:200] if error else 'Unknown error'}. "
+                    f"Failed with args: {str(failed_args)[:100]}. "
+                    f"Failure rate: {failure_rate:.1%} over {tool.times_used} uses."
+                )
+                
+                research_id = bridge.request_research_from_tool(
+                    topic=research_topic,
+                    context={
+                        'source': 'runtime_failure_learning',
+                        'tool_id': tool.tool_id,
+                        'tool_name': tool.name,
+                        'learning_iteration': tool.learning_iterations,
+                        'failure_rate': failure_rate,
+                        'error': error,
+                        'failed_args_sample': str(failed_args)[:200]
+                    },
+                    requester=f"ToolFactory:RuntimeLearning:{tool.name}"
+                )
+                
+                if research_id:
+                    print(f"[ToolFactory] 📚 Research requested: {research_id}")
+                    
+                    if hasattr(tool, 'improvement_research_ids'):
+                        tool.improvement_research_ids.append(research_id)
+                    else:
+                        tool.improvement_research_ids = [research_id]
+                        
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[ToolFactory] Runtime learning failed: {e}")
 
     def observe_pattern(self, request: str, context: Dict) -> List[Dict]:
         """Observe user request for pattern recognition."""
