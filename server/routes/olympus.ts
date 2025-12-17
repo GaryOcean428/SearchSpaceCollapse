@@ -43,34 +43,137 @@ import { storeConversation, storeShadowIntel, storeKernelGeometry, getKernelGeom
 import { activityLogStore } from '../activity-log-store';
 
 const router = Router();
-const olympusClient = new OlympusClient(
-  process.env.PYTHON_BACKEND_URL || 'http://localhost:5001'
-);
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+const olympusClient = new OlympusClient(BACKEND_URL);
 
-// Rate limiters for specific endpoints
-const pollRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30,
-  message: { error: 'Too many poll requests, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// ============================================================================
+// DRY HELPER FUNCTIONS - Reduce boilerplate for proxy routes
+// ============================================================================
 
-const observeRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 60,
-  message: { error: 'Too many observe requests, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+/**
+ * Create a rate limiter with standardized configuration
+ */
+function createRateLimiter(max: number, message: string, windowMs = 15 * 60 * 1000) {
+  return rateLimit({
+    windowMs,
+    max,
+    message: { error: message },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+}
 
-const godAssessRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30,
-  message: { error: 'Too many god assessment requests, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Rate limiters using DRY factory
+const pollRateLimiter = createRateLimiter(30, 'Too many poll requests, please try again later');
+const observeRateLimiter = createRateLimiter(60, 'Too many observe requests, please try again later');
+const godAssessRateLimiter = createRateLimiter(30, 'Too many god assessment requests, please try again later');
+
+/**
+ * Proxy request handler factory - eliminates boilerplate for simple proxy routes
+ * @param pythonPath - Path on Python backend (without leading /olympus)
+ * @param errorMessage - Custom error message for failures
+ * @param options - Additional options like logging category
+ */
+type ProxyOptions = {
+  logCategory?: string;
+  errorStatus?: number;
+  passParams?: boolean;  // Pass URL params to Python
+  passQuery?: boolean;   // Pass query string to Python
+  rawPath?: boolean;     // If true, don't prepend /olympus to path
+  fallbackResponse?: Record<string, unknown>;  // Custom fallback on error (for graceful degradation)
+};
+
+async function proxyGet(
+  req: Request,
+  res: Response,
+  pythonPath: string,
+  errorMessage: string,
+  options: ProxyOptions = {}
+) {
+  try {
+    const basePath = options.rawPath ? pythonPath : `/olympus${pythonPath}`;
+    let url = `${BACKEND_URL}${basePath}`;
+    if (options.passQuery && Object.keys(req.query).length > 0) {
+      const params = new URLSearchParams(req.query as Record<string, string>);
+      url += `?${params.toString()}`;
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error(`[Olympus] ${errorMessage}:`, error);
+    if (options.fallbackResponse) {
+      res.status(options.errorStatus || 500).json({ ...options.fallbackResponse, error: errorMessage });
+    } else {
+      res.status(options.errorStatus || 500).json({ error: errorMessage });
+    }
+  }
+}
+
+async function proxyPost(
+  req: Request,
+  res: Response,
+  pythonPath: string,
+  errorMessage: string,
+  options: ProxyOptions = {}
+) {
+  try {
+    const basePath = options.rawPath ? pythonPath : `/olympus${pythonPath}`;
+    const response = await fetch(`${BACKEND_URL}${basePath}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error(`[Olympus] ${errorMessage}:`, error);
+    res.status(options.errorStatus || 500).json({ error: errorMessage });
+  }
+}
+
+async function proxyDelete(
+  req: Request,
+  res: Response,
+  pythonPath: string,
+  errorMessage: string,
+  options: ProxyOptions = {}
+) {
+  try {
+    const basePath = options.rawPath ? pythonPath : `/olympus${pythonPath}`;
+    const response = await fetch(`${BACKEND_URL}${basePath}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error(`[Olympus] ${errorMessage}:`, error);
+    res.status(options.errorStatus || 500).json({ error: errorMessage });
+  }
+}
 
 /**
  * Audit logging function for war operations
@@ -295,30 +398,9 @@ router.post('/zeus/search', isAuthenticated, validateInput(searchQuerySchema), a
   }
 });
 
-/**
- * Zeus Search Learner Stats endpoint
- * Get statistics about the search strategy learner
- */
-router.get('/zeus/search/learner/stats', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/search/learner/stats`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Learner stats error:', error);
-    res.status(500).json({ error: 'Failed to retrieve learner stats' });
-  }
-});
+/** Zeus Search Learner Stats endpoint */
+router.get('/zeus/search/learner/stats', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/zeus/search/learner/stats', 'Failed to retrieve learner stats'));
 
 /**
  * Zeus Search Learner Time-Series endpoint
@@ -346,31 +428,9 @@ router.get('/zeus/search/learner/timeseries', isAuthenticated, async (req, res) 
   }
 });
 
-/**
- * Zeus Search Learner Replay endpoint
- * Run a replay test comparing learning ON vs OFF
- */
-router.post('/zeus/search/learner/replay', isAuthenticated, validateInput(searchQuerySchema), async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/search/learner/replay`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Learner replay error:', error);
-    res.status(500).json({ error: 'Failed to run replay test' });
-  }
-});
+/** Zeus Search Learner Replay endpoint - Run a replay test comparing learning ON vs OFF */
+router.post('/zeus/search/learner/replay', isAuthenticated, validateInput(searchQuerySchema), (req, res) => 
+  proxyPost(req, res, '/zeus/search/learner/replay', 'Failed to run replay test'));
 
 /**
  * Zeus Search Learner Replay History endpoint
@@ -400,394 +460,81 @@ router.get('/zeus/search/learner/replay/history', isAuthenticated, async (req, r
 
 // ============================================================================
 // TOOL FACTORY API ENDPOINTS
-// Self-learning tool generation system
+// Self-learning tool generation system (using DRY proxy helpers)
 // ============================================================================
 
-/**
- * List all registered tools
- */
-router.get('/zeus/tools', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Tool list error:', error);
-    res.status(500).json({ error: 'Failed to retrieve tools' });
-  }
-});
+/** List all registered tools */
+router.get('/zeus/tools', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/zeus/tools', 'Failed to retrieve tools'));
 
-/**
- * Get tool factory learning statistics
- */
-router.get('/zeus/tools/stats', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/stats`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Tool stats error:', error);
-    res.status(500).json({ error: 'Failed to retrieve tool stats' });
-  }
-});
+/** Get tool factory learning statistics */
+router.get('/zeus/tools/stats', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/zeus/tools/stats', 'Failed to retrieve tool stats'));
 
-/**
- * Generate a new tool from description and examples
- */
-router.post('/zeus/tools/generate', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Tool generation error:', error);
-    res.status(500).json({ error: 'Failed to generate tool' });
-  }
-});
+/** Generate a new tool from description and examples */
+router.post('/zeus/tools/generate', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/generate', 'Failed to generate tool'));
 
-/**
- * Execute a registered tool
- */
+/** Execute a registered tool */
 router.post('/zeus/tools/:toolId/execute', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    const { toolId } = req.params;
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/${toolId}/execute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Tool execution error:', error);
-    res.status(500).json({ error: 'Failed to execute tool' });
-  }
+  const { toolId } = req.params;
+  await proxyPost(req, res, `/zeus/tools/${toolId}/execute`, 'Failed to execute tool');
 });
 
-/**
- * Rate a tool's quality
- */
+/** Rate a tool's quality */
 router.post('/zeus/tools/:toolId/rate', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    const { toolId } = req.params;
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/${toolId}/rate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Tool rating error:', error);
-    res.status(500).json({ error: 'Failed to rate tool' });
-  }
+  const { toolId } = req.params;
+  await proxyPost(req, res, `/zeus/tools/${toolId}/rate`, 'Failed to rate tool');
 });
 
-/**
- * Record a pattern observation for tool learning
- */
-router.post('/zeus/tools/observe', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/observe`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Tool observation error:', error);
-    res.status(500).json({ error: 'Failed to record observation' });
-  }
-});
+/** Record a pattern observation for tool learning */
+router.post('/zeus/tools/observe', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/observe', 'Failed to record observation'));
 
-/**
- * Find an existing tool that matches a task description
- */
-router.post('/zeus/tools/find', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/find`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Tool find error:', error);
-    res.status(500).json({ error: 'Failed to find tool' });
-  }
-});
+/** Find an existing tool that matches a task description */
+router.post('/zeus/tools/find', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/find', 'Failed to find tool'));
 
 // =========================================================================
-// TOOL LEARNING API - User Templates, Git Links, File Uploads
+// TOOL LEARNING API - User Templates, Git Links, File Uploads (DRY)
 // =========================================================================
 
-/**
- * Learn a code pattern from user-provided template
- */
-router.post('/zeus/tools/learn/template', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/template`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Learn template error:', error);
-    res.status(500).json({ error: 'Failed to learn from template' });
-  }
-});
+/** Learn a code pattern from user-provided template */
+router.post('/zeus/tools/learn/template', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/learn/template', 'Failed to learn from template'));
 
-/**
- * Queue learning from a git repository link
- */
-router.post('/zeus/tools/learn/git', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/git`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Learn git error:', error);
-    res.status(500).json({ error: 'Failed to queue git learning' });
-  }
-});
+/** Queue learning from a git repository link */
+router.post('/zeus/tools/learn/git', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/learn/git', 'Failed to queue git learning'));
 
-/**
- * Get status of queued git links for learning
- */
-router.get('/zeus/tools/learn/git/queue', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/git/queue`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Git queue status error:', error);
-    res.status(500).json({ error: 'Failed to get git queue status' });
-  }
-});
+/** Get status of queued git links for learning */
+router.get('/zeus/tools/learn/git/queue', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/zeus/tools/learn/git/queue', 'Failed to get git queue status'));
 
-/**
- * Clear completed/failed items from git queue
- */
-router.post('/zeus/tools/learn/git/queue/clear', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/git/queue/clear`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Git queue clear error:', error);
-    res.status(500).json({ error: 'Failed to clear git queue' });
-  }
-});
+/** Clear completed/failed items from git queue */
+router.post('/zeus/tools/learn/git/queue/clear', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/learn/git/queue/clear', 'Failed to clear git queue'));
 
-/**
- * Learn patterns from uploaded file content
- */
-router.post('/zeus/tools/learn/file', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/file`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Learn file error:', error);
-    res.status(500).json({ error: 'Failed to learn from file' });
-  }
-});
+/** Learn patterns from uploaded file content */
+router.post('/zeus/tools/learn/file', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/learn/file', 'Failed to learn from file'));
 
-/**
- * Proactively search git repos and tutorials to learn patterns
- */
-router.post('/zeus/tools/learn/search', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/learn/search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Proactive search error:', error);
-    res.status(500).json({ error: 'Failed to initiate proactive search' });
-  }
-});
+/** Proactively search git repos and tutorials to learn patterns */
+router.post('/zeus/tools/learn/search', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/learn/search', 'Failed to initiate proactive search'));
 
-/**
- * List all learned patterns
- */
-router.get('/zeus/tools/patterns', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/patterns`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] List patterns error:', error);
-    res.status(500).json({ error: 'Failed to list patterns' });
-  }
-});
+/** List all learned patterns */
+router.get('/zeus/tools/patterns', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/zeus/tools/patterns', 'Failed to list patterns'));
 
-/**
- * Find patterns that match a description using Fisher-Rao distance
- */
-router.post('/zeus/tools/patterns/match', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/patterns/match`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Match patterns error:', error);
-    res.status(500).json({ error: 'Failed to match patterns' });
-  }
-});
+/** Find patterns that match a description using Fisher-Rao distance */
+router.post('/zeus/tools/patterns/match', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/zeus/tools/patterns/match', 'Failed to match patterns'));
 
-/**
- * Get Tool Factory <-> Shadow Research bridge status
- * Requires authentication
- */
+/** Get Tool Factory <-> Shadow Research bridge status */
 router.get('/zeus/tools/bridge/status', isAuthenticated, async (req, res) => {
   try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/tools/bridge/status`, {
+    const response = await fetch(`${BACKEND_URL}/olympus/zeus/tools/bridge/status`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -898,34 +645,9 @@ router.get('/debates/status', isAuthenticated, async (req, res) => {
   }
 });
 
-/**
- * Zeus Memory Stats endpoint
- * Requires authentication
- */
-router.get('/zeus/memory/stats', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/zeus/memory/stats`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Memory stats error:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve memory stats',
-    });
-  }
-});
+/** Zeus Memory Stats endpoint */
+router.get('/zeus/memory/stats', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/zeus/memory/stats', 'Failed to retrieve memory stats'));
 
 /**
  * Poll pantheon
@@ -1489,47 +1211,11 @@ router.post('/spawn/auto', isAuthenticated, validateInput(targetSchema), async (
   }
 });
 
-router.get('/spawn/list', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/spawn/list`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Spawn list error:', error);
-    res.json({ spawned_kernels: [], count: 0 });
-  }
-});
+router.get('/spawn/list', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/spawn/list', 'Failed to retrieve spawn list'));
 
-router.get('/spawn/status', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/spawn/status`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Spawn status error:', error);
-    res.status(500).json({ error: 'Failed to get spawn status' });
-  }
-});
+router.get('/spawn/status', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/spawn/status', 'Failed to get spawn status'));
 
 /**
  * M8 Kernel Spawning Status - Proxy to Python M8 endpoint
@@ -1595,30 +1281,9 @@ router.get('/m8/proposals', isAuthenticated, async (req, res) => {
   }
 });
 
-/**
- * M8 Create Proposal - Proxy to Python M8 endpoint
- */
-router.post('/m8/propose', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/m8/propose`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] M8 propose error:', error);
-    res.status(500).json({ success: false, error: 'Python backend unavailable' });
-  }
-});
+/** M8 Create Proposal - Proxy to Python M8 endpoint */
+router.post('/m8/propose', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/m8/propose', 'Python backend unavailable', { rawPath: true }));
 
 /**
  * M8 Vote - Proxy to Python M8 endpoint
@@ -1670,30 +1335,9 @@ router.post('/m8/spawn/:proposalId', isAuthenticated, async (req, res) => {
   }
 });
 
-/**
- * M8 Spawn Direct - Proxy to Python M8 endpoint
- */
-router.post('/m8/spawn-direct', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/m8/spawn-direct`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] M8 spawn-direct error:', error);
-    res.status(500).json({ success: false, error: 'Python backend unavailable' });
-  }
-});
+/** M8 Spawn Direct - Proxy to Python M8 endpoint */
+router.post('/m8/spawn-direct', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/m8/spawn-direct', 'Python backend unavailable', { rawPath: true }));
 
 /**
  * M8 Get Proposal - Proxy to Python M8 endpoint
@@ -1847,55 +1491,13 @@ router.get('/m8/kernels/idle', isAuthenticated, async (req, res) => {
   }
 });
 
-/**
- * M8 Cannibalize Kernel - Proxy to Python M8 endpoint
- */
-router.post('/m8/kernel/cannibalize', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/m8/kernel/cannibalize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] M8 cannibalize kernel error:', error);
-    res.status(500).json({ error: 'Python backend unavailable' });
-  }
-});
+/** M8 Cannibalize Kernel - Proxy to Python M8 endpoint */
+router.post('/m8/kernel/cannibalize', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/m8/kernel/cannibalize', 'Python backend unavailable', { rawPath: true }));
 
-/**
- * M8 Merge Kernels - Proxy to Python M8 endpoint
- */
-router.post('/m8/kernels/merge', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/m8/kernels/merge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] M8 merge kernels error:', error);
-    res.status(500).json({ error: 'Python backend unavailable' });
-  }
-});
+/** M8 Merge Kernels - Proxy to Python M8 endpoint */
+router.post('/m8/kernels/merge', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/m8/kernels/merge', 'Python backend unavailable', { rawPath: true }));
 
 /**
  * Get all spawned kernels from PostgreSQL
@@ -2102,80 +1704,26 @@ router.post('/kernels/sync-batch', async (req, res) => {
 
 // ==================== SHADOW PANTHEON ROUTES ====================
 
-/**
- * Get Shadow Pantheon status
- * Requires authentication
- */
-router.get('/shadow/status', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/shadow/status`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Shadow status error:', error);
-    res.status(503).json({ error: 'Shadow Pantheon unreachable' });
-  }
-});
+/** Get Shadow Pantheon status */
+router.get('/shadow/status', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/shadow/status', 'Shadow Pantheon unreachable', { 
+    errorStatus: 503,
+    fallbackResponse: { active: false, gods: [], status: 'unavailable' }
+  }));
 
-/**
- * Get Shadow Learning Loop status with 4D foresight
- * Requires authentication
- */
-router.get('/shadow/learning', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/shadow/learning`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Shadow learning error:', error);
-    res.status(503).json({ error: 'Shadow Learning unreachable' });
-  }
-});
+/** Get Shadow Learning Loop status with 4D foresight */
+router.get('/shadow/learning', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/shadow/learning', 'Shadow Learning unreachable', { 
+    errorStatus: 503,
+    fallbackResponse: { learning_active: false, foresight_enabled: false, cycles_completed: 0 }
+  }));
 
-/**
- * Get 4D Foresight temporal predictions
- * Requires authentication
- */
-router.get('/shadow/foresight', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/shadow/foresight`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Shadow foresight error:', error);
-    res.status(503).json({ error: 'Shadow Foresight unreachable' });
-  }
-});
+/** Get 4D Foresight temporal predictions */
+router.get('/shadow/foresight', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/shadow/foresight', 'Shadow Foresight unreachable', { 
+    errorStatus: 503,
+    fallbackResponse: { predictions: [], temporal_depth: 0, foresight_enabled: false }
+  }));
 
 /**
  * Poll Shadow Pantheon for covert assessment
@@ -2294,54 +1842,21 @@ router.get('/debates/active', isAuthenticated, async (req, res) => {
 // KERNEL OBSERVATION ROUTES
 // ============================================================================
 
-/**
- * Get kernels currently in observation period
- * Returns: list of observing kernels with parent info and graduation progress
- */
-router.get('/kernels/observing', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/kernels/observing`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Observing kernels error:', error);
-    res.status(503).json({ error: 'Kernel observation service unreachable' });
-  }
-});
+/** Get kernels currently in observation period */
+router.get('/kernels/observing', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/kernels/observing', 'Kernel observation service unreachable', { 
+    errorStatus: 503,
+    passQuery: true,
+    fallbackResponse: { kernels: [], total: 0, observing_count: 0 }
+  }));
 
-/**
- * Get all spawned kernels (active and observing)
- */
-router.get('/kernels/all', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/kernels/all`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] All kernels error:', error);
-    res.status(503).json({ error: 'Kernel service unreachable' });
-  }
-});
+/** Get all spawned kernels (active and observing) */
+router.get('/kernels/all', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/kernels/all', 'Kernel service unreachable', { 
+    errorStatus: 503,
+    passQuery: true,
+    fallbackResponse: { kernels: [], total: 0, active_count: 0, observing_count: 0 }
+  }));
 
 /**
  * Graduate a kernel from observation to active status
@@ -2458,57 +1973,21 @@ router.get('/lightning/insights', isAuthenticated, async (req, res) => {
   }
 });
 
-/**
- * Get correlation summary between domains
- * GET /api/olympus/lightning/correlations
- */
-router.get('/lightning/correlations', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/lightning/correlations`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json(errorData);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Lightning correlations error:', error);
-    res.status(503).json({ error: 'Lightning Kernel not available' });
-  }
-});
+/** Get correlation summary between domains */
+router.get('/lightning/correlations', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/lightning/correlations', 'Lightning Kernel not available', { 
+    errorStatus: 503,
+    passQuery: true,
+    fallbackResponse: { correlations: [], domain_pairs: 0, avg_strength: 0 }
+  }));
 
-/**
- * Get multi-scale trend analysis
- * GET /api/olympus/lightning/trends
- */
-router.get('/lightning/trends', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/lightning/trends`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json(errorData);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Lightning trends error:', error);
-    res.status(503).json({ error: 'Lightning Kernel not available' });
-  }
-});
+/** Get multi-scale trend analysis */
+router.get('/lightning/trends', isAuthenticated, (req, res) => 
+  proxyGet(req, res, '/lightning/trends', 'Lightning Kernel not available', { 
+    errorStatus: 503,
+    passQuery: true,
+    fallbackResponse: { trends: [], scales: [], analysis_timestamp: null }
+  }));
 
 /**
  * Submit an event for Lightning Kernel analysis
