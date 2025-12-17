@@ -1,20 +1,12 @@
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
 import fs from "fs";
 import path from "path";
+import { standardLimiter, strictLimiter } from "../rate-limiters";
 import { isAuthenticated } from "../replitAuth";
 import { balanceQueue } from "../balance-queue";
 import { getQueueIntegrationStats } from "../balance-queue-integration";
 import { getBalanceHits, getActiveBalanceHits, fetchAddressBalance, getBalanceChanges } from "../blockchain-scanner";
 import { getBalanceAddresses, getVerificationStats, refreshStoredBalances } from "../address-verification";
-
-const standardLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 export const balanceHitsRouter = Router();
 
@@ -828,14 +820,6 @@ basinSyncRouter.post("/coordinator/notify", isAuthenticated, standardLimiter, as
 });
 
 export const geometricDiscoveryRouter = Router();
-
-const strictLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  message: { error: 'Rate limit exceeded. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 geometricDiscoveryRouter.get("/status", standardLimiter, async (req: Request, res: Response) => {
   try {

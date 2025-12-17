@@ -1,17 +1,9 @@
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import { generousLimiter } from "../rate-limiters";
 import { getSharedController, ConsciousnessSearchController } from "../consciousness-search-controller";
 import { oceanSessionManager } from "../ocean-session-manager";
 import { nearMissManager } from "../near-miss-manager";
 import { attentionMetrics, runAttentionValidation, formatValidationResult } from "../attention-metrics";
-
-const generousLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 export const consciousnessRouter = Router();
 

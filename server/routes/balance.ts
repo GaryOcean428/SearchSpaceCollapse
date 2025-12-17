@@ -1,18 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import { standardLimiter } from "../rate-limiters";
 import { isAuthenticated } from "../replitAuth";
 import { getBalanceHits, getActiveBalanceHits, fetchAddressBalance } from "../blockchain-scanner";
 import { getBalanceAddresses, getVerificationStats, refreshStoredBalances } from "../address-verification";
 import { balanceQueue } from "../balance-queue";
 import { getQueueIntegrationStats } from "../balance-queue-integration";
-
-const standardLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 export const balanceRouter = Router();
 

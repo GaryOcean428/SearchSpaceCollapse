@@ -1,26 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
 import fs from "fs";
 import path from "path";
+import { generousLimiter, standardLimiter } from "../rate-limiters";
 import { storage } from "../storage";
 import { unifiedRecovery } from "../unified-recovery";
 import { isAuthenticated } from "../replitAuth";
-
-const generousLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const standardLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 export const recoveryRouter = Router();
 

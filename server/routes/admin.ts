@@ -1,27 +1,11 @@
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
 import { randomUUID } from "crypto";
+import { generousLimiter, standardLimiter } from "../rate-limiters";
 import { storage } from "../storage";
 import { oceanSessionManager } from "../ocean-session-manager";
 import { activityLogStore } from "../activity-log-store";
 import { getQueueIntegrationStats } from "../balance-queue-integration";
 import { getActiveBalanceHits } from "../blockchain-scanner";
-
-const generousLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const standardLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 export const adminRouter = Router();
 

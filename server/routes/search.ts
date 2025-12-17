@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
 import { randomUUID } from "crypto";
+import { generousLimiter } from "../rate-limiters";
 import { storage } from "../storage";
 import { storageFacade } from "../persistence";
 import { KNOWN_12_WORD_PHRASES } from "../known-phrases";
@@ -17,14 +17,6 @@ import {
   type TargetAddress,
   type SearchJob 
 } from "@shared/schema";
-
-const generousLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  message: { error: 'Too many requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 export const searchRouter = Router();
 

@@ -1,34 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import { generousLimiter, standardLimiter, strictLimiter } from "../rate-limiters";
 import { autoCycleManager } from "../auto-cycle-manager";
 import { oceanAutonomicManager } from "../ocean-autonomic-manager";
 import { oceanSessionManager } from "../ocean-session-manager";
 import { isAuthenticated } from "../replitAuth";
 import { E8_CONSTANTS } from "../../shared/constants/index.js";
-
-const generousLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60,
-  message: { error: "Too many requests. Please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const standardLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { error: "Too many requests. Please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const strictLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  message: { error: "Rate limit exceeded. Please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 export const oceanRouter = Router();
 
