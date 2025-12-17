@@ -491,7 +491,19 @@ class KnowledgeBase:
         self._lock = threading.Lock()
         self._learning_cycle = 0
         self._discovered_topics: Set[str] = set()
+        self._insight_callback: Optional[Callable[[Dict], None]] = None
         self._load_from_db()
+    
+    def set_insight_callback(self, callback: Callable[[Dict], None]) -> None:
+        """
+        Set callback for notifying LightningKernel of new discoveries.
+        
+        The callback receives a dict with:
+        - knowledge_id, topic, category, source_god, phi, confidence
+        - basin_coords, discovered_at, content
+        """
+        self._insight_callback = callback
+        print("[KnowledgeBase] Insight callback registered")
     
     def _load_from_db(self):
         """Load existing knowledge from PostgreSQL."""
@@ -613,6 +625,22 @@ class KnowledgeBase:
             self._discovered_topics.add(variation or topic)
             
             self._persist_to_db(knowledge, variation)
+            
+            if self._insight_callback:
+                try:
+                    self._insight_callback({
+                        'knowledge_id': knowledge_id,
+                        'topic': topic,
+                        'category': category.value,
+                        'source_god': source_god,
+                        'phi': phi,
+                        'confidence': confidence,
+                        'basin_coords': basin_coords.tolist() if basin_coords is not None else None,
+                        'discovered_at': datetime.now().isoformat(),
+                        'content': content
+                    })
+                except Exception as e:
+                    print(f"[KnowledgeBase] Insight callback error: {e}")
             
             return knowledge_id
     
@@ -1434,7 +1462,11 @@ class ShadowResearchAPI:
             basin_sync_callback=basin_sync_callback
         )
         self.learning_loop.start()
-        print("[ShadowResearchAPI] Initialized with learning loop")
+        
+        insight_bridge = ResearchInsightBridge.get_instance()
+        insight_bridge.wire_knowledge_base(self.knowledge_base)
+        
+        print("[ShadowResearchAPI] Initialized with learning loop and insight bridge")
     
     def shutdown(self):
         """Shutdown the research system."""
@@ -2193,3 +2225,112 @@ class CuriosityResearchBridge:
         """Reset topic tracking for fresh exploration."""
         self._topics_triggered.clear()
         print("[CuriosityResearchBridge] Topic history cleared")
+
+
+class ResearchInsightBridge:
+    """
+    Links Research discoveries to LightningKernel insights.
+    
+    When new knowledge is discovered, creates a DomainEvent and feeds it to
+    LightningKernel for cross-domain insight generation.
+    
+    Usage:
+        bridge = ResearchInsightBridge.get_instance()
+        bridge.wire_knowledge_base(KnowledgeBase.get_instance())
+        bridge.wire_lightning_kernel(LightningKernel)  # Pass kernel instance
+    """
+    
+    _instance: Optional['ResearchInsightBridge'] = None
+    
+    @classmethod
+    def get_instance(cls) -> 'ResearchInsightBridge':
+        """Get singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+    
+    def __init__(self):
+        self._knowledge_base: Optional['KnowledgeBase'] = None
+        self._lightning_kernel: Optional[Any] = None
+        self._events_created = 0
+        self._insights_generated = 0
+        self._last_event_time = 0.0
+    
+    def wire_knowledge_base(self, kb: 'KnowledgeBase') -> None:
+        """Connect to KnowledgeBase to receive discovery notifications."""
+        self._knowledge_base = kb
+        kb.set_insight_callback(self._on_knowledge_added)
+        print("[ResearchInsightBridge] Wired to KnowledgeBase")
+    
+    def wire_lightning_kernel(self, kernel: Any) -> None:
+        """Connect to LightningKernel for insight generation."""
+        self._lightning_kernel = kernel
+        print("[ResearchInsightBridge] Wired to LightningKernel")
+    
+    def _get_lightning_kernel(self) -> Optional[Any]:
+        """Get lightning kernel, either from explicit wiring or from Zeus."""
+        if self._lightning_kernel:
+            return self._lightning_kernel
+        
+        try:
+            from .zeus import zeus
+            if zeus and hasattr(zeus, 'lightning_kernel'):
+                return zeus.lightning_kernel
+        except Exception:
+            pass
+        return None
+    
+    def _on_knowledge_added(self, knowledge_data: Dict) -> None:
+        """
+        Called when new knowledge is added to KnowledgeBase.
+        Creates a DomainEvent and feeds it to LightningKernel.
+        """
+        lightning = self._get_lightning_kernel()
+        if not lightning:
+            return
+        
+        try:
+            from .lightning_kernel import DomainEvent, InsightDomain
+            
+            basin_coords = knowledge_data.get('basin_coords')
+            if basin_coords is not None and not isinstance(basin_coords, np.ndarray):
+                basin_coords = np.array(basin_coords)
+            
+            event = DomainEvent(
+                domain=InsightDomain.RESEARCH,
+                event_type="discovery",
+                content=f"Research discovery: {knowledge_data.get('topic', 'unknown')}",
+                phi=knowledge_data.get('phi', 0.5),
+                timestamp=time.time(),
+                metadata={
+                    'knowledge_id': knowledge_data.get('knowledge_id'),
+                    'category': knowledge_data.get('category'),
+                    'source_god': knowledge_data.get('source_god'),
+                    'confidence': knowledge_data.get('confidence'),
+                    'content': knowledge_data.get('content', {})
+                },
+                embedding=basin_coords
+            )
+            
+            self._events_created += 1
+            self._last_event_time = time.time()
+            
+            insight = lightning.ingest_event(event)
+            if insight:
+                self._insights_generated += 1
+                print(f"[ResearchInsightBridge] Generated insight from research: {insight.insight_text[:50]}...")
+                
+        except ImportError as e:
+            print(f"[ResearchInsightBridge] Could not import lightning_kernel: {e}")
+        except Exception as e:
+            print(f"[ResearchInsightBridge] Error creating event: {e}")
+    
+    def get_status(self) -> Dict:
+        """Get bridge status."""
+        return {
+            "wired_knowledge_base": self._knowledge_base is not None,
+            "wired_lightning": self._lightning_kernel is not None,
+            "events_created": self._events_created,
+            "insights_generated": self._insights_generated,
+            "last_event_time": self._last_event_time
+        }

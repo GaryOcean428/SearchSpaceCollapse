@@ -200,6 +200,68 @@ def curiosity_modes():
     })
 
 
+@curiosity_bp.route('/research-bridge', methods=['GET'])
+@cached_route(ttl=5, key_prefix='curiosity_research_bridge')
+def curiosity_research_bridge():
+    """Get status of curiosity-driven research bridge."""
+    try:
+        from olympus.shadow_research import CuriosityResearchBridge
+        bridge = CuriosityResearchBridge.get_instance()
+        return RouteResponse.success(bridge.get_status())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@curiosity_bp.route('/research-bridge/trigger', methods=['POST'])
+def curiosity_research_trigger():
+    """
+    Manually trigger curiosity-driven research check.
+    
+    Body: {
+        "curiosity_c": float (0-1),
+        "emotion": string,
+        "phi": float (optional, default 0.5),
+        "mode": string (optional, default "exploration")
+    }
+    """
+    try:
+        from olympus.shadow_research import CuriosityResearchBridge
+        
+        data = request.get_json() or {}
+        curiosity_c = data.get('curiosity_c', 0.5)
+        emotion = data.get('emotion', 'exploration')
+        phi = data.get('phi', 0.5)
+        mode = data.get('mode', 'exploration')
+        
+        bridge = CuriosityResearchBridge.get_instance()
+        request_id = bridge.on_curiosity_update(
+            curiosity_c=curiosity_c,
+            emotion=emotion,
+            phi=phi,
+            mode=mode
+        )
+        
+        return RouteResponse.success({
+            'triggered': request_id is not None,
+            'request_id': request_id,
+            'bridge_status': bridge.get_status()
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@curiosity_bp.route('/insight-bridge', methods=['GET'])
+@cached_route(ttl=5, key_prefix='curiosity_insight_bridge')
+def curiosity_insight_bridge():
+    """Get status of research-to-insight bridge."""
+    try:
+        from olympus.shadow_research import ResearchInsightBridge
+        bridge = ResearchInsightBridge.get_instance()
+        return RouteResponse.success(bridge.get_status())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
 @internal_bp.route('/cache/stats', methods=['GET'])
 @cached_route(ttl=10, key_prefix='cache_stats')
 def cache_stats():
