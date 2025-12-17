@@ -7,11 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Circle, Activity, AlertTriangle, XCircle } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { get } from '@/api/client';
 
 interface SubsystemHealth {

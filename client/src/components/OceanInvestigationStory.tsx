@@ -15,12 +15,7 @@ import {
   Brain, Search, Play, Pause, Moon, Sparkles, Cloud, Zap,
   ChevronDown, ChevronUp, RefreshCw, Radio, Users, Wallet, Copy, Check
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button, Card, CardContent, Badge, Tooltip, TooltipContent, TooltipTrigger, Collapsible, CollapsibleContent, CollapsibleTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 import { queryClient } from '@/lib/queryClient';
 import { API_ROUTES, QUERY_KEYS, api } from '@/api';
 import { useToast } from '@/hooks/use-toast';
