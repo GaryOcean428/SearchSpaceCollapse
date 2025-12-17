@@ -174,6 +174,112 @@ def vocabulary_train_specific_god(god_name: str):
         return jsonify({'error': str(e)}), 500
 
 
+import re
+
+def _parse_markdown_content(content: str) -> list:
+    """
+    Parse markdown content and extract words/phrases for vocabulary learning.
+    Skips code blocks, inline code, and URLs.
+    Uses word_validation to filter valid English words.
+    """
+    from word_validation import is_valid_english_word
+    
+    code_block_pattern = re.compile(r'```[\s\S]*?```', re.MULTILINE)
+    inline_code_pattern = re.compile(r'`[^`]+`')
+    url_pattern = re.compile(r'https?://\S+')
+    markdown_link_pattern = re.compile(r'\[([^\]]+)\]\([^)]+\)')
+    html_tag_pattern = re.compile(r'<[^>]+>')
+    
+    text = code_block_pattern.sub(' ', content)
+    text = inline_code_pattern.sub(' ', text)
+    text = url_pattern.sub(' ', text)
+    text = markdown_link_pattern.sub(r'\1', text)
+    text = html_tag_pattern.sub(' ', text)
+    
+    word_pattern = re.compile(r"[a-zA-Z][a-zA-Z'-]*[a-zA-Z]|[a-zA-Z]")
+    raw_words = word_pattern.findall(text.lower())
+    
+    valid_words = []
+    for word in raw_words:
+        if is_valid_english_word(word, include_stop_words=False, strict=True):
+            if len(word) >= 3:
+                valid_words.append(word)
+    
+    return valid_words
+
+
+@vocabulary_api.route('/vocabulary/upload-markdown', methods=['POST'])
+def vocabulary_upload_markdown():
+    """
+    Upload a markdown file and extract vocabulary for learning.
+    Accepts multipart/form-data with 'file' field containing .md file.
+    """
+    if not COORDINATOR_AVAILABLE:
+        return jsonify({'error': 'Vocabulary coordinator not available'}), 503
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided. Use "file" field in multipart/form-data'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.md'):
+            return jsonify({'error': 'Only .md (markdown) files are accepted'}), 400
+        
+        content = file.read().decode('utf-8', errors='ignore')
+        
+        valid_words = _parse_markdown_content(content)
+        
+        if not valid_words:
+            return jsonify({
+                'success': True,
+                'filename': file.filename,
+                'words_processed': 0,
+                'words_learned': 0,
+                'message': 'No valid vocabulary words found in the markdown file'
+            })
+        
+        word_counts = {}
+        for word in valid_words:
+            word_counts[word] = word_counts.get(word, 0) + 1
+        
+        coordinator = get_vocabulary_coordinator()
+        words_learned = 0
+        learning_results = []
+        
+        for word, count in word_counts.items():
+            phi = min(0.5 + (count * 0.05), 0.95)
+            
+            result = coordinator.record_discovery(
+                phrase=word,
+                phi=phi,
+                kappa=50.0,
+                source='markdown_upload',
+                details={'filename': file.filename, 'frequency': count}
+            )
+            
+            if result.get('learned', False):
+                words_learned += 1
+            learning_results.append({'word': word, 'frequency': count, 'learned': result.get('learned', False)})
+        
+        return jsonify({
+            'success': True,
+            'filename': file.filename,
+            'words_processed': len(word_counts),
+            'words_learned': words_learned,
+            'unique_words': len(word_counts),
+            'total_occurrences': len(valid_words),
+            'sample_words': list(word_counts.keys())[:20],
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def register_vocabulary_routes(app):
     app.register_blueprint(vocabulary_api, url_prefix='/api')
     print("[VocabularyAPI] Registered vocabulary routes at /api/vocabulary/*")

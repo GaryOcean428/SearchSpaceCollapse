@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button, Input, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Progress } from '@/components/ui';
+import { MarkdownUpload } from '@/components/MarkdownUpload';
 import { 
   LineChart, 
   Line, 
@@ -487,6 +488,8 @@ export default function LearningDashboard() {
           )}
         </CardContent>
       </Card>
+
+      <MarkdownUpload />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="bg-background/50 backdrop-blur border-indigo-500/20" data-testid="card-replay-testing">

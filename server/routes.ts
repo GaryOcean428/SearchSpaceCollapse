@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import {
@@ -410,6 +411,42 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   });
 
   console.log("[Routes] All sub-routers mounted");
+
+  // ============================================================
+  // LEARNING UPLOAD ENDPOINT - Proxy to Python backend
+  // ============================================================
+  const uploadMiddleware = multer({ storage: multer.memoryStorage() });
+  
+  app.post("/api/learning/upload", uploadMiddleware.single('file'), async (req: any, res) => {
+    try {
+      const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+      
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file provided. Use "file" field in multipart/form-data' });
+      }
+
+      // Create FormData to forward to Python backend
+      const formData = new FormData();
+      const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+      formData.append('file', blob, req.file.originalname);
+
+      const response = await fetch(`${backendUrl}/api/vocabulary/upload-markdown`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return res.status(response.status).json(data);
+      }
+
+      res.json(data);
+    } catch (error: any) {
+      console.error("[API] Learning upload error:", error);
+      res.status(500).json({ error: error.message || 'Failed to process markdown upload' });
+    }
+  });
 
   // ============================================================
   // CORE PHRASE TESTING ENDPOINTS (Use mapQIGToLegacyScore)
