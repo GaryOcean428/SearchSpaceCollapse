@@ -199,13 +199,28 @@ class Zeus(BaseGod):
                 BaseGod.set_tool_factory(self.tool_factory)
             print("🔧 TOOL FACTORY initialized - self-learning tool generation ready")
             
+            # Wire Tool Factory to Shadow Research bridge (bidirectional)
+            try:
+                self.tool_factory.wire_shadow_research()
+            except Exception as wire_err:
+                print(f"⚠️ Tool Factory bridge wiring failed: {wire_err}")
+            
             # Initialize Autonomous Tool Pipeline
             self.autonomous_pipeline = AutonomousToolPipeline.get_instance(self.tool_factory)
             if self.autonomous_pipeline:
                 # Wire to Shadow Research bridge if available
                 try:
-                    from .shadow_research import ToolResearchBridge
+                    from .shadow_research import ToolResearchBridge, ShadowResearchAPI
                     bridge = ToolResearchBridge.get_instance()
+                    
+                    # Wire the research API to the bridge (completes bidirectional wiring)
+                    try:
+                        research_api = ShadowResearchAPI.get_instance()
+                        bridge.wire_research_api(research_api)
+                        print("[ToolResearchBridge] Research API connected")
+                    except Exception as api_err:
+                        print(f"⚠️ Research API wiring failed: {api_err}")
+                    
                     self.autonomous_pipeline.wire_research_bridge(bridge)
                     print("🔧 AUTONOMOUS PIPELINE wired to Shadow Research bridge")
                 except Exception as bridge_err:
