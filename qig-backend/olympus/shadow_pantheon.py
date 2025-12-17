@@ -237,11 +237,66 @@ class ShadowPantheonPersistence:
     def __init__(self):
         """Initialize persistence layer - PostgreSQL REQUIRED, no fallback."""
         self.database_url = os.environ.get('DATABASE_URL')
+        self._tables_ensured = False
         
         if not self.database_url:
             raise RuntimeError("[ShadowPantheonPersistence] FATAL: DATABASE_URL not set - PostgreSQL is REQUIRED")
         
+        self._ensure_tables()
         print("[ShadowPantheonPersistence] ✓ PostgreSQL persistence enabled (NO FALLBACK)")
+
+    def _ensure_tables(self) -> bool:
+        """Create shadow pantheon tables if they don't exist."""
+        if self._tables_ensured:
+            return True
+        
+        try:
+            conn = psycopg2.connect(self.database_url)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS shadow_operations_state (
+                            god_name VARCHAR(32) NOT NULL,
+                            state_type VARCHAR(32) NOT NULL,
+                            state_data JSONB DEFAULT '{}'::jsonb,
+                            updated_at TIMESTAMP DEFAULT NOW(),
+                            PRIMARY KEY (god_name, state_type)
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS shadow_pantheon_intel (
+                            id VARCHAR(64) PRIMARY KEY,
+                            target TEXT NOT NULL,
+                            search_type VARCHAR(32) NOT NULL,
+                            intelligence JSONB DEFAULT '{}'::jsonb,
+                            source_count INTEGER DEFAULT 0,
+                            sources_used TEXT[],
+                            risk_level VARCHAR(16),
+                            validated BOOLEAN DEFAULT FALSE,
+                            validation_reason TEXT,
+                            anonymous BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS shadow_operations_log (
+                            id SERIAL PRIMARY KEY,
+                            operation_type VARCHAR(32) NOT NULL,
+                            god_name VARCHAR(32) NOT NULL,
+                            target TEXT,
+                            status VARCHAR(16),
+                            network_mode VARCHAR(16),
+                            opsec_level VARCHAR(16),
+                            result JSONB DEFAULT '{}'::jsonb,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        );
+                    """)
+                conn.commit()
+                self._tables_ensured = True
+                return True
+            finally:
+                conn.close()
+        except Exception as e:
+            print(f"[ShadowPantheonPersistence] Failed to ensure tables: {e}")
+            return False
 
     @contextmanager
     def get_connection(self):
