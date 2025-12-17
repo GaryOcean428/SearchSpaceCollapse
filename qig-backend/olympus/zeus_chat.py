@@ -41,7 +41,9 @@ from .response_guardrails import (
     validate_and_log_response,
     get_exclusion_guard,
     contains_forbidden_entity,
-    require_exclusion_filter
+    require_exclusion_filter,
+    OutputContext,
+    for_external_output
 )
 from .search_strategy_learner import get_strategy_learner_with_persistence
 
@@ -162,6 +164,19 @@ class ZeusConversationHandler:
         if EVOLUTION_AVAILABLE:
             print("[ZeusChat] CHAOS MODE evolution integration available")
     
+    def _sanitize_external(self, response: Dict) -> Dict:
+        """
+        Sanitize response data for EXTERNAL output.
+        
+        All data leaving the system to users/APIs must pass through this.
+        Internal god-to-god communication bypasses this (uses INTERNAL context).
+        
+        Returns:
+            Sanitized response with forbidden entities filtered
+        """
+        guard = get_exclusion_guard()
+        return guard.sanitize(response, OutputContext.EXTERNAL)
+    
     def set_evolution_manager(self, evolution_manager: 'ExperimentalKernelEvolution'):
         """Set evolution manager for user conversation → kernel training."""
         self._evolution_manager = evolution_manager
@@ -258,19 +273,20 @@ class ZeusConversationHandler:
         Returns:
             Response dict with content and metadata
             
-        SECURITY: All outputs pass through hardwired exclusion filter.
+        SECURITY: All EXTERNAL outputs pass through hardwired exclusion filter.
+        INTERNAL discussion of owner tasks is ALLOWED.
         """
-        # HARDWIRED: Check input for forbidden entities (security)
+        # Get exclusion guard for output sanitization
         guard = get_exclusion_guard()
-        if contains_forbidden_entity(message):
-            print("[ZeusChat] BLOCKED: Input contained forbidden entity")
-            return {
-                'response': "I cannot process requests involving excluded entities.",
-                'metadata': {'blocked': True, 'reason': 'forbidden_entity'}
-            }
-        
-        # Store guard for output sanitization
         self._exclusion_guard = guard
+        
+        # Track if this is an owner-related task (for internal processing)
+        is_owner_task = contains_forbidden_entity(message)
+        if is_owner_task:
+            # Owner tasks are allowed internally - gods can discuss
+            # Only EXTERNAL outputs will be filtered
+            print("[ZeusChat] Owner task detected - internal processing ALLOWED")
+            print("[ZeusChat] External outputs will be filtered for traces")
         
         # Store in conversation memory
         if conversation_history:
@@ -282,40 +298,44 @@ class ZeusConversationHandler:
         print(f"[ZeusChat] Processing message with intent: {intent['type']}")
         
         # Route to appropriate handler
+        # All responses are sanitized for EXTERNAL output before returning
         if intent['type'] == 'add_address':
-            return self.handle_add_address(intent['address'])
+            result = self.handle_add_address(intent['address'])
         
         elif intent['type'] == 'observation':
-            return self.handle_observation(intent['observation'])
+            result = self.handle_observation(intent['observation'])
         
         elif intent['type'] == 'suggestion':
-            return self.handle_suggestion(intent['suggestion'])
+            result = self.handle_suggestion(intent['suggestion'])
         
         elif intent['type'] == 'question':
-            return self.handle_question(intent['question'])
+            result = self.handle_question(intent['question'])
         
         elif intent['type'] == 'search_request':
-            return self.handle_search_request(intent['query'])
+            result = self.handle_search_request(intent['query'])
         
         elif intent['type'] == 'search_feedback':
-            return self.handle_search_feedback(
+            result = self.handle_search_feedback(
                 query=self._last_search_query or "",
                 feedback=intent['feedback'],
                 results_summary=self._last_search_results_summary
             )
         
         elif intent['type'] == 'search_confirmation':
-            return self.confirm_search_improvement(
+            result = self.confirm_search_improvement(
                 query=self._last_search_query or "",
                 improved=intent['improved']
             )
         
         elif intent['type'] == 'file_upload' and files:
-            return self.handle_file_upload(files, message)
+            result = self.handle_file_upload(files, message)
         
         else:
             # General conversation
-            return self.handle_general_conversation(message)
+            result = self.handle_general_conversation(message)
+        
+        # SECURITY: Sanitize all EXTERNAL outputs before returning to user
+        return self._sanitize_external(result)
     
     def parse_intent(self, message: str) -> Dict:
         """
@@ -1008,15 +1028,25 @@ Zeus Response (Geometric Interpretation):"""
         """
         Execute search via SearXNG (FREE metasearch engine).
         Tries multiple instances with fallback.
+        
+        SECURITY: Query is sanitized for EXTERNAL output to prevent
+        leaving traces of forbidden entities in external search engines.
         """
         import requests
+        
+        # SECURITY: Sanitize query before sending to external API
+        guard = get_exclusion_guard()
+        sanitized_query = guard.filter(query, OutputContext.EXTERNAL)
+        
+        if sanitized_query != query:
+            print("[ZeusChat] Query sanitized for external search")
         
         for attempt in range(len(self.searxng_instances)):
             instance = self.searxng_instances[self.searxng_instance_index]
             try:
                 url = f"{instance}/search"
                 params = {
-                    'q': query,
+                    'q': sanitized_query,  # Use sanitized query
                     'format': 'json',
                     'categories': 'general',
                 }

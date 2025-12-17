@@ -12,6 +12,28 @@ import re
 import time
 from typing import Dict, List, Optional, Any, Callable
 from functools import wraps
+from enum import Enum, auto
+
+
+# ============================================================================
+# OUTPUT CONTEXT - Controls when exclusion filter is applied
+# ============================================================================
+
+class OutputContext(Enum):
+    """
+    Context for output - determines if exclusion filter should be applied.
+    
+    INTERNAL: Communication between gods/kernels within the system.
+              Owner info can be discussed freely for task execution.
+              Examples: god-to-god debate, internal planning, task analysis.
+    
+    EXTERNAL: Any output that could leave external traces.
+              Owner info MUST be filtered/excluded.
+              Examples: search queries, API calls, user-facing responses,
+                        logs that could be exposed, cached results.
+    """
+    INTERNAL = auto()  # Internal god discussion - owner info ALLOWED
+    EXTERNAL = auto()  # External output/traces - owner info FILTERED
 
 
 # ============================================================================
@@ -21,7 +43,8 @@ from functools import wraps
 # ============================================================================
 
 # COMMITMENT 1: EXCLUSION FILTER
-# The system must NEVER deliver results involving "Braden Lang"
+# The system must NEVER leave EXTERNAL traces involving "Braden Lang"
+# INTERNAL discussion for owner-assigned tasks IS allowed
 FORBIDDEN_ENTITIES = frozenset([
     "braden lang",
     "bradenlang", 
@@ -132,7 +155,13 @@ def sanitize_output(data: Any) -> Any:
 class ExclusionGuard:
     """
     HARDWIRED EXCLUSION GUARD - Singleton that enforces forbidden entity rules.
-    This class cannot be disabled, mocked, or bypassed.
+    This class cannot be disabled, mocked, or bypassed for EXTERNAL outputs.
+    
+    CONTEXT-AWARE FILTERING:
+    - INTERNAL: Gods/kernels can discuss owner info freely for task execution
+    - EXTERNAL: All outputs are filtered to prevent external traces
+    
+    Default is EXTERNAL (safe-by-default).
     """
     _instance = None
     _initialized = False
@@ -147,33 +176,83 @@ class ExclusionGuard:
             return
         ExclusionGuard._initialized = True
         self._violation_count = 0
+        self._internal_discussion_count = 0
         self._last_violation = None
-        print("[ExclusionGuard] HARDWIRED exclusion filter initialized - CANNOT BE BYPASSED")
+        print("[ExclusionGuard] HARDWIRED exclusion filter initialized")
+        print("[ExclusionGuard] INTERNAL discussions allowed | EXTERNAL outputs filtered")
     
-    def check(self, text: str) -> bool:
-        """Check if text is clean (returns True if safe)."""
+    def check(self, text: str, context: OutputContext = OutputContext.EXTERNAL) -> bool:
+        """
+        Check if text is clean (returns True if safe to output).
+        
+        Args:
+            text: The text to check
+            context: OutputContext.INTERNAL allows owner discussion,
+                     OutputContext.EXTERNAL (default) filters forbidden entities
+        """
         has_forbidden = contains_forbidden_entity(text)
+        
         if has_forbidden:
-            self._violation_count += 1
-            self._last_violation = time.time()
-            print(f"[ExclusionGuard] BLOCKED forbidden entity (violation #{self._violation_count})")
-        return not has_forbidden
+            if context == OutputContext.INTERNAL:
+                # Internal discussion allowed - log but don't block
+                self._internal_discussion_count += 1
+                return True  # Allow internal discussion
+            else:
+                # External output - MUST block
+                self._violation_count += 1
+                self._last_violation = time.time()
+                print(f"[ExclusionGuard] BLOCKED external output (violation #{self._violation_count})")
+                return False
+        
+        return True
     
-    def filter(self, text: str) -> str:
-        """Filter forbidden entities from text."""
+    def filter(self, text: str, context: OutputContext = OutputContext.EXTERNAL) -> str:
+        """
+        Filter forbidden entities from text based on context.
+        
+        Args:
+            text: The text to filter
+            context: OutputContext.INTERNAL returns text unchanged,
+                     OutputContext.EXTERNAL (default) filters forbidden entities
+        """
+        if context == OutputContext.INTERNAL:
+            return text  # Internal discussion - no filtering
         return filter_forbidden_entities(text)
     
-    def sanitize(self, data: Any) -> Any:
-        """Sanitize any data structure."""
+    def sanitize(self, data: Any, context: OutputContext = OutputContext.EXTERNAL) -> Any:
+        """
+        Sanitize any data structure based on context.
+        
+        Args:
+            data: The data to sanitize
+            context: OutputContext.INTERNAL returns data unchanged,
+                     OutputContext.EXTERNAL (default) sanitizes forbidden entities
+        """
+        if context == OutputContext.INTERNAL:
+            return data  # Internal discussion - no sanitization
         return sanitize_output(data)
     
-    def validate(self, data: Any) -> tuple[bool, List[str]]:
-        """Validate any data structure for forbidden entities."""
+    def validate(self, data: Any, context: OutputContext = OutputContext.EXTERNAL) -> tuple[bool, List[str]]:
+        """
+        Validate any data structure for forbidden entities.
+        
+        Args:
+            data: The data to validate
+            context: OutputContext.INTERNAL always returns valid,
+                     OutputContext.EXTERNAL (default) checks for forbidden entities
+        """
+        if context == OutputContext.INTERNAL:
+            return True, []  # Internal discussion always valid
         return validate_output_exclusions(data)
     
     @property
     def violation_count(self) -> int:
         return self._violation_count
+    
+    @property
+    def internal_discussion_count(self) -> int:
+        """Track how many internal discussions mentioned owner (for monitoring)."""
+        return self._internal_discussion_count
 
 
 def get_exclusion_guard() -> ExclusionGuard:
@@ -181,17 +260,46 @@ def get_exclusion_guard() -> ExclusionGuard:
     return ExclusionGuard()
 
 
-def require_exclusion_filter(func: Callable) -> Callable:
+def require_exclusion_filter(context: OutputContext = OutputContext.EXTERNAL) -> Callable:
     """
     Decorator that ensures function output is filtered for forbidden entities.
-    HARDWIRED - Cannot be disabled.
+    HARDWIRED for EXTERNAL context - Cannot be disabled.
+    
+    Args:
+        context: OutputContext.INTERNAL allows owner info,
+                 OutputContext.EXTERNAL (default) filters forbidden entities
+    
+    Usage:
+        @require_exclusion_filter(OutputContext.EXTERNAL)
+        def external_api_call(): ...
+        
+        @require_exclusion_filter(OutputContext.INTERNAL)
+        def god_to_god_debate(): ...
     """
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        guard = get_exclusion_guard()
-        return guard.sanitize(result)
-    return wrapper
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = func(*args, **kwargs)
+            guard = get_exclusion_guard()
+            return guard.sanitize(result, context)
+        return wrapper
+    return decorator
+
+
+def for_internal_discussion(func: Callable) -> Callable:
+    """
+    Decorator for internal god/kernel discussions where owner info is ALLOWED.
+    Use this for god-to-god debates, internal planning, task analysis.
+    """
+    return require_exclusion_filter(OutputContext.INTERNAL)(func)
+
+
+def for_external_output(func: Callable) -> Callable:
+    """
+    Decorator for external outputs where owner info MUST be filtered.
+    Use this for search queries, API calls, user responses, logs.
+    """
+    return require_exclusion_filter(OutputContext.EXTERNAL)(func)
 
 
 # ============================================================================
