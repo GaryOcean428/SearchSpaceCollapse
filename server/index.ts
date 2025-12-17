@@ -586,6 +586,7 @@ const allowedOrigins = [
 function isReplitOrigin(origin: string): boolean {
   return (
     origin.endsWith(".replit.dev") ||
+    origin.endsWith(".replit.app") ||
     origin.endsWith(".repl.co") ||
     origin.includes(".picard.replit.dev")
   );

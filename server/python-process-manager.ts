@@ -68,8 +68,9 @@ export class PythonProcessManager extends EventEmitter {
   
   /**
    * Wait for backend to be ready (with timeout)
+   * Default increased to 90s for production where heavy initialization occurs
    */
-  waitForReady(timeoutMs: number = 30000): Promise<boolean> {
+  waitForReady(timeoutMs: number = parseInt(process.env.PYTHON_READY_TIMEOUT || '90000')): Promise<boolean> {
     if (this.isReady) {
       return Promise.resolve(true);
     }
