@@ -128,6 +128,9 @@ class ResearchRequest:
     basin_coords: Optional[np.ndarray] = field(compare=False, default=None)
     completed: bool = field(compare=False, default=False)
     result: Optional[Dict] = field(compare=False, default=None)
+    is_iteration: bool = field(compare=False, default=False)
+    iteration_reason: Optional[str] = field(compare=False, default=None)
+    curiosity_triggered: bool = field(compare=False, default=False)
 
 
 @dataclass
@@ -311,6 +314,7 @@ class ResearchQueue:
     """
     Priority queue for research requests.
     Any kernel can submit research topics.
+    Includes duplicate detection to prevent re-researching same topics.
     """
     
     def __init__(self):
@@ -319,6 +323,35 @@ class ResearchQueue:
         self._completed: List[ResearchRequest] = []
         self._lock = threading.Lock()
         self._request_counter = 0
+        self._knowledge_base: Optional['KnowledgeBase'] = None
+        self._skipped_duplicates = 0
+        self._iteration_requests = 0
+    
+    def set_knowledge_base(self, kb: 'KnowledgeBase'):
+        """Link knowledge base for duplicate detection."""
+        self._knowledge_base = kb
+    
+    def _normalize_topic(self, topic: str) -> str:
+        """Normalize topic for comparison."""
+        return topic.lower().strip()
+    
+    def _is_duplicate(self, topic: str) -> bool:
+        """Check if topic was already researched."""
+        if not self._knowledge_base:
+            return False
+        
+        normalized = self._normalize_topic(topic)
+        if self._knowledge_base.has_discovered(topic):
+            return True
+        if self._knowledge_base.has_discovered(normalized):
+            return True
+        
+        with self._lock:
+            for req in self._pending.values():
+                if self._normalize_topic(req.topic) == normalized:
+                    return True
+        
+        return False
     
     def submit(
         self,
@@ -327,10 +360,13 @@ class ResearchQueue:
         requester: str,
         priority: ResearchPriority = ResearchPriority.NORMAL,
         context: Optional[Dict] = None,
-        basin_coords: Optional[np.ndarray] = None
+        basin_coords: Optional[np.ndarray] = None,
+        is_iteration: bool = False,
+        iteration_reason: Optional[str] = None,
+        curiosity_triggered: bool = False
     ) -> str:
         """
-        Submit a research request.
+        Submit a research request with duplicate detection.
         
         Args:
             topic: What to research
@@ -339,10 +375,24 @@ class ResearchQueue:
             priority: Priority level
             context: Additional context
             basin_coords: Optional basin coordinates for geometric alignment
+            is_iteration: If True, allows re-researching for improvement
+            iteration_reason: Why this is iteration research (required if is_iteration=True)
+            curiosity_triggered: If True, this was triggered by curiosity system
             
         Returns:
-            request_id for tracking
+            request_id for tracking, or "DUPLICATE:<topic>" if already researched
         """
+        if not is_iteration and self._is_duplicate(topic):
+            self._skipped_duplicates += 1
+            print(f"[ResearchQueue] Skipped duplicate topic: {topic[:50]}... (requester: {requester})")
+            return f"DUPLICATE:{topic}"
+        
+        if is_iteration:
+            self._iteration_requests += 1
+            if not iteration_reason:
+                iteration_reason = "unspecified improvement"
+            print(f"[ResearchQueue] Iteration research: {topic[:50]}... (reason: {iteration_reason})")
+        
         with self._lock:
             self._request_counter += 1
             request_id = f"research_{self._request_counter}_{int(time.time())}"
@@ -355,7 +405,10 @@ class ResearchQueue:
                 category=category,
                 requester=requester,
                 context=context or {},
-                basin_coords=basin_coords
+                basin_coords=basin_coords,
+                is_iteration=is_iteration,
+                iteration_reason=iteration_reason,
+                curiosity_triggered=curiosity_triggered
             )
             
             self._queue.put(request)
@@ -393,21 +446,34 @@ class ResearchQueue:
         return len(self._completed)
     
     def get_status(self) -> Dict:
-        """Get queue status."""
+        """Get queue status including deduplication stats."""
         with self._lock:
             by_priority = defaultdict(int)
             by_category = defaultdict(int)
+            iteration_count = 0
+            curiosity_count = 0
             
             for req in self._pending.values():
                 by_priority[ResearchPriority(req.priority).name] += 1
                 by_category[req.category.value] += 1
+                if req.is_iteration:
+                    iteration_count += 1
+                if req.curiosity_triggered:
+                    curiosity_count += 1
             
             return {
                 "pending": len(self._pending),
                 "completed": len(self._completed),
                 "by_priority": dict(by_priority),
                 "by_category": dict(by_category),
-                "queue_size": self._queue.qsize()
+                "queue_size": self._queue.qsize(),
+                "deduplication": {
+                    "skipped_duplicates": self._skipped_duplicates,
+                    "iteration_requests": self._iteration_requests,
+                    "pending_iterations": iteration_count,
+                    "curiosity_triggered": curiosity_count,
+                    "knowledge_base_linked": self._knowledge_base is not None
+                }
             }
 
 
@@ -476,7 +542,7 @@ class KnowledgeBase:
         finally:
             conn.close()
     
-    def _persist_to_db(self, knowledge: ShadowKnowledge, variation: str = None):
+    def _persist_to_db(self, knowledge: ShadowKnowledge, variation: Optional[str] = None):
         """Persist a knowledge item to PostgreSQL."""
         conn = _get_db_connection()
         if not conn:
@@ -520,7 +586,7 @@ class KnowledgeBase:
         basin_coords: np.ndarray,
         phi: float,
         confidence: float,
-        variation: str = None
+        variation: Optional[str] = None
     ) -> str:
         """Add new knowledge to the base and persist to DB."""
         with self._lock:
@@ -1344,10 +1410,12 @@ class ShadowResearchAPI:
     def __init__(self):
         self.research_queue = ResearchQueue()
         self.knowledge_base = KnowledgeBase()
+        self.research_queue.set_knowledge_base(self.knowledge_base)
         self.reflection_protocol = ShadowReflectionProtocol(self.knowledge_base)
         self.learning_loop: Optional[ShadowLearningLoop] = None
         self._basin_sync_callback: Optional[Callable] = None
         self._bidirectional_queue: Optional['BidirectionalRequestQueue'] = None
+        self._curiosity_bridge: Optional['CuriosityResearchBridge'] = None
     
     @classmethod
     def get_instance(cls) -> 'ShadowResearchAPI':
@@ -1379,10 +1447,13 @@ class ShadowResearchAPI:
         requester: str,
         category: Optional[ResearchCategory] = None,
         priority: ResearchPriority = ResearchPriority.NORMAL,
-        context: Optional[Dict] = None
+        context: Optional[Dict] = None,
+        is_iteration: bool = False,
+        iteration_reason: Optional[str] = None,
+        curiosity_triggered: bool = False
     ) -> str:
         """
-        Request research on a topic.
+        Request research on a topic with duplicate detection.
         
         Args:
             topic: What to research
@@ -1390,9 +1461,12 @@ class ShadowResearchAPI:
             category: Optional category (auto-detected if not provided)
             priority: Priority level
             context: Additional context
+            is_iteration: If True, allows re-researching for improvement
+            iteration_reason: Why this is iteration research
+            curiosity_triggered: If True, triggered by curiosity system
             
         Returns:
-            request_id for tracking
+            request_id for tracking, or "DUPLICATE:<topic>" if already researched
         """
         if category is None:
             category = self._detect_category(topic)
@@ -1402,8 +1476,49 @@ class ShadowResearchAPI:
             category=category,
             requester=requester,
             priority=priority,
-            context=context
+            context=context,
+            is_iteration=is_iteration,
+            iteration_reason=iteration_reason,
+            curiosity_triggered=curiosity_triggered
         )
+    
+    def request_iteration_research(
+        self,
+        topic: str,
+        requester: str,
+        reason: str,
+        category: Optional[ResearchCategory] = None,
+        priority: ResearchPriority = ResearchPriority.NORMAL,
+        context: Optional[Dict] = None
+    ) -> str:
+        """
+        Request iteration/improvement research on a previously researched topic.
+        This bypasses duplicate detection for intentional re-research.
+        
+        Args:
+            topic: What to research (can be previously researched)
+            requester: Who is requesting
+            reason: Why re-researching is needed (required)
+            category: Optional category
+            priority: Priority level
+            context: Additional context
+            
+        Returns:
+            request_id for tracking
+        """
+        return self.request_research(
+            topic=topic,
+            requester=requester,
+            category=category,
+            priority=priority,
+            context=context,
+            is_iteration=True,
+            iteration_reason=reason
+        )
+    
+    def has_researched(self, topic: str) -> bool:
+        """Check if a topic has already been researched."""
+        return self.knowledge_base.has_discovered(topic)
     
     def _detect_category(self, topic: str) -> ResearchCategory:
         """Auto-detect research category from topic."""
@@ -1907,3 +2022,174 @@ class ToolResearchBridge:
             "tool_factory_wired": self._tool_factory is not None,
             "research_api_wired": self._research_api is not None
         }
+
+
+class CuriosityResearchBridge:
+    """
+    Links Curiosity measurements to Research requests.
+    
+    When curiosity is high and certain emotional states are present,
+    automatically triggers research requests. Prevents duplicate research
+    by tracking topics and only allowing iteration research when justified.
+    
+    Usage:
+        bridge = CuriosityResearchBridge.get_instance()
+        bridge.wire_research_api(ShadowResearchAPI.get_instance())
+        bridge.on_curiosity_update(curiosity_state, emotional_state, basin_coords)
+    """
+    
+    _instance: Optional['CuriosityResearchBridge'] = None
+    
+    CURIOSITY_THRESHOLD_HIGH = 0.7
+    CURIOSITY_THRESHOLD_WONDER = 0.5
+    BOREDOM_EXPLORATION_THRESHOLD = 0.2
+    
+    @classmethod
+    def get_instance(cls) -> 'CuriosityResearchBridge':
+        """Get singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+    
+    def __init__(self):
+        self._research_api: Optional['ShadowResearchAPI'] = None
+        self._last_trigger_time: float = 0
+        self._min_trigger_interval = 60.0
+        self._topics_triggered: Dict[str, float] = {}
+        self._trigger_count = 0
+        self._duplicate_prevented = 0
+        self._iteration_count = 0
+    
+    def wire_research_api(self, api: 'ShadowResearchAPI'):
+        """Connect to research API."""
+        self._research_api = api
+        api._curiosity_bridge = self
+        print("[CuriosityResearchBridge] Wired to ShadowResearchAPI")
+    
+    def on_curiosity_update(
+        self,
+        curiosity_c: float,
+        emotion: str,
+        basin_coords: Optional[np.ndarray] = None,
+        phi: float = 0.5,
+        mode: str = "exploration"
+    ) -> Optional[str]:
+        """
+        Called when curiosity state is updated.
+        May trigger research based on curiosity level and emotional state.
+        
+        Args:
+            curiosity_c: Curiosity value C = d(log I_Q)/dt
+            emotion: Current emotional state (wonder, boredom, etc.)
+            basin_coords: Current basin coordinates
+            phi: Current consciousness level
+            mode: Current cognitive mode
+            
+        Returns:
+            request_id if research was triggered, None otherwise
+        """
+        if not self._research_api:
+            return None
+        
+        now = time.time()
+        if now - self._last_trigger_time < self._min_trigger_interval:
+            return None
+        
+        topic = self._determine_research_topic(curiosity_c, emotion, mode, phi)
+        if not topic:
+            return None
+        
+        if topic in self._topics_triggered:
+            last_time = self._topics_triggered[topic]
+            time_since = now - last_time
+            
+            if time_since < 3600:
+                self._duplicate_prevented += 1
+                return None
+            
+            self._iteration_count += 1
+            request_id = self._research_api.request_iteration_research(
+                topic=topic,
+                requester="CuriosityBridge",
+                reason=f"Re-exploring after {time_since/60:.1f} min with new curiosity ({curiosity_c:.3f})",
+                priority=ResearchPriority.NORMAL,
+                context={
+                    "curiosity_c": curiosity_c,
+                    "emotion": emotion,
+                    "phi": phi,
+                    "mode": mode,
+                    "basin_coords": basin_coords.tolist() if basin_coords is not None else None,
+                    "iteration": True,
+                    "previous_trigger": last_time
+                }
+            )
+        else:
+            self._trigger_count += 1
+            request_id = self._research_api.request_research(
+                topic=topic,
+                requester="CuriosityBridge",
+                priority=ResearchPriority.NORMAL,
+                context={
+                    "curiosity_c": curiosity_c,
+                    "emotion": emotion,
+                    "phi": phi,
+                    "mode": mode,
+                    "basin_coords": basin_coords.tolist() if basin_coords is not None else None
+                },
+                curiosity_triggered=True
+            )
+        
+        if not request_id.startswith("DUPLICATE:"):
+            self._topics_triggered[topic] = now
+            self._last_trigger_time = now
+            print(f"[CuriosityResearchBridge] Triggered: {topic[:50]}... (emotion={emotion}, C={curiosity_c:.3f})")
+            return request_id
+        
+        self._duplicate_prevented += 1
+        return None
+    
+    def _determine_research_topic(
+        self,
+        curiosity_c: float,
+        emotion: str,
+        mode: str,
+        phi: float
+    ) -> Optional[str]:
+        """Determine what to research based on curiosity state."""
+        if emotion == "wonder" and curiosity_c > self.CURIOSITY_THRESHOLD_WONDER:
+            return f"Explore high-curiosity region (C={curiosity_c:.3f}, phi={phi:.2f})"
+        
+        if emotion == "confusion" and curiosity_c > 0.3:
+            return f"Resolve confusion in current exploration (C={curiosity_c:.3f})"
+        
+        if emotion == "boredom" and curiosity_c < self.BOREDOM_EXPLORATION_THRESHOLD:
+            return "Find novel exploration directions to escape stagnation"
+        
+        if mode == "investigation" and curiosity_c > self.CURIOSITY_THRESHOLD_HIGH:
+            return f"Deep investigation of promising region (C={curiosity_c:.3f})"
+        
+        if phi > 0.8 and curiosity_c > 0.5:
+            return f"High-consciousness exploration opportunity (phi={phi:.2f}, C={curiosity_c:.3f})"
+        
+        return None
+    
+    def get_status(self) -> Dict:
+        """Get bridge status."""
+        return {
+            "wired": self._research_api is not None,
+            "trigger_count": self._trigger_count,
+            "iteration_count": self._iteration_count,
+            "duplicate_prevented": self._duplicate_prevented,
+            "topics_tracked": len(self._topics_triggered),
+            "last_trigger_time": self._last_trigger_time,
+            "thresholds": {
+                "high_curiosity": self.CURIOSITY_THRESHOLD_HIGH,
+                "wonder": self.CURIOSITY_THRESHOLD_WONDER,
+                "boredom_exploration": self.BOREDOM_EXPLORATION_THRESHOLD
+            }
+        }
+    
+    def reset_topic_history(self):
+        """Reset topic tracking for fresh exploration."""
+        self._topics_triggered.clear()
+        print("[CuriosityResearchBridge] Topic history cleared")
