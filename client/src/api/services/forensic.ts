@@ -4,7 +4,7 @@
  * API operations for forensic analysis of Bitcoin addresses.
  */
 
-import { get, post } from '../client';
+import { get } from '../client';
 import { API_ROUTES } from '../routes';
 
 export interface ForensicAnalysisResult {

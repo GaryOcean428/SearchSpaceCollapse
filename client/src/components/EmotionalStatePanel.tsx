@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, Badge, Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle, Badge, TooltipProvider } from "@/components/ui";
 
 interface NeurochemistryState {
   dopamine?: { motivationLevel: number; totalDopamine: number };
