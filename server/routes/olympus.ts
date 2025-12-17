@@ -2018,4 +2018,77 @@ router.post('/lightning/event', isAuthenticated, async (req, res) => {
   }
 });
 
+// ============================================================================
+// CAPABILITY TELEMETRY - Kernel Self-Awareness API
+// ============================================================================
+
+/** Get fleet-wide telemetry across all kernels */
+router.get('/telemetry/fleet', isAuthenticated, (req, res) =>
+  proxyGet(req, res, '/api/telemetry/fleet', 'Telemetry not available', {
+    rawPath: true,
+    fallbackResponse: { kernels: 0, total_capabilities: 0 }
+  }));
+
+/** Get capability summaries for all kernels */
+router.get('/telemetry/kernels', isAuthenticated, (req, res) =>
+  proxyGet(req, res, '/api/telemetry/kernels', 'Telemetry not available', {
+    rawPath: true,
+    fallbackResponse: { kernels: [], count: 0 }
+  }));
+
+/** Get full introspection for a specific kernel */
+router.get('/telemetry/kernel/:kernelId', isAuthenticated, async (req, res) => {
+  const { kernelId } = req.params;
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/telemetry/kernel/${kernelId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Telemetry kernel error:', error);
+    res.status(503).json({ error: 'Telemetry not available' });
+  }
+});
+
+/** Get all capabilities for a specific kernel */
+router.get('/telemetry/kernel/:kernelId/capabilities', isAuthenticated, async (req, res) => {
+  const { kernelId } = req.params;
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/telemetry/kernel/${kernelId}/capabilities`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Telemetry capabilities error:', error);
+    res.status(503).json({ error: 'Telemetry not available' });
+  }
+});
+
+/** Record capability usage for a kernel */
+router.post('/telemetry/record', isAuthenticated, (req, res) =>
+  proxyPost(req, res, '/api/telemetry/record', 'Failed to record telemetry', { rawPath: true }));
+
+/** List all capability categories */
+router.get('/telemetry/categories', isAuthenticated, (req, res) =>
+  proxyGet(req, res, '/api/telemetry/categories', 'Telemetry not available', {
+    rawPath: true,
+    fallbackResponse: { categories: [], count: 0 }
+  }));
+
 export default router;

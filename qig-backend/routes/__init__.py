@@ -144,6 +144,7 @@ def validate_json(*required_fields: str):
 
 internal_bp = Blueprint('internal', __name__, url_prefix='/internal')
 curiosity_bp = Blueprint('curiosity', __name__, url_prefix='/api/curiosity')
+telemetry_bp = Blueprint('telemetry', __name__, url_prefix='/api/telemetry')
 
 
 @internal_bp.route('/health', methods=['GET'])
@@ -230,7 +231,99 @@ def cache_clear():
         return RouteResponse.server_error(e)
 
 
-ALL_BLUEPRINTS = [internal_bp, curiosity_bp]
+# =============================================================================
+# Telemetry Routes - Kernel Capability Self-Awareness
+# =============================================================================
+
+@telemetry_bp.route('/fleet', methods=['GET'])
+@cached_route(ttl=10, key_prefix='telemetry_fleet')
+def telemetry_fleet():
+    """Get fleet-wide telemetry across all kernels."""
+    try:
+        from capability_telemetry import get_telemetry_registry
+        registry = get_telemetry_registry()
+        return RouteResponse.success(registry.get_fleet_telemetry())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@telemetry_bp.route('/kernels', methods=['GET'])
+@cached_route(ttl=10, key_prefix='telemetry_kernels')
+def telemetry_kernels():
+    """Get capability summaries for all kernels."""
+    try:
+        from capability_telemetry import get_telemetry_registry
+        registry = get_telemetry_registry()
+        summaries = [p.get_summary() for p in registry.profiles.values()]
+        return RouteResponse.success({'kernels': summaries, 'count': len(summaries)})
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@telemetry_bp.route('/kernel/<kernel_id>', methods=['GET'])
+def telemetry_kernel(kernel_id: str):
+    """Get full introspection for a specific kernel."""
+    try:
+        from capability_telemetry import get_telemetry_registry
+        registry = get_telemetry_registry()
+        profile = registry.get_profile(kernel_id.lower())
+        if not profile:
+            return RouteResponse.not_found(f'Kernel {kernel_id}')
+        return RouteResponse.success(profile.get_introspection())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@telemetry_bp.route('/kernel/<kernel_id>/capabilities', methods=['GET'])
+def telemetry_kernel_capabilities(kernel_id: str):
+    """Get all capabilities for a specific kernel."""
+    try:
+        from capability_telemetry import get_telemetry_registry
+        registry = get_telemetry_registry()
+        profile = registry.get_profile(kernel_id.lower())
+        if not profile:
+            return RouteResponse.not_found(f'Kernel {kernel_id}')
+        caps = [c.to_dict() for c in profile.capabilities.values()]
+        return RouteResponse.success({'kernel': kernel_id, 'capabilities': caps, 'count': len(caps)})
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@telemetry_bp.route('/record', methods=['POST'])
+@validate_json('kernel_id', 'capability', 'success')
+def telemetry_record():
+    """Record capability usage for a kernel."""
+    try:
+        from capability_telemetry import get_telemetry_registry
+        data = request.get_json()
+        registry = get_telemetry_registry()
+        
+        success = registry.record_capability_use(
+            kernel_id=data['kernel_id'].lower(),
+            capability_name=data['capability'],
+            success=data['success'],
+            duration_ms=data.get('duration_ms', 0.0)
+        )
+        
+        if not success:
+            return RouteResponse.error('Kernel or capability not found', status=404)
+        
+        return RouteResponse.success({'recorded': True})
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@telemetry_bp.route('/categories', methods=['GET'])
+def telemetry_categories():
+    """List all capability categories."""
+    from capability_telemetry import CapabilityCategory
+    return RouteResponse.success({
+        'categories': [c.value for c in CapabilityCategory],
+        'count': len(CapabilityCategory)
+    })
+
+
+ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp]
 
 # NOTE: research_bp is registered separately in ocean_qig_core.py
 # Don't add it here to avoid duplicate registration
@@ -267,6 +360,7 @@ __all__ = [
     'ALL_BLUEPRINTS',
     'internal_bp',
     'curiosity_bp',
+    'telemetry_bp',
     'CACHE_TTL_SHORT',
     'CACHE_TTL_MEDIUM',
 ]

@@ -11,6 +11,7 @@ export * from './ui';
 // Custom application components
 export { AppSidebar } from './app-sidebar';
 export { BetaAttentionDisplay } from './BetaAttentionDisplay';
+export { default as CapabilityTelemetryPanel } from './CapabilityTelemetryPanel';
 export { ConsciousnessDashboard } from './ConsciousnessDashboard';
 export { EmotionalStatePanel } from './EmotionalStatePanel';
 export { ErrorBoundary } from './ErrorBoundary';
