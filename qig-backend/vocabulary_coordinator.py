@@ -4,6 +4,45 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 import numpy as np
+import re
+
+ENGLISH_WORD_PATTERN = re.compile(r'^[a-z]{2,}$')
+
+STOP_WORDS = {
+    'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are', 'but', 'not',
+    'you', 'all', 'can', 'had', 'her', 'his', 'him', 'one', 'our', 'out',
+    'they', 'what', 'when', 'who', 'will', 'from', 'have', 'been', 'has'
+}
+
+
+def is_valid_english_word(word: str) -> bool:
+    """
+    Check if a token is a valid English word for vocabulary.
+    
+    Valid: Pure alphabetic words (at least 2 chars)
+    Invalid: Numbers, mixed alphanumeric, special chars, fragments
+    
+    CRITICAL: Vocabulary = English words ONLY
+    Passphrases, passwords, alphanumeric fragments are NOT vocabulary.
+    """
+    if not word:
+        return False
+    
+    word = word.lower().strip()
+    
+    if len(word) < 2:
+        return False
+    
+    if not ENGLISH_WORD_PATTERN.match(word):
+        return False
+    
+    if any(char.isdigit() for char in word):
+        return False
+    
+    if word in STOP_WORDS:
+        return False
+    
+    return True
 
 try:
     from vocabulary_persistence import get_vocabulary_persistence
@@ -53,19 +92,28 @@ class VocabularyCoordinator:
         return {'learned': True, 'observations_recorded': recorded, 'new_tokens': new_tokens, 'weights_updated': weights_updated, 'merge_rules': merge_rules, 'phi': phi, 'source': source}
     
     def _extract_observations(self, phrase: str, phi: float, kappa: float, source: str) -> List[Dict]:
+        """
+        Extract vocabulary observations from a phrase.
+        
+        CRITICAL: Only extracts valid English words.
+        Alphanumeric fragments, passphrase pieces, etc. are rejected.
+        """
         observations = []
         words = phrase.lower().strip().split()
         word_counts = {}
         for word in words:
             word_counts[word] = word_counts.get(word, 0) + 1
         for word, count in word_counts.items():
-            if len(word) < 3 or word in {'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are'}:
+            if not is_valid_english_word(word):
+                continue
+            if len(word) < 3:
                 continue
             observations.append({'word': word, 'phrase': phrase, 'phi': phi, 'kappa': kappa, 'source': source, 'type': 'word', 'frequency': count})
         for i in range(len(words) - 1):
-            if len(words[i]) >= 3 and len(words[i+1]) >= 3:
-                sequence = f"{words[i]} {words[i+1]}"
-                observations.append({'word': sequence, 'phrase': phrase, 'phi': phi * 1.2, 'kappa': kappa, 'source': source, 'type': 'sequence', 'frequency': 1})
+            if is_valid_english_word(words[i]) and is_valid_english_word(words[i+1]):
+                if len(words[i]) >= 3 and len(words[i+1]) >= 3:
+                    sequence = f"{words[i]} {words[i+1]}"
+                    observations.append({'word': sequence, 'phrase': phrase, 'phi': phi * 1.2, 'kappa': kappa, 'source': source, 'type': 'sequence', 'frequency': 1})
         return observations
     
     def _learn_merge_rules(self, phrase: str, phi: float, source: str) -> int:
@@ -91,7 +139,7 @@ class VocabularyCoordinator:
         if self.vocab_db and self.vocab_db.enabled and result['learned']:
             words = assessment_text.lower().strip().split()
             for word in words:
-                if len(word) >= 3:
+                if is_valid_english_word(word) and len(word) >= 3:
                     relevance = confidence
                     self.vocab_db.record_god_vocabulary(god_name, word, relevance)
         return result

@@ -42,6 +42,10 @@ def is_valid_english_word(word: str) -> bool:
     
     Valid: Pure alphabetic words (at least 2 chars)
     Invalid: Numbers, mixed alphanumeric, special chars, fragments
+    
+    NOTE: This function matches the coordinator's is_valid_english_word.
+    We only check for pure alphabetic words - no blacklisting of substrings
+    like "word" or "key" as that would reject valid words like "forward" or "monkey".
     """
     if not word:
         return False
@@ -53,22 +57,6 @@ def is_valid_english_word(word: str) -> bool:
     
     if not ENGLISH_WORD_PATTERN.match(word):
         return False
-    
-    if any(char.isdigit() for char in word):
-        return False
-    
-    invalid_patterns = [
-        r'^\d',
-        r'\d$',
-        r'\d',
-        r'^[a-z]\d',
-        r'[a-z]+\d+[a-z]*',
-        r'btc|crypto|wallet|pass|word|key|seed|mnemonic|private',
-    ]
-    
-    for pattern in invalid_patterns:
-        if re.search(pattern, word):
-            return False
     
     return True
 
