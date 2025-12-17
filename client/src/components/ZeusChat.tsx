@@ -267,7 +267,7 @@ export default function ZeusChat() {
             multiple
             className="hidden"
             onChange={handleFileSelect}
-            accept=".txt,.json,.csv"
+            accept=".txt,.json,.csv,.md"
           />
           
           <Button

@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Progress } from '@/components/ui';
-import { Upload, FileText, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, X } from 'lucide-react';
 
-interface UploadResult {
+interface SingleFileResult {
   success: boolean;
   filename: string;
   words_processed: number;
@@ -14,41 +14,95 @@ interface UploadResult {
   error?: string;
 }
 
+interface UploadResult {
+  success: boolean;
+  files_processed: number;
+  total_words_processed: number;
+  total_words_learned: number;
+  results: SingleFileResult[];
+}
+
 export function MarkdownUpload() {
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [result, setResult] = useState<UploadResult | null>(null);
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File): Promise<UploadResult> => {
-      const formData = new FormData();
-      formData.append('file', file);
+    mutationFn: async (files: File[]): Promise<UploadResult> => {
+      const results: SingleFileResult[] = [];
+      let totalWordsProcessed = 0;
+      let totalWordsLearned = 0;
 
-      const response = await fetch('/api/learning/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      for (const file of files) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
+          const response = await fetch('/api/learning/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            results.push({
+              success: false,
+              filename: file.name,
+              words_processed: 0,
+              words_learned: 0,
+              error: error.error || 'Upload failed',
+            });
+          } else {
+            const data = await response.json();
+            results.push({
+              success: true,
+              filename: file.name,
+              words_processed: data.words_processed || 0,
+              words_learned: data.words_learned || 0,
+              unique_words: data.unique_words,
+              sample_words: data.sample_words,
+            });
+            totalWordsProcessed += data.words_processed || 0;
+            totalWordsLearned += data.words_learned || 0;
+          }
+        } catch (error: any) {
+          results.push({
+            success: false,
+            filename: file.name,
+            words_processed: 0,
+            words_learned: 0,
+            error: error.message || 'Network error',
+          });
+        }
       }
 
-      return response.json();
+      return {
+        success: results.some(r => r.success),
+        files_processed: files.length,
+        total_words_processed: totalWordsProcessed,
+        total_words_learned: totalWordsLearned,
+        results,
+      };
     },
     onSuccess: (data) => {
       setResult(data);
-      setSelectedFile(null);
+      setSelectedFiles([]);
     },
     onError: (error: Error) => {
       setResult({
         success: false,
-        filename: selectedFile?.name || 'unknown',
-        words_processed: 0,
-        words_learned: 0,
-        error: error.message,
+        files_processed: 0,
+        total_words_processed: 0,
+        total_words_learned: 0,
+        results: [{
+          success: false,
+          filename: 'unknown',
+          words_processed: 0,
+          words_learned: 0,
+          error: error.message,
+        }],
       });
-      setSelectedFile(null);
+      setSelectedFiles([]);
     },
   });
 
@@ -67,36 +121,50 @@ export function MarkdownUpload() {
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.name.toLowerCase().endsWith('.md')) {
-        setSelectedFile(file);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files).filter(
+        file => file.name.toLowerCase().endsWith('.md')
+      );
+      if (files.length > 0) {
+        setSelectedFiles(prev => [...prev, ...files]);
         setResult(null);
       }
     }
   }, []);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.name.toLowerCase().endsWith('.md')) {
-        setSelectedFile(file);
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files).filter(
+        file => file.name.toLowerCase().endsWith('.md')
+      );
+      if (files.length > 0) {
+        setSelectedFiles(prev => [...prev, ...files]);
         setResult(null);
       } else {
         setResult({
           success: false,
-          filename: file.name,
-          words_processed: 0,
-          words_learned: 0,
-          error: 'Only .md (markdown) files are accepted',
+          files_processed: 0,
+          total_words_processed: 0,
+          total_words_learned: 0,
+          results: [{
+            success: false,
+            filename: 'selected files',
+            words_processed: 0,
+            words_learned: 0,
+            error: 'Only .md (markdown) files are accepted',
+          }],
         });
       }
     }
   }, []);
 
+  const removeFile = useCallback((index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleUpload = () => {
-    if (selectedFile) {
-      uploadMutation.mutate(selectedFile);
+    if (selectedFiles.length > 0) {
+      uploadMutation.mutate(selectedFiles);
     }
   };
 
@@ -108,7 +176,7 @@ export function MarkdownUpload() {
           Markdown Vocabulary Upload
         </CardTitle>
         <CardDescription className="font-mono text-xs">
-          Upload .md files to extract and learn vocabulary
+          Upload multiple .md files to extract and learn vocabulary
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -126,12 +194,13 @@ export function MarkdownUpload() {
         >
           <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-sm text-muted-foreground font-mono">
-            Drag and drop a .md file here, or
+            Drag and drop .md files here, or
           </p>
           <label className="cursor-pointer">
             <input
               type="file"
               accept=".md"
+              multiple
               className="hidden"
               onChange={handleFileSelect}
               data-testid="input-file-markdown"
@@ -142,32 +211,53 @@ export function MarkdownUpload() {
           </label>
         </div>
 
-        {selectedFile && (
-          <div className="flex items-center justify-between gap-2 p-3 bg-muted/30 rounded-md">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-emerald-400" />
-              <span className="text-sm font-mono" data-testid="text-selected-file">
-                {selectedFile.name}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                ({(selectedFile.size / 1024).toFixed(1)} KB)
-              </span>
+        {selectedFiles.length > 0 && (
+          <div className="space-y-2" data-testid="section-selected-files">
+            <div className="text-sm font-mono text-muted-foreground" data-testid="text-files-count">
+              {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
+            </div>
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {selectedFiles.map((file, index) => (
+                <div
+                  key={`${file.name}-${index}`}
+                  className="flex items-center justify-between gap-2 p-2 bg-muted/30 rounded-md"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                    <span className="text-sm font-mono truncate" data-testid={`text-selected-file-${index}`}>
+                      {file.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                      ({(file.size / 1024).toFixed(1)} KB)
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0"
+                    onClick={() => removeFile(index)}
+                    data-testid={`button-remove-file-${index}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
             </div>
             <Button
-              size="sm"
               onClick={handleUpload}
               disabled={uploadMutation.isPending}
+              className="w-full"
               data-testid="button-upload-markdown"
             >
               {uploadMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Processing...
+                  Processing {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''}...
                 </>
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-1" />
-                  Upload & Learn
+                  Upload & Learn ({selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''})
                 </>
               )}
             </Button>
@@ -178,7 +268,7 @@ export function MarkdownUpload() {
           <div className="space-y-2">
             <Progress value={undefined} className="h-2" />
             <p className="text-xs text-muted-foreground font-mono text-center">
-              Extracting vocabulary from markdown...
+              Extracting vocabulary from markdown files...
             </p>
           </div>
         )}
@@ -199,7 +289,9 @@ export function MarkdownUpload() {
                 <XCircle className="h-5 w-5 text-red-400" />
               )}
               <span className="font-mono text-sm font-medium">
-                {result.success ? 'Learning Complete' : 'Upload Failed'}
+                {result.success 
+                  ? `Learning Complete (${result.files_processed} file${result.files_processed > 1 ? 's' : ''})` 
+                  : 'Upload Failed'}
               </span>
             </div>
 
@@ -209,30 +301,47 @@ export function MarkdownUpload() {
                   <div className="p-2 bg-background/50 rounded">
                     <span className="text-muted-foreground">Processed:</span>
                     <span className="ml-2 text-emerald-400" data-testid="text-words-processed">
-                      {result.words_processed}
+                      {result.total_words_processed}
                     </span>
                   </div>
                   <div className="p-2 bg-background/50 rounded">
                     <span className="text-muted-foreground">Learned:</span>
                     <span className="ml-2 text-cyan-400" data-testid="text-words-learned">
-                      {result.words_learned}
+                      {result.total_words_learned}
                     </span>
                   </div>
                 </div>
-                {result.sample_words && result.sample_words.length > 0 && (
-                  <div className="text-xs text-muted-foreground font-mono">
-                    <span>Sample words: </span>
-                    <span className="text-foreground">
-                      {result.sample_words.slice(0, 10).join(', ')}
-                      {result.sample_words.length > 10 && '...'}
-                    </span>
+                {result.results.length > 1 && (
+                  <div className="max-h-24 overflow-y-auto space-y-1 text-xs font-mono" data-testid="list-file-results">
+                    {result.results.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2" data-testid={`row-file-result-${i}`}>
+                        {r.success ? (
+                          <CheckCircle2 className="h-3 w-3 text-emerald-400" data-testid={`icon-success-${i}`} />
+                        ) : (
+                          <XCircle className="h-3 w-3 text-red-400" data-testid={`icon-error-${i}`} />
+                        )}
+                        <span className="truncate" data-testid={`text-filename-${i}`}>{r.filename}</span>
+                        {r.success && (
+                          <span className="text-muted-foreground" data-testid={`text-words-count-${i}`}>
+                            ({r.words_learned} words)
+                          </span>
+                        )}
+                        {!r.success && r.error && (
+                          <span className="text-red-400 truncate" data-testid={`text-file-error-${i}`}>{r.error}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-red-400 font-mono" data-testid="text-upload-error">
-                {result.error}
-              </p>
+              <div className="space-y-1">
+                {result.results.map((r, i) => (
+                  <p key={i} className="text-sm text-red-400 font-mono" data-testid={`text-upload-error-${i}`}>
+                    {r.filename}: {r.error}
+                  </p>
+                ))}
+              </div>
             )}
           </div>
         )}
