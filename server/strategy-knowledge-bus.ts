@@ -279,7 +279,8 @@ export class StrategyKnowledgeBus {
       });
     }
 
-    this.notifySubscribers({
+    // Record transfer to history (this also notifies subscribers)
+    this.recordTransfer({
       id: `transfer_${Date.now()}`,
       type: "publish",
       sourceStrategy,
