@@ -5515,6 +5515,81 @@ def m8_merge_kernels():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/m8/kernel/auto-cannibalize', methods=['POST'])
+def m8_auto_cannibalize():
+    """
+    Automatically cannibalize the most idle kernel into the most active one.
+
+    Selects source (most idle) and target (highest Φ) kernels automatically
+    and performs cannibalization without manual selection.
+
+    Body: {
+        idle_threshold?: number  # Seconds of inactivity (default: 300)
+    }
+
+    Returns: {
+        success, source_id, target_id, auto_selected, selection_criteria,
+        fisher_distance, merged_metrics
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        idle_threshold = float(data.get('idle_threshold', 300.0))
+
+        spawner = get_spawner()
+        result = spawner.auto_cannibalize(idle_threshold_seconds=idle_threshold)
+
+        if not result.get('success'):
+            return jsonify(result), 400
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/m8/kernels/auto-merge', methods=['POST'])
+def m8_auto_merge():
+    """
+    Automatically merge idle kernels into a new composite kernel.
+
+    Selects idle kernels and merges them with an auto-generated name
+    based on their combined domains.
+
+    Body: {
+        idle_threshold?: number,  # Seconds of inactivity (default: 300)
+        max_to_merge?: number     # Max kernels to merge (default: 5)
+    }
+
+    Returns: {
+        success, new_kernel, merged_from, auto_selected, selection_criteria,
+        merged_metrics, deleted_originals
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        idle_threshold = float(data.get('idle_threshold', 300.0))
+        max_to_merge = int(data.get('max_to_merge', 5))
+
+        spawner = get_spawner()
+        result = spawner.auto_merge(
+            idle_threshold_seconds=idle_threshold,
+            max_to_merge=max_to_merge
+        )
+
+        if not result.get('success'):
+            return jsonify(result), 400
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/m8/kernels/idle', methods=['GET'])
 def m8_get_idle_kernels():
     """

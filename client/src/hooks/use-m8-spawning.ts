@@ -416,3 +416,101 @@ export function useMergeKernels() {
     },
   });
 }
+
+export interface AutoCannibalizeRequest {
+  idle_threshold?: number;
+}
+
+export interface AutoCannibalizeResponse {
+  success: boolean;
+  source_id?: string;
+  source_god?: string;
+  target_id?: string;
+  target_god?: string;
+  auto_selected: boolean;
+  selection_criteria: {
+    source: string;
+    target: string;
+    idle_count: number;
+    active_count: number;
+  };
+  fisher_distance?: number;
+  merged_metrics?: Record<string, number>;
+  error?: string;
+}
+
+export function useAutoCannibalize() {
+  const queryClient = useQueryClient();
+
+  return useMutation<AutoCannibalizeResponse, Error, AutoCannibalizeRequest>({
+    mutationFn: async (request) => {
+      const response = await fetch('/api/olympus/m8/kernel/auto-cannibalize', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Auto-cannibalize failed' }));
+        throw new Error(error.error || 'Failed to auto-cannibalize kernel');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
+      queryClient.invalidateQueries({ queryKey: ['m8', 'idleKernels'] });
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.status });
+    },
+  });
+}
+
+export interface AutoMergeRequest {
+  idle_threshold?: number;
+  max_to_merge?: number;
+}
+
+export interface AutoMergeResponse {
+  success: boolean;
+  new_kernel?: Record<string, unknown>;
+  merged_from?: {
+    kernel_ids: string[];
+    god_names: string[];
+  };
+  auto_selected: boolean;
+  selection_criteria: {
+    method: string;
+    idle_threshold: number;
+    total_idle: number;
+    merged_count: number;
+  };
+  merged_metrics?: Record<string, number>;
+  deleted_originals?: string[];
+  error?: string;
+}
+
+export function useAutoMerge() {
+  const queryClient = useQueryClient();
+
+  return useMutation<AutoMergeResponse, Error, AutoMergeRequest>({
+    mutationFn: async (request) => {
+      const response = await fetch('/api/olympus/m8/kernels/auto-merge', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Auto-merge failed' }));
+        throw new Error(error.error || 'Failed to auto-merge kernels');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.kernels });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernels() });
+      queryClient.invalidateQueries({ queryKey: ['m8', 'idleKernels'] });
+      queryClient.invalidateQueries({ queryKey: M8_KEYS.status });
+    },
+  });
+}

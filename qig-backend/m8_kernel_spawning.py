@@ -2459,6 +2459,135 @@ class M8KernelSpawner:
             "m8_position": m8_position,
         }
 
+    def auto_cannibalize(self, idle_threshold_seconds: float = 300.0) -> Dict:
+        """
+        Automatically select and cannibalize idle kernels into active ones.
+        
+        Selects the most idle kernel as source and the most active (highest Φ)
+        kernel as target. This implements automatic lifecycle management where
+        inactive kernels are absorbed by stronger ones.
+        
+        Args:
+            idle_threshold_seconds: Seconds of inactivity to consider idle
+            
+        Returns:
+            Cannibalization result or error if no suitable candidates
+        """
+        idle_kernel_ids = self.get_idle_kernels(idle_threshold_seconds)
+        
+        if not idle_kernel_ids:
+            return {
+                "success": False,
+                "error": "No idle kernels available for auto-cannibalization",
+                "idle_count": 0
+            }
+        
+        active_kernels = [
+            (kid, k) for kid, k in self.spawned_kernels.items()
+            if kid not in idle_kernel_ids and k.is_active()
+        ]
+        
+        if not active_kernels:
+            return {
+                "success": False,
+                "error": "No active kernels available to receive cannibalized traits",
+                "idle_count": len(idle_kernel_ids)
+            }
+        
+        source_id = None
+        max_idle_time = -1
+        now = datetime.now()
+        
+        for kid in idle_kernel_ids:
+            awareness = self.kernel_awareness.get(kid)
+            if awareness:
+                try:
+                    last_update = datetime.fromisoformat(awareness.awareness_updated_at)
+                    elapsed = (now - last_update).total_seconds()
+                    if elapsed > max_idle_time:
+                        max_idle_time = elapsed
+                        source_id = kid
+                except (ValueError, TypeError):
+                    if source_id is None:
+                        source_id = kid
+            elif source_id is None:
+                source_id = kid
+        
+        if source_id is None:
+            source_id = idle_kernel_ids[0]
+        
+        target_id = None
+        max_phi = -1
+        
+        for kid, kernel in active_kernels:
+            awareness = self.kernel_awareness.get(kid)
+            if awareness and awareness.phi_trajectory:
+                avg_phi = sum(awareness.phi_trajectory) / len(awareness.phi_trajectory)
+                if avg_phi > max_phi:
+                    max_phi = avg_phi
+                    target_id = kid
+            elif target_id is None:
+                target_id = kid
+        
+        if target_id is None:
+            target_id = active_kernels[0][0]
+        
+        result = self.cannibalize_kernel(source_id, target_id)
+        result["auto_selected"] = True
+        result["selection_criteria"] = {
+            "source": "most_idle",
+            "target": "highest_phi",
+            "idle_count": len(idle_kernel_ids),
+            "active_count": len(active_kernels)
+        }
+        
+        return result
+
+    def auto_merge(self, idle_threshold_seconds: float = 300.0, max_to_merge: int = 5) -> Dict:
+        """
+        Automatically merge idle kernels into a new composite kernel.
+        
+        Selects idle kernels and merges them into a unified kernel with a
+        generated name based on their combined domains.
+        
+        Args:
+            idle_threshold_seconds: Seconds of inactivity to consider idle
+            max_to_merge: Maximum number of kernels to merge at once
+            
+        Returns:
+            Merge result or error if insufficient candidates
+        """
+        idle_kernel_ids = self.get_idle_kernels(idle_threshold_seconds)
+        
+        if len(idle_kernel_ids) < 2:
+            return {
+                "success": False,
+                "error": f"Need at least 2 idle kernels for auto-merge, found {len(idle_kernel_ids)}",
+                "idle_count": len(idle_kernel_ids)
+            }
+        
+        to_merge = idle_kernel_ids[:max_to_merge]
+        
+        domains = []
+        for kid in to_merge:
+            kernel = self.spawned_kernels.get(kid)
+            if kernel:
+                domains.append(kernel.profile.domain[:4].upper())
+        
+        domain_combo = "_".join(domains[:3]) if domains else "AUTO"
+        new_name = f"MERGED_{domain_combo}_{datetime.now().strftime('%H%M')}"
+        
+        result = self.merge_kernels(to_merge, new_name)
+        result["auto_selected"] = True
+        result["selection_criteria"] = {
+            "method": "idle_kernels",
+            "idle_threshold": idle_threshold_seconds,
+            "total_idle": len(idle_kernel_ids),
+            "merged_count": len(to_merge)
+        }
+        
+        return result
+
     def get_idle_kernels(self, idle_threshold_seconds: float = 300.0) -> List[str]:
         """
         Get list of kernel IDs that haven't had metrics recorded recently.

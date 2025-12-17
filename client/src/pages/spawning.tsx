@@ -37,6 +37,8 @@ import {
   useDeleteKernel,
   useCannibalizeKernel,
   useMergeKernels,
+  useAutoCannibalize,
+  useAutoMerge,
   type WarHistoryRecord,
   type WarMode,
   type WarOutcome,
@@ -715,6 +717,8 @@ function KernelLifecycleActionsPanel() {
   const deleteMutation = useDeleteKernel();
   const cannibalizeMutation = useCannibalizeKernel();
   const mergeMutation = useMergeKernels();
+  const autoCannibalizeMutation = useAutoCannibalize();
+  const autoMergeMutation = useAutoMerge();
   
   const [cannibalizeSource, setCannibalizeSource] = useState<string>('');
   const [cannibalizeTarget, setCannibalizeTarget] = useState<string>('');
@@ -809,6 +813,39 @@ function KernelLifecycleActionsPanel() {
         ? prev.filter(id => id !== kernelId)
         : [...prev, kernelId]
     );
+  };
+
+  const handleAutoCannibalize = async () => {
+    try {
+      const result = await autoCannibalizeMutation.mutateAsync({ idle_threshold: 300 });
+      toast({
+        title: 'Auto-Cannibalize Complete',
+        description: `${result.source_god || 'Source'} absorbed into ${result.target_god || 'target'}`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Auto-Cannibalize Failed',
+        description: error instanceof Error ? error.message : 'No suitable kernels found',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAutoMerge = async () => {
+    try {
+      const result = await autoMergeMutation.mutateAsync({ idle_threshold: 300, max_to_merge: 5 });
+      const newKernel = result.new_kernel as { god_name?: string } | undefined;
+      toast({
+        title: 'Auto-Merge Complete',
+        description: `Created ${newKernel?.god_name || 'new kernel'} from ${result.selection_criteria?.merged_count || 0} idle kernels`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Auto-Merge Failed',
+        description: error instanceof Error ? error.message : 'Not enough idle kernels',
+        variant: 'destructive',
+      });
+    }
   };
 
   const availableKernels = allKernels?.kernels || [];
@@ -915,19 +952,35 @@ function KernelLifecycleActionsPanel() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              onClick={handleCannibalize}
-              disabled={cannibalizeMutation.isPending || !cannibalizeSource || !cannibalizeTarget}
-              className="w-full"
-              data-testid="button-cannibalize-execute"
-            >
-              {cannibalizeMutation.isPending ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Scissors className="h-4 w-4 mr-2" />
-              )}
-              Cannibalize
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleCannibalize}
+                disabled={cannibalizeMutation.isPending || !cannibalizeSource || !cannibalizeTarget}
+                className="flex-1"
+                data-testid="button-cannibalize-execute"
+              >
+                {cannibalizeMutation.isPending ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Scissors className="h-4 w-4 mr-2" />
+                )}
+                Manual
+              </Button>
+              <Button
+                onClick={handleAutoCannibalize}
+                disabled={autoCannibalizeMutation.isPending}
+                variant="secondary"
+                className="flex-1"
+                data-testid="button-auto-cannibalize"
+              >
+                {autoCannibalizeMutation.isPending ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4 mr-2" />
+                )}
+                Auto
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -976,19 +1029,35 @@ function KernelLifecycleActionsPanel() {
                 </div>
               </ScrollArea>
             </div>
-            <Button
-              onClick={handleMerge}
-              disabled={mergeMutation.isPending || selectedForMerge.length < 2 || !mergeName.trim()}
-              className="w-full"
-              data-testid="button-merge-execute"
-            >
-              {mergeMutation.isPending ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <GitMerge className="h-4 w-4 mr-2" />
-              )}
-              Merge {selectedForMerge.length} Kernels
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleMerge}
+                disabled={mergeMutation.isPending || selectedForMerge.length < 2 || !mergeName.trim()}
+                className="flex-1"
+                data-testid="button-merge-execute"
+              >
+                {mergeMutation.isPending ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <GitMerge className="h-4 w-4 mr-2" />
+                )}
+                Manual ({selectedForMerge.length})
+              </Button>
+              <Button
+                onClick={handleAutoMerge}
+                disabled={autoMergeMutation.isPending}
+                variant="secondary"
+                className="flex-1"
+                data-testid="button-auto-merge"
+              >
+                {autoMergeMutation.isPending ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4 mr-2" />
+                )}
+                Auto
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
