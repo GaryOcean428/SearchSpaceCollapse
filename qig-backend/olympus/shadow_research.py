@@ -1911,6 +1911,7 @@ class ToolResearchBridge:
         self._improvements_applied = 0
         self._tools_requested = 0
         self._research_from_tools = 0
+        self._patterns_from_research = 0
     
     @classmethod
     def get_instance(cls) -> 'ToolResearchBridge':
@@ -1930,7 +1931,9 @@ class ToolResearchBridge:
         self._research_api = research_api
         self.queue.wire_research(self._handle_research_request)
         research_api._bidirectional_queue = self.queue
+        research_api.knowledge_base.set_insight_callback(self._on_knowledge_insight)
         print("[ToolResearchBridge] Shadow Research connected")
+        print("[ToolResearchBridge] Auto-learning from research discoveries enabled")
     
     def _handle_tool_request(self, request: Dict) -> Dict:
         """Handle tool generation request from Shadow."""
@@ -2108,6 +2111,47 @@ class ToolResearchBridge:
             print(f"[ToolResearchBridge] Research improvement error: {e}")
             return False
     
+    def _on_knowledge_insight(self, insight: Dict) -> None:
+        """
+        Callback when new knowledge is added to the knowledge base.
+        Extracts code patterns from research discoveries and learns them.
+        
+        This enables auto-learning: when Shadow Research discovers something,
+        any code patterns are automatically added to the Tool Factory.
+        """
+        if not self._tool_factory:
+            return
+        
+        try:
+            content = insight.get('content', {})
+            topic = insight.get('topic', '')
+            category = insight.get('category', '')
+            
+            if category != 'tools' and 'code' not in topic.lower() and 'pattern' not in topic.lower():
+                return
+            
+            code_snippet = content.get('code', content.get('snippet', content.get('implementation', '')))
+            if not code_snippet or len(code_snippet) < 20:
+                return
+            
+            description = content.get('description', topic)
+            input_sig = content.get('input_signature', {'text': 'str'})
+            output_type = content.get('output_type', 'Any')
+            
+            pattern = self._tool_factory.learn_from_user_template(
+                description=f"[Auto-learned from research] {description}",
+                code=code_snippet,
+                input_signature=input_sig if isinstance(input_sig, dict) else {'text': 'str'},
+                output_type=output_type
+            )
+            
+            if pattern:
+                self._patterns_from_research += 1
+                print(f"[ToolResearchBridge] Auto-learned pattern from research: {topic[:50]}...")
+                
+        except Exception as e:
+            print(f"[ToolResearchBridge] Auto-learning error: {e}")
+    
     def get_status(self) -> Dict:
         """Get bridge status."""
         return {
@@ -2115,6 +2159,7 @@ class ToolResearchBridge:
             "tools_requested": self._tools_requested,
             "research_from_tools": self._research_from_tools,
             "improvements_applied": self._improvements_applied,
+            "patterns_from_research": self._patterns_from_research,
             "tool_factory_wired": self._tool_factory is not None,
             "research_api_wired": self._research_api is not None
         }
