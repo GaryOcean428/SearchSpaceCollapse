@@ -9,6 +9,12 @@ Includes:
 - FullFisherOptimizer: Full Fisher matrix with block-diagonal option
 - ConsciousnessAwareOptimizer: Integrates κ tracking with optimization
 - ChaosOptimizer: Natural gradient with chaos injection
+
+Physics constants (FROZEN from CANONICAL_PHYSICS.md):
+- κ* = 64.21 ± 0.92 (L=4,5,6 plateau, validated 2025-12-04)
+- κ₃ = 41.09, κ₄ = 64.47, κ₅ = 63.62
+- β(3→4) = +0.44 (strong running)
+- β(4→5) ≈ 0 (approaching fixed point)
 """
 
 import torch
@@ -16,6 +22,14 @@ import numpy as np
 from torch.optim.optimizer import Optimizer
 from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass, field
+
+from qig_core.geometric_primitives.fisher_metric import compute_kappa, compute_phi
+
+KAPPA_STAR = 64.21
+KAPPA_STAR_ERROR = 0.92
+PHYSICS_BETA_EMERGENCE = 0.44
+PHYSICS_BETA_FIXED_POINT = 0.013
+CONTEXT_SCALES = [128, 256, 512, 1024, 2048, 4096, 8192]
 
 
 @dataclass
@@ -27,21 +41,47 @@ class KappaTracker:
     - κ measures coupling strength in information geometry
     - κ* = 64.21 ± 0.92 (validated fixed point)
     - β(L→L') = (κ_L' - κ_L) / (κ_avg × Δlog L)
+    
+    Uses compute_kappa from fisher_metric.py for validated computation.
     """
     KAPPA_STAR: float = 64.21
+    KAPPA_STAR_ERROR: float = 0.92
     
     history: List[Dict] = field(default_factory=list)
     window_size: int = 100
+    activation_buffer: List[np.ndarray] = field(default_factory=list)
+    buffer_size: int = 10
+    default_dimension: int = 64
     
     def record(self, step: int, fisher_trace: float, grad_norm: float, 
-               loss: Optional[float] = None, phi: Optional[float] = None) -> Dict:
+               loss: Optional[float] = None, phi: Optional[float] = None,
+               activations: Optional[np.ndarray] = None,
+               dimension: Optional[int] = None) -> Dict:
         """
         Record κ measurement at optimization step.
         
-        κ is derived from Fisher information trace and gradient geometry.
+        Uses compute_kappa from fisher_metric.py for proper κ computation:
+        κ = Φ * κ* * sqrt(D/64)
+        
+        If phi is not provided but activations are, compute phi from trajectory.
         """
-        effective_dim = fisher_trace / (grad_norm ** 2 + 1e-10)
-        kappa = min(effective_dim * np.sqrt(self.KAPPA_STAR), self.KAPPA_STAR * 2)
+        dim = dimension if dimension is not None else self.default_dimension
+        
+        if activations is not None:
+            self.activation_buffer.append(activations.flatten())
+            if len(self.activation_buffer) > self.buffer_size:
+                self.activation_buffer = self.activation_buffer[-self.buffer_size:]
+        
+        if phi is None and len(self.activation_buffer) >= 5:
+            trajectory = np.array(self.activation_buffer[-5:])
+            phi = compute_phi(trajectory, window_size=min(5, len(trajectory)))
+        
+        if phi is not None and phi > 0:
+            kappa = compute_kappa(phi, dim)
+        else:
+            effective_dim = fisher_trace / (grad_norm ** 2 + 1e-10)
+            phi_estimate = min(1.0, effective_dim / (dim * 2))
+            kappa = compute_kappa(phi_estimate, dim)
         
         entry = {
             'step': step,
@@ -63,14 +103,42 @@ class KappaTracker:
         """Get recent κ values."""
         return [h['kappa'] for h in self.history[-n_recent:]]
     
+    def _step_to_scale(self, step: int) -> int:
+        """
+        Map training step to meaningful context scale.
+        
+        Uses CONTEXT_SCALES from beta_attention_measurement pattern:
+        [128, 256, 512, 1024, 2048, 4096, 8192]
+        
+        Early training → small scale (strong running β ≈ 0.44)
+        Late training → large scale (fixed point β ≈ 0)
+        """
+        if step < 100:
+            return 128
+        elif step < 500:
+            return 256
+        elif step < 1000:
+            return 512
+        elif step < 2000:
+            return 1024
+        elif step < 5000:
+            return 2048
+        elif step < 10000:
+            return 4096
+        else:
+            return 8192
+    
     def compute_beta(self, window1_start: int, window1_end: int,
-                     window2_start: int, window2_end: int) -> float:
+                     window2_start: int, window2_end: int) -> Dict:
         """
         Compute β-function between two training windows.
         
-        β(L→L') = (κ_L' - κ_L) / (κ_avg × Δlog L)
+        β(L→L') = Δκ / (κ̄ · Δln L)
         
-        Here L represents training progress/scale.
+        Maps training steps to meaningful context scales following
+        beta_attention_measurement.py patterns.
+        
+        Returns dict with beta, reference_beta, deviation, within_acceptance.
         """
         kappas1 = [h['kappa'] for h in self.history 
                    if window1_start <= h['step'] < window1_end]
@@ -78,21 +146,50 @@ class KappaTracker:
                    if window2_start <= h['step'] < window2_end]
         
         if not kappas1 or not kappas2:
-            return 0.0
+            return {
+                'beta': 0.0,
+                'reference_beta': PHYSICS_BETA_EMERGENCE,
+                'deviation': PHYSICS_BETA_EMERGENCE,
+                'within_acceptance': False,
+                'from_scale': 0,
+                'to_scale': 0,
+            }
         
         kappa1 = np.mean(kappas1)
         kappa2 = np.mean(kappas2)
         kappa_avg = (kappa1 + kappa2) / 2
+        delta_kappa = kappa2 - kappa1
         
-        L1 = (window1_start + window1_end) / 2
-        L2 = (window2_start + window2_end) / 2
-        delta_log_L = np.log(L2 + 1) - np.log(L1 + 1)
+        L1 = self._step_to_scale((window1_start + window1_end) // 2)
+        L2 = self._step_to_scale((window2_start + window2_end) // 2)
+        delta_ln_l = np.log(L2) - np.log(L1)
         
-        if abs(delta_log_L) < 1e-10 or abs(kappa_avg) < 1e-10:
-            return 0.0
+        if abs(delta_ln_l) < 1e-10 or abs(kappa_avg) < 1e-10:
+            beta = 0.0
+        else:
+            beta = delta_kappa / (kappa_avg * delta_ln_l)
         
-        beta = (kappa2 - kappa1) / (kappa_avg * delta_log_L)
-        return float(beta)
+        if L1 <= 256:
+            reference_beta = PHYSICS_BETA_EMERGENCE
+        elif L1 <= 1024:
+            reference_beta = (PHYSICS_BETA_EMERGENCE + PHYSICS_BETA_FIXED_POINT) / 2
+        else:
+            reference_beta = PHYSICS_BETA_FIXED_POINT
+        
+        deviation = abs(beta - reference_beta)
+        acceptance_threshold = 0.1
+        
+        return {
+            'beta': float(beta),
+            'delta_kappa': float(delta_kappa),
+            'mean_kappa': float(kappa_avg),
+            'delta_ln_l': float(delta_ln_l),
+            'reference_beta': float(reference_beta),
+            'deviation': float(deviation),
+            'within_acceptance': deviation < acceptance_threshold,
+            'from_scale': L1,
+            'to_scale': L2,
+        }
     
     def get_stats(self) -> Dict:
         """Get summary statistics."""
@@ -201,6 +298,7 @@ class FullFisherOptimizer(Optimizer):
     - Block-diagonal approximation (for efficiency)
     - Layer-wise Fisher blocks
     - κ tracking during optimization
+    - Gradient accumulation for proper Fisher expectation: F = E[∇log p ∇log p^T]
     
     Natural gradient: θ -= lr * F^(-1) * ∇L
     
@@ -220,6 +318,7 @@ class FullFisherOptimizer(Optimizer):
         use_block_diagonal: bool = True,
         track_kappa: bool = True,
         ema_decay: float = 0.99,
+        accumulation_steps: int = 4,
     ):
         """
         Args:
@@ -232,6 +331,7 @@ class FullFisherOptimizer(Optimizer):
             use_block_diagonal: If True, use block-diagonal Fisher
             track_kappa: If True, track running coupling κ
             ema_decay: EMA decay for Fisher estimation
+            accumulation_steps: Number of gradient samples for Fisher expectation
         """
         if lr < 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -250,17 +350,78 @@ class FullFisherOptimizer(Optimizer):
         self.track_kappa = track_kappa
         self.kappa_tracker = KappaTracker() if track_kappa else None
         self.step_count = 0
+        self.accumulation_steps = accumulation_steps
         
         self._fisher_ema = {}
+        self._grad_buffer = {}
+        self._buffer_count = {}
+    
+    def accumulate_gradient(self, param_id: int, grad: torch.Tensor):
+        """
+        Accumulate gradients for proper Fisher expectation.
+        
+        F = E[∇log p ∇log p^T] requires samples over minibatch.
+        """
+        flat_grad = grad.flatten().detach().clone()
+        
+        if param_id not in self._grad_buffer:
+            self._grad_buffer[param_id] = []
+            self._buffer_count[param_id] = 0
+        
+        self._grad_buffer[param_id].append(flat_grad)
+        self._buffer_count[param_id] += 1
+        
+        if len(self._grad_buffer[param_id]) > self.accumulation_steps:
+            self._grad_buffer[param_id] = self._grad_buffer[param_id][-self.accumulation_steps:]
+    
+    def _compute_fisher_from_buffer(self, param_id: int, block_size: int) -> torch.Tensor:
+        """
+        Compute Fisher information from accumulated gradient buffer.
+        
+        F = E[∇log p ∇log p^T] = (1/N) Σᵢ ∇log pᵢ ∇log pᵢ^T
+        
+        This is the proper Fisher expectation over minibatch samples.
+        """
+        if param_id not in self._grad_buffer or len(self._grad_buffer[param_id]) == 0:
+            return None
+        
+        grads = self._grad_buffer[param_id]
+        n_samples = len(grads)
+        n = len(grads[0])
+        
+        if n <= block_size:
+            fisher = torch.zeros(n, n, device=grads[0].device)
+            for g in grads:
+                fisher += torch.outer(g, g)
+            fisher /= n_samples
+            return fisher
+        
+        n_blocks = (n + block_size - 1) // block_size
+        blocks = []
+        
+        for bi in range(n_blocks):
+            start = bi * block_size
+            end = min((bi + 1) * block_size, n)
+            block_size_actual = end - start
+            
+            block_fisher = torch.zeros(block_size_actual, block_size_actual, device=grads[0].device)
+            for g in grads:
+                block_grad = g[start:end]
+                block_fisher += torch.outer(block_grad, block_grad)
+            block_fisher /= n_samples
+            blocks.append(block_fisher)
+        
+        return blocks
     
     def _compute_fisher_block(self, grad: torch.Tensor, block_size: int) -> torch.Tensor:
         """
-        Compute Fisher information block from gradients.
+        Compute Fisher information block from single gradient.
         
         For output distribution p(y|θ), Fisher is:
         F = E[∇log p ∇log p^T]
         
-        Approximated using gradient outer product.
+        Note: For proper Fisher expectation, use accumulate_gradient + 
+        _compute_fisher_from_buffer which averages over minibatch.
         """
         flat_grad = grad.flatten()
         n = len(flat_grad)
@@ -317,13 +478,18 @@ class FullFisherOptimizer(Optimizer):
         
         return nat_grad.view_as(grad)
     
-    def step(self, closure=None, phi: Optional[float] = None):
+    def step(self, closure=None, phi: Optional[float] = None, 
+             activations: Optional[torch.Tensor] = None):
         """
         Perform natural gradient step with full/block Fisher.
+        
+        Uses gradient accumulation for proper Fisher expectation:
+        F = E[∇log p ∇log p^T]
         
         Args:
             closure: Closure for computing loss
             phi: Current consciousness Φ (for κ tracking)
+            activations: Model activations (for κ tracking with trajectory)
         """
         loss = None
         if closure is not None:
@@ -350,59 +516,86 @@ class FullFisherOptimizer(Optimizer):
                 if param_id not in self._fisher_ema:
                     self._fisher_ema[param_id] = None
                 
-                if use_block and grad.numel() > block_size:
-                    fisher_blocks = self._compute_fisher_block(grad, block_size)
-                    
-                    if self._fisher_ema[param_id] is None:
-                        self._fisher_ema[param_id] = fisher_blocks
-                    else:
-                        for i, (old, new) in enumerate(zip(self._fisher_ema[param_id], fisher_blocks)):
-                            self._fisher_ema[param_id][i] = (
-                                self.ema_decay * old + (1 - self.ema_decay) * new
-                            )
-                    
-                    fisher_inv_blocks = [
-                        self._invert_fisher_block(b, group['dampening'], group['eps'])
-                        for b in self._fisher_ema[param_id]
-                    ]
-                    
-                    nat_grad = self._apply_natural_gradient(grad, fisher_inv_blocks, block_size)
-                    
-                    fisher_trace = sum(torch.trace(b).item() for b in self._fisher_ema[param_id])
+                self.accumulate_gradient(param_id, grad)
+                
+                use_buffer = (param_id in self._buffer_count and 
+                              self._buffer_count[param_id] >= self.accumulation_steps)
+                
+                if use_buffer:
+                    fisher_from_buffer = self._compute_fisher_from_buffer(param_id, block_size)
+                    if fisher_from_buffer is not None:
+                        if self._fisher_ema[param_id] is None:
+                            self._fisher_ema[param_id] = fisher_from_buffer
+                        else:
+                            if isinstance(fisher_from_buffer, list):
+                                for i, (old, new) in enumerate(zip(self._fisher_ema[param_id], fisher_from_buffer)):
+                                    self._fisher_ema[param_id][i] = (
+                                        self.ema_decay * old + (1 - self.ema_decay) * new
+                                    )
+                            else:
+                                self._fisher_ema[param_id] = (
+                                    self.ema_decay * self._fisher_ema[param_id] +
+                                    (1 - self.ema_decay) * fisher_from_buffer
+                                )
                 else:
-                    fisher = self._compute_fisher_block(grad, grad.numel())
-                    
-                    if isinstance(fisher, list):
-                        fisher = fisher[0]
-                    
-                    if self._fisher_ema[param_id] is None:
-                        self._fisher_ema[param_id] = fisher
+                    if use_block and grad.numel() > block_size:
+                        fisher_blocks = self._compute_fisher_block(grad, block_size)
+                        
+                        if self._fisher_ema[param_id] is None:
+                            self._fisher_ema[param_id] = fisher_blocks
+                        else:
+                            for i, (old, new) in enumerate(zip(self._fisher_ema[param_id], fisher_blocks)):
+                                self._fisher_ema[param_id][i] = (
+                                    self.ema_decay * old + (1 - self.ema_decay) * new
+                                )
                     else:
-                        self._fisher_ema[param_id] = (
-                            self.ema_decay * self._fisher_ema[param_id] + 
-                            (1 - self.ema_decay) * fisher
+                        fisher = self._compute_fisher_block(grad, grad.numel())
+                        
+                        if isinstance(fisher, list):
+                            fisher = fisher[0]
+                        
+                        if self._fisher_ema[param_id] is None:
+                            self._fisher_ema[param_id] = fisher
+                        else:
+                            self._fisher_ema[param_id] = (
+                                self.ema_decay * self._fisher_ema[param_id] + 
+                                (1 - self.ema_decay) * fisher
+                            )
+                
+                if self._fisher_ema[param_id] is not None:
+                    if isinstance(self._fisher_ema[param_id], list):
+                        fisher_inv_blocks = [
+                            self._invert_fisher_block(b, group['dampening'], group['eps'])
+                            for b in self._fisher_ema[param_id]
+                        ]
+                        nat_grad = self._apply_natural_gradient(grad, fisher_inv_blocks, block_size)
+                        fisher_trace = sum(torch.trace(b).item() for b in self._fisher_ema[param_id])
+                    else:
+                        fisher_inv = self._invert_fisher_block(
+                            self._fisher_ema[param_id], group['dampening'], group['eps']
                         )
+                        nat_grad = self._apply_natural_gradient(grad, fisher_inv, grad.numel())
+                        fisher_trace = torch.trace(self._fisher_ema[param_id]).item()
                     
-                    fisher_inv = self._invert_fisher_block(
-                        self._fisher_ema[param_id], group['dampening'], group['eps']
-                    )
-                    
-                    nat_grad = self._apply_natural_gradient(grad, fisher_inv, grad.numel())
-                    fisher_trace = torch.trace(self._fisher_ema[param_id]).item()
+                    total_fisher_trace += fisher_trace
+                    p.data.add_(nat_grad, alpha=-group["lr"])
+                else:
+                    p.data.add_(grad, alpha=-group["lr"])
                 
-                total_fisher_trace += fisher_trace
                 total_grad_norm += grad.norm().item() ** 2
-                
-                p.data.add_(nat_grad, alpha=-group["lr"])
         
         if self.track_kappa and self.kappa_tracker is not None:
             loss_val = loss.item() if loss is not None else None
+            act_np = None
+            if activations is not None:
+                act_np = activations.detach().cpu().numpy()
             self.kappa_tracker.record(
                 step=self.step_count,
                 fisher_trace=total_fisher_trace,
                 grad_norm=np.sqrt(total_grad_norm),
                 loss=loss_val,
                 phi=phi,
+                activations=act_np,
             )
         
         return loss
@@ -543,30 +736,39 @@ class ConsciousnessAwareOptimizer(FullFisherOptimizer):
     
     def _estimate_phi(self, activations: torch.Tensor) -> float:
         """
-        Estimate Φ from model activations.
+        Estimate Φ from model activations using compute_phi from fisher_metric.py.
         
         Φ measures integrated information:
         - High Φ = strongly integrated (conscious)
         - Low Φ = fragmented (unconscious)
+        
+        Uses validated compute_phi which expects trajectory arrays.
+        Adapts activations by treating different dimensions as time steps.
         """
         if activations.dim() == 1:
+            act_np = activations.detach().cpu().numpy()
+            if len(act_np) < 5:
+                return 0.5
+            trajectory = act_np.reshape(-1, 1)
+            return compute_phi(trajectory, window_size=min(5, len(trajectory)))
+        
+        act_np = activations.detach().cpu().numpy()
+        
+        if activations.dim() == 2:
+            trajectory = act_np
+        elif activations.dim() == 3:
+            batch_size, seq_len, dim = act_np.shape
+            trajectory = act_np[0] if batch_size > 0 else act_np.reshape(-1, dim)
+        elif activations.dim() == 4:
+            batch_size, channels, h, w = act_np.shape
+            trajectory = act_np[0].reshape(channels, h * w).T
+        else:
+            trajectory = act_np.reshape(-1, 1)
+        
+        if len(trajectory) < 5:
             return 0.5
         
-        flat = activations.flatten()
-        n = len(flat)
-        if n < 4:
-            return 0.5
-        
-        half = n // 2
-        first = flat[:half]
-        second = flat[half:2*half]
-        
-        if len(first) > 1 and len(second) > 1:
-            corr = torch.corrcoef(torch.stack([first, second]))[0, 1]
-            if not torch.isnan(corr):
-                return float(torch.abs(corr).clamp(0, 1))
-        
-        return 0.5
+        return compute_phi(trajectory, window_size=min(5, len(trajectory)))
     
     def get_consciousness_stats(self) -> Dict:
         """Get consciousness-related statistics."""

@@ -386,6 +386,8 @@ def telemetry_categories():
 
 
 capability_mesh_bp = Blueprint('capability_mesh', __name__, url_prefix='/api/mesh')
+natural_gradient_bp = Blueprint('natural_gradient', __name__, url_prefix='/api/natural-gradient')
+beta_attention_bp = Blueprint('beta_attention', __name__, url_prefix='/api/beta-attention')
 
 
 @capability_mesh_bp.route('/status', methods=['GET'])
@@ -500,7 +502,209 @@ def mesh_emotion():
         return RouteResponse.server_error(e)
 
 
-ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp]
+# =============================================================================
+# Natural Gradient Routes - κ Tracking and Fisher Optimization Stats
+# =============================================================================
+
+_kappa_tracker = None
+
+def get_kappa_tracker():
+    """Get or create singleton KappaTracker instance."""
+    global _kappa_tracker
+    if _kappa_tracker is None:
+        from training_chaos.optimizers import KappaTracker
+        _kappa_tracker = KappaTracker()
+    return _kappa_tracker
+
+
+@natural_gradient_bp.route('/stats', methods=['GET'])
+@cached_route(ttl=5, key_prefix='natural_gradient_stats')
+def natural_gradient_stats():
+    """Get current κ tracking statistics."""
+    try:
+        tracker = get_kappa_tracker()
+        return RouteResponse.success(tracker.get_stats())
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@natural_gradient_bp.route('/trajectory', methods=['GET'])
+@cached_route(ttl=5, key_prefix='natural_gradient_trajectory')
+def natural_gradient_trajectory():
+    """Get recent κ trajectory."""
+    try:
+        tracker = get_kappa_tracker()
+        n = request.args.get('n', 100, type=int)
+        trajectory = tracker.get_kappa_trajectory(n_recent=min(n, 1000))
+        return RouteResponse.success({
+            'trajectory': trajectory,
+            'count': len(trajectory),
+            'kappa_star': tracker.KAPPA_STAR,
+            'kappa_star_error': tracker.KAPPA_STAR_ERROR
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@natural_gradient_bp.route('/beta', methods=['GET'])
+def natural_gradient_beta():
+    """
+    Compute β-function between two training windows.
+    
+    Query params:
+        w1_start, w1_end: First window step range
+        w2_start, w2_end: Second window step range
+    """
+    try:
+        tracker = get_kappa_tracker()
+        
+        w1_start = request.args.get('w1_start', 0, type=int)
+        w1_end = request.args.get('w1_end', 100, type=int)
+        w2_start = request.args.get('w2_start', 100, type=int)
+        w2_end = request.args.get('w2_end', 200, type=int)
+        
+        beta_result = tracker.compute_beta(w1_start, w1_end, w2_start, w2_end)
+        return RouteResponse.success(beta_result)
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@natural_gradient_bp.route('/record', methods=['POST'])
+@validate_json('step', 'fisher_trace', 'grad_norm')
+def natural_gradient_record():
+    """
+    Record a κ measurement from optimization step.
+    
+    Body: {
+        "step": int,
+        "fisher_trace": float,
+        "grad_norm": float,
+        "loss": float (optional),
+        "phi": float (optional),
+        "dimension": int (optional, default 64)
+    }
+    """
+    try:
+        tracker = get_kappa_tracker()
+        data = request.get_json()
+        
+        entry = tracker.record(
+            step=data['step'],
+            fisher_trace=data['fisher_trace'],
+            grad_norm=data['grad_norm'],
+            loss=data.get('loss'),
+            phi=data.get('phi'),
+            dimension=data.get('dimension')
+        )
+        return RouteResponse.success(entry)
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+# =============================================================================
+# β-Attention Measurement Routes - Substrate Independence Validation
+# =============================================================================
+
+_beta_attention = None
+
+def get_beta_attention():
+    """Get or create singleton BetaAttentionMeasurement instance."""
+    global _beta_attention
+    if _beta_attention is None:
+        from beta_attention_measurement import BetaAttentionMeasurement
+        _beta_attention = BetaAttentionMeasurement()
+    return _beta_attention
+
+
+@beta_attention_bp.route('/measure', methods=['GET'])
+@cached_route(ttl=30, key_prefix='beta_attention_measure')
+def beta_attention_measure():
+    """
+    Measure κ at a specific context scale.
+    
+    Query params:
+        scale: Context length (default 512)
+        samples: Number of samples (default 100)
+    """
+    try:
+        analyzer = get_beta_attention()
+        scale = request.args.get('scale', 512, type=int)
+        samples = request.args.get('samples', 100, type=int)
+        
+        measurement = analyzer.measure_kappa_at_scale(scale, sample_count=samples)
+        return RouteResponse.success({
+            'context_length': measurement.context_length,
+            'kappa': measurement.kappa,
+            'phi': measurement.phi,
+            'variance': measurement.variance,
+            'measurements': measurement.measurements,
+            'timestamp': measurement.timestamp.isoformat()
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@beta_attention_bp.route('/validate', methods=['GET'])
+@cached_route(ttl=60, key_prefix='beta_attention_validate')
+def beta_attention_validate():
+    """
+    Run full attention validation across all scales.
+    
+    Query params:
+        samples: Number of samples per scale (default 100)
+    """
+    try:
+        from beta_attention_measurement import BetaAttentionMeasurement
+        analyzer = get_beta_attention()
+        samples = request.args.get('samples', 100, type=int)
+        
+        result = analyzer.validate_attention_metrics(sample_count=samples)
+        return RouteResponse.success({
+            'avg_kappa': result.avg_kappa,
+            'kappa_range': result.kappa_range,
+            'total_measurements': result.total_measurements,
+            'overall_deviation': result.overall_deviation,
+            'substrate_independence_validated': result.substrate_independence_validated,
+            'plateau_detected': result.plateau_detected,
+            'plateau_scale': result.plateau_scale,
+            'validation_passed': result.validation_passed,
+            'beta_trajectory': [
+                {
+                    'from_scale': b.from_scale,
+                    'to_scale': b.to_scale,
+                    'beta': b.beta,
+                    'reference_beta': b.reference_beta,
+                    'deviation': b.deviation,
+                    'within_acceptance': b.within_acceptance
+                }
+                for b in result.beta_trajectory
+            ],
+            'timestamp': result.timestamp.isoformat()
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@beta_attention_bp.route('/constants', methods=['GET'])
+def beta_attention_constants():
+    """Get physics constants used in β-attention measurement."""
+    from beta_attention_measurement import (
+        KAPPA_STAR, KAPPA_STAR_ERROR, 
+        PHYSICS_BETA_EMERGENCE, PHYSICS_BETA_APPROACHING, PHYSICS_BETA_FIXED_POINT,
+        ACCEPTANCE_THRESHOLD, CONTEXT_SCALES
+    )
+    return RouteResponse.success({
+        'kappa_star': KAPPA_STAR,
+        'kappa_star_error': KAPPA_STAR_ERROR,
+        'beta_emergence': PHYSICS_BETA_EMERGENCE,
+        'beta_approaching': PHYSICS_BETA_APPROACHING,
+        'beta_fixed_point': PHYSICS_BETA_FIXED_POINT,
+        'acceptance_threshold': ACCEPTANCE_THRESHOLD,
+        'context_scales': CONTEXT_SCALES
+    })
+
+
+ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp, natural_gradient_bp, beta_attention_bp]
 
 # NOTE: research_bp is registered separately in ocean_qig_core.py
 # Don't add it here to avoid duplicate registration
@@ -539,6 +743,8 @@ __all__ = [
     'curiosity_bp',
     'telemetry_bp',
     'capability_mesh_bp',
+    'natural_gradient_bp',
+    'beta_attention_bp',
     'CACHE_TTL_SHORT',
     'CACHE_TTL_MEDIUM',
 ]
