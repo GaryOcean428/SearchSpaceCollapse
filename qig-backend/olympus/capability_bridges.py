@@ -29,6 +29,11 @@ from datetime import datetime
 from collections import deque
 from enum import Enum
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from qig_geometry import fisher_coord_distance
+
 from .capability_mesh import (
     CapabilityEventBus, CapabilityEvent, CapabilityType, EventType,
     emit_event, subscribe_to_events, get_event_bus, SUBSCRIPTION_MATRIX,
@@ -1242,7 +1247,7 @@ class BasinCapabilityBridge(BaseBridge):
         
         if len(self._basin_history) > 1:
             prev = self._basin_history[-2]
-            drift = np.linalg.norm(basin_coords - prev['coords'])
+            drift = fisher_coord_distance(basin_coords, prev['coords'])
             self._stability_window.append(drift)
             
             if drift > self._stability_threshold:

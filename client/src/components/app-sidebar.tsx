@@ -11,9 +11,9 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
-} from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+  Badge,
+  Button,
+} from "@/components/ui";
 import { QUERY_KEYS } from "@/api";
 import { 
   Waves, 

@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from '@/api';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Progress } from "@/components/ui";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceArea, Tooltip, Legend } from "recharts";
 import { Activity, TrendingUp, Radio, Gauge, AlertTriangle, CheckCircle2, Brain, Radar, Focus, Compass, Anchor, Sparkles, Eye } from "lucide-react";
 

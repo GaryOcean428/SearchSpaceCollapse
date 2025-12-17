@@ -2,14 +2,16 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS, API_ROUTES } from "@/api";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
+import {
+  Card,
+  Button,
+  Badge,
+  Input,
+  Label,
+  Checkbox,
+  Progress,
+  Slider,
+} from "@/components/ui";
 import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Cell } from "recharts";
 import { 
   Brain, 

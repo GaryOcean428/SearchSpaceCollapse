@@ -1,9 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Badge,
+  Progress,
+  Skeleton,
+} from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { Waves, Wrench, Database, Brain, Activity, Target, TrendingUp, Sparkles } from "lucide-react";
 import { Link } from "wouter";

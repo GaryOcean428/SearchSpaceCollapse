@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/components/ui";
 import { Swords, Target, Clock, FlaskConical, Sparkles, Cpu, AlertTriangle, Shield, Activity, Radio } from "lucide-react";
 import { endWar } from "@/api/services/olympus";
 import { useToast } from "@/hooks/use-toast";

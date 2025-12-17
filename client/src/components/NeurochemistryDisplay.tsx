@@ -1,7 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Progress,
+  Badge,
+  Separator,
+} from "@/components/ui";
 import { Brain, Heart, Zap, Moon, Target, Sparkles } from "lucide-react";
 
 interface NeurochemistryState {
