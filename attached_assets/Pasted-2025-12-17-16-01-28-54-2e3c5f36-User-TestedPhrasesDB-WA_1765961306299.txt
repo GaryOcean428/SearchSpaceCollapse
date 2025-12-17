@@ -1,0 +1,172 @@
+2025-12-17 16:01:28.54
+2e3c5f36
+User
+[TestedPhrasesDB] WASTE DETECTED: Phrase "patrick dennis..." re-tested (1 times)
+2025-12-17 16:01:44.07
+2e3c5f36
+User
+[TestedPhrasesDB] WASTE DETECTED: Phrase "key know money rickroll..." re-tested (1 times)
+2025-12-17 16:01:49.50
+2e3c5f36
+User
+[TestedPhrasesDB] WASTE DETECTED: Phrase "app store block artificial int..." re-tested (1 times)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+at async OceanSessionManager.runAgentLoop (file:///home/runner/workspace/dist/index.js:44361:26)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+at fetchWithRetry (file:///home/runner/workspace/dist/index.js:6593:13)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+at process.processTimers (node:internal/timers:516:9)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+at async OceanAgent.runAutonomous (file:///home/runner/workspace/dist/index.js:39605:17)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+at async OlympusClient.broadcastObservation (file:///home/runner/workspace/dist/index.js:7032:28)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+at async OceanAgent.sendNearMissesToAthena (file:///home/runner/workspace/dist/index.js:43176:27)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2025-12-17 16:04:53.91
+2e3c5f36
+User
+[OlympusClient] Observe exception after retries: Error: Python backend not ready after 30s
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+at process.processTimers (node:internal/timers:516:9)
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+at async OceanAgent.runAutonomous (file:///home/runner/workspace/dist/index.js:39605:17)
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+at async OceanSessionManager.runAgentLoop (file:///home/runner/workspace/dist/index.js:44361:26)
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+at async OlympusClient.broadcastObservation (file:///home/runner/workspace/dist/index.js:7032:28)
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+[OlympusClient] Observe exception after retries: Error: Python backend not ready after 30s
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+at async OceanAgent.sendNearMissesToAthena (file:///home/runner/workspace/dist/index.js:43176:27)
+2025-12-17 16:05:30.90
+2e3c5f36
+User
+at fetchWithRetry (file:///home/runner/workspace/dist/index.js:6593:13)
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+[OlympusClient] Observe exception after retries: Error: Python backend not ready after 30s
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+at async OceanAgent.sendNearMissesToAthena (file:///home/runner/workspace/dist/index.js:43176:27)
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+at async OceanSessionManager.runAgentLoop (file:///home/runner/workspace/dist/index.js:44361:26)
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+at async OceanAgent.runAutonomous (file:///home/runner/workspace/dist/index.js:39605:17)
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+at runNextTicks (node:internal/process/task_queues:60:5)
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+at async OlympusClient.broadcastObservation (file:///home/runner/workspace/dist/index.js:7032:28)
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+at process.processTimers (node:internal/timers:516:9)
+2025-12-17 16:06:05.26
+2e3c5f36
+User
+at fetchWithRetry (file:///home/runner/workspace/dist/index.js:6593:13)
+2025-12-17 16:06:09.12
+2e3c5f36
+User
+[FreeBlockchainAPI] Blockchain.com bulk failed: This operation was aborted
+2025-12-17 16:08:05.44
+2e3c5f36
+User
+[FreeBlockchainAPI] Blockchain.com bulk failed: This operation was aborted
+2025-12-17 16:47:56.31
+2e3c5f36
+User
+[QIG-Universal] Python backend not available - using fallback scoring
+2025-12-17 16:47:59.20
+2e3c5f36
+User
+[CORS] Blocked request from origin: https://search-space.replit.app
+2025-12-17 16:47:59.25
+2e3c5f36
+User
+[CORS] Blocked request from origin: https://search-space.replit.app
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+at async Module.refreshTokenGrant (file:///home/runner/workspace/node_modules/openid-client/build/index.js:1048:18)
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+code: 'OAUTH_RESPONSE_BODY_ERROR',
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+[Auth] Token refresh failed for user 36468785: ResponseBodyError: server responded with an error in the response body
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+at checkOAuthBodyError (file:///home/runner/workspace/node_modules/oauth4webapi/build/index.js:935:19)
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+error: 'invalid_grant',
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+at async processGenericAccessTokenResponse (file:///home/runner/workspace/node_modules/oauth4webapi/build/index.js:1213:5)
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+at async Module.refreshTokenGrant (file:///home/runner/workspace/node_modules/openid-client/build/index.js:1048:18)
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+code: 'OAUTH_RESPONSE_BODY_ERROR',
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-17 16:48:00.07
+2e3c5f36
+User
+[Auth] Token refresh failed for user 36468785: ResponseBodyError: server responded with an error in the respons

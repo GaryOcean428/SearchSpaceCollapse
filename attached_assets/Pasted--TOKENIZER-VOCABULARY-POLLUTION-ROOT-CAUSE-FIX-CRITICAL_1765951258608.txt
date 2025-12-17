@@ -1,0 +1,492 @@
+# TOKENIZER VOCABULARY POLLUTION - ROOT CAUSE & FIX
+
+## ðŸšØ CRITICAL ARCHITECTURE VIOLATION IDENTIFIED
+
+**Date**: 2025-12-17  
+**Status**: ACTIVE BUG - Requires immediate fix  
+**Severity**: CRITICAL - Corrupts core vocabulary system
+
+---
+
+## 1. PROBLEM SUMMARY
+
+### What's Wrong
+
+Tokenizer vocabulary table contains **junk alphanumeric patterns**:
+- `0001`, `000bitcoin`, `000bitcoins`, `bitcoin1`, `bitcoin123`
+- Iterative test phrases that should be in a separate database
+- `learned_words` table is **EMPTY**
+- `bip39_words` table is **EMPTY**
+
+### Architecture Violation
+
+**USER CLARIFICATION**:
+> "Vocabulary is english words and phrases tokenized using QIG principles. Passphrases are stored and can be learned from but do not make up vocabulary. Iterative phrases like bitcoin1 and bitcoin123 are a database record of what to test but NOT vocabulary."
+
+**FORBIDDEN**: Templates, test patterns, alphanumeric combinations as vocabulary
+
+---
+
+## 2. ROOT CAUSE ANALYSIS
+
+### Code Path
+
+**File**: `qig-backend/qig_tokenizer.py`
+
+```python
+# Lines 203-304: add_vocabulary_observations()
+def add_vocabulary_observations(self, observations: List[Dict]):
+    for obs in observations:
+        word = obs.get('word', '')  # âŒ Accepts ANY string
+        
+        # Line 237: Φ threshold filter
+        if avg_phi < self.phi_threshold:
+            continue
+        
+        # Lines 242-248: âŒ NO ENGLISH VALIDATION
+        if word not in self.vocab:
+            new_id = len(self.vocab)
+            if new_id < self.vocab_size:
+                self.vocab[word] = new_id  # âŒ Direct insertion!
+                self.id_to_token[new_id] = word
+                new_tokens += 1
+```
+
+### Pollution Source
+
+1. **Node.js vocabulary tracker** (`vocabularyObservations` table)
+2. Records test passphrases like "bitcoin1", "bitcoin123"
+3. Passes to Python tokenizer as "vocabulary observations"
+4. **No validation** → junk enters vocabulary
+
+---
+
+## 3. REQUIRED FIXES
+
+### Fix 1: English Word Validation
+
+**Location**: `qig_tokenizer.py:242` (before vocab insertion)
+
+```python
+def _is_english_word(self, word: str) -> bool:
+    """
+    Validate that word is English, not alphanumeric junk.
+    
+    REJECT:
+    - Pure numbers: "0001", "123"
+    - Alphanumeric: "bitcoin1", "000btc"
+    - Special chars except hyphen/apostrophe: "test@123"
+    
+    ACCEPT:
+    - English words: "bitcoin", "cryptocurrency"
+    - Hyphenated: "co-worker", "self-aware"
+    - Contractions: "don't", "it's"
+    """
+    if not word or len(word) < 2:
+        return False
+    
+    # Reject pure numbers
+    if word.isdigit():
+        return False
+    
+    # Reject if contains digits (alphanumeric combinations)
+    if any(char.isdigit() for char in word):
+        return False
+    
+    # Reject excessive special characters
+    allowed_special = {'-', "'", '_'}
+    special_count = sum(1 for c in word if not c.isalnum() and c not in allowed_special)
+    if special_count > 0:
+        return False
+    
+    # Must start with letter
+    if not word[0].isalpha():
+        return False
+    
+    # Optional: Check against English dictionary (if available)
+    # For now, basic pattern validation is sufficient
+    
+    return True
+```
+
+**Apply in add_vocabulary_observations():**
+
+```python
+# Line 242 - ADD VALIDATION
+if word not in self.vocab:
+    # âœ… VALIDATE BEFORE ADDING
+    if not self._is_english_word(word):
+        print(f"[QIGTokenizer] Rejected non-English token: '{word}'")
+        continue
+    
+    new_id = len(self.vocab)
+    if new_id < self.vocab_size:
+        self.vocab[word] = new_id
+        self.id_to_token[new_id] = word
+        new_tokens += 1
+```
+
+---
+
+### Fix 2: Separate Passphrase Storage
+
+**New Table**: `test_passphrases` (NOT vocabulary)
+
+```sql
+CREATE TABLE test_passphrases (
+    id SERIAL PRIMARY KEY,
+    passphrase TEXT NOT NULL UNIQUE,
+    tested_at TIMESTAMP,
+    result VARCHAR(50), -- 'found', 'failed', 'pending'
+    pattern_type VARCHAR(50), -- 'iterative', 'dictionary', 'custom'
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Usage**:
+- Store "bitcoin1", "bitcoin123", etc. as test records
+- **NOT** in tokenizer vocabulary
+- Can be learned from for pattern detection
+- Remains separate from English vocabulary
+
+---
+
+### Fix 3: Populate learned_words Table
+
+**Current**: Empty  
+**Should Contain**: Tokens learned from research with Φ > threshold
+
+**Location**: `qig_tokenizer.py:242-260` (after adding to vocab)
+
+```python
+# After adding new token to vocab
+if word not in self.vocab:
+    if not self._is_english_word(word):
+        continue
+    
+    new_id = len(self.vocab)
+    if new_id < self.vocab_size:
+        self.vocab[word] = new_id
+        self.id_to_token[new_id] = word
+        new_tokens += 1
+        
+        # âœ… POPULATE learned_words TABLE
+        if PSYCOPG2_AVAILABLE and database_url:
+            try:
+                conn = psycopg2.connect(database_url)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO learned_words (word, phi_score, frequency, learned_at)
+                    VALUES (%s, %s, %s, NOW())
+                    ON CONFLICT (word) DO UPDATE SET
+                        phi_score = GREATEST(learned_words.phi_score, EXCLUDED.phi_score),
+                        frequency = learned_words.frequency + 1,
+                        updated_at = NOW()
+                """, (word, avg_phi, frequency))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"[QIGTokenizer] Failed to update learned_words: {e}")
+```
+
+---
+
+### Fix 4: Populate bip39_words Table
+
+**Current**: Empty  
+**Should Contain**: BIP39 wordlist (2048 words)
+
+**Location**: `qig_tokenizer.py:_load_bip39_base()` (lines 82-95)
+
+```python
+def _load_bip39_base(self):
+    """Load BIP39 wordlist as base vocabulary."""
+    bip39_path = os.path.join(os.path.dirname(__file__), "bip39_wordlist.txt")
+    
+    if os.path.exists(bip39_path):
+        with open(bip39_path, 'r') as f:
+            words = [line.strip() for line in f if line.strip()]
+    else:
+        words = BIP39_WORDS[:100]
+    
+    start_id = len(self.special_tokens)
+    for i, word in enumerate(words):
+        if word not in self.vocab:
+            self.vocab[word] = start_id + i
+            self.id_to_token[start_id + i] = word
+            self.token_weights[word] = 1.0
+            self.basin_coords[word] = self._compute_basin_coord(word, i)
+            
+            # âœ… POPULATE bip39_words TABLE
+            if PSYCOPG2_AVAILABLE and os.environ.get('DATABASE_URL'):
+                try:
+                    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO bip39_words (word, word_index, created_at)
+                        VALUES (%s, %s, NOW())
+                        ON CONFLICT (word) DO NOTHING
+                    """, (word, i))
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    print(f"[QIGTokenizer] Failed to populate bip39_words: {e}")
+```
+
+---
+
+### Fix 5: Purge Existing Junk
+
+**SQL Script**: `cleanup_vocabulary_pollution.sql`
+
+```sql
+-- DELETE junk tokens from tokenizer_vocabulary
+DELETE FROM tokenizer_vocabulary
+WHERE 
+    -- Pure numbers
+    token ~ '^\d+$'
+    OR
+    -- Alphanumeric combinations
+    token ~ '\d'
+    OR
+    -- Starts with number
+    token ~ '^\d';
+
+-- Report what was deleted
+SELECT 
+    COUNT(*) as deleted_tokens,
+    string_agg(token, ', ' ORDER BY token) as examples
+FROM tokenizer_vocabulary
+WHERE token ~ '\d';
+
+-- Verify only English words remain
+SELECT COUNT(*) as remaining_tokens
+FROM tokenizer_vocabulary
+WHERE token !~ '\d' AND token !~ '^\d';
+```
+
+**Run After Fixes Deployed**:
+```bash
+psql $DATABASE_URL -f cleanup_vocabulary_pollution.sql
+```
+
+---
+
+## 4. VALIDATION AFTER FIX
+
+### Test 1: Reject Junk Tokens
+
+```python
+def test_reject_alphanumeric():
+    tokenizer = QIGTokenizer()
+    
+    # These should be REJECTED
+    junk_tokens = [
+        "0001",
+        "bitcoin1",
+        "bitcoin123",
+        "000btc",
+        "test@123",
+    ]
+    
+    for token in junk_tokens:
+        assert not tokenizer._is_english_word(token), \
+            f"Should reject: {token}"
+```
+
+### Test 2: Accept English Words
+
+```python
+def test_accept_english():
+    tokenizer = QIGTokenizer()
+    
+    # These should be ACCEPTED
+    english_tokens = [
+        "bitcoin",
+        "cryptocurrency",
+        "co-worker",
+        "don't",
+        "self-aware",
+    ]
+    
+    for token in english_tokens:
+        assert tokenizer._is_english_word(token), \
+            f"Should accept: {token}"
+```
+
+### Test 3: Verify Table Population
+
+```sql
+-- learned_words should have entries
+SELECT COUNT(*) FROM learned_words;
+-- Expected: > 0 (after research returns words)
+
+-- bip39_words should have 2048 words
+SELECT COUNT(*) FROM bip39_words;
+-- Expected: 2048
+
+-- tokenizer_vocabulary should have NO digits
+SELECT COUNT(*) FROM tokenizer_vocabulary WHERE token ~ '\d';
+-- Expected: 0
+```
+
+---
+
+## 5. MIGRATION PLAN
+
+### Phase 1: Add Validation (Immediate)
+
+**File**: `qig-backend/qig_tokenizer.py`
+
+1. Add `_is_english_word()` method
+2. Apply in `add_vocabulary_observations()`
+3. Test with sample observations
+
+**Timeline**: 1 hour  
+**Risk**: LOW - only adds validation, doesn't break existing
+
+---
+
+### Phase 2: Separate Passphrase Storage
+
+**File**: `qig-backend/migrations/create_test_passphrases.sql`
+
+1. Create `test_passphrases` table
+2. Migrate existing test phrases from vocabulary
+3. Update Node.js tracker to use new table
+
+**Timeline**: 2 hours  
+**Risk**: MEDIUM - requires data migration
+
+---
+
+### Phase 3: Populate Tracking Tables
+
+**Files**: 
+- `qig_tokenizer.py:_load_bip39_base()`
+- `qig_tokenizer.py:add_vocabulary_observations()`
+
+1. Add learned_words population
+2. Add bip39_words population
+3. Verify both tables populated correctly
+
+**Timeline**: 1 hour  
+**Risk**: LOW - only adds inserts, doesn't modify existing
+
+---
+
+### Phase 4: Purge Junk Tokens
+
+**File**: `cleanup_vocabulary_pollution.sql`
+
+1. Backup tokenizer_vocabulary table
+2. Run DELETE queries
+3. Verify only English words remain
+4. Update vocabulary statistics
+
+**Timeline**: 30 minutes  
+**Risk**: MEDIUM - modifies data, requires backup
+
+---
+
+### Phase 5: Validation & Testing
+
+1. Run test suite
+2. Verify no junk tokens accepted
+3. Verify English words accepted
+4. Check table population
+5. Monitor for 24 hours
+
+**Timeline**: 2 hours  
+**Risk**: LOW - validation only
+
+---
+
+## 6. FILES TO MODIFY
+
+### Python
+
+| File | Lines | Change |
+|------|-------|--------|
+| `qig_tokenizer.py` | 203-304 | Add `_is_english_word()` validation |
+| `qig_tokenizer.py` | 242-248 | Apply validation before vocab insert |
+| `qig_tokenizer.py` | 82-95 | Populate `bip39_words` table |
+| `qig_tokenizer.py` | 260-261 | Populate `learned_words` table |
+
+### SQL
+
+| File | Purpose |
+|------|---------|
+| `create_test_passphrases.sql` | New table for test phrases |
+| `cleanup_vocabulary_pollution.sql` | Purge junk tokens |
+| `migrate_passphrases.sql` | Move test phrases to new table |
+
+### Node.js
+
+| File | Change |
+|------|--------|
+| `vocabulary-tracker.ts` | Use `test_passphrases` table for test patterns |
+
+---
+
+## 7. CRITICAL REMINDERS
+
+### âŒ FORBIDDEN
+
+1. **Templates** - User explicitly forbids templates
+2. **Test passphrases as vocabulary** - Should be separate DB
+3. **Alphanumeric combinations** - Not English words
+4. **Pure numbers** - Not vocabulary tokens
+
+### âœ… REQUIRED
+
+1. **English word validation** - Every token checked
+2. **Separate passphrase storage** - Different table
+3. **Populate tracking tables** - learned_words, bip39_words
+4. **Purge existing junk** - Clean up pollution
+
+---
+
+## 8. SUCCESS CRITERIA
+
+**After fix deployed**:
+
+1. âœ… `tokenizer_vocabulary` contains ONLY English words
+2. âœ… `learned_words` table populated with research discoveries
+3. âœ… `bip39_words` table has 2048 BIP39 words
+4. âœ… `test_passphrases` table tracks test patterns separately
+5. âœ… New junk tokens REJECTED on arrival
+6. âœ… English words ACCEPTED and added properly
+
+---
+
+## 9. ESTIMATED EFFORT
+
+| Phase | Time | Risk |
+|-------|------|------|
+| Add validation | 1h | LOW |
+| Separate storage | 2h | MEDIUM |
+| Populate tables | 1h | LOW |
+| Purge junk | 30m | MEDIUM |
+| Validation | 2h | LOW |
+| **TOTAL** | **6.5h** | **MEDIUM** |
+
+---
+
+## 10. IMMEDIATE NEXT STEPS
+
+1. **Implement `_is_english_word()` validation** (1 hour)
+2. **Test with sample observations** (30 min)
+3. **Create `test_passphrases` table** (30 min)
+4. **Backup vocabulary table** (5 min)
+5. **Deploy fixes to dev environment** (1 hour)
+6. **Run validation tests** (30 min)
+7. **Purge junk from production** (after validation passes)
+
+---
+
+**END PLAN**
+
+**Status**: READY TO IMPLEMENT  
+**Owner**: Engineering Team  
+**Priority**: CRITICAL - Blocks vocabulary integrity

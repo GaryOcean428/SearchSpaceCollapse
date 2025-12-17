@@ -1,0 +1,184 @@
+2025-12-17 09:35:26.77
+12e4318d
+User
+[TestedPhrasesDB] WASTE DETECTED: Phrase "response liquid race shift nev..." re-tested (1 times)
+2025-12-17 09:36:55.81
+12e4318d
+User
+[BlockchainAPI] Timeout with Mempool.space (10s exceeded)
+2025-12-17 09:36:59.34
+12e4318d
+User
+[TestedPhrasesDB] WASTE DETECTED: Phrase "secretsatoshi3921..." re-tested (1 times)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at node:internal/deps/undici/undici:13510:13
+2025-12-17 09:38:59.97
+12e4318d
+User
+at processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at async OlympusClient.assessTarget (file:///home/runner/workspace/dist/index.js:6734:28)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at async fetchWithRetry (file:///home/runner/workspace/dist/index.js:6554:24)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at process.processTimers (node:internal/timers:516:9)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at async OceanSessionManager.runAgentLoop (file:///home/runner/workspace/dist/index.js:44170:26)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at async OceanAgent.runAutonomous (file:///home/runner/workspace/dist/index.js:39469:17)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at runNextTicks (node:internal/process/task_queues:64:3)
+2025-12-17 09:38:59.97
+12e4318d
+User
+at async OceanAgent.consultOlympusPantheon (file:///home/runner/workspace/dist/index.js:42783:34)
+2025-12-17 09:38:59.97
+12e4318d
+User
+[OlympusClient] Assess exception: DOMException [AbortError]: This operation was aborted
+2025-12-17 09:39:05.59
+12e4318d
+User
+[PythonManager] ⚠️ Backend is no longer ready
+2025-12-17 09:39:05.59
+12e4318d
+User
+[PythonManager] Backend unhealthy after 5 consecutive failures
+2025-12-17 09:39:05.59
+12e4318d
+User
+[PythonManager] ❌ Backend is unhealthy - requests will be queued
+2025-12-17 09:39:44.67
+12e4318d
+User
+[FreeBlockchainAPI] Blockchain.com bulk failed: This operation was aborted
+2025-12-17 09:40:05.23
+12e4318d
+User
+[FreeBlockchainAPI] Mempool bulk failed: Too many failures: 10/10
+2025-12-17 09:41:05.24
+12e4318d
+User
+at async OceanQIGBackend.syncToNodeJS (file:///home/runner/workspace/dist/index.js:15138:28)
+2025-12-17 09:41:05.24
+12e4318d
+User
+at async Timeout._onTimeout (file:///home/runner/workspace/dist/index.js:55921:7)
+2025-12-17 09:41:05.24
+12e4318d
+User
+at async fetchWithRetry2 (file:///home/runner/workspace/dist/index.js:14678:24)
+2025-12-17 09:41:05.24
+12e4318d
+User
+[OceanQIGBackend] Sync export exception: Error: Request timeout after 30000ms
+2025-12-17 09:41:05.24
+12e4318d
+User
+at listOnTimeout (node:internal/timers:545:9)
+2025-12-17 09:41:05.24
+12e4318d
+User
+at async syncFromPythonToNodeJS (file:///home/runner/workspace/dist/index.js:55741:18)
+2025-12-17 09:41:05.24
+12e4318d
+User
+at runNextTicks (node:internal/process/task_queues:64:3)
+2025-12-17 09:41:05.24
+12e4318d
+User
+at process.processTimers (node:internal/timers:519:7)
+2025-12-17 09:41:05.24
+12e4318d
+User
+at fetchWithTimeout (file:///home/runner/workspace/dist/index.js:14670:13)
+2025-12-17 09:41:05.24
+12e4318d
+User
+at processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-17 09:41:05.38
+12e4318d
+User
+[FreeBlockchainAPI] Blockstream bulk failed: Too many failures: 10/10
+2025-12-17 09:41:05.38
+12e4318d
+User
+[FreeBlockchainAPI] All bulk providers failed, using individual queries
+2025-12-17 09:41:46.17
+12e4318d
+User
+[FreeBlockchainAPI] Blockstream marked unhealthy after 3 failures: This operation was aborted
+2025-12-17 09:41:50.97
+12e4318d
+User
+at async OceanAgent.generateConstellationHypotheses (file:///home/runner/workspace/dist/index.js:41329:36)
+2025-12-17 09:41:50.97
+12e4318d
+User
+at async OceanAgent.runAutonomous (file:///home/runner/workspace/dist/index.js:39516:35)
+2025-12-17 09:41:50.97
+12e4318d
+User
+at runNextTicks (node:internal/process/task_queues:64:3)
+2025-12-17 09:41:50.97
+12e4318d
+User
+at async OceanConstellationStub.generateHypothesesForRole (file:///home/runner/workspace/dist/index.js:34440:26)
+2025-12-17 09:41:50.97
+12e4318d
+User
+at processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-17 09:41:50.97
+12e4318d
+User
+at async OceanAgent.generateRefinedHypotheses (file:///home/runner/workspace/dist/index.js:41202:41)
+2025-12-17 09:41:50.97
+12e4318d
+User
+at listOnTimeout (node:internal/timers:545:9)
+2025-12-17 09:41:50.97
+12e4318d
+User
+at async OceanQIGBackend.process (file:///home/runner/workspace/dist/index.js:14875:30)
+2025-12-17 09:41:50.97
+12e4318d
+User
+[OceanQIGBackend] Process exception after max retries: Error: Request timeout after 30000ms
+2025-12-17 09:41:50.97
+12e4318d
+User
+[OceanQIGBackend] Vocabulary update failed: Request timeout after 30000ms
+2025-12-17 09:41:50.97
+12e4318d
+User
+at fetchWithTimeout (file:///home/runner/workspace/dist/index.js:14670:13)
+2025-12-17 09:41:50.97
+12e4318d
+User
+[PythonSync] Error syncing vocabulary to Python: Request timeout after 30000ms
+2025-12-17 09:41:50.97
+12e4318d
+User
+at process.processTimers (node:internal/timers:519:7)
+2025-12-17 09:42:47.77
+12e4318d
+User
+[PythonSync] Error syncing vocabulary to Python: Request timeout after 30000ms
+2025-12-17 09:42:47.77
+12e4318d
+User
+[OceanQIGBackend] Vocabulary update failed: Request timeout after 30000ms
