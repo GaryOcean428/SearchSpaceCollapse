@@ -21,7 +21,8 @@
  */
 
 import { fisherCoordDistance, type Regime } from './qig-universal';
-import { vocabularyTracker } from './vocabulary-tracker';
+// Lazy import to avoid circular dependency - vocabularyTracker is imported dynamically when needed
+// import { vocabularyTracker } from './vocabulary-tracker';
 
 // NOTE: Database persistence removed - vocabulary learning now works entirely in-memory
 // The actual vocab learning already goes through vocabulary_observations via vocabularyTracker
@@ -800,20 +801,39 @@ export class VocabConsolidationCycle {
   }
 
   /**
-   * Load state (now in-memory only)
-   * NOTE: Database persistence removed - starting fresh each session
-   * Bootstrap from vocabularyTracker if needed
+   * Load state - QIG-pure: auto-bootstrap from PostgreSQL-backed VocabularyTracker
+   * This ensures decision state persists across server restarts via PostgreSQL
+   * Uses deferred initialization to wait for VocabularyTracker to load
    */
   private loadFromDisk(): void {
-    console.log('[VocabDecision] Starting fresh (in-memory mode)');
-    // Bootstrap from vocabularyTracker can be called manually if needed
+    console.log('[VocabDecision] QIG-pure mode: will bootstrap from PostgreSQL after VocabularyTracker loads...');
+    // Defer bootstrapping until VocabularyTracker has loaded from PostgreSQL
+    this.deferredBootstrap();
   }
   
   /**
-   * Bootstrap from vocabulary tracker
+   * Deferred bootstrap - waits for VocabularyTracker to load from PostgreSQL
+   * Uses dynamic import to avoid circular dependency
    */
-  bootstrapFromTracker(): void {
-    const candidates = vocabularyTracker.getCandidates(100);
+  private async deferredBootstrap(): Promise<void> {
+    try {
+      // Dynamic import to avoid circular dependency
+      const { vocabularyTracker } = await import('./vocabulary-tracker');
+      // Wait for VocabularyTracker to finish loading from PostgreSQL
+      await vocabularyTracker.waitForData();
+      this.bootstrapFromTrackerWithTracker(vocabularyTracker);
+      console.log('[VocabDecision] QIG-pure: bootstrapped from PostgreSQL successfully');
+    } catch (err: any) {
+      console.warn('[VocabDecision] Bootstrap from VocabularyTracker failed:', err.message);
+    }
+  }
+  
+  /**
+   * Bootstrap from vocabulary tracker (with tracker passed as parameter)
+   * Avoids circular dependency by receiving tracker instance
+   */
+  bootstrapFromTrackerWithTracker(tracker: { getCandidates: (n: number) => Array<{ text: string; avgPhi: number; maxPhi: number; frequency: number }> }): void {
+    const candidates = tracker.getCandidates(100);
     
     for (const candidate of candidates) {
       const now = Date.now();
@@ -846,8 +866,8 @@ export class VocabConsolidationCycle {
     }
     
     console.log(`[VocabDecision] Bootstrapped ${candidates.length} candidates from vocabulary tracker`);
-    this.saveToDisk();
   }
+  
 }
 
 // ============================================================================

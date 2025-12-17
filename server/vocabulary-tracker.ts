@@ -861,6 +861,21 @@ export class VocabularyTracker {
       throw error;
     }
   }
+  /**
+   * Wait for PostgreSQL data to finish loading
+   * Call this before accessing data synchronously
+   */
+  async waitForData(): Promise<void> {
+    await this.dataLoaded;
+  }
+  
+  /**
+   * Check if data has finished loading (non-blocking)
+   */
+  isDataLoaded(): boolean {
+    // Simple check by seeing if we have any observations
+    return this.phraseObservations.size > 0 || this.sequenceObservations.size > 0;
+  }
 }
 
 // Singleton instance

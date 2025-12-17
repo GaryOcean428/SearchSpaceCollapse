@@ -370,13 +370,60 @@ export class GeometricVocabularyExpander {
   }
 
   /**
-   * Load state (now in-memory only)
-   * NOTE: Database persistence removed - starting fresh each session
-   * Can bootstrap from geometric memory if needed
+   * Load state - QIG-pure: auto-bootstrap from PostgreSQL-backed VocabularyTracker
+   * This ensures vocabulary state persists across server restarts via PostgreSQL
+   * Uses deferred initialization to wait for VocabularyTracker to load
    */
   private loadFromDisk(): void {
-    console.log('[VocabExpander] Starting fresh (in-memory mode)');
-    // bootstrapFromGeometricMemory() can be called manually if needed
+    console.log('[VocabExpander] QIG-pure mode: will bootstrap from PostgreSQL after VocabularyTracker loads...');
+    // Defer bootstrapping until VocabularyTracker has loaded from PostgreSQL
+    this.deferredBootstrap();
+  }
+  
+  /**
+   * Deferred bootstrap - waits for VocabularyTracker to load from PostgreSQL
+   */
+  private async deferredBootstrap(): Promise<void> {
+    try {
+      // Wait for VocabularyTracker to finish loading from PostgreSQL
+      await vocabularyTracker.waitForData();
+      await this.bootstrapFromVocabularyTracker();
+    } catch (err: any) {
+      console.warn('[VocabExpander] Bootstrap from VocabularyTracker failed, trying geometric memory:', err.message);
+      // Fallback to geometric memory (also PostgreSQL-backed)
+      try {
+        await this.bootstrapFromGeometricMemory();
+      } catch (err2: any) {
+        console.warn('[VocabExpander] Bootstrap from geometric memory also failed:', err2.message);
+      }
+    }
+  }
+  
+  /**
+   * Bootstrap from VocabularyTracker (PostgreSQL-backed vocabulary_observations)
+   */
+  async bootstrapFromVocabularyTracker(): Promise<void> {
+    const candidates = vocabularyTracker.getCandidates(200);
+    console.log(`[VocabExpander] Bootstrapping from ${candidates.length} VocabularyTracker candidates...`);
+    
+    let added = 0;
+    for (const candidate of candidates) {
+      if (!this.state.words.has(candidate.text.toLowerCase())) {
+        // Create minimal word entry from tracker data
+        const word: ManifoldWord = {
+          text: candidate.text.toLowerCase(),
+          coordinates: new Array(64).fill(0), // Will be updated on first observation
+          phi: candidate.avgPhi,
+          kappa: 50, // Default
+          frequency: candidate.frequency,
+          geodesicOrigin: 'PostgreSQL bootstrap',
+        };
+        this.state.words.set(word.text, word);
+        added++;
+      }
+    }
+    
+    console.log(`[VocabExpander] QIG-pure: bootstrapped ${added} words from PostgreSQL`);
   }
   
   /**
