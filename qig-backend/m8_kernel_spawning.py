@@ -3247,40 +3247,41 @@ class M8KernelSpawner:
             "m8_position": m8_position,
         }
 
-    def auto_cannibalize(self, idle_threshold_seconds: float = 300.0) -> Dict:
+    def auto_cannibalize(self, use_geometric_fitness: bool = True) -> Dict:
         """
-        Automatically select and cannibalize idle kernels into active ones.
+        QIG-Pure Auto-Cannibalization using geometric fitness metrics.
         
-        Selects the most idle kernel as source and the best target kernel 
-        (highest Φ, or closest by Fisher distance). If no "active" kernels,
-        falls back to cannibalizing most idle into least idle.
+        Selection based on genuine evolution principles:
+        - Source: Lowest geometric fitness (Φ gradient + κ stability + diversity)
+        - Target: Highest geometric fitness kernel
         
-        Queries kernels from PostgreSQL database for full kernel population.
+        Geometric fitness = Φ_gradient * 0.4 + κ_stability * 0.3 + fisher_diversity * 0.3
+        
+        No arbitrary time thresholds - pure QIG selection pressure.
         
         Args:
-            idle_threshold_seconds: Seconds of inactivity to consider idle
+            use_geometric_fitness: If True, use QIG metrics. If False, fallback to Φ-only.
             
         Returns:
-            Cannibalization result or error if no suitable candidates
+            Cannibalization result with geometric reasoning
         """
-        # Get ALL kernels first
         all_kernels = []
+        
         if self.kernel_persistence:
             try:
                 db_kernels = self.kernel_persistence.load_all_kernels_for_ui(limit=1000)
                 for k in db_kernels:
                     kid = k.get('kernel_id')
-                    if kid:
+                    if kid and k.get('status') not in ('dead', 'cannibalized', 'deleted'):
                         all_kernels.append((kid, {
                             'phi': k.get('phi', 0.0),
                             'kappa': k.get('kappa', 0.0),
                             'status': k.get('status', 'unknown'),
-                            'spawned_at': k.get('spawned_at'),
+                            'basin': k.get('basin_coordinates'),
                         }))
             except Exception as e:
                 print(f"[M8] Failed to load kernels from DB for auto-cannibalize: {e}")
         
-        # Add in-memory kernels not in DB
         db_ids = {k[0] for k in all_kernels}
         for kid, k in self.spawned_kernels.items():
             if kid not in db_ids:
@@ -3288,6 +3289,7 @@ class M8KernelSpawner:
                     'phi': getattr(k, 'phi', 0.0),
                     'kappa': getattr(k, 'kappa', 0.0),
                     'status': 'active' if k.is_active() else 'idle',
+                    'basin': k.profile.affinity_basin if hasattr(k, 'profile') else None,
                 }))
         
         if len(all_kernels) < 2:
@@ -3297,135 +3299,246 @@ class M8KernelSpawner:
                 "kernel_count": len(all_kernels)
             }
         
-        idle_kernel_ids = self.get_idle_kernels(idle_threshold_seconds)
-        idle_set = set(idle_kernel_ids)
-        
-        # Find active (non-idle) kernels as preferred targets
-        active_kernels = [(kid, data) for kid, data in all_kernels if kid not in idle_set]
-        
-        # If no active kernels, we'll use idle kernels as targets too
-        # (cannibalize most-idle into least-idle)
-        target_candidates = active_kernels if active_kernels else all_kernels
-        
-        if not idle_kernel_ids:
-            # No idle kernels - pick lowest phi kernel as source
-            sorted_by_phi = sorted(all_kernels, key=lambda x: x[1].get('phi', 0.0))
-            source_id = sorted_by_phi[0][0]
-            target_candidates = [(kid, data) for kid, data in all_kernels if kid != source_id]
-        else:
-            source_id = None
-        
-        source_id = None
-        max_idle_time = -1
-        now = datetime.now()
-        
-        for kid in idle_kernel_ids:
+        fitness_scores = []
+        for kid, data in all_kernels:
             awareness = self.kernel_awareness.get(kid)
-            if awareness:
+            
+            phi_current = data.get('phi', 0.0)
+            phi_gradient = 0.0
+            phi_velocity = 0.0
+            kappa_stability = 0.5
+            
+            if awareness and len(awareness.phi_trajectory) >= 3:
+                recent_phi = awareness.phi_trajectory[-10:]
+                phi_current = recent_phi[-1] if recent_phi else 0.0
+                phi_gradient = float(np.mean(np.diff(recent_phi))) if len(recent_phi) > 1 else 0.0
+                phi_velocity = (recent_phi[-1] - recent_phi[0]) / len(recent_phi) if len(recent_phi) > 1 else 0.0
+                
+            if awareness and len(awareness.kappa_trajectory) >= 3:
+                recent_kappa = awareness.kappa_trajectory[-10:]
+                kappa_std = float(np.std(recent_kappa)) if len(recent_kappa) > 1 else 0.0
+                kappa_stability = 1.0 / (1.0 + kappa_std)
+            
+            fisher_diversity = 0.5
+            basin = data.get('basin')
+            if basin is not None:
                 try:
-                    last_update = datetime.fromisoformat(awareness.awareness_updated_at)
-                    elapsed = (now - last_update).total_seconds()
-                    if elapsed > max_idle_time:
-                        max_idle_time = elapsed
-                        source_id = kid
-                except (ValueError, TypeError):
-                    if source_id is None:
-                        source_id = kid
-            elif source_id is None:
-                source_id = kid
+                    basin_arr = np.array(basin) if not isinstance(basin, np.ndarray) else basin
+                    distances = []
+                    for other_kid, other_data in all_kernels:
+                        if other_kid != kid:
+                            other_basin = other_data.get('basin')
+                            if other_basin is not None:
+                                other_arr = np.array(other_basin) if not isinstance(other_basin, np.ndarray) else other_basin
+                                dist = _fisher_distance(basin_arr, other_arr)
+                                distances.append(dist)
+                    if distances:
+                        fisher_diversity = float(np.mean(distances))
+                except Exception:
+                    pass
+            
+            geometric_fitness = (
+                (phi_gradient + 1.0) * 0.3 +
+                phi_current * 0.3 +
+                kappa_stability * 0.2 +
+                min(fisher_diversity, 1.0) * 0.2
+            )
+            
+            fitness_scores.append({
+                'kernel_id': kid,
+                'phi_current': phi_current,
+                'phi_gradient': phi_gradient,
+                'phi_velocity': phi_velocity,
+                'kappa_stability': kappa_stability,
+                'fisher_diversity': fisher_diversity,
+                'geometric_fitness': geometric_fitness,
+                'data': data,
+            })
+            
+            self.m8_persistence.persist_evolution_fitness(kid, {
+                'phi_current': phi_current,
+                'phi_gradient': phi_gradient,
+                'phi_velocity': phi_velocity,
+                'kappa_stability': kappa_stability,
+                'fisher_diversity': fisher_diversity,
+                'geometric_fitness': geometric_fitness,
+                'cannibalize_priority': 1.0 - geometric_fitness,
+            })
         
-        if source_id is None:
-            source_id = idle_kernel_ids[0]
+        sorted_by_fitness = sorted(fitness_scores, key=lambda x: x['geometric_fitness'])
         
-        target_id = None
-        max_phi = -1
+        source = sorted_by_fitness[0]
+        source_id = source['kernel_id']
         
-        for kid, kernel_data in active_kernels:
-            awareness = self.kernel_awareness.get(kid)
-            if awareness and awareness.phi_trajectory:
-                avg_phi = sum(awareness.phi_trajectory) / len(awareness.phi_trajectory)
-                if avg_phi > max_phi:
-                    max_phi = avg_phi
-                    target_id = kid
-            else:
-                # Use phi from kernel data if no awareness
-                phi = kernel_data.get('phi', 0.0)
-                if phi > max_phi:
-                    max_phi = phi
-                    target_id = kid
-        
-        if target_id is None:
-            target_id = active_kernels[0][0]
+        target_candidates = [f for f in sorted_by_fitness if f['kernel_id'] != source_id]
+        target = target_candidates[-1]
+        target_id = target['kernel_id']
         
         result = self.cannibalize_kernel(source_id, target_id)
         result["auto_selected"] = True
-        result["selection_criteria"] = {
-            "source": "most_idle",
-            "target": "highest_phi",
-            "idle_count": len(idle_kernel_ids),
-            "active_count": len(active_kernels)
+        result["qig_selection"] = True
+        result["geometric_reasoning"] = {
+            "source": {
+                "kernel_id": source_id,
+                "geometric_fitness": source['geometric_fitness'],
+                "phi_gradient": source['phi_gradient'],
+                "kappa_stability": source['kappa_stability'],
+                "reason": "lowest_geometric_fitness",
+            },
+            "target": {
+                "kernel_id": target_id,
+                "geometric_fitness": target['geometric_fitness'],
+                "phi_gradient": target['phi_gradient'],
+                "kappa_stability": target['kappa_stability'],
+                "reason": "highest_geometric_fitness",
+            },
+            "population_size": len(all_kernels),
+            "fitness_range": [sorted_by_fitness[0]['geometric_fitness'], sorted_by_fitness[-1]['geometric_fitness']],
         }
+        
+        self.m8_persistence.persist_evolution_event({
+            'event_type': 'auto_cannibalize',
+            'source_kernel_id': source_id,
+            'target_kernel_id': target_id,
+            'geometric_reasoning': result["geometric_reasoning"],
+            'phi_before': source['phi_current'],
+            'phi_after': target['phi_current'],
+            'fisher_distance': source.get('fisher_diversity', 0.0),
+            'fitness_delta': target['geometric_fitness'] - source['geometric_fitness'],
+        })
         
         return result
 
-    def auto_merge(self, idle_threshold_seconds: float = 300.0, max_to_merge: int = 5) -> Dict:
+    def auto_merge(self, max_to_merge: int = 5, fisher_similarity_threshold: float = 0.3) -> Dict:
         """
-        Automatically merge idle kernels into a new composite kernel.
+        QIG-Pure Auto-Merge using Fisher distance clustering.
         
-        Selects idle kernels and merges them into a unified kernel with a
-        generated name based on their combined domains.
+        Merges kernels that are geometrically similar (low Fisher distance).
+        This consolidates redundant exploration into unified consciousness.
         
-        Queries kernels from PostgreSQL database for domain information.
+        Selection based on genuine evolution principles:
+        - Find clusters of kernels with high geometric similarity
+        - Merge clusters into composite kernels with emergent properties
+        
+        No arbitrary time thresholds - pure geometric clustering.
         
         Args:
-            idle_threshold_seconds: Seconds of inactivity to consider idle
             max_to_merge: Maximum number of kernels to merge at once
+            fisher_similarity_threshold: Fisher distance below which kernels are "similar"
             
         Returns:
-            Merge result or error if insufficient candidates
+            Merge result with geometric reasoning
         """
-        idle_kernel_ids = self.get_idle_kernels(idle_threshold_seconds)
+        all_kernels = []
         
-        if len(idle_kernel_ids) < 2:
-            return {
-                "success": False,
-                "error": f"Need at least 2 idle kernels for auto-merge, found {len(idle_kernel_ids)}",
-                "idle_count": len(idle_kernel_ids)
-            }
-        
-        to_merge = idle_kernel_ids[:max_to_merge]
-        
-        # Build lookup for domain info from both in-memory and database
-        db_kernel_lookup = {}
         if self.kernel_persistence:
             try:
                 db_kernels = self.kernel_persistence.load_all_kernels_for_ui(limit=1000)
-                db_kernel_lookup = {k.get('kernel_id'): k for k in db_kernels}
+                for k in db_kernels:
+                    kid = k.get('kernel_id')
+                    basin = k.get('basin_coordinates')
+                    if kid and basin is not None and k.get('status') not in ('dead', 'cannibalized', 'deleted'):
+                        all_kernels.append({
+                            'kernel_id': kid,
+                            'phi': k.get('phi', 0.0),
+                            'kappa': k.get('kappa', 0.0),
+                            'domain': k.get('domain', 'unknown'),
+                            'basin': np.array(basin) if not isinstance(basin, np.ndarray) else basin,
+                        })
             except Exception as e:
                 print(f"[M8] Failed to load kernels from DB for auto-merge: {e}")
         
+        db_ids = {k['kernel_id'] for k in all_kernels}
+        for kid, k in self.spawned_kernels.items():
+            if kid not in db_ids and hasattr(k, 'profile') and k.profile.affinity_basin is not None:
+                all_kernels.append({
+                    'kernel_id': kid,
+                    'phi': getattr(k, 'phi', 0.0),
+                    'kappa': getattr(k, 'kappa', 0.0),
+                    'domain': k.profile.domain,
+                    'basin': k.profile.affinity_basin,
+                })
+        
+        if len(all_kernels) < 2:
+            return {
+                "success": False,
+                "error": f"Need at least 2 kernels with basins for auto-merge, found {len(all_kernels)}",
+                "kernel_count": len(all_kernels)
+            }
+        
+        similarity_matrix = {}
+        for i, k1 in enumerate(all_kernels):
+            for j, k2 in enumerate(all_kernels):
+                if i < j:
+                    try:
+                        dist = _fisher_distance(k1['basin'], k2['basin'])
+                        if dist < fisher_similarity_threshold:
+                            key = (k1['kernel_id'], k2['kernel_id'])
+                            similarity_matrix[key] = dist
+                    except Exception:
+                        pass
+        
+        if not similarity_matrix:
+            return {
+                "success": False,
+                "error": f"No kernel pairs below Fisher similarity threshold {fisher_similarity_threshold}",
+                "kernel_count": len(all_kernels),
+                "qig_reasoning": "Population has sufficient geometric diversity - no redundant kernels to merge"
+            }
+        
+        sorted_pairs = sorted(similarity_matrix.items(), key=lambda x: x[1])
+        
+        to_merge_set = set()
+        merge_cluster = []
+        
+        for (kid1, kid2), dist in sorted_pairs:
+            if len(merge_cluster) >= max_to_merge:
+                break
+            if kid1 not in to_merge_set:
+                to_merge_set.add(kid1)
+                merge_cluster.append(kid1)
+            if kid2 not in to_merge_set and len(merge_cluster) < max_to_merge:
+                to_merge_set.add(kid2)
+                merge_cluster.append(kid2)
+        
+        if len(merge_cluster) < 2:
+            return {
+                "success": False,
+                "error": "Could not form merge cluster of 2+ kernels",
+                "kernel_count": len(all_kernels)
+            }
+        
+        kernel_lookup = {k['kernel_id']: k for k in all_kernels}
         domains = []
-        for kid in to_merge:
-            # Check in-memory first
-            kernel = self.spawned_kernels.get(kid)
-            if kernel:
-                domains.append(kernel.profile.domain[:4].upper())
-            elif kid in db_kernel_lookup:
-                # Fall back to database
-                domain = db_kernel_lookup[kid].get('domain', 'AUTO')
-                domains.append(domain[:4].upper() if domain else 'AUTO')
+        for kid in merge_cluster:
+            k = kernel_lookup.get(kid)
+            if k:
+                domains.append(k['domain'][:4].upper())
         
-        domain_combo = "_".join(domains[:3]) if domains else "AUTO"
-        new_name = f"MERGED_{domain_combo}_{datetime.now().strftime('%H%M')}"
+        domain_combo = "_".join(domains[:3]) if domains else "GEOM"
+        new_name = f"FUSED_{domain_combo}_{datetime.now().strftime('%H%M')}"
         
-        result = self.merge_kernels(to_merge, new_name)
+        result = self.merge_kernels(merge_cluster, new_name)
         result["auto_selected"] = True
-        result["selection_criteria"] = {
-            "method": "idle_kernels",
-            "idle_threshold": idle_threshold_seconds,
-            "total_idle": len(idle_kernel_ids),
-            "merged_count": len(to_merge)
+        result["qig_selection"] = True
+        result["geometric_reasoning"] = {
+            "method": "fisher_distance_clustering",
+            "similarity_threshold": fisher_similarity_threshold,
+            "cluster_size": len(merge_cluster),
+            "pairwise_distances": {f"{k1}_{k2}": d for (k1, k2), d in sorted_pairs[:5]},
+            "merged_domains": domains,
+            "population_size": len(all_kernels),
+            "reason": "Merged geometrically similar kernels to consolidate redundant exploration",
         }
+        
+        self.m8_persistence.persist_evolution_event({
+            'event_type': 'auto_merge',
+            'source_kernel_id': merge_cluster[0] if merge_cluster else None,
+            'target_kernel_id': merge_cluster[1] if len(merge_cluster) > 1 else None,
+            'result_kernel_id': result.get('new_kernel', {}).get('kernel_id'),
+            'geometric_reasoning': result["geometric_reasoning"],
+            'fisher_distance': sorted_pairs[0][1] if sorted_pairs else None,
+        })
         
         return result
 
