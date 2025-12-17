@@ -320,9 +320,10 @@ export default function OlympusPage() {
     refetchInterval: 5000,
   });
 
-  const { data: activeDebates } = useQuery<Debate[]>({
+  const { data: activeDebates } = useQuery<{debates: Debate[], count: number}, Error, Debate[]>({
     queryKey: QUERY_KEYS.olympus.debatesActive(),
     refetchInterval: 10000,
+    select: (data) => data?.debates || [],
   });
 
   return (
