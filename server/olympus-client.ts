@@ -282,6 +282,13 @@ export class OlympusClient {
    * Poll all gods in the pantheon for assessments on a target
    */
   async pollPantheon(target: string, context?: ObservationContext): Promise<PollResult | null> {
+    // Check if backend is ready before making request
+    const pythonManager = getPythonManager();
+    if (!pythonManager.ready()) {
+      console.warn('[OlympusClient] pollPantheon: Backend not ready, returning null');
+      return null;
+    }
+    
     try {
       const response = await fetchWithRetry(`${this.backendUrl}/olympus/poll`, {
         method: 'POST',
@@ -312,6 +319,13 @@ export class OlympusClient {
    * Get Zeus's supreme assessment (polls all gods + synthesis)
    */
   async assessTarget(target: string, context?: ObservationContext): Promise<ZeusAssessment | null> {
+    // Check if backend is ready before making request
+    const pythonManager = getPythonManager();
+    if (!pythonManager.ready()) {
+      console.warn('[OlympusClient] assessTarget: Backend not ready, returning null');
+      return null;
+    }
+    
     try {
       const response = await fetchWithRetry(`${this.backendUrl}/olympus/assess`, {
         method: 'POST',

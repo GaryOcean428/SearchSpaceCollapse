@@ -15,8 +15,11 @@ import type { PureQIGScore } from "./qig-universal";
 const DEFAULT_RETRY_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 2000;
 
-// Request timeout configuration (30 seconds for complex QIG operations)
-const REQUEST_TIMEOUT_MS = 30000;
+// Request timeout configuration (45 seconds for complex QIG operations)
+const REQUEST_TIMEOUT_MS = 45000;
+
+// Sync operations are heavier and need longer timeouts
+const SYNC_TIMEOUT_MS = 60000;
 
 // Circuit breaker configuration
 const CIRCUIT_BREAKER_THRESHOLD = 5; // Failures before opening circuit
@@ -82,15 +85,22 @@ async function fetchWithRetry(
       return response;
     } catch (error: any) {
       // On network/timeout errors, retry with backoff
+      const errorType = error.name === 'AbortError' ? 'timeout' : 
+                        error.cause?.code === 'ECONNREFUSED' ? 'connection refused' : 
+                        'network error';
       if (attempt < maxRetries) {
         const delay = Math.min(100 * Math.pow(2, attempt), 2000);
         console.log(
-          `[OceanQIGBackend] Request error for ${url}, retry ${attempt}/${maxRetries} after ${delay}ms:`,
+          `[OceanQIGBackend] ${errorType} for ${url}, retry ${attempt}/${maxRetries} after ${delay}ms:`,
           error.message
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
+      console.error(
+        `[OceanQIGBackend] ${errorType} after ${maxRetries} retries for ${url}:`,
+        error.message
+      );
       throw error;
     }
   }
@@ -662,11 +672,16 @@ export class OceanQIGBackend {
         payload.conceptHistory = temporalState.conceptHistory;
       }
 
-      const response = await fetchWithRetry(`${this.backendUrl}/sync/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetchWithRetry(
+        `${this.backendUrl}/sync/import`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        3,
+        SYNC_TIMEOUT_MS
+      );
 
       if (!response.ok) {
         console.error(
@@ -750,10 +765,15 @@ export class OceanQIGBackend {
       url.searchParams.set("page", page.toString());
       url.searchParams.set("pageSize", pageSize.toString());
 
-      const response = await fetchWithRetry(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetchWithRetry(
+        url.toString(),
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        },
+        3,
+        SYNC_TIMEOUT_MS
+      );
 
       if (!response.ok) {
         console.error(

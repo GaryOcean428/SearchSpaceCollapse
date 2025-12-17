@@ -279,7 +279,7 @@ export class FreeBlockchainAPI {
       const url = `${provider.baseUrl}/balance?active=${batch.join('|')}`;
       
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
       
       try {
         const response = await fetch(url, { signal: controller.signal });
@@ -343,7 +343,7 @@ export class FreeBlockchainAPI {
     for (const batch of batches) {
       const promises = batch.map(async (addr) => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        const timeout = setTimeout(() => controller.abort(), 15000);
         
         try {
           const response = await fetch(
@@ -414,7 +414,7 @@ export class FreeBlockchainAPI {
     for (const batch of batches) {
       const promises = batch.map(async (addr) => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        const timeout = setTimeout(() => controller.abort(), 15000);
         
         try {
           const response = await fetch(
@@ -520,7 +520,7 @@ export class FreeBlockchainAPI {
     }
     
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
     
     try {
       const response = await fetch(url, { signal: controller.signal });
@@ -580,7 +580,7 @@ export class FreeBlockchainAPI {
     }
     
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
     
     try {
       const response = await fetch(url, { signal: controller.signal });
@@ -699,9 +699,10 @@ export class FreeBlockchainAPI {
         provider.lastReset = now;
       }
       
-      if (!provider.healthy && now - provider.lastFailure > 60000) {
+      if (!provider.healthy && now - provider.lastFailure > 30000) {
         provider.healthy = true;
         provider.consecutiveFailures = 0;
+        console.log(`[FreeBlockchainAPI] ${provider.name} recovered after 30s cooldown`);
       }
     }
   }
@@ -718,9 +719,16 @@ export class FreeBlockchainAPI {
     provider.consecutiveFailures++;
     provider.lastFailure = Date.now();
     
+    const errorType = error.name === 'AbortError' ? 'timeout' :
+                      error.message?.includes('429') ? 'rate limited' :
+                      error.message?.includes('ECONNREFUSED') ? 'connection refused' :
+                      'request failed';
+    
     if (provider.consecutiveFailures >= 3) {
       provider.healthy = false;
-      console.warn(`[FreeBlockchainAPI] ${provider.name} marked unhealthy after ${provider.consecutiveFailures} failures: ${error.message}`);
+      console.warn(`[FreeBlockchainAPI] ${provider.name} marked UNHEALTHY (${errorType}): ${error.message} [${provider.consecutiveFailures} consecutive failures]`);
+    } else {
+      console.log(`[FreeBlockchainAPI] ${provider.name} failure ${provider.consecutiveFailures}/3 (${errorType}): ${error.message}`);
     }
   }
 

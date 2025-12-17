@@ -37,7 +37,7 @@ export class PythonProcessManager extends EventEmitter {
   private readonly maxRestarts: number = 10;
   private readonly restartDelays: number[] = [1000, 2000, 5000, 10000, 20000, 30000, 60000];
   private readonly healthCheckIntervalMs: number = 5000;
-  private readonly healthTimeout: number = 3000;
+  private readonly healthTimeout: number = 5000; // Increased for production load
   private readonly maxConsecutiveFailures: number = 5;
   
   constructor(backendUrl: string = 'http://localhost:5001') {
@@ -305,8 +305,32 @@ export class PythonProcessManager extends EventEmitter {
         this.setReady(false);
         console.warn(`[PythonManager] Backend unhealthy after ${this.consecutiveFailures} consecutive failures`);
         this.emit('unhealthy');
+        
+        // Attempt faster recovery by checking health more frequently for a short period
+        this.attemptFastRecovery();
       }
     }, this.healthCheckIntervalMs);
+  }
+  
+  /**
+   * Attempt faster recovery when backend becomes unhealthy
+   * Checks health every 1 second for 10 seconds to detect quick recovery
+   */
+  private async attemptFastRecovery(): Promise<void> {
+    console.log('[PythonManager] Attempting fast recovery...');
+    
+    for (let i = 0; i < 10; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const healthy = await this.checkHealth();
+      
+      if (healthy) {
+        this.setReady(true);
+        console.log(`[PythonManager] Fast recovery successful after ${i + 1}s`);
+        return;
+      }
+    }
+    
+    console.log('[PythonManager] Fast recovery failed, continuing normal health checks');
   }
   
   /**
