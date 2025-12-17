@@ -429,6 +429,76 @@ class ShadowPantheonPersistence:
                 print(f"[ShadowPantheonPersistence] 📝 Logged operation: {op_id}")
                 return op_id
 
+    def save_god_state(
+        self,
+        god_name: str,
+        state_type: str,
+        state_data
+    ) -> bool:
+        """
+        Save god operational state to PostgreSQL using UPSERT.
+        
+        Args:
+            god_name: Name of the god (Nyx, Hecate, etc.)
+            state_type: Type of state (active_operations, balance_cache, etc.)
+            state_data: Data to persist (list or dict, will be JSON serialized)
+            
+        Returns:
+            True if successful
+        """
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO shadow_operations_state (god_name, state_type, state_data, updated_at)
+                        VALUES (%s, %s, %s::jsonb, NOW())
+                        ON CONFLICT (god_name, state_type)
+                        DO UPDATE SET state_data = %s::jsonb, updated_at = NOW()
+                    """, (
+                        god_name[:32],
+                        state_type[:32],
+                        json.dumps(state_data),
+                        json.dumps(state_data)
+                    ))
+            return True
+        except Exception as e:
+            print(f"[ShadowPantheonPersistence] Failed to save state {god_name}/{state_type}: {e}")
+            return False
+
+    def load_god_state(
+        self,
+        god_name: str,
+        state_type: str,
+        default=None
+    ):
+        """
+        Load god operational state from PostgreSQL.
+        
+        Args:
+            god_name: Name of the god
+            state_type: Type of state to load
+            default: Default value if not found ([] for lists, {} for dicts)
+            
+        Returns:
+            Loaded state data or default
+        """
+        if default is None:
+            default = []
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT state_data FROM shadow_operations_state
+                        WHERE god_name = %s AND state_type = %s
+                    """, (god_name, state_type))
+                    result = cur.fetchone()
+                    if result and result['state_data'] is not None:
+                        return result['state_data']
+            return default
+        except Exception as e:
+            print(f"[ShadowPantheonPersistence] Failed to load state {god_name}/{state_type}: {e}")
+            return default
+
 
 class ShadowGod(BaseGod):
     """
@@ -770,12 +840,19 @@ class Nyx(ShadowGod):
     - Temporal attack windows (strike at night)
     """
 
+    _persistence = None
+
+    @classmethod
+    def _get_persistence(cls):
+        if cls._persistence is None:
+            cls._persistence = ShadowPantheonPersistence()
+        return cls._persistence
+
     def __init__(self):
         super().__init__("Nyx", "opsec")
         self.opsec_level = 'maximum'
         self.visibility = 'invisible'
-        self.active_operations: List[Dict] = []
-        self.opsec_violations: List[Dict] = []
+        self._load_state_from_db()
 
         # Check real darknet status
         if DARKNET_AVAILABLE:
@@ -789,6 +866,28 @@ class Nyx(ShadowGod):
         else:
             self.darknet_status = {'mode': 'clearnet', 'tor_available': False}
             print("[Nyx] ⚠ darknet_proxy module not available - clearnet only")
+
+    def _load_state_from_db(self) -> None:
+        """Load persisted state from PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            self.active_operations = p.load_god_state("Nyx", "active_operations", [])
+            self.opsec_violations = p.load_god_state("Nyx", "opsec_violations", [])
+        except Exception as e:
+            print(f"[Nyx] Failed to load state: {e}")
+            self.active_operations = []
+            self.opsec_violations = []
+
+    def _persist_state(self, state_type: str = None) -> None:
+        """Persist state to PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            if state_type is None or state_type == "active_operations":
+                p.save_god_state("Nyx", "active_operations", self.active_operations[-100:])
+            if state_type is None or state_type == "opsec_violations":
+                p.save_god_state("Nyx", "opsec_violations", self.opsec_violations[-100:])
+        except Exception as e:
+            print(f"[Nyx] Failed to persist state: {e}")
 
     async def initiate_operation(self, target: str, operation_type: str = 'standard') -> Dict:
         """
@@ -823,6 +922,7 @@ class Nyx(ShadowGod):
         }
 
         self.active_operations.append(operation)
+        self._persist_state("active_operations")
         self.operations_completed += 1
 
         return operation
@@ -856,6 +956,7 @@ class Nyx(ShadowGod):
                 'timestamp': datetime.now().isoformat(),
                 'violations': violations,
             })
+            self._persist_state("opsec_violations")
 
         return {
             'safe': safe,
@@ -1115,12 +1216,41 @@ class Hecate(ShadowGod):
     - Multiple attack vectors (crossroads)
     """
 
+    _persistence = None
+
+    @classmethod
+    def _get_persistence(cls):
+        if cls._persistence is None:
+            cls._persistence = ShadowPantheonPersistence()
+        return cls._persistence
+
     def __init__(self):
         super().__init__("Hecate", "misdirection")
-        self.active_decoys: List[str] = []
-        self.false_trails: List[Dict] = []
+        self._load_state_from_db()
         self.misdirection_count: int = 0
-        self.decoys_sent: int = 0  # Counter for real decoy traffic sent
+        self.decoys_sent: int = 0
+
+    def _load_state_from_db(self) -> None:
+        """Load persisted state from PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            self.active_decoys = p.load_god_state("Hecate", "active_decoys", [])
+            self.false_trails = p.load_god_state("Hecate", "false_trails", [])
+        except Exception as e:
+            print(f"[Hecate] Failed to load state: {e}")
+            self.active_decoys = []
+            self.false_trails = []
+
+    def _persist_state(self, state_type: str = None) -> None:
+        """Persist state to PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            if state_type is None or state_type == "active_decoys":
+                p.save_god_state("Hecate", "active_decoys", self.active_decoys[-100:])
+            if state_type is None or state_type == "false_trails":
+                p.save_god_state("Hecate", "false_trails", self.false_trails[-100:])
+        except Exception as e:
+            print(f"[Hecate] Failed to persist state: {e}")
 
     async def create_misdirection(self, real_target: str, decoy_count: int = 10) -> Dict:
         """
@@ -1135,6 +1265,7 @@ class Hecate(ShadowGod):
         """
         decoys = self._generate_decoys(real_target, count=decoy_count)
         self.active_decoys = decoys
+        self._persist_state("active_decoys")
 
         all_targets = [real_target] + decoys
         random.shuffle(all_targets)
@@ -1266,6 +1397,7 @@ class Hecate(ShadowGod):
         })
 
         self.false_trails.extend(false_patterns)
+        self._persist_state("false_trails")
 
         return false_patterns
 
@@ -1331,11 +1463,40 @@ class Erebus(ShadowGod):
     - Detect pattern analysis
     """
 
+    _persistence = None
+
+    @classmethod
+    def _get_persistence(cls):
+        if cls._persistence is None:
+            cls._persistence = ShadowPantheonPersistence()
+        return cls._persistence
+
     def __init__(self):
         super().__init__("Erebus", "counter_surveillance")
-        self.detected_threats: List[Dict] = []
-        self.known_honeypots: List[str] = []
         self.surveillance_scans: int = 0
+        self._load_state_from_db()
+
+    def _load_state_from_db(self) -> None:
+        """Load persisted state from PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            self.detected_threats = p.load_god_state("Erebus", "detected_threats", [])
+            self.known_honeypots = p.load_god_state("Erebus", "known_honeypots", [])
+        except Exception as e:
+            print(f"[Erebus] Failed to load state: {e}")
+            self.detected_threats = []
+            self.known_honeypots = []
+
+    def _persist_state(self, state_type: str = None) -> None:
+        """Persist state to PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            if state_type is None or state_type == "detected_threats":
+                p.save_god_state("Erebus", "detected_threats", self.detected_threats[-100:])
+            if state_type is None or state_type == "known_honeypots":
+                p.save_god_state("Erebus", "known_honeypots", self.known_honeypots[-500:])
+        except Exception as e:
+            print(f"[Erebus] Failed to persist state: {e}")
 
     async def scan_for_surveillance(self, target: Optional[str] = None) -> Dict:
         """
@@ -1372,6 +1533,8 @@ class Erebus(ShadowGod):
             })
 
         self.detected_threats.extend(threats)
+        if threats:
+            self._persist_state("detected_threats")
 
         safe = len(threats) == 0
         critical = any(t['risk'] == 'critical' for t in threats)
@@ -1412,6 +1575,7 @@ class Erebus(ShadowGod):
                 'source': source,
                 'timestamp': datetime.now().isoformat(),
             })
+            self._persist_state()
 
     def _detect_traffic_analysis(self) -> List[str]:
         """Detect if traffic patterns are being analyzed."""
@@ -1494,11 +1658,19 @@ class Hypnos(ShadowGod):
     - Resource exhaustion avoidance
     """
 
+    _persistence = None
+
+    @classmethod
+    def _get_persistence(cls):
+        if cls._persistence is None:
+            cls._persistence = ShadowPantheonPersistence()
+        return cls._persistence
+
     def __init__(self):
         super().__init__("Hypnos", "silent_ops")
-        self.balance_cache: Dict[str, Dict] = {}
         self.silent_queries: int = 0
         self.passive_recons: int = 0
+        self._load_state_from_db()
 
         # User agents managed by darknet_proxy module
         # Keep list here for backwards compatibility
@@ -1509,6 +1681,25 @@ class Hypnos(ShadowGod):
             'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
             'Mozilla/5.0 (Android 11; Mobile; rv:68.0) Gecko/68.0 Firefox/88.0',
         ]
+
+    def _load_state_from_db(self) -> None:
+        """Load persisted state from PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            self.balance_cache = p.load_god_state("Hypnos", "balance_cache", {})
+        except Exception as e:
+            print(f"[Hypnos] Failed to load state: {e}")
+            self.balance_cache = {}
+
+    def _persist_state(self, state_type: str = None) -> None:
+        """Persist state to PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            if state_type is None or state_type == "balance_cache":
+                cache_to_persist = dict(list(self.balance_cache.items())[-500:])
+                p.save_god_state("Hypnos", "balance_cache", cache_to_persist)
+        except Exception as e:
+            print(f"[Hypnos] Failed to persist state: {e}")
 
     async def silent_balance_check(self, address: str) -> Dict:
         """
@@ -1582,6 +1773,8 @@ class Hypnos(ShadowGod):
             )[:500]
             for key in oldest_keys:
                 del self.balance_cache[key]
+
+        self._persist_state("balance_cache")
 
     async def passive_reconnaissance(self, target: str) -> Dict:
         """
@@ -2118,11 +2311,40 @@ class Nemesis(ShadowGod):
     - Ultimate target acquisition
     """
 
+    _persistence = None
+
+    @classmethod
+    def _get_persistence(cls):
+        if cls._persistence is None:
+            cls._persistence = ShadowPantheonPersistence()
+        return cls._persistence
+
     def __init__(self):
         super().__init__("Nemesis", "relentless_pursuit")
-        self.active_pursuits: Dict[str, Dict] = {}
-        self.completed_pursuits: List[Dict] = []
         self.pursuit_iterations: int = 0
+        self._load_state_from_db()
+
+    def _load_state_from_db(self) -> None:
+        """Load persisted state from PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            self.active_pursuits = p.load_god_state("Nemesis", "active_pursuits", {})
+            self.completed_pursuits = p.load_god_state("Nemesis", "completed_pursuits", [])
+        except Exception as e:
+            print(f"[Nemesis] Failed to load state: {e}")
+            self.active_pursuits = {}
+            self.completed_pursuits = []
+
+    def _persist_state(self, state_type: str = None) -> None:
+        """Persist state to PostgreSQL."""
+        try:
+            p = self._get_persistence()
+            if state_type is None or state_type == "active_pursuits":
+                p.save_god_state("Nemesis", "active_pursuits", self.active_pursuits)
+            if state_type is None or state_type == "completed_pursuits":
+                p.save_god_state("Nemesis", "completed_pursuits", self.completed_pursuits[-50:])
+        except Exception as e:
+            print(f"[Nemesis] Failed to persist state: {e}")
 
     async def initiate_pursuit(self, target: str, max_iterations: int = 1000) -> Dict:
         """
@@ -2143,6 +2365,7 @@ class Nemesis(ShadowGod):
         }
 
         self.active_pursuits[pursuit_id] = pursuit
+        self._persist_state("active_pursuits")
 
         return pursuit
 
@@ -2173,6 +2396,8 @@ class Nemesis(ShadowGod):
         if pursuit['iterations'] >= pursuit['max_iterations']:
             pursuit['status'] = 'max_iterations_reached'
 
+        self._persist_state("active_pursuits")
+
         return {
             'pursuit_id': pursuit_id,
             'iteration': pursuit['iterations'],
@@ -2196,6 +2421,8 @@ class Nemesis(ShadowGod):
         if len(self.completed_pursuits) > 100:
             self.completed_pursuits = self.completed_pursuits[-50:]
 
+        self._persist_state()
+
         return pursuit
 
     async def evolve_pursuit_pattern(self, pursuit_id: str, new_insights: List[str]) -> Dict:
@@ -2217,6 +2444,8 @@ class Nemesis(ShadowGod):
         if 'evolutions' not in pursuit:
             pursuit['evolutions'] = []
         pursuit['evolutions'].append(evolution)
+
+        self._persist_state("active_pursuits")
 
         return {
             'pursuit_id': pursuit_id,
@@ -2294,10 +2523,10 @@ class ShadowPantheon:
         self._war_mode = False
         self._basin_sync_callback = basin_sync_callback
 
-        self.operations: List[Dict] = []
-        
         self.persistence = ShadowPantheonPersistence()
         print("[ShadowPantheon] ✓ PostgreSQL persistence connected (NO FALLBACK)")
+        
+        self._load_operations_from_db()
         
         # Initialize Shadow Research API for proactive learning
         self.research_api = None
@@ -2306,6 +2535,21 @@ class ShadowPantheon:
             self.research_api.initialize(basin_sync_callback=basin_sync_callback)
             print("[ShadowPantheon] ✓ Shadow Research API initialized - proactive learning active")
     
+    def _load_operations_from_db(self) -> None:
+        """Load persisted operations from PostgreSQL."""
+        try:
+            self.operations = self.persistence.load_god_state("ShadowPantheon", "operations", [])
+        except Exception as e:
+            print(f"[ShadowPantheon] Failed to load operations: {e}")
+            self.operations = []
+
+    def _persist_operations(self) -> None:
+        """Persist operations to PostgreSQL."""
+        try:
+            self.persistence.save_god_state("ShadowPantheon", "operations", self.operations[-100:])
+        except Exception as e:
+            print(f"[ShadowPantheon] Failed to persist operations: {e}")
+
     def set_hades(self, hades_ref) -> None:
         """Set reference to Hades (Shadow Leader) from main Pantheon."""
         self.hades_ref = hades_ref
@@ -2531,6 +2775,7 @@ class ShadowPantheon:
             operation['status'] = 'aborted'
             operation['reason'] = 'Surveillance detected'
             self.operations.append(operation)
+            self._persist_operations()
             return operation
 
         opsec = await self.nyx.initiate_operation(target, operation_type)
@@ -2544,6 +2789,7 @@ class ShadowPantheon:
             operation['status'] = 'aborted'
             operation['reason'] = 'OPSEC compromised'
             self.operations.append(operation)
+            self._persist_operations()
             return operation
 
         misdirection = await self.hecate.create_misdirection(target)
@@ -2571,6 +2817,7 @@ class ShadowPantheon:
         operation['pursuit_id'] = pursuit['id']
 
         self.operations.append(operation)
+        self._persist_operations()
         
         self.persistence.log_operation(
             operation_type='covert_op',
