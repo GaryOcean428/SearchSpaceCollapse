@@ -3,7 +3,7 @@
 Tokenizer JSON to PostgreSQL Migration Script
 
 Migrates QIG tokenizer state from JSON file to PostgreSQL tables:
-- tokenizer_vocabulary: token -> weight, phi, frequency, basin embedding
+- tokenizer_vocabulary: token -> weight, phi, frequency, basin coordinates
 - tokenizer_merge_rules: merge pairs -> phi score, frequency
 - tokenizer_metadata: key-value config store
 
@@ -111,7 +111,7 @@ def migrate_vocabulary(
         else:
             source_type = 'base'
         
-        # Compute basin embedding
+        # Compute basin coordinates
         basin = compute_basin_coord(token, idx, weight, phi)
         basin_str = vector_to_pg(basin)
         

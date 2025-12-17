@@ -2842,7 +2842,7 @@ class ResearchInsightBridge:
                     'confidence': knowledge_data.get('confidence'),
                     'content': knowledge_data.get('content', {})
                 },
-                embedding=basin_coords
+                basin_coords=basin_coords
             )
             
             self._events_created += 1

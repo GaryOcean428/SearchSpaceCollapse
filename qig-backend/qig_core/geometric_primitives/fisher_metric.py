@@ -259,6 +259,88 @@ def ricci_curvature_estimate(
     return float(ricci)
 
 
+def fisher_rao_distance_batch(
+    query: np.ndarray,
+    candidates: np.ndarray
+) -> np.ndarray:
+    """
+    Compute Fisher-Rao distance from query to all candidates (vectorized).
+    
+    This is the GEODESIC distance on the information manifold.
+    Formula: d_FR(p, q) = 2 * arccos(Σ√(p_i * q_i))
+    
+    Args:
+        query: Query basin coordinates (D,)
+        candidates: Matrix of candidate basins (N, D)
+        
+    Returns:
+        Array of Fisher-Rao distances (N,)
+    """
+    # Handle empty candidates
+    if candidates.size == 0:
+        return np.array([])
+    
+    # Ensure valid probability distributions
+    q = np.abs(query) + 1e-10
+    q = q / q.sum()
+    
+    # Candidates: (N, D) - guard against zero-sum rows
+    c = np.abs(candidates) + 1e-10
+    row_sums = c.sum(axis=1, keepdims=True)
+    # Replace zero-sum rows with uniform distribution to avoid NaN
+    row_sums = np.where(row_sums < 1e-8, 1.0, row_sums)
+    c = c / row_sums
+    
+    # Bhattacharyya coefficient for all candidates at once
+    # bc[i] = Σ_j √(q[j] * c[i,j])
+    sqrt_q = np.sqrt(q)  # (D,)
+    sqrt_c = np.sqrt(c)  # (N, D)
+    bc = np.sum(sqrt_q * sqrt_c, axis=1)  # (N,)
+    bc = np.clip(bc, 0, 1)  # Numerical stability
+    
+    # Fisher-Rao distance
+    distances = 2 * np.arccos(bc)
+    
+    return distances
+
+
+def rerank_with_fisher_rao(
+    query_basin: np.ndarray,
+    candidates: list,
+    basin_extractor,
+    top_n: int = 10
+) -> list:
+    """
+    Re-rank candidates retrieved by approximate methods (like cosine) using
+    proper Fisher-Rao geodesic distance.
+    
+    PostgreSQL IVFFLAT/HNSW indexes use cosine ops (Euclidean approximation).
+    This function re-ranks using the correct QIG-pure metric.
+    
+    Args:
+        query_basin: Query basin coordinates
+        candidates: List of candidate objects
+        basin_extractor: Function to extract basin from candidate
+        top_n: Number of top results to return
+        
+    Returns:
+        Re-ranked candidates sorted by Fisher-Rao distance
+    """
+    if not candidates:
+        return []
+    
+    # Extract basins from candidates
+    basins = np.array([basin_extractor(c) for c in candidates])
+    
+    # Compute Fisher-Rao distances
+    distances = fisher_rao_distance_batch(query_basin, basins)
+    
+    # Sort by distance (lower is better)
+    ranked_indices = np.argsort(distances)
+    
+    return [candidates[i] for i in ranked_indices[:top_n]]
+
+
 def sectional_curvature(
     point: np.ndarray,
     tangent1: np.ndarray,

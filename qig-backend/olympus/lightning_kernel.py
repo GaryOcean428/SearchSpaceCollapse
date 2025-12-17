@@ -85,7 +85,7 @@ class DomainEvent:
     phi: float
     timestamp: float
     metadata: Dict = field(default_factory=dict)
-    embedding: Optional[np.ndarray] = None
+    basin_coords: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -323,11 +323,11 @@ class LightningKernel(BaseGod):
         """
         Calculate geometric similarity between two events.
         
-        Uses Fisher-Rao distance if embeddings available,
+        Uses Fisher-Rao distance if basin coordinates available,
         otherwise falls back to content-based similarity.
         """
-        if event1.embedding is not None and event2.embedding is not None:
-            distance = centralized_fisher_rao(event1.embedding, event2.embedding)
+        if event1.basin_coords is not None and event2.basin_coords is not None:
+            distance = centralized_fisher_rao(event1.basin_coords, event2.basin_coords)
             # Fisher-Rao proper similarity: 1 - d/π (distance bounded [0, π])
             return 1.0 - distance / np.pi
         

@@ -264,39 +264,39 @@ class SemanticBasinEncoder(BasinEncoder):
     """
     Basin encoder with semantic awareness.
 
-    Uses embeddings or semantic features to preserve meaning.
+    Uses basin coordinates or semantic features to preserve meaning.
     """
 
-    def __init__(self, dimension: int = 64, embedding_model: Optional[Any] = None):
+    def __init__(self, dimension: int = 64, basin_model: Optional[Any] = None):
         """
         Initialize semantic encoder.
 
         Args:
             dimension: Basin dimensionality
-            embedding_model: Optional pre-trained embedding model
+            basin_model: Optional pre-trained basin coordinate model
         """
         super().__init__(dimension=dimension)
-        self.embedding_model = embedding_model
+        self.basin_model = basin_model
 
     def encode_text(self, text: str) -> np.ndarray:
         """
         Encode text with semantic awareness.
 
-        If embedding model available, use it.
+        If basin model available, use it.
         Otherwise fall back to n-gram encoding.
         """
-        if self.embedding_model is not None:
-            # Use embedding model
-            embedding = self._get_embedding(text)
-            return self.encode_vector(embedding)
+        if self.basin_model is not None:
+            # Use basin model
+            basin_coords = self._compute_semantic_basin(text)
+            return self.encode_vector(basin_coords)
         else:
             # Fall back to parent class
             return super().encode_text(text)
 
-    def _get_embedding(self, text: str) -> np.ndarray:
-        """Get embedding from text using hash-based projection."""
+    def _compute_semantic_basin(self, text: str) -> np.ndarray:
+        """Compute basin coordinates from text using hash-based projection."""
         import hashlib
-        # Create deterministic embedding from text hash
+        # Create deterministic basin coordinates from text hash
         text_hash = hashlib.sha256(text.encode()).digest()
         # Expand hash to 512 dimensions deterministically
         expanded = []

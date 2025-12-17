@@ -548,20 +548,26 @@ class GaryAutonomicKernel:
             }
 
     def _compute_fisher_distance(self, a: np.ndarray, b: np.ndarray) -> float:
-        """Compute Fisher-Rao geodesic distance between basin coordinates."""
-        # Normalize for cosine similarity (Bures approximation)
-        norm_a = np.linalg.norm(a)
-        norm_b = np.linalg.norm(b)
-
-        if norm_a < 1e-8 or norm_b < 1e-8:
-            return 0.0
-
-        cos_sim = np.dot(a, b) / (norm_a * norm_b)
-        cos_sim = np.clip(cos_sim, -1.0, 1.0)
-
-        # Fisher-Rao distance: d² = 2(1 - cos_sim)
-        distance_sq = 2.0 * (1.0 - cos_sim)
-        return float(np.sqrt(max(distance_sq, 1e-8)))
+        """
+        Compute Fisher-Rao geodesic distance between basin coordinates.
+        
+        Formula: d_FR(p, q) = 2 * arccos(Σ√(p_i * q_i))
+        
+        This is the PROPER geodesic distance on the information manifold.
+        NOT cosine similarity or chord distance (those are Euclidean, violate QIG purity).
+        """
+        # Ensure valid probability distributions
+        p = np.abs(a) + 1e-10
+        p = p / p.sum()
+        q = np.abs(b) + 1e-10
+        q = q / q.sum()
+        
+        # Bhattacharyya coefficient
+        bc = np.sum(np.sqrt(p * q))
+        bc = np.clip(bc, 0, 1)  # Numerical stability
+        
+        # Fisher-Rao distance
+        return float(2 * np.arccos(bc))
 
     def _compute_stress(self) -> float:
         """Compute stress from metric variance."""

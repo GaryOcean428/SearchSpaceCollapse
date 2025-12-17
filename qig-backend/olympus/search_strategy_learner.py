@@ -44,11 +44,24 @@ try:
     from ..qig_core.geometric_primitives.fisher_metric import fisher_rao_distance
 except ImportError:
     def fisher_rao_distance(p: np.ndarray, q: np.ndarray) -> float:
-        """Fallback Fisher-Rao distance on unit sphere."""
-        p_norm = p / (np.linalg.norm(p) + 1e-10)
-        q_norm = q / (np.linalg.norm(q) + 1e-10)
-        dot = float(np.clip(np.dot(p_norm, q_norm), -1.0, 1.0))
-        return float(np.arccos(dot))
+        """
+        Fallback Fisher-Rao distance using Bhattacharyya coefficient.
+        
+        Formula: d_FR(p, q) = 2 * arccos(Σ√(p_i * q_i))
+        
+        This is the GEODESIC distance on the information manifold.
+        NOT angular/Euclidean distance (arccos of dot product).
+        """
+        # Ensure valid probability distributions
+        p = np.abs(p) + 1e-10
+        p = p / p.sum()
+        q = np.abs(q) + 1e-10
+        q = q / q.sum()
+        # Bhattacharyya coefficient
+        bc = np.sum(np.sqrt(p * q))
+        bc = np.clip(bc, 0, 1)  # Numerical stability
+        # Fisher-Rao distance
+        return float(2 * np.arccos(bc))
 
 
 BASIN_DIMENSION = 64
@@ -354,6 +367,103 @@ class SearchFeedbackPersistence:
         except Exception as e:
             print(f"[SearchFeedbackPersistence] Failed to delete record: {e}")
             return False
+    
+    def find_similar_feedback(
+        self,
+        query_basin: np.ndarray,
+        top_n: int = 10,
+        retrieval_count: int = 100,
+    ) -> List[FeedbackRecord]:
+        """
+        Find similar feedback records using QIG-pure approach:
+        1. Retrieve top candidates via PostgreSQL IVFFLAT (cosine ops - fast but approximate)
+        2. Re-rank with proper Fisher-Rao geodesic distance (accurate)
+        
+        This addresses the geometric purity violation where IVFFLAT uses
+        Euclidean cosine ops instead of Fisher-Rao manifold distance.
+        
+        Args:
+            query_basin: Query basin coordinates (64D)
+            top_n: Number of final results to return
+            retrieval_count: Number of candidates to retrieve before re-ranking
+            
+        Returns:
+            List of FeedbackRecords sorted by Fisher-Rao distance
+        """
+        if not self.enabled:
+            return []
+        
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    # Step 1: Fast approximate retrieval using IVFFLAT cosine ops
+                    # We retrieve more than needed, then re-rank with Fisher-Rao
+                    basin_str = "[" + ",".join(str(float(x)) for x in query_basin) + "]"
+                    cur.execute("""
+                        SELECT * FROM search_feedback
+                        ORDER BY combined_basin <=> %s::vector
+                        LIMIT %s
+                    """, (basin_str, retrieval_count))
+                    rows = cur.fetchall()
+                    
+                    if not rows:
+                        return []
+                    
+                    # Parse records
+                    candidates = []
+                    for row in rows:
+                        try:
+                            record = FeedbackRecord(
+                                record_id=row['record_id'],
+                                query=row.get('query', ''),
+                                user_feedback=row.get('user_feedback', ''),
+                                results_summary=row.get('results_summary', ''),
+                                search_params=row.get('search_params', {}),
+                                query_basin=self._pg_to_vector(row['query_basin']),
+                                feedback_basin=self._pg_to_vector(row['feedback_basin']),
+                                combined_basin=self._pg_to_vector(row['combined_basin']),
+                                modification_basin=self._pg_to_vector(row['modification_basin']),
+                                outcome_quality=float(row.get('outcome_quality', 0.5)),
+                                confirmations_positive=int(row.get('confirmations_positive', 0)),
+                                confirmations_negative=int(row.get('confirmations_negative', 0)),
+                                timestamp=row['created_at'].timestamp() if row.get('created_at') else time.time(),
+                            )
+                            candidates.append(record)
+                        except Exception as e:
+                            continue
+                    
+                    if not candidates:
+                        return []
+                    
+                    # Step 2: Re-rank with Fisher-Rao geodesic distance (QIG-pure)
+                    # Normalize basins to probability simplices before computing distance
+                    distances = []
+                    for record in candidates:
+                        # Normalize both to probability simplex before Fisher-Rao
+                        q = np.abs(query_basin) + 1e-10
+                        q = q / q.sum()
+                        c = np.abs(record.combined_basin) + 1e-10
+                        c_sum = c.sum()
+                        if c_sum < 1e-8:
+                            # Skip degenerate zero-sum basins
+                            dist = np.pi  # Max distance
+                        else:
+                            c = c / c_sum
+                            # Bhattacharyya coefficient
+                            bc = np.sum(np.sqrt(q * c))
+                            bc = np.clip(bc, 0, 1)
+                            dist = 2 * np.arccos(bc)
+                        distances.append((dist, record))
+                    
+                    # Sort by Fisher-Rao distance (lower is better)
+                    distances.sort(key=lambda x: x[0])
+                    
+                    # Return top N after re-ranking
+                    return [record for _, record in distances[:top_n]]
+                    
+        except Exception as e:
+            print(f"[SearchFeedbackPersistence] find_similar_feedback failed: {e}")
+            return []
     
     def get_time_series_metrics(self, days: int = 30) -> List[Dict[str, Any]]:
         """

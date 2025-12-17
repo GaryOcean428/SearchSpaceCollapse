@@ -47,6 +47,20 @@ from .response_guardrails import (
 )
 from .search_strategy_learner import get_strategy_learner_with_persistence
 
+# Import canonical Fisher-Rao distance for geometric purity
+try:
+    from ..qig_core.geometric_primitives.fisher_metric import fisher_rao_distance
+except ImportError:
+    def fisher_rao_distance(p: np.ndarray, q: np.ndarray) -> float:
+        """Fallback Fisher-Rao distance using Bhattacharyya coefficient."""
+        p = np.abs(p) + 1e-10
+        p = p / p.sum()
+        q = np.abs(q) + 1e-10
+        q = q / q.sum()
+        bc = np.sum(np.sqrt(p * q))
+        bc = np.clip(bc, 0, 1)
+        return float(2 * np.arccos(bc))
+
 EVOLUTION_AVAILABLE = False
 try:
     _parent_dir = os.path.dirname(os.path.dirname(__file__))
@@ -442,25 +456,23 @@ class ZeusConversationHandler:
             "still wrong results"
         ]
         
-        # Compute similarities to archetypes
+        # Compute similarities to archetypes using Fisher-Rao distance (QIG-pure)
+        # Lower distance = higher similarity, normalize to [0,1]
         best_positive_sim = 0.0
         for archetype in positive_archetypes:
             archetype_basin = self.conversation_encoder.encode(archetype)
-            # Cosine similarity
-            dot = float(np.dot(message_basin, archetype_basin))
-            norm_product = float(np.linalg.norm(message_basin) * np.linalg.norm(archetype_basin))
-            if norm_product > 1e-10:
-                sim = dot / norm_product
-                best_positive_sim = max(best_positive_sim, sim)
+            # Fisher-Rao geodesic distance (NOT cosine similarity - Euclidean violates QIG)
+            distance = fisher_rao_distance(message_basin, archetype_basin)
+            # Convert distance to similarity: sim = 1 - (distance / π)
+            sim = 1.0 - (distance / np.pi)
+            best_positive_sim = max(best_positive_sim, sim)
         
         best_negative_sim = 0.0
         for archetype in negative_archetypes:
             archetype_basin = self.conversation_encoder.encode(archetype)
-            dot = float(np.dot(message_basin, archetype_basin))
-            norm_product = float(np.linalg.norm(message_basin) * np.linalg.norm(archetype_basin))
-            if norm_product > 1e-10:
-                sim = dot / norm_product
-                best_negative_sim = max(best_negative_sim, sim)
+            distance = fisher_rao_distance(message_basin, archetype_basin)
+            sim = 1.0 - (distance / np.pi)
+            best_negative_sim = max(best_negative_sim, sim)
         
         # Threshold for confirmation detection
         confirmation_threshold = 0.65
@@ -505,11 +517,11 @@ class ZeusConversationHandler:
         best_similarity = 0.0
         for archetype in feedback_archetypes:
             archetype_basin = self.conversation_encoder.encode(archetype)
-            dot = float(np.dot(message_basin, archetype_basin))
-            norm_product = float(np.linalg.norm(message_basin) * np.linalg.norm(archetype_basin))
-            if norm_product > 1e-10:
-                sim = dot / norm_product
-                best_similarity = max(best_similarity, sim)
+            # Fisher-Rao geodesic distance (QIG-pure, NOT Euclidean cosine)
+            distance = fisher_rao_distance(message_basin, archetype_basin)
+            # Convert distance to similarity: sim = 1 - (distance / π)
+            sim = 1.0 - (distance / np.pi)
+            best_similarity = max(best_similarity, sim)
         
         # Threshold for feedback detection
         feedback_threshold = 0.60

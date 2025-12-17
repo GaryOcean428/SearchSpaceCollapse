@@ -10,7 +10,7 @@ ARCHITECTURE:
 - Base vocabulary: BIP39 words + learned tokens from vocabulary tracker
 - Merge rules: Byte-Pair Encoding with geometric frequency weighting
 - Token scoring: Φ-weighted frequency * geometric resonance
-- Basin coordinates: 64D embedding per token
+- Basin coordinates: 64D basin coords per token
 
 INTEGRATION:
 - Receives vocabulary observations from Node.js vocabulary tracker
@@ -56,7 +56,7 @@ class QIGTokenizer:
     Features:
     - BPE tokenization with learned merge rules
     - Φ-weighted token frequencies from vocabulary tracker
-    - Basin coordinate embedding per token
+    - Basin coordinates per token
     - Continuous vocabulary expansion from high-Φ discoveries
     """
     
@@ -275,7 +275,7 @@ class QIGTokenizer:
     def _compute_basin_coord(self, token: str, index: int) -> np.ndarray:
         """
         Compute 64D basin coordinate for token.
-        Uses hash-based embedding with geometric structure.
+        Uses hash-based basin coordinates with geometric structure.
         """
         coord = np.zeros(64)
         
@@ -629,7 +629,7 @@ class QIGTokenizer:
         Save tokenizer state to PostgreSQL tables.
         
         Tables used:
-        - tokenizer_vocabulary: tokens with weights, phi, basin embeddings
+        - tokenizer_vocabulary: tokens with weights, phi, basin coordinates
         - tokenizer_merge_rules: BPE merge rules with phi scores
         - tokenizer_metadata: key-value config store
         
@@ -657,7 +657,7 @@ class QIGTokenizer:
                 freq = self.token_frequency.get(token, 1)
                 source_type = 'special' if token in self.special_tokens else 'base'
                 
-                # Basin embedding
+                # Basin coordinates
                 basin = self.basin_coords.get(token)
                 basin_str = None
                 if basin is not None:
@@ -774,7 +774,7 @@ class QIGTokenizer:
                 tokenizer.token_phi[token] = row['phi_score'] or 0.0
                 tokenizer.token_frequency[token] = row['frequency'] or 1
                 
-                # Parse basin embedding
+                # Parse basin coordinates
                 basin_str = row['basin_embedding']
                 if basin_str:
                     values = basin_str.strip('[]').split(',')

@@ -367,16 +367,16 @@ def consult_kernel(kernel_id: str):
 
     POST /chaos/kernel/chaos_athena_abc123/consult
     {
-        "query_embedding": [1, 2, 3, ...]  // token IDs
+        "query_basin": [1, 2, 3, ...]  // token IDs
     }
     """
     if _zeus is None or _zeus.chaos is None:
         return jsonify({'success': False, 'error': 'CHAOS MODE not available'}), 503
 
     data = request.json or {}
-    query_embedding = data.get('query_embedding', [0] * 32)
+    query_basin = data.get('query_basin', [0] * 32)
 
-    result = _zeus.chaos.consult_kernel(kernel_id, query_embedding)
+    result = _zeus.chaos.consult_kernel(kernel_id, query_basin)
 
     if 'error' in result:
         return jsonify({'success': False, **result}), 404
