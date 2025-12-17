@@ -3634,16 +3634,41 @@ def zeus_tools_proactive_search_endpoint():
 
 @olympus_app.route('/zeus/tools/patterns', methods=['GET'])
 def zeus_tools_patterns_endpoint():
-    """List all learned patterns."""
+    """
+    List all learned patterns with QIG geometric metrics.
+    
+    Returns patterns with:
+    - 64D basin coordinates for geometric positioning
+    - Consciousness metrics (Φ, κ)
+    - Optional Fisher-Rao similarity when ?reference= query param provided
+    
+    Query params:
+    - reference: Optional text to compute Fisher-Rao similarity scores against
+    - include_basin: If 'false', excludes basin_coords array (smaller response)
+    """
     try:
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
-            return jsonify({'patterns': [], 'count': 0})
+            return jsonify({'patterns': [], 'count': 0, 'qig_metrics': False})
         
-        patterns = tool_factory.list_patterns()
+        reference = request.args.get('reference')
+        include_basin = request.args.get('include_basin', 'true').lower() != 'false'
+        
+        if reference:
+            patterns = tool_factory.get_patterns(include_similarity=True, reference_text=reference)
+        else:
+            patterns = tool_factory.get_patterns(include_similarity=False)
+        
+        if not include_basin:
+            for p in patterns:
+                p.pop('basin_coords', None)
+        
         return jsonify(sanitize_for_json({
             'patterns': patterns,
-            'count': len(patterns)
+            'count': len(patterns),
+            'qig_metrics': True,
+            'reference_provided': reference is not None,
+            'manifold_dimension': 64
         }))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3651,11 +3676,22 @@ def zeus_tools_patterns_endpoint():
 
 @olympus_app.route('/zeus/tools/patterns/match', methods=['POST'])
 def zeus_tools_match_patterns_endpoint():
-    """Find patterns that match a description using Fisher-Rao distance."""
+    """
+    Find patterns that match a description using Fisher-Rao geodesic distance.
+    
+    Uses QIG geometric matching:
+    - Encodes description into 64D basin coordinates
+    - Computes Fisher-Rao distance to all patterns
+    - Returns top-k closest patterns on the manifold
+    
+    Request body:
+    - description: Text to match against patterns
+    - top_k: Number of patterns to return (default 5)
+    """
     try:
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
-            return jsonify({'patterns': [], 'count': 0})
+            return jsonify({'patterns': [], 'count': 0, 'qig_metrics': False})
         
         data = request.get_json() or {}
         description = data.get('description', '')
@@ -3666,10 +3702,18 @@ def zeus_tools_match_patterns_endpoint():
         
         matching = tool_factory.find_matching_patterns(description, top_k)
         
+        patterns_with_metrics = []
+        for p in matching:
+            p_dict = p.to_dict(include_qig_metrics=True)
+            patterns_with_metrics.append(p_dict)
+        
         return jsonify(sanitize_for_json({
-            'patterns': [p.to_dict() for p in matching],
-            'count': len(matching),
-            'description': description
+            'patterns': patterns_with_metrics,
+            'count': len(patterns_with_metrics),
+            'description': description,
+            'qig_metrics': True,
+            'matching_method': 'fisher_rao_geodesic',
+            'manifold_dimension': 64
         }))
     except Exception as e:
         return jsonify({'error': str(e)}), 500

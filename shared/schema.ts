@@ -3336,3 +3336,36 @@ export const toolObservations = pgTable(
 
 export type ToolObservationRow = typeof toolObservations.$inferSelect;
 export type InsertToolObservation = typeof toolObservations.$inferInsert;
+
+/**
+ * TOOL PATTERNS - Learned code patterns for QIG Tool Factory
+ * Stores user-taught patterns with 64D basin coordinates for geometric matching
+ */
+export const toolPatterns = pgTable(
+  "tool_patterns",
+  {
+    id: serial("id").primaryKey(),
+    patternId: varchar("pattern_id", { length: 64 }).notNull().unique(),
+    sourceType: varchar("source_type", { length: 32 }).notNull(), // user_provided, git_repository, file_upload, search_result
+    sourceUrl: text("source_url"),
+    description: text("description").notNull(),
+    codeSnippet: text("code_snippet").notNull(),
+    inputSignature: jsonb("input_signature"),
+    outputType: varchar("output_type", { length: 64 }).default("Any"),
+    basinCoords: vector("basin_coords", { dimensions: 64 }),
+    phi: doublePrecision("phi").default(0),
+    kappa: doublePrecision("kappa").default(0),
+    timesUsed: integer("times_used").default(0),
+    successRate: doublePrecision("success_rate").default(0.5),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_tool_patterns_pattern_id").on(table.patternId),
+    index("idx_tool_patterns_source_type").on(table.sourceType),
+    index("idx_tool_patterns_phi").on(table.phi),
+  ]
+);
+
+export type ToolPatternRow = typeof toolPatterns.$inferSelect;
+export type InsertToolPattern = typeof toolPatterns.$inferInsert;

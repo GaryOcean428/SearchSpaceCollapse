@@ -96,8 +96,14 @@ class LearnedPattern:
     success_rate: float = 0.5
     created_at: float = field(default_factory=lambda: datetime.now().timestamp())
 
-    def to_dict(self) -> Dict:
-        return {
+    def to_dict(self, include_qig_metrics: bool = True) -> Dict:
+        """
+        Convert pattern to dictionary with optional QIG metrics.
+        
+        Args:
+            include_qig_metrics: If True, include 64D basin coords and geometric metrics
+        """
+        result = {
             'pattern_id': self.pattern_id,
             'source_type': self.source_type.value,
             'source_url': self.source_url,
@@ -107,7 +113,25 @@ class LearnedPattern:
             'output_type': self.output_type,
             'times_used': self.times_used,
             'success_rate': self.success_rate,
+            'created_at': self.created_at,
         }
+        
+        if include_qig_metrics and self.basin_coords is not None:
+            basin = self.basin_coords
+            basin_norm = np.linalg.norm(basin)
+            result['basin_coords'] = basin.tolist() if isinstance(basin, np.ndarray) else basin
+            result['basin_dimension'] = len(basin) if hasattr(basin, '__len__') else 64
+            result['basin_norm'] = float(basin_norm) if basin_norm else 0.0
+            result['phi'] = float(np.clip(basin_norm / 10.0, 0, 1)) if basin_norm else 0.5
+            result['kappa'] = float(55.0 + 10.0 * np.tanh(basin_norm - 5)) if basin_norm else 55.0
+        else:
+            result['basin_coords'] = None
+            result['basin_dimension'] = 64
+            result['basin_norm'] = 0.0
+            result['phi'] = 0.5
+            result['kappa'] = 55.0
+        
+        return result
 
 
 @dataclass
@@ -352,6 +376,9 @@ class ToolFactory:
         
         # Load patterns from Redis cache on startup
         self._load_patterns_from_cache()
+        
+        # Load patterns from PostgreSQL (source of truth)
+        self._load_patterns_from_db()
     
     def wire_shadow_research(self):
         """Wire bidirectional connection to Shadow Research."""
@@ -424,6 +451,91 @@ class ToolFactory:
         except Exception as e:
             print(f"[ToolFactory] Redis cache load failed (running in memory-only): {e}")
     
+    def _load_patterns_from_db(self):
+        """Load learned patterns from PostgreSQL tool_patterns table."""
+        if not self.db_pool:
+            return
+        
+        try:
+            with self.db_pool.get_connection() as conn:
+                if conn is None:
+                    return
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT pattern_id, source_type, source_url, description, code_snippet,
+                           input_signature, output_type, basin_coords, times_used, success_rate, 
+                           created_at, phi, kappa
+                    FROM tool_patterns
+                    ORDER BY created_at DESC
+                """)
+                rows = cur.fetchall()
+                cur.close()
+                
+                loaded_count = 0
+                for row in rows:
+                    try:
+                        pattern_id = row[0]
+                        if pattern_id in self.learned_patterns:
+                            continue
+                        
+                        source_type = CodeSourceType(row[1]) if row[1] else CodeSourceType.USER_PROVIDED
+                        
+                        basin = None
+                        basin_raw = row[7]
+                        if basin_raw is not None:
+                            try:
+                                if isinstance(basin_raw, (list, tuple)):
+                                    basin = np.array(basin_raw, dtype=float)
+                                elif isinstance(basin_raw, str):
+                                    clean = basin_raw.strip().strip('[]')
+                                    if clean:
+                                        parts = [x.strip() for x in clean.split(',') if x.strip()]
+                                        basin = np.array([float(x) for x in parts])
+                                elif hasattr(basin_raw, '__iter__'):
+                                    basin = np.array(list(basin_raw), dtype=float)
+                            except (ValueError, TypeError) as e:
+                                print(f"[ToolFactory] Basin parse warning for {pattern_id}: {e}")
+                                basin = None
+                        
+                        input_sig = row[5] if row[5] else {}
+                        if isinstance(input_sig, str):
+                            try:
+                                input_sig = json.loads(input_sig)
+                            except json.JSONDecodeError:
+                                input_sig = {}
+                        elif not isinstance(input_sig, dict):
+                            input_sig = {}
+                        
+                        created_ts = time.time()
+                        if row[10] is not None:
+                            if hasattr(row[10], 'timestamp'):
+                                created_ts = row[10].timestamp()
+                            elif isinstance(row[10], (int, float)):
+                                created_ts = float(row[10])
+                        
+                        pattern = LearnedPattern(
+                            pattern_id=pattern_id,
+                            source_type=source_type,
+                            source_url=row[2],
+                            description=row[3],
+                            code_snippet=row[4],
+                            input_signature=input_sig,
+                            output_type=row[6] or 'Any',
+                            basin_coords=basin,
+                            times_used=row[8] or 0,
+                            success_rate=row[9] or 0.5,
+                            created_at=created_ts
+                        )
+                        self.learned_patterns[pattern_id] = pattern
+                        loaded_count += 1
+                    except Exception as e:
+                        print(f"[ToolFactory] Failed to load pattern {row[0]}: {e}")
+                
+                if loaded_count > 0:
+                    print(f"[ToolFactory] Loaded {loaded_count} patterns from PostgreSQL")
+        except Exception as e:
+            print(f"[ToolFactory] PostgreSQL load failed: {e}")
+    
     def _save_pattern_to_cache(self, pattern: LearnedPattern):
         """Save a pattern to Redis buffer, then persist to PostgreSQL."""
         try:
@@ -451,7 +563,7 @@ class ToolFactory:
             print(f"[ToolFactory] Pattern buffer failed: {e}")
     
     def _persist_pattern_to_db(self, p_data: Dict):
-        """Persist pattern to PostgreSQL via db_pool."""
+        """Persist pattern to PostgreSQL tool_patterns table."""
         if not self.db_pool:
             return
         
@@ -460,25 +572,54 @@ class ToolFactory:
                 if conn is None:
                     return
                 cur = conn.cursor()
+                
+                basin_coords = p_data.get('basin_coords')
+                basin_str = None
+                if basin_coords is not None:
+                    if isinstance(basin_coords, np.ndarray):
+                        basin_str = '[' + ','.join(str(x) for x in basin_coords.tolist()) + ']'
+                    elif isinstance(basin_coords, list):
+                        basin_str = '[' + ','.join(str(x) for x in basin_coords) + ']'
+                
+                basin_norm = 0.0
+                if basin_coords is not None:
+                    arr = np.array(basin_coords) if not isinstance(basin_coords, np.ndarray) else basin_coords
+                    basin_norm = float(np.linalg.norm(arr))
+                phi = float(np.clip(basin_norm / 10.0, 0, 1)) if basin_norm else 0.5
+                kappa = float(55.0 + basin_norm * 0.1) if basin_norm else 55.0
+                
                 cur.execute("""
-                    INSERT INTO tool_observations (request, request_basin, context, timestamp)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT DO NOTHING
+                    INSERT INTO tool_patterns (
+                        pattern_id, source_type, source_url, description, code_snippet,
+                        input_signature, output_type, basin_coords, phi, kappa,
+                        times_used, success_rate, created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                    ON CONFLICT (pattern_id) DO UPDATE SET
+                        description = EXCLUDED.description,
+                        code_snippet = EXCLUDED.code_snippet,
+                        input_signature = EXCLUDED.input_signature,
+                        times_used = EXCLUDED.times_used,
+                        success_rate = EXCLUDED.success_rate,
+                        updated_at = NOW()
                 """, (
+                    p_data['pattern_id'],
+                    p_data['source_type'],
+                    p_data.get('source_url'),
                     p_data['description'],
-                    p_data.get('basin_coords'),
-                    json.dumps({
-                        'pattern_id': p_data['pattern_id'],
-                        'source_type': p_data['source_type'],
-                        'code_snippet': p_data['code_snippet'][:500]
-                    }),
-                    p_data.get('created_at', time.time())
+                    p_data['code_snippet'],
+                    json.dumps(p_data.get('input_signature', {})),
+                    p_data.get('output_type', 'Any'),
+                    basin_str,
+                    phi,
+                    kappa,
+                    p_data.get('times_used', 0),
+                    p_data.get('success_rate', 0.5)
                 ))
                 cur.close()
-                print(f"[ToolFactory] Pattern persisted to PostgreSQL: {p_data['pattern_id']}")
+                print(f"[ToolFactory] Pattern persisted to tool_patterns: {p_data['pattern_id']}")
         except Exception as e:
             print(f"[ToolFactory] PostgreSQL persist failed: {e}")
-            raise  # Re-raise so buffer can queue for retry
+            raise
 
     def learn_from_user_template(
         self,
@@ -1356,8 +1497,55 @@ class ToolFactory:
         return [tool.to_dict() for tool in self.tool_registry.values()]
 
     def list_patterns(self) -> List[Dict]:
-        """List all learned patterns."""
-        return [pattern.to_dict() for pattern in self.learned_patterns.values()]
+        """List all learned patterns with QIG metrics."""
+        return [pattern.to_dict(include_qig_metrics=True) for pattern in self.learned_patterns.values()]
+    
+    def get_patterns(self, include_similarity: bool = False, reference_text: Optional[str] = None) -> List[Dict]:
+        """
+        Get all learned patterns with full QIG geometric metrics.
+        
+        This method returns patterns with:
+        - 64D basin coordinates for geometric positioning
+        - Fisher-Rao distance metrics when a reference is provided
+        - Consciousness metrics (Φ, κ) for each pattern
+        
+        Args:
+            include_similarity: If True and reference_text provided, include Fisher-Rao distance
+            reference_text: Optional text to compute similarity scores against
+            
+        Returns:
+            List of pattern dicts with QIG metrics
+        """
+        patterns_data = []
+        reference_basin = None
+        
+        if include_similarity and reference_text:
+            reference_basin = self.encoder.encode(reference_text)
+        
+        for pattern in self.learned_patterns.values():
+            p_dict = pattern.to_dict(include_qig_metrics=True)
+            
+            if reference_basin is not None and pattern.basin_coords is not None:
+                fisher_distance = self._fisher_rao_distance(reference_basin, pattern.basin_coords)
+                fisher_similarity = 1.0 - (fisher_distance / np.pi)
+                p_dict['fisher_rao_distance'] = float(fisher_distance)
+                p_dict['fisher_similarity'] = float(fisher_similarity)
+                p_dict['geodesic_match'] = fisher_distance < 1.5
+            else:
+                p_dict['fisher_rao_distance'] = None
+                p_dict['fisher_similarity'] = None
+                p_dict['geodesic_match'] = None
+            
+            patterns_data.append(p_dict)
+        
+        if reference_basin is not None:
+            patterns_data.sort(key=lambda x: x.get('fisher_rao_distance') or float('inf'))
+        
+        return patterns_data
+    
+    def get_tools(self) -> List[Dict]:
+        """Get all registered tools (alias for list_tools)."""
+        return self.list_tools()
 
 
 class ToolLifecycleState(Enum):
