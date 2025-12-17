@@ -111,9 +111,10 @@ class QIGTokenizer:
         # Track conversation words separately (they may overlap with BIP39/passphrase)
         self._conversation_words: set[str] = set()  # Track words meant for conversation
         self._load_conversation_base()
-        # Conversation mode: use ALL vocabulary for full natural language capability
-        # This is the least restrictive mode - includes BIP39 + passphrase + conversation
-        self.conversation_vocab_ids = set(self.vocab.values())
+        # Conversation mode: natural language capability EXCLUDING BIP39 mnemonic words
+        # This prevents BIP39 words from leaking into conversation generation
+        # Security fix: mnemonic words must ONLY appear in mnemonic mode
+        self.conversation_vocab_ids = set(self.vocab.values()) - self.mnemonic_vocab_ids
     
     def _init_special_tokens(self):
         """Initialize special tokens at start of vocabulary."""

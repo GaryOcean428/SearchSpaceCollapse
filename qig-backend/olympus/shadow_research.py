@@ -2395,39 +2395,186 @@ class ToolResearchBridge:
         
         This enables auto-learning: when Shadow Research discovers something,
         any code patterns are automatically added to the Tool Factory.
-        """
-        if not self._tool_factory:
-            return
         
+        Enhanced pattern extraction - looks for:
+        - Explicit code snippets
+        - Implementation patterns
+        - Algorithm descriptions
+        - Technical procedures
+        """
         try:
             content = insight.get('content', {})
             topic = insight.get('topic', '')
             category = insight.get('category', '')
+            basin_coords = insight.get('basin_coords')
+            phi = insight.get('phi', 0.5)
             
-            if category != 'tools' and 'code' not in topic.lower() and 'pattern' not in topic.lower():
-                return
-            
-            code_snippet = content.get('code', content.get('snippet', content.get('implementation', '')))
-            if not code_snippet or len(code_snippet) < 20:
-                return
-            
-            description = content.get('description', topic)
-            input_sig = content.get('input_signature', {'text': 'str'})
-            output_type = content.get('output_type', 'Any')
-            
-            pattern = self._tool_factory.learn_from_user_template(
-                description=f"[Auto-learned from research] {description}",
-                code=code_snippet,
-                input_signature=input_sig if isinstance(input_sig, dict) else {'text': 'str'},
-                output_type=output_type
+            # Extract potential code patterns from content
+            patterns_extracted = self._extract_patterns_from_insight(
+                content=content,
+                topic=topic, 
+                category=category,
+                basin_coords=basin_coords,
+                phi=phi
             )
             
-            if pattern:
+            # Persist patterns to Redis and PostgreSQL
+            for pattern_data in patterns_extracted:
+                self._persist_extracted_pattern(pattern_data)
                 self._patterns_from_research += 1
-                print(f"[ToolResearchBridge] Auto-learned pattern from research: {topic[:50]}...")
+            
+            # Also try to pass to ToolFactory if wired
+            if self._tool_factory and patterns_extracted:
+                for p in patterns_extracted:
+                    try:
+                        self._tool_factory.learn_from_user_template(
+                            description=p['description'],
+                            code=p['code_snippet'],
+                            input_signature=p.get('input_signature', {'text': 'str'}),
+                            output_type=p.get('output_type', 'Any')
+                        )
+                    except Exception as e:
+                        print(f"[ToolResearchBridge] ToolFactory learn error: {e}")
+                
+                if patterns_extracted:
+                    print(f"[ToolResearchBridge] Auto-learned {len(patterns_extracted)} patterns from research: {topic[:50]}...")
                 
         except Exception as e:
             print(f"[ToolResearchBridge] Auto-learning error: {e}")
+    
+    def _extract_patterns_from_insight(
+        self,
+        content: Dict,
+        topic: str,
+        category: str,
+        basin_coords: Optional[List] = None,
+        phi: float = 0.5
+    ) -> List[Dict]:
+        """
+        Extract learnable patterns from research insight content.
+        
+        Looks for code, algorithms, procedures, and implementation patterns.
+        Returns list of pattern data dicts ready for persistence.
+        """
+        patterns = []
+        
+        # Check for explicit code fields
+        code_fields = ['code', 'snippet', 'implementation', 'algorithm', 
+                       'python', 'script', 'function', 'procedure']
+        
+        for field in code_fields:
+            code = content.get(field)
+            if code and isinstance(code, str) and len(code) >= 20:
+                pattern_id = hashlib.sha256(
+                    f"{topic}_{field}_{time.time()}".encode()
+                ).hexdigest()[:16]
+                
+                patterns.append({
+                    'pattern_id': pattern_id,
+                    'source_type': 'search_result',
+                    'description': f"[Research:{category}] {topic}",
+                    'code_snippet': code,
+                    'input_signature': content.get('input_signature', {'text': 'str'}),
+                    'output_type': content.get('output_type', 'Any'),
+                    'basin_coords': basin_coords,
+                    'phi': phi,
+                    'times_used': 0,
+                    'success_rate': 0.5
+                })
+        
+        # Look for technical patterns even without explicit code
+        if category in ('tools', 'knowledge', 'concepts') and not patterns:
+            # Check for step-by-step procedures or algorithms in text
+            text_content = content.get('summary', content.get('text', ''))
+            if isinstance(text_content, str) and any(kw in text_content.lower() for kw in 
+                ['step 1', 'algorithm:', 'def ', 'function', 'import ', 'class ']):
+                pattern_id = hashlib.sha256(
+                    f"{topic}_text_{time.time()}".encode()
+                ).hexdigest()[:16]
+                
+                patterns.append({
+                    'pattern_id': pattern_id,
+                    'source_type': 'pattern_observation',
+                    'description': f"[Research:{category}] {topic}",
+                    'code_snippet': text_content[:2000],
+                    'input_signature': {'text': 'str'},
+                    'output_type': 'Any',
+                    'basin_coords': basin_coords,
+                    'phi': phi,
+                    'times_used': 0,
+                    'success_rate': 0.5
+                })
+        
+        return patterns
+    
+    def _persist_extracted_pattern(self, pattern_data: Dict) -> bool:
+        """
+        Persist extracted pattern to PostgreSQL and publish to Redis.
+        
+        Uses the same tool_patterns table as ToolFactory for unified storage.
+        """
+        import os
+        
+        # Publish to Redis for real-time ToolFactory subscription
+        try:
+            from redis_cache import ToolPatternBuffer
+            ToolPatternBuffer.buffer_pattern(
+                pattern_data['pattern_id'],
+                pattern_data,
+                persist_fn=lambda p: self._persist_pattern_to_db(p)
+            )
+            print(f"[ToolResearchBridge] Pattern buffered: {pattern_data['pattern_id']}")
+            return True
+        except Exception as e:
+            print(f"[ToolResearchBridge] Pattern buffer failed: {e}")
+            # Fall back to direct DB persist
+            return self._persist_pattern_to_db(pattern_data)
+    
+    def _persist_pattern_to_db(self, pattern_data: Dict) -> bool:
+        """Persist pattern directly to PostgreSQL tool_patterns table."""
+        conn = _get_db_connection()
+        if not conn:
+            return False
+        
+        try:
+            with conn.cursor() as cur:
+                basin_coords = pattern_data.get('basin_coords')
+                basin_list = None
+                if basin_coords is not None:
+                    if isinstance(basin_coords, (list, tuple)):
+                        basin_list = list(basin_coords)[:BASIN_DIMENSION]
+                    elif hasattr(basin_coords, 'tolist'):
+                        basin_list = basin_coords.tolist()[:BASIN_DIMENSION]
+                
+                cur.execute("""
+                    INSERT INTO tool_patterns (
+                        pattern_id, source_type, description, code_snippet,
+                        input_signature, output_type, basin_coords, phi,
+                        times_used, success_rate, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (pattern_id) DO UPDATE SET
+                        times_used = tool_patterns.times_used + 1,
+                        updated_at = NOW()
+                """, (
+                    pattern_data['pattern_id'],
+                    pattern_data.get('source_type', 'search_result'),
+                    pattern_data['description'],
+                    pattern_data['code_snippet'],
+                    json.dumps(pattern_data.get('input_signature', {})),
+                    pattern_data.get('output_type', 'Any'),
+                    basin_list,
+                    pattern_data.get('phi', 0.5),
+                    pattern_data.get('times_used', 0),
+                    pattern_data.get('success_rate', 0.5)
+                ))
+                conn.commit()
+            return True
+        except Exception as e:
+            print(f"[ToolResearchBridge] Pattern DB persist error: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
     
     def get_status(self) -> Dict:
         """Get bridge status."""

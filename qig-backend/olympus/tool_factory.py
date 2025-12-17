@@ -52,6 +52,60 @@ except ImportError:
     from redis_cache import ToolPatternBuffer
 # Centralized geometry is required - module will fail if neither import works
 
+BASIN_DIMENSION = 64
+
+def _get_db_connection():
+    """Get database connection for tool patterns persistence."""
+    try:
+        import psycopg2
+        db_url = os.environ.get('DATABASE_URL')
+        if db_url:
+            return psycopg2.connect(db_url)
+    except Exception as e:
+        print(f"[ToolFactory] DB connection failed: {e}")
+    return None
+
+def _ensure_tool_patterns_table():
+    """Create tool_patterns table if not exists (learned_patterns equivalent)."""
+    conn = _get_db_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS tool_patterns (
+                    pattern_id VARCHAR(64) PRIMARY KEY,
+                    source_type VARCHAR(32) NOT NULL,
+                    source_url TEXT,
+                    description TEXT NOT NULL,
+                    code_snippet TEXT NOT NULL,
+                    input_signature JSONB DEFAULT '{}'::jsonb,
+                    output_type VARCHAR(64) DEFAULT 'Any',
+                    basin_coords FLOAT8[64],
+                    phi FLOAT8 DEFAULT 0.5,
+                    kappa FLOAT8 DEFAULT 55.0,
+                    times_used INT DEFAULT 0,
+                    success_rate FLOAT8 DEFAULT 0.5,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                );
+                CREATE INDEX IF NOT EXISTS idx_tool_patterns_source ON tool_patterns(source_type);
+                CREATE INDEX IF NOT EXISTS idx_tool_patterns_phi ON tool_patterns(phi DESC);
+                CREATE INDEX IF NOT EXISTS idx_tool_patterns_success ON tool_patterns(success_rate DESC);
+            """)
+            conn.commit()
+        print("[ToolFactory] ✓ tool_patterns table ready")
+        return True
+    except Exception as e:
+        print(f"[ToolFactory] Table creation error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+# Initialize table on module load
+_ensure_tool_patterns_table()
+
 
 class ToolComplexity(Enum):
     """Tool complexity levels for progressive learning."""
