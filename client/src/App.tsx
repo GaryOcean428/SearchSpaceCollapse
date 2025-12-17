@@ -7,6 +7,8 @@ import { ErrorBoundary, PageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { HealthIndicator } from "@/components/HealthIndicator";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import RecoveryPage from "@/pages/recovery";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
@@ -34,7 +36,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <span className="text-sm text-muted-foreground">Observer Archaeology System</span>
             </div>
-            <HealthIndicator />
+            <div className="flex items-center gap-2">
+              <HealthIndicator />
+              <ThemeToggle />
+            </div>
           </header>
           <div className="flex-1 overflow-auto">
             <PageErrorBoundary>
@@ -87,14 +92,16 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ConsciousnessProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </ConsciousnessProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <ConsciousnessProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </ConsciousnessProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
