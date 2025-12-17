@@ -190,11 +190,47 @@ class M8SpawnerPersistence:
                             awareness_updated_at TIMESTAMP DEFAULT NOW()
                         );
                         
+                        CREATE TABLE IF NOT EXISTS kernel_evolution_fitness (
+                            kernel_id VARCHAR(64) PRIMARY KEY,
+                            phi_current FLOAT8 DEFAULT 0.0,
+                            phi_gradient FLOAT8 DEFAULT 0.0,
+                            phi_velocity FLOAT8 DEFAULT 0.0,
+                            kappa_current FLOAT8 DEFAULT 0.0,
+                            kappa_stability FLOAT8 DEFAULT 0.0,
+                            fisher_diversity FLOAT8 DEFAULT 0.0,
+                            geometric_fitness FLOAT8 DEFAULT 0.0,
+                            dimensional_state VARCHAR(8) DEFAULT 'D3',
+                            evolution_pressure FLOAT8 DEFAULT 0.0,
+                            cannibalize_priority FLOAT8 DEFAULT 0.0,
+                            merge_affinity JSONB DEFAULT '{}'::jsonb,
+                            last_evolution_event VARCHAR(64),
+                            fitness_computed_at TIMESTAMP DEFAULT NOW()
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS kernel_evolution_events (
+                            event_id VARCHAR(64) PRIMARY KEY,
+                            event_type VARCHAR(32) NOT NULL,
+                            source_kernel_id VARCHAR(64),
+                            target_kernel_id VARCHAR(64),
+                            result_kernel_id VARCHAR(64),
+                            geometric_reasoning JSONB DEFAULT '{}'::jsonb,
+                            phi_before FLOAT8,
+                            phi_after FLOAT8,
+                            kappa_before FLOAT8,
+                            kappa_after FLOAT8,
+                            fisher_distance FLOAT8,
+                            fitness_delta FLOAT8,
+                            occurred_at TIMESTAMP DEFAULT NOW()
+                        );
+                        
                         CREATE INDEX IF NOT EXISTS idx_m8_proposals_status ON m8_spawn_proposals(status);
                         CREATE INDEX IF NOT EXISTS idx_m8_kernels_status ON m8_spawned_kernels(status);
                         CREATE INDEX IF NOT EXISTS idx_m8_kernels_god ON m8_spawned_kernels(god_name);
                         CREATE INDEX IF NOT EXISTS idx_m8_history_kernel ON m8_spawn_history(kernel_id);
                         CREATE INDEX IF NOT EXISTS idx_m8_history_type ON m8_spawn_history(event_type);
+                        CREATE INDEX IF NOT EXISTS idx_evolution_fitness ON kernel_evolution_fitness(geometric_fitness DESC);
+                        CREATE INDEX IF NOT EXISTS idx_evolution_cannibalize ON kernel_evolution_fitness(cannibalize_priority DESC);
+                        CREATE INDEX IF NOT EXISTS idx_evolution_events_type ON kernel_evolution_events(event_type);
                     """)
                     conn.commit()
                 self._tables_ensured = True
@@ -485,6 +521,180 @@ class M8SpawnerPersistence:
             except Exception as e:
                 print(f"[M8Persistence] Failed to delete kernel: {e}")
                 return False
+
+    def persist_evolution_fitness(self, kernel_id: str, fitness: Dict) -> bool:
+        """Persist kernel evolution fitness metrics to PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO kernel_evolution_fitness
+                        (kernel_id, phi_current, phi_gradient, phi_velocity,
+                         kappa_current, kappa_stability, fisher_diversity,
+                         geometric_fitness, dimensional_state, evolution_pressure,
+                         cannibalize_priority, merge_affinity, last_evolution_event,
+                         fitness_computed_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (kernel_id) DO UPDATE SET
+                            phi_current = EXCLUDED.phi_current,
+                            phi_gradient = EXCLUDED.phi_gradient,
+                            phi_velocity = EXCLUDED.phi_velocity,
+                            kappa_current = EXCLUDED.kappa_current,
+                            kappa_stability = EXCLUDED.kappa_stability,
+                            fisher_diversity = EXCLUDED.fisher_diversity,
+                            geometric_fitness = EXCLUDED.geometric_fitness,
+                            dimensional_state = EXCLUDED.dimensional_state,
+                            evolution_pressure = EXCLUDED.evolution_pressure,
+                            cannibalize_priority = EXCLUDED.cannibalize_priority,
+                            merge_affinity = EXCLUDED.merge_affinity,
+                            last_evolution_event = EXCLUDED.last_evolution_event,
+                            fitness_computed_at = NOW()
+                    """, (
+                        kernel_id,
+                        fitness.get('phi_current', 0.0),
+                        fitness.get('phi_gradient', 0.0),
+                        fitness.get('phi_velocity', 0.0),
+                        fitness.get('kappa_current', 0.0),
+                        fitness.get('kappa_stability', 0.0),
+                        fitness.get('fisher_diversity', 0.0),
+                        fitness.get('geometric_fitness', 0.0),
+                        fitness.get('dimensional_state', 'D3'),
+                        fitness.get('evolution_pressure', 0.0),
+                        fitness.get('cannibalize_priority', 0.0),
+                        json.dumps(fitness.get('merge_affinity', {})),
+                        fitness.get('last_evolution_event'),
+                    ))
+                    conn.commit()
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Failed to persist evolution fitness: {e}")
+                return False
+
+    def persist_evolution_event(self, event: Dict) -> bool:
+        """Persist an evolution event (cannibalize, merge, spawn) to PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                event_id = event.get('event_id', f"evo_{uuid.uuid4().hex[:12]}")
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO kernel_evolution_events
+                        (event_id, event_type, source_kernel_id, target_kernel_id,
+                         result_kernel_id, geometric_reasoning, phi_before, phi_after,
+                         kappa_before, kappa_after, fisher_distance, fitness_delta, occurred_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (event_id) DO NOTHING
+                    """, (
+                        event_id,
+                        event.get('event_type', 'unknown'),
+                        event.get('source_kernel_id'),
+                        event.get('target_kernel_id'),
+                        event.get('result_kernel_id'),
+                        json.dumps(event.get('geometric_reasoning', {})),
+                        event.get('phi_before'),
+                        event.get('phi_after'),
+                        event.get('kappa_before'),
+                        event.get('kappa_after'),
+                        event.get('fisher_distance'),
+                        event.get('fitness_delta'),
+                    ))
+                    conn.commit()
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Failed to persist evolution event: {e}")
+                return False
+
+    def load_evolution_fitness(self, kernel_id: str = None) -> List[Dict]:
+        """Load evolution fitness metrics from PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    if kernel_id:
+                        cur.execute("""
+                            SELECT * FROM kernel_evolution_fitness
+                            WHERE kernel_id = %s
+                        """, (kernel_id,))
+                    else:
+                        cur.execute("""
+                            SELECT * FROM kernel_evolution_fitness
+                            ORDER BY geometric_fitness DESC
+                        """)
+                    return [dict(row) for row in cur.fetchall()]
+            except Exception as e:
+                print(f"[M8Persistence] Failed to load evolution fitness: {e}")
+                return []
+
+    def load_evolution_events(self, limit: int = 100, event_type: str = None) -> List[Dict]:
+        """Load evolution events from PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    if event_type:
+                        cur.execute("""
+                            SELECT * FROM kernel_evolution_events
+                            WHERE event_type = %s
+                            ORDER BY occurred_at DESC
+                            LIMIT %s
+                        """, (event_type, limit))
+                    else:
+                        cur.execute("""
+                            SELECT * FROM kernel_evolution_events
+                            ORDER BY occurred_at DESC
+                            LIMIT %s
+                        """, (limit,))
+                    return [dict(row) for row in cur.fetchall()]
+            except Exception as e:
+                print(f"[M8Persistence] Failed to load evolution events: {e}")
+                return []
+
+    def get_cannibalization_candidates(self, limit: int = 10) -> List[Dict]:
+        """Get kernels ranked by cannibalization priority (lowest fitness first)."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT ef.*, kg.god_name, kg.domain, kg.status
+                        FROM kernel_evolution_fitness ef
+                        JOIN kernel_geometry kg ON ef.kernel_id = kg.kernel_id
+                        WHERE kg.status IN ('active', 'idle', 'observing')
+                        ORDER BY ef.cannibalize_priority DESC, ef.geometric_fitness ASC
+                        LIMIT %s
+                    """, (limit,))
+                    return [dict(row) for row in cur.fetchall()]
+            except Exception as e:
+                print(f"[M8Persistence] Failed to get cannibalization candidates: {e}")
+                return []
+
+    def get_merge_candidates(self, min_fisher_similarity: float = 0.8, limit: int = 10) -> List[Dict]:
+        """Get kernel pairs that are good merge candidates (high geometric similarity)."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT ef.kernel_id, ef.geometric_fitness, ef.merge_affinity,
+                               kg.god_name, kg.domain, kg.basin_coordinates
+                        FROM kernel_evolution_fitness ef
+                        JOIN kernel_geometry kg ON ef.kernel_id = kg.kernel_id
+                        WHERE kg.status IN ('active', 'idle')
+                          AND kg.basin_coordinates IS NOT NULL
+                        ORDER BY ef.geometric_fitness DESC
+                        LIMIT %s
+                    """, (limit,))
+                    return [dict(row) for row in cur.fetchall()]
+            except Exception as e:
+                print(f"[M8Persistence] Failed to get merge candidates: {e}")
+                return []
 
 
 # E8 Kernel Cap - Maximum number of live kernels (E8 has 240 roots)
@@ -3041,9 +3251,9 @@ class M8KernelSpawner:
         """
         Automatically select and cannibalize idle kernels into active ones.
         
-        Selects the most idle kernel as source and the most active (highest Φ)
-        kernel as target. This implements automatic lifecycle management where
-        inactive kernels are absorbed by stronger ones.
+        Selects the most idle kernel as source and the best target kernel 
+        (highest Φ, or closest by Fisher distance). If no "active" kernels,
+        falls back to cannibalizing most idle into least idle.
         
         Queries kernels from PostgreSQL database for full kernel population.
         
@@ -3053,42 +3263,57 @@ class M8KernelSpawner:
         Returns:
             Cannibalization result or error if no suitable candidates
         """
-        idle_kernel_ids = self.get_idle_kernels(idle_threshold_seconds)
-        
-        if not idle_kernel_ids:
-            return {
-                "success": False,
-                "error": "No idle kernels available for auto-cannibalization",
-                "idle_count": 0
-            }
-        
-        # Query active kernels from database + in-memory
-        active_kernels = []
-        idle_set = set(idle_kernel_ids)
-        
-        # Check in-memory kernels
-        for kid, k in self.spawned_kernels.items():
-            if kid not in idle_set and k.is_active():
-                active_kernels.append((kid, {'phi': getattr(k, 'phi', 0.0)}))
-        
-        # Also query from database
+        # Get ALL kernels first
+        all_kernels = []
         if self.kernel_persistence:
             try:
                 db_kernels = self.kernel_persistence.load_all_kernels_for_ui(limit=1000)
                 for k in db_kernels:
                     kid = k.get('kernel_id')
-                    if kid and kid not in idle_set and kid not in self.spawned_kernels:
-                        # DB kernels not in idle list are considered active candidates
-                        active_kernels.append((kid, {'phi': k.get('phi', 0.0)}))
+                    if kid:
+                        all_kernels.append((kid, {
+                            'phi': k.get('phi', 0.0),
+                            'kappa': k.get('kappa', 0.0),
+                            'status': k.get('status', 'unknown'),
+                            'spawned_at': k.get('spawned_at'),
+                        }))
             except Exception as e:
                 print(f"[M8] Failed to load kernels from DB for auto-cannibalize: {e}")
         
-        if not active_kernels:
+        # Add in-memory kernels not in DB
+        db_ids = {k[0] for k in all_kernels}
+        for kid, k in self.spawned_kernels.items():
+            if kid not in db_ids:
+                all_kernels.append((kid, {
+                    'phi': getattr(k, 'phi', 0.0),
+                    'kappa': getattr(k, 'kappa', 0.0),
+                    'status': 'active' if k.is_active() else 'idle',
+                }))
+        
+        if len(all_kernels) < 2:
             return {
                 "success": False,
-                "error": "No active kernels available to receive cannibalized traits",
-                "idle_count": len(idle_kernel_ids)
+                "error": f"Need at least 2 kernels for auto-cannibalization, found {len(all_kernels)}",
+                "kernel_count": len(all_kernels)
             }
+        
+        idle_kernel_ids = self.get_idle_kernels(idle_threshold_seconds)
+        idle_set = set(idle_kernel_ids)
+        
+        # Find active (non-idle) kernels as preferred targets
+        active_kernels = [(kid, data) for kid, data in all_kernels if kid not in idle_set]
+        
+        # If no active kernels, we'll use idle kernels as targets too
+        # (cannibalize most-idle into least-idle)
+        target_candidates = active_kernels if active_kernels else all_kernels
+        
+        if not idle_kernel_ids:
+            # No idle kernels - pick lowest phi kernel as source
+            sorted_by_phi = sorted(all_kernels, key=lambda x: x[1].get('phi', 0.0))
+            source_id = sorted_by_phi[0][0]
+            target_candidates = [(kid, data) for kid, data in all_kernels if kid != source_id]
+        else:
+            source_id = None
         
         source_id = None
         max_idle_time = -1
