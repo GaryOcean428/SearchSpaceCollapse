@@ -704,7 +704,115 @@ def beta_attention_constants():
     })
 
 
-ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp, natural_gradient_bp, beta_attention_bp]
+tool_factory_bp = Blueprint('tool_factory', __name__, url_prefix='/olympus/tool-factory')
+
+
+@tool_factory_bp.route('/status', methods=['GET'])
+@cached_route(ttl=5, key_prefix='tool_factory_status')
+def tool_factory_status():
+    """Get tool factory and autonomous pipeline status."""
+    try:
+        from olympus.tool_factory import AutonomousToolPipeline
+        
+        pipeline = AutonomousToolPipeline.get_instance()
+        status = pipeline.get_pipeline_status()
+        
+        return RouteResponse.success({
+            'pipeline': status,
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@tool_factory_bp.route('/requests', methods=['GET'])
+def tool_factory_requests():
+    """Get all tool requests and their status."""
+    try:
+        from olympus.tool_factory import AutonomousToolPipeline
+        
+        pipeline = AutonomousToolPipeline.get_instance()
+        requests = pipeline.get_all_requests()
+        
+        return RouteResponse.success({
+            'requests': requests,
+            'count': len(requests)
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@tool_factory_bp.route('/request/<request_id>', methods=['GET'])
+def tool_factory_request_detail(request_id: str):
+    """Get details of a specific tool request."""
+    try:
+        from olympus.tool_factory import AutonomousToolPipeline
+        
+        pipeline = AutonomousToolPipeline.get_instance()
+        request_status = pipeline.get_request_status(request_id)
+        
+        if not request_status:
+            return RouteResponse.not_found('Tool request')
+        
+        return RouteResponse.success(request_status)
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@tool_factory_bp.route('/queue', methods=['GET'])
+def tool_factory_queue():
+    """Get bidirectional queue status between tool factory and shadow research."""
+    try:
+        from olympus.shadow_research import ToolResearchBridge
+        
+        bridge = ToolResearchBridge.get_instance()
+        bridge_status = bridge.get_status()
+        
+        return RouteResponse.success({
+            'bridge': bridge_status,
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@tool_factory_bp.route('/invent', methods=['POST'])
+@validate_json('concept')
+def tool_factory_invent():
+    """
+    Request invention of a new tool.
+    
+    Body: {
+        "concept": string (required),
+        "requester": string (optional),
+        "inspiration": string (optional)
+    }
+    """
+    try:
+        from olympus.tool_factory import AutonomousToolPipeline
+        
+        data = request.get_json()
+        concept = data['concept']
+        requester = data.get('requester', 'api')
+        inspiration = data.get('inspiration')
+        
+        pipeline = AutonomousToolPipeline.get_instance()
+        request_id = pipeline.invent_new_tool(
+            concept=concept,
+            requester=requester,
+            inspiration=inspiration
+        )
+        
+        return RouteResponse.success({
+            'request_id': request_id,
+            'concept': concept,
+            'status': 'submitted'
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp, natural_gradient_bp, beta_attention_bp, tool_factory_bp]
 
 # NOTE: research_bp is registered separately in ocean_qig_core.py
 # Don't add it here to avoid duplicate registration
@@ -745,6 +853,7 @@ __all__ = [
     'capability_mesh_bp',
     'natural_gradient_bp',
     'beta_attention_bp',
+    'tool_factory_bp',
     'CACHE_TTL_SHORT',
     'CACHE_TTL_MEDIUM',
 ]
