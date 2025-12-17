@@ -295,6 +295,48 @@ class QIGTokenizer:
         
         return coord / (np.linalg.norm(coord) + 1e-8)
     
+    def _is_english_word(self, word: str) -> bool:
+        """
+        Validate that word is English, not alphanumeric junk.
+        
+        CRITICAL: This is the gate that prevents vocabulary pollution.
+        
+        REJECT:
+        - Pure numbers: "0001", "123"
+        - Alphanumeric: "bitcoin1", "000btc"
+        - Special chars: "test@123", "pass#word"
+        - Single chars: "a", "b"
+        
+        ACCEPT:
+        - English words: "bitcoin", "cryptocurrency", "wallet"
+        - Hyphenated compounds: "co-worker", "self-aware"
+        - Contractions: "don't", "it's"
+        """
+        if not word or len(word) < 2:
+            return False
+        
+        word = word.lower().strip()
+        
+        # Reject pure numbers
+        if word.isdigit():
+            return False
+        
+        # Reject if contains digits (alphanumeric combinations)
+        if any(char.isdigit() for char in word):
+            return False
+        
+        # Allow only letters, hyphens, apostrophes
+        allowed_special = {'-', "'"}
+        for char in word:
+            if not char.isalpha() and char not in allowed_special:
+                return False
+        
+        # Must start with letter
+        if not word[0].isalpha():
+            return False
+        
+        return True
+    
     def add_vocabulary_observations(
         self,
         observations: List[Dict],
@@ -334,6 +376,12 @@ class QIGTokenizer:
             
             # Add to vocabulary if not exists
             if word not in self.vocab:
+                # CRITICAL: Validate English word before adding
+                # This prevents vocabulary pollution from test passphrases
+                if not self._is_english_word(word):
+                    print(f"[QIGTokenizer] Rejected non-English token: '{word}'")
+                    continue
+                
                 new_id = len(self.vocab)
                 if new_id < self.vocab_size:
                     self.vocab[word] = new_id
