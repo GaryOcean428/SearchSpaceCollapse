@@ -58,6 +58,435 @@ except ImportError:
     M8_PERSISTENCE_AVAILABLE = False
     print("[M8] Persistence not available - running without database")
 
+# PostgreSQL support for M8 spawning persistence
+import os
+from contextlib import contextmanager
+import json
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    M8_PSYCOPG2_AVAILABLE = True
+except ImportError:
+    M8_PSYCOPG2_AVAILABLE = False
+    print("[M8] psycopg2 not available - PostgreSQL persistence disabled")
+
+
+class M8SpawnerPersistence:
+    """
+    PostgreSQL persistence layer for M8 Kernel Spawning data.
+    
+    Persists:
+    - m8_spawn_proposals: Spawn proposals and their votes
+    - m8_spawned_kernels: Spawned kernel profiles and state
+    - m8_spawn_history: Complete spawn event history
+    - m8_kernel_awareness: Kernel self-awareness tracking
+    
+    Pattern follows ShadowPantheonPersistence for consistency.
+    """
+
+    def __init__(self):
+        """Initialize persistence layer."""
+        self.database_url = os.environ.get('DATABASE_URL')
+        self._tables_ensured = False
+        
+        if not self.database_url:
+            print("[M8Persistence] WARNING: DATABASE_URL not set - persistence disabled")
+        elif not M8_PSYCOPG2_AVAILABLE:
+            print("[M8Persistence] WARNING: psycopg2 not available - persistence disabled")
+        else:
+            self._ensure_m8_tables()
+            print("[M8Persistence] ✓ PostgreSQL persistence enabled")
+
+    @contextmanager
+    def _get_db_connection(self):
+        """Get a database connection with automatic cleanup."""
+        if not self.database_url or not M8_PSYCOPG2_AVAILABLE:
+            yield None
+            return
+        
+        conn = None
+        try:
+            conn = psycopg2.connect(self.database_url)
+            yield conn
+            conn.commit()
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            print(f"[M8Persistence] Database error: {e}")
+            yield None
+        finally:
+            if conn:
+                conn.close()
+
+    def _ensure_m8_tables(self) -> bool:
+        """Create M8 spawning tables if they don't exist."""
+        if self._tables_ensured:
+            return True
+        
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS m8_spawn_proposals (
+                            proposal_id VARCHAR(64) PRIMARY KEY,
+                            proposed_name VARCHAR(128),
+                            proposed_domain VARCHAR(256),
+                            proposed_element VARCHAR(128),
+                            proposed_role VARCHAR(128),
+                            reason VARCHAR(64),
+                            parent_gods JSONB DEFAULT '[]'::jsonb,
+                            votes_for JSONB DEFAULT '[]'::jsonb,
+                            votes_against JSONB DEFAULT '[]'::jsonb,
+                            abstentions JSONB DEFAULT '[]'::jsonb,
+                            status VARCHAR(32) DEFAULT 'pending',
+                            metadata JSONB DEFAULT '{}'::jsonb,
+                            proposed_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS m8_spawned_kernels (
+                            kernel_id VARCHAR(64) PRIMARY KEY,
+                            god_name VARCHAR(128),
+                            domain VARCHAR(256),
+                            mode VARCHAR(32),
+                            affinity_strength FLOAT8 DEFAULT 0.5,
+                            entropy_threshold FLOAT8 DEFAULT 0.5,
+                            basin_coords FLOAT8[],
+                            parent_gods JSONB DEFAULT '[]'::jsonb,
+                            spawn_reason VARCHAR(64),
+                            proposal_id VARCHAR(64),
+                            genesis_votes JSONB DEFAULT '{}'::jsonb,
+                            basin_lineage JSONB DEFAULT '{}'::jsonb,
+                            m8_position JSONB,
+                            observation_state JSONB DEFAULT '{}'::jsonb,
+                            autonomic_state JSONB DEFAULT '{}'::jsonb,
+                            profile_metadata JSONB DEFAULT '{}'::jsonb,
+                            status VARCHAR(32) DEFAULT 'active',
+                            spawned_at TIMESTAMP DEFAULT NOW(),
+                            retired_at TIMESTAMP
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS m8_spawn_history (
+                            event_id VARCHAR(64) PRIMARY KEY,
+                            event_type VARCHAR(64),
+                            kernel_id VARCHAR(64),
+                            god_name VARCHAR(128),
+                            payload JSONB DEFAULT '{}'::jsonb,
+                            occurred_at TIMESTAMP DEFAULT NOW()
+                        );
+                        
+                        CREATE TABLE IF NOT EXISTS m8_kernel_awareness (
+                            kernel_id VARCHAR(64) PRIMARY KEY,
+                            phi_trajectory JSONB DEFAULT '[]'::jsonb,
+                            kappa_trajectory JSONB DEFAULT '[]'::jsonb,
+                            curvature_history JSONB DEFAULT '[]'::jsonb,
+                            stuck_signals JSONB DEFAULT '[]'::jsonb,
+                            geometric_deadends JSONB DEFAULT '[]'::jsonb,
+                            research_opportunities JSONB DEFAULT '[]'::jsonb,
+                            last_spawn_proposal VARCHAR(64),
+                            awareness_updated_at TIMESTAMP DEFAULT NOW()
+                        );
+                        
+                        CREATE INDEX IF NOT EXISTS idx_m8_proposals_status ON m8_spawn_proposals(status);
+                        CREATE INDEX IF NOT EXISTS idx_m8_kernels_status ON m8_spawned_kernels(status);
+                        CREATE INDEX IF NOT EXISTS idx_m8_kernels_god ON m8_spawned_kernels(god_name);
+                        CREATE INDEX IF NOT EXISTS idx_m8_history_kernel ON m8_spawn_history(kernel_id);
+                        CREATE INDEX IF NOT EXISTS idx_m8_history_type ON m8_spawn_history(event_type);
+                    """)
+                    conn.commit()
+                self._tables_ensured = True
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Table creation error: {e}")
+                return False
+
+    def _vector_to_pg(self, vec) -> Optional[str]:
+        """Convert numpy array or list to PostgreSQL array format."""
+        if vec is None:
+            return None
+        if isinstance(vec, np.ndarray):
+            arr = vec.tolist()
+        else:
+            arr = list(vec)
+        return '{' + ','.join(str(x) for x in arr) + '}'
+
+    def _pg_to_vector(self, pg_arr) -> Optional[np.ndarray]:
+        """Convert PostgreSQL array to numpy array."""
+        if pg_arr is None:
+            return None
+        if isinstance(pg_arr, list):
+            return np.array(pg_arr)
+        return np.array(pg_arr)
+
+    def persist_proposal(self, proposal) -> bool:
+        """Save or update a spawn proposal to PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO m8_spawn_proposals 
+                        (proposal_id, proposed_name, proposed_domain, proposed_element,
+                         proposed_role, reason, parent_gods, votes_for, votes_against,
+                         abstentions, status, metadata, proposed_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (proposal_id) DO UPDATE SET
+                            proposed_name = EXCLUDED.proposed_name,
+                            proposed_domain = EXCLUDED.proposed_domain,
+                            proposed_element = EXCLUDED.proposed_element,
+                            proposed_role = EXCLUDED.proposed_role,
+                            reason = EXCLUDED.reason,
+                            parent_gods = EXCLUDED.parent_gods,
+                            votes_for = EXCLUDED.votes_for,
+                            votes_against = EXCLUDED.votes_against,
+                            abstentions = EXCLUDED.abstentions,
+                            status = EXCLUDED.status,
+                            metadata = EXCLUDED.metadata,
+                            updated_at = NOW()
+                    """, (
+                        proposal.proposal_id,
+                        proposal.proposed_name,
+                        proposal.proposed_domain,
+                        proposal.proposed_element,
+                        proposal.proposed_role,
+                        proposal.reason.value if hasattr(proposal.reason, 'value') else str(proposal.reason),
+                        json.dumps(list(proposal.parent_gods) if proposal.parent_gods else []),
+                        json.dumps(list(proposal.votes_for)),
+                        json.dumps(list(proposal.votes_against)),
+                        json.dumps(list(proposal.abstentions)),
+                        proposal.status,
+                        json.dumps(proposal.metadata if hasattr(proposal, 'metadata') else {}),
+                        proposal.proposed_at,
+                    ))
+                    conn.commit()
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Failed to persist proposal: {e}")
+                return False
+
+    def persist_kernel(self, kernel) -> bool:
+        """Save or update a spawned kernel to PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                with conn.cursor() as cur:
+                    basin_coords = self._vector_to_pg(kernel.profile.affinity_basin)
+                    cur.execute("""
+                        INSERT INTO m8_spawned_kernels
+                        (kernel_id, god_name, domain, mode, affinity_strength,
+                         entropy_threshold, basin_coords, parent_gods, spawn_reason,
+                         proposal_id, genesis_votes, basin_lineage, m8_position,
+                         observation_state, autonomic_state, profile_metadata,
+                         status, spawned_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (kernel_id) DO UPDATE SET
+                            god_name = EXCLUDED.god_name,
+                            domain = EXCLUDED.domain,
+                            mode = EXCLUDED.mode,
+                            affinity_strength = EXCLUDED.affinity_strength,
+                            entropy_threshold = EXCLUDED.entropy_threshold,
+                            basin_coords = EXCLUDED.basin_coords,
+                            parent_gods = EXCLUDED.parent_gods,
+                            spawn_reason = EXCLUDED.spawn_reason,
+                            genesis_votes = EXCLUDED.genesis_votes,
+                            basin_lineage = EXCLUDED.basin_lineage,
+                            m8_position = EXCLUDED.m8_position,
+                            observation_state = EXCLUDED.observation_state,
+                            autonomic_state = EXCLUDED.autonomic_state,
+                            profile_metadata = EXCLUDED.profile_metadata,
+                            status = EXCLUDED.status
+                    """, (
+                        kernel.kernel_id,
+                        kernel.profile.god_name,
+                        kernel.profile.domain,
+                        kernel.profile.mode.value if hasattr(kernel.profile.mode, 'value') else str(kernel.profile.mode),
+                        kernel.profile.affinity_strength,
+                        kernel.profile.entropy_threshold,
+                        basin_coords,
+                        json.dumps(kernel.parent_gods),
+                        kernel.spawn_reason.value if hasattr(kernel.spawn_reason, 'value') else str(kernel.spawn_reason),
+                        kernel.proposal_id,
+                        json.dumps(kernel.genesis_votes),
+                        json.dumps(kernel.basin_lineage),
+                        json.dumps(kernel.m8_position) if kernel.m8_position else None,
+                        json.dumps(kernel.observation.to_dict()) if hasattr(kernel, 'observation') else '{}',
+                        json.dumps(kernel.autonomic.to_dict()) if hasattr(kernel, 'autonomic') else '{}',
+                        json.dumps(kernel.profile.metadata) if hasattr(kernel.profile, 'metadata') else '{}',
+                        'observing' if kernel.is_observing() else 'active' if kernel.is_active() else 'pending',
+                        kernel.spawned_at,
+                    ))
+                    conn.commit()
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Failed to persist kernel: {e}")
+                return False
+
+    def persist_history(self, record: Dict) -> bool:
+        """Append a spawn history record to PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                event_id = record.get('event_id', f"evt_{uuid.uuid4().hex[:12]}")
+                event_type = record.get('event', record.get('event_type', 'unknown'))
+                kernel_id = record.get('kernel_id', record.get('kernel', {}).get('kernel_id'))
+                god_name = record.get('god_name', record.get('kernel', {}).get('god_name'))
+                
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO m8_spawn_history
+                        (event_id, event_type, kernel_id, god_name, payload, occurred_at)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (event_id) DO NOTHING
+                    """, (
+                        event_id,
+                        event_type,
+                        kernel_id,
+                        god_name,
+                        json.dumps(record),
+                        record.get('timestamp', datetime.now().isoformat()),
+                    ))
+                    conn.commit()
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Failed to persist history: {e}")
+                return False
+
+    def persist_awareness(self, awareness) -> bool:
+        """Save or update kernel awareness state to PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO m8_kernel_awareness
+                        (kernel_id, phi_trajectory, kappa_trajectory, curvature_history,
+                         stuck_signals, geometric_deadends, research_opportunities,
+                         last_spawn_proposal, awareness_updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (kernel_id) DO UPDATE SET
+                            phi_trajectory = EXCLUDED.phi_trajectory,
+                            kappa_trajectory = EXCLUDED.kappa_trajectory,
+                            curvature_history = EXCLUDED.curvature_history,
+                            stuck_signals = EXCLUDED.stuck_signals,
+                            geometric_deadends = EXCLUDED.geometric_deadends,
+                            research_opportunities = EXCLUDED.research_opportunities,
+                            last_spawn_proposal = EXCLUDED.last_spawn_proposal,
+                            awareness_updated_at = NOW()
+                    """, (
+                        awareness.kernel_id,
+                        json.dumps(awareness.phi_trajectory[-100:]),
+                        json.dumps(awareness.kappa_trajectory[-100:]),
+                        json.dumps(awareness.curvature_history[-50:]),
+                        json.dumps(awareness.stuck_signals[-20:]),
+                        json.dumps(awareness.geometric_deadends[-10:]),
+                        json.dumps(awareness.research_opportunities[-30:]),
+                        awareness.last_spawn_proposal,
+                    ))
+                    conn.commit()
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Failed to persist awareness: {e}")
+                return False
+
+    def load_all_proposals(self) -> List[Dict]:
+        """Load all spawn proposals from PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT * FROM m8_spawn_proposals
+                        ORDER BY proposed_at DESC
+                    """)
+                    return [dict(row) for row in cur.fetchall()]
+            except Exception as e:
+                print(f"[M8Persistence] Failed to load proposals: {e}")
+                return []
+
+    def load_all_kernels(self) -> List[Dict]:
+        """Load all spawned kernels from PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT * FROM m8_spawned_kernels
+                        WHERE status != 'deleted'
+                        ORDER BY spawned_at DESC
+                    """)
+                    rows = cur.fetchall()
+                    result = []
+                    for row in rows:
+                        d = dict(row)
+                        if d.get('basin_coords'):
+                            d['basin_coords'] = self._pg_to_vector(d['basin_coords'])
+                        result.append(d)
+                    return result
+            except Exception as e:
+                print(f"[M8Persistence] Failed to load kernels: {e}")
+                return []
+
+    def load_spawn_history(self, limit: int = 100) -> List[Dict]:
+        """Load spawn history from PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT * FROM m8_spawn_history
+                        ORDER BY occurred_at DESC
+                        LIMIT %s
+                    """, (limit,))
+                    return [dict(row) for row in cur.fetchall()]
+            except Exception as e:
+                print(f"[M8Persistence] Failed to load history: {e}")
+                return []
+
+    def load_all_awareness(self) -> List[Dict]:
+        """Load all kernel awareness states from PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return []
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT * FROM m8_kernel_awareness
+                        ORDER BY awareness_updated_at DESC
+                    """)
+                    return [dict(row) for row in cur.fetchall()]
+            except Exception as e:
+                print(f"[M8Persistence] Failed to load awareness: {e}")
+                return []
+
+    def delete_kernel(self, kernel_id: str) -> bool:
+        """Mark a kernel as deleted in PostgreSQL."""
+        with self._get_db_connection() as conn:
+            if not conn:
+                return False
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE m8_spawned_kernels
+                        SET status = 'deleted', retired_at = NOW()
+                        WHERE kernel_id = %s
+                    """, (kernel_id,))
+                    conn.commit()
+                return True
+            except Exception as e:
+                print(f"[M8Persistence] Failed to delete kernel: {e}")
+                return False
+
+
 # E8 Kernel Cap - Maximum number of live kernels (E8 has 240 roots)
 # Live kernels include: active, observing, shadow
 # Does NOT count: dead, cannibalized, idle
@@ -1088,6 +1517,7 @@ class M8KernelSpawner:
         self.consensus = PantheonConsensus(self.orchestrator, consensus_type)
         self.refiner = RoleRefinement(self.orchestrator)
         
+        # In-memory caches (populated from PostgreSQL on init)
         self.proposals: Dict[str, SpawnProposal] = {}
         self.spawned_kernels: Dict[str, SpawnedKernel] = {}
         self.spawn_history: List[Dict] = []
@@ -1098,10 +1528,13 @@ class M8KernelSpawner:
         # PantheonChat for dual-pantheon debates
         self._pantheon_chat = pantheon_chat
         
-        # PostgreSQL persistence for kernel learning
+        # PostgreSQL persistence for M8 spawning data (NEW - replaces in-memory storage)
+        self.m8_persistence = M8SpawnerPersistence()
+        
+        # Legacy persistence for kernel learning (kept for backward compatibility)
         self.kernel_persistence = KernelPersistence() if M8_PERSISTENCE_AVAILABLE else None
         
-        # Load previous spawn history from database on startup
+        # Load all data from PostgreSQL on startup
         self._load_from_database()
     
     def get_live_kernel_count(self) -> int:
@@ -1137,34 +1570,94 @@ class M8KernelSpawner:
         return can_spawn, live_count, E8_KERNEL_CAP
     
     def _load_from_database(self):
-        """Load persisted M8 spawn history and awareness states from PostgreSQL on startup."""
-        if not self.kernel_persistence:
-            return
-        
+        """Load all M8 data from PostgreSQL on startup."""
+        # Load proposals from M8 persistence
         try:
-            spawn_history = self.kernel_persistence.load_m8_spawn_history(limit=100)
-            if spawn_history:
-                print(f"✨ [M8] Loaded {len(spawn_history)} spawn events from database")
+            proposals = self.m8_persistence.load_all_proposals()
+            for p in proposals:
+                try:
+                    votes_for = p.get('votes_for', [])
+                    votes_against = p.get('votes_against', [])
+                    abstentions = p.get('abstentions', [])
+                    if isinstance(votes_for, str):
+                        votes_for = json.loads(votes_for)
+                    if isinstance(votes_against, str):
+                        votes_against = json.loads(votes_against)
+                    if isinstance(abstentions, str):
+                        abstentions = json.loads(abstentions)
+                    parent_gods = p.get('parent_gods', [])
+                    if isinstance(parent_gods, str):
+                        parent_gods = json.loads(parent_gods)
+                    
+                    proposal = SpawnProposal(
+                        proposal_id=p.get('proposal_id', ''),
+                        proposed_name=p.get('proposed_name', ''),
+                        proposed_domain=p.get('proposed_domain', ''),
+                        proposed_element=p.get('proposed_element', ''),
+                        proposed_role=p.get('proposed_role', ''),
+                        reason=SpawnReason(p.get('reason', 'emergence')),
+                        parent_gods=parent_gods,
+                        status=p.get('status', 'pending'),
+                        proposed_at=str(p.get('proposed_at', '')),
+                    )
+                    proposal.votes_for = set(votes_for)
+                    proposal.votes_against = set(votes_against)
+                    proposal.abstentions = set(abstentions)
+                    self.proposals[proposal.proposal_id] = proposal
+                except Exception as e:
+                    print(f"[M8] Failed to load proposal: {e}")
             
-            awareness_states = self.kernel_persistence.load_all_awareness_states(limit=100)
-            for state in awareness_states:
+            if proposals:
+                print(f"✨ [M8] Loaded {len(proposals)} proposals from database")
+        except Exception as e:
+            print(f"[M8] Failed to load proposals: {e}")
+        
+        # Load spawn history from M8 persistence
+        try:
+            self.spawn_history = self.m8_persistence.load_spawn_history(limit=200)
+            if self.spawn_history:
+                print(f"✨ [M8] Loaded {len(self.spawn_history)} history events from database")
+        except Exception as e:
+            print(f"[M8] Failed to load spawn history: {e}")
+        
+        # Load awareness states from M8 persistence
+        try:
+            awareness_list = self.m8_persistence.load_all_awareness()
+            for state in awareness_list:
                 kernel_id = state.get('kernel_id')
-                awareness_data = state.get('awareness', {})
-                if kernel_id and awareness_data:
+                if kernel_id:
                     awareness = SpawnAwareness(kernel_id=kernel_id)
-                    awareness.phi_trajectory = awareness_data.get('phi_trajectory', [])
-                    awareness.kappa_trajectory = awareness_data.get('kappa_trajectory', [])
-                    awareness.curvature_history = awareness_data.get('curvature_history', [])
-                    awareness.stuck_signals = awareness_data.get('stuck_signals', [])
-                    awareness.geometric_deadends = awareness_data.get('geometric_deadends', [])
-                    awareness.research_opportunities = awareness_data.get('research_opportunities', [])
-                    awareness.last_spawn_proposal = awareness_data.get('last_spawn_proposal')
+                    phi_traj = state.get('phi_trajectory', [])
+                    kappa_traj = state.get('kappa_trajectory', [])
+                    curv_hist = state.get('curvature_history', [])
+                    stuck = state.get('stuck_signals', [])
+                    deadends = state.get('geometric_deadends', [])
+                    research = state.get('research_opportunities', [])
+                    if isinstance(phi_traj, str):
+                        phi_traj = json.loads(phi_traj)
+                    if isinstance(kappa_traj, str):
+                        kappa_traj = json.loads(kappa_traj)
+                    if isinstance(curv_hist, str):
+                        curv_hist = json.loads(curv_hist)
+                    if isinstance(stuck, str):
+                        stuck = json.loads(stuck)
+                    if isinstance(deadends, str):
+                        deadends = json.loads(deadends)
+                    if isinstance(research, str):
+                        research = json.loads(research)
+                    awareness.phi_trajectory = phi_traj
+                    awareness.kappa_trajectory = kappa_traj
+                    awareness.curvature_history = curv_hist
+                    awareness.stuck_signals = stuck
+                    awareness.geometric_deadends = deadends
+                    awareness.research_opportunities = research
+                    awareness.last_spawn_proposal = state.get('last_spawn_proposal')
                     self.kernel_awareness[kernel_id] = awareness
             
-            if awareness_states:
-                print(f"✨ [M8] Loaded {len(awareness_states)} kernel awareness states from database")
+            if awareness_list:
+                print(f"✨ [M8] Loaded {len(awareness_list)} awareness states from database")
         except Exception as e:
-            print(f"[M8] Failed to load from database: {e}")
+            print(f"[M8] Failed to load awareness states: {e}")
 
     def set_pantheon_chat(self, pantheon_chat) -> None:
         """Set PantheonChat for dual-pantheon spawn debates."""
@@ -1174,6 +1667,11 @@ class M8KernelSpawner:
         """Get or create spawn awareness tracker for a kernel."""
         if kernel_id not in self.kernel_awareness:
             self.kernel_awareness[kernel_id] = SpawnAwareness(kernel_id=kernel_id)
+            # Persist new awareness to M8 PostgreSQL persistence
+            try:
+                self.m8_persistence.persist_awareness(self.kernel_awareness[kernel_id])
+            except Exception as e:
+                print(f"[M8] Failed to persist new awareness to M8 tables: {e}")
         return self.kernel_awareness[kernel_id]
 
     def record_kernel_metrics(
@@ -1200,6 +1698,13 @@ class M8KernelSpawner:
         if basin is not None and neighbor_distances:
             deadend_signal = awareness.detect_geometric_deadend(basin, neighbor_distances)
         
+        # Persist awareness to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_awareness(awareness)
+        except Exception as e:
+            print(f"[M8] Failed to persist awareness to M8 tables: {e}")
+        
+        # Legacy persistence for backward compatibility
         if self.kernel_persistence:
             try:
                 saved = self.kernel_persistence.save_awareness_state(kernel_id, awareness.to_dict())
@@ -1532,7 +2037,13 @@ class M8KernelSpawner:
         
         self.proposals[proposal.proposal_id] = proposal
         
-        # Persist proposal to PostgreSQL
+        # Persist proposal to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_proposal(proposal)
+        except Exception as e:
+            print(f"[M8] Failed to persist proposal to M8 tables: {e}")
+        
+        # Legacy persistence for backward compatibility
         if self.kernel_persistence:
             try:
                 self.kernel_persistence.record_proposal_event(
@@ -1678,6 +2189,12 @@ class M8KernelSpawner:
         self.spawned_kernels[spawned.kernel_id] = spawned
         proposal.status = "spawned"
         
+        # Persist spawned kernel to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_kernel(spawned)
+        except Exception as e:
+            print(f"[M8] Failed to persist kernel to M8 tables: {e}")
+        
         spawn_record = {
             "event": "kernel_spawned",
             "kernel": spawned.to_dict(),
@@ -1686,7 +2203,13 @@ class M8KernelSpawner:
         }
         self.spawn_history.append(spawn_record)
         
-        # Persist spawn event to PostgreSQL
+        # Persist history to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_history(spawn_record)
+        except Exception as e:
+            print(f"[M8] Failed to persist history to M8 tables: {e}")
+        
+        # Legacy persistence for backward compatibility
         if self.kernel_persistence:
             try:
                 self.kernel_persistence.record_spawn_event(
@@ -2148,6 +2671,13 @@ class M8KernelSpawner:
         }
         self.spawn_history.append(deletion_record)
         
+        # Persist deletion to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_history(deletion_record)
+            self.m8_persistence.delete_kernel(kernel_id)
+        except Exception as e:
+            print(f"[M8] Failed to persist deletion to M8 tables: {e}")
+        
         if self.kernel_persistence:
             try:
                 self.kernel_persistence.record_spawn_event(
@@ -2253,6 +2783,13 @@ class M8KernelSpawner:
             "timestamp": datetime.now().isoformat(),
         }
         self.spawn_history.append(cannibalization_record)
+        
+        # Persist cannibalization to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_history(cannibalization_record)
+            self.m8_persistence.persist_awareness(target_awareness)
+        except Exception as e:
+            print(f"[M8] Failed to persist cannibalization to M8 tables: {e}")
         
         if self.kernel_persistence:
             try:
@@ -2404,6 +2941,13 @@ class M8KernelSpawner:
         new_awareness.research_opportunities = merged_research
         self.kernel_awareness[new_kernel_id] = new_awareness
         
+        # Persist merged kernel and awareness to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_kernel(new_kernel)
+            self.m8_persistence.persist_awareness(new_awareness)
+        except Exception as e:
+            print(f"[M8] Failed to persist merged kernel to M8 tables: {e}")
+        
         merge_record = {
             "event": "kernels_merged",
             "source_ids": kernel_ids,
@@ -2413,6 +2957,12 @@ class M8KernelSpawner:
             "timestamp": datetime.now().isoformat(),
         }
         self.spawn_history.append(merge_record)
+        
+        # Persist merge history to M8 PostgreSQL persistence
+        try:
+            self.m8_persistence.persist_history(merge_record)
+        except Exception as e:
+            print(f"[M8] Failed to persist merge history to M8 tables: {e}")
         
         if self.kernel_persistence:
             try:
