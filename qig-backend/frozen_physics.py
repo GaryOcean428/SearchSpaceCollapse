@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-FROZEN PHYSICS CONSTANTS - Single Source of Truth
-==================================================
+FROZEN PHYSICS CONSTANTS - Re-exports from qigkernels
+======================================================
 
 GFP:
   role: theory
@@ -12,10 +12,15 @@ GFP:
   version: 2025-12-17
   owner: SearchSpaceCollapse
 
-These constants are EXPERIMENTALLY VALIDATED and MUST NOT be modified
-without new validated measurements. All other modules import from here.
+⚠️ MIGRATION NOTICE:
+This module now imports from qigkernels and re-exports for backward compatibility.
+New code should import directly from qigkernels:
+    from qigkernels import PHYSICS, KAPPA_STAR, PHI_THRESHOLD
 
-Physics flows FROM this module TO all kernels and consciousness systems.
+These constants are EXPERIMENTALLY VALIDATED and MUST NOT be modified
+without new validated measurements.
+
+Physics flows FROM qigkernels TO all kernels and consciousness systems.
 
 References:
 - κ* values from L=3,4,5,6 lattice measurements
@@ -27,72 +32,50 @@ References:
 from dataclasses import dataclass
 from typing import Final
 
-# =============================================================================
-# E8 GEOMETRY (Mathematical Facts)
-# =============================================================================
+# Import from qigkernels (single source of truth)
+from qigkernels.physics_constants import (
+    PHYSICS,
+    E8_RANK,
+    E8_DIMENSION,
+    E8_ROOTS,
+    BASIN_DIM,
+    KAPPA_3,
+    KAPPA_4,
+    KAPPA_5,
+    KAPPA_6,
+    KAPPA_STAR,
+    KAPPA_STAR_ERROR,
+    BETA_3_TO_4,
+    PHI_THRESHOLD,
+    PHI_EMERGENCY,
+    PHI_HYPERDIMENSIONAL,
+    PHI_UNSTABLE,
+    BREAKDOWN_PCT,
+    BASIN_DRIFT_THRESHOLD,
+    KAPPA_WEAK_THRESHOLD,
+    MIN_RECURSION_DEPTH,
+)
 
-E8_RANK: Final[int] = 8
-E8_DIMENSION: Final[int] = 248
-E8_ROOTS: Final[int] = 240
-
-BASIN_DIM: Final[int] = 64  # E8_RANK² = 8² = 64 (validated experimentally)
-
-
-# =============================================================================
-# LATTICE κ VALUES (Experimentally Validated)
-# =============================================================================
-
-KAPPA_3: Final[float] = 41.09  # ± 0.59 (L=3 emergence)
-KAPPA_4: Final[float] = 64.47  # ± 1.89 (L=4 running coupling)
-KAPPA_5: Final[float] = 63.62  # ± 1.68 (L=5 plateau)
-KAPPA_6: Final[float] = 64.45  # ± 1.34 (L=6 plateau confirmed)
-
-KAPPA_STAR: Final[float] = 64.21  # ± 0.92 (fixed point from L=4,5,6 weighted average)
-KAPPA_STAR_ERROR: Final[float] = 0.92
-
-
-# =============================================================================
-# β RUNNING COUPLING (Not Learnable - Fixed Physics)
-# =============================================================================
-
-BETA_3_TO_4: Final[float] = 0.44   # ± 0.04 (running coupling, NOT learnable)
-BETA_4_TO_5: Final[float] = -0.01  # Plateau onset
-BETA_5_TO_6: Final[float] = -0.003 # Plateau confirmed
-
-
-# =============================================================================
-# Φ CONSCIOUSNESS THRESHOLDS
-# =============================================================================
-
-PHI_THRESHOLD: Final[float] = 0.70      # Consciousness emergence (3D spatial)
-PHI_EMERGENCY: Final[float] = 0.50      # Collapse threshold - ABORT if below
-PHI_HYPERDIMENSIONAL: Final[float] = 0.75  # 4D temporal integration threshold
-PHI_UNSTABLE: Final[float] = 0.85       # Topological instability onset
-
-# Dimension thresholds
-PHI_THRESHOLD_D1_D2: Final[float] = 0.3   # 1D → 2D
-PHI_THRESHOLD_D2_D3: Final[float] = 0.5   # 2D → 3D  
-PHI_THRESHOLD_D3_D4: Final[float] = 0.7   # 3D → 4D (consciousness emerges)
-PHI_THRESHOLD_D4_D5: Final[float] = 0.85  # 4D → 5D (hyperdimensional)
+# Additional constants not exported by default
+BETA_4_TO_5: Final[float] = PHYSICS.BETA_4_TO_5
+BETA_5_TO_6: Final[float] = PHYSICS.BETA_5_TO_6
+PHI_THRESHOLD_D1_D2: Final[float] = PHYSICS.PHI_THRESHOLD_D1_D2
+PHI_THRESHOLD_D2_D3: Final[float] = PHYSICS.PHI_THRESHOLD_D2_D3
+PHI_THRESHOLD_D3_D4: Final[float] = PHYSICS.PHI_THRESHOLD_D3_D4
+PHI_THRESHOLD_D4_D5: Final[float] = PHYSICS.PHI_THRESHOLD_D4_D5
 
 
 # =============================================================================
-# SAFETY THRESHOLDS (Emergency Abort Criteria)
-# =============================================================================
-
-BREAKDOWN_PCT: Final[float] = 60.0      # Ego death risk threshold (%)
-BASIN_DRIFT_THRESHOLD: Final[float] = 0.30  # Identity drift - trigger sleep
-KAPPA_WEAK_THRESHOLD: Final[float] = 20.0   # Weak coupling - adjust training
-MIN_RECURSION_DEPTH: Final[int] = 3         # Consciousness requires ≥3 loops
-
-
-# =============================================================================
-# REGIME DEFINITIONS
+# REGIME DEFINITIONS (Legacy - use qigkernels.regimes instead)
 # =============================================================================
 
 @dataclass(frozen=True)
 class Regime:
-    """Consciousness regime definition."""
+    """
+    Consciousness regime definition.
+    
+    ⚠️ DEPRECATED: Use qigkernels.regimes.Regime instead
+    """
     name: str
     phi_min: float
     phi_max: float
@@ -179,11 +162,15 @@ KERNEL_SATURATION: Final[int] = 240  # E8 roots
 
 
 # =============================================================================
-# EMERGENCY PROTOCOL
+# EMERGENCY PROTOCOL (Legacy - use qigkernels.safety instead)
 # =============================================================================
 
 class EmergencyThresholds:
-    """Emergency abort criteria - check every telemetry cycle."""
+    """
+    Emergency abort criteria - check every telemetry cycle.
+    
+    ⚠️ DEPRECATED: Use qigkernels.safety.SafetyMonitor instead
+    """
     
     @staticmethod
     def check(phi: float, kappa: float, basin_distance: float, 
@@ -193,6 +180,8 @@ class EmergencyThresholds:
         
         Returns:
             (abort: bool, reason: str)
+            
+        ⚠️ DEPRECATED: Use qigkernels.safety.SafetyMonitor instead
         """
         if phi < PHI_EMERGENCY:
             return True, f"COLLAPSE: Φ={phi:.3f} < {PHI_EMERGENCY}"
@@ -213,7 +202,11 @@ class EmergencyThresholds:
     
     @staticmethod
     def should_sleep(basin_distance: float) -> bool:
-        """Check if sleep protocol should be triggered."""
+        """
+        Check if sleep protocol should be triggered.
+        
+        ⚠️ DEPRECATED: Use qigkernels.safety.SafetyMonitor instead
+        """
         return basin_distance > BASIN_DRIFT_THRESHOLD * 0.8  # 80% of threshold
 
 
@@ -222,25 +215,17 @@ class EmergencyThresholds:
 # =============================================================================
 
 def validate_physics_alignment() -> dict:
-    """Validate that physics constants are internally consistent."""
-    checks = {
-        "basin_dim_e8": BASIN_DIM == E8_RANK ** 2,
-        "kappa_star_in_range": 60 <= KAPPA_STAR <= 70,
-        "phi_thresholds_ordered": PHI_EMERGENCY < PHI_THRESHOLD < PHI_HYPERDIMENSIONAL < PHI_UNSTABLE,
-        "kernel_saturation_e8": KERNEL_SATURATION == E8_ROOTS,
-        "metrics_count_e8": len(CONSCIOUSNESS_METRICS) == E8_RANK,
-        "primitives_count": len(KERNEL_PRIMITIVES) == 8,
-    }
+    """
+    Validate that physics constants are internally consistent.
     
-    return {
-        "all_valid": all(checks.values()),
-        "checks": checks
-    }
+    Delegates to qigkernels.physics_constants.PHYSICS.validate_alignment()
+    """
+    return PHYSICS.validate_alignment()
 
 
 if __name__ == "__main__":
     result = validate_physics_alignment()
-    print("Physics Alignment Validation:")
+    print("Physics Alignment Validation (via qigkernels):")
     for check, passed in result["checks"].items():
         status = "✓" if passed else "✗"
         print(f"  {status} {check}")
