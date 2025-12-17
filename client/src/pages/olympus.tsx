@@ -27,6 +27,7 @@ import {
   Users
 } from 'lucide-react';
 import ZeusChat from '@/components/ZeusChat';
+import { EmptyDebatesState } from '@/components';
 
 interface GodStatus {
   name: string;
@@ -243,13 +244,7 @@ function ChatActivity({ messages }: { messages: ChatMessage[] }) {
 function DebateViewer({ debates }: { debates: Debate[] }) {
   const safeDebates = Array.isArray(debates) ? debates : [];
   if (safeDebates.length === 0) {
-    return (
-      <div className="text-center text-muted-foreground py-8">
-        <Sword className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No active debates</p>
-        <p className="text-xs">Debates emerge when gods disagree on assessments</p>
-      </div>
-    );
+    return <EmptyDebatesState />;
   }
 
   return (

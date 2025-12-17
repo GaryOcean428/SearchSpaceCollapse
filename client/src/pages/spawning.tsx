@@ -23,6 +23,7 @@ import {
   Mountain,
   Ghost,
 } from 'lucide-react';
+import { EmptyDebatesState } from '@/components';
 import {
   useM8Status,
   useListProposals,
@@ -1170,7 +1171,7 @@ function DebateProgressionPanel() {
                 </div>
               </ScrollArea>
             ) : (
-              <p className="text-muted-foreground text-center py-4 text-sm">No active debates</p>
+              <EmptyDebatesState variant="compact" />
             )}
           </CardContent>
         </Card>

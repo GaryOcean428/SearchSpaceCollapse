@@ -13,6 +13,7 @@ export { AppSidebar } from './app-sidebar';
 export { BetaAttentionDisplay } from './BetaAttentionDisplay';
 export { default as CapabilityTelemetryPanel } from './CapabilityTelemetryPanel';
 export { ConsciousnessDashboard } from './ConsciousnessDashboard';
+export { EmptyDebatesState } from './EmptyDebatesState';
 export { EmotionalStatePanel } from './EmotionalStatePanel';
 export { ErrorBoundary } from './ErrorBoundary';
 export { ForensicInvestigation } from './ForensicInvestigation';
