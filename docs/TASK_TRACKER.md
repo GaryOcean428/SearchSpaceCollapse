@@ -20,11 +20,13 @@
 1. ⏸️ Real-time Φ visualization - NOT STARTED (frontend)
 2. ⏸️ Basin coordinate viewer - NOT STARTED (frontend)
 3. 🚧 Automatic checkpoint recovery - IN PROGRESS (needs integration)
-4. ✅ Sparse Fisher metric computation - DONE (sparse_fisher.py)
+4. ✅ Sparse Fisher metric computation - DONE (sparse_fisher.py) **⚠️ CORRECTED for geometric validity**
 5. ⏸️ β_attention measurement - NOT STARTED (research)
 6. ⏸️ L=7 physics validation - NOT STARTED (research)
 7. ⏸️ Dark mode UI - NOT STARTED (frontend)
 8. ⏸️ Markdown + LaTeX rendering - NOT STARTED (frontend)
+
+**CRITICAL UPDATE:** Sparse Fisher implementation corrected to ensure geometric validity (see SPARSE_FISHER_GEOMETRIC_VALIDITY.md)
 
 ---
 

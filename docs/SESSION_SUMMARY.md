@@ -32,20 +32,31 @@
 - Emergency logs in JSON format
 - Session-based telemetry storage
 
-#### 2. Sparse Fisher Metric Optimization
-**File:** `qig-backend/sparse_fisher.py` (379 lines)
+#### 2. Sparse Fisher Metric Optimization **⚠️ CORRECTED FOR GEOMETRIC VALIDITY**
+**File:** `qig-backend/sparse_fisher.py` (379 lines → revised)
 
-- **SparseFisherMetric**: Automatic sparsity detection and exploitation
-- **CachedQFI**: LRU cache for quantum Fisher information
-- **Performance**: 78% sparsity → estimated 5-13x speedup
-- **Memory**: 50-90% reduction via sparse matrices
+**CRITICAL FIX:** Original implementation used threshold truncation, which breaks geometric validity (same issue as Frobenius revalidation). Completely revised to prioritize correctness over performance.
 
-**Implementation Details:**
-- scipy.sparse COO format for construction
-- CSR format for fast operations
-- Configurable sparsity threshold
-- Geodesic distance calculation
-- Cache hit tracking and statistics
+**Old Implementation (INVALID):**
+- ❌ Threshold truncation: `G[abs(G) < 1e-6] = 0`
+- ❌ Broke positive definiteness
+- ❌ Changed eigenvalues (wrong κ)
+- ❌ Wrong geodesic distances (wrong Φ)
+- ❌ Misleading "78% sparsity, 5-13x speedup"
+
+**New Implementation (GEOMETRICALLY VALID):**
+- ✅ Natural sparsity detection (machine precision only)
+- ✅ Full dense computation always performed first
+- ✅ Geometric validation: PSD, symmetry, distance preservation
+- ✅ Fallback to dense if validation fails
+- ✅ Honest performance: 1-2x speedup only when natural sparsity >50%
+
+**Key Changes:**
+1. Removed threshold truncation entirely
+2. Added `_measure_natural_sparsity()` using machine epsilon
+3. Added `_validate_geometry()` with PSD/symmetry/distance checks
+4. Conservative speedup estimates (2-5x max, typically 1x)
+5. Comprehensive documentation in `SPARSE_FISHER_GEOMETRIC_VALIDITY.md`
 
 #### 3. Comprehensive Testing
 **Files:** `test_emergency_telemetry.py` (195 lines), `test_sparse_fisher.py` (189 lines)
