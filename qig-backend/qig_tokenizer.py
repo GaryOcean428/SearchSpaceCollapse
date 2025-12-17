@@ -305,34 +305,47 @@ class QIGTokenizer:
         - Pure numbers: "0001", "123"
         - Alphanumeric: "bitcoin1", "000btc"
         - Special chars: "test@123", "pass#word"
-        - Single chars: "a", "b"
+        - Nonsense: "aa", "aaaes", "xyz"
         
         ACCEPT:
+        - Single-letter words: "I", "a" (valid English)
         - English words: "bitcoin", "cryptocurrency", "wallet"
         - Hyphenated compounds: "co-worker", "self-aware"
         - Contractions: "don't", "it's"
         """
-        if not word or len(word) < 2:
+        if not word:
             return False
         
-        word = word.lower().strip()
+        word_lower = word.lower().strip()
+        
+        # Allow specific single-letter English words
+        if len(word_lower) == 1:
+            return word_lower in {'a', 'i'}
+        
+        if len(word_lower) < 2:
+            return False
         
         # Reject pure numbers
-        if word.isdigit():
+        if word_lower.isdigit():
             return False
         
         # Reject if contains digits (alphanumeric combinations)
-        if any(char.isdigit() for char in word):
+        if any(char.isdigit() for char in word_lower):
+            return False
+        
+        # Reject nonsense patterns starting with 'aa' (common junk: aa, aaes, aaaes)
+        # But allow valid double-letter starts like 'eel', 'ooze', 'eerie'
+        if word_lower.startswith('aa'):
             return False
         
         # Allow only letters, hyphens, apostrophes
         allowed_special = {'-', "'"}
-        for char in word:
+        for char in word_lower:
             if not char.isalpha() and char not in allowed_special:
                 return False
         
         # Must start with letter
-        if not word[0].isalpha():
+        if not word_lower[0].isalpha():
             return False
         
         return True

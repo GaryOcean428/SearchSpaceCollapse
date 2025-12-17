@@ -19,8 +19,8 @@ def is_valid_english_word(word: str) -> bool:
     """
     Check if a token is a valid English word for vocabulary.
     
-    Valid: Pure alphabetic words (at least 2 chars)
-    Invalid: Numbers, mixed alphanumeric, special chars, fragments
+    Valid: "I", "a", and pure alphabetic words (2+ chars)
+    Invalid: Numbers, mixed alphanumeric, special chars, nonsense patterns
     
     CRITICAL: Vocabulary = English words ONLY
     Passphrases, passwords, alphanumeric fragments are NOT vocabulary.
@@ -28,18 +28,32 @@ def is_valid_english_word(word: str) -> bool:
     if not word:
         return False
     
-    word = word.lower().strip()
+    word_lower = word.lower().strip()
     
-    if len(word) < 2:
+    # Allow specific single-letter English words
+    if len(word_lower) == 1:
+        return word_lower in {'a', 'i'}
+    
+    if len(word_lower) < 2:
         return False
     
-    if not ENGLISH_WORD_PATTERN.match(word):
+    # Reject if contains digits
+    if any(char.isdigit() for char in word_lower):
         return False
     
-    if any(char.isdigit() for char in word):
+    # Reject nonsense patterns starting with 'aa' (common junk: aa, aaes, aaaes)
+    if word_lower.startswith('aa'):
         return False
     
-    if word in STOP_WORDS:
+    # Must be pure alphabetic for basic validation
+    if not ENGLISH_WORD_PATTERN.match(word_lower) and len(word_lower) > 1:
+        # Allow hyphens and apostrophes in longer words
+        allowed_special = {'-', "'"}
+        for char in word_lower:
+            if not char.isalpha() and char not in allowed_special:
+                return False
+    
+    if word_lower in STOP_WORDS:
         return False
     
     return True
