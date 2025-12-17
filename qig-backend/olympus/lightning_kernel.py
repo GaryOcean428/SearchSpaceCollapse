@@ -328,7 +328,8 @@ class LightningKernel(BaseGod):
         """
         if event1.embedding is not None and event2.embedding is not None:
             distance = centralized_fisher_rao(event1.embedding, event2.embedding)
-            return 1.0 / (1.0 + distance)
+            # Fisher-Rao proper similarity: 1 - d/π (distance bounded [0, π])
+            return 1.0 - distance / np.pi
         
         # Content-based similarity (keyword overlap + Φ proximity)
         words1 = set(event1.content.lower().split())
