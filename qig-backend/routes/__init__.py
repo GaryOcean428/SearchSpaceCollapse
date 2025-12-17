@@ -21,8 +21,8 @@ class RouteResponse:
     """Standardized route response builder."""
     
     @staticmethod
-    def success(data: Any = None, message: str = None, **extra) -> tuple:
-        response = {'success': True}
+    def success(data: Any = None, message: Optional[str] = None, **extra) -> tuple:
+        response: Dict[str, Any] = {'success': True}
         if data is not None:
             response['data'] = data
         if message:
@@ -53,7 +53,7 @@ class RouteResponse:
         return RouteResponse.error(str(exception), 'INTERNAL_ERROR', 500)
 
 
-def cached_route(ttl: int = CACHE_TTL_SHORT, key_prefix: str = None):
+def cached_route(ttl: int = CACHE_TTL_SHORT, key_prefix: Optional[str] = None):
     """
     Decorator for caching route responses in Redis.
     
@@ -658,7 +658,7 @@ def beta_attention_validate():
         analyzer = get_beta_attention()
         samples = request.args.get('samples', 100, type=int)
         
-        result = analyzer.validate_attention_metrics(sample_count=samples)
+        result = analyzer.run_validation(samples_per_scale=samples)
         return RouteResponse.success({
             'avg_kappa': result.avg_kappa,
             'kappa_range': result.kappa_range,
