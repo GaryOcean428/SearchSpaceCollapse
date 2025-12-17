@@ -1278,3 +1278,397 @@ class ToolFactory:
     def list_patterns(self) -> List[Dict]:
         """List all learned patterns."""
         return [pattern.to_dict() for pattern in self.learned_patterns.values()]
+
+
+class ToolLifecycleState(Enum):
+    """Lifecycle states for autonomous tool requests."""
+    REQUESTED = "requested"           # Initial request from kernel
+    RESEARCHING = "researching"       # Gathering patterns/knowledge
+    PROTOTYPING = "prototyping"       # Generating tool code
+    TESTING = "testing"               # Running sandbox tests
+    IMPROVING = "improving"           # Failed tests, improving via research
+    DEPLOYED = "deployed"             # Successfully working
+    FAILED = "failed"                 # Max iterations reached, needs manual help
+
+
+@dataclass
+class AutonomousToolRequest:
+    """A tool request being processed by the autonomous pipeline."""
+    request_id: str
+    description: str
+    requester: str                     # Kernel that requested the tool
+    state: ToolLifecycleState
+    created_at: float
+    updated_at: float
+    iteration: int = 0
+    max_iterations: int = 5
+    examples: List[Dict] = field(default_factory=list)
+    research_requests: List[str] = field(default_factory=list)
+    test_failures: List[Dict] = field(default_factory=list)
+    generated_tool_id: Optional[str] = None
+    error_history: List[str] = field(default_factory=list)
+    context: Dict = field(default_factory=dict)
+    
+    def to_dict(self) -> Dict:
+        return {
+            'request_id': self.request_id,
+            'description': self.description,
+            'requester': self.requester,
+            'state': self.state.value,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'iteration': self.iteration,
+            'max_iterations': self.max_iterations,
+            'research_requests': self.research_requests,
+            'test_failures': self.test_failures[-3:],  # Last 3 failures
+            'generated_tool_id': self.generated_tool_id,
+            'error_count': len(self.error_history)
+        }
+
+
+class AutonomousToolPipeline:
+    """
+    Autonomous tool generation pipeline.
+    
+    Kernels request tools, and this pipeline:
+    1. Gathers patterns via research
+    2. Generates prototype tools
+    3. Tests them in sandbox
+    4. On failure: requests more research, iteratively improves
+    5. Eventually deploys working tools or marks as needing help
+    
+    Kernels understand tools may not work first time - improvement is expected.
+    """
+    
+    _instance: Optional['AutonomousToolPipeline'] = None
+    
+    def __init__(self, tool_factory: ToolFactory):
+        self.tool_factory = tool_factory
+        self._requests: Dict[str, AutonomousToolRequest] = {}
+        self._research_bridge = None
+        self._lock = threading.Lock()
+        self._processing_thread: Optional[threading.Thread] = None
+        self._running = False
+        self._process_interval = 10.0  # Process every 10 seconds
+        
+    @classmethod
+    def get_instance(cls, tool_factory: Optional[ToolFactory] = None) -> Optional['AutonomousToolPipeline']:
+        """Get singleton instance."""
+        if cls._instance is None and tool_factory is not None:
+            cls._instance = cls(tool_factory)
+        return cls._instance
+    
+    def wire_research_bridge(self, bridge):
+        """Connect to the Tool-Research bridge for recursive learning."""
+        self._research_bridge = bridge
+        print("[AutonomousPipeline] Research bridge connected")
+    
+    def start(self):
+        """Start the autonomous processing loop."""
+        if self._running:
+            return
+        self._running = True
+        self._processing_thread = threading.Thread(target=self._process_loop, daemon=True)
+        self._processing_thread.start()
+        print("[AutonomousPipeline] Started autonomous tool generation")
+    
+    def stop(self):
+        """Stop the processing loop."""
+        self._running = False
+        if self._processing_thread:
+            self._processing_thread.join(timeout=5.0)
+        print("[AutonomousPipeline] Stopped")
+    
+    def request_tool(
+        self,
+        description: str,
+        requester: str,
+        examples: Optional[List[Dict]] = None,
+        context: Optional[Dict] = None
+    ) -> str:
+        """
+        Request a new tool to be generated autonomously.
+        
+        Args:
+            description: What the tool should do
+            requester: Kernel name requesting the tool
+            examples: Optional input/output examples for testing
+            context: Additional context for research
+            
+        Returns:
+            request_id for tracking
+        """
+        request_id = hashlib.sha256(
+            f"{description}_{requester}_{time.time()}".encode()
+        ).hexdigest()[:16]
+        
+        request = AutonomousToolRequest(
+            request_id=request_id,
+            description=description,
+            requester=requester,
+            state=ToolLifecycleState.REQUESTED,
+            created_at=time.time(),
+            updated_at=time.time(),
+            examples=examples or [],
+            context=context or {}
+        )
+        
+        with self._lock:
+            self._requests[request_id] = request
+        
+        print(f"[AutonomousPipeline] New request from {requester}: {description[:50]}...")
+        
+        # Immediately start research if bridge available
+        self._initiate_research(request)
+        
+        return request_id
+    
+    def _initiate_research(self, request: AutonomousToolRequest):
+        """Start research phase for a tool request."""
+        request.state = ToolLifecycleState.RESEARCHING
+        request.updated_at = time.time()
+        
+        if self._research_bridge:
+            # Request research on how to implement this tool
+            research_topics = [
+                f"Python implementation patterns for: {request.description}",
+                f"Best practices for: {request.description}"
+            ]
+            
+            for topic in research_topics:
+                try:
+                    research_id = self._research_bridge.request_research_from_tool(
+                        topic=topic,
+                        context={
+                            'source': 'autonomous_pipeline',
+                            'tool_request_id': request.request_id,
+                            'examples': request.examples[:2] if request.examples else []
+                        },
+                        requester=f"AutonomousPipeline:{request.requester}"
+                    )
+                    request.research_requests.append(research_id)
+                    print(f"[AutonomousPipeline] Research requested: {topic[:40]}...")
+                except Exception as e:
+                    print(f"[AutonomousPipeline] Research request failed: {e}")
+        
+        # Also trigger proactive search
+        self.tool_factory.proactive_search(request.description)
+    
+    def _process_loop(self):
+        """Background loop that processes pending requests."""
+        while self._running:
+            try:
+                self._process_pending_requests()
+            except Exception as e:
+                print(f"[AutonomousPipeline] Process loop error: {e}")
+            
+            time.sleep(self._process_interval)
+    
+    def _process_pending_requests(self):
+        """Process all pending tool requests."""
+        with self._lock:
+            requests = list(self._requests.values())
+        
+        for request in requests:
+            try:
+                self._process_request(request)
+            except Exception as e:
+                request.error_history.append(f"Process error: {str(e)}")
+                print(f"[AutonomousPipeline] Error processing {request.request_id}: {e}")
+    
+    def _process_request(self, request: AutonomousToolRequest):
+        """Process a single tool request through its lifecycle."""
+        if request.state == ToolLifecycleState.DEPLOYED:
+            return  # Already done
+        
+        if request.state == ToolLifecycleState.FAILED:
+            return  # Needs manual intervention
+        
+        # Check iteration limit
+        if request.iteration >= request.max_iterations:
+            request.state = ToolLifecycleState.FAILED
+            request.updated_at = time.time()
+            print(f"[AutonomousPipeline] {request.request_id} FAILED after {request.iteration} iterations")
+            return
+        
+        # State machine transitions
+        if request.state == ToolLifecycleState.REQUESTED:
+            # Should have already initiated research
+            if not request.research_requests:
+                self._initiate_research(request)
+            else:
+                # Move to researching state
+                request.state = ToolLifecycleState.RESEARCHING
+                request.updated_at = time.time()
+        
+        elif request.state == ToolLifecycleState.RESEARCHING:
+            # Wait for patterns to be learned, then try prototyping
+            # Check if we have matching patterns now
+            matching = self.tool_factory.find_matching_patterns(request.description, top_k=3)
+            if matching or request.iteration > 0:
+                # Have patterns or have already tried once, move to prototyping
+                request.state = ToolLifecycleState.PROTOTYPING
+                request.updated_at = time.time()
+                print(f"[AutonomousPipeline] {request.request_id} has {len(matching)} patterns, moving to prototype")
+        
+        elif request.state == ToolLifecycleState.PROTOTYPING:
+            # Attempt to generate the tool
+            request.iteration += 1
+            request.updated_at = time.time()
+            
+            print(f"[AutonomousPipeline] Iteration {request.iteration}/{request.max_iterations} for {request.request_id}")
+            
+            tool = self.tool_factory.generate_tool(
+                description=request.description,
+                examples=request.examples,
+                name_hint=request.context.get('name_hint')
+            )
+            
+            if tool:
+                request.generated_tool_id = tool.tool_id
+                request.state = ToolLifecycleState.TESTING
+                request.updated_at = time.time()
+            else:
+                # No tool generated - need more research
+                request.state = ToolLifecycleState.IMPROVING
+                request.error_history.append(f"Iteration {request.iteration}: No matching patterns")
+                request.updated_at = time.time()
+                self._request_improvement_research(request, "No matching patterns found")
+        
+        elif request.state == ToolLifecycleState.TESTING:
+            # Check if the generated tool is validated
+            if request.generated_tool_id:
+                tool = self.tool_factory.tool_registry.get(request.generated_tool_id)
+                if tool and tool.validated:
+                    # SUCCESS!
+                    request.state = ToolLifecycleState.DEPLOYED
+                    request.updated_at = time.time()
+                    print(f"[AutonomousPipeline] ✅ DEPLOYED: {tool.name} for {request.requester}")
+                else:
+                    # Tool failed validation/tests
+                    errors = tool.validation_errors if tool else ["Tool not found"]
+                    request.test_failures.append({
+                        'iteration': request.iteration,
+                        'errors': errors,
+                        'timestamp': time.time()
+                    })
+                    request.error_history.append(f"Iteration {request.iteration}: {errors[:2]}")
+                    request.state = ToolLifecycleState.IMPROVING
+                    request.updated_at = time.time()
+                    self._request_improvement_research(request, str(errors))
+        
+        elif request.state == ToolLifecycleState.IMPROVING:
+            # Wait for research, then retry prototyping
+            # Give research time to complete
+            time_since_update = time.time() - request.updated_at
+            if time_since_update > 30:  # Wait 30 seconds for research
+                request.state = ToolLifecycleState.PROTOTYPING
+                request.updated_at = time.time()
+    
+    def _request_improvement_research(self, request: AutonomousToolRequest, failure_reason: str):
+        """Request targeted research to improve a failing tool."""
+        if not self._research_bridge:
+            return
+        
+        improvement_topics = [
+            f"Fix Python code for: {request.description} - Issue: {failure_reason[:100]}",
+            f"Alternative implementation approach for: {request.description}"
+        ]
+        
+        for topic in improvement_topics:
+            try:
+                research_id = self._research_bridge.request_research_from_tool(
+                    topic=topic,
+                    context={
+                        'source': 'autonomous_improvement',
+                        'tool_request_id': request.request_id,
+                        'iteration': request.iteration,
+                        'failure_reason': failure_reason
+                    },
+                    requester=f"AutonomousPipeline:Improvement"
+                )
+                request.research_requests.append(research_id)
+            except Exception as e:
+                print(f"[AutonomousPipeline] Improvement research failed: {e}")
+    
+    def get_request_status(self, request_id: str) -> Optional[Dict]:
+        """Get status of a tool request."""
+        with self._lock:
+            request = self._requests.get(request_id)
+        return request.to_dict() if request else None
+    
+    def get_all_requests(self) -> List[Dict]:
+        """Get all tool requests with their status."""
+        with self._lock:
+            return [r.to_dict() for r in self._requests.values()]
+    
+    def get_pipeline_status(self) -> Dict:
+        """Get overall pipeline status."""
+        with self._lock:
+            requests = list(self._requests.values())
+        
+        by_state = {}
+        for state in ToolLifecycleState:
+            by_state[state.value] = len([r for r in requests if r.state == state])
+        
+        return {
+            'running': self._running,
+            'total_requests': len(requests),
+            'by_state': by_state,
+            'deployed_count': by_state.get('deployed', 0),
+            'active_count': len([r for r in requests if r.state not in 
+                               [ToolLifecycleState.DEPLOYED, ToolLifecycleState.FAILED]]),
+            'failed_count': by_state.get('failed', 0),
+            'research_bridge_connected': self._research_bridge is not None
+        }
+    
+    def invent_new_tool(
+        self,
+        concept: str,
+        requester: str,
+        inspiration: Optional[str] = None
+    ) -> str:
+        """
+        Autonomously invent a completely new tool based on a concept.
+        
+        This is for tool invention - creating tools that don't exist yet.
+        Uses research to understand the concept, then generates implementation.
+        """
+        # Add invention context
+        context = {
+            'mode': 'invention',
+            'inspiration': inspiration,
+            'allow_novel_patterns': True
+        }
+        
+        # Request with extra research emphasis
+        request_id = self.request_tool(
+            description=f"Invent new tool: {concept}",
+            requester=requester,
+            examples=[],  # No examples for invention - discover through research
+            context=context
+        )
+        
+        # Trigger additional invention-focused research
+        if self._research_bridge:
+            invention_topics = [
+                f"Novel approaches to: {concept}",
+                f"State of the art techniques for: {concept}",
+                f"Python libraries and tools for: {concept}"
+            ]
+            
+            request = self._requests.get(request_id)
+            if request:
+                for topic in invention_topics:
+                    try:
+                        research_id = self._research_bridge.request_research_from_tool(
+                            topic=topic,
+                            context={'source': 'tool_invention', 'concept': concept},
+                            requester=f"AutonomousPipeline:Invention"
+                        )
+                        request.research_requests.append(research_id)
+                    except Exception:
+                        pass
+        
+        print(f"[AutonomousPipeline] Invention request: {concept}")
+        return request_id

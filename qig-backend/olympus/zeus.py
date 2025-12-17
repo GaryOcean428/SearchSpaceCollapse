@@ -3615,6 +3615,124 @@ def zeus_tools_bridge_status_endpoint():
 
 
 # =========================================================================
+# 🤖 AUTONOMOUS TOOL PIPELINE API
+# =========================================================================
+
+@olympus_app.route('/zeus/tools/pipeline/status', methods=['GET'])
+def zeus_tools_pipeline_status_endpoint():
+    """Get autonomous tool pipeline status."""
+    try:
+        from .tool_factory import AutonomousToolPipeline
+        pipeline = AutonomousToolPipeline.get_instance()
+        if not pipeline:
+            return jsonify({'running': False, 'total_requests': 0, 'by_state': {}, 'error': 'Pipeline not initialized'})
+        status = pipeline.get_pipeline_status()
+        return jsonify(sanitize_for_json(status))
+    except Exception as e:
+        return jsonify({'running': False, 'total_requests': 0, 'by_state': {}, 'error': str(e)})
+
+
+@olympus_app.route('/zeus/tools/pipeline/requests', methods=['GET'])
+def zeus_tools_pipeline_requests_endpoint():
+    """Get all autonomous tool requests."""
+    try:
+        from .tool_factory import AutonomousToolPipeline
+        pipeline = AutonomousToolPipeline.get_instance()
+        if not pipeline:
+            return jsonify({'requests': [], 'count': 0})
+        requests = pipeline.get_all_requests()
+        return jsonify(sanitize_for_json({'requests': requests, 'count': len(requests)}))
+    except Exception as e:
+        return jsonify({'requests': [], 'count': 0, 'error': str(e)})
+
+
+@olympus_app.route('/zeus/tools/pipeline/request', methods=['POST'])
+def zeus_tools_pipeline_request_endpoint():
+    """Request a new tool to be generated autonomously."""
+    try:
+        from .tool_factory import AutonomousToolPipeline
+        pipeline = AutonomousToolPipeline.get_instance()
+        if not pipeline:
+            return jsonify({'success': False, 'error': 'Pipeline not initialized'}), 500
+        
+        data = request.get_json() or {}
+        description = data.get('description', '')
+        requester = data.get('requester', 'user')
+        examples = data.get('examples', [])
+        context = data.get('context', {})
+        
+        if not description:
+            return jsonify({'success': False, 'error': 'description is required'}), 400
+        
+        request_id = pipeline.request_tool(
+            description=description,
+            requester=requester,
+            examples=examples,
+            context=context
+        )
+        
+        return jsonify(sanitize_for_json({
+            'success': True,
+            'request_id': request_id,
+            'description': description,
+            'message': 'Tool request submitted to autonomous pipeline'
+        }))
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/pipeline/request/<request_id>', methods=['GET'])
+def zeus_tools_pipeline_request_status_endpoint(request_id):
+    """Get status of a specific tool request."""
+    try:
+        from .tool_factory import AutonomousToolPipeline
+        pipeline = AutonomousToolPipeline.get_instance()
+        if not pipeline:
+            return jsonify({'error': 'Pipeline not initialized'}), 500
+        
+        status = pipeline.get_request_status(request_id)
+        if not status:
+            return jsonify({'error': 'Request not found'}), 404
+        
+        return jsonify(sanitize_for_json(status))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/tools/pipeline/invent', methods=['POST'])
+def zeus_tools_pipeline_invent_endpoint():
+    """Autonomously invent a new tool based on a concept."""
+    try:
+        from .tool_factory import AutonomousToolPipeline
+        pipeline = AutonomousToolPipeline.get_instance()
+        if not pipeline:
+            return jsonify({'success': False, 'error': 'Pipeline not initialized'}), 500
+        
+        data = request.get_json() or {}
+        concept = data.get('concept', '')
+        requester = data.get('requester', 'user')
+        inspiration = data.get('inspiration')
+        
+        if not concept:
+            return jsonify({'success': False, 'error': 'concept is required'}), 400
+        
+        request_id = pipeline.invent_new_tool(
+            concept=concept,
+            requester=requester,
+            inspiration=inspiration
+        )
+        
+        return jsonify(sanitize_for_json({
+            'success': True,
+            'request_id': request_id,
+            'concept': concept,
+            'message': 'Tool invention request submitted'
+        }))
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =========================================================================
 # 🌪️ CHAOS MODE API REGISTRATION
 # =========================================================================
 try:

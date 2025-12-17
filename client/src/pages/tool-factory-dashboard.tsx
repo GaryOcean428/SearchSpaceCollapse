@@ -27,7 +27,11 @@ import {
   Key,
   Trash2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  RefreshCw,
+  Lightbulb,
+  CircleDot
 } from "lucide-react";
 
 interface GeneratedTool {
@@ -93,6 +97,36 @@ interface GitQueueResponse {
   failed: number;
 }
 
+interface PipelineRequest {
+  request_id: string;
+  description: string;
+  requester: string;
+  state: string;
+  created_at: number;
+  updated_at: number;
+  iteration: number;
+  max_iterations: number;
+  research_requests: string[];
+  test_failures: Array<{ iteration: number; errors: string[]; timestamp: number }>;
+  generated_tool_id: string | null;
+  error_count: number;
+}
+
+interface PipelineStatus {
+  running: boolean;
+  total_requests: number;
+  by_state: Record<string, number>;
+  deployed_count: number;
+  active_count: number;
+  failed_count: number;
+  research_bridge_connected: boolean;
+}
+
+interface PipelineRequestsResponse {
+  requests: PipelineRequest[];
+  count: number;
+}
+
 export default function ToolFactoryDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("tools");
@@ -108,6 +142,7 @@ export default function ToolFactoryDashboard() {
   
   const [generateDesc, setGenerateDesc] = useState("");
   const [generateExamples, setGenerateExamples] = useState("");
+  const [inventConcept, setInventConcept] = useState("");
   
   const [testToolId, setTestToolId] = useState("");
   const [testArgs, setTestArgs] = useState("{}");
