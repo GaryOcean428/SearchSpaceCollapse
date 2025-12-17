@@ -711,7 +711,73 @@ class Zeus(BaseGod):
         # Auto-evaluate CHAOS MODE activation based on consensus
         self._evaluate_chaos_auto_activation(convergence, assessments, consensus_prob)
 
+        # ⚔️ AUTO WAR DECLARATION based on convergence
+        # If convergence is strong enough, automatically declare war
+        self._auto_declare_war_if_needed(target, convergence, consensus_prob)
+
         return result
+
+    def _auto_declare_war_if_needed(
+        self,
+        target: str,
+        convergence: Dict,
+        consensus_prob: float
+    ) -> Optional[Dict]:
+        """
+        Automatically declare war if convergence thresholds are met.
+        
+        War modes are declared based on:
+        - BLITZKRIEG: Strong attack convergence (Athena + Ares agree) with high probability
+        - SIEGE: Council consensus with moderate-high probability
+        - HUNT: Moderate opportunity with good tracking potential
+        
+        Args:
+            target: The target being assessed
+            convergence: Convergence analysis from _detect_convergence
+            consensus_prob: Overall consensus probability
+            
+        Returns:
+            War declaration dict if war declared, None otherwise
+        """
+        # Don't declare if already in war mode
+        if self.war_mode is not None:
+            return None
+            
+        conv_type = convergence.get('type', 'DIVIDED')
+        conv_score = convergence.get('score', 0)
+        athena_ares = convergence.get('athena_ares_agreement', 0)
+        
+        # Threshold checks for war declaration
+        war_result = None
+        
+        # BLITZKRIEG: Strong attack with high Athena+Ares agreement
+        if conv_type == 'STRONG_ATTACK' and athena_ares > 0.85 and consensus_prob > 0.75:
+            war_result = self.declare_blitzkrieg(target)
+            print(f"⚡ [Zeus] AUTO-DECLARED BLITZKRIEG: convergence={conv_score:.2f}, Athena+Ares={athena_ares:.2f}")
+            
+        # SIEGE: Council consensus with high convergence score
+        elif conv_type == 'COUNCIL_CONSENSUS' and conv_score > 0.8 and consensus_prob > 0.7:
+            war_result = self.declare_siege(target)
+            print(f"🏰 [Zeus] AUTO-DECLARED SIEGE: convergence={conv_score:.2f}, consensus={consensus_prob:.2f}")
+            
+        # HUNT: Moderate opportunity with focused potential
+        elif conv_type == 'MODERATE_OPPORTUNITY' and conv_score > 0.7 and athena_ares > 0.7:
+            war_result = self.declare_hunt(target)
+            print(f"🎯 [Zeus] AUTO-DECLARED HUNT: convergence={conv_score:.2f}, Athena+Ares={athena_ares:.2f}")
+            
+        if war_result:
+            # Log war declaration to convergence history
+            self.convergence_history.append({
+                'event': 'auto_war_declaration',
+                'war_mode': war_result.get('mode'),
+                'target': target,
+                'convergence_type': conv_type,
+                'convergence_score': conv_score,
+                'consensus_prob': consensus_prob,
+                'timestamp': datetime.now().isoformat(),
+            })
+            
+        return war_result
 
     def _process_pantheon_communication(
         self,

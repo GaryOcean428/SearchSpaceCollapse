@@ -2608,6 +2608,12 @@ class M8KernelSpawner:
         total_kernels = int(db_stats.get('total_kernels', 0) or 0)
         unique_gods = int(db_stats.get('unique_gods', 0) or 0)
         
+        # Base Olympian gods (12) + unique spawned kernel gods from database
+        # The 12 base gods: Zeus, Athena, Ares, Apollo, Artemis, Hermes, 
+        # Hephaestus, Demeter, Dionysus, Poseidon, Hades, Hera, Aphrodite
+        BASE_OLYMPIAN_COUNT = 12
+        total_gods = BASE_OLYMPIAN_COUNT + unique_gods
+        
         return {
             "consensus_type": self.consensus.consensus_type.value,
             "total_proposals": len(self.proposals),
@@ -2615,7 +2621,7 @@ class M8KernelSpawner:
             "approved_proposals": sum(1 for p in self.proposals.values() if p.status == "approved"),
             "spawned_kernels": total_kernels,  # From PostgreSQL
             "spawn_history_count": total_kernels,  # Use DB count only (avoid double-counting)
-            "orchestrator_gods": unique_gods if unique_gods > 0 else len(self.orchestrator.all_profiles),
+            "orchestrator_gods": total_gods,  # Base 12 Olympians + spawned kernel gods
             # Additional stats from DB
             "avg_phi": float(db_stats.get('avg_phi', 0) or 0),
             "max_phi": float(db_stats.get('max_phi', 0) or 0),
