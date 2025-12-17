@@ -43,14 +43,7 @@ import {
   Wrench,
   FlaskConical,
   GitBranch,
-  Moon,
-  MessageSquare,
-  Swords,
-  Send,
-  AlertTriangle,
-  Trophy,
-  Lightbulb,
-  Share2
+  Moon
 } from 'lucide-react';
 
 interface LearnerStats {
@@ -178,58 +171,25 @@ interface BridgeStatus {
   research_from_tools: number;
 }
 
-interface PantheonMessage {
-  id: string;
-  type: string;
-  from: string;
-  to: string;
-  content: string;
-  metadata?: Record<string, unknown>;
-  timestamp: string;
-  read: boolean;
-}
 
-interface DebateArgument {
-  god: string;
-  argument: string;
-  evidence?: Record<string, unknown>;
-  timestamp: string;
-}
-
-interface Debate {
-  id: string;
-  topic: string;
-  initiator: string;
-  opponent: string;
-  status: string;
-  arguments: DebateArgument[];
-  winner?: string;
-  arbiter?: string;
-  resolution?: Record<string, unknown>;
-}
-
-interface DebatesResponse {
-  debates: Debate[];
-}
-
-interface MessagesResponse {
-  messages: PantheonMessage[];
-}
-
-interface DebateStatusResponse {
-  active_count: number;
-  resolved_count: number;
-  total_arguments: number;
+interface AutonomousTestStatus {
+  running: boolean;
+  last_run: number | null;
+  last_result: ReplayResult | null;
+  run_count: number;
+  average_improvement: number;
+  recent_average_improvement: number;
+  test_interval_seconds: number;
+  next_query: string;
+  sample_queries_count: number;
+  results_history_count: number;
 }
 
 const API_BASE = '/api/olympus/zeus/search/learner';
 const SHADOW_API = '/api/olympus/shadow';
 const TOOL_API = '/api/olympus/zeus/tools';
-const CHAT_API = '/api/olympus';
 
 export default function LearningDashboard() {
-  const [testQuery, setTestQuery] = useState('');
-  const [replayResult, setReplayResult] = useState<ReplayResult | null>(null);
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<LearnerStats>({
     queryKey: [`${API_BASE}/stats`],
@@ -266,37 +226,43 @@ export default function LearningDashboard() {
     refetchInterval: 10000,
   });
 
-  const { data: debatesData, isLoading: debatesLoading } = useQuery<DebatesResponse>({
-    queryKey: [`${CHAT_API}/debates/active`],
-    refetchInterval: 15000,
+
+  const { data: autoTestStatus, isLoading: autoTestLoading, refetch: refetchAutoTest } = useQuery<AutonomousTestStatus>({
+    queryKey: [`${API_BASE}/replay/auto/status`],
+    refetchInterval: 5000,
   });
 
-  const { data: messagesData, isLoading: messagesLoading } = useQuery<MessagesResponse>({
-    queryKey: [`${CHAT_API}/chat/messages`],
-    refetchInterval: 15000,
-  });
-
-  const { data: debateStatus, isLoading: debateStatusLoading } = useQuery<DebateStatusResponse>({
-    queryKey: [`${CHAT_API}/debates/status`],
-    refetchInterval: 15000,
-  });
-
-  const replayMutation = useMutation({
-    mutationFn: async (query: string) => {
-      const res = await apiRequest('POST', `${API_BASE}/replay`, { query });
+  const startAutoTestMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `${API_BASE}/replay/auto/start`, {});
       return res.json();
     },
-    onSuccess: (data: ReplayResult) => {
-      setReplayResult(data);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/auto/status`] });
+    },
+  });
+
+  const stopAutoTestMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `${API_BASE}/replay/auto/stop`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/auto/status`] });
+    },
+  });
+
+  const runSingleTestMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `${API_BASE}/replay/auto/run`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/auto/status`] });
       queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/history`] });
     },
   });
 
-  const handleReplayTest = () => {
-    if (testQuery.trim()) {
-      replayMutation.mutate(testQuery);
-    }
-  };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -313,25 +279,6 @@ export default function LearningDashboard() {
     });
   };
 
-  const getMessageTypeIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'insight': return <Lightbulb className="h-3 w-3" />;
-      case 'warning': return <AlertTriangle className="h-3 w-3" />;
-      case 'challenge': return <Swords className="h-3 w-3" />;
-      case 'praise': return <Trophy className="h-3 w-3" />;
-      default: return <MessageSquare className="h-3 w-3" />;
-    }
-  };
-
-  const getMessageTypeBadgeClass = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'insight': return 'text-cyan-400 border-cyan-400/50';
-      case 'warning': return 'text-yellow-400 border-yellow-400/50';
-      case 'challenge': return 'text-red-400 border-red-400/50';
-      case 'praise': return 'text-green-400 border-green-400/50';
-      default: return 'text-muted-foreground';
-    }
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -549,91 +496,173 @@ export default function LearningDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="bg-background/50 backdrop-blur border-indigo-500/20" data-testid="card-replay-testing">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 font-mono">
-              <Play className="h-5 w-5 text-indigo-400" />
-              Replay Testing
-            </CardTitle>
-            <CardDescription className="font-mono text-xs">
-              Test how learning improves search responses
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2 font-mono">
+                <Play className="h-5 w-5 text-indigo-400" />
+                Autonomous Learning Validation
+              </CardTitle>
+              <CardDescription className="font-mono text-xs">
+                Continuously measures how much learning improves search quality
+              </CardDescription>
+            </div>
+            <Badge 
+              variant="outline" 
+              className={`font-mono text-xs ${autoTestStatus?.running ? 'text-green-400 border-green-400/50' : 'text-muted-foreground'}`}
+              data-testid="badge-auto-status"
+            >
+              {autoTestStatus?.running ? (
+                <>
+                  <Activity className="h-3 w-3 mr-1 animate-pulse" />
+                  Running
+                </>
+              ) : (
+                <>
+                  <Clock className="h-3 w-3 mr-1" />
+                  Idle
+                </>
+              )}
+            </Badge>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter test query..."
-                value={testQuery}
-                onChange={(e) => setTestQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleReplayTest()}
-                className="font-mono"
-                data-testid="input-test-query"
-              />
+            <div className="p-3 bg-muted/30 border border-border rounded-md">
+              <p className="text-sm font-mono text-muted-foreground">
+                This system automatically tests recovery queries to measure how much the learning system 
+                improves results compared to baseline. Higher improvement means better learning.
+              </p>
+            </div>
+
+            <div className="flex gap-2 flex-wrap">
+              {autoTestStatus?.running ? (
+                <Button 
+                  variant="outline"
+                  onClick={() => stopAutoTestMutation.mutate()}
+                  disabled={stopAutoTestMutation.isPending}
+                  data-testid="button-stop-auto"
+                >
+                  {stopAutoTestMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Stop Auto-Testing
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => startAutoTestMutation.mutate()}
+                  disabled={startAutoTestMutation.isPending}
+                  data-testid="button-start-auto"
+                >
+                  {startAutoTestMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Start Auto-Testing
+                </Button>
+              )}
               <Button 
-                onClick={handleReplayTest}
-                disabled={!testQuery.trim() || replayMutation.isPending}
-                data-testid="button-run-replay"
+                variant="ghost"
+                onClick={() => runSingleTestMutation.mutate()}
+                disabled={runSingleTestMutation.isPending}
+                data-testid="button-run-single"
               >
-                {replayMutation.isPending ? (
+                {runSingleTestMutation.isPending ? (
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Play className="h-4 w-4 mr-2" />
+                  <Zap className="h-4 w-4 mr-2" />
                 )}
-                Run Test
+                Run One Test
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => refetchAutoTest()}
+                data-testid="button-refresh-auto"
+              >
+                <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
 
-            {replayMutation.isPending && (
+            {autoTestLoading ? (
               <div className="space-y-2">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-24 w-full" />
               </div>
-            )}
-
-            {replayMutation.isError && (
-              <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-mono" data-testid="replay-error">
-                Error running replay test. Please try again.
-              </div>
-            )}
-
-            {replayResult && !replayMutation.isPending && (
-              <div className="space-y-3" data-testid="replay-results">
-                <div className="p-3 bg-green-500/10 border border-green-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-400" />
-                    <span className="text-sm font-mono text-green-400 uppercase tracking-wide">With Learning</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm font-mono">
-                    <div>
-                      <span className="text-muted-foreground">Strategies Applied:</span>
-                      <span className="ml-2 text-green-400">{replayResult.strategies_applied}</span>
+            ) : autoTestStatus ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Tests Run</div>
+                    <div className="text-2xl font-bold font-mono text-indigo-400" data-testid="text-run-count">
+                      {autoTestStatus.run_count}
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Magnitude:</span>
-                      <span className="ml-2 text-green-400" data-testid="text-magnitude">
-                        {replayResult.modification_magnitude?.toFixed(3) ?? '0.000'}
-                      </span>
+                  </div>
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Avg Improvement</div>
+                    <div className={`text-2xl font-bold font-mono ${autoTestStatus.average_improvement > 0 ? 'text-green-400' : 'text-muted-foreground'}`} data-testid="text-avg-improvement">
+                      {autoTestStatus.average_improvement > 0 ? '+' : ''}{(autoTestStatus.average_improvement * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Recent Avg</div>
+                    <div className={`text-2xl font-bold font-mono ${autoTestStatus.recent_average_improvement > 0 ? 'text-cyan-400' : 'text-muted-foreground'}`} data-testid="text-recent-improvement">
+                      {autoTestStatus.recent_average_improvement > 0 ? '+' : ''}{(autoTestStatus.recent_average_improvement * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-md">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Test Queries</div>
+                    <div className="text-2xl font-bold font-mono text-purple-400" data-testid="text-query-count">
+                      {autoTestStatus.sample_queries_count}
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3 bg-muted/50 border border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <XCircle className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-mono text-muted-foreground uppercase tracking-wide">Without Learning</span>
+                {autoTestStatus.last_result && (
+                  <div className="p-3 bg-gradient-to-r from-green-500/5 to-indigo-500/5 border border-green-500/20 rounded-md">
+                    <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Last Test Result</span>
+                      {autoTestStatus.last_run && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {new Date(autoTestStatus.last_run * 1000).toLocaleTimeString()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm font-mono">
+                      <div>
+                        <span className="text-muted-foreground">Query:</span>
+                        <span className="ml-2 text-foreground truncate block" data-testid="text-last-query">
+                          {autoTestStatus.last_result.query}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Strategies:</span>
+                        <span className="ml-2 text-green-400">{autoTestStatus.last_result.strategies_applied}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Improvement:</span>
+                        <span className={`ml-2 ${(autoTestStatus.last_result.improvement_score ?? 0) > 0 ? 'text-green-400' : 'text-muted-foreground'}`} data-testid="text-last-improvement">
+                          {(autoTestStatus.last_result.improvement_score ?? 0) > 0 ? '+' : ''}{((autoTestStatus.last_result.improvement_score ?? 0) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm font-mono">
-                    <span className="text-muted-foreground">Basin Delta:</span>
-                    <span className="ml-2" data-testid="text-baseline">
-                      {replayResult.basin_delta?.toFixed(3) ?? '0.000'}
+                )}
+
+                {autoTestStatus.running && (
+                  <div className="p-2 bg-muted/30 border border-border rounded-md flex items-center gap-2">
+                    <RefreshCw className="h-3 w-3 animate-spin text-indigo-400" />
+                    <span className="text-xs font-mono text-muted-foreground">
+                      Next test in ~{autoTestStatus.test_interval_seconds}s: "{autoTestStatus.next_query}"
                     </span>
                   </div>
-                </div>
-
-                <div className="p-4 bg-indigo-500/10 border border-indigo-500/30 text-center">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Improvement Score</span>
-                  <div className={`text-3xl font-bold font-mono mt-1 ${replayResult.improvement_score > 0 ? 'text-green-400' : replayResult.improvement_score < 0 ? 'text-red-400' : 'text-muted-foreground'}`} data-testid="text-improvement">
-                    {replayResult.improvement_score > 0 ? '+' : ''}{(replayResult.improvement_score * 100).toFixed(1)}%
-                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-[100px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Play className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="font-mono text-sm">Click "Start Auto-Testing" to begin</p>
                 </div>
               </div>
             )}
@@ -1204,211 +1233,6 @@ export default function LearningDashboard() {
         </Card>
       </div>
 
-      {/* Inter-Agent Discussion Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-testid="section-inter-agent-discussion">
-        {/* Active Debates Panel */}
-        <Card className="bg-background/50 backdrop-blur border-red-500/20" data-testid="card-active-debates">
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2 font-mono">
-                <Swords className="h-5 w-5 text-red-400" />
-                Active Debates
-              </CardTitle>
-              <CardDescription className="font-mono text-xs">
-                God-vs-god debates and resolutions
-              </CardDescription>
-            </div>
-            {debateStatusLoading ? (
-              <Skeleton className="h-6 w-24" />
-            ) : (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="font-mono text-xs text-red-400 border-red-400/50" data-testid="badge-active-debates">
-                  {debateStatus?.active_count ?? 0} Active
-                </Badge>
-                <Badge variant="outline" className="font-mono text-xs text-green-400 border-green-400/50" data-testid="badge-resolved-debates">
-                  {debateStatus?.resolved_count ?? 0} Resolved
-                </Badge>
-              </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            {debatesLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </div>
-            ) : debatesData?.debates && debatesData.debates.length > 0 ? (
-              <div className="space-y-3 max-h-[400px] overflow-auto">
-                {debatesData.debates.map((debate) => (
-                  <div 
-                    key={debate.id} 
-                    className="p-3 bg-muted/30 border border-border rounded-md space-y-2"
-                    data-testid={`debate-${debate.id}`}
-                  >
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-sm font-mono font-semibold truncate" data-testid={`debate-topic-${debate.id}`}>
-                        {debate.topic}
-                      </span>
-                      <Badge 
-                        variant="outline" 
-                        className={`font-mono text-xs ${debate.status === 'active' ? 'text-amber-400 border-amber-400/50' : 'text-green-400 border-green-400/50'}`}
-                        data-testid={`debate-status-${debate.id}`}
-                      >
-                        {debate.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-                      <span className="text-cyan-400">{debate.initiator}</span>
-                      <Swords className="h-3 w-3" />
-                      <span className="text-purple-400">{debate.opponent}</span>
-                      {debate.arbiter && (
-                        <>
-                          <span className="text-muted-foreground">• Arbiter:</span>
-                          <span className="text-amber-400">{debate.arbiter}</span>
-                        </>
-                      )}
-                    </div>
-                    {debate.winner && (
-                      <div className="flex items-center gap-1 text-xs font-mono">
-                        <Trophy className="h-3 w-3 text-yellow-400" />
-                        <span className="text-yellow-400">Winner: {debate.winner}</span>
-                      </div>
-                    )}
-                    {debate.arguments && debate.arguments.length > 0 && (
-                      <div className="mt-2 space-y-1 border-t border-border pt-2">
-                        <span className="text-xs text-muted-foreground uppercase tracking-wide font-mono">
-                          Arguments ({debate.arguments.length})
-                        </span>
-                        <div className="space-y-1 max-h-[100px] overflow-auto">
-                          {debate.arguments.slice(-3).map((arg, idx) => (
-                            <div 
-                              key={idx} 
-                              className="text-xs font-mono p-1 bg-background/50 rounded"
-                              data-testid={`debate-argument-${debate.id}-${idx}`}
-                            >
-                              <span className={arg.god === debate.initiator ? 'text-cyan-400' : 'text-purple-400'}>
-                                {arg.god}:
-                              </span>
-                              <span className="text-muted-foreground ml-1 truncate">
-                                {arg.argument?.substring(0, 100)}{(arg.argument?.length ?? 0) > 100 ? '...' : ''}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="h-[150px] flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Swords className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="font-mono text-sm">No active debates</p>
-                  <p className="font-mono text-xs text-muted-foreground">Gods are in agreement</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Messages Panel */}
-        <Card className="bg-background/50 backdrop-blur border-cyan-500/20" data-testid="card-recent-messages">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 font-mono">
-              <MessageSquare className="h-5 w-5 text-cyan-400" />
-              Recent Pantheon Messages
-            </CardTitle>
-            <CardDescription className="font-mono text-xs">
-              Inter-god communications and broadcasts
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {messagesLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            ) : messagesData?.messages && messagesData.messages.length > 0 ? (
-              <div className="space-y-2 max-h-[400px] overflow-auto">
-                {messagesData.messages.slice(0, 10).map((msg) => (
-                  <div 
-                    key={msg.id} 
-                    className={`p-3 bg-muted/30 border border-border rounded-md ${!msg.read ? 'border-l-2 border-l-cyan-400' : ''}`}
-                    data-testid={`message-${msg.id}`}
-                  >
-                    <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                      <div className="flex items-center gap-2 text-xs font-mono">
-                        <span className="text-cyan-400">{msg.from}</span>
-                        <Send className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-purple-400">{msg.to || 'Pantheon'}</span>
-                      </div>
-                      <Badge 
-                        variant="outline" 
-                        className={`font-mono text-xs ${getMessageTypeBadgeClass(msg.type)}`}
-                        data-testid={`message-type-${msg.id}`}
-                      >
-                        {getMessageTypeIcon(msg.type)}
-                        <span className="ml-1">{msg.type || 'message'}</span>
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-mono text-foreground truncate" data-testid={`message-content-${msg.id}`}>
-                      {msg.content}
-                    </p>
-                    <span className="text-xs text-muted-foreground font-mono" data-testid={`message-timestamp-${msg.id}`}>
-                      {formatTimestamp(msg.timestamp)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="h-[150px] flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="font-mono text-sm">No recent messages</p>
-                  <p className="font-mono text-xs text-muted-foreground">Pantheon is quiet</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Knowledge Transfers Summary */}
-      <Card className="bg-background/50 backdrop-blur border-purple-500/20" data-testid="card-knowledge-transfers">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2 font-mono">
-            <Share2 className="h-5 w-5 text-purple-400" />
-            Knowledge Transfers
-          </CardTitle>
-          <CardDescription className="font-mono text-xs">
-            Recent knowledge being shared between gods
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-md">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Insights Shared</div>
-              <div className="text-2xl font-bold font-mono text-cyan-400" data-testid="text-insights-count">
-                {messagesData?.messages?.filter(m => m.type?.toLowerCase() === 'insight').length ?? 0}
-              </div>
-            </div>
-            <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-md">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Total Arguments</div>
-              <div className="text-2xl font-bold font-mono text-purple-400" data-testid="text-arguments-count">
-                {debateStatus?.total_arguments ?? 0}
-              </div>
-            </div>
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide font-mono">Active Discussions</div>
-              <div className="text-2xl font-bold font-mono text-amber-400" data-testid="text-active-discussions">
-                {(debateStatus?.active_count ?? 0) + (messagesData?.messages?.filter(m => !m.read).length ?? 0)}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

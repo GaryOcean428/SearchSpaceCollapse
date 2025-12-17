@@ -1102,6 +1102,141 @@ _global_strategy_learner: Optional[SearchStrategyLearner] = None
 _global_strategy_learner_with_persistence: Optional[SearchStrategyLearner] = None
 
 
+class AutonomousReplayTester:
+    """
+    Autonomous replay testing system that continuously validates learning effectiveness.
+    
+    Runs periodic tests using sample queries to measure how much the learning
+    system improves search quality compared to baseline.
+    """
+    
+    SAMPLE_QUERIES = [
+        "forgot wallet password recovery",
+        "old bitcoin address restoration",
+        "lost seed phrase partial recovery",
+        "hardware wallet access issues",
+        "paper wallet damaged reconstruction",
+        "encrypted backup decryption help",
+        "transaction history verification",
+        "multi-signature wallet recovery",
+        "legacy address format conversion",
+        "orphaned coins reclaim process",
+    ]
+    
+    def __init__(self, learner: SearchStrategyLearner):
+        self.learner = learner
+        self._running = False
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
+        self._last_run: Optional[float] = None
+        self._last_result: Optional[Dict[str, Any]] = None
+        self._run_count = 0
+        self._total_improvement = 0.0
+        self._test_interval = 60.0  # seconds between test runs
+        self._current_query_idx = 0
+        self._results_history: List[Dict[str, Any]] = []
+        self._max_history = 50
+    
+    def start(self) -> Dict[str, Any]:
+        """Start the autonomous testing loop."""
+        with self._lock:
+            if self._running:
+                return {"status": "already_running", "message": "Autonomous testing is already running"}
+            self._running = True
+            self._stop_event.clear()
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+            return {"status": "started", "message": "Autonomous testing started"}
+    
+    def stop(self) -> Dict[str, Any]:
+        """Stop the autonomous testing loop immediately."""
+        with self._lock:
+            if not self._running:
+                return {"status": "not_running", "message": "Autonomous testing is not running"}
+            self._running = False
+            self._stop_event.set()  # Wake up the sleeping thread immediately
+            return {"status": "stopped", "message": "Autonomous testing stopped"}
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current status of autonomous testing."""
+        with self._lock:
+            avg_improvement = 0.0
+            if self._run_count > 0:
+                avg_improvement = self._total_improvement / self._run_count
+            
+            recent_improvements = [r.get("improvement_score", 0) for r in self._results_history[-10:]]
+            recent_avg = float(np.mean(recent_improvements)) if recent_improvements else 0.0
+            
+            return {
+                "running": self._running,
+                "last_run": self._last_run,
+                "last_result": self._last_result,
+                "run_count": self._run_count,
+                "average_improvement": avg_improvement,
+                "recent_average_improvement": recent_avg,
+                "test_interval_seconds": self._test_interval,
+                "next_query": self.SAMPLE_QUERIES[self._current_query_idx % len(self.SAMPLE_QUERIES)],
+                "sample_queries_count": len(self.SAMPLE_QUERIES),
+                "results_history_count": len(self._results_history),
+            }
+    
+    def run_single_test(self) -> Dict[str, Any]:
+        """Run a single test manually (useful for on-demand testing)."""
+        query = self.SAMPLE_QUERIES[self._current_query_idx % len(self.SAMPLE_QUERIES)]
+        self._current_query_idx += 1
+        
+        result = self.learner.run_replay_test(query)
+        
+        with self._lock:
+            self._last_run = time.time()
+            self._last_result = result
+            self._run_count += 1
+            self._total_improvement += result.get("improvement_score", 0.0)
+            self._results_history.append({
+                "query": query,
+                "improvement_score": result.get("improvement_score", 0.0),
+                "strategies_applied": result.get("strategies_applied", 0),
+                "timestamp": time.time(),
+            })
+            if len(self._results_history) > self._max_history:
+                self._results_history = self._results_history[-self._max_history:]
+        
+        return result
+    
+    def _run_loop(self):
+        """Background loop that runs tests periodically."""
+        while True:
+            with self._lock:
+                if not self._running:
+                    break
+            
+            try:
+                self.run_single_test()
+            except Exception as e:
+                print(f"[AutonomousReplayTester] Error running test: {e}")
+            
+            # Use event wait instead of sleep - allows immediate interruption on stop
+            if self._stop_event.wait(timeout=self._test_interval):
+                # Event was set, meaning stop was called
+                break
+
+
+_global_autonomous_tester: Optional[AutonomousReplayTester] = None
+
+
+def get_autonomous_tester(learner: Optional[SearchStrategyLearner] = None) -> AutonomousReplayTester:
+    """Get or create the global AutonomousReplayTester instance."""
+    global _global_autonomous_tester
+    
+    if _global_autonomous_tester is None:
+        if learner is None:
+            learner = get_strategy_learner_with_persistence()
+        _global_autonomous_tester = AutonomousReplayTester(learner)
+    
+    return _global_autonomous_tester
+
+
 def get_strategy_learner(
     encoder: Optional[ConversationEncoder] = None,
 ) -> SearchStrategyLearner:

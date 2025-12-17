@@ -2173,6 +2173,77 @@ def zeus_search_learner_replay_history_endpoint():
         return jsonify({'error': str(e)}), 500
 
 
+@olympus_app.route('/zeus/search/learner/replay/auto/status', methods=['GET'])
+def zeus_search_learner_auto_status_endpoint():
+    """
+    Get status of autonomous replay testing.
+    
+    Returns:
+        Status object with running state, metrics, and history summary
+    """
+    try:
+        from .search_strategy_learner import get_autonomous_tester
+        tester = get_autonomous_tester()
+        return jsonify(sanitize_for_json(tester.get_status()))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/search/learner/replay/auto/start', methods=['POST'])
+def zeus_search_learner_auto_start_endpoint():
+    """
+    Start autonomous replay testing.
+    
+    The tester will run sample queries periodically and measure
+    learning improvement over time.
+    """
+    try:
+        from .search_strategy_learner import get_autonomous_tester
+        tester = get_autonomous_tester()
+        result = tester.start()
+        return jsonify(sanitize_for_json(result))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/search/learner/replay/auto/stop', methods=['POST'])
+def zeus_search_learner_auto_stop_endpoint():
+    """
+    Stop autonomous replay testing.
+    """
+    try:
+        from .search_strategy_learner import get_autonomous_tester
+        tester = get_autonomous_tester()
+        result = tester.stop()
+        return jsonify(sanitize_for_json(result))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/search/learner/replay/auto/run', methods=['POST'])
+def zeus_search_learner_auto_run_single_endpoint():
+    """
+    Run a single autonomous test immediately.
+    
+    Useful for on-demand testing without waiting for the periodic loop.
+    """
+    try:
+        from .search_strategy_learner import get_autonomous_tester
+        tester = get_autonomous_tester()
+        result = tester.run_single_test()
+        return jsonify(sanitize_for_json(result))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 # ========================================
 # LIGHTNING KERNEL API ENDPOINTS
 # Cross-domain insight generation
