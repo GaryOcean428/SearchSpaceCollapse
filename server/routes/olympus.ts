@@ -1499,6 +1499,14 @@ router.post('/m8/kernel/cannibalize', isAuthenticated, (req, res) =>
 router.post('/m8/kernels/merge', isAuthenticated, (req, res) => 
   proxyPost(req, res, '/m8/kernels/merge', 'Python backend unavailable', { rawPath: true }));
 
+/** M8 Auto-Cannibalize - Automatically select and cannibalize idle kernels */
+router.post('/m8/kernel/auto-cannibalize', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/m8/kernel/auto-cannibalize', 'Python backend unavailable', { rawPath: true }));
+
+/** M8 Auto-Merge - Automatically merge idle kernels */
+router.post('/m8/kernels/auto-merge', isAuthenticated, (req, res) => 
+  proxyPost(req, res, '/m8/kernels/auto-merge', 'Python backend unavailable', { rawPath: true }));
+
 /**
  * Get all spawned kernels from PostgreSQL
  * Returns kernels with full attributes including spawn reason, reputation, merge/split status

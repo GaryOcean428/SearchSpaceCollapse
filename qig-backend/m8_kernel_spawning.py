@@ -2467,6 +2467,8 @@ class M8KernelSpawner:
         kernel as target. This implements automatic lifecycle management where
         inactive kernels are absorbed by stronger ones.
         
+        Queries kernels from PostgreSQL database for full kernel population.
+        
         Args:
             idle_threshold_seconds: Seconds of inactivity to consider idle
             
@@ -2482,10 +2484,26 @@ class M8KernelSpawner:
                 "idle_count": 0
             }
         
-        active_kernels = [
-            (kid, k) for kid, k in self.spawned_kernels.items()
-            if kid not in idle_kernel_ids and k.is_active()
-        ]
+        # Query active kernels from database + in-memory
+        active_kernels = []
+        idle_set = set(idle_kernel_ids)
+        
+        # Check in-memory kernels
+        for kid, k in self.spawned_kernels.items():
+            if kid not in idle_set and k.is_active():
+                active_kernels.append((kid, {'phi': getattr(k, 'phi', 0.0)}))
+        
+        # Also query from database
+        if self.kernel_persistence:
+            try:
+                db_kernels = self.kernel_persistence.load_all_kernels_for_ui(limit=1000)
+                for k in db_kernels:
+                    kid = k.get('kernel_id')
+                    if kid and kid not in idle_set and kid not in self.spawned_kernels:
+                        # DB kernels not in idle list are considered active candidates
+                        active_kernels.append((kid, {'phi': k.get('phi', 0.0)}))
+            except Exception as e:
+                print(f"[M8] Failed to load kernels from DB for auto-cannibalize: {e}")
         
         if not active_kernels:
             return {
@@ -2519,15 +2537,19 @@ class M8KernelSpawner:
         target_id = None
         max_phi = -1
         
-        for kid, kernel in active_kernels:
+        for kid, kernel_data in active_kernels:
             awareness = self.kernel_awareness.get(kid)
             if awareness and awareness.phi_trajectory:
                 avg_phi = sum(awareness.phi_trajectory) / len(awareness.phi_trajectory)
                 if avg_phi > max_phi:
                     max_phi = avg_phi
                     target_id = kid
-            elif target_id is None:
-                target_id = kid
+            else:
+                # Use phi from kernel data if no awareness
+                phi = kernel_data.get('phi', 0.0)
+                if phi > max_phi:
+                    max_phi = phi
+                    target_id = kid
         
         if target_id is None:
             target_id = active_kernels[0][0]
@@ -2550,6 +2572,8 @@ class M8KernelSpawner:
         Selects idle kernels and merges them into a unified kernel with a
         generated name based on their combined domains.
         
+        Queries kernels from PostgreSQL database for domain information.
+        
         Args:
             idle_threshold_seconds: Seconds of inactivity to consider idle
             max_to_merge: Maximum number of kernels to merge at once
@@ -2568,11 +2592,25 @@ class M8KernelSpawner:
         
         to_merge = idle_kernel_ids[:max_to_merge]
         
+        # Build lookup for domain info from both in-memory and database
+        db_kernel_lookup = {}
+        if self.kernel_persistence:
+            try:
+                db_kernels = self.kernel_persistence.load_all_kernels_for_ui(limit=1000)
+                db_kernel_lookup = {k.get('kernel_id'): k for k in db_kernels}
+            except Exception as e:
+                print(f"[M8] Failed to load kernels from DB for auto-merge: {e}")
+        
         domains = []
         for kid in to_merge:
+            # Check in-memory first
             kernel = self.spawned_kernels.get(kid)
             if kernel:
                 domains.append(kernel.profile.domain[:4].upper())
+            elif kid in db_kernel_lookup:
+                # Fall back to database
+                domain = db_kernel_lookup[kid].get('domain', 'AUTO')
+                domains.append(domain[:4].upper() if domain else 'AUTO')
         
         domain_combo = "_".join(domains[:3]) if domains else "AUTO"
         new_name = f"MERGED_{domain_combo}_{datetime.now().strftime('%H%M')}"
@@ -2592,8 +2630,8 @@ class M8KernelSpawner:
         """
         Get list of kernel IDs that haven't had metrics recorded recently.
         
-        Uses kernel_awareness timestamps to determine idle time. Kernels
-        without awareness tracking or with stale timestamps are considered idle.
+        Queries kernels from PostgreSQL database and uses spawned_at timestamps 
+        and kernel_awareness to determine idle time.
         
         Args:
             idle_threshold_seconds: Seconds of inactivity to consider idle (default: 300)
@@ -2604,9 +2642,26 @@ class M8KernelSpawner:
         idle_kernels = []
         now = datetime.now()
         
-        for kernel_id, kernel in self.spawned_kernels.items():
+        # Query all kernels from database
+        db_kernels = []
+        if self.kernel_persistence:
+            try:
+                db_kernels = self.kernel_persistence.load_all_kernels_for_ui(limit=1000)
+            except Exception as e:
+                print(f"[M8] Failed to load kernels from DB for idle check: {e}")
+        
+        # Also check in-memory kernels (fallback)
+        all_kernel_ids = set(self.spawned_kernels.keys())
+        for k in db_kernels:
+            all_kernel_ids.add(k.get('kernel_id'))
+        
+        # Build lookup for DB kernel data
+        db_kernel_lookup = {k.get('kernel_id'): k for k in db_kernels}
+        
+        for kernel_id in all_kernel_ids:
             is_idle = False
             
+            # Check in-memory awareness first
             awareness = self.kernel_awareness.get(kernel_id)
             if awareness is None:
                 is_idle = True
@@ -2619,22 +2674,42 @@ class M8KernelSpawner:
                 except (ValueError, TypeError):
                     is_idle = True
             
+            # If not idle based on awareness, check spawn timestamp
             if not is_idle:
+                # Check spawn history
                 spawn_events = [
                     h for h in self.spawn_history
                     if h.get("kernel", {}).get("kernel_id") == kernel_id
                     or h.get("kernel_id") == kernel_id
                 ]
+                
+                # Get timestamp from in-memory kernel or DB
+                spawned_at = None
+                if kernel_id in self.spawned_kernels:
+                    spawned_at = self.spawned_kernels[kernel_id].spawned_at
+                elif kernel_id in db_kernel_lookup:
+                    spawned_at = db_kernel_lookup[kernel_id].get('spawned_at')
+                
                 if spawn_events:
                     latest = spawn_events[-1]
                     try:
-                        ts = latest.get("timestamp") or kernel.spawned_at
-                        event_time = datetime.fromisoformat(ts)
-                        elapsed = (now - event_time).total_seconds()
+                        ts = latest.get("timestamp") or spawned_at
+                        if ts:
+                            event_time = datetime.fromisoformat(ts) if isinstance(ts, str) else ts
+                            elapsed = (now - event_time).total_seconds()
+                            if elapsed > idle_threshold_seconds:
+                                is_idle = True
+                    except (ValueError, TypeError):
+                        pass
+                elif spawned_at:
+                    # No spawn events, check spawned_at directly
+                    try:
+                        spawn_time = datetime.fromisoformat(spawned_at) if isinstance(spawned_at, str) else spawned_at
+                        elapsed = (now - spawn_time).total_seconds()
                         if elapsed > idle_threshold_seconds:
                             is_idle = True
                     except (ValueError, TypeError):
-                        pass
+                        is_idle = True
             
             if is_idle:
                 idle_kernels.append(kernel_id)
