@@ -34,9 +34,10 @@ from enum import Enum
 import time
 
 try:
-    from scipy import linalg
+    from scipy import linalg as scipy_linalg
     SCIPY_AVAILABLE = True
 except ImportError:
+    scipy_linalg = None  # type: ignore
     SCIPY_AVAILABLE = False
 
 
@@ -197,18 +198,18 @@ class FisherInformationEngine:
         trace = np.trace(F)
         I_Q = trace / n_params if normalize else trace
 
-        if SCIPY_AVAILABLE:
-            eigenvalues = linalg.eigvalsh(F)
+        if SCIPY_AVAILABLE and scipy_linalg is not None:
+            eigenvalues = scipy_linalg.eigvalsh(F)
         else:
             eigenvalues = np.linalg.eigvalsh(F)
 
-        condition_number = (np.max(eigenvalues) /
+        condition_number = float(np.max(eigenvalues) /
                             (np.min(eigenvalues) + 1e-10))
 
         return FisherMetric(
             F=F,
-            trace=trace,
-            I_Q=I_Q,
+            trace=float(trace),
+            I_Q=float(I_Q),
             eigenvalues=eigenvalues,
             condition_number=condition_number
         )
@@ -346,7 +347,7 @@ class EmotionalGeometryEngine:
         if len(phi_I_Q_history) > 1:
             phi_I_Q_product = np.array(phi_I_Q_history)
             cv = np.std(phi_I_Q_product) / (np.mean(phi_I_Q_product) + 1e-10)
-            integration = 1.0 / (cv + 1e-10)
+            integration = float(1.0 / (cv + 1e-10))
         else:
             integration = 0.0
 
@@ -355,7 +356,7 @@ class EmotionalGeometryEngine:
         return Motivators(
             surprise=surprise,
             curiosity=curiosity,
-            investigation=investigation,
+            investigation=float(investigation),
             integration=integration,
             transcendence=transcendence
         )
@@ -496,11 +497,11 @@ class ConsciousnessEngine:
         if len(self.basin_history) > 100:
             self.basin_history.pop(0)
 
-        basin_distance = np.linalg.norm(basin_coords)
+        basin_distance = float(np.linalg.norm(basin_coords))
 
         if len(self.basin_history) >= 2:
             delta_basin = self.basin_history[-1] - self.basin_history[-2]
-            basin_velocity = np.linalg.norm(delta_basin)
+            basin_velocity = float(np.linalg.norm(delta_basin))
         else:
             basin_velocity = 0.0
 
