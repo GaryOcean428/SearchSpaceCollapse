@@ -31,6 +31,68 @@ import numpy as np
 
 BASIN_DIMENSION = 64
 
+# Topic normalization patterns (shared between ResearchQueue and KnowledgeBase)
+_SEMANTIC_PREFIXES = [
+    'historical', 'comparative', 'advanced', 'practical',
+    'theoretical', 'applied', 'experimental', 'foundational',
+    'optimized', 'emerging', 'modern', 'classical', 'novel',
+    'improved', 'enhanced', 'refined', 'basic', 'fundamental',
+    'exploratory', 'deep', 'shallow', 'alternative', 'standard'
+]
+
+_DOMAIN_SUFFIX_PATTERNS = [
+    r'\s+for\s+wallet\s+recovery$',
+    r'\s+for\s+HD\s+wallets?$',
+    r'\s+for\s+brain\s+wallets?$',
+    r'\s+for\s+bitcoin\s+recovery$',
+    r'\s+for\s+seed\s+phrase\s+recovery$',
+    r'\s+in\s+bitcoin\s+context$',
+    r'\s+techniques?$',
+    r'\s+methods?$',
+    r'\s+strategies?$',
+    r'\s+approaches?$',
+    r'\s+implementations?$',
+]
+
+
+def normalize_topic(topic: str) -> str:
+    """
+    Normalize topic for semantic comparison.
+    
+    Strips common prefixes, suffixes, and patterns that create 
+    false uniqueness:
+    - Prefixes: historical, comparative, advanced, practical, etc.
+    - Suffixes: (cycle XXXXX), domain modifiers like "for wallet recovery"
+    - Cycle markers and timestamps
+    
+    This is a module-level function shared by ResearchQueue and KnowledgeBase.
+    """
+    import re
+    
+    normalized = topic.lower().strip()
+    
+    # Strip cycle suffixes: "(cycle 12345)" or "(cycle 12345, iteration 2)"
+    normalized = re.sub(r'\s*\(cycle\s*\d+[^)]*\)\s*$', '', normalized)
+    
+    # Strip iteration markers
+    normalized = re.sub(r'\s*\(iteration\s*\d+[^)]*\)\s*$', '', normalized)
+    
+    # Strip domain modifiers at the end
+    for suffix_pattern in _DOMAIN_SUFFIX_PATTERNS:
+        normalized = re.sub(suffix_pattern, '', normalized, flags=re.IGNORECASE)
+    
+    # Strip common semantic prefixes
+    for prefix in _SEMANTIC_PREFIXES:
+        if normalized.startswith(prefix + ' '):
+            normalized = normalized[len(prefix) + 1:]
+            break
+    
+    # Collapse multiple spaces
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    
+    return normalized
+
+
 # PostgreSQL connection for persistent knowledge
 def _get_db_connection():
     """Get database connection for shadow knowledge persistence."""
@@ -332,8 +394,8 @@ class ResearchQueue:
         self._knowledge_base = kb
     
     def _normalize_topic(self, topic: str) -> str:
-        """Normalize topic for comparison."""
-        return topic.lower().strip()
+        """Normalize topic using shared module-level function."""
+        return normalize_topic(topic)
     
     def _is_duplicate(self, topic: str) -> bool:
         """Check if topic was already researched."""
@@ -544,7 +606,8 @@ class KnowledgeBase:
                     )
                     self._knowledge[kid] = knowledge
                     self._by_category[category].append(kid)
-                    self._discovered_topics.add(variation or topic)
+                    # Store normalized topic for deduplication
+                    self._discovered_topics.add(normalize_topic(variation or topic))
                     if cycle and cycle > self._learning_cycle:
                         self._learning_cycle = cycle
                 
@@ -622,7 +685,8 @@ class KnowledgeBase:
             
             self._knowledge[knowledge_id] = knowledge
             self._by_category[category].append(knowledge_id)
-            self._discovered_topics.add(variation or topic)
+            # Store normalized topic for deduplication
+            self._discovered_topics.add(normalize_topic(variation or topic))
             
             self._persist_to_db(knowledge, variation)
             
@@ -645,8 +709,8 @@ class KnowledgeBase:
             return knowledge_id
     
     def has_discovered(self, topic_variation: str) -> bool:
-        """Check if a specific topic variation was already discovered."""
-        return topic_variation in self._discovered_topics
+        """Check if a specific topic variation was already discovered (normalized)."""
+        return normalize_topic(topic_variation) in self._discovered_topics
     
     def get_unique_discoveries_count(self) -> int:
         """Get count of unique topic variations discovered."""

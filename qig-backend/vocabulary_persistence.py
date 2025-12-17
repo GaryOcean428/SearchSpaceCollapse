@@ -3,13 +3,15 @@
 
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import psycopg2
     from psycopg2.extras import execute_values
     PSYCOPG2_AVAILABLE = True
 except ImportError:
+    psycopg2: Any = None
+    execute_values: Any = None
     PSYCOPG2_AVAILABLE = False
     print("[WARNING] psycopg2 not available - vocabulary persistence disabled")
 
@@ -136,12 +138,20 @@ class VocabularyPersistence:
             return False
     
     def record_merge_rule(self, token_a: str, token_b: str, merged_token: str, phi_score: float, learned_from: Optional[str] = None) -> bool:
+        """Record a BPE merge rule to tokenizer_merge_rules (consolidated table)."""
         if not self.enabled:
             return False
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("INSERT INTO bpe_merge_rules (token_a, token_b, merged_token, phi_score, learned_from) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (token_a, token_b) DO UPDATE SET phi_score = GREATEST(bpe_merge_rules.phi_score, %s), frequency = bpe_merge_rules.frequency + 1", (token_a, token_b, merged_token, phi_score, learned_from, phi_score))
+                    cur.execute("""
+                        INSERT INTO tokenizer_merge_rules (token_a, token_b, merged_token, phi_score, frequency)
+                        VALUES (%s, %s, %s, %s, 1)
+                        ON CONFLICT (token_a, token_b) DO UPDATE SET
+                            phi_score = GREATEST(tokenizer_merge_rules.phi_score, EXCLUDED.phi_score),
+                            frequency = tokenizer_merge_rules.frequency + 1,
+                            updated_at = NOW()
+                    """, (token_a, token_b, merged_token, phi_score))
                     conn.commit()
                     return True
         except Exception as e:
@@ -149,12 +159,19 @@ class VocabularyPersistence:
             return False
     
     def get_merge_rules(self, min_phi: float = 0.5, limit: int = 1000) -> List[Tuple[str, str, str, float]]:
+        """Get BPE merge rules from tokenizer_merge_rules (consolidated table)."""
         if not self.enabled:
             return []
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT token_a, token_b, merged_token, phi_score FROM bpe_merge_rules WHERE phi_score >= %s ORDER BY phi_score DESC LIMIT %s", (min_phi, limit))
+                    cur.execute("""
+                        SELECT token_a, token_b, merged_token, phi_score
+                        FROM tokenizer_merge_rules
+                        WHERE phi_score >= %s
+                        ORDER BY phi_score DESC
+                        LIMIT %s
+                    """, (min_phi, limit))
                     return [(row[0], row[1], row[2], float(row[3])) for row in cur.fetchall()]
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get merge rules: {e}")

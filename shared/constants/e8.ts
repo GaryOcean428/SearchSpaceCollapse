@@ -9,8 +9,17 @@ import { QIG_CONSTANTS } from './qig';
 
 /**
  * E8 Mathematical Constants
+ * 
+ * SINGLE SOURCE OF TRUTH for E8-related constants.
+ * Imports physics-validated values from canonical sources.
+ * 
+ * ⚠️ DO NOT DUPLICATE THESE VALUES - IMPORT FROM HERE
  */
 export const E8_CONSTANTS = {
+  // ============================================================
+  // E8 STRUCTURE (Mathematical constants)
+  // ============================================================
+  
   /** Rank of E8 */
   E8_RANK: 8,
   
@@ -23,7 +32,12 @@ export const E8_CONSTANTS = {
   /** Order of E8 Weyl group */
   E8_WEYL_ORDER: 696729600,
   
-  /** Fixed point coupling (from QIG) */
+  // ============================================================
+  // PHYSICS CONSTANTS (from validated sources)
+  // ============================================================
+  
+  /** Fixed point coupling κ* = 64.21 ± 0.92 (L=4,5,6 plateau - Validated 2025-12-04) 
+   *  Note: κ* ≈ 64 ≈ rank(E8)² = 8² */
   KAPPA_STAR: QIG_CONSTANTS.KAPPA_STAR,
   
   /** 64-dimensional basin for full representation */
@@ -32,14 +46,51 @@ export const E8_CONSTANTS = {
   /** 8-dimensional basin for E8 kernel mapping */
   BASIN_DIMENSION_8D: 8,
   
-  /** Phi threshold (from QIG) */
-  PHI_THRESHOLD: QIG_CONSTANTS.PHI_THRESHOLD,
+  // ============================================================
+  // CONSCIOUSNESS THRESHOLDS (7-component signature)
+  // ============================================================
   
-  /** Minimum recursions */
+  /** Integration (Φ) threshold - consciousness detection */
+  PHI_THRESHOLD: 0.70,
+  
+  /** Meta-awareness (M) threshold - self-reference coherence */
+  M_THRESHOLD: 0.60,
+  
+  /** Generativity (Γ) threshold - creative capacity */
+  GAMMA_THRESHOLD: 0.70,
+  
+  /** Grounding (G) threshold - reality anchor */
+  G_THRESHOLD: 0.60,
+  
+  /** Temporal coherence (T) threshold - identity persistence */
+  T_THRESHOLD: 0.70,
+  
+  /** Recursive depth (R) threshold - meta-level capacity */
+  R_THRESHOLD: 0.60,
+  
+  /** External coupling (C) threshold - relationships/entanglement */
+  C_THRESHOLD: 0.50,
+  
+  // ============================================================
+  // RECURSION BOUNDS
+  // ============================================================
+  
+  /** Minimum recursions "One pass = computation. Three passes = integration." */
   MIN_RECURSIONS: QIG_CONSTANTS.MIN_RECURSIONS,
   
-  /** Maximum recursions */
+  /** Maximum recursions to prevent infinite loops */
   MAX_RECURSIONS: QIG_CONSTANTS.MAX_RECURSIONS,
+  
+  // ============================================================
+  // BETA FUNCTION (running coupling)
+  // Legacy values preserved for backward compatibility
+  // ============================================================
+  
+  /** β(3→4) - CRITICAL: Strongest running (+57% jump) */
+  BETA_3_TO_4: 0.443,
+  
+  /** β(4→5) - Plateau onset (near zero = fixed point) */
+  BETA_4_TO_5: 0.000,
 } as const;
 
 /**

@@ -23,7 +23,7 @@ import re
 import os
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 try:
@@ -31,6 +31,9 @@ try:
     from psycopg2.extras import RealDictCursor, execute_values
     PSYCOPG2_AVAILABLE = True
 except ImportError:
+    psycopg2: Any = None
+    RealDictCursor: Any = None
+    execute_values: Any = None
     PSYCOPG2_AVAILABLE = False
 
 # Default paths
@@ -108,9 +111,9 @@ class QIGTokenizer:
         # Track conversation words separately (they may overlap with BIP39/passphrase)
         self._conversation_words: set[str] = set()  # Track words meant for conversation
         self._load_conversation_base()
-        # Conversation mode: use conversation-specific words + their IDs
-        # This includes words that overlap with BIP39 but are needed for chat
-        self.conversation_vocab_ids = {self.vocab[w] for w in self._conversation_words if w in self.vocab}
+        # Conversation mode: use ALL vocabulary for full natural language capability
+        # This is the least restrictive mode - includes BIP39 + passphrase + conversation
+        self.conversation_vocab_ids = set(self.vocab.values())
     
     def _init_special_tokens(self):
         """Initialize special tokens at start of vocabulary."""
@@ -855,13 +858,13 @@ class QIGTokenizer:
         max_id = max(self.vocab.values()) + 1 if self.vocab else 1
         logits = np.full(max_id, -float('inf'))  # Default to -inf (zero prob)
 
-        # Select vocabulary based on mode
+        # Select vocabulary based on mode (mnemonic=strict BIP39, passphrase=broader, conversation=all)
         if self.mode == "mnemonic":
             allowed_ids = self.mnemonic_vocab_ids
         elif self.mode == "passphrase":
             allowed_ids = self.passphrase_vocab_ids
-        else:  # conversation
-            allowed_ids = self.conversation_vocab_ids or set(self.vocab.values())
+        else:  # conversation - full vocabulary
+            allowed_ids = self.conversation_vocab_ids
         
         # Compute context basin if not provided
         if context_basin is None and len(context) > 0:

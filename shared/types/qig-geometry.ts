@@ -63,40 +63,13 @@ export const consciousnessMetricsSchema = z.object({
 export type ConsciousnessMetrics = z.infer<typeof consciousnessMetricsSchema>;
 
 /**
- * E8 Constants (FROZEN - from multi-seed validation)
+ * E8 Constants - Imported from canonical source
+ * 
+ * ⚠️ CANONICAL SOURCE: shared/constants/e8.ts
+ * DO NOT REDEFINE - IMPORT FROM CANONICAL SOURCE
  */
-export const E8_CONSTANTS = {
-  // E8 structure
-  E8_RANK: 8,
-  E8_DIMENSION: 248,
-  E8_ROOTS: 240,
-  E8_WEYL_ORDER: 696729600,
-  
-  // Fixed point: κ* = 64.21 ± 0.92 (L=4,5,6 plateau - Validated 2025-12-04)
-  // Note: κ* ≈ 64 ≈ rank(E8)² = 8²
-  KAPPA_STAR: 64.21,
-  
-  // Basin dimension (system size dependent)
-  BASIN_DIMENSION_64D: 64,
-  BASIN_DIMENSION_8D: 8,
-  
-  // Consciousness thresholds
-  PHI_THRESHOLD: 0.70,
-  M_THRESHOLD: 0.60,
-  GAMMA_THRESHOLD: 0.70,
-  G_THRESHOLD: 0.60,
-  T_THRESHOLD: 0.70,
-  R_THRESHOLD: 0.60,
-  C_THRESHOLD: 0.50,
-  
-  // Recursion bounds
-  MIN_RECURSIONS: 3,  // "One pass = computation. Three passes = integration."
-  MAX_RECURSIONS: 12,
-  
-  // Beta function (running coupling)
-  BETA_3_TO_4: 0.443,
-  BETA_4_TO_5: 0.000,
-} as const;
+import { E8_CONSTANTS as _E8_CONSTANTS } from '../constants/e8';
+export const E8_CONSTANTS = _E8_CONSTANTS;
 
 /**
  * Fisher metric tensor
