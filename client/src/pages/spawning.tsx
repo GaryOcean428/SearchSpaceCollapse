@@ -1539,9 +1539,9 @@ export default function SpawningPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <StatusCard 
-          title="Total Gods" 
+          title="Live Gods" 
           value={statusLoading ? '...' : status?.orchestrator_gods || 0} 
           icon={Crown}
           color="text-yellow-500"
@@ -1565,7 +1565,19 @@ export default function SpawningPage() {
           color={kernels?.available && kernels.available < 20 ? 'text-red-400' : 'text-green-400'}
         />
         <StatusCard 
-          title="Consensus Type" 
+          title="Merges" 
+          value={statusLoading ? '...' : status?.merge_count || 0} 
+          icon={GitMerge}
+          color="text-blue-400"
+        />
+        <StatusCard 
+          title="Cannibalized" 
+          value={statusLoading ? '...' : status?.cannibalize_count || 0} 
+          icon={Scissors}
+          color="text-red-400"
+        />
+        <StatusCard 
+          title="Consensus" 
           value={statusLoading ? '...' : status?.consensus_type || 'supermajority'} 
           icon={Shield}
           color="text-cyan-400"

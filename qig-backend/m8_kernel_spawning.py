@@ -2606,13 +2606,14 @@ class M8KernelSpawner:
                 print(f"[M8] Could not load DB stats: {e}")
         
         total_kernels = int(db_stats.get('total_kernels', 0) or 0)
-        unique_gods = int(db_stats.get('unique_gods', 0) or 0)
+        live_gods = int(db_stats.get('live_gods', 0) or 0)
+        unique_gods_historical = int(db_stats.get('unique_gods', 0) or 0)
         
-        # Base Olympian gods (12) + unique spawned kernel gods from database
-        # The 12 base gods: Zeus, Athena, Ares, Apollo, Artemis, Hermes, 
-        # Hephaestus, Demeter, Dionysus, Poseidon, Hades, Hera, Aphrodite
+        # Base Olympian gods (12) + LIVE spawned kernel gods from database
+        # Live status includes: active, observing, shadow
+        # Does NOT include: dead, cannibalized, idle
         BASE_OLYMPIAN_COUNT = 12
-        total_gods = BASE_OLYMPIAN_COUNT + unique_gods
+        total_gods = BASE_OLYMPIAN_COUNT + live_gods
         
         return {
             "consensus_type": self.consensus.consensus_type.value,
@@ -2621,13 +2622,17 @@ class M8KernelSpawner:
             "approved_proposals": sum(1 for p in self.proposals.values() if p.status == "approved"),
             "spawned_kernels": total_kernels,  # From PostgreSQL
             "spawn_history_count": total_kernels,  # Use DB count only (avoid double-counting)
-            "orchestrator_gods": total_gods,  # Base 12 Olympians + spawned kernel gods
+            "orchestrator_gods": total_gods,  # Base 12 Olympians + LIVE spawned kernel gods
             # Additional stats from DB
             "avg_phi": float(db_stats.get('avg_phi', 0) or 0),
             "max_phi": float(db_stats.get('max_phi', 0) or 0),
             "total_successes": int(db_stats.get('total_successes', 0) or 0),
             "total_failures": int(db_stats.get('total_failures', 0) or 0),
             "unique_domains": int(db_stats.get('unique_domains', 0) or 0),
+            # Lifecycle stats
+            "merge_count": int(db_stats.get('merge_count', 0) or 0),
+            "cannibalize_count": int(db_stats.get('cannibalize_count', 0) or 0),
+            "unique_gods_historical": unique_gods_historical,  # All-time unique god names
         }
 
     def delete_kernel(self, kernel_id: str, reason: str = "manual_deletion") -> Dict:
@@ -2800,6 +2805,15 @@ class M8KernelSpawner:
         if self.kernel_persistence:
             try:
                 self.kernel_persistence.save_awareness_state(target_id, target_awareness.to_dict())
+                # Record cannibalization event to learning_events for stats tracking
+                self.kernel_persistence.record_cannibalize_event(
+                    source_id=source_id,
+                    target_id=target_id,
+                    source_god=source_kernel.profile.god_name,
+                    target_god=target_kernel.profile.god_name,
+                    transferred_phi=len(source_awareness.phi_trajectory) if source_awareness else 0,
+                    metadata={'fisher_distance': float(fisher_distance)}
+                )
             except Exception as e:
                 print(f"[M8] Failed to persist cannibalization awareness: {e}")
         
@@ -2988,6 +3002,14 @@ class M8KernelSpawner:
                     }
                 )
                 self.kernel_persistence.save_awareness_state(new_kernel_id, new_awareness.to_dict())
+                # Record merge event to learning_events for stats tracking
+                self.kernel_persistence.record_merge_event(
+                    new_kernel_id=new_kernel_id,
+                    source_kernel_ids=kernel_ids,
+                    new_god_name=new_name,
+                    merged_phi=float(np.mean(merged_phi_trajectory)) if merged_phi_trajectory else 0.0,
+                    metadata={'merged_domains': merged_domain, 'parent_gods': parent_gods}
+                )
             except Exception as e:
                 print(f"[M8] Failed to persist merge: {e}")
         

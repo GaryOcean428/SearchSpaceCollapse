@@ -59,6 +59,9 @@ export interface M8Status {
   spawned_kernels: number;
   spawn_history_count: number;
   orchestrator_gods: number;
+  merge_count: number;
+  cannibalize_count: number;
+  unique_gods_historical: number;
 }
 
 export interface CreateProposalRequest {

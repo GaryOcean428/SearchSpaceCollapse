@@ -186,7 +186,16 @@ class KernelPersistence(BasePersistence):
         return [dict(r) for r in results] if results else []
 
     def get_evolution_stats(self) -> Dict[str, Any]:
-        """Get overall evolution statistics."""
+        """Get overall evolution statistics.
+        
+        Returns:
+            - total_kernels: Total kernels in database
+            - live_kernels: Kernels with live status (active, observing, shadow)
+            - live_gods: Unique god names among live kernels
+            - unique_gods: All unique god names (historical)
+            - merge_count: Number of merge events
+            - cannibalize_count: Number of cannibalization events
+        """
         query = """
             SELECT
                 COUNT(*) as total_kernels,
@@ -203,9 +212,38 @@ class KernelPersistence(BasePersistence):
             FROM kernel_geometry
         """
         result = self.execute_one(query)
-        if result:
-            return dict(result)
-        return {}
+        stats = dict(result) if result else {}
+        
+        live_query = """
+            SELECT 
+                COUNT(*) as live_kernels,
+                COUNT(DISTINCT god_name) as live_gods
+            FROM kernel_geometry
+            WHERE status IN ('active', 'observing', 'shadow')
+        """
+        live_result = self.execute_one(live_query)
+        if live_result:
+            stats['live_kernels'] = live_result['live_kernels'] or 0
+            stats['live_gods'] = live_result['live_gods'] or 0
+        else:
+            stats['live_kernels'] = 0
+            stats['live_gods'] = 0
+        
+        event_query = """
+            SELECT 
+                COUNT(*) FILTER (WHERE event_type = 'merge') as merge_count,
+                COUNT(*) FILTER (WHERE event_type = 'cannibalize') as cannibalize_count
+            FROM learning_events
+        """
+        event_result = self.execute_one(event_query)
+        if event_result:
+            stats['merge_count'] = event_result['merge_count'] or 0
+            stats['cannibalize_count'] = event_result['cannibalize_count'] or 0
+        else:
+            stats['merge_count'] = 0
+            stats['cannibalize_count'] = 0
+        
+        return stats
 
     def record_breeding_event(
         self,
@@ -277,6 +315,79 @@ class KernelPersistence(BasePersistence):
             return True
         except Exception as e:
             print(f"[KernelPersistence] Failed to record death: {e}")
+            return False
+
+    def record_merge_event(
+        self,
+        new_kernel_id: str,
+        source_kernel_ids: List[str],
+        new_god_name: str,
+        merged_phi: float,
+        metadata: Optional[Dict] = None
+    ) -> bool:
+        """Record a kernel merge event."""
+        import uuid
+        event_id = f"merge_{uuid.uuid4().hex[:16]}"
+        query = """
+            INSERT INTO learning_events (
+                event_id, event_type, kernel_id, phi, metadata, created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s
+            )
+        """
+        event_metadata = {
+            'source_kernel_ids': source_kernel_ids,
+            'new_god_name': new_god_name,
+            'merged_count': len(source_kernel_ids),
+            **(metadata or {})
+        }
+
+        try:
+            self.execute_query(
+                query,
+                (event_id, 'merge', new_kernel_id, merged_phi, json.dumps(event_metadata), datetime.utcnow()),
+                fetch=False
+            )
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to record merge: {e}")
+            return False
+
+    def record_cannibalize_event(
+        self,
+        source_id: str,
+        target_id: str,
+        source_god: str,
+        target_god: str,
+        transferred_phi: float,
+        metadata: Optional[Dict] = None
+    ) -> bool:
+        """Record a kernel cannibalization event."""
+        import uuid
+        event_id = f"cann_{uuid.uuid4().hex[:16]}"
+        query = """
+            INSERT INTO learning_events (
+                event_id, event_type, kernel_id, phi, metadata, created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s
+            )
+        """
+        event_metadata = {
+            'source_id': source_id,
+            'source_god': source_god,
+            'target_god': target_god,
+            **(metadata or {})
+        }
+
+        try:
+            self.execute_query(
+                query,
+                (event_id, 'cannibalize', target_id, transferred_phi, json.dumps(event_metadata), datetime.utcnow()),
+                fetch=False
+            )
+            return True
+        except Exception as e:
+            print(f"[KernelPersistence] Failed to record cannibalize: {e}")
             return False
 
     def record_convergence_snapshot(
