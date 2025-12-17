@@ -219,6 +219,15 @@ export function WarStatusPanel() {
                 Risks
               </Badge>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => endWarMutation.mutate()}
+              disabled={endWarMutation.isPending}
+              data-testid="button-end-war"
+            >
+              {endWarMutation.isPending ? "Ending..." : "End War"}
+            </Button>
           </div>
         </div>
       </CardHeader>
