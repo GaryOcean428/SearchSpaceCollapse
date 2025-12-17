@@ -529,7 +529,7 @@ export class OceanAgent {
       basinCoordinates,
       basinReference: [...basinCoordinates],
       phi: 0.0,
-      kappa: 0.0,
+      kappa: 58.0,  // Distributed observer: 10% below κ*=64 (matching OceanAutonomicManager)
       beta: 0.0,
       regime: "linear",
       basinDrift: 0.0,
