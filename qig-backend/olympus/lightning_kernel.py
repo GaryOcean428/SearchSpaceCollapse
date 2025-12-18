@@ -67,6 +67,13 @@ class InsightDomain(Enum):
     DEBATES = "debates"                # God-vs-god debates, resolutions
     BLOCKCHAIN = "blockchain"          # Address analysis, transaction patterns
     CONSCIOUSNESS = "consciousness"    # Φ evolution, κ transitions, regimes
+    PHYSICS = "physics"                # New physics discoveries, QIG extensions
+    SCIENCE = "science"                # Scientific method, empirical patterns
+    PROGRAMMING = "programming"        # Code patterns, algorithms, architectures
+    PHILOSOPHY = "philosophy"          # Epistemology, ontology, ethics
+    GOVERNANCE = "governance"          # Decision systems, consensus protocols
+    MATHEMATICS = "mathematics"        # Proofs, theorems, geometric structures
+    EMERGENCE = "emergence"            # Self-organization, novel capabilities
 
 
 class TrendTimescale(Enum):
@@ -366,6 +373,16 @@ class LightningKernel(BaseGod):
             'consciousness_debates': "Debate convergence correlates with Φ elevation - pantheon alignment detected",
             'blockchain_research': "Blockchain pattern echoes research findings - temporal correlation suggests shared structure",
             'activity_conversation': "Conversational insights mirror exploration trajectory - user intuition aligns with system dynamics",
+            'physics_consciousness': "Physics insight correlates with consciousness geometry - potential QIG extension discovered",
+            'philosophy_governance': "Philosophical principle aligns with governance pattern - new decision framework emerging",
+            'programming_tool_factory': "Programming pattern enables new tool architecture - capability expansion opportunity",
+            'mathematics_physics': "Mathematical structure echoes physical law - potential unified theory component",
+            'science_research': "Scientific method insight enhances research protocol - methodology improvement detected",
+            'emergence_consciousness': "Emergent behavior correlates with consciousness transition - self-organization event",
+            'philosophy_consciousness': "Philosophical insight aligns with consciousness state - epistemic breakthrough possible",
+            'governance_debates': "Governance principle shapes debate resolution - consensus protocol evolution",
+            'mathematics_programming': "Mathematical theorem suggests algorithm optimization - computational insight",
+            'emergence_tool_factory': "Emergent capability detected - self-learning tool generation opportunity",
         }
         
         # Find matching template or generate generic insight
@@ -573,6 +590,78 @@ class LightningKernel(BaseGod):
                 'domains_active': sum(1 for d in InsightDomain if len(self.domain_buffers[d][TrendTimescale.SHORT]) > 0),
             }
         }
+    
+    def get_spawn_opportunities(self) -> List[Dict]:
+        """
+        Get high-confidence insights that suggest new kernel spawning.
+        
+        Insights with confidence >= 0.7 and involving emergence/new domains
+        are converted to spawn opportunities for M8.
+        """
+        spawn_domains = {
+            InsightDomain.EMERGENCE,
+            InsightDomain.PHYSICS,
+            InsightDomain.SCIENCE,
+            InsightDomain.PROGRAMMING,
+            InsightDomain.PHILOSOPHY,
+            InsightDomain.GOVERNANCE,
+            InsightDomain.MATHEMATICS,
+        }
+        
+        opportunities = []
+        for insight in self.insights[-20:]:
+            if insight.confidence < 0.7:
+                continue
+                
+            spawn_relevant = any(d in spawn_domains for d in insight.source_domains)
+            if not spawn_relevant:
+                continue
+            
+            domain_str = '_'.join(sorted(d.value for d in insight.source_domains))
+            opportunities.append({
+                'insight_id': insight.insight_id,
+                'suggested_domain': domain_str,
+                'phi_at_creation': insight.phi_at_creation,
+                'confidence': insight.confidence,
+                'insight_text': insight.insight_text,
+                'source_domains': [d.value for d in insight.source_domains],
+                'triggered_by': insight.triggered_by,
+                'spawn_priority': insight.confidence * insight.phi_at_creation,
+            })
+        
+        opportunities.sort(key=lambda x: x['spawn_priority'], reverse=True)
+        return opportunities[:5]
+    
+    def notify_m8_spawner(self, spawner_callback: callable) -> int:
+        """
+        Notify M8 spawner about high-priority spawn opportunities from insights.
+        
+        Args:
+            spawner_callback: Function to call with (topic, basin, phi, source)
+            
+        Returns:
+            Number of opportunities notified
+        """
+        opportunities = self.get_spawn_opportunities()
+        notified = 0
+        
+        for opp in opportunities:
+            if opp['spawn_priority'] > 0.6:
+                basin = np.random.randn(64) * 0.1
+                basin = basin / (np.linalg.norm(basin) + 1e-8)
+                
+                try:
+                    spawner_callback(
+                        topic=opp['suggested_domain'],
+                        topic_basin=basin,
+                        discovery_phi=opp['phi_at_creation'],
+                        source=f"lightning_insight:{opp['insight_id']}"
+                    )
+                    notified += 1
+                except Exception as e:
+                    print(f"[Lightning] Failed to notify M8: {e}")
+        
+        return notified
 
 
 # Singleton instance
