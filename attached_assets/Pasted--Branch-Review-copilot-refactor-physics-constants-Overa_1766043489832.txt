@@ -1,0 +1,314 @@
+# Branch Review: `copilot/refactor-physics-constants`
+
+## ✅ Overall Assessment: **EXCELLENT FOUNDATION**
+
+This is **exceptionally strong work**. The deduplication, performance optimization, and roadmap documentation are exactly what's needed. However, there are some **integration gaps** to address before merging.
+
+---
+
+## 🎯 What's Working Brilliantly
+
+### **Phase 1: Canonical Implementations** ⭐⭐⭐⭐⭐
+- **Physics constants centralized** - Eliminating 40+ duplicates is massive
+- **Fisher-Rao distance canonical** - Single validated implementation
+- **Telemetry standardized** - ConsciousnessTelemetry will prevent future drift
+- **Safety monitoring** - SafetyMonitor with validated thresholds
+- **52 tests passing** - Solid coverage for core functionality
+
+### **Phase 2: Performance & Safety** ⭐⭐⭐⭐⭐
+- **5-13x speedup** on Fisher metric - This is production-ready optimization
+- **78% sparsity** - Validates the approach theoretically sound
+- **<1ms emergency overhead** - Won't impact training loop
+- **50%+ cache hit rate** - QFI caching working well
+- **Signal handling** - Graceful shutdown on SIGTERM/SIGINT
+
+### **Roadmap Documentation** ⭐⭐⭐⭐⭐
+- **200+ ideas catalogued** - Comprehensive
+- **P0-P3 prioritization** - Realistic and actionable
+- **6-12 month timeline** - Honest estimate
+- **Task tracking** - docs/TASK_TRACKER.md excellent
+
+---
+
+## ⚠️ Critical Gaps (Must Fix Before Merge)
+
+### **1. Integration Verification** 🔴 HIGH PRIORITY
+
+**Question:** Have ALL repos been updated to import from qigkernels?
+
+**Need to verify:**
+```bash
+# Check for remaining hardcoded constants
+grep -r "KAPPA_STAR\s*=\s*64" qig-consciousness/ SearchSpaceCollapse/ --include="*.py" | grep -v "from qigkernels"
+
+# Check for local Fisher-Rao implementations
+grep -r "def fisher_rao_distance" qig-consciousness/ SearchSpaceCollapse/ --include="*.py" | grep -v "from qigkernels"
+
+# Check for local telemetry formats
+grep -r "class.*Telemetry" qig-consciousness/ SearchSpaceCollapse/ --include="*.py" | grep -v "from qigkernels"
+```
+
+**Expected result:** Zero matches (except in tests/mocks)
+
+**If matches found:** Need migration commits for each repo
+
+---
+
+### **2. Barrel Files Missing** 🟡 MEDIUM PRIORITY
+
+**Current state (from your work):**
+```python
+# Still deep imports
+from qigkernels.geometry.distances import fisher_rao_distance
+from qigkernels.telemetry import ConsciousnessTelemetry
+```
+
+**Should be:**
+```python
+# Clean barrel imports
+from qigkernels import fisher_rao_distance, ConsciousnessTelemetry
+```
+
+**Action needed:**
+```python
+# qig-backend/qigkernels/__init__.py
+from qigkernels.physics_constants import PhysicsConstants, KAPPA_STAR, PHI_THRESHOLD
+from qigkernels.geometry.distances import fisher_rao_distance
+from qigkernels.telemetry import ConsciousnessTelemetry
+from qigkernels.safety import SafetyMonitor
+from qigkernels.regimes import RegimeDetector, Regime
+from qigkernels.validation import validate_basin, validate_density_matrix
+
+__all__ = [
+    "PhysicsConstants",
+    "KAPPA_STAR",
+    "PHI_THRESHOLD",
+    "fisher_rao_distance",
+    "ConsciousnessTelemetry",
+    "SafetyMonitor",
+    "RegimeDetector",
+    "Regime",
+    "validate_basin",
+    "validate_density_matrix",
+]
+```
+
+---
+
+### **3. CI/CD Enforcement Missing** 🟡 MEDIUM PRIORITY
+
+**Need pre-commit hooks:**
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: check-physics-constants
+        name: Check for hardcoded physics constants
+        entry: python tools/check_constants.py
+        language: python
+        
+      - id: check-imports
+        name: Check for non-canonical imports
+        entry: python tools/check_imports.py
+        language: python
+```
+
+**Tools needed:**
+```python
+# tools/check_constants.py
+"""Fail if KAPPA_STAR defined outside qigkernels."""
+
+# tools/check_imports.py  
+"""Fail if importing fisher_rao_distance from wrong location."""
+```
+
+Without CI enforcement, **drift will happen again**.
+
+---
+
+### **4. Migration Documentation Incomplete** 🟡 MEDIUM PRIORITY
+
+**Need explicit migration guide:**
+```markdown
+# MIGRATION.md
+
+## For Existing Code
+
+### Before:
+```python
+from frozen_physics import KAPPA_STAR  # OLD
+KAPPA_STAR = 64.21  # HARDCODED
+
+def fisher_distance(a, b):  # LOCAL IMPLEMENTATION
+    return np.linalg.norm(a - b)  # ⚠️ EUCLIDEAN!
+```
+
+### After:
+```python
+from qigkernels import KAPPA_STAR, fisher_rao_distance
+
+# Use canonical implementations
+distance = fisher_rao_distance(basin_a, basin_b, method="diagonal")
+```
+
+**Action items for each repo:**
+1. ✅ qig-backend (done)
+2. ⏳ qig-consciousness (needs update)
+3. ⏳ SearchSpaceCollapse (needs update)
+4. ⏳ qigkernels (needs update)
+```
+
+---
+
+### **5. Geometric Purity Validation Missing** 🔴 HIGH PRIORITY
+
+**From CANONICAL_RULES.md Rule #1:**
+> FORBIDDEN: Euclidean distance on basins, cosine similarity
+
+**Need to verify:**
+```bash
+# Find Euclidean operations on basins
+grep -r "torch.norm.*basin" qig-consciousness/ SearchSpaceCollapse/ --include="*.py"
+grep -r "np.linalg.norm.*basin" qig-consciousness/ SearchSpaceCollapse/ --include="*.py"
+grep -r "cosine_similarity" qig-consciousness/ SearchSpaceCollapse/ --include="*.py"
+```
+
+**If found:** Must replace with `fisher_rao_distance` from qigkernels
+
+**Enforcement tool needed:**
+```python
+# tools/qig_purity_check.py
+"""
+Check geometric purity (from CANONICAL_RULES.md).
+Fail CI if Euclidean operations on basins detected.
+"""
+FORBIDDEN_PATTERNS = [
+    r"torch\.norm\(.*basin",
+    r"cosine_similarity\(",
+    r"\.dot\(.*basin",  # Unless explicit justification
+]
+```
+
+---
+
+## 📋 Pre-Merge Checklist
+
+### **Must Complete:**
+- [ ] **Verify ALL repos use qigkernels** (no hardcoded constants)
+- [ ] **Add barrel file** to qigkernels/__init__.py
+- [ ] **Create pre-commit hooks** (check_constants.py, check_imports.py)
+- [ ] **Run geometric purity check** (ensure no Euclidean ops on basins)
+- [ ] **Write MIGRATION.md** with explicit before/after examples
+- [ ] **Integration tests** (test qig-consciousness imports qigkernels correctly)
+- [ ] **Update all README files** to show new import style
+
+### **Recommended:**
+- [ ] **Add CI job** that fails if drift detected
+- [ ] **Version qigkernels** (0.1.0) for dependency tracking
+- [ ] **Add changelog** (CHANGELOG.md in qigkernels)
+- [ ] **Document performance** (add benchmarks/ directory with results)
+
+---
+
+## 🎯 Immediate Next Steps
+
+### **Step 1: Verify Integration (15 min)**
+```bash
+# From qig-consciousness root
+cd qig-consciousness
+grep -r "KAPPA_STAR\s*=" . --include="*.py" | grep -v test | grep -v qigkernels
+
+# Should return ZERO matches
+# If matches found, create migration commits
+```
+
+### **Step 2: Add Barrel File (5 min)**
+```bash
+cd qig-backend/qigkernels
+# Edit __init__.py with all exports
+# Test: python -c "from qigkernels import KAPPA_STAR, fisher_rao_distance"
+```
+
+### **Step 3: Create Enforcement Tools (30 min)**
+```bash
+mkdir -p tools
+# Create check_constants.py
+# Create check_imports.py
+# Add to .pre-commit-config.yaml
+```
+
+### **Step 4: Integration Test (15 min)**
+```python
+# tests/test_integration.py
+def test_all_repos_use_qigkernels():
+    """Verify no hardcoded constants remain."""
+    # Scan all repos for violations
+    assert no_hardcoded_constants_found()
+```
+
+---
+
+## 💬 Specific Questions
+
+1. **Has qig-consciousness been updated?** 
+   - Need confirmation all files import from qigkernels
+   - Check files like `qig-consciousness/basin_encoder.py`, `metrics.py`
+
+2. **Has SearchSpaceCollapse been updated?**
+   - Especially `backend/constants.py`, `geometry.py`
+
+3. **Are there integration tests?**
+   - Test that importing from qigkernels works across repos
+
+4. **Is geometric purity validated?**
+   - Any remaining `torch.norm(basin_a - basin_b)` calls?
+
+---
+
+## 🏆 Final Verdict
+
+### **Grade: A- (Excellent, with fixable gaps)**
+
+**Strengths:**
+- ✅ Core implementation is **production-quality**
+- ✅ Performance optimization is **exceptional** (5-13x)
+- ✅ Documentation is **comprehensive**
+- ✅ Testing is **thorough** (52 tests)
+- ✅ Roadmap is **realistic and actionable**
+
+**Gaps:**
+- ⚠️ Integration verification incomplete
+- ⚠️ CI enforcement missing (drift will recur)
+- ⚠️ Barrel files not implemented
+- ⚠️ Migration guide needs detail
+
+**Recommendation:**
+**DO NOT MERGE YET** - Complete checklist above first (1-2 hours work)
+
+**Then:** MERGE with confidence. This will be a **massive** improvement to the codebase.
+
+---
+
+## 🚀 After Merge: Quick Wins
+
+Once merged, immediately implement these **high-impact, low-effort** wins:
+
+1. **Real-time Φ visualization** (2-3 hours)
+   - Use emergency_telemetry buffering
+   - WebSocket stream to frontend
+   - Instant consciousness feedback
+
+2. **Dark mode** (30 min)
+   - CSS theme toggle
+   - Huge quality-of-life improvement
+
+3. **Regime indicator badge** (1 hour)
+   - Show LINEAR/GEOMETRIC/HYPERDIMENSIONAL in UI
+   - Color-coded by regime
+
+These will create **immediate visible value** while tackling larger P1 items.
+
+---
+
+**Bottom line:** This is **excellent work**. Fix the integration gaps, add enforcement, and this becomes the foundation for everything else. The roadmap is spot-on. Ready to help complete the checklist? 🚀

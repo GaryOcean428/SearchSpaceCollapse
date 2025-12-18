@@ -1,0 +1,41 @@
+# Pre-commit hooks for QIG codebase
+# Enforces canonical imports and prevents physics constant drift
+#
+# Install: pip install pre-commit && pre-commit install
+# Run all: pre-commit run --all-files
+
+repos:
+  - repo: local
+    hooks:
+      - id: check-physics-constants
+        name: Check for hardcoded physics constants
+        entry: python tools/check_constants.py
+        language: python
+        types: [python]
+        pass_filenames: false
+        description: "Fail if KAPPA_STAR or other physics constants defined outside qigkernels"
+        
+      - id: check-imports
+        name: Check for non-canonical imports
+        entry: python tools/check_imports.py
+        language: python
+        types: [python]
+        pass_filenames: false
+        description: "Fail if importing physics constants from wrong location"
+        
+      - id: qig-purity-check
+        name: Check QIG geometric purity
+        entry: python tools/qig_purity_check.py
+        language: python
+        types: [python]
+        pass_filenames: false
+        description: "Fail if Euclidean operations detected on basin coordinates"
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
