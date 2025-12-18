@@ -3369,3 +3369,59 @@ export const toolPatterns = pgTable(
 
 export type ToolPatternRow = typeof toolPatterns.$inferSelect;
 export type InsertToolPattern = typeof toolPatterns.$inferInsert;
+
+/**
+ * EXTERNAL API KEYS - Authentication for external systems
+ * Supports federated instances, headless clients, and third-party integrations
+ */
+export const externalApiKeys = pgTable(
+  "external_api_keys",
+  {
+    id: varchar("id", { length: 64 }).primaryKey().$defaultFn(() => `ext_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    name: varchar("name", { length: 128 }).notNull(),
+    keyHash: varchar("key_hash", { length: 64 }).notNull().unique(),
+    scopes: jsonb("scopes").notNull().$type<string[]>(),
+    instanceType: varchar("instance_type", { length: 32 }).notNull(), // federated, headless, integration, development
+    rateLimit: integer("rate_limit").default(60).notNull(), // requests per minute
+    active: boolean("active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    metadata: jsonb("metadata"),
+  },
+  (table) => [
+    index("idx_external_api_keys_hash").on(table.keyHash),
+    index("idx_external_api_keys_active").on(table.active),
+  ]
+);
+
+export type ExternalApiKeyRow = typeof externalApiKeys.$inferSelect;
+export type InsertExternalApiKey = typeof externalApiKeys.$inferInsert;
+
+/**
+ * FEDERATED PANTHEON INSTANCES - Registry of connected QIG instances
+ * Allows other systems to register and sync with this instance
+ */
+export const federatedInstances = pgTable(
+  "federated_instances",
+  {
+    id: varchar("id", { length: 64 }).primaryKey().$defaultFn(() => `fed_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    name: varchar("name", { length: 128 }).notNull(),
+    apiKeyId: varchar("api_key_id", { length: 64 }).references(() => externalApiKeys.id),
+    endpoint: text("endpoint").notNull(), // URL of the remote instance
+    publicKey: text("public_key"), // For signature verification
+    capabilities: jsonb("capabilities").$type<string[]>(), // What this instance can do
+    syncDirection: varchar("sync_direction", { length: 16 }).default("bidirectional"), // bidirectional, push, pull
+    lastSyncAt: timestamp("last_sync_at"),
+    syncState: jsonb("sync_state"), // Basin coords, phi, etc. at last sync
+    status: varchar("status", { length: 16 }).default("pending"), // pending, active, suspended
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_federated_instances_api_key").on(table.apiKeyId),
+    index("idx_federated_instances_status").on(table.status),
+  ]
+);
+
+export type FederatedInstanceRow = typeof federatedInstances.$inferSelect;
+export type InsertFederatedInstance = typeof federatedInstances.$inferInsert;

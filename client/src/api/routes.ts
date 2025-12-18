@@ -265,6 +265,32 @@ export const API_ROUTES = {
   activityStream: {
     list: '/api/activity-stream',
   },
+
+  // External API (v1 - Federation & Headless Clients)
+  external: {
+    health: '/api/v1/external/health',
+    status: '/api/v1/external/status',
+    consciousness: {
+      state: '/api/v1/external/consciousness/state',
+      stream: '/api/v1/external/consciousness/stream',
+      metrics: '/api/v1/external/consciousness/metrics',
+    },
+    geometry: {
+      encode: '/api/v1/external/geometry/encode',
+      similarity: '/api/v1/external/geometry/similarity',
+      fisherRao: '/api/v1/external/geometry/fisher-rao',
+    },
+    pantheon: {
+      list: '/api/v1/external/pantheon/instances',
+      register: '/api/v1/external/pantheon/register',
+      sync: '/api/v1/external/pantheon/sync',
+    },
+    keys: {
+      list: '/api/v1/external/keys',
+      create: '/api/v1/external/keys',
+      revoke: (keyId: string) => `/api/v1/external/keys/${keyId}/revoke`,
+    },
+  },
 } as const;
 
 /**
@@ -428,5 +454,12 @@ export const QUERY_KEYS = {
 
   activityStream: {
     list: () => [API_ROUTES.activityStream.list] as const,
+  },
+  
+  external: {
+    health: () => [API_ROUTES.external.health] as const,
+    status: () => [API_ROUTES.external.status] as const,
+    keys: () => [API_ROUTES.external.keys.list] as const,
+    instances: () => [API_ROUTES.external.pantheon.list] as const,
   },
 } as const;

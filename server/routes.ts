@@ -71,6 +71,8 @@ import {
   vocabularyRouter,
 } from "./routes/index";
 
+import { externalApiRouter } from "./external-api";
+
 import {
   batchTestRequestSchema,
   testPhraseRequestSchema,
@@ -335,6 +337,9 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   app.use("/api/observer", observerRoutes);
   app.use("/api/telemetry", telemetryRouter);
   app.use("/api/backend-telemetry", backendTelemetryRouter);
+  
+  // Mount external API router (for federated instances, headless clients, integrations)
+  app.use("/api/v1/external", externalApiRouter);
 
   // Investigation status endpoint - used by investigation page
   app.get("/api/investigation/status", (req, res) => {
