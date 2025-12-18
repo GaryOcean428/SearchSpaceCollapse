@@ -281,7 +281,7 @@ export class StrategyKnowledgeBus {
 
     // Record transfer to history (this also notifies subscribers)
     this.recordTransfer({
-      id: `transfer_${Date.now()}`,
+      id: `transfer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       type: "publish",
       sourceStrategy,
       targetStrategy: null,
@@ -335,7 +335,7 @@ export class StrategyKnowledgeBus {
     }
 
     this.recordTransfer({
-      id: `transfer_${Date.now()}`,
+      id: `transfer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       type: "consume",
       sourceStrategy: entry.sourceStrategy,
       targetStrategy,
@@ -409,7 +409,7 @@ export class StrategyKnowledgeBus {
     };
 
     this.recordTransfer({
-      id: `transfer_${Date.now()}`,
+      id: `transfer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       type: "generator_transfer",
       sourceStrategy,
       targetStrategy,

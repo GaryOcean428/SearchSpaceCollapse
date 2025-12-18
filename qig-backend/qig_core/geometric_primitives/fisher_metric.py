@@ -103,10 +103,12 @@ def compute_phi(trajectory: np.ndarray, window_size: int = 5) -> float:
 
         # Simplified Φ: correlation between past and future
         if len(past) > 0 and len(future) > 0:
-            correlation = np.corrcoef(
-                past.flatten(),
-                future.flatten()
-            )[0, 1]
+            past_flat = past.flatten()
+            future_flat = future.flatten()
+            # Guard against zero variance to avoid numpy warnings
+            if np.std(past_flat) < 1e-10 or np.std(future_flat) < 1e-10:
+                continue
+            correlation = np.corrcoef(past_flat, future_flat)[0, 1]
 
             if not np.isnan(correlation):
                 integrations.append(abs(correlation))
