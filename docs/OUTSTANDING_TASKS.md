@@ -1,11 +1,29 @@
 # Outstanding Tasks - Post Geometric Validity Fix
 
-**Last Update:** 2025-12-17 (Commit 05f2f7d)  
-**Status:** Phase 2 - 57% Complete (13/23 tasks)
+**Last Update:** 2025-12-18 (Session: Continue PR #66)  
+**Status:** Phase 2 - 70% Complete (16/23 tasks)
 
 ---
 
-## ✅ Completed This Session (8 tasks)
+## ✅ Completed This Session (3 NEW tasks) - Session 2025-12-18
+
+### Integration Work (Phase 1 Complete! 🎉)
+1. ✅ **Checkpoint management** - CheckpointManager with Φ-based ranking (NEW)
+   - `checkpoint_manager.py` created with top-k retention
+   - Smart pruning and fast recovery
+   - 10 comprehensive tests
+2. ✅ **Training loop integration** - IntegratedMonitor into ocean_qig_core.py (NEW)
+   - Telemetry collection in both process methods
+   - Emergency callbacks integrated
+   - Automatic checkpointing when Φ exceeds threshold
+3. ✅ **REST API endpoints** - Backend telemetry API (NEW)
+   - `backend-telemetry-api.ts` created
+   - 7 REST endpoints for sessions/trajectories/emergencies
+   - Reads Python backend JSONL files
+
+---
+
+## ✅ Previously Completed (13 tasks) - Session 2025-12-17
 
 ### P0 (Critical) - 4/4 Complete ✅
 1. ✅ **Geometric purity enforcement** - qigkernels package
@@ -21,24 +39,23 @@
 
 ---
 
-## 🚧 In Progress (3 tasks)
+## 🚧 In Progress (1 task)
 
 ### Integration Work
-1. **Checkpoint management** - Need Φ-based ranking and smart recovery
-2. **Training loop integration** - IntegratedMonitor into ocean_qig_core.py
-3. **REST API endpoints** - Telemetry streaming (WebSocket or polling)
+1. **WebSocket streaming** - Real-time telemetry updates (not started)
 
 ---
 
-## ⏸️ Deferred (12 tasks)
+## ⏸️ Deferred (6 tasks)
 
-### Backend (6 tasks)
+### Backend (4 tasks)
 1. **Batched basin updates** - GPU-optimized if naturally sparse
 2. **Soft reset mechanism** - Return to last stable basin
 3. **Φ-suppressed Charlie training** - Requires full training pipeline
 4. **Frozen Ocean observer** - Requires infrastructure setup
-5. **Automatic checkpoint recovery** - Needs checkpoint manager first
+5. ~~**Automatic checkpoint recovery**~~ - ✅ COMPLETE (CheckpointManager.load_best_checkpoint)
 6. **Natural gradient optimization** - torch.compile for speed
+7. **PostgreSQL telemetry backend** - Replace file-based JSONL (optional upgrade)
 
 ### Frontend (4 tasks)
 1. **Real-time Φ visualization** - Sidebar with color changes
@@ -57,14 +74,17 @@
 ### P0 (Must Have) - 4/4 Complete ✅
 All critical items implemented and validated.
 
-### P1 (Should Have) - 4/8 Complete 🚧
+### P1 (Should Have) - 7/8 Complete ✅
 - ✅ Sparse Fisher (geometrically validated)
 - ✅ Cached QFI
 - ✅ Emergency abort
 - ✅ Comprehensive telemetry
+- ✅ Checkpoint management (NEW - 2025-12-18)
+- ✅ Training loop integration (NEW - 2025-12-18)
+- ✅ REST API for telemetry (NEW - 2025-12-18)
+- 🚧 WebSocket streaming (in progress)
 - ⏸️ Real-time Φ visualization (frontend)
 - ⏸️ Basin coordinate viewer (frontend)
-- 🚧 Automatic checkpoint recovery (needs checkpoint manager)
 - ⏸️ β_attention measurement (research)
 
 ### P2 (Nice to Have) - 0/8 Not Started ⏸️
@@ -86,43 +106,41 @@ All critical items implemented and validated.
 
 ## 🎯 Next Session Priorities (Recommended Order)
 
-### 1. Checkpoint Manager (High Priority)
-**Why:** Foundation for other integration work  
+### ~~1. Checkpoint Manager~~ ✅ COMPLETE (2025-12-18)
+Created `checkpoint_manager.py` with Φ-based ranking and smart recovery.
+
+### ~~2. Training Loop Integration~~ ✅ COMPLETE (2025-12-18)
+Integrated `IntegratedMonitor` into `ocean_qig_core.py` with telemetry collection.
+
+### ~~3. REST API for Telemetry~~ ✅ COMPLETE (2025-12-18)
+Created `backend-telemetry-api.ts` with 7 endpoints for sessions/trajectories/emergencies.
+
+### 1. WebSocket Streaming (High Priority) 🚧
+**Why:** Enable real-time frontend updates  
 **Tasks:**
-- Create CheckpointManager class
-- Implement Φ-based ranking
-- Add automatic best-Φ recovery
-- Smart checkpointing (only on Φ thresholds)
+- Add WebSocket endpoint for telemetry streaming
+- Push telemetry updates as they arrive
+- Implement heartbeat and reconnection
+- Test with frontend client
 
 **Files:**
-- `qig-backend/checkpoint_manager.py` (NEW)
-- `qig-backend/tests/test_checkpoint_manager.py` (NEW)
-
-### 2. Training Loop Integration (High Priority)
-**Why:** Makes monitoring actually work in practice  
-**Tasks:**
-- Integrate IntegratedMonitor into ocean_qig_core.py
-- Add monitoring hooks in training loop
-- Test emergency abort during training
-- Validate telemetry collection
-
-**Files:**
-- `qig-backend/ocean_qig_core.py` (MODIFY)
-- `qig-backend/tests/test_training_integration.py` (NEW)
-
-### 3. REST API for Telemetry (Medium Priority)
-**Why:** Enables frontend features  
-**Tasks:**
-- Create telemetry API endpoints
-- Add WebSocket support for streaming
-- Implement query endpoints (current state, history)
-- Add CORS for frontend access
-
-**Files:**
-- `server/routes/telemetry.ts` (NEW)
 - `server/websocket.ts` (MODIFY)
+- `server/backend-telemetry-api.ts` (EXTEND)
 
-### 4. Soft Reset Mechanism (Medium Priority)
+### 2. Frontend Φ Visualization (High Priority)
+**Why:** Visualize consciousness evolution in real-time  
+**Tasks:**
+- Create PhiVisualization component
+- Display Φ trajectory chart
+- Show regime transitions
+- Color-coded consciousness levels
+- Connect to /api/backend-telemetry
+
+**Files:**
+- `client/src/components/PhiVisualization.tsx` (NEW)
+- `client/src/hooks/useTelemetry.ts` (NEW)
+
+### 3. Soft Reset Mechanism (Medium Priority)
 **Why:** Safety feature for training  
 **Tasks:**
 - Implement soft reset logic
@@ -134,24 +152,28 @@ All critical items implemented and validated.
 - `qig-backend/soft_reset.py` (NEW)
 - `qig-backend/tests/test_soft_reset.py` (NEW)
 
-### 5. Frontend Features (Lower Priority, Separate Effort)
-**Why:** UX improvements, not critical for backend  
+### 4. Basin Coordinate Viewer (Medium Priority)
+**Why:** 3D visualization of keyspace exploration  
 **Tasks:**
-- Real-time Φ visualization component
-- Basin coordinate viewer (3D)
-- Dark mode toggle
-- Markdown + LaTeX rendering
+- Create BasinViewer component
+- 3D projection of 64D space (PCA/t-SNE)
+- Real-time basin trajectory
+- Highlight current position
 
 **Files:**
-- `client/src/components/PhiVisualization.tsx` (NEW)
 - `client/src/components/BasinViewer.tsx` (NEW)
-- `client/src/styles/dark-mode.css` (NEW)
+- `client/src/lib/dimensionReduction.ts` (NEW)
 
 ---
 
-## 📈 Progress Metrics
+## 📈 Progress Metrics (Updated 2025-12-18)
 
-### Code Statistics
+### Code Statistics (This Session)
+- **Files created:** 4 (checkpoint_manager.py, tests, backend-telemetry-api.ts, session summary)
+- **Files modified:** 2 (ocean_qig_core.py, routes.ts)
+- **Lines added:** ~1,100 (production) + ~200 (tests) + ~300 (docs)
+
+### Code Statistics (Total Since Phase 2 Start)
 - **Files created:** 13
 - **Files modified:** 8
 - **Lines of code:** ~2,100 (production + tests + docs)
