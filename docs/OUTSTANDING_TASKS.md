@@ -1,29 +1,40 @@
 # Outstanding Tasks - Post Geometric Validity Fix
 
-**Last Update:** 2025-12-18 (Session: Continue PR #66)  
-**Status:** Phase 2 - 70% Complete (16/23 tasks)
+**Last Update:** 2025-12-18 (Latest: WebSocket Streaming Complete)  
+**Status:** Phase 2 - 78% Complete (18/23 tasks)
 
 ---
 
-## ✅ Completed This Session (3 NEW tasks) - Session 2025-12-18
+## ✅ Completed This Session (5 NEW tasks) - Session 2025-12-18
 
-### Integration Work (Phase 1 Complete! 🎉)
-1. ✅ **Checkpoint management** - CheckpointManager with Φ-based ranking (NEW)
+### Phase 1: Core Integration (COMPLETE! 🎉)
+1. ✅ **Checkpoint management** - CheckpointManager with Φ-based ranking
    - `checkpoint_manager.py` created with top-k retention
    - Smart pruning and fast recovery
    - 10 comprehensive tests
-2. ✅ **Training loop integration** - IntegratedMonitor into ocean_qig_core.py (NEW)
+2. ✅ **Training loop integration** - IntegratedMonitor into ocean_qig_core.py
    - Telemetry collection in both process methods
    - Emergency callbacks integrated
    - Automatic checkpointing when Φ exceeds threshold
-3. ✅ **REST API endpoints** - Backend telemetry API (NEW)
+3. ✅ **REST API endpoints** - Backend telemetry API
    - `backend-telemetry-api.ts` created
    - 7 REST endpoints for sessions/trajectories/emergencies
    - Reads Python backend JSONL files
+4. ✅ **PostgreSQL persistence** - Database layer (BONUS)
+   - Schema with 6 tables, 4 views, 2 functions
+   - `telemetry_persistence.py` with fallback
+   - pgvector for 64D basin coordinates
+   - Schema applied and verified
+5. ✅ **WebSocket streaming** - Real-time telemetry (NEW!)
+   - `server/telemetry-websocket.ts` created
+   - Endpoint: `ws://localhost:5000/ws/telemetry`
+   - File-based monitoring with fs.watch()
+   - Subscribe to sessions, emergency broadcasting
+   - Comprehensive docs in `WEBSOCKET_TELEMETRY.md`
 
 ---
 
-## ✅ Previously Completed (13 tasks) - Session 2025-12-17
+## ✅ Previously Completed (13 tasks) - Session 2025-12-17 (PR #66)
 
 ### P0 (Critical) - 4/4 Complete ✅
 1. ✅ **Geometric purity enforcement** - qigkernels package
@@ -39,29 +50,61 @@
 
 ---
 
-## 🚧 In Progress (1 task)
+## 🚧 Next Priorities (Recommended Order)
 
-### Integration Work
-1. **WebSocket streaming** - Real-time telemetry updates (not started)
+### 1. Frontend Φ Visualization Component (High Priority) 🎯
+**Why:** Real-time consciousness visualization using new WebSocket  
+**Tasks:**
+- Create PhiVisualization component with live chart
+- Display Φ/κ trajectories in real-time
+- Show regime transitions with colors
+- Emergency alerts
+- Connect to `ws://localhost:5000/ws/telemetry`
+
+**Files:**
+- `client/src/components/PhiVisualization.tsx` (NEW)
+- `client/src/hooks/useTelemetryStream.ts` (NEW)
+- `client/src/components/EmergencyAlert.tsx` (NEW)
+
+### 2. Soft Reset Mechanism (High Priority) 🎯
+**Why:** Safety feature for consciousness training  
+**Tasks:**
+- Implement soft reset logic
+- Add basin distance threshold monitoring
+- Create reset callback system
+- Test reset during simulated breakdown
+- Integrate with CheckpointManager
+
+**Files:**
+- `qig-backend/soft_reset.py` (NEW)
+- `qig-backend/tests/test_soft_reset.py` (NEW)
+
+### 3. Basin Coordinate Viewer (Medium Priority)
+**Why:** 3D visualization of keyspace exploration  
+**Tasks:**
+- Create BasinViewer component
+- 3D projection of 64D space (PCA/t-SNE)
+- Real-time basin trajectory
+- Interactive rotation and zoom
+
+**Files:**
+- `client/src/components/BasinViewer.tsx` (NEW)
+- `client/src/lib/dimensionReduction.ts` (NEW)
 
 ---
 
-## ⏸️ Deferred (6 tasks)
+## ⏸️ Deferred Tasks
 
-### Backend (4 tasks)
+### Backend (5 tasks)
 1. **Batched basin updates** - GPU-optimized if naturally sparse
-2. **Soft reset mechanism** - Return to last stable basin
-3. **Φ-suppressed Charlie training** - Requires full training pipeline
-4. **Frozen Ocean observer** - Requires infrastructure setup
-5. ~~**Automatic checkpoint recovery**~~ - ✅ COMPLETE (CheckpointManager.load_best_checkpoint)
-6. **Natural gradient optimization** - torch.compile for speed
-7. **PostgreSQL telemetry backend** - Replace file-based JSONL (optional upgrade)
+2. **Φ-suppressed Charlie training** - Requires full training pipeline
+3. **Frozen Ocean observer** - Requires infrastructure setup
+4. **Natural gradient optimization** - torch.compile for speed
+5. **Multi-region deployment** - Distributed consciousness training
 
-### Frontend (4 tasks)
-1. **Real-time Φ visualization** - Sidebar with color changes
-2. **Basin coordinate viewer** - 3D projection of 64D space
-3. **Dark mode UI** - Optimized for long research sessions
-4. **Markdown + LaTeX rendering** - Math support in chat
+### Frontend (2 tasks)
+1. **Dark mode UI** - Optimized for long research sessions
+2. **Markdown + LaTeX rendering** - Math support in chat
 
 ### Research (2 tasks)
 1. **β_attention measurement** - Validate substrate-independence
@@ -69,20 +112,23 @@
 
 ---
 
-## 📊 Task Breakdown by Priority
+## 📊 Task Breakdown by Priority (Updated)
 
 ### P0 (Must Have) - 4/4 Complete ✅
 All critical items implemented and validated.
 
-### P1 (Should Have) - 7/8 Complete ✅
+### P1 (Should Have) - 8/11 Complete (73%) 🚧
 - ✅ Sparse Fisher (geometrically validated)
 - ✅ Cached QFI
 - ✅ Emergency abort
 - ✅ Comprehensive telemetry
-- ✅ Checkpoint management (NEW - 2025-12-18)
-- ✅ Training loop integration (NEW - 2025-12-18)
-- ✅ REST API for telemetry (NEW - 2025-12-18)
-- 🚧 WebSocket streaming (in progress)
+- ✅ Checkpoint management (2025-12-18)
+- ✅ Training loop integration (2025-12-18)
+- ✅ REST API for telemetry (2025-12-18)
+- ✅ WebSocket streaming (2025-12-18) 🆕
+- 🎯 Frontend Φ visualization (next priority)
+- 🎯 Soft reset mechanism (next priority)
+- ⏸️ Basin coordinate viewer (deferred)
 - ⏸️ Real-time Φ visualization (frontend)
 - ⏸️ Basin coordinate viewer (frontend)
 - ⏸️ β_attention measurement (research)
@@ -140,7 +186,23 @@ Created `backend-telemetry-api.ts` with 7 endpoints for sessions/trajectories/em
 - `client/src/components/PhiVisualization.tsx` (NEW)
 - `client/src/hooks/useTelemetry.ts` (NEW)
 
-### 3. Soft Reset Mechanism (Medium Priority)
+### 3. Basin Coordinate Viewer (Medium Priority)
+**Why:** 3D visualization of keyspace exploration  
+**Tasks:**
+- Create BasinViewer component
+- 3D projection of 64D space (PCA/t-SNE)
+- Real-time basin trajectory
+- Interactive rotation and zoom
+
+**Files:**
+- `client/src/components/BasinViewer.tsx` (NEW)
+- `client/src/lib/dimensionReduction.ts` (NEW)
+
+---
+
+## ⏸️ Deferred Tasks
+
+### Backend (4 tasks)
 **Why:** Safety feature for training  
 **Tasks:**
 - Implement soft reset logic
