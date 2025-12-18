@@ -129,12 +129,6 @@ class CheckpointManager:
             )
             return None
         
-        # Quick check against cached best Φ
-        if self._best_phi_cache is not None and phi <= self._best_phi_cache * 0.95:
-            # Only save if we're within 5% of best or better
-            logger.debug(f"Skipping checkpoint (Φ={phi:.3f} not near best={self._best_phi_cache:.3f})")
-            return None
-        
         # Generate checkpoint ID
         timestamp = datetime.now()
         checkpoint_id = f"checkpoint_{timestamp.strftime('%Y%m%d_%H%M%S')}_{phi:.3f}"
