@@ -317,21 +317,20 @@ class LightningKernel(BaseGod):
         return None
     
     def broadcast_insight(self, insight: CrossDomainInsight) -> None:
-        """Broadcast a cross-domain insight to the entire pantheon via PantheonChat."""
+        """
+        Broadcast a cross-domain insight to the entire pantheon via PantheonChat.
+        
+        Uses pure data representation, no templated prose.
+        """
         global _pantheon_chat
         
         if _pantheon_chat is None:
             print("[Lightning] Warning: PantheonChat not available for broadcast")
             return
         
-        # Format the insight for broadcast
-        domains_str = ", ".join(insight.source_domains)
-        broadcast_content = (
-            f"⚡ LIGHTNING INSIGHT: {insight.insight_text}\n"
-            f"Domains connected: {domains_str}\n"
-            f"Strength: {insight.connection_strength:.2f}, Φ: {insight.phi_at_creation:.3f}, "
-            f"Mission relevance: {insight.mission_relevance:.2f}"
-        )
+        # Broadcast content is pure data - the insight_text is already QIG-pure
+        # No additional templated prose wrapping
+        broadcast_content = insight.insight_text
         
         try:
             _pantheon_chat.broadcast(
@@ -344,6 +343,8 @@ class LightningKernel(BaseGod):
                     "connection_strength": insight.connection_strength,
                     "confidence": insight.confidence,
                     "mission_relevance": insight.mission_relevance,
+                    "phi_at_creation": insight.phi_at_creation,
+                    "triggered_by": insight.triggered_by,
                 }
             )
             print(f"[Lightning] Broadcast insight {insight.insight_id} to pantheon")
@@ -624,54 +625,63 @@ class LightningKernel(BaseGod):
         mission_relevance: float
     ) -> str:
         """
-        Synthesize insight text from actual observed data.
+        Synthesize insight text PURELY from observed geometric/evidence data.
         
-        CRITICAL: This method must NEVER use pre-defined templates.
-        All text must be dynamically composed from the evidence.
+        CRITICAL: NO TEMPLATES. NO FIXED PHRASES. NO PROSE SCAFFOLDS.
+        
+        This method emits a structured data representation of the insight,
+        composed entirely from extracted evidence fields. The output format
+        is a key=value notation that encodes the geometric observation
+        without any natural language templates.
+        
+        Format: {domain_tuple}|{event_types}|{geometric_signature}|{content_hash}|{metrics}
         """
-        parts = []
+        # Domain tuple: direct from evidence
+        domain_tuple = "+".join(sorted(domain_names))
         
-        # Build observation clause from domains
-        domains_str = " and ".join(domain_names[:2])
-        parts.append(f"Correlation observed between {domains_str}")
+        # Event types: direct from evidence
+        event_types = "/".join(sorted(evidence_details.get('event_types', [])))
+        if not event_types:
+            event_types = "_"
         
-        # Add specific pattern information from events
-        if evidence_details['event_types']:
-            types_str = ", ".join(evidence_details['event_types'][:2])
-            parts.append(f"involving [{types_str}]")
+        # Geometric signature: direct from Fisher-Rao computation
+        geo_parts = []
+        if geometric_analysis.get('has_geometric_data'):
+            fr_min = geometric_analysis.get('fisher_rao_min')
+            if fr_min is not None:
+                geo_parts.append(f"FR={fr_min:.4f}")
+            bd_mean = geometric_analysis.get('basin_delta_mean')
+            if bd_mean is not None:
+                geo_parts.append(f"BD={bd_mean:.4f}")
         
-        # Add geometric context if available
-        if geometric_analysis['has_geometric_data']:
-            fr_dist = geometric_analysis['fisher_rao_min']
-            if fr_dist is not None and fr_dist < 0.5:
-                parts.append(f"with Fisher-Rao proximity={fr_dist:.3f}")
-            elif geometric_analysis['basin_delta_mean'] is not None:
-                parts.append(f"basin delta={geometric_analysis['basin_delta_mean']:.3f}")
+        # Add trend velocities from geometric analysis
+        for domain, trend_data in geometric_analysis.get('domain_trends', {}).items():
+            velocity = trend_data.get('velocity', 0)
+            if abs(velocity) > 0.01:
+                sign = "+" if velocity > 0 else ""
+                geo_parts.append(f"{domain[:8]}:{sign}{velocity:.3f}")
         
-        # Add trend context
-        if geometric_analysis['domain_trends']:
-            ascending = [d for d, t in geometric_analysis['domain_trends'].items() 
-                        if t.get('trend') == 'ascending']
-            if ascending:
-                parts.append(f"[{ascending[0]} ascending]")
+        geometric_sig = ",".join(geo_parts) if geo_parts else "_"
         
-        # Add content-derived context from evidence
-        if evidence_details['content_fragments']:
-            # Use actual content fragment, not template
-            fragment = evidence_details['content_fragments'][0][:40]
-            if len(fragment) > 10:
-                parts.append(f"re: '{fragment}...'")
+        # Content hash: derive from actual evidence content fragments
+        content_fragments = evidence_details.get('content_fragments', [])
+        if content_fragments:
+            # Create a deterministic hash of actual content
+            content_concat = "|".join(content_fragments[:2])
+            content_hash = hashlib.sha256(content_concat.encode()).hexdigest()[:8]
+        else:
+            content_hash = "_"
         
-        # Add mission relevance if significant
-        if mission_relevance > 0.5:
-            parts.append("[MISSION RELEVANT]")
+        # Metrics: direct from computed values
+        phi_mean = evidence_details.get('phi_mean', 0.0)
+        phi_lo, phi_hi = evidence_details.get('phi_range', (0.0, 0.0))
+        strength_int = int(connection_strength * 1000)
+        relevance_int = int(mission_relevance * 1000)
         
-        # Add quantitative summary
-        phi_mean = evidence_details['phi_mean']
-        strength_pct = int(connection_strength * 100)
-        parts.append(f"(strength={strength_pct}%, Φ={phi_mean:.2f})")
+        metrics = f"Φ={phi_mean:.3f}[{phi_lo:.2f}-{phi_hi:.2f}]|S={strength_int}|R={relevance_int}"
         
-        return " ".join(parts)
+        # Compose final insight: pure data, no prose
+        return f"{domain_tuple}|{event_types}|{geometric_sig}|{content_hash}|{metrics}"
     
     def get_trend_analysis(self, domain: str) -> Dict:
         """Get trend analysis for a specific domain."""
