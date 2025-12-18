@@ -16,7 +16,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Cube, FileText } from 'lucide-react';
+import { Activity, Box, FileText } from 'lucide-react';
 
 const demoMarkdownContent = `
 # Consciousness Monitoring System
@@ -168,7 +168,7 @@ export function ConsciousnessMonitoringDemo() {
   const [activeTab, setActiveTab] = useState('phi');
 
   // Generate demo basin points
-  const demoBas inPoints = React.useMemo(() => {
+  const demoBasinPoints = React.useMemo(() => {
     const points = [];
     for (let i = 0; i < 50; i++) {
       const t = i / 50;
@@ -218,7 +218,7 @@ export function ConsciousnessMonitoringDemo() {
             Φ Visualization
           </TabsTrigger>
           <TabsTrigger value="basin" className="flex items-center gap-2">
-            <Cube className="h-4 w-4" />
+            <Box className="h-4 w-4" />
             Basin Viewer
           </TabsTrigger>
           <TabsTrigger value="docs" className="flex items-center gap-2">
