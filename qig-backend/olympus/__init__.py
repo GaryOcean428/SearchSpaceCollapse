@@ -62,6 +62,15 @@ from .capability_bridges import (
     WarResourceBridge, KernelMeshBridge, initialize_all_bridges, get_bridge_stats
 )
 
+# Auto Tool Discovery & Persistence
+from .auto_tool_discovery import (
+    ToolDiscoveryEngine, create_discovery_engine_for_god
+)
+from .tool_request_persistence import (
+    ToolRequestPersistence, ToolRequest, RequestStatus,
+    RequestPriority, PatternDiscovery, get_tool_request_persistence
+)
+
 # Core hierarchy
 from .zeus import Zeus, olympus_app, zeus
 
@@ -162,4 +171,14 @@ __all__ = [
     'KernelMeshBridge',
     'initialize_all_bridges',
     'get_bridge_stats',
+    
+    # Auto Tool Discovery & Persistence
+    'ToolDiscoveryEngine',
+    'create_discovery_engine_for_god',
+    'ToolRequestPersistence',
+    'ToolRequest',
+    'RequestStatus',
+    'RequestPriority',
+    'PatternDiscovery',
+    'get_tool_request_persistence',
 ]
