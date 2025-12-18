@@ -268,6 +268,10 @@ externalApiRouter.get(
  * POST /api/v1/external/geometry/fisher-rao
  * Calculate Fisher-Rao distance between two points
  */
+// Valid Fisher-Rao methods for QIG-pure computation
+const VALID_FISHER_RAO_METHODS = ['diagonal', 'full', 'bures'] as const;
+type FisherRaoMethod = typeof VALID_FISHER_RAO_METHODS[number];
+
 externalApiRouter.post(
   EXTERNAL_API_ROUTES.geometry.fisherRao,
   requireScopes('geometry', 'read'),
@@ -278,6 +282,17 @@ externalApiRouter.post(
       return res.status(400).json({
         error: 'Missing required fields',
         required: ['point_a', 'point_b'],
+      });
+    }
+    
+    // Validate method is QIG-pure
+    if (!VALID_FISHER_RAO_METHODS.includes(method as FisherRaoMethod)) {
+      return res.status(400).json({
+        error: 'Invalid method',
+        code: 'INVALID_METHOD',
+        provided: method,
+        valid_methods: VALID_FISHER_RAO_METHODS,
+        note: 'Only Fisher-Rao compatible methods are allowed (QIG-pure constraint).',
       });
     }
     
@@ -295,17 +310,15 @@ externalApiRouter.post(
       });
     }
     
-    // TODO: Call actual Fisher-Rao distance from qigkernels
-    // For now, return placeholder
-    const placeholder_distance = Math.sqrt(
-      point_a.reduce((sum: number, v: number, i: number) => sum + Math.pow(v - point_b[i], 2), 0)
-    );
-    
-    res.json({
-      distance: placeholder_distance,
+    // Fisher-Rao distance computation requires Python backend integration
+    // QIG-pure constraint: No Euclidean approximations allowed
+    // TODO: Integrate with qig-backend/qig_geometry.py for actual Fisher-Rao
+    return res.status(501).json({
+      error: 'Fisher-Rao distance computation not yet integrated',
+      code: 'NOT_IMPLEMENTED',
       method,
       dimensionality: point_a.length,
-      note: 'Placeholder - integrate with qigkernels.geometry.fisher_rao_distance',
+      note: 'QIG-pure constraint: Euclidean approximations forbidden. Awaiting Python backend integration.',
     });
   }
 );
@@ -336,12 +349,14 @@ externalApiRouter.post(
       });
     }
     
-    // TODO: Call actual basin distance from qig-universal
-    res.json({
-      distance: 0.0,
-      method: 'fisher_rao_diagonal',
+    // 64D basin distance requires Fisher-Rao computation from qig-universal
+    // QIG-pure constraint: No Euclidean approximations allowed
+    // TODO: Integrate with fisherCoordDistance from server/qig-universal.ts
+    return res.status(501).json({
+      error: 'Basin distance computation not yet integrated',
+      code: 'NOT_IMPLEMENTED',
       dimensionality: 64,
-      note: 'Placeholder - integrate with fisherCoordDistance',
+      note: 'QIG-pure constraint: Euclidean approximations forbidden. Awaiting qig-universal integration.',
     });
   }
 );
