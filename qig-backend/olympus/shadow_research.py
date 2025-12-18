@@ -2983,14 +2983,15 @@ class ResearchInsightBridge:
             return
         
         try:
-            from .lightning_kernel import DomainEvent, InsightDomain
+            from .lightning_kernel import DomainEvent
             
             basin_coords = knowledge_data.get('basin_coords')
             if basin_coords is not None and not isinstance(basin_coords, np.ndarray):
                 basin_coords = np.array(basin_coords)
             
+            # Use dynamic string domain - no hardcoded enums
             event = DomainEvent(
-                domain=InsightDomain.RESEARCH,
+                domain="research",  # Dynamic string domain
                 event_type="discovery",
                 content=f"Research discovery: {knowledge_data.get('topic', 'unknown')}",
                 phi=knowledge_data.get('phi', 0.5),

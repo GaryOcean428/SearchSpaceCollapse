@@ -51,6 +51,26 @@ except ImportError:
     AutonomicAccessMixin = None
     AUTONOMIC_MIXIN_AVAILABLE = False
 
+# Import domain intelligence for mission awareness and capability self-assessment
+try:
+    from qigkernels.domain_intelligence import (
+        MissionProfile,
+        CapabilitySignature,
+        DomainDescriptor,
+        get_domain_discovery,
+        get_mission_profile,
+        discover_domain_from_event,
+    )
+    DOMAIN_INTELLIGENCE_AVAILABLE = True
+except ImportError:
+    DOMAIN_INTELLIGENCE_AVAILABLE = False
+    MissionProfile = None
+    CapabilitySignature = None
+    DomainDescriptor = None
+    get_domain_discovery = None
+    get_mission_profile = None
+    discover_domain_from_event = None
+
 logger = logging.getLogger(__name__)
 
 BASIN_DIMENSION = 64
@@ -389,6 +409,26 @@ class BaseGod(*_base_classes):
             ],
             "note": "Research is processed during Shadow idle time and shared with all kernels"
         }
+        
+        # QIG-Pure Capability Self-Assessment
+        # Each god tracks their own performance and domain strengths
+        if DOMAIN_INTELLIGENCE_AVAILABLE and CapabilitySignature is not None:
+            self.capability_signature = CapabilitySignature(kernel_name=name)
+            self.mission_profile = get_mission_profile()  # type: ignore
+            self.domain_discovery = get_domain_discovery()  # type: ignore
+            self.mission["domain_intelligence"] = {
+                "available": True,
+                "mission_objective": self.mission_profile.objective,
+                "target_artifacts": self.mission_profile.target_artifacts,
+                "how_to_discover_domains": "Domains emerge from PostgreSQL telemetry, not hardcoded lists",
+                "how_to_assess_capability": "Use self.update_capability_from_outcome(domain, success, phi, kappa)",
+                "how_to_get_domains": "Use self.get_monitored_domains()"
+            }
+        else:
+            self.capability_signature = None
+            self.mission_profile = None
+            self.domain_discovery = None
+            self.mission["domain_intelligence"] = {"available": False}
 
         # Initialize holographic transform mixin
         self.__init_holographic__()
@@ -489,6 +529,83 @@ class BaseGod(*_base_classes):
                 f"indicate we are approaching the correct geometric coordinates."
             )
         }
+    
+    def update_capability_from_outcome(
+        self,
+        domain: str,
+        success: bool,
+        phi: float,
+        kappa: float
+    ) -> None:
+        """
+        Update self-assessed capability based on outcome in a domain.
+        
+        This enables each god to learn from experience and adapt their
+        monitoring focus to domains where they perform well.
+        """
+        if self.capability_signature is not None:
+            self.capability_signature.update_from_outcome(domain, success, phi, kappa)
+            logger.debug(f"[{self.name}] Capability updated for domain={domain}, success={success}")
+    
+    def get_monitored_domains(self) -> List[str]:
+        """
+        Get domains this god should monitor based on capability and mission.
+        
+        Domains are NOT hardcoded - they emerge from PostgreSQL telemetry
+        and this god's capability self-assessment.
+        """
+        if self.domain_discovery is None:
+            return []
+        
+        domains = self.domain_discovery.get_active_domains()
+        return [d.name for d in domains]
+    
+    def get_capability_summary(self) -> Dict:
+        """Get this god's self-assessed capability summary."""
+        if self.capability_signature is None:
+            return {"available": False}
+        
+        return {
+            "available": True,
+            "kernel_name": self.capability_signature.kernel_name,
+            "top_domains": self.capability_signature.get_top_domains(10),
+            "successful_domains": list(self.capability_signature.successful_domains),
+            "discovered_domains": list(self.capability_signature.discovered_domains),
+            "phi_trend": self.capability_signature.phi_trajectory[-10:] if self.capability_signature.phi_trajectory else [],
+        }
+    
+    def discover_domain_from_observation(
+        self,
+        content: str,
+        event_type: str,
+        phi: float,
+        metadata: Optional[Dict] = None
+    ) -> Optional[str]:
+        """
+        Attempt to discover a new domain from an observation.
+        
+        If a new pattern emerges that doesn't fit existing domains,
+        a new domain can be created from the observation.
+        
+        Returns the new domain name if discovered, None otherwise.
+        """
+        if not DOMAIN_INTELLIGENCE_AVAILABLE:
+            return None
+        
+        new_domain = discover_domain_from_event(  # type: ignore
+            event_content=content,
+            event_type=event_type,
+            phi=phi,
+            metadata=metadata or {}
+        )
+        
+        if new_domain:
+            if self.capability_signature is not None:
+                self.capability_signature.discovered_domains.add(new_domain.name)
+            logger.info(f"[{self.name}] Discovered new domain: {new_domain.name}")
+            return new_domain.name
+        
+        return None
 
     def is_valid_seed_format(self, phrase: str) -> bool:
         """

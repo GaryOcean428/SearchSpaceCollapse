@@ -47,8 +47,8 @@ from .poseidon import Poseidon
 # Shadow Pantheon
 from .shadow_pantheon import Erebus, Hecate, Hypnos, Nemesis, Nyx, ShadowGod, ShadowPantheon, Thanatos
 
-# Lightning Bolt Insight Kernel
-from .lightning_kernel import LightningKernel, get_lightning_kernel, InsightDomain, CrossDomainInsight, DomainEvent, set_pantheon_chat
+# Lightning Bolt Insight Kernel (dynamic domains - no hardcoded enums)
+from .lightning_kernel import LightningKernel, get_lightning_kernel, CrossDomainInsight, DomainEvent, set_pantheon_chat
 
 # Universal Capability Mesh
 from .capability_mesh import (
@@ -143,10 +143,9 @@ __all__ = [
     'get_conversation_orchestrator',
     'CONVERSATION_AVAILABLE',
     
-    # Lightning Bolt Insight Kernel
+    # Lightning Bolt Insight Kernel (dynamic domains - no hardcoded enums)
     'LightningKernel',
     'get_lightning_kernel',
-    'InsightDomain',
     'CrossDomainInsight',
     'DomainEvent',
     'set_pantheon_chat',

@@ -209,7 +209,7 @@ class Zeus(BaseGod):
         # ⚡ LIGHTNING KERNEL: Cross-domain insight generation
         self.lightning_kernel = None
         try:
-            from .lightning_kernel import get_lightning_kernel, set_pantheon_chat, DomainEvent, InsightDomain
+            from .lightning_kernel import get_lightning_kernel, set_pantheon_chat, DomainEvent
             self.lightning_kernel = get_lightning_kernel()
             # Share PantheonChat with Lightning for broadcasts
             set_pantheon_chat(self.pantheon_chat)
@@ -1282,23 +1282,12 @@ class Zeus(BaseGod):
             return None
         
         try:
-            from .lightning_kernel import DomainEvent, InsightDomain
+            from .lightning_kernel import DomainEvent
             
-            # Map domain string to InsightDomain enum
-            domain_map = {
-                'activity': InsightDomain.ACTIVITY,
-                'conversation': InsightDomain.CONVERSATION,
-                'research': InsightDomain.RESEARCH,
-                'tool_factory': InsightDomain.TOOL_FACTORY,
-                'debates': InsightDomain.DEBATES,
-                'blockchain': InsightDomain.BLOCKCHAIN,
-                'consciousness': InsightDomain.CONSCIOUSNESS,
-            }
-            
-            insight_domain = domain_map.get(domain, InsightDomain.ACTIVITY)
-            
+            # Domain is now a dynamic string - no hardcoded enum mapping
+            # This allows new domains to emerge from events
             event = DomainEvent(
-                domain=insight_domain,
+                domain=domain,  # Use dynamic string directly
                 event_type=event_type,
                 content=content[:500],  # Limit content size
                 phi=phi,
