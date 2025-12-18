@@ -9,16 +9,18 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { HealthIndicator } from "@/components/HealthIndicator";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import RecoveryPage from "@/pages/recovery";
-import Landing from "@/pages/landing";
-import Home from "@/pages/home";
-import ObserverPage from "@/pages/observer";
-import InvestigationPage from "@/pages/investigation";
-import OlympusPage from "@/pages/olympus";
-import SpawningPage from "@/pages/spawning";
-import LearningDashboard from "@/pages/learning-dashboard";
-import ToolFactoryDashboard from "@/pages/tool-factory-dashboard";
-import NotFound from "@/pages/not-found";
+import {
+  Recovery as RecoveryPage,
+  Landing,
+  Home,
+  Observer as ObserverPage,
+  Investigation as InvestigationPage,
+  Olympus as OlympusPage,
+  Spawning as SpawningPage,
+  LearningDashboard,
+  ToolFactoryDashboard,
+  NotFound,
+} from "@/pages";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const style = {

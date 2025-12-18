@@ -143,6 +143,7 @@ export const API_ROUTES = {
   nearMisses: {
     list: '/api/near-misses',
     clusterAnalytics: '/api/near-misses/cluster-analytics',
+    clusterMembers: (clusterId: string) => `/api/near-misses/cluster/${clusterId}/members`,
   },
 
   // Sweeps
@@ -162,10 +163,14 @@ export const API_ROUTES = {
   },
 
   // Olympus
+  // Health
+  health: '/api/health',
+
   olympus: {
     status: '/api/olympus/status',
     chatRecent: '/api/olympus/chat/recent',
     debatesActive: '/api/olympus/debates/active',
+    debatesStatus: '/api/olympus/debates/status',
     warActive: '/api/olympus/war/active',
     warHistory: (limit: number) => `/api/olympus/war/history?limit=${limit}`,
     warBlitzkrieg: '/api/olympus/war/blitzkrieg',
@@ -175,6 +180,8 @@ export const API_ROUTES = {
     zeusChat: '/api/olympus/zeus/chat',
     zeusSearch: '/api/olympus/zeus/search',
     kernels: '/api/olympus/kernels',
+    kernelsObserving: '/api/olympus/kernels/observing',
+    kernelsAll: '/api/olympus/kernels/all',
     // M8 Kernel Spawning
     m8: {
       status: '/api/olympus/m8/status',
@@ -192,6 +199,40 @@ export const API_ROUTES = {
       poll: '/api/olympus/shadow/poll',
       act: (god: string) => `/api/olympus/shadow/${god}/act`,
     },
+    // Tool Factory
+    tools: {
+      list: '/api/olympus/zeus/tools',
+      stats: '/api/olympus/zeus/tools/stats',
+      patterns: '/api/olympus/zeus/tools/patterns',
+      generate: '/api/olympus/zeus/tools/generate',
+      learnTemplate: '/api/olympus/zeus/tools/learn/template',
+      learnGit: '/api/olympus/zeus/tools/learn/git',
+      learnGitQueue: '/api/olympus/zeus/tools/learn/git/queue',
+      learnGitQueueClear: '/api/olympus/zeus/tools/learn/git/queue/clear',
+      learnFile: '/api/olympus/zeus/tools/learn/file',
+      learnSearch: '/api/olympus/zeus/tools/learn/search',
+      pipelineStatus: '/api/olympus/zeus/tools/pipeline/status',
+      pipelineRequests: '/api/olympus/zeus/tools/pipeline/requests',
+      pipelineRequest: '/api/olympus/zeus/tools/pipeline/request',
+      pipelineInvent: '/api/olympus/zeus/tools/pipeline/invent',
+    },
+    // Telemetry
+    telemetry: {
+      fleet: '/api/olympus/telemetry/fleet',
+      kernelCapabilities: (kernelId: string) => `/api/olympus/telemetry/kernel/${kernelId}/capabilities`,
+    },
+    // Lightning Module
+    lightning: {
+      status: '/api/olympus/lightning/status',
+      insights: (limit: number) => `/api/olympus/lightning/insights?limit=${limit}`,
+      event: '/api/olympus/lightning/event',
+    },
+  },
+
+  // Learning (Zeus Search Learner)
+  learning: {
+    base: '/api/olympus/zeus/search/learner',
+    upload: '/api/learning/upload',
   },
 
   // Ocean Autonomic (Python backend)
@@ -333,7 +374,10 @@ export const QUERY_KEYS = {
       tier ? [API_ROUTES.nearMisses.list, { tier }] as const 
            : [API_ROUTES.nearMisses.list] as const,
     clusterAnalytics: () => [API_ROUTES.nearMisses.clusterAnalytics] as const,
+    clusterMembers: (clusterId: string) => ['/api/near-misses/cluster', clusterId, 'members'] as const,
   },
+  
+  health: () => [API_ROUTES.health] as const,
   
   sweeps: {
     list: (status?: string) => 
@@ -351,12 +395,25 @@ export const QUERY_KEYS = {
     status: () => [API_ROUTES.olympus.status] as const,
     chatRecent: () => [API_ROUTES.olympus.chatRecent] as const,
     debatesActive: () => [API_ROUTES.olympus.debatesActive] as const,
+    debatesStatus: () => [API_ROUTES.olympus.debatesStatus] as const,
     warActive: () => [API_ROUTES.olympus.warActive] as const,
     shadowStatus: () => [API_ROUTES.olympus.shadow.status] as const,
     kernels: () => [API_ROUTES.olympus.kernels] as const,
+    kernelsObserving: () => [API_ROUTES.olympus.kernelsObserving] as const,
+    kernelsAll: () => [API_ROUTES.olympus.kernelsAll] as const,
     m8Status: () => [API_ROUTES.olympus.m8.status] as const,
     m8Kernels: () => [API_ROUTES.olympus.m8.kernels] as const,
     m8IdleKernels: () => [API_ROUTES.olympus.m8.idleKernels] as const,
+    // Tool Factory
+    toolsList: () => [API_ROUTES.olympus.tools.list] as const,
+    toolsStats: () => [API_ROUTES.olympus.tools.stats] as const,
+    toolsPatterns: () => [API_ROUTES.olympus.tools.patterns] as const,
+    toolsLearnGitQueue: () => [API_ROUTES.olympus.tools.learnGitQueue] as const,
+    toolsPipelineStatus: () => [API_ROUTES.olympus.tools.pipelineStatus] as const,
+    toolsPipelineRequests: () => [API_ROUTES.olympus.tools.pipelineRequests] as const,
+    // Telemetry
+    telemetryFleet: () => [API_ROUTES.olympus.telemetry.fleet] as const,
+    telemetryKernelCapabilities: (kernelId: string) => ['/api/olympus/telemetry/kernel', kernelId, 'capabilities'] as const,
   },
   
   oceanAutonomic: {
