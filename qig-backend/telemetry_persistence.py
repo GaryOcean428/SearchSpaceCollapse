@@ -25,18 +25,22 @@ Note: Requires database schema from migrations/002_telemetry_checkpoints_schema.
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+PSYCOPG2_AVAILABLE = False
+Json = None
+RealDictCursor = None
 
 try:
     import psycopg2
     from psycopg2.extras import Json, RealDictCursor
     PSYCOPG2_AVAILABLE = True
 except ImportError:
-    PSYCOPG2_AVAILABLE = False
+    psycopg2 = None  # type: ignore
     logger.warning("psycopg2 not available - PostgreSQL persistence disabled")
 
 try:
@@ -63,9 +67,9 @@ class TelemetryPersistence:
         """
         self.database_url = database_url or os.getenv("DATABASE_URL")
         self.enabled = False
-        self.conn = None
+        self._conn: Any = None
         
-        if not PSYCOPG2_AVAILABLE:
+        if not PSYCOPG2_AVAILABLE or psycopg2 is None:
             logger.warning("PostgreSQL persistence disabled: psycopg2 not installed")
             return
         
@@ -75,18 +79,23 @@ class TelemetryPersistence:
         
         # Try to connect
         try:
-            self.conn = psycopg2.connect(self.database_url)
+            self._conn = psycopg2.connect(self.database_url)
             self.enabled = True
             logger.info("PostgreSQL telemetry persistence enabled")
         except Exception as e:
             logger.error(f"Failed to connect to PostgreSQL: {e}")
             logger.info("Falling back to file-based storage")
     
+    @property
+    def conn(self) -> Any:
+        """Get connection with type safety."""
+        return self._conn
+    
     def close(self):
         """Close database connection."""
-        if self.conn:
-            self.conn.close()
-            self.conn = None
+        if self._conn:
+            self._conn.close()
+            self._conn = None
             self.enabled = False
     
     def __enter__(self):
