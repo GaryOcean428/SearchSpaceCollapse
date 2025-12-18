@@ -1873,6 +1873,122 @@ class M8KernelSpawner:
         """Set PantheonChat for dual-pantheon spawn debates."""
         self._pantheon_chat = pantheon_chat
 
+    def check_health(self) -> Dict:
+        """
+        Check spawner internal health status.
+        
+        Validates:
+        - M8 persistence pool connectivity
+        - Legacy kernel persistence connectivity
+        - Orchestrator availability
+        - Proposals cache validity
+        
+        Returns:
+            Dict with 'healthy' bool and diagnostic details.
+        """
+        issues = []
+        diagnostics = {
+            'timestamp': datetime.now().isoformat(),
+            'healthy': True,
+        }
+        
+        # Check M8 persistence pool
+        try:
+            if self.m8_persistence:
+                test_result = self.m8_persistence.load_all_proposals()
+                diagnostics['m8_persistence'] = 'connected'
+            else:
+                issues.append('m8_persistence not initialized')
+                diagnostics['m8_persistence'] = 'missing'
+        except Exception as e:
+            issues.append(f'm8_persistence error: {str(e)[:100]}')
+            diagnostics['m8_persistence'] = 'error'
+        
+        # Check legacy kernel persistence
+        try:
+            if self.kernel_persistence:
+                count = self.kernel_persistence.get_live_kernel_count()
+                diagnostics['kernel_persistence'] = f'connected ({count} live kernels)'
+            else:
+                diagnostics['kernel_persistence'] = 'not configured'
+        except Exception as e:
+            issues.append(f'kernel_persistence error: {str(e)[:100]}')
+            diagnostics['kernel_persistence'] = 'error'
+        
+        # Check orchestrator
+        try:
+            if self.orchestrator:
+                profile_count = len(self.orchestrator.all_profiles)
+                diagnostics['orchestrator'] = f'available ({profile_count} profiles)'
+            else:
+                issues.append('orchestrator not initialized')
+                diagnostics['orchestrator'] = 'missing'
+        except Exception as e:
+            issues.append(f'orchestrator error: {str(e)[:100]}')
+            diagnostics['orchestrator'] = 'error'
+        
+        # Check consensus
+        try:
+            if self.consensus:
+                diagnostics['consensus'] = f'available ({self.consensus.consensus_type.value})'
+            else:
+                issues.append('consensus not initialized')
+                diagnostics['consensus'] = 'missing'
+        except Exception as e:
+            issues.append(f'consensus error: {str(e)[:100]}')
+            diagnostics['consensus'] = 'error'
+        
+        # Cache stats
+        diagnostics['proposals_cached'] = len(self.proposals)
+        diagnostics['spawned_kernels_cached'] = len(self.spawned_kernels)
+        diagnostics['awareness_cached'] = len(self.kernel_awareness)
+        
+        if issues:
+            diagnostics['healthy'] = False
+            diagnostics['issues'] = issues
+        
+        return diagnostics
+    
+    def reconnect(self) -> bool:
+        """
+        Attempt to reconnect stale persistence connections.
+        
+        Returns:
+            True if reconnection succeeded, False otherwise.
+        """
+        success = True
+        
+        # Reinitialize M8 persistence
+        try:
+            print("[M8] Attempting M8 persistence reconnection...")
+            self.m8_persistence = M8SpawnerPersistence()
+            print("[M8] M8 persistence reconnected")
+        except Exception as e:
+            print(f"[M8] M8 persistence reconnection failed: {e}")
+            success = False
+        
+        # Reinitialize legacy persistence
+        if M8_PERSISTENCE_AVAILABLE:
+            try:
+                print("[M8] Attempting kernel persistence reconnection...")
+                self.kernel_persistence = KernelPersistence()
+                print("[M8] Kernel persistence reconnected")
+            except Exception as e:
+                print(f"[M8] Kernel persistence reconnection failed: {e}")
+                success = False
+        
+        # Reload data from database if reconnection worked
+        if success:
+            try:
+                print("[M8] Reloading data from database after reconnection...")
+                self._load_from_database()
+                print("[M8] Database data reloaded successfully")
+            except Exception as e:
+                print(f"[M8] Database reload failed: {e}")
+                success = False
+        
+        return success
+
     def get_or_create_awareness(self, kernel_id: str) -> SpawnAwareness:
         """Get or create spawn awareness tracker for a kernel."""
         if kernel_id not in self.kernel_awareness:

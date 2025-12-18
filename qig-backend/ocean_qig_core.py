@@ -5210,6 +5210,36 @@ def m8_spawner_status():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/m8/health', methods=['GET'])
+def m8_spawner_health():
+    """
+    Get M8 Kernel Spawner health status with diagnostics.
+    
+    Use this endpoint to validate spawner internal state before spawn attempts.
+    Returns detailed connectivity and cache status.
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({
+            'healthy': False,
+            'error': 'M8 Kernel Spawner not available',
+            'module_loaded': False,
+        }), 503
+
+    try:
+        spawner = get_spawner()
+        health = spawner.check_health()
+        status_code = 200 if health.get('healthy', False) else 503
+        return jsonify(health), status_code
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'healthy': False,
+            'error': str(e),
+            'exception_type': type(e).__name__,
+            'trace': traceback.format_exc()[-500:],
+        }), 500
+
+
 @app.route('/m8/propose', methods=['POST'])
 def m8_create_proposal():
     """
