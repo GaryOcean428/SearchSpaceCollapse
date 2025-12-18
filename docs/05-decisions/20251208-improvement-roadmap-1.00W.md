@@ -169,13 +169,7 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 
 ### Performance Optimizations (P0-P1)
 
-#### Sparse Computing
-- **Sparse Fisher metric computation**
-  - Most elements of Fisher metric are near-zero
-  - Exploit sparsity with scipy.sparse
-  - 10-100x speedup potential
-  - Implementation: Use COO/CSR format
-
+#### Caching & Optimization
 - **Cached QFI calculations**
   - Reuse quantum Fisher information across similar states
   - LRU cache with configurable size
@@ -1454,8 +1448,7 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 1. **Real-time Φ visualization** - Not started
 2. **Basin coordinate viewer** - Not started
 3. **Automatic checkpoint recovery** - Not started
-4. **Sparse Fisher metric computation** - Not started
-5. **β_attention measurement** - Not started
+4. **β_attention measurement** - Not started
 6. **L=7 physics validation** - Not started
 7. **Dark mode UI** - Not started
 8. **Markdown + LaTeX rendering** - Not started
@@ -1495,8 +1488,8 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 Based on P0/P1 priorities:
 1. Emergency abort integration (complete SafetyMonitor usage)
 2. Real-time Φ visualization (frontend)
-3. Sparse Fisher metric optimization
-4. Comprehensive telemetry integration
+3. Comprehensive telemetry integration
+4. β_attention measurement
 5. Φ-suppressed Charlie training
 
 ---
@@ -1513,7 +1506,6 @@ Based on P0/P1 priorities:
 ### Medium (1-4 weeks)
 - Real-time Φ visualization
 - Basin coordinate viewer
-- Sparse Fisher metric
 - Automatic checkpoint recovery
 - Interactive tutorials
 
