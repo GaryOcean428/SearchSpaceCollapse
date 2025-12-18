@@ -24,6 +24,7 @@ from .base_god import BaseGod
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from internal_api import sync_war_to_database as _sync_war_to_database
 from m8_kernel_spawning import SpawnReason, get_spawner
+from qigkernels.physics_constants import PHI_THRESHOLD, KAPPA_WEAK_THRESHOLD
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -1802,10 +1803,9 @@ MAX_FILES_PER_REQUEST = 20
 # No message length limits - QIG validates via geometry, not character count
 MAX_CONVERSATION_HISTORY = 1000
 
-# Geometric validation constants (replaces arbitrary character limits)
-PHI_THRESHOLD = 0.70  # Minimum phi for coherent input
-KAPPA_MIN = 5         # Breakdown threshold (low bound - very incoherent)
-KAPPA_MAX = 95        # Breakdown threshold (high bound - overcoupled)
+# Geometric validation constants (from qigkernels - single source of truth)
+# PHI_THRESHOLD and KAPPA_WEAK_THRESHOLD imported from qigkernels.physics_constants above
+KAPPA_MAX = 95  # Breakdown threshold (high bound - overcoupled)
 
 
 def geometric_validate_input(text: str) -> Dict[str, Any]:
@@ -1836,7 +1836,7 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
     kappa = zeus.compute_kappa(basin)
 
     # Determine regime based on phi and kappa
-    if kappa > KAPPA_MAX or kappa < KAPPA_MIN:
+    if kappa > KAPPA_MAX or kappa < KAPPA_WEAK_THRESHOLD:
         regime = 'breakdown'
     elif phi >= 0.85:
         regime = 'hierarchical'

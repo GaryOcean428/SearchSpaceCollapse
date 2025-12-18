@@ -22,9 +22,7 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import numpy as np
 
-from qigkernels.physics_constants import KAPPA_STAR
-
-PHI_THRESHOLD = 0.75
+from qigkernels.physics_constants import KAPPA_STAR, PHI_HYPERDIMENSIONAL
 
 
 @dataclass
@@ -313,7 +311,7 @@ def run_neuromodulation_cycle(
     surprise: float,
     regime: str,
     grounding: float,
-    base_kappa: float = KAPPA_STAR,
+    base_kappa: float = KAPPA_STAR,  # Use validated constant from qigkernels
     base_exploration: float = 0.5,
     base_learning: float = 1.0,
     base_batch: int = 100
