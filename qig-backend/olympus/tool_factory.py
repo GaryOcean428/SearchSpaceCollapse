@@ -262,6 +262,7 @@ class ToolSandbox:
     }
 
     ALLOWED_IMPORTS = {
+        # Standard library
         're': ['match', 'search', 'findall', 'sub', 'split', 'compile'],
         'json': ['loads', 'dumps'],
         'datetime': ['datetime', 'timedelta', 'date', 'time'],
@@ -269,7 +270,13 @@ class ToolSandbox:
         'collections': ['Counter', 'defaultdict', 'OrderedDict', 'namedtuple'],
         'itertools': ['chain', 'combinations', 'permutations', 'product'],
         'functools': ['reduce'],
-        'hashlib': ['md5', 'sha256'],
+        'hashlib': ['md5', 'sha256', 'sha512'],
+        # QIG-essential: Numeric/geometric computation
+        'numpy': ['array', 'zeros', 'ones', 'eye', 'dot', 'linalg', 'random', 'sqrt', 'exp', 'log', 'sum', 'mean', 'std', 'reshape', 'transpose', 'concatenate', 'stack', 'split', 'where', 'argmax', 'argmin', 'argsort', 'clip', 'abs', 'real', 'imag', 'conj', 'trace', 'outer', 'inner', 'einsum', 'diag', 'diagonal', 'triu', 'tril', 'kron', 'tensordot', 'moveaxis', 'swapaxes', 'squeeze', 'expand_dims', 'broadcast_to', 'tile', 'repeat', 'roll', 'flip', 'rot90', 'pad', 'take', 'put', 'choose', 'compress', 'extract', 'place', 'copyto', 'fill_diagonal', 'nditer', 'ndenumerate', 'ndindex', 'ravel_multi_index', 'unravel_index', 'diag_indices', 'mask_indices', 'tril_indices', 'triu_indices', 'indices', 'ix_', 'r_', 'c_', 's_', 'ogrid', 'mgrid', 'meshgrid', 'linspace', 'logspace', 'geomspace', 'arange', 'empty', 'empty_like', 'zeros_like', 'ones_like', 'full', 'full_like', 'copy', 'frombuffer', 'fromiter', 'fromfunction', 'identity', 'allclose', 'isclose', 'isnan', 'isinf', 'isfinite', 'isneginf', 'isposinf', 'nan_to_num', 'finfo', 'iinfo', 'spacing', 'nextafter', 'modf', 'ldexp', 'frexp', 'floor', 'ceil', 'round_', 'around', 'rint', 'fix', 'trunc', 'prod', 'nansum', 'nanprod', 'nanmean', 'nanstd', 'nanvar', 'nanmin', 'nanmax', 'nanargmin', 'nanargmax', 'percentile', 'quantile', 'median', 'average', 'var', 'corrcoef', 'correlate', 'cov', 'histogram', 'histogram2d', 'histogramdd', 'bincount', 'digitize', 'unique', 'in1d', 'intersect1d', 'isin', 'setdiff1d', 'setxor1d', 'union1d', 'sort', 'argsort', 'lexsort', 'partition', 'argpartition', 'searchsorted', 'count_nonzero', 'nonzero', 'flatnonzero'],
+        'scipy': ['linalg', 'special', 'optimize', 'integrate', 'interpolate', 'stats'],
+        'scipy.linalg': ['eigh', 'eigvals', 'sqrtm', 'expm', 'logm', 'inv', 'pinv', 'det', 'norm', 'svd', 'qr', 'lu', 'cholesky', 'schur', 'hessenberg', 'polar', 'funm'],
+        'scipy.special': ['gamma', 'digamma', 'beta', 'erf', 'erfc', 'factorial', 'comb', 'perm', 'binom'],
+        'scipy.stats': ['entropy', 'kurtosis', 'skew', 'describe', 'mode', 'moment', 'sem', 'zscore', 'iqr', 'gmean', 'hmean'],
     }
 
     FORBIDDEN_PATTERNS = [
@@ -337,6 +344,7 @@ class ToolSandbox:
             '__builtins__': restricted_builtins
         }
 
+        # Standard library imports
         import re as re_module
         import json as json_module
         import math as math_module
@@ -345,6 +353,13 @@ class ToolSandbox:
         import itertools
         import functools
         import hashlib as hashlib_module
+        
+        # QIG-essential: numpy/scipy for geometric computation
+        import numpy as np
+        import scipy
+        import scipy.linalg
+        import scipy.special
+        import scipy.stats
 
         restricted_globals['re'] = re_module
         restricted_globals['json'] = json_module
@@ -359,6 +374,14 @@ class ToolSandbox:
         restricted_globals['itertools'] = itertools
         restricted_globals['functools'] = functools
         restricted_globals['hashlib'] = hashlib_module
+        
+        # QIG-essential libraries for geometric tools
+        restricted_globals['numpy'] = np
+        restricted_globals['np'] = np  # Common alias
+        restricted_globals['scipy'] = scipy
+        restricted_globals['scipy.linalg'] = scipy.linalg
+        restricted_globals['scipy.special'] = scipy.special
+        restricted_globals['scipy.stats'] = scipy.stats
 
         try:
             exec(code, restricted_globals)
