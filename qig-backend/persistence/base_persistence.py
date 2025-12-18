@@ -23,10 +23,45 @@ except ImportError:
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
+    from psycopg2 import pool
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     PSYCOPG2_AVAILABLE = False
+    pool = None
     print("[Persistence] psycopg2 not available - persistence disabled")
+
+
+# Global connection pool - shared across all persistence instances
+_connection_pool = None
+_pool_min_conn = 2
+_pool_max_conn = 10  # Conservative limit for Neon serverless
+
+
+def get_connection_pool():
+    """Get or create the global connection pool."""
+    global _connection_pool
+    
+    if not PSYCOPG2_AVAILABLE or pool is None:
+        return None
+    
+    if _connection_pool is not None:
+        return _connection_pool
+    
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        return None
+    
+    try:
+        _connection_pool = pool.ThreadedConnectionPool(
+            _pool_min_conn,
+            _pool_max_conn,
+            database_url
+        )
+        print(f"[Persistence] Connection pool initialized (min={_pool_min_conn}, max={_pool_max_conn})")
+        return _connection_pool
+    except Exception as e:
+        print(f"[Persistence] Failed to create connection pool: {e}")
+        return None
 
 
 class BasePersistence:
@@ -38,7 +73,11 @@ class BasePersistence:
 
     @contextmanager
     def get_connection(self):
-        """Context manager for database connections with auto-cleanup."""
+        """Context manager for database connections with auto-cleanup.
+        
+        Uses connection pool when available for better performance
+        and to prevent connection exhaustion in production.
+        """
         if not PSYCOPG2_AVAILABLE:
             yield None
             return
@@ -49,8 +88,15 @@ class BasePersistence:
             return
 
         conn = None
+        conn_pool = get_connection_pool()
+        use_pool = conn_pool is not None
+        
         try:
-            conn = psycopg2.connect(self.database_url)
+            if use_pool:
+                conn = conn_pool.getconn()
+            else:
+                # Fallback to direct connection if pool not available
+                conn = psycopg2.connect(self.database_url)
             yield conn
             conn.commit()
         except Exception as e:
@@ -60,7 +106,10 @@ class BasePersistence:
             yield None
         finally:
             if conn:
-                conn.close()
+                if use_pool and conn_pool:
+                    conn_pool.putconn(conn)
+                else:
+                    conn.close()
 
     @contextmanager
     def get_cursor(self, dict_cursor: bool = True):
