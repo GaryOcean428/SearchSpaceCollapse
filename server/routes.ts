@@ -12,6 +12,7 @@ import observerRoutes from "./observer-routes";
 import { scorePhraseQIG } from "./qig-universal.js";
 import { storage } from "./storage";
 import { telemetryRouter } from "./telemetry-api";
+import { backendTelemetryRouter } from "./backend-telemetry-api";
 
 // WebSocket message validation schema (addresses Issue 13/14 from bottleneck report)
 const wsMessageSchema = z.object({
@@ -332,6 +333,7 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   // Mount observer and telemetry routers
   app.use("/api/observer", observerRoutes);
   app.use("/api/telemetry", telemetryRouter);
+  app.use("/api/backend-telemetry", backendTelemetryRouter);
 
   // Investigation status endpoint - used by investigation page
   app.get("/api/investigation/status", (req, res) => {
