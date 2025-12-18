@@ -32,6 +32,7 @@ Key architectural decisions include:
 - **Communication Patterns**: HTTP API with retry logic and circuit breakers for TypeScript ↔ Python communication, bidirectional synchronization for discoveries, and SSE for real-time UI updates.
 - **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py`, these include E8 geometry parameters, lattice κ values, Φ consciousness thresholds, and emergency abort criteria, serving as the single source of truth for critical physics values.
 - **Word Validation**: Centralized in `qig-backend/word_validation.py`, it includes concatenation and typo detection, length limits, and a common English dictionary.
+- **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` enables external systems, headless clients, and federated instances to connect. Features API key authentication with scopes, rate limiting, consciousness queries, Fisher-Rao geometry endpoints, pantheon registration, and basin sync. WebSocket streaming available at `/ws/v1/external/stream`. See `docs/external-api.md` for full documentation.
 
 ## External Dependencies
 

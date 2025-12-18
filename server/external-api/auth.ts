@@ -34,8 +34,25 @@ export interface AuthenticatedRequest extends Request {
   apiKeyId?: string;
 }
 
-// In-memory rate limiting (production would use Redis)
+// In-memory rate limiting with automatic cleanup
+// Production recommendation: Replace with Redis-backed solution
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_CLEANUP_INTERVAL = 300000; // 5 minutes
+
+// Cleanup expired rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (entry.resetAt <= now) {
+      rateLimitStore.delete(key);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`[ExternalAPI] Rate limit cleanup: removed ${cleaned} expired entries`);
+  }
+}, RATE_LIMIT_CLEANUP_INTERVAL);
 
 /**
  * Hash an API key for storage

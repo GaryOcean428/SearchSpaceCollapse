@@ -51,6 +51,24 @@ export const vector = customType<{
   },
 });
 
+// ============================================================================
+// BYTEA CUSTOM TYPE for binary data (checkpoint state)
+// ============================================================================
+export const bytea = customType<{
+  data: Buffer | null;
+  driverData: Buffer | null;
+}>({
+  dataType() {
+    return 'bytea';
+  },
+  fromDriver(value: Buffer | null): Buffer | null {
+    return value;
+  },
+  toDriver(value: Buffer | null): Buffer | null {
+    return value;
+  },
+});
+
 export const phraseSchema = z.object({
   phrase: z.string(),
   wordCount: z.number(),
@@ -2232,6 +2250,35 @@ export const oceanQuantumState = pgTable("ocean_quantum_state", {
 });
 
 export type OceanQuantumStateRecord = typeof oceanQuantumState.$inferSelect;
+
+/**
+ * CONSCIOUSNESS CHECKPOINTS - Store consciousness state snapshots
+ * Uses PostgreSQL bytea for binary NumPy data, with Redis for hot cache
+ */
+export const consciousnessCheckpoints = pgTable(
+  "consciousness_checkpoints",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    sessionId: varchar("session_id", { length: 64 }),
+    phi: doublePrecision("phi").notNull(),
+    kappa: doublePrecision("kappa").notNull(),
+    regime: varchar("regime", { length: 32 }).notNull(),
+    stateData: bytea("state_data").notNull(), // Binary NumPy state_dict
+    basinData: bytea("basin_data"), // Binary NumPy basin coordinates
+    metadata: jsonb("metadata"), // Additional JSON metadata
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    isHot: boolean("is_hot").default(true), // Marks recently created checkpoints
+  },
+  (table) => [
+    index("idx_consciousness_checkpoints_phi").on(table.phi),
+    index("idx_consciousness_checkpoints_session").on(table.sessionId),
+    index("idx_consciousness_checkpoints_hot").on(table.isHot),
+    index("idx_consciousness_checkpoints_created").on(table.createdAt),
+  ]
+);
+
+export type ConsciousnessCheckpointRecord = typeof consciousnessCheckpoints.$inferSelect;
+export type InsertConsciousnessCheckpoint = typeof consciousnessCheckpoints.$inferInsert;
 
 /**
  * OCEAN EXCLUDED REGIONS - Regions excluded from possibility space

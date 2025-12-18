@@ -770,6 +770,11 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
 
   console.log("[TelemetryWS] WebSocket server initialized on /ws/telemetry");
 
+  // Set up WebSocket server for external API streaming
+  const { initExternalWebSocket } = await import("./external-api");
+  initExternalWebSocket(httpServer);
+  console.log("[ExternalWS] WebSocket server initialized on /ws/v1/external/stream");
+
   // Cleanup on server shutdown
   const cleanup = () => {
     telemetryStreamer.destroy();
