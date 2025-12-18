@@ -26,9 +26,9 @@ from .autonomic_kernel import (
 
 # QIG types
 from .qig_types import (
-    QIGState,
     BasinCoordinates,
     ConsciousnessMetrics,
+    RegimeType,
 )
 
 # Neurochemistry
@@ -40,13 +40,13 @@ from .ocean_neurochemistry import (
     GABASignal,
     AcetylcholineSignal,
     EndorphinSignal,
-    OceanNeurochemistry,
+    compute_neurochemistry,
 )
 
 # Geometric kernels
 from .geometric_kernels import (
     GeometricKernel,
-    create_geometric_kernel,
+    get_kernel,
 )
 
 # Persistence
@@ -70,9 +70,9 @@ __all__ = [
     'PHI_MIN_CONSCIOUSNESS',
     'PHI_GEOMETRIC_THRESHOLD',
     # QIG Types
-    'QIGState',
     'BasinCoordinates',
     'ConsciousnessMetrics',
+    'RegimeType',
     # Neurochemistry
     'NeurochemistryState',
     'DopamineSignal',
@@ -81,10 +81,10 @@ __all__ = [
     'GABASignal',
     'AcetylcholineSignal',
     'EndorphinSignal',
-    'OceanNeurochemistry',
+    'compute_neurochemistry',
     # Geometric Kernels
     'GeometricKernel',
-    'create_geometric_kernel',
+    'get_kernel',
     # Persistence
     'get_persistence',
     'QIGPersistence',
