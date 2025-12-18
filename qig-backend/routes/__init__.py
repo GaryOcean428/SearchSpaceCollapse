@@ -914,6 +914,24 @@ def safety_check():
         return RouteResponse.server_error(e)
 
 
+_integrated_monitor_instance = None
+
+
+def get_integrated_monitor():
+    """Get or create singleton IntegratedMonitor instance."""
+    global _integrated_monitor_instance
+    if _integrated_monitor_instance is None:
+        from emergency_telemetry import create_monitor
+        _integrated_monitor_instance = create_monitor()
+    return _integrated_monitor_instance
+
+
+def set_integrated_monitor(monitor):
+    """Set the shared IntegratedMonitor instance (called by main process)."""
+    global _integrated_monitor_instance
+    _integrated_monitor_instance = monitor
+
+
 @safety_bp.route('/abort', methods=['POST'])
 def safety_abort():
     """
@@ -927,14 +945,14 @@ def safety_abort():
         data = request.get_json() or {}
         reason = data.get('reason', 'Manual abort requested')
         
-        from emergency_telemetry import IntegratedMonitor
-        monitor = IntegratedMonitor()
+        monitor = get_integrated_monitor()
         monitor.abort_handler.trigger_abort(reason)
         
         return RouteResponse.success({
             'aborted': True,
             'reason': reason,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'abort_status': monitor.get_stats().get('abort_status', {})
         }, message='Emergency abort triggered')
     except Exception as e:
         return RouteResponse.server_error(e)
@@ -983,6 +1001,8 @@ __all__ = [
     'beta_attention_bp',
     'tool_factory_bp',
     'safety_bp',
+    'get_integrated_monitor',
+    'set_integrated_monitor',
     'CACHE_TTL_SHORT',
     'CACHE_TTL_MEDIUM',
 ]
