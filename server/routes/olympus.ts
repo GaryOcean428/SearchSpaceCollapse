@@ -1266,7 +1266,13 @@ router.get('/m8/proposals', isAuthenticated, async (req, res) => {
     }
     
     const data = await response.json();
-    res.json(data);
+    // Transform Python response to match frontend expected format
+    // Python returns { proposals, count, filter } but frontend expects { proposals, total, status_filter }
+    res.json({
+      proposals: data.proposals || [],
+      total: data.count ?? data.total ?? (data.proposals?.length || 0),
+      status_filter: data.filter ?? data.status_filter ?? null,
+    });
   } catch (error) {
     console.error('[Olympus] M8 proposals error:', error);
     res.json({ proposals: [], total: 0, status_filter: null });
