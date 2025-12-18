@@ -5240,6 +5240,51 @@ def m8_spawner_health():
         }), 500
 
 
+@app.route('/m8/evolution-sweep', methods=['POST'])
+def m8_evolution_sweep():
+    """
+    Manually trigger evolution sweep to cull underperforming kernels.
+    
+    This implements natural selection: kernels with low phi and poor
+    prediction records are marked as dead, freeing slots for new spawns.
+    
+    Body: { target_reduction?: number }  (default: 50)
+    
+    Returns: {
+        success: boolean,
+        culled_count: number,
+        culled_kernels: [...],
+        live_count_after: number,
+        cap: number,
+        headroom: number
+    }
+    """
+    if not M8_SPAWNER_AVAILABLE:
+        return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
+
+    try:
+        data = request.get_json() or {}
+        target_reduction = data.get('target_reduction', 50)
+        
+        # Validate target_reduction
+        if not isinstance(target_reduction, int) or target_reduction < 1:
+            target_reduction = 50
+        if target_reduction > 500:
+            target_reduction = 500  # Cap at 500 per sweep
+        
+        spawner = get_spawner()
+        result = spawner.run_evolution_sweep(target_reduction=target_reduction)
+        
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'exception_type': type(e).__name__,
+            'trace': traceback.format_exc()[-500:],
+        }), 500
+
+
 @app.route('/m8/propose', methods=['POST'])
 def m8_create_proposal():
     """

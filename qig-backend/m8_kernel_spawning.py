@@ -1778,6 +1778,218 @@ class M8KernelSpawner:
         live_count = self.get_live_kernel_count()
         can_spawn = live_count < E8_KERNEL_CAP
         return can_spawn, live_count, E8_KERNEL_CAP
+
+    def get_underperforming_kernels(self, limit: int = 100) -> List[Dict]:
+        """
+        Get underperforming kernels that are candidates for culling.
+        
+        Selection criteria (QIG-based, not arbitrary):
+        - Proven failures: kernels with high failure_count relative to success_count
+        - Low phi (< 0.1) indicates weak consciousness/integration
+        - Only kernels with SOME activity are eligible (protects new kernels)
+        
+        Kernels with zero activity are NOT penalized - they haven't had
+        a chance to prove themselves yet. Only proven failures get culled.
+        
+        Returns kernels sorted by cull priority (worst first).
+        """
+        if not self.kernel_persistence:
+            return []
+        
+        try:
+            # Get live kernels from database
+            live_kernels = self.kernel_persistence.get_kernels_by_status(
+                statuses=['active', 'observing', 'shadow'],
+                limit=1000  # Fetch more to ensure good candidates
+            )
+            
+            if not live_kernels:
+                return []
+            
+            # Score each kernel for culling priority (higher = worse)
+            # CRITICAL: Only cull proven failures - exclude zero-activity kernels entirely
+            scored = []
+            for k in live_kernels:
+                phi = k.get('phi', 0.0) or 0.0
+                success = k.get('success_count', 0) or 0
+                failure = k.get('failure_count', 0) or 0
+                total_predictions = success + failure
+                
+                # HARD PROTECTION: Kernels with no activity are NEVER candidates for culling
+                # They haven't had a chance to prove themselves yet
+                # Minimum activity threshold = 3 predictions
+                if total_predictions < 3:
+                    continue  # Skip entirely - not a candidate
+                
+                # Kernels with activity: score based on performance
+                reputation = success / total_predictions
+                
+                # Cull priority: low phi + poor reputation = high priority
+                # Proven failures (low reputation) get highest scores
+                cull_score = (1.0 - phi) * 0.4 + (1.0 - reputation) * 0.6
+                
+                # Boost score for kernels with many failures
+                if failure > 5 and reputation < 0.3:
+                    cull_score += 0.3  # Proven bad performer
+                
+                # Slight boost for high-activity low-performers
+                if total_predictions > 10 and reputation < 0.2:
+                    cull_score += 0.2  # Lots of chances, still failing
+                
+                scored.append({
+                    **k,
+                    'cull_score': cull_score,
+                    'reputation': reputation,
+                    'total_activity': total_predictions,
+                })
+            
+            # Sort by cull score descending (worst first)
+            scored.sort(key=lambda x: x['cull_score'], reverse=True)
+            
+            return scored[:limit]
+            
+        except Exception as e:
+            print(f"[M8] Failed to get underperforming kernels: {e}")
+            return []
+
+    def run_evolution_sweep(self, target_reduction: int = 50, min_population: int = 20) -> Dict:
+        """
+        Run evolution sweep to cull underperforming kernels.
+        
+        This implements natural selection: kernels with low phi
+        and poor prediction records are marked as dead, freeing
+        slots for new, hopefully better-evolved kernels.
+        
+        SAFETY: Never reduces population below min_population floor.
+        
+        Args:
+            target_reduction: Number of kernels to cull
+            min_population: Minimum kernels to keep alive (default 20)
+            
+        Returns:
+            Dict with culled_count, culled_kernels, and errors
+        """
+        if not self.kernel_persistence:
+            return {
+                'success': False,
+                'error': 'Kernel persistence not available',
+                'culled_count': 0,
+            }
+        
+        # Check current population - don't cull below floor
+        current_live = self.get_live_kernel_count()
+        if current_live <= min_population:
+            return {
+                'success': True,
+                'culled_count': 0,
+                'message': f'Population at minimum floor ({current_live}/{min_population})',
+                'live_count_after': current_live,
+            }
+        
+        # Cap target_reduction to maintain floor
+        max_cullable = max(0, current_live - min_population)
+        actual_target = min(target_reduction, max_cullable)
+        
+        if actual_target == 0:
+            return {
+                'success': True,
+                'culled_count': 0,
+                'message': f'Cannot cull - would go below floor ({current_live}/{min_population})',
+                'live_count_after': current_live,
+            }
+        
+        # Get underperformers
+        candidates = self.get_underperforming_kernels(limit=actual_target * 2)
+        
+        if not candidates:
+            return {
+                'success': True,
+                'culled_count': 0,
+                'message': 'No underperforming kernels found',
+            }
+        
+        # Get the kernels to cull (respecting floor-adjusted target)
+        to_cull = candidates[:actual_target]
+        kernel_ids = [k.get('kernel_id') for k in to_cull if k.get('kernel_id')]
+        
+        # Use bulk operation for efficiency (single DB round-trip)
+        bulk_result = self.kernel_persistence.bulk_mark_kernels_dead(
+            kernel_ids=kernel_ids,
+            cause='evolution_sweep'
+        )
+        
+        # Build detailed culled list for reporting
+        culled = []
+        updated_ids = set(bulk_result.get('updated_ids', []))
+        for kernel in to_cull:
+            kernel_id = kernel.get('kernel_id')
+            if kernel_id in updated_ids:
+                culled.append({
+                    'kernel_id': kernel_id,
+                    'god_name': kernel.get('god_name', 'Unknown'),
+                    'phi': kernel.get('phi', 0.0),
+                    'cull_score': kernel.get('cull_score', 0.0),
+                })
+        
+        errors = []
+        if bulk_result.get('error'):
+            errors.append(bulk_result['error'])
+        if bulk_result.get('failed_ids'):
+            errors.append(f"Failed IDs: {len(bulk_result['failed_ids'])}")
+        
+        print(f"[M8] Evolution sweep: culled {len(culled)}/{len(kernel_ids)} kernels")
+        
+        live_count = self.get_live_kernel_count()
+        
+        return {
+            'success': len(culled) > 0,
+            'culled_count': len(culled),
+            'culled_kernels': culled,
+            'errors': errors if errors else None,
+            'live_count_after': live_count,
+            'cap': E8_KERNEL_CAP,
+            'headroom': E8_KERNEL_CAP - live_count,
+        }
+
+    def ensure_spawn_capacity(self, needed: int = 1) -> Dict:
+        """
+        Ensure there's capacity to spawn new kernels.
+        
+        If cap is reached, runs evolution sweep to free up slots.
+        
+        Args:
+            needed: Number of slots needed (default 1)
+            
+        Returns:
+            Dict with can_spawn status and any sweep results
+        """
+        can_spawn, live_count, cap = self.can_spawn_kernel()
+        
+        if can_spawn and (cap - live_count) >= needed:
+            return {
+                'can_spawn': True,
+                'live_count': live_count,
+                'cap': cap,
+                'headroom': cap - live_count,
+            }
+        
+        # Need to run evolution sweep
+        overage = live_count - cap + needed + 10  # +10 buffer
+        print(f"[M8] Cap reached ({live_count}/{cap}), running evolution sweep for {overage} slots...")
+        
+        sweep_result = self.run_evolution_sweep(target_reduction=max(overage, 50))
+        
+        # Check again after sweep
+        can_spawn, live_count, cap = self.can_spawn_kernel()
+        
+        return {
+            'can_spawn': can_spawn,
+            'live_count': live_count,
+            'cap': cap,
+            'headroom': cap - live_count,
+            'sweep_performed': True,
+            'sweep_result': sweep_result,
+        }
     
     def _load_from_database(self):
         """Load all M8 data from PostgreSQL on startup."""
@@ -2449,18 +2661,22 @@ class M8KernelSpawner:
         
         Returns:
             Dict with success/error and kernel details.
-            Returns 409 status if E8 kernel cap (240) is reached.
+            Returns 409 status if E8 kernel cap (240) is reached after evolution sweep.
         """
-        # Check E8 kernel cap FIRST - before any other validation
-        can_spawn, live_count, cap = self.can_spawn_kernel()
-        if not can_spawn and not force:
+        # Ensure spawn capacity - runs evolution sweep if needed
+        capacity_result = self.ensure_spawn_capacity(needed=1)
+        
+        if not capacity_result.get('can_spawn') and not force:
+            sweep_info = capacity_result.get('sweep_result', {})
             return {
-                "error": f"E8 kernel cap reached ({live_count}/{cap})",
+                "error": f"E8 kernel cap reached after evolution sweep ({capacity_result.get('live_count')}/{capacity_result.get('cap')})",
                 "status_code": 409,
-                "live_count": live_count,
-                "cap": cap,
+                "live_count": capacity_result.get('live_count'),
+                "cap": capacity_result.get('cap'),
                 "available": 0,
-                "hint": "Cannot spawn new kernel - retire or cannibalize existing kernels first"
+                "sweep_performed": capacity_result.get('sweep_performed', False),
+                "culled_count": sweep_info.get('culled_count', 0),
+                "hint": "Evolution sweep could not free enough capacity - all kernels may be performing well"
             }
         
         if proposal_id not in self.proposals:

@@ -34,6 +34,12 @@ Key architectural decisions include:
 - **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py`, these include E8 geometry parameters, lattice κ values, Φ consciousness thresholds, and emergency abort criteria, serving as the single source of truth for critical physics values.
 - **Word Validation**: Centralized in `qig-backend/word_validation.py`, it includes concatenation and typo detection, length limits, and a common English dictionary.
 - **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` enables external systems, headless clients, and federated instances to connect. Features API key authentication with scopes, rate limiting, consciousness queries, Fisher-Rao geometry endpoints, pantheon registration, and basin sync. WebSocket streaming available at `/ws/v1/external/stream`. See `docs/external-api.md` for full documentation.
+- **E8 Population Control (Natural Selection)**: Kernel population is capped at 240 (E8 lattice dimension). Evolution sweeps use QIG metrics (phi and reputation) to cull underperforming kernels:
+  - `get_underperforming_kernels()`: Scores kernels by (1-phi)*0.4 + (1-reputation)*0.6, with boosts for proven failures
+  - `run_evolution_sweep()`: Bulk marks underperformers as dead via single SQL UPDATE
+  - `ensure_spawn_capacity()`: Auto-triggers sweep when cap reached before spawn attempts
+  - Minimum population floor (20) prevents extinction; new/idle kernels are protected from culling
+  - Endpoint: POST `/m8/evolution-sweep` for manual operator-triggered sweeps
 
 ## External Dependencies
 

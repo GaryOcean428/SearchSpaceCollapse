@@ -881,6 +881,56 @@ class KernelPersistence(BasePersistence):
             print(f"[KernelPersistence] Failed to mark kernel dead: {e}")
             return False
 
+    def bulk_mark_kernels_dead(self, kernel_ids: List[str], cause: str = 'evolution_sweep') -> Dict:
+        """
+        Bulk mark multiple kernels as dead in a single database transaction.
+        
+        Much faster than individual mark_kernel_dead calls for evolution sweeps.
+        
+        Args:
+            kernel_ids: List of kernel IDs to mark as dead
+            cause: Death cause for logging
+            
+        Returns:
+            Dict with success count, failed IDs, and any errors
+        """
+        if not kernel_ids:
+            return {'success_count': 0, 'failed_ids': [], 'error': None}
+        
+        now = datetime.utcnow().isoformat()
+        
+        # Use a single UPDATE with IN clause for efficiency
+        query = """
+            UPDATE kernel_geometry
+            SET status = 'dead',
+                metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+                    'retired_at', %s,
+                    'death_cause', %s
+                )
+            WHERE kernel_id = ANY(%s)
+            RETURNING kernel_id
+        """
+        try:
+            result = self.execute_query(query, (now, cause, kernel_ids), fetch=True)
+            updated_ids = [r['kernel_id'] for r in (result or [])]
+            failed_ids = [kid for kid in kernel_ids if kid not in updated_ids]
+            
+            print(f"[KernelPersistence] Bulk marked {len(updated_ids)}/{len(kernel_ids)} kernels as dead")
+            
+            return {
+                'success_count': len(updated_ids),
+                'updated_ids': updated_ids,
+                'failed_ids': failed_ids,
+                'error': None,
+            }
+        except Exception as e:
+            print(f"[KernelPersistence] Bulk mark dead failed: {e}")
+            return {
+                'success_count': 0,
+                'failed_ids': kernel_ids,
+                'error': str(e),
+            }
+
     def mark_kernel_cannibalized(self, kernel_id: str, merged_into: str) -> bool:
         """
         Mark a kernel as cannibalized (merged into another kernel).
