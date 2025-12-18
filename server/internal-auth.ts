@@ -5,6 +5,7 @@
  * internal API calls between Python and TypeScript backends.
  * 
  * Security: Internal API key validated via X-Internal-Key header.
+ * No hardcoded fallbacks in production - fail fast if missing.
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -12,9 +13,33 @@ import { Request, Response, NextFunction } from 'express';
 const INTERNAL_KEY_HEADER = 'x-internal-key';
 
 /**
+ * Custom error for missing internal API key in production.
+ */
+export class InternalAPIKeyMissingError extends Error {
+  constructor() {
+    super(
+      'INTERNAL_API_KEY must be set in production! ' +
+      'Set this secret in your environment variables.'
+    );
+    this.name = 'InternalAPIKeyMissingError';
+  }
+}
+
+/**
+ * Check if running in production environment.
+ */
+export function isProduction(): boolean {
+  return Boolean(process.env.REPLIT_DEPLOYMENT);
+}
+
+/**
  * Get the expected internal API key from environment.
  * 
  * @returns The internal API key
+ * @throws InternalAPIKeyMissingError in production when key is not set
+ * 
+ * Note: In production, INTERNAL_API_KEY MUST be set - no fallback allowed.
+ * Dev fallback only used in local development environments.
  */
 export function getInternalApiKey(): string {
   const key = process.env.INTERNAL_API_KEY;
@@ -22,10 +47,12 @@ export function getInternalApiKey(): string {
     return key;
   }
   
-  if (process.env.REPLIT_DEPLOYMENT) {
-    console.warn('[InternalAuth] INTERNAL_API_KEY not set in production!');
+  // In production, fail fast - no dev fallback allowed
+  if (isProduction()) {
+    throw new InternalAPIKeyMissingError();
   }
   
+  // Only allow dev fallback in local development
   return 'olympus-internal-key-dev';
 }
 

@@ -1,37 +1,4 @@
 {
-  "checkpoint_20251218_061242_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061242_0.981",
-    "timestamp": "2025-12-18T06:12:42.723227",
-    "phi": 0.9811044267733351,
-    "kappa": 31.270833333333336,
-    "regime": "linear",
-    "metadata": {
-      "n_recursions": 4,
-      "converged": true
-    }
-  },
-  "checkpoint_20251218_061246_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061246_0.981",
-    "timestamp": "2025-12-18T06:12:46.219881",
-    "phi": 0.9811644033309739,
-    "kappa": 31.270833333333336,
-    "regime": "linear",
-    "metadata": {
-      "n_recursions": 4,
-      "converged": true
-    }
-  },
-  "checkpoint_20251218_061250_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061250_0.981",
-    "timestamp": "2025-12-18T06:12:50.409371",
-    "phi": 0.9812135180287433,
-    "kappa": 31.270833333333336,
-    "regime": "linear",
-    "metadata": {
-      "n_recursions": 4,
-      "converged": true
-    }
-  },
   "checkpoint_20251218_061254_0.981": {
     "checkpoint_id": "checkpoint_20251218_061254_0.981",
     "timestamp": "2025-12-18T06:12:54.090271",
@@ -102,6 +69,39 @@
     "checkpoint_id": "checkpoint_20251218_061314_0.981",
     "timestamp": "2025-12-18T06:13:14.308601",
     "phi": 0.9813811879249348,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "metadata": {
+      "n_recursions": 4,
+      "converged": true
+    }
+  },
+  "checkpoint_20251218_062449_0.981": {
+    "checkpoint_id": "checkpoint_20251218_062449_0.981",
+    "timestamp": "2025-12-18T06:24:49.372700",
+    "phi": 0.9812318286647537,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "metadata": {
+      "n_recursions": 4,
+      "converged": true
+    }
+  },
+  "checkpoint_20251218_062452_0.981": {
+    "checkpoint_id": "checkpoint_20251218_062452_0.981",
+    "timestamp": "2025-12-18T06:24:52.610313",
+    "phi": 0.9812687652805074,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "metadata": {
+      "n_recursions": 4,
+      "converged": true
+    }
+  },
+  "checkpoint_20251218_062456_0.981": {
+    "checkpoint_id": "checkpoint_20251218_062456_0.981",
+    "timestamp": "2025-12-18T06:24:56.039048",
+    "phi": 0.9813105257714454,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {
