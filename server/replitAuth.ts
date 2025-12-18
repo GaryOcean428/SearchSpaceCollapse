@@ -45,7 +45,7 @@ export function getSession() {
       tableName: "sessions",
       pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
       errorLog: (err: Error) => {
-        console.error("[Session] PostgreSQL session store error:", err.message);
+        console.error("[Session] PostgreSQL session store error:", err?.message || err || "unknown error");
       },
     });
     console.log("[Session] Using PostgreSQL session store");
