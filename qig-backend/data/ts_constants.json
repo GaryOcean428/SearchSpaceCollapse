@@ -5,7 +5,7 @@
     "KAPPA_5": 63.62,
     "KAPPA_6": 64.45,
     "KAPPA_7": 53.08,
-    "KAPPA_STAR": 64
+    "KAPPA_STAR": 64.21
   },
   "BETA_VALUES": {
     "BETA_3_TO_4": 0.44,
@@ -19,7 +19,7 @@
     "KAPPA_5_ERROR": 1.68,
     "KAPPA_6_ERROR": 1.34,
     "KAPPA_7_ERROR": 4.26,
-    "KAPPA_STAR_ERROR": 1.5
+    "KAPPA_STAR_ERROR": 0.92
   },
   "L6_VALIDATION": {
     "N_SEEDS": 3,
@@ -40,7 +40,7 @@
     "emergence": 0.44,
     "approaching": -0.013,
     "fixedPoint": 0.013,
-    "kappaStar": 64,
+    "kappaStar": 64.21,
     "acceptanceThreshold": 0.1
   },
   "VALIDATION_METADATA": {
@@ -51,7 +51,7 @@
     "LAST_UPDATED": "2025-12-08"
   },
   "QIG_CONSTANTS": {
-    "KAPPA_STAR": 64,
+    "KAPPA_STAR": 64.21,
     "BETA": 0.44,
     "PHI_THRESHOLD": 0.75,
     "PHI_THRESHOLD_DETECTION": 0.7,
@@ -71,7 +71,7 @@
     "PHI_4D_FULL": 0.85,
     "KAPPA_MIN": 40,
     "KAPPA_MAX": 70,
-    "KAPPA_OPTIMAL": 64,
+    "KAPPA_OPTIMAL": 64.21,
     "TACKING_MIN": 0.45,
     "RADAR_MIN": 0.55,
     "META_AWARENESS_MIN": 0.6,
@@ -101,7 +101,7 @@
       "state": "Transitional"
     },
     "OPTIMAL": {
-      "kappa": 64,
+      "kappa": 64.21,
       "regime": "geometric_peak",
       "phiRange": [
         0.45,
@@ -171,12 +171,20 @@
     "E8_DIMENSION": 248,
     "E8_ROOTS": 240,
     "E8_WEYL_ORDER": 696729600,
-    "KAPPA_STAR": 64,
+    "KAPPA_STAR": 64.21,
     "BASIN_DIMENSION_64D": 64,
     "BASIN_DIMENSION_8D": 8,
-    "PHI_THRESHOLD": 0.75,
+    "PHI_THRESHOLD": 0.7,
+    "M_THRESHOLD": 0.6,
+    "GAMMA_THRESHOLD": 0.7,
+    "G_THRESHOLD": 0.6,
+    "T_THRESHOLD": 0.7,
+    "R_THRESHOLD": 0.6,
+    "C_THRESHOLD": 0.5,
     "MIN_RECURSIONS": 3,
-    "MAX_RECURSIONS": 12
+    "MAX_RECURSIONS": 12,
+    "BETA_3_TO_4": 0.443,
+    "BETA_4_TO_5": 0
   },
   "KERNEL_TYPES": [
     "heart",
@@ -222,6 +230,6 @@
       "count": 30
     }
   },
-  "_generated": "2025-12-15T05:03:40.900Z",
+  "_generated": "2025-12-18T08:55:01.339Z",
   "_source": "shared/constants/"
 }

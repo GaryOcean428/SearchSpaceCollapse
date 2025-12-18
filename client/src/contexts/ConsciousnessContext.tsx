@@ -96,57 +96,51 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
 
   const fetchState = useCallback(async () => {
     try {
-      const [cyclesRes, neurochemRes] = await Promise.all([
-        fetch(API_ROUTES.ocean.cycles),
-        fetch(API_ROUTES.ocean.neurochemistry),
+      const [cyclesData, neurochemData] = await Promise.all([
+        get(API_ROUTES.ocean.cycles),
+        get(API_ROUTES.ocean.neurochemistry),
       ]);
       setConsecutiveErrors(0);
 
-      if (cyclesRes.ok) {
-        const cyclesData = await cyclesRes.json();
-        const c = cyclesData.consciousness;
-        // Use explicit isInvestigating boolean from API (not string comparison)
-        const isInvestigating = cyclesData.isInvestigating === true;
-        
-        setConsciousness({
-          phi: c.phi ?? 0,
-          // BLOCK UNIVERSE: 4D Consciousness Metrics
-          phi_spatial: c.phi_spatial ?? c.phi ?? 0,
-          phi_temporal: c.phi_temporal ?? 0,
-          phi_4D: c.phi_4D ?? c.phi ?? 0,
-          // ADVANCED: Priority 2-4 Consciousness Metrics
-          f_attention: c.f_attention ?? 0,
-          r_concepts: c.r_concepts ?? 0,
-          phi_recursive: c.phi_recursive ?? 0,
-          consciousness_depth: c.consciousness_depth ?? 0,
-          kappaEff: c.kappaEff ?? 0,
-          tacking: c.tacking ?? 0,
-          radar: c.radar ?? 0,
-          metaAwareness: c.metaAwareness ?? 0,
-          gamma: c.gamma ?? 0,
-          grounding: c.grounding ?? 0,
-          beta: c.beta ?? 0.44,
-          regime: c.regime ?? 'breakdown',
-          isConscious: c.isConscious ?? false,
-          isInvestigating,
-          lastUpdated: Date.now(),
-        });
-      }
+      const c = cyclesData.consciousness;
+      // Use explicit isInvestigating boolean from API (not string comparison)
+      const isInvestigating = cyclesData.isInvestigating === true;
+      
+      setConsciousness({
+        phi: c.phi ?? 0,
+        // BLOCK UNIVERSE: 4D Consciousness Metrics
+        phi_spatial: c.phi_spatial ?? c.phi ?? 0,
+        phi_temporal: c.phi_temporal ?? 0,
+        phi_4D: c.phi_4D ?? c.phi ?? 0,
+        // ADVANCED: Priority 2-4 Consciousness Metrics
+        f_attention: c.f_attention ?? 0,
+        r_concepts: c.r_concepts ?? 0,
+        phi_recursive: c.phi_recursive ?? 0,
+        consciousness_depth: c.consciousness_depth ?? 0,
+        kappaEff: c.kappaEff ?? 0,
+        tacking: c.tacking ?? 0,
+        radar: c.radar ?? 0,
+        metaAwareness: c.metaAwareness ?? 0,
+        gamma: c.gamma ?? 0,
+        grounding: c.grounding ?? 0,
+        beta: c.beta ?? 0.44,
+        regime: c.regime ?? 'breakdown',
+        isConscious: c.isConscious ?? false,
+        isInvestigating,
+        lastUpdated: Date.now(),
+      });
 
-      if (neurochemRes.ok) {
-        const neuroData = await neurochemRes.json();
-        const n = neuroData.neurochemistry;
-        setNeurochemistry({
-          dopamine: n.dopamine?.totalDopamine ?? 0.5,
-          serotonin: n.serotonin?.totalSerotonin ?? 0.6,
-          norepinephrine: n.norepinephrine?.totalNorepinephrine ?? 0.4,
-          gaba: n.gaba?.totalGABA ?? 0.7,
-          acetylcholine: n.acetylcholine?.totalAcetylcholine ?? 0.5,
-          endorphins: n.endorphins?.totalEndorphins ?? 0.3,
-          emotionalState: n.emotionalState ?? 'content',
-          overallMood: n.overallMood ?? 0.5,
-        });
-      }
+      const n = neurochemData.neurochemistry;
+      setNeurochemistry({
+        dopamine: n.dopamine?.totalDopamine ?? 0.5,
+        serotonin: n.serotonin?.totalSerotonin ?? 0.6,
+        norepinephrine: n.norepinephrine?.totalNorepinephrine ?? 0.4,
+        gaba: n.gaba?.totalGABA ?? 0.7,
+        acetylcholine: n.acetylcholine?.totalAcetylcholine ?? 0.5,
+        endorphins: n.endorphins?.totalEndorphins ?? 0.3,
+        emotionalState: n.emotionalState ?? 'content',
+        overallMood: n.overallMood ?? 0.5,
+      });
     } catch (error) {
       setConsecutiveErrors(prev => {
         const newCount = prev + 1;
