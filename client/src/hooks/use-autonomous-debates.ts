@@ -8,6 +8,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { API_ROUTES, QUERY_KEYS } from '@/api';
 
 export interface DebateServiceStatus {
   running: boolean;
@@ -98,7 +99,7 @@ export interface GraduateResponse {
 
 export function useDebateServiceStatus() {
   return useQuery<DebateServiceStatus>({
-    queryKey: ['/api/olympus/debates/status'],
+    queryKey: QUERY_KEYS.olympus.debatesStatus(),
     staleTime: 30000,
     refetchInterval: 30000,
   });
@@ -106,7 +107,7 @@ export function useDebateServiceStatus() {
 
 export function useActiveDebates() {
   return useQuery<ActiveDebatesResponse>({
-    queryKey: ['/api/olympus/debates/active'],
+    queryKey: QUERY_KEYS.olympus.debatesActive(),
     staleTime: 15000,
     refetchInterval: 15000,
   });
@@ -114,7 +115,7 @@ export function useActiveDebates() {
 
 export function useObservingKernels() {
   return useQuery<ObservingKernelsResponse>({
-    queryKey: ['/api/olympus/kernels/observing'],
+    queryKey: QUERY_KEYS.olympus.kernelsObserving(),
     staleTime: 30000,
     refetchInterval: 30000,
   });
@@ -122,7 +123,7 @@ export function useObservingKernels() {
 
 export function useAllKernels() {
   return useQuery<AllKernelsResponse>({
-    queryKey: ['/api/olympus/kernels/all'],
+    queryKey: QUERY_KEYS.olympus.kernelsAll(),
     staleTime: 30000,
     refetchInterval: 60000,
   });
@@ -139,8 +140,8 @@ export function useGraduateKernel() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/olympus/kernels/observing'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/olympus/kernels/all'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernelsObserving() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.kernelsAll() });
     },
   });
 }

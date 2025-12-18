@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { API_ROUTES, QUERY_KEYS } from "@/api";
 import { 
   Wrench, 
   Brain, 
@@ -157,43 +158,43 @@ export default function ToolFactoryDashboard() {
   const [testArgs, setTestArgs] = useState("{}");
 
   const { data: stats, isLoading: statsLoading } = useQuery<ToolFactoryStats>({
-    queryKey: ["/api/olympus/zeus/tools/stats"],
+    queryKey: QUERY_KEYS.olympus.toolsStats(),
     refetchInterval: 10000,
   });
 
   const { data: toolsData, isLoading: toolsLoading } = useQuery<{ tools: GeneratedTool[] }>({
-    queryKey: ["/api/olympus/zeus/tools"],
+    queryKey: QUERY_KEYS.olympus.toolsList(),
     refetchInterval: 15000,
   });
 
   const { data: patternsData, isLoading: patternsLoading } = useQuery<{ patterns: LearnedPattern[] }>({
-    queryKey: ["/api/olympus/zeus/tools/patterns"],
+    queryKey: QUERY_KEYS.olympus.toolsPatterns(),
     refetchInterval: 15000,
   });
 
   const { data: gitQueueData, isLoading: gitQueueLoading } = useQuery<GitQueueResponse>({
-    queryKey: ["/api/olympus/zeus/tools/learn/git/queue"],
+    queryKey: QUERY_KEYS.olympus.toolsLearnGitQueue(),
     refetchInterval: 5000,
   });
 
   const { data: pipelineStatusData } = useQuery<PipelineStatus>({
-    queryKey: ["/api/olympus/zeus/tools/pipeline/status"],
+    queryKey: QUERY_KEYS.olympus.toolsPipelineStatus(),
     refetchInterval: 5000,
   });
 
   const { data: pipelineRequestsData } = useQuery<PipelineRequestsResponse>({
-    queryKey: ["/api/olympus/zeus/tools/pipeline/requests"],
+    queryKey: QUERY_KEYS.olympus.toolsPipelineRequests(),
     refetchInterval: 5000,
   });
 
   const clearGitQueueMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/git/queue/clear", {});
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.learnGitQueueClear, {});
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Cleared completed items from queue" });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/learn/git/queue"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsLearnGitQueue() });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to clear queue", description: error.message, variant: "destructive" });
@@ -202,13 +203,13 @@ export default function ToolFactoryDashboard() {
 
   const learnTemplateMutation = useMutation({
     mutationFn: async (data: { description: string; code: string }) => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/template", data);
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.learnTemplate, data);
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Pattern learned from template" });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/patterns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/stats"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsPatterns() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsStats() });
       setTemplateDesc("");
       setTemplateCode("");
     },
@@ -219,13 +220,13 @@ export default function ToolFactoryDashboard() {
 
   const learnGitMutation = useMutation({
     mutationFn: async (data: { url: string; description: string; secret_key_name?: string }) => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/git", data);
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.learnGit, data);
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Git link queued for learning" });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/learn/git/queue"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsStats() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsLearnGitQueue() });
       setGitUrl("");
       setGitDesc("");
       setGitSecretKeyName("");
@@ -237,13 +238,13 @@ export default function ToolFactoryDashboard() {
 
   const learnFileMutation = useMutation({
     mutationFn: async (data: { content: string; description: string }) => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/file", data);
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.learnFile, data);
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Patterns extracted from file" });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/patterns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/stats"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsPatterns() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsStats() });
       setFileContent("");
       setFileDesc("");
     },
@@ -254,12 +255,12 @@ export default function ToolFactoryDashboard() {
 
   const proactiveSearchMutation = useMutation({
     mutationFn: async (topic: string) => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/learn/search", { topic });
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.learnSearch, { topic });
       return response.json();
     },
     onSuccess: (data) => {
       toast({ title: `Proactive learning initiated`, description: `${data.searches_queued} searches queued` });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/stats"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsStats() });
       setSearchTopic("");
     },
     onError: (error: Error) => {
@@ -269,7 +270,7 @@ export default function ToolFactoryDashboard() {
 
   const generateToolMutation = useMutation({
     mutationFn: async (data: { description: string; examples: Array<{ input: string; expected_output: string }> }) => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/generate", data);
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.generate, data);
       return response.json();
     },
     onSuccess: (data) => {
@@ -278,8 +279,8 @@ export default function ToolFactoryDashboard() {
       } else {
         toast({ title: "Tool generation failed", description: data.message, variant: "destructive" });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/stats"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsList() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsStats() });
       setGenerateDesc("");
       setGenerateExamples("");
     },
@@ -290,13 +291,13 @@ export default function ToolFactoryDashboard() {
 
   const pipelineRequestMutation = useMutation({
     mutationFn: async (data: { description: string; examples: Array<{ input: string; expected_output: string }> }) => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/pipeline/request", data);
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.pipelineRequest, data);
       return response.json();
     },
     onSuccess: (data) => {
       toast({ title: "Autonomous tool request submitted", description: `Request ID: ${data.request_id}` });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/status"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsPipelineRequests() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsPipelineStatus() });
       setGenerateDesc("");
       setGenerateExamples("");
     },
@@ -307,13 +308,13 @@ export default function ToolFactoryDashboard() {
 
   const inventToolMutation = useMutation({
     mutationFn: async (concept: string) => {
-      const response = await apiRequest("POST", "/api/olympus/zeus/tools/pipeline/invent", { concept });
+      const response = await apiRequest("POST", API_ROUTES.olympus.tools.pipelineInvent, { concept });
       return response.json();
     },
     onSuccess: (data) => {
       toast({ title: "Tool invention requested", description: `Request ID: ${data.request_id}` });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools/pipeline/status"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsPipelineRequests() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsPipelineStatus() });
       setInventConcept("");
     },
     onError: (error: Error) => {
@@ -323,7 +324,7 @@ export default function ToolFactoryDashboard() {
 
   const executeToolMutation = useMutation({
     mutationFn: async (data: { toolId: string; args: Record<string, unknown> }) => {
-      const response = await apiRequest("POST", `/api/olympus/zeus/tools/${data.toolId}/execute`, { args: data.args });
+      const response = await apiRequest("POST", `${API_ROUTES.olympus.tools.list}/${data.toolId}/execute`, { args: data.args });
       return response.json();
     },
     onSuccess: (data) => {
@@ -332,7 +333,7 @@ export default function ToolFactoryDashboard() {
       } else {
         toast({ title: "Execution failed", description: data.error, variant: "destructive" });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/olympus/zeus/tools"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.olympus.toolsList() });
     },
     onError: (error: Error) => {
       toast({ title: "Execution error", description: error.message, variant: "destructive" });

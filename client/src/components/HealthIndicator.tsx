@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Circle, Activity, AlertTriangle, XCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { get } from '@/api/client';
+import { API_ROUTES, QUERY_KEYS } from '@/api';
 
 interface SubsystemHealth {
   status: 'healthy' | 'degraded' | 'down';
@@ -33,8 +34,8 @@ const POLL_INTERVAL = 30000; // Poll every 30 seconds
 
 export function HealthIndicator() {
   const { data, isLoading, error } = useQuery<HealthCheckResponse>({
-    queryKey: ['/api/health'],
-    queryFn: () => get<HealthCheckResponse>('/api/health'),
+    queryKey: QUERY_KEYS.health(),
+    queryFn: () => get<HealthCheckResponse>(API_ROUTES.health),
     refetchInterval: POLL_INTERVAL,
     retry: 3,
     retryDelay: 5000,

@@ -366,7 +366,7 @@ export default function ObserverPage() {
     members: NearMissEntry[];
     timestamp: string;
   }>({
-    queryKey: ['/api/near-misses/cluster', selectedClusterId, 'members'],
+    queryKey: QUERY_KEYS.nearMisses.clusterMembers(selectedClusterId!),
     enabled: !!selectedClusterId,
     staleTime: 5000,
   });

@@ -198,6 +198,8 @@ export const API_ROUTES = {
       status: '/api/olympus/shadow/status',
       poll: '/api/olympus/shadow/poll',
       act: (god: string) => `/api/olympus/shadow/${god}/act`,
+      learning: '/api/olympus/shadow/learning',
+      foresight: '/api/olympus/shadow/foresight',
     },
     // Tool Factory
     tools: {
@@ -215,6 +217,7 @@ export const API_ROUTES = {
       pipelineRequests: '/api/olympus/zeus/tools/pipeline/requests',
       pipelineRequest: '/api/olympus/zeus/tools/pipeline/request',
       pipelineInvent: '/api/olympus/zeus/tools/pipeline/invent',
+      bridgeStatus: '/api/olympus/zeus/tools/bridge/status',
     },
     // Telemetry
     telemetry: {
@@ -398,6 +401,8 @@ export const QUERY_KEYS = {
     debatesStatus: () => [API_ROUTES.olympus.debatesStatus] as const,
     warActive: () => [API_ROUTES.olympus.warActive] as const,
     shadowStatus: () => [API_ROUTES.olympus.shadow.status] as const,
+    shadowLearning: () => [API_ROUTES.olympus.shadow.learning] as const,
+    shadowForesight: () => [API_ROUTES.olympus.shadow.foresight] as const,
     kernels: () => [API_ROUTES.olympus.kernels] as const,
     kernelsObserving: () => [API_ROUTES.olympus.kernelsObserving] as const,
     kernelsAll: () => [API_ROUTES.olympus.kernelsAll] as const,
@@ -411,6 +416,7 @@ export const QUERY_KEYS = {
     toolsLearnGitQueue: () => [API_ROUTES.olympus.tools.learnGitQueue] as const,
     toolsPipelineStatus: () => [API_ROUTES.olympus.tools.pipelineStatus] as const,
     toolsPipelineRequests: () => [API_ROUTES.olympus.tools.pipelineRequests] as const,
+    toolsBridgeStatus: () => [API_ROUTES.olympus.tools.bridgeStatus] as const,
     // Telemetry
     telemetryFleet: () => [API_ROUTES.olympus.telemetry.fleet] as const,
     telemetryKernelCapabilities: (kernelId: string) => ['/api/olympus/telemetry/kernel', kernelId, 'capabilities'] as const,

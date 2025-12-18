@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Progress, Tabs, TabsContent, TabsList, TabsTrigger, ScrollArea } from '@/components/ui';
+import { API_ROUTES, QUERY_KEYS } from '@/api';
 import { 
   Brain, 
   Zap, 
@@ -245,7 +246,7 @@ function FleetOverview({ data }: { data: FleetTelemetry }) {
 
 function KernelDetail({ kernelId }: { kernelId: string }) {
   const { data, isLoading, error } = useQuery<{ success: boolean; data: { kernel: string; capabilities: Capability[]; count: number } }>({
-    queryKey: ['/api/olympus/telemetry/kernel', kernelId, 'capabilities'],
+    queryKey: QUERY_KEYS.olympus.telemetryKernelCapabilities(kernelId),
   });
   
   if (isLoading) {
@@ -301,7 +302,7 @@ export default function CapabilityTelemetryPanel() {
   const [selectedKernel, setSelectedKernel] = useState<string | null>(null);
   
   const { data: fleetData, isLoading, error } = useQuery<{ success: boolean; data: FleetTelemetry }>({
-    queryKey: ['/api/olympus/telemetry/fleet'],
+    queryKey: QUERY_KEYS.olympus.telemetryFleet(),
     refetchInterval: 30000,
   });
   

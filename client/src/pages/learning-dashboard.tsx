@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { API_ROUTES, QUERY_KEYS } from "@/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button, Input, Skeleton, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Progress } from '@/components/ui';
 import { MarkdownUpload } from '@/components/MarkdownUpload';
 import { 
@@ -180,81 +181,77 @@ interface AutonomousTestStatus {
   results_history_count: number;
 }
 
-const API_BASE = '/api/olympus/zeus/search/learner';
-const SHADOW_API = '/api/olympus/shadow';
-const TOOL_API = '/api/olympus/zeus/tools';
-
 export default function LearningDashboard() {
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<LearnerStats>({
-    queryKey: [`${API_BASE}/stats`],
+    queryKey: [`${API_ROUTES.learning.base}/stats`],
     refetchInterval: 30000,
   });
 
   const { data: timeseries, isLoading: timeseriesLoading } = useQuery<TimeSeriesPoint[]>({
-    queryKey: [`${API_BASE}/timeseries`, { days: 30 }],
+    queryKey: [`${API_ROUTES.learning.base}/timeseries`, { days: 30 }],
     refetchInterval: 60000,
   });
 
   const { data: replayHistory, isLoading: historyLoading, refetch: refetchHistory } = useQuery<ReplayHistoryItem[]>({
-    queryKey: [`${API_BASE}/replay/history`],
+    queryKey: [`${API_ROUTES.learning.base}/replay/history`],
     refetchInterval: 30000,
   });
 
   const { data: shadowLearning, isLoading: shadowLoading, refetch: refetchShadow } = useQuery<ShadowLearningData>({
-    queryKey: [`${SHADOW_API}/learning`],
+    queryKey: QUERY_KEYS.olympus.shadowLearning(),
     refetchInterval: 10000,
   });
 
   const { data: foresightData, isLoading: foresightLoading } = useQuery<ForesightData>({
-    queryKey: [`${SHADOW_API}/foresight`],
+    queryKey: QUERY_KEYS.olympus.shadowForesight(),
     refetchInterval: 15000,
   });
 
   const { data: toolStats, isLoading: toolStatsLoading, refetch: refetchTools } = useQuery<ToolFactoryStats>({
-    queryKey: [`${TOOL_API}/stats`],
+    queryKey: QUERY_KEYS.olympus.toolsStats(),
     refetchInterval: 15000,
   });
 
   const { data: bridgeStatus, isLoading: bridgeLoading } = useQuery<BridgeStatus>({
-    queryKey: [`${TOOL_API}/bridge/status`],
+    queryKey: QUERY_KEYS.olympus.toolsBridgeStatus(),
     refetchInterval: 10000,
   });
 
 
   const { data: autoTestStatus, isLoading: autoTestLoading, refetch: refetchAutoTest } = useQuery<AutonomousTestStatus>({
-    queryKey: [`${API_BASE}/replay/auto/status`],
+    queryKey: [`${API_ROUTES.learning.base}/replay/auto/status`],
     refetchInterval: 5000,
   });
 
   const startAutoTestMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', `${API_BASE}/replay/auto/start`, {});
+      const res = await apiRequest('POST', `${API_ROUTES.learning.base}/replay/auto/start`, {});
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/auto/status`] });
+      queryClient.invalidateQueries({ queryKey: [`${API_ROUTES.learning.base}/replay/auto/status`] });
     },
   });
 
   const stopAutoTestMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', `${API_BASE}/replay/auto/stop`, {});
+      const res = await apiRequest('POST', `${API_ROUTES.learning.base}/replay/auto/stop`, {});
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/auto/status`] });
+      queryClient.invalidateQueries({ queryKey: [`${API_ROUTES.learning.base}/replay/auto/status`] });
     },
   });
 
   const runSingleTestMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest('POST', `${API_BASE}/replay/auto/run`, {});
+      const res = await apiRequest('POST', `${API_ROUTES.learning.base}/replay/auto/run`, {});
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/auto/status`] });
-      queryClient.invalidateQueries({ queryKey: [`${API_BASE}/replay/history`] });
+      queryClient.invalidateQueries({ queryKey: [`${API_ROUTES.learning.base}/replay/auto/status`] });
+      queryClient.invalidateQueries({ queryKey: [`${API_ROUTES.learning.base}/replay/history`] });
     },
   });
 
