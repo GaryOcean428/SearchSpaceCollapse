@@ -9,6 +9,7 @@ export { useIsMobile } from './use-mobile';
 export { useToast, toast } from './use-toast';
 export { useAuth } from './useAuth';
 export { useTelemetry } from './useTelemetry';
+export { useTelemetryStream } from './useTelemetryStream';
 export { useZeusValidation } from './use-zeus-validation';
 export { useZeusChat } from './useZeusChat';
 export { useGeometricKernel } from './use-geometric-kernel';
