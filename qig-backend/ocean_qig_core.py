@@ -5297,6 +5297,8 @@ def m8_spawn_kernel(proposal_id: str):
 
     Body: { force?: boolean }
     """
+    import traceback
+    
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
 
@@ -5304,15 +5306,39 @@ def m8_spawn_kernel(proposal_id: str):
         data = request.get_json() or {}
         force = data.get('force', False)
 
+        # Get spawner with health validation
         spawner = get_spawner()
+        
+        # Validate spawner internal state before spawn attempt
+        health = spawner.check_health() if hasattr(spawner, 'check_health') else {'healthy': True}
+        if not health.get('healthy', True):
+            print(f"[M8] Spawner unhealthy before spawn: {health}")
+            # Attempt reconnection
+            if hasattr(spawner, 'reconnect'):
+                reconnected = spawner.reconnect()
+                if not reconnected:
+                    return jsonify({
+                        'error': 'M8 spawner unhealthy and reconnection failed',
+                        'diagnostics': health,
+                        'proposal_id': proposal_id,
+                    }), 503
+        
         result = spawner.spawn_kernel(proposal_id, force=force)
 
         if 'error' in result:
-            return jsonify(result), 400
+            status_code = result.get('status_code', 400)
+            return jsonify(result), status_code
 
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        error_trace = traceback.format_exc()
+        print(f"[M8] Spawn error for proposal {proposal_id}: {e}\n{error_trace}")
+        return jsonify({
+            'error': str(e),
+            'proposal_id': proposal_id,
+            'exception_type': type(e).__name__,
+            'trace_summary': error_trace[-500:] if len(error_trace) > 500 else error_trace,
+        }), 500
 
 
 @app.route('/m8/spawn-direct', methods=['POST'])
@@ -5330,6 +5356,8 @@ def m8_spawn_direct():
         force?: boolean
     }
     """
+    import traceback
+    
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
 
@@ -5358,6 +5386,19 @@ def m8_spawn_direct():
         force = data.get('force', False)
 
         spawner = get_spawner()
+        
+        # Validate spawner health before spawn attempt
+        health = spawner.check_health() if hasattr(spawner, 'check_health') else {'healthy': True}
+        if not health.get('healthy', True):
+            print(f"[M8] Spawner unhealthy before spawn-direct: {health}")
+            if hasattr(spawner, 'reconnect'):
+                reconnected = spawner.reconnect()
+                if not reconnected:
+                    return jsonify({
+                        'error': 'M8 spawner unhealthy and reconnection failed',
+                        'diagnostics': health,
+                    }), 503
+        
         result = spawner.propose_and_spawn(
             name=name,
             domain=domain,
@@ -5370,7 +5411,13 @@ def m8_spawn_direct():
 
         return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        error_trace = traceback.format_exc()
+        print(f"[M8] Spawn-direct error: {e}\n{error_trace}")
+        return jsonify({
+            'error': str(e),
+            'exception_type': type(e).__name__,
+            'trace_summary': error_trace[-500:] if len(error_trace) > 500 else error_trace,
+        }), 500
 
 
 @app.route('/m8/proposals', methods=['GET'])
