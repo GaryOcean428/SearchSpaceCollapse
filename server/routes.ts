@@ -13,6 +13,7 @@ import { scorePhraseQIG } from "./qig-universal.js";
 import { storage } from "./storage";
 import { telemetryRouter } from "./telemetry-api";
 import { backendTelemetryRouter } from "./backend-telemetry-api";
+import TelemetryStreamer from "./telemetry-websocket";
 
 // WebSocket message validation schema (addresses Issue 13/14 from bottleneck report)
 const wsMessageSchema = z.object({
@@ -746,6 +747,30 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   });
 
   console.log("[BasinSync] WebSocket server initialized on /ws/basin-sync");
+
+  // Set up WebSocket server for real-time telemetry streaming
+  const telemetryWss = new WebSocketServer({
+    server: httpServer,
+    path: "/ws/telemetry",
+  });
+
+  const telemetryStreamer = new TelemetryStreamer();
+
+  telemetryWss.on("connection", (ws) => {
+    const clientId = `telemetry-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
+    telemetryStreamer.handleConnection(ws, clientId);
+  });
+
+  console.log("[TelemetryWS] WebSocket server initialized on /ws/telemetry");
+
+  // Cleanup on server shutdown
+  const cleanup = () => {
+    telemetryStreamer.destroy();
+  };
+  process.on("SIGTERM", cleanup);
+  process.on("SIGINT", cleanup);
 
   return httpServer;
 }
