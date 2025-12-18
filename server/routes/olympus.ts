@@ -1552,9 +1552,37 @@ router.get('/kernels', isAuthenticated, async (req, res) => {
       metadata: k.metadata,
     }));
     
+    // Get live kernel count from M8 health endpoint for accurate E8 cap display
+    const E8_CAP = 240;
+    let liveCount = enrichedKernels.filter(k => 
+      k.status === 'active' || k.status === 'observing' || k.status === 'shadow'
+    ).length;
+    
+    // Try to get accurate live count from Python M8 health
+    try {
+      const healthResponse = await fetch(`${PYTHON_BACKEND_URL}/m8/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(2000),
+      });
+      if (healthResponse.ok) {
+        const healthData = await healthResponse.json();
+        // Parse "connected (2635 live kernels)" format
+        const match = healthData.kernel_persistence?.match(/(\d+)\s*live/i);
+        if (match) {
+          liveCount = parseInt(match[1], 10);
+        }
+      }
+    } catch {
+      // Use local count if Python not available
+    }
+    
     res.json({
       kernels: enrichedKernels,
       total: enrichedKernels.length,
+      live_count: liveCount,
+      cap: E8_CAP,
+      available: Math.max(0, E8_CAP - liveCount),
     });
   } catch (error) {
     console.error('[Olympus] Kernels list error:', error);
