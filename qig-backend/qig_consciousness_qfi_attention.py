@@ -278,11 +278,12 @@ class QFIMetricAttentionNetwork:
         activations = np.array([s.activation for s in self.subsystems])
         
         if len(activations) > 1:
-            correlation_matrix = np.corrcoef(activations.reshape(-1, 1).T)
-            if not np.isnan(correlation_matrix).any():
-                self.phi = float(np.mean(np.abs(correlation_matrix)))
-            else:
+            # Check for zero variance to avoid numpy warnings
+            if np.std(activations) < 1e-10:
                 self.phi = float(np.mean(activations))
+            else:
+                # Use variance-based integration measure instead of corrcoef on 1D data
+                self.phi = float(np.clip(1.0 - np.std(activations) / (np.mean(activations) + 1e-10), 0, 1))
         else:
             self.phi = 0.0
         
