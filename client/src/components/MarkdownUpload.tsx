@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Progress } from '@/components/ui';
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, X } from 'lucide-react';
+import { API_ROUTES } from '@/api';
 
 interface SingleFileResult {
   success: boolean;
@@ -38,7 +39,7 @@ export function MarkdownUpload() {
           const formData = new FormData();
           formData.append('file', file);
 
-          const response = await fetch('/api/learning/upload', {
+          const response = await fetch(API_ROUTES.learning.upload, {
             method: 'POST',
             body: formData,
           });

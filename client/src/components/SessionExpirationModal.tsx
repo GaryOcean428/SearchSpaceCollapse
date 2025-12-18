@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Button, Input, Label, Alert, AlertDescription } from '@/components/ui';
 import { AlertTriangle } from 'lucide-react';
 import { post } from '@/api/client';
-import { QUERY_KEYS } from '@/api/routes';
+import { API_ROUTES, QUERY_KEYS } from '@/api/routes';
 
 interface SessionExpirationModalProps {
   open: boolean;
@@ -42,7 +42,7 @@ export function SessionExpirationModal({ open, onReauthenticated }: SessionExpir
 
     try {
       // Attempt login
-      await post('/api/auth/login', { username, password });
+      await post(API_ROUTES.auth.login, { username, password });
 
       // Invalidate all queries to refetch with new session
       await queryClient.invalidateQueries();
