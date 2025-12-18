@@ -1554,13 +1554,14 @@ router.get('/kernels', isAuthenticated, async (req, res) => {
     
     // Get live kernel count from M8 health endpoint for accurate E8 cap display
     const E8_CAP = 240;
+    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
     let liveCount = enrichedKernels.filter(k => 
       k.status === 'active' || k.status === 'observing' || k.status === 'shadow'
     ).length;
     
     // Try to get accurate live count from Python M8 health
     try {
-      const healthResponse = await fetch(`${PYTHON_BACKEND_URL}/m8/health`, {
+      const healthResponse = await fetch(`${backendUrl}/m8/health`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(2000),
@@ -1586,7 +1587,7 @@ router.get('/kernels', isAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('[Olympus] Kernels list error:', error);
-    res.json({ kernels: [], total: 0 });
+    res.json({ kernels: [], total: 0, live_count: 0, cap: 240, available: 240 });
   }
 });
 

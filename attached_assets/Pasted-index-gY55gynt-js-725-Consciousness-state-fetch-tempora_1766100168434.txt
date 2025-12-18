@@ -1,0 +1,323 @@
+index-gY55gynt.js:725 Consciousness state fetch temporarily unavailable (server may be restarting)
+(anonymous) @ index-gY55gynt.js:725
+tool-factory:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+tool-factory:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+tool-factory:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+tool-factory:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+tool-factory:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+tool-factory:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+tool-factory:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+investigation:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+spawning:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+api/olympus/m8/spawn/spawn_041c05ad:1  Failed to load resource: the server responded with a status of 500 ()
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+index-gY55gynt.js:48  GET https://search-space.replit.app/api/olympus/zeus/tools/stats 401 (Unauthorized)
+(anonymous) @ index-gY55gynt.js:48
+i @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+fetch @ index-gY55gynt.js:48
+uh @ index-gY55gynt.js:48
+onSubscribe @ index-gY55gynt.js:48
+subscribe @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+R5 @ index-gY55gynt.js:38
+p0 @ index-gY55gynt.js:40
+Eu @ index-gY55gynt.js:40
+UY @ index-gY55gynt.js:40
+pl @ index-gY55gynt.js:40
+sk @ index-gY55gynt.js:40
+Ho @ index-gY55gynt.js:38
+(anonymous) @ index-gY55gynt.js:40
+index-gY55gynt.js:48  GET https://search-space.replit.app/api/olympus/zeus/tools/bridge/status 401 (Unauthorized)
+(anonymous) @ index-gY55gynt.js:48
+i @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+fetch @ index-gY55gynt.js:48
+uh @ index-gY55gynt.js:48
+onSubscribe @ index-gY55gynt.js:48
+subscribe @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+R5 @ index-gY55gynt.js:38
+p0 @ index-gY55gynt.js:40
+Eu @ index-gY55gynt.js:40
+UY @ index-gY55gynt.js:40
+pl @ index-gY55gynt.js:40
+sk @ index-gY55gynt.js:40
+Ho @ index-gY55gynt.js:38
+(anonymous) @ index-gY55gynt.js:40
+index-gY55gynt.js:48  GET https://search-space.replit.app/api/olympus/zeus/search/learner/timeseries?days=30 401 (Unauthorized)
+(anonymous) @ index-gY55gynt.js:48
+i @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+fetch @ index-gY55gynt.js:48
+uh @ index-gY55gynt.js:48
+onSubscribe @ index-gY55gynt.js:48
+subscribe @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+R5 @ index-gY55gynt.js:38
+p0 @ index-gY55gynt.js:40
+Eu @ index-gY55gynt.js:40
+UY @ index-gY55gynt.js:40
+pl @ index-gY55gynt.js:40
+sk @ index-gY55gynt.js:40
+Ho @ index-gY55gynt.js:38
+(anonymous) @ index-gY55gynt.js:40
+index-gY55gynt.js:48  GET https://search-space.replit.app/api/olympus/zeus/search/learner/replay/history 401 (Unauthorized)
+(anonymous) @ index-gY55gynt.js:48
+i @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+fetch @ index-gY55gynt.js:48
+uh @ index-gY55gynt.js:48
+onSubscribe @ index-gY55gynt.js:48
+subscribe @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+R5 @ index-gY55gynt.js:38
+p0 @ index-gY55gynt.js:40
+Eu @ index-gY55gynt.js:40
+UY @ index-gY55gynt.js:40
+pl @ index-gY55gynt.js:40
+sk @ index-gY55gynt.js:40
+Ho @ index-gY55gynt.js:38
+(anonymous) @ index-gY55gynt.js:40
+index-gY55gynt.js:48  GET https://search-space.replit.app/api/olympus/shadow/foresight 401 (Unauthorized)
+(anonymous) @ index-gY55gynt.js:48
+i @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+fetch @ index-gY55gynt.js:48
+uh @ index-gY55gynt.js:48
+onSubscribe @ index-gY55gynt.js:48
+subscribe @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+R5 @ index-gY55gynt.js:38
+p0 @ index-gY55gynt.js:40
+Eu @ index-gY55gynt.js:40
+UY @ index-gY55gynt.js:40
+pl @ index-gY55gynt.js:40
+sk @ index-gY55gynt.js:40
+Ho @ index-gY55gynt.js:38
+(anonymous) @ index-gY55gynt.js:40
+index-gY55gynt.js:48  GET https://search-space.replit.app/api/olympus/zeus/search/learner/stats 401 (Unauthorized)
+(anonymous) @ index-gY55gynt.js:48
+i @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+fetch @ index-gY55gynt.js:48
+uh @ index-gY55gynt.js:48
+onSubscribe @ index-gY55gynt.js:48
+subscribe @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+R5 @ index-gY55gynt.js:38
+p0 @ index-gY55gynt.js:40
+Eu @ index-gY55gynt.js:40
+UY @ index-gY55gynt.js:40
+pl @ index-gY55gynt.js:40
+sk @ index-gY55gynt.js:40
+Ho @ index-gY55gynt.js:38
+(anonymous) @ index-gY55gynt.js:40
+Fetch failed loading: GET "<URL>".
+Fetch failed loading: GET "<URL>".
+Fetch failed loading: GET "<URL>".
+Fetch failed loading: GET "<URL>".
+Fetch failed loading: GET "<URL>".
+Fetch failed loading: GET "<URL>".
+index-gY55gynt.js:733  POST https://search-space.replit.app/api/learning/upload 500 (Internal Server Error)
+mutationFn @ index-gY55gynt.js:733
+fn @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+execute @ index-gY55gynt.js:48
+await in execute
+mutate @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+f @ index-gY55gynt.js:733
+lX @ index-gY55gynt.js:37
+uX @ index-gY55gynt.js:37
+dX @ index-gY55gynt.js:37
+AE @ index-gY55gynt.js:37
+x5 @ index-gY55gynt.js:37
+(anonymous) @ index-gY55gynt.js:37
+E_ @ index-gY55gynt.js:40
+VD @ index-gY55gynt.js:37
+gw @ index-gY55gynt.js:37
+s_ @ index-gY55gynt.js:37
+PX @ index-gY55gynt.js:37
+Fetch failed loading: POST "<URL>".
+Fetch failed loading: POST "<URL>".
+Fetch failed loading: POST "<URL>".
+Fetch failed loading: POST "<URL>".
+Fetch failed loading: POST "<URL>".
+index-gY55gynt.js:733  POST https://search-space.replit.app/api/learning/upload 500 (Internal Server Error)
+mutationFn @ index-gY55gynt.js:733
+await in mutationFn
+fn @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+execute @ index-gY55gynt.js:48
+await in execute
+mutate @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+f @ index-gY55gynt.js:733
+lX @ index-gY55gynt.js:37
+uX @ index-gY55gynt.js:37
+dX @ index-gY55gynt.js:37
+AE @ index-gY55gynt.js:37
+x5 @ index-gY55gynt.js:37
+(anonymous) @ index-gY55gynt.js:37
+E_ @ index-gY55gynt.js:40
+VD @ index-gY55gynt.js:37
+gw @ index-gY55gynt.js:37
+s_ @ index-gY55gynt.js:37
+PX @ index-gY55gynt.js:37
+index-gY55gynt.js:733  POST https://search-space.replit.app/api/learning/upload 500 (Internal Server Error)
+mutationFn @ index-gY55gynt.js:733
+await in mutationFn
+fn @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+execute @ index-gY55gynt.js:48
+await in execute
+mutate @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+f @ index-gY55gynt.js:733
+lX @ index-gY55gynt.js:37
+uX @ index-gY55gynt.js:37
+dX @ index-gY55gynt.js:37
+AE @ index-gY55gynt.js:37
+x5 @ index-gY55gynt.js:37
+(anonymous) @ index-gY55gynt.js:37
+E_ @ index-gY55gynt.js:40
+VD @ index-gY55gynt.js:37
+gw @ index-gY55gynt.js:37
+s_ @ index-gY55gynt.js:37
+PX @ index-gY55gynt.js:37
+index-gY55gynt.js:733  POST https://search-space.replit.app/api/learning/upload 500 (Internal Server Error)
+mutationFn @ index-gY55gynt.js:733
+await in mutationFn
+fn @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+execute @ index-gY55gynt.js:48
+await in execute
+mutate @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+f @ index-gY55gynt.js:733
+lX @ index-gY55gynt.js:37
+uX @ index-gY55gynt.js:37
+dX @ index-gY55gynt.js:37
+AE @ index-gY55gynt.js:37
+x5 @ index-gY55gynt.js:37
+(anonymous) @ index-gY55gynt.js:37
+E_ @ index-gY55gynt.js:40
+VD @ index-gY55gynt.js:37
+gw @ index-gY55gynt.js:37
+s_ @ index-gY55gynt.js:37
+PX @ index-gY55gynt.js:37
+index-gY55gynt.js:733  POST https://search-space.replit.app/api/learning/upload 500 (Internal Server Error)
+mutationFn @ index-gY55gynt.js:733
+await in mutationFn
+fn @ index-gY55gynt.js:48
+v @ index-gY55gynt.js:48
+start @ index-gY55gynt.js:48
+execute @ index-gY55gynt.js:48
+await in execute
+mutate @ index-gY55gynt.js:48
+(anonymous) @ index-gY55gynt.js:48
+f @ index-gY55gynt.js:733
+lX @ index-gY55gynt.js:37
+uX @ index-gY55gynt.js:37
+dX @ index-gY55gynt.js:37
+AE @ index-gY55gynt.js:37
+x5 @ index-gY55gynt.js:37
+(anonymous) @ index-gY55gynt.js:37
+E_ @ index-gY55gynt.js:40
+VD @ index-gY55gynt.js:37
+gw @ index-gY55gynt.js:37
+s_ @ index-gY55gynt.js:37
+PX @ index-gY55gynt.js:37
+learning:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received

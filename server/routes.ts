@@ -451,9 +451,23 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
       const response = await fetch(`${backendUrl}/api/vocabulary/upload-markdown`, {
         method: 'POST',
         body: formData,
+        signal: AbortSignal.timeout(30000),
       });
 
-      const data = await response.json();
+      // Handle non-JSON responses gracefully
+      const contentType = response.headers.get('content-type') || '';
+      let data;
+      
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error("[API] Learning upload - non-JSON response:", text.substring(0, 200));
+        return res.status(502).json({ 
+          error: 'Python backend returned invalid response',
+          details: 'Expected JSON but received HTML or other format'
+        });
+      }
       
       if (!response.ok) {
         return res.status(response.status).json(data);
@@ -462,6 +476,12 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
       res.json(data);
     } catch (error: any) {
       console.error("[API] Learning upload error:", error);
+      if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+        return res.status(504).json({ error: 'Python backend timeout - file processing took too long' });
+      }
+      if (error.code === 'ECONNREFUSED' || error.message?.includes('fetch failed')) {
+        return res.status(503).json({ error: 'Python backend unavailable - please try again later' });
+      }
       res.status(500).json({ error: error.message || 'Failed to process markdown upload' });
     }
   });
