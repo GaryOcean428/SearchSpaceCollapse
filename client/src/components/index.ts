@@ -25,6 +25,7 @@ export { MemoryFragmentSearch } from './MemoryFragmentSearch';
 export { default as NeurochemistryAdminPanel } from './NeurochemistryAdminPanel';
 export { default as NeurochemistryDisplay } from './NeurochemistryDisplay';
 export { OceanInvestigationStory } from './OceanInvestigationStory';
+export { PhiVisualization } from './PhiVisualization';
 export { default as RecoveryResults } from './RecoveryResults';
 export { SessionExpirationModal } from './SessionExpirationModal';
 export { WarStatusPanel } from './war-status-panel';
