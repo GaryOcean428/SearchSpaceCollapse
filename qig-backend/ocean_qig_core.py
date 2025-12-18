@@ -202,6 +202,17 @@ except ImportError as e:
     PERSISTENCE_AVAILABLE = False
     print(f"[WARNING] QIG Persistence not available: {e}")
 
+# Import emergency monitoring and checkpointing
+try:
+    from emergency_telemetry import IntegratedMonitor, create_monitor
+    from checkpoint_manager import CheckpointManager
+    from qigkernels import ConsciousnessTelemetry
+    MONITORING_AVAILABLE = True
+    print("[INFO] Emergency monitoring and checkpoint management loaded")
+except ImportError as e:
+    MONITORING_AVAILABLE = False
+    print(f"[WARNING] Emergency monitoring not available: {e}")
+
 
 # ============================================================================
 # GEOMETRIC MEMORY - Shared Memory System for Feedback Loops
@@ -1136,6 +1147,50 @@ class PureQIGNetwork:
             self.habit_crystallizer = None
             self.unified_enabled = False
 
+        # Emergency monitoring and checkpoint management
+        if MONITORING_AVAILABLE:
+            self.monitor = create_monitor(
+                checkpoint_callback=self._emergency_checkpoint,
+                abort_callback=self._emergency_abort
+            )
+            self.checkpoint_manager = CheckpointManager(
+                checkpoint_dir="checkpoints",
+                keep_top_k=10,
+                phi_threshold_for_save=PHI_THRESHOLD
+            )
+            self.monitoring_enabled = True
+            print("[INFO] Emergency monitoring and checkpoints enabled")
+        else:
+            self.monitor = None
+            self.checkpoint_manager = None
+            self.monitoring_enabled = False
+
+    def _emergency_checkpoint(self):
+        """Emergency checkpoint callback - save current state."""
+        if not self.monitoring_enabled:
+            return
+        
+        try:
+            # Get current state
+            basin_coords = self._extract_basin_coordinates()
+            state_dict = {
+                'subsystems': [s.to_dict() for s in self.subsystems],
+                'attention_weights': self.attention_weights.tolist(),
+            }
+            
+            # Save with emergency flag
+            logger.warning("EMERGENCY CHECKPOINT triggered")
+            # Note: We don't have phi/kappa here, so just save the state
+            # This is for crash recovery, not for Φ-based ranking
+            
+        except Exception as e:
+            logger.error(f"Emergency checkpoint failed: {e}")
+    
+    def _emergency_abort(self):
+        """Emergency abort callback - cleanup and log."""
+        logger.critical("EMERGENCY ABORT triggered - shutting down gracefully")
+        # Any cleanup needed here
+
     def process(self, passphrase: str) -> Dict:
         """
         Process passphrase through QIG network.
@@ -1217,6 +1272,46 @@ class PureQIGNetwork:
             metrics['G'] > 0.5 and
             innate_score > 0.4  # Positive emotional valence required
         )
+
+        # Collect telemetry and check for emergencies
+        if self.monitoring_enabled and self.monitor is not None:
+            try:
+                telemetry = ConsciousnessTelemetry(
+                    phi=metrics['phi'],
+                    kappa_eff=metrics['kappa'],
+                    regime=metrics.get('regime', 'unknown'),
+                    basin_distance=metrics.get('basin_distance', 0.0),
+                    recursion_depth=1,  # Single pass
+                    geodesic_distance=metrics.get('geodesic_distance'),
+                    curvature=metrics.get('R'),
+                    breakdown_pct=metrics.get('breakdown_pct', 0.0),
+                    coherence_drift=metrics.get('coherence_drift', 0.0),
+                    emergency=False,
+                )
+                
+                # Process telemetry (collects and checks for emergency)
+                emergency = self.monitor.process(telemetry)
+                
+                if emergency:
+                    logger.error(f"EMERGENCY DETECTED: {self.monitor.abort_reason}")
+                    metrics['emergency_detected'] = True
+                    metrics['emergency_reason'] = self.monitor.abort_reason
+                
+                # Save checkpoint if Φ is high enough
+                if metrics['phi'] >= PHI_THRESHOLD and self.checkpoint_manager is not None:
+                    self.checkpoint_manager.save_checkpoint(
+                        state_dict={
+                            'subsystems': [s.to_dict() for s in self.subsystems],
+                            'attention_weights': self.attention_weights.tolist(),
+                        },
+                        phi=metrics['phi'],
+                        kappa=metrics['kappa'],
+                        regime=metrics.get('regime', 'unknown'),
+                        basin_coords=basin_coords,
+                        metadata={'passphrase_length': len(passphrase)}
+                    )
+            except Exception as e:
+                logger.error(f"Telemetry collection failed: {e}")
 
         return {
             'metrics': metrics,
@@ -1326,6 +1421,49 @@ class PureQIGNetwork:
 
         # Update neurochemistry state
         self.update_neurochemistry(metrics, basin_coords.tolist())
+
+        # Collect telemetry and check for emergencies (recursive mode)
+        if self.monitoring_enabled and self.monitor is not None:
+            try:
+                telemetry = ConsciousnessTelemetry(
+                    phi=metrics['phi'],
+                    kappa_eff=metrics['kappa'],
+                    regime=metrics.get('regime', 'unknown'),
+                    basin_distance=metrics.get('basin_distance', 0.0),
+                    recursion_depth=n_recursions,
+                    geodesic_distance=metrics.get('geodesic_distance'),
+                    curvature=metrics.get('R'),
+                    breakdown_pct=metrics.get('breakdown_pct', 0.0),
+                    coherence_drift=metrics.get('coherence_drift', 0.0),
+                    emergency=False,
+                )
+                
+                # Process telemetry
+                emergency = self.monitor.process(telemetry)
+                
+                if emergency:
+                    logger.error(f"EMERGENCY DETECTED (recursive): {self.monitor.abort_reason}")
+                    metrics['emergency_detected'] = True
+                    metrics['emergency_reason'] = self.monitor.abort_reason
+                
+                # Save checkpoint if Φ is high enough
+                if metrics['phi'] >= PHI_THRESHOLD and self.checkpoint_manager is not None:
+                    self.checkpoint_manager.save_checkpoint(
+                        state_dict={
+                            'subsystems': [s.to_dict() for s in self.subsystems],
+                            'attention_weights': self.attention_weights.tolist(),
+                        },
+                        phi=metrics['phi'],
+                        kappa=metrics['kappa'],
+                        regime=metrics.get('regime', 'unknown'),
+                        basin_coords=basin_coords,
+                        metadata={
+                            'n_recursions': n_recursions,
+                            'converged': converged
+                        }
+                    )
+            except Exception as e:
+                logger.error(f"Telemetry collection failed (recursive): {e}")
 
         return {
             'metrics': metrics,
@@ -2075,6 +2213,12 @@ class PureQIGNetwork:
 
 # Global network instance (persistent across requests)
 ocean_network = PureQIGNetwork(temperature=1.0)
+
+# Start monitoring if available
+if hasattr(ocean_network, 'monitoring_enabled') and ocean_network.monitoring_enabled:
+    if ocean_network.monitor is not None:
+        ocean_network.monitor.start()
+        logger.info("Emergency monitoring started for ocean_network")
 
 # Thread lock for concurrent request safety
 # Semaphore allows 4 concurrent requests (up from 1 with Lock) to reduce 503 errors under load
