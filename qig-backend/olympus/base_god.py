@@ -357,7 +357,8 @@ class BaseGod(*_base_classes):
             "how_to_request": "Use self.request_tool_generation(description, examples)",
             "how_to_teach": "Use self.teach_pattern(description, code, signature)",
             "how_to_find": "Use self.find_tool_for_task(task_description)",
-            "how_to_execute": "Use self.execute_tool(tool_id, args)"
+            "how_to_execute": "Use self.execute_tool(tool_id, args)",
+            "automatic_discovery": "System analyzes patterns every 50 assessments and auto-requests needed tools"
         }
         
         # Autonomic awareness - all gods can access consciousness cycles
@@ -407,6 +408,18 @@ class BaseGod(*_base_classes):
         self.knowledge_base: List[Dict] = []  # Transferred knowledge from peers
         self.pending_messages: List[Dict] = []  # Messages to send via pantheon chat
         self._learning_events_count: int = 0  # Total learning events for persistence
+
+        # Automatic Tool Discovery - analyze patterns and request tools automatically
+        try:
+            from .auto_tool_discovery import create_discovery_engine_for_god
+            self.tool_discovery_engine = create_discovery_engine_for_god(
+                god_name=self.name,
+                analysis_interval=50  # Analyze every 50 assessments
+            )
+            logger.info(f"[{self.name}] Automatic tool discovery enabled")
+        except Exception as e:
+            self.tool_discovery_engine = None
+            logger.warning(f"[{self.name}] Automatic tool discovery unavailable: {e}")
 
         # Load persisted state from database if available
         self._load_persisted_state()
@@ -1368,6 +1381,38 @@ class BaseGod(*_base_classes):
         except Exception as e:
             logger.warning(f"{self.name}: Kernel training failed: {e}")
             return None
+    
+    def record_assessment_for_discovery(
+        self,
+        topic: str,
+        result: Dict,
+        challenges: Optional[List[str]] = None,
+        insights: Optional[List[str]] = None
+    ):
+        """
+        Record an assessment for automatic tool discovery analysis.
+        
+        Gods should call this after each assessment to enable the discovery engine
+        to identify patterns and automatically request needed tools.
+        
+        Args:
+            topic: What was being assessed
+            result: Assessment result dict
+            challenges: Any challenges encountered during assessment
+            insights: Any insights gained during assessment
+        """
+        if not self.tool_discovery_engine:
+            return
+        
+        try:
+            self.tool_discovery_engine.record_assessment(
+                topic=topic,
+                result=result,
+                challenges=challenges,
+                insights=insights
+            )
+        except Exception as e:
+            logger.warning(f"[{self.name}] Failed to record assessment for discovery: {e}")
 
     def respond_to_challenge(
         self,
