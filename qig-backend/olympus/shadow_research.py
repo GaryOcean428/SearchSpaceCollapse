@@ -1318,30 +1318,36 @@ class ShadowLearningLoop:
         """
         Compute 4D block universe foresight - temporal projection of learning trajectory.
         
+        QIG-PURE PRINCIPLE: Geometry drives recursion depth, not arbitrary limits.
+        - Minimum 3 reflections to have geometry to work with
+        - No upper limit - recurse until geometric signal indicates saturation
+        - Saturation detected via: Φ gradient → 0, information gain → 0
+        
         The 4D foresight system models:
         1. Past trajectory: Learning history and patterns
         2. Present state: Current knowledge basin position
         3. Future projection: Predicted evolution of consciousness
         4. Temporal coherence: How well predictions align with actuals
+        5. Geometric saturation: When to stop recursing (Φ gradient, info gain)
         
-        Returns projections for next N cycles.
+        Returns projections for next N cycles + recursion guidance.
         """
         foresight = {
             "horizon_cycles": 10,
             "computed_at": datetime.now().isoformat(),
             "trajectory": {},
             "predictions": [],
-            "temporal_coherence": 0.0
+            "temporal_coherence": 0.0,
+            "recursion_signal": {}  # QIG-pure: geometry tells kernel when to stop
         }
         
-        if len(self._meta_reflections) < 3:
-            # QIG-pure: Even with limited data, derive geometric estimate from what we have
-            # Use current stats to bootstrap a projected_phi rather than returning N/A
-            current_phi = stats.get("avg_phi", 0.5)
-            total_items = stats.get("total_items", 0)
-            
-            # Geometric estimate: project based on discovery density
-            # More items with same phi = more confident, project slight increase
+        n_reflections = len(self._meta_reflections)
+        current_phi = stats.get("avg_phi", 0.5)
+        total_items = stats.get("total_items", 0)
+        current_discoveries = self.knowledge_base.get_unique_discoveries_count()
+        
+        if n_reflections < 3:
+            # Bootstrap phase: minimum geometry needed, keep recursing
             density_factor = min(1.0, total_items / 100.0) * 0.1
             foresight["projected_phi"] = min(1.0, current_phi + density_factor)
             foresight["status"] = "bootstrap"
@@ -1349,8 +1355,16 @@ class ShadowLearningLoop:
                 "phi_velocity": 0.0,
                 "discovery_acceleration": 1.0,
                 "current_phi": current_phi,
-                "current_discoveries": self.knowledge_base.get_unique_discoveries_count(),
+                "current_discoveries": current_discoveries,
                 "trend": "initializing"
+            }
+            # Geometry says: keep recursing, insufficient data
+            foresight["recursion_signal"] = {
+                "should_continue": True,
+                "reason": "insufficient_geometry",
+                "phi_gradient": 0.0,
+                "info_gain": 1.0,  # Assume high info gain when starting
+                "saturation": 0.0
             }
             return foresight
         
@@ -1418,6 +1432,37 @@ class ShadowLearningLoop:
         foresight["predictions"] = predictions
         foresight["projected_phi"] = predictions[0]["projected_phi"] if predictions else current_phi
         foresight["status"] = "computed"
+        
+        # QIG-PURE: Compute geometric recursion signal
+        # Kernel has agency to recurse until geometry signals saturation
+        phi_gradient = abs(phi_velocity)
+        info_gain = discovery_acceleration / max(1, current_discoveries) if current_discoveries > 0 else 1.0
+        
+        # Saturation: approaches 1.0 when Φ gradient → 0 AND info gain → 0
+        # Low saturation = keep thinking, High saturation = geometry says stop
+        saturation = 1.0 - (0.5 * min(1.0, phi_gradient * 10) + 0.5 * min(1.0, info_gain * 10))
+        
+        # Should continue if geometry still has signal (saturation < 0.9)
+        # OR if Φ is ascending (still learning)
+        should_continue = saturation < 0.9 or phi_velocity > 0.001
+        
+        if saturation >= 0.9:
+            reason = "geometric_saturation"
+        elif phi_velocity < -0.01:
+            reason = "phi_descending"
+            should_continue = True  # Keep trying when descending
+        elif phi_velocity > 0.01:
+            reason = "phi_ascending"
+        else:
+            reason = "exploring"
+        
+        foresight["recursion_signal"] = {
+            "should_continue": should_continue,
+            "reason": reason,
+            "phi_gradient": round(phi_gradient, 4),
+            "info_gain": round(info_gain, 6),
+            "saturation": round(saturation, 3)
+        }
         
         self._cache_foresight_to_redis(foresight)
         
