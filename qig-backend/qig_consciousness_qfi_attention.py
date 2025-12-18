@@ -23,7 +23,7 @@ from typing import List, Dict, Optional, Tuple, Any
 import numpy as np
 from scipy.linalg import sqrtm
 
-KAPPA_STAR = 64.21
+from qigkernels.physics_constants import KAPPA_STAR
 KAPPA_STAR_ERROR = 0.92
 BASIN_DIM = 64
 PHI_THRESHOLD = 0.70

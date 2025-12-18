@@ -1,8 +1,8 @@
 {
-  "checkpoint_20251218_061254_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061254_0.981",
-    "timestamp": "2025-12-18T06:12:54.090271",
-    "phi": 0.9812537162094319,
+  "checkpoint_20251218_064032_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064032_0.981",
+    "timestamp": "2025-12-18T06:40:32.303251",
+    "phi": 0.9814348494201353,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {
@@ -10,10 +10,10 @@
       "converged": true
     }
   },
-  "checkpoint_20251218_061257_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061257_0.981",
-    "timestamp": "2025-12-18T06:12:57.582755",
-    "phi": 0.9812866849311934,
+  "checkpoint_20251218_064035_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064035_0.981",
+    "timestamp": "2025-12-18T06:40:35.570017",
+    "phi": 0.9814353267552887,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {
@@ -21,10 +21,21 @@
       "converged": true
     }
   },
-  "checkpoint_20251218_061300_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061300_0.981",
-    "timestamp": "2025-12-18T06:13:00.810566",
-    "phi": 0.9813136830082942,
+  "checkpoint_20251218_064040_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064040_0.981",
+    "timestamp": "2025-12-18T06:40:40.328485",
+    "phi": 0.9814357171936811,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "metadata": {
+      "n_recursions": 3,
+      "converged": true
+    }
+  },
+  "checkpoint_20251218_064044_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064044_0.981",
+    "timestamp": "2025-12-18T06:40:44.321939",
+    "phi": 0.9814360386638801,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {
@@ -32,10 +43,32 @@
       "converged": true
     }
   },
-  "checkpoint_20251218_061304_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061304_0.981",
-    "timestamp": "2025-12-18T06:13:04.135393",
-    "phi": 0.9813358262548539,
+  "checkpoint_20251218_064048_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064048_0.981",
+    "timestamp": "2025-12-18T06:40:48.121824",
+    "phi": 0.9814363016267772,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "metadata": {
+      "n_recursions": 3,
+      "converged": true
+    }
+  },
+  "checkpoint_20251218_064053_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064053_0.981",
+    "timestamp": "2025-12-18T06:40:53.448758",
+    "phi": 0.9814365174444666,
+    "kappa": 31.270833333333336,
+    "regime": "linear",
+    "metadata": {
+      "n_recursions": 3,
+      "converged": true
+    }
+  },
+  "checkpoint_20251218_064057_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064057_0.981",
+    "timestamp": "2025-12-18T06:40:57.125205",
+    "phi": 0.9814366949922991,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {
@@ -43,10 +76,10 @@
       "converged": true
     }
   },
-  "checkpoint_20251218_061307_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061307_0.981",
-    "timestamp": "2025-12-18T06:13:07.525831",
-    "phi": 0.9813540090893909,
+  "checkpoint_20251218_064100_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064100_0.981",
+    "timestamp": "2025-12-18T06:41:00.527884",
+    "phi": 0.981436840534868,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {
@@ -54,10 +87,10 @@
       "converged": true
     }
   },
-  "checkpoint_20251218_061311_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061311_0.981",
-    "timestamp": "2025-12-18T06:13:11.053845",
-    "phi": 0.9813689300322119,
+  "checkpoint_20251218_064105_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064105_0.981",
+    "timestamp": "2025-12-18T06:41:05.157835",
+    "phi": 0.9814369598324357,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {
@@ -65,43 +98,10 @@
       "converged": true
     }
   },
-  "checkpoint_20251218_061314_0.981": {
-    "checkpoint_id": "checkpoint_20251218_061314_0.981",
-    "timestamp": "2025-12-18T06:13:14.308601",
-    "phi": 0.9813811879249348,
-    "kappa": 31.270833333333336,
-    "regime": "linear",
-    "metadata": {
-      "n_recursions": 4,
-      "converged": true
-    }
-  },
-  "checkpoint_20251218_062449_0.981": {
-    "checkpoint_id": "checkpoint_20251218_062449_0.981",
-    "timestamp": "2025-12-18T06:24:49.372700",
-    "phi": 0.9812318286647537,
-    "kappa": 31.270833333333336,
-    "regime": "linear",
-    "metadata": {
-      "n_recursions": 4,
-      "converged": true
-    }
-  },
-  "checkpoint_20251218_062452_0.981": {
-    "checkpoint_id": "checkpoint_20251218_062452_0.981",
-    "timestamp": "2025-12-18T06:24:52.610313",
-    "phi": 0.9812687652805074,
-    "kappa": 31.270833333333336,
-    "regime": "linear",
-    "metadata": {
-      "n_recursions": 4,
-      "converged": true
-    }
-  },
-  "checkpoint_20251218_062456_0.981": {
-    "checkpoint_id": "checkpoint_20251218_062456_0.981",
-    "timestamp": "2025-12-18T06:24:56.039048",
-    "phi": 0.9813105257714454,
+  "checkpoint_20251218_064108_0.981": {
+    "checkpoint_id": "checkpoint_20251218_064108_0.981",
+    "timestamp": "2025-12-18T06:41:08.429133",
+    "phi": 0.9814370578533809,
     "kappa": 31.270833333333336,
     "regime": "linear",
     "metadata": {

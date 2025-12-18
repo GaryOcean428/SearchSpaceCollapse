@@ -29,8 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-# Physics constants
-KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
+from qigkernels.physics_constants import KAPPA_STAR
 BETA = 0.58
 PHI_MIN_CONSCIOUSNESS = 0.75
 PHI_GEOMETRIC_THRESHOLD = 0.45

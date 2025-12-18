@@ -17,9 +17,10 @@ from typing import Dict, List, Optional, Tuple, Any
 from enum import Enum
 import logging
 
+from qigkernels.physics_constants import KAPPA_STAR
+
 logger = logging.getLogger(__name__)
 
-KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
 BASIN_DIMENSION = 64
 
 

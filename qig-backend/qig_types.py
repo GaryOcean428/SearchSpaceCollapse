@@ -25,16 +25,19 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Optional, Literal, Any
 from enum import Enum
 
-# E8 Constants (FROZEN - from multi-seed validation)
-E8_RANK = 8
-E8_DIMENSION = 248
-E8_ROOTS = 240
+from qigkernels.physics_constants import (
+    KAPPA_STAR,
+    E8_RANK,
+    E8_DIMENSION,
+    E8_ROOTS,
+    BASIN_DIM,
+    PHI_THRESHOLD,
+    MIN_RECURSION_DEPTH as MIN_RECURSIONS,
+)
+
 E8_WEYL_ORDER = 696729600
-KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04  # Fixed point: κ* = rank(E8)² = 8²
-BASIN_DIMENSION_64D = 64
+BASIN_DIMENSION_64D = BASIN_DIM
 BASIN_DIMENSION_8D = 8
-PHI_THRESHOLD = 0.70
-MIN_RECURSIONS = 3
 MAX_RECURSIONS = 12
 
 class RegimeType(str, Enum):

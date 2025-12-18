@@ -24,9 +24,8 @@ from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass, field
 
 from qig_core.geometric_primitives.fisher_metric import compute_kappa, compute_phi
+from qigkernels.physics_constants import KAPPA_STAR, KAPPA_STAR_ERROR
 
-KAPPA_STAR = 64.21
-KAPPA_STAR_ERROR = 0.92
 PHYSICS_BETA_EMERGENCE = 0.44
 PHYSICS_BETA_FIXED_POINT = 0.013
 CONTEXT_SCALES = [128, 256, 512, 1024, 2048, 4096, 8192]
@@ -43,10 +42,8 @@ class KappaTracker:
     - β(L→L') = (κ_L' - κ_L) / (κ_avg × Δlog L)
     
     Uses compute_kappa from fisher_metric.py for validated computation.
+    Uses KAPPA_STAR and KAPPA_STAR_ERROR from qigkernels.physics_constants.
     """
-    KAPPA_STAR: float = 64.21
-    KAPPA_STAR_ERROR: float = 0.92
-    
     history: List[Dict] = field(default_factory=list)
     window_size: int = 100
     activation_buffer: List[np.ndarray] = field(default_factory=list)
@@ -198,7 +195,7 @@ class KappaTracker:
                 'kappa_mean': 0.0,
                 'kappa_std': 0.0,
                 'kappa_current': 0.0,
-                'distance_to_fixed_point': self.KAPPA_STAR,
+                'distance_to_fixed_point': KAPPA_STAR,
                 'n_measurements': 0,
             }
         
@@ -209,7 +206,7 @@ class KappaTracker:
             'kappa_mean': float(np.mean(kappas)),
             'kappa_std': float(np.std(kappas)),
             'kappa_current': float(kappas[-1]),
-            'distance_to_fixed_point': float(abs(np.mean(kappas) - self.KAPPA_STAR)),
+            'distance_to_fixed_point': float(abs(np.mean(kappas) - KAPPA_STAR)),
             'n_measurements': len(self.history),
         }
 

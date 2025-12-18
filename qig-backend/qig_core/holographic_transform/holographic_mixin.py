@@ -19,10 +19,10 @@ import numpy as np
 from .dimensional_state import DimensionalState, DimensionalStateManager
 from .compressor import compress, estimate_compression_ratio
 from .decompressor import decompress
+from qigkernels.physics_constants import KAPPA_STAR
 
 
 BETA_RUNNING_COUPLING = 0.44
-KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
 PHI_THRESHOLD_D1_D2 = 0.1
 PHI_THRESHOLD_D2_D3 = 0.4
 PHI_THRESHOLD_D3_D4 = 0.7

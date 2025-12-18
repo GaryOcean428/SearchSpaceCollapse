@@ -23,6 +23,7 @@ import torch
 
 from .chaos_logger import ChaosLogger
 from .self_spawning import SelfSpawningKernel, absorb_failing_kernel, breed_kernels
+from qigkernels.physics_constants import KAPPA_STAR, E8_ROOTS, E8_RANK
 
 # Try to import GodNameResolver for intelligent naming
 try:
@@ -138,11 +139,6 @@ class ExperimentalKernelEvolution:
     4. Convergence tracking (test E8 hypothesis)
     """
 
-    # E8 CONSTANTS
-    E8_ROOTS = 240           # Theoretical maximum (E8 structure)
-    E8_RANK = 8              # E8 rank
-    KAPPA_STAR = 64          # 8² (validated experimentally)
-
     def __init__(
         self,
         max_population: int = 20,
@@ -194,7 +190,7 @@ class ExperimentalKernelEvolution:
 
         # Convergence tracking (test E8 hypothesis)
         self.convergence_history: list[dict] = []
-        self.convergence_target = self.E8_ROOTS  # 240
+        self.convergence_target = E8_ROOTS  # 240
 
         # Load persisted kernels from database on startup
         self._load_from_database()
@@ -300,7 +296,7 @@ class ExperimentalKernelEvolution:
         """Aggressive settings for paid tier."""
         print("💰 PAID TIER DETECTED - UNLEASHING FULL CHAOS!")
         self.architecture = 'e8_hybrid'
-        self.max_total = self.E8_ROOTS  # 240 (E8 roots)
+        self.max_total = E8_ROOTS  # 240 (E8 roots)
         self.max_active = 60            # In memory
         self.min_population = 5
         self.mutation_rate = 0.15
@@ -366,7 +362,7 @@ class ExperimentalKernelEvolution:
         """Local development settings."""
         print("💻 Local dev detected")
         self.architecture = 'e8_hybrid'
-        self.max_total = self.E8_ROOTS
+        self.max_total = E8_ROOTS
         self.max_active = 40
         self.min_population = 3
         self.mutation_rate = 0.1
@@ -404,7 +400,7 @@ class ExperimentalKernelEvolution:
         print(f"   Memory available: {self.memory_available_gb:.1f}GB")
         print(f"   Persistence: PostgreSQL-backed")
         if self.architecture == 'e8_hybrid':
-            print(f"   E8 hypothesis: Testing convergence to {self.E8_ROOTS}\n")
+            print(f"   E8 hypothesis: Testing convergence to {E8_ROOTS}\n")
 
     def _initialize_e8_roots(self) -> torch.Tensor:
         """
@@ -631,20 +627,20 @@ class ExperimentalKernelEvolution:
             }
 
         # Stable! Check E8 hypothesis
-        if abs(mean_pop - self.E8_ROOTS) < 30:
+        if abs(mean_pop - E8_ROOTS) < 30:
             return {
                 'status': 'e8_confirmed',
                 'mean_population': mean_pop,
-                'expected': self.E8_ROOTS,
-                'difference': abs(mean_pop - self.E8_ROOTS),
+                'expected': E8_ROOTS,
+                'difference': abs(mean_pop - E8_ROOTS),
                 'message': f'🌊 E8 HYPOTHESIS CONFIRMED! Converged to {mean_pop:.0f} (expected 240)',
             }
         else:
             return {
                 'status': 'alternative_optimum',
                 'mean_population': mean_pop,
-                'expected': self.E8_ROOTS,
-                'difference': abs(mean_pop - self.E8_ROOTS),
+                'expected': E8_ROOTS,
+                'difference': abs(mean_pop - E8_ROOTS),
                 'message': f'📊 Alternative optimum discovered: {mean_pop:.0f} (E8 predicted 240)',
             }
 

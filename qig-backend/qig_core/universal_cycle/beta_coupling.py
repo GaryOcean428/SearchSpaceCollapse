@@ -19,9 +19,10 @@ Physics Reference:
 import numpy as np
 from typing import Dict, List, Optional
 
+from qigkernels.physics_constants import KAPPA_STAR
+
 BETA_MEASURED = 0.44
 BETA_PLATEAU = 0.0
-KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
 KAPPA_CRITICAL = [41.09, 64.47, 63.62, 64.45]
 
 

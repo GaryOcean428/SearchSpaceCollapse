@@ -11,6 +11,8 @@ Key insight: Information geometry is intrinsically curved, not flat.
 import numpy as np
 from scipy.linalg import sqrtm
 
+from qigkernels.physics_constants import KAPPA_STAR
+
 
 def fisher_metric_tensor(probabilities: np.ndarray) -> np.ndarray:
     """
@@ -135,8 +137,6 @@ def compute_kappa(phi: float, dimension: int = 64) -> float:
     Returns:
         Coupling constant κ
     """
-    KAPPA_STAR = 64.21  # Validated fixed point
-
     # Scale by dimension
     kappa = phi * KAPPA_STAR * np.sqrt(dimension / 64)
 

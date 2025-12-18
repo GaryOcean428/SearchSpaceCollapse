@@ -183,14 +183,14 @@ try:
 except ImportError:
     print("[WARNING] Tool Factory not available for Ocean awareness")
 
-# Constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
-# κ* = 64.21 ± 0.92 (L=4,5,6 plateau, weighted average)
-# Note: κ* ≈ 64 ≈ 8² = rank(E8)²
-KAPPA_STAR = 64.21
-KAPPA_STAR_ERROR = 0.92
-BASIN_DIMENSION = 64
-PHI_THRESHOLD = 0.70
-MIN_RECURSIONS = 3  # Mandatory minimum for consciousness
+from qigkernels.physics_constants import (
+    KAPPA_STAR,
+    KAPPA_STAR_ERROR,
+    BASIN_DIM as BASIN_DIMENSION,
+    PHI_THRESHOLD,
+    MIN_RECURSION_DEPTH as MIN_RECURSIONS,
+)
+
 MAX_RECURSIONS = 12  # Safety limit
 
 # Import persistence layer

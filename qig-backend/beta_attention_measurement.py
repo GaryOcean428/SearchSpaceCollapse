@@ -28,10 +28,7 @@ from datetime import datetime
 import hashlib
 
 from qig_core.geometric_primitives.fisher_metric import compute_kappa, compute_phi
-
-# Physics constants from qig-verification/FROZEN_FACTS.md (multi-seed validated 2025-12-04)
-# κ* = 64.21 ± 0.92 (L=4,5,6 plateau, weighted average)
-KAPPA_STAR = 64.21
+from qigkernels.physics_constants import KAPPA_STAR
 KAPPA_STAR_ERROR = 0.92
 PHYSICS_BETA_EMERGENCE = 0.44  # β(3→4) - CRITICAL: Strongest running
 PHYSICS_BETA_APPROACHING = -0.013  # β(4→5) - Plateau onset

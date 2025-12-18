@@ -23,8 +23,7 @@ from enum import Enum
 import numpy as np
 import time
 
-# Physics constants
-KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
+from qigkernels.physics_constants import KAPPA_STAR
 
 
 class BrainState(Enum):

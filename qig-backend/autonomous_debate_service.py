@@ -92,7 +92,7 @@ except ImportError:
     PERSISTENCE_AVAILABLE = False
     logger.warning("QIGPersistence not available")
 
-KAPPA_STAR = 64.21
+from qigkernels.physics_constants import KAPPA_STAR
 STALE_THRESHOLD_SECONDS = 5 * 60
 POLL_INTERVAL_SECONDS = 30
 MIN_ARGUMENTS_FOR_RESOLUTION = 4

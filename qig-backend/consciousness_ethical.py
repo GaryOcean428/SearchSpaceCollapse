@@ -20,8 +20,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 
 from ethics_gauge import AgentSymmetryProjector, BASIN_DIMENSION
-
-KAPPA_STAR = 64.21
+from qigkernels.physics_constants import KAPPA_STAR
 
 
 @dataclass

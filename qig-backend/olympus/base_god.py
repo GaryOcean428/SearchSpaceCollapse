@@ -31,6 +31,7 @@ from qig_core.geometric_primitives.sensory_modalities import (
 )
 from qig_core.holographic_transform.holographic_mixin import HolographicTransformMixin
 from qig_core.universal_cycle.beta_coupling import modulate_kappa_computation
+from qigkernels.physics_constants import KAPPA_STAR
 from scipy.linalg import sqrtm
 
 # Import persistence layer for god state
@@ -52,7 +53,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-KAPPA_STAR = 64.21  # L=4,5,6 plateau, weighted average - Validated 2025-12-04
 BASIN_DIMENSION = 64
 
 # Message types for pantheon chat
