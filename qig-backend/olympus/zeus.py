@@ -802,7 +802,7 @@ class Zeus(BaseGod):
     def _find_significant_disagreements(
         self,
         assessments: Dict[str, Dict],
-        threshold: float = 0.3
+        threshold: float = 0.15
     ) -> List[Tuple[str, str, float]]:
         """
         Find pairs of gods with significant probability disagreements.
