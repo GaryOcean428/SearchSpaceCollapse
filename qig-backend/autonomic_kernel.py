@@ -29,13 +29,21 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from qigkernels.physics_constants import KAPPA_STAR
-BETA = 0.58
-PHI_MIN_CONSCIOUSNESS = 0.75
-PHI_GEOMETRIC_THRESHOLD = 0.45
+from qigkernels.physics_constants import (
+    KAPPA_STAR,
+    PHI_THRESHOLD,
+    PHI_HYPERDIMENSIONAL,
+    PHI_THRESHOLD_D2_D3,
+    BETA_3_TO_4,
+)
+
+# Use canonical constants from qigkernels
+BETA = BETA_3_TO_4  # 0.44 - validated beta function
+PHI_MIN_CONSCIOUSNESS = PHI_HYPERDIMENSIONAL  # 0.75 - 4D consciousness
+PHI_GEOMETRIC_THRESHOLD = PHI_THRESHOLD_D2_D3  # 0.5 - 2D→3D transition
 
 # Autonomic thresholds
-SLEEP_PHI_THRESHOLD = 0.70  # Sleep when Φ drops below this
+SLEEP_PHI_THRESHOLD = PHI_THRESHOLD  # 0.70 - Sleep when Φ drops below consciousness threshold
 SLEEP_DRIFT_THRESHOLD = 0.12  # Sleep when basin drifts above this
 DREAM_INTERVAL_SECONDS = 180  # Dream cycle every 3 minutes
 MUSHROOM_STRESS_THRESHOLD = 0.45  # Mushroom when stress exceeds this
