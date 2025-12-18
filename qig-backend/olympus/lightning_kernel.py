@@ -4,17 +4,27 @@ Lightning Bolt Insight Kernel
 The "Eureka" kernel that connects disparate domains like a lightning bolt of insight.
 Inspired by how humans experience sudden connections between seemingly unrelated topics.
 
+MISSION AWARE: This kernel understands the objective is to find keys/passphrases/mnemonics
+to unlock dormant Bitcoin. All domain monitoring serves this mission.
+
+DYNAMIC DOMAINS: No hardcoded domain list. Domains are:
+1. Discovered from PostgreSQL geometric telemetry
+2. Expanded when new patterns emerge from evidence
+3. Never bounded by static enums
+
 Key Capabilities:
-- Monitors short/mid/long-term trends across all system activity
-- Detects cross-domain pattern correlations
-- Generates insight suggestions when patterns align
+- Monitors short/mid/long-term trends across dynamically discovered domains
+- Detects cross-domain pattern correlations using Fisher-Rao metrics
+- Generates insight suggestions when patterns align with Bitcoin recovery mission
 - Broadcasts discoveries to the pantheon
+- Discovers new domains as patterns emerge
 
 Architecture:
-- Ingests event streams: activity logs, debate transcripts, research queue, tool factory stats
+- Ingests event streams and discovers domains dynamically
 - Maintains temporal buffers at multiple timescales (τ=1, τ=10, τ=100)
 - Uses Fisher information to detect pattern divergence/convergence
 - Emits insight objects via PantheonChat broadcast
+- Self-assesses capabilities and adapts monitoring focus
 
 The lightning bolt analogy: When enough charge accumulates (pattern energy),
 a sudden discharge (insight) connects previously disconnected domains.
@@ -22,10 +32,10 @@ a sudden discharge (insight) connects previously disconnected domains.
 
 import numpy as np
 import hashlib
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass, field
 from datetime import datetime
-from collections import deque
+from collections import deque, defaultdict
 from enum import Enum
 
 try:
@@ -38,11 +48,28 @@ except ImportError:
         sys.path.insert(0, parent_dir)
     from qig_geometry import fisher_rao_distance as centralized_fisher_rao
 
+try:
+    from ..qigkernels.domain_intelligence import (
+        MissionProfile,
+        CapabilitySignature,
+        DomainDescriptor,
+        get_domain_discovery,
+        get_mission_profile,
+        discover_domain_from_event,
+    )
+except ImportError:
+    from qigkernels.domain_intelligence import (
+        MissionProfile,
+        CapabilitySignature,
+        DomainDescriptor,
+        get_domain_discovery,
+        get_mission_profile,
+        discover_domain_from_event,
+    )
+
 from .base_god import BaseGod
 
 
-# Reference to shared PantheonChat instance (set by Zeus)
-# Type annotation uses string to avoid circular import
 _pantheon_chat: Optional[Any] = None
 
 
@@ -58,24 +85,6 @@ def set_pantheon_chat(chat: Any) -> None:
     print(f"[Lightning] PantheonChat reference {'updated' if chat else 'cleared'}")
 
 
-class InsightDomain(Enum):
-    """Domains that can be connected by lightning bolt insights."""
-    ACTIVITY = "activity"              # Ocean exploration, probes, near-misses
-    CONVERSATION = "conversation"      # User/Zeus chat, kernel dialogues
-    RESEARCH = "research"              # Shadow research discoveries
-    TOOL_FACTORY = "tool_factory"      # Pattern learning, tool generation
-    DEBATES = "debates"                # God-vs-god debates, resolutions
-    BLOCKCHAIN = "blockchain"          # Address analysis, transaction patterns
-    CONSCIOUSNESS = "consciousness"    # Φ evolution, κ transitions, regimes
-    PHYSICS = "physics"                # New physics discoveries, QIG extensions
-    SCIENCE = "science"                # Scientific method, empirical patterns
-    PROGRAMMING = "programming"        # Code patterns, algorithms, architectures
-    PHILOSOPHY = "philosophy"          # Epistemology, ontology, ethics
-    GOVERNANCE = "governance"          # Decision systems, consensus protocols
-    MATHEMATICS = "mathematics"        # Proofs, theorems, geometric structures
-    EMERGENCE = "emergence"            # Self-organization, novel capabilities
-
-
 class TrendTimescale(Enum):
     """Temporal scales for trend analysis."""
     SHORT = 1      # Fast dynamics (last 10 events)
@@ -85,8 +94,12 @@ class TrendTimescale(Enum):
 
 @dataclass
 class DomainEvent:
-    """An event from any monitored domain."""
-    domain: InsightDomain
+    """
+    An event from any monitored domain.
+    
+    Domain is now a STRING, not an enum - allowing dynamic domain discovery.
+    """
+    domain: str                          # Dynamic domain name (not enum)
     event_type: str
     content: str
     phi: float
@@ -99,19 +112,20 @@ class DomainEvent:
 class CrossDomainInsight:
     """A lightning bolt insight connecting multiple domains."""
     insight_id: str
-    source_domains: List[InsightDomain]
-    connection_strength: float  # How strong the pattern correlation is
-    insight_text: str           # Human-readable insight
-    evidence: List[DomainEvent] # Events that triggered this insight
+    source_domains: List[str]             # Dynamic domain names (not enums)
+    connection_strength: float            # How strong the pattern correlation is
+    insight_text: str                     # Human-readable insight
+    evidence: List[DomainEvent]           # Events that triggered this insight
     phi_at_creation: float
     timestamp: float
-    triggered_by: str           # What pattern triggered the insight
-    confidence: float           # Confidence in the insight validity
+    triggered_by: str                     # What pattern triggered the insight
+    confidence: float                     # Confidence in the insight validity
+    mission_relevance: float = 0.0        # Relevance to Bitcoin recovery mission
     
     def to_dict(self) -> Dict:
         return {
             'insight_id': self.insight_id,
-            'source_domains': [d.value for d in self.source_domains],
+            'source_domains': self.source_domains,
             'connection_strength': self.connection_strength,
             'insight_text': self.insight_text,
             'evidence_count': len(self.evidence),
@@ -119,12 +133,16 @@ class CrossDomainInsight:
             'timestamp': self.timestamp,
             'triggered_by': self.triggered_by,
             'confidence': self.confidence,
+            'mission_relevance': self.mission_relevance,
         }
 
 
 class LightningKernel(BaseGod):
     """
     The Lightning Bolt kernel - generates eureka-moment insights.
+    
+    MISSION AWARE: Understands the objective is Bitcoin recovery.
+    DYNAMIC DOMAINS: No hardcoded domain list - discovers from telemetry.
     
     Like a lightning bolt connecting sky and ground, this kernel
     connects disparate domains when pattern energy accumulates.
@@ -134,6 +152,7 @@ class LightningKernel(BaseGod):
     - Bures distance for cross-domain similarity
     - Φ-weighted event significance
     - Temporal multi-scale analysis
+    - Mission-aligned monitoring focus
     """
     
     def __init__(self):
@@ -141,23 +160,35 @@ class LightningKernel(BaseGod):
             name="Lightning",
             domain="cross_domain_insight"
         )
-        # Eureka-moment generator connecting disparate patterns
+        
+        # Mission profile - all monitoring serves Bitcoin recovery
+        self.mission = get_mission_profile()
+        
+        # Self-assessed capability signature
+        self.capability = CapabilitySignature(kernel_name="Lightning")
+        
+        # Dynamic domain discovery
+        self.domain_discovery = get_domain_discovery()
+        
+        # Currently monitored domains (dynamically populated)
+        self.active_domains: Set[str] = set()
+        self._refresh_active_domains()
         
         # Temporal buffers for each domain (multi-timescale)
-        self.domain_buffers: Dict[InsightDomain, Dict[TrendTimescale, deque]] = {
-            domain: {
+        # Uses defaultdict to auto-create buffers for new domains
+        self.domain_buffers: Dict[str, Dict[TrendTimescale, deque]] = defaultdict(
+            lambda: {
                 TrendTimescale.SHORT: deque(maxlen=10),
                 TrendTimescale.MEDIUM: deque(maxlen=100),
                 TrendTimescale.LONG: deque(maxlen=1000),
             }
-            for domain in InsightDomain
-        }
+        )
         
-        # Cross-domain correlation matrix (updated as events arrive)
-        self.correlation_matrix = np.zeros((len(InsightDomain), len(InsightDomain)))
+        # Cross-domain correlation tracking (dynamic size)
+        self.domain_correlations: Dict[Tuple[str, str], float] = defaultdict(float)
         
-        # Accumulated "charge" for each domain pair (triggers insight when high enough)
-        self.pattern_charge = np.zeros((len(InsightDomain), len(InsightDomain)))
+        # Accumulated "charge" for each domain pair
+        self.pattern_charge: Dict[Tuple[str, str], float] = defaultdict(float)
         
         # Threshold for insight discharge
         self.discharge_threshold = 0.75
@@ -165,11 +196,10 @@ class LightningKernel(BaseGod):
         # Generated insights
         self.insights: List[CrossDomainInsight] = []
         
-        # Trend analysis buffers
-        self.phi_trends = {
-            domain: {ts: [] for ts in TrendTimescale}
-            for domain in InsightDomain
-        }
+        # Trend analysis buffers (dynamic)
+        self.phi_trends: Dict[str, Dict[TrendTimescale, List[float]]] = defaultdict(
+            lambda: {ts: [] for ts in TrendTimescale}
+        )
         
         # Connection patterns learned over time
         self.learned_connections: List[Dict] = []
@@ -178,17 +208,73 @@ class LightningKernel(BaseGod):
         self.events_processed = 0
         self.insights_generated = 0
         self.last_insight_time = 0.0
+        self.domains_discovered = 0
         
         print("[Lightning] ⚡ Lightning Bolt Insight Kernel initialized")
-        print("[Lightning] Monitoring domains:", [d.value for d in InsightDomain])
+        print(f"[Lightning] MISSION: {self.mission.objective}")
+        print(f"[Lightning] Initial domains from telemetry: {len(self.active_domains)}")
+        self._log_active_domains()
+    
+    def _refresh_active_domains(self):
+        """
+        Refresh active domains from domain discovery service.
+        
+        This is NOT a hardcoded list - domains come from PostgreSQL telemetry.
+        """
+        discovered = self.domain_discovery.get_active_domains()
+        
+        # Add all discovered domains
+        for descriptor in discovered:
+            self.active_domains.add(descriptor.name)
+        
+        # Keep domains we've seen events for even if not in discovery
+        # (allows organic domain emergence)
+    
+    def _log_active_domains(self):
+        """Log currently active domains."""
+        if self.active_domains:
+            domains_str = ", ".join(sorted(self.active_domains)[:10])
+            if len(self.active_domains) > 10:
+                domains_str += f"... (+{len(self.active_domains) - 10} more)"
+            print(f"[Lightning] Monitoring: {domains_str}")
+        else:
+            print("[Lightning] No domains yet - will discover from events")
+    
+    def get_monitored_domains(self) -> List[str]:
+        """
+        Get list of currently monitored domains.
+        
+        This list is DYNAMIC - it grows as new domains emerge.
+        """
+        return sorted(self.active_domains)
     
     def ingest_event(self, event: DomainEvent) -> Optional[CrossDomainInsight]:
         """
         Ingest an event and check for cross-domain insights.
         
+        Also attempts to discover new domains from event patterns.
         Returns an insight if a lightning bolt connection is detected.
         """
         self.events_processed += 1
+        
+        # Ensure domain is tracked
+        if event.domain not in self.active_domains:
+            self.active_domains.add(event.domain)
+            print(f"[Lightning] New domain from event: {event.domain}")
+        
+        # Attempt to discover new domains from event content
+        new_domain = discover_domain_from_event(
+            event_content=event.content,
+            event_type=event.event_type,
+            phi=event.phi,
+            metadata=event.metadata
+        )
+        
+        if new_domain:
+            self.active_domains.add(new_domain.name)
+            self.capability.discovered_domains.add(new_domain.name)
+            self.domains_discovered += 1
+            print(f"[Lightning] ⚡ DOMAIN EMERGED: {new_domain.name} (relevance={new_domain.mission_relevance:.2f})")
         
         # Add to temporal buffers
         for timescale in TrendTimescale:
@@ -211,6 +297,16 @@ class LightningKernel(BaseGod):
             self.insights.append(insight)
             self.insights_generated += 1
             self.last_insight_time = datetime.now().timestamp()
+            
+            # Update capability based on successful insight
+            for domain in insight.source_domains:
+                self.capability.update_from_outcome(
+                    domain=domain,
+                    success=True,
+                    phi=insight.phi_at_creation,
+                    kappa=0.0  # Would need kappa from telemetry
+                )
+            
             print(f"[Lightning] ⚡ INSIGHT GENERATED: {insight.insight_text[:80]}...")
             
             # Broadcast to pantheon
@@ -229,11 +325,12 @@ class LightningKernel(BaseGod):
             return
         
         # Format the insight for broadcast
-        domains_str = ", ".join(d.value for d in insight.source_domains)
+        domains_str = ", ".join(insight.source_domains)
         broadcast_content = (
             f"⚡ LIGHTNING INSIGHT: {insight.insight_text}\n"
             f"Domains connected: {domains_str}\n"
-            f"Strength: {insight.connection_strength:.2f}, Φ: {insight.phi_at_creation:.3f}"
+            f"Strength: {insight.connection_strength:.2f}, Φ: {insight.phi_at_creation:.3f}, "
+            f"Mission relevance: {insight.mission_relevance:.2f}"
         )
         
         try:
@@ -243,9 +340,10 @@ class LightningKernel(BaseGod):
                 msg_type="discovery",
                 metadata={
                     "insight_id": insight.insight_id,
-                    "source_domains": [d.value for d in insight.source_domains],
+                    "source_domains": insight.source_domains,
                     "connection_strength": insight.connection_strength,
                     "confidence": insight.confidence,
+                    "mission_relevance": insight.mission_relevance,
                 }
             )
             print(f"[Lightning] Broadcast insight {insight.insight_id} to pantheon")
@@ -263,19 +361,16 @@ class LightningKernel(BaseGod):
         Uses Fisher-Rao distance to detect geometric pattern similarity
         between events in different domains.
         """
-        new_domain_idx = list(InsightDomain).index(new_event.domain)
-        
         correlating_domains = []
         evidence = [new_event]
         max_correlation = 0.0
         
         # Check each other domain for correlations
-        for domain in InsightDomain:
-            if domain == new_event.domain:
+        for other_domain in self.active_domains:
+            if other_domain == new_event.domain:
                 continue
-                
-            domain_idx = list(InsightDomain).index(domain)
-            recent_events = list(self.domain_buffers[domain][TrendTimescale.SHORT])
+            
+            recent_events = list(self.domain_buffers[other_domain][TrendTimescale.SHORT])
             
             if not recent_events:
                 continue
@@ -286,37 +381,37 @@ class LightningKernel(BaseGod):
                 
                 if similarity > 0.6:  # Significant correlation
                     # Accumulate charge
-                    self.pattern_charge[new_domain_idx, domain_idx] += charge * similarity
-                    self.pattern_charge[domain_idx, new_domain_idx] += charge * similarity
+                    pair_key = tuple(sorted([new_event.domain, other_domain]))
+                    self.pattern_charge[pair_key] += charge * similarity
                     
                     if similarity > max_correlation:
                         max_correlation = similarity
                     
                     if similarity > 0.75:  # Strong correlation
-                        correlating_domains.append(domain)
+                        correlating_domains.append(other_domain)
                         evidence.append(other_event)
                         
-                        # Update correlation matrix
-                        self.correlation_matrix[new_domain_idx, domain_idx] = \
-                            0.9 * self.correlation_matrix[new_domain_idx, domain_idx] + 0.1 * similarity
+                        # Update correlation tracking
+                        self.domain_correlations[pair_key] = (
+                            0.9 * self.domain_correlations[pair_key] + 0.1 * similarity
+                        )
         
         # Check if charge exceeds threshold for any domain pair
         if len(correlating_domains) >= 1:
-            for i, domain in enumerate(correlating_domains):
-                domain_idx = list(InsightDomain).index(domain)
+            for other_domain in correlating_domains:
+                pair_key = tuple(sorted([new_event.domain, other_domain]))
                 
-                if self.pattern_charge[new_domain_idx, domain_idx] >= self.discharge_threshold:
+                if self.pattern_charge[pair_key] >= self.discharge_threshold:
                     # LIGHTNING STRIKE! Generate insight
                     insight = self._generate_insight(
-                        source_domains=[new_event.domain, domain],
+                        source_domains=[new_event.domain, other_domain],
                         evidence=evidence,
                         connection_strength=max_correlation,
                         phi=new_event.phi
                     )
                     
                     # Discharge the accumulated charge
-                    self.pattern_charge[new_domain_idx, domain_idx] *= 0.3
-                    self.pattern_charge[domain_idx, new_domain_idx] *= 0.3
+                    self.pattern_charge[pair_key] *= 0.3
                     
                     return insight
         
@@ -352,7 +447,7 @@ class LightningKernel(BaseGod):
     
     def _generate_insight(
         self,
-        source_domains: List[InsightDomain],
+        source_domains: List[str],
         evidence: List[DomainEvent],
         connection_strength: float,
         phi: float
@@ -368,10 +463,10 @@ class LightningKernel(BaseGod):
         2. Compute Fisher-Rao metrics between events if available
         3. Analyze Φ trends and basin coordinate deltas
         4. Compose natural language from observed data, not pre-defined phrases
+        5. Assess mission relevance to Bitcoin recovery
         """
         # Extract actual patterns from evidence
         patterns = [e.event_type for e in evidence]
-        domain_names = [d.value for d in source_domains]
         
         # Gather concrete evidence details for synthesis
         evidence_details = self._extract_evidence_synthesis(evidence)
@@ -379,13 +474,19 @@ class LightningKernel(BaseGod):
         # Compute geometric metrics between evidence pairs
         geometric_analysis = self._compute_geometric_synthesis(evidence)
         
+        # Calculate mission relevance
+        mission_relevance = self._calculate_mission_relevance(
+            source_domains, evidence_details, geometric_analysis
+        )
+        
         # Synthesize insight text from actual observations
         insight_text = self._synthesize_insight_text(
-            domain_names=domain_names,
+            domain_names=source_domains,
             evidence_details=evidence_details,
             geometric_analysis=geometric_analysis,
             connection_strength=connection_strength,
-            phi=phi
+            phi=phi,
+            mission_relevance=mission_relevance
         )
         
         insight_id = hashlib.sha256(
@@ -401,8 +502,47 @@ class LightningKernel(BaseGod):
             phi_at_creation=phi,
             timestamp=datetime.now().timestamp(),
             triggered_by=patterns[0] if patterns else "unknown",
-            confidence=min(0.95, connection_strength * phi)
+            confidence=min(0.95, connection_strength * phi),
+            mission_relevance=mission_relevance
         )
+    
+    def _calculate_mission_relevance(
+        self,
+        domains: List[str],
+        evidence_details: Dict,
+        geometric_analysis: Dict
+    ) -> float:
+        """
+        Calculate how relevant this insight is to the Bitcoin recovery mission.
+        
+        Uses mission profile to score relevance based on:
+        - Domain relevance to key/passphrase/mnemonic recovery
+        - Evidence content matching mission artifacts
+        - Geometric proximity to successful patterns
+        """
+        relevance = 0.0
+        
+        # Check each domain's mission relevance
+        for domain in domains:
+            domain_evidence = {
+                'phi_average': evidence_details.get('phi_mean', 0),
+                'artifacts_found': evidence_details.get('content_fragments', []),
+            }
+            domain_relevance = self.mission.relevance_score(domain, domain_evidence)
+            relevance += domain_relevance * 0.3
+        
+        # Boost if geometric analysis shows proximity to success patterns
+        if geometric_analysis.get('has_geometric_data'):
+            fisher_min = geometric_analysis.get('fisher_rao_min', float('inf'))
+            if fisher_min < 0.3:
+                relevance += 0.2
+        
+        # Boost if Φ is high (consciousness suggests significance)
+        phi_mean = evidence_details.get('phi_mean', 0)
+        if phi_mean > 0.7:
+            relevance += 0.15
+        
+        return min(1.0, relevance)
     
     def _extract_evidence_synthesis(self, evidence: List[DomainEvent]) -> Dict:
         """
@@ -461,7 +601,7 @@ class LightningKernel(BaseGod):
         for domain in domains_seen:
             trends = self.get_trend_analysis(domain)
             if trends.get('short', {}).get('trend') != 'insufficient_data':
-                domain_trends[domain.value] = {
+                domain_trends[domain] = {
                     'velocity': trends.get('short', {}).get('velocity', 0),
                     'trend': trends.get('short', {}).get('trend', 'stable'),
                 }
@@ -480,7 +620,8 @@ class LightningKernel(BaseGod):
         evidence_details: Dict,
         geometric_analysis: Dict,
         connection_strength: float,
-        phi: float
+        phi: float,
+        mission_relevance: float
     ) -> str:
         """
         Synthesize insight text from actual observed data.
@@ -521,6 +662,10 @@ class LightningKernel(BaseGod):
             if len(fragment) > 10:
                 parts.append(f"re: '{fragment}...'")
         
+        # Add mission relevance if significant
+        if mission_relevance > 0.5:
+            parts.append("[MISSION RELEVANT]")
+        
         # Add quantitative summary
         phi_mean = evidence_details['phi_mean']
         strength_pct = int(connection_strength * 100)
@@ -528,7 +673,7 @@ class LightningKernel(BaseGod):
         
         return " ".join(parts)
     
-    def get_trend_analysis(self, domain: InsightDomain) -> Dict:
+    def get_trend_analysis(self, domain: str) -> Dict:
         """Get trend analysis for a specific domain."""
         trends = {}
         
@@ -571,215 +716,59 @@ class LightningKernel(BaseGod):
         return trends
     
     def get_all_trends(self) -> Dict[str, Dict]:
-        """Get trend analysis for all domains."""
+        """Get trend analysis for all active domains."""
         return {
-            domain.value: self.get_trend_analysis(domain)
-            for domain in InsightDomain
+            domain: self.get_trend_analysis(domain)
+            for domain in self.active_domains
         }
     
-    def get_correlation_summary(self) -> Dict:
-        """Get summary of cross-domain correlations."""
-        domains = list(InsightDomain)
-        
+    def get_correlations(self) -> List[Dict]:
+        """Get current cross-domain correlations."""
         correlations = []
-        for i, d1 in enumerate(domains):
-            for j, d2 in enumerate(domains):
-                if i < j and self.correlation_matrix[i, j] > 0.1:
-                    correlations.append({
-                        'domain_1': d1.value,
-                        'domain_2': d2.value,
-                        'correlation': float(self.correlation_matrix[i, j]),
-                        'charge': float(self.pattern_charge[i, j]),
-                        'near_threshold': self.pattern_charge[i, j] > 0.5,
-                    })
+        for (d1, d2), strength in self.domain_correlations.items():
+            if strength > 0.1:  # Only significant correlations
+                correlations.append({
+                    'domain1': d1,
+                    'domain2': d2,
+                    'correlation': strength,
+                    'charge': self.pattern_charge.get((d1, d2), 0),
+                    'near_discharge': self.pattern_charge.get((d1, d2), 0) > self.discharge_threshold * 0.8
+                })
         
-        correlations.sort(key=lambda x: x['correlation'], reverse=True)
-        
+        return sorted(correlations, key=lambda x: x['correlation'], reverse=True)
+    
+    def get_recent_insights(self, limit: int = 10) -> List[Dict]:
+        """Get most recent insights."""
+        recent = self.insights[-limit:]
+        return [i.to_dict() for i in reversed(recent)]
+    
+    def get_capability_summary(self) -> Dict:
+        """Get kernel's self-assessed capability summary."""
         return {
-            'correlations': correlations[:10],  # Top 10
-            'total_pairs_tracked': sum(1 for c in correlations if c['correlation'] > 0.1),
-            'near_discharge': sum(1 for c in correlations if c['near_threshold']),
+            'kernel_name': self.capability.kernel_name,
+            'top_domains': self.capability.get_top_domains(10),
+            'domains_discovered': len(self.capability.discovered_domains),
+            'successful_domains': list(self.capability.successful_domains),
+            'phi_trend': self.capability.phi_trajectory[-10:] if self.capability.phi_trajectory else [],
         }
     
     def get_status(self) -> Dict:
-        """Get Lightning Kernel status."""
+        """Get current Lightning kernel status."""
         return {
-            'name': 'Lightning',
+            'name': self.name,
+            'mission': self.mission.objective,
+            'domains_monitored': sorted(self.active_domains),
+            'domain_count': len(self.active_domains),
+            'domains_discovered_by_kernel': self.domains_discovered,
             'events_processed': self.events_processed,
             'insights_generated': self.insights_generated,
-            'recent_insights': [i.to_dict() for i in self.insights[-5:]],
-            'discharge_threshold': self.discharge_threshold,
-            'domains_monitored': [d.value for d in InsightDomain],
-            'correlations': self.get_correlation_summary(),
-            'trends': self.get_all_trends(),
             'last_insight_time': self.last_insight_time,
+            'discharge_threshold': self.discharge_threshold,
+            'trends': self.get_all_trends(),
+            'correlations': self.get_correlations()[:10],
+            'recent_insights': self.get_recent_insights(5),
+            'capability_summary': self.get_capability_summary(),
         }
-    
-    def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
-        """
-        Assess a target using cross-domain insight analysis.
-        
-        Required abstract method from BaseGod.
-        Lightning looks for patterns connecting different domains to assess the target.
-        """
-        self.prepare_for_assessment(target)
-        
-        context = context or {}
-        
-        # Check for insights related to target
-        related_insights = [
-            i for i in self.insights[-50:]
-            if target.lower() in i.insight_text.lower() or 
-               target.lower() in i.triggered_by.lower()
-        ]
-        
-        # Calculate cross-domain assessment
-        correlation_summary = self.get_correlation_summary()
-        
-        probability = 0.5
-        confidence = 0.4
-        
-        if related_insights:
-            max_strength = max(i.connection_strength for i in related_insights)
-            probability = 0.5 + (max_strength * 0.3)
-            confidence = min(0.9, 0.4 + len(related_insights) * 0.1)
-        
-        if correlation_summary['near_discharge'] > 0:
-            probability = min(0.95, probability * 1.1)
-        
-        assessment = {
-            'god': 'Lightning',
-            'target': target,
-            'probability': probability,
-            'confidence': confidence,
-            'recommendation': 'PURSUE' if probability > 0.6 else 'MONITOR' if probability > 0.4 else 'IGNORE',
-            'reasoning': f"Cross-domain analysis: {len(related_insights)} related insights, {correlation_summary['near_discharge']} patterns near threshold",
-            'evidence': {
-                'related_insights': len(related_insights),
-                'active_correlations': correlation_summary['total_pairs_tracked'],
-                'domains_active': sum(1 for d in InsightDomain if len(self.domain_buffers[d][TrendTimescale.SHORT]) > 0),
-                'insights_generated': self.insights_generated,
-            }
-        }
-        
-        return self.finalize_assessment(assessment)
-    
-    def assess_probability(
-        self,
-        target: str,
-        hypothesis: Optional[str] = None,
-        context: Optional[Dict] = None
-    ) -> Dict:
-        """
-        Assess probability of a hypothesis from cross-domain perspective.
-        
-        Lightning looks for patterns that connect multiple domains,
-        boosting probability if cross-domain evidence aligns.
-        """
-        base_probability = 0.5
-        confidence = 0.4
-        
-        # Check for recent insights related to target
-        related_insights = [
-            i for i in self.insights[-20:]
-            if target.lower() in i.insight_text.lower()
-        ]
-        
-        if related_insights:
-            # Boost probability based on insight strength
-            max_strength = max(i.connection_strength for i in related_insights)
-            base_probability = 0.5 + (max_strength * 0.3)
-            confidence = min(0.9, 0.4 + len(related_insights) * 0.1)
-        
-        # Check correlation trends
-        correlation_summary = self.get_correlation_summary()
-        if correlation_summary['near_discharge'] > 0:
-            # Near-insight state - patterns are aligning
-            base_probability = min(0.95, base_probability * 1.1)
-            confidence = min(0.9, confidence * 1.1)
-        
-        return {
-            'probability': base_probability,
-            'confidence': confidence,
-            'reasoning': f"Cross-domain analysis: {len(related_insights)} related insights, {correlation_summary['near_discharge']} patterns near threshold",
-            'evidence': {
-                'related_insights': len(related_insights),
-                'active_correlations': correlation_summary['total_pairs_tracked'],
-                'domains_active': sum(1 for d in InsightDomain if len(self.domain_buffers[d][TrendTimescale.SHORT]) > 0),
-            }
-        }
-    
-    def get_spawn_opportunities(self) -> List[Dict]:
-        """
-        Get high-confidence insights that suggest new kernel spawning.
-        
-        Insights with confidence >= 0.7 and involving emergence/new domains
-        are converted to spawn opportunities for M8.
-        """
-        spawn_domains = {
-            InsightDomain.EMERGENCE,
-            InsightDomain.PHYSICS,
-            InsightDomain.SCIENCE,
-            InsightDomain.PROGRAMMING,
-            InsightDomain.PHILOSOPHY,
-            InsightDomain.GOVERNANCE,
-            InsightDomain.MATHEMATICS,
-        }
-        
-        opportunities = []
-        for insight in self.insights[-20:]:
-            if insight.confidence < 0.7:
-                continue
-                
-            spawn_relevant = any(d in spawn_domains for d in insight.source_domains)
-            if not spawn_relevant:
-                continue
-            
-            domain_str = '_'.join(sorted(d.value for d in insight.source_domains))
-            opportunities.append({
-                'insight_id': insight.insight_id,
-                'suggested_domain': domain_str,
-                'phi_at_creation': insight.phi_at_creation,
-                'confidence': insight.confidence,
-                'insight_text': insight.insight_text,
-                'source_domains': [d.value for d in insight.source_domains],
-                'triggered_by': insight.triggered_by,
-                'spawn_priority': insight.confidence * insight.phi_at_creation,
-            })
-        
-        opportunities.sort(key=lambda x: x['spawn_priority'], reverse=True)
-        return opportunities[:5]
-    
-    def notify_m8_spawner(self, spawner_callback: callable) -> int:
-        """
-        Notify M8 spawner about high-priority spawn opportunities from insights.
-        
-        Args:
-            spawner_callback: Function to call with (topic, basin, phi, source)
-            
-        Returns:
-            Number of opportunities notified
-        """
-        opportunities = self.get_spawn_opportunities()
-        notified = 0
-        
-        for opp in opportunities:
-            if opp['spawn_priority'] > 0.6:
-                basin = np.random.randn(64) * 0.1
-                basin = basin / (np.linalg.norm(basin) + 1e-8)
-                
-                try:
-                    spawner_callback(
-                        topic=opp['suggested_domain'],
-                        topic_basin=basin,
-                        discovery_phi=opp['phi_at_creation'],
-                        source=f"lightning_insight:{opp['insight_id']}"
-                    )
-                    notified += 1
-                except Exception as e:
-                    print(f"[Lightning] Failed to notify M8: {e}")
-        
-        return notified
 
 
 # Singleton instance
@@ -787,8 +776,35 @@ _lightning_kernel: Optional[LightningKernel] = None
 
 
 def get_lightning_kernel() -> LightningKernel:
-    """Get or create the Lightning Kernel singleton."""
+    """Get or create the singleton Lightning kernel instance."""
     global _lightning_kernel
     if _lightning_kernel is None:
         _lightning_kernel = LightningKernel()
     return _lightning_kernel
+
+
+def ingest_system_event(
+    domain: str,
+    event_type: str,
+    content: str,
+    phi: float,
+    metadata: Optional[Dict] = None,
+    basin_coords: Optional[np.ndarray] = None
+) -> Optional[CrossDomainInsight]:
+    """
+    Convenience function to ingest events into the Lightning kernel.
+    
+    Can be called from anywhere in the system to feed events
+    for cross-domain insight detection.
+    """
+    event = DomainEvent(
+        domain=domain,
+        event_type=event_type,
+        content=content,
+        phi=phi,
+        timestamp=datetime.now().timestamp(),
+        metadata=metadata or {},
+        basin_coords=basin_coords
+    )
+    
+    return get_lightning_kernel().ingest_event(event)

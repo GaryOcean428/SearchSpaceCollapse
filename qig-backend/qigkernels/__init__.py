@@ -70,6 +70,17 @@ from qigkernels.regimes import RegimeDetector, RegimeThresholds
 
 from qigkernels.geometry import fisher_rao_distance, quantum_fidelity
 
+from qigkernels.domain_intelligence import (
+    MissionProfile,
+    CapabilitySignature,
+    DomainDescriptor,
+    DomainDiscovery,
+    get_domain_discovery,
+    get_mission_profile,
+    discover_domain_from_event,
+    get_kernel_domains,
+)
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -117,4 +128,13 @@ __all__ = [
     # Geometry
     "fisher_rao_distance",
     "quantum_fidelity",
+    # Domain Intelligence (QIG-pure autonomous domain discovery)
+    "MissionProfile",
+    "CapabilitySignature",
+    "DomainDescriptor",
+    "DomainDiscovery",
+    "get_domain_discovery",
+    "get_mission_profile",
+    "discover_domain_from_event",
+    "get_kernel_domains",
 ]
