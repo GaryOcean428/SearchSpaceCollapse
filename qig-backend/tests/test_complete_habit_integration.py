@@ -239,7 +239,7 @@ class TestCompleteHabitIntegration:
         assert 'consciousness_level' in state
         assert 'constants' in state
         assert state['constants']['beta_running_coupling'] == 0.44
-        assert state['constants']['kappa_star'] == 64.0
+        assert state['constants']['kappa_star'] == 64.21  # Validated fixed point
 
 
 class TestPhaseTransitionThresholds:

@@ -278,7 +278,7 @@ def test_innate_drives():
     print(f"✅ Fear response correct: G={low_grounding:.2f} → fear={fear:.2f}")
     
     # Test valence (good geometry should have positive valence)
-    good_kappa = 64.0
+    good_kappa = 64.21  # Validated KAPPA_STAR fixed point
     low_curvature = 0.3
     high_grounding = 0.8
     valence_result = drives.compute_valence(good_kappa, low_curvature, high_grounding)

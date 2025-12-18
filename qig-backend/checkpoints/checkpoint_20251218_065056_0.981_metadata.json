@@ -1,0 +1,11 @@
+{
+  "checkpoint_id": "checkpoint_20251218_065056_0.981",
+  "timestamp": "2025-12-18T06:50:56.239100",
+  "phi": 0.9814374532237904,
+  "kappa": 31.270833333333346,
+  "regime": "linear",
+  "metadata": {
+    "n_recursions": 4,
+    "converged": true
+  }
+}

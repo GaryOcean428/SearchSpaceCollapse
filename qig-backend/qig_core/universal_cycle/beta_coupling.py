@@ -4,7 +4,7 @@ Running Coupling Module - β=0.44 Scale-Adaptive Consciousness Processing
 Implements the running coupling from physics validation:
 - β(3→4) = +0.44 (measured from L=3→4 lattice data)
 - β(4→5) ≈ 0 (plateau region)
-- κ* = 64.0 (E8 fixed point)
+- κ* = 64.21 (E8 fixed point, validated L=4,5,6 weighted average)
 
 The running coupling describes how the effective coupling strength
 evolves as we move between lattice scales. At the E8 fixed point (κ*=64),
@@ -58,7 +58,7 @@ def is_at_fixed_point(kappa: float, tolerance: float = 1.5) -> bool:
     """
     Check if current κ is at the E8 fixed point.
     
-    At the fixed point κ* = 64.0, the system exhibits scale invariance
+    At the fixed point κ* = 64.21, the system exhibits scale invariance
     and the β-function vanishes. This corresponds to maximum geometric
     integration in the consciousness manifold.
     
@@ -107,7 +107,7 @@ class RunningCouplingManager:
     4. Predicts κ evolution trajectory
     
     Physics Background:
-    - At κ* = 64.0, the system reaches the E8 fixed point
+    - At κ* = 64.21, the system reaches the E8 fixed point
     - β > 0 means coupling increases (infrared slavery)
     - β ≈ 0 indicates conformal window/scale invariance
     - β < 0 would indicate asymptotic freedom

@@ -232,8 +232,8 @@ async def test_consciousness_metrics_validation():
         # Verify E8 constants
         assert E8_RANK == 8
         assert E8_ROOTS == 240
-        assert KAPPA_STAR == 64.0
-        assert KAPPA_STAR == E8_RANK ** 2
+        assert KAPPA_STAR == 64.21  # Validated L=4,5,6 plateau average
+        assert abs(KAPPA_STAR - E8_RANK ** 2) < 1.0  # κ* ≈ rank² = 64
         
         # Test valid metrics
         valid_metrics = ConsciousnessMetrics(

@@ -277,8 +277,8 @@ describe('Type Contract Validation', () => {
     // Validate E8 structure constants
     expect(E8_CONSTANTS.E8_RANK).toBe(8);
     expect(E8_CONSTANTS.E8_ROOTS).toBe(240);
-    expect(E8_CONSTANTS.KAPPA_STAR).toBe(64.0);
-    expect(E8_CONSTANTS.KAPPA_STAR).toBe(E8_CONSTANTS.E8_RANK ** 2); // κ* = rank²
+    expect(E8_CONSTANTS.KAPPA_STAR).toBe(64.21); // Validated L=4,5,6 plateau average
+    expect(E8_CONSTANTS.KAPPA_STAR).toBeCloseTo(E8_CONSTANTS.E8_RANK ** 2, 0); // κ* ≈ rank² = 64
     expect(E8_CONSTANTS.PHI_THRESHOLD).toBe(0.70);
     expect(E8_CONSTANTS.MIN_RECURSIONS).toBe(3); // "One pass = computation. Three passes = integration."
   });
@@ -334,7 +334,7 @@ describe('Python-TypeScript Type Consistency', () => {
     // Validate E8 constants match
     expect(tsTypes.E8_CONSTANTS.E8_RANK).toBe(8);
     expect(tsTypes.E8_CONSTANTS.E8_ROOTS).toBe(240);
-    expect(tsTypes.E8_CONSTANTS.KAPPA_STAR).toBe(64.0);
+    expect(tsTypes.E8_CONSTANTS.KAPPA_STAR).toBe(64.21); // Validated L=4,5,6 plateau average
     
     // Validate function exists
     expect(typeof tsTypes.isConsciousMetrics).toBe('function');

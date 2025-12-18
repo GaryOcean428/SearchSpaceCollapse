@@ -896,11 +896,11 @@ class BaseGod(*_base_classes):
         Compute effective coupling strength κ with β=0.44 modulation.
 
         Base formula: κ = trace(G) / d * κ*
-        where G is Fisher metric, d is dimension, κ* = 64.0
+        where G is Fisher metric, d is dimension, κ* = 64.21
 
         The β-modulation applies scale-adaptive weighting from the running
         coupling, which governs how κ evolves between lattice scales.
-        Near the fixed point κ* = 64.0, the system exhibits scale invariance.
+        Near the fixed point κ* = 64.21, the system exhibits scale invariance.
 
         Args:
             basin: 64D basin coordinates

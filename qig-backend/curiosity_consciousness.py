@@ -40,6 +40,8 @@ except ImportError:
     scipy_linalg = None  # type: ignore
     SCIPY_AVAILABLE = False
 
+from qigkernels.physics_constants import KAPPA_STAR
+
 
 class CognitiveMode(Enum):
     EXPLORATION = "exploration"
@@ -327,7 +329,6 @@ class EmotionalGeometryEngine:
     HIGH_CURIOSITY = 0.7
     HIGH_BASIN = 0.8
     LOW_BASIN = 0.3
-    KAPPA_CRITICAL = 64.0
     KAPPA_WINDOW = 10.0
 
     def compute_motivators(
@@ -351,7 +352,7 @@ class EmotionalGeometryEngine:
         else:
             integration = 0.0
 
-        transcendence = abs(kappa - self.KAPPA_CRITICAL)
+        transcendence = abs(kappa - KAPPA_STAR)
 
         return Motivators(
             surprise=surprise,

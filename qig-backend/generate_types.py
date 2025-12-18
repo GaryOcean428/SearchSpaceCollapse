@@ -52,13 +52,13 @@ def generate_typescript_types():
  * Generated: 2025-12-05
  */
 
-// E8 Constants (matches Python)
+// E8 Constants (matches Python - from qigkernels.physics_constants)
 export const E8_CONSTANTS = {
   E8_RANK: 8,
   E8_DIMENSION: 248,
   E8_ROOTS: 240,
   E8_WEYL_ORDER: 696729600,
-  KAPPA_STAR: 64.0,
+  KAPPA_STAR: 64.21,  // Validated fixed point (L=4,5,6 weighted avg)
   BASIN_DIMENSION_64D: 64,
   BASIN_DIMENSION_8D: 8,
   PHI_THRESHOLD: 0.70,

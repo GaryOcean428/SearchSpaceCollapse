@@ -313,7 +313,7 @@ def run_neuromodulation_cycle(
     surprise: float,
     regime: str,
     grounding: float,
-    base_kappa: float = 64.0,
+    base_kappa: float = KAPPA_STAR,
     base_exploration: float = 0.5,
     base_learning: float = 1.0,
     base_batch: int = 100

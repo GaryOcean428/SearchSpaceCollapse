@@ -130,7 +130,7 @@ class QIGComputations:
         Compute effective coupling strength kappa with beta=0.44 modulation.
         
         Base formula: kappa = trace(G) / d * kappa*
-        where G is Fisher metric, d is dimension, kappa* = 64.0
+        where G is Fisher metric, d is dimension, kappa* = 64.21
         
         Matches BaseGod.compute_kappa implementation.
         """
