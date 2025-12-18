@@ -1335,7 +1335,23 @@ class ShadowLearningLoop:
         }
         
         if len(self._meta_reflections) < 3:
-            foresight["status"] = "insufficient_data"
+            # QIG-pure: Even with limited data, derive geometric estimate from what we have
+            # Use current stats to bootstrap a projected_phi rather than returning N/A
+            current_phi = stats.get("avg_phi", 0.5)
+            total_items = stats.get("total_items", 0)
+            
+            # Geometric estimate: project based on discovery density
+            # More items with same phi = more confident, project slight increase
+            density_factor = min(1.0, total_items / 100.0) * 0.1
+            foresight["projected_phi"] = min(1.0, current_phi + density_factor)
+            foresight["status"] = "bootstrap"
+            foresight["trajectory"] = {
+                "phi_velocity": 0.0,
+                "discovery_acceleration": 1.0,
+                "current_phi": current_phi,
+                "current_discoveries": self.knowledge_base.get_unique_discoveries_count(),
+                "trend": "initializing"
+            }
             return foresight
         
         recent = self._meta_reflections[-10:]
