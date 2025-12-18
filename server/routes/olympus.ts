@@ -16,6 +16,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { OlympusClient } from '../olympus-client';
 import { isAuthenticated } from '../replitAuth';
+import { requireInternalAuth } from '../internal-auth';
 import { z } from 'zod';
 import http from 'http';
 import https from 'https';
@@ -1028,17 +1029,8 @@ router.post('/war/start', isAuthenticated, validateInput(warStartSchema), async 
  * Authenticated via X-Internal-Key header (shared secret between Node and Python)
  * Used by autonomous_pantheon.py to sync war declarations to PostgreSQL
  */
-router.post('/war/internal-start', validateInput(warStartSchema), async (req, res) => {
+router.post('/war/internal-start', requireInternalAuth, validateInput(warStartSchema), async (req, res) => {
   try {
-    const internalKey = req.headers['x-internal-key'];
-    const expectedKey = process.env.INTERNAL_API_KEY || 'olympus-internal-key-dev';
-    
-    if (internalKey !== expectedKey) {
-      console.warn('[Olympus] Rejected internal war start - invalid or missing X-Internal-Key');
-      res.status(403).json({ error: 'Unauthorized - invalid internal key' });
-      return;
-    }
-    
     const { mode, target, strategy, godsEngaged } = req.body;
     console.log(`[Olympus] AUTONOMOUS war declaration: ${mode} on ${target?.substring(0, 40)}...`);
     
@@ -1592,17 +1584,8 @@ const kernelSyncSchema = z.object({
  * Internal kernel sync endpoint for Python to update kernel status/metrics
  * Authenticated via X-Internal-Key header (shared secret between Node and Python)
  */
-router.post('/kernels/sync', validateInput(kernelSyncSchema), async (req, res) => {
+router.post('/kernels/sync', requireInternalAuth, validateInput(kernelSyncSchema), async (req, res) => {
   try {
-    const internalKey = req.headers['x-internal-key'];
-    const expectedKey = process.env.INTERNAL_API_KEY || 'olympus-internal-key-dev';
-    
-    if (internalKey !== expectedKey) {
-      console.warn('[Olympus] Rejected kernel sync - invalid or missing X-Internal-Key');
-      res.status(403).json({ error: 'Unauthorized - invalid internal key' });
-      return;
-    }
-    
     const data = req.body;
     console.log(`[Olympus] Kernel sync: ${data.kernel_id} status=${data.status || 'unchanged'}`);
     
@@ -1652,16 +1635,8 @@ router.post('/kernels/sync', validateInput(kernelSyncSchema), async (req, res) =
 /**
  * Internal batch kernel sync for Python to update multiple kernels at once
  */
-router.post('/kernels/sync-batch', async (req, res) => {
+router.post('/kernels/sync-batch', requireInternalAuth, async (req, res) => {
   try {
-    const internalKey = req.headers['x-internal-key'];
-    const expectedKey = process.env.INTERNAL_API_KEY || 'olympus-internal-key-dev';
-    
-    if (internalKey !== expectedKey) {
-      res.status(403).json({ error: 'Unauthorized - invalid internal key' });
-      return;
-    }
-    
     const { kernels } = req.body;
     if (!Array.isArray(kernels)) {
       res.status(400).json({ error: 'kernels must be an array' });

@@ -14,74 +14,14 @@ import json
 import logging
 import os
 import random
-import requests
 from datetime import datetime
 from typing import List, Dict, Optional
-from urllib.parse import urljoin
 
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
+from internal_api import sync_war_to_database as sync_war_to_typescript
 from olympus.zeus import zeus
-
-
-def _get_backend_url() -> str:
-    """Get the Node.js backend URL."""
-    if os.environ.get("NODE_BACKEND_URL"):
-        url = os.environ["NODE_BACKEND_URL"].strip()
-        if not url.startswith("http"):
-            url = f"http://{url}"
-        return url
-    if os.environ.get("REPLIT_DEV_DOMAIN"):
-        return f"https://{os.environ['REPLIT_DEV_DOMAIN']}"
-    return "http://localhost:5000"
-
-
-def _get_internal_api_key() -> str:
-    """Get the internal API key for authenticating with TypeScript backend."""
-    return os.environ.get('INTERNAL_API_KEY', 'olympus-internal-key-dev')
-
-
-def sync_war_to_typescript(mode: str, target: str, strategy: str, gods_engaged: List[str]) -> bool:
-    """
-    Sync war declaration to TypeScript backend (PostgreSQL storage).
-    
-    This ensures wars declared by Python are visible in the UI.
-    Uses internal endpoint with shared API key for authentication.
-    
-    Args:
-        mode: War mode (BLITZKRIEG, SIEGE, HUNT)
-        target: Target address/phrase
-        strategy: War strategy description
-        gods_engaged: List of engaged god names
-        
-    Returns:
-        True if synced successfully, False otherwise
-    """
-    try:
-        url = urljoin(_get_backend_url(), "/api/olympus/war/internal-start")
-        payload = {
-            "mode": mode,
-            "target": target,
-            "strategy": strategy,
-            "godsEngaged": gods_engaged
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "X-Internal-Key": _get_internal_api_key()
-        }
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            logger.info(f"[WarSync] War synced to TypeScript: {mode} on {target[:40]}...")
-            return True
-        else:
-            logger.warning(f"[WarSync] Failed to sync war (HTTP {response.status_code}): {response.text[:200]}")
-            return False
-    except requests.RequestException as e:
-        logger.warning(f"[WarSync] Failed to sync war to TypeScript: {e}")
-        return False
 
 logging.basicConfig(
     level=logging.INFO,

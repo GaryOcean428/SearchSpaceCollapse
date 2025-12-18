@@ -22,6 +22,8 @@ Can the system develop the ability to extend itself?
 Self-Learning Tool Factory - Import centralized geometry
 """
 import ast
+import os
+import sys
 import numpy as np
 import hashlib
 import traceback
@@ -42,9 +44,6 @@ try:
     from ..redis_cache import ToolPatternBuffer
 except ImportError:
     # When run from different context, try absolute import
-    import sys
-    import os
-    # Add parent directory to path if needed
     parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)

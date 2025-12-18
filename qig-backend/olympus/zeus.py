@@ -21,49 +21,8 @@ from flask import Blueprint, jsonify, request
 from .base_god import BaseGod
 
 
-def _get_node_backend_url() -> str:
-    """Get the Node.js backend URL for war sync."""
-    if os.environ.get("NODE_BACKEND_URL"):
-        url = os.environ["NODE_BACKEND_URL"].strip()
-        if not url.startswith("http"):
-            url = f"http://{url}"
-        return url
-    if os.environ.get("REPLIT_DEV_DOMAIN"):
-        return f"https://{os.environ['REPLIT_DEV_DOMAIN']}"
-    return "http://localhost:5000"
-
-
-def _sync_war_to_database(mode: str, target: str, strategy: str, gods_engaged: List[str]) -> bool:
-    """
-    Sync war declaration to TypeScript backend (PostgreSQL storage).
-    This ensures wars declared by Zeus are visible in the War Status Panel.
-    """
-    try:
-        url = urljoin(_get_node_backend_url(), "/api/olympus/war/internal-start")
-        payload = {
-            "mode": mode,
-            "target": target,
-            "strategy": strategy,
-            "godsEngaged": gods_engaged
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "X-Internal-Key": os.environ.get('INTERNAL_API_KEY', 'olympus-internal-key-dev')
-        }
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=5)
-        
-        if response.status_code == 200:
-            print(f"[Zeus] War synced to database: {mode} on {target[:40]}...")
-            return True
-        else:
-            print(f"[Zeus] War sync failed (HTTP {response.status_code}): {response.text[:200]}")
-            return False
-    except requests.RequestException as e:
-        print(f"[Zeus] War sync error: {e}")
-        return False
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from internal_api import sync_war_to_database as _sync_war_to_database
 from m8_kernel_spawning import SpawnReason, get_spawner
 
 
@@ -1260,7 +1219,7 @@ class Zeus(BaseGod):
             topic=topic,
             requester="Zeus",
             priority=priority,
-            category=category
+            category=category or "general"
         )
     
     def get_shadow_research_status(self) -> Dict:

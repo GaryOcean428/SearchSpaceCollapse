@@ -715,6 +715,8 @@ def tool_factory_status():
         from olympus.tool_factory import AutonomousToolPipeline
         
         pipeline = AutonomousToolPipeline.get_instance()
+        if pipeline is None:
+            return RouteResponse.error('Tool pipeline not initialized', status=503)
         status = pipeline.get_pipeline_status()
         
         return RouteResponse.success({
@@ -732,11 +734,13 @@ def tool_factory_requests():
         from olympus.tool_factory import AutonomousToolPipeline
         
         pipeline = AutonomousToolPipeline.get_instance()
-        requests = pipeline.get_all_requests()
+        if pipeline is None:
+            return RouteResponse.error('Tool pipeline not initialized', status=503)
+        requests_list = pipeline.get_all_requests()
         
         return RouteResponse.success({
-            'requests': requests,
-            'count': len(requests)
+            'requests': requests_list,
+            'count': len(requests_list)
         })
     except Exception as e:
         return RouteResponse.server_error(e)
@@ -749,6 +753,8 @@ def tool_factory_request_detail(request_id: str):
         from olympus.tool_factory import AutonomousToolPipeline
         
         pipeline = AutonomousToolPipeline.get_instance()
+        if pipeline is None:
+            return RouteResponse.error('Tool pipeline not initialized', status=503)
         request_status = pipeline.get_request_status(request_id)
         
         if not request_status:
@@ -797,6 +803,8 @@ def tool_factory_invent():
         inspiration = data.get('inspiration')
         
         pipeline = AutonomousToolPipeline.get_instance()
+        if pipeline is None:
+            return RouteResponse.error('Tool pipeline not initialized', status=503)
         request_id = pipeline.invent_new_tool(
             concept=concept,
             requester=requester,
