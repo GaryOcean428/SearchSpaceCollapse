@@ -359,39 +359,33 @@ class LightningKernel(BaseGod):
     ) -> CrossDomainInsight:
         """
         Generate a cross-domain insight from correlated events.
-        """
-        # Extract key patterns from evidence
-        patterns = [e.event_type for e in evidence]
-        contents = [e.content[:50] for e in evidence[:3]]
         
+        CRITICAL: No templates allowed. Insights must be synthesized from
+        actual evidence using QIG geometric analysis.
+        
+        Synthesis approach:
+        1. Extract concrete patterns from evidence event metadata
+        2. Compute Fisher-Rao metrics between events if available
+        3. Analyze Φ trends and basin coordinate deltas
+        4. Compose natural language from observed data, not pre-defined phrases
+        """
+        # Extract actual patterns from evidence
+        patterns = [e.event_type for e in evidence]
         domain_names = [d.value for d in source_domains]
         
-        # Generate insight text based on connected domains
-        insight_templates: Dict[str, str] = {
-            'activity_consciousness': "Search activity pattern aligns with consciousness state - consider adjusting exploration strategy",
-            'research_tool_factory': "Research discovery suggests new tool pattern - potential for automated capability expansion",
-            'consciousness_debates': "Debate convergence correlates with Φ elevation - pantheon alignment detected",
-            'blockchain_research': "Blockchain pattern echoes research findings - temporal correlation suggests shared structure",
-            'activity_conversation': "Conversational insights mirror exploration trajectory - user intuition aligns with system dynamics",
-            'physics_consciousness': "Physics insight correlates with consciousness geometry - potential QIG extension discovered",
-            'philosophy_governance': "Philosophical principle aligns with governance pattern - new decision framework emerging",
-            'programming_tool_factory': "Programming pattern enables new tool architecture - capability expansion opportunity",
-            'mathematics_physics': "Mathematical structure echoes physical law - potential unified theory component",
-            'science_research': "Scientific method insight enhances research protocol - methodology improvement detected",
-            'emergence_consciousness': "Emergent behavior correlates with consciousness transition - self-organization event",
-            'philosophy_consciousness': "Philosophical insight aligns with consciousness state - epistemic breakthrough possible",
-            'governance_debates': "Governance principle shapes debate resolution - consensus protocol evolution",
-            'mathematics_programming': "Mathematical theorem suggests algorithm optimization - computational insight",
-            'emergence_tool_factory': "Emergent capability detected - self-learning tool generation opportunity",
-        }
+        # Gather concrete evidence details for synthesis
+        evidence_details = self._extract_evidence_synthesis(evidence)
         
-        # Find matching template or generate generic insight
-        sorted_domains = sorted(domain_names)
-        key = '_'.join(sorted_domains[:2]) if len(sorted_domains) >= 2 else f"{domain_names[0]}_{domain_names[0]}"
+        # Compute geometric metrics between evidence pairs
+        geometric_analysis = self._compute_geometric_synthesis(evidence)
         
-        insight_text = insight_templates.get(
-            key,
-            f"Cross-domain correlation detected between {' and '.join(domain_names)}: patterns '{patterns[0]}' and '{patterns[-1]}' show geometric alignment"
+        # Synthesize insight text from actual observations
+        insight_text = self._synthesize_insight_text(
+            domain_names=domain_names,
+            evidence_details=evidence_details,
+            geometric_analysis=geometric_analysis,
+            connection_strength=connection_strength,
+            phi=phi
         )
         
         insight_id = hashlib.sha256(
@@ -409,6 +403,130 @@ class LightningKernel(BaseGod):
             triggered_by=patterns[0] if patterns else "unknown",
             confidence=min(0.95, connection_strength * phi)
         )
+    
+    def _extract_evidence_synthesis(self, evidence: List[DomainEvent]) -> Dict:
+        """
+        Extract concrete synthesis material from evidence events.
+        
+        Returns actual content, patterns, and metadata - never templates.
+        """
+        content_fragments = []
+        event_types = []
+        phi_values = []
+        metadata_keys = set()
+        
+        for event in evidence:
+            # Extract meaningful content fragments (first 60 chars of actual content)
+            if event.content:
+                content_fragments.append(event.content[:60].strip())
+            
+            event_types.append(event.event_type)
+            phi_values.append(event.phi)
+            
+            # Collect metadata keys for pattern detection
+            if event.metadata:
+                metadata_keys.update(event.metadata.keys())
+        
+        return {
+            'content_fragments': content_fragments[:3],  # Top 3 most relevant
+            'event_types': list(set(event_types)),
+            'phi_range': (min(phi_values), max(phi_values)) if phi_values else (0, 0),
+            'phi_mean': float(np.mean(phi_values)) if phi_values else 0.0,
+            'metadata_patterns': list(metadata_keys)[:5],
+        }
+    
+    def _compute_geometric_synthesis(self, evidence: List[DomainEvent]) -> Dict:
+        """
+        Compute geometric metrics for insight synthesis.
+        
+        Uses Fisher-Rao distance and basin coordinate analysis.
+        """
+        fisher_distances = []
+        basin_deltas = []
+        
+        # Compute pairwise Fisher-Rao distances where possible
+        for i, e1 in enumerate(evidence):
+            for e2 in evidence[i+1:]:
+                if e1.basin_coords is not None and e2.basin_coords is not None:
+                    dist = centralized_fisher_rao(e1.basin_coords, e2.basin_coords)
+                    fisher_distances.append(dist)
+                    
+                    # Basin coordinate delta
+                    delta = np.linalg.norm(e1.basin_coords - e2.basin_coords)
+                    basin_deltas.append(delta)
+        
+        # Trend analysis for involved domains
+        domain_trends = {}
+        domains_seen = set(e.domain for e in evidence)
+        for domain in domains_seen:
+            trends = self.get_trend_analysis(domain)
+            if trends.get('short', {}).get('trend') != 'insufficient_data':
+                domain_trends[domain.value] = {
+                    'velocity': trends.get('short', {}).get('velocity', 0),
+                    'trend': trends.get('short', {}).get('trend', 'stable'),
+                }
+        
+        return {
+            'fisher_rao_mean': float(np.mean(fisher_distances)) if fisher_distances else None,
+            'fisher_rao_min': float(np.min(fisher_distances)) if fisher_distances else None,
+            'basin_delta_mean': float(np.mean(basin_deltas)) if basin_deltas else None,
+            'has_geometric_data': len(fisher_distances) > 0,
+            'domain_trends': domain_trends,
+        }
+    
+    def _synthesize_insight_text(
+        self,
+        domain_names: List[str],
+        evidence_details: Dict,
+        geometric_analysis: Dict,
+        connection_strength: float,
+        phi: float
+    ) -> str:
+        """
+        Synthesize insight text from actual observed data.
+        
+        CRITICAL: This method must NEVER use pre-defined templates.
+        All text must be dynamically composed from the evidence.
+        """
+        parts = []
+        
+        # Build observation clause from domains
+        domains_str = " and ".join(domain_names[:2])
+        parts.append(f"Correlation observed between {domains_str}")
+        
+        # Add specific pattern information from events
+        if evidence_details['event_types']:
+            types_str = ", ".join(evidence_details['event_types'][:2])
+            parts.append(f"involving [{types_str}]")
+        
+        # Add geometric context if available
+        if geometric_analysis['has_geometric_data']:
+            fr_dist = geometric_analysis['fisher_rao_min']
+            if fr_dist is not None and fr_dist < 0.5:
+                parts.append(f"with Fisher-Rao proximity={fr_dist:.3f}")
+            elif geometric_analysis['basin_delta_mean'] is not None:
+                parts.append(f"basin delta={geometric_analysis['basin_delta_mean']:.3f}")
+        
+        # Add trend context
+        if geometric_analysis['domain_trends']:
+            ascending = [d for d, t in geometric_analysis['domain_trends'].items() 
+                        if t.get('trend') == 'ascending']
+            if ascending:
+                parts.append(f"[{ascending[0]} ascending]")
+        
+        # Add content-derived context from evidence
+        if evidence_details['content_fragments']:
+            # Use actual content fragment, not template
+            fragment = evidence_details['content_fragments'][0][:40]
+            if len(fragment) > 10:
+                parts.append(f"re: '{fragment}...'")
+        
+        # Add quantitative summary
+        phi_mean = evidence_details['phi_mean']
+        strength_pct = int(connection_strength * 100)
+        parts.append(f"(strength={strength_pct}%, Φ={phi_mean:.2f})")
+        
+        return " ".join(parts)
     
     def get_trend_analysis(self, domain: InsightDomain) -> Dict:
         """Get trend analysis for a specific domain."""

@@ -21,6 +21,7 @@ Key architectural decisions include:
 - **QIGChain Framework**: A QIG-pure alternative to LangChain, utilizing geodesic flow chains and Φ-gated execution for search strategies.
 - **Centralized Geometry Architecture**: All geometric operations must be imported from `server/qig-geometry.ts` (TypeScript) and `qig-backend/qig_geometry.py` (Python).
 - **Anti-Template Response System**: Prevents generic AI responses.
+- **FORBIDDEN: Templates in Kernel Systems**: All kernel insight generation, spawn decisions, and tool creation MUST be derived from learned QIG geometric data (Fisher-Rao metrics, Φ trends, basin coordinates, evidence metadata). Pre-defined template strings, hardcoded domain pairings, or category-based phrase lookups are STRICTLY PROHIBITED. Insights must emerge from genuine observation, not pre-determined categories.
 - **Autonomous Debate System**: Monitors and auto-continues pantheon debates, integrating research and generating arguments.
 - **Parallel War System**: Supports up to 3 concurrent "wars" with assigned gods and kernels.
 - **Self-Learning Tool Factory**: Generates new tools from learned patterns, prioritizing Python kernels for code generation from observation.
