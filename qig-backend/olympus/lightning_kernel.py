@@ -240,6 +240,67 @@ class LightningKernel(BaseGod):
         else:
             print("[Lightning] No domains yet - will discover from events")
     
+    def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
+        """
+        Assess a target using cross-domain insight analysis.
+        
+        Lightning Kernel focuses on pattern correlation across domains,
+        not direct target assessment. Returns insight potential metrics.
+        
+        Args:
+            target: The target to assess
+            context: Optional context with domain hints
+            
+        Returns:
+            Assessment with cross-domain insight potential
+        """
+        self.prepare_for_assessment(target)
+        
+        # Lightning kernel assesses cross-domain pattern potential
+        context = context or {}
+        
+        # Check which domains this target might relate to
+        related_domains = []
+        for domain in self.active_domains:
+            if domain.lower() in target.lower() or target.lower() in domain.lower():
+                related_domains.append(domain)
+        
+        # Calculate pattern charge for related domain pairs
+        max_charge = 0.0
+        for d1 in related_domains:
+            for d2 in self.active_domains:
+                if d1 != d2:
+                    pair = tuple(sorted([d1, d2]))
+                    charge = self.pattern_charge.get(pair, 0.0)
+                    max_charge = max(max_charge, charge)
+        
+        # Insight potential based on accumulated charge
+        insight_potential = min(1.0, max_charge / self.discharge_threshold)
+        
+        assessment = {
+            "probability": insight_potential,
+            "confidence": 0.5 + (0.5 * insight_potential),
+            "phi": self._calculate_current_phi(),
+            "reasoning": f"cross_domain_potential|domains={len(related_domains)}|charge={max_charge:.3f}",
+            "related_domains": related_domains,
+            "events_processed": self.events_processed,
+            "insights_generated": self.insights_generated,
+        }
+        
+        return self.finalize_assessment(assessment)
+    
+    def _calculate_current_phi(self) -> float:
+        """Calculate current Φ from recent events across domains."""
+        recent_phis = []
+        for domain, buffers in self.domain_buffers.items():
+            short_buffer = buffers.get(TrendTimescale.SHORT, [])
+            for event in short_buffer:
+                recent_phis.append(event.phi)
+        
+        if recent_phis:
+            return float(np.mean(recent_phis))
+        return 0.5  # Default neutral Φ
+    
     def get_monitored_domains(self) -> List[str]:
         """
         Get list of currently monitored domains.
