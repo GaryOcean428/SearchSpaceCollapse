@@ -119,12 +119,12 @@ type SpawnFormValues = z.infer<typeof spawnFormSchema>;
 function StatusCard({ title, value, icon: Icon, color }: { title: string; value: string | number; icon: typeof Sparkles; color?: string }) {
   return (
     <Card>
-      <CardContent className="pt-4">
+      <CardContent className="pt-4 overflow-hidden">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm text-muted-foreground">{title}</span>
-          <Icon className={`h-4 w-4 ${color || 'text-muted-foreground'}`} />
+          <span className="text-sm text-muted-foreground truncate">{title}</span>
+          <Icon className={`h-4 w-4 flex-shrink-0 ${color || 'text-muted-foreground'}`} />
         </div>
-        <div className="text-2xl font-bold mt-1 font-mono" data-testid={`text-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+        <div className="text-lg md:text-xl lg:text-2xl font-bold mt-1 font-mono truncate" data-testid={`text-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
           {value}
         </div>
       </CardContent>
