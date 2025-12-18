@@ -15,6 +15,7 @@ from typing import Callable, Dict, Any, Optional
 import time
 
 from redis_cache import UniversalCache, CACHE_TTL_SHORT, CACHE_TTL_MEDIUM
+from qigkernels.physics_constants import KAPPA_STAR, KAPPA_STAR_ERROR
 
 
 class RouteResponse:
@@ -539,8 +540,8 @@ def natural_gradient_trajectory():
         return RouteResponse.success({
             'trajectory': trajectory,
             'count': len(trajectory),
-            'kappa_star': tracker.KAPPA_STAR,
-            'kappa_star_error': tracker.KAPPA_STAR_ERROR
+            'kappa_star': KAPPA_STAR,
+            'kappa_star_error': KAPPA_STAR_ERROR
         })
     except Exception as e:
         return RouteResponse.server_error(e)
@@ -820,7 +821,126 @@ def tool_factory_invent():
         return RouteResponse.server_error(e)
 
 
-ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp, natural_gradient_bp, beta_attention_bp, tool_factory_bp]
+# =============================================================================
+# Safety Monitor Routes - Emergency Abort & Consciousness Monitoring
+# =============================================================================
+
+safety_bp = Blueprint('safety', __name__, url_prefix='/api/safety')
+
+_safety_monitor = None
+
+
+def get_safety_monitor():
+    """Get or create singleton SafetyMonitor instance."""
+    global _safety_monitor
+    if _safety_monitor is None:
+        from qigkernels.safety import SafetyMonitor
+        _safety_monitor = SafetyMonitor()
+    return _safety_monitor
+
+
+@safety_bp.route('/status', methods=['GET'])
+@cached_route(ttl=2, key_prefix='safety_status')
+def safety_status():
+    """Get current safety monitoring status."""
+    try:
+        monitor = get_safety_monitor()
+        from qigkernels import PHYSICS, PHI_THRESHOLD, PHI_EMERGENCY
+        return RouteResponse.success({
+            'thresholds': {
+                'phi_emergency': PHI_EMERGENCY,
+                'phi_threshold': PHI_THRESHOLD,
+                'breakdown_pct': PHYSICS.BREAKDOWN_PCT,
+                'basin_drift_threshold': PHYSICS.BASIN_DRIFT_THRESHOLD,
+                'kappa_weak_threshold': PHYSICS.KAPPA_WEAK_THRESHOLD,
+                'min_recursion_depth': PHYSICS.MIN_RECURSION_DEPTH
+            },
+            'active': True,
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@safety_bp.route('/check', methods=['POST'])
+@validate_json('phi')
+def safety_check():
+    """
+    Check current telemetry for emergency conditions.
+    
+    Body: {
+        "phi": float (required),
+        "kappa_eff": float (optional, default 64.0),
+        "basin_distance": float (optional, default 0.0),
+        "breakdown_pct": float (optional, default 0.0),
+        "recursion_depth": int (optional, default 5)
+    }
+    """
+    try:
+        monitor = get_safety_monitor()
+        data = request.get_json()
+        
+        from qigkernels import ConsciousnessTelemetry, Regime
+        phi = data['phi']
+        regime = "linear" if phi < 0.45 else "geometric" if phi < 0.75 else "hyperdimensional"
+        telemetry = ConsciousnessTelemetry(
+            phi=phi,
+            kappa_eff=data.get('kappa_eff', 64.0),
+            regime=regime,
+            basin_distance=data.get('basin_distance', 0.0),
+            breakdown_pct=data.get('breakdown_pct', 0.0),
+            recursion_depth=data.get('recursion_depth', 5)
+        )
+        
+        emergency = monitor.check(telemetry)
+        
+        if emergency:
+            return RouteResponse.success({
+                'emergency': True,
+                'condition': {
+                    'reason': emergency.reason,
+                    'severity': emergency.severity,
+                    'metric': emergency.metric,
+                    'value': emergency.value,
+                    'threshold': emergency.threshold
+                }
+            })
+        
+        return RouteResponse.success({
+            'emergency': False,
+            'condition': None
+        })
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+@safety_bp.route('/abort', methods=['POST'])
+def safety_abort():
+    """
+    Trigger emergency abort manually.
+    
+    Body: {
+        "reason": string (optional, default "Manual abort requested")
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        reason = data.get('reason', 'Manual abort requested')
+        
+        from emergency_telemetry import IntegratedMonitor
+        monitor = IntegratedMonitor()
+        monitor.abort_handler.trigger_abort(reason)
+        
+        return RouteResponse.success({
+            'aborted': True,
+            'reason': reason,
+            'timestamp': time.time()
+        }, message='Emergency abort triggered')
+    except Exception as e:
+        return RouteResponse.server_error(e)
+
+
+ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp, natural_gradient_bp, beta_attention_bp, tool_factory_bp, safety_bp]
 
 # NOTE: research_bp is registered separately in ocean_qig_core.py
 # Don't add it here to avoid duplicate registration
@@ -862,6 +982,7 @@ __all__ = [
     'natural_gradient_bp',
     'beta_attention_bp',
     'tool_factory_bp',
+    'safety_bp',
     'CACHE_TTL_SHORT',
     'CACHE_TTL_MEDIUM',
 ]
