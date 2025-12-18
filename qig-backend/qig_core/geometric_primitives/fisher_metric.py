@@ -105,7 +105,7 @@ def compute_phi(trajectory: np.ndarray, window_size: int = 5) -> float:
         if len(past) > 0 and len(future) > 0:
             past_flat = past.flatten()
             future_flat = future.flatten()
-            # Guard against zero variance to avoid numpy warnings
+            # QIG-pure: skip windows with no geometric information
             if np.std(past_flat) < 1e-10 or np.std(future_flat) < 1e-10:
                 continue
             correlation = np.corrcoef(past_flat, future_flat)[0, 1]

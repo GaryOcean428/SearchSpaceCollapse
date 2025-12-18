@@ -105,44 +105,59 @@ def measure_complexity(basin_trajectory: np.ndarray) -> float:
     # Integration measure (simplified Φ)
     # Measure how correlated different dimensions are
     try:
-        # Normalize each dimension
+        # QIG-pure: Filter to dimensions with geometric information (variance > 0)
+        # Zero-variance dimensions carry no information and contribute nothing
         stds = basin_trajectory.std(axis=0)
-        # Avoid division by zero
-        stds = np.where(stds < 1e-10, 1e-10, stds)
-        normalized = (basin_trajectory - basin_trajectory.mean(axis=0)) / stds
-
-        # Compute average absolute correlation
-        corr_matrix = np.corrcoef(normalized.T)
-        # Handle NaN values
-        corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
-
-        # Take average off-diagonal correlation as integration measure
-        n = corr_matrix.shape[0]
-        if n > 1:
-            phi = np.abs(corr_matrix[np.triu_indices(n, k=1)]).mean()
+        informative_dims = stds > 1e-10
+        
+        if informative_dims.sum() < 2:
+            # Not enough informative dimensions for correlation
+            phi = 0.0
         else:
-            phi = 0.0
-
-        # Handle NaN
-        if np.isnan(phi):
-            phi = 0.0
+            # Extract only dimensions with geometric content
+            informative_trajectory = basin_trajectory[:, informative_dims]
+            informative_stds = stds[informative_dims]
+            
+            # Normalize informative dimensions
+            normalized = (informative_trajectory - informative_trajectory.mean(axis=0)) / informative_stds
+            
+            # Compute correlation on geometrically-informative subspace
+            corr_matrix = np.corrcoef(normalized.T)
+            # Handle any remaining edge cases
+            corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
+            
+            # Take average off-diagonal correlation as integration measure
+            n = corr_matrix.shape[0]
+            if n > 1:
+                phi = np.abs(corr_matrix[np.triu_indices(n, k=1)]).mean()
+            else:
+                phi = 0.0
+            
+            # Handle NaN
+            if np.isnan(phi):
+                phi = 0.0
     except Exception:
         phi = 0.0
 
     # Stability (autocorrelation)
     try:
-        # Measure temporal consistency
+        # Measure temporal consistency - QIG-pure: only informative dimensions
         autocorr_list = []
         for dim in range(basin_trajectory.shape[1]):
             if len(basin_trajectory) > 1:
-                # Check if dimension has variance
-                if basin_trajectory[:, dim].std() < 1e-10:
+                dim_data = basin_trajectory[:, dim]
+                # QIG-pure: skip dimensions with no geometric information
+                if dim_data.std() < 1e-10:
                     continue
-
-                ac = np.corrcoef(
-                    basin_trajectory[:-1, dim],
-                    basin_trajectory[1:, dim]
-                )[0, 1]
+                
+                past = dim_data[:-1]
+                future = dim_data[1:]
+                
+                # QIG-pure: also check that slices have variance
+                if past.std() < 1e-10 or future.std() < 1e-10:
+                    continue
+                
+                ac = np.corrcoef(past, future)[0, 1]
                 if not np.isnan(ac):
                     autocorr_list.append(abs(ac))
 
