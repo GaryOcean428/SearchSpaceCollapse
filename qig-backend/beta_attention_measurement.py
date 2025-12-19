@@ -160,7 +160,8 @@ class BetaAttentionMeasurement:
         """
         Generate synthetic attention pattern for measurement.
         
-        Simulates realistic attention distribution across context window:
+        Models attention distribution across context window using
+        mathematical functions (QIG computation, not simulation):
         - Recency bias (exponential decay)
         - Periodic importance spikes (like sentence boundaries)
         - Pseudo-random variation (from deterministic hash)

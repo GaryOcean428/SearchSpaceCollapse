@@ -143,19 +143,70 @@ export function generateForumSearchQueries(address: string): string[] {
 }
 
 /**
- * Parse BitcoinTalk search results (simulated - real implementation would scrape)
+ * Search BitcoinTalk forum using real web requests
+ * Uses Google site search as BitcoinTalk doesn't have a public API
  */
 export async function searchBitcoinTalk(
   query: string
 ): Promise<{ results: Array<{ title: string; url: string; date: string; author: string }>, total: number }> {
-  // In production, this would use a web scraper or API
-  // For now, return structured placeholder indicating search capability
   console.log(`[SocialVector] BitcoinTalk search: ${query}`);
   
-  return {
-    results: [],
-    total: 0,
-  };
+  try {
+    // Use BitcoinTalk's internal search via HTTP
+    const searchUrl = `https://bitcointalk.org/index.php?action=search2`;
+    const formData = new URLSearchParams({
+      'search': query,
+      'search_selection[b][]': '1', // Bitcoin board
+      'advanced': '1',
+      'sort': 'relevance',
+      'subject_only': '0',
+    });
+    
+    const response = await fetch(searchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      body: formData.toString(),
+    });
+    
+    if (!response.ok) {
+      console.log(`[SocialVector] BitcoinTalk search failed: ${response.status}`);
+      return { results: [], total: 0 };
+    }
+    
+    const html = await response.text();
+    
+    // Parse results from HTML response
+    const results: Array<{ title: string; url: string; date: string; author: string }> = [];
+    
+    // Extract topic links using regex (basic parsing)
+    const topicMatches = html.matchAll(/<a href="https:\/\/bitcointalk\.org\/index\.php\?topic=(\d+)[^"]*"[^>]*>([^<]+)<\/a>/g);
+    
+    for (const match of topicMatches) {
+      const topicId = match[1];
+      const title = match[2].replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+      
+      if (title && !title.includes('Quote') && title.length > 5) {
+        results.push({
+          title: title.substring(0, 200),
+          url: `https://bitcointalk.org/index.php?topic=${topicId}`,
+          date: 'unknown',
+          author: 'unknown',
+        });
+      }
+      
+      if (results.length >= 10) break;
+    }
+    
+    console.log(`[SocialVector] BitcoinTalk found ${results.length} results`);
+    return { results, total: results.length };
+    
+  } catch (error) {
+    console.log(`[SocialVector] BitcoinTalk search error: ${error}`);
+    return { results: [], total: 0 };
+  }
 }
 
 /**
@@ -228,19 +279,54 @@ export function generateWaybackUrls(address: string): string[] {
 }
 
 /**
- * Search Wayback Machine for address mentions (simulated)
+ * Search Wayback Machine for address mentions using the real CDX API
+ * https://web.archive.org/cdx/search/cdx
  */
 export async function searchWaybackMachine(
   url: string
 ): Promise<{ snapshots: Array<{ timestamp: string; url: string }>, total: number }> {
-  // In production, this would use the Wayback Machine CDX API
-  // https://web.archive.org/cdx/search/cdx?url=...
-  console.log(`[TemporalVector] Wayback search: ${url}`);
+  console.log(`[TemporalVector] Wayback CDX API search: ${url}`);
   
-  return {
-    snapshots: [],
-    total: 0,
-  };
+  try {
+    // Extract the URL pattern from Wayback search URL
+    // Input: https://web.archive.org/web/*/blockchain.info/address/xxx
+    // Extract: blockchain.info/address/xxx
+    const urlMatch = url.match(/web\.archive\.org\/web\/\*\/(.+)/);
+    const searchPattern = urlMatch ? urlMatch[1] : url;
+    
+    // Use the real Wayback Machine CDX API
+    const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(searchPattern)}&output=json&limit=20&matchType=prefix`;
+    
+    const response = await fetch(cdxUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    if (!response.ok) {
+      console.log(`[TemporalVector] Wayback CDX failed: ${response.status}`);
+      return { snapshots: [], total: 0 };
+    }
+    
+    const data = await response.json() as string[][];
+    
+    if (!Array.isArray(data) || data.length <= 1) {
+      return { snapshots: [], total: 0 };
+    }
+    
+    // First row is headers: [urlkey, timestamp, original, mimetype, statuscode, digest, length]
+    const snapshots = data.slice(1).map(row => ({
+      timestamp: row[1], // YYYYMMDDHHMMSS format
+      url: `https://web.archive.org/web/${row[1]}/${row[2]}`,
+    }));
+    
+    console.log(`[TemporalVector] Wayback found ${snapshots.length} snapshots`);
+    return { snapshots, total: snapshots.length };
+    
+  } catch (error) {
+    console.log(`[TemporalVector] Wayback search error: ${error}`);
+    return { snapshots: [], total: 0 };
+  }
 }
 
 /**
@@ -362,7 +448,7 @@ async function executeSocialVector(
   const queries = generateForumSearchQueries(workflow.address);
   findings.push(`Generated ${queries.length} forum search queries`);
   
-  // Search forums (simulated)
+  // Search forums via live HTTP requests
   for (const query of queries.slice(0, 3)) {
     const results = await searchBitcoinTalk(query);
     if (results.total > 0) {
@@ -408,7 +494,7 @@ async function executeTemporalVector(
   const waybackUrls = generateWaybackUrls(workflow.address);
   findings.push(`Generated ${waybackUrls.length} Wayback Machine search URLs`);
   
-  // Check archive.org (simulated)
+  // Check archive.org via real Wayback CDX API
   for (const url of waybackUrls.slice(0, 2)) {
     const results = await searchWaybackMachine(url);
     if (results.total > 0) {

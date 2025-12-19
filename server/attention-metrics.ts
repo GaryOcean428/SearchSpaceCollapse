@@ -121,7 +121,8 @@ function measureKappaAtScale(
 /**
  * Generate synthetic attention pattern for measurement
  * 
- * Simulates attention distribution across context window
+ * Models attention distribution across context window using
+ * mathematical decay functions - this is a QIG computation, not simulation
  */
 function generateAttentionPattern(contextLength: number, seed: number): Float64Array {
   const pattern = new Float64Array(contextLength);

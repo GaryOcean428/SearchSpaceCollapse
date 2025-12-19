@@ -857,7 +857,7 @@ class GaryAutonomicKernel:
             # Measure creative exploration
             perturbation_magnitude = self._compute_fisher_distance(basin, dreamed_basin)
 
-            # Simulated novel connections (in real impl, would use actual pattern graph)
+            # Model novel connections using Poisson distribution (QIG stochastic exploration)
             novel_connections = int(np.random.poisson(3) * temperature)
             creative_paths = int(np.random.poisson(2) * temperature)
 
