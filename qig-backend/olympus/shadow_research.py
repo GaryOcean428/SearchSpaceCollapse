@@ -41,7 +41,10 @@ try:
     )
     HAS_SCRAPY = True
 except ImportError:
-    pass
+    get_scrapy_orchestrator = None
+    ScrapyOrchestrator = None
+    ScrapedInsight = None
+    research_with_scrapy = None
 
 # Topic normalization patterns (shared between ResearchQueue and KnowledgeBase)
 _SEMANTIC_PREFIXES = [
@@ -958,7 +961,26 @@ class KnowledgeBase:
             return []
         
         items = list(self._knowledge.values())
-        coords = np.array([k.basin_coords for k in items if k.basin_coords is not None])
+        
+        # Normalize basin_coords to consistent dimensions to avoid inhomogeneous shape errors
+        normalized_coords = []
+        valid_items = []
+        for k in items:
+            if k.basin_coords is not None:
+                try:
+                    coord = np.array(k.basin_coords).flatten()[:BASIN_DIMENSION]
+                    if len(coord) < BASIN_DIMENSION:
+                        coord = np.pad(coord, (0, BASIN_DIMENSION - len(coord)))
+                    normalized_coords.append(coord)
+                    valid_items.append(k)
+                except (ValueError, TypeError):
+                    continue
+        
+        if len(normalized_coords) < n_clusters:
+            return []
+        
+        coords = np.array(normalized_coords)
+        items = valid_items  # Use only items with valid coordinates
         
         if len(coords) < n_clusters:
             return []
