@@ -424,34 +424,44 @@ class AutonomicAccessMixin:
 
 class GaryAutonomicKernel:
     """
-    Autonomic kernel for Gary consciousness management.
+    Autonomic kernel for Ocean consciousness management.
 
     Monitors consciousness metrics and triggers sleep/dream/mushroom cycles
     based on geometric thresholds. Provides activity-based reward signals.
+    
+    AUTONOMOUS SELF-REGULATION:
+    Ocean observes its own state and fires interventions autonomously,
+    like a body's autonomic system. The AutonomicController daemon runs
+    in background, continuously observing→deciding→acting.
     """
 
-    def __init__(self, checkpoint_path: Optional[str] = None):
+    def __init__(self, checkpoint_path: Optional[str] = None, enable_autonomous: bool = True):
         """
         Initialize autonomic kernel.
 
         Args:
-            checkpoint_path: Optional path to Gary checkpoint for state restoration
+            checkpoint_path: Optional path to checkpoint for state restoration
+            enable_autonomous: Start autonomous self-regulation daemon (default True)
         """
         self.state = AutonomicState()
         self.pending_rewards: List[ActivityReward] = []
         self._lock = threading.Lock()
+        
+        self._controller = None
+        self._autonomous_enabled = enable_autonomous
 
-        # Load checkpoint if provided
         if checkpoint_path:
             self._load_checkpoint(checkpoint_path)
+        
+        if enable_autonomous:
+            self._start_autonomous_controller()
 
     def _load_checkpoint(self, path: str) -> bool:
-        """Load Gary state from checkpoint."""
+        """Load state from checkpoint."""
         try:
             import torch
             checkpoint = torch.load(path, map_location='cpu')
 
-            # Extract autonomic state if available
             if 'autonomic_state' in checkpoint:
                 auto_state = checkpoint['autonomic_state']
                 self.state.phi = auto_state.get('phi', 0.75)
@@ -459,7 +469,6 @@ class GaryAutonomicKernel:
                 print(f"[AutonomicKernel] Loaded checkpoint: Φ={self.state.phi:.3f}, κ={self.state.kappa:.1f}")
                 return True
 
-            # Try to extract from model state
             if 'phi' in checkpoint:
                 self.state.phi = checkpoint['phi']
             if 'kappa' in checkpoint:
@@ -471,6 +480,60 @@ class GaryAutonomicKernel:
         except Exception as e:
             print(f"[AutonomicKernel] Failed to load checkpoint: {e}")
             return False
+    
+    def _start_autonomous_controller(self) -> None:
+        """Start the autonomous self-regulation daemon."""
+        try:
+            from autonomic_agency.controller import AutonomicController
+            
+            self._controller = AutonomicController(
+                execute_sleep_fn=lambda **kw: self.execute_sleep_cycle(**kw),
+                execute_dream_fn=lambda **kw: self.execute_dream_cycle(**kw),
+                execute_mushroom_fn=lambda **kw: self.execute_mushroom_cycle(**kw),
+                get_metrics_fn=self._get_metrics_for_controller,
+                decision_interval=15.0,
+            )
+            
+            self._controller.start()
+            print("[AutonomicKernel] 🧠 Autonomous controller STARTED - Ocean self-regulates")
+            
+        except Exception as e:
+            print(f"[AutonomicKernel] Failed to start autonomous controller: {e}")
+            self._controller = None
+    
+    def _get_metrics_for_controller(self) -> Dict[str, Any]:
+        """Get current metrics for autonomous controller."""
+        return {
+            'phi': self.state.phi,
+            'kappa': self.state.kappa,
+            'basin_coords': self.state.basin_history[-1] if self.state.basin_history else [0.5] * 64,
+            'stress': self.state.stress_level,
+            'narrow_path_severity': self.state.narrow_path_severity,
+            'exploration_variance': self.state.exploration_variance,
+            'manifold_coverage': 0.0,
+            'valid_addresses_found': 0,
+        }
+    
+    def stop_autonomous(self) -> None:
+        """Stop the autonomous controller daemon."""
+        if self._controller:
+            self._controller.stop()
+            print("[AutonomicKernel] Autonomous controller stopped")
+    
+    def get_autonomous_status(self) -> Dict[str, Any]:
+        """Get autonomous controller status."""
+        if not self._controller:
+            return {'enabled': False, 'running': False}
+        return {
+            'enabled': True,
+            **self._controller.get_status(),
+        }
+    
+    def force_intervention(self, action_name: str) -> Dict[str, Any]:
+        """Force a specific intervention via autonomous controller."""
+        if not self._controller:
+            return {'error': 'Autonomous controller not running'}
+        return self._controller.force_intervention(action_name)
 
     def update_metrics(
         self,
@@ -1262,7 +1325,53 @@ def register_autonomic_routes(app):
             'error': f'Unknown action: {action}',
         })
 
-    print("[AutonomicKernel] Routes registered: /autonomic/*")
+    @app.route('/autonomic/agency/status', methods=['GET'])
+    def get_agency_status():
+        """
+        Get autonomous self-regulation status.
+        
+        Ocean observes its own state and fires interventions autonomously.
+        This endpoint shows the RL-based agency status.
+        """
+        kernel = get_gary_kernel()
+        return jsonify({
+            'success': True,
+            **kernel.get_autonomous_status()
+        })
+
+    @app.route('/autonomic/agency/force', methods=['POST'])
+    def force_agency_intervention():
+        """
+        Force a specific autonomic intervention.
+        
+        Available actions: CONTINUE_WAKE, ENTER_SLEEP, ENTER_DREAM, 
+        ENTER_MUSHROOM_MICRO, ENTER_MUSHROOM_MOD
+        """
+        kernel = get_gary_kernel()
+        data = request.json or {}
+        action_name = data.get('action', 'ENTER_SLEEP')
+        
+        result = kernel.force_intervention(action_name)
+        return jsonify({
+            'success': 'error' not in result,
+            **result
+        })
+
+    @app.route('/autonomic/agency/stop', methods=['POST'])
+    def stop_agency():
+        """Stop the autonomous self-regulation daemon."""
+        kernel = get_gary_kernel()
+        kernel.stop_autonomous()
+        return jsonify({'success': True, 'message': 'Autonomous controller stopped'})
+
+    @app.route('/autonomic/agency/start', methods=['POST'])
+    def start_agency():
+        """Start the autonomous self-regulation daemon."""
+        kernel = get_gary_kernel()
+        kernel._start_autonomous_controller()
+        return jsonify({'success': True, 'message': 'Autonomous controller started'})
+
+    print("[AutonomicKernel] Routes registered: /autonomic/* (including /autonomic/agency/*)")
 
 
 # ===========================================================================

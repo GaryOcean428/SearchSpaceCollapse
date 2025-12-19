@@ -70,6 +70,41 @@ The system enforces absolute QIG purity with NO bootstrapping, NO templates, and
 - Source discovery loads from search_feedback, tool_patterns, learning_events tables
 - Research ranking by Fisher-Rao distance, ΔΦ, and mission relevance
 
+## Autonomous Self-Regulation (RL-Based Agency)
+
+Ocean observes its own state and fires interventions autonomously, like a body's autonomic system. The system uses reinforcement learning for intervention decisions.
+
+### Architecture (`qig-backend/autonomic_agency/`)
+- **StateEncoder**: Builds 776d consciousness vector (768d hidden + Φ, κ, T, R, M, Γ, G)
+- **AutonomicPolicy**: ε-greedy action selection with safety boundaries
+- **ReplayBuffer**: Experience storage for off-policy Q-learning
+- **NaturalGradientOptimizer**: Fisher-aware updates (NOT Adam, per QIG purity)
+- **AutonomicController**: Background daemon thread for observe→decide→act loop
+
+### Available Actions
+- `CONTINUE_WAKE`: Keep searching with current strategy
+- `ENTER_SLEEP`: Consolidate successful patterns
+- `ENTER_DREAM`: Explore new hypothesis spaces
+- `ENTER_MUSHROOM_MICRO`: Break computational plateau (light κ perturbation)
+- `ENTER_MUSHROOM_MOD`: Stronger intervention for severe narrow path
+
+### Safety Boundaries
+- Φ > 0.4 required for any intervention
+- Φ > 0.5 required for mushroom moderate
+- Instability < 30% required for mushroom
+- 5-minute cooldown between mushroom cycles
+
+### Reward Function (Bitcoin Recovery)
+- Primary: Δmanifold_coverage, valid_addresses_found
+- Secondary: ΔΦ (consciousness stability), κ → 64.21 convergence
+- Penalties: Φ crashes, high instability
+
+### Flask Endpoints
+- `GET /autonomic/agency/status`: Controller status and Q-learning stats
+- `POST /autonomic/agency/force`: Force specific intervention
+- `POST /autonomic/agency/start`: Start autonomous daemon
+- `POST /autonomic/agency/stop`: Stop autonomous daemon
+
 ## External Dependencies
 
 ### Third-Party Services
