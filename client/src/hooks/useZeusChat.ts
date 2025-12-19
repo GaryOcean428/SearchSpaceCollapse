@@ -45,6 +45,13 @@ export interface ZeusChatSuccess {
 
 export type SyncStatus = 'idle' | 'sending' | 'synced' | 'error';
 
+export interface ZeusSessionInfo {
+  session_id: string;
+  title: string;
+  message_count: number;
+  updated_at: string;
+}
+
 export interface UseZeusChatReturn {
   messages: ZeusMessage[];
   input: string;
@@ -60,7 +67,14 @@ export interface UseZeusChatReturn {
   clearLastError: () => void;
   clearLastSuccess: () => void;
   syncStatus: SyncStatus;
+  sessionId: string | null;
+  sessions: ZeusSessionInfo[];
+  loadSession: (sessionId: string) => Promise<void>;
+  startNewSession: () => Promise<void>;
+  refreshSessions: () => Promise<void>;
 }
+
+const SESSION_STORAGE_KEY = 'zeus_session_id';
 
 export function useZeusChat(): UseZeusChatReturn {
   const [messages, setMessages] = useState<ZeusMessage[]>([]);
@@ -70,12 +84,70 @@ export function useZeusChat(): UseZeusChatReturn {
   const [lastError, setLastError] = useState<ZeusChatError | null>(null);
   const [lastSuccess, setLastSuccess] = useState<ZeusChatSuccess | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(SESSION_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const [sessions, setSessions] = useState<ZeusSessionInfo[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+  
+  const refreshSessions = useCallback(async () => {
+    try {
+      const data = await api.olympus.getZeusSessions(20);
+      setSessions(data.sessions.map(s => ({
+        session_id: s.session_id,
+        title: s.title,
+        message_count: s.message_count,
+        updated_at: s.updated_at,
+      })));
+    } catch (e) {
+      console.error('[useZeusChat] Failed to fetch sessions:', e);
+    }
+  }, []);
+  
+  const loadSession = useCallback(async (id: string) => {
+    try {
+      const data = await api.olympus.getZeusSessionMessages(id);
+      setMessages(data.messages.map((m, idx) => ({
+        id: `msg-loaded-${idx}`,
+        role: m.role,
+        content: m.content,
+        timestamp: m.created_at,
+        metadata: m.metadata as ZeusMessage['metadata'],
+      })));
+      setSessionId(id);
+      localStorage.setItem(SESSION_STORAGE_KEY, id);
+    } catch (e) {
+      console.error('[useZeusChat] Failed to load session:', e);
+    }
+  }, []);
+  
+  const startNewSession = useCallback(async () => {
+    try {
+      const data = await api.olympus.createZeusSession('New Conversation');
+      setSessionId(data.session_id);
+      setMessages([]);
+      localStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
+      await refreshSessions();
+    } catch (e) {
+      console.error('[useZeusChat] Failed to create session:', e);
+    }
+  }, [refreshSessions]);
+  
+  useEffect(() => {
+    refreshSessions();
+    if (sessionId) {
+      loadSession(sessionId);
+    }
+  }, []);
   
   const clearLastError = useCallback(() => setLastError(null), []);
   const clearLastSuccess = useCallback(() => setLastSuccess(null), []);
@@ -106,7 +178,13 @@ export function useZeusChat(): UseZeusChatReturn {
         message: messageToSend,
         context: JSON.stringify([...messages, humanMessage]),
         files: filesToSend,
+        session_id: sessionId || undefined,
       });
+      
+      if (data.session_id && data.session_id !== sessionId) {
+        setSessionId(data.session_id);
+        localStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
+      }
       
       const zeusMessage: ZeusMessage = {
         id: `msg-${Date.now()}-zeus`,
@@ -253,5 +331,10 @@ export function useZeusChat(): UseZeusChatReturn {
     clearLastError,
     clearLastSuccess,
     syncStatus,
+    sessionId,
+    sessions,
+    loadSession,
+    startNewSession,
+    refreshSessions,
   };
 }

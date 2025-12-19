@@ -26,6 +26,24 @@ export interface ZeusChatParams {
   context?: string;
   files?: File[];
   validate_only?: boolean;
+  session_id?: string;
+}
+
+export interface ZeusSession {
+  session_id: string;
+  title: string;
+  message_count: number;
+  last_phi: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ZeusSessionMessage {
+  role: 'human' | 'zeus';
+  content: string;
+  metadata?: Record<string, unknown>;
+  phi_estimate: number;
+  created_at: string;
 }
 
 export interface ZeusChatMetadata {
@@ -92,7 +110,7 @@ export async function endWar(): Promise<{ success: boolean }> {
   return post<{ success: boolean }>(API_ROUTES.olympus.warEnd, {});
 }
 
-export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResponse> {
+export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResponse & { session_id?: string }> {
   const { files, ...jsonParams } = params;
   
   if (files && files.length > 0) {
@@ -104,11 +122,26 @@ export async function sendZeusChat(params: ZeusChatParams): Promise<ZeusChatResp
     if (params.validate_only) {
       formData.append('validate_only', 'true');
     }
+    if (params.session_id) {
+      formData.append('session_id', params.session_id);
+    }
     files.forEach(file => formData.append('files', file));
-    return postMultipart<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, formData);
+    return postMultipart<ZeusChatResponse & { session_id?: string }>(API_ROUTES.olympus.zeusChat, formData);
   }
   
-  return post<ZeusChatResponse>(API_ROUTES.olympus.zeusChat, jsonParams);
+  return post<ZeusChatResponse & { session_id?: string }>(API_ROUTES.olympus.zeusChat, jsonParams);
+}
+
+export async function getZeusSessions(limit: number = 20): Promise<{ sessions: ZeusSession[] }> {
+  return get<{ sessions: ZeusSession[] }>(`/api/olympus/zeus/sessions?limit=${limit}`);
+}
+
+export async function getZeusSessionMessages(sessionId: string): Promise<{ messages: ZeusSessionMessage[], session_id: string }> {
+  return get<{ messages: ZeusSessionMessage[], session_id: string }>(`/api/olympus/zeus/sessions/${sessionId}/messages`);
+}
+
+export async function createZeusSession(title?: string): Promise<{ session_id: string, title: string }> {
+  return post<{ session_id: string, title: string }>('/api/olympus/zeus/sessions', { title: title || 'New Conversation' });
 }
 
 export interface GeometricValidationResult {

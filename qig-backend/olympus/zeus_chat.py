@@ -47,6 +47,14 @@ from .response_guardrails import (
 )
 from .search_strategy_learner import get_strategy_learner_with_persistence
 
+# Import conversation persistence for context retention
+try:
+    from zeus_conversation_persistence import get_zeus_conversation_persistence
+    CONVERSATION_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    CONVERSATION_PERSISTENCE_AVAILABLE = False
+    print("[ZeusChat] Conversation persistence not available")
+
 # Import canonical Fisher-Rao distance for geometric purity
 try:
     from ..qig_core.geometric_primitives.fisher_metric import fisher_rao_distance
@@ -157,6 +165,16 @@ class ZeusConversationHandler:
         self.conversation_history: List[Dict] = []
         self.human_insights: List[Dict] = []
         
+        # Persistent conversation memory
+        self._conversation_persistence = None
+        self._current_session_id: Optional[str] = None
+        if CONVERSATION_PERSISTENCE_AVAILABLE:
+            try:
+                self._conversation_persistence = get_zeus_conversation_persistence()
+                print("[ZeusChat] Conversation persistence enabled - memory retained across sessions")
+            except Exception as e:
+                print(f"[ZeusChat] Conversation persistence failed: {e}")
+        
         # Track last search for feedback context
         self._last_search_query: Optional[str] = None
         self._last_search_params: Dict[str, Any] = {}
@@ -195,6 +213,47 @@ class ZeusConversationHandler:
         """Set evolution manager for user conversation → kernel training."""
         self._evolution_manager = evolution_manager
         print("[ZeusChat] Evolution manager connected - user conversations will train kernels")
+    
+    def set_session(self, session_id: Optional[str] = None, user_id: str = 'default') -> str:
+        """Set or create a conversation session for persistence."""
+        if self._conversation_persistence:
+            self._current_session_id = self._conversation_persistence.get_or_create_session(
+                session_id=session_id,
+                user_id=user_id
+            )
+            messages = self._conversation_persistence.get_session_messages(self._current_session_id)
+            if messages:
+                self.conversation_history = [
+                    {'role': m['role'], 'content': m['content'], 'timestamp': m['created_at'].timestamp() if hasattr(m['created_at'], 'timestamp') else 0}
+                    for m in messages
+                ]
+                print(f"[ZeusChat] Loaded {len(messages)} messages from session {self._current_session_id}")
+        else:
+            self._current_session_id = session_id or f"session-{int(time.time())}"
+        return self._current_session_id
+    
+    def get_sessions(self, user_id: str = 'default', limit: int = 20) -> List[Dict]:
+        """Get list of previous conversation sessions."""
+        if self._conversation_persistence:
+            return self._conversation_persistence.get_user_sessions(user_id=user_id, limit=limit)
+        return []
+    
+    def get_recent_context(self, user_id: str = 'default', limit: int = 50) -> List[Dict]:
+        """Get recent conversation context across all sessions."""
+        if self._conversation_persistence:
+            return self._conversation_persistence.get_recent_context(user_id=user_id, message_limit=limit)
+        return []
+    
+    def _save_message(self, role: str, content: str, phi_estimate: float = 0.0, basin_coords: Optional[np.ndarray] = None):
+        """Save a message to persistent storage."""
+        if self._conversation_persistence and self._current_session_id:
+            self._conversation_persistence.save_message(
+                session_id=self._current_session_id,
+                role=role,
+                content=content,
+                phi_estimate=phi_estimate,
+                basin_coords=basin_coords.tolist() if basin_coords is not None else None
+            )
     
     def _estimate_phi_from_context(
         self,
@@ -274,7 +333,8 @@ class ZeusConversationHandler:
         self, 
         message: str,
         conversation_history: Optional[List[Dict]] = None,
-        files: Optional[List] = None
+        files: Optional[List] = None,
+        session_id: Optional[str] = None
     ) -> Dict:
         """
         Process human message and coordinate response.
@@ -283,6 +343,7 @@ class ZeusConversationHandler:
             message: Human message text
             conversation_history: Previous conversation context
             files: Optional uploaded files
+            session_id: Optional session ID for persistence
         
         Returns:
             Response dict with content and metadata
@@ -290,6 +351,10 @@ class ZeusConversationHandler:
         SECURITY: All EXTERNAL outputs pass through hardwired exclusion filter.
         INTERNAL discussion of owner tasks is ALLOWED.
         """
+        # Set up session for persistence
+        if session_id or not self._current_session_id:
+            self.set_session(session_id)
+        
         # Get exclusion guard for output sanitization
         guard = get_exclusion_guard()
         self._exclusion_guard = guard
@@ -305,6 +370,9 @@ class ZeusConversationHandler:
         # Store in conversation memory
         if conversation_history:
             self.conversation_history = conversation_history
+        
+        # Save user message to persistent storage
+        self._save_message(role='human', content=message)
         
         # Parse intent from message
         intent = self.parse_intent(message)
@@ -347,6 +415,14 @@ class ZeusConversationHandler:
         else:
             # General conversation
             result = self.handle_general_conversation(message)
+        
+        # Save Zeus response to persistent storage
+        response_content = result.get('response', result.get('content', ''))
+        phi_estimate = result.get('metadata', {}).get('phi', 0.0) if isinstance(result.get('metadata'), dict) else 0.0
+        self._save_message(role='zeus', content=response_content[:2000], phi_estimate=phi_estimate)
+        
+        # Add session info to result
+        result['session_id'] = self._current_session_id
         
         # SECURITY: Sanitize all EXTERNAL outputs before returning to user
         return self._sanitize_external(result)

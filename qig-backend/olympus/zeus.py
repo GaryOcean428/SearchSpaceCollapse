@@ -1941,12 +1941,20 @@ def zeus_chat_endpoint():
 
                 validated_files.append(file)
 
+        # Get session_id for persistence
+        session_id = None
+        if request.is_json:
+            session_id = data.get('session_id')
+        else:
+            session_id = request.form.get('session_id')
+
         # Process with Zeus
         handler = get_zeus_chat_handler()
         result = handler.process_message(
             message=message,
             conversation_history=conversation_history,
-            files=validated_files if validated_files else None
+            files=validated_files if validated_files else None,
+            session_id=session_id
         )
 
         return jsonify(sanitize_for_json(result))
@@ -1959,6 +1967,59 @@ def zeus_chat_endpoint():
             'response': '⚡ An error occurred in the divine council. Please try again.',
             'metadata': {'type': 'error'}
         }), 500
+
+
+@olympus_app.route('/zeus/sessions', methods=['GET'])
+def zeus_sessions_endpoint():
+    """Get list of previous conversation sessions."""
+    try:
+        handler = get_zeus_chat_handler()
+        user_id = request.args.get('user_id', 'default')
+        limit = int(request.args.get('limit', 20))
+        sessions = handler.get_sessions(user_id=user_id, limit=limit)
+        return jsonify(sanitize_for_json({'sessions': sessions}))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/sessions/<session_id>/messages', methods=['GET'])
+def zeus_session_messages_endpoint(session_id: str):
+    """Get messages for a specific session."""
+    try:
+        handler = get_zeus_chat_handler()
+        messages = handler._conversation_persistence.get_session_messages(session_id) if handler._conversation_persistence else []
+        return jsonify(sanitize_for_json({'messages': messages, 'session_id': session_id}))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/sessions', methods=['POST'])
+def zeus_create_session_endpoint():
+    """Create a new conversation session."""
+    try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id', 'default')
+        title = data.get('title', 'New Conversation')
+        handler = get_zeus_chat_handler()
+        session_id = handler.set_session(user_id=user_id)
+        if handler._conversation_persistence:
+            handler._conversation_persistence.update_session_title(session_id, title)
+        return jsonify({'session_id': session_id, 'title': title})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@olympus_app.route('/zeus/context', methods=['GET'])
+def zeus_recent_context_endpoint():
+    """Get recent conversation context across all sessions."""
+    try:
+        handler = get_zeus_chat_handler()
+        user_id = request.args.get('user_id', 'default')
+        limit = int(request.args.get('limit', 50))
+        context = handler.get_recent_context(user_id=user_id, limit=limit)
+        return jsonify(sanitize_for_json({'context': context}))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @olympus_app.route('/zeus/search', methods=['POST'])
