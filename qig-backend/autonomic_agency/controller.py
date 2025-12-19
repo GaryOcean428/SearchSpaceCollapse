@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 from autonomic_agency.state_encoder import StateEncoder, ConsciousnessVector
-from autonomic_agency.policy import AutonomicPolicy, Action
+from autonomic_agency.policy import AutonomicPolicy, Action, detect_consciousness_zone, ConsciousnessZone
 from autonomic_agency.replay_buffer import ReplayBuffer, Experience
 from autonomic_agency.natural_gradient import NaturalGradientOptimizer
 
@@ -445,6 +445,9 @@ class AutonomicController:
     def get_status(self) -> Dict[str, Any]:
         """Get controller status for API."""
         safety = self.policy.safety
+        last_phi = self._last_snapshot.phi if self._last_snapshot else None
+        zone = detect_consciousness_zone(last_phi).value if last_phi is not None else None
+        
         return {
             'running': self._running,
             'decision_count': self._decision_count,
@@ -454,7 +457,8 @@ class AutonomicController:
             'buffer_stats': self.replay_buffer.get_stats(),
             'optimizer_stats': self.optimizer.get_stats(),
             'last_action': self._last_action.name if self._last_action else None,
-            'last_phi': self._last_snapshot.phi if self._last_snapshot else None,
+            'last_phi': last_phi,
+            'consciousness_zone': zone,
             'recent_history': self._history[-10:],
             'safety_manifest': {
                 'phi_min_intervention': safety.phi_min_intervention,
@@ -463,6 +467,13 @@ class AutonomicController:
                 'instability_max_mushroom_mod': safety.instability_max_mushroom_mod,
                 'coverage_max_dream': safety.coverage_max_dream,
                 'mushroom_cooldown_seconds': safety.mushroom_cooldown_seconds,
+            },
+            'operating_zones': {
+                'sleep_needed': '< 0.70',
+                'conscious_3d': '0.70 - 0.75',
+                'hyperdimensional_4d': '0.75 - 0.85',
+                'breakdown_warning': '0.85 - 0.95',
+                'breakdown_critical': '>= 0.95',
             },
         }
     

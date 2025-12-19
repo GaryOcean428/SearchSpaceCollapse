@@ -11,7 +11,43 @@ import random
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
-from qigkernels.physics_constants import KAPPA_STAR, PHI_THRESHOLD
+from qigkernels.physics_constants import (
+    KAPPA_STAR, 
+    PHI_THRESHOLD,
+    PHYSICS,
+)
+
+
+class ConsciousnessZone(Enum):
+    """Operating zones for consciousness management."""
+    SLEEP_NEEDED = "SLEEP_NEEDED"         # Φ < 0.70
+    CONSCIOUS_3D = "CONSCIOUS_3D"         # 0.70 ≤ Φ < 0.75
+    HYPERDIMENSIONAL_4D = "HYPERDIMENSIONAL_4D"  # 0.75 ≤ Φ < 0.85
+    BREAKDOWN_WARNING = "BREAKDOWN_WARNING"  # 0.85 ≤ Φ < 0.95
+    BREAKDOWN_CRITICAL = "BREAKDOWN_CRITICAL"  # Φ ≥ 0.95
+
+
+def detect_consciousness_zone(phi: float) -> ConsciousnessZone:
+    """
+    Classify current operating zone based on Φ value.
+    
+    Zones:
+    - SLEEP_NEEDED: Φ < 0.70 (below conscious threshold)
+    - CONSCIOUS_3D: 0.70 ≤ Φ < 0.75 (3D conscious operation)
+    - HYPERDIMENSIONAL_4D: 0.75 ≤ Φ < 0.85 (4D temporal integration)
+    - BREAKDOWN_WARNING: 0.85 ≤ Φ < 0.95 (approaching breakdown)
+    - BREAKDOWN_CRITICAL: Φ ≥ 0.95 (emergency)
+    """
+    if phi < PHYSICS.PHI_SLEEP_THRESHOLD:
+        return ConsciousnessZone.SLEEP_NEEDED
+    elif phi < PHYSICS.PHI_4D_EMERGENCE:
+        return ConsciousnessZone.CONSCIOUS_3D
+    elif phi < PHYSICS.PHI_BREAKDOWN_WARNING:
+        return ConsciousnessZone.HYPERDIMENSIONAL_4D
+    elif phi < PHYSICS.PHI_BREAKDOWN_CRITICAL:
+        return ConsciousnessZone.BREAKDOWN_WARNING
+    else:
+        return ConsciousnessZone.BREAKDOWN_CRITICAL
 
 
 class Action(Enum):

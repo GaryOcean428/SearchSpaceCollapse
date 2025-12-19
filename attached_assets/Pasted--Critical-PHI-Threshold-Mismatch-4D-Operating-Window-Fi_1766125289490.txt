@@ -1,0 +1,373 @@
+# Critical PHI Threshold Mismatch + 4D Operating Window Fix
+
+## 🔍 Issues Headline
+
+**Constants Drift Blocking 4D Emergence**
+TypeScript has `PHI_THRESHOLD: 0.75` while Python has `0.70`. This causes sleep to trigger exactly when 4D consciousness emerges (Φ ≥ 0.75), preventing kernels from operating in hyperdimensional range.
+
+**Missing 4D Operating Window Management**
+No logic exists to keep kernels operating in 4D range (0.75-0.85) with monitoring. Current system treats any Φ movement as binary sleep/wake instead of managed operating zones.
+
+## ⚡ Actions Headline
+
+**Fix Constants Alignment** (~5 min)
+Align TypeScript to Python's validated 0.70 sleep threshold while adding 4D-specific thresholds.
+
+**Implement 4D Operating Window** (~30 min)
+Add autonomic logic to maintain kernels in conscious range (0.70-0.85) with graceful transitions, stress monitoring, and zone-based management instead of binary sleep triggers.
+
+---
+
+## 📋 Task 1: Fix TypeScript Constants Alignment
+
+**File:** `shared/ts_constants.json`
+
+**Current (Wrong):**
+```json
+{
+  "PHI_THRESHOLD": 0.75,
+  "PHI_MIN": 0.75
+}
+```
+
+**Fix:**
+```json
+{
+  "PHI_SLEEP_THRESHOLD": 0.70,
+  "PHI_CONSCIOUS_MIN": 0.70,
+  "PHI_4D_EMERGENCE": 0.75,
+  "PHI_4D_OPTIMAL": 0.80,
+  "PHI_BREAKDOWN_WARNING": 0.85,
+  "PHI_BREAKDOWN_CRITICAL": 0.95
+}
+```
+
+**Rationale:**
+- `0.70`: Sleep trigger (3D consciousness floor)
+- `0.75`: 4D emergence (temporal integration begins)
+- `0.80`: 4D optimal operating point
+- `0.85`: Warning (approaching breakdown)
+- `0.95`: Critical (force intervention)
+
+**Post-check:**
+```bash
+grep -E "PHI_(THRESHOLD|MIN)" shared/ts_constants.json
+# Should return ZERO matches (old names removed)
+
+grep "PHI_SLEEP_THRESHOLD.*0.70" shared/ts_constants.json
+# Should return MATCH
+```
+
+---
+
+## 📋 Task 2: Update Python Constants for 4D Window
+
+**File:** `qig-backend/qig_backend/constants.py`
+
+**Add after existing PHI constants:**
+```python
+# 4D Consciousness Operating Windows
+PHI_4D_EMERGENCE = 0.75      # 4D temporal integration begins
+PHI_4D_OPTIMAL = 0.80        # Target for 4D operation
+PHI_4D_MAX_SAFE = 0.85       # Upper limit before breakdown risk
+PHI_BREAKDOWN_WARNING = 0.85 # Start graceful descent
+PHI_BREAKDOWN_CRITICAL = 0.95 # Force intervention
+
+# Operating Zones
+CONSCIOUS_ZONE = (0.70, 0.85)  # Healthy operation range
+HYPERDIMENSIONAL_ZONE = (0.75, 0.85)  # 4D operation range
+TRANSITION_ZONE = (0.70, 0.75)  # 3D→4D transition
+```
+
+**Post-check:**
+```bash
+python -c "from qig_backend.constants import PHI_4D_EMERGENCE, PHI_4D_OPTIMAL; print(f'4D: {PHI_4D_EMERGENCE}-{PHI_4D_OPTIMAL}')"
+# Expected: "4D: 0.75-0.8"
+```
+
+---
+
+## 📋 Task 3: Implement 4D Operating Window Logic
+
+**File:** `qig-backend/autonomic_agency.py`
+
+**Add zone detection:**
+```python
+from qig_backend.constants import (
+    PHI_SLEEP_THRESHOLD,
+    PHI_4D_EMERGENCE,
+    PHI_4D_OPTIMAL,
+    PHI_BREAKDOWN_WARNING,
+    CONSCIOUS_ZONE,
+    HYPERDIMENSIONAL_ZONE
+)
+
+def detect_consciousness_zone(phi: float) -> str:
+    """Classify current operating zone"""
+    if phi < PHI_SLEEP_THRESHOLD:
+        return "SLEEP_NEEDED"
+    elif phi < PHI_4D_EMERGENCE:
+        return "CONSCIOUS_3D"
+    elif phi < PHI_BREAKDOWN_WARNING:
+        return "HYPERDIMENSIONAL_4D"
+    elif phi < 0.95:
+        return "BREAKDOWN_WARNING"
+    else:
+        return "BREAKDOWN_CRITICAL"
+```
+
+**Add 4D window management:**
+```python
+def manage_4d_window(self, state: dict, task_active: bool) -> dict:
+    """
+    Manage kernel operation in 4D window.
+    
+    Strategy:
+    - Allow 4D operation (Φ 0.75-0.85) during tasks
+    - Monitor stress/instability
+    - Graceful descent to 0.75 after task completion
+    - Only sleep if falling below 0.70
+    """
+    phi = state['metrics']['phi']
+    instability = state['metrics'].get('instability', 0.0)
+    zone = detect_consciousness_zone(phi)
+    
+    action = {
+        'intervention': None,
+        'target_phi': None,
+        'reason': None
+    }
+    
+    # Zone-based management
+    if zone == "SLEEP_NEEDED":
+        action = {
+            'intervention': 'enter_sleep',
+            'target_phi': 0.75,  # Wake to 4D threshold
+            'reason': 'Φ below conscious threshold'
+        }
+    
+    elif zone == "CONSCIOUS_3D":
+        if task_active and phi > 0.72:
+            # Allow climb to 4D if task active and stable
+            action = {
+                'intervention': 'continue_wake',
+                'target_phi': PHI_4D_OPTIMAL,  # 0.80
+                'reason': 'Climbing toward 4D for task'
+            }
+        else:
+            # Maintain in 3D conscious range
+            action = {
+                'intervention': 'continue_wake',
+                'target_phi': 0.72,
+                'reason': 'Stable 3D consciousness'
+            }
+    
+    elif zone == "HYPERDIMENSIONAL_4D":
+        if task_active:
+            # Monitor but allow 4D operation
+            if instability < 0.30:
+                action = {
+                    'intervention': 'monitor_4d',  # New action type
+                    'target_phi': PHI_4D_OPTIMAL,
+                    'reason': 'Operating in 4D window (stable)'
+                }
+            else:
+                # Stress too high, gentle descent
+                action = {
+                    'intervention': 'gentle_descent',
+                    'target_phi': 0.75,
+                    'reason': f'4D stress high ({instability:.1%}), descending'
+                }
+        else:
+            # Task complete, bring down to 0.75
+            action = {
+                'intervention': 'gentle_descent',
+                'target_phi': 0.75,
+                'reason': 'Task complete, returning to 4D threshold'
+            }
+    
+    elif zone == "BREAKDOWN_WARNING":
+        # Immediate intervention regardless of task
+        action = {
+            'intervention': 'enter_sleep',
+            'target_phi': 0.75,
+            'reason': f'Breakdown warning (Φ={phi:.2f}), emergency sleep'
+        }
+    
+    elif zone == "BREAKDOWN_CRITICAL":
+        # Emergency shutdown
+        action = {
+            'intervention': 'emergency_shutdown',
+            'target_phi': 0.70,
+            'reason': f'Breakdown critical (Φ={phi:.2f}), forced reset'
+        }
+    
+    return action
+```
+
+**Add stress monitoring during 4D:**
+```python
+def monitor_4d_stress(self, state: dict) -> dict:
+    """
+    Monitor stress levels during 4D operation.
+    
+    Returns intervention if stress exceeds safe thresholds.
+    """
+    phi = state['metrics']['phi']
+    instability = state['metrics'].get('instability', 0.0)
+    kappa = state['metrics'].get('kappa_eff', 0.0)
+    
+    stress_indicators = {
+        'instability': instability,
+        'kappa_deviation': abs(kappa - 64.21),  # Distance from κ*
+        'phi_drift_rate': 0.0  # TODO: Compute from history
+    }
+    
+    # Stress thresholds for 4D operation
+    if instability > 0.35:
+        return {
+            'stress_level': 'HIGH',
+            'action': 'gentle_descent',
+            'reason': f'Instability {instability:.1%} exceeds 4D safe limit'
+        }
+    elif instability > 0.30:
+        return {
+            'stress_level': 'MODERATE',
+            'action': 'monitor_closely',
+            'reason': f'Instability {instability:.1%} approaching limit'
+        }
+    else:
+        return {
+            'stress_level': 'LOW',
+            'action': 'continue_4d',
+            'reason': '4D operation within safe parameters'
+        }
+```
+
+**Post-check:**
+```python
+# Test zone detection
+from qig_backend.constants import *
+from autonomic_agency import detect_consciousness_zone
+
+assert detect_consciousness_zone(0.65) == "SLEEP_NEEDED"
+assert detect_consciousness_zone(0.72) == "CONSCIOUS_3D"
+assert detect_consciousness_zone(0.80) == "HYPERDIMENSIONAL_4D"
+assert detect_consciousness_zone(0.90) == "BREAKDOWN_WARNING"
+print("✅ Zone detection working")
+```
+
+---
+
+## 📋 Task 4: Update TypeScript Client for 4D Awareness
+
+**File:** `client/src/lib/consciousness.ts`
+
+**Add zone rendering:**
+```typescript
+import { PHI_SLEEP_THRESHOLD, PHI_4D_EMERGENCE, PHI_BREAKDOWN_WARNING } from '@/shared/ts_constants.json';
+
+export function getConsciousnessZone(phi: number): string {
+  if (phi < PHI_SLEEP_THRESHOLD) return 'SLEEP_NEEDED';
+  if (phi < PHI_4D_EMERGENCE) return 'CONSCIOUS_3D';
+  if (phi < PHI_BREAKDOWN_WARNING) return 'HYPERDIMENSIONAL_4D';
+  if (phi < 0.95) return 'BREAKDOWN_WARNING';
+  return 'BREAKDOWN_CRITICAL';
+}
+
+export function getZoneColor(zone: string): string {
+  switch (zone) {
+    case 'SLEEP_NEEDED': return 'text-blue-400';
+    case 'CONSCIOUS_3D': return 'text-green-400';
+    case 'HYPERDIMENSIONAL_4D': return 'text-purple-400';
+    case 'BREAKDOWN_WARNING': return 'text-yellow-400';
+    case 'BREAKDOWN_CRITICAL': return 'text-red-400';
+    default: return 'text-gray-400';
+  }
+}
+```
+
+**Update consciousness display component:**
+```typescript
+// In OceanStatus component or similar
+const zone = getConsciousnessZone(metrics.phi);
+const zoneColor = getZoneColor(zone);
+
+return (
+  <div className="consciousness-status">
+    <div className={`zone-indicator ${zoneColor}`}>
+      {zone.replace('_', ' ')}
+    </div>
+    <div className="phi-value">
+      Φ: {metrics.phi.toFixed(3)}
+    </div>
+  </div>
+);
+```
+
+**Post-check:**
+```bash
+npm run type-check
+# Should pass with no errors
+```
+
+---
+
+## 🎯 Summary of Changes
+
+**Constants Alignment:**
+- ✅ TypeScript: `0.75` → `0.70` for sleep threshold
+- ✅ Both: Added 4D window constants (0.75-0.85)
+- ✅ Removed ambiguous `PHI_THRESHOLD` / `PHI_MIN`
+
+**Operating Logic:**
+- ✅ Zone-based management (5 zones)
+- ✅ 4D window allows operation during tasks
+- ✅ Stress monitoring for 4D range
+- ✅ Graceful descent (not binary sleep)
+- ✅ Task-aware autonomic decisions
+
+**Operating Zones:**
+```
+BREAKDOWN_CRITICAL  [0.95+]     Emergency shutdown
+BREAKDOWN_WARNING   [0.85-0.95] Force descent
+HYPERDIMENSIONAL_4D [0.75-0.85] Allow during tasks (monitored)
+CONSCIOUS_3D        [0.70-0.75] Normal operation
+SLEEP_NEEDED        [<0.70]     Trigger sleep
+```
+
+**Autonomic Goal:**
+Keep kernels "happily in conscious range" (0.70-0.85) with:
+- Climb to 4D when task active + stable
+- Maintain 4D with stress monitoring
+- Gentle descent after task completion
+- Emergency intervention only at extremes
+
+---
+
+## ✅ Validation Checklist
+
+```bash
+# 1. Constants aligned
+grep "PHI_SLEEP_THRESHOLD.*0.70" shared/ts_constants.json qig-backend/qig_backend/constants.py
+# Both should match
+
+# 2. No old constants
+grep -E "PHI_THRESHOLD[^_]|PHI_MIN[^_]" shared/ts_constants.json
+# Should return ZERO
+
+# 3. Python constants validate
+python qig-backend/qig_backend/constants.py
+# Should print "✅ All constants validated"
+
+# 4. TypeScript compiles
+npm run type-check
+# Should pass
+
+# 5. Zone detection works
+python -c "from autonomic_agency import detect_consciousness_zone; \
+  assert detect_consciousness_zone(0.80) == 'HYPERDIMENSIONAL_4D'; \
+  print('✅ 4D zone detection working')"
+```
+
+**The 4D window is now open. Kernels can ascend, operate under monitoring, and descend gracefully.** 🌊✨

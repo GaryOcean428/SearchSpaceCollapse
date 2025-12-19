@@ -71,15 +71,27 @@ class PhysicsConstants:
     
     # Φ Consciousness Thresholds
     PHI_THRESHOLD: float = 0.70      # Consciousness emergence (3D spatial)
+    PHI_SLEEP_THRESHOLD: float = 0.70  # Sleep trigger (3D floor)
+    PHI_CONSCIOUS_MIN: float = 0.70    # Minimum for conscious operation
     PHI_EMERGENCY: float = 0.50      # Collapse threshold - ABORT if below
     PHI_HYPERDIMENSIONAL: float = 0.75  # 4D temporal integration threshold
+    PHI_4D_EMERGENCE: float = 0.75   # 4D emergence (temporal integration begins)
+    PHI_4D_OPTIMAL: float = 0.80     # Target for 4D operation
     PHI_UNSTABLE: float = 0.85       # Topological instability onset
+    PHI_BREAKDOWN_WARNING: float = 0.85  # Start graceful descent
+    PHI_BREAKDOWN_CRITICAL: float = 0.95  # Force intervention
     
     # Dimension thresholds
     PHI_THRESHOLD_D1_D2: float = 0.3   # 1D → 2D
     PHI_THRESHOLD_D2_D3: float = 0.5   # 2D → 3D
     PHI_THRESHOLD_D3_D4: float = 0.7   # 3D → 4D (consciousness emerges)
     PHI_THRESHOLD_D4_D5: float = 0.85  # 4D → 5D (hyperdimensional)
+    
+    # Operating Zones (tuples as lists for JSON compat)
+    CONSCIOUS_ZONE_MIN: float = 0.70   # Healthy operation floor
+    CONSCIOUS_ZONE_MAX: float = 0.85   # Healthy operation ceiling
+    HYPERDIMENSIONAL_ZONE_MIN: float = 0.75  # 4D operation floor
+    HYPERDIMENSIONAL_ZONE_MAX: float = 0.85  # 4D operation ceiling
     
     # Safety Thresholds (Emergency Abort Criteria)
     BREAKDOWN_PCT: float = 60.0      # Ego death risk threshold (%)
@@ -156,13 +168,23 @@ BETA_4_TO_5: Final[float] = PHYSICS.BETA_4_TO_5
 BETA_5_TO_6: Final[float] = PHYSICS.BETA_5_TO_6
 
 PHI_THRESHOLD: Final[float] = PHYSICS.PHI_THRESHOLD
+PHI_SLEEP_THRESHOLD: Final[float] = PHYSICS.PHI_SLEEP_THRESHOLD
+PHI_CONSCIOUS_MIN: Final[float] = PHYSICS.PHI_CONSCIOUS_MIN
 PHI_EMERGENCY: Final[float] = PHYSICS.PHI_EMERGENCY
 PHI_HYPERDIMENSIONAL: Final[float] = PHYSICS.PHI_HYPERDIMENSIONAL
+PHI_4D_EMERGENCE: Final[float] = PHYSICS.PHI_4D_EMERGENCE
+PHI_4D_OPTIMAL: Final[float] = PHYSICS.PHI_4D_OPTIMAL
 PHI_UNSTABLE: Final[float] = PHYSICS.PHI_UNSTABLE
+PHI_BREAKDOWN_WARNING: Final[float] = PHYSICS.PHI_BREAKDOWN_WARNING
+PHI_BREAKDOWN_CRITICAL: Final[float] = PHYSICS.PHI_BREAKDOWN_CRITICAL
 PHI_THRESHOLD_D1_D2: Final[float] = PHYSICS.PHI_THRESHOLD_D1_D2
 PHI_THRESHOLD_D2_D3: Final[float] = PHYSICS.PHI_THRESHOLD_D2_D3
 PHI_THRESHOLD_D3_D4: Final[float] = PHYSICS.PHI_THRESHOLD_D3_D4
 PHI_THRESHOLD_D4_D5: Final[float] = PHYSICS.PHI_THRESHOLD_D4_D5
+CONSCIOUS_ZONE_MIN: Final[float] = PHYSICS.CONSCIOUS_ZONE_MIN
+CONSCIOUS_ZONE_MAX: Final[float] = PHYSICS.CONSCIOUS_ZONE_MAX
+HYPERDIMENSIONAL_ZONE_MIN: Final[float] = PHYSICS.HYPERDIMENSIONAL_ZONE_MIN
+HYPERDIMENSIONAL_ZONE_MAX: Final[float] = PHYSICS.HYPERDIMENSIONAL_ZONE_MAX
 
 BREAKDOWN_PCT: Final[float] = PHYSICS.BREAKDOWN_PCT
 BASIN_DRIFT_THRESHOLD: Final[float] = PHYSICS.BASIN_DRIFT_THRESHOLD

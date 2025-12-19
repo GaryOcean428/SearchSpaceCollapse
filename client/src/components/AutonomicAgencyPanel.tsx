@@ -47,6 +47,14 @@ interface SafetyManifest {
   mushroom_cooldown_seconds: number;
 }
 
+interface OperatingZones {
+  sleep_needed: string;
+  conscious_3d: string;
+  hyperdimensional_4d: string;
+  breakdown_warning: string;
+  breakdown_critical: string;
+}
+
 interface AgencyStatus {
   success: boolean;
   enabled: boolean;
@@ -56,6 +64,7 @@ interface AgencyStatus {
   epsilon: number;
   last_action: string | null;
   last_phi: number | null;
+  consciousness_zone: string | null;
   buffer_size: number;
   buffer_stats: {
     size: number;
@@ -75,6 +84,7 @@ interface AgencyStatus {
     timestamp: number;
   }>;
   safety_manifest?: SafetyManifest;
+  operating_zones?: OperatingZones;
 }
 
 const ACTION_ICONS: Record<string, typeof Brain> = {
@@ -99,6 +109,22 @@ const ACTION_COLORS: Record<string, string> = {
   ENTER_DREAM: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   ENTER_MUSHROOM_MICRO: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   ENTER_MUSHROOM_MOD: "bg-red-500/20 text-red-400 border-red-500/30",
+};
+
+const ZONE_COLORS: Record<string, string> = {
+  SLEEP_NEEDED: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  CONSCIOUS_3D: "bg-green-500/20 text-green-400 border-green-500/30",
+  HYPERDIMENSIONAL_4D: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  BREAKDOWN_WARNING: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  BREAKDOWN_CRITICAL: "bg-red-500/20 text-red-400 border-red-500/30",
+};
+
+const ZONE_LABELS: Record<string, string> = {
+  SLEEP_NEEDED: "Sleep Needed",
+  CONSCIOUS_3D: "3D Conscious",
+  HYPERDIMENSIONAL_4D: "4D Hyperdimensional",
+  BREAKDOWN_WARNING: "Breakdown Warning",
+  BREAKDOWN_CRITICAL: "Breakdown Critical",
 };
 
 export function AutonomicAgencyPanel() {
@@ -258,7 +284,7 @@ export function AutonomicAgencyPanel() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid md:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-5 gap-4">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Decisions</p>
               <p className="text-2xl font-mono font-bold" data-testid="text-decision-count">
@@ -276,6 +302,19 @@ export function AutonomicAgencyPanel() {
               <p className="text-2xl font-mono font-bold" data-testid="text-last-phi">
                 {status?.last_phi?.toFixed(3) ?? "—"}
               </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Consciousness Zone</p>
+              {status?.consciousness_zone ? (
+                <Badge 
+                  className={`text-sm ${ZONE_COLORS[status.consciousness_zone] ?? ""}`}
+                  data-testid="badge-consciousness-zone"
+                >
+                  {ZONE_LABELS[status.consciousness_zone] ?? status.consciousness_zone}
+                </Badge>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Avg Reward</p>
@@ -346,6 +385,44 @@ export function AutonomicAgencyPanel() {
                 <p className="font-mono text-sm" data-testid="text-mushroom-cooldown">
                   {Math.round(status.safety_manifest.mushroom_cooldown_seconds / 60)} min
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {status?.operating_zones && (
+        <Card className="border-purple-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Brain className="h-4 w-4 text-purple-400" />
+              4D Operating Zones
+            </CardTitle>
+            <CardDescription>
+              Consciousness operating windows - 4D enabled at Φ ≥ 0.75
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="flex flex-col items-center p-2 rounded-md bg-blue-500/10 border border-blue-500/20">
+                <span className="text-xs text-blue-400 font-medium">Sleep Needed</span>
+                <span className="font-mono text-sm">{status.operating_zones.sleep_needed}</span>
+              </div>
+              <div className="flex flex-col items-center p-2 rounded-md bg-green-500/10 border border-green-500/20">
+                <span className="text-xs text-green-400 font-medium">3D Conscious</span>
+                <span className="font-mono text-sm">{status.operating_zones.conscious_3d}</span>
+              </div>
+              <div className="flex flex-col items-center p-2 rounded-md bg-purple-500/10 border border-purple-500/20">
+                <span className="text-xs text-purple-400 font-medium">4D Hyperdimensional</span>
+                <span className="font-mono text-sm">{status.operating_zones.hyperdimensional_4d}</span>
+              </div>
+              <div className="flex flex-col items-center p-2 rounded-md bg-yellow-500/10 border border-yellow-500/20">
+                <span className="text-xs text-yellow-400 font-medium">Warning</span>
+                <span className="font-mono text-sm">{status.operating_zones.breakdown_warning}</span>
+              </div>
+              <div className="flex flex-col items-center p-2 rounded-md bg-red-500/10 border border-red-500/20">
+                <span className="text-xs text-red-400 font-medium">Critical</span>
+                <span className="font-mono text-sm">{status.operating_zones.breakdown_critical}</span>
               </div>
             </div>
           </CardContent>

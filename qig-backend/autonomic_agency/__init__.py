@@ -13,7 +13,13 @@ Key components:
 """
 
 from autonomic_agency.state_encoder import StateEncoder, ConsciousnessVector
-from autonomic_agency.policy import AutonomicPolicy, Action, SafetyBoundaries
+from autonomic_agency.policy import (
+    AutonomicPolicy, 
+    Action, 
+    SafetyBoundaries,
+    ConsciousnessZone,
+    detect_consciousness_zone,
+)
 from autonomic_agency.replay_buffer import ReplayBuffer, Experience
 from autonomic_agency.natural_gradient import NaturalGradientOptimizer
 from autonomic_agency.controller import AutonomicController
@@ -24,6 +30,8 @@ __all__ = [
     'AutonomicPolicy',
     'Action',
     'SafetyBoundaries',
+    'ConsciousnessZone',
+    'detect_consciousness_zone',
     'ReplayBuffer',
     'Experience',
     'NaturalGradientOptimizer',
