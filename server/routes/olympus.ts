@@ -372,9 +372,10 @@ router.post('/zeus/chat', isAuthenticated, async (req, res) => {
  */
 router.get('/zeus/sessions', isAuthenticated, async (req, res) => {
   const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-  const limit = parseInt(req.query.limit as string) || 20;
+  const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 100);
+  const userId = (req as any).user?.claims?.sub || 'default';
   try {
-    const response = await fetch(`${backendUrl}/olympus/zeus/sessions?limit=${limit}`, {
+    const response = await fetch(`${backendUrl}/olympus/zeus/sessions?limit=${limit}&user_id=${encodeURIComponent(userId)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -395,11 +396,12 @@ router.get('/zeus/sessions', isAuthenticated, async (req, res) => {
  */
 router.post('/zeus/sessions', isAuthenticated, async (req, res) => {
   const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+  const userId = (req as any).user?.claims?.sub || 'default';
   try {
     const response = await fetch(`${backendUrl}/olympus/zeus/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify({ ...req.body, user_id: userId }),
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -418,9 +420,10 @@ router.post('/zeus/sessions', isAuthenticated, async (req, res) => {
  */
 router.get('/zeus/sessions/:sessionId/messages', isAuthenticated, async (req, res) => {
   const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+  const userId = (req as any).user?.claims?.sub || 'default';
   try {
     const { sessionId } = req.params;
-    const response = await fetch(`${backendUrl}/olympus/zeus/sessions/${sessionId}/messages`, {
+    const response = await fetch(`${backendUrl}/olympus/zeus/sessions/${sessionId}/messages?user_id=${encodeURIComponent(userId)}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });

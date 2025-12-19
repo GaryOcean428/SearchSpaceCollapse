@@ -1975,7 +1975,7 @@ def zeus_sessions_endpoint():
     try:
         handler = get_zeus_chat_handler()
         user_id = request.args.get('user_id', 'default')
-        limit = int(request.args.get('limit', 20))
+        limit = min(int(request.args.get('limit', 20)), 100)
         sessions = handler.get_sessions(user_id=user_id, limit=limit)
         return jsonify(sanitize_for_json({'sessions': sessions}))
     except Exception as e:
@@ -1984,10 +1984,20 @@ def zeus_sessions_endpoint():
 
 @olympus_app.route('/zeus/sessions/<session_id>/messages', methods=['GET'])
 def zeus_session_messages_endpoint(session_id: str):
-    """Get messages for a specific session."""
+    """Get messages for a specific session with user ownership validation."""
     try:
         handler = get_zeus_chat_handler()
-        messages = handler._conversation_persistence.get_session_messages(session_id) if handler._conversation_persistence else []
+        user_id = request.args.get('user_id', 'default')
+        
+        if handler._conversation_persistence:
+            messages, is_owned = handler._conversation_persistence.get_session_messages(
+                session_id, user_id=user_id
+            )
+            if not is_owned:
+                return jsonify({'error': 'Session not found or access denied', 'messages': []}), 404
+        else:
+            messages = []
+            
         return jsonify(sanitize_for_json({'messages': messages, 'session_id': session_id}))
     except Exception as e:
         return jsonify({'error': str(e)}), 500

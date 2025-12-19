@@ -125,8 +125,15 @@ export function useZeusChat(): UseZeusChatReturn {
       })));
       setSessionId(id);
       localStorage.setItem(SESSION_STORAGE_KEY, id);
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('[useZeusChat] Failed to load session:', e);
+      const status = (e as { status?: number })?.status || 
+                     (e as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        setSessionId(null);
+        setMessages([]);
+      }
     }
   }, []);
   

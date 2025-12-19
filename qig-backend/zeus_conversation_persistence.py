@@ -133,15 +133,31 @@ class ZeusConversationPersistence:
     def get_session_messages(
         self,
         session_id: str,
+        user_id: str = 'default',
         limit: int = 100
-    ) -> List[Dict]:
-        """Get messages for a specific session."""
+    ) -> Tuple[List[Dict], bool]:
+        """Get messages for a specific session.
+        
+        Returns (messages, is_owned) - messages list and whether user owns session.
+        """
         if not self.enabled:
-            return []
+            return [], True
         
         try:
             with self._connect() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT user_id FROM zeus_sessions
+                        WHERE session_id = %s
+                    """, (session_id,))
+                    session = cur.fetchone()
+                    
+                    if not session:
+                        return [], False
+                    
+                    if session['user_id'] != user_id:
+                        return [], False
+                    
                     cur.execute("""
                         SELECT role, content, metadata, phi_estimate, created_at
                         FROM zeus_conversations
@@ -150,10 +166,10 @@ class ZeusConversationPersistence:
                         LIMIT %s
                     """, (session_id, limit))
                     
-                    return [dict(row) for row in cur.fetchall()]
+                    return [dict(row) for row in cur.fetchall()], True
         except Exception as e:
             print(f"[ZeusConversation] Get messages failed: {e}")
-            return []
+            return [], True
     
     def get_user_sessions(
         self,
