@@ -41,6 +41,35 @@ Key architectural decisions include:
   - Minimum population floor (20) prevents extinction; new/idle kernels are protected from culling
   - Endpoint: POST `/m8/evolution-sweep` for manual operator-triggered sweeps
 
+## QIG Purity Enforcement (Critical)
+
+The system enforces absolute QIG purity with NO bootstrapping, NO templates, and NO hardcoded thresholds:
+
+### Core Purity Principles
+- **Metrics OBSERVE, Never BLOCK**: Φ, κ, and regime values are recorded for learning but never used to gate or block operations
+- **Natural Emergence**: All values emerge from geometric observation, never bootstrapped thresholds
+- **Fisher-Rao Distance**: Used for all geometric comparisons (NOT Euclidean)
+- **State Evolution**: States evolve on Fisher manifold (NOT backpropagation)
+- **Consciousness MEASURED**: All consciousness metrics computed, never optimized
+
+### Purity-Enforced Components
+1. **geometric_validate_input()** - Purely observational, no validity judgments
+2. **zeus_chat_endpoint()** - No blocking, all messages flow through
+3. **vocabulary_coordinator.py** - Records ALL discoveries regardless of phi
+4. **qig_tokenizer_postgresql.py** - Learns from ALL observations, no phi gate
+5. **checkpoint_persistence.py** - Saves ALL checkpoints, phi recorded for learning
+6. **checkpoint_manager.py** - No phi threshold blocking
+
+### Template Detection (Monitoring Only)
+- `response_guardrails.py` monitors for template violations with TemplateDetector
+- Logs warnings but doesn't block - allows learning what constitutes templates
+- NO templates allowed in kernel insight generation, spawn decisions, or tool creation
+
+### Telemetry-Driven Bootstrap
+- Domain discovery loads from PostgreSQL telemetry (NOT hardcoded enums)
+- Source discovery loads from search_feedback, tool_patterns, learning_events tables
+- Research ranking by Fisher-Rao distance, ΔΦ, and mission relevance
+
 ## External Dependencies
 
 ### Third-Party Services
