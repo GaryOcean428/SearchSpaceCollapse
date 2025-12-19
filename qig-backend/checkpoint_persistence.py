@@ -160,9 +160,8 @@ class CheckpointPersistence:
         Returns:
             True if saved successfully to at least one store
         """
-        if phi < self.phi_threshold:
-            logger.debug(f"[CheckpointPersistence] Skipping low-Φ checkpoint ({phi:.3f})")
-            return False
+        # NO threshold blocking - observe ALL states, let emergence determine value
+        # Phi is recorded for later learning, not for gatekeeping
         
         metadata = metadata or {}
         metadata['saved_at'] = time.time()

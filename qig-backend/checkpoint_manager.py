@@ -122,12 +122,8 @@ class CheckpointManager:
         Returns:
             Checkpoint ID if saved, None if skipped
         """
-        # Check if we should save (must meet threshold)
-        if phi < self.phi_threshold_for_save:
-            logger.debug(
-                f"Skipping checkpoint (Φ={phi:.3f} < threshold={self.phi_threshold_for_save:.3f})"
-            )
-            return None
+        # NO threshold blocking - observe ALL states, let emergence determine value
+        # Phi is recorded for later learning, not for gatekeeping
         
         # Generate checkpoint ID
         timestamp = datetime.now()

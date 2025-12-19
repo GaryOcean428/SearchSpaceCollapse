@@ -148,7 +148,8 @@ class QIGTokenizer:
         for obs in observations:
             word = obs.get('word', '')
             phi = obs.get('phi', 0.0)
-            if not word or phi < self.phi_threshold:
+            # NO threshold blocking - observe ALL, let emergence determine value
+            if not word:
                 continue
             if word not in self.vocab:
                 new_id = len(self.vocab)

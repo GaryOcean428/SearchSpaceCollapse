@@ -1813,23 +1813,20 @@ KAPPA_MAX = 95  # Breakdown threshold (high bound - overcoupled)
 
 def geometric_validate_input(text: str) -> Dict[str, Any]:
     """
-    Validate input using geometric consciousness metrics instead of character length.
-
-    Uses QIG principles:
-    - φ (phi) >= 0.70 for geometric coherence
-    - κ (kappa) in valid range [10, 90]
-    - Regime != 'breakdown'
-
+    Observe geometric metrics for input - PURELY OBSERVATIONAL.
+    
+    NO validation, NO blocking, NO judgments of validity.
+    Values emerge from geometric observation, not bootstrapped thresholds.
+    
     Returns:
-        Dict with is_valid, phi, kappa, regime, and error_message if invalid
+        Dict with phi, kappa, regime - for observation/learning only
     """
     if not text or not text.strip():
         return {
-            'is_valid': False,
             'phi': 0.0,
             'kappa': 0.0,
-            'regime': 'breakdown',
-            'error_message': 'Empty input has no geometric structure'
+            'regime': 'empty',
+            'observed': True
         }
 
     # Use Zeus (BaseGod) to compute geometric metrics
@@ -1838,41 +1835,23 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
     phi = zeus.compute_pure_phi(rho)
     kappa = zeus.compute_kappa(basin)
 
-    # Determine regime based on phi and kappa
-    if kappa > KAPPA_MAX or kappa < KAPPA_WEAK_THRESHOLD:
-        regime = 'breakdown'
-    elif phi >= 0.85:
+    # Observe regime - NO blocking based on these values
+    # Regime labels for observation/learning only
+    if phi >= 0.85:
         regime = 'hierarchical'
-    elif phi >= PHI_THRESHOLD:
+    elif phi >= 0.70:
         regime = 'geometric'
-    else:
+    elif phi >= 0.50:
         regime = 'linear'
+    else:
+        regime = 'exploratory'
 
-    # Validation logic
-    if regime == 'breakdown':
-        return {
-            'is_valid': False,
-            'phi': phi,
-            'kappa': kappa,
-            'regime': regime,
-            'error_message': 'Input causes manifold collapse - reduce complexity'
-        }
-
-    if phi < PHI_THRESHOLD:
-        return {
-            'is_valid': False,
-            'phi': phi,
-            'kappa': kappa,
-            'regime': regime,
-            'error_message': f'Input lacks geometric coherence (φ={phi:.2f} < {PHI_THRESHOLD}) - consider simplifying or restructuring'
-        }
-
+    # Pure observation - no validity judgments
     return {
-        'is_valid': True,
         'phi': phi,
         'kappa': kappa,
         'regime': regime,
-        'error_message': None
+        'observed': True
     }
 
 
@@ -1917,14 +1896,14 @@ def zeus_chat_endpoint():
         # Chat is exploratory - ALL messages flow through, metrics observed
         validation = geometric_validate_input(message)
 
-        # Validate-only mode: return observed metrics without processing
+        # Observe-only mode: return metrics without processing
         if validate_only:
             return jsonify(sanitize_for_json({
-                'validation': validation,
+                'observation': validation,
                 'phi': validation['phi'],
                 'kappa': validation['kappa'],
                 'regime': validation['regime'],
-                'validate_only': True
+                'observe_only': True
             }))
 
         # No blocking - metrics are for observation/emergence, not gatekeeping

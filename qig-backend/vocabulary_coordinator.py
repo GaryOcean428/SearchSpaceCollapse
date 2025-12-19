@@ -34,8 +34,9 @@ class VocabularyCoordinator:
         print("[VocabularyCoordinator] Initialized")
     
     def record_discovery(self, phrase: str, phi: float, kappa: float, source: str, details: Optional[Dict] = None) -> Dict:
-        if not phrase or phi < 0.5:
-            return {'learned': False, 'reason': 'below_threshold'}
+        # NO threshold blocking - observe ALL discoveries, let emergence determine value
+        if not phrase:
+            return {'learned': False, 'reason': 'empty_phrase'}
         observations = self._extract_observations(phrase, phi, kappa, source)
         if not observations:
             return {'learned': False, 'reason': 'no_observations'}
@@ -48,8 +49,9 @@ class VocabularyCoordinator:
         if self.tokenizer:
             new_tokens, weights_updated = self.tokenizer.add_vocabulary_observations(observations)
             self.words_learned += new_tokens
+        # Merge rules based on observed phi - no hardcoded threshold
         merge_rules = 0
-        if phi >= 0.7 and self.tokenizer:
+        if self.tokenizer:
             merge_rules = self._learn_merge_rules(phrase, phi, source)
             self.merge_rules_learned += merge_rules
         return {'learned': True, 'observations_recorded': recorded, 'new_tokens': new_tokens, 'weights_updated': weights_updated, 'merge_rules': merge_rules, 'phi': phi, 'source': source}
