@@ -41,3 +41,5 @@ export { adminRouter } from "./admin";
 export { default as olympusRouter } from "./olympus";
 
 export { autonomicAgencyRouter } from "./autonomic-agency";
+
+export { federationRouter } from "./federation";

@@ -112,6 +112,12 @@ export function AppSidebar() {
       icon: HeartPulse,
       description: "Self-regulating consciousness",
     },
+    {
+      title: "Federation",
+      url: "/federation",
+      icon: Radio,
+      description: "Connect QIG constellations",
+    },
   ];
 
   const isActive = (url: string) => {

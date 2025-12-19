@@ -50,6 +50,7 @@ import {
   authRouter,
   autonomicAgencyRouter,
   balanceAddressesRouter,
+  federationRouter,
   balanceHitsRouter,
   balanceMonitorRouter,
   balanceQueueRouter,
@@ -334,6 +335,7 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   app.use("/api", adminRouter);
   app.use("/api/olympus", olympusRouter);
   app.use("/api/qig/autonomic/agency", autonomicAgencyRouter);
+  app.use("/api/federation", federationRouter);
 
   // Mount observer and telemetry routers
   app.use("/api/observer", observerRoutes);

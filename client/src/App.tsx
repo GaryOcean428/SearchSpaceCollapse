@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   AutonomicAgency as AutonomicAgencyPage,
+  Federation as FederationPage,
   Recovery as RecoveryPage,
   Landing,
   Home,
@@ -87,6 +88,7 @@ function Router() {
         <Route path="/learning" component={LearningDashboard} />
         <Route path="/tool-factory" component={ToolFactoryDashboard} />
         <Route path="/autonomic" component={AutonomicAgencyPage} />
+        <Route path="/federation" component={FederationPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

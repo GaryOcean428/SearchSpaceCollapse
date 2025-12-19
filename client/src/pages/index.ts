@@ -6,6 +6,7 @@
  */
 
 export { default as AutonomicAgency } from './autonomic-agency';
+export { default as Federation } from './federation';
 export { default as Home } from './home';
 export { default as Investigation } from './investigation';
 export { default as Landing } from './landing';
