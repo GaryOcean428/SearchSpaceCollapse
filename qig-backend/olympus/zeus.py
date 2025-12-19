@@ -630,6 +630,20 @@ class Zeus(BaseGod):
 
                 assessments[god_name] = assessment
                 probabilities.append(assessment.get('probability', 0.5))
+                
+                # Record assessment for automatic tool discovery
+                if hasattr(god, 'record_assessment_for_discovery'):
+                    challenges = assessment.get('challenges', [])
+                    insights = assessment.get('insights', [])
+                    reasoning = assessment.get('reasoning', '')
+                    if reasoning and not insights:
+                        insights = [reasoning[:200]]
+                    god.record_assessment_for_discovery(
+                        topic=target[:100],
+                        result=assessment,
+                        challenges=challenges if challenges else None,
+                        insights=insights if insights else None
+                    )
 
             except Exception as e:
                 assessments[god_name] = {

@@ -107,9 +107,10 @@ class ToolRequestPersistence:
         
         if self.enabled:
             self._ensure_tables()
-            logger.info("[ToolRequestPersistence] Initialized with PostgreSQL")
+            print("[ToolRequestPersistence] ✓ PostgreSQL persistence enabled")
         else:
-            logger.warning("[ToolRequestPersistence] Running without persistence")
+            reason = "psycopg2 not available" if not PSYCOPG2_AVAILABLE else "DATABASE_URL not set"
+            print(f"[ToolRequestPersistence] ⚠️ PERSISTENCE DISABLED: {reason} - pattern_discoveries and tool_requests will NOT be saved!")
     
     def _get_connection(self):
         """Get database connection."""
@@ -343,10 +344,10 @@ class ToolRequestPersistence:
                     discovery.tool_request_id
                 ))
                 conn.commit()
-                logger.debug(f"[ToolRequestPersistence] Saved discovery {discovery.discovery_id}")
+                print(f"[ToolRequestPersistence] ✓ Saved pattern discovery: {discovery.god_name}/{discovery.pattern_type} (conf={discovery.confidence:.2f})")
                 return True
         except Exception as e:
-            logger.error(f"[ToolRequestPersistence] Failed to save discovery: {e}")
+            print(f"[ToolRequestPersistence] ✗ FAILED to save pattern discovery: {e}")
             conn.rollback()
             return False
         finally:

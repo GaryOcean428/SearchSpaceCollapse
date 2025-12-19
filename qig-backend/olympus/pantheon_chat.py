@@ -544,7 +544,7 @@ class PantheonChat:
         return collected
 
     def deliver_to_gods(self, gods: Dict[str, Any]) -> int:
-        """Deliver pending messages to gods' receive methods."""
+        """Deliver pending messages to gods' receive methods and persist read status."""
         delivered = 0
 
         for god_name, god in gods.items():
@@ -553,20 +553,28 @@ class PantheonChat:
             unread = [m for m in inbox if not m.read]
 
             for message in unread:
+                processed = False
+                
                 if message.type == 'insight' and hasattr(god, 'receive_knowledge'):
                     knowledge = message.metadata.get('knowledge', {})
                     if knowledge:
                         god.receive_knowledge(knowledge)
-                        message.read = True
-                        delivered += 1
+                        processed = True
 
                 elif message.type in ['challenge', 'challenge_response']:
-                    message.read = True
-                    delivered += 1
+                    processed = True
 
                 else:
+                    processed = True
+                
+                if processed:
                     message.read = True
                     delivered += 1
+                    if self._persistence:
+                        try:
+                            self._persistence.mark_message_read(message.id)
+                        except Exception as e:
+                            print(f"[PantheonChat] Failed to persist read status for {message.id}: {e}")
 
         return delivered
 
