@@ -17,7 +17,7 @@
 import { checkAndRecordBalance } from './blockchain-scanner';
 import { dormantCrossRef } from './dormant-cross-ref';
 import { freeBlockchainAPI } from './blockchain-free-api';
-import { db, withDbRetry } from './db';
+import { db, withDbRetry, isDbOverloaded } from './db';
 import { queuedAddresses } from '@shared/schema';
 import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
 import { testedEmptyTracker } from './tested-empty-tracker';
@@ -169,6 +169,12 @@ class BalanceQueueService {
     this.backgroundWorkerInterval = setInterval(async () => {
       if (!this.backgroundWorkerEnabled) return;
       if (this.isProcessing) return;
+      
+      // BACKPRESSURE: Skip processing if DB is overloaded
+      if (isDbOverloaded()) {
+        this.lastHeartbeat = Date.now(); // Keep heartbeat alive
+        return; // Skip this cycle, don't add pressure
+      }
       
       try {
         this.isProcessing = true;

@@ -61,11 +61,14 @@ if (!isDeployedEnv) {
 class ConnectionSemaphore {
   private currentCount = 0;
   private readonly maxConcurrent: number;
-  private readonly queue: Array<() => void> = [];
+  private readonly maxQueueSize: number;
+  private readonly queue: Array<{ resolve: () => void; reject: (err: Error) => void }> = [];
   private readonly name: string;
+  private _rejected = 0;
   
-  constructor(maxConcurrent: number, name: string = 'DB') {
+  constructor(maxConcurrent: number, name: string = 'DB', maxQueueSize: number = 50) {
     this.maxConcurrent = maxConcurrent;
+    this.maxQueueSize = maxQueueSize;
     this.name = name;
   }
   
@@ -75,20 +78,35 @@ class ConnectionSemaphore {
       return;
     }
     
+    // BACKPRESSURE: Reject if queue is too long (prevents unbounded growth)
+    if (this.queue.length >= this.maxQueueSize) {
+      this._rejected++;
+      throw new Error(`[${this.name}] Backpressure: queue full (${this.queue.length}/${this.maxQueueSize})`);
+    }
+    
     // Queue and wait
-    return new Promise((resolve) => {
-      this.queue.push(() => {
-        this.currentCount++;
-        resolve();
-      });
+    return new Promise((resolve, reject) => {
+      this.queue.push({ resolve: () => { this.currentCount++; resolve(); }, reject });
     });
+  }
+  
+  /**
+   * Try to acquire without waiting - returns false if not available
+   * Use for non-critical operations that can be skipped under load
+   */
+  tryAcquire(): boolean {
+    if (this.currentCount < this.maxConcurrent) {
+      this.currentCount++;
+      return true;
+    }
+    return false;
   }
   
   release(): void {
     this.currentCount--;
     if (this.queue.length > 0 && this.currentCount < this.maxConcurrent) {
       const next = this.queue.shift();
-      if (next) next();
+      if (next) next.resolve();
     }
   }
   
@@ -96,17 +114,29 @@ class ConnectionSemaphore {
     return {
       active: this.currentCount,
       waiting: this.queue.length,
-      max: this.maxConcurrent
+      max: this.maxConcurrent,
+      maxQueue: this.maxQueueSize,
+      rejected: this._rejected
     };
+  }
+  
+  get isOverloaded(): boolean {
+    return this.queue.length > this.maxQueueSize * 0.8;
   }
 }
 
 // Global semaphore: limit to 20 concurrent operations (leaving headroom for pool's 30)
-const dbSemaphore = new ConnectionSemaphore(20, 'DB');
+// Queue limit of 50 prevents unbounded queue growth during pool exhaustion
+const dbSemaphore = new ConnectionSemaphore(20, 'DB', 50);
 
 // Export for monitoring
 export function getDbSemaphoreStats() {
   return dbSemaphore.stats;
+}
+
+// Export overload check for backpressure-aware components
+export function isDbOverloaded(): boolean {
+  return dbSemaphore.isOverloaded;
 }
 
 // ============================================================================

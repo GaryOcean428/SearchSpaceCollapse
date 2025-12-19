@@ -11,7 +11,7 @@
  * - Graceful fallback to in-memory if DB unavailable
  */
 
-import { db, withDbRetry } from '../db';
+import { db, withDbRetry, isDbOverloaded } from '../db';
 import { eq, and, gte, lte, desc, asc, sql, inArray } from 'drizzle-orm';
 import {
   manifoldProbes,
@@ -214,18 +214,37 @@ export class OceanPersistence {
   
   /**
    * Insert a batch of manifold probes efficiently
-   * Used during investigation cycles (50+ probes per cycle)
-   * Uses chunking to prevent timeout on large batches
+   * Uses circuit breaker pattern to back off when DB is overloaded
    */
   async insertProbes(probes: ProbeInsertData[]): Promise<number> {
     if (!db || probes.length === 0) return 0;
     
-    const CHUNK_SIZE = 100; // Smaller chunks to prevent timeout
+    // CIRCUIT BREAKER: Skip entirely if DB is overloaded
+    if (isDbOverloaded()) {
+      console.log('[OceanPersistence] Skipping probe insert - DB overloaded');
+      return 0;
+    }
+    
+    const CHUNK_SIZE = 100;
+    const MAX_CONSECUTIVE_FAILURES = 3;
     let totalInserted = 0;
+    let consecutiveFailures = 0;
     
     try {
-      // Process in chunks to avoid timeout
       for (let i = 0; i < probes.length; i += CHUNK_SIZE) {
+        // CIRCUIT BREAKER: Stop if too many consecutive failures
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          console.warn(`[OceanPersistence] Circuit breaker open - stopping after ${consecutiveFailures} failures`);
+          break;
+        }
+        
+        // BACKPRESSURE: Re-check overload between chunks
+        if (isDbOverloaded()) {
+          console.log('[OceanPersistence] DB overloaded mid-batch, pausing');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          if (isDbOverloaded()) break;
+        }
+        
         const chunk = probes.slice(i, i + CHUNK_SIZE);
         const records: InsertManifoldProbe[] = chunk.map(p => ({
           id: p.id,
@@ -242,34 +261,30 @@ export class OceanPersistence {
         }));
         
         try {
-          // Validate coordinates before insert - must be exactly 64 dimensions
           const validRecords = records.filter(r => {
             if (!r.coordinates || !Array.isArray(r.coordinates) || r.coordinates.length !== 64) {
               return false;
             }
-            // Ensure all coordinate values are valid numbers
             return r.coordinates.every(v => typeof v === 'number' && isFinite(v));
           });
           
-          if (validRecords.length === 0) {
-            // Skip chunk if all records have invalid coordinates
-            continue;
-          }
+          if (validRecords.length === 0) continue;
           
           await db.insert(manifoldProbes)
             .values(validRecords)
             .onConflictDoNothing();
           totalInserted += validRecords.length;
+          consecutiveFailures = 0; // Reset on success
         } catch (chunkError) {
-          // Log actual error for debugging
+          consecutiveFailures++;
           const errMsg = chunkError instanceof Error ? chunkError.message : String(chunkError);
           if (!errMsg.includes('duplicate key')) {
-            console.warn(`[OceanPersistence] Chunk ${i / CHUNK_SIZE} failed: ${errMsg.slice(0, 100)}`);
+            console.warn(`[OceanPersistence] Chunk ${i / CHUNK_SIZE} failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}): ${errMsg.slice(0, 80)}`);
           }
+          // Exponential backoff on failure
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, consecutiveFailures)));
         }
         
-        // Longer delay between chunks to prevent connection pool saturation
-        // 50ms gives the pool time to recycle connections
         if (i + CHUNK_SIZE < probes.length) {
           await new Promise(resolve => setTimeout(resolve, 50));
         }
