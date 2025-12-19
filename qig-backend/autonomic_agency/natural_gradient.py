@@ -141,8 +141,8 @@ class NaturalGradientOptimizer:
             self._fisher_diag_w = fisher_w
             self._fisher_diag_b = fisher_b
         else:
-            self._fisher_diag_w = self.ema_decay * self._fisher_diag_w + (1 - self.ema_decay) * fisher_w
-            self._fisher_diag_b = self.ema_decay * self._fisher_diag_b + (1 - self.ema_decay) * fisher_b
+            self._fisher_diag_w = self.ema_decay * self._fisher_diag_w + (1 - self.ema_decay) * fisher_w  # type: ignore[operator]
+            self._fisher_diag_b = self.ema_decay * self._fisher_diag_b + (1 - self.ema_decay) * fisher_b  # type: ignore[operator]
         
         nat_grad_w, nat_grad_b = self.compute_natural_gradient(
             euclidean_grad_w, euclidean_grad_b,

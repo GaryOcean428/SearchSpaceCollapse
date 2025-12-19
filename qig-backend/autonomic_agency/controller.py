@@ -423,12 +423,13 @@ class AutonomicController:
     ) -> None:
         """Log decision for history and debugging."""
         entry = {
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': time.time(),
             'action': action.name,
             'method': info.get('method'),
             'epsilon': info.get('epsilon'),
             'q_values': info.get('q_values'),
             'reward': reward,
+            'phi': result.phi_before,
             'phi_before': result.phi_before,
             'phi_after': result.phi_after,
             'success': result.success,
@@ -443,6 +444,7 @@ class AutonomicController:
     
     def get_status(self) -> Dict[str, Any]:
         """Get controller status for API."""
+        safety = self.policy.safety
         return {
             'running': self._running,
             'decision_count': self._decision_count,
@@ -454,6 +456,14 @@ class AutonomicController:
             'last_action': self._last_action.name if self._last_action else None,
             'last_phi': self._last_snapshot.phi if self._last_snapshot else None,
             'recent_history': self._history[-10:],
+            'safety_manifest': {
+                'phi_min_intervention': safety.phi_min_intervention,
+                'phi_min_mushroom_mod': safety.phi_min_mushroom_mod,
+                'instability_max_mushroom': safety.instability_max_mushroom,
+                'instability_max_mushroom_mod': safety.instability_max_mushroom_mod,
+                'coverage_max_dream': safety.coverage_max_dream,
+                'mushroom_cooldown_seconds': safety.mushroom_cooldown_seconds,
+            },
         }
     
     def force_intervention(self, action_name: str) -> Dict[str, Any]:

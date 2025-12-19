@@ -38,6 +38,15 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+interface SafetyManifest {
+  phi_min_intervention: number;
+  phi_min_mushroom_mod: number;
+  instability_max_mushroom: number;
+  instability_max_mushroom_mod: number;
+  coverage_max_dream: number;
+  mushroom_cooldown_seconds: number;
+}
+
 interface AgencyStatus {
   success: boolean;
   enabled: boolean;
@@ -65,6 +74,7 @@ interface AgencyStatus {
     reward: number;
     timestamp: number;
   }>;
+  safety_manifest?: SafetyManifest;
 }
 
 const ACTION_ICONS: Record<string, typeof Brain> = {
@@ -287,6 +297,60 @@ export function AutonomicAgencyPanel() {
           </div>
         </CardContent>
       </Card>
+
+      {status?.safety_manifest && (
+        <Card className="border-amber-500/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              Safety Boundary Ranges
+            </CardTitle>
+            <CardDescription>
+              Active thresholds for intervention eligibility (monitoring only)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Min Φ (Intervention)</p>
+                <p className="font-mono text-sm" data-testid="text-phi-min-intervention">
+                  &gt; {status.safety_manifest.phi_min_intervention}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Min Φ (Mushroom Mod)</p>
+                <p className="font-mono text-sm" data-testid="text-phi-min-mushroom">
+                  &gt; {status.safety_manifest.phi_min_mushroom_mod}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Max Instability (Micro)</p>
+                <p className="font-mono text-sm" data-testid="text-instability-max-mushroom">
+                  &lt; {(status.safety_manifest.instability_max_mushroom * 100).toFixed(0)}%
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Max Instability (Mod)</p>
+                <p className="font-mono text-sm" data-testid="text-instability-max-mod">
+                  &lt; {(status.safety_manifest.instability_max_mushroom_mod * 100).toFixed(0)}%
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Max Coverage (Dream)</p>
+                <p className="font-mono text-sm" data-testid="text-coverage-max-dream">
+                  &lt; {(status.safety_manifest.coverage_max_dream * 100).toFixed(0)}%
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Mushroom Cooldown</p>
+                <p className="font-mono text-sm" data-testid="text-mushroom-cooldown">
+                  {Math.round(status.safety_manifest.mushroom_cooldown_seconds / 60)} min
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
