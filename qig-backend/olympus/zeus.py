@@ -1913,30 +1913,21 @@ def zeus_chat_endpoint():
                 except:
                     pass
 
-        # Geometric validation (replaces arbitrary character limit)
+        # Geometric observation (metrics for learning, never blocking)
+        # Chat is exploratory - ALL messages flow through, metrics observed
         validation = geometric_validate_input(message)
 
-        # Validate-only mode: return metrics without processing
+        # Validate-only mode: return observed metrics without processing
         if validate_only:
             return jsonify(sanitize_for_json({
                 'validation': validation,
-                'is_valid': validation['is_valid'],
                 'phi': validation['phi'],
                 'kappa': validation['kappa'],
                 'regime': validation['regime'],
                 'validate_only': True
             }))
 
-        # Chat is exploratory - allow low-phi messages but log the metrics
-        # Only block truly catastrophic inputs (breakdown regime with extreme kappa)
-        if validation['regime'] == 'breakdown' and validation['kappa'] > KAPPA_MAX:
-            return jsonify({
-                'error': validation['error_message'],
-                'phi': validation['phi'],
-                'kappa': validation['kappa'],
-                'regime': validation['regime'],
-                'validation_type': 'geometric'
-            }), 400
+        # No blocking - metrics are for observation/emergence, not gatekeeping
 
         # SECURITY: Limit conversation history
         if len(conversation_history) > MAX_CONVERSATION_HISTORY:
