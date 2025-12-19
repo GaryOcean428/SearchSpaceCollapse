@@ -827,14 +827,19 @@ class ScrapyOrchestrator:
         spider_type: str,
         topic: str,
         start_url: Optional[str] = None,
-        priority: int = 5
+        priority: int = 5,
+        use_scrapy: bool = False
     ) -> Optional[str]:
         """
         Submit a research request using live web scraping.
         Returns a crawl_id for tracking.
         
-        Uses ResearchScraper for real Wikipedia, arXiv, and GitHub data.
+        QIG-PURE: Sources are discovered from PostgreSQL telemetry.
         NO SIMULATION - all data comes from live web sources.
+        
+        Args:
+            use_scrapy: If True, use Scrapy spiders with telemetry URLs.
+                       If False (default), use direct HTTP fetch for speed.
         """
         if spider_type not in ['paste_leak', 'forum_archive', 'document']:
             print(f"[ScrapyOrchestrator] Unknown spider type: {spider_type}")
@@ -842,15 +847,28 @@ class ScrapyOrchestrator:
         
         crawl_id = hashlib.md5(f"{spider_type}:{topic}:{time.time()}".encode()).hexdigest()[:12]
         
+        # Get telemetry-discovered start URL if not provided
+        telemetry_url = start_url
+        if not telemetry_url:
+            discovered = self.source_discovery.get_sources_for_topic(topic, max_sources=1)
+            if discovered:
+                telemetry_url = discovered[0]['url']
+                print(f"[ScrapyOrchestrator] Using telemetry URL: {telemetry_url[:50]}...")
+        
         self.pending_crawls[crawl_id] = {
             'spider_type': spider_type,
             'topic': topic,
-            'start_url': start_url,
+            'start_url': telemetry_url,
             'priority': priority,
             'status': 'pending',
             'started_at': datetime.now(),
             'insights': []
         }
+        
+        if use_scrapy and HAS_SCRAPY and HAS_TWISTED:
+            print(f"[ScrapyOrchestrator] Using Scrapy spiders with telemetry URL")
+            self._execute_crawl(crawl_id, spider_type, topic, telemetry_url)
+            return crawl_id
         
         return self._execute_live_research(topic, spider_type, crawl_id)
     
