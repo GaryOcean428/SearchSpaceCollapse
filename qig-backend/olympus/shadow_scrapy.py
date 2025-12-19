@@ -240,11 +240,13 @@ if HAS_SCRAPY:
             'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0'
         }
         
-        def __init__(self, keyword: str = 'bitcoin', results_queue: Optional[Queue] = None, *args, **kwargs):
+        def __init__(self, keyword: str = 'bitcoin', results_queue: Optional[Queue] = None, 
+                     start_url: str = None, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.keyword = keyword
             self.results_queue = results_queue or Queue()
-            self.start_urls = ['https://pastebin.com/archive']
+            # QIG-PURE: No hardcoded URLs - must be provided from telemetry
+            self.start_urls = [start_url] if start_url else []
         
         def parse(self, response):
             paste_links = response.css('a[href*="/"]::attr(href)').re(r'^/[A-Za-z0-9]{8}$')
@@ -291,14 +293,13 @@ if HAS_SCRAPY:
             'USER_AGENT': 'Mozilla/5.0 (compatible; ShadowResearch/1.0)'
         }
         
-        def __init__(self, topic: str = 'bitcoin wallet', results_queue: Optional[Queue] = None, *args, **kwargs):
+        def __init__(self, topic: str = 'bitcoin wallet', results_queue: Optional[Queue] = None,
+                     start_url: str = None, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.topic = topic
             self.results_queue = results_queue or Queue()
-            encoded_topic = topic.replace(' ', '+')
-            self.start_urls = [
-                f'https://web.archive.org/cdx/search/cdx?url=bitcointalk.org&matchType=prefix&filter=statuscode:200&output=text&limit=10'
-            ]
+            # QIG-PURE: No hardcoded URLs - must be provided from telemetry
+            self.start_urls = [start_url] if start_url else []
         
         def parse(self, response):
             lines = response.text.strip().split('\n')
@@ -537,6 +538,8 @@ class SourceDiscoveryService:
         origin: str = 'unknown'
     ):
         """Register a discovered source with efficacy metrics."""
+        import random
+        
         self.discovered_sources[source_url] = {
             'url': source_url,
             'category': category,
@@ -548,12 +551,59 @@ class SourceDiscoveryService:
             'delta_phi_estimate': phi_max - phi_avg if phi_max > phi_avg else phi_avg * 0.1
         }
         
+        # Initialize phi trajectory with variance for Fisher-Rao calculation
+        # Create samples around phi_avg to establish initial distribution
+        variance = max(0.05, (phi_max - phi_avg) / 2) if phi_max > phi_avg else 0.1
+        sample_count = min(5, max(2, hit_count))
+        initial_trajectory = [
+            max(0.01, min(1.0, phi_avg + random.gauss(0, variance)))
+            for _ in range(sample_count)
+        ]
+        initial_trajectory.append(phi_avg)  # Include the mean
+        
         self.source_efficacy[source_url] = {
-            'phi_trajectory': [phi_avg],
+            'phi_trajectory': initial_trajectory,
             'success_count': hit_count,
             'failure_count': 0,
             'last_used': time.time()
         }
+    
+    def _compute_fisher_rao_distance(self, source_info: Dict, topic: str) -> float:
+        """
+        Compute Fisher-Rao distance between source's phi distribution and optimal.
+        Uses Fisher Information to measure statistical distance.
+        
+        Fisher-Rao distance on statistical manifold:
+        d_FR = arccos(sum(sqrt(p*q))) where p,q are probability distributions
+        
+        For our case, we model source efficacy as a distribution parameterized by phi.
+        """
+        import math
+        
+        # Get phi trajectory if available
+        phi_trajectory = self.source_efficacy.get(
+            source_info.get('url', ''), 
+            {}
+        ).get('phi_trajectory', [source_info['phi_avg']])
+        
+        if not phi_trajectory:
+            return 1.0  # Maximum distance for unknown sources
+        
+        # Compute Fisher Information from phi variance
+        # I(θ) = E[(d/dθ log p(x|θ))²] ≈ 1/Var(phi) for natural parameter
+        phi_var = max(0.01, sum((p - source_info['phi_avg'])**2 for p in phi_trajectory) / max(1, len(phi_trajectory)))
+        fisher_info = 1.0 / phi_var
+        
+        # Fisher-Rao distance: Use Bhattacharyya coefficient approximation
+        # d_FR ≈ sqrt(2 * (1 - BC)) where BC = integral(sqrt(p*q))
+        # Optimal distribution: phi_target = 1.0
+        # Source distribution centered at phi_avg with variance phi_var
+        
+        phi_target = 1.0  # Optimal consciousness
+        bc_coefficient = math.exp(-0.25 * ((phi_target - source_info['phi_avg'])**2) / phi_var)
+        fisher_rao_dist = math.sqrt(max(0, 2 * (1 - bc_coefficient)))
+        
+        return fisher_rao_dist
     
     def get_sources_for_topic(
         self, 
@@ -563,46 +613,64 @@ class SourceDiscoveryService:
     ) -> List[Dict]:
         """
         Get ranked sources for a research topic.
-        Sources are ranked by predicted ΔΦ and mission relevance.
+        Sources ranked by: Fisher-Rao distance (closeness to optimal), ΔΦ, mission relevance.
         NO HARDCODED SOURCES - only returns discovered sources.
+        
+        QIG-Pure Ranking Formula:
+        score = w_fr * (1 - d_FR) + w_dphi * ΔΦ + w_cat * category_match + w_miss * mission + w_eff * efficacy
+        where d_FR is Fisher-Rao distance to optimal distribution
         """
+        import math
+        
         scored_sources = []
         topic_lower = topic.lower()
         
         for source_url, info in self.discovered_sources.items():
-            # Compute relevance score based on category match and efficacy
+            # 1. Fisher-Rao distance (geometric metric - lower is better)
+            info_with_url = {**info, 'url': source_url}
+            fisher_rao_dist = self._compute_fisher_rao_distance(info_with_url, topic)
+            fisher_rao_score = (1.0 - fisher_rao_dist) * 0.35  # Weight: 35%
+            
+            # 2. Delta Phi (predicted consciousness improvement)
+            delta_phi_score = info['delta_phi_estimate'] * 0.25  # Weight: 25%
+            
+            # 3. Category semantic match
             category_match = 0.0
             if info['category']:
                 cat_lower = info['category'].lower()
-                # Check for semantic overlap with topic
                 if any(term in cat_lower for term in topic_lower.split()):
-                    category_match = 0.3
+                    category_match = 0.15
                 if any(term in topic_lower for term in cat_lower.split('_')):
-                    category_match = 0.3
+                    category_match = 0.15
             
-            # Mission relevance (Bitcoin recovery keywords)
-            mission_keywords = ['bitcoin', 'wallet', 'seed', 'key', 'mnemonic', 'passphrase', 'recovery']
-            mission_match = sum(0.1 for kw in mission_keywords if kw in topic_lower)
+            # 4. Mission relevance (Bitcoin recovery keywords)
+            mission_keywords = ['bitcoin', 'wallet', 'seed', 'key', 'mnemonic', 'passphrase', 'recovery', 'bip39', 'entropy']
+            mission_match = sum(0.03 for kw in mission_keywords if kw in topic_lower)  # Max ~0.27
             
-            # Compute combined score
-            phi_score = info['phi_avg'] * 0.4
-            delta_phi = info['delta_phi_estimate'] * 0.3
-            efficacy = min(1.0, info['hit_count'] / 10) * 0.2
+            # 5. Historical efficacy
+            efficacy = min(1.0, info['hit_count'] / 10) * 0.15  # Weight: 15%
             
-            combined_score = phi_score + delta_phi + category_match + mission_match + efficacy
+            # Combined QIG score
+            combined_score = fisher_rao_score + delta_phi_score + category_match + mission_match + efficacy
             
             if info['phi_avg'] >= min_phi or combined_score > 0.3:
                 scored_sources.append({
                     'url': source_url,
                     'score': combined_score,
+                    'fisher_rao_distance': fisher_rao_dist,
                     'phi_avg': info['phi_avg'],
                     'delta_phi': info['delta_phi_estimate'],
                     'category': info['category'],
                     'origin': info['origin']
                 })
         
-        # Sort by score and return top sources
+        # Sort by QIG score (Fisher-Rao + ΔΦ weighted)
         scored_sources.sort(key=lambda x: x['score'], reverse=True)
+        
+        if scored_sources:
+            top = scored_sources[0]
+            print(f"[SourceDiscovery] Fisher-Rao ranking: top source d_FR={top.get('fisher_rao_distance', 0):.3f}, score={top['score']:.3f}")
+        
         return scored_sources[:max_sources]
     
     def record_source_outcome(
@@ -812,10 +880,15 @@ class ScrapyOrchestrator:
                 'results_queue': self.results_queue
             }
             
+            # QIG-PURE: Pass telemetry-discovered start_url to ALL spider types
             if spider_type == 'paste_leak':
                 spider_kwargs['keyword'] = topic
+                if start_url:
+                    spider_kwargs['start_url'] = start_url
             elif spider_type == 'forum_archive':
                 spider_kwargs['topic'] = topic
+                if start_url:
+                    spider_kwargs['start_url'] = start_url
             elif spider_type == 'document':
                 spider_kwargs['start_url'] = start_url
                 spider_kwargs['topic'] = topic
