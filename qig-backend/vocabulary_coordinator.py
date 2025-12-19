@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import numpy as np
 
-from word_validation import is_valid_english_word, STOP_WORDS
+from word_validation import is_valid_english_word, validate_for_vocabulary, STOP_WORDS
 
 try:
     from vocabulary_persistence import get_vocabulary_persistence
@@ -60,8 +60,11 @@ class VocabularyCoordinator:
         """
         Extract vocabulary observations from a phrase.
         
-        CRITICAL: Only extracts valid English words.
-        Alphanumeric fragments, passphrase pieces, etc. are rejected.
+        Uses fast local validation (no API calls) to avoid blocking the learning path.
+        Dictionary verification happens asynchronously via background cleanup.
+        
+        CRITICAL: Observes ALL potential words, lets emergence determine value.
+        Non-dictionary words are queued for proper noun consideration.
         """
         observations = []
         words = phrase.lower().strip().split()
@@ -69,15 +72,19 @@ class VocabularyCoordinator:
         for word in words:
             word_counts[word] = word_counts.get(word, 0) + 1
         for word, count in word_counts.items():
-            if not is_valid_english_word(word):
-                continue
             if len(word) < 3:
                 continue
-            observations.append({'word': word, 'phrase': phrase, 'phi': phi, 'kappa': kappa, 'source': source, 'type': 'word', 'frequency': count})
+            is_valid, reason = validate_for_vocabulary(word, require_dictionary=False)
+            if not is_valid:
+                continue
+            observations.append({'word': word, 'phrase': phrase, 'phi': phi, 'kappa': kappa, 'source': source, 'type': 'word', 'frequency': count, 'needs_dict_check': True})
         for i in range(len(words) - 1):
-            if is_valid_english_word(words[i]) and is_valid_english_word(words[i+1]):
-                if len(words[i]) >= 3 and len(words[i+1]) >= 3:
-                    sequence = f"{words[i]} {words[i+1]}"
+            w1, w2 = words[i], words[i+1]
+            if len(w1) >= 3 and len(w2) >= 3:
+                is_valid1, _ = validate_for_vocabulary(w1, require_dictionary=False)
+                is_valid2, _ = validate_for_vocabulary(w2, require_dictionary=False)
+                if is_valid1 and is_valid2:
+                    sequence = f"{w1} {w2}"
                     observations.append({'word': sequence, 'phrase': phrase, 'phi': phi * 1.2, 'kappa': kappa, 'source': source, 'type': 'sequence', 'frequency': 1})
         return observations
     

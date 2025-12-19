@@ -10,12 +10,16 @@ CRITICAL RULES:
 - Vocabulary = English words ONLY
 - Passphrases, passwords, alphanumeric fragments are NOT vocabulary
 - They belong in tested_phrases table instead
+- Words are validated against dictionaryapi.dev before vocabulary inclusion
 
 DRY PRINCIPLE: This is the ONLY place word validation logic is defined.
 """
 
 import re
-from typing import Set, Tuple
+import logging
+from typing import Set, Tuple, Optional
+
+logger = logging.getLogger(__name__)
 
 ENGLISH_WORD_PATTERN = re.compile(r'^[a-z]{2,}$')
 CAMELCASE_PATTERN = re.compile(r'[a-z][A-Z]')
@@ -263,3 +267,146 @@ def is_pure_alphabetic(word: str) -> bool:
 def is_stop_word(word: str) -> bool:
     """Check if word is a common stop word."""
     return word.lower().strip() in STOP_WORDS
+
+
+_dictionary_validator = None
+
+
+def _get_dictionary_validator():
+    """Lazy load dictionary validator to avoid circular imports."""
+    global _dictionary_validator
+    if _dictionary_validator is None:
+        try:
+            from dictionary_api import get_dictionary_validator
+            _dictionary_validator = get_dictionary_validator()
+        except ImportError as e:
+            logger.warning(f"[WordValidation] Dictionary API not available: {e}")
+            _dictionary_validator = False
+    return _dictionary_validator if _dictionary_validator else None
+
+
+def is_dictionary_word(word: str) -> bool:
+    """
+    Check if word exists in the dictionary API (dictionaryapi.dev).
+    
+    This is a stricter check than is_valid_english_word - it verifies
+    the word actually exists in the dictionary, not just that it looks
+    like a valid English word.
+    
+    Uses caching to avoid repeated API calls.
+    
+    Returns:
+        True if word found in dictionary, False otherwise
+    """
+    if not word or len(word) < 2:
+        return False
+    
+    word_lower = word.lower().strip()
+    
+    if word_lower in COMMON_ENGLISH_WORDS:
+        return True
+    
+    validator = _get_dictionary_validator()
+    if not validator:
+        return is_valid_english_word(word)
+    
+    is_valid, _ = validator.validate_word(word_lower)
+    return is_valid == True
+
+
+def validate_for_vocabulary(word: str, require_dictionary: bool = True) -> Tuple[bool, str]:
+    """
+    Complete validation for vocabulary inclusion.
+    
+    This is the main entry point for validating words before adding
+    them to the tokenizer vocabulary table.
+    
+    Checks:
+    1. Basic format validation (alphabetic, length, no numbers)
+    2. Concatenation/typo detection
+    3. Dictionary API lookup (if require_dictionary=True)
+    
+    Args:
+        word: Word to validate
+        require_dictionary: If True, word must be in dictionary API
+        
+    Returns:
+        (is_valid, reason) tuple
+    """
+    if not word:
+        return False, "empty"
+    
+    word_lower = word.lower().strip()
+    
+    if len(word_lower) < 2:
+        return False, "too_short"
+    
+    if len(word_lower) > MAX_WORD_LENGTH:
+        return False, "too_long"
+    
+    if any(char.isdigit() for char in word_lower):
+        return False, "contains_digits"
+    
+    if not word_lower[0].isalpha():
+        return False, "invalid_start"
+    
+    allowed_special = {'-', "'"}
+    for char in word_lower:
+        if not char.isalpha() and char not in allowed_special:
+            return False, "invalid_chars"
+    
+    if is_likely_concatenated(word_lower):
+        return False, "concatenated"
+    
+    if is_likely_typo(word_lower):
+        return False, "likely_typo"
+    
+    if word_lower in STOP_WORDS:
+        return False, "stop_word"
+    
+    if word_lower in COMMON_ENGLISH_WORDS:
+        return True, "known_word"
+    
+    if require_dictionary:
+        validator = _get_dictionary_validator()
+        if validator:
+            is_valid, reason = validator.validate_word(word_lower)
+            if is_valid:
+                return True, "dictionary_verified"
+            elif is_valid == False:
+                return False, f"not_in_dictionary:{reason}"
+    
+    return True, "format_valid"
+
+
+def record_as_proper_noun(word: str, category: str, context: str = None, 
+                          phi: float = 0.5, source: str = None) -> bool:
+    """
+    Record a word as a proper noun (name, place, brand, etc.).
+    
+    Use this for words that are valid but not in the dictionary,
+    such as names (Satoshi), places (Tokyo), or brands (Bitcoin).
+    
+    Categories: 'name', 'place', 'brand', 'organization', 'other'
+    """
+    validator = _get_dictionary_validator()
+    if validator:
+        try:
+            validator.record_proper_noun(word, category, context, phi, source)
+            return True
+        except Exception as e:
+            logger.warning(f"[WordValidation] Failed to record proper noun: {e}")
+    return False
+
+
+def is_known_proper_noun(word: str) -> Optional[str]:
+    """
+    Check if word is a known proper noun.
+    
+    Returns:
+        Category ('name', 'place', 'brand', etc.) if known, None otherwise
+    """
+    validator = _get_dictionary_validator()
+    if validator:
+        return validator.is_proper_noun(word)
+    return None

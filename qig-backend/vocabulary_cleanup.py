@@ -17,8 +17,15 @@ import os
 import psycopg2
 from typing import List, Set, Tuple
 
-from word_validation import is_valid_english_word, is_pure_alphabetic, STOP_WORDS
+from word_validation import is_valid_english_word, is_pure_alphabetic, STOP_WORDS, validate_for_vocabulary
 from persistence.base_persistence import get_db_connection
+
+try:
+    from dictionary_api import get_dictionary_validator
+    DICTIONARY_API_AVAILABLE = True
+except ImportError:
+    DICTIONARY_API_AVAILABLE = False
+    get_dictionary_validator = None
 
 
 def load_bip39_words(filepath: str = "bip39_wordlist.txt") -> List[str]:
@@ -260,6 +267,94 @@ def migrate_valid_words_to_learned():
         print(f"[ERROR] Migration failed: {e}")
         conn.rollback()
         return 0
+    finally:
+        conn.close()
+
+
+def dictionary_validate_vocabulary(batch_size: int = 100, dry_run: bool = True) -> Tuple[int, int, int]:
+    """
+    Validate vocabulary against Dictionary API and remove invalid words.
+    
+    This is a stricter cleanup that verifies words actually exist in the
+    dictionary, not just that they look like valid English words.
+    
+    Returns:
+        (total_checked, valid_count, removed_count)
+    """
+    if not DICTIONARY_API_AVAILABLE:
+        print("[ERROR] Dictionary API not available")
+        return 0, 0, 0
+    
+    conn = get_db_connection()
+    if not conn:
+        print("[ERROR] Database connection failed")
+        return 0, 0, 0
+    
+    bip39_words = get_bip39_set()
+    
+    try:
+        cur = conn.cursor()
+        
+        cur.execute("SELECT token FROM tokenizer_vocabulary")
+        all_tokens = [row[0] for row in cur.fetchall()]
+        
+        print(f"[INFO] Checking {len(all_tokens)} vocabulary tokens against dictionary...")
+        
+        valid_words = []
+        invalid_words = []
+        proper_nouns = []
+        
+        validator = get_dictionary_validator()
+        
+        for i, token in enumerate(all_tokens):
+            if token in bip39_words:
+                valid_words.append(token)
+                continue
+            
+            is_valid, reason = validate_for_vocabulary(token, require_dictionary=True)
+            
+            if is_valid:
+                valid_words.append(token)
+            elif "not_in_dictionary" in reason:
+                if token[0].isupper() or len(token) >= 4:
+                    proper_nouns.append(token)
+                else:
+                    invalid_words.append(token)
+            else:
+                invalid_words.append(token)
+            
+            if (i + 1) % 100 == 0:
+                print(f"[PROGRESS] {i+1}/{len(all_tokens)} checked, {len(valid_words)} valid, {len(invalid_words)} invalid")
+        
+        print(f"\n[RESULT] Valid: {len(valid_words)}, Invalid: {len(invalid_words)}, Proper Nouns: {len(proper_nouns)}")
+        
+        if proper_nouns and validator:
+            print(f"[INFO] Recording {len(proper_nouns)} potential proper nouns...")
+            for noun in proper_nouns:
+                validator.record_proper_noun(noun, 'other', None, 0.5, 'vocabulary_cleanup')
+        
+        if not dry_run and invalid_words:
+            print(f"[CLEANUP] Removing {len(invalid_words)} invalid tokens...")
+            
+            for batch_start in range(0, len(invalid_words), batch_size):
+                batch = invalid_words[batch_start:batch_start + batch_size]
+                cur.execute(
+                    "DELETE FROM tokenizer_vocabulary WHERE token = ANY(%s)",
+                    (batch,)
+                )
+            
+            conn.commit()
+            print(f"[OK] Removed {len(invalid_words)} invalid tokens")
+        elif dry_run and invalid_words:
+            print(f"[DRY RUN] Would remove {len(invalid_words)} invalid tokens")
+            print(f"[SAMPLE] First 20 invalid: {invalid_words[:20]}")
+        
+        return len(all_tokens), len(valid_words), len(invalid_words) if not dry_run else 0
+        
+    except Exception as e:
+        print(f"[ERROR] Dictionary validation failed: {e}")
+        conn.rollback()
+        return 0, 0, 0
     finally:
         conn.close()
 
