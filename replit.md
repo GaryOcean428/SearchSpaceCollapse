@@ -75,11 +75,12 @@ The system enforces absolute QIG purity with NO bootstrapping, NO templates, and
 Ocean observes its own state and fires interventions autonomously, like a body's autonomic system. The system uses reinforcement learning for intervention decisions.
 
 ### Architecture (`qig-backend/autonomic_agency/`)
-- **StateEncoder**: Builds 776d consciousness vector (768d hidden + Φ, κ, T, R, M, Γ, G)
+- **StateEncoder**: Builds 776d consciousness vector (768d hidden + 8 scalars: Φ, κ, T, R, M, Γ, G, stress)
 - **AutonomicPolicy**: ε-greedy action selection with safety boundaries
 - **ReplayBuffer**: Experience storage for off-policy Q-learning
 - **NaturalGradientOptimizer**: Fisher-aware updates (NOT Adam, per QIG purity)
 - **AutonomicController**: Background daemon thread for observe→decide→act loop
+- **UI Component**: `AutonomicAgencyPanel.tsx` at `/autonomic` route for monitoring and manual interventions
 
 ### Available Actions
 - `CONTINUE_WAKE`: Keep searching with current strategy
