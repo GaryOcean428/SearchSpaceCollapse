@@ -31,20 +31,13 @@ import numpy as np
 
 BASIN_DIMENSION = 64
 
-HAS_SCRAPY = False
-try:
-    from .shadow_scrapy import (
-        get_scrapy_orchestrator, 
-        ScrapyOrchestrator, 
-        ScrapedInsight,
-        research_with_scrapy
-    )
-    HAS_SCRAPY = True
-except ImportError:
-    get_scrapy_orchestrator = None
-    ScrapyOrchestrator = None
-    ScrapedInsight = None
-    research_with_scrapy = None
+from .shadow_scrapy import (
+    get_scrapy_orchestrator, 
+    ScrapyOrchestrator, 
+    ScrapedInsight,
+    research_with_scrapy
+)
+HAS_SCRAPY = True
 
 # Topic normalization patterns (shared between ResearchQueue and KnowledgeBase)
 _SEMANTIC_PREFIXES = [
