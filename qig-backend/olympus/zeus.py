@@ -1927,7 +1927,9 @@ def zeus_chat_endpoint():
                 'validate_only': True
             }))
 
-        if not validation['is_valid']:
+        # Chat is exploratory - allow low-phi messages but log the metrics
+        # Only block truly catastrophic inputs (breakdown regime with extreme kappa)
+        if validation['regime'] == 'breakdown' and validation['kappa'] > KAPPA_MAX:
             return jsonify({
                 'error': validation['error_message'],
                 'phi': validation['phi'],
