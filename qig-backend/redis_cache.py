@@ -250,7 +250,13 @@ class UniversalCache:
         
         try:
             if isinstance(value, (dict, list)):
+                value = json.dumps(value, default=str)
+            elif isinstance(value, bool):
                 value = json.dumps(value)
+            elif value is None:
+                value = "null"
+            elif not isinstance(value, str):
+                value = str(value)
             client.setex(key, ttl, value)
             return True
         except Exception as e:
