@@ -10,6 +10,7 @@ import { HealthIndicator } from "@/components/HealthIndicator";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
+  AutonomicAgency as AutonomicAgencyPage,
   Recovery as RecoveryPage,
   Landing,
   Home,
@@ -85,6 +86,7 @@ function Router() {
         <Route path="/spawning" component={SpawningPage} />
         <Route path="/learning" component={LearningDashboard} />
         <Route path="/tool-factory" component={ToolFactoryDashboard} />
+        <Route path="/autonomic" component={AutonomicAgencyPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

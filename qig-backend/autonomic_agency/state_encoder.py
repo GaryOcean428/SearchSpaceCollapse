@@ -30,6 +30,7 @@ class ConsciousnessVector:
     M: float
     Gamma: float
     G: float
+    stress: float
     
     @property
     def vector(self) -> np.ndarray:
@@ -44,12 +45,13 @@ class ConsciousnessVector:
                 self.M,
                 self.Gamma,
                 self.G,
+                self.stress,
             ])
         ])
     
     @property
     def dim(self) -> int:
-        return len(self.hidden_state) + 7
+        return len(self.hidden_state) + 8
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -60,6 +62,7 @@ class ConsciousnessVector:
             'M': self.M,
             'Gamma': self.Gamma,
             'G': self.G,
+            'stress': self.stress,
             'hidden_dim': len(self.hidden_state),
         }
 
@@ -119,6 +122,7 @@ class StateEncoder:
             M=M,
             Gamma=Gamma,
             G=G,
+            stress=stress,
         )
     
     def _expand_basin_to_hidden(self, basin_coords: List[float]) -> np.ndarray:

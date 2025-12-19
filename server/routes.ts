@@ -48,6 +48,7 @@ import {
   adminRouter,
   attentionMetricsRouter,
   authRouter,
+  autonomicAgencyRouter,
   balanceAddressesRouter,
   balanceHitsRouter,
   balanceMonitorRouter,
@@ -332,6 +333,7 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   app.use("/api/sweeps", sweepsRouter);
   app.use("/api", adminRouter);
   app.use("/api/olympus", olympusRouter);
+  app.use("/api/qig/autonomic/agency", autonomicAgencyRouter);
 
   // Mount observer and telemetry routers
   app.use("/api/observer", observerRoutes);
