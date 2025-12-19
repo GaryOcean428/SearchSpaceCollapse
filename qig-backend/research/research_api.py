@@ -688,7 +688,147 @@ def get_audit() -> Dict[str, Any]:
         return jsonify({'error': str(e)}), 500
 
 
+@research_bp.route('/scrapy', methods=['POST'])
+def trigger_scrapy_research():
+    """
+    Trigger Scrapy-based web research for the Shadow Pantheon.
+    
+    Request body:
+        - topic: str - Research topic to scrape for
+        - spider_type: str - Spider type: 'paste_leak', 'forum_archive', 'document'
+        - start_url: str (optional) - Starting URL for document spider
+        
+    Returns:
+        - crawl_id: str - ID for tracking the crawl
+        - status: str - Current crawl status
+    """
+    try:
+        data = request.get_json() or {}
+        topic = data.get('topic', '')
+        spider_type = data.get('spider_type', 'document')
+        start_url = data.get('start_url')
+        
+        if not topic:
+            return jsonify({
+                'success': False,
+                'error': 'topic is required'
+            }), 400
+        
+        valid_spiders = ['paste_leak', 'forum_archive', 'document']
+        if spider_type not in valid_spiders:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid spider_type. Valid types: {valid_spiders}'
+            }), 400
+        
+        try:
+            from olympus.shadow_scrapy import get_scrapy_orchestrator
+            orchestrator = get_scrapy_orchestrator()
+            
+            crawl_id = orchestrator.submit_crawl(
+                spider_type=spider_type,
+                topic=topic,
+                start_url=start_url
+            )
+            
+            if crawl_id:
+                return jsonify({
+                    'success': True,
+                    'crawl_id': crawl_id,
+                    'spider_type': spider_type,
+                    'topic': topic,
+                    'status': 'submitted',
+                    'message': f'Scrapy crawl {crawl_id} submitted for topic: {topic}'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to submit crawl'
+                }), 500
+                
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'Scrapy module not available',
+                'fallback': 'Use /api/research/domain for non-Scrapy research'
+            }), 503
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@research_bp.route('/scrapy/status', methods=['GET'])
+def get_scrapy_status():
+    """
+    Get status of Scrapy orchestrator and active crawls.
+    """
+    try:
+        from olympus.shadow_scrapy import get_scrapy_orchestrator
+        orchestrator = get_scrapy_orchestrator()
+        
+        active_crawls = orchestrator.get_active_crawls()
+        all_crawls = {
+            cid: orchestrator.get_crawl_status(cid)
+            for cid in list(orchestrator.pending_crawls.keys())[-20:]
+        }
+        
+        return jsonify({
+            'success': True,
+            'scrapy_available': True,
+            'active_crawls': active_crawls,
+            'recent_crawls': all_crawls,
+            'total_crawls': len(orchestrator.pending_crawls)
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': True,
+            'scrapy_available': False,
+            'active_crawls': [],
+            'recent_crawls': {},
+            'message': 'Scrapy module not available'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@research_bp.route('/scrapy/poll', methods=['POST'])
+def poll_scrapy_results():
+    """
+    Poll for Scrapy results and process any pending insights.
+    """
+    try:
+        from olympus.shadow_scrapy import get_scrapy_orchestrator
+        orchestrator = get_scrapy_orchestrator()
+        
+        processed = orchestrator.poll_results()
+        
+        return jsonify({
+            'success': True,
+            'processed_insights': processed,
+            'active_crawls': len(orchestrator.get_active_crawls())
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'Scrapy module not available'
+        }), 503
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 def register_research_routes(app):
     """Register research blueprint with Flask app."""
     app.register_blueprint(research_bp)
     print("[ResearchAPI] Research routes registered at /api/research")
+    print("[ResearchAPI] Scrapy endpoints: /api/research/scrapy, /api/research/scrapy/status, /api/research/scrapy/poll")

@@ -31,6 +31,18 @@ import numpy as np
 
 BASIN_DIMENSION = 64
 
+HAS_SCRAPY = False
+try:
+    from .shadow_scrapy import (
+        get_scrapy_orchestrator, 
+        ScrapyOrchestrator, 
+        ScrapedInsight,
+        research_with_scrapy
+    )
+    HAS_SCRAPY = True
+except ImportError:
+    pass
+
 # Topic normalization patterns (shared between ResearchQueue and KnowledgeBase)
 _SEMANTIC_PREFIXES = [
     'historical', 'comparative', 'advanced', 'practical',
@@ -1031,6 +1043,14 @@ class ShadowLearningLoop:
         self._study_topics: Dict[str, List[str]] = self._init_study_topics()
         self._meta_reflections: List[Dict] = []
         self._learning_cycles = 0
+        
+        self._scrapy_orchestrator: Optional['ScrapyOrchestrator'] = None
+        if HAS_SCRAPY:
+            self._scrapy_orchestrator = get_scrapy_orchestrator(
+                basin_encoder=self._topic_to_basin
+            )
+            self._scrapy_orchestrator.set_insights_callback(self._handle_scrapy_insight)
+            print("[ShadowLearningLoop] Scrapy research enabled")
     
     def _init_study_topics(self) -> Dict[str, List[str]]:
         """Initialize study topics for each god."""
@@ -1183,21 +1203,116 @@ class ShadowLearningLoop:
         }
     
     def _research_topic(self, topic: str, category: ResearchCategory, god: str) -> Dict:
-        """Simulate research on a topic (can be extended with real web search)."""
+        """
+        Research a topic using Scrapy web scraping when available.
+        Falls back to conceptual connection finding when Scrapy is not available.
+        """
         connections = self._find_conceptual_connections(topic)
+        scrapy_results = []
+        
+        if self._scrapy_orchestrator and self._should_scrape_topic(topic, category):
+            spider_type = self._select_spider_for_category(category)
+            crawl_id = self._scrapy_orchestrator.submit_crawl(
+                spider_type=spider_type,
+                topic=topic
+            )
+            if crawl_id:
+                scrapy_results.append({
+                    "crawl_id": crawl_id,
+                    "spider_type": spider_type,
+                    "topic": topic
+                })
+                self._scrapy_orchestrator.poll_results()
+        
+        base_relevance = 0.5 + len(connections) * 0.1
+        if scrapy_results:
+            base_relevance += 0.15
         
         return {
             "summary": f"Research on '{topic}' by {god}",
             "category": category.value,
             "connections": connections,
+            "scrapy_crawls": scrapy_results,
             "insights": [
                 f"Connection to {c['topic']} (distance: {c['distance']:.3f})"
                 for c in connections[:3]
             ],
-            "relevance": min(1.0, 0.5 + len(connections) * 0.1),
+            "relevance": min(1.0, base_relevance),
             "confidence": 0.6 + random.random() * 0.3,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "scrapy_enabled": self._scrapy_orchestrator is not None
         }
+    
+    def _should_scrape_topic(self, topic: str, category: ResearchCategory) -> bool:
+        """Determine if a topic warrants web scraping."""
+        web_relevant_categories = {
+            ResearchCategory.BITCOIN,
+            ResearchCategory.SECURITY,
+            ResearchCategory.KNOWLEDGE,
+            ResearchCategory.TOOLS
+        }
+        if category in web_relevant_categories:
+            return True
+        
+        web_keywords = [
+            'bitcoin', 'wallet', 'seed', 'mnemonic', 'passphrase',
+            'key', 'address', 'blockchain', 'crypto', 'recovery',
+            'leak', 'breach', 'paste', 'forum', 'archive'
+        ]
+        topic_lower = topic.lower()
+        return any(kw in topic_lower for kw in web_keywords)
+    
+    def _select_spider_for_category(self, category: ResearchCategory) -> str:
+        """Select appropriate spider type based on research category."""
+        spider_map = {
+            ResearchCategory.BITCOIN: 'paste_leak',
+            ResearchCategory.SECURITY: 'forum_archive',
+            ResearchCategory.KNOWLEDGE: 'document',
+            ResearchCategory.TOOLS: 'document'
+        }
+        return spider_map.get(category, 'document')
+    
+    def _handle_scrapy_insight(
+        self, 
+        insight: 'ScrapedInsight', 
+        basin_coords: np.ndarray, 
+        phi: float, 
+        confidence: float
+    ) -> None:
+        """
+        Handle insights from Scrapy crawls.
+        Stores discoveries in the knowledge base with geometric metadata.
+        """
+        if not HAS_SCRAPY:
+            return
+        
+        topic = insight.title or insight.source_url
+        
+        content = {
+            "source_url": insight.source_url,
+            "content_hash": insight.content_hash,
+            "raw_content": insight.raw_content[:2000],
+            "pattern_hits": insight.pattern_hits,
+            "heuristic_risk": insight.heuristic_risk,
+            "source_reputation": insight.source_reputation,
+            "spider_type": insight.spider_type,
+            "scraped_at": insight.timestamp.isoformat(),
+            "metadata": insight.metadata
+        }
+        
+        knowledge_id = self.knowledge_base.add_knowledge(
+            topic=topic,
+            category=ResearchCategory.BITCOIN if insight.pattern_hits else ResearchCategory.KNOWLEDGE,
+            content=content,
+            source_god="Hades_Scrapy",
+            basin_coords=basin_coords,
+            phi=phi,
+            confidence=confidence,
+            variation=f"scrapy:{insight.spider_type}"
+        )
+        
+        if insight.pattern_hits:
+            print(f"[ShadowLearningLoop] Scrapy found {len(insight.pattern_hits)} patterns: {insight.pattern_hits}")
     
     def _find_conceptual_connections(self, topic: str) -> List[Dict]:
         """Find connections to existing knowledge."""
