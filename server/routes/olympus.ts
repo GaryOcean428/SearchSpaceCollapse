@@ -368,6 +368,75 @@ router.post('/zeus/chat', isAuthenticated, async (req, res) => {
 });
 
 /**
+ * Zeus Sessions - List previous conversation sessions
+ */
+router.get('/zeus/sessions', isAuthenticated, async (req, res) => {
+  const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+  const limit = parseInt(req.query.limit as string) || 20;
+  try {
+    const response = await fetch(`${backendUrl}/olympus/zeus/sessions?limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Get sessions error:', error);
+    res.status(500).json({ error: 'Failed to retrieve sessions', sessions: [] });
+  }
+});
+
+/**
+ * Zeus Sessions - Create a new session
+ */
+router.post('/zeus/sessions', isAuthenticated, async (req, res) => {
+  const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+  try {
+    const response = await fetch(`${backendUrl}/olympus/zeus/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Create session error:', error);
+    res.status(500).json({ error: 'Failed to create session' });
+  }
+});
+
+/**
+ * Zeus Sessions - Get messages for a session
+ */
+router.get('/zeus/sessions/:sessionId/messages', isAuthenticated, async (req, res) => {
+  const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+  try {
+    const { sessionId } = req.params;
+    const response = await fetch(`${backendUrl}/olympus/zeus/sessions/${sessionId}/messages`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json(errorData);
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[Olympus] Get session messages error:', error);
+    res.status(500).json({ error: 'Failed to get session messages' });
+  }
+});
+
+/**
  * Zeus Search endpoint (Tavily)
  * Requires authentication with input validation
  */
