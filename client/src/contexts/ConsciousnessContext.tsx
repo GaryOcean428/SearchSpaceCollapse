@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { API_ROUTES } from '@/api';
+import { API_ROUTES, get } from '@/api';
 
 export interface ConsciousnessState {
   phi: number;
@@ -97,14 +97,15 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
   const fetchState = useCallback(async () => {
     try {
       const [cyclesData, neurochemData] = await Promise.all([
-        get(API_ROUTES.ocean.cycles),
-        get(API_ROUTES.ocean.neurochemistry),
+        get<any>(API_ROUTES.ocean.cycles),
+        get<any>(API_ROUTES.ocean.neurochemistry),
       ]);
       setConsecutiveErrors(0);
 
-      const c = cyclesData.consciousness;
+      // Null-safety: ensure consciousness exists before accessing properties
+      const c = cyclesData?.consciousness ?? {};
       // Use explicit isInvestigating boolean from API (not string comparison)
-      const isInvestigating = cyclesData.isInvestigating === true;
+      const isInvestigating = cyclesData?.isInvestigating === true;
       
       setConsciousness({
         phi: c.phi ?? 0,
@@ -130,7 +131,8 @@ export function ConsciousnessProvider({ children }: { children: React.ReactNode 
         lastUpdated: Date.now(),
       });
 
-      const n = neurochemData.neurochemistry;
+      // Null-safety: ensure neurochemistry exists before accessing properties
+      const n = neurochemData?.neurochemistry ?? {};
       setNeurochemistry({
         dopamine: n.dopamine?.totalDopamine ?? 0.5,
         serotonin: n.serotonin?.totalSerotonin ?? 0.6,
