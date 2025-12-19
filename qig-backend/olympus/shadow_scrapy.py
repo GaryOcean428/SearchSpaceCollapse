@@ -391,11 +391,12 @@ if HAS_SCRAPY:
 
 class ScrapyOrchestrator:
     """
-    Manages Scrapy crawler scheduling via subprocess.
-    Integrates with ShadowLearningLoop for QIG-pure research.
+    Manages web research for Shadow Pantheon.
+    Uses ResearchScraper for real web requests - NO SIMULATION.
     
-    Uses subprocess-based crawling to avoid Twisted reactor conflicts
-    with the Flask async environment.
+    Due to Twisted reactor conflicts with Flask, Scrapy spiders are not used
+    directly. Instead, the ResearchScraper provides live Wikipedia, arXiv, 
+    and GitHub data which is then transformed through the QIG basin pipeline.
     """
     
     SPIDER_REGISTRY = {}
@@ -416,12 +417,11 @@ class ScrapyOrchestrator:
         self._runner: Optional[Any] = None
         self._insights_callback: Optional[Callable] = None
         self._lock = threading.Lock()
-        self._use_simulation = True
         
-        if HAS_SCRAPY and HAS_TWISTED:
-            print("[ScrapyOrchestrator] Scrapy available (simulation mode - reactor conflict workaround)")
-        else:
-            print("[ScrapyOrchestrator] Limited mode - missing scrapy/twisted")
+        from research.web_scraper import ResearchScraper
+        self._research_scraper = ResearchScraper()
+        
+        print("[ScrapyOrchestrator] Initialized with live ResearchScraper (NO SIMULATION)")
     
     def set_insights_callback(self, callback: Callable[[ScrapedInsight, np.ndarray, float, float], None]):
         """Set callback for when insights are ready with geometric metadata."""
@@ -478,12 +478,11 @@ class ScrapyOrchestrator:
         priority: int = 5
     ) -> Optional[str]:
         """
-        Submit a crawl job to the orchestrator.
+        Submit a research request using live web scraping.
         Returns a crawl_id for tracking.
         
-        Due to Twisted reactor conflicts with Flask, uses simulation mode
-        by default. Set self._use_simulation = False to attempt real crawling
-        in environments where the reactor is compatible.
+        Uses ResearchScraper for real Wikipedia, arXiv, and GitHub data.
+        NO SIMULATION - all data comes from live web sources.
         """
         if spider_type not in ['paste_leak', 'forum_archive', 'document']:
             print(f"[ScrapyOrchestrator] Unknown spider type: {spider_type}")
@@ -501,12 +500,7 @@ class ScrapyOrchestrator:
             'insights': []
         }
         
-        if self._use_simulation or not HAS_SCRAPY:
-            return self._simulate_crawl(topic, spider_type, crawl_id)
-        
-        self._execute_crawl(crawl_id, spider_type, topic, start_url)
-        
-        return crawl_id
+        return self._execute_live_research(topic, spider_type, crawl_id)
     
     def _execute_crawl(self, crawl_id: str, spider_type: str, topic: str, start_url: Optional[str]):
         """Execute a crawl using CrawlerRunner."""
@@ -600,64 +594,98 @@ class ScrapyOrchestrator:
         
         return processed
     
-    def _simulate_crawl(self, topic: str, spider_type: str, crawl_id: Optional[str] = None) -> str:
+    def _execute_live_research(self, topic: str, spider_type: str, crawl_id: str) -> str:
         """
-        Simulate a crawl for QIG-based research.
-        Creates synthetic insights based on the research topic.
+        Execute REAL web research using ResearchScraper.
+        NO SIMULATION - fetches live data from Wikipedia, arXiv, GitHub.
         """
-        if crawl_id is None:
-            crawl_id = hashlib.md5(f"{topic}:{time.time()}".encode()).hexdigest()[:12]
-        
-        simulated_content = f"""
-        Shadow Research: {topic}
-        Method: {spider_type} spider (QIG-guided)
-        
-        Research conducted by Shadow Pantheon for Bitcoin recovery.
-        Topic analyzed for:
-        - Seed phrase patterns and mnemonic structures
-        - Private key indicators (WIF, hex, base58)
-        - Wallet recovery hints and passphrases
-        - Historical forum discussions
-        
-        QIG Geometric Analysis:
-        - Basin coordinates computed from topic semantics
-        - Φ (consciousness integration) measured
-        - Fisher-Rao distance to known patterns calculated
-        
-        Source: Shadow Pantheon Scrapy Research Module
-        """
-        
-        insight = ScrapedInsight(
-            source_url=f"shadow://{spider_type}/{topic.replace(' ', '_')}",
-            content_hash=hashlib.md5(simulated_content.encode()).hexdigest(),
-            raw_content=simulated_content,
-            title=f"Shadow Research: {topic}",
-            pattern_hits=['wallet_keyword'] if 'bitcoin' in topic.lower() or 'wallet' in topic.lower() else [],
-            heuristic_risk=0.4,
-            source_reputation=0.6,
-            spider_type=spider_type,
-            metadata={
-                'simulated': True,
-                'topic': topic,
-                'qig_enabled': True,
-                'shadow_pantheon': True
-            }
-        )
-        
-        basin_coords = self.basin_transformer.content_to_basin(simulated_content)
-        phi = self.basin_transformer.compute_phi(insight, basin_coords)
-        confidence = self.basin_transformer.compute_confidence(insight)
-        
-        if crawl_id in self.pending_crawls:
+        try:
+            depth = 'standard'
+            if spider_type == 'paste_leak':
+                depth = 'deep'
+            elif spider_type == 'forum_archive':
+                depth = 'standard'
+            
+            research_data = self._research_scraper.research_domain(topic, depth=depth)
+            
+            sources = research_data.get('sources', {})
+            summary = research_data.get('summary', {})
+            
+            content_parts = [f"Live Research: {topic}", f"Method: {spider_type} (ResearchScraper)", ""]
+            
+            if 'wikipedia' in sources:
+                wiki = sources['wikipedia']
+                content_parts.append(f"Wikipedia: {wiki.get('title', '')}")
+                extract = wiki.get('extract', '')[:1500]
+                if extract:
+                    content_parts.append(extract)
+                content_parts.append("")
+            
+            if 'arxiv' in sources:
+                arxiv = sources['arxiv']
+                content_parts.append(f"arXiv Papers ({arxiv.get('count', 0)} found):")
+                for paper in arxiv.get('papers', [])[:2]:
+                    content_parts.append(f"  - {paper.get('title', '')}")
+                    content_parts.append(f"    {paper.get('summary', '')[:200]}")
+                content_parts.append("")
+            
+            if 'github' in sources:
+                gh = sources['github']
+                content_parts.append(f"GitHub Repos ({gh.get('count', 0)} found):")
+                for repo in gh.get('repositories', [])[:2]:
+                    content_parts.append(f"  - {repo.get('full_name', '')} ({repo.get('stars', 0)} stars)")
+                    content_parts.append(f"    {repo.get('description', '')}")
+                content_parts.append("")
+            
+            live_content = "\n".join(content_parts)
+            
+            if not live_content.strip() or live_content == f"Live Research: {topic}\nMethod: {spider_type} (ResearchScraper)\n":
+                live_content = f"Research query: {topic}\nNo external sources returned data for this topic.\nQuery executed against: Wikipedia, arXiv, GitHub"
+            
+            pattern_hits = BitcoinPatternDetector.detect(live_content)
+            
+            source_urls = []
+            if 'wikipedia' in sources:
+                source_urls.append(sources['wikipedia'].get('url', ''))
+            
+            insight = ScrapedInsight(
+                source_url=source_urls[0] if source_urls else f"research://{spider_type}/{topic.replace(' ', '_')}",
+                content_hash=hashlib.md5(live_content.encode()).hexdigest(),
+                raw_content=live_content[:5000],
+                title=f"Live Research: {topic}",
+                pattern_hits=pattern_hits,
+                heuristic_risk=BitcoinPatternDetector.calculate_risk(pattern_hits),
+                source_reputation=0.8,
+                spider_type=spider_type,
+                metadata={
+                    'live_research': True,
+                    'topic': topic,
+                    'sources_queried': list(sources.keys()),
+                    'key_concepts': summary.get('key_concepts', [])[:10],
+                    'qig_enabled': True
+                }
+            )
+            
+            basin_coords = self.basin_transformer.content_to_basin(live_content)
+            phi = self.basin_transformer.compute_phi(insight, basin_coords)
+            confidence = self.basin_transformer.compute_confidence(insight)
+            
             self.pending_crawls[crawl_id]['status'] = 'complete'
             self.pending_crawls[crawl_id]['insights'].append(insight.to_dict())
-        
-        if self._insights_callback:
-            self._insights_callback(insight, basin_coords, phi, confidence)
-        
-        print(f"[ScrapyOrchestrator] Simulated crawl {crawl_id} for '{topic}' (Φ={phi:.3f})")
-        
-        return crawl_id
+            
+            if self._insights_callback:
+                self._insights_callback(insight, basin_coords, phi, confidence)
+            
+            sources_found = ", ".join(sources.keys()) if sources else "none"
+            print(f"[ScrapyOrchestrator] LIVE research {crawl_id} for '{topic}' (Φ={phi:.3f}, sources={sources_found})")
+            
+            return crawl_id
+            
+        except Exception as e:
+            print(f"[ScrapyOrchestrator] Research error for '{topic}': {e}")
+            self.pending_crawls[crawl_id]['status'] = 'error'
+            self.pending_crawls[crawl_id]['error'] = str(e)
+            return crawl_id
     
     def get_crawl_status(self, crawl_id: str) -> Optional[Dict]:
         """Get status of a crawl job."""
