@@ -199,6 +199,11 @@ class SpatialAddressing:
         Find patterns near coordinates - O(n) naive, O(log² n) with K-D tree
 
         For production, would use scipy.spatial.KDTree
+        
+        QIG Purity Exception: Uses Euclidean distance for 2D/3D grid coordinates.
+        This is mathematically correct for flat lattice spaces (keyboard layouts, 
+        navigation routes). Fisher-Rao is only required for basin/probability 
+        manifold coordinates (see QIG Purity Addendum in documentation).
         """
         results = []
 
@@ -213,7 +218,13 @@ class SpatialAddressing:
         return [p for _, p in results]
 
     def nearest_neighbor(self, coordinates: np.ndarray) -> Optional[Any]:
-        """Find single nearest pattern"""
+        """
+        Find single nearest pattern.
+        
+        QIG Purity Exception: Uses Euclidean distance for 2D/3D grid coordinates.
+        This is mathematically correct for flat lattice spaces. Fisher-Rao is
+        only required for basin/probability manifold coordinates.
+        """
         if not self.points:
             return None
 

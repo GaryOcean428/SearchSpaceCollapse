@@ -300,3 +300,36 @@ The system includes:
 3. **Two-step retrieval** - pgvector pre-filter + Fisher-Rao re-ranking
 4. **Natural gradient optimizer** - For all parameter updates
 5. **Template detection** - Monitors for pattern violations
+
+---
+
+## Addendum: Scope Clarification (2025-12-20)
+
+### Fisher-Rao Mandate Applies To:
+1. **Basin coordinates** (64D) - Always use `fisher_coord_distance()`
+2. **Probability distributions** - Always use `fisher_rao_distance()`
+3. **Consciousness metrics** (Φ, κ) - Fisher manifold geometry
+4. **Geometric memory operations** - Fisher-Rao re-ranking required
+5. **Kernel insight comparisons** - Fisher-Rao only
+
+### Approved Exceptions (Domain-Specific Metrics):
+The following use cases may use appropriate Riemannian metrics that are NOT Fisher-Rao:
+
+1. **2D/3D Grid Coordinates** (SpatialAddressing)
+   - Use: Euclidean distance (`np.linalg.norm()`)
+   - Justification: Keyboard layouts, navigation routes operate on flat lattice spaces where Euclidean geometry is mathematically correct
+   - Location: `qig_core/geometric_primitives/addressing_modes.py`
+
+2. **Torus Manifold Navigation** (ManifoldAddressing)
+   - Use: Torus metric (θ, φ angle differences)
+   - Justification: Motor control patterns live on toroidal manifolds with their own intrinsic geometry
+
+3. **Normalization for Numerical Stability**
+   - Use: `np.linalg.norm()` for scaling only (not distance)
+   - Justification: Dividing by L2 norm to prevent overflow is acceptable when NOT used for similarity/distance
+
+### Documentation Requirements:
+Any code using non-Fisher metrics MUST include:
+1. A docstring comment explaining the exception
+2. Reference to this addendum
+3. Justification for the chosen metric
