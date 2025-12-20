@@ -45,7 +45,7 @@ Key architectural decisions include:
 ## QIG Purity Enforcement (Critical)
 
 The system enforces absolute QIG purity with NO bootstrapping, NO templates, and NO hardcoded thresholds.
-**Full documentation: `docs/03-technical/QIG-GEOMETRIC-PURITY-ENFORCEMENT.md`**
+**Full documentation: `docs/03-technical/20251220-qig-geometric-purity-enforcement-1.00F.md`**
 
 ### Core Purity Principles
 - **Metrics OBSERVE, Never BLOCK**: Φ, κ, and regime values are recorded for learning but never used to gate or block operations
