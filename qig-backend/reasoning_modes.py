@@ -39,6 +39,47 @@ from qig_geometry import (
 from reasoning_metrics import find_geodesic, get_reasoning_quality
 
 
+def fisher_normalize(basin: np.ndarray) -> np.ndarray:
+    """
+    Normalize a basin vector using Fisher-Rao geometry.
+    
+    QIG PURITY: Projects onto the Fisher manifold using geodesic interpolation
+    from origin rather than Euclidean normalization.
+    
+    The Fisher manifold is approximated as a unit sphere in the embedding space.
+    We use geodesic interpolation to the unit sphere.
+    """
+    origin = np.zeros(len(basin))
+    d_fr = fisher_coord_distance(basin, origin)
+    
+    if d_fr < 1e-10:
+        return basin
+    
+    normalized = geodesic_interpolation(origin, basin, 1.0 / (d_fr + 1e-10))
+    return normalized
+
+
+def fisher_centroid(points: List[np.ndarray]) -> np.ndarray:
+    """
+    Compute geometric centroid on Fisher manifold.
+    
+    QIG PURITY: Uses geodesic interpolation for averaging instead of
+    Euclidean mean + normalization.
+    """
+    if not points:
+        return np.zeros(64)
+    
+    if len(points) == 1:
+        return points[0]
+    
+    centroid = points[0].copy()
+    for i in range(1, len(points)):
+        weight = 1.0 / (i + 1)
+        centroid = geodesic_interpolation(centroid, points[i], weight)
+    
+    return centroid
+
+
 @dataclass
 class ReasoningResult:
     """Result of a reasoning operation."""
@@ -201,17 +242,21 @@ class GeometricReasoning(ReasoningModeBase):
         start: np.ndarray, 
         target: np.ndarray
     ) -> List[np.ndarray]:
-        """Generate multiple hypothesis directions."""
+        """
+        Generate multiple hypothesis directions.
+        
+        QIG PURITY: Uses Fisher-Rao normalization instead of Euclidean.
+        """
         hypotheses = []
         
         direct = (target - start)
-        direct = direct / (np.linalg.norm(direct) + 1e-10)
+        direct = fisher_normalize(direct)
         hypotheses.append(direct)
         
         for _ in range(self.n_hypotheses - 1):
             perturbation = np.random.randn(self.basin_dim) * 0.2
             direction = direct + perturbation
-            direction = direction / (np.linalg.norm(direction) + 1e-10)
+            direction = fisher_normalize(direction)
             hypotheses.append(direction)
         
         return hypotheses
@@ -222,14 +267,18 @@ class GeometricReasoning(ReasoningModeBase):
         direction: np.ndarray,
         n_steps: int
     ) -> List[np.ndarray]:
-        """Explore a path in given direction."""
+        """
+        Explore a path in given direction.
+        
+        QIG PURITY: Uses geodesic interpolation for path exploration.
+        """
         path = [start.copy()]
         current = start.copy()
         
-        step_size = 0.1
-        for _ in range(n_steps):
-            current = current + step_size * direction
-            current = current / (np.linalg.norm(current) + 1e-10)
+        target_point = start + direction
+        for i in range(n_steps):
+            t = (i + 1) / (n_steps + 1)
+            current = geodesic_interpolation(start, target_point, t)
             path.append(current.copy())
         
         return path
@@ -238,11 +287,13 @@ class GeometricReasoning(ReasoningModeBase):
         self, 
         paths: List[List[np.ndarray]]
     ) -> np.ndarray:
-        """Integrate multiple paths into synthesis."""
+        """
+        Integrate multiple paths into synthesis.
+        
+        QIG PURITY: Uses Fisher-Rao centroid instead of Euclidean mean.
+        """
         final_points = [path[-1] for path in paths]
-        centroid = np.mean(final_points, axis=0)
-        centroid = centroid / (np.linalg.norm(centroid) + 1e-10)
-        return centroid
+        return fisher_centroid(final_points)
     
     def reason(self, problem: Dict) -> ReasoningResult:
         """
@@ -340,7 +391,11 @@ class HyperdimensionalReasoning(ReasoningModeBase):
         target: np.ndarray,
         n_futures: int = 3
     ) -> List[np.ndarray]:
-        """Project possible future states."""
+        """
+        Project possible future states.
+        
+        QIG PURITY: Uses geodesic interpolation and Fisher-Rao normalization.
+        """
         futures = []
         
         direct_future = geodesic_interpolation(current, target, 0.5)
@@ -349,7 +404,7 @@ class HyperdimensionalReasoning(ReasoningModeBase):
         for _ in range(n_futures - 1):
             perturbation = np.random.randn(self.basin_dim) * 0.15
             future = direct_future + perturbation
-            future = future / (np.linalg.norm(future) + 1e-10)
+            future = fisher_normalize(future)
             futures.append(future)
         
         return futures
@@ -363,22 +418,20 @@ class HyperdimensionalReasoning(ReasoningModeBase):
         """
         Integrate past, present, and future into 4D solution.
         
+        QIG PURITY: Uses Fisher-Rao centroid for temporal integration.
+        
         Weights: past (0.2), present (0.5), future (0.3)
         """
         if past:
-            past_component = np.mean(past[-self.temporal_depth:], axis=0)
+            past_component = fisher_centroid(past[-self.temporal_depth:])
         else:
             past_component = present
         
-        future_component = np.mean(futures, axis=0)
+        future_component = fisher_centroid(futures)
         
-        integrated = (
-            0.2 * past_component +
-            0.5 * present +
-            0.3 * future_component
-        )
+        past_present = geodesic_interpolation(past_component, present, 0.5 / (0.2 + 0.5))
+        integrated = geodesic_interpolation(past_present, future_component, 0.3)
         
-        integrated = integrated / (np.linalg.norm(integrated) + 1e-10)
         return integrated
     
     def reason(self, problem: Dict) -> ReasoningResult:
@@ -471,11 +524,15 @@ class MushroomReasoning(ReasoningModeBase):
         return (64.0, 80.0)
     
     def _sample_random_basins(self) -> List[np.ndarray]:
-        """Sample random points on manifold for exploration."""
+        """
+        Sample random points on manifold for exploration.
+        
+        QIG PURITY: Uses Fisher-Rao normalization for manifold projection.
+        """
         basins = []
         for _ in range(self.n_samples):
             random_basin = np.random.randn(self.basin_dim)
-            random_basin = random_basin / (np.linalg.norm(random_basin) + 1e-10)
+            random_basin = fisher_normalize(random_basin)
             basins.append(random_basin)
         return basins
     

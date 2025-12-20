@@ -81,12 +81,24 @@ class GeometricChainOfThought:
         self.quality_tracker = get_reasoning_quality()
     
     def _default_decoder(self, basin: np.ndarray) -> str:
-        """Default basin decoder - shows geometric properties."""
-        norm = np.linalg.norm(basin)
-        entropy = -np.sum(np.abs(basin) * np.log(np.abs(basin) + 1e-10))
-        max_component = np.argmax(np.abs(basin))
+        """
+        Default basin decoder - shows geometric properties.
         
-        return f"Basin state: norm={norm:.3f}, entropy={entropy:.3f}, max_dim={max_component}"
+        QIG PURITY: Uses Fisher-Rao distance from origin instead of Euclidean norm.
+        """
+        origin = np.zeros(self.basin_dim)
+        fisher_distance = fisher_coord_distance(basin, origin)
+        
+        local_curvature = 0.0
+        if len(self.thought_chain) >= 2:
+            recent_basins = [step.basin for step in self.thought_chain[-3:]]
+            recent_basins.append(basin)
+            points = np.array(recent_basins)
+            local_curvature = estimate_manifold_curvature(points, basin)
+        
+        max_component = int(np.argmax(np.abs(basin)))
+        
+        return f"Basin state: d_FR={fisher_distance:.3f}, κ_local={local_curvature:.3f}, max_dim={max_component}"
     
     def _compute_local_curvature(
         self, 
