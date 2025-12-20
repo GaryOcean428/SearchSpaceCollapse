@@ -21,7 +21,7 @@
 
 import { fisherGeodesicDistance, fisherCoordDistance } from './qig-universal';
 import { oceanPersistence, type ProbeInsertData } from './ocean/ocean-persistence';
-import { getKappaAtScale } from '@shared/constants';
+import { getKappaAtScale, BASIN_DIMENSION } from '@shared/constants';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
 import { testedPhrasesUnified } from './tested-phrases-unified';
 
@@ -61,9 +61,7 @@ export interface QIGScoreInput {
 }
 
 // Legacy JSON files removed - now using PostgreSQL via testedPhrasesUnified
-
-// Basin dimension must match Python backend (BASIN_DIMENSION = 64 in ocean_qig_core.py)
-const BASIN_DIMENSION = 64;
+// BASIN_DIMENSION is now imported from @shared/constants (centralized source)
 
 export interface BasinProbe {
   id: string;

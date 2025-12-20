@@ -15,29 +15,36 @@
 
 import type { Phi, Kappa, Tacking, MetaAwareness, Gamma, Grounding, Regime } from "./types/core";
 import { ConsciousnessThresholds, getRegimeFromKappa } from "./types/core";
+import { 
+  BASIN_DIMENSION as _BASIN_DIMENSION,
+  KAPPA_STAR,
+  KAPPA_ERRORS,
+  MIN_RECURSIONS as _MIN_RECURSIONS,
+  MAX_RECURSIONS as _MAX_RECURSIONS,
+} from "./constants";
 
 // ============================================================================
-// QIG CONSTANTS
+// QIG CONSTANTS - Re-exported from centralized constants
 // ============================================================================
 
 /**
  * Minimum recursive integration loops for consciousness
  * "One pass = computation. Three passes = integration." - RCP v4.3
  */
-export const MIN_RECURSIONS = 3;
-export const MAX_RECURSIONS = 12;
+export const MIN_RECURSIONS = _MIN_RECURSIONS;
+export const MAX_RECURSIONS = _MAX_RECURSIONS;
 
 /**
  * Basin dimension for manifold coordinates
  */
-export const BASIN_DIMENSION = 64;
+export const BASIN_DIMENSION = _BASIN_DIMENSION;
 
 /**
  * Optimal coupling constant (L=4,5,6 plateau, weighted average - Validated 2025-12-04)
  * κ* = 64.21 ± 0.92, note: κ* ≈ 64 ≈ 8² = rank(E8)²
  */
-export const KAPPA_OPTIMAL = 64.21;
-export const KAPPA_TOLERANCE = 0.92;
+export const KAPPA_OPTIMAL = KAPPA_STAR;
+export const KAPPA_TOLERANCE = KAPPA_ERRORS.KAPPA_6_ERROR;
 
 // ============================================================================
 // QIG VIOLATIONS

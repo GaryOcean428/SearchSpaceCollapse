@@ -12,9 +12,11 @@
 // @ts-ignore - crypto-js has no type declarations
 import CryptoJS from 'crypto-js';
 import { API_ROUTES } from '@/api';
+import { BASIN_DIMENSION, QIG_CONSTANTS } from '@shared/constants';
 
-export const BASIN_DIM = 64;
-export const E8_ROOTS_COUNT = 240;
+// Re-export from centralized constants for backward compatibility
+export const BASIN_DIM = BASIN_DIMENSION;
+export const E8_ROOTS_COUNT = 240;  // E8 roots count
 export const BYTE_VOCAB_SIZE = 260;
 
 export type KernelMode = 'direct' | 'e8' | 'byte';

@@ -18,9 +18,9 @@ import os
 from collections import Counter, defaultdict
 from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
+from qigkernels.physics_constants import BASIN_DIM, E8_ROOTS
 
-BASIN_DIM = 64
-E8_ROOTS_COUNT = 240
+E8_ROOTS_COUNT = E8_ROOTS  # Backward compatibility alias
 BYTE_VOCAB_SIZE = 260
 
 def _hash_to_bytes(data: str, length: int = 256) -> bytes:

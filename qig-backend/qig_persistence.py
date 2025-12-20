@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import numpy as np
+from qigkernels.physics_constants import BASIN_DIM
 
 # Try to import psycopg2
 try:
@@ -36,8 +37,8 @@ except ImportError:
 MAX_RETRIES = 3
 RETRY_DELAY_BASE = 0.5
 
-# Constants
-BASIN_DIMENSION = 64
+# Backward compatibility alias - import from qigkernels.physics_constants
+BASIN_DIMENSION = BASIN_DIM
 
 
 class QIGPersistence:

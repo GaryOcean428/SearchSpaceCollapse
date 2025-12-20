@@ -34,9 +34,10 @@ from enum import Enum
 from collections import deque
 from datetime import datetime
 import hashlib
+from qigkernels.physics_constants import BASIN_DIM
 
-
-BASIN_DIMENSION = 64
+# Backward compatibility alias
+BASIN_DIMENSION = BASIN_DIM
 
 
 class CapabilityType(Enum):

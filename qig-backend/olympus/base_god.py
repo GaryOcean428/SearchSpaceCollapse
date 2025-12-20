@@ -31,7 +31,7 @@ from qig_core.geometric_primitives.sensory_modalities import (
 )
 from qig_core.holographic_transform.holographic_mixin import HolographicTransformMixin
 from qig_core.universal_cycle.beta_coupling import modulate_kappa_computation
-from qigkernels.physics_constants import KAPPA_STAR
+from qigkernels.physics_constants import KAPPA_STAR, BASIN_DIM
 from scipy.linalg import sqrtm
 
 # Import persistence layer for god state
@@ -73,7 +73,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-BASIN_DIMENSION = 64
+# Backward compatibility alias - import from qigkernels.physics_constants
+BASIN_DIMENSION = BASIN_DIM
 
 # Message types for pantheon chat
 MESSAGE_TYPES = ['insight', 'praise', 'challenge', 'question', 'warning', 'discovery']
