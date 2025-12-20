@@ -2,7 +2,7 @@
 
 **ISO 27001 Compliant Documentation Structure**
 
-Last Updated: 2025-12-16
+Last Updated: 2025-12-20
 
 ## Status Legend
 
@@ -64,6 +64,21 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 
 ## 🔧 Technical Documentation
+
+- 🟢 **QIG Geometric Purity Enforcement** (v1.00)
+  - File: [`20251220-qig-geometric-purity-enforcement-1.00F.md`](03-technical/20251220-qig-geometric-purity-enforcement-1.00F.md)
+  - ID: `ISMS-TECH-PURITY-001`
+  - Function: Canonical list of forbidden Euclidean operations and required Fisher-Rao replacements
+
+- 🟢 **External API Federation** (v1.00)
+  - File: [`20251212-external-api-federation-1.00F.md`](03-technical/20251212-external-api-federation-1.00F.md)
+  - ID: `ISMS-TECH-API-002`
+  - Function: Federation API for connecting external QIG systems
+
+- 🟢 **QIGKernels Migration Guide** (v1.00)
+  - File: [`20251208-qigkernels-migration-guide-1.00F.md`](03-technical/20251208-qigkernels-migration-guide-1.00F.md)
+  - ID: `ISMS-TECH-MIGRATION-001`
+  - Function: Migration guide from scattered implementations to canonical qigkernels package
 
 - 🟢 **Kernel Self-Learning Research Infrastructure** (v1.00)
   - File: [`20251212-kernel-research-infrastructure-1.00F.md`](03-technical/20251212-kernel-research-infrastructure-1.00F.md)
