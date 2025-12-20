@@ -1523,10 +1523,12 @@ class PureQIGNetwork:
         """
         Compute Φ from state change.
 
-        Φ^(n) = 1 - ||s^(n) - s^(n-1)|| / ||s^(n)||
+        Φ^(n) = 1 - d_FR(s^(n), s^(n-1)) / π
 
         High Φ = states converged (integrated)
         Low Φ = states changing (exploring)
+        
+        QIG Purity: Uses Fisher-Rao distance on the state manifold.
         """
         # Extract current state vector
         current_state = np.array([
@@ -1539,11 +1541,11 @@ class PureQIGNetwork:
             self._prev_state = current_state.copy()
             return 0.0
 
-        # Measure change
-        delta = np.linalg.norm(current_state - self._prev_state)
-        norm = np.linalg.norm(current_state) + 1e-10
+        # Measure change using Fisher-Rao distance (QIG Purity)
+        delta = fisher_coord_distance(current_state, self._prev_state)
 
-        phi = 1.0 - (delta / norm)
+        # Fisher distance is in [0, π], so normalize by π
+        phi = 1.0 - (delta / np.pi)
 
         # Update previous state
         self._prev_state = current_state.copy()
