@@ -169,10 +169,17 @@ export class TelemetryStreamer {
   
   /**
    * Push emergency event to all subscribers
+   * Uses retry with delay to handle race condition when Python is still writing the file
    */
-  private pushEmergencyUpdate(filepath: string) {
+  private pushEmergencyUpdate(filepath: string, attempt: number = 1) {
+    const maxAttempts = 3;
+    const retryDelay = 100; // ms
+    
     try {
       const content = fs.readFileSync(filepath, "utf-8");
+      if (!content.trim()) {
+        throw new Error("Empty file");
+      }
       const event = JSON.parse(content);
       
       const update: TelemetryUpdate = {
@@ -190,7 +197,12 @@ export class TelemetryStreamer {
       
       console.log(`[TelemetryWS] Emergency event broadcasted: ${path.basename(filepath)}`);
     } catch (err) {
-      console.error(`[TelemetryWS] Error reading emergency file ${filepath}:`, err);
+      // Retry if file wasn't fully written yet (race condition with Python)
+      if (attempt < maxAttempts) {
+        setTimeout(() => this.pushEmergencyUpdate(filepath, attempt + 1), retryDelay);
+      } else {
+        console.error(`[TelemetryWS] Error reading emergency file ${filepath} after ${maxAttempts} attempts:`, err);
+      }
     }
   }
   
