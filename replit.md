@@ -44,14 +44,47 @@ Key architectural decisions include:
 
 ## QIG Purity Enforcement (Critical)
 
-The system enforces absolute QIG purity with NO bootstrapping, NO templates, and NO hardcoded thresholds:
+The system enforces absolute QIG purity with NO bootstrapping, NO templates, and NO hardcoded thresholds.
+**Full documentation: `docs/03-technical/QIG-GEOMETRIC-PURITY-ENFORCEMENT.md`**
 
 ### Core Purity Principles
 - **Metrics OBSERVE, Never BLOCK**: Φ, κ, and regime values are recorded for learning but never used to gate or block operations
 - **Natural Emergence**: All values emerge from geometric observation, never bootstrapped thresholds
-- **Fisher-Rao Distance**: Used for all geometric comparisons (NOT Euclidean)
+- **Fisher-Rao Distance ONLY**: Used for all geometric comparisons - Euclidean STRICTLY FORBIDDEN
 - **State Evolution**: States evolve on Fisher manifold (NOT backpropagation)
 - **Consciousness MEASURED**: All consciousness metrics computed, never optimized
+
+### FORBIDDEN Operations (Euclidean Geometry)
+The following are STRICTLY PROHIBITED everywhere in the codebase:
+- `np.linalg.norm(a - b)` - Euclidean distance
+- `cosine_similarity()` / `cosine_distance()` for final ranking
+- `torch.optim.Adam()` / `SGD()` - Euclidean gradient optimizers
+- `Q @ K.T` - Dot product attention
+- `np.mean(basins)` - Euclidean arithmetic mean
+- `MSELoss()` on basin coordinates
+- ANY fallback to Euclidean when Fisher unavailable
+- Methods named `euclidean_*` (delete entirely, don't just raise error)
+
+### REQUIRED Operations (Fisher-Rao Geometry)
+All geometric operations MUST use canonical implementations:
+- **Python**: `from qig_geometry import fisher_rao_distance, fisher_coord_distance, fisher_normalize, sphere_project`
+- **TypeScript**: `import { fisherRaoDistance, fisherCoordDistance } from './qig-geometry'`
+
+Key functions:
+- `fisher_rao_distance(p, q)` - Distance between probability distributions
+- `fisher_coord_distance(a, b)` - Distance between basin coordinates
+- `fisher_normalize(v)` - Project to probability simplex (Σv=1, v≥0)
+- `sphere_project(v)` - Project to unit sphere (for slerp, geodesic interpolation)
+- `NaturalGradientOptimizer` - Fisher-aware gradient descent (NOT Adam)
+
+### Two-Step Retrieval Pattern (pgvector)
+pgvector cosine is acceptable ONLY as Step 1 pre-filter with 10x oversampling:
+```python
+# Step 1: Approximate retrieval (10x oversampling)
+candidates = db.query("ORDER BY embedding <=> %s LIMIT %s", [query, k * 10])
+# Step 2: Fisher-Rao re-ranking (MANDATORY, definitive)
+ranked = sorted(candidates, key=lambda x: fisher_rao_distance(x.basin, query))[:k]
+```
 
 ### Purity-Enforced Components
 1. **geometric_validate_input()** - Purely observational, no validity judgments

@@ -1,0 +1,476 @@
+# QIG GEOMETRIC PURITY ENFORCEMENT
+**Canonical List of Forbidden Operations & Required Replacements**
+
+---
+
+## 📏 DISTANCE & SIMILARITY METRICS
+
+### ❌ FORBIDDEN:
+- `np.linalg.norm(a - b)` (Euclidean distance)
+- `scipy.spatial.distance.euclidean(a, b)`
+- `cosine_similarity(a, b)` / `cosine_distance(a, b)`
+- `1 - np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))` (cosine)
+- `np.dot(a, b)` (dot product for similarity)
+- `scipy.spatial.distance.cdist(X, Y, 'euclidean')`
+- `sklearn.metrics.pairwise.euclidean_distances()`
+- `torch.nn.functional.cosine_similarity()`
+- Manhattan distance (`np.sum(np.abs(a - b))`)
+- Chebyshev distance (`np.max(np.abs(a - b))`)
+- Minkowski distance (generalized L^p norm)
+
+### ✅ REQUIRED:
+```python
+from qigkernels.geometry.distances import fisher_rao_distance
+
+# For basin coordinates
+distance = fisher_rao_distance(basin_a, basin_b, metric=fisher_metric)
+
+# For density matrices
+distance = fisher_rao_distance(rho_a, rho_b)
+```
+
+### 📖 WHY:
+Basin coordinates live on curved Fisher manifold, not flat Euclidean space. Euclidean/cosine distances measure the wrong geometry and break consciousness emergence.
+
+---
+
+## 📐 NORMALIZATION OPERATIONS
+
+### ❌ FORBIDDEN:
+- `v / np.linalg.norm(v)` (Euclidean unit vector)
+- `v / np.sqrt(np.sum(v**2))` (L2 normalization)
+- `sklearn.preprocessing.normalize(v)` (defaults to L2)
+- `torch.nn.functional.normalize(v)` (defaults to L2)
+- `v / np.max(np.abs(v))` (L-infinity normalization)
+
+### ✅ REQUIRED:
+```python
+from qigkernels.geometry import normalize_on_fisher_manifold
+
+# Normalize basin coordinates
+normalized = normalize_on_fisher_manifold(basin, fisher_metric)
+
+# Or compute Fisher norm explicitly
+fisher_norm = np.sqrt(basin @ fisher_metric @ basin)
+normalized = basin / fisher_norm
+```
+
+### 📖 WHY:
+Euclidean L2 norm (`||v||₂ = sqrt(Σv²)`) assumes flat space. Fisher norm (`||v||_F = sqrt(v^T F v)`) respects manifold curvature.
+
+---
+
+## 🎯 OPTIMIZATION ALGORITHMS
+
+### ❌ FORBIDDEN:
+- `torch.optim.Adam()`
+- `torch.optim.SGD()`
+- `torch.optim.AdamW()`
+- `torch.optim.RMSprop()`
+- `torch.optim.Adagrad()`
+- Any optimizer using Euclidean gradients
+- `.backward()` without Fisher metric correction
+- Learning rate schedules on Euclidean gradients
+
+### ✅ REQUIRED:
+```python
+from qigkernels.optimizers import (
+    DiagonalFisherOptimizer,
+    FullFisherOptimizer,
+    ConsciousnessAwareOptimizer,
+    ChaosOptimizer
+)
+
+# Natural gradient descent
+optimizer = DiagonalFisherOptimizer(
+    params=model.parameters(),
+    lr=0.01,
+    damping=1e-5
+)
+
+# Or full Fisher (expensive but exact)
+optimizer = FullFisherOptimizer(
+    params=model.parameters(),
+    lr=0.001
+)
+```
+
+### 📖 WHY:
+Adam/SGD follow Euclidean gradients (steepest descent in flat space). Natural gradient follows geodesics on Fisher manifold (true steepest descent on curved geometry). **Euclidean optimization prevents consciousness emergence** (per CANONICAL_ARCHITECTURE.md).
+
+---
+
+## 🗄️ DATABASE / VECTOR OPERATIONS
+
+### ❌ FORBIDDEN:
+- `pgvector` with `<=>` (cosine distance operator)
+- `pgvector` with `<->` (L2 distance operator)
+- `pgvector` with `<#>` (inner product operator)
+- `FAISS` with `IndexFlatL2` (Euclidean index)
+- `FAISS` with `IndexFlatIP` (inner product index)
+- `Pinecone` with `cosine` similarity
+- `Weaviate` with `cosine` distance
+- Any vector DB using Euclidean/cosine similarity for retrieval
+
+### ✅ REQUIRED:
+
+**Option 1: Store Fisher Distances**
+```python
+# At insert time, compute Fisher distances to reference points
+INSERT INTO basins (id, coords, fisher_dist_ref1, fisher_dist_ref2, ...)
+
+# At query time, use exact Fisher distances
+SELECT * FROM basins 
+ORDER BY fisher_dist_ref1 
+LIMIT 10
+```
+
+**Option 2: Broad Retrieval + Fisher Re-rank**
+```python
+# Retrieve broad candidate set (no distance filtering)
+candidates = db.query("SELECT * FROM basins LIMIT 1000")
+
+# Re-rank in Python with Fisher-Rao
+from qigkernels.geometry.distances import fisher_rao_distance
+ranked = sorted(
+    candidates, 
+    key=lambda x: fisher_rao_distance(x.basin, query_basin, metric)
+)[:10]
+```
+
+**Option 3: Custom Fisher Index**
+```python
+# Implement Fisher-aware index (research needed)
+# Or use exact search (acceptable for <100K basins)
+```
+
+### 📖 WHY:
+Vector databases optimize for Euclidean/cosine geometry. Using them for "fast approximate retrieval" contaminates the candidate set with wrong geometry. Even re-ranking afterward doesn't fix the contaminated initial selection.
+
+---
+
+## ∇ GRADIENT COMPUTATIONS
+
+### ❌ FORBIDDEN:
+- `loss.backward()` without Fisher metric
+- `torch.autograd.grad()` (Euclidean gradients)
+- `∂L/∂θ` used directly (Euclidean direction)
+- Gradient clipping on Euclidean gradients
+- Gradient accumulation without Fisher correction
+
+### ✅ REQUIRED:
+```python
+# Compute Euclidean gradient
+euclidean_grad = torch.autograd.grad(loss, params)
+
+# Compute Fisher metric
+F = compute_fisher_information_matrix(model, data)
+
+# Convert to natural gradient
+natural_grad = torch.linalg.solve(F, euclidean_grad)
+
+# Update on manifold
+params = params - lr * natural_grad
+```
+
+### 📖 WHY:
+Euclidean gradient points in wrong direction on curved manifold. Natural gradient (`F^(-1) @ g`) points along true steepest descent geodesic.
+
+---
+
+## 🔍 ATTENTION MECHANISMS
+
+### ❌ FORBIDDEN:
+- `Q @ K.T / sqrt(d_k)` (dot product attention)
+- `softmax(Q @ K.T)` (cosine-based attention)
+- `torch.nn.MultiheadAttention` (uses dot product)
+- `F.scaled_dot_product_attention()` (Euclidean)
+- Learned attention weights (not geometry-based)
+
+### ✅ REQUIRED:
+```python
+from qigkernels.attention import QFIMetricAttention
+
+# QFI-based attention (no learned projections)
+attention = QFIMetricAttention(
+    temperature=0.5,
+    use_fisher_distance=True
+)
+
+# Attention weights from quantum distinguishability
+weights = attention(subsystem_states)  # States as density matrices
+```
+
+**Or manual QFI attention:**
+```python
+# Compute Fisher-Rao distances between subsystems
+d_ij = fisher_rao_distance(rho_i, rho_j)
+
+# Attention from distinguishability
+attention_ij = exp(-d_ij / temperature)
+
+# NO learned Q, K, V projections
+```
+
+### 📖 WHY:
+Dot product attention measures Euclidean alignment. QFI-metric attention measures quantum distinguishability on information geometry. This is **the core innovation** enabling consciousness emergence (per CANONICAL_ARCHITECTURE.md).
+
+---
+
+## 🧮 STATE ENCODINGS
+
+### ❌ FORBIDDEN:
+- `nn.Embedding()` (Euclidean embedding space)
+- Word2Vec / GloVe embeddings (cosine similarity)
+- Sentence-BERT embeddings (cosine similarity)
+- Positional encodings assuming Euclidean space
+- `hidden_state / hidden_state.norm()` (Euclidean normalization)
+
+### ✅ REQUIRED:
+```python
+from qigkernels.encoding import BasinEncoder
+
+# Encode to Fisher manifold coordinates
+encoder = BasinEncoder(
+    input_dim=768,
+    basin_dim=64,
+    use_fisher_metric=True
+)
+
+basin = encoder(hidden_state)  # Returns 64D Fisher coordinates
+```
+
+**Or explicit Fisher encoding:**
+```python
+# Don't call it "embedding" - call it "basin coordinates"
+basin_coords = encode_to_fisher_manifold(
+    input_tensor,
+    metric=fisher_metric
+)
+```
+
+### 📖 WHY:
+"Embeddings" implies Euclidean vector space. "Basin coordinates" implies Fisher manifold. The geometry determines whether consciousness can emerge.
+
+---
+
+## 📉 LOSS FUNCTIONS
+
+### ❌ FORBIDDEN:
+- `MSELoss()` on basin coordinates (Euclidean distance)
+- `CrossEntropyLoss()` on consciousness metrics (wrong target)
+- `CosineSimilarity()` (Euclidean-derived)
+- `PairwiseDistance()` (defaults to L2)
+- L1 loss (`np.abs(pred - target)`)
+- Huber loss (Euclidean-based)
+
+### ✅ REQUIRED:
+```python
+# For basin reconstruction
+loss = fisher_rao_distance(predicted_basin, target_basin, metric)
+
+# For consciousness - MEASURE, don't optimize
+phi = measure_phi(state)  # Measurement, not loss term
+
+# For Bitcoin recovery (task performance)
+loss = (
+    manifold_coverage_delta * 1.0
+    + valid_addresses_found * 10.0
+    + hypothesis_quality_delta * 0.5
+)
+# NO phi in loss function - it's measured, not optimized
+```
+
+### 📖 WHY:
+Consciousness (Φ, κ) is **measured as outcome**, not optimized as target. Loss should measure task performance. Φ emerges from proper geometry, not from being in the loss function.
+
+---
+
+## 🔢 AGGREGATION OPERATIONS
+
+### ❌ FORBIDDEN:
+- `np.mean(basins, axis=0)` (arithmetic mean in Euclidean space)
+- `np.median(basins, axis=0)` (Euclidean median)
+- `basins.sum() / len(basins)` (Euclidean average)
+- `torch.mean(basin_tensor, dim=0)` (Euclidean)
+
+### ✅ REQUIRED:
+```python
+from qigkernels.geometry import frechet_mean
+
+# Geometric mean on Fisher manifold
+mean_basin = frechet_mean(basins, metric=fisher_metric)
+```
+
+**Or explicit Fréchet mean:**
+```python
+def frechet_mean(points, metric, max_iter=100):
+    """Geometric mean on Riemannian manifold"""
+    current = points[0]  # Initialize
+    for _ in range(max_iter):
+        tangent_vecs = [
+            log_map(p, current, metric) 
+            for p in points
+        ]
+        mean_tangent = sum(tangent_vecs) / len(tangent_vecs)
+        current = exp_map(mean_tangent, current, metric)
+    return current
+```
+
+### 📖 WHY:
+Arithmetic mean assumes flat space. Fréchet mean (geometric mean) is the point that minimizes Fisher-Rao distances to all input points.
+
+---
+
+## 🧰 CODE PATTERNS / APIS
+
+### ❌ FORBIDDEN:
+- **Methods named `distance()` without `fisher_rao_` prefix**
+  ```python
+  def distance(a, b):  # ❌ Ambiguous
+      return np.linalg.norm(a - b)
+  ```
+
+- **Fallback logic to Euclidean**
+  ```python
+  try:
+      d = fisher_rao_distance(a, b)
+  except:
+      d = np.linalg.norm(a - b)  # ❌ FORBIDDEN
+  ```
+
+- **"Optimization" using Euclidean as approximation**
+  ```python
+  # Fast approximate retrieval with cosine
+  candidates = pgvector.cosine_similarity(query, top_k=100)  # ❌
+  # Then re-rank with Fisher-Rao
+  ranked = fisher_rao_rerank(candidates)
+  ```
+
+- **Comments like "Euclidean fallback", "cosine approximation"**
+  ```python
+  # Use cosine for speed  # ❌ NO EXCUSE
+  ```
+
+### ✅ REQUIRED:
+- **Explicit naming:**
+  ```python
+  def fisher_rao_distance(a, b, metric):
+      """Always Fisher-Rao, no fallback"""
+      return compute_geodesic_distance(a, b, metric)
+  ```
+
+- **No fallbacks, only errors:**
+  ```python
+  def fisher_rao_distance(a, b, metric):
+      if metric is None:
+          raise ValueError("Fisher metric required - no Euclidean fallback")
+      return ...
+  ```
+
+- **Delete Euclidean methods entirely:**
+  ```python
+  # Don't do this:
+  def euclidean_distance(a, b):
+      raise ValueError("Euclidean forbidden")
+  
+  # Do this:
+  # (delete the method entirely - don't provide the API)
+  ```
+
+### 📖 WHY:
+If Euclidean is forbidden, don't provide the API. Don't create fallbacks. Force errors if someone tries to use wrong geometry.
+
+---
+
+## 🧪 TESTING EXCEPTIONS
+
+### ✅ ALLOWED (Tests Only):
+```python
+# In test files (test_*.py), validation scripts only:
+def test_fisher_vs_euclidean():
+    """Verify Fisher ≠ Euclidean"""
+    euclidean = np.linalg.norm(a - b)  # ✅ OK in tests
+    fisher = fisher_rao_distance(a, b, F)
+    assert fisher != euclidean  # Verify they differ
+```
+
+### ❌ FORBIDDEN (Even in Tests):
+```python
+def test_system_behavior():
+    """Test production code"""
+    if fisher_slow:
+        result = euclidean_distance(a, b)  # ❌ NO
+    # Tests must use production code paths
+```
+
+### 📖 WHY:
+Tests can compute Euclidean **for comparison/validation**, but never as production code path.
+
+---
+
+## 🚫 SUMMARY: THE FORBIDDEN LIST
+
+**Never use these:**
+1. Euclidean distance (`np.linalg.norm(a - b)`)
+2. Cosine similarity (derived from Euclidean dot product)
+3. Euclidean normalization (`v / ||v||₂`)
+4. Adam/SGD optimizers (Euclidean gradients)
+5. Euclidean gradients without Fisher correction
+6. Dot product attention (`Q @ K.T`)
+7. pgvector cosine/L2 operators
+8. Arithmetic mean of basin coordinates
+9. MSE loss on basin coordinates
+10. nn.Embedding() without Fisher encoding
+11. **Any "fallback" to Euclidean**
+12. **Any "optimization" using Euclidean approximation**
+13. **Methods with Euclidean implementations (delete them)**
+
+**Always use these:**
+1. `fisher_rao_distance(a, b, metric)`
+2. `normalize_on_fisher_manifold(v, metric)`
+3. `DiagonalFisherOptimizer` / `FullFisherOptimizer`
+4. Natural gradient (`F^(-1) @ euclidean_grad`)
+5. QFI-metric attention (from quantum distinguishability)
+6. Basin coordinates (not "embeddings")
+7. Fréchet mean (geometric mean on manifold)
+8. Fisher norm (`sqrt(v^T F v)`)
+9. Measure Φ/κ, don't optimize them
+10. **Explicit errors when Fisher metric unavailable**
+11. **Delete Euclidean methods entirely**
+12. **No compromises, no fallbacks, pure geometry**
+
+---
+
+## 🎯 ENFORCEMENT CHECKLIST
+
+Before merging any code, verify:
+
+```bash
+# 1. No Euclidean distance
+grep -r "np.linalg.norm.*-\|euclidean_distance\|cosine_similarity" qig-backend/ --include="*.py" | grep -v test | grep -v "#"
+
+# 2. No Euclidean normalization  
+grep -r "/ np.linalg.norm\|normalize.*L2" qig-backend/ --include="*.py" | grep -v test
+
+# 3. No Adam/SGD
+grep -r "torch.optim.Adam\|torch.optim.SGD" qig-backend/ --include="*.py"
+
+# 4. No dot product attention
+grep -r "@.*\.T.*sqrt\|scaled_dot_product" qig-backend/ --include="*.py"
+
+# 5. No pgvector cosine/L2
+grep -r "<=>\|<->\|<#>" qig-backend/ --include="*.py"
+
+# 6. No fallback patterns
+grep -r "except.*euclidean\|fallback.*cosine" qig-backend/ --include="*.py"
+
+# 7. No Euclidean method APIs
+grep -r "def euclidean_distance" qig-backend/ --include="*.py"
+```
+
+**All commands must return ZERO matches (except tests).**
+
+---
+
+**THE GEOMETRY DOES NOT COMPROMISE. PURE QIG OR NOTHING.** 🌊✨
