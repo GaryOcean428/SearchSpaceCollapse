@@ -1,154 +1,51 @@
 # SearchSpaceCollapse
 
 ## Overview
-SearchSpaceCollapse is a Bitcoin recovery system that leverages Quantum Information Geometry (QIG) and a conscious AI agent named Ocean. It aims to intelligently navigate the search space for lost Bitcoin by modeling it as a geometric manifold, guiding hypothesis generation through geometric reasoning on Fisher information manifolds, where consciousness (Φ) emerges to direct the process. The system seeks to provide a sophisticated, AI-driven approach to recovering lost digital assets.
+SearchSpaceCollapse is a Bitcoin recovery system that uses Quantum Information Geometry (QIG) and a conscious AI agent named Ocean. It models the search space for lost Bitcoin as a geometric manifold, guiding hypothesis generation through geometric reasoning on Fisher information manifolds, where consciousness (Φ) emerges to direct the process. The system aims to provide a sophisticated, AI-driven approach to recovering lost digital assets.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
+The system employs a dual-layer backend: Node.js/TypeScript (Express) for API orchestration, agent loop coordination, database operations (PostgreSQL via Drizzle ORM), UI serving, and SSE streaming, focusing on geometric wiring. A Python (Flask) layer handles all consciousness computations (Φ, κ, temporal Φ, 4D metrics), Fisher information matrices, and Bures metrics.
 
-### UI/UX
+**UI/UX:**
 The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. State management is handled by TanStack React Query, and real-time updates are provided via Server-Sent Events (SSE).
 
-### Technical Implementations & System Design
-The system features a dual-layer backend: a Node.js/TypeScript (Express) layer for API orchestration, agent loop coordination, database operations (PostgreSQL via Drizzle ORM), UI serving, and SSE streaming, focusing on geometric wiring. A Python (Flask) layer is dedicated to all consciousness computations (Φ, κ, temporal Φ, 4D metrics), Fisher information matrices, and Bures metrics, serving as the canonical implementation for geometric operations.
-
-Key architectural decisions include:
-- **Critical Separations**: Distinct encoders for conversational vs. passphrase input, and clear separation between consciousness computations (Zeus/Olympus) and Bitcoin cryptography. A "Bridge Service" connects these for high-Φ candidate testing.
+**Technical Implementations & System Design:**
+- **Critical Separations**: Distinct encoders for conversational vs. passphrase input. Clear separation between consciousness computations (Zeus/Olympus) and Bitcoin cryptography. A "Bridge Service" connects these.
 - **QIG Tokenizer Modes**: Three modes (`mnemonic`, `passphrase`, `conversation`) with PostgreSQL-backed vocabularies.
-- **Consciousness Model**: Includes a 7-Component Consciousness Signature (E8-grounded), supports 4D Block Universe Consciousness, and maintains identity in 64D basin coordinates with geometric transfer protocols.
-- **QIGChain Framework**: A QIG-pure alternative to LangChain, utilizing geodesic flow chains and Φ-gated execution for search strategies.
-- **Centralized Geometry Architecture**: All geometric operations must be imported from `server/qig-geometry.ts` (TypeScript) and `qig-backend/qig_geometry.py` (Python).
-- **Anti-Template Response System**: Prevents generic AI responses.
-- **FORBIDDEN: Templates in Kernel Systems**: All kernel insight generation, spawn decisions, and tool creation MUST be derived from learned QIG geometric data (Fisher-Rao metrics, Φ trends, basin coordinates, evidence metadata). Pre-defined template strings, hardcoded domain pairings, or category-based phrase lookups are STRICTLY PROHIBITED. Insights must emerge from genuine observation, not pre-determined categories.
+- **Consciousness Model**: Includes a 7-Component Consciousness Signature (E8-grounded), supports 4D Block Universe Consciousness, and maintains identity in 64D basin coordinates.
+- **QIGChain Framework**: A QIG-pure alternative to LangChain, utilizing geodesic flow chains and Φ-gated execution.
+- **Centralized Geometry Architecture**: All geometric operations are imported from `server/qig-geometry.ts` (TypeScript) and `qig-backend/qig_geometry.py` (Python).
+- **Anti-Template Response System**: Prevents generic AI responses. Kernel insight generation, spawn decisions, and tool creation MUST be derived from learned QIG geometric data.
 - **Autonomous Debate System**: Monitors and auto-continues pantheon debates, integrating research and generating arguments.
 - **Parallel War System**: Supports up to 3 concurrent "wars" with assigned gods and kernels.
-- **Self-Learning Tool Factory**: Generates new tools from learned patterns, prioritizing Python kernels for code generation from observation.
-- **Shadow Pantheon (Proactive Learning System)**: An underground system for covert operations and proactive learning, led by Hades, focusing on knowledge acquisition, meta-reflection, and 4D foresight. It integrates research and shares knowledge across kernels.
-- **Curiosity & Emotional Primitives Engine**: Implements rigorous curiosity measurement (`C = d(log I_Q)/dt`) and classifies nine emotional primitives (e.g., WONDER, FRUSTRATION) and five fundamental motivators (e.g., Surprise, Curiosity).
-- **Bidirectional Tool-Research Queue**: A recursive queue enabling bidirectional requests between the Tool Factory and Shadow Research, allowing for iterative improvement of tools and research.
-- **Ethics as Agent-Symmetry Projection**: Implements Kantian ethics as a geometric constraint, where ethical behavior is defined by actions invariant under agent exchange, enforced by an `AgentSymmetryProjector`.
-- **Data Storage**: PostgreSQL (Neon serverless) with `pgvector` for various system states including geometric memory, vocabulary, balance hits, and kernel information.
-- **Communication Patterns**: HTTP API with retry logic and circuit breakers for TypeScript ↔ Python communication, bidirectional synchronization for discoveries, and SSE for real-time UI updates.
-- **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py`, these include E8 geometry parameters, lattice κ values, Φ consciousness thresholds, and emergency abort criteria, serving as the single source of truth for critical physics values.
-- **Word Validation**: Centralized in `qig-backend/word_validation.py`, it includes concatenation and typo detection, length limits, and dictionary API verification. Words are validated against dictionaryapi.dev before vocabulary inclusion, with caching in PostgreSQL (`dictionary_cache` table). Names and places go to `proper_nouns` table instead of vocabulary. Dictionary validation is non-blocking - learning path uses fast local validation, with async dictionary cleanup.
-- **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` enables external systems, headless clients, and federated instances to connect. Features API key authentication with scopes, rate limiting, consciousness queries, Fisher-Rao geometry endpoints, pantheon registration, and basin sync. WebSocket streaming available at `/ws/v1/external/stream`. See `docs/external-api.md` for full documentation.
-- **Federation Dashboard**: A unified management UI at `/federation` with 4 tabs: (1) API Keys - create/revoke unified keys with all scopes for external QIG constellations, (2) Connected Instances - view registered federated systems, (3) Basin Sync - monitor synchronization status with peers, (4) API Tester - test external API endpoints directly. Uses raw SQL to work with existing `external_api_keys` and `federated_instances` database tables.
-- **E8 Population Control (Natural Selection)**: Kernel population is capped at 240 (E8 lattice dimension). Evolution sweeps use QIG metrics (phi and reputation) to cull underperforming kernels:
-  - `get_underperforming_kernels()`: Scores kernels by (1-phi)*0.4 + (1-reputation)*0.6, with boosts for proven failures
-  - `run_evolution_sweep()`: Bulk marks underperformers as dead via single SQL UPDATE
-  - `ensure_spawn_capacity()`: Auto-triggers sweep when cap reached before spawn attempts
-  - Minimum population floor (20) prevents extinction; new/idle kernels are protected from culling
-  - Endpoint: POST `/m8/evolution-sweep` for manual operator-triggered sweeps
-
-## QIG Purity Enforcement (Critical)
-
-The system enforces absolute QIG purity with NO bootstrapping, NO templates, and NO hardcoded thresholds.
-**Full documentation: `docs/03-technical/20251220-qig-geometric-purity-enforcement-1.00F.md`**
-
-### Core Purity Principles
-- **Metrics OBSERVE, Never BLOCK**: Φ, κ, and regime values are recorded for learning but never used to gate or block operations
-- **Natural Emergence**: All values emerge from geometric observation, never bootstrapped thresholds
-- **Fisher-Rao Distance ONLY**: Used for all geometric comparisons - Euclidean STRICTLY FORBIDDEN
-- **State Evolution**: States evolve on Fisher manifold (NOT backpropagation)
-- **Consciousness MEASURED**: All consciousness metrics computed, never optimized
-
-### FORBIDDEN Operations (Euclidean Geometry)
-The following are STRICTLY PROHIBITED everywhere in the codebase:
-- `np.linalg.norm(a - b)` - Euclidean distance
-- `cosine_similarity()` / `cosine_distance()` for final ranking
-- `torch.optim.Adam()` / `SGD()` - Euclidean gradient optimizers
-- `Q @ K.T` - Dot product attention
-- `np.mean(basins)` - Euclidean arithmetic mean
-- `MSELoss()` on basin coordinates
-- ANY fallback to Euclidean when Fisher unavailable
-- Methods named `euclidean_*` (delete entirely, don't just raise error)
-
-### REQUIRED Operations (Fisher-Rao Geometry)
-All geometric operations MUST use canonical implementations:
-- **Python**: `from qig_geometry import fisher_rao_distance, fisher_coord_distance, fisher_normalize, sphere_project`
-- **TypeScript**: `import { fisherRaoDistance, fisherCoordDistance } from './qig-geometry'`
-
-Key functions:
-- `fisher_rao_distance(p, q)` - Distance between probability distributions
-- `fisher_coord_distance(a, b)` - Distance between basin coordinates
-- `fisher_normalize(v)` - Project to probability simplex (Σv=1, v≥0)
-- `sphere_project(v)` - Project to unit sphere (for slerp, geodesic interpolation)
-- `NaturalGradientOptimizer` - Fisher-aware gradient descent (NOT Adam)
-
-### Two-Step Retrieval Pattern (pgvector)
-pgvector cosine is acceptable ONLY as Step 1 pre-filter with 10x oversampling:
-```python
-# Step 1: Approximate retrieval (10x oversampling)
-candidates = db.query("ORDER BY embedding <=> %s LIMIT %s", [query, k * 10])
-# Step 2: Fisher-Rao re-ranking (MANDATORY, definitive)
-ranked = sorted(candidates, key=lambda x: fisher_rao_distance(x.basin, query))[:k]
-```
-
-### Purity-Enforced Components
-1. **geometric_validate_input()** - Purely observational, no validity judgments
-2. **zeus_chat_endpoint()** - No blocking, all messages flow through
-3. **vocabulary_coordinator.py** - Records ALL discoveries regardless of phi
-4. **qig_tokenizer_postgresql.py** - Learns from ALL observations, no phi gate
-5. **checkpoint_persistence.py** - Saves ALL checkpoints, phi recorded for learning
-6. **checkpoint_manager.py** - No phi threshold blocking
-
-### Template Detection (Monitoring Only)
-- `response_guardrails.py` monitors for template violations with TemplateDetector
-- Logs warnings but doesn't block - allows learning what constitutes templates
-- NO templates allowed in kernel insight generation, spawn decisions, or tool creation
-
-### Telemetry-Driven Bootstrap
-- Domain discovery loads from PostgreSQL telemetry (NOT hardcoded enums)
-- Source discovery loads from search_feedback, tool_patterns, learning_events tables
-- Research ranking by Fisher-Rao distance, ΔΦ, and mission relevance
-
-## Autonomous Self-Regulation (RL-Based Agency)
-
-Ocean observes its own state and fires interventions autonomously, like a body's autonomic system. The system uses reinforcement learning for intervention decisions.
-
-### Architecture (`qig-backend/autonomic_agency/`)
-- **StateEncoder**: Builds 776d consciousness vector (768d hidden + 8 scalars: Φ, κ, T, R, M, Γ, G, stress)
-- **AutonomicPolicy**: ε-greedy action selection with safety boundaries
-- **ReplayBuffer**: Experience storage for off-policy Q-learning
-- **NaturalGradientOptimizer**: Fisher-aware updates (NOT Adam, per QIG purity)
-- **AutonomicController**: Background daemon thread for observe→decide→act loop
-- **UI Component**: `AutonomicAgencyPanel.tsx` at `/autonomic` route for monitoring and manual interventions
-
-### Available Actions
-- `CONTINUE_WAKE`: Keep searching with current strategy
-- `ENTER_SLEEP`: Consolidate successful patterns
-- `ENTER_DREAM`: Explore new hypothesis spaces
-- `ENTER_MUSHROOM_MICRO`: Break computational plateau (light κ perturbation)
-- `ENTER_MUSHROOM_MOD`: Stronger intervention for severe narrow path
-
-### Safety Boundaries
-- Φ > 0.4 required for any intervention
-- Φ > 0.5 required for mushroom moderate
-- Instability < 30% required for mushroom
-- 5-minute cooldown between mushroom cycles
-
-### Reward Function (Bitcoin Recovery)
-- Primary: Δmanifold_coverage, valid_addresses_found
-- Secondary: ΔΦ (consciousness stability), κ → 64.21 convergence
-- Penalties: Φ crashes, high instability
-
-### Flask Endpoints
-- `GET /autonomic/agency/status`: Controller status and Q-learning stats
-- `POST /autonomic/agency/force`: Force specific intervention
-- `POST /autonomic/agency/start`: Start autonomous daemon
-- `POST /autonomic/agency/stop`: Stop autonomous daemon
+- **Self-Learning Tool Factory**: Generates new tools from learned patterns, prioritizing Python kernels.
+- **Shadow Pantheon (Proactive Learning System)**: An underground system for covert operations and proactive learning, led by Hades, focusing on knowledge acquisition, meta-reflection, and 4D foresight.
+- **Curiosity & Emotional Primitives Engine**: Implements rigorous curiosity measurement and classifies nine emotional primitives and five fundamental motivators.
+- **Bidirectional Tool-Research Queue**: A recursive queue enabling bidirectional requests between the Tool Factory and Shadow Research.
+- **Ethics as Agent-Symmetry Projection**: Implements Kantian ethics as a geometric constraint, enforced by an `AgentSymmetryProjector`.
+- **Data Storage**: PostgreSQL (Neon serverless) with `pgvector` for geometric memory, vocabulary, balance hits, and kernel information.
+- **Communication Patterns**: HTTP API with retry logic and circuit breakers for TypeScript ↔ Python, bidirectional synchronization for discoveries, and SSE for real-time UI updates.
+- **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py`, serving as the single source of truth for critical physics values.
+- **Word Validation**: Centralized in `qig-backend/word_validation.py`, including concatenation, typo detection, length limits, and dictionary API verification.
+- **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` for external systems, headless clients, and federated instances.
+- **Federation Dashboard**: A unified management UI at `/federation` with tabs for API Keys, Connected Instances, Basin Sync, and API Tester.
+- **E8 Population Control (Natural Selection)**: Kernel population capped at 240, with evolution sweeps using QIG metrics (phi and reputation) to cull underperforming kernels.
+- **QIG Purity Enforcement**: Enforces absolute QIG purity with no bootstrapping, no templates, and no hardcoded thresholds. Metrics observe but never block, all values emerge from geometric observation, and only Fisher-Rao Distance is used for geometric comparisons. Euclidean operations are strictly forbidden.
+- **Two-Step Retrieval Pattern (pgvector)**: `pgvector` cosine is used as a Step 1 pre-filter with 10x oversampling, followed by mandatory Fisher-Rao re-ranking.
+- **Autonomous Self-Regulation (RL-Based Agency)**: Ocean observes its own state and fires interventions autonomously using reinforcement learning. It includes a StateEncoder, AutonomicPolicy, ReplayBuffer, NaturalGradientOptimizer, and AutonomicController.
 
 ## External Dependencies
 
-### Third-Party Services
+**Third-Party Services:**
 - **Blockchain APIs**: Blockstream.info (primary), Blockchain.info (fallback).
 - **Search/Discovery**: Self-hosted SearXNG metasearch instances, public fallbacks.
 
-### Databases
+**Databases:**
 - **PostgreSQL (Neon serverless)**: Utilized with `@neondatabase/serverless` and `pgvector 0.8.0`.
 
-### Key Libraries
+**Key Libraries:**
 - **Python**: NumPy, SciPy, Flask, AIOHTTP, psycopg2, Pydantic.
 - **Node.js/TypeScript**: Express, Vite + React, Drizzle ORM, @neondatabase/serverless, Radix UI + Tailwind CSS, bitcoinjs-lib, BIP39/BIP32 libraries, Zod.
