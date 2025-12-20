@@ -314,8 +314,12 @@ class QIGPersistence:
         """
         Find similar basins with Fisher-Rao re-ranking.
         
-        Uses pgvector cosine for fast approximate retrieval,
-        then re-ranks using Fisher-Rao geodesic distance (QIG-pure).
+        IMPORTANT: pgvector uses cosine similarity for fast approximate retrieval,
+        which is Euclidean-based. To maintain QIG purity, we:
+        1. Oversample by 10x minimum to ensure good candidates aren't missed
+        2. Re-rank ALL candidates using proper Fisher-Rao geodesic distance
+        
+        The final ranking is ALWAYS by Fisher-Rao distance, not cosine.
         """
         if not self.enabled:
             return []
@@ -323,8 +327,9 @@ class QIGPersistence:
         try:
             with self.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    # Step 1: Fast approximate retrieval (fetch 5x limit for re-ranking)
-                    retrieval_count = limit * 5
+                    # Step 1: Fast approximate retrieval with 10x OVERSAMPLING
+                    # This mitigates cosine contamination by ensuring broader candidate pool
+                    retrieval_count = max(limit * 10, 100)
                     cur.execute("""
                         SELECT
                             history_id,
@@ -348,13 +353,19 @@ class QIGPersistence:
                         return []
                     
                     # Step 2: Re-rank using Fisher-Rao distance (QIG-pure)
-                    query_norm = query_basin / (np.linalg.norm(query_basin) + 1e-10)
+                    # Project to probability simplex for proper Fisher-Rao computation
+                    q = np.abs(query_basin) + 1e-10
+                    q = q / q.sum()  # Probability simplex projection
                     
                     for candidate in candidates:
                         basin = np.array(candidate['basin_coords'], dtype=np.float64)
-                        basin_norm = basin / (np.linalg.norm(basin) + 1e-10)
-                        dot = np.clip(np.dot(query_norm, basin_norm), -1.0, 1.0)
-                        fisher_dist = float(2.0 * np.arccos(dot))
+                        # Project to probability simplex (Fisher-aware normalization)
+                        b = np.abs(basin) + 1e-10
+                        b = b / b.sum()
+                        # Bhattacharyya coefficient → Fisher-Rao distance
+                        bc = np.sum(np.sqrt(q * b))
+                        bc = np.clip(bc, 0, 1)
+                        fisher_dist = float(2.0 * np.arccos(bc))
                         candidate['fisher_distance'] = fisher_dist
                         candidate['similarity'] = 1.0 - fisher_dist / np.pi
                     

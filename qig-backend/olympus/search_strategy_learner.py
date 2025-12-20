@@ -372,20 +372,18 @@ class SearchFeedbackPersistence:
         self,
         query_basin: np.ndarray,
         top_n: int = 10,
-        retrieval_count: int = 100,
     ) -> List[FeedbackRecord]:
         """
         Find similar feedback records using QIG-pure approach:
-        1. Retrieve top candidates via PostgreSQL IVFFLAT (cosine ops - fast but approximate)
+        1. Retrieve candidates via PostgreSQL IVFFLAT (cosine ops - fast but approximate)
         2. Re-rank with proper Fisher-Rao geodesic distance (accurate)
         
-        This addresses the geometric purity violation where IVFFLAT uses
-        Euclidean cosine ops instead of Fisher-Rao manifold distance.
+        IMPORTANT: pgvector uses cosine similarity which is Euclidean-based.
+        We mitigate this contamination by:
+        - Using 10x MINIMUM oversampling to ensure good candidates aren't missed
+        - Re-ranking ALL candidates using proper Fisher-Rao geodesic distance
         
-        Args:
-            query_basin: Query basin coordinates (64D)
-            top_n: Number of final results to return
-            retrieval_count: Number of candidates to retrieve before re-ranking
+        The final ranking is ALWAYS by Fisher-Rao distance, not cosine.
             
         Returns:
             List of FeedbackRecords sorted by Fisher-Rao distance
@@ -396,8 +394,9 @@ class SearchFeedbackPersistence:
         try:
             with self.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                    # Step 1: Fast approximate retrieval using IVFFLAT cosine ops
-                    # We retrieve more than needed, then re-rank with Fisher-Rao
+                    # Step 1: Fast approximate retrieval with 10x MINIMUM oversampling
+                    # This mitigates cosine contamination by ensuring broader candidate pool
+                    retrieval_count = max(top_n * 10, 100)
                     basin_str = "[" + ",".join(str(float(x)) for x in query_basin) + "]"
                     cur.execute("""
                         SELECT * FROM search_feedback
