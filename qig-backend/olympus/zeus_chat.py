@@ -221,8 +221,9 @@ class ZeusConversationHandler:
                 session_id=session_id,
                 user_id=user_id
             )
-            messages = self._conversation_persistence.get_session_messages(self._current_session_id)
-            if messages:
+            result = self._conversation_persistence.get_session_messages(self._current_session_id, user_id=user_id)
+            messages, is_owned = result if isinstance(result, tuple) else (result, True)
+            if messages and is_owned:
                 self.conversation_history = [
                     {'role': m['role'], 'content': m['content'], 'timestamp': m['created_at'].timestamp() if hasattr(m['created_at'], 'timestamp') else 0}
                     for m in messages
