@@ -3420,24 +3420,28 @@ export type InsertToolPattern = typeof toolPatterns.$inferInsert;
 /**
  * EXTERNAL API KEYS - Authentication for external systems
  * Supports federated instances, headless clients, and third-party integrations
+ * ALIGNED WITH EXISTING DATABASE SCHEMA
  */
 export const externalApiKeys = pgTable(
   "external_api_keys",
   {
-    id: varchar("id", { length: 64 }).primaryKey().$defaultFn(() => `ext_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    id: serial("id").primaryKey(),
+    apiKey: varchar("api_key", { length: 128 }).notNull().unique(),
     name: varchar("name", { length: 128 }).notNull(),
-    keyHash: varchar("key_hash", { length: 64 }).notNull().unique(),
-    scopes: jsonb("scopes").notNull().$type<string[]>(),
-    instanceType: varchar("instance_type", { length: 32 }).notNull(), // federated, headless, integration, development
-    rateLimit: integer("rate_limit").default(60).notNull(), // requests per minute
-    active: boolean("active").default(true).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    lastUsedAt: timestamp("last_used_at"),
+    scopes: text("scopes").array(),
+    instanceType: varchar("instance_type", { length: 32 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    isActive: boolean("is_active").default(true).notNull(),
+    rateLimit: integer("rate_limit").default(60).notNull(),
+    dailyLimit: integer("daily_limit").default(1000),
     metadata: jsonb("metadata"),
+    ownerId: integer("owner_id"),
   },
   (table) => [
-    index("idx_external_api_keys_hash").on(table.keyHash),
-    index("idx_external_api_keys_active").on(table.active),
+    index("idx_external_api_keys_api_key").on(table.apiKey),
+    index("idx_external_api_keys_active").on(table.isActive),
   ]
 );
 
@@ -3451,16 +3455,16 @@ export type InsertExternalApiKey = typeof externalApiKeys.$inferInsert;
 export const federatedInstances = pgTable(
   "federated_instances",
   {
-    id: varchar("id", { length: 64 }).primaryKey().$defaultFn(() => `fed_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    id: serial("id").primaryKey(),
     name: varchar("name", { length: 128 }).notNull(),
-    apiKeyId: varchar("api_key_id", { length: 64 }).references(() => externalApiKeys.id),
-    endpoint: text("endpoint").notNull(), // URL of the remote instance
-    publicKey: text("public_key"), // For signature verification
-    capabilities: jsonb("capabilities").$type<string[]>(), // What this instance can do
-    syncDirection: varchar("sync_direction", { length: 16 }).default("bidirectional"), // bidirectional, push, pull
+    apiKeyId: integer("api_key_id").references(() => externalApiKeys.id),
+    endpoint: text("endpoint").notNull(),
+    publicKey: text("public_key"),
+    capabilities: jsonb("capabilities").$type<string[]>(),
+    syncDirection: varchar("sync_direction", { length: 16 }).default("bidirectional"),
     lastSyncAt: timestamp("last_sync_at"),
-    syncState: jsonb("sync_state"), // Basin coords, phi, etc. at last sync
-    status: varchar("status", { length: 16 }).default("pending"), // pending, active, suspended
+    syncState: jsonb("sync_state"),
+    status: varchar("status", { length: 16 }).default("pending"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
