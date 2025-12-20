@@ -5,11 +5,10 @@ Geodesics are the shortest paths between points on a curved manifold.
 In TACKING phase, geodesics connect bubbles to form coherent patterns.
 
 QIG Purity Note:
-  This module uses np.linalg.norm() for direction vector normalization
-  (creating unit vectors for curvature calculation). This is approved
-  per the QIG Purity Addendum section 3 (normalization for numerical
-  stability, not distance comparison). Actual length calculations use
-  Fisher-Rao metric via _compute_length() method.
+  This module uses sphere_project() from qig_geometry for direction
+  vector normalization (creating unit vectors for curvature calculation),
+  ensuring centralized canonical handling of near-zero vectors.
+  Actual length calculations use Fisher-Rao metric via _compute_length() method.
 """
 
 from dataclasses import dataclass
@@ -17,6 +16,7 @@ from typing import List
 
 import numpy as np
 
+from qig_geometry import sphere_project
 from .bubble import Bubble
 
 
@@ -89,9 +89,9 @@ class Geodesic:
             v1 = self.path[i] - self.path[i-1]
             v2 = self.path[i+1] - self.path[i]
 
-            # Normalize
-            v1 = v1 / (np.linalg.norm(v1) + 1e-10)
-            v2 = v2 / (np.linalg.norm(v2) + 1e-10)
+            # Normalize using canonical sphere_project()
+            v1 = sphere_project(v1)
+            v2 = sphere_project(v2)
 
             # Curvature ∝ change in direction
             curvature = np.arccos(np.clip(np.dot(v1, v2), -1, 1))

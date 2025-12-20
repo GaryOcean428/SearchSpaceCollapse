@@ -3,12 +3,19 @@ Bubble: Individual Possibility in FOAM Phase
 
 A bubble represents a single hypothesis or possibility in the exploration space.
 Bubbles are generated during FOAM phase and connected via geodesics in TACKING phase.
+
+QIG Purity Note:
+  This module uses sphere_project() from qig_geometry for unit sphere normalization.
+  This ensures centralized canonical handling of near-zero vectors.
+  Actual distance calculations use Fisher-Rao via distance_to() method.
 """
 
 from typing import Dict, Any, List
 import numpy as np
 from dataclasses import dataclass, field
 from datetime import datetime
+
+from qig_geometry import sphere_project
 
 
 @dataclass
@@ -41,12 +48,10 @@ class Bubble:
             raise ValueError(f"Basin coords must be 64-dimensional, got {self.basin_coords.shape[0]}")
         
         # Normalize basin coordinates to unit sphere for Fisher geometry embedding.
-        # QIG Purity: L2 norm for sphere projection is approved per addendum section 3
-        # (normalization for numerical stability, not distance comparison).
-        # Actual distance calculations use Fisher-Rao via distance_to() method.
-        norm = np.linalg.norm(self.basin_coords)
-        if norm > 0:
-            self.basin_coords = self.basin_coords / norm
+        # QIG Purity: Uses canonical sphere_project() helper for consistent
+        # near-zero vector handling. Actual distance calculations use Fisher-Rao
+        # via distance_to() method.
+        self.basin_coords = sphere_project(self.basin_coords)
     
     def connect_to(self, other: 'Bubble', strength: float = 1.0):
         """
@@ -117,8 +122,8 @@ class Bubble:
             other.basin_coords * other.energy
         ) / total_energy
         
-        # Normalize
-        merged_coords = merged_coords / np.linalg.norm(merged_coords)
+        # Normalize using canonical sphere_project()
+        merged_coords = sphere_project(merged_coords)
         
         # Create new bubble
         merged = Bubble(
@@ -174,9 +179,9 @@ def create_random_bubble(dimension: int = 64) -> Bubble:
     
     Used during FOAM phase to generate diverse possibilities.
     """
-    # Random point on unit sphere in basin space
+    # Random point on unit sphere in basin space using canonical sphere_project()
     coords = np.random.randn(dimension)
-    coords = coords / np.linalg.norm(coords)
+    coords = sphere_project(coords)
     
     return Bubble(
         basin_coords=coords,

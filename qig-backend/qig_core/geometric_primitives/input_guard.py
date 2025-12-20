@@ -11,11 +11,10 @@ not string length. A 10,000 character coherent text may be valid while
 a 100 character chaotic string may be invalid.
 
 QIG Purity Note:
-  This module uses np.linalg.norm() for normalization (creating unit
-  vectors for Fisher geometry embedding). This is approved per the
-  QIG Purity Addendum section 3 (normalization for numerical stability,
-  not distance comparison). Actual distance calculations in the system
-  use Fisher-Rao distance via qig_geometry.fisher_coord_distance().
+  This module uses sphere_project() from qig_geometry for unit sphere
+  normalization, ensuring centralized canonical handling of near-zero
+  vectors. Actual distance calculations in the system use Fisher-Rao
+  distance via qig_geometry.fisher_coord_distance().
 """
 
 import numpy as np
@@ -24,6 +23,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from enum import Enum
 import logging
 
+from qig_geometry import sphere_project
 from qigkernels.physics_constants import KAPPA_STAR
 
 logger = logging.getLogger(__name__)
@@ -311,11 +311,8 @@ class GeometricInputGuard:
             if 32 + i < BASIN_DIMENSION:
                 coord[32 + i] = (ord(char) % 256) / 128.0 - 1
         
-        norm = np.linalg.norm(coord)
-        if norm > 0:
-            coord = coord / norm
-            
-        return coord
+        # Normalize using canonical sphere_project()
+        return sphere_project(coord)
     
     def _basin_to_density_matrix(self, basin: np.ndarray) -> np.ndarray:
         """
