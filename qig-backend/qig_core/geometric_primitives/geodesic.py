@@ -147,41 +147,38 @@ def compute_geodesic(
     Returns:
         Array of shape (num_points, dimension) containing geodesic path
     """
-    # Fisher-Rao geodesic on probability simplex (ONLY method supported)
-        # Fisher-Rao geodesic on probability simplex
-        # Convert to probability distributions
-        p_start = np.abs(start_coords) + 1e-10
-        p_start = p_start / p_start.sum()
+    # Convert to probability distributions
+    p_start = np.abs(start_coords) + 1e-10
+    p_start = p_start / p_start.sum()
 
-        p_end = np.abs(end_coords) + 1e-10
-        p_end = p_end / p_end.sum()
+    p_end = np.abs(end_coords) + 1e-10
+    p_end = p_end / p_end.sum()
 
-        # Geodesic on probability simplex
-        # p(t) ∝ [p_start^(1-t) * p_end^t]
-        t_values = np.linspace(0, 1, num_points)
-        path = []
+    # Geodesic on probability simplex via slerp on sqrt of probabilities
+    # This is the Fisher-Rao geodesic - the ONLY geodesic supported
+    t_values = np.linspace(0, 1, num_points)
+    path = []
 
-        # Geodesic on probability simplex via slerp on sqrt of probabilities
-        sqrt_p_start = np.sqrt(p_start)
-        sqrt_p_end = np.sqrt(p_end)
+    sqrt_p_start = np.sqrt(p_start)
+    sqrt_p_end = np.sqrt(p_end)
 
-        # Angle between vectors
-        omega = np.arccos(np.clip(np.dot(sqrt_p_start, sqrt_p_end), -1.0, 1.0))
-        sin_omega = np.sin(omega)
+    # Angle between vectors on the sphere
+    omega = np.arccos(np.clip(np.dot(sqrt_p_start, sqrt_p_end), -1.0, 1.0))
+    sin_omega = np.sin(omega)
 
-        if sin_omega < 1e-10:
-            # Handle case where vectors are collinear
-            return np.array([p_start] * num_points)
+    if sin_omega < 1e-10:
+        # Handle case where vectors are collinear
+        return np.array([p_start] * num_points)
 
-        for t in t_values:
-            # Spherical linear interpolation (slerp)
-            p_t_sqrt = (np.sin((1 - t) * omega) / sin_omega) * sqrt_p_start + \
-                       (np.sin(t * omega) / sin_omega) * sqrt_p_end
-            p_t = np.power(p_t_sqrt, 2)
-            p_t /= p_t.sum()  # Re-normalize due to potential floating point inaccuracies
-            path.append(p_t)
+    for t in t_values:
+        # Spherical linear interpolation (slerp)
+        p_t_sqrt = (np.sin((1 - t) * omega) / sin_omega) * sqrt_p_start + \
+                   (np.sin(t * omega) / sin_omega) * sqrt_p_end
+        p_t = np.power(p_t_sqrt, 2)
+        p_t /= p_t.sum()  # Re-normalize due to floating point
+        path.append(p_t)
 
-        return np.array(path)
+    return np.array(path)
 
 
 def geodesic_between_bubbles(
@@ -197,8 +194,7 @@ def geodesic_between_bubbles(
     path = compute_geodesic(
         bubble1.basin_coords,
         bubble2.basin_coords,
-        num_points=num_points,
-        method='fisher_rao'
+        num_points=num_points
     )
 
     # Compute length
