@@ -21,6 +21,7 @@ import * as path from 'path';
 import { fisherCoordDistance } from '../qig-universal';
 import { tps, TemporalPositioningSystem, type TPSSyncData } from './temporal-positioning-system';
 import { SearXNGGeometricAdapter, createSearXNGAdapter } from './searxng-adapter';
+import { MultiSearchOrchestrator, getMultiSearchOrchestrator } from './multi-search-orchestrator';
 import { quantumProtocol, QuantumDiscoveryProtocol, type QuantumSyncData } from './quantum-protocol';
 import {
   type BlockUniverseMap,
@@ -67,6 +68,7 @@ interface DiscoveryResult {
 export class OceanDiscoveryController {
   private tps: TemporalPositioningSystem;
   private searchAdapter: SearXNGGeometricAdapter;
+  private multiSearch: MultiSearchOrchestrator;
   private quantum: QuantumDiscoveryProtocol;
   
   private state: DiscoveryState | null = null;
@@ -75,9 +77,10 @@ export class OceanDiscoveryController {
   constructor() {
     this.tps = tps;
     this.searchAdapter = createSearXNGAdapter();
+    this.multiSearch = getMultiSearchOrchestrator({ mode: 'parallel' });
     this.quantum = quantumProtocol;
     
-    console.log('[OceanDiscovery] Controller initialized with SearXNG (FREE search)');
+    console.log('[OceanDiscovery] Controller initialized with MultiSearch (SearXNG + Google)');
   }
   
   /**
@@ -284,10 +287,10 @@ export class OceanDiscoveryController {
       return { discoveries: 0, patterns: 0, entropyGained: 0 };
     }
     
-    console.log(`\n🔍 DISCOVERING CULTURAL CONTEXT (SearXNG - FREE)\n`);
+    console.log(`\n🔍 DISCOVERING CULTURAL CONTEXT (MultiSearch: SearXNG + Google)\n`);
     
-    // Discover what exists near target coordinates
-    const discoveries = await this.searchAdapter.discoverAtCoordinates(
+    // Discover what exists near target coordinates using multi-provider search
+    const discoveries = await this.multiSearch.discoverAtCoordinates(
       this.state.targetCoords,
       this.state.targetCoords.phi > 0.7 ? 1.5 : 2.0  // Tighter radius for high-Φ targets
     );
@@ -708,7 +711,8 @@ export class OceanDiscoveryController {
       text: keywords.join(' ') + ` bitcoin ${era}`,
       maxResults: 10
     };
-    const results = await this.searchAdapter.search(query);
+    // Use multi-provider search for better coverage
+    const results = await this.multiSearch.search(query);
     return results.map(r => ({
       content: r.content,
       url: r.url,
