@@ -6,6 +6,7 @@
  * Tracks all tested phrases to avoid wasteful re-testing
  * Solves the "148 addresses re-tested forever" problem
  * 
+ * CACHING: Uses Redis (if available) + in-memory fallback
  * BATCHING: Uses write buffer to reduce DB pressure (fixes backpressure errors)
  */
 
@@ -17,10 +18,21 @@ import {
   type InsertTestedPhrase,
 } from '@shared/schema';
 import { eq, sql, and, isNull, desc } from 'drizzle-orm';
+import { 
+  isRedisAvailable, 
+  cacheHExists, 
+  cacheHSet, 
+  cacheHGet,
+  CACHE_KEYS,
+  CACHE_TTL 
+} from './redis-cache';
 
-// In-memory cache for quick lookups (most recent 10,000 phrases)
+// In-memory cache for quick lookups (fallback when Redis unavailable)
 const phraseCache = new Map<string, TestedPhrase>();
 const CACHE_SIZE = 10000;
+
+// Redis hash key for tested phrases
+const REDIS_TESTED_HASH = 'qig:tested_phrases';
 
 // ============================================================================
 // WRITE BUFFER - Batches inserts to reduce DB pressure
@@ -135,14 +147,29 @@ export class TestedPhrasesRegistryDB {
   /**
    * Check if a phrase has already been tested
    * Returns the previous test result if found
+   * Cache priority: in-memory → Redis → PostgreSQL
    */
   async wasTested(phrase: string): Promise<TestedPhrase | null> {
-    // Check cache first
+    // 1. Check in-memory cache first (fastest)
     if (phraseCache.has(phrase)) {
       return phraseCache.get(phrase)!;
     }
     
-    // Check database
+    // 2. Check Redis cache (fast, distributed)
+    if (isRedisAvailable()) {
+      try {
+        const redisResult = await cacheHGet<TestedPhrase>(REDIS_TESTED_HASH, phrase);
+        if (redisResult) {
+          // Populate in-memory cache
+          phraseCache.set(phrase, redisResult);
+          return redisResult;
+        }
+      } catch {
+        // Redis error - continue to DB
+      }
+    }
+    
+    // 3. Check database (slowest but authoritative)
     if (!db) {
       return null;
     }
@@ -160,10 +187,15 @@ export class TestedPhrasesRegistryDB {
     );
     
     if (result) {
-      // Add to cache
+      // Populate both caches
       phraseCache.set(phrase, result);
       
-      // Maintain cache size
+      // Also cache in Redis (non-blocking)
+      if (isRedisAvailable()) {
+        cacheHSet(REDIS_TESTED_HASH, phrase, result).catch(() => {});
+      }
+      
+      // Maintain in-memory cache size
       if (phraseCache.size > CACHE_SIZE) {
         const firstKey = phraseCache.keys().next().value;
         if (firstKey !== undefined) {
@@ -233,10 +265,15 @@ export class TestedPhrasesRegistryDB {
     writeBuffer.push(record);
     scheduleFlush();
     
-    // Update cache immediately (cache is source of truth until flush)
+    // Update in-memory cache immediately
     phraseCache.set(phrase, record as TestedPhrase);
     
-    // Maintain cache size
+    // Also cache in Redis (non-blocking, fire-and-forget)
+    if (isRedisAvailable()) {
+      cacheHSet(REDIS_TESTED_HASH, phrase, record).catch(() => {});
+    }
+    
+    // Maintain in-memory cache size
     if (phraseCache.size > CACHE_SIZE) {
       const firstKey = phraseCache.keys().next().value;
       if (firstKey !== undefined) {
