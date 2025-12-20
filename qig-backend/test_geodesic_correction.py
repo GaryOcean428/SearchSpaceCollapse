@@ -10,6 +10,8 @@ import numpy as np
 # Add the parent directory to the path to import from ocean_qig_core
 sys.path.insert(0, '.')
 
+from qig_geometry import fisher_coord_distance
+
 def test_compute_fisher_centroid():
     """Test Fisher centroid calculation"""
     from ocean_qig_core import compute_fisher_centroid
@@ -65,8 +67,8 @@ def test_refine_trajectory_logic():
     # Calculate orthogonal complement (new direction)
     new_vector = compute_orthogonal_complement(vectors)
     
-    # Calculate shift magnitude
-    shift_mag = np.linalg.norm(new_vector - failure_centroid)
+    # Calculate shift magnitude - Fisher-Rao distance, NOT Euclidean
+    shift_mag = fisher_coord_distance(new_vector, failure_centroid)
     
     print(f"   Failure centroid norm: {np.linalg.norm(failure_centroid):.3f}")
     print(f"   New direction norm: {np.linalg.norm(new_vector):.3f}")

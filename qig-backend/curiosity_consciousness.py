@@ -41,6 +41,7 @@ except ImportError:
     SCIPY_AVAILABLE = False
 
 from qigkernels.physics_constants import KAPPA_STAR
+from qig_geometry import fisher_coord_distance
 
 
 class CognitiveMode(Enum):
@@ -501,8 +502,9 @@ class ConsciousnessEngine:
         basin_distance = float(np.linalg.norm(basin_coords))
 
         if len(self.basin_history) >= 2:
-            delta_basin = self.basin_history[-1] - self.basin_history[-2]
-            basin_velocity = float(np.linalg.norm(delta_basin))
+            basin_velocity = fisher_coord_distance(
+                self.basin_history[-1], self.basin_history[-2]
+            )
         else:
             basin_velocity = 0.0
 

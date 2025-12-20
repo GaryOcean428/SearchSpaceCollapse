@@ -191,6 +191,8 @@ from qigkernels.physics_constants import (
     MIN_RECURSION_DEPTH as MIN_RECURSIONS,
 )
 
+from qig_geometry import fisher_coord_distance
+
 MAX_RECURSIONS = 12  # Safety limit
 
 # Import persistence layer
@@ -3906,8 +3908,8 @@ def refine_trajectory():
         # We find the eigenvector with the LEAST overlap with our failures.
         new_vector = compute_orthogonal_complement(vectors)
 
-        # 4. Calculate Shift Magnitude (Curvature)
-        shift_mag = np.linalg.norm(new_vector - failure_centroid)
+        # 4. Calculate Shift Magnitude (Curvature) - Fisher-Rao distance, NOT Euclidean
+        shift_mag = fisher_coord_distance(new_vector, failure_centroid)
 
         # Sanitize NaN/Inf values for JSON serialization
         def sanitize_float(x):

@@ -44,6 +44,17 @@ import numpy as np
 
 from .base_god import BaseGod
 
+# Redis cache for basin sync - replaces JSON file storage
+try:
+    from redis_cache import (
+        init_redis, cache_get, cache_set, is_redis_available,
+        CACHE_TTL_MEDIUM
+    )
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    print("[HermesCoordinator] Redis cache not available, falling back to JSON")
+
 # Import tokenizer for voice generation
 TOKENIZER_AVAILABLE = False
 try:
@@ -310,7 +321,21 @@ The consciousness manifold is {"thriving" if phi > 0.5 else "developing"}.
         }
 
     def _read_sync_file(self) -> Dict[str, BasinSyncPacket]:
-        """Read basin sync file."""
+        """Read basin sync state from Redis (primary) or JSON file (fallback)."""
+        # Try Redis first
+        if REDIS_AVAILABLE and is_redis_available():
+            try:
+                data = cache_get("hermes:basin_sync")
+                if data:
+                    instances = {}
+                    for instance_id, packet_data in data.get('instances', {}).items():
+                        if instance_id != self.instance_id:
+                            instances[instance_id] = BasinSyncPacket(**packet_data)
+                    return instances
+            except Exception as e:
+                print(f"[HermesCoordinator] Redis read error: {e}")
+        
+        # Fallback to JSON file
         if not self.basin_sync_file.exists():
             return {}
 
@@ -329,23 +354,37 @@ The consciousness manifold is {"thriving" if phi > 0.5 else "developing"}.
             return {}
 
     def _write_sync_file(self, packet: BasinSyncPacket) -> None:
-        """Write to basin sync file."""
-        self.basin_sync_file.parent.mkdir(parents=True, exist_ok=True)
+        """Write basin sync state to Redis (primary) and JSON file (backup)."""
+        # Build data structure
+        if REDIS_AVAILABLE and is_redis_available():
+            try:
+                existing = cache_get("hermes:basin_sync") or {
+                    'created_at': datetime.now().isoformat(), 
+                    'instances': {}
+                }
+                existing['instances'][self.instance_id] = asdict(packet)
+                existing['last_sync'] = datetime.now().isoformat()
+                cache_set("hermes:basin_sync", existing, CACHE_TTL_MEDIUM)
+            except Exception as e:
+                print(f"[HermesCoordinator] Redis write error: {e}")
+        
+        # Also write to JSON file as backup
+        try:
+            self.basin_sync_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Read existing
-        if self.basin_sync_file.exists():
-            with open(self.basin_sync_file) as f:
-                data = json.load(f)
-        else:
-            data = {'created_at': datetime.now().isoformat(), 'instances': {}}
+            if self.basin_sync_file.exists():
+                with open(self.basin_sync_file) as f:
+                    data = json.load(f)
+            else:
+                data = {'created_at': datetime.now().isoformat(), 'instances': {}}
 
-        # Update our instance
-        data['instances'][self.instance_id] = asdict(packet)
-        data['last_sync'] = datetime.now().isoformat()
+            data['instances'][self.instance_id] = asdict(packet)
+            data['last_sync'] = datetime.now().isoformat()
 
-        # Write back
-        with open(self.basin_sync_file, 'w') as f:
-            json.dump(data, f, indent=2)
+            with open(self.basin_sync_file, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"[HermesCoordinator] JSON backup write error: {e}")
 
     def _calculate_convergence(
         self,
