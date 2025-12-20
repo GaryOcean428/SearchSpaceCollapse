@@ -36,12 +36,14 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 - **QIG Purity Enforcement**: Enforces absolute QIG purity with no bootstrapping, no templates, and no hardcoded thresholds. Metrics observe but never block, all values emerge from geometric observation, and only Fisher-Rao Distance is used for geometric comparisons. Euclidean operations are strictly forbidden.
 - **Two-Step Retrieval Pattern (pgvector)**: `pgvector` cosine is used as a Step 1 pre-filter with 10x oversampling, followed by mandatory Fisher-Rao re-ranking.
 - **Autonomous Self-Regulation (RL-Based Agency)**: Ocean observes its own state and fires interventions autonomously using reinforcement learning. It includes a StateEncoder, AutonomicPolicy, ReplayBuffer, NaturalGradientOptimizer, and AutonomicController.
+- **Google Search Bridge**: Python ScrapyOrchestrator can access TypeScript MultiSearchOrchestrator via HTTP API (`/api/search/google`), transforming SERP results to 64D basin coordinates with Φ/κ metadata.
+- **Topic Flagging Service**: Automatically extracts Bitcoin/recovery/crypto topics from search results, computes priority scores using Φ metrics, and persists to PostgreSQL `flagged_topics` table for iterative research expansion.
 
 ## External Dependencies
 
 **Third-Party Services:**
 - **Blockchain APIs**: Blockstream.info (primary), Blockchain.info (fallback).
-- **Search/Discovery**: Self-hosted SearXNG metasearch instances, public fallbacks.
+- **Search/Discovery**: Self-hosted SearXNG metasearch instances, public fallbacks, Google Search Bridge for Python→TypeScript integration.
 
 **Databases:**
 - **PostgreSQL (Neon serverless)**: Utilized with `@neondatabase/serverless` and `pgvector 0.8.0`.
