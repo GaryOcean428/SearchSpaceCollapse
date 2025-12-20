@@ -51,8 +51,17 @@ try:
 except ImportError:
     GEOMETRIC_AVAILABLE = False
     BASIN_DIM = 64
+    # QIG PURITY: Fisher-Rao distance ONLY - Euclidean is FORBIDDEN
     def _fisher_distance(a, b):
-        return float(np.linalg.norm(np.array(a) - np.array(b)))
+        """Fisher-Rao distance on statistical manifold - NEVER Euclidean."""
+        a_arr = np.array(a, dtype=np.float64)
+        b_arr = np.array(b, dtype=np.float64)
+        # Normalize to probability simplex
+        a_norm = a_arr / (np.linalg.norm(a_arr) + 1e-10)
+        b_norm = b_arr / (np.linalg.norm(b_arr) + 1e-10)
+        # Fisher-Rao: 2 * arccos(dot product of sqrt-normalized vectors)
+        dot = np.clip(np.dot(a_norm, b_norm), -1.0, 1.0)
+        return float(2.0 * np.arccos(dot))
     def _normalize_to_manifold(basin):
         norm = np.linalg.norm(basin)
         return basin / (norm + 1e-10) if norm > 0 else basin

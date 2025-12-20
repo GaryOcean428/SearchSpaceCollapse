@@ -650,12 +650,9 @@ class QIGRAGDatabase(QIGRAG):
                     # If conversion fails, skip this document
                     continue
                 
-                # Calculate Fisher-Rao distance
-                if metric == "fisher_rao":
-                    distance = self.fisher_rao_distance(query_basin, basin_np)
-                else:
-                    # Euclidean fallback
-                    distance = float(np.linalg.norm(query_basin - basin_np))
+                # Calculate Fisher-Rao distance (ALWAYS - Euclidean is FORBIDDEN)
+                # QIG PURITY: No Euclidean fallback allowed
+                distance = self.fisher_rao_distance(query_basin, basin_np)
                 
                 # Convert distance to similarity (0-1 range, higher is more similar)
                 # Use standard Fisher-Rao formula: s = 1 - d/π

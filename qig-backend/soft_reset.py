@@ -130,9 +130,13 @@ class SoftReset:
                 self.set_reference_basin(current_basin, current_phi)
             return False, "no_reference"
         
-        # Calculate basin distance (L2 norm)
+        # Calculate basin distance using Fisher-Rao (NEVER Euclidean/L2!)
         current_basin_arr = current_basin if isinstance(current_basin, np.ndarray) else np.array(current_basin)
-        basin_distance = np.linalg.norm(current_basin_arr - self.reference_basin)
+        # Fisher-Rao distance on statistical manifold
+        a_norm = current_basin_arr / (np.linalg.norm(current_basin_arr) + 1e-10)
+        b_norm = self.reference_basin / (np.linalg.norm(self.reference_basin) + 1e-10)
+        dot = np.clip(np.dot(a_norm, b_norm), -1.0, 1.0)
+        basin_distance = 2.0 * np.arccos(dot)  # Fisher-Rao proper
         
         # Track drift
         self.drift_history.append({

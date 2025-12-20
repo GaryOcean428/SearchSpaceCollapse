@@ -653,9 +653,8 @@ class LightningKernel(BaseGod):
                     dist = centralized_fisher_rao(e1.basin_coords, e2.basin_coords)
                     fisher_distances.append(dist)
                     
-                    # Basin coordinate delta
-                    delta = np.linalg.norm(e1.basin_coords - e2.basin_coords)
-                    basin_deltas.append(delta)
+                    # Basin coordinate delta using Fisher-Rao (NOT Euclidean!)
+                    basin_deltas.append(dist)  # Use Fisher distance as delta
         
         # Trend analysis for involved domains
         domain_trends = {}

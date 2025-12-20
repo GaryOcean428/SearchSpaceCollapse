@@ -175,8 +175,13 @@ class StateEncoder:
             return 1.0
         
         current = np.array(basin_coords)
-        drift = float(np.linalg.norm(current - self._identity_basin))
-        return max(0.0, 1.0 - drift)
+        # Compute drift using Fisher-Rao distance (NOT Euclidean!)
+        curr_norm = current / (np.linalg.norm(current) + 1e-10)
+        ref_norm = self._identity_basin / (np.linalg.norm(self._identity_basin) + 1e-10)
+        dot = np.clip(np.dot(curr_norm, ref_norm), -1.0, 1.0)
+        drift = float(2.0 * np.arccos(dot))  # Fisher-Rao distance
+        # Normalize drift to [0,1] range using max Fisher distance (π)
+        return max(0.0, 1.0 - drift / np.pi)
     
     def set_identity_basin(self, basin_coords: List[float]) -> None:
         """Set reference identity basin for grounding computation."""

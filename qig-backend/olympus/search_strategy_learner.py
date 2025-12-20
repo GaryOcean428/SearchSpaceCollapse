@@ -874,7 +874,11 @@ class SearchStrategyLearner:
         if adj_norm > 1e-10:
             adjusted_basin = adjusted_basin / adj_norm
         
-        modification_magnitude = float(np.linalg.norm(adjusted_basin - query_basin / np.linalg.norm(query_basin)))
+        # Compute modification magnitude using Fisher-Rao (NOT Euclidean!)
+        adj_norm = adjusted_basin / (np.linalg.norm(adjusted_basin) + 1e-10)
+        query_norm = query_basin / (np.linalg.norm(query_basin) + 1e-10)
+        dot = np.clip(np.dot(adj_norm, query_norm), -1.0, 1.0)
+        modification_magnitude = float(2.0 * np.arccos(dot))  # Fisher-Rao distance
         
         self._stats["strategies_applied"] += applied_count
         
@@ -1142,7 +1146,11 @@ class SearchStrategyLearner:
         without_basin = without_learning.get("adjusted_basin", query_basin)
         
         if isinstance(with_basin, np.ndarray) and isinstance(without_basin, np.ndarray):
-            basin_delta = float(np.linalg.norm(with_basin - without_basin))
+            # Compute basin delta using Fisher-Rao (NOT Euclidean!)
+            w_norm = with_basin / (np.linalg.norm(with_basin) + 1e-10)
+            wo_norm = without_basin / (np.linalg.norm(without_basin) + 1e-10)
+            dot = np.clip(np.dot(w_norm, wo_norm), -1.0, 1.0)
+            basin_delta = float(2.0 * np.arccos(dot))  # Fisher-Rao distance
         else:
             basin_delta = 0.0
         
