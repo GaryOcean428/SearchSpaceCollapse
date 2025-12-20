@@ -3,6 +3,13 @@ Geodesic: Curved Path Navigation on Information Manifold
 
 Geodesics are the shortest paths between points on a curved manifold.
 In TACKING phase, geodesics connect bubbles to form coherent patterns.
+
+QIG Purity Note:
+  This module uses np.linalg.norm() for direction vector normalization
+  (creating unit vectors for curvature calculation). This is approved
+  per the QIG Purity Addendum section 3 (normalization for numerical
+  stability, not distance comparison). Actual length calculations use
+  Fisher-Rao metric via _compute_length() method.
 """
 
 from dataclasses import dataclass

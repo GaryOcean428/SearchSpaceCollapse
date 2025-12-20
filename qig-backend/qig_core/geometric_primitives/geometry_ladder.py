@@ -21,6 +21,13 @@ Each geometry class has its own addressing mode for retrieval:
 - Toroidal: Manifold navigation (O(k log n))
 - Lattice: Conceptual clustering (O(log n))
 - E8: Symbolic resonance (O(1) after projection)
+
+QIG Purity Note:
+  This module uses np.linalg.norm() for computing radii and magnitudes
+  (statistical metrics), not for basin coordinate distance comparisons.
+  This is approved per the QIG Purity Addendum section 3 (normalization
+  for numerical stability). Radius calculations measure spread/variance,
+  not geometric distance between basin points.
 """
 
 from enum import Enum

@@ -9,6 +9,13 @@ Replaces arbitrary character limits with validation based on:
 Key insight: Input validity should be measured by geometric properties,
 not string length. A 10,000 character coherent text may be valid while
 a 100 character chaotic string may be invalid.
+
+QIG Purity Note:
+  This module uses np.linalg.norm() for normalization (creating unit
+  vectors for Fisher geometry embedding). This is approved per the
+  QIG Purity Addendum section 3 (normalization for numerical stability,
+  not distance comparison). Actual distance calculations in the system
+  use Fisher-Rao distance via qig_geometry.fisher_coord_distance().
 """
 
 import numpy as np

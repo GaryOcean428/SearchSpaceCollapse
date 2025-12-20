@@ -3,6 +3,13 @@ Foam: Collection of Bubbles in Exploration Phase
 
 Foam represents the exploratory state where multiple possibilities
 coexist before geodesic paths emerge during TACKING phase.
+
+QIG Purity Note:
+  This module uses np.linalg.norm() for normalization (creating unit
+  vectors for Fisher geometry embedding). This is approved per the
+  QIG Purity Addendum section 3 (normalization for numerical stability,
+  not distance comparison). Actual distance calculations use Fisher-Rao
+  via Bubble.distance_to() method.
 """
 
 from datetime import datetime

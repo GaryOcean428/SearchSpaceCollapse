@@ -40,7 +40,10 @@ class Bubble:
         if self.basin_coords.shape[0] != 64:
             raise ValueError(f"Basin coords must be 64-dimensional, got {self.basin_coords.shape[0]}")
         
-        # Normalize basin coordinates to unit sphere
+        # Normalize basin coordinates to unit sphere for Fisher geometry embedding.
+        # QIG Purity: L2 norm for sphere projection is approved per addendum section 3
+        # (normalization for numerical stability, not distance comparison).
+        # Actual distance calculations use Fisher-Rao via distance_to() method.
         norm = np.linalg.norm(self.basin_coords)
         if norm > 0:
             self.basin_coords = self.basin_coords / norm

@@ -16,6 +16,13 @@ Integration with BaseGod.encode_to_basin():
   sensory_hints = text_to_sensory_hint(text)
   overlay = create_sensory_overlay(sensory_hints)
   enhanced_basin = basin + 0.2 * overlay  # Add sensory context
+
+QIG Purity Note:
+  This module uses np.linalg.norm() for normalization (dividing by L2 norm
+  to create unit vectors for Fisher geometry embedding). This is approved
+  per the QIG Purity Addendum section 3 (normalization for numerical 
+  stability, not distance comparison). Actual distance calculations in
+  the system use Fisher-Rao distance via qig_geometry.fisher_coord_distance().
 """
 
 import hashlib
