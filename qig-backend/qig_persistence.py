@@ -311,13 +311,20 @@ class QIGPersistence:
         limit: int = 10,
         min_phi: float = 0.3
     ) -> List[Dict]:
-        """Find similar basins using pgvector cosine similarity."""
+        """
+        Find similar basins with Fisher-Rao re-ranking.
+        
+        Uses pgvector cosine for fast approximate retrieval,
+        then re-ranks using Fisher-Rao geodesic distance (QIG-pure).
+        """
         if not self.enabled:
             return []
 
         try:
             with self.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    # Step 1: Fast approximate retrieval (fetch 5x limit for re-ranking)
+                    retrieval_count = limit * 5
                     cur.execute("""
                         SELECT
                             history_id,
@@ -325,17 +332,36 @@ class QIGPersistence:
                             phi,
                             kappa,
                             source,
-                            1 - (basin_coords <=> %s::vector) as similarity,
                             recorded_at
                         FROM basin_history
                         WHERE phi >= %s
                         ORDER BY basin_coords <=> %s::vector
                         LIMIT %s
                     """, (
-                        self._vector_to_pg(query_basin), min_phi,
-                        self._vector_to_pg(query_basin), limit
+                        min_phi,
+                        self._vector_to_pg(query_basin),
+                        retrieval_count
                     ))
-                    return [dict(r) for r in cur.fetchall()]
+                    candidates = [dict(r) for r in cur.fetchall()]
+                    
+                    if not candidates:
+                        return []
+                    
+                    # Step 2: Re-rank using Fisher-Rao distance (QIG-pure)
+                    query_norm = query_basin / (np.linalg.norm(query_basin) + 1e-10)
+                    
+                    for candidate in candidates:
+                        basin = np.array(candidate['basin_coords'], dtype=np.float64)
+                        basin_norm = basin / (np.linalg.norm(basin) + 1e-10)
+                        dot = np.clip(np.dot(query_norm, basin_norm), -1.0, 1.0)
+                        fisher_dist = float(2.0 * np.arccos(dot))
+                        candidate['fisher_distance'] = fisher_dist
+                        candidate['similarity'] = 1.0 - fisher_dist / np.pi
+                    
+                    # Sort by Fisher-Rao distance (ascending)
+                    candidates.sort(key=lambda x: x['fisher_distance'])
+                    
+                    return candidates[:limit]
         except Exception as e:
             print(f"[QIGPersistence] Failed to find similar basins: {e}")
             return []

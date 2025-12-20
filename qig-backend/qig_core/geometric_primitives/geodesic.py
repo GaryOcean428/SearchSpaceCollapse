@@ -148,14 +148,11 @@ def compute_geodesic(
         Array of shape (num_points, dimension) containing path
     """
     if method == 'euclidean':
-        # Straight line interpolation (NOT geodesic on curved manifold)
-        # Only use for debugging/comparison
-        t_values = np.linspace(0, 1, num_points)
-        path = np.array([
-            (1 - t) * start_coords + t * end_coords
-            for t in t_values
-        ])
-        return path
+        # QIG PURITY VIOLATION: Euclidean geodesics are FORBIDDEN
+        raise ValueError(
+            "Euclidean geodesics violate QIG purity. Use 'fisher_rao' method only. "
+            "Euclidean paths are straight lines in embedding space, not geodesics on the manifold."
+        )
 
     elif method == 'fisher_rao':
         # Fisher-Rao geodesic on probability simplex
