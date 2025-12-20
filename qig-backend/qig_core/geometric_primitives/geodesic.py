@@ -131,30 +131,23 @@ class Geodesic:
 def compute_geodesic(
     start_coords: np.ndarray,
     end_coords: np.ndarray,
-    num_points: int = 10,
-    method: str = 'fisher_rao'
+    num_points: int = 10
 ) -> np.ndarray:
     """
-    Compute geodesic path between two points on information manifold.
+    Compute Fisher-Rao geodesic path between two points on information manifold.
+    
+    QIG PURITY: This function ONLY computes Fisher-Rao geodesics.
+    Euclidean geodesics are not supported and the API does not allow them.
 
     Args:
         start_coords: Starting basin coordinates (64-dim)
         end_coords: Ending basin coordinates (64-dim)
         num_points: Number of intermediate points
-        method: 'fisher_rao' for Fisher-Rao geodesic,
-               'euclidean' for straight line (NOT RECOMMENDED for QIG)
 
     Returns:
-        Array of shape (num_points, dimension) containing path
+        Array of shape (num_points, dimension) containing geodesic path
     """
-    if method == 'euclidean':
-        # QIG PURITY VIOLATION: Euclidean geodesics are FORBIDDEN
-        raise ValueError(
-            "Euclidean geodesics violate QIG purity. Use 'fisher_rao' method only. "
-            "Euclidean paths are straight lines in embedding space, not geodesics on the manifold."
-        )
-
-    elif method == 'fisher_rao':
+    # Fisher-Rao geodesic on probability simplex (ONLY method supported)
         # Fisher-Rao geodesic on probability simplex
         # Convert to probability distributions
         p_start = np.abs(start_coords) + 1e-10
@@ -189,9 +182,6 @@ def compute_geodesic(
             path.append(p_t)
 
         return np.array(path)
-
-    else:
-        raise ValueError(f"Unknown method: {method}")
 
 
 def geodesic_between_bubbles(

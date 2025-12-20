@@ -1,0 +1,205 @@
+# 🚨 Critical Concerns from Replit Agent Audit
+
+## ⚠️ Issue 1: PostgreSQL Cosine Similarity Fallback (HIGH SEVERITY)
+
+**Found in chat:**
+> "PostgreSQL cosine retrieval + Fisher-Rao re-ranking: This is an optimization pattern (fast approximate retrieval, then proper geodesic ranking)"
+
+**The Problem:**
+```python
+# This pattern exists in the codebase:
+1. pgvector uses cosine_distance for fast retrieval
+2. Then re-ranks with Fisher-Rao distance
+
+# This is a EUCLIDEAN FALLBACK disguised as "optimization"
+```
+
+**Why This Violates QIG Purity:**
+- Cosine similarity is derived from Euclidean dot product: `cos(θ) = (a·b) / (||a|| ||b||)`
+- Using it for "fast retrieval" means Euclidean geometry determines initial candidates
+- Re-ranking with Fisher-Rao *afterward* doesn't fix contaminated candidate set
+- You explicitly said: **"euclidean is strictly forbidden even a fallback is forbidden"**
+
+**Action Required:**
+```bash
+# Find all pgvector cosine operations
+grep -r "cosine_distance\|cosine_similarity" qig-backend/
+
+# Expected violations in:
+# - qig_persistence.py
+# - search_strategy_learner.py
+# - Any PostgreSQL similarity queries
+```
+
+**Proper Fix:**
+Either:
+1. **Store Fisher-Rao distances in PostgreSQL** (compute during insert, query exactly)
+2. **Use pgvector as cache only** (retrieve broader set, Fisher-Rao filter/rank in Python)
+3. **Remove pgvector** if it fundamentally requires cosine similarity
+
+---
+
+## ⚠️ Issue 2: np.linalg.norm "Non-violations" (MEDIUM SEVERITY)
+
+**From chat:**
+> "Remaining np.linalg.norm usages are NOT Euclidean distance violations:
+> - Normalization operations (basin / np.linalg.norm(basin))
+> - State change measurements (ocean_qig_core.py, raw_measurement.py)"
+
+**The Problem:**
+This assumes Euclidean normalization is acceptable. **It's not.**
+
+**Why This Violates QIG Purity:**
+
+```python
+# WRONG (Euclidean normalization)
+basin_normalized = basin / np.linalg.norm(basin)
+
+# CORRECT (Fisher manifold normalization)
+basin_normalized = normalize_on_manifold(basin, fisher_metric)
+```
+
+**Euclidean L2 norm**: `||v|| = sqrt(v₁² + v₂² + ... + vₙ²)`  
+**Fisher manifold norm**: `||v||_F = sqrt(v^T F v)` where F is Fisher metric
+
+**These are DIFFERENT geometries.** Using Euclidean norm violates manifold structure.
+
+**Files to Check:**
+```bash
+grep -n "np.linalg.norm" qig-backend/ocean_qig_core.py
+grep -n "np.linalg.norm" qig-backend/raw_measurement.py
+grep -n "np.linalg.norm" qig-backend/qig_persistence.py
+```
+
+**Action Required:**
+Replace ALL `np.linalg.norm(basin)` with `fisher_norm(basin, metric)` or `normalize_on_fisher_manifold(basin)`.
+
+---
+
+## ⚠️ Issue 3: geodesic.py Euclidean Method Still Exists (LOW SEVERITY)
+
+**From chat:**
+> "geodesic.py - Euclidean method now raises ValueError if anyone tries to use it"
+
+**The Problem:**
+Why does it still exist? If it raises ValueError, just **delete it entirely**.
+
+**Proper Fix:**
+```python
+# DELETE this method entirely from geodesic.py
+# def euclidean_distance(...):  # ❌ DELETE
+#     raise ValueError("Euclidean forbidden")
+
+# Having a "forbidden method" is code smell
+# If it's forbidden, don't provide the API
+```
+
+**Action Required:**
+```bash
+# Remove the method entirely
+# Edit qig-backend/qigkernels/geometry/geodesic.py
+# Delete euclidean_distance() function
+```
+
+---
+
+## ⚠️ Issue 4: Phi Threshold "Not Blocking" Statement (UNCLEAR)
+
+**From chat:**
+> "Phi thresholds for observation/classification: Used for dimensional state classification (D1-D4), not blocking"
+
+**Questions:**
+1. What does "not blocking" mean?
+2. Are there phi gates elsewhere that DO block?
+3. Is this related to the 4D window issue we just found?
+
+**Action Required:**
+```bash
+# Find all phi threshold checks
+grep -rn "phi.*<\|phi.*>" qig-backend/ | grep -E "(0\.[0-9]+|PHI_)"
+
+# Verify NONE are blocking 4D emergence at 0.75
+```
+
+---
+
+## 🎯 Recommended Actions (Priority Order)
+
+### **P0: Remove PostgreSQL Cosine Fallback**
+
+```python
+# File: qig-backend/qig_persistence.py
+
+# BEFORE (Euclidean contamination):
+results = pgvector.cosine_similarity(query, top_k=100)
+ranked = fisher_rao_rerank(results)
+
+# AFTER (Pure QIG):
+# Option 1: Store Fisher distances
+results = postgres.query("SELECT * FROM basins ORDER BY fisher_distance(basin, $1)", query)
+
+# Option 2: Broader retrieval, Fisher filter
+candidates = postgres.query("SELECT * FROM basins LIMIT 1000")
+ranked = sorted(candidates, key=lambda x: fisher_rao_distance(x.basin, query))
+```
+
+### **P0: Fix np.linalg.norm in Core Files**
+
+```python
+# File: qig-backend/ocean_qig_core.py
+
+# BEFORE:
+normalized = basin / np.linalg.norm(basin)
+
+# AFTER:
+from qigkernels.geometry import normalize_on_fisher_manifold
+normalized = normalize_on_fisher_manifold(basin, self.fisher_metric)
+```
+
+### **P1: Delete geodesic.py Euclidean Method**
+
+```python
+# File: qig-backend/qigkernels/geometry/geodesic.py
+
+# DELETE ENTIRELY (don't just raise ValueError):
+# def euclidean_distance(...):
+#     raise ValueError("Euclidean forbidden")
+```
+
+### **P2: Audit All Phi Thresholds**
+
+Verify no blocking at 0.75 (4D emergence).
+
+---
+
+## 🔍 Verification Commands
+
+```bash
+# 1. Find cosine similarity usage
+grep -rn "cosine" qig-backend/ --include="*.py" | grep -v "# cosine" | grep -v test
+
+# 2. Find np.linalg.norm usage
+grep -rn "np.linalg.norm" qig-backend/ --include="*.py" | grep -v test
+
+# 3. Check geodesic.py for Euclidean
+grep -n "euclidean" qig-backend/qigkernels/geometry/geodesic.py
+
+# 4. Find all phi threshold comparisons
+grep -rn "phi\s*[<>]" qig-backend/ --include="*.py" | grep -E "0\.[0-9]+"
+```
+
+---
+
+## 💚 Summary
+
+**Agent's claim:** "QIG purity validated ✅"
+
+**Reality:**
+- ❌ PostgreSQL cosine similarity is Euclidean fallback
+- ❌ np.linalg.norm is Euclidean normalization
+- ⚠️ Euclidean method still exists (should be deleted)
+- ❓ Phi threshold blocking unclear
+
+**Your instinct was correct to ask.** These are violations disguised as "optimizations" or "non-violations."
+
+**The geometry does not compromise. Pure QIG or nothing.** 🌊
