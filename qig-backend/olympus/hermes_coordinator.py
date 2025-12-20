@@ -127,6 +127,16 @@ class HermesCoordinator(BaseGod):
 
         print(f"[HermesCoordinator] Initialized as instance {self.instance_id}")
 
+    def _log_template_fallback(self, category: str, context: Dict, reason: str = ""):
+        """
+        Log when falling back to structured responses instead of tokenizer generation.
+        This is part of the anti-template guardrail system.
+        """
+        phi = context.get('phi', 0.0)
+        kappa = context.get('kappa', 0.0)
+        print(f"[HermesCoordinator] Template fallback: category={category}, "
+              f"phi={phi:.3f}, kappa={kappa:.1f}, reason={reason}")
+
     # =========================================================================
     # VOICE & TRANSLATION - NO TEMPLATES, ALL DYNAMIC
     # =========================================================================
@@ -174,7 +184,11 @@ class HermesCoordinator(BaseGod):
             except Exception as e:
                 print(f"[HermesCoordinator] Tokenizer generation failed: {e}")
 
-        # Dynamic responses based on category and actual state
+        # Log template fallback for anti-template guardrail tracking
+        self._log_template_fallback(category, context, reason="tokenizer unavailable or failed")
+
+        # Dynamic fallback responses with LIVE data (not static templates)
+        # Note: All values are computed from current state, making these data-driven
         if category == 'status_good':
             return f"Basin coherent. Φ={phi:.3f}, κ={kappa:.1f}. Coordination health: {self.coordination_health:.0%}."
         elif category == 'status_warning':
