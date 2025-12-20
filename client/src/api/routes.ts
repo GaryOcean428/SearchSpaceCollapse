@@ -86,6 +86,7 @@ export const API_ROUTES = {
   balance: {
     hits: '/api/balance-hits',
     addresses: '/api/balance-addresses',
+    hitDormant: (address: string) => `/api/balance-hits/${encodeURIComponent(address)}/dormant`,
   },
 
   balanceQueue: {
@@ -131,6 +132,20 @@ export const API_ROUTES = {
     geometricStatus: '/api/qig/geometric/status',
     geometricEncode: '/api/qig/geometric/encode',
     geometricSimilarity: '/api/qig/geometric/similarity',
+    autonomic: {
+      agencyStatus: '/api/qig/autonomic/agency/status',
+      agencyStart: '/api/qig/autonomic/agency/start',
+      agencyStop: '/api/qig/autonomic/agency/stop',
+      agencyForce: '/api/qig/autonomic/agency/force',
+    },
+  },
+
+  // Federation
+  federation: {
+    keys: '/api/federation/keys',
+    key: (keyId: string) => `/api/federation/keys/${keyId}`,
+    instances: '/api/federation/instances',
+    syncStatus: '/api/federation/sync/status',
   },
 
   // Consciousness & UCP
@@ -180,6 +195,7 @@ export const API_ROUTES = {
     zeusChat: '/api/olympus/zeus/chat',
     zeusSearch: '/api/olympus/zeus/search',
     kernels: '/api/olympus/kernels',
+    kernelGraduate: (kernelId: string) => `/api/olympus/kernels/${kernelId}/graduate`,
     kernelsObserving: '/api/olympus/kernels/observing',
     kernelsAll: '/api/olympus/kernels/all',
     // M8 Kernel Spawning
@@ -390,6 +406,13 @@ export const QUERY_KEYS = {
   
   qig: {
     geometricStatus: () => [API_ROUTES.qig.geometricStatus] as const,
+    autonomicAgencyStatus: () => [API_ROUTES.qig.autonomic.agencyStatus] as const,
+  },
+
+  federation: {
+    keys: () => [API_ROUTES.federation.keys] as const,
+    instances: () => [API_ROUTES.federation.instances] as const,
+    syncStatus: () => [API_ROUTES.federation.syncStatus] as const,
   },
   
   consciousness: {

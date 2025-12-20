@@ -327,7 +327,7 @@ export function useIdleKernels(threshold_seconds: number = 300) {
   return useQuery<IdleKernelsResponse>({
     queryKey: ['m8', 'idleKernels', threshold_seconds],
     queryFn: async () => {
-      const response = await fetch(`/api/olympus/m8/kernels/idle?threshold=${threshold_seconds}`, {
+      const response = await fetch(`${API_ROUTES.olympus.m8.idleKernels}?threshold=${threshold_seconds}`, {
         credentials: 'include',
       });
       if (!response.ok) {

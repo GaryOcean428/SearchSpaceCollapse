@@ -134,7 +134,7 @@ export function useGraduateKernel() {
   
   return useMutation<GraduateResponse, Error, { kernelId: string; reason?: string }>({
     mutationFn: async ({ kernelId, reason }) => {
-      const res = await apiRequest('POST', `/api/olympus/kernels/${kernelId}/graduate`, { 
+      const res = await apiRequest('POST', API_ROUTES.olympus.kernelGraduate(kernelId), { 
         reason: reason || 'manual_graduation' 
       });
       return res.json();

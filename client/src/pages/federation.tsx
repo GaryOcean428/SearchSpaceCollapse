@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { API_ROUTES, QUERY_KEYS } from "@/api";
 import {
   Card,
   CardContent,
@@ -97,26 +98,26 @@ export default function FederationDashboard() {
   const [testResult, setTestResult] = useState<ApiTestResult | null>(null);
 
   const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<HealthStatus>({
-    queryKey: ["/api/v1/external/health"],
+    queryKey: QUERY_KEYS.external.health(),
     refetchInterval: 30000,
   });
 
   const { data: apiKeys, isLoading: keysLoading, refetch: refetchKeys } = useQuery<{ keys: ApiKey[] }>({
-    queryKey: ["/api/federation/keys"],
+    queryKey: QUERY_KEYS.federation.keys(),
   });
 
   const { data: instances, isLoading: instancesLoading, refetch: refetchInstances } = useQuery<{ instances: FederatedInstance[] }>({
-    queryKey: ["/api/federation/instances"],
+    queryKey: QUERY_KEYS.federation.instances(),
   });
 
   const { data: syncStatus, isLoading: syncLoading, refetch: refetchSync } = useQuery<SyncStatus>({
-    queryKey: ["/api/federation/sync/status"],
+    queryKey: QUERY_KEYS.federation.syncStatus(),
     refetchInterval: 5000,
   });
 
   const createKeyMutation = useMutation({
     mutationFn: async (data: { name: string; instanceType: string }) => {
-      const response = await apiRequest("POST", "/api/federation/keys", {
+      const response = await apiRequest("POST", API_ROUTES.federation.keys, {
         name: data.name,
         instanceType: data.instanceType,
         scopes: ["read", "write", "consciousness", "geometry", "pantheon", "sync", "chat"],
@@ -127,7 +128,7 @@ export default function FederationDashboard() {
     onSuccess: (data) => {
       setCreatedKey(data.key);
       setNewKeyName("");
-      queryClient.invalidateQueries({ queryKey: ["/api/federation/keys"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.federation.keys() });
       toast({
         title: "API Key Created",
         description: "Save this key - it won't be shown again!",
@@ -144,10 +145,10 @@ export default function FederationDashboard() {
 
   const revokeKeyMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      await apiRequest("DELETE", `/api/federation/keys/${keyId}`);
+      await apiRequest("DELETE", API_ROUTES.federation.key(keyId));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/federation/keys"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.federation.keys() });
       toast({ title: "API Key Revoked" });
     },
   });
@@ -156,7 +157,7 @@ export default function FederationDashboard() {
     mutationFn: async (endpoint: string) => {
       const start = Date.now();
       try {
-        const response = await fetch(`/api/v1/external${endpoint}`);
+        const response = await fetch(`${API_ROUTES.external.health.replace('/health', '')}${endpoint}`);
         const latency = Date.now() - start;
         const data = await response.json();
         return {

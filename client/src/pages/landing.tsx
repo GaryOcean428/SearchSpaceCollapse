@@ -1,5 +1,6 @@
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { KeyRound, Lock, Sparkles, Shield } from "lucide-react";
+import { API_ROUTES } from "@/api";
 
 export default function Landing() {
   return (
@@ -22,7 +23,7 @@ export default function Landing() {
               <Button
                 size="lg"
                 className="text-lg px-8 py-6"
-                onClick={() => window.location.href = "/api/login"}
+                onClick={() => window.location.href = API_ROUTES.auth.login}
                 data-testid="button-login"
               >
                 <Lock className="mr-2 h-5 w-5" />

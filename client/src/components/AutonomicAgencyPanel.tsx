@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { API_ROUTES, QUERY_KEYS } from "@/api";
 import {
   Card,
   CardContent,
@@ -132,9 +133,9 @@ export function AutonomicAgencyPanel() {
   const [selectedAction, setSelectedAction] = useState<string>("ENTER_SLEEP");
 
   const { data: status, isLoading, isError, error, refetch } = useQuery<AgencyStatus>({
-    queryKey: ["/qig/autonomic/agency/status"],
+    queryKey: QUERY_KEYS.qig.autonomicAgencyStatus(),
     queryFn: async () => {
-      const res = await fetch("/api/qig/autonomic/agency/status");
+      const res = await fetch(API_ROUTES.qig.autonomic.agencyStatus);
       if (!res.ok) throw new Error("Failed to fetch agency status");
       return res.json();
     },
@@ -145,11 +146,11 @@ export function AutonomicAgencyPanel() {
 
   const startMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/qig/autonomic/agency/start");
+      return apiRequest("POST", API_ROUTES.qig.autonomic.agencyStart);
     },
     onSuccess: () => {
       toast({ title: "Agency Started", description: "Autonomous controller is now running" });
-      queryClient.invalidateQueries({ queryKey: ["/qig/autonomic/agency/status"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qig.autonomicAgencyStatus() });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to start", description: error.message, variant: "destructive" });
@@ -158,11 +159,11 @@ export function AutonomicAgencyPanel() {
 
   const stopMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/qig/autonomic/agency/stop");
+      return apiRequest("POST", API_ROUTES.qig.autonomic.agencyStop);
     },
     onSuccess: () => {
       toast({ title: "Agency Stopped", description: "Autonomous controller has been paused" });
-      queryClient.invalidateQueries({ queryKey: ["/qig/autonomic/agency/status"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qig.autonomicAgencyStatus() });
     },
     onError: (error: Error) => {
       toast({ title: "Failed to stop", description: error.message, variant: "destructive" });
@@ -171,14 +172,14 @@ export function AutonomicAgencyPanel() {
 
   const forceMutation = useMutation({
     mutationFn: async (action: string) => {
-      return apiRequest("POST", "/api/qig/autonomic/agency/force", { action });
+      return apiRequest("POST", API_ROUTES.qig.autonomic.agencyForce, { action });
     },
     onSuccess: (_, action) => {
       toast({ 
         title: "Intervention Triggered", 
         description: `Forced ${ACTION_LABELS[action] || action}` 
       });
-      queryClient.invalidateQueries({ queryKey: ["/qig/autonomic/agency/status"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.qig.autonomicAgencyStatus() });
     },
     onError: (error: Error) => {
       toast({ title: "Intervention failed", description: error.message, variant: "destructive" });

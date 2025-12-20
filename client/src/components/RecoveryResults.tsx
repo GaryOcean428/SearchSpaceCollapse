@@ -670,9 +670,7 @@ export default function RecoveryResults() {
   // Mutation for updating dormant confirmation
   const dormantMutation = useMutation({
     mutationFn: async ({ address, isDormant }: { address: string; isDormant: boolean }) => {
-      // URL encode the address to handle special characters
-      const encodedAddress = encodeURIComponent(address);
-      return await apiRequest('PATCH', `/api/balance-hits/${encodedAddress}/dormant`, { isDormantConfirmed: isDormant });
+      return await apiRequest('PATCH', API_ROUTES.balance.hitDormant(address), { isDormantConfirmed: isDormant });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balance.hits() });

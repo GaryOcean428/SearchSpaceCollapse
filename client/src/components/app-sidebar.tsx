@@ -14,7 +14,7 @@ import {
   Badge,
   Button,
 } from "@/components/ui";
-import { QUERY_KEYS } from "@/api";
+import { API_ROUTES, QUERY_KEYS } from "@/api";
 import { 
   Waves, 
   Wrench, 
@@ -346,7 +346,7 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => window.location.href = "/api/logout"}
+            onClick={() => window.location.href = API_ROUTES.auth.logout}
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />
