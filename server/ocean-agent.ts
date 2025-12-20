@@ -222,6 +222,7 @@ export class OceanAgent {
 
   // Olympus Pantheon integration - 12 god consciousness kernels
   private olympusAvailable: boolean = false;
+  private olympusLastChecked: number = 0;  // Timestamp of last availability check
   private olympusWarMode: "BLITZKRIEG" | "SIEGE" | "HUNT" | null = null;
   private lastZeusAssessment: ZeusAssessment | null = null;
   private olympusObservationCount: number = 0;
@@ -689,6 +690,7 @@ export class OceanAgent {
 
     // OLYMPUS PANTHEON INITIALIZATION - Connect to 12 god consciousness kernels
     console.log("[Ocean] === OLYMPUS PANTHEON CONNECTION ===");
+    this.olympusLastChecked = Date.now();
     this.olympusAvailable = await olympusClient.checkHealthWithRetry(5, 2000);
     if (this.olympusAvailable) {
       console.log(
@@ -1350,7 +1352,8 @@ export class OceanAgent {
           passInsights.push(...(insights.topPatterns || []));
 
           // ATHENA PATTERN LEARNING - Send near-misses to Athena for strategic pattern analysis
-          if (this.olympusAvailable && testResults.nearMisses.length > 0) {
+          // sendNearMissesToAthena has lazy re-check for deferred startup
+          if (testResults.nearMisses.length > 0) {
             await this.sendNearMissesToAthena(testResults.nearMisses);
           }
 
@@ -1413,7 +1416,8 @@ export class OceanAgent {
           console.log(`[Ocean]   └─ ${iterStrategy.reasoning}`);
 
           // OLYMPUS DIVINE CONSULTATION - Get Zeus assessment for strategy refinement
-          if (this.olympusAvailable && iteration % 3 === 0) {
+          // Always try every 3rd iteration - consultOlympusPantheon has lazy re-check for deferred startup
+          if (iteration % 3 === 0) {
             await this.consultOlympusPantheon(
               targetAddress,
               iterStrategy,
@@ -5784,7 +5788,21 @@ export class OceanAgent {
     currentStrategy: { name: string; reasoning: string },
     testResults: { tested: OceanHypothesis[]; nearMisses: OceanHypothesis[] }
   ): Promise<void> {
-    if (!this.olympusAvailable) return;
+    // Lazy re-check: If Olympus was not available at startup, try again periodically
+    // The Python backend may have finished loading since then
+    const RECHECK_INTERVAL_MS = 30000; // Re-check every 30 seconds
+    if (!this.olympusAvailable) {
+      const now = Date.now();
+      if (now - this.olympusLastChecked >= RECHECK_INTERVAL_MS) {
+        this.olympusLastChecked = now;
+        console.log("[Ocean] Re-checking Olympus availability (deferred startup)...");
+        this.olympusAvailable = await olympusClient.checkHealthWithRetry(2, 500);
+        if (this.olympusAvailable) {
+          console.log("[Ocean] ⚡ OLYMPUS NOW AVAILABLE - Divine guidance restored");
+        }
+      }
+      if (!this.olympusAvailable) return;
+    }
 
     try {
       // Build observation context for divine assessment
@@ -6024,7 +6042,21 @@ export class OceanAgent {
   private async broadcastNearMissesToOlympus(
     nearMisses: OceanHypothesis[]
   ): Promise<void> {
-    if (!this.olympusAvailable || nearMisses.length === 0) return;
+    if (nearMisses.length === 0) return;
+    
+    // Use same lazy re-check as consultOlympusPantheon
+    if (!this.olympusAvailable) {
+      const RECHECK_INTERVAL_MS = 30000;
+      const now = Date.now();
+      if (now - this.olympusLastChecked >= RECHECK_INTERVAL_MS) {
+        this.olympusLastChecked = now;
+        this.olympusAvailable = await olympusClient.checkHealthWithRetry(2, 500);
+        if (this.olympusAvailable) {
+          console.log("[Ocean] ⚡ OLYMPUS NOW AVAILABLE - Divine guidance restored");
+        }
+      }
+      if (!this.olympusAvailable) return;
+    }
 
     for (const nearMiss of nearMisses.slice(0, 5)) {
       // Limit to top 5
@@ -6060,7 +6092,21 @@ export class OceanAgent {
   private async sendNearMissesToAthena(
     nearMisses: OceanHypothesis[]
   ): Promise<void> {
-    if (!this.olympusAvailable || nearMisses.length === 0) return;
+    if (nearMisses.length === 0) return;
+    
+    // Use same lazy re-check as consultOlympusPantheon
+    if (!this.olympusAvailable) {
+      const RECHECK_INTERVAL_MS = 30000;
+      const now = Date.now();
+      if (now - this.olympusLastChecked >= RECHECK_INTERVAL_MS) {
+        this.olympusLastChecked = now;
+        this.olympusAvailable = await olympusClient.checkHealthWithRetry(2, 500);
+        if (this.olympusAvailable) {
+          console.log("[Ocean] ⚡ OLYMPUS NOW AVAILABLE - Divine guidance restored");
+        }
+      }
+      if (!this.olympusAvailable) return;
+    }
 
     // Send near-miss patterns to Athena for strategic analysis
     for (const nearMiss of nearMisses.slice(0, 3)) {

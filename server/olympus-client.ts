@@ -317,15 +317,12 @@ export class OlympusClient {
   
   /**
    * Get Zeus's supreme assessment (polls all gods + synthesis)
+   * Note: The pythonManager.ready() check was removed because it can get out of sync
+   * with the olympusAvailable flag in ocean-agent.ts. The caller (consultOlympusPantheon)
+   * already checks olympusAvailable via the lazy re-check mechanism, and the try/catch
+   * here handles any network errors gracefully.
    */
   async assessTarget(target: string, context?: ObservationContext): Promise<ZeusAssessment | null> {
-    // Check if backend is ready before making request
-    const pythonManager = getPythonManager();
-    if (!pythonManager.ready()) {
-      console.warn('[OlympusClient] assessTarget: Backend not ready, returning null');
-      return null;
-    }
-    
     try {
       const response = await fetchWithRetry(`${this.backendUrl}/olympus/assess`, {
         method: 'POST',
