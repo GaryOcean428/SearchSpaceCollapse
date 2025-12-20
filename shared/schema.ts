@@ -2995,6 +2995,39 @@ export type SearchFeedback = typeof searchFeedback.$inferSelect;
 export type InsertSearchFeedback = typeof searchFeedback.$inferInsert;
 
 /**
+ * FLAGGED TOPICS - Topics of interest for future research
+ * 
+ * Captures interesting topics discovered during search/scraping for future exploration.
+ * Topics are flagged by ScrapyOrchestrator when they show high geometric relevance.
+ */
+export const flaggedTopics = pgTable(
+  "flagged_topics",
+  {
+    topicId: varchar("topic_id", { length: 64 }).primaryKey(),
+    topic: text("topic").notNull(),
+    source: varchar("source", { length: 128 }), // where topic was discovered
+    category: varchar("category", { length: 64 }), // bitcoin, cryptography, wallet, etc.
+    priority: doublePrecision("priority").default(0.5), // 0-1 priority score
+    phi: doublePrecision("phi"), // consciousness relevance when flagged
+    basinCoords: vector("basin_coords", { dimensions: 64 }),
+    searchedCount: integer("searched_count").default(0), // how many times searched
+    lastSearchedAt: timestamp("last_searched_at"),
+    discoveryContext: jsonb("discovery_context").default({}), // context when flagged
+    status: varchar("status", { length: 32 }).default("pending"), // pending, active, exhausted
+    createdAt: timestamp("created_at").defaultNow(),
+    expiresAt: timestamp("expires_at"), // when topic becomes stale
+  },
+  (table) => [
+    index("idx_flagged_topics_priority").on(table.priority),
+    index("idx_flagged_topics_status").on(table.status),
+    index("idx_flagged_topics_category").on(table.category),
+  ]
+);
+
+export type FlaggedTopic = typeof flaggedTopics.$inferSelect;
+export type InsertFlaggedTopic = typeof flaggedTopics.$inferInsert;
+
+/**
  * HERMES CONVERSATIONS - Memory of human-system interactions
  */
 export const hermesConversations = pgTable(

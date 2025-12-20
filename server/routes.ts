@@ -61,6 +61,7 @@ import {
   dormantCrossRefRouter,
   formatRouter,
   geometricDiscoveryRouter,
+  googleSearchBridgeRouter,
   nearMissRouter,
   oceanRouter,
   olympusRouter,
@@ -331,6 +332,7 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   app.use("/api/dormant-crossref", dormantCrossRefRouter);
   app.use("/api/basin-sync", basinSyncRouter);
   app.use("/api/geometric-discovery", geometricDiscoveryRouter);
+  app.use("/api/search", googleSearchBridgeRouter);
   app.use("/api/sweeps", sweepsRouter);
   app.use("/api", adminRouter);
   app.use("/api/olympus", olympusRouter);

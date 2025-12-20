@@ -370,6 +370,10 @@ export class MultiSearchOrchestrator {
     return Array.from(this.providerHealth.values());
   }
   
+  getConfig(): MultiSearchConfig {
+    return { ...this.config };
+  }
+  
   setMode(mode: SearchMode): void {
     this.config.mode = mode;
     console.log(`[MultiSearch] Mode changed to: ${mode}`);
