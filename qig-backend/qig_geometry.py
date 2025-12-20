@@ -177,6 +177,56 @@ def bures_distance(rho: np.ndarray, sigma: np.ndarray) -> float:
     return float(np.sqrt(2 * (1 - np.sqrt(fidelity))))
 
 
+def fisher_normalize(v: np.ndarray) -> np.ndarray:
+    """
+    Project vector to probability simplex for Fisher-Rao geometry.
+    
+    This is the CORRECT normalization for Fisher-Rao distance computation.
+    Projects to the probability simplex where: Σv_i = 1, v_i ≥ 0
+    
+    The Fisher-Rao metric is defined on the probability simplex, so
+    all vectors must be normalized this way before distance computation.
+    
+    Args:
+        v: Input vector (will be made non-negative and normalized)
+    
+    Returns:
+        Probability distribution on the simplex
+    """
+    p = np.abs(v) + 1e-10
+    return p / p.sum()
+
+
+def sphere_project(v: np.ndarray) -> np.ndarray:
+    """
+    Project vector to unit sphere for embedded Fisher geometry.
+    
+    When representing probability distributions on the sphere via
+    the sqrt embedding (p → sqrt(p)), the geodesic distance on the
+    sphere (arc length) equals half the Fisher-Rao distance.
+    
+    This is used for:
+    - Spherical linear interpolation (slerp)
+    - Angular distance computation on embedded manifold
+    - Direction finding (tangent vectors)
+    
+    IMPORTANT: This uses Euclidean L2 norm which is CORRECT for
+    projecting to the unit sphere in the embedding space.
+    
+    Args:
+        v: Input vector
+    
+    Returns:
+        Unit vector on sphere (L2 norm = 1)
+    """
+    norm = np.linalg.norm(v)
+    if norm < 1e-10:
+        # Return uniform direction for zero vectors
+        result = np.ones_like(v)
+        return result / np.linalg.norm(result)
+    return v / norm
+
+
 __all__ = [
     'fisher_rao_distance',
     'fisher_coord_distance', 
@@ -184,4 +234,6 @@ __all__ = [
     'geodesic_interpolation',
     'estimate_manifold_curvature',
     'bures_distance',
+    'fisher_normalize',
+    'sphere_project',
 ]
