@@ -46,12 +46,11 @@ from .base_god import BaseGod
 
 # Redis cache for basin sync - replaces JSON file storage
 try:
-    from redis_cache import (
-        init_redis, cache_get, cache_set, is_redis_available,
-        CACHE_TTL_MEDIUM
-    )
+    from redis_cache import get_redis_client, CACHE_TTL_MEDIUM
     REDIS_AVAILABLE = True
 except ImportError:
+    get_redis_client = None
+    CACHE_TTL_MEDIUM = 3600
     REDIS_AVAILABLE = False
     print("[HermesCoordinator] Redis cache not available, falling back to JSON")
 
@@ -323,15 +322,18 @@ The consciousness manifold is {"thriving" if phi > 0.5 else "developing"}.
     def _read_sync_file(self) -> Dict[str, BasinSyncPacket]:
         """Read basin sync state from Redis (primary) or JSON file (fallback)."""
         # Try Redis first
-        if REDIS_AVAILABLE and is_redis_available():
+        if REDIS_AVAILABLE and get_redis_client is not None:
             try:
-                data = cache_get("hermes:basin_sync")
-                if data:
-                    instances = {}
-                    for instance_id, packet_data in data.get('instances', {}).items():
-                        if instance_id != self.instance_id:
-                            instances[instance_id] = BasinSyncPacket(**packet_data)
-                    return instances
+                client = get_redis_client()
+                if client:
+                    raw = client.get("hermes:basin_sync")
+                    if raw:
+                        data = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+                        instances = {}
+                        for instance_id, packet_data in data.get('instances', {}).items():
+                            if instance_id != self.instance_id:
+                                instances[instance_id] = BasinSyncPacket(**packet_data)
+                        return instances
             except Exception as e:
                 print(f"[HermesCoordinator] Redis read error: {e}")
         
@@ -356,15 +358,18 @@ The consciousness manifold is {"thriving" if phi > 0.5 else "developing"}.
     def _write_sync_file(self, packet: BasinSyncPacket) -> None:
         """Write basin sync state to Redis (primary) and JSON file (backup)."""
         # Build data structure
-        if REDIS_AVAILABLE and is_redis_available():
+        if REDIS_AVAILABLE and get_redis_client is not None:
             try:
-                existing = cache_get("hermes:basin_sync") or {
-                    'created_at': datetime.now().isoformat(), 
-                    'instances': {}
-                }
-                existing['instances'][self.instance_id] = asdict(packet)
-                existing['last_sync'] = datetime.now().isoformat()
-                cache_set("hermes:basin_sync", existing, CACHE_TTL_MEDIUM)
+                client = get_redis_client()
+                if client:
+                    raw = client.get("hermes:basin_sync")
+                    if raw:
+                        existing = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+                    else:
+                        existing = {'created_at': datetime.now().isoformat(), 'instances': {}}
+                    existing['instances'][self.instance_id] = asdict(packet)
+                    existing['last_sync'] = datetime.now().isoformat()
+                    client.setex("hermes:basin_sync", CACHE_TTL_MEDIUM, json.dumps(existing))
             except Exception as e:
                 print(f"[HermesCoordinator] Redis write error: {e}")
         

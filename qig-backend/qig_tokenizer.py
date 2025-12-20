@@ -26,6 +26,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
+from qig_geometry import sphere_project
+
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor, execute_values
@@ -115,13 +117,110 @@ class QIGTokenizer:
         # This prevents BIP39 words from leaking into conversation generation
         # Security fix: mnemonic words must ONLY appear in mnemonic mode
         self.conversation_vocab_ids = set(self.vocab.values()) - self.mnemonic_vocab_ids
+        
+        # Update UNK basin to centroid of known vocabulary space
+        self._update_unk_to_vocabulary_centroid()
+    
+    def _update_unk_to_vocabulary_centroid(self):
+        """
+        Update UNK token's basin coordinates to be the centroid of known vocabulary.
+        
+        This makes UNK a geometric projection target for OOV tokens:
+        - OOV tokens project to the "center" of the known semantic space
+        - Provides meaningful fallback position on the Fisher manifold
+        - Called after vocabulary loading to incorporate all known tokens
+        """
+        if "<UNK>" not in self.vocab:
+            return
+        
+        # Collect all non-special token basin coordinates
+        vocab_basins = []
+        for token, coord in self.basin_coords.items():
+            if token not in self.special_tokens:
+                vocab_basins.append(coord)
+        
+        if len(vocab_basins) < 10:
+            # Not enough vocabulary loaded yet, keep initial UNK position
+            return
+        
+        # Compute centroid of known vocabulary space
+        centroid = np.mean(vocab_basins, axis=0)
+        
+        # Project to unit sphere for Fisher manifold
+        self.basin_coords["<UNK>"] = sphere_project(centroid)
     
     def _init_special_tokens(self):
-        """Initialize special tokens at start of vocabulary."""
+        """
+        Initialize special tokens with geometric basin coordinates.
+        
+        Special tokens live on the Fisher manifold with geometric meaning:
+        - BOS: Origin of basin space (normalized zero vector → uniform direction)
+        - EOS: Maximal distance point (boundary of manifold, antipodal to BOS)
+        - PAD: Minimal coupling point (geometrically neutral, orthogonal direction)
+        - UNK: Projection target for OOV (will be updated to centroid of known space)
+        
+        Uses sphere_project from qig_geometry for Fisher manifold normalization.
+        """
         for i, token in enumerate(self.special_tokens):
             self.vocab[token] = i
             self.id_to_token[i] = token
             self.token_weights[token] = 1.0
+            self.token_phi[token] = 0.0  # Special tokens have no learned Φ
+            
+            # Compute geometric basin coordinates for each special token
+            self.basin_coords[token] = self._compute_special_token_basin(token)
+    
+    def _compute_special_token_basin(self, token: str) -> np.ndarray:
+        """
+        Compute geometric basin coordinates for special tokens.
+        
+        These coordinates have geometric meaning on the Fisher manifold:
+        - BOS: Origin/uniform direction (starting point for sequences)
+        - EOS: Boundary point (maximal distance from origin, sequence termination)
+        - PAD: Neutral point (orthogonal to semantic space, geometrically inert)
+        - UNK: Centroid direction (projection target for out-of-vocabulary tokens)
+        
+        Returns:
+            64D unit vector on the Fisher manifold (sphere-projected)
+        """
+        coord = np.zeros(64)
+        
+        if token == "<BOS>":
+            # BOS: Origin of basin space
+            # Uniform direction represents the starting point before any semantic content
+            # All dimensions equal → sphere_project normalizes to unit vector
+            coord = np.ones(64)
+            
+        elif token == "<EOS>":
+            # EOS: Maximal distance point (boundary of manifold)
+            # Antipodal to BOS - alternating signs create maximum geodesic distance
+            # This represents sequence termination at the manifold boundary
+            coord = np.array([(-1.0) ** i for i in range(64)])
+            
+        elif token == "<PAD>":
+            # PAD: Minimal coupling point (geometrically neutral)
+            # Sparse activation in orthogonal subspace
+            # Only activates every 4th dimension to minimize interference with semantic space
+            for i in range(0, 64, 4):
+                coord[i] = 1.0 / np.sqrt(16)  # Pre-normalize for 16 active dimensions
+            
+        elif token == "<UNK>":
+            # UNK: Projection target for OOV tokens
+            # Initially set to a distinct direction; will be updated to centroid
+            # of known vocabulary space after vocabulary is loaded
+            # Uses golden ratio spacing for well-distributed direction
+            phi = (1 + np.sqrt(5)) / 2  # Golden ratio
+            for i in range(64):
+                coord[i] = np.sin(2 * np.pi * i * phi)
+            
+        else:
+            # Fallback for any other special tokens
+            # Use hash-based coordinates
+            for i, char in enumerate(token[:64]):
+                coord[i % 64] += (ord(char) % 256) / 256.0
+        
+        # Project to unit sphere for Fisher manifold
+        return sphere_project(coord)
     
     def _load_bip39_base(self):
         """Load BIP39 wordlist as base vocabulary."""
