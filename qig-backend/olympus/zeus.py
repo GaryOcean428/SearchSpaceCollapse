@@ -1855,6 +1855,22 @@ def geometric_validate_input(text: str) -> Dict[str, Any]:
     }
 
 
+def _is_transient_db_error(error: Exception) -> bool:
+    """Check if error is a transient database connection error that should be retried."""
+    error_msg = str(error).lower()
+    transient_patterns = [
+        'ssl connection has been closed',
+        'connection reset',
+        'connection refused',
+        'connection already closed',
+        'server closed the connection',
+        'could not connect',
+        'connection timed out',
+        'the connection is closed',
+    ]
+    return any(pattern in error_msg for pattern in transient_patterns)
+
+
 @olympus_app.route('/zeus/chat', methods=['POST'])
 def zeus_chat_endpoint():
     """
@@ -1871,7 +1887,41 @@ def zeus_chat_endpoint():
     - Maximum files per request (5)
     - Message length limits (10KB)
     - Conversation history limits (100 messages)
+    
+    RELIABILITY:
+    - Automatic retry for transient database connection errors (Neon SSL resets)
+    - Up to 3 attempts with exponential backoff
     """
+    import time
+    MAX_RETRIES = 3
+    RETRY_DELAY_BASE = 0.5
+    
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            return _zeus_chat_inner()
+        except Exception as e:
+            last_error = e
+            if _is_transient_db_error(e) and attempt < MAX_RETRIES - 1:
+                delay = RETRY_DELAY_BASE * (2 ** attempt)
+                print(f"[Zeus] Transient DB error (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {delay:.1f}s: {e}")
+                time.sleep(delay)
+                continue
+            else:
+                raise
+    
+    # If all retries failed, return error
+    import traceback
+    traceback.print_exc()
+    return jsonify({
+        'error': str(last_error),
+        'response': '⚡ An error occurred in the divine council. Please try again.',
+        'metadata': {'type': 'error'}
+    }), 500
+
+
+def _zeus_chat_inner():
+    """Inner implementation of Zeus chat - separated for retry logic."""
     try:
         # Get message and context
         if request.is_json:
@@ -1960,6 +2010,10 @@ def zeus_chat_endpoint():
         return jsonify(sanitize_for_json(result))
 
     except Exception as e:
+        # Re-raise transient DB errors so outer retry wrapper can handle them
+        if _is_transient_db_error(e):
+            raise  # Let the retry wrapper handle this
+        
         import traceback
         traceback.print_exc()
         return jsonify({
