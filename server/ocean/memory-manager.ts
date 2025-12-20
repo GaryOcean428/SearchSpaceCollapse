@@ -3,10 +3,13 @@
  * 
  * Sliding window memory with compression for efficient episode storage.
  * Implements recommendations from optnPR Part 5.2.
+ * 
+ * Storage: Redis (primary) with JSON file backup.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { cacheGet, cacheSet, isRedisAvailable, CACHE_TTL, CACHE_KEYS } from '../redis-cache';
 
 export interface OceanEpisode {
   id: string;
@@ -59,7 +62,9 @@ export class OceanMemoryManager {
     this.testMode = options?.testMode ?? false;
     
     if (!this.testMode) {
-      this.load();
+      this.loadAsync().catch(err => {
+        console.error('[OceanMemory] Async load failed:', err);
+      });
       this.startAutoSave();
     }
   }
@@ -239,27 +244,71 @@ export class OceanMemoryManager {
     }
   }
 
-  private save(): void {
+  private async saveAsync(): Promise<void> {
+    const state = {
+      recentEpisodes: this.recentEpisodes,
+      compressedEpisodes: this.compressedEpisodes,
+      savedAt: new Date().toISOString(),
+    };
+
+    // Primary: Write to Redis
+    if (isRedisAvailable()) {
+      try {
+        const saved = await cacheSet(CACHE_KEYS.OCEAN_MEMORY, state, CACHE_TTL.PERMANENT);
+        if (saved) {
+          this.isDirty = false;
+          console.log(`[OceanMemory] Saved to Redis: ${this.recentEpisodes.length} recent + ${this.compressedEpisodes.length} compressed episodes`);
+        }
+      } catch (error) {
+        console.error('[OceanMemory] Redis save failed:', error);
+      }
+    }
+
+    // Backup: Write to JSON file (non-critical)
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
-
-      const state = {
-        recentEpisodes: this.recentEpisodes,
-        compressedEpisodes: this.compressedEpisodes,
-        savedAt: new Date().toISOString(),
-      };
-
       fs.writeFileSync(MEMORY_FILE, JSON.stringify(state, null, 2));
       this.isDirty = false;
-      console.log(`[OceanMemory] Saved ${this.recentEpisodes.length} recent + ${this.compressedEpisodes.length} compressed episodes`);
+      console.log(`[OceanMemory] Backup saved to JSON file`);
     } catch (error) {
-      console.error('[OceanMemory] Save failed:', error);
+      console.warn('[OceanMemory] JSON backup save failed (non-critical):', error);
     }
   }
 
-  private load(): void {
+  private save(): void {
+    this.saveAsync().catch(err => {
+      console.error('[OceanMemory] Save failed:', err);
+    });
+  }
+
+  private async loadAsync(): Promise<void> {
+    // Primary: Try Redis first
+    if (isRedisAvailable()) {
+      try {
+        const data = await cacheGet<{
+          recentEpisodes: OceanEpisode[];
+          compressedEpisodes: CompressedEpisode[];
+          savedAt: string;
+        }>(CACHE_KEYS.OCEAN_MEMORY);
+
+        if (data) {
+          this.recentEpisodes = data.recentEpisodes || [];
+          this.compressedEpisodes = data.compressedEpisodes || [];
+          console.log(`[OceanMemory] Loaded from Redis: ${this.recentEpisodes.length} recent + ${this.compressedEpisodes.length} compressed episodes`);
+          return;
+        }
+      } catch (error) {
+        console.error('[OceanMemory] Redis load failed, falling back to JSON:', error);
+      }
+    }
+
+    // Fallback: Load from JSON file
+    this.loadFromJson();
+  }
+
+  private loadFromJson(): void {
     try {
       if (!fs.existsSync(MEMORY_FILE)) {
         console.log('[OceanMemory] No saved state found, starting fresh');
@@ -270,9 +319,9 @@ export class OceanMemoryManager {
       this.recentEpisodes = data.recentEpisodes || [];
       this.compressedEpisodes = data.compressedEpisodes || [];
 
-      console.log(`[OceanMemory] Loaded ${this.recentEpisodes.length} recent + ${this.compressedEpisodes.length} compressed episodes`);
+      console.log(`[OceanMemory] Loaded from JSON: ${this.recentEpisodes.length} recent + ${this.compressedEpisodes.length} compressed episodes`);
     } catch (error) {
-      console.error('[OceanMemory] Load failed:', error);
+      console.error('[OceanMemory] JSON load failed:', error);
       this.recentEpisodes = [];
       this.compressedEpisodes = [];
     }

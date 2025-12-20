@@ -24,6 +24,7 @@ import * as path from 'path';
 import { NEAR_MISS_CONFIG } from './ocean-config';
 import { oceanPersistence } from './ocean/ocean-persistence';
 import { isValidBIP39Phrase } from './bip39-words';
+import { cacheGet, cacheSet, isRedisAvailable, CACHE_KEYS, CACHE_TTL } from './redis-cache';
 
 export type NearMissTier = 'hot' | 'warm' | 'cool';
 
@@ -1254,26 +1255,124 @@ export class NearMissManager {
   }
 
   /**
-   * Async load implementation - PostgreSQL first, JSON fallback
+   * Async load implementation - Redis first, PostgreSQL second, JSON fallback
    */
   private async loadAsync(): Promise<void> {
     try {
+      // 1. Try Redis first (primary cache)
+      if (isRedisAvailable()) {
+        const loadedFromRedis = await this.loadFromRedis();
+        if (loadedFromRedis) {
+          console.log(`[NearMiss] Loaded from Redis: ${this.entries.size} entries, ${this.clusters.size} clusters`);
+          this.recomputeAdaptiveThresholds();
+          this.applyDecay();
+          return;
+        }
+      }
+
+      // 2. Try PostgreSQL second
       if (oceanPersistence.isPersistenceAvailable()) {
         const loadedFromDb = await this.loadFromPostgres();
         if (loadedFromDb) {
           console.log(`[NearMiss] Loaded from PostgreSQL: ${this.entries.size} entries, ${this.clusters.size} clusters`);
+          // Backfill to Redis for next time
+          this.saveToRedis().catch(err => console.error('[NearMiss] Redis backfill failed:', err));
           this.recomputeAdaptiveThresholds();
           this.applyDecay();
           return;
         }
       }
       
+      // 3. JSON fallback (migration path)
       this.loadFromJson();
+      // Backfill to Redis for next time
+      this.saveToRedis().catch(err => console.error('[NearMiss] Redis backfill failed:', err));
       this.recomputeAdaptiveThresholds();
       this.applyDecay();
     } catch (error) {
       console.error('[NearMiss] Failed to load state:', error);
       this.loadFromJson();
+    }
+  }
+
+  /**
+   * Load state from Redis (primary cache)
+   */
+  private async loadFromRedis(): Promise<boolean> {
+    try {
+      interface RedisNearMissState {
+        savedAt: string;
+        entries: NearMissEntry[];
+        clusters: NearMissCluster[];
+        rollingPhiDistribution: number[];
+        adaptiveThresholds: AdaptiveThresholds;
+        conversionRecords: ConversionRecord[];
+        tierTotals: { hot: number; warm: number; cool: number };
+        phiTemporalSamples: Array<{ phi: number; timestamp: string }>;
+        plateauCount: number;
+        consecutivePlateaus: number;
+        lastPlateauAt: string | null;
+        resetTriggerActive: boolean;
+      }
+
+      const data = await cacheGet<RedisNearMissState>(CACHE_KEYS.NEAR_MISS);
+      if (!data || !data.entries || data.entries.length === 0) {
+        console.log('[NearMiss] No data in Redis, will try other sources');
+        return false;
+      }
+
+      // Restore entries
+      for (const entry of data.entries) {
+        this.entries.set(entry.id, entry);
+        if (entry.phi) {
+          this.rollingPhiDistribution.push(entry.phi);
+        }
+      }
+
+      // Restore clusters
+      if (data.clusters) {
+        for (const cluster of data.clusters) {
+          this.clusters.set(cluster.id, cluster);
+        }
+      }
+
+      // Restore adaptive state
+      if (data.rollingPhiDistribution) {
+        this.rollingPhiDistribution = data.rollingPhiDistribution.slice(-NEAR_MISS_CONFIG.DISTRIBUTION_WINDOW_SIZE);
+      }
+      if (data.adaptiveThresholds) {
+        this.adaptiveThresholds = data.adaptiveThresholds;
+      }
+
+      // Restore success tracking
+      if (data.conversionRecords) {
+        this.conversionRecords = data.conversionRecords;
+      }
+      if (data.tierTotals) {
+        this.tierTotals = data.tierTotals;
+      }
+
+      // Restore temporal trends
+      if (data.phiTemporalSamples) {
+        this.phiTemporalSamples = data.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
+      }
+      if (data.plateauCount !== undefined) {
+        this.plateauCount = data.plateauCount;
+      }
+      if (data.consecutivePlateaus !== undefined) {
+        this.consecutivePlateaus = data.consecutivePlateaus;
+      }
+      if (data.lastPlateauAt) {
+        this.lastPlateauAt = data.lastPlateauAt;
+      }
+      if (data.resetTriggerActive !== undefined) {
+        this.resetTriggerActive = data.resetTriggerActive;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[NearMiss] Failed to load from Redis:', error);
+      return false;
     }
   }
 
@@ -1412,18 +1511,64 @@ export class NearMissManager {
   }
 
   /**
-   * Save state to both PostgreSQL and JSON
+   * Save state to Redis (primary), JSON (backup), and PostgreSQL
    */
   private save(): void {
     if (!this.isDirty) return;
 
-    this.saveToJson();
+    // 1. Save to Redis first (primary storage)
+    this.saveToRedis().catch(err => {
+      console.error('[NearMiss] Redis save failed:', err);
+    });
+
+    // 2. Save to JSON as backup (non-critical if it fails)
+    try {
+      this.saveToJson();
+    } catch (err) {
+      console.error('[NearMiss] JSON backup save failed:', err);
+    }
     
+    // 3. Save to PostgreSQL for long-term persistence
     this.saveToPostgres().catch(err => {
       console.error('[NearMiss] PostgreSQL save failed:', err);
     });
 
     this.isDirty = false;
+  }
+
+  /**
+   * Save state to Redis (primary cache)
+   */
+  private async saveToRedis(): Promise<boolean> {
+    if (!isRedisAvailable()) {
+      return false;
+    }
+
+    try {
+      const data = {
+        savedAt: new Date().toISOString(),
+        entries: Array.from(this.entries.values()),
+        clusters: Array.from(this.clusters.values()),
+        rollingPhiDistribution: this.rollingPhiDistribution,
+        adaptiveThresholds: this.adaptiveThresholds,
+        conversionRecords: this.conversionRecords,
+        tierTotals: this.tierTotals,
+        phiTemporalSamples: this.phiTemporalSamples,
+        plateauCount: this.plateauCount,
+        consecutivePlateaus: this.consecutivePlateaus,
+        lastPlateauAt: this.lastPlateauAt,
+        resetTriggerActive: this.resetTriggerActive,
+      };
+
+      const success = await cacheSet(CACHE_KEYS.NEAR_MISS, data, CACHE_TTL.PERMANENT);
+      if (success) {
+        console.log(`[NearMiss] Saved to Redis: ${this.entries.size} entries, ${this.clusters.size} clusters`);
+      }
+      return success;
+    } catch (error) {
+      console.error('[NearMiss] Failed to save to Redis:', error);
+      return false;
+    }
   }
 
   /**

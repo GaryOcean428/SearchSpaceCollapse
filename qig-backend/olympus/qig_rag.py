@@ -336,10 +336,11 @@ class QIGRAG:
             rho1_reg = rho1 + eps * np.eye(dim, dtype=rho1.dtype)
             rho2_reg = rho2 + eps * np.eye(dim, dtype=rho2.dtype)
             
-            sqrt_rho1 = sqrtm(rho1_reg)
+            sqrt_rho1 = np.asarray(sqrtm(rho1_reg))
             product = sqrt_rho1 @ rho2_reg @ sqrt_rho1
-            sqrt_product = sqrtm(product)
-            fidelity = np.real(np.trace(sqrt_product)) ** 2
+            sqrt_product = np.asarray(sqrtm(product))
+            trace_val = np.trace(sqrt_product)
+            fidelity = float(np.real(trace_val)) ** 2
             fidelity = float(np.clip(fidelity, 0, 1))
             
             return float(np.sqrt(2 * (1 - fidelity)))
@@ -379,9 +380,8 @@ class QIGRAG:
         # Ensure query_basin is float64 array
         query_basin = np.asarray(query_basin, dtype=np.float64)
         
-        # Compute query density matrix for Bures
-        if metric == 'bures':
-            query_rho = QIGDocument._basin_to_density_matrix(query_basin)
+        # Compute query density matrix for Bures (initialize for type checker)
+        query_rho: np.ndarray = QIGDocument._basin_to_density_matrix(query_basin) if metric == 'bures' else np.array([])
         
         # Compute distances to all documents
         results = []
@@ -511,7 +511,7 @@ class QIGRAGDatabase(QIGRAG):
             
             self.conn = psycopg2.connect(db_url)
             self._create_schema()
-            db_display = db_url.split('@')[1] if '@' in db_url else 'localhost'
+            db_display = db_url.split('@')[1] if db_url and '@' in db_url else 'localhost'
             print(f"[QIG-RAG] Connected to PostgreSQL: {db_display}")
         except ImportError:
             print("[QIG-RAG] psycopg2 not installed - falling back to JSON storage")
@@ -580,7 +580,8 @@ class QIGRAGDatabase(QIGRAG):
             
         if self.conn is None:
             # Fallback to parent implementation with matching signature
-            return super().add_document(content, basin_coords, metadata, doc_id, phi, kappa, regime)
+            result = super().add_document(content, basin_coords, metadata, doc_id, phi, kappa, regime)
+            return result if result is not None else ""
         
         doc_id = str(uuid.uuid4())
         
@@ -598,7 +599,9 @@ class QIGRAGDatabase(QIGRAG):
                 regime,
                 self.Json(metadata or {})
             ))
-            db_id = cur.fetchone()[0]
+            row = cur.fetchone()
+            assert row is not None, "INSERT should return a doc_id"
+            db_id = row[0]
             self.conn.commit()
         
         return f"pg_{db_id}"
@@ -683,10 +686,12 @@ class QIGRAGDatabase(QIGRAG):
         
         with self.conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM basin_documents")
-            total = cur.fetchone()[0]
+            count_row = cur.fetchone()
+            total = count_row[0] if count_row else 0
             
             cur.execute("SELECT AVG(phi), AVG(kappa) FROM basin_documents")
-            avg_phi, avg_kappa = cur.fetchone()
+            avg_row = cur.fetchone()
+            avg_phi, avg_kappa = (avg_row[0], avg_row[1]) if avg_row else (None, None)
             
             cur.execute("""
                 SELECT regime, COUNT(*) 
