@@ -15,14 +15,15 @@ const router = Router();
  * Execute a Google search via MultiSearchOrchestrator
  */
 router.post('/google', async (req: Request, res: Response) => {
+  const orchestrator = getMultiSearchOrchestrator();
+  const originalMode = orchestrator.getConfig().mode;
+  
   try {
     const { query, maxResults = 10, timeRange } = req.body;
     
     if (!query || typeof query !== 'string') {
       return res.status(400).json({ error: 'Query string required' });
     }
-    
-    const orchestrator = getMultiSearchOrchestrator();
     
     const geometricQuery: GeometricQuery = {
       text: query,
@@ -33,12 +34,9 @@ router.post('/google', async (req: Request, res: Response) => {
       } : undefined,
     };
     
-    const originalMode = orchestrator.getConfig().mode;
     orchestrator.setMode('parallel');
     
     const results = await orchestrator.search(geometricQuery);
-    
-    orchestrator.setMode(originalMode);
     
     console.log(`[GoogleBridge] Returned ${results.length} results for: "${query.slice(0, 50)}..."`);
     
@@ -55,6 +53,8 @@ router.post('/google', async (req: Request, res: Response) => {
       error: 'Search failed', 
       message: error.message 
     });
+  } finally {
+    orchestrator.setMode(originalMode);
   }
 });
 
