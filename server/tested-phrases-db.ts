@@ -5,10 +5,12 @@
  * 
  * Tracks all tested phrases to avoid wasteful re-testing
  * Solves the "148 addresses re-tested forever" problem
+ * 
+ * BATCHING: Uses write buffer to reduce DB pressure (fixes backpressure errors)
  */
 
 import { nanoid } from 'nanoid';
-import { db, withDbRetry } from './db';
+import { db, withDbRetry, isDbOverloaded } from './db';
 import { 
   testedPhrases,
   type TestedPhrase,
@@ -19,6 +21,60 @@ import { eq, sql, and, isNull, desc } from 'drizzle-orm';
 // In-memory cache for quick lookups (most recent 10,000 phrases)
 const phraseCache = new Map<string, TestedPhrase>();
 const CACHE_SIZE = 10000;
+
+// ============================================================================
+// WRITE BUFFER - Batches inserts to reduce DB pressure
+// ============================================================================
+const writeBuffer: InsertTestedPhrase[] = [];
+const BUFFER_SIZE = 100; // Flush when buffer reaches this size
+const BUFFER_FLUSH_INTERVAL = 5000; // Or flush every 5 seconds
+let flushTimer: NodeJS.Timeout | null = null;
+let isFlushingBuffer = false;
+
+async function flushWriteBuffer(): Promise<void> {
+  if (isFlushingBuffer || writeBuffer.length === 0 || !db) return;
+  
+  isFlushingBuffer = true;
+  const toFlush = writeBuffer.splice(0, BUFFER_SIZE);
+  
+  try {
+    await withDbRetry(
+      async () => {
+        await db!.insert(testedPhrases).values(toFlush).onConflictDoNothing();
+      },
+      'batch-insert-tested-phrases',
+      2 // Only 2 retries for batch
+    );
+    console.log(`[TestedPhrasesDB] Flushed ${toFlush.length} phrases to DB`);
+  } catch (error) {
+    // On failure, put items back for retry (at front of queue)
+    writeBuffer.unshift(...toFlush);
+    console.error(`[TestedPhrasesDB] Batch flush failed, ${writeBuffer.length} items queued`);
+  } finally {
+    isFlushingBuffer = false;
+  }
+  
+  // If more items remain, schedule next flush
+  if (writeBuffer.length > 0 && !flushTimer) {
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      flushWriteBuffer();
+    }, BUFFER_FLUSH_INTERVAL);
+  }
+}
+
+function scheduleFlush(): void {
+  if (writeBuffer.length >= BUFFER_SIZE) {
+    // Immediate flush when buffer is full
+    flushWriteBuffer();
+  } else if (!flushTimer) {
+    // Schedule delayed flush
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      flushWriteBuffer();
+    }, BUFFER_FLUSH_INTERVAL);
+  }
+}
 
 export class TestedPhrasesRegistryDB {
   constructor() {
@@ -122,6 +178,7 @@ export class TestedPhrasesRegistryDB {
   /**
    * Record a tested phrase
    * If already exists, increments retest count (to track waste)
+   * Uses write buffer to batch inserts and reduce DB pressure
    */
   async recordTested(
     phrase: string,
@@ -132,43 +189,33 @@ export class TestedPhrasesRegistryDB {
     kappa?: number,
     regime?: string
   ): Promise<void> {
-    const existing = await this.wasTested(phrase);
-    
-    if (existing) {
-      // Wasteful re-test detected!
-      const newRetestCount = (existing.retestCount || 0) + 1;
-      
-      if (db) {
-        await withDbRetry(
-          async () => {
-            await db!
-              .update(testedPhrases)
-              .set({
-                retestCount: newRetestCount,
-                // Update other fields in case they changed
-                balanceSats,
-                txCount,
-                phi: phi ?? existing.phi,
-                kappa: kappa ?? existing.kappa,
-                regime: regime ?? existing.regime,
-              })
-              .where(eq(testedPhrases.id, existing.id));
-          },
-          'update-tested-phrase'
-        );
-      }
-      
-      existing.retestCount = newRetestCount;
-      phraseCache.set(phrase, existing);
-      
-      // Only log every 50 retests to reduce spam
-      if (newRetestCount % 50 === 0 || newRetestCount === 1) {
-        console.warn(`[TestedPhrasesDB] WASTE DETECTED: Phrase "${phrase.substring(0, 30)}..." re-tested (${newRetestCount} times)`);
-      }
+    // Check cache first (fast path)
+    const cached = phraseCache.get(phrase);
+    if (cached) {
+      // Update cache stats for re-test tracking
+      cached.retestCount = (cached.retestCount || 0) + 1;
       return;
     }
     
-    // New phrase - record it
+    // Only check DB if not overloaded
+    if (!isDbOverloaded()) {
+      const existing = await this.wasTested(phrase);
+      
+      if (existing) {
+        // Wasteful re-test detected - but don't block on update
+        const newRetestCount = (existing.retestCount || 0) + 1;
+        existing.retestCount = newRetestCount;
+        phraseCache.set(phrase, existing);
+        
+        // Only log every 50 retests to reduce spam
+        if (newRetestCount % 50 === 0 || newRetestCount === 1) {
+          console.warn(`[TestedPhrasesDB] WASTE DETECTED: Phrase "${phrase.substring(0, 30)}..." re-tested (${newRetestCount} times)`);
+        }
+        return;
+      }
+    }
+    
+    // New phrase - add to buffer (non-blocking)
     const id = nanoid();
     const record: InsertTestedPhrase = {
       id,
@@ -182,17 +229,11 @@ export class TestedPhrasesRegistryDB {
       retestCount: 0,
     };
     
-    if (db) {
-      await withDbRetry(
-        async () => {
-          // Use onConflictDoNothing to handle race conditions where cache doesn't have phrase but DB does
-          await db!.insert(testedPhrases).values(record).onConflictDoNothing();
-        },
-        'insert-tested-phrase'
-      );
-    }
+    // Add to write buffer instead of direct insert
+    writeBuffer.push(record);
+    scheduleFlush();
     
-    // Update cache
+    // Update cache immediately (cache is source of truth until flush)
     phraseCache.set(phrase, record as TestedPhrase);
     
     // Maintain cache size
@@ -367,6 +408,35 @@ export class TestedPhrasesRegistryDB {
     
     return result || 0;
   }
+  /**
+   * Get buffer stats for monitoring
+   */
+  getBufferStats() {
+    return {
+      buffered: writeBuffer.length,
+      maxBuffer: BUFFER_SIZE,
+      cached: phraseCache.size,
+      maxCache: CACHE_SIZE,
+      flushTimerActive: !!flushTimer,
+      isFlushing: isFlushingBuffer
+    };
+  }
+  
+  /**
+   * Force flush the buffer (for shutdown)
+   */
+  async forceFlush(): Promise<void> {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    await flushWriteBuffer();
+  }
 }
 
 export const testedPhrasesRegistryDB = new TestedPhrasesRegistryDB();
+
+// Export buffer stats for monitoring
+export function getTestedPhrasesBufferStats() {
+  return testedPhrasesRegistryDB.getBufferStats();
+}
