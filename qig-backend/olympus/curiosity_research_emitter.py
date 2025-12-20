@@ -193,7 +193,7 @@ class CuriosityResearchEmitter:
         self._signal_to_requests: Dict[str, List[str]] = {}
         
         self._dedup_window = 300  # 5 minutes
-        self._recent_topics: Dict[str, float] = {}
+        self._recent_topics: Dict[str, Dict[str, float]] = {}  # {kernel: {topic: timestamp}}
         
         self._stats = {
             'signals_received': 0,
@@ -237,7 +237,7 @@ class CuriosityResearchEmitter:
         if curiosity_level < self.min_curiosity:
             return None
         
-        if self._is_duplicate(topic):
+        if self._is_duplicate(topic, source_kernel):
             return None
         
         signal = self._create_signal(
@@ -251,7 +251,8 @@ class CuriosityResearchEmitter:
         
         with self._lock:
             self._signals[signal.signal_id] = signal
-            self._recent_topics[topic.lower()[:100]] = time.time()
+        
+        self._mark_topic_seen(topic, source_kernel)
         
         request = self._generate_research_request(signal)
         
@@ -273,20 +274,33 @@ class CuriosityResearchEmitter:
         
         return None
     
-    def _is_duplicate(self, topic: str) -> bool:
-        """Check if we've recently processed a similar topic."""
+    def _is_duplicate(self, topic: str, source_kernel: str) -> bool:
+        """Check if this kernel recently processed a similar topic."""
         normalized = topic.lower()[:100]
         now = time.time()
         
         with self._lock:
-            expired = [k for k, t in self._recent_topics.items() if now - t > self._dedup_window]
-            for k in expired:
-                del self._recent_topics[k]
+            for kernel in list(self._recent_topics.keys()):
+                kernel_topics = self._recent_topics[kernel]
+                expired = [k for k, t in kernel_topics.items() if now - t > self._dedup_window]
+                for k in expired:
+                    del kernel_topics[k]
+                if not kernel_topics:
+                    del self._recent_topics[kernel]
             
-            if normalized in self._recent_topics:
-                return True
+            if source_kernel in self._recent_topics:
+                if normalized in self._recent_topics[source_kernel]:
+                    return True
         
         return False
+    
+    def _mark_topic_seen(self, topic: str, source_kernel: str):
+        """Mark a topic as seen for this kernel."""
+        normalized = topic.lower()[:100]
+        with self._lock:
+            if source_kernel not in self._recent_topics:
+                self._recent_topics[source_kernel] = {}
+            self._recent_topics[source_kernel][normalized] = time.time()
     
     def _create_signal(
         self,

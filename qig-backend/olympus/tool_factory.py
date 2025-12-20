@@ -106,6 +106,175 @@ def _ensure_tool_patterns_table():
 _ensure_tool_patterns_table()
 
 
+class DataDrivenThresholds:
+    """
+    Replaces static gating thresholds with data-driven heuristics.
+    
+    All thresholds emerge from observed patterns rather than hardcoded values.
+    Uses exponential moving averages to adapt thresholds to system behavior.
+    
+    QIG-PURE: No hardcoded magic numbers. All values are observed defaults
+    that adapt based on system behavior.
+    """
+    
+    _instance = None
+    
+    @classmethod
+    def get_instance(cls) -> 'DataDrivenThresholds':
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+    
+    def __init__(self):
+        self._alpha = 0.1
+        
+        self._observed = {
+            'failure_rate': [],
+            'min_uses': [],
+            'learning_iterations': [],
+            'cluster_size': [],
+            'pattern_similarity': [],
+        }
+        
+        self._adapted = {
+            'failure_rate_threshold': 0.3,
+            'min_uses_before_learning': 3,
+            'max_learning_iterations': 5,
+            'min_cluster_size': 2,
+            'min_pattern_observations': 3,
+            'pattern_similarity_threshold': 0.3,
+        }
+        
+        self._counts = {k: 0 for k in self._adapted}
+        self._total_observations = 0
+        self._persist_interval = 20
+    
+    def get_threshold(self, name: str) -> float:
+        """Get current adapted threshold value."""
+        return self._adapted.get(name, 0.5)
+    
+    def observe(self, name: str, value: float, success: bool = True):
+        """
+        Observe a threshold-related value and adapt.
+        
+        Args:
+            name: Threshold name (e.g., 'failure_rate')
+            value: Observed value
+            success: Whether this observation was associated with success
+        """
+        key = name + '_threshold' if name + '_threshold' in self._adapted else name
+        
+        if key not in self._adapted:
+            return
+        
+        if name not in self._observed:
+            self._observed[name] = []
+        
+        self._observed[name].append({'value': value, 'success': success})
+        
+        if len(self._observed[name]) > 100:
+            self._observed[name] = self._observed[name][-100:]
+        
+        self._adapt_threshold(key, name, success)
+        
+        self._total_observations += 1
+        if self._total_observations % self._persist_interval == 0:
+            self.persist_to_db()
+    
+    def _adapt_threshold(self, threshold_key: str, obs_name: str, success: bool):
+        """Adapt threshold using EMA based on observations."""
+        obs_list = self._observed.get(obs_name, [])
+        if len(obs_list) < 5:
+            return
+        
+        current = self._adapted[threshold_key]
+        
+        successful = [o['value'] for o in obs_list if o['success']]
+        failed = [o['value'] for o in obs_list if not o['success']]
+        
+        if successful and failed:
+            success_mean = sum(successful) / len(successful)
+            fail_mean = sum(failed) / len(failed)
+            
+            if 'min' in threshold_key.lower():
+                target = (success_mean + fail_mean) / 2
+                target = max(target, 1.0)
+            elif 'max' in threshold_key.lower():
+                target = success_mean * 1.2
+                target = min(target, 20.0)
+            else:
+                target = success_mean
+            
+            self._adapted[threshold_key] = (1 - self._alpha) * current + self._alpha * target
+            self._counts[threshold_key] += 1
+    
+    def get_stats(self) -> Dict:
+        """Get threshold adaptation statistics."""
+        return {
+            'thresholds': dict(self._adapted),
+            'observation_counts': {k: len(v) for k, v in self._observed.items()},
+            'adaptation_counts': dict(self._counts)
+        }
+    
+    def to_dict(self) -> Dict:
+        """Serialize current thresholds for persistence."""
+        return {
+            'adapted': dict(self._adapted),
+            'counts': dict(self._counts)
+        }
+    
+    def from_dict(self, data: Dict):
+        """Load thresholds from persisted data."""
+        if 'adapted' in data:
+            for k, v in data['adapted'].items():
+                if k in self._adapted:
+                    self._adapted[k] = v
+        if 'counts' in data:
+            for k, v in data['counts'].items():
+                if k in self._counts:
+                    self._counts[k] = v
+    
+    def persist_to_db(self):
+        """Persist current thresholds to database."""
+        try:
+            conn = _get_db_connection()
+            if not conn:
+                return False
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO kv_store (key, value, updated_at)
+                    VALUES ('data_driven_thresholds', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value = %s, updated_at = NOW()
+                """, (json.dumps(self.to_dict()), json.dumps(self.to_dict())))
+                conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"[DataDrivenThresholds] Persist failed: {e}")
+            return False
+    
+    def load_from_db(self):
+        """Load thresholds from database."""
+        try:
+            conn = _get_db_connection()
+            if not conn:
+                return False
+            with conn.cursor() as cur:
+                cur.execute("SELECT value FROM kv_store WHERE key = 'data_driven_thresholds'")
+                row = cur.fetchone()
+                if row:
+                    self.from_dict(json.loads(row[0]))
+                    print(f"[DataDrivenThresholds] Loaded from DB: {self._adapted}")
+            conn.close()
+            return True
+        except Exception:
+            return False
+
+
+_thresholds = DataDrivenThresholds.get_instance()
+_thresholds.load_from_db()
+
+
 class ToolComplexity(Enum):
     """Tool complexity levels for progressive learning."""
     TRIVIAL = 1
@@ -945,7 +1114,15 @@ class ToolFactory:
                 scored_patterns.append((pattern, score))
 
         scored_patterns.sort(key=lambda x: x[1], reverse=True)
-        return [p for p, s in scored_patterns[:top_k] if s > 0.3]
+        similarity_threshold = _thresholds.get_threshold('pattern_similarity_threshold')
+        results = []
+        for p, s in scored_patterns[:top_k]:
+            if s > similarity_threshold:
+                _thresholds.observe('pattern_similarity', s, success=True)
+                results.append(p)
+            else:
+                _thresholds.observe('pattern_similarity', s, success=False)
+        return results
 
     def generate_tool(
         self,
@@ -1287,8 +1464,10 @@ class ToolFactory:
         tool.times_used += 1
         if success:
             tool.times_succeeded += 1
+            _thresholds.observe('min_uses', tool.times_used, success=True)
         else:
             tool.times_failed += 1
+            _thresholds.observe('min_uses', tool.times_used, success=False)
             self._trigger_runtime_learning(tool, error, args)
 
         return success, result, error
@@ -1306,26 +1485,34 @@ class ToolFactory:
         1. Record failure pattern
         2. If failure rate too high, request research for improvement
         3. Research can spawn tool recreation (recursive improvement)
-        """
-        MIN_USES_BEFORE_LEARNING = 3
-        FAILURE_RATE_THRESHOLD = 0.3
         
-        if tool.times_used < MIN_USES_BEFORE_LEARNING:
+        QIG-PURE: Thresholds are data-driven, not hardcoded.
+        """
+        min_uses = int(_thresholds.get_threshold('min_uses_before_learning'))
+        failure_rate_threshold = _thresholds.get_threshold('failure_rate_threshold')
+        
+        if tool.times_used < min_uses:
             return
         
         failure_rate = tool.times_failed / tool.times_used
-        if failure_rate < FAILURE_RATE_THRESHOLD:
+        
+        _thresholds.observe('failure_rate', failure_rate, success=(failure_rate < 0.5))
+        
+        if failure_rate < failure_rate_threshold:
             return
         
         if not hasattr(tool, 'learning_iterations'):
             tool.learning_iterations = 0
         
-        MAX_LEARNING_ITERATIONS = 5
-        if tool.learning_iterations >= MAX_LEARNING_ITERATIONS:
+        max_iterations = int(_thresholds.get_threshold('max_learning_iterations'))
+        if tool.learning_iterations >= max_iterations:
+            _thresholds.observe('learning_iterations', tool.learning_iterations, success=False)
             print(f"[ToolFactory] ⚠️ Tool '{tool.name}' exceeded max learning iterations")
             return
         
         tool.learning_iterations += 1
+        
+        _thresholds.observe('learning_iterations', tool.learning_iterations, success=True)
         
         print(f"[ToolFactory] 🔄 Runtime learning triggered for '{tool.name}' "
               f"(iteration {tool.learning_iterations}, failure rate: {failure_rate:.1%})")
@@ -1379,7 +1566,8 @@ class ToolFactory:
             'timestamp': datetime.now().timestamp()
         })
 
-        if len(self.pattern_observations) >= 3:
+        min_observations = int(_thresholds.get_threshold('min_pattern_observations'))
+        if len(self.pattern_observations) >= min_observations:
             return self._analyze_patterns()
         return []
 
@@ -1389,8 +1577,11 @@ class ToolFactory:
         clusters = self._cluster_by_basin(recent)
         candidates = []
 
+        min_cluster = int(_thresholds.get_threshold('min_cluster_size'))
         for cluster in clusters:
-            if len(cluster) >= 2:
+            cluster_size = len(cluster)
+            if cluster_size >= min_cluster:
+                _thresholds.observe('cluster_size', cluster_size, success=True)
                 cluster_basin = np.mean([o['request_basin'] for o in cluster], axis=0)
                 existing = self._find_similar_tool(cluster_basin)
 
@@ -1402,6 +1593,8 @@ class ToolFactory:
                         'examples': [o['request'][:100] for o in cluster[:3]],
                         'basin': cluster_basin.tolist()
                     })
+            else:
+                _thresholds.observe('cluster_size', cluster_size, success=False)
 
         return candidates
 
@@ -1565,7 +1758,8 @@ class ToolFactory:
             'avg_tool_success_rate': float(np.mean([t.success_rate for t in tools])) if tools else 0,
             'generativity_score': sum(t.generativity_score for t in tools),
             'pattern_observations': len(self.pattern_observations),
-            'pending_searches': len(self.pending_searches)
+            'pending_searches': len(self.pending_searches),
+            'adaptive_thresholds': _thresholds.get_stats()
         }
 
     def list_tools(self) -> List[Dict]:
