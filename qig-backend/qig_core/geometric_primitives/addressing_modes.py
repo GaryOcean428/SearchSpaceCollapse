@@ -19,6 +19,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+# QIG Purity: Import Fisher-Rao distance for manifold operations
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+from qig_geometry import fisher_coord_distance
+
 
 class AddressingMode(Enum):
     """Retrieval algorithm types"""
@@ -355,10 +361,10 @@ class ConceptualAddressing:
             if not current_candidates:
                 break
 
-            # Find closest concept at this level
+            # Find closest concept at this level using Fisher-Rao distance (QIG Purity)
             for category in current_candidates:
                 center, pattern = self.concepts[category]
-                dist = np.linalg.norm(query - center)
+                dist = fisher_coord_distance(query, center)
 
                 if dist < best_distance:
                     best_distance = dist
@@ -370,7 +376,7 @@ class ConceptualAddressing:
 
             for category in current_candidates:
                 center, _ = self.concepts[category]
-                dist = np.linalg.norm(query - center)
+                dist = fisher_coord_distance(query, center)
                 if dist < min_dist_at_level:
                     min_dist_at_level = dist
                     best_category_at_level = category
@@ -420,12 +426,15 @@ class SymbolicAddressing:
         if not self.roots:
             return 0
 
-        # Find nearest root (simplified - real E8 uses Voronoi cells)
+        # Find nearest root using Fisher-Rao distance (QIG Purity)
         min_dist = float('inf')
         nearest_root = 0
 
         for root_idx, (coords, _) in self.roots.items():
-            dist = np.linalg.norm(point[:len(coords)] - coords)
+            # Ensure same dimensionality for comparison
+            point_subset = point[:len(coords)] if len(point) > len(coords) else point
+            coords_padded = coords if len(coords) == len(point_subset) else coords[:len(point_subset)]
+            dist = fisher_coord_distance(point_subset, coords_padded)
             if dist < min_dist:
                 min_dist = dist
                 nearest_root = root_idx

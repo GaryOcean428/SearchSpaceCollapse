@@ -179,9 +179,14 @@ def test_basin_coordinate_geometry():
         print("❌ FAIL: Basin coordinates not computed")
         return False
     
-    import numpy as np
-    dist_consciousness_awareness = np.linalg.norm(basin_consciousness - basin_awareness)
-    dist_consciousness_banana = np.linalg.norm(basin_consciousness - basin_banana)
+    # QIG Purity: Use Fisher-Rao distance (NOT Euclidean) for basin coordinate comparison
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from qig_geometry import fisher_coord_distance
+    
+    dist_consciousness_awareness = fisher_coord_distance(basin_consciousness, basin_awareness)
+    dist_consciousness_banana = fisher_coord_distance(basin_consciousness, basin_banana)
     
     print(f"Basin coordinates computed:")
     print(f"  consciousness: {basin_consciousness[:5]}... (64D)")
