@@ -24,6 +24,9 @@ from urllib.parse import urlparse
 
 import numpy as np
 
+from .google_search_bridge import GoogleSearchBridge, GoogleSearchResult, get_google_search_bridge
+from .topic_flagging_service import TopicFlaggingService, get_topic_flagging_service
+
 BASIN_DIMENSION = 64
 
 HAS_SCRAPY = False
@@ -773,7 +776,13 @@ class ScrapyOrchestrator:
         
         self.source_discovery = SourceDiscoveryService()
         
+        self.google_bridge = get_google_search_bridge(basin_encoder=basin_encoder)
+        self.topic_flagging = get_topic_flagging_service(basin_encoder=basin_encoder)
+        
+        self._google_enabled = True
+        
         print("[ScrapyOrchestrator] QIG-PURE: Sources discovered from PostgreSQL telemetry")
+        print("[ScrapyOrchestrator] Google bridge and topic flagging initialized")
     
     def set_insights_callback(self, callback: Callable[[ScrapedInsight, np.ndarray, float, float], None]):
         """Set callback for when insights are ready with geometric metadata."""
@@ -1194,6 +1203,203 @@ class ScrapyOrchestrator:
     def poll_results(self) -> int:
         """Poll and process any pending results."""
         return self._process_results_queue()
+    
+    def search_with_google(
+        self,
+        query: str,
+        max_results: int = 10,
+        flag_topics: bool = True
+    ) -> List[GoogleSearchResult]:
+        """
+        Execute a Google search via TypeScript bridge.
+        
+        Integrates with the multi-provider search system and optionally
+        flags discovered topics for future research.
+        
+        Args:
+            query: Search query string
+            max_results: Maximum number of results to return
+            flag_topics: Whether to flag topics from results
+            
+        Returns:
+            List of GoogleSearchResult with basin coordinates and Φ/κ
+        """
+        if not self._google_enabled:
+            print("[ScrapyOrchestrator] Google search disabled")
+            return []
+        
+        try:
+            results = self.google_bridge.search(query, max_results=max_results)
+            
+            if flag_topics and results:
+                for result in results:
+                    content = f"{result.title} {result.snippet}"
+                    self.topic_flagging.flag_from_content(
+                        content=content,
+                        source=result.url,
+                        source_phi=result.phi,
+                        context={
+                            'query': query,
+                            'rank': result.rank,
+                            'source_provider': result.source_provider
+                        }
+                    )
+                    
+                    self.source_discovery.discover_source_from_event(
+                        event_content=content[:500],
+                        source_url=result.url,
+                        phi=result.phi,
+                        metadata={'category': 'google_search'}
+                    )
+            
+            print(f"[ScrapyOrchestrator] Google search: {len(results)} results for '{query[:40]}...'")
+            return results
+            
+        except Exception as e:
+            print(f"[ScrapyOrchestrator] Google search error: {e}")
+            return []
+    
+    def research_with_google(
+        self,
+        topic: str,
+        max_results: int = 10
+    ) -> Optional[str]:
+        """
+        Research a topic using Google search and optionally other sources.
+        
+        Combines Google results with Scrapy-discovered sources for
+        comprehensive research coverage.
+        
+        Returns crawl_id for tracking.
+        """
+        crawl_id = hashlib.md5(f"google:{topic}:{time.time()}".encode()).hexdigest()[:12]
+        
+        self.pending_crawls[crawl_id] = {
+            'spider_type': 'google',
+            'topic': topic,
+            'status': 'pending',
+            'started_at': datetime.now(),
+            'insights': []
+        }
+        
+        try:
+            google_results = self.search_with_google(topic, max_results=max_results)
+            
+            content_parts = [f"Google Research: {topic}", ""]
+            sources_used = []
+            
+            for result in google_results:
+                content_parts.append(f"[{result.rank}] {result.title}")
+                content_parts.append(f"    URL: {result.url}")
+                content_parts.append(f"    {result.snippet[:200]}...")
+                content_parts.append(f"    Φ={result.phi:.3f}, κ={result.kappa:.3f}")
+                content_parts.append("")
+                sources_used.append(result.url)
+            
+            live_content = "\n".join(content_parts)
+            
+            pattern_hits = BitcoinPatternDetector.detect(live_content)
+            
+            avg_phi = sum(r.phi for r in google_results) / max(len(google_results), 1)
+            
+            insight = ScrapedInsight(
+                source_url=sources_used[0] if sources_used else f"google://search/{topic.replace(' ', '_')}",
+                content_hash=hashlib.md5(live_content.encode()).hexdigest(),
+                raw_content=live_content[:5000],
+                title=f"Google Research: {topic}",
+                pattern_hits=pattern_hits,
+                heuristic_risk=BitcoinPatternDetector.calculate_risk(pattern_hits),
+                source_reputation=0.8,
+                spider_type='google',
+                metadata={
+                    'topic': topic,
+                    'google_results_count': len(google_results),
+                    'sources_used': sources_used[:5],
+                    'avg_phi': avg_phi
+                }
+            )
+            
+            basin_coords = self.basin_transformer.content_to_basin(live_content)
+            phi = self.basin_transformer.compute_phi(insight, basin_coords)
+            confidence = self.basin_transformer.compute_confidence(insight)
+            
+            self.pending_crawls[crawl_id]['status'] = 'complete'
+            self.pending_crawls[crawl_id]['insights'].append(insight.to_dict())
+            
+            if self._insights_callback:
+                self._insights_callback(insight, basin_coords, phi, confidence)
+            
+            print(f"[ScrapyOrchestrator] Google research {crawl_id} complete: Φ={phi:.3f}, sources={len(sources_used)}")
+            return crawl_id
+            
+        except Exception as e:
+            print(f"[ScrapyOrchestrator] Google research error: {e}")
+            self.pending_crawls[crawl_id]['status'] = 'error'
+            self.pending_crawls[crawl_id]['error'] = str(e)
+            return crawl_id
+    
+    def get_pending_flagged_topics(
+        self,
+        category: Optional[str] = None,
+        min_priority: float = 0.3,
+        limit: int = 10
+    ) -> List[Dict]:
+        """
+        Get pending flagged topics for research expansion.
+        
+        Returns topics that have been flagged during research but not yet
+        fully explored.
+        """
+        topics = self.topic_flagging.get_pending_topics(
+            category=category,
+            min_priority=min_priority,
+            limit=limit
+        )
+        return [t.to_dict() for t in topics]
+    
+    def research_flagged_topics(
+        self,
+        limit: int = 5,
+        min_priority: float = 0.4
+    ) -> List[str]:
+        """
+        Research pending flagged topics automatically.
+        
+        Iteratively researches high-priority flagged topics to expand
+        the knowledge base.
+        
+        Returns list of crawl_ids for tracking.
+        """
+        topics = self.topic_flagging.get_pending_topics(
+            min_priority=min_priority,
+            limit=limit
+        )
+        
+        crawl_ids = []
+        for flagged_topic in topics:
+            self.topic_flagging.mark_searched(flagged_topic.topic_id)
+            
+            crawl_id = self.research_with_google(
+                topic=flagged_topic.topic,
+                max_results=5
+            )
+            if crawl_id:
+                crawl_ids.append(crawl_id)
+        
+        print(f"[ScrapyOrchestrator] Researched {len(crawl_ids)} flagged topics")
+        return crawl_ids
+    
+    def get_research_stats(self) -> Dict:
+        """Get comprehensive research statistics."""
+        return {
+            'pending_crawls': len(self.pending_crawls),
+            'active_crawls': len(self.get_active_crawls()),
+            'google_bridge': self.google_bridge.get_stats(),
+            'topic_flagging': self.topic_flagging.get_stats(),
+            'source_discovery': {
+                'discovered_sources': len(self.source_discovery.discovered_sources)
+            }
+        }
 
 
 _scrapy_orchestrator: Optional[ScrapyOrchestrator] = None
