@@ -11,8 +11,8 @@ export const API_ROUTES = {
   // Authentication
   auth: {
     user: '/api/auth/user',
-    login: '/api/auth/login',
-    logout: '/api/auth/logout',
+    login: '/api/login',
+    logout: '/api/logout',
   },
 
   // Investigation & Recovery Core
