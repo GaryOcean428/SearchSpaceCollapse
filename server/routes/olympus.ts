@@ -796,16 +796,35 @@ router.post('/assess', isAuthenticated, validateInput(targetSchema), async (req,
 /**
  * Get Olympus status
  * Requires authentication
+ * Returns loading state if Python backend is still starting up
  */
 router.get('/status', isAuthenticated, async (req, res) => {
   try {
     const status = await olympusClient.getStatus();
-    res.json(status);
-  } catch (error) {
+    if (status) {
+      res.json(status);
+    } else {
+      // Backend returned null - likely still loading
+      res.json({
+        status: 'loading',
+        gods: null,
+        message: 'Mount Olympus is awakening... The gods are loading their geometric memory.',
+      });
+    }
+  } catch (error: any) {
     console.error('[Olympus] Status error:', error);
-    res.status(500).json({
-      error: 'Failed to get status',
-    });
+    // Return loading state for backend not ready errors
+    if (error.message?.includes('not ready')) {
+      res.json({
+        status: 'loading',
+        gods: null,
+        message: 'Mount Olympus is awakening... Please wait while geometric memory loads.',
+      });
+    } else {
+      res.status(500).json({
+        error: 'Failed to get status',
+      });
+    }
   }
 });
 

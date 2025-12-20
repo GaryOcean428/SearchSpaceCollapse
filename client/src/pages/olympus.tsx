@@ -39,17 +39,19 @@ interface GodStatus {
 }
 
 interface PantheonStatus {
-  zeus: {
+  zeus?: {
     war_mode: string | null;
     war_target: string | null;
   };
-  gods: Record<string, GodStatus>;
-  chat_status: {
+  gods?: Record<string, GodStatus>;
+  chat_status?: {
     total_messages: number;
     active_debates: number;
     resolved_debates: number;
     knowledge_transfers: number;
   };
+  status?: 'loading' | 'active' | 'error';
+  message?: string;
 }
 
 interface ChatMessage {
@@ -441,9 +443,17 @@ export default function OlympusPage() {
             <div className="text-center text-muted-foreground py-8">Loading pantheon status...</div>
           ) : status?.gods ? (
             <PantheonGrid gods={status.gods} />
+          ) : status?.status === 'loading' ? (
+            <div className="text-center text-muted-foreground py-8">
+              <Crown className="h-8 w-8 mx-auto mb-2 opacity-50 animate-pulse" />
+              <p>{status.message || 'Mount Olympus is awakening...'}</p>
+              <p className="text-xs mt-2">Loading geometric memory (this may take up to 60 seconds)</p>
+            </div>
           ) : (
             <div className="text-center text-muted-foreground py-8">
-              Unable to connect to Mount Olympus
+              <Crown className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>Unable to connect to Mount Olympus</p>
+              <p className="text-xs mt-2">Please refresh the page to try again</p>
             </div>
           )}
         </TabsContent>

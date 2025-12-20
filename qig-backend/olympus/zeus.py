@@ -31,6 +31,7 @@ def sanitize_for_json(obj: Any) -> Any:
     """
     Recursively sanitize an object for JSON serialization.
     Converts Infinity, -Infinity, and NaN to safe values.
+    Handles numpy types (floats, ints, bools) properly.
     """
     if isinstance(obj, dict):
         return {k: sanitize_for_json(v) for k, v in obj.items()}
@@ -44,6 +45,8 @@ def sanitize_for_json(obj: Any) -> Any:
         return obj
     elif isinstance(obj, np.ndarray):
         return sanitize_for_json(obj.tolist())
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
     elif isinstance(obj, (np.floating, np.integer)):
         return sanitize_for_json(float(obj))
     return obj
