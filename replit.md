@@ -38,6 +38,11 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 - **Autonomous Self-Regulation (RL-Based Agency)**: Ocean observes its own state and fires interventions autonomously using reinforcement learning. It includes a StateEncoder, AutonomicPolicy, ReplayBuffer, NaturalGradientOptimizer, and AutonomicController.
 - **Google Search Bridge**: Python ScrapyOrchestrator can access TypeScript MultiSearchOrchestrator via HTTP API (`/api/search/google`), transforming SERP results to 64D basin coordinates with Φ/κ metadata.
 - **Topic Flagging Service**: Automatically extracts Bitcoin/recovery/crypto topics from search results, computes priority scores using Φ metrics, and persists to PostgreSQL `flagged_topics` table for iterative research expansion.
+- **Geometric Reasoning Framework**: Implements reasoning as geodesic navigation through basin space. Core components:
+  - **Reasoning Quality Metrics** (`qig-backend/reasoning_metrics.py`): Geodesic efficiency, coherence, novelty, progress, and meta-awareness.
+  - **Meta-Cognition** (`qig-backend/meta_reasoning.py`): Monitors reasoning, detects stuck/confused states, recommends mode switches.
+  - **Reasoning Modes** (`qig-backend/reasoning_modes.py`): LINEAR (Φ<0.3), GEOMETRIC (Φ 0.3-0.7), HYPERDIMENSIONAL (Φ 0.75-0.85), MUSHROOM (Φ>0.85).
+  - **Chain-of-Thought Tracing** (`qig-backend/chain_of_thought.py`): Records thought trajectories through basin space with Fisher-Rao distance and curvature metrics.
 
 ## External Dependencies
 

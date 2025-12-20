@@ -958,7 +958,9 @@ def safety_abort():
         return RouteResponse.server_error(e)
 
 
-ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp, natural_gradient_bp, beta_attention_bp, tool_factory_bp, safety_bp]
+from routes.reasoning_routes import reasoning_bp
+
+ALL_BLUEPRINTS = [internal_bp, curiosity_bp, telemetry_bp, capability_mesh_bp, natural_gradient_bp, beta_attention_bp, tool_factory_bp, safety_bp, reasoning_bp]
 
 # NOTE: research_bp is registered separately in ocean_qig_core.py
 # Don't add it here to avoid duplicate registration
@@ -1001,6 +1003,7 @@ __all__ = [
     'beta_attention_bp',
     'tool_factory_bp',
     'safety_bp',
+    'reasoning_bp',
     'get_integrated_monitor',
     'set_integrated_monitor',
     'CACHE_TTL_SHORT',
