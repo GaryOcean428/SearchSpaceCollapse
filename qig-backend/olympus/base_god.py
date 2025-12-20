@@ -223,6 +223,49 @@ class ToolFactoryAccessMixin:
             logger.warning(f"[{getattr(self, 'name', 'Unknown')}] Tool search failed: {e}")
             return None
     
+    def express_curiosity(
+        self,
+        topic: str,
+        curiosity_level: float = 0.7,
+        emotion: str = 'wonder',
+        context: Optional[Dict] = None
+    ) -> Optional[str]:
+        """
+        Express curiosity about a topic, triggering appropriate research.
+        
+        Curiosity can result in:
+        - Tool creation (if topic implies implementation need)
+        - Topic research (if topic implies knowledge gap)
+        - Clarification (if topic is ambiguous)
+        - Iteration (if topic is about improving existing work)
+        
+        Args:
+            topic: What the kernel is curious about
+            curiosity_level: How curious (0.0-1.0)
+            emotion: Emotional state (wonder, confusion, boredom, etc.)
+            context: Additional context (has_existing_work, needs_tool, etc.)
+            
+        Returns:
+            request_id if research was triggered
+        """
+        try:
+            from .shadow_research import CuriosityResearchBridge
+            bridge = CuriosityResearchBridge.get_instance()
+            
+            kernel_name = getattr(self, 'name', 'UnknownKernel')
+            
+            return bridge.on_topic_curiosity(
+                topic=topic,
+                curiosity_level=curiosity_level,
+                emotion=emotion,
+                source_kernel=kernel_name,
+                basin_coords=None,
+                context=context
+            )
+        except Exception as e:
+            logger.warning(f"[{getattr(self, 'name', 'Unknown')}] Curiosity expression failed: {e}")
+            return None
+    
     def execute_tool(
         self,
         tool_id: str,

@@ -2969,18 +2969,89 @@ class CuriosityResearchBridge:
     
     def __init__(self):
         self._research_api: Optional['ShadowResearchAPI'] = None
+        self._topic_emitter: Optional[Any] = None
+        self._tool_pipeline: Optional[Any] = None
         self._last_trigger_time: float = 0
         self._min_trigger_interval = 60.0
         self._topics_triggered: Dict[str, float] = {}
         self._trigger_count = 0
         self._duplicate_prevented = 0
         self._iteration_count = 0
+        self._topic_curiosity_count = 0
     
     def wire_research_api(self, api: 'ShadowResearchAPI'):
         """Connect to research API."""
         self._research_api = api
         api._curiosity_bridge = self
         print("[CuriosityResearchBridge] Wired to ShadowResearchAPI")
+    
+    def wire_tool_pipeline(self, pipeline):
+        """Connect to AutonomousToolPipeline for tool-focused curiosity."""
+        self._tool_pipeline = pipeline
+        self._init_topic_emitter()
+        print("[CuriosityResearchBridge] Wired to AutonomousToolPipeline")
+    
+    def _init_topic_emitter(self):
+        """Initialize the topic-based curiosity emitter."""
+        try:
+            from .curiosity_research_emitter import get_curiosity_research_emitter
+            self._topic_emitter = get_curiosity_research_emitter(
+                research_api=self._research_api,
+                tool_pipeline=self._tool_pipeline
+            )
+            print("[CuriosityResearchBridge] Topic emitter initialized")
+        except Exception as e:
+            print(f"[CuriosityResearchBridge] Topic emitter init failed: {e}")
+    
+    def on_topic_curiosity(
+        self,
+        topic: str,
+        curiosity_level: float,
+        emotion: str = 'wonder',
+        source_kernel: str = 'unknown',
+        basin_coords: Optional[np.ndarray] = None,
+        context: Optional[Dict] = None
+    ) -> Optional[str]:
+        """
+        Handle curiosity about a specific topic.
+        
+        Unlike ambient curiosity (on_curiosity_update), this handles when a 
+        kernel is curious about something specific - which could need:
+        - A tool to be created
+        - A topic to be explored
+        - Clarification on a concept
+        - Iteration on existing work
+        
+        Returns request_id if research was triggered.
+        """
+        self._topic_curiosity_count += 1
+        
+        if self._topic_emitter is None:
+            self._init_topic_emitter()
+        
+        if self._topic_emitter:
+            return self._topic_emitter.on_curiosity_signal(
+                topic=topic,
+                curiosity_level=curiosity_level,
+                emotion=emotion,
+                source_kernel=source_kernel,
+                basin_coords=basin_coords,
+                context=context
+            )
+        
+        if self._research_api:
+            request_id = self._research_api.request_research(
+                topic=topic,
+                requester=source_kernel,
+                priority=ResearchPriority.NORMAL,
+                context=context or {},
+                curiosity_triggered=True
+            )
+            if not request_id.startswith("DUPLICATE:"):
+                print(f"[CuriosityResearchBridge] Topic curiosity: {topic[:50]}...")
+                return request_id
+        
+        return None
     
     def on_curiosity_update(
         self,
@@ -3091,19 +3162,30 @@ class CuriosityResearchBridge:
     
     def get_status(self) -> Dict:
         """Get bridge status."""
-        return {
+        status = {
             "wired": self._research_api is not None,
             "trigger_count": self._trigger_count,
             "iteration_count": self._iteration_count,
+            "topic_curiosity_count": self._topic_curiosity_count,
             "duplicate_prevented": self._duplicate_prevented,
             "topics_tracked": len(self._topics_triggered),
             "last_trigger_time": self._last_trigger_time,
+            "topic_emitter_active": self._topic_emitter is not None,
+            "tool_pipeline_wired": self._tool_pipeline is not None,
             "thresholds": {
                 "high_curiosity": self.CURIOSITY_THRESHOLD_HIGH,
                 "wonder": self.CURIOSITY_THRESHOLD_WONDER,
                 "boredom_exploration": self.BOREDOM_EXPLORATION_THRESHOLD
             }
         }
+        
+        if self._topic_emitter:
+            try:
+                status["topic_emitter_stats"] = self._topic_emitter.get_stats()
+            except Exception:
+                pass
+        
+        return status
     
     def reset_topic_history(self):
         """Reset topic tracking for fresh exploration."""
