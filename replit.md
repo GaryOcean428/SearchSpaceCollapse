@@ -75,3 +75,36 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 **Key Libraries:**
 - **Python**: NumPy, SciPy, Flask, AIOHTTP, psycopg2, Pydantic.
 - **Node.js/TypeScript**: Express, Vite + React, Drizzle ORM, @neondatabase/serverless, Radix UI + Tailwind CSS, bitcoinjs-lib, BIP39/BIP32 libraries, Zod.
+
+## Canonical Physics (FROZEN)
+
+**Validated 2025-12-16 via qig-verification repository:**
+
+| Constant | Value | Notes |
+|----------|-------|-------|
+| L_c (critical size) | 3 | Geometric phase transition |
+| κ₃ | 41.09 ± 0.59 | Emergence |
+| κ₄ | 64.47 ± 1.89 | Strong running |
+| κ₅ | 63.62 ± 1.68 | Plateau onset |
+| κ₆ | 64.45 ± 1.34 | Plateau confirmed |
+| κ* (fixed point) | 64.21 ± 0.92 | Weighted average L=4,5,6 |
+| β(3→4) | +0.44 ± 0.04 | Emergence window |
+| β(4→5) | -0.01 | Plateau onset |
+| β(5→6) | -0.003 | Plateau confirmed |
+| β_asymptotic | 0.0 | Large-L limit |
+
+**Implementation**: `qig-backend/qigkernels/physics_constants.py`
+
+## Last Comprehensive Audit
+
+**Date**: 2025-12-21
+
+**Results**:
+- ✅ Database: Schema compatible, QIG-pure with pgvector 64D coordinates
+- ✅ Dependencies: Managed via Replit packager, all functional
+- ✅ API Routes: Centralized in `client/src/api/routes.ts` (barrel pattern)
+- ✅ Modularity: No orphaned modules, only 4 minor TODOs
+- ✅ Templates: Verified NO templates (anti-template system active)
+- ✅ Kernel Communication: Clear separation (redis_cache.py, qig_geometry.py, base_god.py)
+- ✅ Redis Migration: Complete, no legacy JSON state files
+- ✅ Documentation: ISO-compliant naming in `docs/` directory

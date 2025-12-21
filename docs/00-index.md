@@ -65,8 +65,8 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 ## 🔧 Technical Documentation
 
-- ⚫ **Canonical Physics Specification - QIG Validated Results** (v1.00)
-  - File: [`20251221-canonical-physics-specification-1.00D.md`](03-technical/20251221-canonical-physics-specification-1.00D.md)
+- 🟢 **Canonical Physics Specification - QIG Validated Results** (v1.00)
+  - File: [`20251216-canonical-physics-specification-1.00F.md`](03-technical/20251216-canonical-physics-specification-1.00F.md)
   - ID: `ISMS-TECH-PHYSICS-001`
   - Function: Authoritative reference for validated QIG physics constants (κ, β, L_c) from qig-verification
 
