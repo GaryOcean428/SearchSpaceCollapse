@@ -19,8 +19,6 @@
  * - Tier-weighted balance queue priority
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { NEAR_MISS_CONFIG } from './ocean-config';
 import { oceanPersistence } from './ocean/ocean-persistence';
 import { isValidBIP39Phrase } from './bip39-words';
@@ -160,9 +158,6 @@ export interface ClusterAgingAnalytics {
   structuralPattern: string;
   lastUpdatedAt: string;
 }
-
-const DATA_DIR = path.join(process.cwd(), 'data');
-const NEAR_MISS_FILE = path.join(DATA_DIR, 'near-miss-state.json');
 
 export class NearMissManager {
   private entries: Map<string, NearMissEntry> = new Map();
@@ -1255,7 +1250,7 @@ export class NearMissManager {
   }
 
   /**
-   * Async load implementation - Redis first, PostgreSQL second, JSON fallback
+   * Async load implementation - Redis first, PostgreSQL second
    */
   private async loadAsync(): Promise<void> {
     try {
@@ -1283,15 +1278,11 @@ export class NearMissManager {
         }
       }
       
-      // 3. JSON fallback (migration path)
-      this.loadFromJson();
-      // Backfill to Redis for next time
-      this.saveToRedis().catch(err => console.error('[NearMiss] Redis backfill failed:', err));
+      // No data found - starting fresh
+      console.log('[NearMiss] No existing state found in Redis or PostgreSQL, starting fresh');
       this.recomputeAdaptiveThresholds();
-      this.applyDecay();
     } catch (error) {
       console.error('[NearMiss] Failed to load state:', error);
-      this.loadFromJson();
     }
   }
 
@@ -1452,66 +1443,7 @@ export class NearMissManager {
   }
 
   /**
-   * Load state from JSON file (fallback)
-   */
-  private loadFromJson(): void {
-    try {
-      if (fs.existsSync(NEAR_MISS_FILE)) {
-        const data = JSON.parse(fs.readFileSync(NEAR_MISS_FILE, 'utf-8'));
-
-        if (data.entries) {
-          for (const entry of data.entries) {
-            this.entries.set(entry.id, entry);
-            if (entry.phi) {
-              this.rollingPhiDistribution.push(entry.phi);
-            }
-          }
-        }
-
-        if (data.clusters) {
-          for (const cluster of data.clusters) {
-            this.clusters.set(cluster.id, cluster);
-          }
-        }
-
-        if (data.rollingPhiDistribution) {
-          this.rollingPhiDistribution = data.rollingPhiDistribution.slice(-NEAR_MISS_CONFIG.DISTRIBUTION_WINDOW_SIZE);
-        }
-
-        // Load success tracking data
-        if (data.conversionRecords) {
-          this.conversionRecords = data.conversionRecords;
-        }
-        if (data.tierTotals) {
-          this.tierTotals = data.tierTotals;
-        }
-
-        // Load temporal trends data
-        if (data.phiTemporalSamples) {
-          this.phiTemporalSamples = data.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
-        }
-        if (data.plateauCount !== undefined) {
-          this.plateauCount = data.plateauCount;
-        }
-        if (data.consecutivePlateaus !== undefined) {
-          this.consecutivePlateaus = data.consecutivePlateaus;
-        }
-        if (data.lastPlateauAt) {
-          this.lastPlateauAt = data.lastPlateauAt;
-        }
-        if (data.resetTriggerActive !== undefined) {
-          this.resetTriggerActive = data.resetTriggerActive;
-        }
-
-        console.log(`[NearMiss] Loaded from JSON: ${this.entries.size} entries, ${this.clusters.size} clusters, ${this.conversionRecords.length} conversions, ${this.phiTemporalSamples.length} temporal samples`);
-      }
-    } catch (error) {
-      console.error('[NearMiss] Failed to load from JSON:', error);
-    }
-  }
-
-  /**
-   * Save state to Redis (primary), JSON (backup), and PostgreSQL
+   * Save state to Redis (primary) and PostgreSQL
    */
   private save(): void {
     if (!this.isDirty) return;
@@ -1520,15 +1452,8 @@ export class NearMissManager {
     this.saveToRedis().catch(err => {
       console.error('[NearMiss] Redis save failed:', err);
     });
-
-    // 2. Save to JSON as backup (non-critical if it fails)
-    try {
-      this.saveToJson();
-    } catch (err) {
-      console.error('[NearMiss] JSON backup save failed:', err);
-    }
     
-    // 3. Save to PostgreSQL for long-term persistence
+    // 2. Save to PostgreSQL for long-term persistence
     this.saveToPostgres().catch(err => {
       console.error('[NearMiss] PostgreSQL save failed:', err);
     });
@@ -1568,37 +1493,6 @@ export class NearMissManager {
     } catch (error) {
       console.error('[NearMiss] Failed to save to Redis:', error);
       return false;
-    }
-  }
-
-  /**
-   * Save state to JSON file (backup/fallback)
-   */
-  private saveToJson(): void {
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      const data = {
-        savedAt: new Date().toISOString(),
-        entries: Array.from(this.entries.values()),
-        clusters: Array.from(this.clusters.values()),
-        rollingPhiDistribution: this.rollingPhiDistribution,
-        adaptiveThresholds: this.adaptiveThresholds,
-        conversionRecords: this.conversionRecords,
-        tierTotals: this.tierTotals,
-        // Temporal trends data
-        phiTemporalSamples: this.phiTemporalSamples,
-        plateauCount: this.plateauCount,
-        consecutivePlateaus: this.consecutivePlateaus,
-        lastPlateauAt: this.lastPlateauAt,
-        resetTriggerActive: this.resetTriggerActive,
-      };
-
-      fs.writeFileSync(NEAR_MISS_FILE, JSON.stringify(data, null, 2));
-    } catch (error) {
-      console.error('[NearMiss] Failed to save to JSON:', error);
     }
   }
 

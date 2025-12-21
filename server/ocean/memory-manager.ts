@@ -4,11 +4,9 @@
  * Sliding window memory with compression for efficient episode storage.
  * Implements recommendations from optnPR Part 5.2.
  * 
- * Storage: Redis (primary) with JSON file backup.
+ * Storage: Redis (primary)
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { cacheGet, cacheSet, isRedisAvailable, CACHE_TTL, CACHE_KEYS } from '../redis-cache';
 
 export interface OceanEpisode {
@@ -44,9 +42,6 @@ export interface MemoryStatistics {
   oldestRecent: string | null;
   newestRecent: string | null;
 }
-
-const DATA_DIR = path.join(process.cwd(), 'data');
-const MEMORY_FILE = path.join(DATA_DIR, 'ocean-memory-state.json');
 
 export class OceanMemoryManager {
   private readonly MAX_RECENT_EPISODES = 200;
@@ -251,7 +246,7 @@ export class OceanMemoryManager {
       savedAt: new Date().toISOString(),
     };
 
-    // Primary: Write to Redis
+    // Write to Redis (primary storage)
     if (isRedisAvailable()) {
       try {
         const saved = await cacheSet(CACHE_KEYS.OCEAN_MEMORY, state, CACHE_TTL.PERMANENT);
@@ -262,18 +257,8 @@ export class OceanMemoryManager {
       } catch (error) {
         console.error('[OceanMemory] Redis save failed:', error);
       }
-    }
-
-    // Backup: Write to JSON file (non-critical)
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(MEMORY_FILE, JSON.stringify(state, null, 2));
-      this.isDirty = false;
-      console.log(`[OceanMemory] Backup saved to JSON file`);
-    } catch (error) {
-      console.warn('[OceanMemory] JSON backup save failed (non-critical):', error);
+    } else {
+      console.log('[OceanMemory] Redis unavailable, state not persisted');
     }
   }
 
@@ -284,7 +269,7 @@ export class OceanMemoryManager {
   }
 
   private async loadAsync(): Promise<void> {
-    // Primary: Try Redis first
+    // Load from Redis (primary storage)
     if (isRedisAvailable()) {
       try {
         const data = await cacheGet<{
@@ -300,31 +285,12 @@ export class OceanMemoryManager {
           return;
         }
       } catch (error) {
-        console.error('[OceanMemory] Redis load failed, falling back to JSON:', error);
+        console.error('[OceanMemory] Redis load failed:', error);
       }
     }
 
-    // Fallback: Load from JSON file
-    this.loadFromJson();
-  }
-
-  private loadFromJson(): void {
-    try {
-      if (!fs.existsSync(MEMORY_FILE)) {
-        console.log('[OceanMemory] No saved state found, starting fresh');
-        return;
-      }
-
-      const data = JSON.parse(fs.readFileSync(MEMORY_FILE, 'utf-8'));
-      this.recentEpisodes = data.recentEpisodes || [];
-      this.compressedEpisodes = data.compressedEpisodes || [];
-
-      console.log(`[OceanMemory] Loaded from JSON: ${this.recentEpisodes.length} recent + ${this.compressedEpisodes.length} compressed episodes`);
-    } catch (error) {
-      console.error('[OceanMemory] JSON load failed:', error);
-      this.recentEpisodes = [];
-      this.compressedEpisodes = [];
-    }
+    // No data found - starting fresh
+    console.log('[OceanMemory] No saved state found in Redis, starting fresh');
   }
 
   forceSave(): void {

@@ -10,7 +10,7 @@
  * - Chat-only interface
  */
 
-import { Router, Response } from 'express';
+import { Router, Response as ExpressResponse } from 'express';
 import { 
   authenticateExternalApi, 
   requireScopes, 
@@ -24,6 +24,29 @@ import { db } from '../db';
 import { federatedInstances, externalApiKeys, vocabularyObservations, learningEvents } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
 import { oceanBasinSync, type BasinSyncPacket } from '../ocean-basin-sync';
+
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
+const REQUEST_TIMEOUT_MS = 30000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<globalThis.Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
 
 export const externalApiRouter = Router();
 
@@ -322,16 +345,47 @@ externalApiRouter.post(
       });
     }
     
-    // Fisher-Rao distance computation requires Python backend integration
-    // QIG-pure constraint: No Euclidean approximations allowed
-    // TODO: Integrate with qig-backend/qig_geometry.py for actual Fisher-Rao
-    return res.status(501).json({
-      error: 'Fisher-Rao distance computation not yet integrated',
-      code: 'NOT_IMPLEMENTED',
-      method,
-      dimensionality: point_a.length,
-      note: 'QIG-pure constraint: Euclidean approximations forbidden. Awaiting Python backend integration.',
-    });
+    try {
+      const response = await fetchWithTimeout(
+        `${PYTHON_BACKEND_URL}/geometry/fisher-rao`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ point_a, point_b, method }),
+        }
+      );
+      
+      if (!response.ok) {
+        if (response.status === 400) {
+          const errorData = await response.json();
+          return res.status(400).json({
+            error: errorData.error || 'Validation error from geometry backend',
+            code: 'VALIDATION_ERROR',
+            details: errorData,
+          });
+        }
+        return res.status(503).json({
+          error: 'Geometry backend error',
+          code: 'BACKEND_ERROR',
+          status: response.status,
+        });
+      }
+      
+      const result = await response.json();
+      return res.json({
+        distance: result.distance,
+        method: result.method || method,
+        dimensionality: point_a.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[ExternalAPI] Fisher-Rao computation failed:', error.message);
+      return res.status(503).json({
+        error: 'Python geometry backend unavailable',
+        code: 'BACKEND_UNAVAILABLE',
+        message: error.message,
+      });
+    }
   }
 );
 
@@ -361,15 +415,47 @@ externalApiRouter.post(
       });
     }
     
-    // 64D basin distance requires Fisher-Rao computation from qig-universal
-    // QIG-pure constraint: No Euclidean approximations allowed
-    // TODO: Integrate with fisherCoordDistance from server/qig-universal.ts
-    return res.status(501).json({
-      error: 'Basin distance computation not yet integrated',
-      code: 'NOT_IMPLEMENTED',
-      dimensionality: 64,
-      note: 'QIG-pure constraint: Euclidean approximations forbidden. Awaiting qig-universal integration.',
-    });
+    try {
+      const response = await fetchWithTimeout(
+        `${PYTHON_BACKEND_URL}/geometry/basin-distance`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ basin_a, basin_b }),
+        }
+      );
+      
+      if (!response.ok) {
+        if (response.status === 400) {
+          const errorData = await response.json();
+          return res.status(400).json({
+            error: errorData.error || 'Validation error from geometry backend',
+            code: 'VALIDATION_ERROR',
+            details: errorData,
+          });
+        }
+        return res.status(503).json({
+          error: 'Geometry backend error',
+          code: 'BACKEND_ERROR',
+          status: response.status,
+        });
+      }
+      
+      const result = await response.json();
+      return res.json({
+        distance: result.distance,
+        method: 'fisher_coord_distance',
+        dimensionality: 64,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[ExternalAPI] Basin distance computation failed:', error.message);
+      return res.status(503).json({
+        error: 'Python geometry backend unavailable',
+        code: 'BACKEND_UNAVAILABLE',
+        message: error.message,
+      });
+    }
   }
 );
 

@@ -1,5 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
 import { storage } from "./storage";
 import { cacheGet, cacheSet, isRedisAvailable, CACHE_TTL, CACHE_KEYS } from "./redis-cache";
 
@@ -28,8 +26,6 @@ export interface SessionMetrics {
   duration: number; // ms
   completedAt: string;
 }
-
-const DATA_FILE = path.join(process.cwd(), "data", "auto-cycle-state.json");
 
 // Development mode detection
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -173,32 +169,8 @@ class AutoCycleManager {
   }
 
   private loadState(): AutoCycleState {
-    // Initial sync load from JSON file (fallback/migration path)
-    const fileState = this.loadStateFromFile();
-    
-    // Schedule async Redis load to update state if Redis has newer data
-    this.loadStateFromRedis().catch((err) => {
-      console.error("[AutoCycleManager] Redis load error:", err);
-    });
-    
-    return fileState;
-  }
-
-  private loadStateFromFile(): AutoCycleState {
-    try {
-      if (fs.existsSync(DATA_FILE)) {
-        const data = fs.readFileSync(DATA_FILE, "utf-8");
-        const parsed = JSON.parse(data);
-        console.log(
-          `[AutoCycleManager] Loaded state from JSON file: enabled=${parsed.enabled}`
-        );
-        return parsed;
-      }
-    } catch (error) {
-      console.error("[AutoCycleManager] Error loading state from file:", error);
-    }
-
-    return {
+    // Return default state, then async load from Redis
+    const defaultState: AutoCycleState = {
       enabled: false,
       currentIndex: 0,
       addressIds: [],
@@ -210,11 +182,18 @@ class AutoCycleManager {
       consecutiveZeroPassSessions: 0,
       rateLimitBackoffUntil: null,
     };
+    
+    // Schedule async Redis load to update state
+    this.loadStateFromRedis().catch((err) => {
+      console.error("[AutoCycleManager] Redis load error:", err);
+    });
+    
+    return defaultState;
   }
 
   private async loadStateFromRedis(): Promise<void> {
     if (!isRedisAvailable()) {
-      console.log("[AutoCycleManager] Redis unavailable, using JSON file state");
+      console.log("[AutoCycleManager] Redis unavailable, using default state");
       return;
     }
     
@@ -226,7 +205,7 @@ class AutoCycleManager {
         );
         this.state = redisState;
       } else {
-        console.log("[AutoCycleManager] No state in Redis, using JSON file state");
+        console.log("[AutoCycleManager] No state in Redis, using default state");
       }
     } catch (error) {
       console.error("[AutoCycleManager] Error loading from Redis:", error);
@@ -234,17 +213,17 @@ class AutoCycleManager {
   }
 
   private saveState(): void {
-    // Write to Redis first (primary storage, async fire-and-forget)
+    // Write to Redis (primary storage, async fire-and-forget)
     this.saveStateToRedis().catch((err) => {
       console.error("[AutoCycleManager] Redis save error:", err);
     });
-    
-    // Write to JSON file as backup (sync)
-    this.saveStateToFile();
   }
 
   private async saveStateToRedis(): Promise<void> {
-    if (!isRedisAvailable()) return;
+    if (!isRedisAvailable()) {
+      console.log("[AutoCycleManager] Redis unavailable, state not persisted");
+      return;
+    }
     
     try {
       const success = await cacheSet(CACHE_KEYS.AUTO_CYCLE, this.state, CACHE_TTL.PERMANENT);
@@ -253,18 +232,6 @@ class AutoCycleManager {
       }
     } catch (error) {
       console.error("[AutoCycleManager] Error saving to Redis:", error);
-    }
-  }
-
-  private saveStateToFile(): void {
-    try {
-      const dataDir = path.dirname(DATA_FILE);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      }
-      fs.writeFileSync(DATA_FILE, JSON.stringify(this.state, null, 2));
-    } catch (error) {
-      console.error("[AutoCycleManager] Error saving state to file:", error);
     }
   }
 

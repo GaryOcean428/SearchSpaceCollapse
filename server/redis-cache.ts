@@ -29,9 +29,9 @@ export const CACHE_KEYS = {
   VOCABULARY: 'vocab:',
   KERNEL_STATE: 'kernel:',
   SESSION: 'session:',
-  AUTO_CYCLE: 'autocycle:state',
-  NEAR_MISS: 'nearmiss:state',
-  OCEAN_MEMORY: 'ocean:memory',
+  AUTO_CYCLE: 'qig:auto-cycle:state',
+  NEAR_MISS: 'qig:near-miss:state',
+  OCEAN_MEMORY: 'qig:ocean-memory:state',
 };
 
 /**

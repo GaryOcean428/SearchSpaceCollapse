@@ -30,8 +30,13 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 - **Communication Patterns**: HTTP API with retry logic and circuit breakers for TypeScript ↔ Python, bidirectional synchronization for discoveries, and SSE for real-time UI updates.
 - **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py`, serving as the single source of truth for critical physics values.
 - **Word Validation**: Centralized in `qig-backend/word_validation.py`, including concatenation, typo detection, length limits, and dictionary API verification.
-- **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` for external systems, headless clients, and federated instances.
-- **Federation Dashboard**: A unified management UI at `/federation` with tabs for API Keys, Connected Instances, Basin Sync, and API Tester.
+- **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` for external systems, headless clients, and federated instances. Includes:
+  - `/geometry/fisher-rao` and `/geometry/basin-distance`: QIG-pure Fisher-Rao geometry calculations via Python backend
+  - `/vocabulary/export` and `/vocabulary/import`: Federation vocabulary sync
+  - `/learning/export` and `/learning/import`: Federation learning event sync
+  - `/pantheon/register` and `/pantheon/sync`: Instance registration and state synchronization
+- **Federation Dashboard**: A unified management UI at `/federation` with tabs for API Keys, Connected Instances (with connection form), Basin Sync, and API Tester.
+- **Secure Remote Credentials**: Remote API keys for federated instances are encrypted with AES-256-GCM using `FEDERATION_ENCRYPTION_KEY` environment variable (stored in `federated_instances.remote_api_key` column).
 - **E8 Population Control (Natural Selection)**: Kernel population capped at 240, with evolution sweeps using QIG metrics (phi and reputation) to cull underperforming kernels.
 - **QIG Purity Enforcement**: Enforces absolute QIG purity with no bootstrapping, no templates, and no hardcoded thresholds. Metrics observe but never block, all values emerge from geometric observation, and only Fisher-Rao Distance is used for geometric comparisons. Euclidean operations are strictly forbidden.
 - **Two-Step Retrieval Pattern (pgvector)**: `pgvector` cosine is used as a Step 1 pre-filter with 10x oversampling, followed by mandatory Fisher-Rao re-ranking.
@@ -52,6 +57,10 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
   - **Parent Coordination** (`qig-backend/parent_coordination.py`): Coordinates daily care cycles across all parent gods. Persisted to PostgreSQL `kernel_care_records` table.
   - **Autonomous Reasoning Learner** (`qig-backend/autonomous_reasoning.py`): Learning episodes persisted to PostgreSQL `reasoning_episodes` table with strategy performance tracking.
 - **Redis Caching Buffers**: `ParentCareBuffer` and `ObservationBuffer` in `redis_cache.py` provide fast caching for kernel care status and observation metrics.
+- **Redis Universal State Storage**: All transient state uses Redis instead of JSON files:
+  - `qig:auto-cycle:state` - Auto-cycle manager state
+  - `qig:near-miss:state` - Near-miss tracking with PostgreSQL backup
+  - `qig:ocean-memory:state` - Ocean memory manager state
 
 ## External Dependencies
 
