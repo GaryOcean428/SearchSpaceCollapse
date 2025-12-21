@@ -45,3 +45,5 @@ export { autonomicAgencyRouter } from "./autonomic-agency";
 export { federationRouter } from "./federation";
 
 export { default as googleSearchBridgeRouter } from "./google-search-bridge";
+
+export { selfHealingRouter } from "./self-healing";
