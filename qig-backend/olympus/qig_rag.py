@@ -502,7 +502,10 @@ class QIGRAGDatabase(QIGRAG):
         if db_url is None:
             db_url = os.environ.get("DATABASE_URL", "postgresql://localhost:5432/qig")
         
+        self.db_url = db_url
         self.conn = None
+        self.psycopg2 = None
+        self.Json = None
         try:
             import psycopg2
             from psycopg2.extras import Json
@@ -523,6 +526,28 @@ class QIGRAGDatabase(QIGRAG):
             print("[QIG-RAG] Falling back to in-memory storage")
             super().__init__()
             self.encoder = ConversationEncoder()
+    
+    def _ensure_connection(self) -> bool:
+        """
+        Ensure database connection is alive, reconnect if needed.
+        Returns True if connection is usable, False otherwise.
+        """
+        if self.conn is None or self.psycopg2 is None:
+            return False
+        
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            return True
+        except Exception:
+            try:
+                self.conn = self.psycopg2.connect(self.db_url)
+                print("[QIG-RAG] Reconnected to PostgreSQL")
+                return True
+            except Exception as e:
+                print(f"[QIG-RAG] Reconnection failed: {e}")
+                self.conn = None
+                return False
     
     def _create_schema(self):
         """Create basin_documents table with pgvector index."""
@@ -578,7 +603,8 @@ class QIGRAGDatabase(QIGRAG):
         if basin_coords is None:
             basin_coords = self.encoder.encode(content)
             
-        if self.conn is None:
+        # Ensure connection is alive, reconnect if needed
+        if not self._ensure_connection():
             # Fallback to parent implementation with matching signature
             result = super().add_document(content, basin_coords, metadata, doc_id, phi, kappa, regime)
             return result if result is not None else ""
@@ -625,8 +651,9 @@ class QIGRAGDatabase(QIGRAG):
         
         # Ensure query_basin is float64 array
         query_basin = np.asarray(query_basin, dtype=np.float64)
-            
-        if self.conn is None:
+        
+        # Ensure connection is alive, reconnect if needed
+        if not self._ensure_connection():
             return super().search(query, query_basin, k, metric, include_metadata, min_similarity)
         
         with self.conn.cursor() as cur:
@@ -678,7 +705,8 @@ class QIGRAGDatabase(QIGRAG):
     
     def get_stats(self) -> Dict:
         """Get memory statistics."""
-        if self.conn is None:
+        # Ensure connection is alive, reconnect if needed
+        if not self._ensure_connection():
             return super().get_stats()
         
         with self.conn.cursor() as cur:
