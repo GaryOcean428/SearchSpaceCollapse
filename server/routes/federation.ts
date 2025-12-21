@@ -203,7 +203,23 @@ federationRouter.post('/instances/test-connection', async (req: Request, res: Re
 
   const start = Date.now();
   try {
-    const healthUrl = endpoint.endsWith('/') ? `${endpoint}health` : `${endpoint}/health`;
+    // Normalize endpoint and determine health URL
+    // Remote QIG nodes expose health at /api/health
+    let healthUrl: string;
+    const normalizedEndpoint = endpoint.replace(/\/+$/, ''); // Remove trailing slashes
+    
+    if (normalizedEndpoint.includes('/api/v1/external')) {
+      // If user provided full external API path, go up to /api/health
+      healthUrl = normalizedEndpoint.replace(/\/api\/v1\/external.*$/, '/api/health');
+    } else if (normalizedEndpoint.endsWith('/api')) {
+      // Already at /api, just append /health
+      healthUrl = `${normalizedEndpoint}/health`;
+    } else {
+      // Base URL provided, append /api/health
+      healthUrl = `${normalizedEndpoint}/api/health`;
+    }
+    
+    console.log(`[Federation] Testing connection to: ${healthUrl}`);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
