@@ -80,6 +80,90 @@ export interface ChainSummary {
   thoughts: string[];
 }
 
+// ==================== Autonomous Learning Types ====================
+
+export interface ReasoningStrategy {
+  name: string;
+  description: string;
+  preferred_phi_range: [number, number];
+  step_size_alpha: number;
+  exploration_beta: number;
+  task_features: Record<string, number>;
+  value: number;
+  success_count: number;
+  failure_count: number;
+  total_uses: number;
+  success_rate: number;
+}
+
+export interface LearningEpisode {
+  strategy_name: string;
+  start_basin: number[];
+  target_basin: number[];
+  final_basin: number[];
+  path: number[][];
+  steps_taken: number;
+  success: boolean;
+}
+
+export interface LearnerStatus {
+  total_strategies: number;
+  total_episodes: number;
+  exploration_rate: number;
+  strategy_names: string[];
+  top_strategies: Array<{ name: string; value: number; success_rate: number }>;
+}
+
+// ==================== Parent Coordination Types ====================
+
+export type DevelopmentalStage = 'INFANT' | 'TODDLER' | 'ADOLESCENT' | 'ADULT';
+export type KernelStatus = 'INFANT' | 'DEVELOPING' | 'READY_FOR_GRADUATION' | 'GRADUATED' | 'UNDER_TREATMENT';
+
+export interface KernelCareRecord {
+  kernel_id: string;
+  kernel_name: string;
+  created_at: string;
+  status: string;
+  developmental_stage: string;
+  hestia_enrolled: boolean;
+  demeter_enrolled: boolean;
+  chiron_enrolled: boolean;
+  graduated_at: string | null;
+  care_cycles: number;
+  current_phi?: number;
+  current_kappa?: number;
+  stability_score?: number;
+  curriculum_progress?: number;
+}
+
+export interface ParentStatusResponse {
+  total_kernels: number;
+  active_kernels: number;
+  graduated_kernels: number;
+  by_status: Record<string, Array<{
+    kernel_id: string;
+    kernel_name: string;
+    developmental_stage: string;
+    care_cycles: number;
+  }>>;
+  kernel_details: KernelCareRecord[];
+  parents: {
+    hestia: { name: string; domain: string; wards: number };
+    demeter: { name: string; domain: string; students: number };
+    chiron: { name: string; domain: string; patients: number };
+  };
+}
+
+export interface ObservationStatus {
+  kernel_id: string;
+  is_active: boolean;
+  cycle_count: number;
+  current_stability: number;
+  curriculum_progress: number;
+  is_healthy: boolean;
+  ready_for_graduation: boolean;
+}
+
 // ==================== HTTP Helpers ====================
 
 async function fetchWithTimeout(
@@ -373,6 +457,128 @@ export class ReasoningClient {
     );
     return response.path;
   }
+
+  // ==================== Autonomous Learning ====================
+
+  /**
+   * Select strategy for task features and phi
+   */
+  async selectStrategy(
+    taskFeatures: Record<string, number>,
+    phi: number
+  ): Promise<{ strategy: ReasoningStrategy; is_exploration: boolean }> {
+    return request('/reasoning/learning/select-strategy', 'POST', {
+      task_features: taskFeatures,
+      phi
+    });
+  }
+
+  /**
+   * Execute strategy with start/target basins
+   */
+  async executeStrategy(
+    strategyName: string,
+    startBasin: number[],
+    targetBasin: number[]
+  ): Promise<LearningEpisode> {
+    const response = await request<{ success: boolean; episode: LearningEpisode }>(
+      '/reasoning/learning/execute',
+      'POST',
+      { strategy_name: strategyName, start_basin: startBasin, target_basin: targetBasin }
+    );
+    return response.episode;
+  }
+
+  /**
+   * Learn from episode outcome
+   */
+  async learnFromOutcome(
+    episode: LearningEpisode,
+    reward: number
+  ): Promise<{ updated: boolean; new_value: number }> {
+    return request('/reasoning/learning/learn', 'POST', { episode, reward });
+  }
+
+  /**
+   * Trigger sleep consolidation
+   */
+  async consolidateLearning(): Promise<{
+    strategies_pruned: number;
+    strategies_merged: number;
+    strategies_remaining: number;
+  }> {
+    return request('/reasoning/learning/consolidate', 'POST');
+  }
+
+  /**
+   * Generate novel strategy
+   */
+  async generateNovelStrategy(): Promise<ReasoningStrategy> {
+    const response = await request<{ success: boolean; strategy: ReasoningStrategy }>(
+      '/reasoning/learning/generate-novel',
+      'POST'
+    );
+    return response.strategy;
+  }
+
+  /**
+   * Get learner status
+   */
+  async getLearnerStatus(): Promise<LearnerStatus> {
+    const response = await request<{ success: boolean; status: LearnerStatus }>(
+      '/reasoning/learning/status'
+    );
+    return response.status;
+  }
+
+  // ==================== Parent Coordination ====================
+
+  /**
+   * Spawn new chaos kernel with parental care
+   */
+  async spawnKernel(kernelName: string): Promise<{
+    kernel_id: string;
+    stage: DevelopmentalStage;
+    assigned_parents: string[];
+  }> {
+    return request('/reasoning/parents/spawn', 'POST', { kernel_name: kernelName });
+  }
+
+  /**
+   * Get status of all kernels under parental care
+   */
+  async getParentStatus(): Promise<ParentStatusResponse> {
+    return request('/reasoning/parents/status');
+  }
+
+  /**
+   * Trigger daily care cycle
+   */
+  async dailyCareCycle(): Promise<{
+    kernels_monitored: number;
+    lessons_taught: number;
+    treatments_applied: number;
+    graduations: number;
+  }> {
+    return request('/reasoning/parents/care-cycle', 'POST');
+  }
+
+  /**
+   * Graduate kernel to adult status
+   */
+  async graduateKernel(kernelId: string): Promise<{
+    graduated: boolean;
+    reason?: string;
+  }> {
+    return request('/reasoning/parents/graduate', 'POST', { kernel_id: kernelId });
+  }
+
+  /**
+   * Get observation status for kernel
+   */
+  async getObservationStatus(kernelId: string): Promise<ObservationStatus> {
+    return request(`/reasoning/parents/observation/${kernelId}`);
+  }
 }
 
 // Singleton instance
@@ -411,7 +617,23 @@ export const reasoningClient = {
   renderChain: () => getReasoningClient().renderChain(),
   exportSession: () => getReasoningClient().exportSession(),
   findGeodesic: (start: number[], end: number[], nSteps?: number) =>
-    getReasoningClient().findGeodesic(start, end, nSteps)
+    getReasoningClient().findGeodesic(start, end, nSteps),
+  // Autonomous Learning
+  selectStrategy: (taskFeatures: Record<string, number>, phi: number) =>
+    getReasoningClient().selectStrategy(taskFeatures, phi),
+  executeStrategy: (strategyName: string, startBasin: number[], targetBasin: number[]) =>
+    getReasoningClient().executeStrategy(strategyName, startBasin, targetBasin),
+  learnFromOutcome: (episode: LearningEpisode, reward: number) =>
+    getReasoningClient().learnFromOutcome(episode, reward),
+  consolidateLearning: () => getReasoningClient().consolidateLearning(),
+  generateNovelStrategy: () => getReasoningClient().generateNovelStrategy(),
+  getLearnerStatus: () => getReasoningClient().getLearnerStatus(),
+  // Parent Coordination
+  spawnKernel: (kernelName: string) => getReasoningClient().spawnKernel(kernelName),
+  getParentStatus: () => getReasoningClient().getParentStatus(),
+  dailyCareCycle: () => getReasoningClient().dailyCareCycle(),
+  graduateKernel: (kernelId: string) => getReasoningClient().graduateKernel(kernelId),
+  getObservationStatus: (kernelId: string) => getReasoningClient().getObservationStatus(kernelId)
 };
 
 export default reasoningClient;

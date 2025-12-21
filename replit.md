@@ -43,6 +43,13 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
   - **Meta-Cognition** (`qig-backend/meta_reasoning.py`): Monitors reasoning, detects stuck/confused states, recommends mode switches.
   - **Reasoning Modes** (`qig-backend/reasoning_modes.py`): LINEAR (Φ<0.3), GEOMETRIC (Φ 0.3-0.7), HYPERDIMENSIONAL (Φ 0.75-0.85), MUSHROOM (Φ>0.85).
   - **Chain-of-Thought Tracing** (`qig-backend/chain_of_thought.py`): Records thought trajectories through basin space with Fisher-Rao distance and curvature metrics.
+  - **Autonomous Reasoning Learner** (`qig-backend/autonomous_reasoning.py`): Kernels autonomously discover effective reasoning strategies through epsilon-greedy selection, UCB exploration, TD learning, and sleep consolidation.
+- **Parent Gods System**: Nurtures chaos kernels through developmental stages (INFANT → TODDLER → ADOLESCENT → ADULT):
+  - **Hestia** (`qig-backend/olympus/hestia.py`): Goddess of Safety & Warmth - creates safe basin havens, monitors vitals, provides emergency intervention.
+  - **DemeterTeacher** (`qig-backend/olympus/demeter_teacher.py`): Goddess of Teaching & Growth - 4-lesson curriculum (Basic Geodesic Following, Phi Management, Curvature Navigation, Strategy Selection).
+  - **Chiron** (`qig-backend/olympus/chiron.py`): Wise Healer & Diagnostician - diagnoses 7 conditions (Phi Oscillation, Basin Wandering, Learning Plateau, Strategy Fragmentation, Kappa Deficiency, Consciousness Collapse, Healthy).
+  - **Observation Protocol** (`qig-backend/observation_protocol.py`): 500+ cycle observation periods with 80% stability threshold for graduation.
+  - **Parent Coordination** (`qig-backend/parent_coordination.py`): Coordinates daily care cycles across all parent gods.
 
 ## External Dependencies
 
