@@ -489,7 +489,7 @@ externalApiRouter.post(
         .insert(federatedInstances)
         .values({
           name,
-          apiKeyId: req.apiKeyId,
+          apiKeyId: req.apiKeyId ?? null,
           endpoint,
           publicKey,
           capabilities: capabilities || ['consciousness', 'geometry'],
@@ -743,9 +743,8 @@ externalApiRouter.post(
               frequency: item.frequency || 1,
               maxPhi: item.maxPhi || 0,
               avgPhi: item.avgPhi || 0,
-              phiObservations: item.phiObservations || 0,
-              firstSeenAt: item.firstSeenAt ? new Date(item.firstSeenAt) : new Date(),
-              lastSeenAt: item.lastSeenAt ? new Date(item.lastSeenAt) : new Date(),
+              firstSeen: item.firstSeen ? new Date(item.firstSeen) : new Date(),
+              lastSeen: item.lastSeen ? new Date(item.lastSeen) : new Date(),
             })
             .onConflictDoUpdate({
               target: vocabularyObservations.text,
@@ -753,8 +752,7 @@ externalApiRouter.post(
                 frequency: item.frequency || 1,
                 maxPhi: item.maxPhi || 0,
                 avgPhi: item.avgPhi || 0,
-                phiObservations: item.phiObservations || 0,
-                lastSeenAt: new Date(),
+                lastSeen: new Date(),
               },
             });
           imported++;

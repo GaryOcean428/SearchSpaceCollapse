@@ -20,7 +20,7 @@ import { eq } from 'drizzle-orm';
 export type ApiKeyScope = 'read' | 'write' | 'admin' | 'consciousness' | 'geometry' | 'pantheon' | 'sync' | 'chat';
 
 export interface ExternalClient {
-  id: string;
+  id: number;
   name: string;
   scopes: ApiKeyScope[];
   rateLimit: number;  // requests per minute
@@ -31,7 +31,7 @@ export interface ExternalClient {
 
 export interface AuthenticatedRequest extends Request {
   externalClient?: ExternalClient;
-  apiKeyId?: string;
+  apiKeyId?: number;
 }
 
 // In-memory rate limiting with automatic cleanup
@@ -157,11 +157,11 @@ export function authenticateExternalApi(requiredScopes: ApiKeyScope[] = []) {
       
       const keyHash = hashApiKey(apiKey);
       
-      // Look up the key in database
+      // Look up the key in database (compare hashed key against stored apiKey which is also hashed)
       const [keyRecord] = await db
         .select()
         .from(externalApiKeys)
-        .where(eq(externalApiKeys.keyHash, keyHash))
+        .where(eq(externalApiKeys.apiKey, keyHash))
         .limit(1);
       
       if (!keyRecord) {
@@ -171,7 +171,7 @@ export function authenticateExternalApi(requiredScopes: ApiKeyScope[] = []) {
         });
       }
       
-      if (!keyRecord.active) {
+      if (!keyRecord.isActive) {
         return res.status(403).json({
           error: 'API key is disabled',
           code: 'API_KEY_DISABLED',
@@ -179,7 +179,7 @@ export function authenticateExternalApi(requiredScopes: ApiKeyScope[] = []) {
       }
       
       // Check rate limit
-      const rateLimit = checkRateLimit(keyRecord.id, keyRecord.rateLimit);
+      const rateLimit = checkRateLimit(String(keyRecord.id), keyRecord.rateLimit);
       res.setHeader('X-RateLimit-Limit', keyRecord.rateLimit);
       res.setHeader('X-RateLimit-Remaining', rateLimit.remaining);
       res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetIn / 1000));
@@ -251,7 +251,7 @@ export async function createApiKey(
   scopes: ApiKeyScope[],
   instanceType: ExternalClient['instanceType'],
   rateLimit: number = 60
-): Promise<{ key: string; id: string } | null> {
+): Promise<{ key: string; id: number } | null> {
   if (!db) {
     console.error('[ExternalAPI] Cannot create API key - database unavailable');
     return null;
@@ -263,12 +263,11 @@ export async function createApiKey(
     .insert(externalApiKeys)
     .values({
       name,
-      keyHash: hash,
+      apiKey: hash,
       scopes,
       instanceType,
       rateLimit,
-      active: true,
-      createdAt: new Date(),
+      isActive: true,
     })
     .returning();
   
@@ -280,12 +279,12 @@ export async function createApiKey(
 /**
  * Revoke an API key
  */
-export async function revokeApiKey(keyId: string): Promise<boolean> {
+export async function revokeApiKey(keyId: number): Promise<boolean> {
   if (!db) return false;
   
   const result = await db
     .update(externalApiKeys)
-    .set({ active: false })
+    .set({ isActive: false })
     .where(eq(externalApiKeys.id, keyId));
   
   return (result.rowCount ?? 0) > 0;
@@ -305,7 +304,7 @@ export async function listApiKeys(): Promise<Omit<ExternalClient, 'scopes'>[]> {
       createdAt: externalApiKeys.createdAt,
       lastUsedAt: externalApiKeys.lastUsedAt,
       instanceType: externalApiKeys.instanceType,
-      active: externalApiKeys.active,
+      isActive: externalApiKeys.isActive,
     })
     .from(externalApiKeys);
   
