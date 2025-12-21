@@ -67,7 +67,11 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 
 **Third-Party Services:**
 - **Blockchain APIs**: Blockstream.info (primary), Blockchain.info (fallback).
-- **Search/Discovery**: Self-hosted SearXNG metasearch instances, public fallbacks, Google Search Bridge for Python→TypeScript integration.
+- **Search/Discovery**: Multi-provider search architecture:
+  - Self-hosted SearXNG metasearch instances with public fallbacks
+  - Google Search Bridge for Python→TypeScript integration
+  - DuckDuckGo Search Bridge (`qig-backend/olympus/duckduckgo_search_bridge.py`): Direct library integration (no API key required), supports text and news search, adaptive rate limiting with exponential backoff
+  - Combined research endpoint `/api/research/duckduckgo/combined` merges all providers for comprehensive coverage
 
 **Databases:**
 - **PostgreSQL (Neon serverless)**: Utilized with `@neondatabase/serverless` and `pgvector 0.8.0`.
