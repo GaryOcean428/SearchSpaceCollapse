@@ -81,3 +81,9 @@ export const MIN_RECURSIONS = _QIG.MIN_RECURSIONS;
 export const MAX_RECURSIONS = _QIG.MAX_RECURSIONS;
 export const L_CRITICAL = _QIG.L_CRITICAL;
 export const RESONANCE_BAND = _QIG.RESONANCE_BAND;
+
+// Self-healing constants
+export {
+  SELF_HEALING,
+  type SelfHealingConfig,
+} from './self-healing';

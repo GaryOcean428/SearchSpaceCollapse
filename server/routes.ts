@@ -68,6 +68,7 @@ import {
   recoveriesRouter,
   recoveryRouter,
   searchRouter,
+  selfHealingRouter,
   sweepsRouter,
   ucpRouter,
   unifiedRecoveryRouter,
@@ -338,6 +339,7 @@ setTimeout(() => { window.location.href = '/'; }, 1000);
   app.use("/api/olympus", olympusRouter);
   app.use("/api/qig/autonomic/agency", autonomicAgencyRouter);
   app.use("/api/federation", federationRouter);
+  app.use("/api/self-healing", selfHealingRouter);
 
   // Mount observer and telemetry routers
   app.use("/api/observer", observerRoutes);

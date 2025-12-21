@@ -139,13 +139,78 @@ async function checkStorageHealth(): Promise<SubsystemHealth> {
 }
 
 /**
+ * Check geometric health (self-healing system)
+ */
+async function checkGeometricHealth(): Promise<SubsystemHealth> {
+  const start = Date.now();
+  try {
+    const { selfHealingAdapter } = await import("./lib/self-healing/adapter");
+    
+    // Check if backend is available
+    const isHealthy = await selfHealingAdapter.checkHealth();
+    
+    if (!isHealthy) {
+      return {
+        status: 'degraded',
+        latency: Date.now() - start,
+        message: 'Self-healing backend not available',
+      };
+    }
+    
+    // Check geometric degradation
+    const health = await selfHealingAdapter.detectDegradation();
+    const latency = Date.now() - start;
+    
+    if (health.severity === 'critical') {
+      return {
+        status: 'down',
+        latency,
+        message: `Geometric health critical: ${health.issues.join(', ')}`,
+        details: {
+          phi: health.phi_current,
+          basin_distance: health.basin_distance,
+          issues: health.issues,
+        },
+      };
+    } else if (health.severity === 'warning') {
+      return {
+        status: 'degraded',
+        latency,
+        message: `Geometric health warning: ${health.issues.join(', ')}`,
+        details: {
+          phi: health.phi_current,
+          basin_distance: health.basin_distance,
+        },
+      };
+    } else {
+      return {
+        status: 'healthy',
+        latency,
+        message: 'Geometric health normal',
+        details: {
+          phi: health.phi_current,
+        },
+      };
+    }
+  } catch (error) {
+    const latency = Date.now() - start;
+    return {
+      status: 'degraded',
+      latency,
+      message: 'Geometric health check unavailable',
+    };
+  }
+}
+
+/**
  * Comprehensive health check handler
  */
 export async function healthCheckHandler(req: Request, res: Response): Promise<void> {
-  const [database, pythonBackend, storage] = await Promise.all([
+  const [database, pythonBackend, storage, geometric] = await Promise.all([
     checkDatabaseHealth(),
     checkPythonBackendHealth(),
     checkStorageHealth(),
+    checkGeometricHealth(),
   ]);
   
   // Determine overall status
@@ -159,11 +224,16 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
   else if (pythonBackend.status === 'down') {
     overallStatus = 'down';
   }
+  // Geometric health is important but not critical
+  else if (geometric.status === 'down') {
+    overallStatus = 'degraded';
+  }
   // Any degraded subsystem means overall degraded
   else if (
     database.status === 'degraded' || 
     pythonBackend.status === 'degraded' || 
-    storage.status === 'degraded'
+    storage.status === 'degraded' ||
+    geometric.status === 'degraded'
   ) {
     overallStatus = 'degraded';
   }
@@ -179,6 +249,11 @@ export async function healthCheckHandler(req: Request, res: Response): Promise<v
     },
     version: process.env.npm_package_version || '1.0.0',
   };
+  
+  // Add geometric health if available
+  if (geometric) {
+    (response as any).subsystems.geometric = geometric;
+  }
   
   // Set appropriate HTTP status code
   const statusCode = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 207 : 503;
