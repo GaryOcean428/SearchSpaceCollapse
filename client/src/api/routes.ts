@@ -145,6 +145,7 @@ export const API_ROUTES = {
     keys: '/api/federation/keys',
     key: (keyId: string) => `/api/federation/keys/${keyId}`,
     instances: '/api/federation/instances',
+    connectInstance: '/api/federation/instances/connect',
     syncStatus: '/api/federation/sync/status',
   },
 

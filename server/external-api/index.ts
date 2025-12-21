@@ -35,3 +35,9 @@ export {
   getConnectedClientCount,
   getSubscriptionStats,
 } from './websocket';
+
+export {
+  encryptApiKey,
+  decryptApiKey,
+  isEncryptionKeyConfigured,
+} from './encryption';

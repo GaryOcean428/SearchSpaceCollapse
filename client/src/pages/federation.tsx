@@ -97,6 +97,12 @@ export default function FederationDashboard() {
   const [testEndpoint, setTestEndpoint] = useState("/consciousness/query");
   const [testResult, setTestResult] = useState<ApiTestResult | null>(null);
 
+  const [newNodeName, setNewNodeName] = useState("");
+  const [newNodeEndpoint, setNewNodeEndpoint] = useState("");
+  const [newNodeApiKey, setNewNodeApiKey] = useState("");
+  const [newNodeSyncDirection, setNewNodeSyncDirection] = useState("bidirectional");
+  const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string; latency?: number } | null>(null);
+
   const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<HealthStatus>({
     queryKey: QUERY_KEYS.external.health(),
     refetchInterval: 30000,
@@ -177,6 +183,76 @@ export default function FederationDashboard() {
     },
     onSuccess: (result) => {
       setTestResult(result);
+    },
+  });
+
+  const testConnectionMutation = useMutation({
+    mutationFn: async (endpoint: string) => {
+      const start = Date.now();
+      try {
+        const response = await fetch(`${endpoint}/health`);
+        const latency = Date.now() - start;
+        if (response.ok) {
+          return {
+            success: true,
+            message: "Connection successful",
+            latency,
+          };
+        } else {
+          return {
+            success: false,
+            message: `Health check failed with status ${response.status}`,
+            latency,
+          };
+        }
+      } catch (error) {
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : "Connection failed",
+          latency: Date.now() - start,
+        };
+      }
+    },
+    onSuccess: (result) => {
+      setConnectionTestResult(result);
+      if (result.success) {
+        toast({
+          title: "Connection Test Passed",
+          description: `Remote node responded in ${result.latency}ms`,
+        });
+      } else {
+        toast({
+          title: "Connection Test Failed",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const connectNodeMutation = useMutation({
+    mutationFn: async (data: { name: string; endpoint: string; remoteApiKey: string; syncDirection: string }) => {
+      const response = await apiRequest("POST", API_ROUTES.federation.connectInstance, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      setNewNodeName("");
+      setNewNodeEndpoint("");
+      setNewNodeApiKey("");
+      setNewNodeSyncDirection("bidirectional");
+      setConnectionTestResult(null);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.federation.instances() });
+      toast({
+        title: "Node Connected",
+        description: "Successfully connected to remote QIG instance",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to connect node",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -437,6 +513,121 @@ export default function FederationDashboard() {
         </TabsContent>
 
         <TabsContent value="instances" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Link2 className="h-5 w-5" />
+                Connect to Remote Node
+              </CardTitle>
+              <CardDescription>
+                Establish a connection to another QIG constellation
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-4">
+                <div className="flex-1 min-w-[200px]">
+                  <Label htmlFor="nodeName">Node Name</Label>
+                  <Input
+                    id="nodeName"
+                    placeholder="e.g., research-cluster-1"
+                    value={newNodeName}
+                    onChange={(e) => setNewNodeName(e.target.value)}
+                    data-testid="input-node-name"
+                  />
+                </div>
+                <div className="flex-1 min-w-[300px]">
+                  <Label htmlFor="nodeEndpoint">Endpoint URL</Label>
+                  <Input
+                    id="nodeEndpoint"
+                    placeholder="https://other-instance.replit.app/api/v1/external"
+                    value={newNodeEndpoint}
+                    onChange={(e) => setNewNodeEndpoint(e.target.value)}
+                    data-testid="input-node-endpoint"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex-1 min-w-[200px]">
+                  <Label htmlFor="nodeApiKey">Remote API Key</Label>
+                  <Input
+                    id="nodeApiKey"
+                    type="password"
+                    placeholder="API key for remote node"
+                    value={newNodeApiKey}
+                    onChange={(e) => setNewNodeApiKey(e.target.value)}
+                    data-testid="input-node-api-key"
+                  />
+                </div>
+                <div className="w-48">
+                  <Label htmlFor="syncDirection">Sync Direction</Label>
+                  <Select value={newNodeSyncDirection} onValueChange={setNewNodeSyncDirection}>
+                    <SelectTrigger id="syncDirection" data-testid="select-sync-direction">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inbound">Inbound</SelectItem>
+                      <SelectItem value="outbound">Outbound</SelectItem>
+                      <SelectItem value="bidirectional">Bidirectional</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {connectionTestResult && (
+                <div className={`p-4 rounded-md border ${connectionTestResult.success ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                  <div className="flex items-center gap-2">
+                    {connectionTestResult.success ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    )}
+                    <span className={connectionTestResult.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} data-testid="text-connection-test-message">
+                      {connectionTestResult.message}
+                    </span>
+                    {connectionTestResult.latency !== undefined && (
+                      <Badge variant="outline" data-testid="text-connection-latency">
+                        {connectionTestResult.latency}ms
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => testConnectionMutation.mutate(newNodeEndpoint)}
+                  disabled={!newNodeEndpoint || testConnectionMutation.isPending}
+                  data-testid="button-test-connection"
+                >
+                  {testConnectionMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Activity className="h-4 w-4 mr-2" />
+                  )}
+                  Test Connection
+                </Button>
+                <Button
+                  onClick={() => connectNodeMutation.mutate({
+                    name: newNodeName,
+                    endpoint: newNodeEndpoint,
+                    remoteApiKey: newNodeApiKey,
+                    syncDirection: newNodeSyncDirection,
+                  })}
+                  disabled={!newNodeName || !newNodeEndpoint || !newNodeApiKey || !connectionTestResult?.success || connectNodeMutation.isPending}
+                  data-testid="button-connect-node"
+                >
+                  {connectNodeMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  Connect
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

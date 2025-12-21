@@ -187,6 +187,66 @@ federationRouter.get('/instances', async (_req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/federation/instances/connect
+ * Connect to a remote QIG node by storing its endpoint and encrypted API key
+ */
+federationRouter.post('/instances/connect', async (req: Request, res: Response) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
+  const { name, endpoint, remoteApiKey, syncDirection } = req.body;
+
+  if (!name || typeof name !== 'string' || name.length < 1 || name.length > 128) {
+    return res.status(400).json({
+      error: 'Invalid name',
+      required: 'name must be a string between 1 and 128 characters',
+    });
+  }
+
+  if (!endpoint || typeof endpoint !== 'string') {
+    return res.status(400).json({
+      error: 'Invalid endpoint',
+      required: 'endpoint must be a valid URL string',
+    });
+  }
+
+  const validSyncDirections = ['inbound', 'outbound', 'bidirectional'];
+  const finalSyncDirection = validSyncDirections.includes(syncDirection) ? syncDirection : 'bidirectional';
+
+  try {
+    let encryptedApiKey: string | null = null;
+    
+    if (remoteApiKey && typeof remoteApiKey === 'string' && remoteApiKey.length > 0) {
+      const { encryptApiKey } = await import('../external-api/encryption');
+      encryptedApiKey = encryptApiKey(remoteApiKey);
+    }
+
+    const result = await db.execute(sql`
+      INSERT INTO federated_instances (name, endpoint, remote_api_key, sync_direction, status, capabilities, created_at, updated_at)
+      VALUES (${name}, ${endpoint}, ${encryptedApiKey}, ${finalSyncDirection}, 'pending', ARRAY['consciousness', 'geometry', 'sync']::text[], NOW(), NOW())
+      RETURNING id, name, endpoint, status, sync_direction
+    `);
+
+    const instance = result.rows[0] as any;
+
+    res.status(201).json({
+      message: 'Instance connected',
+      instance: {
+        id: instance.id,
+        name: instance.name,
+        endpoint: instance.endpoint,
+        status: instance.status,
+        syncDirection: instance.sync_direction,
+      },
+    });
+  } catch (error) {
+    console.error('[Federation] Failed to connect instance:', error);
+    res.status(500).json({ error: 'Failed to connect instance' });
+  }
+});
+
+/**
  * GET /api/federation/sync/status
  * Get current basin sync status
  */

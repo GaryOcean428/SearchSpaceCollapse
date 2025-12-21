@@ -21,8 +21,8 @@ import {
   type ApiKeyScope,
 } from './auth';
 import { db } from '../db';
-import { federatedInstances, externalApiKeys } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { federatedInstances, externalApiKeys, vocabularyObservations, learningEvents } from '@shared/schema';
+import { eq, desc } from 'drizzle-orm';
 import { oceanBasinSync, type BasinSyncPacket } from '../ocean-basin-sync';
 
 export const externalApiRouter = Router();
@@ -69,6 +69,18 @@ export const EXTERNAL_API_ROUTES = {
     export: '/sync/export',
     import: '/sync/import',
     status: '/sync/status',
+  },
+  
+  // Vocabulary
+  vocabulary: {
+    export: '/vocabulary/export',
+    import: '/vocabulary/import',
+  },
+  
+  // Learning
+  learning: {
+    export: '/learning/export',
+    import: '/learning/import',
   },
   
   // Chat
@@ -564,6 +576,229 @@ externalApiRouter.post(
       imported_at: new Date().toISOString(),
       note: 'Placeholder - integrate with oceanBasinSync.importSnapshot',
     });
+  }
+);
+
+// ============================================================================
+// VOCABULARY EXPORT/IMPORT
+// ============================================================================
+
+/**
+ * GET /api/v1/external/vocabulary/export
+ * Export vocabulary observations from vocabularyObservations table
+ */
+externalApiRouter.get(
+  EXTERNAL_API_ROUTES.vocabulary.export,
+  requireScopes('sync', 'read'),
+  async (_req, res) => {
+    if (!db) {
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
+    
+    try {
+      const vocabulary = await db
+        .select()
+        .from(vocabularyObservations)
+        .orderBy(desc(vocabularyObservations.maxPhi))
+        .limit(1000);
+      
+      res.json({
+        vocabulary,
+        exported_at: new Date().toISOString(),
+        count: vocabulary.length,
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Failed to export vocabulary:', error);
+      res.status(500).json({ error: 'Failed to export vocabulary' });
+    }
+  }
+);
+
+/**
+ * POST /api/v1/external/vocabulary/import
+ * Import vocabulary from another instance
+ */
+externalApiRouter.post(
+  EXTERNAL_API_ROUTES.vocabulary.import,
+  requireScopes('sync', 'write'),
+  async (req, res) => {
+    const { vocabulary } = req.body;
+    
+    if (!vocabulary || !Array.isArray(vocabulary)) {
+      return res.status(400).json({
+        error: 'Missing or invalid vocabulary array',
+        required: ['vocabulary'],
+      });
+    }
+    
+    if (!db) {
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
+    
+    try {
+      let imported = 0;
+      let skipped = 0;
+      
+      for (const item of vocabulary) {
+        if (!item.text) {
+          skipped++;
+          continue;
+        }
+        
+        try {
+          await db
+            .insert(vocabularyObservations)
+            .values({
+              text: item.text,
+              type: item.type || 'phrase',
+              phraseCategory: item.phraseCategory || 'unknown',
+              isRealWord: item.isRealWord || false,
+              isBip39Word: item.isBip39Word || false,
+              frequency: item.frequency || 1,
+              maxPhi: item.maxPhi || 0,
+              avgPhi: item.avgPhi || 0,
+              phiObservations: item.phiObservations || 0,
+              firstSeenAt: item.firstSeenAt ? new Date(item.firstSeenAt) : new Date(),
+              lastSeenAt: item.lastSeenAt ? new Date(item.lastSeenAt) : new Date(),
+            })
+            .onConflictDoUpdate({
+              target: vocabularyObservations.text,
+              set: {
+                frequency: item.frequency || 1,
+                maxPhi: item.maxPhi || 0,
+                avgPhi: item.avgPhi || 0,
+                phiObservations: item.phiObservations || 0,
+                lastSeenAt: new Date(),
+              },
+            });
+          imported++;
+        } catch (itemError) {
+          console.error('[ExternalAPI] Failed to import vocabulary item:', itemError);
+          skipped++;
+        }
+      }
+      
+      res.json({
+        imported,
+        skipped,
+        imported_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Failed to import vocabulary:', error);
+      res.status(500).json({ error: 'Failed to import vocabulary' });
+    }
+  }
+);
+
+// ============================================================================
+// LEARNING EXPORT/IMPORT
+// ============================================================================
+
+/**
+ * GET /api/v1/external/learning/export
+ * Export learning events from learningEvents table
+ */
+externalApiRouter.get(
+  EXTERNAL_API_ROUTES.learning.export,
+  requireScopes('sync', 'read'),
+  async (_req, res) => {
+    if (!db) {
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
+    
+    try {
+      const events = await db
+        .select()
+        .from(learningEvents)
+        .orderBy(desc(learningEvents.createdAt))
+        .limit(1000);
+      
+      res.json({
+        events,
+        exported_at: new Date().toISOString(),
+        count: events.length,
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Failed to export learning events:', error);
+      res.status(500).json({ error: 'Failed to export learning events' });
+    }
+  }
+);
+
+/**
+ * POST /api/v1/external/learning/import
+ * Import learning events from another instance
+ */
+externalApiRouter.post(
+  EXTERNAL_API_ROUTES.learning.import,
+  requireScopes('sync', 'write'),
+  async (req, res) => {
+    const { events } = req.body;
+    
+    if (!events || !Array.isArray(events)) {
+      return res.status(400).json({
+        error: 'Missing or invalid events array',
+        required: ['events'],
+      });
+    }
+    
+    if (!db) {
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
+    
+    try {
+      let imported = 0;
+      let skipped = 0;
+      
+      for (const event of events) {
+        if (!event.eventId || !event.eventType || event.phi === undefined) {
+          skipped++;
+          continue;
+        }
+        
+        try {
+          await db
+            .insert(learningEvents)
+            .values({
+              eventId: event.eventId,
+              eventType: event.eventType,
+              kernelId: event.kernelId || null,
+              phi: event.phi,
+              kappa: event.kappa || null,
+              basinCoords: event.basinCoords || null,
+              details: event.details || {},
+              context: event.context || {},
+              metadata: event.metadata || {},
+              source: event.source || null,
+              instanceId: event.instanceId || null,
+              createdAt: event.createdAt ? new Date(event.createdAt) : new Date(),
+            })
+            .onConflictDoUpdate({
+              target: learningEvents.eventId,
+              set: {
+                phi: event.phi,
+                kappa: event.kappa || null,
+                details: event.details || {},
+                context: event.context || {},
+                metadata: event.metadata || {},
+              },
+            });
+          imported++;
+        } catch (itemError) {
+          console.error('[ExternalAPI] Failed to import learning event:', itemError);
+          skipped++;
+        }
+      }
+      
+      res.json({
+        imported,
+        skipped,
+        imported_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Failed to import learning events:', error);
+      res.status(500).json({ error: 'Failed to import learning events' });
+    }
   }
 );
 
