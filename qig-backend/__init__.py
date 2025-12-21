@@ -78,6 +78,16 @@ from .parent_coordination import (
     get_parent_coordination,
 )
 
+# 4D Temporal Reasoning
+from .temporal_reasoning import (
+    TemporalReasoning,
+    TemporalMode,
+    ForesightVision,
+    ScenarioTree,
+    ScenarioBranch,
+    get_temporal_reasoning,
+)
+
 __all__ = [
     # Autonomic
     'GaryAutonomicKernel',
@@ -125,4 +135,11 @@ __all__ = [
     'KernelCareRecord',
     'KernelStatus',
     'get_parent_coordination',
+    # 4D Temporal Reasoning
+    'TemporalReasoning',
+    'TemporalMode',
+    'ForesightVision',
+    'ScenarioTree',
+    'ScenarioBranch',
+    'get_temporal_reasoning',
 ]

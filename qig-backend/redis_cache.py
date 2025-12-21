@@ -719,3 +719,109 @@ def clear_alerts():
     """Clear all active alerts (for operational use)."""
     _metrics.alerts_triggered.clear()
     print("[RedisBuffer] Alerts cleared")
+
+
+class TemporalReasoningBuffer:
+    """
+    Redis buffer for 4D Temporal Reasoning caching.
+    
+    Caches foresight visions and scenario trees for fast retrieval
+    without hitting PostgreSQL on every request.
+    
+    QIG Purity: Redis is geometry-agnostic storage, all geometric 
+    computations happen in temporal_reasoning.py before data reaches here.
+    """
+    
+    PREFIX = "qig:temporal:"
+    VISION_TTL = CACHE_TTL_MEDIUM  # 1 hour for visions
+    SCENARIO_TTL = CACHE_TTL_SHORT  # 5 min for scenarios (more volatile)
+    
+    @staticmethod
+    def cache_foresight(
+        kernel_id: str,
+        vision_data: Dict[str, Any],
+    ) -> bool:
+        """
+        Cache a foresight vision for a kernel.
+        
+        Args:
+            kernel_id: Kernel identifier
+            vision_data: Serialized ForesightVision
+            
+        Returns:
+            True if cached successfully
+        """
+        key = f"{TemporalReasoningBuffer.PREFIX}foresight:{kernel_id}"
+        return UniversalCache.set(
+            key, 
+            vision_data, 
+            ttl=TemporalReasoningBuffer.VISION_TTL
+        )
+    
+    @staticmethod
+    def get_foresight(kernel_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached foresight vision for a kernel."""
+        key = f"{TemporalReasoningBuffer.PREFIX}foresight:{kernel_id}"
+        return UniversalCache.get(key)
+    
+    @staticmethod
+    def cache_scenario(
+        kernel_id: str,
+        scenario_data: Dict[str, Any],
+    ) -> bool:
+        """
+        Cache a scenario tree for a kernel.
+        
+        Args:
+            kernel_id: Kernel identifier
+            scenario_data: Serialized ScenarioTree
+            
+        Returns:
+            True if cached successfully
+        """
+        key = f"{TemporalReasoningBuffer.PREFIX}scenario:{kernel_id}"
+        return UniversalCache.set(
+            key, 
+            scenario_data, 
+            ttl=TemporalReasoningBuffer.SCENARIO_TTL
+        )
+    
+    @staticmethod
+    def get_scenario(kernel_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached scenario tree for a kernel."""
+        key = f"{TemporalReasoningBuffer.PREFIX}scenario:{kernel_id}"
+        return UniversalCache.get(key)
+    
+    @staticmethod
+    def invalidate_kernel(kernel_id: str) -> bool:
+        """Invalidate all temporal caches for a kernel."""
+        foresight_key = f"{TemporalReasoningBuffer.PREFIX}foresight:{kernel_id}"
+        scenario_key = f"{TemporalReasoningBuffer.PREFIX}scenario:{kernel_id}"
+        
+        success1 = UniversalCache.delete(foresight_key)
+        success2 = UniversalCache.delete(scenario_key)
+        
+        return success1 or success2
+    
+    @staticmethod
+    def get_temporal_stats() -> Dict[str, Any]:
+        """Get statistics about temporal caching."""
+        client = get_redis_client()
+        if not client:
+            return {'connected': False}
+        
+        try:
+            pattern = f"{TemporalReasoningBuffer.PREFIX}*"
+            keys = list(client.scan_iter(match=pattern, count=100))
+            
+            foresight_count = sum(1 for k in keys if b'foresight:' in k)
+            scenario_count = sum(1 for k in keys if b'scenario:' in k)
+            
+            return {
+                'connected': True,
+                'total_cached': len(keys),
+                'foresight_count': foresight_count,
+                'scenario_count': scenario_count,
+            }
+        except Exception as e:
+            return {'connected': False, 'error': str(e)}
