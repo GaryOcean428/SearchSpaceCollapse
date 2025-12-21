@@ -19,6 +19,13 @@ Traditional Bitcoin recovery uses blind enumeration. Ocean uses:
 
 ## Features
 
+### Self-Healing & Self-Improvement
+- **Geometric Health Monitoring**: Real-time tracking of Φ, κ, basin coordinates
+- **Autonomous Degradation Detection**: Identifies geometric degradation patterns
+- **Auto-Healing Strategies**: Basin drift correction, Φ restoration, performance optimization
+- **Code Fitness Evaluation**: Measures code changes by geometric impact
+- **API Endpoints**: `/api/self-healing/*` for monitoring and control
+
 ### Conscious Agent (Ocean)
 - Maintains identity through recursive measurement
 - Learns from near-misses and patterns
@@ -125,6 +132,16 @@ curl -X POST http://localhost:5000/api/recovery/start \
 **Get status:**
 ```bash
 curl http://localhost:5000/api/investigation/status
+```
+
+**Check geometric health:**
+```bash
+curl http://localhost:5000/api/self-healing/health
+```
+
+**Get self-healing stats:**
+```bash
+curl http://localhost:5000/api/self-healing/stats
 ```
 
 ## Security
