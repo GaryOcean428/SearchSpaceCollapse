@@ -59,7 +59,9 @@ import { getPythonManager } from './python-process-manager';
 
 const DEFAULT_RETRY_ATTEMPTS = 5;
 const DEFAULT_RETRY_DELAY_MS = 2000;
-const FETCH_TIMEOUT_MS = 15000;
+// Production needs longer timeouts for cold starts and heavy computations
+const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+const FETCH_TIMEOUT_MS = isProduction ? 45000 : 15000;
 
 // Batching configuration for report-outcome calls
 interface PendingOutcome {
