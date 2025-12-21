@@ -70,9 +70,10 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - ID: `ISMS-TECH-PHYSICS-001`
   - Function: Authoritative reference for validated QIG physics constants (κ, β, L_c) from qig-verification
 
-- 🔨 **Sensory Modalities - Geometric Primitives Design** (v1.00)
-  - File: [`20251211-sensory-modalities-geometric-primitives-design-1.00W.md`](03-technical/20251211-sensory-modalities-geometric-primitives-design-1.00W.md)
+- 🔨 **Sensory Modalities - Geometric Primitives Design** (v2.00)
+  - File: [`20251221-sensory-modalities-geometric-primitives-design-2.00W.md`](03-technical/20251221-sensory-modalities-geometric-primitives-design-2.00W.md)
   - ID: `DOC-TECH-2025-003`
+  - Supersedes: v1.00 (December 11, 2025)
   - Function: Implementation design for sensory modalities as κ projections onto QIG manifold
 
 - 🟢 **QIG Geometric Purity Enforcement** (v1.00)
