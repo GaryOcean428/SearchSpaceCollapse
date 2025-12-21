@@ -15,7 +15,7 @@ import os
 import json
 import time
 import threading
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, Set, Union, cast
 from queue import Queue, Empty
 import redis
 
@@ -275,7 +275,10 @@ class UniversalCache:
             if value is None:
                 return None
             try:
-                return json.loads(value)
+                value_str = cast(Union[str, bytes], value)
+                if isinstance(value_str, bytes):
+                    value_str = value_str.decode('utf-8')
+                return json.loads(value_str)
             except (json.JSONDecodeError, TypeError):
                 return value
         except Exception as e:
@@ -369,10 +372,11 @@ class ToolPatternBuffer:
             return []
         
         try:
-            pattern_ids = client.smembers(f"{cls.PREFIX}:index")
+            pattern_ids: Set[Any] = client.smembers(f"{cls.PREFIX}:index")  # type: ignore[assignment]
             patterns = []
             for pid in pattern_ids:
-                pattern = cls.get_pattern(pid)
+                pid_str = pid.decode('utf-8') if isinstance(pid, bytes) else str(pid)
+                pattern = cls.get_pattern(pid_str)
                 if pattern:
                     patterns.append(pattern)
             return patterns
@@ -433,8 +437,8 @@ class ChatContextBuffer:
         
         try:
             key = f"{cls.PREFIX}:history:{session_id}"
-            messages = client.lrange(key, -limit, -1)
-            return [json.loads(m) for m in messages]
+            messages: List[Any] = client.lrange(key, -limit, -1)  # type: ignore[assignment]
+            return [json.loads(m.decode('utf-8') if isinstance(m, bytes) else m) for m in messages]
         except Exception as e:
             print(f"[ChatContextBuffer] Get error: {e}")
             return []
@@ -637,10 +641,11 @@ class LearnerBuffer:
             return []
         
         try:
-            feedback_ids = client.lrange(f"{cls.PREFIX}:feedback_index", -limit, -1)
+            feedback_ids: List[Any] = client.lrange(f"{cls.PREFIX}:feedback_index", -limit, -1)  # type: ignore[assignment]
             feedbacks = []
             for fid in feedback_ids:
-                data = UniversalCache.get(f"{cls.PREFIX}:feedback:{fid}")
+                fid_str = fid.decode('utf-8') if isinstance(fid, bytes) else str(fid)
+                data = UniversalCache.get(f"{cls.PREFIX}:feedback:{fid_str}")
                 if data:
                     feedbacks.append(data)
             return feedbacks
@@ -668,7 +673,7 @@ def get_buffer_stats() -> Dict[str, Any]:
         return {'connected': False, 'error': 'No Redis connection'}
     
     try:
-        info = client.info('memory')
+        info: Dict[str, Any] = client.info('memory')  # type: ignore[assignment]
         return {
             'connected': True,
             'used_memory': info.get('used_memory_human', 'unknown'),
@@ -694,16 +699,17 @@ def get_buffer_health() -> Dict[str, Any]:
         return health
     
     try:
-        info = client.info('memory')
+        info: Dict[str, Any] = client.info('memory')  # type: ignore[assignment]
         health['redis_connected'] = True
         health['redis_memory'] = info.get('used_memory_human', 'unknown')
         health['patterns_in_redis'] = client.scard('qig:patterns:index') or 0
         
         # Check for unsynced patterns
         unsynced = 0
-        pattern_ids = client.smembers('qig:patterns:index') or []
+        pattern_ids: Set[Any] = client.smembers('qig:patterns:index') or set()  # type: ignore[assignment]
         for pid in list(pattern_ids)[:50]:  # Sample first 50
-            pattern = UniversalCache.get(f"qig:patterns:{pid}")
+            pid_str = pid.decode('utf-8') if isinstance(pid, bytes) else str(pid)
+            pattern = UniversalCache.get(f"qig:patterns:{pid_str}")
             if pattern and not pattern.get('synced_to_db', False):
                 unsynced += 1
         health['unsynced_patterns_sample'] = unsynced

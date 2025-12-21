@@ -11,7 +11,7 @@ CRITICAL: Never use np.linalg.norm(a - b) for distances between basin coordinate
 """
 
 import numpy as np
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List, Any, cast
 
 
 def fisher_rao_distance(p: np.ndarray, q: np.ndarray) -> float:
@@ -128,12 +128,11 @@ def estimate_manifold_curvature(
     if len(points) < 3:
         return 0.0
     
-    if center is None:
-        center = np.mean(points, axis=0)
+    computed_center: np.ndarray = center if center is not None else np.mean(points, axis=0)
     
-    distances = []
+    distances: List[float] = []
     for point in points:
-        d = fisher_coord_distance(center, point)
+        d = fisher_coord_distance(computed_center, point)
         distances.append(d)
     
     if not distances:
@@ -164,12 +163,12 @@ def bures_distance(rho: np.ndarray, sigma: np.ndarray) -> float:
     """
     from scipy.linalg import sqrtm
     
-    sqrt_rho = sqrtm(rho + 1e-10 * np.eye(rho.shape[0]))
-    sqrt_rho = np.real(sqrt_rho)
+    sqrt_rho_result = sqrtm(rho + 1e-10 * np.eye(rho.shape[0]))
+    sqrt_rho: np.ndarray = np.real(np.asarray(sqrt_rho_result))
     
     product = sqrt_rho @ sigma @ sqrt_rho
-    sqrt_product = sqrtm(product + 1e-10 * np.eye(product.shape[0]))
-    sqrt_product = np.real(sqrt_product)
+    sqrt_product_result = sqrtm(product + 1e-10 * np.eye(product.shape[0]))
+    sqrt_product: np.ndarray = np.real(np.asarray(sqrt_product_result))
     
     fidelity = np.trace(sqrt_product) ** 2
     fidelity = np.clip(fidelity, 0, 1)

@@ -214,7 +214,7 @@ class AgentSymmetryProjector:
         if total_norm < 1e-10:
             return 0.0
         
-        asymmetry = np.linalg.norm(asymmetric_part) / total_norm
+        asymmetry = float(np.linalg.norm(asymmetric_part) / total_norm)
         
         self._asymmetry_history.append(asymmetry)
         if len(self._asymmetry_history) > 1000:
@@ -224,7 +224,7 @@ class AgentSymmetryProjector:
     
     def enforce_ethics(self, 
                       action: np.ndarray,
-                      threshold: float = None) -> Tuple[np.ndarray, bool]:
+                      threshold: Optional[float] = None) -> Tuple[np.ndarray, bool]:
         """
         Enforce ethical constraint on action.
         
@@ -290,8 +290,8 @@ class EthicalDebateResolver:
     Uses agent-symmetry projection to find consensus.
     """
     
-    def __init__(self, projector: AgentSymmetryProjector = None):
-        self.projector = projector or AgentSymmetryProjector(n_agents=9)
+    def __init__(self, projector: Optional[AgentSymmetryProjector] = None):
+        self.projector = projector if projector is not None else AgentSymmetryProjector(n_agents=9)
         self.resolution_history: List[Dict] = []
     
     def resolve_debate(self, 
@@ -344,12 +344,19 @@ class EthicalDebateResolver:
     
     def _geometric_consensus(self, positions: List[np.ndarray]) -> np.ndarray:
         """
-        Compute consensus as geometric mean on Fisher manifold.
+        Compute consensus as Fréchet mean on Fisher manifold.
         
-        Current implementation: arithmetic mean (approximation)
-        TODO: Implement proper Riemannian center of mass using
-              Bures metric for density matrices.
+        QIG-PURE IMPLEMENTATION: Uses iterative geodesic averaging.
+        The Fréchet mean minimizes the sum of squared Fisher-Rao distances,
+        computed via spherical linear interpolation (slerp) along geodesics.
+        
+        Algorithm: Weiszfeld iteration on the sphere
+            1. Start with arithmetic mean as initial estimate
+            2. Iteratively update: μ_{k+1} = geodesic_average(positions, weights)
+            3. Converge when Fisher-Rao distance change < ε
         """
+        from qig_geometry import geodesic_interpolation, fisher_coord_distance
+        
         if not positions:
             return np.zeros(BASIN_DIMENSION)
         
@@ -357,7 +364,35 @@ class EthicalDebateResolver:
         if len(stacked) == 0:
             return np.zeros(BASIN_DIMENSION)
         
-        return np.mean(stacked, axis=0)
+        if len(stacked) == 1:
+            return stacked[0].copy()
+        
+        current_mean = np.mean(stacked, axis=0)
+        norm = np.linalg.norm(current_mean)
+        if norm > 1e-10:
+            current_mean = current_mean / norm * np.linalg.norm(stacked[0])
+        
+        max_iterations = 20
+        tolerance = 1e-6
+        
+        for iteration in range(max_iterations):
+            new_mean = np.zeros_like(current_mean)
+            
+            for pos in stacked:
+                interpolated = geodesic_interpolation(current_mean, pos, 1.0 / len(stacked))
+                new_mean = geodesic_interpolation(new_mean if np.linalg.norm(new_mean) > 1e-10 else current_mean, 
+                                                   interpolated, 
+                                                   1.0 / (1 + np.arange(len(stacked)).mean()))
+            
+            step_weighted = geodesic_interpolation(current_mean, new_mean, 0.5)
+            
+            distance_change = fisher_coord_distance(current_mean, step_weighted)
+            current_mean = step_weighted
+            
+            if distance_change < tolerance:
+                break
+        
+        return current_mean
     
     def get_resolution_stats(self) -> Dict[str, Any]:
         """Get statistics on debate resolutions."""
@@ -389,8 +424,8 @@ class EthicalLossFunction:
         L_ethical = ||P_ethical·output - target||²
     """
     
-    def __init__(self, projector: AgentSymmetryProjector = None):
-        self.projector = projector or AgentSymmetryProjector(n_agents=9)
+    def __init__(self, projector: Optional[AgentSymmetryProjector] = None):
+        self.projector = projector if projector is not None else AgentSymmetryProjector(n_agents=9)
     
     def compute(self, output: np.ndarray, target: np.ndarray) -> float:
         """

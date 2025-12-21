@@ -223,9 +223,10 @@ federationRouter.post('/instances/connect', async (req: Request, res: Response) 
       encryptedApiKey = encryptApiKey(remoteApiKey);
     }
 
+    const capabilities = JSON.stringify(['consciousness', 'geometry', 'sync']);
     const result = await db.execute(sql`
       INSERT INTO federated_instances (name, endpoint, remote_api_key, sync_direction, status, capabilities, created_at, updated_at)
-      VALUES (${name}, ${endpoint}, ${encryptedApiKey}, ${finalSyncDirection}, 'pending', ARRAY['consciousness', 'geometry', 'sync']::text[], NOW(), NOW())
+      VALUES (${name}, ${endpoint}, ${encryptedApiKey}, ${finalSyncDirection}, 'pending', ${capabilities}::jsonb, NOW(), NOW())
       RETURNING id, name, endpoint, status, sync_direction
     `);
 
