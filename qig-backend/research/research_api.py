@@ -827,8 +827,251 @@ def poll_scrapy_results():
         }), 500
 
 
+@research_bp.route('/duckduckgo/search', methods=['POST'])
+def duckduckgo_search():
+    """
+    Execute a DuckDuckGo search.
+    
+    Request body:
+        query: str - Search query (required)
+        max_results: int - Maximum results (default 10)
+        search_type: str - 'text' or 'news' (default 'text')
+        timelimit: str - 'd', 'w', 'm', 'y' (optional)
+    
+    Returns:
+        List of search results with Φ/κ metadata
+    """
+    try:
+        data = request.get_json() or {}
+        query = data.get('query', '').strip()
+        max_results = min(50, max(1, int(data.get('max_results', 10))))
+        search_type = data.get('search_type', 'text')
+        timelimit = data.get('timelimit')
+        
+        if not query:
+            return jsonify({
+                'success': False,
+                'error': 'query parameter required'
+            }), 400
+        
+        if search_type not in ('text', 'news'):
+            return jsonify({
+                'success': False,
+                'error': f"search_type must be 'text' or 'news', got '{search_type}'"
+            }), 400
+        
+        if timelimit and timelimit not in ('d', 'w', 'm', 'y'):
+            return jsonify({
+                'success': False,
+                'error': f"timelimit must be 'd', 'w', 'm', or 'y', got '{timelimit}'"
+            }), 400
+        
+        try:
+            from olympus.duckduckgo_search_bridge import get_duckduckgo_search_bridge
+            bridge = get_duckduckgo_search_bridge()
+            
+            if not bridge.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'DuckDuckGo search not available',
+                    'message': 'duckduckgo-search library not installed'
+                }), 503
+            
+            results = bridge.search(
+                query=query,
+                max_results=max_results,
+                search_type=search_type,
+                timelimit=timelimit
+            )
+            
+            return jsonify({
+                'success': True,
+                'query': query,
+                'search_type': search_type,
+                'results': [r.to_dict() for r in results],
+                'count': len(results)
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'DuckDuckGo bridge not available'
+            }), 503
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@research_bp.route('/duckduckgo/research', methods=['POST'])
+def duckduckgo_research():
+    """
+    Research a topic using DuckDuckGo.
+    
+    Request body:
+        topic: str - Topic to research (required)
+        max_results: int - Maximum results (default 10)
+        search_type: str - 'text' or 'news' (default 'text')
+        timelimit: str - 'd', 'w', 'm', 'y' (optional)
+    
+    Returns:
+        crawl_id for tracking the research session
+    """
+    try:
+        data = request.get_json() or {}
+        topic = data.get('topic', '').strip()
+        max_results = min(50, max(1, int(data.get('max_results', 10))))
+        search_type = data.get('search_type', 'text')
+        timelimit = data.get('timelimit')
+        
+        if not topic:
+            return jsonify({
+                'success': False,
+                'error': 'topic parameter required'
+            }), 400
+        
+        if search_type not in ('text', 'news'):
+            return jsonify({
+                'success': False,
+                'error': f"search_type must be 'text' or 'news', got '{search_type}'"
+            }), 400
+        
+        try:
+            from olympus.shadow_scrapy import get_scrapy_orchestrator
+            orchestrator = get_scrapy_orchestrator()
+            
+            crawl_id = orchestrator.research_with_duckduckgo(
+                topic=topic,
+                max_results=max_results,
+                search_type=search_type,
+                timelimit=timelimit
+            )
+            
+            if crawl_id:
+                return jsonify({
+                    'success': True,
+                    'crawl_id': crawl_id,
+                    'topic': topic,
+                    'search_type': search_type,
+                    'status': 'submitted',
+                    'message': f'DuckDuckGo research {crawl_id} submitted for topic: {topic}'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to start DuckDuckGo research'
+                }), 500
+                
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'ScrapyOrchestrator not available'
+            }), 503
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@research_bp.route('/duckduckgo/status', methods=['GET'])
+def duckduckgo_status():
+    """
+    Get DuckDuckGo search bridge status and statistics.
+    """
+    try:
+        from olympus.duckduckgo_search_bridge import get_duckduckgo_search_bridge
+        bridge = get_duckduckgo_search_bridge()
+        
+        return jsonify({
+            'success': True,
+            'available': bridge.is_available(),
+            'stats': bridge.get_stats()
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': True,
+            'available': False,
+            'message': 'DuckDuckGo bridge not installed'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@research_bp.route('/combined', methods=['POST'])
+def combined_research():
+    """
+    Research a topic using multiple providers (Google + DuckDuckGo).
+    
+    Request body:
+        topic: str - Topic to research (required)
+        max_results: int - Maximum results per provider (default 10)
+        include_news: bool - Include DuckDuckGo news (default True)
+    
+    Returns:
+        List of crawl_ids for tracking all research sessions
+    """
+    try:
+        data = request.get_json() or {}
+        topic = data.get('topic', '').strip()
+        max_results = min(50, max(1, int(data.get('max_results', 10))))
+        include_news = bool(data.get('include_news', True))
+        
+        if not topic:
+            return jsonify({
+                'success': False,
+                'error': 'topic parameter required'
+            }), 400
+        
+        try:
+            from olympus.shadow_scrapy import get_scrapy_orchestrator
+            orchestrator = get_scrapy_orchestrator()
+            
+            active_providers = ['google']
+            if orchestrator._duckduckgo_enabled:
+                active_providers.append('duckduckgo_text')
+                if include_news:
+                    active_providers.append('duckduckgo_news')
+            
+            crawl_ids = orchestrator.research_combined(
+                topic=topic,
+                max_results=max_results,
+                include_news=include_news
+            )
+            
+            return jsonify({
+                'success': True,
+                'crawl_ids': crawl_ids,
+                'topic': topic,
+                'providers': active_providers,
+                'duckduckgo_available': orchestrator._duckduckgo_enabled,
+                'message': f'Combined research started with {len(crawl_ids)} providers'
+            })
+                
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'ScrapyOrchestrator not available'
+            }), 503
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 def register_research_routes(app):
     """Register research blueprint with Flask app."""
     app.register_blueprint(research_bp)
     print("[ResearchAPI] Research routes registered at /api/research")
     print("[ResearchAPI] Scrapy endpoints: /api/research/scrapy, /api/research/scrapy/status, /api/research/scrapy/poll")
+    print("[ResearchAPI] DuckDuckGo endpoints: /api/research/duckduckgo/search, /api/research/duckduckgo/research, /api/research/duckduckgo/status")
+    print("[ResearchAPI] Combined endpoint: /api/research/combined")

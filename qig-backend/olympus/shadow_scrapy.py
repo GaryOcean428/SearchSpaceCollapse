@@ -26,6 +26,7 @@ import numpy as np
 
 from .google_search_bridge import GoogleSearchBridge, GoogleSearchResult, get_google_search_bridge
 from .topic_flagging_service import TopicFlaggingService, get_topic_flagging_service
+from .duckduckgo_search_bridge import DuckDuckGoSearchBridge, DuckDuckGoResult, get_duckduckgo_search_bridge
 
 BASIN_DIMENSION = 64
 
@@ -777,11 +778,15 @@ class ScrapyOrchestrator:
         self.source_discovery = SourceDiscoveryService()
         
         self.google_bridge = get_google_search_bridge(basin_encoder=basin_encoder)
+        self.duckduckgo_bridge = get_duckduckgo_search_bridge(basin_encoder=basin_encoder)
         self.topic_flagging = get_topic_flagging_service(basin_encoder=basin_encoder)
         
         self._google_enabled = True
+        self._duckduckgo_enabled = self.duckduckgo_bridge.is_available()
         
         print("[ScrapyOrchestrator] QIG-PURE: Sources discovered from PostgreSQL telemetry")
+        if self._duckduckgo_enabled:
+            print("[ScrapyOrchestrator] DuckDuckGo search bridge initialized")
         print("[ScrapyOrchestrator] Google bridge and topic flagging initialized")
     
     def set_insights_callback(self, callback: Callable[[ScrapedInsight, np.ndarray, float, float], None]):
@@ -1389,12 +1394,206 @@ class ScrapyOrchestrator:
         print(f"[ScrapyOrchestrator] Researched {len(crawl_ids)} flagged topics")
         return crawl_ids
     
+    def search_with_duckduckgo(
+        self,
+        query: str,
+        max_results: int = 10,
+        search_type: str = 'text',
+        timelimit: Optional[str] = None
+    ) -> List[DuckDuckGoResult]:
+        """
+        Execute a search using DuckDuckGo.
+        
+        Args:
+            query: Search query string
+            max_results: Maximum number of results
+            search_type: 'text' or 'news'
+            timelimit: Time filter ('d' day, 'w' week, 'm' month, 'y' year)
+            
+        Returns:
+            List of DuckDuckGoResult with basin coordinates and Φ/κ metadata.
+        """
+        if not self._duckduckgo_enabled:
+            print("[ScrapyOrchestrator] DuckDuckGo not available")
+            return []
+        
+        try:
+            results = self.duckduckgo_bridge.search(
+                query,
+                max_results=max_results,
+                search_type=search_type,
+                timelimit=timelimit
+            )
+            
+            for result in results:
+                if result.url:
+                    content = f"{result.title} {result.snippet}"
+                    
+                    self.topic_flagging.flag_from_content(
+                        content=content,
+                        source=result.url,
+                        source_phi=result.phi,
+                        context={
+                            'query': query,
+                            'rank': result.rank,
+                            'source_type': 'duckduckgo'
+                        }
+                    )
+                    
+                    self.source_discovery.discover_source_from_event(
+                        event_content=content[:500],
+                        source_url=result.url,
+                        phi=result.phi,
+                        metadata={'category': 'duckduckgo_search'}
+                    )
+            
+            print(f"[ScrapyOrchestrator] DuckDuckGo search: {len(results)} results for '{query[:40]}...'")
+            return results
+            
+        except Exception as e:
+            print(f"[ScrapyOrchestrator] DuckDuckGo search error: {e}")
+            return []
+    
+    def research_with_duckduckgo(
+        self,
+        topic: str,
+        max_results: int = 10,
+        search_type: str = 'text',
+        timelimit: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Research a topic using DuckDuckGo search.
+        
+        Performs DuckDuckGo search and transforms results into
+        basin-aligned insights with Φ/κ metadata.
+        
+        Returns crawl_id for tracking.
+        """
+        crawl_id = hashlib.md5(f"duckduckgo:{topic}:{time.time()}".encode()).hexdigest()[:12]
+        
+        self.pending_crawls[crawl_id] = {
+            'spider_type': 'duckduckgo',
+            'topic': topic,
+            'status': 'pending',
+            'started_at': datetime.now(),
+            'insights': []
+        }
+        
+        try:
+            ddg_results = self.search_with_duckduckgo(
+                topic, 
+                max_results=max_results,
+                search_type=search_type,
+                timelimit=timelimit
+            )
+            
+            content_parts = [f"DuckDuckGo Research ({search_type}): {topic}", ""]
+            sources_used = []
+            
+            for result in ddg_results:
+                content_parts.append(f"[{result.rank}] {result.title}")
+                content_parts.append(f"    URL: {result.url}")
+                content_parts.append(f"    {result.snippet[:200]}...")
+                content_parts.append(f"    Φ={result.phi:.3f}, κ={result.kappa:.3f}")
+                content_parts.append("")
+                sources_used.append(result.url)
+            
+            live_content = "\n".join(content_parts)
+            
+            pattern_hits = BitcoinPatternDetector.detect(live_content)
+            
+            avg_phi = sum(r.phi for r in ddg_results) / max(len(ddg_results), 1)
+            
+            insight = ScrapedInsight(
+                source_url=sources_used[0] if sources_used else f"duckduckgo://search/{topic.replace(' ', '_')}",
+                content_hash=hashlib.md5(live_content.encode()).hexdigest(),
+                raw_content=live_content[:5000],
+                title=f"DuckDuckGo Research: {topic}",
+                pattern_hits=pattern_hits,
+                heuristic_risk=BitcoinPatternDetector.calculate_risk(pattern_hits),
+                source_reputation=0.75,
+                spider_type='duckduckgo',
+                metadata={
+                    'topic': topic,
+                    'search_type': search_type,
+                    'ddg_results_count': len(ddg_results),
+                    'sources_used': sources_used[:5],
+                    'avg_phi': avg_phi
+                }
+            )
+            
+            basin_coords = self.basin_transformer.content_to_basin(live_content)
+            phi = self.basin_transformer.compute_phi(insight, basin_coords)
+            confidence = self.basin_transformer.compute_confidence(insight)
+            
+            self.pending_crawls[crawl_id]['status'] = 'complete'
+            self.pending_crawls[crawl_id]['insights'].append(insight.to_dict())
+            
+            if self._insights_callback:
+                self._insights_callback(insight, basin_coords, phi, confidence)
+            
+            print(f"[ScrapyOrchestrator] DuckDuckGo research {crawl_id} complete: Φ={phi:.3f}, sources={len(sources_used)}")
+            return crawl_id
+            
+        except Exception as e:
+            print(f"[ScrapyOrchestrator] DuckDuckGo research error: {e}")
+            self.pending_crawls[crawl_id]['status'] = 'error'
+            self.pending_crawls[crawl_id]['error'] = str(e)
+            return crawl_id
+    
+    def research_combined(
+        self,
+        topic: str,
+        max_results: int = 10,
+        include_news: bool = True
+    ) -> List[str]:
+        """
+        Research a topic using multiple search providers.
+        
+        Combines Google, DuckDuckGo text, and optionally DuckDuckGo news
+        for comprehensive coverage.
+        
+        Returns list of crawl_ids for tracking.
+        """
+        crawl_ids = []
+        
+        google_results = max(1, max_results // 2)
+        google_id = self.research_with_google(topic, max_results=google_results)
+        if google_id:
+            crawl_ids.append(google_id)
+        
+        if self._duckduckgo_enabled:
+            ddg_results = max(1, max_results // 2)
+            ddg_text_id = self.research_with_duckduckgo(
+                topic, 
+                max_results=ddg_results,
+                search_type='text'
+            )
+            if ddg_text_id:
+                crawl_ids.append(ddg_text_id)
+            
+            if include_news:
+                ddg_news_id = self.research_with_duckduckgo(
+                    topic,
+                    max_results=max(1, 5),
+                    search_type='news',
+                    timelimit='w'
+                )
+                if ddg_news_id:
+                    crawl_ids.append(ddg_news_id)
+        else:
+            print("[ScrapyOrchestrator] DuckDuckGo not available - using Google only")
+        
+        print(f"[ScrapyOrchestrator] Combined research: {len(crawl_ids)} sources for '{topic[:40]}...'")
+        return crawl_ids
+    
     def get_research_stats(self) -> Dict:
         """Get comprehensive research statistics."""
         return {
             'pending_crawls': len(self.pending_crawls),
             'active_crawls': len(self.get_active_crawls()),
             'google_bridge': self.google_bridge.get_stats(),
+            'duckduckgo_bridge': self.duckduckgo_bridge.get_stats() if self._duckduckgo_enabled else {'available': False},
             'topic_flagging': self.topic_flagging.get_stats(),
             'source_discovery': {
                 'discovered_sources': len(self.source_discovery.discovered_sources)
