@@ -188,6 +188,70 @@ federationRouter.get('/instances', async (_req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/federation/instances/test-connection
+ * Test connectivity to a remote QIG node (proxied through backend to avoid CORS)
+ */
+federationRouter.post('/instances/test-connection', async (req: Request, res: Response) => {
+  const { endpoint } = req.body;
+
+  if (!endpoint || typeof endpoint !== 'string') {
+    return res.status(400).json({
+      error: 'Invalid endpoint',
+      required: 'endpoint must be a valid URL string',
+    });
+  }
+
+  const start = Date.now();
+  try {
+    const healthUrl = endpoint.endsWith('/') ? `${endpoint}health` : `${endpoint}/health`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(healthUrl, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    clearTimeout(timeout);
+
+    const latency = Date.now() - start;
+
+    if (response.ok) {
+      const data = await response.json().catch(() => ({}));
+      res.json({
+        success: true,
+        message: 'Connection successful',
+        latency,
+        status: response.status,
+        data: {
+          version: data.version,
+          capabilities: data.capabilities,
+        },
+      });
+    } else {
+      res.json({
+        success: false,
+        message: `Remote node returned status ${response.status}`,
+        latency,
+        status: response.status,
+      });
+    }
+  } catch (error) {
+    const latency = Date.now() - start;
+    const message = error instanceof Error ? error.message : 'Connection failed';
+    console.error('[Federation] Connection test failed:', error);
+    res.json({
+      success: false,
+      message: message.includes('abort') ? 'Connection timed out' : message,
+      latency,
+      status: 0,
+    });
+  }
+});
+
+/**
  * POST /api/federation/instances/connect
  * Connect to a remote QIG node by storing its endpoint and encrypted API key
  */

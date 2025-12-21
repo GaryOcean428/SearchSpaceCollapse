@@ -188,30 +188,8 @@ export default function FederationDashboard() {
 
   const testConnectionMutation = useMutation({
     mutationFn: async (endpoint: string) => {
-      const start = Date.now();
-      try {
-        const response = await fetch(`${endpoint}/health`);
-        const latency = Date.now() - start;
-        if (response.ok) {
-          return {
-            success: true,
-            message: "Connection successful",
-            latency,
-          };
-        } else {
-          return {
-            success: false,
-            message: `Health check failed with status ${response.status}`,
-            latency,
-          };
-        }
-      } catch (error) {
-        return {
-          success: false,
-          message: error instanceof Error ? error.message : "Connection failed",
-          latency: Date.now() - start,
-        };
-      }
+      const response = await apiRequest("POST", API_ROUTES.federation.testConnection, { endpoint });
+      return response.json();
     },
     onSuccess: (result) => {
       setConnectionTestResult(result);
