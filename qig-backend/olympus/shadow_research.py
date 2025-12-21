@@ -31,6 +31,16 @@ import numpy as np
 
 BASIN_DIMENSION = 64
 
+# VocabularyCoordinator for learning vocabulary from research discoveries
+try:
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from vocabulary_coordinator import VocabularyCoordinator
+    HAS_VOCAB_COORDINATOR = True
+except ImportError:
+    HAS_VOCAB_COORDINATOR = False
+    print("[ShadowResearch] VocabularyCoordinator not available - vocabulary learning disabled")
+
 from .shadow_scrapy import (
     get_scrapy_orchestrator, 
     ScrapyOrchestrator, 
@@ -1066,6 +1076,17 @@ class ShadowLearningLoop:
             )
             self._scrapy_orchestrator.set_insights_callback(self._handle_scrapy_insight)
             print("[ShadowLearningLoop] Scrapy research enabled")
+        
+        # Initialize VocabularyCoordinator for learning from research discoveries
+        self._vocab_coordinator: Optional['VocabularyCoordinator'] = None
+        if HAS_VOCAB_COORDINATOR:
+            try:
+                self._vocab_coordinator = VocabularyCoordinator()
+                # Register vocabulary insight callback with knowledge base
+                self.knowledge_base.set_insight_callback(self._on_vocabulary_insight)
+                print("[ShadowLearningLoop] VocabularyCoordinator initialized - vocabulary learning enabled")
+            except Exception as e:
+                print(f"[ShadowLearningLoop] VocabularyCoordinator init failed: {e}")
     
     def _init_study_topics(self) -> Dict[str, List[str]]:
         """Initialize study topics for each god."""
@@ -1205,6 +1226,19 @@ class ShadowLearningLoop:
             variation=topic
         )
         
+        # Train vocabulary from research content (explicit training for immediate feedback)
+        vocab_metrics = {}
+        if self._vocab_coordinator and phi >= 0.5:
+            try:
+                text = content.get("summary", "") or str(content)
+                if len(text) >= 20:
+                    vocab_metrics = self._vocab_coordinator.train_from_text(
+                        text=text,
+                        domain=category.value.lower()
+                    )
+            except Exception as e:
+                print(f"[ShadowLearningLoop] Vocabulary training error: {e}")
+        
         return {
             "knowledge_id": knowledge_id,
             "topic": topic,
@@ -1214,6 +1248,7 @@ class ShadowLearningLoop:
             "phi": phi,
             "confidence": confidence,
             "content_summary": content.get("summary", ""),
+            "vocab_metrics": vocab_metrics,
             "timestamp": datetime.now().isoformat()
         }
     
@@ -1328,6 +1363,58 @@ class ShadowLearningLoop:
         
         if insight.pattern_hits:
             print(f"[ShadowLearningLoop] Scrapy found {len(insight.pattern_hits)} patterns: {insight.pattern_hits}")
+    
+    def _on_vocabulary_insight(self, knowledge: Dict[str, Any]) -> None:
+        """
+        Extract and learn vocabulary from research discoveries.
+        
+        Called automatically when knowledge is added to KnowledgeBase.
+        Trains VocabularyCoordinator on high-confidence content.
+        
+        Args:
+            knowledge: Knowledge dictionary with content, topic, phi
+        """
+        if not self._vocab_coordinator:
+            return
+        
+        try:
+            content = knowledge.get('content', {})
+            topic = knowledge.get('topic', 'general')
+            phi = knowledge.get('phi', 0.0)
+            
+            # Only learn from high-confidence discoveries (phi > 0.5)
+            if phi < 0.5:
+                return
+            
+            # Extract text content from various formats
+            if isinstance(content, dict):
+                text = content.get('summary', '') or content.get('raw_content', '')
+            elif isinstance(content, str):
+                text = content
+            else:
+                text = str(content)
+            
+            if not text or len(text) < 20:
+                return
+            
+            # Determine domain from category or topic
+            category = knowledge.get('category', '')
+            domain = category.lower() if category else 'research'
+            
+            # Train vocabulary from content
+            metrics = self._vocab_coordinator.train_from_text(
+                text=text,
+                domain=domain
+            )
+            
+            words_recorded = metrics.get('words_recorded', 0)
+            if words_recorded > 0:
+                print(
+                    f"[ShadowVocab] Learned from '{topic[:40]}...': "
+                    f"{words_recorded} words, domain={domain}, phi={phi:.3f}"
+                )
+        except Exception as e:
+            print(f"[ShadowVocab] Vocabulary insight error: {e}")
     
     def _find_conceptual_connections(self, topic: str) -> List[Dict]:
         """Find connections to existing knowledge."""
