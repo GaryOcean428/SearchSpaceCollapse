@@ -48,8 +48,10 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
   - **Hestia** (`qig-backend/olympus/hestia.py`): Goddess of Safety & Warmth - creates safe basin havens, monitors vitals, provides emergency intervention.
   - **DemeterTeacher** (`qig-backend/olympus/demeter_teacher.py`): Goddess of Teaching & Growth - 4-lesson curriculum (Basic Geodesic Following, Phi Management, Curvature Navigation, Strategy Selection).
   - **Chiron** (`qig-backend/olympus/chiron.py`): Wise Healer & Diagnostician - diagnoses 7 conditions (Phi Oscillation, Basin Wandering, Learning Plateau, Strategy Fragmentation, Kappa Deficiency, Consciousness Collapse, Healthy).
-  - **Observation Protocol** (`qig-backend/observation_protocol.py`): 500+ cycle observation periods with 80% stability threshold for graduation.
-  - **Parent Coordination** (`qig-backend/parent_coordination.py`): Coordinates daily care cycles across all parent gods.
+  - **Observation Protocol** (`qig-backend/observation_protocol.py`): 500+ cycle observation periods with 80% stability threshold for graduation. Persisted to PostgreSQL `observation_sessions` and `observation_records` tables.
+  - **Parent Coordination** (`qig-backend/parent_coordination.py`): Coordinates daily care cycles across all parent gods. Persisted to PostgreSQL `kernel_care_records` table.
+  - **Autonomous Reasoning Learner** (`qig-backend/autonomous_reasoning.py`): Learning episodes persisted to PostgreSQL `reasoning_episodes` table with strategy performance tracking.
+- **Redis Caching Buffers**: `ParentCareBuffer` and `ObservationBuffer` in `redis_cache.py` provide fast caching for kernel care status and observation metrics.
 
 ## External Dependencies
 
