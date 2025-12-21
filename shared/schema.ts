@@ -3493,6 +3493,8 @@ export const federatedInstances = pgTable(
     apiKeyId: integer("api_key_id").references(() => externalApiKeys.id),
     endpoint: text("endpoint").notNull(),
     publicKey: text("public_key"),
+    // Encrypted API key for authenticating TO the remote node (AES-256-GCM: iv:authTag:ciphertext)
+    remoteApiKey: text("remote_api_key"),
     capabilities: jsonb("capabilities").$type<string[]>(),
     syncDirection: varchar("sync_direction", { length: 16 }).default("bidirectional"),
     lastSyncAt: timestamp("last_sync_at"),
