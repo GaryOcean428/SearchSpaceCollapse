@@ -37,6 +37,11 @@ from .hephaestus import Hephaestus
 from .hera import Hera
 from .hermes import Hermes
 
+# Parent Gods - Nurturing chaos kernels through development
+from .hestia import Hestia, SafeHaven, DevelopmentalStage, WardRecord
+from .demeter_teacher import DemeterTeacher, LessonType, LessonOutcome, Lesson, StudentRecord
+from .chiron import Chiron, Condition, TreatmentStatus, Diagnosis, Treatment, MedicalRecord
+
 # Team #2 - Coordinator
 from .hermes_coordinator import HermesCoordinator, get_hermes_coordinator
 
@@ -180,4 +185,21 @@ __all__ = [
     'RequestPriority',
     'PatternDiscovery',
     'get_tool_request_persistence',
+    
+    # Parent Gods - Nurturing chaos kernels
+    'Hestia',
+    'SafeHaven',
+    'DevelopmentalStage',
+    'WardRecord',
+    'DemeterTeacher',
+    'LessonType',
+    'LessonOutcome',
+    'Lesson',
+    'StudentRecord',
+    'Chiron',
+    'Condition',
+    'TreatmentStatus',
+    'Diagnosis',
+    'Treatment',
+    'MedicalRecord',
 ]
