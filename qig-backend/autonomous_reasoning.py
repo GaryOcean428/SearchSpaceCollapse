@@ -27,6 +27,7 @@ from qig_geometry import (
     fisher_normalize,
     sphere_project
 )
+from qig_persistence import get_persistence
 
 
 @dataclass
@@ -581,6 +582,19 @@ class ReasoningLearner:
         
         self.episode_history.append(episode)
         self.total_episodes += 1
+        
+        persistence = get_persistence()
+        persistence.insert_reasoning_episode(
+            strategy_name=episode.strategy.name,
+            start_basin=episode.start_basin,
+            target_basin=episode.target_basin,
+            final_basin=episode.final_basin,
+            steps_taken=episode.steps_taken,
+            task_features=episode.task_features,
+            phi_during=episode.phi_during,
+            success=episode.success,
+            reward=reward
+        )
     
     def consolidate_during_sleep(
         self,
@@ -805,6 +819,28 @@ class ReasoningLearner:
             ],
             'epsilon': self.epsilon,
             'learning_rate': self.learning_rate
+        }
+    
+    def get_performance_summary(self) -> Dict:
+        """Get performance summary from PostgreSQL, grouped by strategy."""
+        persistence = get_persistence()
+        db_stats = persistence.get_reasoning_episode_stats()
+        
+        return {
+            'total_episodes': self.total_episodes,
+            'db_episode_stats': db_stats,
+            'strategy_performance': [
+                {
+                    'strategy_name': stat.get('strategy_name'),
+                    'total_episodes': stat.get('total_episodes', 0),
+                    'success_count': stat.get('success_count', 0),
+                    'success_rate': float(stat.get('success_rate', 0) or 0),
+                    'avg_reward': float(stat.get('avg_reward', 0) or 0),
+                    'avg_steps': float(stat.get('avg_steps', 0) or 0),
+                    'avg_phi': float(stat.get('avg_phi', 0) or 0),
+                }
+                for stat in db_stats
+            ]
         }
     
     def to_dict(self) -> Dict:

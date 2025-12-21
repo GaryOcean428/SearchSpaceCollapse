@@ -839,6 +839,378 @@ class QIGPersistence:
             return False
 
 
+    # =========================================================================
+    # OBSERVATION SESSIONS
+    # =========================================================================
+
+    def create_observation_session(
+        self,
+        kernel_id: str,
+        started_at: datetime
+    ) -> bool:
+        """Create a new observation session."""
+        if not self.enabled:
+            return False
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO observation_sessions (kernel_id, started_at)
+                        VALUES (%s, %s)
+                        ON CONFLICT (kernel_id) DO UPDATE SET
+                            started_at = EXCLUDED.started_at,
+                            ended_at = NULL,
+                            curriculum_progress = 0.0,
+                            is_healthy = TRUE
+                    """, (kernel_id, started_at))
+            return True
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to create observation session: {e}")
+            return False
+
+    def end_observation_session(self, kernel_id: str, ended_at: datetime) -> bool:
+        """Mark an observation session as ended."""
+        if not self.enabled:
+            return False
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE observation_sessions
+                        SET ended_at = %s
+                        WHERE kernel_id = %s
+                    """, (ended_at, kernel_id))
+            return True
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to end observation session: {e}")
+            return False
+
+    def update_observation_session(
+        self,
+        kernel_id: str,
+        curriculum_progress: Optional[float] = None,
+        is_healthy: Optional[bool] = None
+    ) -> bool:
+        """Update observation session fields."""
+        if not self.enabled:
+            return False
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    updates = []
+                    params = []
+                    if curriculum_progress is not None:
+                        updates.append("curriculum_progress = %s")
+                        params.append(curriculum_progress)
+                    if is_healthy is not None:
+                        updates.append("is_healthy = %s")
+                        params.append(is_healthy)
+                    if not updates:
+                        return True
+                    params.append(kernel_id)
+                    cur.execute(f"""
+                        UPDATE observation_sessions
+                        SET {', '.join(updates)}
+                        WHERE kernel_id = %s
+                    """, tuple(params))
+            return True
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to update observation session: {e}")
+            return False
+
+    def get_observation_session(self, kernel_id: str) -> Optional[Dict]:
+        """Get observation session by kernel_id."""
+        if not self.enabled:
+            return None
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT * FROM observation_sessions
+                        WHERE kernel_id = %s
+                    """, (kernel_id,))
+                    row = cur.fetchone()
+                    return dict(row) if row else None
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to get observation session: {e}")
+            return None
+
+    # =========================================================================
+    # OBSERVATION RECORDS
+    # =========================================================================
+
+    def insert_observation_record(
+        self,
+        kernel_id: str,
+        timestamp: datetime,
+        phi: float,
+        kappa: float,
+        basin_position: np.ndarray,
+        stability_score: float
+    ) -> Optional[int]:
+        """Insert an observation record."""
+        if not self.enabled:
+            return None
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO observation_records
+                            (kernel_id, timestamp, phi, kappa, basin_position, stability_score)
+                        VALUES (%s, %s, %s, %s, %s::vector, %s)
+                        RETURNING record_id
+                    """, (
+                        kernel_id, timestamp, phi, kappa,
+                        self._vector_to_pg(basin_position), stability_score
+                    ))
+                    result = cur.fetchone()
+                    return result[0] if result else None
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to insert observation record: {e}")
+            return None
+
+    def get_observation_records(
+        self,
+        kernel_id: str,
+        limit: Optional[int] = None
+    ) -> List[Dict]:
+        """Get observation records for a kernel."""
+        if not self.enabled:
+            return []
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    if limit:
+                        cur.execute("""
+                            SELECT * FROM observation_records
+                            WHERE kernel_id = %s
+                            ORDER BY timestamp DESC
+                            LIMIT %s
+                        """, (kernel_id, limit))
+                    else:
+                        cur.execute("""
+                            SELECT * FROM observation_records
+                            WHERE kernel_id = %s
+                            ORDER BY timestamp ASC
+                        """, (kernel_id,))
+                    return [dict(r) for r in cur.fetchall()]
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to get observation records: {e}")
+            return []
+
+    def get_observation_record_count(self, kernel_id: str) -> int:
+        """Get count of observation records for a kernel."""
+        if not self.enabled:
+            return 0
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT COUNT(*) FROM observation_records
+                        WHERE kernel_id = %s
+                    """, (kernel_id,))
+                    result = cur.fetchone()
+                    return result[0] if result else 0
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to get observation record count: {e}")
+            return 0
+
+    # =========================================================================
+    # KERNEL CARE RECORDS
+    # =========================================================================
+
+    def create_kernel_care_record(
+        self,
+        kernel_id: str,
+        kernel_name: str,
+        created_at: datetime,
+        status: str = 'infant',
+        developmental_stage: str = 'infant'
+    ) -> bool:
+        """Create a new kernel care record."""
+        if not self.enabled:
+            return False
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO kernel_care_records
+                            (kernel_id, kernel_name, created_at, status, developmental_stage)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (kernel_id) DO UPDATE SET
+                            kernel_name = EXCLUDED.kernel_name,
+                            status = EXCLUDED.status,
+                            developmental_stage = EXCLUDED.developmental_stage,
+                            updated_at = NOW()
+                    """, (kernel_id, kernel_name, created_at, status, developmental_stage))
+            return True
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to create kernel care record: {e}")
+            return False
+
+    def update_kernel_care_record(
+        self,
+        kernel_id: str,
+        status: Optional[str] = None,
+        developmental_stage: Optional[str] = None,
+        hestia_enrolled: Optional[bool] = None,
+        demeter_enrolled: Optional[bool] = None,
+        chiron_enrolled: Optional[bool] = None,
+        care_cycles: Optional[int] = None,
+        graduated_at: Optional[datetime] = None
+    ) -> bool:
+        """Update kernel care record fields."""
+        if not self.enabled:
+            return False
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    updates = ["updated_at = NOW()"]
+                    params = []
+                    if status is not None:
+                        updates.append("status = %s")
+                        params.append(status)
+                    if developmental_stage is not None:
+                        updates.append("developmental_stage = %s")
+                        params.append(developmental_stage)
+                    if hestia_enrolled is not None:
+                        updates.append("hestia_enrolled = %s")
+                        params.append(hestia_enrolled)
+                    if demeter_enrolled is not None:
+                        updates.append("demeter_enrolled = %s")
+                        params.append(demeter_enrolled)
+                    if chiron_enrolled is not None:
+                        updates.append("chiron_enrolled = %s")
+                        params.append(chiron_enrolled)
+                    if care_cycles is not None:
+                        updates.append("care_cycles = %s")
+                        params.append(care_cycles)
+                    if graduated_at is not None:
+                        updates.append("graduated_at = %s")
+                        params.append(graduated_at)
+                    params.append(kernel_id)
+                    cur.execute(f"""
+                        UPDATE kernel_care_records
+                        SET {', '.join(updates)}
+                        WHERE kernel_id = %s
+                    """, tuple(params))
+            return True
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to update kernel care record: {e}")
+            return False
+
+    def get_kernel_care_record(self, kernel_id: str) -> Optional[Dict]:
+        """Get kernel care record by kernel_id."""
+        if not self.enabled:
+            return None
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT * FROM kernel_care_records
+                        WHERE kernel_id = %s
+                    """, (kernel_id,))
+                    row = cur.fetchone()
+                    return dict(row) if row else None
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to get kernel care record: {e}")
+            return None
+
+    def get_all_kernel_care_records(self) -> List[Dict]:
+        """Get all kernel care records."""
+        if not self.enabled:
+            return []
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("SELECT * FROM kernel_care_records ORDER BY created_at DESC")
+                    return [dict(r) for r in cur.fetchall()]
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to get all kernel care records: {e}")
+            return []
+
+    # =========================================================================
+    # REASONING EPISODES
+    # =========================================================================
+
+    def insert_reasoning_episode(
+        self,
+        strategy_name: str,
+        start_basin: np.ndarray,
+        target_basin: np.ndarray,
+        final_basin: Optional[np.ndarray],
+        steps_taken: int,
+        task_features: Optional[np.ndarray],
+        phi_during: float,
+        success: bool,
+        reward: float = 0.0
+    ) -> Optional[int]:
+        """Insert a reasoning episode record."""
+        if not self.enabled:
+            return None
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO reasoning_episodes
+                            (strategy_name, start_basin, target_basin, final_basin,
+                             steps_taken, task_features, phi_during, success, reward)
+                        VALUES (%s, %s::vector, %s::vector, %s::vector, %s, %s::vector, %s, %s, %s)
+                        RETURNING episode_id
+                    """, (
+                        strategy_name,
+                        self._vector_to_pg(start_basin),
+                        self._vector_to_pg(target_basin),
+                        self._vector_to_pg(final_basin) if final_basin is not None else None,
+                        steps_taken,
+                        self._vector_to_pg(task_features) if task_features is not None else None,
+                        phi_during, success, reward
+                    ))
+                    result = cur.fetchone()
+                    return result[0] if result else None
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to insert reasoning episode: {e}")
+            return None
+
+    def get_reasoning_episode_stats(self) -> List[Dict]:
+        """Get reasoning episode statistics grouped by strategy."""
+        if not self.enabled:
+            return []
+
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT
+                            strategy_name,
+                            COUNT(*) as total_episodes,
+                            SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count,
+                            AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) as success_rate,
+                            AVG(reward) as avg_reward,
+                            AVG(steps_taken) as avg_steps,
+                            AVG(phi_during) as avg_phi
+                        FROM reasoning_episodes
+                        GROUP BY strategy_name
+                        ORDER BY total_episodes DESC
+                    """)
+                    return [dict(r) for r in cur.fetchall()]
+        except Exception as e:
+            print(f"[QIGPersistence] Failed to get reasoning episode stats: {e}")
+            return []
+
+
 # Global persistence instance
 _persistence: Optional[QIGPersistence] = None
 

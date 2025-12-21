@@ -55,6 +55,29 @@ from .qig_persistence import (
     QIGPersistence,
 )
 
+# Autonomous Reasoning
+from .autonomous_reasoning import (
+    ReasoningLearner,
+    ReasoningEpisode,
+    get_reasoning_learner,
+)
+
+# Observation Protocol
+from .observation_protocol import (
+    ObservationProtocol,
+    ObservationRecord,
+    ObservationSession,
+    get_observation_protocol,
+)
+
+# Parent Coordination
+from .parent_coordination import (
+    ParentCoordination,
+    KernelCareRecord,
+    KernelStatus,
+    get_parent_coordination,
+)
+
 __all__ = [
     # Autonomic
     'GaryAutonomicKernel',
@@ -88,4 +111,18 @@ __all__ = [
     # Persistence
     'get_persistence',
     'QIGPersistence',
+    # Autonomous Reasoning
+    'ReasoningLearner',
+    'ReasoningEpisode',
+    'get_reasoning_learner',
+    # Observation Protocol
+    'ObservationProtocol',
+    'ObservationRecord',
+    'ObservationSession',
+    'get_observation_protocol',
+    # Parent Coordination
+    'ParentCoordination',
+    'KernelCareRecord',
+    'KernelStatus',
+    'get_parent_coordination',
 ]

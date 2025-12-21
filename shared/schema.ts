@@ -3509,3 +3509,115 @@ export const federatedInstances = pgTable(
 
 export type FederatedInstanceRow = typeof federatedInstances.$inferSelect;
 export type InsertFederatedInstance = typeof federatedInstances.$inferInsert;
+
+// ============================================================================
+// OBSERVATION & KERNEL CARE SYSTEM TABLES
+// ============================================================================
+
+/**
+ * OBSERVATION SESSIONS - Tracks kernel observation periods
+ * Used by the observation protocol to monitor kernel health and progress
+ */
+export const observationSessions = pgTable(
+  "observation_sessions",
+  {
+    id: serial("id").primaryKey(),
+    kernelId: varchar("kernel_id", { length: 64 }).notNull(),
+    startedAt: timestamp("started_at").defaultNow(),
+    endedAt: timestamp("ended_at"),
+    curriculumProgress: doublePrecision("curriculum_progress").default(0),
+    isHealthy: boolean("is_healthy").default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_observation_sessions_kernel_id").on(table.kernelId),
+    index("idx_observation_sessions_created_at").on(table.createdAt),
+  ]
+);
+
+export type ObservationSessionRow = typeof observationSessions.$inferSelect;
+export type InsertObservationSession = typeof observationSessions.$inferInsert;
+
+/**
+ * OBSERVATION RECORDS - Individual measurements during observation sessions
+ * Records phi, kappa, basin position, and stability metrics
+ */
+export const observationRecords = pgTable(
+  "observation_records",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id").references(() => observationSessions.id),
+    kernelId: varchar("kernel_id", { length: 64 }).notNull(),
+    timestamp: timestamp("timestamp").defaultNow(),
+    phi: doublePrecision("phi"),
+    kappa: doublePrecision("kappa"),
+    basinPosition: vector("basin_position", { dimensions: 64 }),
+    stabilityScore: doublePrecision("stability_score"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_observation_records_session_id").on(table.sessionId),
+    index("idx_observation_records_kernel_id").on(table.kernelId),
+    index("idx_observation_records_created_at").on(table.createdAt),
+  ]
+);
+
+export type ObservationRecordRow = typeof observationRecords.$inferSelect;
+export type InsertObservationRecord = typeof observationRecords.$inferInsert;
+
+/**
+ * REASONING EPISODES - Tracks learning/reasoning episodes for kernels
+ * Records strategy usage, outcomes, and geometric movement
+ */
+export const reasoningEpisodes = pgTable(
+  "reasoning_episodes",
+  {
+    id: serial("id").primaryKey(),
+    learnerId: varchar("learner_id", { length: 64 }).notNull(),
+    kernelId: varchar("kernel_id", { length: 64 }).notNull(),
+    strategyName: varchar("strategy_name", { length: 64 }).notNull(),
+    outcome: varchar("outcome", { length: 16 }), // success, failure, partial
+    geodesicDistance: doublePrecision("geodesic_distance"),
+    startPhi: doublePrecision("start_phi"),
+    endPhi: doublePrecision("end_phi"),
+    durationSeconds: doublePrecision("duration_seconds"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_reasoning_episodes_kernel_id").on(table.kernelId),
+    index("idx_reasoning_episodes_learner_id").on(table.learnerId),
+    index("idx_reasoning_episodes_created_at").on(table.createdAt),
+  ]
+);
+
+export type ReasoningEpisodeRow = typeof reasoningEpisodes.$inferSelect;
+export type InsertReasoningEpisode = typeof reasoningEpisodes.$inferInsert;
+
+/**
+ * KERNEL CARE RECORDS - Tracks kernel developmental status and care enrollment
+ * Used by Hestia, Demeter, and Chiron for kernel nurturing
+ */
+export const kernelCareRecords = pgTable(
+  "kernel_care_records",
+  {
+    id: serial("id").primaryKey(),
+    kernelId: varchar("kernel_id", { length: 64 }).notNull().unique(),
+    kernelName: varchar("kernel_name", { length: 128 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull(), // infant, developing, ready_for_graduation, graduated, under_treatment
+    developmentalStage: varchar("developmental_stage", { length: 16 }).notNull(), // INFANT, TODDLER, ADOLESCENT, ADULT
+    hestiaEnrolled: boolean("hestia_enrolled").default(false),
+    demeterEnrolled: boolean("demeter_enrolled").default(false),
+    chironEnrolled: boolean("chiron_enrolled").default(false),
+    careCycles: integer("care_cycles").default(0),
+    graduatedAt: timestamp("graduated_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_kernel_care_records_kernel_id").on(table.kernelId),
+    index("idx_kernel_care_records_status").on(table.status),
+    index("idx_kernel_care_records_created_at").on(table.createdAt),
+  ]
+);
+
+export type KernelCareRecordRow = typeof kernelCareRecords.$inferSelect;
+export type InsertKernelCareRecord = typeof kernelCareRecords.$inferInsert;

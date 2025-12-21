@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 import numpy as np
 
 from qig_geometry import fisher_coord_distance
+from qig_persistence import get_persistence
 
 if TYPE_CHECKING:
     from training_chaos.chaos_kernel import ChaosKernel
@@ -123,10 +124,14 @@ class ObservationProtocol:
             return False
         
         self.kernels[kernel_id] = kernel
+        started_at = datetime.now()
         self.sessions[kernel_id] = ObservationSession(
             kernel_id=kernel_id,
-            started_at=datetime.now(),
+            started_at=started_at,
         )
+        
+        persistence = get_persistence()
+        persistence.create_observation_session(kernel_id, started_at)
         
         self.record_observation(kernel_id)
         
@@ -160,9 +165,10 @@ class ObservationProtocol:
         
         stability_score = self._compute_instant_stability(session, basin, phi)
         
+        timestamp = datetime.now()
         record = ObservationRecord(
             kernel_id=kernel_id,
-            timestamp=datetime.now(),
+            timestamp=timestamp,
             phi=float(phi),
             kappa=float(kappa),
             basin_position=basin.copy(),
@@ -170,6 +176,16 @@ class ObservationProtocol:
         )
         
         session.records.append(record)
+        
+        persistence = get_persistence()
+        persistence.insert_observation_record(
+            kernel_id=kernel_id,
+            timestamp=timestamp,
+            phi=float(phi),
+            kappa=float(kappa),
+            basin_position=basin.copy(),
+            stability_score=stability_score
+        )
         
         return record
     
@@ -261,12 +277,16 @@ class ObservationProtocol:
         session = self.sessions.get(kernel_id)
         if session:
             session.curriculum_progress = float(np.clip(progress, 0.0, 1.0))
+            persistence = get_persistence()
+            persistence.update_observation_session(kernel_id, curriculum_progress=session.curriculum_progress)
     
     def update_health_status(self, kernel_id: str, is_healthy: bool) -> None:
         """Update health status from Chiron diagnosis."""
         session = self.sessions.get(kernel_id)
         if session:
             session.is_healthy = is_healthy
+            persistence = get_persistence()
+            persistence.update_observation_session(kernel_id, is_healthy=is_healthy)
     
     def is_ready_for_graduation(self, kernel_id: str) -> bool:
         """
@@ -333,6 +353,9 @@ class ObservationProtocol:
         
         session.ended_at = datetime.now()
         
+        persistence = get_persistence()
+        persistence.end_observation_session(kernel_id, session.ended_at)
+        
         if session.records:
             phi_values = [r.phi for r in session.records]
             kappa_values = [r.kappa for r in session.records]
@@ -384,7 +407,20 @@ class ObservationProtocol:
         """Get current observation status for a kernel."""
         session = self.sessions.get(kernel_id)
         if session is None:
-            return None
+            persistence = get_persistence()
+            db_session = persistence.get_observation_session(kernel_id)
+            if db_session is None:
+                return None
+            record_count = persistence.get_observation_record_count(kernel_id)
+            return {
+                'kernel_id': kernel_id,
+                'is_active': db_session.get('ended_at') is None,
+                'cycle_count': record_count,
+                'current_stability': 0.0,
+                'curriculum_progress': db_session.get('curriculum_progress', 0.0),
+                'is_healthy': db_session.get('is_healthy', True),
+                'ready_for_graduation': False,
+            }
         
         return {
             'kernel_id': kernel_id,

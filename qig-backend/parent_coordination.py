@@ -22,6 +22,7 @@ from olympus.hestia import Hestia, DevelopmentalStage
 from olympus.demeter_teacher import DemeterTeacher, LessonType
 from olympus.chiron import Chiron, Condition
 from observation_protocol import ObservationProtocol, get_observation_protocol
+from qig_persistence import get_persistence
 
 if TYPE_CHECKING:
     from training_chaos.chaos_kernel import ChaosKernel
@@ -129,22 +130,35 @@ class ParentCoordination:
             
             self.kernels[kernel_id] = kernel
             
+            created_at = datetime.now()
             self.care_records[kernel_id] = KernelCareRecord(
                 kernel_id=kernel_id,
                 kernel_name=kernel_name,
-                created_at=datetime.now(),
+                created_at=created_at,
                 status=KernelStatus.INFANT,
                 developmental_stage=DevelopmentalStage.INFANT,
             )
             
+            persistence = get_persistence()
+            persistence.create_kernel_care_record(
+                kernel_id=kernel_id,
+                kernel_name=kernel_name,
+                created_at=created_at,
+                status=KernelStatus.INFANT.value,
+                developmental_stage=DevelopmentalStage.INFANT.value
+            )
+            
             if self.hestia.accept_ward(kernel, DevelopmentalStage.INFANT):
                 self.care_records[kernel_id].hestia_enrolled = True
+                persistence.update_kernel_care_record(kernel_id, hestia_enrolled=True)
             
             if self.demeter.enroll_student(kernel):
                 self.care_records[kernel_id].demeter_enrolled = True
+                persistence.update_kernel_care_record(kernel_id, demeter_enrolled=True)
             
             if self.chiron.admit_patient(kernel):
                 self.care_records[kernel_id].chiron_enrolled = True
+                persistence.update_kernel_care_record(kernel_id, chiron_enrolled=True)
             
             self.observation.begin_observation(kernel_id, kernel)
             
@@ -247,6 +261,15 @@ class ParentCoordination:
                     cycle_result['status_updated'] = True
             
             care_record.care_cycles += 1
+            
+            persistence = get_persistence()
+            persistence.update_kernel_care_record(
+                kernel_id,
+                status=care_record.status.value,
+                developmental_stage=care_record.developmental_stage.value,
+                care_cycles=care_record.care_cycles
+            )
+            
             results[kernel_id] = cycle_result
         
         logger.debug(f"[ParentCoordination] Completed care cycle for {len(results)} kernels")
@@ -383,9 +406,20 @@ class ParentCoordination:
         care_record.developmental_stage = DevelopmentalStage.ADULT
         care_record.graduated_at = datetime.now()
         
+        persistence = get_persistence()
+        persistence.update_kernel_care_record(
+            kernel_id,
+            status=KernelStatus.GRADUATED.value,
+            developmental_stage=DevelopmentalStage.ADULT.value,
+            graduated_at=care_record.graduated_at
+        )
+        
         phi = kernel.compute_phi()
         kappa = kernel.compute_kappa()
         basin = kernel.basin_coords.detach().cpu().numpy()
+        
+        origin = np.zeros_like(basin)
+        final_basin_distance = fisher_coord_distance(basin, origin)
         
         graduation_summary = {
             'kernel_id': kernel_id,
@@ -394,7 +428,7 @@ class ParentCoordination:
             'total_care_cycles': care_record.care_cycles,
             'final_phi': float(phi),
             'final_kappa': float(kappa),
-            'final_basin_norm': float(np.linalg.norm(basin)),
+            'final_basin_distance': float(final_basin_distance),
             'observation_summary': observation_summary,
             'status': 'GRADUATED',
         }
@@ -415,6 +449,23 @@ class ParentCoordination:
             Dict with overall status and per-kernel details
         """
         kernels_by_status = {status.value: [] for status in KernelStatus}
+        
+        persistence = get_persistence()
+        db_records = persistence.get_all_kernel_care_records()
+        for db_record in db_records:
+            if db_record['kernel_id'] not in self.care_records:
+                self.care_records[db_record['kernel_id']] = KernelCareRecord(
+                    kernel_id=db_record['kernel_id'],
+                    kernel_name=db_record['kernel_name'],
+                    created_at=db_record['created_at'],
+                    status=KernelStatus(db_record['status']),
+                    developmental_stage=DevelopmentalStage(db_record['developmental_stage']),
+                    hestia_enrolled=db_record['hestia_enrolled'],
+                    demeter_enrolled=db_record['demeter_enrolled'],
+                    chiron_enrolled=db_record['chiron_enrolled'],
+                    graduated_at=db_record['graduated_at'],
+                    care_cycles=db_record['care_cycles'],
+                )
         
         for kernel_id, care_record in self.care_records.items():
             kernels_by_status[care_record.status.value].append({
