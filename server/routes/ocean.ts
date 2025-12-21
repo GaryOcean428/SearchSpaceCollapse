@@ -1367,3 +1367,64 @@ oceanRouter.get(
     }
   }
 );
+
+oceanRouter.post(
+  "/hypothesis",
+  standardLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      const { queueAddressForBalanceCheck } = await import("../balance-queue-integration");
+      const { oceanPersistence } = await import("../ocean/ocean-persistence");
+      
+      const { hypotheses, source = "python", phi = 0.5 } = req.body;
+      
+      if (!hypotheses || !Array.isArray(hypotheses) || hypotheses.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "hypotheses array required" 
+        });
+      }
+      
+      let queued = 0;
+      let skipped = 0;
+      let alreadyTested = 0;
+      
+      for (const hypothesis of hypotheses) {
+        if (typeof hypothesis !== 'string' || hypothesis.length === 0) {
+          skipped++;
+          continue;
+        }
+        
+        const wasTested = await oceanPersistence.hasBeenTested(hypothesis);
+        if (wasTested) {
+          alreadyTested++;
+          continue;
+        }
+        
+        const priority = Math.round(3 + phi * 7);
+        const result = queueAddressForBalanceCheck(hypothesis, source, priority, undefined, phi);
+        
+        if (result && (result.compressedQueued || result.uncompressedQueued)) {
+          queued++;
+        } else if (result?.skippedTestedEmpty) {
+          alreadyTested++;
+        } else {
+          skipped++;
+        }
+      }
+      
+      console.log(`[HypothesisEndpoint] Received ${hypotheses.length} hypotheses: ${queued} queued, ${alreadyTested} already tested, ${skipped} skipped`);
+      
+      res.json({
+        success: true,
+        received: hypotheses.length,
+        queued,
+        alreadyTested,
+        skipped,
+      });
+    } catch (error: any) {
+      console.error("[HypothesisEndpoint] Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);

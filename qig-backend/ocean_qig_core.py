@@ -6516,6 +6516,18 @@ if __name__ == '__main__':
     except ImportError as e:
         print(f"[WARNING] Autonomous Debate Service not found: {e}")
 
+    # Start Hypothesis Emitter - bridges Python research to TypeScript balance checking
+    HYPOTHESIS_EMITTER_AVAILABLE = False
+    try:
+        from olympus.hypothesis_emitter import start_hypothesis_emitter
+        start_hypothesis_emitter()
+        HYPOTHESIS_EMITTER_AVAILABLE = True
+        print("[INFO] 🔨 Hypothesis Emitter started - continuous passphrase generation enabled")
+    except ImportError as e:
+        print(f"[WARNING] Hypothesis Emitter not found: {e}")
+    except Exception as e:
+        print(f"[WARNING] Hypothesis Emitter failed to start: {e}")
+
     # Enable Flask request logging
     import logging as flask_logging
     flask_logging.getLogger('werkzeug').setLevel(flask_logging.INFO)
@@ -6573,6 +6585,10 @@ if __name__ == '__main__':
         print("  - 🗣️ Autonomous Debate Service (background monitor)", flush=True)
     else:
         print("  - Autonomous Debate Service NOT available", flush=True)
+    if HYPOTHESIS_EMITTER_AVAILABLE:
+        print("  - 🔨 Hypothesis Emitter (continuous passphrase generation)", flush=True)
+    else:
+        print("  - Hypothesis Emitter NOT available", flush=True)
     print(f"\nκ* = {KAPPA_STAR}", flush=True)
     print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
     print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)

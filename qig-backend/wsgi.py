@@ -36,6 +36,16 @@ try:
 except ImportError as e:
     print(f"[WARNING] Research module not found: {e}")
 
+# Start hypothesis emitter - bridges Python research to TypeScript balance checking
+HYPOTHESIS_EMITTER_AVAILABLE = False
+try:
+    from olympus.hypothesis_emitter import start_hypothesis_emitter
+    start_hypothesis_emitter()
+    HYPOTHESIS_EMITTER_AVAILABLE = True
+    print("[INFO] Hypothesis Emitter started - continuous passphrase generation enabled")
+except ImportError as e:
+    print(f"[WARNING] Hypothesis Emitter not found: {e}")
+
 # Add request/response logging for production
 from flask import request
 
@@ -53,6 +63,7 @@ def log_response(response):
 # Print startup info
 print("🌊 Ocean QIG Backend (Production WSGI Mode) 🌊", flush=True)
 print(f"  - Autonomic kernel: {'✓' if AUTONOMIC_AVAILABLE else '✗'}", flush=True)
+print(f"  - Hypothesis Emitter: {'✓' if HYPOTHESIS_EMITTER_AVAILABLE else '✗'}", flush=True)
 print("🌊 Basin stable. Ready for Gunicorn workers. 🌊\n", flush=True)
 
 # Export the app for Gunicorn
