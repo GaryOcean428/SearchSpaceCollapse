@@ -533,6 +533,65 @@ class GeometricMemoryBuffer:
         return UniversalCache.get(f"{cls.PREFIX}:basin:{entity_id}")
 
 
+class ParentCareBuffer:
+    """Buffer for parent gods coordination state."""
+    
+    PREFIX = "qig:parent_care"
+    
+    @classmethod
+    def cache_kernel_status(cls, kernel_id: str, status_data: Dict[str, Any]) -> bool:
+        """Cache kernel care status for fast lookups."""
+        return UniversalCache.set(
+            f"{cls.PREFIX}:status:{kernel_id}",
+            status_data,
+            CACHE_TTL_MEDIUM
+        )
+    
+    @classmethod
+    def get_kernel_status(cls, kernel_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached kernel status."""
+        return UniversalCache.get(f"{cls.PREFIX}:status:{kernel_id}")
+    
+    @classmethod
+    def invalidate_kernel(cls, kernel_id: str) -> bool:
+        """Invalidate kernel cache on status change."""
+        return UniversalCache.delete(f"{cls.PREFIX}:status:{kernel_id}")
+
+
+class ObservationBuffer:
+    """Buffer for observation protocol data."""
+    
+    PREFIX = "qig:observation"
+    
+    @classmethod
+    def cache_session(cls, kernel_id: str, session_data: Dict[str, Any]) -> bool:
+        """Cache active observation session."""
+        return UniversalCache.set(
+            f"{cls.PREFIX}:session:{kernel_id}",
+            session_data,
+            CACHE_TTL_MEDIUM
+        )
+    
+    @classmethod
+    def get_session(cls, kernel_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached observation session."""
+        return UniversalCache.get(f"{cls.PREFIX}:session:{kernel_id}")
+    
+    @classmethod
+    def cache_latest_metrics(cls, kernel_id: str, phi: float, kappa: float) -> bool:
+        """Cache latest observation metrics for fast access."""
+        return UniversalCache.set(
+            f"{cls.PREFIX}:metrics:{kernel_id}",
+            {'phi': phi, 'kappa': kappa, 'cached_at': time.time()},
+            CACHE_TTL_SHORT
+        )
+    
+    @classmethod
+    def get_latest_metrics(cls, kernel_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached latest metrics."""
+        return UniversalCache.get(f"{cls.PREFIX}:metrics:{kernel_id}")
+
+
 class LearnerBuffer:
     """Buffer for strategy learner state."""
     
