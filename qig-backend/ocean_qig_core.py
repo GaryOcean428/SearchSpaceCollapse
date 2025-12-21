@@ -649,6 +649,16 @@ if OLYMPUS_AVAILABLE:
     app.register_blueprint(olympus_app, url_prefix='/olympus')
     print("[INFO] Olympus Pantheon registered at /olympus")
 
+# Register self-healing routes
+try:
+    from self_healing.routes import self_healing_bp, init_self_healing_components
+    app.register_blueprint(self_healing_bp)
+    # Initialize self-healing components
+    init_self_healing_components()
+    print("[INFO] Self-healing system registered at /self-healing")
+except ImportError as e:
+    print(f"[WARN] Could not import self-healing routes: {e}")
+
 # Register DRY route blueprints (barrel imports)
 try:
     from routes import register_all_routes
