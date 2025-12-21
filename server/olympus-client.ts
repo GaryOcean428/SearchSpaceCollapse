@@ -79,6 +79,7 @@ const OUTCOME_BATCH_MAX_SIZE = 20;
  * Retries on ECONNREFUSED and network errors with exponential backoff.
  * 
  * IMPROVED: Better exponential backoff, jitter, and readiness gating.
+ * Also attempts request even if readiness gate fails - actual endpoint might work.
  */
 async function fetchWithRetry(
   url: string,
@@ -89,11 +90,13 @@ async function fetchWithRetry(
   const pythonManager = getPythonManager();
   
   // Wait for backend to be ready before attempting requests
-  // Use 90s timeout to handle slow Python startups (loads 200k+ geometric probes, 18 gods, chaos mode, etc.)
+  // Use 30s timeout - if not ready, we'll still try the request
   if (!pythonManager.ready()) {
-    const ready = await pythonManager.waitForReady(90000);
+    const ready = await pythonManager.waitForReady(30000);
     if (!ready) {
-      throw new Error('Python backend not ready after 90s');
+      // Log but don't throw - attempt the request anyway
+      // The endpoint might work even if health check is slow
+      console.warn(`[OlympusClient] Backend not ready after 30s, attempting request anyway: ${url.split('/').slice(-2).join('/')}`);
     }
   }
   

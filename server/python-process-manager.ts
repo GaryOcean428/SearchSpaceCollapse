@@ -37,8 +37,8 @@ export class PythonProcessManager extends EventEmitter {
   private readonly maxRestarts: number = 10;
   private readonly restartDelays: number[] = [1000, 2000, 5000, 10000, 20000, 30000, 60000];
   private readonly healthCheckIntervalMs: number = 5000;
-  private readonly healthTimeout: number = 5000; // Increased for production load
-  private readonly maxConsecutiveFailures: number = 5;
+  private readonly healthTimeout: number = 15000; // Increased for heavy load (geometric computations)
+  private readonly maxConsecutiveFailures: number = 8; // More tolerance for load spikes
   
   constructor(backendUrl: string = 'http://localhost:5001') {
     super();
