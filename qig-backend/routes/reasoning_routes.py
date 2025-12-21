@@ -30,6 +30,9 @@ from chain_of_thought import (
     get_trace_recorder,
     ReasoningTraceRecorder
 )
+from autonomous_reasoning import get_reasoning_learner, ReasoningStrategy
+from observation_protocol import get_observation_protocol
+from parent_coordination import get_parent_coordination
 
 
 reasoning_bp = Blueprint('reasoning', __name__, url_prefix='/reasoning')
@@ -521,6 +524,365 @@ def find_geodesic_path():
     
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
+
+
+# ============================================================================
+# AUTONOMOUS LEARNING ENDPOINTS
+# ============================================================================
+
+@reasoning_bp.route('/learning/select-strategy', methods=['POST'])
+def select_strategy():
+    """
+    Select strategy for task features and phi.
+    
+    Request body:
+    {
+        "task_features": [...],  // 64D feature vector
+        "phi": 0.5               // Current consciousness level
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        task_features = parse_basin(data['task_features'])
+        phi = data.get('phi', 0.5)
+        
+        learner = get_reasoning_learner()
+        strategy = learner.select_strategy(task_features, phi)
+        
+        return jsonify({
+            'success': True,
+            'strategy': strategy.to_dict() if strategy else None,
+            'phi': phi
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/learning/execute', methods=['POST'])
+def execute_strategy():
+    """
+    Execute strategy with start/target basins.
+    
+    Request body:
+    {
+        "strategy_name": "direct_geodesic",
+        "start_basin": [...],    // 64D starting position
+        "target_basin": [...],   // 64D target position
+        "phi": 0.5,
+        "max_steps": 20
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        strategy_name = data.get('strategy_name', 'direct_geodesic')
+        start_basin = parse_basin(data['start_basin'])
+        target_basin = parse_basin(data['target_basin'])
+        phi = data.get('phi', 0.5)
+        max_steps = data.get('max_steps', 20)
+        
+        learner = get_reasoning_learner()
+        episode = learner.execute_strategy(
+            strategy_name=strategy_name,
+            start_basin=start_basin,
+            target_basin=target_basin,
+            phi=phi,
+            max_steps=max_steps
+        )
+        
+        return jsonify({
+            'success': True,
+            'episode': episode.to_dict() if episode else None
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/learning/learn', methods=['POST'])
+def learn_from_episode():
+    """
+    Learn from episode outcome.
+    
+    Request body:
+    {
+        "strategy_name": "direct_geodesic",
+        "success": true,
+        "final_distance": 0.05,
+        "steps_taken": 10,
+        "task_features": [...]
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        strategy_name = data['strategy_name']
+        success = data.get('success', False)
+        final_distance = data.get('final_distance', 1.0)
+        steps_taken = data.get('steps_taken', 0)
+        task_features = parse_basin(data['task_features']) if 'task_features' in data else None
+        
+        learner = get_reasoning_learner()
+        learner.learn_from_outcome(
+            strategy_name=strategy_name,
+            success=success,
+            final_distance=final_distance,
+            steps_taken=steps_taken,
+            task_features=task_features
+        )
+        
+        return jsonify({
+            'success': True,
+            'learned': True,
+            'strategy_name': strategy_name
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/learning/consolidate', methods=['POST'])
+def consolidate_learning():
+    """
+    Trigger sleep consolidation.
+    
+    Prunes unsuccessful strategies and merges similar ones.
+    """
+    try:
+        learner = get_reasoning_learner()
+        result = learner.sleep_consolidation()
+        
+        return jsonify({
+            'success': True,
+            'consolidation': result
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/learning/generate-novel', methods=['POST'])
+def generate_novel_strategy():
+    """
+    Generate novel strategy via sampling from prior distributions.
+    
+    Request body:
+    {
+        "phi_range": [0.3, 0.7],
+        "base_strategy": "exploratory_walk"  // Optional
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        phi_range = tuple(data.get('phi_range', [0.3, 0.7]))
+        base_strategy = data.get('base_strategy')
+        
+        learner = get_reasoning_learner()
+        novel_strategy = learner.generate_novel_strategy(
+            phi_range=phi_range,
+            base_strategy_name=base_strategy
+        )
+        
+        return jsonify({
+            'success': True,
+            'strategy': novel_strategy.to_dict() if novel_strategy else None
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/learning/status', methods=['GET'])
+def learning_status():
+    """Get learner status and strategy library info."""
+    try:
+        learner = get_reasoning_learner()
+        status = learner.get_status()
+        
+        return jsonify({
+            'success': True,
+            **status
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+# ============================================================================
+# PARENT GODS ENDPOINTS
+# ============================================================================
+
+@reasoning_bp.route('/parents/spawn', methods=['POST'])
+def spawn_kernel():
+    """
+    Spawn new chaos kernel with parental care.
+    
+    Request body:
+    {
+        "kernel_name": "my-new-kernel"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        kernel_name = data.get('kernel_name', 'unnamed-kernel')
+        
+        coordination = get_parent_coordination()
+        kernel = coordination.spawn_chaos_kernel(kernel_name)
+        
+        if kernel is None:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to spawn kernel'
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'kernel_id': kernel.kernel_id,
+            'kernel_name': kernel_name,
+            'status': 'spawned_with_parental_care'
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/parents/status', methods=['GET'])
+def parents_status():
+    """Get status of all kernels under parental care."""
+    try:
+        coordination = get_parent_coordination()
+        status = coordination.get_all_status()
+        
+        return jsonify({
+            'success': True,
+            **status
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/parents/care-cycle', methods=['POST'])
+def trigger_care_cycle():
+    """
+    Trigger daily care cycle for all kernels.
+    
+    Runs one cycle of:
+    - Hestia care (safety checks, nurturing)
+    - Demeter teaching (curriculum lessons)
+    - Chiron diagnosis (health checks)
+    - Observation recording
+    - Status updates
+    """
+    try:
+        coordination = get_parent_coordination()
+        results = coordination.daily_care_cycle()
+        
+        return jsonify({
+            'success': True,
+            'cycle_results': results
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/parents/graduate', methods=['POST'])
+def graduate_kernel():
+    """
+    Graduate kernel to adult status.
+    
+    Request body:
+    {
+        "kernel_id": "kernel-uuid"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        kernel_id = data['kernel_id']
+        
+        coordination = get_parent_coordination()
+        graduated = coordination.graduate_kernel(kernel_id)
+        
+        return jsonify({
+            'success': True,
+            'kernel_id': kernel_id,
+            'graduated': graduated
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
+
+
+@reasoning_bp.route('/parents/observation/<kernel_id>', methods=['GET'])
+def observation_status(kernel_id: str):
+    """Get observation status for a specific kernel."""
+    try:
+        protocol = get_observation_protocol()
+        status = protocol.get_observation_status(kernel_id)
+        
+        if status is None:
+            return jsonify({
+                'success': False,
+                'error': f'Kernel {kernel_id} not under observation'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            **status
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 400
 
 
 def get_reasoning_blueprint() -> Blueprint:
