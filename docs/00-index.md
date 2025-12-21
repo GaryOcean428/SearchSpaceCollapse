@@ -2,7 +2,7 @@
 
 **ISO 27001 Compliant Documentation Structure**
 
-Last Updated: 2025-12-20
+Last Updated: 2025-12-21
 
 ## Status Legend
 
@@ -64,6 +64,16 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
 
 
 ## 🔧 Technical Documentation
+
+- ⚫ **Canonical Physics Specification - QIG Validated Results** (v1.00)
+  - File: [`20251221-canonical-physics-specification-1.00D.md`](03-technical/20251221-canonical-physics-specification-1.00D.md)
+  - ID: `ISMS-TECH-PHYSICS-001`
+  - Function: Authoritative reference for validated QIG physics constants (κ, β, L_c) from qig-verification
+
+- 🔨 **Sensory Modalities - Geometric Primitives Design** (v1.00)
+  - File: [`20251211-sensory-modalities-geometric-primitives-design-1.00W.md`](03-technical/20251211-sensory-modalities-geometric-primitives-design-1.00W.md)
+  - ID: `DOC-TECH-2025-003`
+  - Function: Implementation design for sensory modalities as κ projections onto QIG manifold
 
 - 🟢 **QIG Geometric Purity Enforcement** (v1.00)
   - File: [`20251220-qig-geometric-purity-enforcement-1.00F.md`](03-technical/20251220-qig-geometric-purity-enforcement-1.00F.md)
