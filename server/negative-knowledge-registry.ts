@@ -26,6 +26,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fisherCoordDistance } from './qig-universal';
 
+// Emergency Recovery File - Primary storage is in the PostgreSQL database (negative_knowledge table).
+// This JSON file acts as an emergency fallback for cross-restart continuity if the DB is unreachable.
 const NEGATIVE_KNOWLEDGE_FILE = path.join(process.cwd(), 'data', 'negative-knowledge.json');
 
 export interface GeometricBarrier {

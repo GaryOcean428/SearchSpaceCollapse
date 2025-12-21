@@ -44,6 +44,8 @@ export interface RateLimitCoordinatorState {
   dayStartTimestamp: number;
 }
 
+// Emergency Recovery File - Primary storage should be in Redis/PostgreSQL.
+// This JSON file acts as an emergency fallback for rate limit state continuity.
 const DATA_FILE = path.join(process.cwd(), "data", "rate-limit-state.json");
 
 // Default provider configurations

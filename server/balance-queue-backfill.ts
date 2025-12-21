@@ -9,6 +9,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { batchQueueAddresses, getQueueIntegrationStats } from './balance-queue-integration';
 
+// Emergency Fallback Files - These are checked only if the primary database is unavailable
+// or for replaying legacy data. Primary storage is in PostgreSQL/Redis.
 const TESTED_PHRASES_FILE = path.join(process.cwd(), 'data', 'tested-phrases.json');
 const GEOMETRIC_MEMORY_FILE = path.join(process.cwd(), 'data', 'geometric-memory.json');
 

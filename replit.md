@@ -61,6 +61,7 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
   - `qig:auto-cycle:state` - Auto-cycle manager state
   - `qig:near-miss:state` - Near-miss tracking with PostgreSQL backup
   - `qig:ocean-memory:state` - Ocean memory manager state
+- **HypothesisEmitter** (`qig-backend/olympus/hypothesis_emitter.py`): Bridges Python hypothesis generation to TypeScript balance checking. Generates 50 passphrases every 10 seconds using Hephaestus, posts them to `/api/ocean/hypothesis` for blockchain balance verification.
 
 ## External Dependencies
 
