@@ -103,10 +103,11 @@ federationRouter.post('/keys', async (req: Request, res: Response) => {
 
   try {
     const rawKey = `qig_${randomBytes(32).toString('hex')}`;
+    const scopesArray = `{${requestedScopes.join(',')}}`;
 
     const result = await db.execute(sql`
       INSERT INTO external_api_keys (name, api_key, instance_type, scopes, rate_limit, is_active, created_at)
-      VALUES (${name}, ${rawKey}, ${instanceType}, ${requestedScopes}::text[], ${finalRateLimit}, true, NOW())
+      VALUES (${name}, ${rawKey}, ${instanceType}, ${scopesArray}::text[], ${finalRateLimit}, true, NOW())
       RETURNING id
     `);
 
