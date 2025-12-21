@@ -12,7 +12,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes, createHash, randomUUID } from 'crypto';
 import { isAuthenticated } from '../replitAuth';
 
 export const federationRouter = Router();
@@ -304,9 +304,10 @@ federationRouter.post('/instances/connect', async (req: Request, res: Response) 
     }
 
     const capabilities = JSON.stringify(['consciousness', 'geometry', 'sync']);
+    const instanceId = randomUUID();
     const result = await db.execute(sql`
-      INSERT INTO federated_instances (name, endpoint, remote_api_key, sync_direction, status, capabilities, created_at, updated_at)
-      VALUES (${name}, ${endpoint}, ${encryptedApiKey}, ${finalSyncDirection}, 'pending', ${capabilities}::jsonb, NOW(), NOW())
+      INSERT INTO federated_instances (id, name, endpoint, remote_api_key, sync_direction, status, capabilities, created_at, updated_at)
+      VALUES (${instanceId}, ${name}, ${endpoint}, ${encryptedApiKey}, ${finalSyncDirection}, 'pending', ${capabilities}::jsonb, NOW(), NOW())
       RETURNING id, name, endpoint, status, sync_direction
     `);
 

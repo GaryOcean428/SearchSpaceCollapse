@@ -3488,7 +3488,7 @@ export type InsertExternalApiKey = typeof externalApiKeys.$inferInsert;
 export const federatedInstances = pgTable(
   "federated_instances",
   {
-    id: serial("id").primaryKey(),
+    id: varchar("id", { length: 64 }).primaryKey(),
     name: varchar("name", { length: 128 }).notNull(),
     apiKeyId: integer("api_key_id").references(() => externalApiKeys.id),
     endpoint: text("endpoint").notNull(),

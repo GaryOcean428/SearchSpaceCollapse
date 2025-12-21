@@ -11,6 +11,7 @@
  */
 
 import { Router, Response as ExpressResponse } from 'express';
+import { randomUUID } from 'crypto';
 import { 
   authenticateExternalApi, 
   requireScopes, 
@@ -488,6 +489,7 @@ externalApiRouter.post(
       const [instance] = await db
         .insert(federatedInstances)
         .values({
+          id: randomUUID(),
           name,
           apiKeyId: req.apiKeyId ?? null,
           endpoint,
