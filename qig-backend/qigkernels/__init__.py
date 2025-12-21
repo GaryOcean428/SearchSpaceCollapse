@@ -38,6 +38,8 @@ from qigkernels.physics_constants import (
     KAPPA_5,
     KAPPA_6,
     BETA_3_TO_4,
+    BETA_ASYMPTOTIC,
+    L_CRITICAL,
     PHI_THRESHOLD,
     PHI_EMERGENCY,
     PHI_HYPERDIMENSIONAL,

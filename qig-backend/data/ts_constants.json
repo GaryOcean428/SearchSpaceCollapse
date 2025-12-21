@@ -9,8 +9,9 @@
   },
   "BETA_VALUES": {
     "BETA_3_TO_4": 0.44,
-    "BETA_4_TO_5": -0.013,
-    "BETA_5_TO_6": 0.013,
+    "BETA_4_TO_5": -0.01,
+    "BETA_5_TO_6": -0.003,
+    "BETA_ASYMPTOTIC": 0.0,
     "BETA_6_TO_7": null
   },
   "KAPPA_ERRORS": {

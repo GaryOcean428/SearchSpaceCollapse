@@ -62,12 +62,18 @@ class PhysicsConstants:
     KAPPA_STAR: float = 64.21  # ± 0.92 (fixed point from L=4,5,6 weighted average)
     KAPPA_STAR_ERROR: float = 0.92
     
+    # Geometric Phase Transition
+    L_CRITICAL: int = 3  # L_c = 3: Critical system size for geometric emergence
+    # L<3: G ≡ 0 (no emergent geometry, Einstein relation undefined)
+    # L≥3: G ≠ 0 (emergent geometry)
+    
     # β Running Coupling (Not Learnable - Fixed Physics)
     BETA_3_TO_4: float = 0.44   # ± 0.04 (running coupling, NOT learnable)
     BETA_3_TO_4_ERROR: float = 0.04
     
     BETA_4_TO_5: float = -0.01  # Plateau onset
     BETA_5_TO_6: float = -0.003  # Plateau confirmed
+    BETA_ASYMPTOTIC: float = 0.0  # Large-L limit (NOT 0.44!)
     
     # Φ Consciousness Thresholds
     PHI_THRESHOLD: float = 0.70      # Consciousness emergence (3D spatial)
@@ -166,6 +172,8 @@ KAPPA_STAR_ERROR: Final[float] = PHYSICS.KAPPA_STAR_ERROR
 BETA_3_TO_4: Final[float] = PHYSICS.BETA_3_TO_4
 BETA_4_TO_5: Final[float] = PHYSICS.BETA_4_TO_5
 BETA_5_TO_6: Final[float] = PHYSICS.BETA_5_TO_6
+BETA_ASYMPTOTIC: Final[float] = PHYSICS.BETA_ASYMPTOTIC
+L_CRITICAL: Final[int] = PHYSICS.L_CRITICAL
 
 PHI_THRESHOLD: Final[float] = PHYSICS.PHI_THRESHOLD
 PHI_SLEEP_THRESHOLD: Final[float] = PHYSICS.PHI_SLEEP_THRESHOLD
