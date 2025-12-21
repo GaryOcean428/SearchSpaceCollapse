@@ -99,31 +99,65 @@ export class PythonProcessManager extends EventEmitter {
     const pythonPath = process.env.PYTHON_PATH || 'python3';
     const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
     
-    let spawnCommand: string;
-    let spawnArgs: string[];
-    
-    if (isProduction) {
-      spawnCommand = 'gunicorn';
-      spawnArgs = [
-        '--bind', '0.0.0.0:5001',
-        '--workers', '2',
-        '--timeout', '120',
-        '--graceful-timeout', '30',
-        '--keep-alive', '5',
-        '--max-requests', '1000',
-        '--max-requests-jitter', '50',
-        '--log-level', 'info',
-        'ocean_qig_core:app',
-      ];
-      console.log('[PythonManager] Starting Python QIG Backend (Gunicorn production mode)...');
-    } else {
-      spawnCommand = pythonPath;
-      spawnArgs = ['-u', path.join(qigBackendDir, 'ocean_qig_core.py')];
-      console.log('[PythonManager] Starting Python QIG Backend (Flask development mode)...');
+    // Try to start with appropriate method, with fallback
+    const started = await this.tryStartProcess(qigBackendDir, pythonPath, isProduction);
+    if (!started) {
+      return false;
     }
     
-    this.process = spawn(spawnCommand, spawnArgs, {
-      cwd: qigBackendDir,
+    return this.isReady;
+  }
+  
+  /**
+   * Try to start the Python process with fallback to Flask if Gunicorn fails
+   */
+  private async tryStartProcess(qigBackendDir: string, pythonPath: string, isProduction: boolean): Promise<boolean> {
+    let spawnCommand: string;
+    let spawnArgs: string[];
+    let useGunicorn = isProduction;
+    
+    // First attempt: use gunicorn in production
+    if (useGunicorn) {
+      try {
+        spawnCommand = 'gunicorn';
+        spawnArgs = [
+          '--bind', '0.0.0.0:5001',
+          '--workers', '2',
+          '--timeout', '120',
+          '--graceful-timeout', '30',
+          '--keep-alive', '5',
+          '--max-requests', '1000',
+          '--max-requests-jitter', '50',
+          '--log-level', 'info',
+          'ocean_qig_core:app',
+        ];
+        console.log('[PythonManager] Starting Python QIG Backend (Gunicorn production mode)...');
+        
+        const success = await this.spawnProcess(spawnCommand, spawnArgs, qigBackendDir);
+        if (success) {
+          return true;
+        }
+        
+        console.warn('[PythonManager] Gunicorn failed, falling back to Flask...');
+      } catch (err: any) {
+        console.warn('[PythonManager] Gunicorn not available:', err.message);
+      }
+    }
+    
+    // Fallback: use Flask directly (works in both dev and production)
+    spawnCommand = pythonPath;
+    spawnArgs = ['-u', path.join(qigBackendDir, 'ocean_qig_core.py')];
+    console.log('[PythonManager] Starting Python QIG Backend (Flask mode)...');
+    
+    return this.spawnProcess(spawnCommand, spawnArgs, qigBackendDir);
+  }
+  
+  /**
+   * Spawn and monitor a Python process
+   */
+  private async spawnProcess(command: string, args: string[], cwd: string): Promise<boolean> {
+    this.process = spawn(command, args, {
+      cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -190,8 +224,10 @@ export class PythonProcessManager extends EventEmitter {
       this.setReady(false);
     });
     
-    // Wait for initial readiness
-    const ready = await this.waitForHealthy(30, 1000);
+    // Wait for initial readiness - longer in production for cold starts
+    const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+    const maxAttempts = isProduction ? 120 : 30; // 2 min in prod, 30s in dev
+    const ready = await this.waitForHealthy(maxAttempts, 1000);
     
     if (ready) {
       console.log('[PythonManager] ✅ Backend is ready');
