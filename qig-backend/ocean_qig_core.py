@@ -6589,6 +6589,19 @@ if __name__ == '__main__':
         print("  - 🔨 Hypothesis Emitter (continuous passphrase generation)", flush=True)
     else:
         print("  - Hypothesis Emitter NOT available", flush=True)
+    
+    # Start Autonomous Replay Tester (ALWAYS-ON mode)
+    AUTONOMOUS_REPLAY_TESTER_AVAILABLE = False
+    try:
+        from olympus.search_strategy_learner import get_autonomous_tester
+        autonomous_tester = get_autonomous_tester(auto_start=True)
+        AUTONOMOUS_REPLAY_TESTER_AVAILABLE = True
+        print("  - 🔄 Autonomous Replay Tester (ALWAYS-ON mode)", flush=True)
+    except ImportError as e:
+        print(f"[WARNING] Autonomous Replay Tester not found: {e}", flush=True)
+    except Exception as e:
+        print(f"[WARNING] Autonomous Replay Tester failed to start: {e}", flush=True)
+    
     print(f"\nκ* = {KAPPA_STAR}", flush=True)
     print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
     print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)

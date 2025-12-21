@@ -1342,14 +1342,26 @@ class AutonomousReplayTester:
 _global_autonomous_tester: Optional[AutonomousReplayTester] = None
 
 
-def get_autonomous_tester(learner: Optional[SearchStrategyLearner] = None) -> AutonomousReplayTester:
-    """Get or create the global AutonomousReplayTester instance."""
+def get_autonomous_tester(learner: Optional[SearchStrategyLearner] = None, auto_start: bool = True) -> AutonomousReplayTester:
+    """Get or create the global AutonomousReplayTester instance.
+    
+    Args:
+        learner: Optional SearchStrategyLearner instance
+        auto_start: If True, automatically start the tester on first creation (default: True)
+    
+    Returns:
+        AutonomousReplayTester instance (auto-started by default)
+    """
     global _global_autonomous_tester
     
     if _global_autonomous_tester is None:
         if learner is None:
             learner = get_strategy_learner_with_persistence()
         _global_autonomous_tester = AutonomousReplayTester(learner)
+        
+        if auto_start:
+            result = _global_autonomous_tester.start()
+            print(f"[AutonomousReplayTester] ALWAYS-ON mode: {result['message']}")
     
     return _global_autonomous_tester
 
