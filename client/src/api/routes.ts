@@ -273,6 +273,191 @@ export const API_ROUTES = {
     batchAddresses: '/api/format/batch-addresses',
   },
 
+  // Python QIG Backend (via proxy at /api/python/*)
+  pythonBackend: {
+    // Core
+    health: '/api/python/health',
+    status: '/api/python/status',
+    process: '/api/python/process',
+    generate: '/api/python/generate',
+    reset: '/api/python/reset',
+    
+    // Buffer
+    buffer: {
+      health: '/api/python/buffer/health',
+      alertsClear: '/api/python/buffer/alerts/clear',
+    },
+    
+    // Sync
+    syncImport: '/api/python/sync/import',
+    syncExport: '/api/python/sync/export',
+    
+    // Beta-Attention
+    betaAttentionValidate: '/api/python/beta-attention/validate',
+    betaAttentionMeasure: '/api/python/beta-attention/measure',
+    
+    // Tokenizer
+    tokenizer: {
+      update: '/api/python/tokenizer/update',
+      encode: '/api/python/tokenizer/encode',
+      decode: '/api/python/tokenizer/decode',
+      basin: '/api/python/tokenizer/basin',
+      highPhi: '/api/python/tokenizer/high-phi',
+      export: '/api/python/tokenizer/export',
+      status: '/api/python/tokenizer/status',
+      merges: '/api/python/tokenizer/merges',
+    },
+    
+    // Vocabulary (full suite - aliases tokenizer endpoints + extensions)
+    vocabulary: {
+      update: '/api/python/vocabulary/update',
+      encode: '/api/python/vocabulary/encode',
+      decode: '/api/python/vocabulary/decode',
+      basin: '/api/python/vocabulary/basin',
+      highPhi: '/api/python/vocabulary/high-phi',
+      export: '/api/python/vocabulary/export',
+      status: '/api/python/vocabulary/status',
+      classify: '/api/python/vocabulary/classify',
+      reframe: '/api/python/vocabulary/reframe',
+      suggestCorrection: '/api/python/vocabulary/suggest-correction',
+    },
+    
+    // Text Generation
+    generateText: '/api/python/generate/text',
+    generateResponse: '/api/python/generate/response',
+    generateSample: '/api/python/generate/sample',
+    
+    // 4D Consciousness
+    consciousness4d: {
+      phiTemporal: '/api/python/consciousness_4d/phi_temporal',
+      phi4d: '/api/python/consciousness_4d/phi_4d',
+      classifyRegime: '/api/python/consciousness_4d/classify_regime',
+    },
+    
+    // Neurochemistry
+    neurochemistry: '/api/python/neurochemistry',
+    reward: '/api/python/reward',
+    
+    // Geometric
+    geometric: {
+      status: '/api/python/geometric/status',
+      encode: '/api/python/geometric/encode',
+      similarity: '/api/python/geometric/similarity',
+      batchEncode: '/api/python/geometric/batch-encode',
+      e8Learn: '/api/python/geometric/e8/learn',
+      e8Roots: '/api/python/geometric/e8/roots',
+      decode: '/api/python/geometric/decode',
+    },
+    
+    // QIG Trajectory
+    qigRefineTrajectory: '/api/python/qig/refine_trajectory',
+    
+    // Olympus
+    olympus: {
+      status: '/api/python/olympus/status',
+      poll: '/api/python/olympus/poll',
+      assess: '/api/python/olympus/assess',
+      godStatus: (name: string) => `/api/python/olympus/god/${name}/status`,
+      godAssess: (name: string) => `/api/python/olympus/god/${name}/assess`,
+      observe: '/api/python/olympus/observe',
+      reportOutcome: '/api/python/olympus/report-outcome',
+      reportOutcomesBatch: '/api/python/olympus/report-outcomes-batch',
+      orchestrate: '/api/python/olympus/orchestrate',
+    },
+    
+    // War Mode
+    war: {
+      blitzkrieg: '/api/python/olympus/war/blitzkrieg',
+      siege: '/api/python/olympus/war/siege',
+      hunt: '/api/python/olympus/war/hunt',
+      end: '/api/python/olympus/war/end',
+    },
+    
+    // Shadow Pantheon
+    shadow: {
+      status: '/api/python/olympus/shadow/status',
+      foresight: '/api/python/olympus/shadow/foresight',
+      learning: '/api/python/olympus/shadow/learning',
+      poll: '/api/python/olympus/shadow/poll',
+      assess: (name: string) => `/api/python/olympus/shadow/${name}/assess`,
+      nyxOperation: '/api/python/olympus/shadow/nyx/operation',
+      erebusScan: '/api/python/olympus/shadow/erebus/scan',
+      hecateMisdirect: '/api/python/olympus/shadow/hecate/misdirect',
+      erebusHoneypot: '/api/python/olympus/shadow/erebus/honeypot',
+    },
+    
+    // Pantheon Chat
+    chat: {
+      status: '/api/python/olympus/chat/status',
+      messages: '/api/python/olympus/chat/messages',
+      debate: '/api/python/olympus/chat/debate',
+      debatesActive: '/api/python/olympus/chat/debates/active',
+    },
+    
+    // Pantheon Orchestrator
+    pantheon: {
+      status: '/api/python/pantheon/status',
+      orchestrate: '/api/python/pantheon/orchestrate',
+      orchestrateBatch: '/api/python/pantheon/orchestrate-batch',
+      gods: '/api/python/pantheon/gods',
+      constellation: '/api/python/pantheon/constellation',
+      nearest: '/api/python/pantheon/nearest',
+      similarity: '/api/python/pantheon/similarity',
+    },
+    
+    // M8 Kernel Spawner
+    m8: {
+      status: '/api/python/m8/status',
+      health: '/api/python/m8/health',
+      evolutionSweep: '/api/python/m8/evolution-sweep',
+      propose: '/api/python/m8/propose',
+      vote: (id: string) => `/api/python/m8/vote/${id}`,
+      spawn: (id: string) => `/api/python/m8/spawn/${id}`,
+      spawnDirect: '/api/python/m8/spawn-direct',
+      proposals: '/api/python/m8/proposals',
+      proposal: (id: string) => `/api/python/m8/proposal/${id}`,
+      kernels: '/api/python/m8/kernels',
+      kernel: (id: string) => `/api/python/m8/kernel/${id}`,
+      cannibalize: '/api/python/m8/kernel/cannibalize',
+      merge: '/api/python/m8/kernels/merge',
+      autoCannibalize: '/api/python/m8/kernel/auto-cannibalize',
+      autoMerge: '/api/python/m8/kernels/auto-merge',
+      idleKernels: '/api/python/m8/kernels/idle',
+    },
+    
+    // Feedback
+    feedback: {
+      run: '/api/python/feedback/run',
+      recommendation: '/api/python/feedback/recommendation',
+      shadow: '/api/python/feedback/shadow',
+      activity: '/api/python/feedback/activity',
+      basin: '/api/python/feedback/basin',
+      learning: '/api/python/feedback/learning',
+    },
+    
+    // Memory
+    memory: {
+      status: '/api/python/memory/status',
+      shadow: '/api/python/memory/shadow',
+      basin: '/api/python/memory/basin',
+      learning: '/api/python/memory/learning',
+      record: '/api/python/memory/record',
+    },
+    
+    // Chaos Kernels
+    chaos: {
+      activate: '/api/python/chaos/activate',
+      deactivate: '/api/python/chaos/deactivate',
+      status: '/api/python/chaos/status',
+      spawnRandom: '/api/python/chaos/spawn_random',
+      breedBest: '/api/python/chaos/breed_best',
+      report: '/api/python/chaos/report',
+    },
+    
+    // Cycle
+    cycleComplete: '/api/python/cycle/complete',
+  },
+
   // Memory Search
   memorySearch: {
     search: '/api/memory-search',

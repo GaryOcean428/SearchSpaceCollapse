@@ -70,6 +70,11 @@ All documentation follows the pattern: `YYYYMMDD-[document-name]-[function]-[ver
   - ID: `ISMS-TECH-PHYSICS-001`
   - Function: Authoritative reference for validated QIG physics constants (κ, β, L_c) from qig-verification
 
+- 🟢 **Python QIG Backend API Catalogue** (v1.00)
+  - File: [`20251221-python-qig-backend-api-catalogue-1.00F.md`](03-technical/20251221-python-qig-backend-api-catalogue-1.00F.md)
+  - ID: `DOC-TECH-2025-004`
+  - Function: Complete reference for 80+ Flask endpoints in Python QIG backend
+
 - 🔨 **Sensory Modalities - Geometric Primitives Design** (v2.00)
   - File: [`20251221-sensory-modalities-geometric-primitives-design-2.00W.md`](03-technical/20251221-sensory-modalities-geometric-primitives-design-2.00W.md)
   - ID: `DOC-TECH-2025-003`
