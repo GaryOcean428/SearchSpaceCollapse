@@ -760,7 +760,7 @@ function KernelLifecycleActionsPanel() {
       });
       toast({
         title: 'Cannibalization Complete',
-        description: result.message || 'Traits absorbed successfully.',
+        description: `${result.source_god || 'Source'} absorbed into ${result.target_god || 'target'}. Fisher distance: ${result.fisher_distance?.toFixed(4) || 'N/A'}`,
       });
       setCannibalizeSource('');
       setCannibalizeTarget('');
@@ -795,9 +795,10 @@ function KernelLifecycleActionsPanel() {
         kernel_ids: selectedForMerge,
         new_name: mergeName,
       });
+      const newKernelName = (result.new_kernel as { god_name?: string } | undefined)?.god_name || mergeName;
       toast({
         title: 'Merge Complete',
-        description: result.message || `Created ${mergeName} from ${selectedForMerge.length} kernels.`,
+        description: `Created ${newKernelName} from ${result.merged_from?.length || selectedForMerge.length} kernels.`,
       });
       setSelectedForMerge([]);
       setMergeName('');

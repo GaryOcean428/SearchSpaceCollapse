@@ -6,7 +6,23 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_ROUTES, QUERY_KEYS, deleteKernel, cannibalizeKernel, mergeKernels, autoCannibalize, autoMerge } from '@/api';
+import { 
+  API_ROUTES, 
+  QUERY_KEYS, 
+  deleteKernel, 
+  cannibalizeKernel, 
+  mergeKernels, 
+  autoCannibalize, 
+  autoMerge,
+  type CannibalizeRequest as ApiCannibalizeRequest,
+  type CannibalizeResponse as ApiCannibalizeResponse,
+  type MergeKernelsRequest as ApiMergeKernelsRequest,
+  type MergeKernelsResponse as ApiMergeKernelsResponse,
+  type AutoCannibalizeRequest as ApiAutoCannibalizeRequest,
+  type AutoCannibalizeResponse as ApiAutoCannibalizeResponse,
+  type AutoMergeRequest as ApiAutoMergeRequest,
+  type AutoMergeResponse as ApiAutoMergeResponse,
+} from '@/api';
 import { useAuth } from '@/hooks/useAuth';
 import {
   getM8Client,
@@ -293,8 +309,8 @@ export interface IdleKernelsResponse {
 
 export interface DeleteKernelResponse {
   success: boolean;
-  kernel_id: string;
-  message: string;
+  kernel_id?: string;
+  message?: string;
 }
 
 export interface CannibalizeRequest {
@@ -302,25 +318,14 @@ export interface CannibalizeRequest {
   target_kernel_id: string;
 }
 
-export interface CannibalizeResponse {
-  success: boolean;
-  source_kernel_id: string;
-  target_kernel_id: string;
-  traits_absorbed: string[];
-  message: string;
-}
+export type CannibalizeResponse = ApiCannibalizeResponse;
 
 export interface MergeKernelsRequest {
   kernel_ids: string[];
-  new_name: string;
+  new_name?: string;
 }
 
-export interface MergeKernelsResponse {
-  success: boolean;
-  merged_kernel: PostgresKernel;
-  source_kernel_ids: string[];
-  message: string;
-}
+export type MergeKernelsResponse = ApiMergeKernelsResponse;
 
 export function useIdleKernels(threshold_seconds: number = 300) {
   const { isAuthenticated } = useAuth();
@@ -383,27 +388,9 @@ export function useMergeKernels() {
   });
 }
 
-export interface AutoCannibalizeRequest {
-  idle_threshold?: number;
-}
+export type AutoCannibalizeRequest = ApiAutoCannibalizeRequest;
 
-export interface AutoCannibalizeResponse {
-  success: boolean;
-  source_id?: string;
-  source_god?: string;
-  target_id?: string;
-  target_god?: string;
-  auto_selected: boolean;
-  selection_criteria: {
-    source: string;
-    target: string;
-    idle_count: number;
-    active_count: number;
-  };
-  fisher_distance?: number;
-  merged_metrics?: Record<string, number>;
-  error?: string;
-}
+export type AutoCannibalizeResponse = ApiAutoCannibalizeResponse;
 
 export function useAutoCannibalize() {
   const queryClient = useQueryClient();
@@ -419,29 +406,9 @@ export function useAutoCannibalize() {
   });
 }
 
-export interface AutoMergeRequest {
-  idle_threshold?: number;
-  max_to_merge?: number;
-}
+export type AutoMergeRequest = ApiAutoMergeRequest;
 
-export interface AutoMergeResponse {
-  success: boolean;
-  new_kernel?: Record<string, unknown>;
-  merged_from?: {
-    kernel_ids: string[];
-    god_names: string[];
-  };
-  auto_selected: boolean;
-  selection_criteria: {
-    method: string;
-    idle_threshold: number;
-    total_idle: number;
-    merged_count: number;
-  };
-  merged_metrics?: Record<string, number>;
-  deleted_originals?: string[];
-  error?: string;
-}
+export type AutoMergeResponse = ApiAutoMergeResponse;
 
 export function useAutoMerge() {
   const queryClient = useQueryClient();
