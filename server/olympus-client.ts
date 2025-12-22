@@ -329,11 +329,13 @@ export class OlympusClient {
    */
   async assessTarget(target: string, context?: ObservationContext): Promise<ZeusAssessment | null> {
     try {
+      // Use longer timeout (90s) for assess - this polls all 18 gods and runs heavy computations
+      const assessTimeoutMs = isProduction ? 90000 : 30000;
       const response = await fetchWithRetry(`${this.backendUrl}/olympus/assess`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, context: context || {} }),
-      });
+      }, 3, assessTimeoutMs);
       
       if (!response.ok) {
         console.error('[OlympusClient] Assess failed:', response.statusText);
