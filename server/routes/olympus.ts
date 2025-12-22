@@ -663,60 +663,8 @@ router.get('/chat/messages', isAuthenticated, async (req, res) => {
   }
 });
 
-/**
- * Get active debates between gods
- * Returns ongoing god-vs-god debates
- */
-router.get('/debates/active', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/debates/active`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Active debates error:', error);
-    res.status(500).json({ debates: [], error: 'Failed to retrieve active debates' });
-  }
-});
-
-/**
- * Get debate status summary
- * Returns overview of debate system activity
- */
-router.get('/debates/status', isAuthenticated, async (req, res) => {
-  try {
-    const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
-    
-    const response = await fetch(`${backendUrl}/olympus/debates/status`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Python backend returned ${response.status}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('[Olympus] Debate status error:', error);
-    res.status(500).json({ 
-      active_count: 0, 
-      resolved_count: 0,
-      total_arguments: 0,
-      error: 'Failed to retrieve debate status' 
-    });
-  }
-});
+// NOTE: /debates/active and /debates/status routes are defined in the 
+// AUTONOMOUS DEBATE SERVICE ROUTES section (line ~1860)
 
 /** Zeus Memory Stats endpoint */
 router.get('/zeus/memory/stats', isAuthenticated, (req, res) => 
