@@ -178,9 +178,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const backendUrl = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
       const pyStart = Date.now();
+      // Production needs longer timeout for cold starts (30s vs 5s dev)
+      const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
+      const pyHealthTimeout = isProduction ? 30000 : 5000;
       const response = await fetch(`${backendUrl}/health`, { 
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(pyHealthTimeout),
       });
       if (response.ok) {
         subsystems.pythonBackend = {
