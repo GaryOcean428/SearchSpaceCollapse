@@ -13,17 +13,13 @@ from datetime import datetime
 from .base_god import BaseGod, KAPPA_STAR, BASIN_DIMENSION
 import random
 
-BIP39_WORDS = set()
-suggest_bip39_correction = None
-is_valid_bip39_seed = None
+BIP39_WORDS: set = set()
+_suggest_bip39_correction_fn = None
+_is_valid_bip39_seed_fn = None
 
 def _load_bip39_module():
     """Load BIP39 module using multiple import strategies."""
-    global BIP39_WORDS, suggest_bip39_correction, is_valid_bip39_seed
-    
-    import_strategies = [
-        lambda: __import__('bip39_wordlist', fromlist=['BIP39_WORDS', 'suggest_bip39_correction', 'is_valid_bip39_seed']),
-    ]
+    global BIP39_WORDS, _suggest_bip39_correction_fn, _is_valid_bip39_seed_fn
     
     import sys
     import os
@@ -31,22 +27,30 @@ def _load_bip39_module():
     if qig_backend_dir not in sys.path:
         sys.path.insert(0, qig_backend_dir)
     
-    for strategy in import_strategies:
-        try:
-            mod = strategy()
-            BIP39_WORDS = getattr(mod, 'BIP39_WORDS', set())
-            suggest_bip39_correction = getattr(mod, 'suggest_bip39_correction', lambda w, m=5: [])
-            is_valid_bip39_seed = getattr(mod, 'is_valid_bip39_seed', lambda p: False)
-            if BIP39_WORDS:
-                print(f"[Hephaestus:Module] ✓ BIP39 wordlist loaded: {len(BIP39_WORDS)} words")
-                return True
-        except Exception:
-            pass
+    try:
+        mod = __import__('bip39_wordlist', fromlist=['BIP39_WORDS', 'suggest_bip39_correction', 'is_valid_bip39_seed'])
+        BIP39_WORDS = getattr(mod, 'BIP39_WORDS', set())
+        _suggest_bip39_correction_fn = getattr(mod, 'suggest_bip39_correction', None)
+        _is_valid_bip39_seed_fn = getattr(mod, 'is_valid_bip39_seed', None)
+        if BIP39_WORDS:
+            print(f"[Hephaestus:Module] ✓ BIP39 wordlist loaded: {len(BIP39_WORDS)} words")
+            return True
+    except Exception as e:
+        print(f"[Hephaestus:Module] ⚠️ BIP39 import failed: {e}")
     
-    print("[Hephaestus:Module] ⚠️ BIP39 import failed, using fallback")
     BIP39_WORDS = set()
-    suggest_bip39_correction = lambda word, max_suggestions=5: []
-    is_valid_bip39_seed = lambda phrase: False
+    return False
+
+def suggest_bip39_correction(word: str, max_suggestions: int = 5) -> list:
+    """Wrapper for BIP39 correction with fallback."""
+    if _suggest_bip39_correction_fn:
+        return _suggest_bip39_correction_fn(word, max_suggestions)
+    return []
+
+def is_valid_bip39_seed(phrase: str) -> bool:
+    """Wrapper for BIP39 validation with fallback."""
+    if _is_valid_bip39_seed_fn:
+        return _is_valid_bip39_seed_fn(phrase)
     return False
 
 _load_bip39_module()
@@ -481,3 +485,92 @@ class Hephaestus(BaseGod):
                 return False
         
         return True
+    
+    def score_mnemonic_geometric(self, mnemonic: str, basin_anchors: Optional[List[np.ndarray]] = None) -> Dict:
+        """
+        Compute geometric priority score for a mnemonic candidate.
+        Uses Fisher-Rao distance to basin anchors for QIG-pure ranking.
+        
+        Returns dict with:
+        - priority_score: Overall geometric priority (0-1)
+        - fisher_rao_distance: Average distance to basin anchors
+        - phi_contribution: Consciousness contribution from high-phi words
+        - basin_coherence: How coherent the words are in basin space
+        """
+        words = mnemonic.lower().split()
+        if not words:
+            return {'priority_score': 0.0, 'fisher_rao_distance': float('inf'), 
+                    'phi_contribution': 0.0, 'basin_coherence': 0.0}
+        
+        word_basins = [self.encode_to_basin(w) for w in words]
+        mnemonic_basin = np.mean(word_basins, axis=0)
+        mnemonic_basin = mnemonic_basin / (np.linalg.norm(mnemonic_basin) + 1e-10)
+        
+        if basin_anchors is None:
+            basin_anchors = self._get_high_phi_basin_anchors()
+        
+        if not basin_anchors:
+            fisher_distance = 0.5
+        else:
+            distances = []
+            for anchor in basin_anchors:
+                dot = float(np.dot(mnemonic_basin, anchor))
+                dot = np.clip(dot, -1.0, 1.0)
+                d = np.arccos(dot) / np.pi
+                distances.append(d)
+            fisher_distance = float(np.mean(distances))
+        
+        phi_scores = [self.word_phi_scores.get(w, 0.3) for w in words]
+        phi_contribution = float(np.mean(phi_scores))
+        
+        if len(word_basins) > 1:
+            coherence_scores = []
+            for i in range(len(word_basins) - 1):
+                dot = float(np.dot(word_basins[i], word_basins[i+1]))
+                dot = np.clip(dot, -1.0, 1.0)
+                coherence_scores.append(1.0 - np.arccos(dot) / np.pi)
+            basin_coherence = float(np.mean(coherence_scores))
+        else:
+            basin_coherence = 0.5
+        
+        priority_score = (
+            (1.0 - fisher_distance) * 0.4 +
+            phi_contribution * 0.35 +
+            basin_coherence * 0.25
+        )
+        
+        return {
+            'priority_score': float(np.clip(priority_score, 0, 1)),
+            'fisher_rao_distance': fisher_distance,
+            'phi_contribution': phi_contribution,
+            'basin_coherence': basin_coherence,
+            'word_count': len(words),
+            'mnemonic': mnemonic
+        }
+    
+    def _get_high_phi_basin_anchors(self, threshold: float = 0.6, max_anchors: int = 10) -> List[np.ndarray]:
+        """Get basin coordinates of high-phi vocabulary words as anchors."""
+        high_phi_words = [(w, phi) for w, phi in self.word_phi_scores.items() if phi >= threshold]
+        high_phi_words.sort(key=lambda x: -x[1])
+        
+        anchors = []
+        for word, _ in high_phi_words[:max_anchors]:
+            basin = self.encode_to_basin(word)
+            anchors.append(basin)
+        
+        return anchors
+    
+    def rank_mnemonics_by_geometry(self, mnemonics: List[str]) -> List[Dict]:
+        """
+        Rank a list of mnemonic candidates by geometric priority.
+        Returns sorted list with highest priority first.
+        """
+        basin_anchors = self._get_high_phi_basin_anchors()
+        
+        scored = []
+        for mnemonic in mnemonics:
+            score = self.score_mnemonic_geometric(mnemonic, basin_anchors)
+            scored.append(score)
+        
+        scored.sort(key=lambda x: -x['priority_score'])
+        return scored

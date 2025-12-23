@@ -180,14 +180,39 @@ class HypothesisEmitter:
                 if self._cycles % 6 == 0:
                     print(f"[HypothesisEmitter] PASSPHRASE batch ({strategy}): {len(hypotheses)} generated")
             
-            return list(set(hypotheses))
+            unique_hypotheses = list(set(hypotheses))
+            
+            if use_mnemonic and len(unique_hypotheses) > 1:
+                ranked = self._rank_by_geometry(unique_hypotheses)
+                return ranked
+            
+            return unique_hypotheses
             
         except Exception as e:
             print(f"[HypothesisEmitter] Generation error: {e}")
             return []
     
+    def _rank_by_geometry(self, mnemonics: List[str]) -> List[str]:
+        """
+        Rank mnemonic candidates by geometric priority using Fisher-Rao distance.
+        Returns mnemonics sorted by priority (highest first).
+        """
+        try:
+            scored = self.hephaestus.rank_mnemonics_by_geometry(mnemonics)
+            ranked = [s['mnemonic'] for s in scored]
+            
+            if self._cycles % 12 == 0 and scored:
+                top_score = scored[0]['priority_score'] if scored else 0
+                avg_score = sum(s['priority_score'] for s in scored) / len(scored) if scored else 0
+                print(f"[HypothesisEmitter] Geometric ranking: top={top_score:.3f}, avg={avg_score:.3f}")
+            
+            return ranked
+        except Exception as e:
+            print(f"[HypothesisEmitter] Geometric ranking error: {e}")
+            return mnemonics
+    
     def _submit_hypotheses(self, hypotheses: List[str]) -> Optional[Dict]:
-        """Submit hypotheses to TypeScript backend."""
+        """Submit hypotheses to TypeScript backend with geometric priority metadata."""
         try:
             avg_phi = 0.5
             if self.hephaestus.word_phi_scores:
@@ -195,10 +220,20 @@ class HypothesisEmitter:
                 if phi_values:
                     avg_phi = sum(phi_values) / len(phi_values)
             
+            top_priority = 0.5
+            if hypotheses:
+                try:
+                    top_scored = self.hephaestus.score_mnemonic_geometric(hypotheses[0])
+                    top_priority = top_scored.get('priority_score', 0.5)
+                except:
+                    pass
+            
             payload = {
                 "hypotheses": hypotheses,
                 "source": "python-hephaestus",
-                "phi": avg_phi
+                "phi": max(avg_phi, top_priority),
+                "geometricPriority": top_priority,
+                "isMnemonic": any(len(h.split()) in [12, 15, 18, 21, 24] for h in hypotheses[:5])
             }
             
             response = requests.post(
@@ -281,3 +316,34 @@ def stop_hypothesis_emitter():
     global _global_emitter
     if _global_emitter:
         _global_emitter.stop()
+
+
+def register_balance_hit(phrase: str, phi: float = 0.9, is_mnemonic: bool = False) -> Dict:
+    """
+    Register a balance hit to reinforce success patterns.
+    Called from TypeScript when a hypothesis yields a positive balance.
+    """
+    emitter = get_hypothesis_emitter()
+    
+    emitter.hephaestus.register_success(phrase, phi)
+    
+    if is_mnemonic:
+        emitter.hephaestus.successful_patterns.append(phrase)
+        if len(emitter.hephaestus.successful_patterns) > 100:
+            emitter.hephaestus.successful_patterns = emitter.hephaestus.successful_patterns[-50:]
+    
+    for word in phrase.lower().split():
+        emitter.hephaestus.word_phi_scores[word] = max(
+            emitter.hephaestus.word_phi_scores.get(word, 0.0),
+            phi
+        )
+    
+    print(f"[HypothesisEmitter] 💰 Balance hit registered: {phrase[:30]}... (phi={phi:.2f}, mnemonic={is_mnemonic})")
+    
+    return {
+        "registered": True,
+        "phrase": phrase[:30] + "...",
+        "phi": phi,
+        "is_mnemonic": is_mnemonic,
+        "successful_patterns": len(emitter.hephaestus.successful_patterns)
+    }

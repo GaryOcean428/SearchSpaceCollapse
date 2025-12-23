@@ -431,6 +431,9 @@ class BalanceQueueService {
                     hits++;
                     this.backgroundHitCount++;
                     console.log(`[BalanceQueue] 💰 HIT! ${item.address} - ${result.balance} BTC, ${result.txCount} txs`);
+                    
+                    // Notify Python backend to reinforce success patterns
+                    this.notifyHypothesisFeedback(item.passphrase, result.balance, item.source);
                   }
                 } catch (recordError) {
                   console.error(`[BalanceQueue] Error recording hit for ${item.address}:`, recordError);
@@ -639,6 +642,35 @@ class BalanceQueueService {
       emotionalState: 'content',
       timestamp: new Date(),
     };
+  }
+  
+  /**
+   * Notify Python backend about a balance hit to reinforce success patterns.
+   * Non-blocking - errors are logged but don't stop processing.
+   */
+  private notifyHypothesisFeedback(passphrase: string | undefined, balance: number, source: string): void {
+    if (!passphrase) return;
+    
+    const isMnemonic = passphrase.split(/\s+/).length >= 12;
+    const phi = Math.min(0.99, 0.8 + (balance / 1e8)); // Higher phi for larger balances
+    
+    fetch('http://localhost:5001/olympus/hypothesis/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phrase: passphrase,
+        phi,
+        is_mnemonic: isMnemonic,
+        source,
+        balance_btc: balance / 1e8
+      })
+    }).then(response => {
+      if (response.ok) {
+        console.log(`[BalanceQueue] 🎯 Feedback sent to Hephaestus: ${passphrase.substring(0, 30)}... (mnemonic=${isMnemonic})`);
+      }
+    }).catch(() => {
+      // Silent fail - feedback is non-critical
+    });
   }
 
   private async loadFromDisk(): Promise<void> {

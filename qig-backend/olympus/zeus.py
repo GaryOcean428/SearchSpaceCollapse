@@ -4020,6 +4020,33 @@ def zeus_tools_pipeline_invent_endpoint():
 
 
 # =========================================================================
+# 💰 HYPOTHESIS FEEDBACK (Balance Hit Registration)
+# =========================================================================
+@olympus_app.route('/hypothesis/feedback', methods=['POST'])
+def hypothesis_feedback_endpoint():
+    """
+    Register a balance hit to reinforce mnemonic/passphrase success patterns.
+    Called from TypeScript when a hypothesis yields a positive balance.
+    """
+    try:
+        from .hypothesis_emitter import register_balance_hit
+        
+        data = request.get_json() or {}
+        phrase = data.get('phrase', '')
+        phi = float(data.get('phi', 0.9))
+        is_mnemonic = bool(data.get('is_mnemonic', False))
+        
+        if not phrase:
+            return jsonify({'success': False, 'error': 'phrase is required'}), 400
+        
+        result = register_balance_hit(phrase, phi, is_mnemonic)
+        return jsonify({'success': True, **result})
+    except Exception as e:
+        print(f"[HypothesisFeedback] Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =========================================================================
 # 🌪️ CHAOS MODE API REGISTRATION
 # =========================================================================
 try:
