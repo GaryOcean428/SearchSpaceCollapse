@@ -92,6 +92,12 @@ export class OceanPersistence {
   private consecutiveFailures = 0;
   private readonly MAX_CONSECUTIVE_FAILURES = 10;
   
+  // In-memory cache for hasBeenTested to reduce database load
+  private testedPhraseCache: Set<string> = new Set();
+  private readonly CACHE_MAX_SIZE = 50000; // Limit memory usage
+  private cacheHits = 0;
+  private cacheMisses = 0;
+  
   constructor() {
     this.isAvailable = db !== null;
     if (this.isAvailable) {
@@ -984,22 +990,68 @@ export class OceanPersistence {
   // ============================================================================
   
   /**
-   * Check if a phrase has been tested
+   * Check if a phrase has been tested (uses in-memory cache to reduce DB load)
    */
   async hasBeenTested(phrase: string): Promise<boolean> {
+    const hash = crypto.createHash('sha256').update(phrase).digest('hex');
+    
+    // Check in-memory cache first (fast path)
+    if (this.testedPhraseCache.has(hash)) {
+      this.cacheHits++;
+      return true;
+    }
+    
+    // Also check the pending buffer (not yet flushed to DB)
+    if (this.testedPhraseBuffer.has(phrase)) {
+      this.cacheHits++;
+      return true;
+    }
+    
     if (!db) return false;
     
+    // Database lookup with semaphore protection
+    this.cacheMisses++;
     try {
-      const hash = crypto.createHash('sha256').update(phrase).digest('hex');
-      const result = await db.select()
-        .from(testedPhrasesIndex)
-        .where(eq(testedPhrasesIndex.phraseHash, hash))
-        .limit(1);
-      return result.length > 0;
+      const result = await withDbRetry(async () => {
+        return db!.select()
+          .from(testedPhrasesIndex)
+          .where(eq(testedPhrasesIndex.phraseHash, hash))
+          .limit(1);
+      }, 'hasBeenTested', 3);
+      
+      // withDbRetry returns null on failure
+      if (result === null) {
+        return false;
+      }
+      
+      const found = result.length > 0;
+      
+      // Add to cache if found (cache positive results only to save memory)
+      if (found && this.testedPhraseCache.size < this.CACHE_MAX_SIZE) {
+        this.testedPhraseCache.add(hash);
+      }
+      
+      return found;
     } catch (error) {
       console.error('[OceanPersistence] Failed to check tested phrase:', error);
       return false;
     }
+  }
+  
+  /**
+   * Get cache statistics for monitoring
+   */
+  getCacheStats() {
+    return {
+      cacheSize: this.testedPhraseCache.size,
+      maxCacheSize: this.CACHE_MAX_SIZE,
+      bufferSize: this.testedPhraseBuffer.size,
+      cacheHits: this.cacheHits,
+      cacheMisses: this.cacheMisses,
+      hitRate: this.cacheHits + this.cacheMisses > 0 
+        ? (this.cacheHits / (this.cacheHits + this.cacheMisses) * 100).toFixed(1) + '%'
+        : 'N/A'
+    };
   }
   
   /**
@@ -1011,6 +1063,12 @@ export class OceanPersistence {
     
     // Add to buffer (Set handles deduplication)
     this.testedPhraseBuffer.add(phrase);
+    
+    // Also add to cache for fast future lookups
+    if (this.testedPhraseCache.size < this.CACHE_MAX_SIZE) {
+      const hash = crypto.createHash('sha256').update(phrase).digest('hex');
+      this.testedPhraseCache.add(hash);
+    }
     
     // Auto-flush when buffer is full
     if (this.testedPhraseBuffer.size >= this.BATCH_SIZE) {
