@@ -1,0 +1,24 @@
+ WebSocket connection to 'wss://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/?token=g7x-qcso2S6J' failed: 
+
+workspace_iframe.htm…F&id=%3Ar1ii%3A:142 Loading the script 'https://replit.com/public/js/beacon.js' violates the following Content Security Policy directive: "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.
+190e43c6-d4eb-4c4f-b…dev/api/auth/user:1 
+ Failed to load resource: the server responded with a status of 401 (Unauthorized)
+(unknown) [Coframe] Replit Enterprise watcher loaded
+edge.cofra.me/cf.js?…22%253Atrue%257D:10 [Coframe] Failed to set cookie coframe.user.token for domain: replit.com 
+Object
+edge.cofra.me/cf.js?…22%253Atrue%257D:10 [Coframe] Failed to set cookie coframe.cvc for domain: replit.com 
+Object
+edge.cofra.me/cf.js?…22%253Atrue%257D:10 [Coframe] Failed to set cookie coframe.lastVisitTime for domain: replit.com 
+Object
+0TMU4swKvaGdlMwKZyrVQ:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+0TMU4swKvaGdlMwKZyrVQ:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+0TMU4swKvaGdlMwKZyrVQ:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+0TMU4swKvaGdlMwKZyrVQ:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+0TMU4swKvaGdlMwKZyrVQ:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+0TMU4swKvaGdlMwKZyrVQ:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+36dd60accae7c00e.js:2 [LaunchDarkly] LaunchDarkly client initialized
+6
+Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('<URL>') does not match the recipient window's origin ('<URL>').
+stallwart.build.js:1 stallwart: failed ping 1
+36dd60accae7c00e.js:2 Fetch finished loading: POST "https://sp.replit.com/v1/m".
+VM746:31 WebSocket connection to 'wss://190e43c6-d4eb-4c4f-b490-2e9bc1759cf6-00-8ivd0fjdftg5.picard.replit.dev/?token=g7x-qcso2S6J' failed: 
