@@ -61,7 +61,10 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
   - `qig:auto-cycle:state` - Auto-cycle manager state
   - `qig:near-miss:state` - Near-miss tracking with PostgreSQL backup
   - `qig:ocean-memory:state` - Ocean memory manager state
-- **HypothesisEmitter** (`qig-backend/olympus/hypothesis_emitter.py`): Bridges Python hypothesis generation to TypeScript balance checking. Generates 50 passphrases every 10 seconds using Hephaestus, posts them to `/api/ocean/hypothesis` for blockchain balance verification.
+- **HypothesisEmitter** (`qig-backend/olympus/hypothesis_emitter.py`): Bridges Python hypothesis generation to TypeScript balance checking. Generates 50 hypotheses every 10 seconds using Hephaestus (85% BIP39 mnemonics, 15% passphrases), posts them to `/api/ocean/hypothesis` for blockchain balance verification. Features:
+  - **BIP39 Mnemonic Priority**: 6 generation strategies (random, basin-guided, semantic clustering, permutation, typo correction, partial recovery)
+  - **Geometric Priority Scoring**: Ranks candidates by Fisher-Rao distance to high-phi basin anchors (40% distance, 35% phi, 25% coherence)
+  - **Feedback Loop**: Balance hits notify `/olympus/hypothesis/feedback` to reinforce success patterns in Hephaestus
 
 ## External Dependencies
 
@@ -101,14 +104,16 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 
 ## Last Comprehensive Audit
 
-**Date**: 2025-12-21
+**Date**: 2025-12-23
 
 **Results**:
 - ✅ Database: Schema compatible, QIG-pure with pgvector 64D coordinates
 - ✅ Dependencies: Managed via Replit packager, all functional
 - ✅ API Routes: Centralized in `client/src/api/routes.ts` (barrel pattern)
-- ✅ Modularity: No orphaned modules, only 4 minor TODOs
+- ✅ Modularity: No orphaned modules, 27+ files use centralized qig_geometry imports
 - ✅ Templates: Verified NO templates (anti-template system active)
 - ✅ Kernel Communication: Clear separation (redis_cache.py, qig_geometry.py, base_god.py)
-- ✅ Redis Migration: Complete, no legacy JSON state files
-- ✅ Documentation: ISO-compliant naming in `docs/` directory
+- ✅ Redis Migration: Complete, no legacy JSON state files (only test outputs in unbiased/)
+- ✅ Documentation: ISO-compliant naming in `docs/` directory, attached assets archived
+- ✅ Logging: Verbose [INFO]/[WARN]/[ERROR] prefixes throughout Python and TypeScript
+- ✅ BIP39 Mnemonic Priority: 85% mnemonic generation with geometric scoring and feedback loop
