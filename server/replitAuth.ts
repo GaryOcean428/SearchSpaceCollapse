@@ -204,19 +204,25 @@ export async function setupAuth(app: Express) {
     passport.authenticate(`replitauth:${domain}`, (err: any, user: any, info: any) => {
       if (err) {
         console.error(`[Auth] Callback error:`, err);
-        return res.redirect('/api/login?error=' + encodeURIComponent(err.message || 'Unknown error'));
+        // Redirect to landing with error so user can retry
+        const errorMsg = err.message || 'Unknown error';
+        const errorType = errorMsg.toLowerCase().includes('timed out') || errorMsg.toLowerCase().includes('timeout') ? 'timeout' : 'error';
+        return res.redirect('/?authError=' + errorType + '&message=' + encodeURIComponent(errorMsg));
       }
       
       if (!user) {
         console.error(`[Auth] No user returned:`, info);
-        return res.redirect('/api/login?error=' + encodeURIComponent(info?.message || 'Authentication failed'));
+        // Redirect to landing with error so user can retry
+        const errorMsg = info?.message || 'Authentication failed';
+        const errorType = errorMsg.toLowerCase().includes('timed out') || errorMsg.toLowerCase().includes('timeout') ? 'timeout' : 'failed';
+        return res.redirect('/?authError=' + errorType + '&message=' + encodeURIComponent(errorMsg));
       }
       
       // Log the user in and redirect to home
       req.logIn(user, (loginErr) => {
         if (loginErr) {
           console.error(`[Auth] Login error:`, loginErr);
-          return res.redirect('/api/login?error=' + encodeURIComponent(loginErr.message || 'Login failed'));
+          return res.redirect('/?authError=login&message=' + encodeURIComponent(loginErr.message || 'Login failed'));
         }
         
         console.log(`[Auth] Successfully logged in user: ${user.claims?.sub}`);

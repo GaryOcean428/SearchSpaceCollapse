@@ -1,8 +1,32 @@
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { KeyRound, Lock, Sparkles, Shield } from "lucide-react";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Alert, AlertDescription, AlertTitle } from "@/components/ui";
+import { KeyRound, Lock, Sparkles, Shield, AlertCircle, RefreshCw } from "lucide-react";
 import { API_ROUTES } from "@/api";
+import { useEffect, useState } from "react";
 
 export default function Landing() {
+  const [authError, setAuthError] = useState<{ type: string; message: string } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorType = params.get('authError');
+    const message = params.get('message');
+    
+    if (errorType) {
+      setAuthError({ type: errorType, message: message || 'Authentication failed' });
+      // Clean up URL without reload
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
+
+  const getErrorTitle = (type: string) => {
+    switch (type) {
+      case 'timeout': return 'Authentication Timed Out';
+      case 'failed': return 'Authentication Failed';
+      case 'login': return 'Login Failed';
+      default: return 'Authentication Error';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       <div className="container mx-auto px-4 py-16">
@@ -19,6 +43,36 @@ export default function Landing() {
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Advanced Bitcoin brain wallet recovery using Quantum Information Geometry (QIG) scoring algorithms to recover lost passphrases through geodesic navigation of the information manifold.
             </p>
+            
+            {authError && (
+              <Alert variant="destructive" className="max-w-md mx-auto text-left" data-testid="alert-auth-error">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{getErrorTitle(authError.type)}</AlertTitle>
+                <AlertDescription className="mt-2">
+                  <p className="mb-3">{authError.message}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.location.href = API_ROUTES.auth.login}
+                      data-testid="button-retry-login"
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Try Again
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setAuthError(null)}
+                      data-testid="button-dismiss-error"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex flex-wrap gap-4 justify-center">
               <Button
                 size="lg"
