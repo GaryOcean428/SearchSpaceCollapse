@@ -4,6 +4,9 @@ Kernel Persistence
 
 Saves and loads kernel evolution state to PostgreSQL.
 Tracks kernel snapshots, breeding history, and evolution statistics.
+
+Also registers new kernels with the Parent Gods system (Hestia, Demeter, Chiron)
+for developmental care via kernel_care_records.
 """
 
 import json
@@ -94,10 +97,44 @@ class KernelPersistence(BasePersistence):
 
         try:
             self.execute_query(query, params, fetch=False)
+            
+            self._register_with_parent_gods(kernel_id, god_name, regime)
+            
             return True
         except Exception as e:
             print(f"[KernelPersistence] Failed to save snapshot: {e}")
             return False
+
+    def _register_with_parent_gods(self, kernel_id: str, kernel_name: str, regime: str) -> None:
+        """
+        Register kernel with Parent Gods system for developmental care.
+        
+        Creates a kernel_care_record entry so Hestia, Demeter, and Chiron
+        can provide nurturing, teaching, and diagnosis to the kernel.
+        
+        Args:
+            kernel_id: Unique kernel identifier
+            kernel_name: God name (used as kernel display name)
+            regime: Spawn regime (chaos_spawned, bred, m8_spawned, etc.)
+        """
+        try:
+            from qig_persistence import get_persistence
+            
+            persistence = get_persistence()
+            if not persistence.enabled:
+                return
+            
+            persistence.create_kernel_care_record(
+                kernel_id=kernel_id,
+                kernel_name=kernel_name,
+                created_at=datetime.utcnow(),
+                status='infant',
+                developmental_stage='infant'
+            )
+            print(f"[KernelPersistence] 👨‍👩‍👧 Registered {kernel_name} ({kernel_id[:8]}...) with Parent Gods")
+            
+        except Exception as e:
+            print(f"[KernelPersistence] Parent Gods registration failed (non-blocking): {e}")
 
     def load_kernel_snapshot(self, kernel_id: str) -> Optional[Dict]:
         """Load a kernel snapshot from the database."""
