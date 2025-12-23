@@ -125,9 +125,9 @@ class ConnectionSemaphore {
   }
 }
 
-// Global semaphore: limit to 20 concurrent operations (leaving headroom for pool's 30)
-// Queue limit of 50 prevents unbounded queue growth during pool exhaustion
-const dbSemaphore = new ConnectionSemaphore(20, 'DB', 50);
+// Global semaphore: limit to 15 concurrent operations (leaving headroom for pool's 20)
+// Queue limit of 30 prevents unbounded queue growth during pool exhaustion
+const dbSemaphore = new ConnectionSemaphore(15, 'DB', 30);
 
 // Export for monitoring
 export function getDbSemaphoreStats() {
@@ -232,18 +232,20 @@ if (databaseUrl) {
       testConnection();
     } else {
       // DEVELOPMENT: Use Pool with WebSocket for real-time features
+      // Reduced from 30 to 20 to leave headroom for session store's dedicated pool (5)
+      // Total: 20 + 5 = 25 connections, well under Neon's limits
       const connectionTimeout = 15000;
       
       pool = new Pool({ 
         connectionString: databaseUrl,
-        max: 30,
+        max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: connectionTimeout,
         keepAlive: true,
         keepAliveInitialDelayMillis: 5000
       });
       db = drizzle(pool, { schema });
-      console.log(`[DB] Database connection pool initialized (max: 30, idle: 30s, timeout: ${connectionTimeout}ms)`);
+      console.log(`[DB] Database connection pool initialized (max: 20, idle: 30s, timeout: ${connectionTimeout}ms)`);
       
       pool.on('error', (err) => {
         console.error('[DB] Pool error:', err);

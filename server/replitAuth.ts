@@ -6,6 +6,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
+import { Pool } from '@neondatabase/serverless';
 import { storage } from "./storage";
 
 const getOidcConfig = memoize(
@@ -38,9 +39,24 @@ export function getSession() {
   let sessionStore;
   if (process.env.DATABASE_URL) {
     const pgStore = connectPg(session);
+    
+    // Create a dedicated pool for sessions with conservative settings
+    // This prevents session operations from competing with the main app pool
+    const sessionPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 5, // Small dedicated pool for sessions only
+      idleTimeoutMillis: 60000, // Keep connections alive longer
+      connectionTimeoutMillis: 30000, // Longer timeout for session operations
+      keepAlive: true,
+    });
+    
+    sessionPool.on('error', (err) => {
+      console.error('[Session] Pool error:', err?.message || err);
+    });
+    
     sessionStore = new pgStore({
-      conString: process.env.DATABASE_URL,
-      createTableIfMissing: true, // Auto-create if missing
+      pool: sessionPool, // Use dedicated pool instead of conString
+      createTableIfMissing: true,
       ttl: sessionTtl,
       tableName: "sessions",
       pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
@@ -48,7 +64,7 @@ export function getSession() {
         console.error("[Session] PostgreSQL session store error:", err?.message || err || "unknown error");
       },
     });
-    console.log("[Session] Using PostgreSQL session store");
+    console.log("[Session] Using PostgreSQL session store with dedicated pool (max: 5)");
   } else {
     console.log("[Session] Using memory session store (no DATABASE_URL)");
   }
