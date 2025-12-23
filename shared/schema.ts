@@ -2713,13 +2713,16 @@ export const testedPhrases = pgTable(
     kappa: doublePrecision("kappa"),
     regime: varchar("regime", { length: 32 }),
     testedAt: timestamp("tested_at").defaultNow().notNull(),
-    retestCount: integer("retest_count").default(0), // Track how many times we wastefully re-tested
+    retestCount: integer("retest_count").default(0),
+    derivationVersion: integer("derivation_version").default(1),
+    addressCount: integer("address_count").default(0),
   },
   (table) => [
     index("idx_tested_phrases_phrase").on(table.phrase),
     index("idx_tested_phrases_tested_at").on(table.testedAt),
     index("idx_tested_phrases_balance").on(table.balanceSats),
     index("idx_tested_phrases_retest_count").on(table.retestCount),
+    index("idx_tested_phrases_derivation_version").on(table.derivationVersion),
   ]
 );
 

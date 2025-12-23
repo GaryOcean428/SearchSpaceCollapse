@@ -95,6 +95,8 @@ export const API_ROUTES = {
     backgroundStart: '/api/balance-queue/background/start',
     backgroundStop: '/api/balance-queue/background/stop',
     retryFailed: '/api/observer/balance-queue/retry-failed',
+    mnemonicRetryStats: '/api/balance/mnemonic-retry/stats',
+    mnemonicRetryStart: '/api/balance/mnemonic-retry/start',
   },
 
   balanceMonitor: {
