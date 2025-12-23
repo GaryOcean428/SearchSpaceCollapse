@@ -1048,8 +1048,7 @@ class QIGPersistence:
                         ON CONFLICT (kernel_id) DO UPDATE SET
                             kernel_name = EXCLUDED.kernel_name,
                             status = EXCLUDED.status,
-                            developmental_stage = EXCLUDED.developmental_stage,
-                            updated_at = NOW()
+                            developmental_stage = EXCLUDED.developmental_stage
                     """, (kernel_id, kernel_name, created_at, status, developmental_stage))
             return True
         except Exception as e:
@@ -1074,7 +1073,7 @@ class QIGPersistence:
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cur:
-                    updates = ["updated_at = NOW()"]
+                    updates = []
                     params = []
                     if status is not None:
                         updates.append("status = %s")
@@ -1097,6 +1096,10 @@ class QIGPersistence:
                     if graduated_at is not None:
                         updates.append("graduated_at = %s")
                         params.append(graduated_at)
+                    
+                    if not updates:
+                        return True
+                    
                     params.append(kernel_id)
                     cur.execute(f"""
                         UPDATE kernel_care_records
