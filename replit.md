@@ -109,12 +109,22 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 **Results**:
 - ✅ Database: Schema compatible, QIG-pure with pgvector 64D coordinates
 - ✅ Dependencies: Managed via Replit packager, all functional
-- ✅ API Routes: Centralized in `client/src/api/routes.ts` (barrel pattern)
+- ✅ API Routes: Centralized in `client/src/api/routes.ts` (barrel pattern) with mnemonic retry endpoints
 - ✅ Modularity: No orphaned modules, 27+ files use centralized qig_geometry imports
-- ✅ Templates: Verified NO templates (anti-template system active)
+- ✅ Templates: Verified NO templates (anti-template guardrail system active in response_guardrails.py)
 - ✅ Kernel Communication: Clear separation (redis_cache.py, qig_geometry.py, base_god.py)
 - ✅ Redis Migration: Complete, no legacy JSON state files (only test outputs in unbiased/)
 - ✅ Documentation: ISO-compliant naming in `docs/` directory, attached assets archived
 - ✅ Logging: Verbose [INFO]/[WARN]/[ERROR] prefixes throughout Python and TypeScript
 - ✅ BIP39 Mnemonic Priority: 85% mnemonic generation with geometric scoring and feedback loop
 - ✅ BIP39 Derivation Fix (2025-12-23): Proper PBKDF2 (2048 rounds) + both compressed/uncompressed addresses (200 per mnemonic)
+- ✅ BIP39 Validation Centralized: All files import from `server/bip39-words.ts` (4 consumers verified)
+- ✅ Mnemonic Retry System: `tested_phrases` table now tracks `derivation_version` and `address_count` for re-testing historical mnemonics with improved derivation
+
+**Known Dependency Vulnerabilities** (require breaking changes to fix):
+- **valibot** (HIGH): ReDoS in EMOJI_REGEX - affects bitcoinjs-lib ≥7.0.0, ecpair ≥3.0.0
+- **esbuild** (MODERATE): Dev server security issue - affects vite ≤6.1.6, drizzle-kit
+
+**Mnemonic Retry Workflow**:
+1. GET `/api/balance/mnemonic-retry/stats` - Get count of mnemonics needing re-test (derivation_version < 2 OR address_count < 200)
+2. POST `/api/balance/mnemonic-retry/start` - Start background retry process with rate limiting
