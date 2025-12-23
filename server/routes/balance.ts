@@ -4,7 +4,7 @@ import { isAuthenticated } from "../replitAuth";
 import { getBalanceHits, getActiveBalanceHits, fetchAddressBalance } from "../blockchain-scanner";
 import { getBalanceAddresses, getVerificationStats, refreshStoredBalances } from "../address-verification";
 import { balanceQueue } from "../balance-queue";
-import { getQueueIntegrationStats } from "../balance-queue-integration";
+import { getQueueIntegrationStats, retryMnemonicsWithFullDerivation, getMnemonicRetryStats } from "../balance-queue-integration";
 
 export const balanceRouter = Router();
 
@@ -232,6 +232,55 @@ balanceRouter.post("/queue/clear", isAuthenticated, standardLimiter, async (req:
     res.json({ success: true, message: 'Queue cleared' });
   } catch (error: any) {
     console.error("[BalanceQueue] Clear error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /balance/mnemonic-retry/stats
+ * Get statistics on mnemonics that need re-testing with full derivation
+ */
+balanceRouter.get("/mnemonic-retry/stats", standardLimiter, async (req: Request, res: Response) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const stats = await getMnemonicRetryStats();
+    
+    res.json({
+      ...stats,
+      description: 'Mnemonics tested before the 2025-12-23 BIP39 derivation fix that need re-testing with 200 addresses (100 paths × 2 formats)',
+    });
+  } catch (error: any) {
+    console.error("[MnemonicRetry] Stats error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /balance/mnemonic-retry/start
+ * Start re-testing mnemonics with full derivation (200 addresses per mnemonic)
+ */
+balanceRouter.post("/mnemonic-retry/start", isAuthenticated, standardLimiter, async (req: any, res: Response) => {
+  try {
+    const { batchSize = 100, maxTotal = 10000 } = req.body;
+    
+    // Start retry in background
+    res.json({
+      success: true,
+      message: `Mnemonic retry started (batch=${batchSize}, max=${maxTotal})`,
+      note: 'Retry is running in background. Check /balance/queue/status for progress.',
+    });
+    
+    // Run retry after response (non-blocking)
+    setImmediate(async () => {
+      try {
+        const result = await retryMnemonicsWithFullDerivation(batchSize, maxTotal);
+        console.log(`[MnemonicRetry] Completed:`, result);
+      } catch (error) {
+        console.error('[MnemonicRetry] Background error:', error);
+      }
+    });
+  } catch (error: any) {
+    console.error("[MnemonicRetry] Start error:", error);
     res.status(500).json({ error: error.message });
   }
 });

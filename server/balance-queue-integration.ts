@@ -780,3 +780,198 @@ export function batchSmartQueue(
     failedInputs,
   };
 }
+
+/**
+ * RETRY FUNCTION: Re-test mnemonics that were tested before the BIP39 derivation fix
+ * 
+ * The fix (2025-12-23) changed mnemonic derivation from:
+ * - OLD: 50 addresses (HD paths only, compressed only)
+ * - NEW: 200 addresses (100 HD paths × 2 formats: compressed + uncompressed)
+ * 
+ * This function finds previously-tested BIP39 mnemonics and re-queues them
+ * to ensure full derivation coverage including uncompressed 2009-era addresses.
+ * 
+ * @param batchSize - How many mnemonics to process per batch (default: 100)
+ * @param maxTotal - Maximum total mnemonics to retry (default: 10000)
+ * @returns Summary of retry operation
+ */
+export async function retryMnemonicsWithFullDerivation(
+  batchSize: number = 100,
+  maxTotal: number = 10000
+): Promise<{
+  totalFound: number;
+  totalRetried: number;
+  totalAddressesQueued: number;
+  errors: number;
+}> {
+  // Import db functions here to avoid circular dependencies
+  const { db, withDbRetry } = await import('./db');
+  const { testedPhrases } = await import('@shared/schema');
+  const { desc, sql } = await import('drizzle-orm');
+  
+  if (!db) {
+    console.error('[RetryMnemonics] No database available');
+    return { totalFound: 0, totalRetried: 0, totalAddressesQueued: 0, errors: 1 };
+  }
+  
+  console.log(`[RetryMnemonics] Starting mnemonic retry with full derivation (batch=${batchSize}, max=${maxTotal})`);
+  
+  let totalFound = 0;
+  let totalRetried = 0;
+  let totalAddressesQueued = 0;
+  let errors = 0;
+  let offset = 0;
+  
+  while (totalRetried < maxTotal) {
+    try {
+      // Fetch batch of tested phrases that look like BIP39 mnemonics
+      // BIP39 mnemonics are 12, 15, 18, 21, or 24 words
+      const batch = await withDbRetry(
+        async () => {
+          return await db!
+            .select({ phrase: testedPhrases.phrase })
+            .from(testedPhrases)
+            .orderBy(desc(testedPhrases.testedAt))
+            .limit(batchSize)
+            .offset(offset);
+        },
+        'fetch-mnemonics-for-retry',
+        3
+      );
+      
+      if (!batch || batch.length === 0) {
+        console.log(`[RetryMnemonics] No more phrases to process`);
+        break;
+      }
+      
+      offset += batch.length;
+      
+      // Filter to only valid BIP39 mnemonics
+      const mnemonics = batch
+        .map(row => row.phrase)
+        .filter(phrase => {
+          if (!phrase) return false;
+          const words = phrase.trim().split(/\s+/);
+          // Must be valid BIP39 word count
+          if (![12, 15, 18, 21, 24].includes(words.length)) return false;
+          // Must pass BIP39 word validation
+          return isValidBIP39Phrase(phrase);
+        });
+      
+      totalFound += mnemonics.length;
+      
+      if (mnemonics.length === 0) {
+        continue;
+      }
+      
+      // Re-queue each mnemonic with full derivation
+      for (const mnemonic of mnemonics) {
+        if (totalRetried >= maxTotal) break;
+        
+        try {
+          const result = queueMnemonicForBalanceCheck(mnemonic, 'retry-full-derivation', 3);
+          
+          if (result && result.queuedAddresses > 0) {
+            totalRetried++;
+            totalAddressesQueued += result.queuedAddresses;
+            
+            if (totalRetried % 100 === 0) {
+              console.log(`[RetryMnemonics] Progress: ${totalRetried} mnemonics retried, ${totalAddressesQueued} addresses queued`);
+            }
+          }
+        } catch (error) {
+          errors++;
+          console.error(`[RetryMnemonics] Error re-queuing mnemonic:`, error);
+        }
+      }
+      
+      // Small delay to avoid overwhelming the queue
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      errors++;
+      console.error(`[RetryMnemonics] Batch error:`, error);
+      break;
+    }
+  }
+  
+  console.log(`[RetryMnemonics] Complete:`);
+  console.log(`  - Total BIP39 mnemonics found: ${totalFound}`);
+  console.log(`  - Total mnemonics retried: ${totalRetried}`);
+  console.log(`  - Total addresses queued: ${totalAddressesQueued}`);
+  console.log(`  - Errors: ${errors}`);
+  
+  return {
+    totalFound,
+    totalRetried,
+    totalAddressesQueued,
+    errors,
+  };
+}
+
+/**
+ * Get stats on how many mnemonics exist in the tested phrases database
+ * Useful for estimating retry scope before running full retry
+ */
+export async function getMnemonicRetryStats(): Promise<{
+  totalTestedPhrases: number;
+  estimatedMnemonics: number;
+  sampleMnemonics: string[];
+}> {
+  const { db, withDbRetry } = await import('./db');
+  const { testedPhrases } = await import('@shared/schema');
+  const { sql, desc } = await import('drizzle-orm');
+  
+  if (!db) {
+    return { totalTestedPhrases: 0, estimatedMnemonics: 0, sampleMnemonics: [] };
+  }
+  
+  try {
+    // Get total count
+    const countResult = await withDbRetry(
+      async () => {
+        return await db!
+          .select({ count: sql<number>`count(*)` })
+          .from(testedPhrases);
+      },
+      'count-tested-phrases',
+      3
+    );
+    
+    const totalTestedPhrases = countResult?.[0]?.count || 0;
+    
+    // Sample recent phrases to estimate mnemonic percentage
+    const sample = await withDbRetry(
+      async () => {
+        return await db!
+          .select({ phrase: testedPhrases.phrase })
+          .from(testedPhrases)
+          .orderBy(desc(testedPhrases.testedAt))
+          .limit(1000);
+      },
+      'sample-tested-phrases',
+      3
+    );
+    
+    const mnemonics = (sample || [])
+      .map(row => row.phrase)
+      .filter(phrase => {
+        if (!phrase) return false;
+        const words = phrase.trim().split(/\s+/);
+        if (![12, 15, 18, 21, 24].includes(words.length)) return false;
+        return isValidBIP39Phrase(phrase);
+      });
+    
+    const mnemonicRatio = sample && sample.length > 0 ? mnemonics.length / sample.length : 0;
+    const estimatedMnemonics = Math.round(totalTestedPhrases * mnemonicRatio);
+    
+    return {
+      totalTestedPhrases,
+      estimatedMnemonics,
+      sampleMnemonics: mnemonics.slice(0, 5).map(m => m.substring(0, 40) + '...'),
+    };
+  } catch (error) {
+    console.error('[RetryMnemonics] Error getting stats:', error);
+    return { totalTestedPhrases: 0, estimatedMnemonics: 0, sampleMnemonics: [] };
+  }
+}
