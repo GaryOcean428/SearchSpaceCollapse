@@ -20,6 +20,7 @@ import { balanceQueue } from './balance-queue';
 import { deriveMnemonicAddresses, checkMnemonicAgainstDormant } from './mnemonic-wallet';
 import { oceanPersistence } from './ocean/ocean-persistence';
 import { testedEmptyTracker } from './tested-empty-tracker';
+import { isValidBIP39Phrase } from './bip39-words';
 
 interface QueuedAddressResult {
   passphrase: string;
@@ -264,14 +265,17 @@ export function batchQueueAddresses(
  */
 export interface QueuedMnemonicResult {
   mnemonic: string;
+  totalPaths: number;
   totalAddresses: number;
   queuedAddresses: number;
   failedAddresses: number;
   dormantMatches: number;
   derivedAddresses: Array<{
-    address: string;
+    addressCompressed: string;
+    addressUncompressed: string;
     path: string;
-    queued: boolean;
+    compressedQueued: boolean;
+    uncompressedQueued: boolean;
     isDormant: boolean;
   }>;
 }
@@ -281,8 +285,12 @@ export interface QueuedMnemonicResult {
  * 
  * This is the proper way to check mnemonic-based wallets:
  * 1. Derives 50+ addresses using standard HD paths (BIP44/49/84)
- * 2. Checks each against dormant target addresses
- * 3. Queues each for blockchain balance verification
+ * 2. Generates BOTH compressed AND uncompressed addresses per path
+ * 3. Checks each against dormant target addresses
+ * 4. Queues each for blockchain balance verification
+ * 
+ * CRITICAL: Each derivation path yields 2 addresses (compressed + uncompressed)
+ * 2009-era wallets used uncompressed keys exclusively!
  * 
  * @param mnemonic - BIP39 mnemonic phrase (12-24 words)
  * @param source - Tracking source for metrics
@@ -313,9 +321,13 @@ export function queueMnemonicForBalanceCheck(
     const derivedAddresses: QueuedMnemonicResult['derivedAddresses'] = [];
     
     for (const derived of derivationResult.addresses) {
-      const isDormant = dormantCheckResult.matches.some(m => m.address === derived.address);
+      // Check BOTH addresses against dormant list
+      const isDormantCompressed = dormantCheckResult.matches.some(m => m.address === derived.address);
+      const isDormantUncompressed = dormantCheckResult.matches.some(m => m.address === derived.addressUncompressed);
+      const isDormant = isDormantCompressed || isDormantUncompressed;
       
-      const result = balanceQueue.enqueue(
+      // Queue COMPRESSED address
+      const compressedResult = balanceQueue.enqueue(
         derived.address,
         mnemonic,
         derived.privateKeyWIFCompressed,
@@ -323,17 +335,27 @@ export function queueMnemonicForBalanceCheck(
         { priority: isDormant ? priority + 10 : priority, source: 'mnemonic' }
       );
       
-      const queued = result;
-      if (queued) {
-        queuedCount++;
-      } else {
-        failedCount++;
-      }
+      // Queue UNCOMPRESSED address (critical for 2009-era recovery!)
+      const uncompressedResult = balanceQueue.enqueue(
+        derived.addressUncompressed,
+        mnemonic,
+        derived.privateKeyWIF,
+        false,
+        { priority: isDormant ? priority + 10 : priority, source: 'mnemonic' }
+      );
+      
+      if (compressedResult) queuedCount++;
+      else failedCount++;
+      
+      if (uncompressedResult) queuedCount++;
+      else failedCount++;
       
       derivedAddresses.push({
-        address: derived.address,
+        addressCompressed: derived.address,
+        addressUncompressed: derived.addressUncompressed,
         path: derived.derivationPath,
-        queued,
+        compressedQueued: compressedResult,
+        uncompressedQueued: uncompressedResult,
         isDormant,
       });
     }
@@ -360,12 +382,13 @@ export function queueMnemonicForBalanceCheck(
     }
     
     if (queuedCount > 0 && (stats.totalQueued % 500 === 0 || dormantCheckResult.hasMatch)) {
-      console.log(`[BalanceQueueIntegration] Mnemonic: ${queuedCount}/${derivationResult.totalDerived} addresses queued from ${source}`);
+      console.log(`[BalanceQueueIntegration] Mnemonic: ${queuedCount}/${derivationResult.totalDerived * 2} addresses queued from ${source} (${derivationResult.totalDerived} paths × 2 formats)`);
     }
     
     return {
       mnemonic,
-      totalAddresses: derivationResult.totalDerived,
+      totalPaths: derivationResult.totalDerived,
+      totalAddresses: derivationResult.totalDerived * 2, // Each path yields 2 addresses
       queuedAddresses: queuedCount,
       failedAddresses: failedCount,
       dormantMatches: dormantCheckResult.matches.length,
@@ -611,4 +634,149 @@ export async function hasBeenTested(phrase: string): Promise<boolean> {
 export async function getTestedPhraseCount(): Promise<number> {
   const stats = await oceanPersistence.getStats();
   return stats.testedPhraseCount;
+}
+
+/**
+ * Result of smart queue operation that handles both mnemonics and passphrases
+ */
+export interface SmartQueueResult {
+  input: string;
+  inputType: 'bip39_mnemonic' | 'passphrase';
+  addressesQueued: number;
+  derivationPaths?: number;
+  success: boolean;
+}
+
+/**
+ * SMART QUEUE: Auto-detect input type and route appropriately
+ * 
+ * This is the PRIMARY entry point for hypothesis testing. It:
+ * 1. Detects if input is a valid BIP39 mnemonic (12/15/18/21/24 words)
+ * 2. Routes mnemonics through proper PBKDF2 + HD derivation (50+ addresses)
+ * 3. Routes passphrases through brainwallet SHA256 derivation (2 addresses)
+ * 
+ * CRITICAL FIX: Previously, mnemonics were treated as brainwallets (SHA256),
+ * which generates completely wrong addresses. Real BIP39 uses PBKDF2 with
+ * 2048 rounds to derive the seed.
+ * 
+ * @param input - Either a BIP39 mnemonic or a passphrase
+ * @param source - Tracking source for metrics
+ * @param priority - Queue priority (higher = checked first)
+ * @returns Details about what was queued
+ */
+export function smartQueueForBalanceCheck(
+  input: string,
+  source: string = 'smart',
+  priority: number = 1
+): SmartQueueResult {
+  if (!input || typeof input !== 'string' || input.trim().length === 0) {
+    return {
+      input: input || '',
+      inputType: 'passphrase',
+      addressesQueued: 0,
+      success: false,
+    };
+  }
+  
+  const trimmedInput = input.trim();
+  
+  // Detect if this is a valid BIP39 mnemonic
+  if (isValidBIP39Phrase(trimmedInput)) {
+    // Route through proper BIP39 derivation with 50+ addresses
+    console.log(`[SmartQueue] Detected BIP39 mnemonic (${trimmedInput.split(' ').length} words), using HD derivation`);
+    
+    const result = queueMnemonicForBalanceCheck(trimmedInput, source, priority);
+    
+    if (result) {
+      return {
+        input: trimmedInput,
+        inputType: 'bip39_mnemonic',
+        addressesQueued: result.queuedAddresses,
+        derivationPaths: result.totalAddresses,
+        success: result.queuedAddresses > 0,
+      };
+    } else {
+      return {
+        input: trimmedInput,
+        inputType: 'bip39_mnemonic',
+        addressesQueued: 0,
+        success: false,
+      };
+    }
+  } else {
+    // Route through brainwallet derivation (SHA256 → 2 addresses)
+    const result = queueAddressForBalanceCheck(trimmedInput, source, priority);
+    
+    if (result) {
+      const queuedCount = (result.compressedQueued ? 1 : 0) + (result.uncompressedQueued ? 1 : 0);
+      return {
+        input: trimmedInput,
+        inputType: 'passphrase',
+        addressesQueued: queuedCount,
+        success: queuedCount > 0,
+      };
+    } else {
+      return {
+        input: trimmedInput,
+        inputType: 'passphrase',
+        addressesQueued: 0,
+        success: false,
+      };
+    }
+  }
+}
+
+/**
+ * Batch smart queue: Process multiple inputs, auto-detecting each type
+ * 
+ * @param inputs - Array of passphrases or mnemonics
+ * @param source - Tracking source for metrics
+ * @param priority - Base queue priority
+ * @returns Summary of batch processing
+ */
+export function batchSmartQueue(
+  inputs: string[],
+  source: string = 'batch-smart',
+  priority: number = 1
+): {
+  totalInputs: number;
+  mnemonicsDetected: number;
+  passphrasesDetected: number;
+  totalAddressesQueued: number;
+  successfulInputs: number;
+  failedInputs: number;
+} {
+  let mnemonicsDetected = 0;
+  let passphrasesDetected = 0;
+  let totalAddressesQueued = 0;
+  let successfulInputs = 0;
+  let failedInputs = 0;
+  
+  for (const input of inputs) {
+    const result = smartQueueForBalanceCheck(input, source, priority);
+    
+    if (result.inputType === 'bip39_mnemonic') {
+      mnemonicsDetected++;
+    } else {
+      passphrasesDetected++;
+    }
+    
+    if (result.success) {
+      successfulInputs++;
+      totalAddressesQueued += result.addressesQueued;
+    } else {
+      failedInputs++;
+    }
+  }
+  
+  console.log(`[SmartQueue] Batch complete: ${mnemonicsDetected} mnemonics, ${passphrasesDetected} passphrases, ${totalAddressesQueued} addresses queued`);
+  
+  return {
+    totalInputs: inputs.length,
+    mnemonicsDetected,
+    passphrasesDetected,
+    totalAddressesQueued,
+    successfulInputs,
+    failedInputs,
+  };
 }

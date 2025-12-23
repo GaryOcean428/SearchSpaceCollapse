@@ -1373,7 +1373,7 @@ oceanRouter.post(
   standardLimiter,
   async (req: Request, res: Response) => {
     try {
-      const { queueAddressForBalanceCheck } = await import("../balance-queue-integration");
+      const { smartQueueForBalanceCheck } = await import("../balance-queue-integration");
       const { oceanPersistence } = await import("../ocean/ocean-persistence");
       
       const { hypotheses, source = "python", phi = 0.5 } = req.body;
@@ -1386,8 +1386,11 @@ oceanRouter.post(
       }
       
       let queued = 0;
+      let addressesQueued = 0;
       let skipped = 0;
       let alreadyTested = 0;
+      let mnemonicsDetected = 0;
+      let passphrasesDetected = 0;
       
       for (const hypothesis of hypotheses) {
         if (typeof hypothesis !== 'string' || hypothesis.length === 0) {
@@ -1402,23 +1405,31 @@ oceanRouter.post(
         }
         
         const priority = Math.round(3 + phi * 7);
-        const result = queueAddressForBalanceCheck(hypothesis, source, priority, undefined, phi);
+        const result = smartQueueForBalanceCheck(hypothesis, source, priority);
         
-        if (result && (result.compressedQueued || result.uncompressedQueued)) {
+        if (result.success) {
           queued++;
-        } else if (result?.skippedTestedEmpty) {
-          alreadyTested++;
+          addressesQueued += result.addressesQueued;
+          
+          if (result.inputType === 'bip39_mnemonic') {
+            mnemonicsDetected++;
+          } else {
+            passphrasesDetected++;
+          }
         } else {
           skipped++;
         }
       }
       
-      console.log(`[HypothesisEndpoint] Received ${hypotheses.length} hypotheses: ${queued} queued, ${alreadyTested} already tested, ${skipped} skipped`);
+      console.log(`[HypothesisEndpoint] Received ${hypotheses.length} hypotheses: ${queued} queued (${addressesQueued} addresses), ${mnemonicsDetected} mnemonics, ${passphrasesDetected} passphrases, ${alreadyTested} already tested, ${skipped} skipped`);
       
       res.json({
         success: true,
         received: hypotheses.length,
         queued,
+        addressesQueued,
+        mnemonicsDetected,
+        passphrasesDetected,
         alreadyTested,
         skipped,
       });

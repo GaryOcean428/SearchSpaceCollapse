@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes, pbkdf2Sync } from "crypto";
 import elliptic from "elliptic";
 import bs58check from "bs58check";
 
@@ -74,6 +74,122 @@ export function validateBitcoinAddress(address: string): void {
   } catch {
     throw new CryptoValidationError('Invalid Bitcoin address checksum');
   }
+}
+
+/**
+ * BIP39 Mnemonic to Seed conversion
+ * 
+ * PROPER BIP39 DERIVATION:
+ * seed = PBKDF2(mnemonic, "mnemonic" + passphrase, 2048 rounds, 64 bytes, HMAC-SHA512)
+ * 
+ * This is the CORRECT way to derive a seed from a BIP39 mnemonic phrase.
+ * The previous implementation incorrectly used SHA512 directly.
+ * 
+ * @param mnemonic - The BIP39 mnemonic phrase (12/15/18/21/24 words)
+ * @param passphrase - Optional BIP39 passphrase (NOT the mnemonic, this is extra protection)
+ * @returns 64-byte seed buffer
+ */
+export function mnemonicToSeed(mnemonic: string, passphrase: string = ''): Buffer {
+  const normalizedMnemonic = mnemonic.normalize('NFKD');
+  const normalizedPassphrase = passphrase.normalize('NFKD');
+  const salt = 'mnemonic' + normalizedPassphrase;
+  
+  return pbkdf2Sync(
+    normalizedMnemonic,
+    salt,
+    2048,
+    64,
+    'sha512'
+  );
+}
+
+/**
+ * Derive BIP32 master key from BIP39 seed
+ * 
+ * @param seed - 64-byte seed from mnemonicToSeed()
+ * @returns { privateKey, chainCode }
+ */
+export function seedToMasterKey(seed: Buffer): { privateKey: Buffer; chainCode: Buffer } {
+  const masterKey = createHmac('sha512', 'Bitcoin seed')
+    .update(seed)
+    .digest();
+  
+  return {
+    privateKey: masterKey.slice(0, 32),
+    chainCode: masterKey.slice(32, 64)
+  };
+}
+
+/**
+ * Derive BIP32 private key from BIP39 mnemonic using PROPER PBKDF2 derivation
+ * 
+ * CORRECT BIP39 FLOW:
+ * 1. PBKDF2(mnemonic, "mnemonic" + salt, 2048 rounds) → 512-bit seed
+ * 2. HMAC-SHA512(seed, "Bitcoin seed") → master private key + chain code
+ * 3. BIP32 path derivation → child private keys
+ * 
+ * @param mnemonic - BIP39 mnemonic phrase (12/15/18/21/24 words)
+ * @param derivationPath - BIP32 path (e.g., m/44'/0'/0'/0/0)
+ * @param bip39Passphrase - Optional BIP39 passphrase (extra protection, usually empty)
+ * @returns Private key as hex string
+ */
+export function deriveBIP39PrivateKey(
+  mnemonic: string, 
+  derivationPath: string = "m/44'/0'/0'/0/0",
+  bip39Passphrase: string = ''
+): string {
+  validatePassphrase(mnemonic);
+  validateDerivationPath(derivationPath);
+  
+  const seed = mnemonicToSeed(mnemonic, bip39Passphrase);
+  const { privateKey: masterPrivateKey, chainCode: masterChainCode } = seedToMasterKey(seed);
+  
+  let privateKey = masterPrivateKey;
+  let chainCode = masterChainCode;
+  
+  const pathParts = derivationPath
+    .replace('m/', '')
+    .split('/')
+    .filter(p => p.length > 0);
+  
+  for (const part of pathParts) {
+    const hardened = part.endsWith("'");
+    const index = parseInt(part.replace("'", ""), 10);
+    
+    const actualIndex = hardened ? index + 0x80000000 : index;
+    
+    let data: Buffer;
+    if (hardened) {
+      data = Buffer.concat([
+        Buffer.from([0x00]),
+        privateKey,
+        Buffer.alloc(4)
+      ]);
+    } else {
+      const keyPair = ec.keyFromPrivate(privateKey);
+      const publicKey = Buffer.from(keyPair.getPublic().encode("array", true));
+      data = Buffer.concat([publicKey, Buffer.alloc(4)]);
+    }
+    
+    data.writeUInt32BE(actualIndex, data.length - 4);
+    
+    const derived = createHmac('sha512', chainCode)
+      .update(data)
+      .digest();
+    
+    const childKey = derived.slice(0, 32);
+    const newChainCode = derived.slice(32, 64);
+    
+    const parentKeyBigInt = BigInt('0x' + privateKey.toString('hex'));
+    const childKeyBigInt = BigInt('0x' + childKey.toString('hex'));
+    const secp256k1Order = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    
+    const newPrivateKey = (parentKeyBigInt + childKeyBigInt) % secp256k1Order;
+    privateKey = Buffer.from(newPrivateKey.toString(16).padStart(64, '0'), 'hex');
+    chainCode = newChainCode;
+  }
+  
+  return privateKey.toString('hex');
 }
 
 /**

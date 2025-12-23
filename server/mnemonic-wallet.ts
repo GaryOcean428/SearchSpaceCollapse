@@ -19,12 +19,13 @@
  * Total: 50 addresses per mnemonic
  */
 
-import { deriveBIP32PrivateKey, privateKeyToWIF, generateBitcoinAddressFromPrivateKey } from './crypto';
+import { deriveBIP39PrivateKey, privateKeyToWIF, generateBitcoinAddressFromPrivateKey } from './crypto';
 import { dormantCrossRef, type DormantAddressInfo } from './dormant-cross-ref';
 import { isValidBIP39Phrase } from './bip39-words';
 
 export interface DerivedAddress {
   address: string;
+  addressUncompressed: string;
   derivationPath: string;
   privateKeyHex: string;
   privateKeyWIF: string;
@@ -112,17 +113,26 @@ function generateBIP84Path(index: number, account: number = 0, change: number = 
 /**
  * Derive a single P2PKH address from mnemonic with full key information
  * All dormant 2009-era addresses are P2PKH format (starting with 1)
+ * 
+ * USES PROPER BIP39 DERIVATION:
+ * 1. PBKDF2(mnemonic, "mnemonic", 2048 rounds) → seed
+ * 2. HMAC-SHA512(seed, "Bitcoin seed") → master key
+ * 3. BIP32 path derivation → child key
+ * 
+ * CRITICAL: Returns BOTH compressed and uncompressed addresses
+ * 2009-era wallets used uncompressed keys exclusively!
  */
 function deriveAddressWithKeys(mnemonic: string, path: string, index: number, pathType: DerivedAddress['pathType']): DerivedAddress {
-  const privateKeyHex = deriveBIP32PrivateKey(mnemonic, path);
-  // Generate both compressed and uncompressed P2PKH addresses
+  const privateKeyHex = deriveBIP39PrivateKey(mnemonic, path);
+  // Generate BOTH compressed and uncompressed P2PKH addresses
   const addressCompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, true);
-  generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
+  const addressUncompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
   const privateKeyWIF = privateKeyToWIF(privateKeyHex, false);
   const privateKeyWIFCompressed = privateKeyToWIF(privateKeyHex, true);
   
   return {
     address: addressCompressed, // Primary address (compressed)
+    addressUncompressed, // Legacy 2009-era format
     derivationPath: path,
     privateKeyHex,
     privateKeyWIF,
