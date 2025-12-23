@@ -5,8 +5,7 @@ import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
-import connectPg from "connect-pg-simple";
-import { Pool } from '@neondatabase/serverless';
+import createMemoryStore from "memorystore";
 import { storage } from "./storage";
 
 const getOidcConfig = memoize(
@@ -22,64 +21,34 @@ const getOidcConfig = memoize(
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const isDeployment = process.env.REPLIT_DEPLOYMENT === '1';
-  // In deployments, always treat as production even if NODE_ENV isn't set
   const isDev = !isDeployment && process.env.NODE_ENV === "development";
   
   console.log(`[Session] Environment: NODE_ENV=${process.env.NODE_ENV}, isDev=${isDev}, isDeployment=${isDeployment}`);
-  console.log(`[Session] DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
   console.log(`[Session] SESSION_SECRET exists: ${!!process.env.SESSION_SECRET}`);
   
-  // Ensure SESSION_SECRET exists
   if (!process.env.SESSION_SECRET) {
     console.error(`[Session] ERROR: SESSION_SECRET is not set!`);
     throw new Error('SESSION_SECRET environment variable must be set for authentication');
   }
   
-  // Use database session store if DATABASE_URL is available, otherwise use memory store
-  let sessionStore;
-  if (process.env.DATABASE_URL) {
-    const pgStore = connectPg(session);
-    
-    // Create a dedicated pool for sessions with conservative settings
-    // This prevents session operations from competing with the main app pool
-    const sessionPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: 5, // Small dedicated pool for sessions only
-      idleTimeoutMillis: 60000, // Keep connections alive longer
-      connectionTimeoutMillis: 30000, // Longer timeout for session operations
-      keepAlive: true,
-    });
-    
-    sessionPool.on('error', (err) => {
-      console.error('[Session] Pool error:', err?.message || err);
-    });
-    
-    sessionStore = new pgStore({
-      pool: sessionPool, // Use dedicated pool instead of conString
-      createTableIfMissing: true,
-      ttl: sessionTtl,
-      tableName: "sessions",
-      pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
-      errorLog: (err: Error) => {
-        console.error("[Session] PostgreSQL session store error:", err?.message || err || "unknown error");
-      },
-    });
-    console.log("[Session] Using PostgreSQL session store with dedicated pool (max: 5)");
-  } else {
-    console.log("[Session] Using memory session store (no DATABASE_URL)");
-  }
+  // Use in-memory session store for instant performance
+  // This avoids DB connection pool contention with heavy balance checking operations
+  const MemoryStore = createMemoryStore(session);
+  const sessionStore = new MemoryStore({
+    checkPeriod: 86400000, // Prune expired sessions every 24 hours
+    ttl: sessionTtl,
+  });
+  console.log("[Session] Using in-memory session store (fast, no DB contention)");
   
-  // For Replit deployments, use 'lax' sameSite which works better with OIDC redirects
-  // 'none' requires third-party cookie support which many browsers block
   return session({
     secret: process.env.SESSION_SECRET!,
-    store: sessionStore, // undefined = use default memory store
+    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: !isDev, // Only secure in production (HTTPS)
-      sameSite: 'lax', // 'lax' works for same-site navigation including OIDC redirects
+      secure: !isDev,
+      sameSite: 'lax',
       maxAge: sessionTtl,
     },
   });
