@@ -24,7 +24,8 @@ import {
 import { db } from '../db';
 import { federatedInstances, externalApiKeys, vocabularyObservations, learningEvents } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
-import { oceanBasinSync, type BasinSyncPacket } from '../ocean-basin-sync';
+import { oceanBasinSync, type BasinSyncPacket, type BasinImportMode } from '../ocean-basin-sync';
+import { decryptApiKey } from './encryption';
 
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:5001';
 const REQUEST_TIMEOUT_MS = 30000;
@@ -228,7 +229,11 @@ externalApiRouter.delete(
   requireScopes('admin'),
   async (req, res) => {
     const { keyId } = req.params;
-    const success = await revokeApiKey(keyId);
+    const numericId = parseInt(keyId, 10);
+    if (isNaN(numericId)) {
+      return res.status(400).json({ error: 'Invalid key ID' });
+    }
+    const success = await revokeApiKey(numericId);
     
     if (success) {
       res.json({ message: 'API key revoked', keyId });
@@ -630,18 +635,33 @@ externalApiRouter.get(
   EXTERNAL_API_ROUTES.sync.export,
   requireScopes('sync', 'read'),
   async (_req, res) => {
-    // TODO: Get actual basin packet from oceanBasinSync
-    res.json({
-      packet: null,
-      exported_at: new Date().toISOString(),
-      note: 'Placeholder - integrate with oceanBasinSync.createSnapshot',
-    });
+    try {
+      const snapshot = oceanBasinSync.loadLatestBasin();
+      
+      if (snapshot) {
+        res.json({
+          packet: snapshot,
+          exported_at: new Date().toISOString(),
+          size_bytes: JSON.stringify(snapshot).length,
+        });
+      } else {
+        res.json({
+          packet: null,
+          exported_at: new Date().toISOString(),
+          note: 'No basin snapshot available - Ocean agent may not be running',
+        });
+      }
+    } catch (error) {
+      console.error('[ExternalAPI] Failed to export basin:', error);
+      res.status(500).json({ error: 'Failed to export basin state' });
+    }
   }
 );
 
 /**
  * POST /api/v1/external/sync/import
  * Import a basin packet from another instance
+ * Note: Without a running Ocean agent, this stores the packet for later processing
  */
 externalApiRouter.post(
   EXTERNAL_API_ROUTES.sync.import,
@@ -655,15 +675,127 @@ externalApiRouter.post(
       });
     }
     
-    // TODO: Import the packet
-    // const result = await oceanBasinSync.importFromPacket(packet, mode);
+    const validModes: BasinImportMode[] = ['full', 'partial', 'observer'];
+    if (!validModes.includes(mode)) {
+      return res.status(400).json({
+        error: 'Invalid mode',
+        valid_modes: validModes,
+      });
+    }
     
-    res.json({
-      success: true,
-      mode,
-      imported_at: new Date().toISOString(),
-      note: 'Placeholder - integrate with oceanBasinSync.importSnapshot',
-    });
+    try {
+      const basinPacket = packet as BasinSyncPacket;
+      oceanBasinSync.saveBasinSnapshot(basinPacket);
+      
+      console.log(`[ExternalAPI] Received basin packet from ${basinPacket.oceanId}`);
+      console.log(`  Phi: ${basinPacket.consciousness?.phi?.toFixed(3) || 'N/A'}`);
+      console.log(`  Mode: ${mode}`);
+      
+      res.json({
+        success: true,
+        mode,
+        source_ocean_id: basinPacket.oceanId,
+        source_phi: basinPacket.consciousness?.phi || 0,
+        imported_at: new Date().toISOString(),
+        note: 'Packet saved for processing by Ocean agent',
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Failed to import basin:', error);
+      res.status(500).json({ error: 'Failed to import basin state' });
+    }
+  }
+);
+
+/**
+ * POST /api/v1/external/sync/trigger
+ * Trigger sync with all active federated instances
+ */
+externalApiRouter.post(
+  '/sync/trigger',
+  requireScopes('sync', 'write'),
+  async (_req, res) => {
+    if (!db) {
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
+    
+    try {
+      const instances = await db
+        .select()
+        .from(federatedInstances)
+        .where(eq(federatedInstances.status, 'active'));
+      
+      if (instances.length === 0) {
+        return res.json({
+          message: 'No active federated instances to sync',
+          synced: 0,
+        });
+      }
+      
+      const snapshot = oceanBasinSync.loadLatestBasin();
+      const results: Array<{ id: string; name: string; success: boolean; error?: string }> = [];
+      
+      for (const instance of instances) {
+        try {
+          let apiKey: string | null = null;
+          if (instance.remoteApiKey) {
+            apiKey = decryptApiKey(instance.remoteApiKey);
+          }
+          
+          const syncUrl = instance.endpoint.replace(/\/+$/, '') + '/api/v1/external/sync/import';
+          
+          const response = await fetchWithTimeout(
+            syncUrl,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+              },
+              body: JSON.stringify({
+                packet: snapshot,
+                mode: 'partial',
+              }),
+            },
+            30000
+          );
+          
+          if (response.ok) {
+            await db
+              .update(federatedInstances)
+              .set({ lastSyncAt: new Date(), updatedAt: new Date() })
+              .where(eq(federatedInstances.id, instance.id));
+            
+            results.push({ id: instance.id, name: instance.name, success: true });
+          } else {
+            results.push({ 
+              id: instance.id, 
+              name: instance.name, 
+              success: false, 
+              error: `HTTP ${response.status}` 
+            });
+          }
+        } catch (error: any) {
+          results.push({ 
+            id: instance.id, 
+            name: instance.name, 
+            success: false, 
+            error: error.message 
+          });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      
+      res.json({
+        message: `Sync completed: ${successCount}/${instances.length} successful`,
+        synced: successCount,
+        total: instances.length,
+        results,
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Failed to trigger sync:', error);
+      res.status(500).json({ error: 'Failed to trigger sync' });
+    }
   }
 );
 

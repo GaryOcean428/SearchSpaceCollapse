@@ -330,6 +330,177 @@ federationRouter.post('/instances/connect', async (req: Request, res: Response) 
 });
 
 /**
+ * POST /api/federation/instances/:instanceId/activate
+ * Activate a pending federated instance
+ */
+federationRouter.post('/instances/:instanceId/activate', async (req: Request, res: Response) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
+  const { instanceId } = req.params;
+
+  try {
+    const result = await db.execute(sql`
+      UPDATE federated_instances 
+      SET status = 'active', updated_at = NOW()
+      WHERE id = ${instanceId}
+      RETURNING id, name, status
+    `);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Instance not found' });
+    }
+
+    const instance = result.rows[0] as any;
+    console.log(`[Federation] Activated instance: ${instance.name} (${instance.id})`);
+
+    res.json({
+      message: 'Instance activated',
+      instance: {
+        id: instance.id,
+        name: instance.name,
+        status: instance.status,
+      },
+    });
+  } catch (error) {
+    console.error('[Federation] Failed to activate instance:', error);
+    res.status(500).json({ error: 'Failed to activate instance' });
+  }
+});
+
+/**
+ * DELETE /api/federation/instances/:instanceId
+ * Remove a federated instance
+ */
+federationRouter.delete('/instances/:instanceId', async (req: Request, res: Response) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
+  const { instanceId } = req.params;
+
+  try {
+    await db.execute(sql`
+      DELETE FROM federated_instances WHERE id = ${instanceId}
+    `);
+
+    console.log(`[Federation] Deleted instance: ${instanceId}`);
+    res.json({ message: 'Instance deleted', instanceId });
+  } catch (error) {
+    console.error('[Federation] Failed to delete instance:', error);
+    res.status(500).json({ error: 'Failed to delete instance' });
+  }
+});
+
+/**
+ * POST /api/federation/sync/trigger
+ * Trigger sync with all active federated instances (dashboard UI endpoint)
+ */
+federationRouter.post('/sync/trigger', async (_req: Request, res: Response) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
+  try {
+    const { oceanBasinSync } = await import('../ocean-basin-sync');
+    const { decryptApiKey } = await import('../external-api/encryption');
+
+    const result = await db.execute(sql`
+      SELECT id, name, endpoint, remote_api_key, sync_direction
+      FROM federated_instances
+      WHERE status = 'active'
+    `);
+
+    const instances = result.rows as any[];
+
+    if (instances.length === 0) {
+      return res.json({
+        message: 'No active federated instances to sync',
+        synced: 0,
+        total: 0,
+        results: [],
+      });
+    }
+
+    const snapshot = oceanBasinSync.loadLatestBasin();
+    const syncResults: Array<{ id: string; name: string; success: boolean; error?: string }> = [];
+
+    for (const instance of instances) {
+      try {
+        let apiKey: string | null = null;
+        if (instance.remote_api_key) {
+          apiKey = decryptApiKey(instance.remote_api_key);
+        }
+
+        const normalizedEndpoint = instance.endpoint.replace(/\/+$/, '');
+        const syncUrl = normalizedEndpoint.includes('/api/v1/external')
+          ? normalizedEndpoint + '/sync/import'
+          : normalizedEndpoint + '/api/v1/external/sync/import';
+
+        console.log(`[Federation] Syncing to: ${syncUrl}`);
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        const response = await fetch(syncUrl, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+          },
+          body: JSON.stringify({
+            packet: snapshot,
+            mode: 'partial',
+          }),
+        });
+        clearTimeout(timeout);
+
+        if (response.ok) {
+          await db.execute(sql`
+            UPDATE federated_instances 
+            SET last_sync_at = NOW(), updated_at = NOW()
+            WHERE id = ${instance.id}
+          `);
+          syncResults.push({ id: instance.id, name: instance.name, success: true });
+          console.log(`[Federation] ✓ Synced to ${instance.name}`);
+        } else {
+          syncResults.push({
+            id: instance.id,
+            name: instance.name,
+            success: false,
+            error: `HTTP ${response.status}`,
+          });
+          console.log(`[Federation] ✗ Failed to sync to ${instance.name}: HTTP ${response.status}`);
+        }
+      } catch (error: any) {
+        const errorMsg = error.name === 'AbortError' ? 'Timeout' : error.message;
+        syncResults.push({
+          id: instance.id,
+          name: instance.name,
+          success: false,
+          error: errorMsg,
+        });
+        console.log(`[Federation] ✗ Failed to sync to ${instance.name}: ${errorMsg}`);
+      }
+    }
+
+    const successCount = syncResults.filter(r => r.success).length;
+
+    res.json({
+      message: `Sync completed: ${successCount}/${instances.length} successful`,
+      synced: successCount,
+      total: instances.length,
+      results: syncResults,
+    });
+  } catch (error) {
+    console.error('[Federation] Failed to trigger sync:', error);
+    res.status(500).json({ error: 'Failed to trigger sync' });
+  }
+});
+
+/**
  * GET /api/federation/sync/status
  * Get current basin sync status
  */
@@ -349,12 +520,16 @@ federationRouter.get('/sync/status', async (_req: Request, res: Response) => {
     const peerCount = parseInt(row?.count || '0', 10);
     const latestSync = row?.latest_sync;
 
+    const { oceanBasinSync } = await import('../ocean-basin-sync');
+    const snapshots = oceanBasinSync.listBasinSnapshots();
+
     res.json({
       isConnected: peerCount > 0,
       peerCount,
       lastSyncTime: latestSync?.toISOString?.() ?? latestSync ?? null,
-      pendingPackets: 0,
+      pendingPackets: snapshots.length,
       syncMode: peerCount > 0 ? 'bidirectional' : 'standalone',
+      latestSnapshot: snapshots[0] || null,
     });
   } catch (error) {
     console.error('[Federation] Failed to get sync status:', error);
