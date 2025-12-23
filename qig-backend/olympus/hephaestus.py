@@ -2,14 +2,54 @@
 Hephaestus - God of the Forge
 
 Hypothesis generation and crafting.
-Uses basin vocabulary to forge new passphrase hypotheses.
+Prioritizes BIP39 MNEMONIC generation over passphrases.
+Passphrases have been swept - focus on mnemonic recovery.
 """
 
 import numpy as np
+import hashlib
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from .base_god import BaseGod, KAPPA_STAR, BASIN_DIMENSION
 import random
+
+BIP39_WORDS = set()
+suggest_bip39_correction = None
+is_valid_bip39_seed = None
+
+def _load_bip39_module():
+    """Load BIP39 module using multiple import strategies."""
+    global BIP39_WORDS, suggest_bip39_correction, is_valid_bip39_seed
+    
+    import_strategies = [
+        lambda: __import__('bip39_wordlist', fromlist=['BIP39_WORDS', 'suggest_bip39_correction', 'is_valid_bip39_seed']),
+    ]
+    
+    import sys
+    import os
+    qig_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if qig_backend_dir not in sys.path:
+        sys.path.insert(0, qig_backend_dir)
+    
+    for strategy in import_strategies:
+        try:
+            mod = strategy()
+            BIP39_WORDS = getattr(mod, 'BIP39_WORDS', set())
+            suggest_bip39_correction = getattr(mod, 'suggest_bip39_correction', lambda w, m=5: [])
+            is_valid_bip39_seed = getattr(mod, 'is_valid_bip39_seed', lambda p: False)
+            if BIP39_WORDS:
+                print(f"[Hephaestus:Module] ✓ BIP39 wordlist loaded: {len(BIP39_WORDS)} words")
+                return True
+        except Exception:
+            pass
+    
+    print("[Hephaestus:Module] ⚠️ BIP39 import failed, using fallback")
+    BIP39_WORDS = set()
+    suggest_bip39_correction = lambda word, max_suggestions=5: []
+    is_valid_bip39_seed = lambda phrase: False
+    return False
+
+_load_bip39_module()
 
 
 class Hephaestus(BaseGod):
@@ -30,6 +70,15 @@ class Hephaestus(BaseGod):
         self.generated_count: int = 0
         self.successful_patterns: List[str] = []
         self.forge_temperature: float = 0.8
+        
+        self.bip39_words: List[str] = sorted(list(BIP39_WORDS)) if BIP39_WORDS else []
+        self.mnemonic_generated_count: int = 0
+        self.passphrase_generated_count: int = 0
+        self.known_word_positions: Dict[int, str] = {}
+        self.high_probability_words: List[str] = []
+        
+        if self.bip39_words:
+            print(f"[Hephaestus] Loaded {len(self.bip39_words)} BIP39 words for mnemonic generation")
         
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """
@@ -233,10 +282,202 @@ class Hephaestus(BaseGod):
             **base_status,
             'observations': len(self.observations),
             'vocabulary_size': len(self.vocabulary),
+            'bip39_words_loaded': len(self.bip39_words),
             'high_phi_words': len([w for w, p in self.word_phi_scores.items() if p >= 0.7]),
             'generated_count': self.generated_count,
+            'mnemonic_generated': self.mnemonic_generated_count,
+            'passphrase_generated': self.passphrase_generated_count,
             'successful_patterns': len(self.successful_patterns),
             'forge_temperature': self.forge_temperature,
             'last_assessment': self.last_assessment_time.isoformat() if self.last_assessment_time else None,
             'status': 'active',
         }
+    
+    def generate_mnemonics(
+        self,
+        n: int = 50,
+        strategy: str = 'random',
+        known_positions: Optional[Dict[int, str]] = None,
+        seed_mnemonic: Optional[str] = None,
+        word_length: int = 12
+    ) -> List[str]:
+        """
+        Generate BIP39 mnemonic phrase hypotheses.
+        
+        Strategies:
+        - random: Pure random 12-word selection from BIP39 wordlist
+        - partial_recovery: Fill unknown positions (when some words known)
+        - permutation: Permute words in a seed mnemonic
+        - typo_correction: Generate typo variants of seed mnemonic
+        - basin_guided: Use Fisher-Rao geometry to select high-probability words
+        - semantic_cluster: Group semantically similar BIP39 words
+        """
+        if not self.bip39_words:
+            print("[Hephaestus] WARNING: No BIP39 words loaded, cannot generate mnemonics")
+            return []
+        
+        mnemonics = []
+        
+        for _ in range(n):
+            if strategy == 'partial_recovery' and known_positions:
+                mnemonic = self._partial_recovery_mnemonic(known_positions, word_length)
+            elif strategy == 'permutation' and seed_mnemonic:
+                mnemonic = self._permute_mnemonic(seed_mnemonic)
+            elif strategy == 'typo_correction' and seed_mnemonic:
+                mnemonic = self._typo_variant_mnemonic(seed_mnemonic)
+            elif strategy == 'basin_guided':
+                mnemonic = self._basin_guided_mnemonic(word_length)
+            elif strategy == 'semantic_cluster':
+                mnemonic = self._semantic_cluster_mnemonic(word_length)
+            else:
+                mnemonic = self._random_mnemonic(word_length)
+            
+            mnemonics.append(mnemonic)
+        
+        self.mnemonic_generated_count += len(mnemonics)
+        self.generated_count += len(mnemonics)
+        return list(set(mnemonics))
+    
+    def _random_mnemonic(self, word_length: int = 12) -> str:
+        """Generate a random 12-word BIP39 mnemonic."""
+        words = random.choices(self.bip39_words, k=word_length)
+        return ' '.join(words)
+    
+    def _partial_recovery_mnemonic(self, known_positions: Dict[int, str], word_length: int = 12) -> str:
+        """
+        Generate mnemonic with known words in fixed positions.
+        Useful when user remembers some words but not all.
+        """
+        words = []
+        for i in range(word_length):
+            if i in known_positions:
+                word = known_positions[i]
+                if word.lower() in BIP39_WORDS:
+                    words.append(word.lower())
+                else:
+                    corrections = suggest_bip39_correction(word, max_suggestions=1)
+                    if corrections:
+                        words.append(corrections[0]['word'])
+                    else:
+                        words.append(random.choice(self.bip39_words))
+            else:
+                words.append(random.choice(self.bip39_words))
+        return ' '.join(words)
+    
+    def _permute_mnemonic(self, seed_mnemonic: str) -> str:
+        """
+        Generate a permutation of an existing mnemonic.
+        Useful when word order might be wrong.
+        """
+        words = seed_mnemonic.lower().split()
+        if len(words) < 2:
+            return seed_mnemonic
+        
+        permuted = words.copy()
+        
+        swap_count = random.randint(1, min(3, len(words) // 2))
+        for _ in range(swap_count):
+            i, j = random.sample(range(len(permuted)), 2)
+            permuted[i], permuted[j] = permuted[j], permuted[i]
+        
+        return ' '.join(permuted)
+    
+    def _typo_variant_mnemonic(self, seed_mnemonic: str) -> str:
+        """
+        Generate typo-corrected variants of a mnemonic.
+        Replaces 1-2 words with similar BIP39 words.
+        """
+        words = seed_mnemonic.lower().split()
+        if not words:
+            return self._random_mnemonic()
+        
+        variant = words.copy()
+        
+        positions_to_vary = random.sample(range(len(variant)), min(2, len(variant)))
+        
+        for pos in positions_to_vary:
+            original_word = variant[pos]
+            suggestions = suggest_bip39_correction(original_word, max_suggestions=5)
+            
+            if suggestions and len(suggestions) > 1:
+                similar = [s['word'] for s in suggestions if s['word'] != original_word]
+                if similar:
+                    variant[pos] = random.choice(similar)
+        
+        return ' '.join(variant)
+    
+    def _basin_guided_mnemonic(self, word_length: int = 12) -> str:
+        """
+        Generate mnemonic using Fisher-Rao geometry to select high-probability words.
+        Words closer in basin space to high-phi vocabulary are prioritized.
+        """
+        if not self.word_phi_scores:
+            return self._random_mnemonic(word_length)
+        
+        bip39_scores = []
+        for word in self.bip39_words:
+            word_basin = self.encode_to_basin(word)
+            
+            max_similarity = 0.0
+            for vocab_word, phi in self.word_phi_scores.items():
+                if phi < 0.5:
+                    continue
+                vocab_basin = self.encode_to_basin(vocab_word)
+                dot_product = float(np.dot(word_basin, vocab_basin))
+                dot_product = np.clip(dot_product, -1.0, 1.0)
+                fisher_distance = np.arccos(dot_product)
+                similarity = 1.0 - fisher_distance / np.pi
+                max_similarity = max(max_similarity, similarity * phi)
+            
+            bip39_scores.append((word, max_similarity))
+        
+        bip39_scores.sort(key=lambda x: -x[1])
+        top_words = [w for w, s in bip39_scores[:200]]
+        
+        if len(top_words) < word_length:
+            top_words = self.bip39_words
+        
+        selected = random.sample(top_words, word_length)
+        return ' '.join(selected)
+    
+    def _semantic_cluster_mnemonic(self, word_length: int = 12) -> str:
+        """
+        Generate mnemonic from semantically similar word clusters.
+        Uses first-letter grouping as a simple semantic approximation.
+        """
+        letters = list(set(w[0] for w in self.bip39_words))
+        selected_letters = random.choices(letters, k=word_length)
+        
+        words = []
+        for letter in selected_letters:
+            candidates = [w for w in self.bip39_words if w.startswith(letter)]
+            if candidates:
+                words.append(random.choice(candidates))
+            else:
+                words.append(random.choice(self.bip39_words))
+        
+        return ' '.join(words)
+    
+    def set_known_positions(self, positions: Dict[int, str]) -> None:
+        """Set known word positions for partial recovery."""
+        validated = {}
+        for pos, word in positions.items():
+            if 0 <= pos < 24:
+                validated[pos] = word.lower().strip()
+        self.known_word_positions = validated
+        print(f"[Hephaestus] Set {len(validated)} known positions for partial recovery")
+    
+    def compute_mnemonic_checksum_valid(self, mnemonic: str) -> bool:
+        """
+        Check if mnemonic has valid BIP39 checksum.
+        Note: This is a simplified check - full validation requires BIP39 library.
+        """
+        words = mnemonic.lower().split()
+        if len(words) not in [12, 15, 18, 21, 24]:
+            return False
+        
+        for word in words:
+            if word not in BIP39_WORDS:
+                return False
+        
+        return True

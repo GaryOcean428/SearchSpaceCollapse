@@ -6532,7 +6532,7 @@ if __name__ == '__main__':
         from olympus.hypothesis_emitter import start_hypothesis_emitter
         start_hypothesis_emitter()
         HYPOTHESIS_EMITTER_AVAILABLE = True
-        print("[INFO] 🔨 Hypothesis Emitter started - continuous passphrase generation enabled")
+        print("[INFO] 🔨 Hypothesis Emitter started - continuous mnemonic and passphrase generation enabled (85% mnemonic)")
     except ImportError as e:
         print(f"[WARNING] Hypothesis Emitter not found: {e}")
     except Exception as e:

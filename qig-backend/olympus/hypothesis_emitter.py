@@ -1,12 +1,13 @@
 """
 Hypothesis Emitter - Bridge between Python hypothesis generation and TypeScript balance checking
 
-Continuously generates passphrase hypotheses using Hephaestus and posts them
-to the TypeScript backend for balance checking against blockchain addresses.
+PRIORITY: MNEMONIC GENERATION (80%+)
+Passphrases have been swept by others - focus on BIP39 mnemonics for recovery.
 
 This is the missing link that connects:
 - Python vocabulary learning and research discoveries
-- Hephaestus passphrase hypothesis generation
+- Hephaestus MNEMONIC hypothesis generation (primary)
+- Hephaestus passphrase hypothesis generation (deprioritized)
 - TypeScript queueAddressForBalanceCheck()
 """
 
@@ -28,15 +29,21 @@ except ImportError:
         return 0.5
 
 
+MNEMONIC_RATIO = 0.85
+MNEMONIC_STRATEGIES = ['random', 'basin_guided', 'semantic_cluster', 'permutation', 'typo_correction']
+PASSPHRASE_STRATEGIES = ['high_phi', 'basin_guided', 'random', 'mutation']
+
+
 class HypothesisEmitter:
     """
     Continuous hypothesis generation and submission to TypeScript balance queue.
     
     Architecture:
-    1. Uses Hephaestus to generate passphrase hypotheses
-    2. Computes Phi scores for prioritization
-    3. Posts batches to TypeScript /api/ocean/hypothesis endpoint
-    4. Receives feedback on what was queued vs skipped
+    1. Uses Hephaestus to generate MNEMONIC hypotheses (85% priority)
+    2. Uses Hephaestus to generate passphrase hypotheses (15% backfill)
+    3. Computes Phi scores for prioritization
+    4. Posts batches to TypeScript /api/ocean/hypothesis endpoint
+    5. Receives feedback on what was queued vs skipped
     """
     
     TYPESCRIPT_URL = "http://localhost:5000/api/ocean/hypothesis"
@@ -112,22 +119,66 @@ class HypothesisEmitter:
                 time.sleep(5.0)
                 
     def _generate_batch(self) -> List[str]:
-        """Generate a batch of hypotheses using Hephaestus."""
-        strategies = ['high_phi', 'basin_guided', 'random', 'mutation']
-        strategy = random.choice(strategies)
+        """
+        Generate a batch of hypotheses using Hephaestus.
+        
+        PRIORITY: 85% MNEMONICS, 15% PASSPHRASES
+        Passphrases have been swept - focus on mnemonic recovery.
+        """
+        hypotheses = []
         
         try:
-            if strategy == 'mutation' and self.hephaestus.successful_patterns:
-                hypotheses = self.hephaestus.generate_hypotheses(
-                    n=self.BATCH_SIZE,
-                    strategy='mutation',
-                    seed_phrases=self.hephaestus.successful_patterns[-10:]
-                )
+            use_mnemonic = random.random() < MNEMONIC_RATIO
+            
+            if use_mnemonic and self.hephaestus.bip39_words:
+                strategy = random.choice(MNEMONIC_STRATEGIES)
+                
+                if strategy == 'permutation' and self.hephaestus.successful_patterns:
+                    seed = random.choice(self.hephaestus.successful_patterns[-10:])
+                    hypotheses = self.hephaestus.generate_mnemonics(
+                        n=self.BATCH_SIZE,
+                        strategy='permutation',
+                        seed_mnemonic=seed
+                    )
+                elif strategy == 'typo_correction' and self.hephaestus.successful_patterns:
+                    seed = random.choice(self.hephaestus.successful_patterns[-10:])
+                    hypotheses = self.hephaestus.generate_mnemonics(
+                        n=self.BATCH_SIZE,
+                        strategy='typo_correction',
+                        seed_mnemonic=seed
+                    )
+                elif self.hephaestus.known_word_positions:
+                    hypotheses = self.hephaestus.generate_mnemonics(
+                        n=self.BATCH_SIZE,
+                        strategy='partial_recovery',
+                        known_positions=self.hephaestus.known_word_positions
+                    )
+                else:
+                    hypotheses = self.hephaestus.generate_mnemonics(
+                        n=self.BATCH_SIZE,
+                        strategy=strategy
+                    )
+                
+                if self._cycles % 6 == 0:
+                    print(f"[HypothesisEmitter] MNEMONIC batch ({strategy}): {len(hypotheses)} generated")
+            
             else:
-                hypotheses = self.hephaestus.generate_hypotheses(
-                    n=self.BATCH_SIZE,
-                    strategy=None
-                )
+                strategy = random.choice(PASSPHRASE_STRATEGIES)
+                
+                if strategy == 'mutation' and self.hephaestus.successful_patterns:
+                    hypotheses = self.hephaestus.generate_hypotheses(
+                        n=self.BATCH_SIZE,
+                        strategy='mutation',
+                        seed_phrases=self.hephaestus.successful_patterns[-10:]
+                    )
+                else:
+                    hypotheses = self.hephaestus.generate_hypotheses(
+                        n=self.BATCH_SIZE,
+                        strategy=None
+                    )
+                
+                if self._cycles % 6 == 0:
+                    print(f"[HypothesisEmitter] PASSPHRASE batch ({strategy}): {len(hypotheses)} generated")
             
             return list(set(hypotheses))
             
@@ -182,10 +233,29 @@ class HypothesisEmitter:
             "total_skipped": self._total_skipped,
             "queue_rate": self._total_queued / max(1, self._total_emitted),
             "vocabulary_size": len(self.hephaestus.vocabulary),
+            "bip39_words_loaded": len(self.hephaestus.bip39_words),
+            "mnemonic_generated": self.hephaestus.mnemonic_generated_count,
+            "passphrase_generated": self.hephaestus.passphrase_generated_count,
+            "mnemonic_ratio_target": MNEMONIC_RATIO,
             "high_phi_words": len([p for p in self.hephaestus.word_phi_scores.values() if p >= 0.7]),
             "last_emit": self._last_emit_time.isoformat() if self._last_emit_time else None,
             "consecutive_failures": self._consecutive_failures
         }
+    
+    def set_known_positions(self, positions: Dict[int, str]) -> None:
+        """
+        Set known mnemonic word positions for partial recovery.
+        Use when user remembers some but not all words.
+        
+        Example: {0: "abandon", 5: "wallet", 11: "zoo"}
+        """
+        self.hephaestus.set_known_positions(positions)
+    
+    def set_mnemonic_ratio(self, ratio: float) -> None:
+        """Set the mnemonic vs passphrase generation ratio (0.0 to 1.0)."""
+        global MNEMONIC_RATIO
+        MNEMONIC_RATIO = max(0.0, min(1.0, ratio))
+        print(f"[HypothesisEmitter] Mnemonic ratio set to {MNEMONIC_RATIO:.0%}")
 
 
 _global_emitter: Optional[HypothesisEmitter] = None
