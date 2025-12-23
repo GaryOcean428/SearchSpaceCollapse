@@ -415,7 +415,7 @@ class EnhancedM8Spawner:
             'max_recovery_retries': self.max_recovery_retries,
         }
     
-    def _cleanup_processed_proposals(self, processed_ids: List[str], abandoned_ids: List[str] = None) -> bool:
+    def _cleanup_processed_proposals(self, processed_ids: List[str], abandoned_ids: Optional[List[str]] = None) -> bool:
         """Remove successfully processed or abandoned proposals from the pending file."""
         try:
             if not os.path.exists(PENDING_PROPOSALS_FILE):
