@@ -117,3 +117,4 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 - ✅ Documentation: ISO-compliant naming in `docs/` directory, attached assets archived
 - ✅ Logging: Verbose [INFO]/[WARN]/[ERROR] prefixes throughout Python and TypeScript
 - ✅ BIP39 Mnemonic Priority: 85% mnemonic generation with geometric scoring and feedback loop
+- ✅ BIP39 Derivation Fix (2025-12-23): Proper PBKDF2 (2048 rounds) + both compressed/uncompressed addresses (200 per mnemonic)
