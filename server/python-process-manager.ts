@@ -138,7 +138,17 @@ export class PythonProcessManager extends EventEmitter {
           return true;
         }
         
-        console.warn('[PythonManager] Gunicorn failed, falling back to Flask...');
+        // Kill the failed gunicorn process before falling back to Flask
+        // This ensures port 5001 is free for Flask to bind
+        console.warn('[PythonManager] Gunicorn failed health checks, killing process before fallback...');
+        if (this.process) {
+          this.process.kill('SIGKILL');
+          this.process = null;
+          this.isRunning = false;
+          // Wait briefly for port to be released
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        console.warn('[PythonManager] Falling back to Flask...');
       } catch (err: any) {
         console.warn('[PythonManager] Gunicorn not available:', err.message);
       }
