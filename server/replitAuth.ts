@@ -191,23 +191,7 @@ export async function setupAuth(app: Express) {
       await ensureStrategy(domain);
       console.log(`[Auth] Starting passport authenticate for ${domain}...`);
       
-      // Set a timeout to detect if passport.authenticate gets stuck
-      const authTimeout = setTimeout(() => {
-        console.error(`[Auth] TIMEOUT: passport.authenticate did not redirect within 10s`);
-        if (!res.headersSent) {
-          res.redirect('/?authError=timeout&message=' + encodeURIComponent('Login timed out - please try again'));
-        }
-      }, 10000);
-      
-      // Override res.redirect to clear timeout when passport redirects
-      const originalRedirect = res.redirect.bind(res);
-      res.redirect = function(url: string) {
-        clearTimeout(authTimeout);
-        console.log(`[Auth] Redirecting to: ${typeof url === 'string' ? url.substring(0, 100) : url}`);
-        return originalRedirect(url);
-      } as any;
-      
-      // Let passport handle the redirect (no custom callback)
+      // Let passport handle the redirect
       passport.authenticate(`replitauth:${domain}`, {
         prompt: "login consent",
         scope: ["openid", "email", "profile", "offline_access"],
