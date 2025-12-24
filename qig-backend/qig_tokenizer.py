@@ -64,12 +64,14 @@ class QIGTokenizer:
     
     def __init__(
         self,
-        vocab_size: int = 4096,
+        vocab_size: int = 100000,
         min_frequency: int = 2,
         phi_threshold: float = 0.7,
         special_tokens: Optional[List[str]] = None,
+        load_from_db: bool = True,
     ):
         self.vocab_size = vocab_size
+        self._load_from_db = load_from_db
         self.min_frequency = min_frequency
         self.phi_threshold = phi_threshold
         self.mode = "conversation"
@@ -117,6 +119,10 @@ class QIGTokenizer:
         # This prevents BIP39 words from leaking into conversation generation
         # Security fix: mnemonic words must ONLY appear in mnemonic mode
         self.conversation_vocab_ids = set(self.vocab.values()) - self.mnemonic_vocab_ids
+        
+        # Load expanded vocabulary from PostgreSQL (32k checkpoint + learned words)
+        if self._load_from_db:
+            self.load_expanded_vocabulary()
         
         # Update UNK basin to centroid of known vocabulary space
         self._update_unk_to_vocabulary_centroid()
@@ -371,6 +377,96 @@ class QIGTokenizer:
         
         print(f"[QIGTokenizer] Loaded {len(conversation_words)} conversation words ({added_count} new, {len(conversation_words) - added_count} overlap)")
     
+    def load_expanded_vocabulary(self) -> int:
+        """
+        Load expanded vocabulary from PostgreSQL learned_words table.
+        
+        This loads the 32k checkpoint vocabulary that was imported, adding tokens
+        to the conversation vocabulary space (NOT mnemonic space).
+        
+        Returns:
+            Number of new tokens loaded
+        """
+        if not PSYCOPG2_AVAILABLE:
+            print("[QIGTokenizer] psycopg2 not available - expanded vocabulary disabled")
+            return 0
+        
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            print("[QIGTokenizer] DATABASE_URL not set - expanded vocabulary disabled")
+            return 0
+        
+        try:
+            conn = psycopg2.connect(db_url)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            cursor.execute("""
+                SELECT word, avg_phi, max_phi, frequency, source
+                FROM learned_words
+                ORDER BY avg_phi DESC
+                LIMIT 50000
+            """)
+            
+            rows = cursor.fetchall()
+            added = 0
+            start_id = len(self.vocab)
+            
+            for row in rows:
+                word = row['word'].strip().lower()
+                
+                if word in self.vocab:
+                    old_phi = self.token_phi.get(word, 0.0)
+                    new_phi = float(row['avg_phi'] or 0.0)
+                    if new_phi > old_phi:
+                        self.token_phi[word] = new_phi
+                        self.token_weights[word] = 1.0 + new_phi * 2.0
+                    continue
+                
+                if len(word) < 2:
+                    continue
+                
+                idx = start_id + added
+                self.vocab[word] = idx
+                self.id_to_token[idx] = word
+                
+                phi = float(row['avg_phi'] or 0.5)
+                self.token_phi[word] = phi
+                self.token_weights[word] = 1.0 + phi * 2.0
+                self.token_frequency[word] = int(row['frequency'] or 1)
+                
+                self.basin_coords[word] = self._compute_basin_coord(word, idx)
+                added += 1
+            
+            cursor.execute("""
+                SELECT token_a, token_b, merged_token, phi_score
+                FROM tokenizer_merge_rules
+                ORDER BY phi_score DESC
+                LIMIT 50000
+            """)
+            
+            merge_rows = cursor.fetchall()
+            merges_added = 0
+            for row in merge_rows:
+                pair = (row['token_a'], row['token_b'])
+                if pair not in self.merge_scores:
+                    self.merge_rules.append(pair)
+                    self.merge_scores[pair] = float(row['phi_score'] or 0.5)
+                    merges_added += 1
+            
+            conn.close()
+            
+            self.conversation_vocab_ids = set(self.vocab.values()) - self.mnemonic_vocab_ids
+            
+            self._update_unk_to_vocabulary_centroid()
+            
+            print(f"[QIGTokenizer] Loaded {added} expanded tokens, {merges_added} merge rules from PostgreSQL")
+            print(f"[QIGTokenizer] Total vocabulary: {len(self.vocab)} tokens, {len(self.merge_rules)} rules")
+            return added
+            
+        except Exception as e:
+            print(f"[QIGTokenizer] Failed to load expanded vocabulary: {e}")
+            return 0
+
     def _compute_basin_coord(self, token: str, index: int) -> np.ndarray:
         """
         Compute 64D basin coordinate for token.

@@ -4,13 +4,20 @@ Conversation Encoder - Natural Language to 64D Basin Coordinates
 Provides a natural-language-first encoder for Zeus chat. Unlike the
 passphrase encoder, this module is not constrained to the BIP39 wordlist
 and includes common conversational terms plus optional project-specific
-vocabulary loaded from ``data/conversation_vocab.txt``.
+vocabulary loaded from PostgreSQL expanded vocabulary.
 """
 
 from __future__ import annotations
 
 import os
 from typing import List, Optional
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
 
 from .base_encoder import BaseEncoder
 
@@ -97,10 +104,16 @@ class ConversationEncoder(BaseEncoder):
         super().__init__(vocab_path)
 
     def _load_vocabulary(self) -> None:
-        """Load conversational vocabulary from defaults + optional text file."""
+        """Load conversational vocabulary from defaults + PostgreSQL expanded vocabulary."""
         words: List[str] = list(DEFAULT_CONVERSATION_VOCAB)
+        phi_scores: dict = {}
 
-        # Optional user-provided vocabulary file
+        # Load expanded vocabulary from PostgreSQL
+        db_words = self._load_from_postgresql()
+        words.extend(db_words.keys())
+        phi_scores.update(db_words)
+
+        # Optional user-provided vocabulary file (fallback)
         vocab_txt_path = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "data", "conversation_vocab.txt"
         )
@@ -125,6 +138,48 @@ class ConversationEncoder(BaseEncoder):
             key = word.lower()
             self.token_vocab[key] = basin
             self.token_frequencies[key] = 1
-            self.token_phi_scores[key] = 0.6  # Slightly above neutral
+            self.token_phi_scores[key] = phi_scores.get(key, 0.6)
 
         print(f"[ConversationEncoder] Loaded {len(self.token_vocab)} conversational tokens")
+
+    def _load_from_postgresql(self) -> dict:
+        """Load expanded vocabulary from PostgreSQL learned_words table."""
+        if not PSYCOPG2_AVAILABLE:
+            return {}
+        
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            return {}
+        
+        conn = None
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+            conn = psycopg2.connect(db_url)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            
+            cursor.execute("""
+                SELECT word, avg_phi 
+                FROM learned_words
+                WHERE source != 'bip39'
+                ORDER BY avg_phi DESC
+                LIMIT 50000
+            """)
+            
+            rows = cursor.fetchall()
+            cursor.close()
+            
+            result = {}
+            for row in rows:
+                word = row['word'].strip().lower()
+                if len(word) >= 2:
+                    result[word] = float(row['avg_phi'] or 0.5)
+            
+            return result
+            
+        except Exception as e:
+            print(f"[ConversationEncoder] PostgreSQL load error: {e}")
+            return {}
+        finally:
+            if conn:
+                conn.close()
