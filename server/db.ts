@@ -126,8 +126,8 @@ class ConnectionSemaphore {
 }
 
 // Global semaphore: limit to 15 concurrent operations (leaving headroom for pool's 20)
-// Queue limit of 30 prevents unbounded queue growth during pool exhaustion
-const dbSemaphore = new ConnectionSemaphore(15, 'DB', 30);
+// Queue limit of 100 handles burst loads from hypothesis batches (50 at a time)
+const dbSemaphore = new ConnectionSemaphore(15, 'DB', 100);
 
 // Export for monitoring
 export function getDbSemaphoreStats() {

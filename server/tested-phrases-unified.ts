@@ -153,6 +153,8 @@ export class TestedPhrasesUnified {
           regime: regime || null,
           testedAt: new Date(),
           retestCount: 0,
+          derivationVersion: 2,
+          addressCount: 200,
         });
       }
     }

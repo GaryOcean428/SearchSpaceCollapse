@@ -1374,7 +1374,7 @@ oceanRouter.post(
   async (req: Request, res: Response) => {
     try {
       const { smartQueueForBalanceCheck } = await import("../balance-queue-integration");
-      const { oceanPersistence } = await import("../ocean/ocean-persistence");
+      const { testedPhrasesUnified } = await import("../tested-phrases-unified");
       
       const { hypotheses, source = "python", phi = 0.5 } = req.body;
       
@@ -1398,7 +1398,8 @@ oceanRouter.post(
           continue;
         }
         
-        const wasTested = await oceanPersistence.hasBeenTested(hypothesis);
+        // Use synchronous cache first (no DB hit) - this is the fast path
+        const wasTested = testedPhrasesUnified.has(hypothesis);
         if (wasTested) {
           alreadyTested++;
           continue;
