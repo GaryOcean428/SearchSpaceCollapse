@@ -178,10 +178,10 @@ export function initExternalWebSocket(httpServer: Server): WebSocketServer {
     const [keyRecord] = await db
       .select()
       .from(externalApiKeys)
-      .where(eq(externalApiKeys.keyHash, keyHash))
+      .where(eq(externalApiKeys.apiKey, keyHash))
       .limit(1);
     
-    if (!keyRecord || !keyRecord.active) {
+    if (!keyRecord || !keyRecord.isActive) {
       ws.close(4001, 'Invalid API key');
       return;
     }
@@ -196,7 +196,7 @@ export function initExternalWebSocket(httpServer: Server): WebSocketServer {
     // Register client with scopes
     const client: ExternalWsClient = {
       ws,
-      apiKeyId: keyRecord.id,
+      apiKeyId: String(keyRecord.id),
       clientName: keyRecord.name,
       subscriptions: new Set(),
       scopes: scopes,

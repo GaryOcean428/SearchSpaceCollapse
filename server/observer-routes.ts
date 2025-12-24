@@ -2538,7 +2538,10 @@ router.post("/discoveries", async (req: Request, res: Response) => {
         if (mnemonicResult) {
           // Add all derived addresses for dormancy check
           if (mnemonicResult.derivedAddresses) {
-            addressesToProcess.push(...mnemonicResult.derivedAddresses.map(d => d.address));
+            addressesToProcess.push(
+              ...mnemonicResult.derivedAddresses.map(d => d.addressCompressed),
+              ...mnemonicResult.derivedAddresses.map(d => d.addressUncompressed)
+            );
           }
           
           results.push({

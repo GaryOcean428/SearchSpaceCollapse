@@ -38,16 +38,21 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         remarkPlugins={[remarkMath, remarkGfm]}
         rehypePlugins={[rehypeKatex, rehypeRaw]}
         components={{
-          code({ node, inline, className, children, ...props }) {
+          code({ node, className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '');
             const language = match ? match[1] : '';
+            const isInline = !props || !(props as any).inline;
+            
+            // Filter out 'ref' from props to avoid type issues
+            const { ref, ...restProps } = props as any;
 
-            return !inline && language ? (
+            return isInline && language ? (
               <SyntaxHighlighter
-                style={resolvedTheme === 'dark' ? oneDark : oneLight}
+                style={resolvedTheme === 'dark' ? (oneDark as any) : (oneLight as any)}
                 language={language}
                 PreTag="div"
-                {...props}
+                customStyle={{}}
+                {...restProps}
               >
                 {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
