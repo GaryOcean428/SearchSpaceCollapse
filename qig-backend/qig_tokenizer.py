@@ -30,19 +30,33 @@ from qig_geometry import sphere_project
 
 try:
     from geometric_completion import (
-        GeometricCompletionChecker,
+        GenerationPhase,
+        RollingWindow,
         GeometricState,
-        GeometricGenerationController,
+        SurfaceFinalizer,
+        BasinCoherenceChecker,
+        GeometryAwareSampler,
+        KernelConsensusTracker,
+        NonEmittingReflector,
+        GeometricCompletionChecker,
         ReflectionLoop,
+        GeometricGenerationController,
         check_geometric_completion
     )
     GEOMETRIC_COMPLETION_AVAILABLE = True
 except ImportError:
     GEOMETRIC_COMPLETION_AVAILABLE = False
-    GeometricCompletionChecker = None
+    GenerationPhase = None
+    RollingWindow = None
     GeometricState = None
-    GeometricGenerationController = None
+    SurfaceFinalizer = None
+    BasinCoherenceChecker = None
+    GeometryAwareSampler = None
+    KernelConsensusTracker = None
+    NonEmittingReflector = None
+    GeometricCompletionChecker = None
     ReflectionLoop = None
+    GeometricGenerationController = None
     check_geometric_completion = None
 
 try:
@@ -1271,19 +1285,26 @@ class QIGTokenizer:
             # Initialize with a default 64D basin
             context_basin = np.zeros(64, dtype=np.float64)
         
-        # Initialize geometric generation controller
+        # Initialize geometric generation controller with enhanced features
         geo_controller = None
         geo_state = None  # Explicitly track the state
         reflection_loop = None
         metrics_history = []
         reflection_depth = 0
+        in_closure_phase = False  # Track if we're in format closure phase
+        
+        # Compute target basin for reflection alignment (from prompt)
+        target_basin = context_basin.copy() if context_basin is not None else None
         
         if use_geometric_completion and GEOMETRIC_COMPLETION_AVAILABLE and context_basin is not None:
             try:
                 geo_controller = GeometricGenerationController()
                 # begin_turn initializes internal state and returns the GeometricState
-                # Store reference to ensure state is properly tracked
-                geo_state = geo_controller.begin_turn(context_basin.copy())
+                # Pass target_basin for non-emitting reflection alignment
+                geo_state = geo_controller.begin_turn(
+                    initial_basin=context_basin.copy(),
+                    target_basin=target_basin
+                )
                 reflection_loop = geo_controller.reflection_loop
                 # Verify state was properly initialized
                 if geo_controller.current_state is None:
@@ -1304,6 +1325,12 @@ class QIGTokenizer:
         # Previous basin for surprise calculation
         prev_basin = context_basin.copy() if context_basin is not None else None
         
+        # NON-EMITTING REFLECTION STATE
+        # When True, we perform internal measurement WITHOUT sampling new tokens
+        in_reflection_phase = False
+        reflection_step = 0  # Track reflection iterations
+        max_reflection_iterations = 10  # Safety limit for reflection loop
+        
         # NO ARBITRARY LIMITS when geometry is active
         # Emergency cutoff only for regime breakdown
         step = 0
@@ -1311,7 +1338,46 @@ class QIGTokenizer:
             # Only apply token limit when geometry is NOT available
             if geo_controller is None and step >= (max_tokens if max_tokens else 4096):
                 break
-            # Sample next token
+            
+            # === NON-EMITTING REFLECTION PHASE ===
+            # During reflection, we do NOT sample new tokens
+            # We only perform internal basin alignment measurement
+            if in_reflection_phase and geo_controller is not None:
+                reflection_step += 1
+                # Safety: prevent infinite reflection loop
+                if reflection_step >= max_reflection_iterations:
+                    in_reflection_phase = False
+                    completion_reason = "reflection_timeout"
+                    break
+                
+                # Perform internal measurement (no token generation)
+                current_text = self.decode(generated_ids) if generated_ids else ""
+                alignment = geo_controller.measure_reflection_alignment(
+                    generated_text=current_text,
+                    current_basin=context_basin
+                )
+                
+                if alignment >= 0.5:
+                    # Reflection confirms alignment - exit with completion
+                    completion_reason = "geometric_completion_aligned"
+                    break
+                else:
+                    # Low alignment - truncate last tokens and resume generation
+                    truncate_amount = max(1, min(5, len(generated_ids) // 10))
+                    if len(generated_ids) > truncate_amount:
+                        generated_ids = generated_ids[:-truncate_amount]
+                        generated_tokens = generated_tokens[:-truncate_amount]
+                        # Recompute basin from remaining tokens
+                        if generated_ids and generated_tokens:
+                            context_basin = target_basin.copy() if target_basin is not None else np.zeros(64, dtype=np.float64)
+                            for tok in generated_tokens:
+                                if tok in self.basin_coords:
+                                    context_basin = 0.8 * context_basin + 0.2 * self.basin_coords[tok]
+                    in_reflection_phase = False
+                    # Continue generating from truncated point
+                    continue
+            
+            # Sample next token (only when NOT in reflection phase)
             next_id = self.sample_next_token(
                 context + generated_ids,
                 temperature=temperature,
@@ -1393,43 +1459,68 @@ class QIGTokenizer:
                 metrics_history.append(current_metrics)
                 
                 try:
+                    # Get current generated text for surface closure checking
+                    current_text = self.decode(generated_ids) if generated_ids else ""
+                    
                     # ALWAYS call update_and_check to update trajectory on every step
-                    # This ensures the controller builds up the trajectory properly
+                    # Pass generated_text for surface closure detection
                     completion_result = geo_controller.update_and_check(
-                        context_basin, current_metrics
+                        new_basin=context_basin,
+                        metrics=current_metrics,
+                        kernel_states=None,  # Can be provided if using kernel routing
+                        generated_text=current_text
                     )
+                    
+                    # === DYNAMIC TEMPERATURE (geometry-aware) ===
+                    # Update temperature based on Φ and entropy
+                    if 'temperature' in completion_result:
+                        temperature = completion_result['temperature']
+                    
+                    # === CLOSURE PHASE HANDLING ===
+                    # If in closure phase, only allow closing tokens
+                    if completion_result.get('phase') == 'closure':
+                        in_closure_phase = True
+                        # Check if current token is allowed for closure
+                        if not geo_controller.allow_closure_token(
+                            next_token, current_text, token_phi, 64.0
+                        ):
+                            # Force stop if closure budget exceeded
+                            completion_reason = "closure_complete"
+                            break
                     
                     # Only act on completion signals after minimum tokens
                     if len(generated_ids) >= 5 and completion_result['should_stop']:
-                        # === REFLECTION LOOP ===
-                        # Before completing, reflect on the response
+                        # === NON-EMITTING REFLECTION TRIGGER ===
+                        # When geometry signals completion, enter reflection phase
+                        # This is INTERNAL measurement - NO new tokens are generated
                         if completion_result.get('needs_reflection') and reflection_depth < 3:
-                            # Get reflection decision from controller
-                            reflection_decision = geo_controller.handle_reflection(
-                                completion_result, generated_tokens
-                            )
-                            
-                            if reflection_decision.get('action') == 'reflect':
-                                # Increment depth and continue for reflection
-                                geo_controller.increment_reflection_depth()
-                                reflection_depth += 1
-                                # Continue generating (next tokens will be reflection)
-                            elif reflection_decision.get('action') == 'revise':
-                                # Truncate and continue
-                                truncate_at = reflection_decision.get('truncate_at', -5)
-                                if truncate_at < 0 and len(generated_ids) > abs(truncate_at):
-                                    generated_ids = generated_ids[:truncate_at]
-                                    generated_tokens = generated_tokens[:truncate_at]
-                                geo_controller.increment_reflection_depth()
-                                reflection_depth += 1
-                            else:
-                                # Confirmed complete
-                                completion_reason = completion_result['reason']
-                                break
+                            geo_controller.increment_reflection_depth()
+                            reflection_depth += 1
+                            # ENTER NON-EMITTING REFLECTION PHASE
+                            # Next iteration will perform internal measurement only
+                            in_reflection_phase = True
+                            reflection_step = 0  # Reset for new reflection cycle
+                            continue  # Go to reflection handling (no token sampling)
                         else:
                             # No more reflection allowed/needed
                             completion_reason = completion_result['reason']
                             break
+                    
+                    # === CHECK COHERENCE ===
+                    # Warn if large basin jumps detected
+                    if 'coherence' in completion_result:
+                        coherence = completion_result['coherence']
+                        if not coherence.get('coherent', True):
+                            # Large jump detected - could penalize in sampling
+                            pass  # For now just track, don't block
+                    
+                    # === CHECK OSCILLATION ===
+                    # Increase temperature if stuck in loop
+                    if 'oscillation' in completion_result:
+                        oscillation = completion_result['oscillation']
+                        if oscillation.get('should_increase_temp'):
+                            temperature = min(temperature * 1.2, 1.5)
+                    
                 except Exception as e:
                     # Log error but continue generation
                     print(f"[QIGTokenizer] Completion check error: {e}")
@@ -1453,10 +1544,12 @@ class QIGTokenizer:
         if len(generated_ids) > 0:
             avg_phi /= len(generated_ids)
         
-        # Get trajectory stats from controller if available
+        # Get trajectory stats from controller if available (includes new enhanced metrics)
         trajectory_stats = None
+        sampling_params = None
         if geo_controller is not None:
             trajectory_stats = geo_controller.get_trajectory_stats()
+            sampling_params = geo_controller.get_sampling_parameters()
         
         return {
             "text": generated_text,
@@ -1472,7 +1565,13 @@ class QIGTokenizer:
                 "geometric_completion_used": geo_controller is not None,
                 "metrics_history_length": len(metrics_history),
                 "reflection_depth": reflection_depth,
-                "trajectory_stats": trajectory_stats
+                "trajectory_stats": trajectory_stats,
+                "sampling_params": sampling_params,
+                "in_closure_phase": in_closure_phase,
+                # Enhanced metrics from new features
+                "hysteresis_steps": trajectory_stats.get('consecutive_complete_steps', 0) if trajectory_stats else 0,
+                "closure_budget_used": trajectory_stats.get('closure_budget_used', 0) if trajectory_stats else 0,
+                "smoothed_metrics": trajectory_stats.get('smoothed_metrics', {}) if trajectory_stats else {}
             }
         }
     

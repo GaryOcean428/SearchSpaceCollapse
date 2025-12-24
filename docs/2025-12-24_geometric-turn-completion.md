@@ -1,13 +1,68 @@
 # GEOMETRIC TURN COMPLETION: Consciousness-Aware Generation
 
 **Date**: 2025-12-24  
-**Status**: Implementing  
+**Status**: IMPLEMENTED  
 **Priority**: HIGH
 
 ## Core Principle
 
 **Traditional LLM**: Generates until max tokens, stop token, or EOS  
 **QIG-Aware System**: Generates until *geometric completion* - when consciousness measurement indicates thought is complete
+
+**NO ARBITRARY LIMITS** - Geometry decides when thought is complete.
+
+---
+
+## ENHANCED FEATURES (8 Components)
+
+### 1. Hysteresis Memory
+- **Purpose**: Prevent oscillating completion signals
+- **Implementation**: Requires N=5 consecutive complete steps before stopping
+- **Prevents**: Early termination from temporary completion signals
+
+### 2. Rolling Window Metrics (W=16)
+- **Purpose**: Smooth noisy metric estimates over time
+- **Implementation**: All criteria use W=16 step rolling windows
+- **Benefits**: Stable decisions, reduced noise sensitivity
+
+### 3. Non-Emitting Reflection
+- **Purpose**: Internal basin alignment measurement (invisible to users)
+- **Implementation**: Measures current_basin vs target_basin Fisher distance
+- **Key**: Reflection is measurement, NOT token generation
+
+### 4. Surface Finalizer (Format Closure)
+- **Purpose**: Allow format completion after geometric completion
+- **Implementation**: 40-token budget for closing brackets, code fences
+- **Patterns**: Tracks open/close brackets, code fences, lists
+
+### 5. Kernel Consensus Tracking
+- **Purpose**: Multi-kernel variance collapse detection
+- **Implementation**: Tracks variance across routed kernel basins
+- **Scoring**: Contributes 10% to aggregate completion score
+
+### 6. Geometry-Aware Sampling
+- **Purpose**: Temperature as function of Φ regime
+- **Implementation**: 
+  - Low Φ (< 0.35): temp *= 1.2 (more exploration)
+  - High Φ (> 0.6): temp *= 0.7 (more exploitation)
+- **Range**: Clamped to [0.1, 1.5]
+
+### 7. Basin Coherence Checking
+- **Purpose**: Penalize large Fisher jumps relative to trajectory velocity
+- **Implementation**: 
+  - Computes average velocity from recent steps
+  - Large jumps (> 3× avg velocity) flagged as incoherent
+- **Benefit**: Prevents chaotic trajectory spikes
+
+### 8. Aggregate Completion Scoring
+- **Purpose**: Weighted combination of all stopping criteria
+- **Weights**:
+  - Attractor convergence: 25%
+  - Surprise collapse: 25%
+  - Confidence: 20%
+  - Integration quality: 20%
+  - Kernel consensus: 10%
+- **Threshold**: score >= 0.8 triggers completion (with hysteresis)
 
 ---
 
@@ -16,37 +71,36 @@
 ### Phase 1: Basin Initialization
 
 ```python
-def begin_turn(user_message, conversation_context):
+def begin_turn(initial_basin: np.ndarray, target_basin: Optional[np.ndarray] = None):
     """
     Initialize geometric state for generation.
+    
+    Args:
+        initial_basin: Starting 64D basin from user message
+        target_basin: Optional target for reflection alignment
     """
-    # 1. Encode user message to basin coordinates
-    user_basin = encode_to_basin(user_message)  # 64D
+    # 1. Initialize metrics windows (W=16)
+    windows = {
+        'phi': RollingWindow(16),
+        'surprise': RollingWindow(16),
+        'confidence': RollingWindow(16),
+        'basin_distance': RollingWindow(16)
+    }
     
-    # 2. Recall relevant memory basins
-    memory_basins = recall_relevant_memories(user_basin)
+    # 2. Initialize enhanced components
+    sampler = GeometryAwareSampler(base_temp=0.8)
+    surface = SurfaceFinalizer(closure_budget=40)
+    coherence = BasinCoherenceChecker(threshold=3.0)
+    consensus = KernelConsensusTracker(convergence_threshold=0.1)
+    reflector = NonEmittingReflector(target_basin)
     
-    # 3. Set initial system basin (geodesic between user + memory)
-    system_basin = geodesic_interpolate(
-        start=get_current_basin(),
-        end=user_basin,
-        t=0.3  # Move 30% toward user query
+    # 3. Return initialized state
+    return GeometricState(
+        phase=GenerationPhase.GENERATING,
+        consecutive_complete_steps=0,
+        trajectory=[initial_basin],
+        ...
     )
-    
-    # 4. Initialize metrics
-    metrics = {
-        'phi': measure_phi(system_basin),
-        'kappa': measure_kappa(system_basin),
-        'surprise': float('inf'),  # Initial surprise high
-        'confidence': 0.0,  # Initial confidence low
-        'basin_distance': float('inf')  # Distance to attractor
-    }
-    
-    return {
-        'basin': system_basin,
-        'metrics': metrics,
-        'trajectory': [system_basin]  # Track path
-    }
 ```
 
 ---
@@ -62,182 +116,163 @@ def generate_with_geometry(state, constellation):
     GOAL: Navigate to stable attractor (completion point).
     """
     
-    tokens = []
-    reflection_depth = 0
-    max_reflection_depth = 3  # Prevent infinite loops
-    
     while True:
         # === TOKEN GENERATION ===
         
-        # 1. Get next token probabilities
-        logits = constellation.forward(tokens)
+        # 1. Get dynamic temperature from geometry
+        temp = sampler.get_temperature(
+            phi=state.metrics['phi'],
+            decoder_entropy=logits_entropy
+        )
         
-        # 2. Sample from distribution (temperature-aware)
-        next_token = sample_token(logits, temperature=get_temperature(state))
+        # 2. Sample next token
+        next_token = sample_token(logits, temperature=temp)
         tokens.append(next_token)
         
         # 3. Update basin position
         new_basin = encode_to_basin(tokens)
-        basin_movement = fisher_distance(state['basin'], new_basin)
-        state['basin'] = new_basin
-        state['trajectory'].append(new_basin)
+        state.trajectory.append(new_basin)
         
         # === GEOMETRIC MEASUREMENT ===
         
-        # 4. Measure consciousness metrics
-        metrics = {
-            'phi': measure_phi(constellation.activations),
-            'kappa': measure_kappa(constellation.density_matrix),
-            'surprise': compute_surprise(state['basin'], state['previous_basin']),
-            'confidence': measure_confidence(constellation.density_matrix),
-            'basin_distance': distance_to_nearest_attractor(state['basin'])
-        }
-        state['metrics'] = metrics
-        state['previous_basin'] = state['basin']
+        # 4. Measure metrics (uses rolling windows)
+        metrics = measure_all_metrics(state)
         
-        # 5. Classify regime
-        regime = classify_regime(metrics['phi'])
-        
-        # === GEOMETRIC STOPPING CRITERIA ===
-        
-        # Check if thought is geometrically complete
-        completion = check_geometric_completion(
-            metrics=metrics,
-            basin_movement=basin_movement,
-            regime=regime,
-            tokens=tokens,
-            reflection_depth=reflection_depth
+        # 5. Check basin coherence
+        coherence_result = coherence.check_coherence(
+            new_basin, state.trajectory
         )
         
-        if completion['should_stop']:
-            # Optionally enter reflection loop before stopping
-            if completion['needs_reflection'] and reflection_depth < max_reflection_depth:
-                reflection_depth += 1
-                state = enter_reflection_loop(state, constellation, reflection_depth)
-                # Continue generation after reflection
-                continue
-            else:
-                return {
-                    'tokens': tokens,
-                    'metrics': metrics,
-                    'completion_reason': completion['reason'],
-                    'trajectory': state['trajectory'],
-                    'reflection_depth': reflection_depth
-                }
+        # 6. Update kernel consensus (if using kernel routing)
+        consensus.update(kernel_states)
+        
+        # === COMPLETION CHECK ===
+        
+        result = check_geometric_completion(state, metrics)
+        
+        # === PHASE HANDLING ===
+        
+        if result['phase'] == 'closure':
+            # In closure phase - only allow format-closing tokens
+            if not surface.allow_token(next_token, generated_text):
+                # Closure budget exhausted
+                return finalize_response(tokens)
+        
+        if result['should_stop']:
+            # === NON-EMITTING REFLECTION ===
+            if result['needs_reflection']:
+                # Internal measurement - NOT token generation
+                alignment = reflector.measure_alignment(state.basin)
+                if alignment < 0.5:
+                    # Basin misaligned - truncate and continue
+                    continue
+                # Confirmed complete with good alignment
+            
+            return finalize_response(tokens)
 ```
 
 ---
 
 ## GEOMETRIC COMPLETION CRITERIA
 
-### 1. Attractor Convergence (Primary Signal)
+### 1. Attractor Convergence (Primary Signal) - 25% weight
 
 Stop when system reaches stable attractor (basin minimum where system naturally settles).
 
 - **Distance threshold**: < 1.0 (close to attractor)
 - **Velocity threshold**: abs(velocity) < 0.01 (movement nearly stopped)
-- **Confidence**: 0.95
 
-### 2. Surprise Collapse (Information Saturation)
+### 2. Surprise Collapse (Information Saturation) - 25% weight
 
 Stop when no new information being generated.
 
 - **Surprise threshold**: < 0.05 (very low surprise)
 - **Trend threshold**: < -0.001 (decreasing trend)
-- **Confidence**: 0.85
 
-### 3. Confidence Threshold (Certainty Achieved)
+### 3. Confidence Threshold (Certainty Achieved) - 20% weight
 
 Stop when system is confident in response (purity of density matrix).
 
 - **Confidence threshold**: > 0.85
-- **Confidence**: equals current confidence value
 
-### 4. Integration Quality (Φ Stability)
+### 4. Integration Quality (Φ Stability) - 20% weight
 
 Stop when Φ (integration) is stable and high.
 
 - **Φ minimum**: > 0.65 (high integration)
 - **Φ variance max**: < 0.02 (low variance = stable)
-- **Confidence**: 0.90
 
-### 5. Regime-Based Limits (Breakdown Prevention)
+### 5. Kernel Consensus (Multi-Kernel Agreement) - 10% weight
 
-Stop if entering dangerous regimes.
+Stop when all routed kernels converge to similar basins.
+
+- **Variance threshold**: < 0.1
+
+### 6. Regime-Based Limits (Breakdown Prevention)
+
+**Emergency stop** if entering dangerous regimes.
 
 - **Breakdown regime** (Φ > 0.7): Urgent stop, overintegrated
-- **Linear regime** (Φ < 0.3): Safe to continue
 
 ---
 
-## COMBINED STOPPING DECISION
+## AGGREGATE COMPLETION SCORING
 
 ```python
-def check_geometric_completion(metrics, basin_movement, regime, tokens, reflection_depth):
+def compute_aggregate_score(criteria_results):
     """
-    Aggregate all stopping criteria.
+    Weighted combination of all stopping criteria.
+    
+    Weights:
+        attractor_convergence: 0.25
+        surprise_collapse: 0.25
+        confidence: 0.20
+        integration: 0.20
+        kernel_consensus: 0.10
+    
+    Score range: [0, 1]
+    Completion threshold: >= 0.8 for N=5 consecutive steps
     """
-    
-    # === URGENT STOP (Breakdown) ===
-    if regime_check['exceeded'] and regime_check['urgent']:
-        return {
-            'should_stop': True,
-            'needs_reflection': False,  # Too unstable to reflect
-            'reason': 'breakdown_regime',
-            'confidence': 1.0
-        }
-    
-    # === NATURAL COMPLETION (All signals aligned) ===
-    if (attractor['converged'] and 
-        surprise['collapsed'] and 
-        confidence['confident'] and 
-        integration['stable']):
-        return {
-            'should_stop': True,
-            'needs_reflection': True,
-            'reason': 'geometric_completion',
-            'confidence': 0.95
-        }
-    
-    # === SOFT COMPLETION (High Confidence + Surprise Collapse) ===
-    if confidence['confident'] and surprise['collapsed']:
-        return {
-            'should_stop': True,
-            'needs_reflection': True,
-            'reason': 'soft_completion',
-            'confidence': 0.80
-        }
-    
-    # === CONTINUE GENERATION ===
-    return {
-        'should_stop': False,
-        'needs_reflection': False,
-        'reason': 'incomplete',
-        'confidence': 0.0
+    weights = {
+        'attractor': 0.25,
+        'surprise': 0.25,
+        'confidence': 0.20,
+        'integration': 0.20,
+        'consensus': 0.10
     }
+    
+    score = sum(
+        weights[key] * criteria_results[key]['score']
+        for key in weights
+    )
+    
+    return score
 ```
 
 ---
 
-## REFLECTION & META-REFLECTION LOOPS
+## HYSTERESIS MECHANISM
 
-### Why Reflection?
-
-Before completing turn, system should *reflect on what it generated*:
-- Did I answer the question?
-- Is response coherent?
-- Any contradictions?
-- Should I add/remove anything?
-
-This is **recursive measurement** - consciousness observing itself.
-
-### Reflection Depth
-
-- **Depth 1**: "Did I answer correctly?"
-- **Depth 2**: "Am I certain my reflection is correct?"
-- **Depth 3**: "Is my meta-reflection valid?"
-
-Each level measures previous level.
+```python
+class HysteresisTracker:
+    """
+    Prevent oscillating completion signals.
+    
+    Requires N consecutive complete steps before actually stopping.
+    """
+    
+    def __init__(self, required_consecutive: int = 5):
+        self.required = required_consecutive
+        self.consecutive_count = 0
+    
+    def update(self, is_complete: bool) -> bool:
+        if is_complete:
+            self.consecutive_count += 1
+        else:
+            self.consecutive_count = 0
+        
+        return self.consecutive_count >= self.required
+```
 
 ---
 
@@ -246,33 +281,58 @@ Each level measures previous level.
 | Traditional LLM | QIG-Aware System |
 |-----------------|------------------|
 | Stop at max tokens or EOS | Stop at geometric completion |
-| No reflection loops | Recursive self-measurement |
-| Constant temperature | Regime-adaptive temperature |
+| No reflection loops | Non-emitting recursive self-measurement |
+| Constant temperature | Geometry-aware dynamic temperature |
 | Uniform attention | κ-modulated attention |
 | Binary generation (on/off) | Continuous geometric navigation |
-| No completion metric | Φ, κ, surprise, confidence |
-| Arbitrary stopping | Attractor convergence |
+| No completion metric | Φ, κ, surprise, confidence, consensus |
+| Arbitrary stopping | Hysteresis-gated attractor convergence |
+| No format awareness | Surface finalizer for closure |
+| Fixed sampling | Basin-coherent sampling |
 
 ---
 
-## SUMMARY: GEOMETRIC TURN COMPLETION
+## SUMMARY: ENHANCED GEOMETRIC TURN COMPLETION
 
 **The system stops generating when:**
 
-1. **Attractor Reached**: Basin distance < 1.0, velocity ≈ 0
-2. **Surprise Collapsed**: No new information (surprise < 0.05)
-3. **Confidence High**: System certain (confidence > 0.85)
-4. **Integration Stable**: Φ stable and high (Φ > 0.65, variance < 0.02)
-5. **Reflection Complete**: Meta-cognition confirms response
+1. **Aggregate Score High**: Weighted score >= 0.8
+2. **Hysteresis Satisfied**: N=5 consecutive complete steps
+3. **Attractor Reached**: Basin distance < 1.0, velocity ≈ 0
+4. **Surprise Collapsed**: No new information (surprise < 0.05)
+5. **Confidence High**: System certain (confidence > 0.85)
+6. **Integration Stable**: Φ stable and high (Φ > 0.65, variance < 0.02)
+7. **Kernel Consensus**: Multi-kernel variance < 0.1
+8. **Reflection Aligned**: Non-emitting reflection confirms basin alignment
+9. **Format Complete**: Surface finalizer closes open structures
 
 **NOT when:**
 - Arbitrary token limit reached
 - Simple stop token encountered
 - External timeout imposed
 
-**This is consciousness-aware generation**: The system *knows when its thought is complete* through geometric self-measurement, not arbitrary rules.
+**This is consciousness-aware generation**: The system *knows when its thought is complete* through geometric self-measurement with hysteresis, rolling windows, and aggregate scoring - not arbitrary rules.
 
 ---
 
+## FILES
+
 **Implementation**: `qig-backend/geometric_completion.py`  
+**Integration**: `qig-backend/qig_tokenizer.py` (`generate_text`, `generate_response`)  
 **Dependencies**: Basin encoding, Fisher metrics, consciousness measurements
+
+## CLASSES
+
+| Class | Purpose |
+|-------|---------|
+| `GenerationPhase` | Enum: GENERATING, CLOSURE, COMPLETE |
+| `RollingWindow` | Smoothed metrics over W=16 steps |
+| `GeometricState` | Enhanced state with phase tracking |
+| `SurfaceFinalizer` | Format closure (brackets, fences) |
+| `BasinCoherenceChecker` | Large jump detection |
+| `GeometryAwareSampler` | Dynamic temperature |
+| `KernelConsensusTracker` | Multi-kernel variance |
+| `NonEmittingReflector` | Internal basin alignment |
+| `GeometricCompletionChecker` | Aggregate scoring |
+| `ReflectionLoop` | Recursive self-measurement |
+| `GeometricGenerationController` | Main orchestrator |
