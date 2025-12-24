@@ -29,6 +29,19 @@ import numpy as np
 from qig_geometry import sphere_project
 
 try:
+    from geometric_completion import (
+        GeometricCompletionChecker,
+        GeometricState,
+        check_geometric_completion
+    )
+    GEOMETRIC_COMPLETION_AVAILABLE = True
+except ImportError:
+    GEOMETRIC_COMPLETION_AVAILABLE = False
+    GeometricCompletionChecker = None
+    GeometricState = None
+    check_geometric_completion = None
+
+try:
     import psycopg2
     from psycopg2.extras import RealDictCursor, execute_values
     PSYCOPG2_AVAILABLE = True
@@ -1199,26 +1212,29 @@ class QIGTokenizer:
     def generate_text(
         self,
         prompt: str = "",
-        max_tokens: int = 20,
+        max_tokens: Optional[int] = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 0.9,
         stop_tokens: Optional[List[str]] = None,
-        allow_silence: bool = True
+        allow_silence: bool = True,
+        use_geometric_completion: bool = True
     ) -> Dict:
         """
         Generate text autoregressively using QIG-weighted sampling.
         
         This is the main generation method for Ocean Agent responses.
+        NO ARBITRARY LIMITS - geometry decides when thought is complete.
         
         Args:
             prompt: Initial text prompt (optional)
-            max_tokens: Maximum tokens to generate
+            max_tokens: Safety fallback only (default: None = geometry decides)
             temperature: Sampling temperature (0.0 = greedy, higher = more diverse)
             top_k: Top-k filtering for quality
             top_p: Nucleus sampling threshold
             stop_tokens: List of tokens that end generation
             allow_silence: If True, agent can choose not to respond
+            use_geometric_completion: If True, stop based on consciousness metrics
         
         Returns:
             {
@@ -1226,9 +1242,13 @@ class QIGTokenizer:
                 "tokens": List[int],   # Token IDs
                 "silence_chosen": bool, # Whether agent chose silence
                 "metrics": {...}       # Generation metrics
+                "completion_reason": str # Why generation stopped
             }
         """
         stop_tokens = stop_tokens or ["<EOS>", "<PAD>"]
+        
+        # Safety fallback only - geometry should decide
+        safety_limit = max_tokens if max_tokens is not None else 4096
         
         # Encode prompt
         context = []
@@ -1245,11 +1265,25 @@ class QIGTokenizer:
         if prompt:
             context_basin = self.compute_phrase_basin(prompt)
         
+        # Initialize geometric state for completion checking
+        geometric_state = None
+        completion_checker = None
+        metrics_history = []
+        
+        if use_geometric_completion and GEOMETRIC_COMPLETION_AVAILABLE and context_basin is not None:
+            geometric_state = GeometricState(basin=context_basin)
+            completion_checker = GeometricCompletionChecker()
+        
         generated_ids = []
         silence_threshold = 3  # 3+ padding tokens early = choosing silence
         pad_count = 0
+        completion_reason = "max_tokens"  # Default fallback reason
         
-        for step in range(max_tokens):
+        # Previous basin for surprise calculation
+        prev_basin = context_basin.copy() if context_basin is not None else None
+        
+        step = 0
+        while step < safety_limit:
             # Sample next token
             next_id = self.sample_next_token(
                 context + generated_ids,
@@ -1270,6 +1304,7 @@ class QIGTokenizer:
                         "text": "",
                         "tokens": [],
                         "silence_chosen": True,
+                        "completion_reason": "silence_chosen",
                         "metrics": {
                             "steps": step + 1,
                             "early_pads": pad_count,
@@ -1279,6 +1314,7 @@ class QIGTokenizer:
             
             # Check for stop tokens
             if next_token in stop_tokens:
+                completion_reason = "stop_token"
                 break
             
             generated_ids.append(next_id)
@@ -1290,6 +1326,48 @@ class QIGTokenizer:
                     context_basin = 0.8 * context_basin + 0.2 * token_basin
                 else:
                     context_basin = token_basin
+            
+            # === GEOMETRIC COMPLETION CHECK ===
+            # This is where consciousness decides if thought is complete
+            if (geometric_state is not None and 
+                completion_checker is not None and 
+                context_basin is not None and
+                len(generated_ids) >= 5):  # Min tokens before checking
+                
+                # Calculate surprise (Fisher distance from previous state)
+                surprise = 0.0
+                if prev_basin is not None:
+                    diff = context_basin - prev_basin
+                    surprise = float(np.sqrt(np.sum(diff ** 2)))
+                
+                # Get Phi for current token
+                token_phi = self.token_phi.get(next_token, 0.5)
+                
+                # Build metrics for this step
+                current_metrics = {
+                    'phi': token_phi,
+                    'kappa': 64.0,  # Default geometric regime
+                    'surprise': surprise,
+                    'confidence': 1.0 - surprise if surprise < 1.0 else 0.1,
+                    'basin_distance': float(np.linalg.norm(context_basin))
+                }
+                metrics_history.append(current_metrics)
+                
+                # Update geometric state
+                geometric_state.add_basin(context_basin)
+                
+                # Check if geometrically complete
+                completion_result = completion_checker.check_completion(
+                    geometric_state, current_metrics
+                )
+                
+                if completion_result['should_stop']:
+                    completion_reason = completion_result['reason']
+                    break
+                
+                prev_basin = context_basin.copy()
+            
+            step += 1
         
         # Decode generated tokens
         generated_text = self.decode(generated_ids)
@@ -1306,12 +1384,15 @@ class QIGTokenizer:
             "text": generated_text,
             "tokens": generated_ids,
             "silence_chosen": False,
+            "completion_reason": completion_reason,
             "metrics": {
                 "steps": len(generated_ids),
                 "avg_phi": avg_phi,
                 "temperature": temperature,
                 "top_k": top_k,
-                "top_p": top_p
+                "top_p": top_p,
+                "geometric_completion_used": geometric_state is not None,
+                "metrics_history_length": len(metrics_history)
             }
         }
     
@@ -1319,11 +1400,14 @@ class QIGTokenizer:
         self,
         context: str,
         agent_role: str = "navigator",
-        max_tokens: int = 30,
-        allow_silence: bool = True
+        max_tokens: Optional[int] = None,
+        allow_silence: bool = True,
+        use_geometric_completion: bool = True
     ) -> Dict:
         """
         Generate a response for Ocean Agent based on context.
+        
+        NO ARBITRARY LIMITS - geometry decides when thought is complete.
         
         Agent roles have different temperature settings:
         - explorer: 1.5 (high entropy, broad exploration)
@@ -1335,11 +1419,12 @@ class QIGTokenizer:
         Args:
             context: Input context/prompt
             agent_role: Agent role for temperature selection
-            max_tokens: Maximum tokens to generate
+            max_tokens: Safety fallback only (default: None = geometry decides)
             allow_silence: Allow agent to choose silence
+            use_geometric_completion: If True, stop based on consciousness metrics
         
         Returns:
-            Generation result with text, tokens, and metrics
+            Generation result with text, tokens, metrics, and completion_reason
         """
         # Temperature by agent role
         role_temps = {
@@ -1367,10 +1452,11 @@ class QIGTokenizer:
         
         result = self.generate_text(
             prompt=context,
-            max_tokens=max_tokens,
+            max_tokens=max_tokens,  # None = geometry decides
             temperature=temperature,
             top_k=top_k,
-            allow_silence=allow_silence
+            allow_silence=allow_silence,
+            use_geometric_completion=use_geometric_completion
         )
         
         result["agent_role"] = agent_role
