@@ -2,6 +2,32 @@
 <html lang="en" class="dark">
   <head>
     <script>
+      // Suppress Vite HMR WebSocket errors (common in Replit environment)
+      // This must run BEFORE Vite client script loads
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event.reason;
+        if (reason && reason.message && (
+            reason.message.indexOf("Failed to construct 'WebSocket'") !== -1 ||
+            reason.message.indexOf('localhost:undefined') !== -1 ||
+            reason.message.indexOf('WebSocket connection') !== -1
+        )) {
+          console.debug('[Vite HMR] WebSocket unavailable - continuing without hot reload');
+          event.preventDefault();
+          return;
+        }
+      });
+      window.addEventListener('error', function(event) {
+        if (event.message && (
+            event.message.indexOf("Failed to construct 'WebSocket'") !== -1 ||
+            event.message.indexOf('localhost:undefined') !== -1
+        )) {
+          console.debug('[Vite HMR] WebSocket error suppressed');
+          event.preventDefault();
+          return;
+        }
+      });
+    </script>
+    <script>
       // Apply theme immediately to prevent flash
       (function() {
         var theme = localStorage.getItem('theme') || 'dark';
