@@ -220,8 +220,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { db } = await import("./db");
   const authEnabled = !!db;
 
+  // Auth health check endpoint (always available for diagnostics)
+  const { authHealthCheck } = await import("./auth-health");
+  app.get("/api/auth/health", authHealthCheck);
+
   if (authEnabled) {
-    await setupAuth(app);
+    await setupAuth(app, authEnabled);
     console.log("[Auth] Replit Auth enabled");
 
     // Replit Auth: Auth routes - optimized with session caching

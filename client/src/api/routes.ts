@@ -13,6 +13,7 @@ export const API_ROUTES = {
     user: '/api/auth/user',
     login: '/api/login',
     logout: '/api/logout',
+    health: '/api/auth/health',
   },
 
   // Investigation & Recovery Core
@@ -511,6 +512,7 @@ export const API_ROUTES = {
 export const QUERY_KEYS = {
   auth: {
     user: () => [API_ROUTES.auth.user] as const,
+    health: () => [API_ROUTES.auth.health] as const,
   },
   
   investigation: {

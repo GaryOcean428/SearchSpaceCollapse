@@ -1,18 +1,43 @@
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Alert, AlertDescription, AlertTitle } from "@/components/ui";
-import { KeyRound, Lock, Sparkles, Shield, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
+import { KeyRound, Lock, Sparkles, Shield, AlertCircle, RefreshCw, Loader2, Info } from "lucide-react";
 import { API_ROUTES } from "@/api";
 import { useEffect, useState } from "react";
+
+interface AuthHealth {
+  status: 'healthy' | 'degraded' | 'down';
+  checks: {
+    config: { status: 'pass' | 'fail'; message: string };
+    oidc: { status: 'pass' | 'fail'; message: string };
+    session: { status: 'pass' | 'fail'; message: string };
+    database: { status: 'pass' | 'fail'; message: string };
+  };
+}
 
 export default function Landing() {
   const [authError, setAuthError] = useState<{ type: string; message: string } | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginWaitTime, setLoginWaitTime] = useState(0);
+  const [authHealth, setAuthHealth] = useState<AuthHealth | null>(null);
+  const [checkingHealth, setCheckingHealth] = useState(false);
 
   const handleLogin = () => {
     setIsLoggingIn(true);
     setLoginWaitTime(0);
     // Navigate to login - the page will redirect, so no need to reset state
     window.location.href = API_ROUTES.auth.login;
+  };
+
+  const checkAuthHealth = async () => {
+    setCheckingHealth(true);
+    try {
+      const response = await fetch(API_ROUTES.auth.health);
+      const data = await response.json();
+      setAuthHealth(data);
+    } catch (error) {
+      console.error('Failed to check auth health:', error);
+    } finally {
+      setCheckingHealth(false);
+    }
   };
 
   // Update wait time while logging in to show progressive messages
@@ -41,6 +66,9 @@ export default function Landing() {
       setAuthError({ type: errorType, message: message || 'Authentication failed' });
       // Clean up URL without reload
       window.history.replaceState({}, '', '/');
+      
+      // Auto-check health on error
+      checkAuthHealth();
     }
   }, []);
 
@@ -49,7 +77,21 @@ export default function Landing() {
       case 'timeout': return 'Authentication Timed Out';
       case 'failed': return 'Authentication Failed';
       case 'login': return 'Login Failed';
+      case 'error': return 'Authentication Error';
       default: return 'Authentication Error';
+    }
+  };
+
+  const getErrorSuggestion = (type: string) => {
+    switch (type) {
+      case 'timeout':
+        return 'The authentication process took too long. This can happen due to network issues or high server load.';
+      case 'failed':
+        return 'Authentication with Replit failed. You may have declined permissions or the session expired.';
+      case 'login':
+        return 'The login process encountered an error. This may be a temporary issue.';
+      default:
+        return 'An unexpected error occurred during authentication.';
     }
   };
 
@@ -75,7 +117,20 @@ export default function Landing() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>{getErrorTitle(authError.type)}</AlertTitle>
                 <AlertDescription className="mt-2">
-                  <p className="mb-3">{authError.message}</p>
+                  <p className="mb-2 font-medium">{getErrorSuggestion(authError.type)}</p>
+                  <p className="mb-3 text-sm opacity-90">{authError.message}</p>
+                  
+                  {authHealth && authHealth.status !== 'healthy' && (
+                    <div className="mb-3 p-2 bg-destructive/10 rounded text-xs">
+                      <p className="font-semibold mb-1">System Status: {authHealth.status}</p>
+                      {Object.entries(authHealth.checks).map(([key, check]) => (
+                        check.status === 'fail' && (
+                          <p key={key} className="text-xs">• {key}: {check.message}</p>
+                        )
+                      ))}
+                    </div>
+                  )}
+                  
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
@@ -90,6 +145,19 @@ export default function Landing() {
                         <RefreshCw className="mr-2 h-4 w-4" />
                       )}
                       {isLoggingIn ? "Connecting..." : "Try Again"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={checkAuthHealth}
+                      disabled={checkingHealth}
+                    >
+                      {checkingHealth ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Info className="mr-2 h-4 w-4" />
+                      )}
+                      {checkingHealth ? "Checking..." : "Check Status"}
                     </Button>
                     <Button
                       size="sm"
