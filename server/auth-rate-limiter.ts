@@ -7,16 +7,21 @@
 
 import rateLimit from 'express-rate-limit';
 import type { Request, Response, NextFunction } from 'express';
+import {
+  RATE_LIMIT_WINDOW_MS,
+  MAX_LOGIN_ATTEMPTS,
+  MAX_CALLBACK_ATTEMPTS,
+  MAX_AUTH_ATTEMPTS,
+  LOCKOUT_DURATION_MS,
+  LOCKOUT_THRESHOLD,
+  CLEANUP_INTERVAL_MS,
+} from './auth-constants';
 
 // Store for tracking failed auth attempts
 const failedAttempts = new Map<string, { count: number; firstAttempt: number; locked: boolean }>();
 
-// Rate limit configuration
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_AUTH_ATTEMPTS = 10; // per window
-const MAX_LOGIN_ATTEMPTS = 5; // stricter for login endpoint
-const MAX_CALLBACK_ATTEMPTS = 20; // OAuth callbacks can legitimately retry
-const LOCKOUT_DURATION_MS = 60 * 60 * 1000; // 1 hour lockout after too many failures
+// Cleanup interval ID for proper cleanup
+let cleanupIntervalId: NodeJS.Timeout | null = null;
 
 /**
  * General auth endpoint rate limiter
@@ -127,7 +132,7 @@ export function trackFailedAuth(req: Request): void {
   entry.count++;
   
   // Lock out after too many failures
-  if (entry.count >= MAX_LOGIN_ATTEMPTS * 2) {
+  if (entry.count >= LOCKOUT_THRESHOLD) {
     entry.locked = true;
     console.warn(`[AuthLockout] IP ${key} locked out after ${entry.count} failed attempts`);
   }
@@ -186,22 +191,45 @@ export function clearFailedAttempts(req: Request): void {
 
 /**
  * Cleanup old entries periodically
+ * Initialize cleanup on module load
  */
-setInterval(() => {
-  const now = Date.now();
-  const expiredKeys: string[] = [];
+function startCleanup(): void {
+  if (cleanupIntervalId) return; // Already started
   
-  for (const [key, entry] of failedAttempts.entries()) {
-    if (now - entry.firstAttempt > LOCKOUT_DURATION_MS) {
-      expiredKeys.push(key);
+  cleanupIntervalId = setInterval(() => {
+    const now = Date.now();
+    const expiredKeys: string[] = [];
+    
+    for (const [key, entry] of failedAttempts.entries()) {
+      if (now - entry.firstAttempt > LOCKOUT_DURATION_MS) {
+        expiredKeys.push(key);
+      }
     }
-  }
+    
+    for (const key of expiredKeys) {
+      failedAttempts.delete(key);
+    }
+    
+    if (expiredKeys.length > 0) {
+      console.log(`[AuthRateLimit] Cleaned up ${expiredKeys.length} expired lockout entries`);
+    }
+  }, CLEANUP_INTERVAL_MS); // Clean up every 5 minutes
   
-  for (const key of expiredKeys) {
-    failedAttempts.delete(key);
+  // Unref so it doesn't keep the process alive
+  if (cleanupIntervalId.unref) {
+    cleanupIntervalId.unref();
   }
-  
-  if (expiredKeys.length > 0) {
-    console.log(`[AuthRateLimit] Cleaned up ${expiredKeys.length} expired lockout entries`);
+}
+
+/**
+ * Stop cleanup (for testing or module unload)
+ */
+export function stopCleanup(): void {
+  if (cleanupIntervalId) {
+    clearInterval(cleanupIntervalId);
+    cleanupIntervalId = null;
   }
-}, 5 * 60 * 1000); // Clean up every 5 minutes
+}
+
+// Start cleanup on module load
+startCleanup();

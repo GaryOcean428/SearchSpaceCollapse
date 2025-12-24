@@ -6,6 +6,16 @@
  * clear error messages for misconfiguration.
  */
 
+import {
+  MIN_SESSION_SECRET_LENGTH,
+  DEFAULT_SESSION_TTL,
+  DEFAULT_TOKEN_REFRESH_BUFFER,
+  DEFAULT_MAX_RETRIES,
+  DEFAULT_RETRY_BACKOFF_MS,
+  DEFAULT_ISSUER_URL,
+  DEFAULT_SCOPES,
+} from './auth-constants';
+
 export interface AuthConfig {
   enabled: boolean;
   issuerUrl: string;
@@ -86,15 +96,15 @@ export function loadAuthConfig(dbAvailable: boolean): AuthConfig {
   // Load configuration with defaults
   const config: AuthConfig = {
     enabled: true,
-    issuerUrl: process.env.ISSUER_URL || 'https://replit.com/oidc',
+    issuerUrl: process.env.ISSUER_URL || DEFAULT_ISSUER_URL,
     clientId: process.env.REPL_ID!,
     sessionSecret: process.env.SESSION_SECRET!,
-    sessionTtl: parseInt(process.env.SESSION_TTL || '604800000', 10), // 7 days default
-    tokenRefreshBuffer: parseInt(process.env.TOKEN_REFRESH_BUFFER || '300', 10), // 5 min buffer
-    maxRetries: parseInt(process.env.AUTH_MAX_RETRIES || '3', 10),
-    retryBackoffMs: parseInt(process.env.AUTH_RETRY_BACKOFF || '1000', 10),
+    sessionTtl: parseInt(process.env.SESSION_TTL || String(DEFAULT_SESSION_TTL), 10),
+    tokenRefreshBuffer: parseInt(process.env.TOKEN_REFRESH_BUFFER || String(DEFAULT_TOKEN_REFRESH_BUFFER), 10),
+    maxRetries: parseInt(process.env.AUTH_MAX_RETRIES || String(DEFAULT_MAX_RETRIES), 10),
+    retryBackoffMs: parseInt(process.env.AUTH_RETRY_BACKOFF || String(DEFAULT_RETRY_BACKOFF_MS), 10),
     redirectUriBase: process.env.REDIRECT_URI_BASE || null, // e.g., https://your-app.replit.app
-    scopes: (process.env.AUTH_SCOPES || 'openid email profile offline_access').split(' '),
+    scopes: (process.env.AUTH_SCOPES || DEFAULT_SCOPES.join(' ')).split(' '),
     trustedOrigins: [
       'http://localhost:5173',
       'http://localhost:5000',
@@ -170,8 +180,8 @@ export function buildPostLogoutUri(hostname: string, config: AuthConfig): string
  * Validate session secret strength
  */
 export function validateSessionSecret(secret: string): { valid: boolean; reason?: string } {
-  if (secret.length < 32) {
-    return { valid: false, reason: 'Session secret must be at least 32 characters' };
+  if (secret.length < MIN_SESSION_SECRET_LENGTH) {
+    return { valid: false, reason: `Session secret must be at least ${MIN_SESSION_SECRET_LENGTH} characters` };
   }
   
   // Check for common weak patterns

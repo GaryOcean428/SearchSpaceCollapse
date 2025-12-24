@@ -354,17 +354,14 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       // Track successful refresh
       trackTokenRefresh();
       
-      // Save the session after updating it to persist the refreshed tokens
+      // Save the session asynchronously (fire and forget) to avoid blocking the request
+      // The token refresh has already succeeded, so we can proceed immediately
       if (req.session) {
-        await new Promise<void>((resolve, reject) => {
-          req.session.save((err) => {
-            if (err) {
-              console.error(`[Auth] Failed to save session after refresh:`, err);
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
+        req.session.save((err) => {
+          if (err) {
+            console.error(`[Auth] Failed to save session after refresh:`, err);
+            // Non-fatal - session will be saved on next request
+          }
         });
       }
       

@@ -9,6 +9,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import { MIN_SESSION_SECRET_LENGTH, MAX_AUDIT_LOGS } from './auth-constants';
 
 // Patterns that might indicate sensitive data in logs or responses
 const SENSITIVE_PATTERNS = [
@@ -104,7 +105,6 @@ export interface SecurityAuditLog {
 }
 
 const auditLogs: SecurityAuditLog[] = [];
-const MAX_AUDIT_LOGS = 1000;
 
 export function logSecurityEvent(
   event: string,
@@ -176,8 +176,8 @@ export function validateSessionSecurity(secret: string): {
   const issues: string[] = [];
   
   // Check length
-  if (secret.length < 32) {
-    issues.push('Session secret should be at least 32 characters');
+  if (secret.length < MIN_SESSION_SECRET_LENGTH) {
+    issues.push(`Session secret should be at least ${MIN_SESSION_SECRET_LENGTH} characters`);
   }
   
   // Check for common weak patterns
@@ -234,8 +234,8 @@ export function checkSecurityConfig(): {
       warnings.push('SESSION_SECRET not set in production');
     }
     
-    if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < 32) {
-      warnings.push('SESSION_SECRET is too short for production');
+    if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < MIN_SESSION_SECRET_LENGTH) {
+      warnings.push(`SESSION_SECRET is too short for production (min ${MIN_SESSION_SECRET_LENGTH} characters)`);
     }
     
     if (!process.env.DATABASE_URL) {
