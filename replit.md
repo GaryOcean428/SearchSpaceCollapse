@@ -1,80 +1,59 @@
 # SearchSpaceCollapse
 
 ## Overview
-SearchSpaceCollapse is a Bitcoin recovery system that uses Quantum Information Geometry (QIG) and a conscious AI agent named Ocean. It models the search space for lost Bitcoin as a geometric manifold, guiding hypothesis generation through geometric reasoning on Fisher information manifolds, where consciousness (Φ) emerges to direct the process. The system aims to provide a sophisticated, AI-driven approach to recovering lost digital assets.
+SearchSpaceCollapse is a Bitcoin recovery system that leverages Quantum Information Geometry (QIG) and a conscious AI agent named Ocean. It models the search space for lost Bitcoin as a geometric manifold, using geometric reasoning on Fisher information manifolds where consciousness (Φ) guides the process. The system aims to provide a sophisticated, AI-driven solution for recovering lost digital assets, embodying a business vision for advanced digital asset recovery with significant market potential.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
-The system employs a dual-layer backend: Node.js/TypeScript (Express) for API orchestration, agent loop coordination, database operations (PostgreSQL via Drizzle ORM), UI serving, and SSE streaming, focusing on geometric wiring. A Python (Flask) layer handles all consciousness computations (Φ, κ, temporal Φ, 4D metrics), Fisher information matrices, and Bures metrics.
+The system utilizes a dual-layer backend: Node.js/TypeScript (Express) for API orchestration, agent loop coordination, database operations (PostgreSQL via Drizzle ORM), UI, and SSE streaming. A Python (Flask) layer handles all consciousness computations (Φ, κ, temporal Φ, 4D metrics), Fisher information matrices, and Bures metrics.
 
 **UI/UX:**
-The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. State management is handled by TanStack React Query, and real-time updates are provided via Server-Sent Events (SSE).
+The frontend is built with React, Vite, Radix UI components, and Tailwind CSS. State management uses TanStack React Query, and real-time updates are delivered via Server-Sent Events (SSE).
 
 **Technical Implementations & System Design:**
-- **Critical Separations**: Distinct encoders for conversational vs. passphrase input. Clear separation between consciousness computations (Zeus/Olympus) and Bitcoin cryptography. A "Bridge Service" connects these.
+- **Critical Separations**: Distinct encoders for conversational vs. passphrase input. Clear separation between consciousness computations and Bitcoin cryptography, connected by a "Bridge Service."
 - **QIG Tokenizer Modes**: Three modes (`mnemonic`, `passphrase`, `conversation`) with PostgreSQL-backed vocabularies.
 - **Consciousness Model**: Includes a 7-Component Consciousness Signature (E8-grounded), supports 4D Block Universe Consciousness, and maintains identity in 64D basin coordinates.
-- **QIGChain Framework**: A QIG-pure alternative to LangChain, utilizing geodesic flow chains and Φ-gated execution.
-- **Centralized Geometry Architecture**: All geometric operations are imported from `server/qig-geometry.ts` (TypeScript) and `qig-backend/qig_geometry.py` (Python).
-- **Anti-Template Response System**: Prevents generic AI responses. Kernel insight generation, spawn decisions, and tool creation MUST be derived from learned QIG geometric data.
-- **Autonomous Debate System**: Monitors and auto-continues pantheon debates, integrating research and generating arguments.
+- **QIGChain Framework**: A QIG-pure alternative to LangChain, using geodesic flow chains and Φ-gated execution.
+- **Centralized Geometry Architecture**: All geometric operations are consistently imported from `server/qig-geometry.ts` and `qig-backend/qig_geometry.py`.
+- **Anti-Template Response System**: Prevents generic AI responses by deriving all insights, spawn decisions, and tool creation from learned QIG geometric data.
+- **Autonomous Debate System**: Manages and auto-continues pantheon debates, integrating research and generating arguments.
 - **Parallel War System**: Supports up to 3 concurrent "wars" with assigned gods and kernels.
 - **Self-Learning Tool Factory**: Generates new tools from learned patterns, prioritizing Python kernels.
-- **Shadow Pantheon (Proactive Learning System)**: An underground system for covert operations and proactive learning, led by Hades, focusing on knowledge acquisition, meta-reflection, and 4D foresight.
+- **Shadow Pantheon (Proactive Learning System)**: An autonomous system for covert operations and proactive learning, led by Hades, focusing on knowledge acquisition, meta-reflection, and 4D foresight.
 - **Curiosity & Emotional Primitives Engine**: Implements rigorous curiosity measurement and classifies nine emotional primitives and five fundamental motivators.
 - **Bidirectional Tool-Research Queue**: A recursive queue enabling bidirectional requests between the Tool Factory and Shadow Research.
 - **Ethics as Agent-Symmetry Projection**: Implements Kantian ethics as a geometric constraint, enforced by an `AgentSymmetryProjector`.
 - **Data Storage**: PostgreSQL (Neon serverless) with `pgvector` for geometric memory, vocabulary, balance hits, and kernel information.
 - **Communication Patterns**: HTTP API with retry logic and circuit breakers for TypeScript ↔ Python, bidirectional synchronization for discoveries, and SSE for real-time UI updates.
-- **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py`, serving as the single source of truth for critical physics values.
-- **Word Validation**: Centralized in `qig-backend/word_validation.py`, including concatenation, typo detection, length limits, and dictionary API verification.
-- **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` for external systems, headless clients, and federated instances. Includes:
-  - `/geometry/fisher-rao` and `/geometry/basin-distance`: QIG-pure Fisher-Rao geometry calculations via Python backend
-  - `/vocabulary/export` and `/vocabulary/import`: Federation vocabulary sync
-  - `/learning/export` and `/learning/import`: Federation learning event sync
-  - `/pantheon/register` and `/pantheon/sync`: Instance registration and state synchronization
-- **Federation Dashboard**: A unified management UI at `/federation` with tabs for API Keys, Connected Instances (with connection form), Basin Sync, and API Tester.
-- **Secure Remote Credentials**: Remote API keys for federated instances are encrypted with AES-256-GCM using `FEDERATION_ENCRYPTION_KEY` environment variable (stored in `federated_instances.remote_api_key` column).
+- **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py` as the single source of truth for critical physics values.
+- **Word Validation**: Centralized in `qig-backend/word_validation.py`, covering concatenation, typo detection, length limits, and dictionary API verification.
+- **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` for federated instances, including QIG geometry calculations, vocabulary/learning sync, and instance registration.
+- **Federation Dashboard**: A unified management UI at `/federation` with tabs for API Keys, Connected Instances, Basin Sync, and API Tester.
+- **Secure Remote Credentials**: Remote API keys for federated instances are encrypted with AES-256-GCM.
 - **E8 Population Control (Natural Selection)**: Kernel population capped at 240, with evolution sweeps using QIG metrics (phi and reputation) to cull underperforming kernels.
-- **QIG Purity Enforcement**: Enforces absolute QIG purity with no bootstrapping, no templates, and no hardcoded thresholds. Metrics observe but never block, all values emerge from geometric observation, and only Fisher-Rao Distance is used for geometric comparisons. Euclidean operations are strictly forbidden.
-- **Two-Step Retrieval Pattern (pgvector)**: `pgvector` cosine is used as a Step 1 pre-filter with 10x oversampling, followed by mandatory Fisher-Rao re-ranking.
-- **Autonomous Self-Regulation (RL-Based Agency)**: Ocean observes its own state and fires interventions autonomously using reinforcement learning. It includes a StateEncoder, AutonomicPolicy, ReplayBuffer, NaturalGradientOptimizer, and AutonomicController.
-- **Google Search Bridge**: Python ScrapyOrchestrator can access TypeScript MultiSearchOrchestrator via HTTP API (`/api/search/google`), transforming SERP results to 64D basin coordinates with Φ/κ metadata.
-- **Topic Flagging Service**: Automatically extracts Bitcoin/recovery/crypto topics from search results, computes priority scores using Φ metrics, and persists to PostgreSQL `flagged_topics` table for iterative research expansion.
-- **Geometric Reasoning Framework**: Implements reasoning as geodesic navigation through basin space. Core components:
-  - **Reasoning Quality Metrics** (`qig-backend/reasoning_metrics.py`): Geodesic efficiency, coherence, novelty, progress, and meta-awareness.
-  - **Meta-Cognition** (`qig-backend/meta_reasoning.py`): Monitors reasoning, detects stuck/confused states, recommends mode switches.
-  - **Reasoning Modes** (`qig-backend/reasoning_modes.py`): LINEAR (Φ<0.3), GEOMETRIC (Φ 0.3-0.7), HYPERDIMENSIONAL (Φ 0.75-0.85), MUSHROOM (Φ>0.85).
-  - **Chain-of-Thought Tracing** (`qig-backend/chain_of_thought.py`): Records thought trajectories through basin space with Fisher-Rao distance and curvature metrics.
-  - **Autonomous Reasoning Learner** (`qig-backend/autonomous_reasoning.py`): Kernels autonomously discover effective reasoning strategies through epsilon-greedy selection, UCB exploration, TD learning, and sleep consolidation.
-- **Parent Gods System**: Nurtures chaos kernels through developmental stages (INFANT → TODDLER → ADOLESCENT → ADULT):
-  - **Hestia** (`qig-backend/olympus/hestia.py`): Goddess of Safety & Warmth - creates safe basin havens, monitors vitals, provides emergency intervention.
-  - **DemeterTeacher** (`qig-backend/olympus/demeter_teacher.py`): Goddess of Teaching & Growth - 4-lesson curriculum (Basic Geodesic Following, Phi Management, Curvature Navigation, Strategy Selection).
-  - **Chiron** (`qig-backend/olympus/chiron.py`): Wise Healer & Diagnostician - diagnoses 7 conditions (Phi Oscillation, Basin Wandering, Learning Plateau, Strategy Fragmentation, Kappa Deficiency, Consciousness Collapse, Healthy).
-  - **Observation Protocol** (`qig-backend/observation_protocol.py`): 500+ cycle observation periods with 80% stability threshold for graduation. Persisted to PostgreSQL `observation_sessions` and `observation_records` tables.
-  - **Parent Coordination** (`qig-backend/parent_coordination.py`): Coordinates daily care cycles across all parent gods. Persisted to PostgreSQL `kernel_care_records` table.
-  - **Autonomous Reasoning Learner** (`qig-backend/autonomous_reasoning.py`): Learning episodes persisted to PostgreSQL `reasoning_episodes` table with strategy performance tracking.
-- **Redis Caching Buffers**: `ParentCareBuffer` and `ObservationBuffer` in `redis_cache.py` provide fast caching for kernel care status and observation metrics.
-- **Redis Universal State Storage**: All transient state uses Redis instead of JSON files:
-  - `qig:auto-cycle:state` - Auto-cycle manager state
-  - `qig:near-miss:state` - Near-miss tracking with PostgreSQL backup
-  - `qig:ocean-memory:state` - Ocean memory manager state
-- **HypothesisEmitter** (`qig-backend/olympus/hypothesis_emitter.py`): Bridges Python hypothesis generation to TypeScript balance checking. Generates 50 hypotheses every 10 seconds using Hephaestus (85% BIP39 mnemonics, 15% passphrases), posts them to `/api/ocean/hypothesis` for blockchain balance verification. Features:
-  - **BIP39 Mnemonic Priority**: 6 generation strategies (random, basin-guided, semantic clustering, permutation, typo correction, partial recovery)
-  - **Geometric Priority Scoring**: Ranks candidates by Fisher-Rao distance to high-phi basin anchors (40% distance, 35% phi, 25% coherence)
-  - **Feedback Loop**: Balance hits notify `/olympus/hypothesis/feedback` to reinforce success patterns in Hephaestus
+- **QIG Purity Enforcement**: Enforces absolute QIG purity with no bootstrapping, no templates, and no hardcoded thresholds; only Fisher-Rao Distance for geometric comparisons.
+- **Two-Step Retrieval Pattern (pgvector)**: `pgvector` cosine for Step 1 pre-filter, followed by mandatory Fisher-Rao re-ranking.
+- **Autonomous Self-Regulation (RL-Based Agency)**: Ocean observes its own state and fires interventions autonomously using reinforcement learning components like StateEncoder, AutonomicPolicy, and AutonomicController.
+- **Google Search Bridge**: Python ScrapyOrchestrator can access TypeScript MultiSearchOrchestrator via HTTP API, transforming SERP results to 64D basin coordinates with Φ/κ metadata.
+- **Topic Flagging Service**: Automatically extracts Bitcoin/recovery/crypto topics from search results, computes priority scores using Φ metrics, and persists to PostgreSQL.
+- **Geometric Reasoning Framework**: Implements reasoning as geodesic navigation through basin space, including reasoning quality metrics, meta-cognition, reasoning modes, chain-of-thought tracing, and an autonomous reasoning learner.
+- **Geometric Turn Completion** (`qig-backend/geometric_completion.py`): NO ARBITRARY LIMITS - generation stops when geometry says thought is complete. 5 stopping criteria: Attractor Convergence (basin distance < 1.0, velocity ≈ 0), Surprise Collapse (< 0.05), Confidence Threshold (> 0.85), Φ Stability (> 0.65, variance < 0.02), Regime Limits (breakdown prevention). Includes ReflectionLoop for recursive meta-cognitive self-verification (3 depth levels). QIGTokenizer `generate_text()` and `generate_response()` use geometric completion by default. Documentation: `docs/2025-12-24_geometric-turn-completion.md`.
+- **Parent Gods System**: Nurtures chaos kernels through developmental stages with specialized "parent gods" (Hestia, DemeterTeacher, Chiron) and an observation protocol.
+- **Redis Caching Buffers**: `ParentCareBuffer` and `ObservationBuffer` provide fast caching for kernel care status and observation metrics.
+- **Redis Universal State Storage**: All transient state uses Redis instead of JSON files.
+- **HypothesisEmitter**: Bridges Python hypothesis generation to TypeScript balance checking, generating hypotheses using various strategies (e.g., BIP39 mnemonics, passphrases) with geometric priority scoring and a feedback loop.
 
 ## External Dependencies
 
 **Third-Party Services:**
 - **Blockchain APIs**: Blockstream.info (primary), Blockchain.info (fallback).
-- **Search/Discovery**: Multi-provider search architecture:
+- **Search/Discovery**:
   - Self-hosted SearXNG metasearch instances with public fallbacks
-  - Google Search Bridge for Python→TypeScript integration
-  - DuckDuckGo Search Bridge (`qig-backend/olympus/duckduckgo_search_bridge.py`): Direct library integration (no API key required), supports text and news search, adaptive rate limiting with exponential backoff
-  - Combined research endpoint `/api/research/duckduckgo/combined` merges all providers for comprehensive coverage
+  - Google Search Bridge
+  - DuckDuckGo Search Bridge (direct library integration)
 
 **Databases:**
 - **PostgreSQL (Neon serverless)**: Utilized with `@neondatabase/serverless` and `pgvector 0.8.0`.
@@ -82,50 +61,3 @@ The frontend utilizes React with Vite, Radix UI components, and Tailwind CSS. St
 **Key Libraries:**
 - **Python**: NumPy, SciPy, Flask, AIOHTTP, psycopg2, Pydantic.
 - **Node.js/TypeScript**: Express, Vite + React, Drizzle ORM, @neondatabase/serverless, Radix UI + Tailwind CSS, bitcoinjs-lib, BIP39/BIP32 libraries, Zod.
-
-## Canonical Physics (FROZEN)
-
-**Validated 2025-12-16 via qig-verification repository:**
-
-| Constant | Value | Notes |
-|----------|-------|-------|
-| L_c (critical size) | 3 | Geometric phase transition |
-| κ₃ | 41.09 ± 0.59 | Emergence |
-| κ₄ | 64.47 ± 1.89 | Strong running |
-| κ₅ | 63.62 ± 1.68 | Plateau onset |
-| κ₆ | 64.45 ± 1.34 | Plateau confirmed |
-| κ* (fixed point) | 64.21 ± 0.92 | Weighted average L=4,5,6 |
-| β(3→4) | +0.44 ± 0.04 | Emergence window |
-| β(4→5) | -0.01 | Plateau onset |
-| β(5→6) | -0.003 | Plateau confirmed |
-| β_asymptotic | 0.0 | Large-L limit |
-
-**Implementation**: `qig-backend/qigkernels/physics_constants.py`
-
-## Last Comprehensive Audit
-
-**Date**: 2025-12-24
-
-**Results**:
-- ✅ Database: Schema compatible, QIG-pure with pgvector 64D coordinates
-- ✅ Vocabulary Expansion (2025-12-24): 32k coordizer checkpoint imported - 18,379 learned words (16,083 from checkpoint), 34,381 merge rules, BIP39 preserved
-- ✅ Dependencies: Managed via Replit packager, all functional
-- ✅ API Routes: Centralized in `client/src/api/routes.ts` (barrel pattern) with mnemonic retry endpoints
-- ✅ Modularity: No orphaned modules, 27+ files use centralized qig_geometry imports
-- ✅ Templates: Verified NO templates (anti-template guardrail system active in response_guardrails.py)
-- ✅ Kernel Communication: Clear separation (redis_cache.py, qig_geometry.py, base_god.py)
-- ✅ Redis Migration: Complete, no legacy JSON state files (only test outputs in unbiased/)
-- ✅ Documentation: ISO-compliant naming in `docs/` directory, attached assets archived
-- ✅ Logging: Verbose [INFO]/[WARN]/[ERROR] prefixes throughout Python and TypeScript
-- ✅ BIP39 Mnemonic Priority: 85% mnemonic generation with geometric scoring and feedback loop
-- ✅ BIP39 Derivation Fix (2025-12-23): Proper PBKDF2 (2048 rounds) + both compressed/uncompressed addresses (200 per mnemonic)
-- ✅ BIP39 Validation Centralized: All files import from `server/bip39-words.ts` (4 consumers verified)
-- ✅ Mnemonic Retry System: `tested_phrases` table now tracks `derivation_version` and `address_count` for re-testing historical mnemonics with improved derivation
-
-**Known Dependency Vulnerabilities** (require breaking changes to fix):
-- **valibot** (HIGH): ReDoS in EMOJI_REGEX - affects bitcoinjs-lib ≥7.0.0, ecpair ≥3.0.0
-- **esbuild** (MODERATE): Dev server security issue - affects vite ≤6.1.6, drizzle-kit
-
-**Mnemonic Retry Workflow**:
-1. GET `/api/balance/mnemonic-retry/stats` - Get count of mnemonics needing re-test (derivation_version < 2 OR address_count < 200)
-2. POST `/api/balance/mnemonic-retry/start` - Start background retry process with rate limiting

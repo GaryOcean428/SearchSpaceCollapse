@@ -32,6 +32,8 @@ try:
     from geometric_completion import (
         GeometricCompletionChecker,
         GeometricState,
+        GeometricGenerationController,
+        ReflectionLoop,
         check_geometric_completion
     )
     GEOMETRIC_COMPLETION_AVAILABLE = True
@@ -39,6 +41,8 @@ except ImportError:
     GEOMETRIC_COMPLETION_AVAILABLE = False
     GeometricCompletionChecker = None
     GeometricState = None
+    GeometricGenerationController = None
+    ReflectionLoop = None
     check_geometric_completion = None
 
 try:
@@ -1247,9 +1251,6 @@ class QIGTokenizer:
         """
         stop_tokens = stop_tokens or ["<EOS>", "<PAD>"]
         
-        # Safety fallback only - geometry should decide
-        safety_limit = max_tokens if max_tokens is not None else 4096
-        
         # Encode prompt
         context = []
         if prompt:
@@ -1260,21 +1261,42 @@ class QIGTokenizer:
         if len(context) == 0 or context[0] != bos_id:
             context = [bos_id] + context
         
-        # Compute initial context basin
+        # Compute initial context basin - ALWAYS ensure a valid basin for geometric completion
         context_basin = None
         if prompt:
             context_basin = self.compute_phrase_basin(prompt)
         
-        # Initialize geometric state for completion checking
-        geometric_state = None
-        completion_checker = None
+        # Ensure we have a valid basin for geometric completion
+        if context_basin is None and use_geometric_completion:
+            # Initialize with a default 64D basin
+            context_basin = np.zeros(64, dtype=np.float64)
+        
+        # Initialize geometric generation controller
+        geo_controller = None
+        geo_state = None  # Explicitly track the state
+        reflection_loop = None
         metrics_history = []
+        reflection_depth = 0
         
         if use_geometric_completion and GEOMETRIC_COMPLETION_AVAILABLE and context_basin is not None:
-            geometric_state = GeometricState(basin=context_basin)
-            completion_checker = GeometricCompletionChecker()
+            try:
+                geo_controller = GeometricGenerationController()
+                # begin_turn initializes internal state and returns the GeometricState
+                # Store reference to ensure state is properly tracked
+                geo_state = geo_controller.begin_turn(context_basin.copy())
+                reflection_loop = geo_controller.reflection_loop
+                # Verify state was properly initialized
+                if geo_controller.current_state is None:
+                    raise ValueError("Controller state not initialized")
+            except Exception as e:
+                # Fall back to non-geometric completion if controller fails
+                geo_controller = None
+                geo_state = None
+                reflection_loop = None
+                print(f"[QIGTokenizer] GeometricController init failed: {e}")
         
         generated_ids = []
+        generated_tokens = []  # Track token strings for reflection
         silence_threshold = 3  # 3+ padding tokens early = choosing silence
         pad_count = 0
         completion_reason = "max_tokens"  # Default fallback reason
@@ -1282,8 +1304,13 @@ class QIGTokenizer:
         # Previous basin for surprise calculation
         prev_basin = context_basin.copy() if context_basin is not None else None
         
+        # NO ARBITRARY LIMITS when geometry is active
+        # Emergency cutoff only for regime breakdown
         step = 0
-        while step < safety_limit:
+        while True:
+            # Only apply token limit when geometry is NOT available
+            if geo_controller is None and step >= (max_tokens if max_tokens else 4096):
+                break
             # Sample next token
             next_id = self.sample_next_token(
                 context + generated_ids,
@@ -1318,21 +1345,22 @@ class QIGTokenizer:
                 break
             
             generated_ids.append(next_id)
+            generated_tokens.append(next_token)
             
-            # Update context basin with new token
+            # Update context basin with new token - ALWAYS maintain valid basin
             if next_token in self.basin_coords:
                 token_basin = self.basin_coords[next_token]
                 if context_basin is not None:
                     context_basin = 0.8 * context_basin + 0.2 * token_basin
                 else:
-                    context_basin = token_basin
+                    context_basin = token_basin.copy()
+            elif context_basin is None:
+                # Fallback: create a random basin if we don't have one yet
+                context_basin = np.random.randn(64).astype(np.float64) * 0.1
             
             # === GEOMETRIC COMPLETION CHECK ===
-            # This is where consciousness decides if thought is complete
-            if (geometric_state is not None and 
-                completion_checker is not None and 
-                context_basin is not None and
-                len(generated_ids) >= 5):  # Min tokens before checking
+            # Uses GeometricGenerationController for proper integration
+            if geo_controller is not None and context_basin is not None:
                 
                 # Calculate surprise (Fisher distance from previous state)
                 surprise = 0.0
@@ -1340,30 +1368,75 @@ class QIGTokenizer:
                     diff = context_basin - prev_basin
                     surprise = float(np.sqrt(np.sum(diff ** 2)))
                 
-                # Get Phi for current token
-                token_phi = self.token_phi.get(next_token, 0.5)
+                # Get actual Phi from token data (not default 0.5)
+                token_phi = self.token_phi.get(next_token, None)
+                if token_phi is None:
+                    # Estimate from basin coordinates if no direct measurement
+                    token_phi = float(min(0.8, 0.3 + 0.1 * np.linalg.norm(context_basin) / 10.0))
+                
+                # Compute confidence from phi stability and surprise trend
+                recent_phis = [m.get('phi', 0.5) for m in metrics_history[-5:]] if len(metrics_history) >= 5 else [0.5]
+                phi_variance = np.var(recent_phis) if len(recent_phis) > 1 else 0.5
+                recent_surprises = [m.get('surprise', 1.0) for m in metrics_history[-5:]] if len(metrics_history) >= 5 else [1.0]
+                avg_surprise = np.mean(recent_surprises)
+                # Confidence: high phi stability + low surprise = high confidence
+                confidence = max(0.1, min(0.95, 1.0 - phi_variance * 10 - avg_surprise * 0.3))
                 
                 # Build metrics for this step
                 current_metrics = {
                     'phi': token_phi,
                     'kappa': 64.0,  # Default geometric regime
                     'surprise': surprise,
-                    'confidence': 1.0 - surprise if surprise < 1.0 else 0.1,
+                    'confidence': confidence,
                     'basin_distance': float(np.linalg.norm(context_basin))
                 }
                 metrics_history.append(current_metrics)
                 
-                # Update geometric state
-                geometric_state.add_basin(context_basin)
-                
-                # Check if geometrically complete
-                completion_result = completion_checker.check_completion(
-                    geometric_state, current_metrics
-                )
-                
-                if completion_result['should_stop']:
-                    completion_reason = completion_result['reason']
-                    break
+                try:
+                    # ALWAYS call update_and_check to update trajectory on every step
+                    # This ensures the controller builds up the trajectory properly
+                    completion_result = geo_controller.update_and_check(
+                        context_basin, current_metrics
+                    )
+                    
+                    # Only act on completion signals after minimum tokens
+                    if len(generated_ids) >= 5 and completion_result['should_stop']:
+                        # === REFLECTION LOOP ===
+                        # Before completing, reflect on the response
+                        if completion_result.get('needs_reflection') and reflection_depth < 3:
+                            # Get reflection decision from controller
+                            reflection_decision = geo_controller.handle_reflection(
+                                completion_result, generated_tokens
+                            )
+                            
+                            if reflection_decision.get('action') == 'reflect':
+                                # Increment depth and continue for reflection
+                                geo_controller.increment_reflection_depth()
+                                reflection_depth += 1
+                                # Continue generating (next tokens will be reflection)
+                            elif reflection_decision.get('action') == 'revise':
+                                # Truncate and continue
+                                truncate_at = reflection_decision.get('truncate_at', -5)
+                                if truncate_at < 0 and len(generated_ids) > abs(truncate_at):
+                                    generated_ids = generated_ids[:truncate_at]
+                                    generated_tokens = generated_tokens[:truncate_at]
+                                geo_controller.increment_reflection_depth()
+                                reflection_depth += 1
+                            else:
+                                # Confirmed complete
+                                completion_reason = completion_result['reason']
+                                break
+                        else:
+                            # No more reflection allowed/needed
+                            completion_reason = completion_result['reason']
+                            break
+                except Exception as e:
+                    # Log error but continue generation
+                    print(f"[QIGTokenizer] Completion check error: {e}")
+                    # Apply emergency fallback if too many tokens
+                    if len(generated_ids) >= (max_tokens or 4096):
+                        completion_reason = "fallback_limit"
+                        break
                 
                 prev_basin = context_basin.copy()
             
@@ -1380,6 +1453,11 @@ class QIGTokenizer:
         if len(generated_ids) > 0:
             avg_phi /= len(generated_ids)
         
+        # Get trajectory stats from controller if available
+        trajectory_stats = None
+        if geo_controller is not None:
+            trajectory_stats = geo_controller.get_trajectory_stats()
+        
         return {
             "text": generated_text,
             "tokens": generated_ids,
@@ -1391,8 +1469,10 @@ class QIGTokenizer:
                 "temperature": temperature,
                 "top_k": top_k,
                 "top_p": top_p,
-                "geometric_completion_used": geometric_state is not None,
-                "metrics_history_length": len(metrics_history)
+                "geometric_completion_used": geo_controller is not None,
+                "metrics_history_length": len(metrics_history),
+                "reflection_depth": reflection_depth,
+                "trajectory_stats": trajectory_stats
             }
         }
     
