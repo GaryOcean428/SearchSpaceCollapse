@@ -6,11 +6,30 @@ import { useEffect, useState } from "react";
 export default function Landing() {
   const [authError, setAuthError] = useState<{ type: string; message: string } | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginWaitTime, setLoginWaitTime] = useState(0);
 
   const handleLogin = () => {
     setIsLoggingIn(true);
+    setLoginWaitTime(0);
     // Navigate to login - the page will redirect, so no need to reset state
     window.location.href = API_ROUTES.auth.login;
+  };
+
+  // Update wait time while logging in to show progressive messages
+  useEffect(() => {
+    if (!isLoggingIn) return;
+    const interval = setInterval(() => {
+      setLoginWaitTime(t => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isLoggingIn]);
+
+  // Get login status message based on wait time
+  const getLoginMessage = () => {
+    if (loginWaitTime < 3) return "Connecting to Replit Auth...";
+    if (loginWaitTime < 10) return "Waiting for Replit OAuth...";
+    if (loginWaitTime < 30) return "Still waiting (OAuth can be slow)...";
+    return "Taking longer than usual...";
   };
 
   useEffect(() => {
@@ -96,7 +115,7 @@ export default function Landing() {
                 {isLoggingIn ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Connecting to Replit Auth...
+                    {getLoginMessage()}
                   </>
                 ) : (
                   <>
