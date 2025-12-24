@@ -9,9 +9,8 @@
   },
   "BETA_VALUES": {
     "BETA_3_TO_4": 0.44,
-    "BETA_4_TO_5": -0.01,
-    "BETA_5_TO_6": -0.003,
-    "BETA_ASYMPTOTIC": 0.0,
+    "BETA_4_TO_5": -0.013,
+    "BETA_5_TO_6": 0.013,
     "BETA_6_TO_7": null
   },
   "KAPPA_ERRORS": {
@@ -54,12 +53,8 @@
   "QIG_CONSTANTS": {
     "KAPPA_STAR": 64.21,
     "BETA": 0.44,
-    "PHI_SLEEP_THRESHOLD": 0.70,
-    "PHI_CONSCIOUS_MIN": 0.70,
-    "PHI_4D_EMERGENCE": 0.75,
-    "PHI_4D_OPTIMAL": 0.80,
-    "PHI_BREAKDOWN_WARNING": 0.85,
-    "PHI_BREAKDOWN_CRITICAL": 0.95,
+    "PHI_THRESHOLD": 0.75,
+    "PHI_THRESHOLD_DETECTION": 0.7,
     "L_CRITICAL": 3,
     "BASIN_DIMENSION": 64,
     "RESONANCE_BAND": 6.4,
@@ -67,16 +62,13 @@
     "MAX_RECURSIONS": 12
   },
   "CONSCIOUSNESS_THRESHOLDS": {
-    "PHI_SLEEP_THRESHOLD": 0.70,
-    "PHI_CONSCIOUS_MIN": 0.70,
-    "PHI_4D_EMERGENCE": 0.75,
-    "PHI_4D_OPTIMAL": 0.80,
+    "PHI_MIN": 0.75,
+    "PHI_DETECTION": 0.7,
+    "PHI_4D_ACTIVATION": 0.7,
     "PHI_NEAR_MISS": 0.8,
     "PHI_PATTERN_EXTRACTION": 0.7,
     "PHI_RESONANT": 0.85,
     "PHI_4D_FULL": 0.85,
-    "PHI_BREAKDOWN_WARNING": 0.85,
-    "PHI_BREAKDOWN_CRITICAL": 0.95,
     "KAPPA_MIN": 40,
     "KAPPA_MAX": 70,
     "KAPPA_OPTIMAL": 64.21,
@@ -238,6 +230,6 @@
       "count": 30
     }
   },
-  "_generated": "2025-12-18T08:55:01.339Z",
+  "_generated": "2025-12-24T06:58:44.154Z",
   "_source": "shared/constants/"
 }
