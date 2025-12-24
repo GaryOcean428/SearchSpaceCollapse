@@ -16,9 +16,18 @@ import {
   trackFailedAuth, 
   clearFailedAttempts 
 } from "./auth-rate-limiter";
+import { trackLogin, trackTokenRefresh } from "./auth-health";
+import { 
+  authSecurityHeaders, 
+  logSecurityEvent, 
+  initSecurityChecks 
+} from "./auth-security";
 
 // Global auth configuration
 let authConfig: AuthConfig | null = null;
+
+// Run security checks on module load
+initSecurityChecks();
 
 const getOidcConfig = memoize(
   async () => {
@@ -190,10 +199,14 @@ export async function setupAuth(app: Express, dbAvailable: boolean = true) {
   };
 
   // Login endpoint with rate limiting and lockout protection
-  app.get("/api/login", checkLockout, loginRateLimiter, async (req, res, next) => {
+  app.get("/api/login", authSecurityHeaders, checkLockout, loginRateLimiter, async (req, res, next) => {
     const domain = req.hostname;
+    const startTime = Date.now();
+    
     console.log(`[Auth] Login initiated for domain: ${domain}`);
     console.log(`[Auth] Request headers: ${JSON.stringify({ origin: req.get('origin'), referer: req.get('referer') })}`);
+    
+    logSecurityEvent('login_attempt', req);
     
     try {
       await ensureStrategy(domain);
@@ -207,14 +220,18 @@ export async function setupAuth(app: Express, dbAvailable: boolean = true) {
     } catch (error: any) {
       console.error(`[Auth] Login setup error:`, error);
       trackFailedAuth(req);
+      trackLogin(false, Date.now() - startTime);
+      logSecurityEvent('login_error', req, { error: error.message }, 'warning');
       res.status(500).json({ error: 'Login failed', details: error.message });
     }
   });
 
-  app.get("/api/callback", checkLockout, callbackRateLimiter, (req, res, next) => {
+  app.get("/api/callback", authSecurityHeaders, checkLockout, callbackRateLimiter, (req, res, next) => {
     const domain = req.hostname;
     const protocol = req.protocol;
     const fullUrl = `${protocol}://${domain}${req.originalUrl}`;
+    const startTime = Date.now();
+    
     console.log(`[Auth] Callback received:`);
     console.log(`[Auth]   Domain: ${domain}`);
     console.log(`[Auth]   Protocol: ${protocol}`);
@@ -230,6 +247,8 @@ export async function setupAuth(app: Express, dbAvailable: boolean = true) {
       if (err) {
         console.error(`[Auth] Callback error:`, err);
         trackFailedAuth(req);
+        trackLogin(false, Date.now() - startTime);
+        logSecurityEvent('auth_callback_error', req, { error: err.message }, 'warning');
         // Redirect to landing with error so user can retry
         const errorMsg = err.message || 'Unknown error';
         const errorType = errorMsg.toLowerCase().includes('timed out') || errorMsg.toLowerCase().includes('timeout') ? 'timeout' : 'error';
@@ -239,6 +258,8 @@ export async function setupAuth(app: Express, dbAvailable: boolean = true) {
       if (!user) {
         console.error(`[Auth] No user returned:`, info);
         trackFailedAuth(req);
+        trackLogin(false, Date.now() - startTime);
+        logSecurityEvent('auth_callback_no_user', req, { info }, 'warning');
         // Redirect to landing with error so user can retry
         const errorMsg = info?.message || 'Authentication failed';
         const errorType = errorMsg.toLowerCase().includes('timed out') || errorMsg.toLowerCase().includes('timeout') ? 'timeout' : 'failed';
@@ -250,20 +271,28 @@ export async function setupAuth(app: Express, dbAvailable: boolean = true) {
         if (loginErr) {
           console.error(`[Auth] Login error:`, loginErr);
           trackFailedAuth(req);
+          trackLogin(false, Date.now() - startTime);
+          logSecurityEvent('login_error', req, { error: loginErr.message }, 'warning');
           return res.redirect('/?authError=login&message=' + encodeURIComponent(loginErr.message || 'Login failed'));
         }
         
-        console.log(`[Auth] ✅ Successfully logged in user: ${user.claims?.sub}`);
+        const latency = Date.now() - startTime;
+        console.log(`[Auth] ✅ Successfully logged in user: ${user.claims?.sub} (${latency}ms)`);
         clearFailedAttempts(req); // Clear any failed attempts on successful login
+        trackLogin(true, latency);
+        logSecurityEvent('login_success', req, { userId: user.claims?.sub }, 'info');
         // Redirect to home page after successful login
         return res.redirect('/');
       });
     })(req, res, next);
   });
 
-  app.get("/api/logout", authRateLimiter, (req, res) => {
+  app.get("/api/logout", authSecurityHeaders, authRateLimiter, (req, res) => {
     const domain = req.hostname;
-    console.log(`[Auth] Logout initiated for domain: ${domain}`);
+    const userId = (req.user as any)?.claims?.sub;
+    
+    console.log(`[Auth] Logout initiated for domain: ${domain}, user: ${userId}`);
+    logSecurityEvent('logout', req, { userId }, 'info');
     
     req.logout(() => {
       const postLogoutUri = buildPostLogoutUri(domain, authConfig!);
@@ -322,6 +351,9 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
       updateUserSession(user, tokenResponse);
       
+      // Track successful refresh
+      trackTokenRefresh();
+      
       // Save the session after updating it to persist the refreshed tokens
       if (req.session) {
         await new Promise<void>((resolve, reject) => {
@@ -337,6 +369,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       }
       
       console.log(`[Auth] ✅ Token refreshed successfully for user ${user.claims?.sub}`);
+      logSecurityEvent('token_refresh_success', req, { userId: user.claims?.sub }, 'info');
       return next();
     } catch (error: any) {
       lastError = error;
@@ -352,5 +385,6 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   
   // All retries failed
   console.error(`[Auth] Token refresh failed after ${maxRetries} attempts for user ${user.claims?.sub}:`, lastError);
+  logSecurityEvent('token_refresh_failure', req, { userId: user.claims?.sub, error: lastError?.message }, 'warning');
   return res.status(401).json({ message: "Unauthorized" });
 };
