@@ -1,10 +1,17 @@
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Alert, AlertDescription, AlertTitle } from "@/components/ui";
-import { KeyRound, Lock, Sparkles, Shield, AlertCircle, RefreshCw } from "lucide-react";
+import { KeyRound, Lock, Sparkles, Shield, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 import { API_ROUTES } from "@/api";
 import { useEffect, useState } from "react";
 
 export default function Landing() {
   const [authError, setAuthError] = useState<{ type: string; message: string } | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleLogin = () => {
+    setIsLoggingIn(true);
+    // Navigate to login - the page will redirect, so no need to reset state
+    window.location.href = API_ROUTES.auth.login;
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -54,11 +61,16 @@ export default function Landing() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => window.location.href = API_ROUTES.auth.login}
+                      onClick={handleLogin}
+                      disabled={isLoggingIn}
                       data-testid="button-retry-login"
                     >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Try Again
+                      {isLoggingIn ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                      )}
+                      {isLoggingIn ? "Connecting..." : "Try Again"}
                     </Button>
                     <Button
                       size="sm"
@@ -77,11 +89,21 @@ export default function Landing() {
               <Button
                 size="lg"
                 className="text-lg px-8 py-6"
-                onClick={() => window.location.href = API_ROUTES.auth.login}
+                onClick={handleLogin}
+                disabled={isLoggingIn}
                 data-testid="button-login"
               >
-                <Lock className="mr-2 h-5 w-5" />
-                Log In to Begin Recovery
+                {isLoggingIn ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Connecting to Replit Auth...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-2 h-5 w-5" />
+                    Log In to Begin Recovery
+                  </>
+                )}
               </Button>
             </div>
           </div>
