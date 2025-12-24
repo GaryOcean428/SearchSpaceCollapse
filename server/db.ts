@@ -125,13 +125,21 @@ class ConnectionSemaphore {
   }
 }
 
-// Global semaphore: limit to 15 concurrent operations (leaving headroom for pool's 20)
+// Global semaphore: limit to 13 concurrent operations (leaving headroom for pool's 20)
 // Queue limit of 100 handles burst loads from hypothesis batches (50 at a time)
-const dbSemaphore = new ConnectionSemaphore(15, 'DB', 100);
+// Reserved 2 slots for priority auth operations
+const dbSemaphore = new ConnectionSemaphore(13, 'DB', 100);
+
+// Priority semaphore for auth operations - ALWAYS has capacity (2 reserved slots)
+// Auth operations bypass the regular queue to ensure login never waits
+const authSemaphore = new ConnectionSemaphore(2, 'Auth', 5);
 
 // Export for monitoring
 export function getDbSemaphoreStats() {
-  return dbSemaphore.stats;
+  return {
+    ...dbSemaphore.stats,
+    auth: authSemaphore.stats,
+  };
 }
 
 // Export overload check for backpressure-aware components
@@ -367,6 +375,63 @@ export async function withDbRetry<T>(
   } finally {
     // Always release semaphore
     dbSemaphore.release();
+  }
+}
+
+/**
+ * HIGH-PRIORITY database operation for auth
+ * Uses dedicated auth semaphore with reserved slots - never waits behind regular queries
+ * Use this ONLY for authentication operations (login, callback, user upsert)
+ */
+export async function withAuthPriority<T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T | null> {
+  if (!db) return null;
+  
+  // Use auth semaphore - has dedicated slots, won't queue behind heavy operations
+  await authSemaphore.acquire();
+  
+  let lastError: Error | null = null;
+  const maxRetries = 3; // Fewer retries for auth (user is waiting)
+  let delay = 250; // Start faster
+  
+  try {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+        
+        const errorMessage = error.message?.toLowerCase() || '';
+        const errorCode = error.code || '';
+        
+        const isRetryable = 
+          errorMessage.includes('timeout') || 
+          errorCode === 'ETIMEDOUT' ||
+          errorMessage.includes('connect') || 
+          errorCode === 'ECONNREFUSED' ||
+          errorCode === 'ECONNRESET' ||
+          errorCode === '57P01' || errorCode === '57P02' || errorCode === '57P03' ||
+          errorCode === '53300' || errorCode === '08006' || errorCode === '08003' ||
+          errorMessage.includes('server closed') ||
+          errorMessage.includes('terminating connection') ||
+          error.name === 'AbortError';
+        
+        if (attempt < maxRetries && isRetryable) {
+          console.log(`[Auth-DB] ${operationName} retry ${attempt}/${maxRetries} after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay = Math.min(delay * 2, 2000); // Faster backoff for auth
+        } else {
+          console.error(`[Auth-DB] ${operationName} failed:`, error.message);
+          break;
+        }
+      }
+    }
+    
+    return null;
+  } finally {
+    authSemaphore.release();
   }
 }
 

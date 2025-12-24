@@ -1,16 +1,22 @@
 import { eq } from 'drizzle-orm';
-import { db, withDbRetry } from '../../db';
+import { db, withAuthPriority } from '../../db';
 import { users } from '@shared/schema';
 import type { IUserStorage } from '../interfaces';
 import type { UpsertUser, User } from '@shared/schema';
 
+/**
+ * User storage adapter with HIGH-PRIORITY database access
+ * Uses dedicated auth semaphore - never waits behind heavy operations
+ * Critical for ensuring login is always responsive
+ */
 export class UserPostgresAdapter implements IUserStorage {
   async getUser(id: string): Promise<User | undefined> {
     if (!db) {
       throw new Error('Database not available - please provision a database to use Replit Auth');
     }
 
-    const result = await withDbRetry(
+    // Use auth priority path - bypasses regular DB queue
+    const result = await withAuthPriority(
       () => db!.select().from(users).where(eq(users.id, id)),
       'getUser'
     );
@@ -23,15 +29,16 @@ export class UserPostgresAdapter implements IUserStorage {
       throw new Error('Database not available - please provision a database to use Replit Auth');
     }
 
+    // Use auth priority path - bypasses regular DB queue
     if (userData.email) {
-      const existingResult = await withDbRetry(
+      const existingResult = await withAuthPriority(
         () => db!.select().from(users).where(eq(users.email, userData.email!)),
         'upsertUser.selectByEmail'
       );
       const existingUser = existingResult?.[0];
 
       if (existingUser && existingUser.id !== userData.id) {
-        const updateResult = await withDbRetry(
+        const updateResult = await withAuthPriority(
           () =>
             db!
               .update(users)
@@ -50,7 +57,7 @@ export class UserPostgresAdapter implements IUserStorage {
       }
     }
 
-    const insertResult = await withDbRetry(
+    const insertResult = await withAuthPriority(
       () =>
         db!
           .insert(users)
