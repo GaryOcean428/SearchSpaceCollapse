@@ -17,6 +17,16 @@ import {
   CLEANUP_INTERVAL_MS,
 } from './auth-constants';
 
+// Helper to safely get IP address (handles both IPv4 and IPv6)
+function getClientIp(req: Request): string {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  // Normalize IPv6-mapped IPv4 addresses
+  if (ip.startsWith('::ffff:')) {
+    return ip.substring(7);
+  }
+  return ip;
+}
+
 // Store for tracking failed auth attempts
 const failedAttempts = new Map<string, { count: number; firstAttempt: number; locked: boolean }>();
 
@@ -38,15 +48,17 @@ export const authRateLimiter = rateLimit({
   legacyHeaders: false,
   // Skip successful requests from counting against limit
   skipSuccessfulRequests: false,
+  // Disable IP validation since we handle IPv6 normalization manually
+  validate: { ip: false },
   // Custom key generator - use IP + user agent for better tracking
   keyGenerator: (req: Request) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const ip = getClientIp(req);
     const userAgent = req.get('user-agent') || 'unknown';
     return `${ip}:${userAgent.substring(0, 50)}`;
   },
   // Custom handler for rate limit exceeded
   handler: (req: Request, res: Response) => {
-    console.warn(`[AuthRateLimit] Rate limit exceeded for ${req.ip} on ${req.path}`);
+    console.warn(`[AuthRateLimit] Rate limit exceeded for ${getClientIp(req)} on ${req.path}`);
     res.status(429).json({
       error: 'Too many authentication requests',
       message: 'Please wait 15 minutes before trying again',
@@ -68,12 +80,12 @@ export const loginRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { ip: false },
   keyGenerator: (req: Request) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    return `login:${ip}`;
+    return `login:${getClientIp(req)}`;
   },
   handler: (req: Request, res: Response) => {
-    console.warn(`[LoginRateLimit] Too many login attempts from ${req.ip}`);
+    console.warn(`[LoginRateLimit] Too many login attempts from ${getClientIp(req)}`);
     res.status(429).json({
       error: 'Too many login attempts',
       message: 'Your IP has been temporarily blocked. Please try again in 15 minutes.',
@@ -96,9 +108,9 @@ export const callbackRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful callbacks
+  validate: { ip: false },
   keyGenerator: (req: Request) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    return `callback:${ip}`;
+    return `callback:${getClientIp(req)}`;
   },
 });
 
@@ -107,7 +119,7 @@ export const callbackRateLimiter = rateLimit({
  * Locks out IPs that repeatedly fail authentication
  */
 export function trackFailedAuth(req: Request): void {
-  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const key = getClientIp(req);
   const now = Date.now();
   
   const entry = failedAttempts.get(key);
@@ -142,7 +154,7 @@ export function trackFailedAuth(req: Request): void {
  * Check if an IP is locked out
  */
 export function isLockedOut(req: Request): boolean {
-  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const key = getClientIp(req);
   const entry = failedAttempts.get(key);
   
   if (!entry || !entry.locked) return false;
@@ -163,7 +175,7 @@ export function isLockedOut(req: Request): boolean {
  */
 export function checkLockout(req: Request, res: Response, next: NextFunction): void {
   if (isLockedOut(req)) {
-    const key = req.ip || req.socket.remoteAddress || 'unknown';
+    const key = getClientIp(req);
     const entry = failedAttempts.get(key);
     const lockoutEnd = entry ? entry.firstAttempt + LOCKOUT_DURATION_MS : Date.now();
     const remainingSeconds = Math.ceil((lockoutEnd - Date.now()) / 1000);
@@ -185,7 +197,7 @@ export function checkLockout(req: Request, res: Response, next: NextFunction): v
  * Clear failed attempts for an IP (call on successful auth)
  */
 export function clearFailedAttempts(req: Request): void {
-  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const key = getClientIp(req);
   failedAttempts.delete(key);
 }
 
