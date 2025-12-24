@@ -172,26 +172,51 @@ export default function Landing() {
               </Alert>
             )}
 
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Button
-                size="lg"
-                className="text-lg px-8 py-6"
-                onClick={handleLogin}
-                disabled={isLoggingIn}
-                data-testid="button-login"
-              >
-                {isLoggingIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {getLoginMessage()}
-                  </>
-                ) : (
-                  <>
-                    <Lock className="mr-2 h-5 w-5" />
-                    Log In to Begin Recovery
-                  </>
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-wrap gap-4 justify-center">
+                <Button
+                  size="lg"
+                  className="text-lg px-8 py-6"
+                  onClick={handleLogin}
+                  disabled={isLoggingIn}
+                  data-testid="button-login"
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      {getLoginMessage()}
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="mr-2 h-5 w-5" />
+                      Log In to Begin Recovery
+                    </>
+                  )}
+                </Button>
+                {isLoggingIn && loginWaitTime >= 5 && (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="text-lg px-8 py-6"
+                    onClick={() => {
+                      setIsLoggingIn(false);
+                      setLoginWaitTime(0);
+                    }}
+                    data-testid="button-cancel-login"
+                  >
+                    Cancel
+                  </Button>
                 )}
-              </Button>
+              </div>
+              {isLoggingIn && (
+                <p className="text-sm text-muted-foreground max-w-md text-center">
+                  {loginWaitTime < 10 
+                    ? "You'll be redirected to Replit for authentication. This can take 30-60 seconds."
+                    : loginWaitTime < 30
+                    ? "Replit OAuth is slow today. Please wait or cancel and try again."
+                    : "The Replit authentication service appears unresponsive. Try canceling and clicking login again."}
+                </p>
+              )}
             </div>
           </div>
 
