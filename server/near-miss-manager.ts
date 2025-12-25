@@ -164,10 +164,10 @@ export class NearMissManager {
   private clusters: Map<string, NearMissCluster> = new Map();
   private isDirty = false;
   private saveTimer: NodeJS.Timeout | null = null;
-  
+
   private rollingPhiDistribution: number[] = [];
   private adaptiveThresholds: AdaptiveThresholds;
-  
+
   // Success tracking per tier - validates HOT tier is really "hotter"
   private conversionRecords: ConversionRecord[] = [];
   private tierTotals: { hot: number; warm: number; cool: number } = { hot: 0, warm: 0, cool: 0 };
@@ -260,11 +260,11 @@ export class NearMissManager {
   computeQueuePriority(entry: NearMissEntry): number {
     const tierBase = entry.tier === 'hot' ? 10 : entry.tier === 'warm' ? 5 : 1;
     const phiBoost = entry.phi * 10;
-    const escalationBoost = entry.isEscalating && NEAR_MISS_CONFIG.ESCALATION_ENABLED 
-      ? NEAR_MISS_CONFIG.ESCALATION_BOOST 
+    const escalationBoost = entry.isEscalating && NEAR_MISS_CONFIG.ESCALATION_ENABLED
+      ? NEAR_MISS_CONFIG.ESCALATION_BOOST
       : 1;
     const recencyBoost = this.computeRecencyFactor(entry);
-    
+
     return Math.round((tierBase + phiBoost) * escalationBoost * recencyBoost);
   }
 
@@ -291,7 +291,7 @@ export class NearMissManager {
     if (!data.phrase || data.phi <= 0) return null;
 
     this.recordPhiObservation(data.phi);
-    
+
     const tier = this.classifyTier(data.phi);
     const id = this.generateId(data.phrase);
     const existing = this.entries.get(id);
@@ -310,7 +310,7 @@ export class NearMissManager {
         existing.explorationCount++;
         existing.queuePriority = this.computeQueuePriority(existing);
         this.isDirty = true;
-        
+
         if (isEscalating) {
           console.log(`[NearMiss] 📈 ESCALATING: "${data.phrase.slice(0, 30)}..." → ${existing.tier.toUpperCase()} (Φ=${data.phi.toFixed(4)} ↑)`);
         }
@@ -334,7 +334,7 @@ export class NearMissManager {
       isEscalating: false,
       queuePriority: 1,
     };
-    
+
     entry.queuePriority = this.computeQueuePriority(entry);
     this.entries.set(id, entry);
     this.incrementTierTotal(tier); // Track for success rate calculation
@@ -402,7 +402,7 @@ export class NearMissManager {
         score: this.computeRecencyScore(e),
       }))
       .sort((a, b) => b.score - a.score);
-    
+
     return limit ? all.slice(0, limit).map(x => x.entry) : all.map(x => x.entry);
   }
 
@@ -430,7 +430,7 @@ export class NearMissManager {
       const oldTier = entry.tier;
       entry.tier = this.classifyTier(entry.phi);
       entry.queuePriority = this.computeQueuePriority(entry);
-      
+
       if (entry.isEscalating) escalating++;
 
       const tierRank = { hot: 3, warm: 2, cool: 1 };
@@ -470,21 +470,21 @@ export class NearMissManager {
     for (const cluster of this.clusters.values()) {
       const members = this.getClusterMembers(cluster.id);
       const ageHours = (now - new Date(cluster.createdAt).getTime()) / (1000 * 60 * 60);
-      
+
       const totalExplorations = members.reduce((sum, m) => sum + m.explorationCount, 0);
       const explorationFrequency = ageHours > 0 ? totalExplorations / ageHours : 0;
-      
+
       const escalatingCount = members.filter(m => m.isEscalating).length;
       const escalationRatio = members.length > 0 ? escalatingCount / members.length : 0;
-      
+
       const decayRate = Math.exp(-NEAR_MISS_CONFIG.DECAY_RATE_PER_HOUR * ageHours);
-      
-      const priorityScore = 
-        cluster.avgPhi * 10 * 
-        decayRate * 
-        (1 + escalationRatio) * 
+
+      const priorityScore =
+        cluster.avgPhi * 10 *
+        decayRate *
+        (1 + escalationRatio) *
         Math.log2(2 + cluster.memberCount);
-      
+
       let explorationCadence: 'immediate' | 'priority' | 'standard' | 'deferred';
       if (priorityScore >= 5 || escalationRatio >= 0.5) {
         explorationCadence = 'immediate';
@@ -691,11 +691,11 @@ export class NearMissManager {
     const calculateTierMetrics = (tier: NearMissTier, totalEntries: number): TierSuccessTracking => {
       const tierConversions = this.conversionRecords.filter(r => r.tier === tier);
       const recentConversions = tierConversions.filter(r => new Date(r.convertedAt).getTime() > dayAgo).length;
-      
+
       const avgPhiAtConversion = tierConversions.length > 0
         ? tierConversions.reduce((sum, r) => sum + r.phi, 0) / tierConversions.length
         : 0;
-      
+
       const avgTimeToConversion = tierConversions.length > 0
         ? tierConversions.reduce((sum, r) => sum + r.timeToConversionHours, 0) / tierConversions.length
         : 0;
@@ -721,7 +721,7 @@ export class NearMissManager {
     // Determine tier validation status
     let tierValidation: 'validated' | 'needs_data' | 'tier_inversion';
     const totalConversions = hot.conversions + warm.conversions + cool.conversions;
-    
+
     if (totalConversions < 5) {
       tierValidation = 'needs_data';
     } else if (hotVsWarmRatio >= 1 && hotVsCoolRatio >= 1) {
@@ -769,17 +769,17 @@ export class NearMissManager {
    */
   recordPhiTemporalSample(phi: number): void {
     if (phi <= 0 || phi > 1) return;
-    
+
     this.phiTemporalSamples.push({
       phi,
       timestamp: new Date().toISOString(),
     });
-    
+
     // Keep window size bounded
     if (this.phiTemporalSamples.length > this.TEMPORAL_WINDOW_SIZE * 2) {
       this.phiTemporalSamples = this.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
     }
-    
+
     // Check for plateau on every 10th sample
     if (this.phiTemporalSamples.length % 10 === 0) {
       this.detectPlateau();
@@ -791,18 +791,18 @@ export class NearMissManager {
    */
   private calculateTrendSlope(values: number[]): number {
     if (values.length < 3) return 0;
-    
+
     const n = values.length;
     const indices = values.map((_, i) => i);
-    
+
     const sumX = indices.reduce((s, x) => s + x, 0);
     const sumY = values.reduce((s, y) => s + y, 0);
     const sumXY = indices.reduce((s, x, i) => s + x * values[i], 0);
     const sumX2 = indices.reduce((s, x) => s + x * x, 0);
-    
+
     const denominator = n * sumX2 - sumX * sumX;
     if (denominator === 0) return 0;
-    
+
     return (n * sumXY - sumX * sumY) / denominator;
   }
 
@@ -822,21 +822,21 @@ export class NearMissManager {
   private detectPlateau(): void {
     const samples = this.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
     if (samples.length < 10) return;
-    
+
     const phis = samples.map(s => s.phi);
     const slope = Math.abs(this.calculateTrendSlope(phis));
     const variance = this.calculateVariance(phis);
-    
+
     // Plateau = low slope and low variance (stuck in one region)
     const isPlateau = slope < this.PLATEAU_SLOPE_THRESHOLD && variance < 0.01;
-    
+
     if (isPlateau) {
       this.consecutivePlateaus++;
       this.plateauCount++;
       this.lastPlateauAt = new Date().toISOString();
-      
+
       console.log(`[NearMiss] ⚠️ PLATEAU DETECTED: slope=${slope.toFixed(6)}, consecutive=${this.consecutivePlateaus}/${this.PLATEAU_RESET_THRESHOLD}`);
-      
+
       // Trigger reset if we've hit threshold
       if (this.consecutivePlateaus >= this.PLATEAU_RESET_THRESHOLD && !this.resetTriggerActive) {
         this.resetTriggerActive = true;
@@ -857,7 +857,7 @@ export class NearMissManager {
    */
   getPhiTemporalTrends(): PhiTemporalTrends {
     const samples = this.phiTemporalSamples.slice(-this.TEMPORAL_WINDOW_SIZE);
-    
+
     if (samples.length < 5) {
       return {
         windowSize: this.TEMPORAL_WINDOW_SIZE,
@@ -875,17 +875,17 @@ export class NearMissManager {
         insights: ['Need at least 5 samples for trend analysis'],
       };
     }
-    
+
     const phis = samples.map(s => s.phi);
     const avgPhi = phis.reduce((s, p) => s + p, 0) / phis.length;
     const slope = this.calculateTrendSlope(phis);
     const variance = this.calculateVariance(phis);
     const volatility = Math.sqrt(variance);
-    
+
     // Classify trend
     let trend: 'improving' | 'declining' | 'plateau' | 'volatile' | 'insufficient_data';
     const normalizedSlope = slope / Math.max(0.01, volatility);
-    
+
     if (volatility > this.VOLATILITY_THRESHOLD) {
       trend = 'volatile';
     } else if (Math.abs(slope) < this.PLATEAU_SLOPE_THRESHOLD) {
@@ -897,15 +897,15 @@ export class NearMissManager {
     } else {
       trend = 'plateau';
     }
-    
+
     // Generate insights
     const insights: string[] = [];
-    
+
     if (this.resetTriggerActive) {
       insights.push(`⚠️ RESET RECOMMENDED: ${this.consecutivePlateaus} consecutive plateaus detected`);
       insights.push('Consider: switching search strategy, exploring new vocabulary domains, or adjusting Φ thresholds');
     }
-    
+
     if (trend === 'improving') {
       insights.push(`📈 Φ trending upward (slope: ${(slope * 100).toFixed(2)}% per sample)`);
       insights.push('Current search direction is productive');
@@ -921,17 +921,17 @@ export class NearMissManager {
       insights.push(`🌊 High volatility detected (σ=${volatility.toFixed(4)})`);
       insights.push('Search is exploring diverse regions - may indicate boundary probing');
     }
-    
+
     if (this.plateauCount > 0 && trend !== 'plateau') {
       insights.push(`Historical: ${this.plateauCount} total plateaus encountered`);
     }
-    
+
     // Include recent samples for sparkline visualization
     const recentSamples = samples.slice(-20).map(s => ({
       phi: s.phi,
       timestamp: s.timestamp,
     }));
-    
+
     return {
       windowSize: this.TEMPORAL_WINDOW_SIZE,
       sampleCount: samples.length,
@@ -1155,16 +1155,16 @@ export class NearMissManager {
    */
   rebuildClustersWithValidation(): { entriesProcessed: number; clustersCreated: number; bip39Valid: number; bip39Invalid: number } {
     console.log('[NearMiss] 🔄 Rebuilding clusters with BIP-39 validation...');
-    
+
     // Recompute structural signatures for all entries
     let bip39Valid = 0;
     let bip39Invalid = 0;
     const VALID_SEED_WORD_COUNTS = [12, 15, 18, 21, 24];
-    
+
     for (const entry of this.entries.values()) {
       entry.structuralSignature = this.computeStructuralSignature(entry.phrase);
       entry.clusterId = undefined;
-      
+
       // Track BIP-39 stats for seed-length phrases
       if (VALID_SEED_WORD_COUNTS.includes(entry.structuralSignature.wordCount)) {
         if (entry.structuralSignature.isBip39Valid) {
@@ -1174,13 +1174,13 @@ export class NearMissManager {
         }
       }
     }
-    
+
     // Clear and rebuild clusters
     this.clusters.clear();
     for (const entry of this.entries.values()) {
       this.assignToCluster(entry);
     }
-    
+
     // Update all cluster patterns
     for (const cluster of this.clusters.values()) {
       const members = this.getClusterMembers(cluster.id);
@@ -1188,10 +1188,10 @@ export class NearMissManager {
         cluster.structuralPattern = this.describeStructure(members[0].structuralSignature);
       }
     }
-    
+
     this.isDirty = true;
     console.log(`[NearMiss] ✅ Rebuilt ${this.clusters.size} clusters from ${this.entries.size} entries (BIP-39: ${bip39Valid} valid, ${bip39Invalid} invalid)`);
-    
+
     return {
       entriesProcessed: this.entries.size,
       clustersCreated: this.clusters.size,
@@ -1277,7 +1277,7 @@ export class NearMissManager {
           return;
         }
       }
-      
+
       // No data found - starting fresh
       console.log('[NearMiss] No existing state found in Redis or PostgreSQL, starting fresh');
       this.recomputeAdaptiveThresholds();
@@ -1452,7 +1452,7 @@ export class NearMissManager {
     this.saveToRedis().catch(err => {
       console.error('[NearMiss] Redis save failed:', err);
     });
-    
+
     // 2. Save to PostgreSQL for long-term persistence
     this.saveToPostgres().catch(err => {
       console.error('[NearMiss] PostgreSQL save failed:', err);
@@ -1566,6 +1566,132 @@ export class NearMissManager {
   forceSave(): void {
     this.isDirty = true;
     this.save();
+  }
+
+  /**
+   * Generate focused follow-up variations for a near-miss entry
+   * This is the core of near-miss exploitation:
+   * - Lock known high-Φ word positions
+   * - Generate permutations of uncertain positions
+   * - Create common typo variations
+   * - Produce word substitutions from BIP39 wordlist
+   * 
+   * @param entryId - ID of the near-miss entry to exploit
+   * @param maxVariations - Maximum number of variations to generate
+   * @returns Array of focused hypothesis phrases
+   */
+  generateNearMissExploitations(entryId: string, maxVariations: number = 50): string[] {
+    const entry = this.entries.get(entryId);
+    if (!entry) return [];
+
+    const words = entry.phrase.split(/\s+/);
+    const variations: Set<string> = new Set();
+    const isBip39 = entry.structuralSignature?.isBip39Valid ?? false;
+
+    // Mark this entry as being exploited
+    this.markAccessed(entryId);
+
+    // Strategy 1: Word position swaps (for BIP39 phrases)
+    if (isBip39 && words.length >= 12) {
+      // Swap adjacent pairs
+      for (let i = 0; i < words.length - 1 && variations.size < maxVariations; i++) {
+        const swapped = [...words];
+        [swapped[i], swapped[i + 1]] = [swapped[i + 1], swapped[i]];
+        variations.add(swapped.join(' '));
+      }
+    }
+
+    // Strategy 2: Common typo corrections
+    const typoPatterns: Record<string, string[]> = {
+      'a': ['e', 's', 'q'],
+      'e': ['a', 'r', 'w'],
+      'i': ['o', 'u', 'k'],
+      'o': ['i', 'p', 'l'],
+      'u': ['i', 'y', 'j'],
+    };
+
+    for (const word of words) {
+      if (variations.size >= maxVariations) break;
+      for (const [char, replacements] of Object.entries(typoPatterns)) {
+        if (word.includes(char)) {
+          for (const replacement of replacements) {
+            const fixed = word.replace(char, replacement);
+            const newPhrase = entry.phrase.replace(word, fixed);
+            if (newPhrase !== entry.phrase) {
+              variations.add(newPhrase);
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Case variations
+    if (words.length <= 4) {
+      // For short phrases, try different case combinations
+      variations.add(entry.phrase.toLowerCase());
+      variations.add(entry.phrase.toUpperCase());
+      variations.add(words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '));
+    }
+
+    // Strategy 4: Remove/add common separators
+    if (entry.phrase.includes(' ')) {
+      variations.add(entry.phrase.replace(/\s+/g, ''));
+      variations.add(entry.phrase.replace(/\s+/g, '-'));
+      variations.add(entry.phrase.replace(/\s+/g, '_'));
+    }
+
+    // Strategy 5: Number variations
+    const hasNumbers = /\d/.test(entry.phrase);
+    if (hasNumbers) {
+      // Increment/decrement numbers
+      const numMatch = entry.phrase.match(/\d+/);
+      if (numMatch) {
+        const num = parseInt(numMatch[0], 10);
+        variations.add(entry.phrase.replace(numMatch[0], String(num + 1)));
+        variations.add(entry.phrase.replace(numMatch[0], String(num - 1)));
+        variations.add(entry.phrase.replace(numMatch[0], String(num * 10)));
+      }
+    }
+
+    console.log(`[NearMiss] 🔬 Generated ${variations.size} exploitations for "${entry.phrase.slice(0, 30)}..." (Φ=${entry.phi.toFixed(4)})`);
+
+    return Array.from(variations).slice(0, maxVariations);
+  }
+
+  /**
+   * Get entries that should be immediately exploited (HOT + escalating)
+   * Returns entries sorted by exploitation priority
+   */
+  getEntriesForExploitation(limit: number = 10): NearMissEntry[] {
+    const candidates = Array.from(this.entries.values())
+      .filter(e => e.tier === 'hot' || e.isEscalating)
+      .sort((a, b) => {
+        // Prioritize: escalating > hot, then by phi
+        const aScore = (a.isEscalating ? 100 : 0) + (a.tier === 'hot' ? 50 : 0) + a.phi * 10;
+        const bScore = (b.isEscalating ? 100 : 0) + (b.tier === 'hot' ? 50 : 0) + b.phi * 10;
+        return bScore - aScore;
+      });
+
+    return candidates.slice(0, limit);
+  }
+
+  /**
+   * Batch generate exploitations for all high-priority near-misses
+   * Returns a flat array of all variations to test
+   */
+  batchGenerateExploitations(maxPerEntry: number = 20, maxTotal: number = 200): string[] {
+    const entries = this.getEntriesForExploitation(10);
+    const allVariations: string[] = [];
+
+    for (const entry of entries) {
+      if (allVariations.length >= maxTotal) break;
+      const remaining = maxTotal - allVariations.length;
+      const variations = this.generateNearMissExploitations(entry.id, Math.min(maxPerEntry, remaining));
+      allVariations.push(...variations);
+    }
+
+    console.log(`[NearMiss] 📦 Batch exploitation: ${allVariations.length} variations from ${entries.length} entries`);
+    return allVariations;
   }
 
   /**

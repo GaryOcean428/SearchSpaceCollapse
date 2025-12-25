@@ -55,6 +55,84 @@ export interface QueueStats {
   lastDrainTime?: number;
 }
 
+/**
+ * Enhanced priority metadata for combined scoring
+ * Implements the recommended priority queue with metadata scoring
+ */
+export interface PriorityMetadata {
+  phi?: number;           // Φ (consciousness) value 0-1
+  kappa?: number;         // κ (curvature) value ~64 optimal
+  nearMissId?: string;    // Near-miss lineage (if derived from near-miss)
+  pathNovelty?: number;   // Derivation path novelty 0-1 (new paths score higher)
+  isDormantMatch?: boolean; // If address matches dormant list
+  isEscalating?: boolean; // If phi is rising
+  staleness?: number;     // Hours since discovery (for decay)
+}
+
+/**
+ * Compute combined priority score from metadata
+ * Higher score = higher priority for balance checking
+ * 
+ * Scoring weights:
+ * - Base priority: 1-10 scale from source
+ * - Φ boost: +0-20 based on phi value
+ * - κ resonance: +0-10 if κ near optimal 64.21
+ * - Near-miss lineage: +5 if from near-miss
+ * - Path novelty: +0-5 based on novelty
+ * - Dormant match: +20 instant boost
+ * - Escalation: +3 if phi rising
+ * - Staleness decay: -0.1 per hour (max -5)
+ */
+export function computeEnhancedPriority(
+  basePriority: number,
+  metadata?: PriorityMetadata
+): number {
+  let score = basePriority;
+
+  if (!metadata) return score;
+
+  // Φ boost: Higher phi = higher priority
+  if (metadata.phi !== undefined) {
+    score += metadata.phi * 20; // 0-20 points
+  }
+
+  // κ resonance: Closer to optimal κ* = 64.21 is better
+  if (metadata.kappa !== undefined) {
+    const optimalKappa = 64.21;
+    const kappaDiff = Math.abs(metadata.kappa - optimalKappa);
+    const kappaScore = Math.max(0, 10 - kappaDiff / 5);
+    score += kappaScore;
+  }
+
+  // Near-miss lineage: Boost if derived from near-miss
+  if (metadata.nearMissId) {
+    score += 5;
+  }
+
+  // Path novelty: New/rare paths get boost
+  if (metadata.pathNovelty !== undefined) {
+    score += metadata.pathNovelty * 5;
+  }
+
+  // Dormant match: Massive priority boost
+  if (metadata.isDormantMatch) {
+    score += 20;
+  }
+
+  // Escalation: Boost if phi is rising
+  if (metadata.isEscalating) {
+    score += 3;
+  }
+
+  // Staleness decay: Older hypotheses decay
+  if (metadata.staleness !== undefined && metadata.staleness > 0) {
+    const decay = Math.min(5, metadata.staleness * 0.1);
+    score -= decay;
+  }
+
+  return Math.max(1, Math.round(score)); // Minimum priority of 1
+}
+
 interface TokenBucket {
   tokens: number;
   lastRefill: number;
@@ -107,7 +185,7 @@ class BalanceQueueService {
     };
     this._ready = this.initialize();
   }
-  
+
   private async initialize(): Promise<void> {
     await this.loadFromDisk();
     // Auto-start background worker - always running
@@ -118,7 +196,7 @@ class BalanceQueueService {
     console.log('[BalanceQueue] Auto-started with multi-provider API (230 req/min capacity)');
     console.log('[BalanceQueue] ALWAYS-ON mode enabled - worker will auto-restart if stopped');
   }
-  
+
   /**
    * Always-on guardian - ensures worker is ALWAYS running
    * Checks every 30 seconds and restarts if somehow stopped
@@ -127,10 +205,10 @@ class BalanceQueueService {
     if (this.autoRestartInterval) {
       clearInterval(this.autoRestartInterval);
     }
-    
+
     this.autoRestartInterval = setInterval(() => {
       if (!this.ALWAYS_ON) return;
-      
+
       // If worker should be on but isn't running, restart it
       if (!this.backgroundWorkerEnabled || !this.backgroundWorkerInterval) {
         console.log('[BalanceQueue] 🔄 ALWAYS-ON: Worker not running, auto-restarting...');
@@ -138,30 +216,30 @@ class BalanceQueueService {
         this.startBackgroundWorker();
       }
     }, 30000); // Check every 30 seconds
-    
+
     console.log('[BalanceQueue] Always-on guardian started');
   }
-  
+
   /** Wait for the service to be fully initialized */
   async waitForReady(): Promise<void> {
     return this._ready;
   }
-  
+
   /** Check if service is ready */
   isReady(): boolean {
     return this._isReady;
   }
-  
+
   // Heartbeat for auto-restart
   private lastHeartbeat = Date.now();
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private workerErrorCount = 0;
   private maxWorkerErrors = 10;
-  
+
   // Auto-restart interval - ensures worker is ALWAYS running
   private autoRestartInterval: NodeJS.Timeout | null = null;
   private readonly ALWAYS_ON = true; // Worker must always run
-  
+
   /**
    * Start continuous background balance checking
    * Uses bulk processing with multi-provider API for ~25 addr/sec effective rate
@@ -171,14 +249,14 @@ class BalanceQueueService {
       console.log('[BalanceQueue] Background worker already running');
       return;
     }
-    
+
     this.backgroundWorkerEnabled = true;
     this.backgroundStartTime = Date.now();
     this.backgroundCheckCount = 0;
     this.backgroundHitCount = 0;
     this.workerErrorCount = 0;
     this.lastHeartbeat = Date.now();
-    
+
     // Process batches every 2 seconds using bulk API with error protection
     this.backgroundWorkerInterval = setInterval(async () => {
       if (!this.backgroundWorkerEnabled) return;
@@ -242,13 +320,13 @@ class BalanceQueueService {
         this.isProcessing = false;
       }
     }, this.bulkProcessInterval);
-    
+
     // Start heartbeat monitor to auto-restart if worker stops
     this.startHeartbeatMonitor();
-    
+
     console.log('[BalanceQueue] Background worker started (NEVER-STOP mode, bulk processing ~25 addr/sec)');
   }
-  
+
   /**
    * Heartbeat monitor - restarts worker if it stops unexpectedly
    */
@@ -256,20 +334,20 @@ class BalanceQueueService {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
-    
+
     this.heartbeatInterval = setInterval(() => {
       if (!this.backgroundWorkerEnabled) return;
-      
+
       const timeSinceLastBeat = Date.now() - this.lastHeartbeat;
       const maxSilence = 60000; // 1 minute max silence
-      
+
       if (timeSinceLastBeat > maxSilence) {
         console.log('[BalanceQueue] Worker heartbeat missed, restarting...');
         this.restartWorker();
       }
     }, 30000); // Check every 30 seconds
   }
-  
+
   /**
    * Restart the background worker
    */
@@ -279,7 +357,7 @@ class BalanceQueueService {
       this.backgroundWorkerInterval = null;
     }
     this.isProcessing = false;
-    
+
     // Restart after a brief delay
     setTimeout(() => {
       if (this.backgroundWorkerEnabled) {
@@ -287,7 +365,7 @@ class BalanceQueueService {
         this.backgroundWorkerInterval = setInterval(async () => {
           if (!this.backgroundWorkerEnabled) return;
           if (this.isProcessing) return;
-          
+
           try {
             this.isProcessing = true;
             this.lastHeartbeat = Date.now();
@@ -301,7 +379,7 @@ class BalanceQueueService {
       }
     }, 2000);
   }
-  
+
   /**
    * Stop background worker
    * Note: In ALWAYS_ON mode, this will be ignored and worker will auto-restart
@@ -312,7 +390,7 @@ class BalanceQueueService {
       console.log('[BalanceQueue] Worker must run continuously to process the backlog');
       return false; // Indicate stop was not executed
     }
-    
+
     if (this.backgroundWorkerInterval) {
       clearInterval(this.backgroundWorkerInterval);
       this.backgroundWorkerInterval = null;
@@ -326,14 +404,14 @@ class BalanceQueueService {
     console.log('[BalanceQueue] Background worker stopped');
     return true;
   }
-  
+
   /**
    * Force restart the background worker (for manual intervention)
    * This bypasses ALWAYS_ON for maintenance purposes
    */
   forceRestartWorker(): void {
     console.log('[BalanceQueue] Force restarting background worker...');
-    
+
     // Directly clear intervals without going through stopBackgroundWorker
     // This allows maintenance restarts even in ALWAYS_ON mode
     if (this.backgroundWorkerInterval) {
@@ -346,12 +424,12 @@ class BalanceQueueService {
     }
     this.isProcessing = false;
     // Keep backgroundWorkerEnabled true so guardian doesn't trigger during restart
-    
+
     setTimeout(() => {
       this.startBackgroundWorker();
     }, 1000);
   }
-  
+
   /**
    * Process a single address from the queue
    */
@@ -359,34 +437,34 @@ class BalanceQueueService {
     const pending = Array.from(this.queue.values())
       .filter(item => item.status === 'pending' || (item.status === 'failed' && item.retryCount < 3))
       .sort((a, b) => b.priority - a.priority);
-    
+
     if (pending.length === 0) return false;
-    
+
     const item = pending[0];
-    
+
     try {
       const canProceed = await this.consumeToken();
       if (!canProceed) return false;
-      
+
       item.status = 'checking';
-      
+
       const hit = await checkAndRecordBalance(
         item.address,
         item.passphrase,
         item.wif,
         item.isCompressed
       );
-      
+
       item.status = 'resolved';
       item.checkedAt = Date.now();
       this.backgroundCheckCount++;
-      
+
       // Check against known dormant addresses
       const dormantMatch = dormantCrossRef.checkAddress(item.address);
       if (dormantMatch.isMatch && dormantMatch.info) {
         console.log(`[BalanceQueue] 🎯 DORMANT MATCH! ${item.address} matches Rank #${dormantMatch.info.rank} (${dormantMatch.info.balanceBTC} BTC)`);
       }
-      
+
       if (hit !== null) {
         this.backgroundHitCount++;
         console.log(`[BalanceQueue] 💰 HIT! ${item.address} has balance!`);
@@ -396,23 +474,23 @@ class BalanceQueueService {
         // Mark as tested-empty to prevent re-testing
         testedEmptyTracker.markAsTestedEmpty(item.address, 0, item.source);
       }
-      
+
       // Remove resolved items
       this.queue.delete(item.id);
       this.scheduleSave();
-      
+
       // Log progress every 50 addresses
       if (this.backgroundCheckCount % 50 === 0) {
         const elapsed = (Date.now() - this.backgroundStartTime) / 1000;
         const rate = this.backgroundCheckCount / elapsed;
         console.log(`[BalanceQueue] Background: ${this.backgroundCheckCount} checked, ${this.backgroundHitCount} hits, ${rate.toFixed(2)}/sec, ${this.queue.size} remaining`);
       }
-      
+
       return hit !== null;
     } catch (error) {
       item.status = 'failed';
       item.retryCount++;
-      
+
       // Check if this is a provider unavailability error (not an empty balance)
       if (ProviderUnavailableError.isProviderUnavailableError(error)) {
         // Provider unavailable - mark with distinct error code
@@ -426,7 +504,7 @@ class BalanceQueueService {
       return false;
     }
   }
-  
+
   /**
    * Process a batch of addresses using bulk API
    * Much faster than individual checks - uses Blockchain.com bulk endpoint
@@ -438,25 +516,25 @@ class BalanceQueueService {
         .filter(item => item.status === 'pending' || (item.status === 'failed' && item.retryCount < 3))
         .sort((a, b) => b.priority - a.priority)
         .slice(0, this.bulkBatchSize);
-      
+
       if (pending.length === 0) return { checked: 0, hits: 0 };
-      
+
       const addresses = pending.map(item => item.address);
-      
+
       try {
         // Use bulk API to check all addresses at once
         const results = await freeBlockchainAPI.getBalances(addresses);
-        
+
         let hits = 0;
         const resolvedIds: string[] = []; // Collect IDs for batch DB delete
-        
+
         for (const item of pending) {
           try {
             const result = results.get(item.address);
-            
+
             if (result) {
               item.status = 'checking';
-              
+
               // Check for balance or transaction activity
               if (result.balance > 0 || result.txCount > 0) {
                 // Record the hit with full details
@@ -467,12 +545,12 @@ class BalanceQueueService {
                     item.wif,
                     item.isCompressed
                   );
-                  
+
                   if (hit) {
                     hits++;
                     this.backgroundHitCount++;
                     console.log(`[BalanceQueue] 💰 HIT! ${item.address} - ${result.balance} BTC, ${result.txCount} txs`);
-                    
+
                     // Notify Python backend to reinforce success patterns
                     this.notifyHypothesisFeedback(item.passphrase, result.balance, item.source);
                   }
@@ -490,7 +568,7 @@ class BalanceQueueService {
                     item.priority >= 80 ? 0.7 : 0.3, // Use priority as proxy for phi
                     item.passphrase || item.address
                   );
-                  
+
                   // Log learning signal for high-priority (high-phi) empty results
                   if (regulation.learningSignal.shouldAdjustWeights) {
                     console.log(`[BalanceQueue] 🧠 Dopamine regulation: pattern="${regulation.learningSignal.patternToAvoid}" penalty=${regulation.learningSignal.penaltyFactor.toFixed(2)}`);
@@ -499,7 +577,7 @@ class BalanceQueueService {
                   // Regulation errors shouldn't stop processing
                 }
               }
-              
+
               // Check against known dormant addresses
               try {
                 const dormantMatch = dormantCrossRef.checkAddress(item.address);
@@ -510,11 +588,11 @@ class BalanceQueueService {
                 console.error(`[BalanceQueue] Error checking dormant for ${item.address}:`, dormantError);
                 // Continue processing
               }
-              
+
               item.status = 'resolved';
               item.checkedAt = Date.now();
               this.backgroundCheckCount++;
-              
+
               // Remove from memory, collect ID for batch DB delete
               this.queue.delete(item.id);
               resolvedIds.push(item.id);
@@ -532,19 +610,19 @@ class BalanceQueueService {
             // Continue with next item
           }
         }
-        
+
         // Batch delete all resolved items from DB in a single operation
         // This prevents connection pool exhaustion from 50 concurrent deletes
         if (resolvedIds.length > 0) {
           await this.removeFromDbBatch(resolvedIds);
         }
-        
+
         this.scheduleSave();
-        
+
         // Log progress every batch
         const elapsed = (Date.now() - this.backgroundStartTime) / 1000;
         const rate = elapsed > 0 ? this.backgroundCheckCount / elapsed : 0;
-        
+
         if (this.backgroundCheckCount % 100 === 0 || hits > 0) {
           try {
             const apiStats = freeBlockchainAPI.getStats();
@@ -555,24 +633,24 @@ class BalanceQueueService {
             console.error('[BalanceQueue] Error logging stats:', logError);
           }
         }
-        
+
         return { checked: pending.length, hits };
-        
+
       } catch (apiError) {
         // Check if this is a provider unavailability error (all APIs down, not empty balances)
         const isProviderUnavailable = ProviderUnavailableError.isProviderUnavailableError(apiError);
-        
+
         if (isProviderUnavailable) {
           console.log(`[BalanceQueue] ⚠️ All providers unavailable - ${pending.length} addresses will retry when APIs recover`);
         } else {
           console.error('[BalanceQueue] Bulk API error (will retry):', apiError);
         }
-        
+
         // Mark all as failed for retry - but don't throw
         for (const item of pending) {
           item.status = 'failed';
           item.retryCount++;
-          
+
           if (isProviderUnavailable) {
             // Provider unavailable - mark with distinct error code
             // DON'T mark as tested-empty (we don't know if balance is empty - APIs were unavailable)
@@ -582,7 +660,7 @@ class BalanceQueueService {
             item.error = apiError instanceof Error ? apiError.message : 'Bulk API error';
           }
         }
-        
+
         return { checked: 0, hits: 0 };
       }
     } catch (outerError) {
@@ -698,17 +776,17 @@ class BalanceQueueService {
       timestamp: new Date(),
     };
   }
-  
+
   /**
    * Notify Python backend about a balance hit to reinforce success patterns.
    * Non-blocking - errors are logged but don't stop processing.
    */
   private notifyHypothesisFeedback(passphrase: string | undefined, balance: number, source: string): void {
     if (!passphrase) return;
-    
+
     const isMnemonic = passphrase.split(/\s+/).length >= 12;
     const phi = Math.min(0.99, 0.8 + (balance / 1e8)); // Higher phi for larger balances
-    
+
     fetch('http://localhost:5001/olympus/hypothesis/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -741,7 +819,7 @@ class BalanceQueueService {
             eq(queuedAddresses.status, 'checking')
           ))
           .limit(MAX_QUEUE_SIZE);
-        
+
         for (const item of dbItems) {
           const queueItem: QueuedAddress = {
             id: item.id,
@@ -760,7 +838,7 @@ class BalanceQueueService {
           };
           this.queue.set(item.id, queueItem);
         }
-        
+
         console.log(`[BalanceQueue] Loaded ${this.queue.size} pending addresses from PostgreSQL`);
       } catch (dbError) {
         console.error('[BalanceQueue] PostgreSQL load failed:', dbError);
@@ -774,11 +852,11 @@ class BalanceQueueService {
     const toSave = Array.from(this.queue.values()).filter(
       item => item.status === 'pending' || item.status === 'failed'
     );
-    
+
     // Save to PostgreSQL (primary) with retry logic
     if (db) {
       const itemsToSave = toSave.slice(0, 100); // Save latest 100 to avoid overloading
-      
+
       await withDbRetry(
         async () => {
           // Batch upsert to PostgreSQL
@@ -813,7 +891,7 @@ class BalanceQueueService {
       );
     }
   }
-  
+
   private async removeFromDb(id: string): Promise<void> {
     if (!db) return;
     const result = await withDbRetry(
@@ -827,7 +905,7 @@ class BalanceQueueService {
       console.warn(`[BalanceQueue] Failed to remove ${id} from DB after retries - may be orphaned`);
     }
   }
-  
+
   /**
    * Batch remove multiple items from DB in a single operation
    * Much more efficient than individual deletes - prevents connection pool exhaustion
@@ -872,49 +950,54 @@ class BalanceQueueService {
       cycleId?: string;
       priority?: number;
       source?: 'typescript' | 'python' | 'mnemonic' | 'manual';
+      metadata?: PriorityMetadata;
     }
   ): boolean {
     // Skip if already tested and found empty
     if (testedEmptyTracker.isTestedEmpty(address)) {
       return false; // Don't add to queue
     }
-    
+
     const id = this.generateId(address, passphrase);
-    const newPriority = options?.priority || 1;
+    const basePriority = options?.priority || 1;
+    // Use enhanced priority scoring if metadata provided
+    const newPriority = options?.metadata
+      ? computeEnhancedPriority(basePriority, options.metadata)
+      : basePriority;
     const source = options?.source || 'typescript';
-    
+
     // PRIORITY UPGRADE: If address already in queue, upgrade priority if higher
     if (this.queue.has(id)) {
       const existing = this.queue.get(id)!;
-      
+
       // Only upgrade if new priority is higher AND item is still pending
       if (newPriority > existing.priority && existing.status === 'pending') {
         const oldPriority = existing.priority;
         existing.priority = newPriority;
         this.scheduleSave();
-        
+
         if (newPriority >= 8) {
           console.log(`[BalanceQueue] 🔺 Priority UPGRADED: ${address.substring(0, 12)}... ${oldPriority} → ${newPriority}`);
         }
-        
+
         return true; // Upgraded successfully
       }
-      
+
       return false; // Already in queue, no upgrade needed
     }
-    
+
     if (this.queue.size >= MAX_QUEUE_SIZE) {
       const pending = Array.from(this.queue.values())
         .filter(item => item.status === 'pending')
         .sort((a, b) => a.priority - b.priority);
-      
+
       if (pending.length > 0 && newPriority > pending[0].priority) {
         this.queue.delete(pending[0].id);
       } else {
         return false;
       }
     }
-    
+
     const item: QueuedAddress = {
       id,
       address,
@@ -928,15 +1011,15 @@ class BalanceQueueService {
       queuedAt: Date.now(),
       retryCount: 0,
     };
-    
+
     this.queue.set(id, item);
     this.scheduleSave();
-    
+
     // Auto-restart background worker if not running and we have addresses
     if (!this.backgroundWorkerInterval && this.backgroundWorkerEnabled) {
       this.startBackgroundWorker();
     }
-    
+
     return true;
   }
 
@@ -956,12 +1039,12 @@ class BalanceQueueService {
     }
   ): { compressed: boolean; uncompressed: boolean } {
     const compressed = this.enqueue(compressedAddr, passphrase, compressedWif, true, options);
-    
+
     let uncompressed = false;
     if (uncompressedAddr && uncompressedAddr !== compressedAddr) {
       uncompressed = this.enqueue(uncompressedAddr, passphrase, uncompressedWif, false, options);
     }
-    
+
     return { compressed, uncompressed };
   }
 
@@ -969,7 +1052,7 @@ class BalanceQueueService {
     const now = Date.now();
     const elapsed = (now - this.tokenBucket.lastRefill) / 1000;
     const tokensToAdd = elapsed * this.tokenBucket.refillRate;
-    
+
     this.tokenBucket.tokens = Math.min(
       this.tokenBucket.maxTokens,
       this.tokenBucket.tokens + tokensToAdd
@@ -979,21 +1062,21 @@ class BalanceQueueService {
 
   private async consumeToken(): Promise<boolean> {
     this.refillTokens();
-    
+
     if (this.tokenBucket.tokens >= 1) {
       this.tokenBucket.tokens -= 1;
       return true;
     }
-    
+
     const waitTime = (1 - this.tokenBucket.tokens) / this.tokenBucket.refillRate * 1000;
     await new Promise(resolve => setTimeout(resolve, waitTime));
-    
+
     this.refillTokens();
     if (this.tokenBucket.tokens >= 1) {
       this.tokenBucket.tokens -= 1;
       return true;
     }
-    
+
     return false;
   }
 
@@ -1005,9 +1088,9 @@ class BalanceQueueService {
     if (!canProceed) {
       return false;
     }
-    
+
     item.status = 'checking';
-    
+
     try {
       const hit = await checkAndRecordBalance(
         item.address,
@@ -1015,16 +1098,16 @@ class BalanceQueueService {
         item.wif,
         item.isCompressed
       );
-      
+
       item.status = 'resolved';
       item.checkedAt = Date.now();
-      
+
       return hit !== null;
     } catch (error) {
       item.status = 'failed';
       item.retryCount++;
       item.error = error instanceof Error ? error.message : 'Unknown error';
-      
+
       return false;
     }
   }
@@ -1040,40 +1123,40 @@ class BalanceQueueService {
       console.log('[BalanceQueue] Already processing, skipping drain');
       return { checked: 0, hits: 0, errors: 0, duration: 0 };
     }
-    
+
     this.isProcessing = true;
     this.processStartTime = Date.now();
     this.processedCount = 0;
-    
+
     const pending = Array.from(this.queue.values())
       .filter(item => item.status === 'pending' || (item.status === 'failed' && item.retryCount < 3))
       .sort((a, b) => b.priority - a.priority);
-    
+
     const maxToProcess = options?.maxAddresses || pending.length;
     const toProcess = pending.slice(0, maxToProcess);
-    
+
     console.log(`[BalanceQueue] Starting drain: ${toProcess.length} addresses to check`);
-    
+
     let checked = 0;
     let hits = 0;
     let errors = 0;
-    
+
     for (let i = 0; i < toProcess.length; i++) {
       const item = toProcess[i];
-      
+
       if (options?.onProgress) {
         options.onProgress(i + 1, toProcess.length, item.address);
       }
-      
+
       try {
         const isHit = await this.checkAddress(item);
         checked++;
         this.processedCount++;
-        
+
         if (isHit) {
           hits++;
         }
-        
+
         if (item.status === 'resolved') {
           this.queue.delete(item.id);
         }
@@ -1082,21 +1165,21 @@ class BalanceQueueService {
         console.error(`[BalanceQueue] Error checking ${item.address}:`, error);
       }
     }
-    
+
     const duration = Date.now() - this.processStartTime;
-    
+
     console.log(`[BalanceQueue] Drain complete:`);
     console.log(`   Checked: ${checked}, Hits: ${hits}, Errors: ${errors}`);
     console.log(`   Duration: ${(duration / 1000).toFixed(1)}s`);
     console.log(`   Rate: ${(checked / (duration / 1000)).toFixed(2)} addr/sec`);
-    
+
     await this.saveToDisk();
     this.isProcessing = false;
-    
+
     if (this.onDrainComplete) {
       this.onDrainComplete({ checked, hits, errors });
     }
-    
+
     return { checked, hits, errors, duration };
   }
 
@@ -1115,7 +1198,7 @@ class BalanceQueueService {
     let checking = 0;
     let resolved = 0;
     let failed = 0;
-    
+
     const items = Array.from(this.queue.values());
     for (const item of items) {
       switch (item.status) {
@@ -1125,9 +1208,9 @@ class BalanceQueueService {
         case 'failed': failed++; break;
       }
     }
-    
+
     const duration = this.processStartTime > 0 ? (Date.now() - this.processStartTime) / 1000 : 1;
-    
+
     return {
       pending,
       checking,
@@ -1161,22 +1244,22 @@ class BalanceQueueService {
         if (result) {
           item.status = 'resolved';
           item.checkedAt = Date.now();
-          
+
           if (result.balance > 0 || result.txCount > 0) {
             checkAndRecordBalance(item.address, item.passphrase, item.wif, item.isCompressed)
-              .catch(() => {});
+              .catch(() => { });
           }
         }
       }
     }
-    
+
     const entries = Array.from(this.queue.entries());
     for (const [id, item] of entries) {
       if (item.status === 'resolved') {
         this.queue.delete(id);
       }
     }
-    
+
     this.scheduleSave();
   }
 
@@ -1218,7 +1301,7 @@ class BalanceQueueService {
   async retryFailed(): Promise<{ retried: number; inMemory: number; inDb: number }> {
     let inMemory = 0;
     let inDb = 0;
-    
+
     // Reset in-memory failed items
     const entries = Array.from(this.queue.entries());
     for (const [id, item] of entries) {
@@ -1229,12 +1312,12 @@ class BalanceQueueService {
         inMemory++;
       }
     }
-    
+
     // Also reset failed items in the database
     if (db) {
       try {
         const result = await db.update(queuedAddresses)
-          .set({ 
+          .set({
             status: 'pending',
             retryCount: 0,
             error: null
@@ -1245,10 +1328,10 @@ class BalanceQueueService {
         console.error('[BalanceQueue] Error resetting failed items in DB:', e);
       }
     }
-    
+
     this.scheduleSave();
     console.log(`[BalanceQueue] Retrying ${inMemory + inDb} failed items (${inMemory} in-memory, ${inDb} in DB)`);
-    
+
     return { retried: inMemory + inDb, inMemory, inDb };
   }
 

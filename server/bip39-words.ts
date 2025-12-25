@@ -24,7 +24,7 @@ function loadWordlist(): string[] {
         .split('\n')
         .map(w => w.trim())
         .filter(w => w.length > 0);
-      
+
       if (words.length === 2048) {
         console.log(`[BIP39] Successfully loaded ${words.length} words`);
         return words;
@@ -106,7 +106,7 @@ export function generateRandomBIP39Phrase(wordCount: number = 12): string {
 
   const words: string[] = [];
   const wordlistSize = BIP39_WORDS.length; // 2048
-  
+
   // Navigate to coordinates in the eternal information manifold
   // Block universe perspective: All possible phrases exist at their coordinates
   // We're discovering which coordinates match the target, not "creating" them
@@ -116,7 +116,7 @@ export function generateRandomBIP39Phrase(wordCount: number = 12): string {
     const randomIdx = randomInt(0, wordlistSize);
     words.push(BIP39_WORDS[randomIdx]);
   }
-  
+
   return words.join(' ');
 }
 
@@ -125,4 +125,89 @@ export function isValidBIP39Phrase(phrase: string): boolean {
   const words = phrase.trim().split(/\s+/);
   const wordSet = new Set(BIP39_WORDS);
   return words.every(word => wordSet.has(word.toLowerCase()));
+}
+
+/**
+ * Select mnemonic word count based on weighted distribution
+ * Uses configuration from STRATEGY_WEIGHTING for adaptive distribution
+ * 
+ * Default weights (configurable):
+ * - 12 words: 70% (most common, 128 bits)
+ * - 15 words: 5% (rare, 160 bits)
+ * - 18 words: 5% (some wallets, 192 bits)
+ * - 24 words: 20% (high security, 256 bits)
+ */
+export function selectWeightedWordCount(): number {
+  // Try to import config dynamically to avoid circular dependencies
+  let weights = {
+    w12: 0.70,
+    w15: 0.05,
+    w18: 0.05,
+    w24: 0.20,
+  };
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const config = require('./ocean-config').STRATEGY_WEIGHTING;
+    if (config) {
+      weights = {
+        w12: config.MNEMONIC_12_WORD_WEIGHT ?? 0.70,
+        w15: config.MNEMONIC_15_WORD_WEIGHT ?? 0.05,
+        w18: config.MNEMONIC_18_WORD_WEIGHT ?? 0.05,
+        w24: config.MNEMONIC_24_WORD_WEIGHT ?? 0.20,
+      };
+    }
+  } catch {
+    // Use defaults if config not available
+  }
+
+  // Normalize weights
+  const total = weights.w12 + weights.w15 + weights.w18 + weights.w24;
+  const normalized = {
+    w12: weights.w12 / total,
+    w15: weights.w15 / total,
+    w18: weights.w18 / total,
+    w24: weights.w24 / total,
+  };
+
+  // Weighted random selection
+  const rand = Math.random();
+  let cumulative = 0;
+
+  cumulative += normalized.w12;
+  if (rand < cumulative) return 12;
+
+  cumulative += normalized.w15;
+  if (rand < cumulative) return 15;
+
+  cumulative += normalized.w18;
+  if (rand < cumulative) return 18;
+
+  return 24;
+}
+
+/**
+ * Generate a BIP39 phrase with weighted word count distribution
+ * Uses configurable weights from STRATEGY_WEIGHTING
+ */
+export function generateWeightedBIP39Phrase(): string {
+  const wordCount = selectWeightedWordCount();
+  return generateRandomBIP39Phrase(wordCount);
+}
+
+/**
+ * Get current mnemonic length distribution weights
+ */
+export function getMnemonicLengthWeights(): { w12: number; w15: number; w18: number; w24: number } {
+  try {
+    const config = require('./ocean-config').STRATEGY_WEIGHTING;
+    return {
+      w12: config?.MNEMONIC_12_WORD_WEIGHT ?? 0.70,
+      w15: config?.MNEMONIC_15_WORD_WEIGHT ?? 0.05,
+      w18: config?.MNEMONIC_18_WORD_WEIGHT ?? 0.05,
+      w24: config?.MNEMONIC_24_WORD_WEIGHT ?? 0.20,
+    };
+  } catch {
+    return { w12: 0.70, w15: 0.05, w18: 0.05, w24: 0.20 };
+  }
 }

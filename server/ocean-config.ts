@@ -262,6 +262,138 @@ export const NEAR_MISS_CONFIG = NearMissConfigSchema.parse({
 export type NearMissConfig = z.infer<typeof NearMissConfigSchema>;
 
 // ============================================================
+// ADAPTIVE STRATEGY WEIGHTING (Multi-Armed Bandit)
+// ============================================================
+
+export const StrategyWeightingSchema = z.object({
+  // Initial strategy weights (will adapt based on hit/queue telemetry)
+  INITIAL_MNEMONIC_WEIGHT: z.number().min(0).max(1).default(0.70)
+    .describe('Initial weight for BIP39 mnemonic strategy'),
+  INITIAL_PASSPHRASE_WEIGHT: z.number().min(0).max(1).default(0.20)
+    .describe('Initial weight for passphrase/arbitrary strategy'),
+  INITIAL_MASTER_KEY_WEIGHT: z.number().min(0).max(1).default(0.10)
+    .describe('Initial weight for master key style strategy'),
+
+  // Multi-armed bandit parameters (UCB1 algorithm)
+  UCB_EXPLORATION_CONSTANT: z.number().min(0).max(5).default(1.41)
+    .describe('Exploration constant for UCB1 (sqrt(2) is standard)'),
+  MIN_SAMPLES_BEFORE_ADAPT: z.number().int().min(10).default(100)
+    .describe('Minimum samples per strategy before adapting weights'),
+  WEIGHT_DECAY_RATE: z.number().min(0).max(0.1).default(0.01)
+    .describe('Rate at which old successes decay (recency bias)'),
+  MIN_STRATEGY_WEIGHT: z.number().min(0.01).max(0.2).default(0.05)
+    .describe('Minimum weight to maintain exploration'),
+
+  // Mnemonic length distribution weights
+  MNEMONIC_12_WORD_WEIGHT: z.number().min(0).max(1).default(0.70)
+    .describe('Weight for 12-word mnemonics (most common)'),
+  MNEMONIC_15_WORD_WEIGHT: z.number().min(0).max(1).default(0.05)
+    .describe('Weight for 15-word mnemonics (rare)'),
+  MNEMONIC_18_WORD_WEIGHT: z.number().min(0).max(1).default(0.05)
+    .describe('Weight for 18-word mnemonics (some wallets)'),
+  MNEMONIC_24_WORD_WEIGHT: z.number().min(0).max(1).default(0.20)
+    .describe('Weight for 24-word mnemonics (high security)'),
+
+  // Telemetry window for adaptation
+  ADAPTATION_WINDOW_SIZE: z.number().int().positive().default(1000)
+    .describe('Rolling window size for tracking strategy performance'),
+  ADAPTATION_INTERVAL_MS: z.number().int().positive().default(60000)
+    .describe('How often to recompute adaptive weights (1 min)'),
+});
+
+export const STRATEGY_WEIGHTING = StrategyWeightingSchema.parse({
+  INITIAL_MNEMONIC_WEIGHT: 0.70,
+  INITIAL_PASSPHRASE_WEIGHT: 0.20,
+  INITIAL_MASTER_KEY_WEIGHT: 0.10,
+  UCB_EXPLORATION_CONSTANT: 1.41,
+  MIN_SAMPLES_BEFORE_ADAPT: 100,
+  WEIGHT_DECAY_RATE: 0.01,
+  MIN_STRATEGY_WEIGHT: 0.05,
+  MNEMONIC_12_WORD_WEIGHT: 0.70,
+  MNEMONIC_15_WORD_WEIGHT: 0.05,
+  MNEMONIC_18_WORD_WEIGHT: 0.05,
+  MNEMONIC_24_WORD_WEIGHT: 0.20,
+  ADAPTATION_WINDOW_SIZE: 1000,
+  ADAPTATION_INTERVAL_MS: 60000,
+});
+
+export type StrategyWeighting = z.infer<typeof StrategyWeightingSchema>;
+
+// ============================================================
+// DERIVATION PATH CONFIGURATION
+// ============================================================
+
+export const DerivationPathConfigSchema = z.object({
+  // BIP44 Legacy P2PKH (1xxx addresses)
+  BIP44_RECEIVE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP44 receive addresses to derive (m/44\'/0\'/a\'/0/i)'),
+  BIP44_CHANGE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP44 change addresses to derive (m/44\'/0\'/a\'/1/i)'),
+  BIP44_ACCOUNT_COUNT: z.number().int().positive().default(5)
+    .describe('Number of accounts to check (0-4)'),
+
+  // BIP49 P2SH-P2WPKH (3xxx addresses - SegWit compatible)
+  BIP49_ENABLED: z.boolean().default(true)
+    .describe('Enable BIP49 derivation'),
+  BIP49_RECEIVE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP49 receive addresses (m/49\'/0\'/a\'/0/i)'),
+  BIP49_CHANGE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP49 change addresses (m/49\'/0\'/a\'/1/i)'),
+
+  // BIP84 Native SegWit P2WPKH (bc1q addresses)
+  BIP84_ENABLED: z.boolean().default(true)
+    .describe('Enable BIP84 derivation'),
+  BIP84_RECEIVE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP84 receive addresses (m/84\'/0\'/a\'/0/i)'),
+  BIP84_CHANGE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP84 change addresses (m/84\'/0\'/a\'/1/i)'),
+
+  // BIP86 Taproot P2TR (bc1p addresses)
+  BIP86_ENABLED: z.boolean().default(true)
+    .describe('Enable BIP86 Taproot derivation'),
+  BIP86_RECEIVE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP86 Taproot addresses (m/86\'/0\'/a\'/0/i)'),
+  BIP86_CHANGE_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP86 Taproot change addresses (m/86\'/0\'/a\'/1/i)'),
+
+  // Electrum legacy paths
+  ELECTRUM_ENABLED: z.boolean().default(true)
+    .describe('Enable Electrum legacy paths'),
+  ELECTRUM_RECEIVE_COUNT: z.number().int().positive().default(20)
+    .describe('Number of Electrum addresses (m/0/i)'),
+  ELECTRUM_CHANGE_COUNT: z.number().int().positive().default(20)
+    .describe('Number of Electrum change addresses (m/1/i)'),
+
+  // Legacy pre-BIP44 paths
+  LEGACY_ENABLED: z.boolean().default(true)
+    .describe('Enable legacy pre-BIP44 paths'),
+  LEGACY_COUNT: z.number().int().positive().default(20)
+    .describe('Number of legacy addresses (m/0/i simple)'),
+});
+
+export const DERIVATION_PATH_CONFIG = DerivationPathConfigSchema.parse({
+  BIP44_RECEIVE_COUNT: 50,
+  BIP44_CHANGE_COUNT: 50,
+  BIP44_ACCOUNT_COUNT: 5,
+  BIP49_ENABLED: true,
+  BIP49_RECEIVE_COUNT: 50,
+  BIP49_CHANGE_COUNT: 50,
+  BIP84_ENABLED: true,
+  BIP84_RECEIVE_COUNT: 50,
+  BIP84_CHANGE_COUNT: 50,
+  BIP86_ENABLED: true,
+  BIP86_RECEIVE_COUNT: 50,
+  BIP86_CHANGE_COUNT: 50,
+  ELECTRUM_ENABLED: true,
+  ELECTRUM_RECEIVE_COUNT: 20,
+  ELECTRUM_CHANGE_COUNT: 20,
+  LEGACY_ENABLED: true,
+  LEGACY_COUNT: 20,
+});
+
+export type DerivationPathConfig = z.infer<typeof DerivationPathConfigSchema>;
+
+// ============================================================
 // REGIME CLASSIFICATION THRESHOLDS
 // ============================================================
 
@@ -341,6 +473,8 @@ export const OceanConfigSchema = z.object({
   memory: MemoryConfigSchema,
   regime: RegimeConfigSchema,
   logging: LoggingConfigSchema,
+  strategyWeighting: StrategyWeightingSchema,
+  derivationPaths: DerivationPathConfigSchema,
 });
 
 export type OceanConfig = z.infer<typeof OceanConfigSchema>;
@@ -370,16 +504,18 @@ export function loadOceanConfig(): OceanConfig {
       ...LOGGING_CONFIG,
       VERBOSE: process.env.OCEAN_VERBOSE !== 'false',
     },
+    strategyWeighting: STRATEGY_WEIGHTING,
+    derivationPaths: DERIVATION_PATH_CONFIG,
   };
-  
+
   // Validate the entire configuration
   const validated = OceanConfigSchema.parse(config);
-  
+
   console.log('[OceanConfig] Configuration loaded and validated');
   console.log(`[OceanConfig] κ* = ${validated.qigPhysics.KAPPA_STAR} (FROZEN)`);
   console.log(`[OceanConfig] MAX_PASSES = ${validated.search.MAX_PASSES_PER_ADDRESS}`);
   console.log(`[OceanConfig] MIN_PHI = ${validated.ethics.MIN_PHI}`);
-  
+
   return validated;
 }
 
@@ -404,3 +540,4 @@ export const QIG_CONSTANTS = {
 
 // Legacy MAX_PASSES export
 export const MAX_PASSES = SEARCH_CONFIG.MAX_PASSES_PER_ADDRESS;
+
