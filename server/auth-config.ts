@@ -159,10 +159,31 @@ export function normalizeRedirectUri(uri: string): string {
 }
 
 /**
+ * Determine protocol for Replit environments
+ * Replit uses a reverse proxy that terminates HTTPS - always use HTTPS for Replit domains
+ */
+function getProtocolForHost(hostname: string): string {
+  // Replit domains are always accessed via HTTPS (proxy terminates SSL)
+  const isReplitDomain = 
+    hostname.endsWith('.replit.dev') ||
+    hostname.endsWith('.replit.app') ||
+    hostname.endsWith('.repl.co') ||
+    hostname.includes('.picard.');
+  
+  // Always HTTPS for Replit, or if explicitly deployed
+  if (isReplitDomain || process.env.REPLIT_DEPLOYMENT === '1') {
+    return 'https';
+  }
+  
+  // Local development
+  return 'http';
+}
+
+/**
  * Build redirect URI from request or config
  */
 export function buildRedirectUri(hostname: string, config: AuthConfig): string {
-  const protocol = process.env.REPLIT_DEPLOYMENT === '1' ? 'https' : 'http';
+  const protocol = getProtocolForHost(hostname);
   const base = config.redirectUriBase || `${protocol}://${hostname}`;
   return normalizeRedirectUri(`${base}/api/callback`);
 }
@@ -171,7 +192,7 @@ export function buildRedirectUri(hostname: string, config: AuthConfig): string {
  * Get post-logout redirect URI
  */
 export function buildPostLogoutUri(hostname: string, config: AuthConfig): string {
-  const protocol = process.env.REPLIT_DEPLOYMENT === '1' ? 'https' : 'http';
+  const protocol = getProtocolForHost(hostname);
   const base = config.redirectUriBase || `${protocol}://${hostname}`;
   return normalizeRedirectUri(base);
 }
