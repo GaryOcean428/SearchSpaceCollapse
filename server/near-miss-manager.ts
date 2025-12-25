@@ -1653,6 +1653,54 @@ export class NearMissManager {
       }
     }
 
+    // Strategy 6: BIP39 word substitution with position locking
+    // For BIP39 phrases, try substituting individual words with similar BIP39 words
+    if (isBip39 && words.length >= 12) {
+      // Common word substitution pairs (phonetically/visually similar BIP39 words)
+      const similarWords: Record<string, string[]> = {
+        'abandon': ['about', 'above'],
+        'ability': ['able', 'absent'],
+        'able': ['ability', 'about'],
+        'abstract': ['absorb', 'absurd'],
+        'access': ['accident', 'account'],
+        'account': ['accuse', 'achieve'],
+        'act': ['action', 'actor'],
+        'add': ['address', 'adjust'],
+        'admit': ['adult', 'advance'],
+        'age': ['agent', 'agree'],
+        'air': ['airport', 'aisle'],
+        'all': ['alley', 'allow'],
+        'also': ['alter', 'always'],
+        'among': ['amount', 'amused'],
+        'any': ['apart', 'apology'],
+        'arm': ['armed', 'armor', 'army'],
+        'art': ['artist', 'artwork'],
+        'attack': ['attend', 'attract'],
+        'bag': ['balance', 'ball'],
+        'base': ['basic', 'basket'],
+        'beach': ['bean', 'beauty'],
+        'begin': ['behave', 'behind'],
+        'best': ['betray', 'better'],
+        'black': ['blade', 'blame'],
+        'blood': ['blossom', 'blouse'],
+        'blue': ['blur', 'blush'],
+        'board': ['boat', 'body'],
+      };
+
+      // Try substituting one word at a time (lock others)
+      for (let pos = 0; pos < Math.min(words.length, 6) && variations.size < maxVariations; pos++) {
+        const word = words[pos].toLowerCase();
+        const substitutes = similarWords[word];
+        if (substitutes) {
+          for (const sub of substitutes) {
+            const newWords = [...words];
+            newWords[pos] = sub;
+            variations.add(newWords.join(' '));
+          }
+        }
+      }
+    }
+
     console.log(`[NearMiss] 🔬 Generated ${variations.size} exploitations for "${entry.phrase.slice(0, 30)}..." (Φ=${entry.phi.toFixed(4)})`);
 
     return Array.from(variations).slice(0, maxVariations);

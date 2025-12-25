@@ -17,7 +17,7 @@ import {
 } from "./activity-log-store";
 import { balanceQueue } from "./balance-queue";
 import { queueMnemonicForBalanceCheck } from "./balance-queue-integration";
-import { generateRandomBIP39Phrase, isValidBIP39Phrase } from "./bip39-words";
+import { generateRandomBIP39Phrase, generateWeightedBIP39Phrase, isValidBIP39Phrase } from "./bip39-words";
 import { BlockchainForensics } from "./blockchain-forensics";
 import "./blockchain-scanner";
 import { getSharedController } from "./consciousness-search-controller";
@@ -75,6 +75,7 @@ import { trajectoryManager } from "./ocean/trajectory-manager";
 import { scoreUniversalQIGAsync } from "./qig-universal";
 import { fisherCoordDistance } from "./qig-geometry";
 import { repeatedAddressScheduler } from "./repeated-address-scheduler";
+import { strategyBandit } from "./strategy-bandit";
 import { strategyKnowledgeBus } from "./strategy-knowledge-bus";
 import { temporalGeometry } from "./temporal-geometry";
 import { vocabDecisionEngine, type GaryState } from "./vocabulary-decision";
@@ -4713,23 +4714,45 @@ export class OceanAgent {
       const modifier = modifiers[Math.floor(Math.random() * modifiers.length)];
       const randNum = Math.floor(Math.random() * 10000);
 
-      // 25% BIP-39 12-word mnemonics, 50% arbitrary, 25% master key style
-      if (i % 4 === 0) {
-        // Generate proper BIP-39 12-word mnemonic
-        const bip39Phrase = generateRandomBIP39Phrase(12);
-        phrases.push({ text: bip39Phrase, format: "bip39" });
-      } else if (i % 4 === 1) {
-        phrases.push({
-          text: `${modifier}${base}${randNum}`,
-          format: "arbitrary",
-        });
-      } else if (i % 4 === 2) {
-        phrases.push({
-          text: `${base} ${modifier} ${randNum}`,
-          format: "arbitrary",
-        });
-      } else {
-        phrases.push({ text: `${modifier} ${base}`, format: "master" });
+      // Use adaptive UCB1 bandit to select strategy
+      const selectedStrategy = strategyBandit.selectStrategy();
+
+      switch (selectedStrategy) {
+        case 'bip39':
+          // Generate BIP-39 mnemonic with weighted length distribution
+          const bip39Phrase = generateWeightedBIP39Phrase();
+          phrases.push({ text: bip39Phrase, format: "bip39" });
+          break;
+        case 'passphrase':
+          // Arbitrary passphrase combinations
+          phrases.push({
+            text: `${modifier}${base}${randNum}`,
+            format: "arbitrary",
+          });
+          break;
+        case 'master_key':
+          // Master key style
+          phrases.push({ text: `${modifier} ${base}`, format: "master" });
+          break;
+        case 'near_miss':
+          // Generate from near-miss exploitations if available
+          const exploitations = nearMissManager.batchGenerateExploitations(1, 1);
+          if (exploitations.length > 0) {
+            phrases.push({ text: exploitations[0], format: "bip39" });
+          } else {
+            // Fallback to bip39
+            phrases.push({ text: generateWeightedBIP39Phrase(), format: "bip39" });
+          }
+          break;
+        case 'permutation':
+          // Word permutations - use arbitrary format
+          phrases.push({
+            text: `${base} ${modifier} ${randNum}`,
+            format: "arbitrary",
+          });
+          break;
+        default:
+          phrases.push({ text: generateWeightedBIP39Phrase(), format: "bip39" });
       }
     }
 

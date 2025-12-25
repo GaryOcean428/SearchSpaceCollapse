@@ -26,6 +26,7 @@ import { getAddressData } from "./blockchain-api-router";
 import { bitcoinSweepService } from "./bitcoin-sweep";
 import { sweepApprovalService } from "./sweep-approval";
 import { olympusClient } from "./olympus-client";
+import { strategyBandit } from "./strategy-bandit";
 
 const DEFAULT_USER_ID = '36468785';
 
@@ -81,7 +82,7 @@ function extractTemporalSignature(block: BlockstreamBlock) {
   const date = new Date(block.timestamp * 1000);
   const dayOfWeek = date.getUTCDay();
   const hourUTC = date.getUTCHours();
-  
+
   // Infer likely timezones based on mining time patterns
   // Early Bitcoin miners often mined during their local evening/night
   const likelyTimezones: string[] = [];
@@ -92,7 +93,7 @@ function extractTemporalSignature(block: BlockstreamBlock) {
   } else {
     likelyTimezones.push("America/New_York", "America/Los_Angeles");
   }
-  
+
   return {
     dayOfWeek,
     hourUTC,
@@ -109,7 +110,7 @@ function extractTemporalSignature(block: BlockstreamBlock) {
 function extractValueSignature(outputs: Array<{ value: number }>) {
   const values = outputs.map(o => o.value);
   const totalValue = values.reduce((sum, v) => sum + v, 0);
-  
+
   // Detect round numbers (humans like 1 BTC, 10 BTC, 50 BTC, etc.)
   const satoshiThresholds = [
     100000000, // 1 BTC
@@ -117,11 +118,11 @@ function extractValueSignature(outputs: Array<{ value: number }>) {
     5000000000, // 50 BTC
     10000000000, // 100 BTC
   ];
-  
-  const hasRoundNumbers = values.some(v => 
+
+  const hasRoundNumbers = values.some(v =>
     satoshiThresholds.some(threshold => Math.abs(v - threshold) < 100000)
   );
-  
+
   return {
     totalValue,
     outputCount: outputs.length,
@@ -141,28 +142,28 @@ function deriveP2PKAddress(scriptpubkey: string): string | null {
     // P2PK format: <len><pubkey>ac (OP_CHECKSIG)
     // 0x41 (65 bytes) for uncompressed pubkey or 0x21 (33 bytes) for compressed
     if (!scriptpubkey.endsWith("ac")) return null;
-    
+
     const lengthByte = scriptpubkey.substring(0, 2);
     const expectedLength = lengthByte === "41" ? 65 : lengthByte === "21" ? 33 : 0;
-    
+
     if (expectedLength === 0) return null;
-    
+
     // Extract public key (skip length byte, exclude OP_CHECKSIG)
     const pubkeyHex = scriptpubkey.substring(2, 2 + expectedLength * 2);
-    
+
     if (pubkeyHex.length !== expectedLength * 2) return null;
-    
+
     // Hash the public key: SHA-256 then RIPEMD-160
     const pubkeyBuffer = Buffer.from(pubkeyHex, "hex");
     const sha256Hash = createHash("sha256").update(pubkeyBuffer).digest();
     const ripemd160Hash = createHash("ripemd160").update(sha256Hash).digest();
-    
+
     // Add version byte (0x00 for mainnet P2PKH)
     const versionedHash = Buffer.concat([Buffer.from([0x00]), ripemd160Hash]);
-    
+
     // Encode with Base58Check
     const address = bs58check.encode(versionedHash);
-    
+
     return address;
   } catch (error) {
     console.error(`[BlockchainScanner] Error deriving P2PK address:`, error);
@@ -176,7 +177,7 @@ function deriveP2PKAddress(scriptpubkey: string): string | null {
 function extractScriptSignature(scriptpubkey: string) {
   // Basic script type detection
   let scriptType = "unknown";
-  
+
   if (scriptpubkey.startsWith("76a914") && scriptpubkey.endsWith("88ac")) {
     scriptType = "P2PKH"; // Pay to Public Key Hash
   } else if (scriptpubkey.startsWith("a914") && scriptpubkey.endsWith("87")) {
@@ -186,7 +187,7 @@ function extractScriptSignature(scriptpubkey: string) {
   } else if (scriptpubkey.startsWith("41") || scriptpubkey.startsWith("21")) {
     scriptType = "P2PK"; // Pay to Public Key (early Bitcoin)
   }
-  
+
   return {
     type: scriptType,
     raw: scriptpubkey,
@@ -201,32 +202,32 @@ function extractMinerFingerprint(coinbaseTx: BlockstreamTransaction): string | n
   if (!coinbaseTx.vin || coinbaseTx.vin.length === 0 || !coinbaseTx.vin[0].is_coinbase) {
     return null;
   }
-  
+
   const coinbase = coinbaseTx.vin[0];
   const scriptsig = coinbase.scriptsig || "";
-  
+
   // Early Bitcoin software fingerprints based on coinbase patterns
   // Satoshi's original client had specific patterns
   if (scriptsig.length < 10) {
     return "satoshi-v0.1"; // Very early blocks
   }
-  
+
   // Known mining pool signatures (added in later years)
   if (scriptsig.includes("slush") || scriptsig.includes("Slush")) return "slushpool";
   if (scriptsig.includes("eligius") || scriptsig.includes("Eligius")) return "eligius";
   if (scriptsig.includes("btcguild") || scriptsig.includes("BTCGuild")) return "btcguild";
-  
+
   // Generic detection based on scriptsig structure
   if (scriptsig.length > 100) return "custom-large";
   if (scriptsig.length > 50) return "custom-medium";
-  
+
   return "unknown";
 }
 
 /**
  * Recovery input types for tracking wallet origin
  */
-export type RecoveryInputType = 
+export type RecoveryInputType =
   | 'bip39_mnemonic'    // 12/15/18/21/24-word BIP39 mnemonic phrase
   | 'brain_wallet'       // Arbitrary text converted to private key via SHA256
   | 'wif'                // Wallet Import Format private key
@@ -316,13 +317,13 @@ async function loadBalanceHits(): Promise<void> {
  */
 async function saveBalanceHitToDb(hit: BalanceHit, userId: string = DEFAULT_USER_ID): Promise<void> {
   if (!db) return;
-  
+
   try {
     const existing = await db.select()
       .from(balanceHitsTable)
       .where(eq(balanceHitsTable.address, hit.address))
       .limit(1);
-    
+
     if (existing.length > 0) {
       await withDbRetry(
         async () => {
@@ -391,7 +392,7 @@ async function saveBalanceChangeEventToDb(
   balanceHitId?: string
 ): Promise<void> {
   if (!db) return;
-  
+
   try {
     await withDbRetry(
       async () => {
@@ -468,11 +469,11 @@ export async function fetchAddressBalance(address: string): Promise<{
       spent: 0,
     };
   }
-  
+
   try {
     // Use new multi-provider API router with automatic failover
     const data = await getAddressData(address);
-    
+
     if (!data) {
       // All providers failed - try legacy Blockstream API with timeout as last resort
       console.log('[BlockchainScanner] All API providers failed, falling back to direct Blockstream API');
@@ -487,13 +488,13 @@ export async function fetchAddressBalance(address: string): Promise<{
           // Throw on HTTP errors to trigger retry logic
           throw new Error(`Blockstream HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const rawData = await response.json();
         const funded = (rawData.chain_stats?.funded_txo_sum || 0) + (rawData.mempool_stats?.funded_txo_sum || 0);
         const spent = (rawData.chain_stats?.spent_txo_sum || 0) + (rawData.mempool_stats?.spent_txo_sum || 0);
         const balanceSats = funded - spent;
         const txCount = (rawData.chain_stats?.tx_count || 0) + (rawData.mempool_stats?.tx_count || 0);
-        
+
         return { balanceSats, txCount, funded, spent };
       } catch (fallbackError) {
         // Log and rethrow to trigger upstream retry logic
@@ -503,7 +504,7 @@ export async function fetchAddressBalance(address: string): Promise<{
         throw new Error(`Blockstream fallback failed: ${errMsg}`);
       }
     }
-    
+
     // Use normalized data from API router
     return {
       balanceSats: data.balance,
@@ -513,7 +514,7 @@ export async function fetchAddressBalance(address: string): Promise<{
     };
   } catch (error) {
     // Rethrow to trigger upstream BalanceQueue retry logic
-    console.error(`[BlockchainScanner] Error fetching balance for ${address}:`, 
+    console.error(`[BlockchainScanner] Error fetching balance for ${address}:`,
       error instanceof Error ? error.message : String(error));
     throw error;
   }
@@ -560,11 +561,11 @@ export async function checkAndRecordBalance(
   }
 
   const balanceInfo = await fetchAddressBalance(opts.address);
-  
+
   if (!balanceInfo) {
     return null;
   }
-  
+
   if (balanceInfo.balanceSats > 0 || balanceInfo.txCount > 0) {
     const hit: BalanceHit = {
       address: opts.address,
@@ -580,13 +581,13 @@ export async function checkAndRecordBalance(
       derivationPath: opts.derivationPath,
       mnemonicWordCount: opts.mnemonicWordCount,
     };
-    
+
     const existing = balanceHits.find(h => h.address === opts.address);
     if (!existing) {
       balanceHits.push(hit);
-      
+
       await saveBalanceHitToDb(hit);
-      
+
       const typeLabel = opts.recoveryType ? `[${opts.recoveryType}]` : '';
       if (balanceInfo.balanceSats > 0) {
         console.log(`\n🎯 [BALANCE HIT] ${typeLabel} ${opts.address}`);
@@ -596,7 +597,7 @@ export async function checkAndRecordBalance(
         console.log(`   📊 TX Count: ${hit.txCount}`);
         if (opts.derivationPath) console.log(`   📍 Path: ${opts.derivationPath}`);
         console.log('');
-        
+
         // Create pending sweep for manual approval (only for addresses with actual balance)
         try {
           await sweepApprovalService.createPendingSweep({
@@ -623,14 +624,29 @@ export async function checkAndRecordBalance(
         }).catch((olympusError) => {
           console.error(`[BlockchainScanner] Olympus learning failed:`, olympusError);
         });
+
+        // Feed success back to strategy bandit for adaptive learning
+        // Determine strategy type from recovery type
+        const strategyType = opts.recoveryType === 'bip39_mnemonic' ? 'bip39'
+          : opts.recoveryType === 'brain_wallet' ? 'passphrase'
+            : opts.recoveryType === 'master_key' ? 'master_key'
+              : 'bip39';
+        strategyBandit.recordResult(strategyType, true);
+
+        // Also boost near_miss strategy if this was from near-miss exploitation
+        if (opts.passphrase && opts.passphrase.split(/\s+/).length >= 12) {
+          strategyBandit.boostStrategy('near_miss', 0.05);
+        }
+
+        console.log(`[BlockchainScanner] Strategy bandit updated: ${strategyType} success`);
       } else {
         console.log(`[BlockchainScanner] Historical activity ${typeLabel}: ${opts.address} (${hit.txCount} txs, 0 balance)`);
       }
     }
-    
+
     return hit;
   }
-  
+
   return null;
 }
 
@@ -653,7 +669,7 @@ export async function checkAndRecordBalanceTestMode(
     funded: simulatedBalance,
     spent: 0,
   };
-  
+
   if (balanceInfo.balanceSats > 0) {
     const hit: BalanceHit = {
       address: opts.address,
@@ -669,17 +685,17 @@ export async function checkAndRecordBalanceTestMode(
       derivationPath: opts.derivationPath,
       mnemonicWordCount: opts.mnemonicWordCount,
     };
-    
+
     const existing = balanceHits.find(h => h.address === opts.address);
     if (!existing) {
       balanceHits.push(hit);
-      
+
       await saveBalanceHitToDb(hit);
-      
+
       console.log(`\n🧪 [TEST MODE BALANCE HIT] ${opts.address}`);
       console.log(`   💰 Simulated Balance: ${hit.balanceBTC} BTC (${hit.balanceSats} sats)`);
       console.log(`   🔑 Passphrase: "${opts.passphrase}"`);
-      
+
       // Create pending sweep for manual approval (same as production code)
       try {
         await sweepApprovalService.createPendingSweep({
@@ -695,10 +711,10 @@ export async function checkAndRecordBalanceTestMode(
         console.error(`[BlockchainScanner] Failed to create pending sweep:`, sweepError);
       }
     }
-    
+
     return hit;
   }
-  
+
   return null;
 }
 
@@ -783,7 +799,7 @@ export async function saveBalanceHit(hit: BalanceHit): Promise<void> {
   } else {
     balanceHits.push(hit);
   }
-  
+
   // Save to PostgreSQL (throws on failure)
   await saveBalanceHitToDbStrict(hit);
 }
@@ -795,12 +811,12 @@ async function saveBalanceHitToDbStrict(hit: BalanceHit, userId: string = DEFAUL
   if (!db) {
     throw new Error('Database not connected');
   }
-  
+
   const existing = await db.select()
     .from(balanceHitsTable)
     .where(eq(balanceHitsTable.address, hit.address))
     .limit(1);
-  
+
   if (existing.length > 0) {
     await withDbRetry(
       async () => {
@@ -878,17 +894,17 @@ export async function refreshSingleBalance(address: string): Promise<{
   const previousBalance = hit.balanceSats;
   const newBalance = balanceInfo.balanceSats;
   const now = new Date().toISOString();
-  
+
   hit.lastChecked = now;
   hit.previousBalanceSats = previousBalance;
-  
+
   if (previousBalance !== newBalance) {
     hit.balanceChanged = true;
     hit.changeDetectedAt = now;
     hit.balanceSats = newBalance;
     hit.balanceBTC = (newBalance / 100000000).toFixed(8);
     hit.txCount = balanceInfo.txCount;
-    
+
     const changeEvent: BalanceChangeEvent = {
       address,
       previousBalance,
@@ -898,9 +914,9 @@ export async function refreshSingleBalance(address: string): Promise<{
       passphrase: hit.passphrase,
       wif: hit.wif,
     };
-    
+
     balanceChanges.push(changeEvent);
-    
+
     const direction = newBalance > previousBalance ? '📈 INCREASED' : '📉 DECREASED';
     const diffBTC = Math.abs(newBalance - previousBalance) / 100000000;
     console.log(`\n⚠️  [BALANCE CHANGE] ${address}`);
@@ -908,12 +924,12 @@ export async function refreshSingleBalance(address: string): Promise<{
     console.log(`   Difference: ${diffBTC.toFixed(8)} BTC`);
     console.log(`   🔑 Passphrase: "${hit.passphrase}"`);
     console.log(`   🔐 WIF: ${hit.wif}\n`);
-    
+
     await saveBalanceChangeEventToDb(address, previousBalance, newBalance);
     await saveBalanceHitToDb(hit);
     return { updated: true, changed: true, hit };
   }
-  
+
   hit.balanceChanged = false;
   await saveBalanceHitToDb(hit);
   return { updated: true, changed: false, hit };
@@ -936,23 +952,23 @@ export async function refreshAllBalances(options?: {
 }> {
   const startTime = Date.now();
   const delayMs = options?.delayMs ?? 1000; // Default 1 second between API calls to avoid rate limiting
-  
+
   let refreshed = 0;
   let changed = 0;
   let errors = 0;
   const newChanges: BalanceChangeEvent[] = [];
-  
+
   console.log(`[BlockchainScanner] Starting balance refresh for ${balanceHits.length} addresses...`);
-  
+
   for (let i = 0; i < balanceHits.length; i++) {
     const hit = balanceHits[i];
-    
+
     if (options?.onProgress) {
       options.onProgress(i + 1, balanceHits.length, hit.address);
     }
-    
+
     const result = await refreshSingleBalance(hit.address);
-    
+
     if (result.error) {
       errors++;
       console.error(`[BlockchainScanner] Error refreshing ${hit.address}: ${result.error}`);
@@ -966,23 +982,23 @@ export async function refreshAllBalances(options?: {
         }
       }
     }
-    
+
     // Rate limiting delay between API calls
     if (i < balanceHits.length - 1 && delayMs > 0) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
-  
+
   const duration = Date.now() - startTime;
-  
+
   console.log(`[BlockchainScanner] Balance refresh complete:`);
   console.log(`   Total: ${balanceHits.length}, Refreshed: ${refreshed}, Changed: ${changed}, Errors: ${errors}`);
   console.log(`   Duration: ${(duration / 1000).toFixed(1)}s`);
-  
+
   if (changed > 0) {
     console.log(`\n🚨 [ALERT] ${changed} balance(s) have changed!`);
   }
-  
+
   return {
     total: balanceHits.length,
     refreshed,
@@ -1000,9 +1016,9 @@ export function getLastBalanceCheck(): string | null {
   const lastCheckedDates = balanceHits
     .filter(h => h.lastChecked)
     .map(h => new Date(h.lastChecked!).getTime());
-  
+
   if (lastCheckedDates.length === 0) return null;
-  
+
   const mostRecent = Math.max(...lastCheckedDates);
   return new Date(mostRecent).toISOString();
 }
@@ -1012,7 +1028,7 @@ export function getLastBalanceCheck(): string | null {
  */
 export function getStaleBalanceHits(maxAgeMinutes: number = 30): BalanceHit[] {
   const threshold = Date.now() - maxAgeMinutes * 60 * 1000;
-  
+
   return balanceHits.filter(h => {
     if (!h.lastChecked) return true;
     return new Date(h.lastChecked).getTime() < threshold;
@@ -1027,13 +1043,13 @@ export async function fetchBlockByHeight(height: number): Promise<BlockstreamBlo
     // First get block hash by height
     const hashResponse = await fetch(`${BLOCKSTREAM_API}/block-height/${height}`);
     if (!hashResponse.ok) return null;
-    
+
     const blockHash = await hashResponse.text();
-    
+
     // Then fetch full block data
     const blockResponse = await fetch(`${BLOCKSTREAM_API}/block/${blockHash}`);
     if (!blockResponse.ok) return null;
-    
+
     const block = await blockResponse.json();
     return block;
   } catch (error) {
@@ -1049,7 +1065,7 @@ export async function fetchBlockTransactions(blockHash: string): Promise<Blockst
   try {
     const response = await fetch(`${BLOCKSTREAM_API}/block/${blockHash}/txs`);
     if (!response.ok) return [];
-    
+
     const txs = await response.json();
     return txs;
   } catch (error) {
@@ -1063,7 +1079,7 @@ export async function fetchBlockTransactions(blockHash: string): Promise<Blockst
  */
 export function parseBlock(blockData: BlockstreamBlock): Partial<Block> {
   const temporal = extractTemporalSignature(blockData);
-  
+
   return {
     height: blockData.height,
     hash: blockData.id,
@@ -1085,13 +1101,13 @@ export function parseBlock(blockData: BlockstreamBlock): Partial<Block> {
  */
 export function parseTransaction(txData: BlockstreamTransaction): Partial<Transaction> {
   const isCoinbase = txData.vin.some(input => input.is_coinbase);
-  
+
   // Calculate total output value using BigInt throughout to avoid overflow
   let totalOutputValue = BigInt(0);
   for (const output of txData.vout) {
     totalOutputValue += BigInt(output.value);
   }
-  
+
   // Note: totalInputValue requires UTXO resolution
   // For now, we store null for inputs (will be enriched in Phase 2)
   return {
@@ -1117,29 +1133,29 @@ export async function scanEarlyEraBlocks(
   onProgress?: (height: number, total: number) => void
 ): Promise<void> {
   console.log(`[BlockchainScanner] Starting scan from block ${startHeight} to ${endHeight}`);
-  
+
   for (let height = startHeight; height <= endHeight; height++) {
     if (onProgress) onProgress(height, endHeight - startHeight);
-    
+
     const blockData = await fetchBlockByHeight(height);
     if (!blockData) {
       console.error(`[BlockchainScanner] Failed to fetch block ${height}`);
       continue;
     }
-    
+
     // Fetch transactions first (needed for miner fingerprint)
     const txs = await fetchBlockTransactions(blockData.id);
     console.log(`[BlockchainScanner] Block ${height} has ${txs.length} transactions`);
-    
+
     // Parse and save block with miner fingerprint
     const blockToSave = parseBlock(blockData);
-    
+
     // Extract miner fingerprint from coinbase transaction
     const coinbaseTx = txs.find(tx => tx.vin.some(input => input.is_coinbase));
     if (coinbaseTx) {
       blockToSave.minerSoftwareFingerprint = extractMinerFingerprint(coinbaseTx);
     }
-    
+
     try {
       await observerStorage.saveBlock(blockToSave as any);
       console.log(`[BlockchainScanner] ✓ Saved block ${height}: ${blockToSave.hash}${blockToSave.minerSoftwareFingerprint ? ` (miner: ${blockToSave.minerSoftwareFingerprint})` : ''}`);
@@ -1147,40 +1163,40 @@ export async function scanEarlyEraBlocks(
       console.error(`[BlockchainScanner] Error saving block ${height}:`, error);
       continue;
     }
-    
+
     // Process each transaction
     for (let position = 0; position < txs.length; position++) {
       const txData = txs[position];
       const tx = parseTransaction(txData);
-      
+
       try {
         // Save transaction
         await observerStorage.saveTransaction(tx as any);
-        
+
         // Extract and save addresses from outputs
         for (const output of txData.vout) {
           // Get address from Blockstream, or derive from P2PK script for early blocks
           let address: string | null = output.scriptpubkey_address || null;
-          
+
           if (!address && output.scriptpubkey) {
             // Early Bitcoin used P2PK (Pay-to-Public-Key) without addresses
             address = deriveP2PKAddress(output.scriptpubkey);
-            
+
             if (address) {
               console.log(`[BlockchainScanner]   → Derived P2PK address: ${address}`);
             }
           }
-          
+
           if (!address) {
             console.log(`[BlockchainScanner]   ⚠ Skipped output: no address (script: ${output.scriptpubkey?.substring(0, 20)}...)`);
             continue; // Skip outputs without recoverable addresses
           }
-          
+
           // Always call saveAddress - it handles both insert and update idempotently
           const scriptSig = extractScriptSignature(output.scriptpubkey);
           const temporal = extractTemporalSignature(blockData);
           const valueSig = extractValueSignature(txData.vout);
-          
+
           const addressRecord: Omit<Address, "createdAt" | "updatedAt"> = {
             address,
             firstSeenHeight: height,
@@ -1221,7 +1237,7 @@ export async function scanEarlyEraBlocks(
               softwareFingerprint: scriptSig.softwareFingerprint,
             },
           };
-          
+
           await observerStorage.saveAddress(addressRecord);
           console.log(`[BlockchainScanner]   → Saved address: ${address} (${scriptSig.type}, ${output.value} sats)`);
         }
@@ -1229,13 +1245,13 @@ export async function scanEarlyEraBlocks(
         console.error(`[BlockchainScanner] Error processing tx ${txData.txid}:`, error);
       }
     }
-    
+
     // Rate limiting: wait 200ms between blocks to respect API limits
     await new Promise(resolve => setTimeout(resolve, 200));
   }
-  
+
   console.log(`[BlockchainScanner] ✓ Scan complete: blocks ${startHeight} to ${endHeight}`);
-  
+
   // After scanning, update dormancy for all addresses
   await updateAddressDormancy(endHeight);
 }
@@ -1251,7 +1267,7 @@ export function computeKappaRecovery(address: Partial<Address>): {
 } {
   // Φ_constraints: Integrated information from available constraints
   let phiConstraints = 0;
-  
+
   // Temporal constraints (higher = more constrained)
   if (address.temporalSignature) {
     const temporal = address.temporalSignature as any;
@@ -1259,45 +1275,45 @@ export function computeKappaRecovery(address: Partial<Address>): {
     if (temporal.hourUTC !== undefined) phiConstraints += 0.1;
     if (temporal.likelyTimezones?.length) phiConstraints += 0.2;
   }
-  
+
   // Graph constraints
   if (address.graphSignature) {
     const graph = address.graphSignature as any;
     if (graph.inputAddresses?.length) phiConstraints += 0.2;
     if (graph.clusterSize > 1) phiConstraints += 0.3;
   }
-  
+
   // Value constraints
   if (address.isCoinbaseReward) phiConstraints += 0.5; // Coinbase = miner identity
   if (address.valueSignature) {
     const value = address.valueSignature as any;
     if (value.hasRoundNumbers) phiConstraints += 0.2;
   }
-  
+
   // Script constraints
   if (address.scriptSignature) {
     const script = address.scriptSignature as any;
     if (script.type === "P2PK") phiConstraints += 0.3; // Early Bitcoin pattern
   }
-  
+
   // H_creation: Entropy of passphrase creation (estimated)
   // For 2009-era addresses, assume lower entropy (people used simple passphrases)
   let hCreation = address.isEarlyEra ? 2.0 : 4.0;
-  
+
   // Adjust based on balance (high value = likely more careful)
   if (address.currentBalance && address.currentBalance > BigInt(5000000000)) {
     hCreation += 1.0; // 50+ BTC = likely more secure
   }
-  
+
   // κ_recovery = Φ_constraints / H_creation
   const kappaRecovery = phiConstraints / hCreation;
-  
+
   // Tier classification - nothing is truly unrecoverable
   let tier = "challenging";
   if (kappaRecovery > 0.5) tier = "high";
   else if (kappaRecovery > 0.2) tier = "medium";
   else if (kappaRecovery > 0.1) tier = "low";
-  
+
   return {
     kappaRecovery,
     phiConstraints,

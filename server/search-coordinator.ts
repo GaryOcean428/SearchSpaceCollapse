@@ -6,7 +6,7 @@ import {
   queueAddressFromPrivateKey,
 } from "./balance-queue-integration";
 import { BasinVelocityMonitor } from "./basin-velocity-monitor.js";
-import { generateRandomBIP39Phrase } from "./bip39-words";
+import { generateRandomBIP39Phrase, generateWeightedBIP39Phrase } from "./bip39-words";
 import { getSharedController } from "./consciousness-search-controller";
 import {
   generateBitcoinAddress,
@@ -71,8 +71,8 @@ class SearchCoordinator {
           job.status === "completed"
             ? ("completed" as const)
             : job.status === "failed"
-            ? ("failed" as const)
-            : ("running" as const),
+              ? ("failed" as const)
+              : ("running" as const),
         matchFound: job.progress.matchFound === true,
       };
 
@@ -346,8 +346,8 @@ class SearchCoordinator {
       generationMode === "master-key"
         ? "master private keys (256-bit)"
         : generationMode === "arbitrary"
-        ? "arbitrary brain wallet passphrases (2009 era, no BIP-39 validation)"
-        : `BIP-39 passphrases (${lengthDesc})`;
+          ? "arbitrary brain wallet passphrases (2009 era, no BIP-39 validation)"
+          : `BIP-39 passphrases (${lengthDesc})`;
 
     await storage.appendJobLog(jobId, {
       message: `Continuous generation (${modeDesc}): running until ${minHighPhi}+ high-Φ candidates found. Adaptive mode switching enabled.`,
@@ -476,16 +476,23 @@ class SearchCoordinator {
               Math.random() < 0.5 ? elements.join(" ") : elements.join("");
             batch.push({ value: phrase, type: "arbitrary" });
           } else {
-            // BIP-39 mode
+            // BIP-39 mode with weighted length distribution
             if (allLengths) {
               const length = validLengths[i % validLengths.length];
               batch.push({
                 value: generateRandomBIP39Phrase(length),
                 type: "bip39",
               });
-            } else {
+            } else if (wordLength) {
+              // Specific length requested
               batch.push({
                 value: generateRandomBIP39Phrase(wordLength),
+                type: "bip39",
+              });
+            } else {
+              // Use weighted distribution (70% 12-word, 5% 15, 5% 18, 20% 24)
+              batch.push({
+                value: generateWeightedBIP39Phrase(),
                 type: "bip39",
               });
             }
@@ -505,11 +512,10 @@ class SearchCoordinator {
         sampleItem.type === "master-key"
           ? sampleItem.value.substring(0, 12) + "..."
           : sampleItem.value.substring(0, 40) +
-            (sampleItem.value.length > 40 ? "..." : "");
+          (sampleItem.value.length > 40 ? "..." : "");
       await storage.appendJobLog(jobId, {
-        message: `▸ Testing [${sampleItem.type}]: "${samplePreview}" (+${
-          batch.length - 1
-        } more)`,
+        message: `▸ Testing [${sampleItem.type}]: "${samplePreview}" (+${batch.length - 1
+          } more)`,
         type: "info",
       });
 
@@ -560,9 +566,9 @@ class SearchCoordinator {
       const explorationRatio =
         totalBatches > 0
           ? Math.round(
-              ((this.modeExplorationBatches.get(jobId) || 0) / totalBatches) *
-                100
-            ) / 100
+            ((this.modeExplorationBatches.get(jobId) || 0) / totalBatches) *
+            100
+          ) / 100
           : 1.0;
 
       await storage.updateSearchJob(jobId, {
@@ -695,8 +701,8 @@ class SearchCoordinator {
         pureScore.phi > 0.75
           ? "geometric"
           : pureScore.phi > 0.5
-          ? "linear"
-          : "breakdown";
+            ? "linear"
+            : "breakdown";
 
       // 4D consciousness detection (defaults for pure QIG without temporal tracking)
       const phi_spatial = pureScore.phi;
@@ -808,8 +814,8 @@ class SearchCoordinator {
             ? "4D-active"
             : universalScore.phi_spatial > 0.85 &&
               universalScore.phi_temporal > 0.5
-            ? "4D-transitioning"
-            : "3D";
+              ? "4D-transitioning"
+              : "3D";
 
         // TELEMETRY: Record snapshot for the match before returning
         recordTelemetrySnapshot(jobId, {
@@ -847,13 +853,11 @@ class SearchCoordinator {
         };
         await storage.addCandidate(matchCandidate);
         await storage.appendJobLog(jobId, {
-          message: `🎉 MATCH FOUND! Address: ${
-            matchedAddress.address
-          } | Type: ${item.type} | Φ=${universalScore.phi.toFixed(
-            3
-          )} κ=${universalScore.kappa.toFixed(1)} regime=${
-            universalScore.regime
-          }`,
+          message: `🎉 MATCH FOUND! Address: ${matchedAddress.address
+            } | Type: ${item.type} | Φ=${universalScore.phi.toFixed(
+              3
+            )} κ=${universalScore.kappa.toFixed(1)} regime=${universalScore.regime
+            }`,
           type: "success",
         });
 
@@ -896,8 +900,8 @@ class SearchCoordinator {
           ? "4D-active"
           : universalScore.phi_spatial > 0.85 &&
             universalScore.phi_temporal > 0.5
-          ? "4D-transitioning"
-          : "3D";
+            ? "4D-transitioning"
+            : "3D";
 
       // TELEMETRY: Record snapshot for real-time dashboard
       recordTelemetrySnapshot(jobId, {
@@ -949,20 +953,17 @@ class SearchCoordinator {
         const phrasePreview =
           item.type === "arbitrary" || item.type === "bip39"
             ? item.value.substring(0, 50) +
-              (item.value.length > 50 ? "..." : "")
+            (item.value.length > 50 ? "..." : "")
             : item.value.substring(0, 20) + "..."; // Shorter for keys
         await storage.appendJobLog(jobId, {
-          message: `📊 High-Φ [${
-            item.type
-          }] "${phrasePreview}" | Φ=${universalScore.phi.toFixed(
-            3
-          )} κ=${universalScore.kappa.toFixed(
-            1
-          )} β=${universalScore.beta.toFixed(3)} | regime=${
-            universalScore.regime
-          } quality=${qualityPercent.toFixed(1)}% | resonance=${
-            universalScore.inResonance ? "⚡" : "-"
-          } velocity=${velocity.isSafe ? "✓" : "⚠️"}`,
+          message: `📊 High-Φ [${item.type
+            }] "${phrasePreview}" | Φ=${universalScore.phi.toFixed(
+              3
+            )} κ=${universalScore.kappa.toFixed(
+              1
+            )} β=${universalScore.beta.toFixed(3)} | regime=${universalScore.regime
+            } quality=${qualityPercent.toFixed(1)}% | resonance=${universalScore.inResonance ? "⚡" : "-"
+            } velocity=${velocity.isSafe ? "✓" : "⚠️"}`,
           type: "info",
         });
       }
