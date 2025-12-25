@@ -1162,7 +1162,7 @@ export class OceanAgent {
           this.currentModulatedKappa = modulatedKappa;
 
           // 2. NEUROMODULATION - Apply environmental bias based on state
-          const neuromodResult = runNeuromodulationCycle(
+          const neuromodResult = await runNeuromodulationCycle(
             {
               phi: this.identity.phi,
               kappa: this.identity.kappa,
@@ -1181,8 +1181,8 @@ export class OceanAgent {
           );
 
           // Store neuromodulation result for use in hypothesis generation
-          this.currentNeuromodulation = neuromodResult.modulation;
-          this.currentAdjustedParams = neuromodResult.adjustedParams;
+          this.currentNeuromodulation = neuromodResult?.modulation;
+          this.currentAdjustedParams = neuromodResult?.adjustedParams;
 
           // 3. EMOTIONAL SEARCH GUIDANCE - Let emotions guide strategy
           if (this.neurochemistry) {
@@ -1203,7 +1203,7 @@ export class OceanAgent {
                 1
               )})`
             );
-            if (neuromodResult.modulation.activeModulators.length > 0) {
+            if (neuromodResult?.modulation?.activeModulators?.length > 0) {
               console.log(
                 `[Ocean] 💊 Active neuromodulators: ${neuromodResult.modulation.activeModulators.join(
                   ", "
