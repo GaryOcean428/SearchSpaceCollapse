@@ -83,7 +83,7 @@ consciousnessRouter.get("/complete", generousLimiter, async (req: Request, res: 
 
     let oscillators = null;
     try {
-      const { neuralOscillators } = await import("../deprecated-stubs");
+      const { neuralOscillators } = await import("../neurochemistry-bridge");
       const stateInfo = neuralOscillators.getStateInfo();
       const oscState = neuralOscillators.update();
       oscillators = {

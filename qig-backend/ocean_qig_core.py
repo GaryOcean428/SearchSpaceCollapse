@@ -667,6 +667,48 @@ try:
 except ImportError as e:
     print(f"[WARN] Could not import routes barrel: {e}")
 
+# Register QIGGraph search integration blueprint (imports from qig-tokenizer)
+try:
+    from qiggraph_search_integration import (
+        create_search_qiggraph_blueprint,
+        QIGGRAPH_AVAILABLE,
+    )
+    search_qiggraph_bp = create_search_qiggraph_blueprint()
+    app.register_blueprint(search_qiggraph_bp)
+    if QIGGRAPH_AVAILABLE:
+        print("[INFO] QIGGraph search integration registered at /api/search/qiggraph")
+    else:
+        print("[INFO] QIGGraph blueprint registered (fallback mode - qig-tokenizer not installed)")
+except ImportError as e:
+    print(f"[WARN] Could not import QIGGraph search integration: {e}")
+
+# Register search tacking + innate drives blueprint
+try:
+    from search_strategy_tacking import create_tacking_blueprint
+    tacking_bp = create_tacking_blueprint()
+    app.register_blueprint(tacking_bp)
+    print("[INFO] Search tacking + innate drives registered at /api/search/tacking")
+except ImportError as e:
+    print(f"[WARN] Could not import search tacking: {e}")
+
+# Register tokenizer PostgreSQL persistence blueprint
+try:
+    from tokenizer_pg_persistence import create_tokenizer_pg_blueprint
+    tokenizer_pg_bp = create_tokenizer_pg_blueprint()
+    app.register_blueprint(tokenizer_pg_bp)
+    print("[INFO] Tokenizer PostgreSQL persistence registered at /api/tokenizer/pg")
+except ImportError as e:
+    print(f"[WARN] Could not import tokenizer PG persistence: {e}")
+
+# Register shadow search bridge blueprint
+try:
+    from shadow_search_bridge import create_shadow_search_blueprint, set_shadow_pantheon
+    shadow_search_bp = create_shadow_search_blueprint()
+    app.register_blueprint(shadow_search_bp)
+    print("[INFO] Shadow search bridge registered at /api/shadow/search")
+except ImportError as e:
+    print(f"[WARN] Could not import shadow search bridge: {e}")
+
 class DensityMatrix:
     """
     2x2 Density Matrix representing quantum state

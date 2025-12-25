@@ -4,4 +4,9 @@ gunicorn>=21.0.0
 numpy>=1.24.0
 scipy>=1.11.0
 psycopg2-binary>=2.9.9
+redis>=7.1.0
 torch>=2.0.0
+
+# QIG Tokenizer (local editable install)
+# Install with: pip install -e ../../../qig-tokenizer
+# Provides: qiggraph, qig_tokenizer, coordizers, qigkernels

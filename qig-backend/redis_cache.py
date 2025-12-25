@@ -26,6 +26,26 @@ CACHE_TTL_MEDIUM = 3600  # 1 hour for session data
 CACHE_TTL_LONG = 86400  # 24 hours for learned patterns
 CACHE_TTL_PERMANENT = 86400 * 7  # 7 days for critical data
 
+# Key prefixes for namespacing (mirrors TypeScript CACHE_KEYS)
+CACHE_KEYS = {
+    "TESTED_PHRASE": "tested:",
+    "BALANCE_HIT": "hit:",
+    "VOCABULARY": "vocab:",
+    "KERNEL_STATE": "kernel:",
+    "SESSION": "session:",
+    "AUTO_CYCLE": "qig:auto-cycle:state",
+    "NEAR_MISS": "qig:near-miss:state",
+    "OCEAN_MEMORY": "qig:ocean-memory:state",
+    "TOKENIZER_STATE": "qig:tokenizer:state",
+    "SHADOW_CONTEXT": "qig:shadow:context:",
+    "TACKING_STATE": "qig:tacking:state:",
+}
+
+# Convenience aliases
+CACHE_KEY_TESTED = CACHE_KEYS["TESTED_PHRASE"]
+CACHE_KEY_KERNEL = CACHE_KEYS["KERNEL_STATE"]
+CACHE_KEY_SESSION = CACHE_KEYS["SESSION"]
+
 RETRY_QUEUE_MAX_SIZE = 1000
 RETRY_INTERVAL_SECONDS = 5
 

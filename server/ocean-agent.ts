@@ -88,7 +88,7 @@ import {
   recommendBrainState,
   runNeuromodulationCycle,
   type NeuromodulationEffect,
-} from "./deprecated-stubs";
+} from "./neurochemistry-bridge";
 import { getEmotionalGuidance } from "./emotional-search-shortcuts";
 import {
   olympusClient,

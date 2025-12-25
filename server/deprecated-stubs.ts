@@ -1,3 +1,14 @@
+/**
+ * @deprecated This file is deprecated. Use neurochemistry-bridge.ts instead.
+ *
+ * The neurochemistry-bridge.ts provides:
+ * - Integration with Python ocean_neurochemistry.py
+ * - Same exports (BrainState, neuralOscillators, etc.)
+ * - Proper κ-tacking with physics constants
+ *
+ * Migration: Replace imports from "./deprecated-stubs" with "./neurochemistry-bridge"
+ */
+
 export type BrainState =
   | "focused"
   | "diffuse"

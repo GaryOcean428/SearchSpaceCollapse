@@ -115,6 +115,14 @@ class Zeus(BaseGod):
         hades.set_shadow_pantheon(self.shadow_pantheon)
         print("[Zeus] ✓ Hades connected as Shadow Leader (subject to Zeus overrule)")
 
+        # Connect shadow search bridge for search loop integration
+        try:
+            from shadow_search_bridge import set_shadow_pantheon as set_shadow_bridge
+            set_shadow_bridge(self.shadow_pantheon)
+            print("[Zeus] ✓ Shadow search bridge connected for search loop ops")
+        except ImportError:
+            pass  # Bridge not available
+
         # Team #2 - Hermes Coordinator for voice/translation/sync
         from .hermes_coordinator import get_hermes_coordinator
         self.coordinator = get_hermes_coordinator()

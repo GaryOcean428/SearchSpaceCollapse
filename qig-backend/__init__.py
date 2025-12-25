@@ -88,6 +88,76 @@ from .temporal_reasoning import (
     get_temporal_reasoning,
 )
 
+# API Routes (centralized)
+from .api_routes import (
+    API_VERSION,
+    API_PREFIX,
+    API_QIGGRAPH,
+    API_TACKING,
+    API_SHADOW_SEARCH,
+    API_TOKENIZER,
+    API_OLYMPUS,
+    API_OCEAN,
+    PYTHON_BACKEND_ROUTES,
+)
+
+# Redis Cache (with CACHE_KEYS)
+from .redis_cache import (
+    CACHE_KEYS,
+    CACHE_TTL_SHORT,
+    CACHE_TTL_MEDIUM,
+    CACHE_TTL_LONG,
+    CACHE_TTL_PERMANENT,
+)
+
+# QIGGraph Search Integration
+try:
+    from .qiggraph_search_integration import (
+        SearchGraph,
+        SearchMode,
+        UnifiedQIGScorer,
+        get_search_graph,
+        create_search_qiggraph_blueprint,
+        QIGGRAPH_AVAILABLE,
+    )
+except ImportError:
+    QIGGRAPH_AVAILABLE = False
+
+# Search Strategy Tacking
+try:
+    from .search_strategy_tacking import (
+        SearchTackingController,
+        InnateDrive,
+        SearchStrategyConfig,
+        get_tacking_controller,
+        create_tacking_blueprint,
+    )
+except ImportError:
+    pass
+
+# Shadow Search Bridge
+try:
+    from .shadow_search_bridge import (
+        ShadowSearchBridge,
+        ShadowSearchPhase,
+        ShadowSearchResult,
+        get_shadow_search_bridge,
+        create_shadow_search_blueprint,
+    )
+except ImportError:
+    pass
+
+# Tokenizer PostgreSQL Persistence
+try:
+    from .tokenizer_pg_persistence import (
+        TokenizerPGPersistence,
+        TokenizerPGBridge,
+        get_tokenizer_pg,
+        create_tokenizer_pg_blueprint,
+    )
+except ImportError:
+    pass
+
 __all__ = [
     # Autonomic
     'GaryAutonomicKernel',
@@ -142,4 +212,44 @@ __all__ = [
     'ScenarioTree',
     'ScenarioBranch',
     'get_temporal_reasoning',
+    # API Routes
+    'API_VERSION',
+    'API_PREFIX',
+    'API_QIGGRAPH',
+    'API_TACKING',
+    'API_SHADOW_SEARCH',
+    'API_TOKENIZER',
+    'API_OLYMPUS',
+    'API_OCEAN',
+    'PYTHON_BACKEND_ROUTES',
+    # Redis Cache
+    'CACHE_KEYS',
+    'CACHE_TTL_SHORT',
+    'CACHE_TTL_MEDIUM',
+    'CACHE_TTL_LONG',
+    'CACHE_TTL_PERMANENT',
+    # QIGGraph Search Integration
+    'SearchGraph',
+    'SearchMode',
+    'UnifiedQIGScorer',
+    'get_search_graph',
+    'create_search_qiggraph_blueprint',
+    'QIGGRAPH_AVAILABLE',
+    # Search Strategy Tacking
+    'SearchTackingController',
+    'InnateDrive',
+    'SearchStrategyConfig',
+    'get_tacking_controller',
+    'create_tacking_blueprint',
+    # Shadow Search Bridge
+    'ShadowSearchBridge',
+    'ShadowSearchPhase',
+    'ShadowSearchResult',
+    'get_shadow_search_bridge',
+    'create_shadow_search_blueprint',
+    # Tokenizer PostgreSQL Persistence
+    'TokenizerPGPersistence',
+    'TokenizerPGBridge',
+    'get_tokenizer_pg',
+    'create_tokenizer_pg_blueprint',
 ]

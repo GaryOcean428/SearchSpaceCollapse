@@ -87,3 +87,27 @@ export {
   SELF_HEALING,
   type SelfHealingConfig,
 } from './self-healing';
+
+// API route constants (centralized route definitions)
+export {
+  API_VERSION,
+  API_PREFIX,
+  API_AUTH,
+  API_SEARCH,
+  API_CONSCIOUSNESS,
+  API_OCEAN,
+  API_OLYMPUS,
+  API_RECOVERY,
+  API_BALANCE,
+  API_VOCABULARY,
+  API_QIGGRAPH,
+  API_TACKING,
+  API_SHADOW_SEARCH,
+  API_TOKENIZER,
+  API_HEALTH,
+  API_TELEMETRY,
+  API_SELF_HEALING,
+  ALL_ROUTE_PREFIXES,
+  PYTHON_BACKEND_ROUTES,
+  PUBLIC_ROUTES,
+} from './api-routes';
