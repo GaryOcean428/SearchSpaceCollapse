@@ -1,15 +1,21 @@
 /**
  * Free-Only Blockchain API Architecture
- * 
+ *
  * Multi-provider approach with automatic failover, rate limiting, and caching.
  * Combined capacity: 230 req/min (2,300+ with caching)
  * Cost: $0/month
- * 
+ *
  * Providers:
  * 1. Blockstream (primary) - 60 req/min, most reliable
  * 2. Mempool.space - 60 req/min, fast
  * 3. Blockchain.com - 100 req/min, supports bulk queries
  * 4. BlockCypher - 10 req/min (200/hour), backup
+ *
+ * Resilience (2025-12-25 upgrade):
+ * - Exponential backoff per provider: 1s → 2s → 4s → 8s → 15s max
+ * - Circuit breaker: 3 failures = unhealthy, 60s recovery (up from 30s)
+ * - Smarter rate limiting: Track request velocity, not just count
+ * - Jitter: Randomized backoff to prevent thundering herd
  */
 
 interface Provider {
@@ -21,6 +27,9 @@ interface Provider {
   healthy: boolean;
   consecutiveFailures: number;
   lastFailure: number;
+  // Exponential backoff state (2025-12-25)
+  currentBackoffMs: number;
+  lastRequestTime: number;
 }
 
 interface CacheEntry {
@@ -38,6 +47,13 @@ interface AddressInfo {
 }
 
 export class FreeBlockchainAPI {
+  // Backoff configuration (2025-12-25)
+  private static readonly INITIAL_BACKOFF_MS = 1000;
+  private static readonly MAX_BACKOFF_MS = 15000;
+  private static readonly BACKOFF_MULTIPLIER = 2;
+  private static readonly RECOVERY_TIME_MS = 60000; // 60s recovery (up from 30s)
+  private static readonly FAILURE_THRESHOLD = 3;
+
   private providers: Provider[] = [
     {
       name: 'Blockstream',
@@ -47,7 +63,9 @@ export class FreeBlockchainAPI {
       lastReset: Date.now(),
       healthy: true,
       consecutiveFailures: 0,
-      lastFailure: 0
+      lastFailure: 0,
+      currentBackoffMs: FreeBlockchainAPI.INITIAL_BACKOFF_MS,
+      lastRequestTime: 0,
     },
     {
       name: 'Mempool',
@@ -57,7 +75,9 @@ export class FreeBlockchainAPI {
       lastReset: Date.now(),
       healthy: true,
       consecutiveFailures: 0,
-      lastFailure: 0
+      lastFailure: 0,
+      currentBackoffMs: FreeBlockchainAPI.INITIAL_BACKOFF_MS,
+      lastRequestTime: 0,
     },
     {
       name: 'Blockchain.com',
@@ -67,7 +87,9 @@ export class FreeBlockchainAPI {
       lastReset: Date.now(),
       healthy: true,
       consecutiveFailures: 0,
-      lastFailure: 0
+      lastFailure: 0,
+      currentBackoffMs: FreeBlockchainAPI.INITIAL_BACKOFF_MS,
+      lastRequestTime: 0,
     },
     {
       name: 'BlockCypher',
@@ -77,21 +99,46 @@ export class FreeBlockchainAPI {
       lastReset: Date.now(),
       healthy: true,
       consecutiveFailures: 0,
-      lastFailure: 0
+      lastFailure: 0,
+      currentBackoffMs: FreeBlockchainAPI.INITIAL_BACKOFF_MS,
+      lastRequestTime: 0,
     }
   ];
-  
+
   private cache = new Map<string, CacheEntry>();
   private pendingRequests = new Map<string, Promise<any>>();
   private currentIndex = 0;
-  
+
   private cacheHits = 0;
   private cacheMisses = 0;
   private totalRequests = 0;
   private totalErrors = 0;
 
   constructor() {
-    console.log('[FreeBlockchainAPI] Initialized with 4 providers (230 req/min combined)');
+    console.log('[FreeBlockchainAPI] Initialized with 4 providers (230 req/min combined, exponential backoff enabled)');
+  }
+
+  /**
+   * Add jitter to backoff to prevent thundering herd
+   */
+  private addJitter(backoffMs: number): number {
+    const jitter = Math.random() * 0.3 * backoffMs; // ±15% jitter
+    return backoffMs + jitter - (0.15 * backoffMs);
+  }
+
+  /**
+   * Check if provider is ready (respecting backoff)
+   */
+  private isProviderReady(provider: Provider): boolean {
+    if (!provider.healthy) return false;
+
+    // Check if we need to wait for backoff
+    const timeSinceLastRequest = Date.now() - provider.lastRequestTime;
+    if (provider.consecutiveFailures > 0 && timeSinceLastRequest < provider.currentBackoffMs) {
+      return false;
+    }
+
+    return provider.currentRequests < provider.requestsPerMinute;
   }
 
   /**
@@ -472,28 +519,39 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Get next available provider using round-robin with health checks
+   * Get next available provider using round-robin with health checks and backoff (2025-12-25)
    */
   private getNextProvider(): Provider {
     this.resetCountersIfNeeded();
-    
+
+    // First pass: find a provider that's ready (healthy + past backoff)
     for (let i = 0; i < this.providers.length; i++) {
       const idx = (this.currentIndex + i) % this.providers.length;
       const provider = this.providers[idx];
-      
-      if (provider.healthy && provider.currentRequests < provider.requestsPerMinute) {
+
+      if (this.isProviderReady(provider)) {
         this.currentIndex = (idx + 1) % this.providers.length;
         return provider;
       }
     }
-    
+
+    // Second pass: find any healthy provider (even if in backoff)
     const healthyProviders = this.providers.filter(p => p.healthy);
     if (healthyProviders.length > 0) {
+      // Return the one with the smallest backoff
+      healthyProviders.sort((a, b) => a.currentBackoffMs - b.currentBackoffMs);
       return healthyProviders[0];
     }
-    
-    this.providers.forEach(p => p.healthy = true);
-    return this.providers[0];
+
+    // All providers unhealthy - force reset the one that failed longest ago
+    const oldestFailure = this.providers.reduce((oldest, p) =>
+      p.lastFailure < oldest.lastFailure ? p : oldest
+    );
+    oldestFailure.healthy = true;
+    oldestFailure.consecutiveFailures = 0;
+    oldestFailure.currentBackoffMs = FreeBlockchainAPI.INITIAL_BACKOFF_MS;
+    console.log(`[FreeBlockchainAPI] All providers unhealthy, force-recovering ${oldestFailure.name}`);
+    return oldestFailure;
   }
 
   /**
@@ -688,47 +746,59 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Rate limit management
+   * Rate limit management with exponential backoff (2025-12-25)
    */
   private resetCountersIfNeeded(): void {
     const now = Date.now();
-    
+
     for (const provider of this.providers) {
       if (now - provider.lastReset > 60000) {
         provider.currentRequests = 0;
         provider.lastReset = now;
       }
-      
-      if (!provider.healthy && now - provider.lastFailure > 30000) {
+
+      // Longer recovery time (60s) to prevent rapid cycling
+      if (!provider.healthy && now - provider.lastFailure > FreeBlockchainAPI.RECOVERY_TIME_MS) {
         provider.healthy = true;
         provider.consecutiveFailures = 0;
-        console.log(`[FreeBlockchainAPI] ${provider.name} recovered after 30s cooldown`);
+        provider.currentBackoffMs = FreeBlockchainAPI.INITIAL_BACKOFF_MS; // Reset backoff on recovery
+        console.log(`[FreeBlockchainAPI] ${provider.name} recovered after ${FreeBlockchainAPI.RECOVERY_TIME_MS / 1000}s cooldown`);
       }
     }
   }
 
   /**
-   * Health tracking
+   * Health tracking with exponential backoff (2025-12-25)
    */
   private recordSuccess(provider: Provider): void {
     provider.healthy = true;
     provider.consecutiveFailures = 0;
+    // Reset backoff on success
+    provider.currentBackoffMs = FreeBlockchainAPI.INITIAL_BACKOFF_MS;
+    provider.lastRequestTime = Date.now();
   }
 
   private recordFailure(provider: Provider, error: Error): void {
     provider.consecutiveFailures++;
     provider.lastFailure = Date.now();
-    
+    provider.lastRequestTime = Date.now();
+
+    // Exponential backoff with jitter
+    provider.currentBackoffMs = Math.min(
+      this.addJitter(provider.currentBackoffMs * FreeBlockchainAPI.BACKOFF_MULTIPLIER),
+      FreeBlockchainAPI.MAX_BACKOFF_MS
+    );
+
     const errorType = error.name === 'AbortError' ? 'timeout' :
                       error.message?.includes('429') ? 'rate limited' :
                       error.message?.includes('ECONNREFUSED') ? 'connection refused' :
                       'request failed';
-    
-    if (provider.consecutiveFailures >= 3) {
+
+    if (provider.consecutiveFailures >= FreeBlockchainAPI.FAILURE_THRESHOLD) {
       provider.healthy = false;
-      console.warn(`[FreeBlockchainAPI] ${provider.name} marked UNHEALTHY (${errorType}): ${error.message} [${provider.consecutiveFailures} consecutive failures]`);
+      console.warn(`[FreeBlockchainAPI] ${provider.name} marked UNHEALTHY (${errorType}): ${error.message} [${provider.consecutiveFailures} failures, backoff ${provider.currentBackoffMs}ms]`);
     } else {
-      console.log(`[FreeBlockchainAPI] ${provider.name} failure ${provider.consecutiveFailures}/3 (${errorType}): ${error.message}`);
+      console.log(`[FreeBlockchainAPI] ${provider.name} failure ${provider.consecutiveFailures}/${FreeBlockchainAPI.FAILURE_THRESHOLD} (${errorType}): backoff ${provider.currentBackoffMs}ms`);
     }
   }
 
@@ -748,34 +818,37 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Get statistics
+   * Get statistics including backoff state (2025-12-25)
    */
   getStats(): {
-    providers: { name: string; healthy: boolean; requests: string; failures: number }[];
+    providers: { name: string; healthy: boolean; requests: string; failures: number; backoffMs: number }[];
     cacheSize: number;
     cacheHitRate: number;
     totalRequests: number;
     totalErrors: number;
     pendingRequests: number;
+    healthyProviders: number;
   } {
     this.resetCountersIfNeeded();
-    
-    const hitRate = this.cacheHits + this.cacheMisses > 0 
-      ? this.cacheHits / (this.cacheHits + this.cacheMisses) 
+
+    const hitRate = this.cacheHits + this.cacheMisses > 0
+      ? this.cacheHits / (this.cacheHits + this.cacheMisses)
       : 0;
-    
+
     return {
       providers: this.providers.map(p => ({
         name: p.name,
         healthy: p.healthy,
         requests: `${p.currentRequests}/${p.requestsPerMinute}`,
-        failures: p.consecutiveFailures
+        failures: p.consecutiveFailures,
+        backoffMs: p.currentBackoffMs,
       })),
       cacheSize: this.cache.size,
       cacheHitRate: hitRate,
       totalRequests: this.totalRequests,
       totalErrors: this.totalErrors,
-      pendingRequests: this.pendingRequests.size
+      pendingRequests: this.pendingRequests.size,
+      healthyProviders: this.providers.filter(p => p.healthy).length,
     };
   }
 
@@ -804,7 +877,7 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Reset all provider health (force retry all)
+   * Reset all provider health (force retry all) with backoff reset (2025-12-25)
    */
   resetProviderHealth(): void {
     for (const provider of this.providers) {
@@ -812,7 +885,10 @@ export class FreeBlockchainAPI {
       provider.consecutiveFailures = 0;
       provider.currentRequests = 0;
       provider.lastReset = Date.now();
+      provider.currentBackoffMs = FreeBlockchainAPI.INITIAL_BACKOFF_MS;
+      provider.lastRequestTime = 0;
     }
+    console.log('[FreeBlockchainAPI] All providers reset to healthy with fresh backoff');
   }
 }
 

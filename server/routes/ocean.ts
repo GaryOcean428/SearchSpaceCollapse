@@ -1368,6 +1368,18 @@ oceanRouter.get(
   }
 );
 
+/**
+ * Hypothesis Endpoint with Backpressure
+ *
+ * Architecture (2025-12-25):
+ * - Fast synchronous response to prevent upstream timeouts
+ * - Backpressure: Returns 429 when queue is saturated
+ * - Bounded processing: Max 100 hypotheses per request
+ * - Circuit breaker: Rejects requests when balance queue is overloaded
+ */
+const HYPOTHESIS_MAX_BATCH = 100; // Prevent huge batches from blocking
+const HYPOTHESIS_QUEUE_SATURATION_THRESHOLD = 8000; // 80% of 10,000 max queue
+
 oceanRouter.post(
   "/hypothesis",
   standardLimiter,
@@ -1375,43 +1387,60 @@ oceanRouter.post(
     try {
       const { smartQueueForBalanceCheck } = await import("../balance-queue-integration");
       const { testedPhrasesUnified } = await import("../tested-phrases-unified");
-      
+      const { balanceQueue } = await import("../balance-queue");
+
       const { hypotheses, source = "python", phi = 0.5 } = req.body;
-      
+
       if (!hypotheses || !Array.isArray(hypotheses) || hypotheses.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          error: "hypotheses array required" 
+        return res.status(400).json({
+          success: false,
+          error: "hypotheses array required"
         });
       }
-      
+
+      // BACKPRESSURE: Check if balance queue is saturated
+      const queueStats = balanceQueue.getStats();
+      if (queueStats.pending >= HYPOTHESIS_QUEUE_SATURATION_THRESHOLD) {
+        console.log(`[HypothesisEndpoint] Backpressure: Queue saturated (${queueStats.pending}/${HYPOTHESIS_QUEUE_SATURATION_THRESHOLD})`);
+        return res.status(429).json({
+          success: false,
+          error: "Queue saturated - backpressure applied",
+          pending: queueStats.pending,
+          retryAfterMs: 5000, // Suggest retry after 5 seconds
+        });
+      }
+
+      // Limit batch size to prevent blocking
+      const limitedHypotheses = hypotheses.slice(0, HYPOTHESIS_MAX_BATCH);
+      const dropped = hypotheses.length - limitedHypotheses.length;
+
       let queued = 0;
       let addressesQueued = 0;
       let skipped = 0;
       let alreadyTested = 0;
       let mnemonicsDetected = 0;
       let passphrasesDetected = 0;
-      
-      for (const hypothesis of hypotheses) {
+
+      for (const hypothesis of limitedHypotheses) {
         if (typeof hypothesis !== 'string' || hypothesis.length === 0) {
           skipped++;
           continue;
         }
-        
+
         // Use synchronous cache first (no DB hit) - this is the fast path
         const wasTested = testedPhrasesUnified.has(hypothesis);
         if (wasTested) {
           alreadyTested++;
           continue;
         }
-        
+
         const priority = Math.round(3 + phi * 7);
         const result = smartQueueForBalanceCheck(hypothesis, source, priority);
-        
+
         if (result.success) {
           queued++;
           addressesQueued += result.addressesQueued;
-          
+
           if (result.inputType === 'bip39_mnemonic') {
             mnemonicsDetected++;
           } else {
@@ -1421,18 +1450,23 @@ oceanRouter.post(
           skipped++;
         }
       }
-      
-      console.log(`[HypothesisEndpoint] Received ${hypotheses.length} hypotheses: ${queued} queued (${addressesQueued} addresses), ${mnemonicsDetected} mnemonics, ${passphrasesDetected} passphrases, ${alreadyTested} already tested, ${skipped} skipped`);
-      
+
+      if (dropped > 0 || queued > 20) {
+        console.log(`[HypothesisEndpoint] Received ${hypotheses.length} hypotheses (limited to ${limitedHypotheses.length}): ${queued} queued (${addressesQueued} addresses), ${alreadyTested} already tested, ${skipped} skipped, ${dropped} dropped`);
+      }
+
       res.json({
         success: true,
         received: hypotheses.length,
+        processed: limitedHypotheses.length,
+        dropped,
         queued,
         addressesQueued,
         mnemonicsDetected,
         passphrasesDetected,
         alreadyTested,
         skipped,
+        queuePending: queueStats.pending,
       });
     } catch (error: any) {
       console.error("[HypothesisEndpoint] Error:", error);

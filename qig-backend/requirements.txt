@@ -6,6 +6,7 @@ scipy>=1.11.0
 psycopg2-binary>=2.9.9
 redis>=7.1.0
 torch>=2.0.0
+httpx>=0.27.0  # Async HTTP for HypothesisEmitter (non-blocking submissions)
 
 # QIG Tokenizer (local editable install)
 # Install with: pip install -e ../../../qig-tokenizer

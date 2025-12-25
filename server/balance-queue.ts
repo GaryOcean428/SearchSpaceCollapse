@@ -1,16 +1,21 @@
 /**
  * Balance Queue Service
- * 
+ *
  * Captures ALL generated addresses and queues them for balance checking.
  * Uses a multi-provider approach (Blockstream, Mempool, Blockchain.com, BlockCypher)
  * with automatic failover, bulk queries, and intelligent caching.
- * 
+ *
  * Architecture:
  * - BalanceQueue: Buffer for all generated addresses
  * - BalanceWorker: Always-on background worker with bulk processing
  * - Multi-provider: 4 free APIs with 230 req/min combined (2,300+ with caching)
  * - TestedEmptyTracker: Prevents re-testing addresses found to be empty
- * 
+ *
+ * Resilience (2025-12-25):
+ * - Circuit breaker: Pause processing when all providers are unhealthy
+ * - Backpressure: Skip cycles when DB is overloaded (prevents cascade)
+ * - Exponential backoff in blockchain API layer
+ *
  * Auto-starts on module load - no user action required.
  */
 
@@ -60,6 +65,10 @@ interface TokenBucket {
 const MAX_QUEUE_SIZE = 10000;
 const DEFAULT_RATE_LIMIT = 1.5;
 
+// Circuit breaker configuration (2025-12-25)
+const CIRCUIT_BREAKER_THRESHOLD = 5; // Consecutive unhealthy API cycles
+const CIRCUIT_BREAKER_COOLDOWN_MS = 30000; // 30 second pause when tripped
+
 class BalanceQueueService {
   private queue: Map<string, QueuedAddress> = new Map();
   private tokenBucket: TokenBucket;
@@ -68,21 +77,26 @@ class BalanceQueueService {
   private processStartTime = 0;
   private saveTimeout: NodeJS.Timeout | null = null;
   private onDrainComplete?: (stats: { checked: number; hits: number; errors: number }) => void;
-  
+
   // Background worker state - always running
   private backgroundWorkerInterval: NodeJS.Timeout | null = null;
   private backgroundWorkerEnabled = false; // Start false, set true when worker starts
   private backgroundCheckCount = 0;
   private backgroundHitCount = 0;
   private backgroundStartTime = 0;
-  
+
   // Bulk processing config
   private bulkBatchSize = 50;
   private bulkProcessInterval = 2000; // Process batch every 2 seconds
-  
+
   // Ready state for API calls
   private _ready: Promise<void>;
   private _isReady = false;
+
+  // Circuit breaker state (2025-12-25)
+  private circuitBreakerTripped = false;
+  private consecutiveUnhealthyCycles = 0;
+  private lastCircuitBreakerTrip = 0;
 
   constructor() {
     this.tokenBucket = {
@@ -169,25 +183,52 @@ class BalanceQueueService {
     this.backgroundWorkerInterval = setInterval(async () => {
       if (!this.backgroundWorkerEnabled) return;
       if (this.isProcessing) return;
-      
+
+      // CIRCUIT BREAKER: Skip processing if tripped
+      if (this.circuitBreakerTripped) {
+        const timeSinceTrip = Date.now() - this.lastCircuitBreakerTrip;
+        if (timeSinceTrip < CIRCUIT_BREAKER_COOLDOWN_MS) {
+          this.lastHeartbeat = Date.now(); // Keep heartbeat alive
+          return; // Skip this cycle, circuit breaker still cooling down
+        }
+        // Cooldown complete, reset circuit breaker
+        this.circuitBreakerTripped = false;
+        this.consecutiveUnhealthyCycles = 0;
+        console.log('[BalanceQueue] Circuit breaker reset after cooldown - resuming processing');
+      }
+
       // BACKPRESSURE: Skip processing if DB is overloaded
       if (isDbOverloaded()) {
         this.lastHeartbeat = Date.now(); // Keep heartbeat alive
         return; // Skip this cycle, don't add pressure
       }
-      
+
       try {
         this.isProcessing = true;
         this.lastHeartbeat = Date.now();
-        await this.processBulkBatch();
+        const result = await this.processBulkBatch();
+
+        // Check if all providers are unhealthy (circuit breaker logic)
+        const apiStats = freeBlockchainAPI.getStats();
+        if (apiStats.healthyProviders === 0) {
+          this.consecutiveUnhealthyCycles++;
+          if (this.consecutiveUnhealthyCycles >= CIRCUIT_BREAKER_THRESHOLD) {
+            this.circuitBreakerTripped = true;
+            this.lastCircuitBreakerTrip = Date.now();
+            console.log(`[BalanceQueue] ⚡ CIRCUIT BREAKER TRIPPED - all providers unhealthy for ${CIRCUIT_BREAKER_THRESHOLD} cycles, pausing ${CIRCUIT_BREAKER_COOLDOWN_MS / 1000}s`);
+          }
+        } else {
+          this.consecutiveUnhealthyCycles = 0; // Reset on any successful cycle
+        }
+
         this.workerErrorCount = 0; // Reset error count on success
       } catch (error) {
         this.workerErrorCount++;
         console.error(`[BalanceQueue] Worker error ${this.workerErrorCount}/${this.maxWorkerErrors} (NEVER-STOP mode):`, error);
-        
+
         // Update heartbeat even on error to signal worker is alive
         this.lastHeartbeat = Date.now();
-        
+
         if (this.workerErrorCount >= this.maxWorkerErrors) {
           console.log('[BalanceQueue] High error rate, pausing worker for 30s to allow API recovery...');
           this.workerErrorCount = 0;
@@ -552,7 +593,7 @@ class BalanceQueueService {
   }
 
   /**
-   * Get background worker status
+   * Get background worker status including circuit breaker state (2025-12-25)
    */
   getBackgroundStatus(): {
     enabled: boolean;
@@ -561,8 +602,17 @@ class BalanceQueueService {
     rate: number;
     pending: number;
     apiStats?: ReturnType<typeof freeBlockchainAPI.getStats>;
+    circuitBreaker: {
+      tripped: boolean;
+      consecutiveUnhealthyCycles: number;
+      cooldownRemainingMs: number;
+    };
   } {
     const elapsed = this.backgroundStartTime > 0 ? (Date.now() - this.backgroundStartTime) / 1000 : 1;
+    const cooldownRemaining = this.circuitBreakerTripped
+      ? Math.max(0, CIRCUIT_BREAKER_COOLDOWN_MS - (Date.now() - this.lastCircuitBreakerTrip))
+      : 0;
+
     return {
       enabled: this.backgroundWorkerEnabled,
       checked: this.backgroundCheckCount,
@@ -570,6 +620,11 @@ class BalanceQueueService {
       rate: this.backgroundCheckCount / elapsed,
       pending: Array.from(this.queue.values()).filter(i => i.status === 'pending').length,
       apiStats: freeBlockchainAPI.getStats(),
+      circuitBreaker: {
+        tripped: this.circuitBreakerTripped,
+        consecutiveUnhealthyCycles: this.consecutiveUnhealthyCycles,
+        cooldownRemainingMs: cooldownRemaining,
+      },
     };
   }
 
