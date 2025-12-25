@@ -29,6 +29,83 @@ let authConfig: AuthConfig | null = null;
 // Run security checks on module load
 initSecurityChecks();
 
+// OAuth token exchange timeout (30 seconds - fail fast instead of hanging)
+const OAUTH_TIMEOUT_MS = 30000;
+// Retry configuration for transient network errors
+const OAUTH_MAX_RETRIES = 3;
+const OAUTH_RETRY_BACKOFF_MS = 1000;
+
+/**
+ * Check if an error is a transient network error that can be retried
+ */
+function isTransientNetworkError(error: any): boolean {
+  const message = error?.message?.toLowerCase() || '';
+  const code = error?.code?.toLowerCase() || '';
+  const causeMessage = error?.cause?.message?.toLowerCase() || '';
+  const causeCode = error?.cause?.code?.toLowerCase() || '';
+  
+  // Check for common transient network errors
+  const transientPatterns = [
+    'epipe', 'econnreset', 'econnrefused', 'etimedout', 'enetunreach',
+    'enotfound', 'ehostunreach', 'fetch failed', 'network', 'socket hang up',
+    'aborted', 'timeout', 'econnaborted'
+  ];
+  
+  return transientPatterns.some(pattern => 
+    message.includes(pattern) || code.includes(pattern) ||
+    causeMessage.includes(pattern) || causeCode.includes(pattern)
+  );
+}
+
+/**
+ * Create a resilient fetch with timeout and retry logic for OAuth operations
+ */
+function createResilientFetch(timeoutMs: number = OAUTH_TIMEOUT_MS): typeof fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    let lastError: any = null;
+    
+    for (let attempt = 0; attempt < OAUTH_MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      try {
+        if (attempt > 0) {
+          const backoff = OAUTH_RETRY_BACKOFF_MS * Math.pow(2, attempt - 1);
+          console.log(`[OAuth] Retry ${attempt}/${OAUTH_MAX_RETRIES} after ${backoff}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoff));
+        }
+        
+        const response = await fetch(input, {
+          ...init,
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        lastError = error;
+        
+        // Check if it's a transient error worth retrying
+        if (isTransientNetworkError(error)) {
+          console.log(`[OAuth] Transient network error on attempt ${attempt + 1}/${OAUTH_MAX_RETRIES}: ${error.message}`);
+          continue;
+        }
+        
+        // Non-transient error, don't retry
+        throw error;
+      }
+    }
+    
+    // All retries exhausted
+    console.error(`[OAuth] All ${OAUTH_MAX_RETRIES} retry attempts failed`);
+    throw lastError;
+  };
+}
+
+// Custom fetch instance for OAuth operations
+const oauthFetch = createResilientFetch();
+
 const getOidcConfig = memoize(
   async () => {
     const issuerUrl = authConfig?.issuerUrl || process.env.ISSUER_URL || "https://replit.com/oidc";
@@ -36,9 +113,13 @@ const getOidcConfig = memoize(
     
     console.log(`[OIDC] Discovering configuration from ${issuerUrl}`);
     
+    // Use resilient fetch with timeout and retry for OIDC discovery
     return await client.discovery(
       new URL(issuerUrl),
-      clientId
+      clientId,
+      undefined, // client_secret
+      undefined, // client_auth
+      { [client.customFetch]: oauthFetch } // Use our resilient fetch
     );
   },
   { maxAge: 3600 * 1000 }
