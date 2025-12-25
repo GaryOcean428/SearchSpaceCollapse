@@ -67,7 +67,7 @@ const DEFAULT_RATE_LIMIT = 1.5;
 
 // Circuit breaker configuration (2025-12-25)
 const CIRCUIT_BREAKER_THRESHOLD = 5; // Consecutive unhealthy API cycles
-const CIRCUIT_BREAKER_COOLDOWN_MS = 30000; // 30 second pause when tripped
+const CIRCUIT_BREAKER_COOLDOWN_MS = 10000; // 10 second pause when tripped (reduced from 30s for faster recovery)
 
 class BalanceQueueService {
   private queue: Map<string, QueuedAddress> = new Map();

@@ -257,6 +257,11 @@ class HypothesisEmitter:
 
                 if response.status_code == 200:
                     return response.json()
+                elif response.status_code == 429:
+                    # Queue full (backpressure) - NOT a failure, just wait and retry
+                    # Don't count toward circuit breaker, just pause briefly
+                    print(f"[HypothesisEmitter] Queue full (429), waiting 5s before retry (soft skip)")
+                    return {"soft_skip": True, "reason": "queue_full"}
                 else:
                     print(f"[HypothesisEmitter] Async submit failed: {response.status_code}")
                     return None
@@ -288,6 +293,13 @@ class HypothesisEmitter:
     def _handle_submission_result(self, result: Optional[Dict], batch_size: int) -> None:
         """Handle the result of a hypothesis submission."""
         if result:
+            # Check for soft skip (429 backpressure) - don't count as success or failure
+            if result.get('soft_skip'):
+                # Queue was full, just wait briefly - don't adjust backoff or failure count
+                # This prevents cascading slowdowns from backpressure signals
+                print(f"[HypothesisEmitter] Soft skip: {result.get('reason', 'unknown')}")
+                return
+            
             self._total_emitted += result.get('received', 0)
             self._total_queued += result.get('queued', 0)
             self._total_skipped += result.get('alreadyTested', 0) + result.get('skipped', 0)
@@ -350,6 +362,10 @@ class HypothesisEmitter:
 
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 429:
+                # Queue full (backpressure) - NOT a failure, just wait and retry
+                print(f"[HypothesisEmitter] Queue full (429), soft skip (blocking mode)")
+                return {"soft_skip": True, "reason": "queue_full"}
             else:
                 print(f"[HypothesisEmitter] Blocking submit failed: {response.status_code}")
                 return None
