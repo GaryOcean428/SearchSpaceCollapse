@@ -76,6 +76,7 @@ import { scoreUniversalQIGAsync } from "./qig-universal";
 import { fisherCoordDistance } from "./qig-geometry";
 import { repeatedAddressScheduler } from "./repeated-address-scheduler";
 import { strategyBandit } from "./strategy-bandit";
+import { selectWeightedPassphrase, generatePassphraseVariations } from "./passphrase-corpus";
 import { strategyKnowledgeBus } from "./strategy-knowledge-bus";
 import { temporalGeometry } from "./temporal-geometry";
 import { vocabDecisionEngine, type GaryState } from "./vocabulary-decision";
@@ -4724,11 +4725,23 @@ export class OceanAgent {
           phrases.push({ text: bip39Phrase, format: "bip39" });
           break;
         case 'passphrase':
-          // Arbitrary passphrase combinations
-          phrases.push({
-            text: `${modifier}${base}${randNum}`,
-            format: "arbitrary",
-          });
+          // Use research-based passphrase corpus (70%) or arbitrary combinations (30%)
+          if (Math.random() < 0.7) {
+            const corpusPhrase = selectWeightedPassphrase();
+            // Sometimes add variations
+            if (Math.random() < 0.3) {
+              const variations = generatePassphraseVariations(corpusPhrase, 3);
+              phrases.push({ text: variations[Math.floor(Math.random() * variations.length)], format: "arbitrary" });
+            } else {
+              phrases.push({ text: corpusPhrase, format: "arbitrary" });
+            }
+          } else {
+            // Fallback to arbitrary combinations
+            phrases.push({
+              text: `${modifier}${base}${randNum}`,
+              format: "arbitrary",
+            });
+          }
           break;
         case 'master_key':
           // Master key style
