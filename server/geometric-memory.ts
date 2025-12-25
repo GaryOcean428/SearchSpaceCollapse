@@ -426,6 +426,9 @@ class GeometricMemory {
         if (loadedCount % 5000 === 0 && loadedCount < loadLimit) {
           console.log(`[GeometricMemory] Loaded ${loadedCount}/${loadLimit} probes...`);
         }
+        
+        // Yield to event loop every batch to prevent blocking HTTP requests
+        await new Promise<void>(resolve => setImmediate(resolve));
       }
       
       this.state.totalProbes = this.probeMap.size;
