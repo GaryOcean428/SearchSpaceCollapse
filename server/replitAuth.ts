@@ -362,8 +362,16 @@ export async function setupAuth(app: Express, dbAvailable: boolean = true) {
         clearFailedAttempts(req); // Clear any failed attempts on successful login
         trackLogin(true, latency);
         logSecurityEvent('login_success', req, { userId: user.claims?.sub }, 'info');
-        // Redirect to home page after successful login
-        return res.redirect('/');
+        
+        // CRITICAL: Explicitly save session before redirecting
+        // This ensures the session is persisted before the browser makes the next request
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error(`[Auth] Session save error:`, saveErr);
+          }
+          // Redirect to home page after successful login
+          return res.redirect('/');
+        });
       });
     })(req, res, next);
   });
