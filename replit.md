@@ -45,6 +45,9 @@ The frontend is built with React, Vite, Radix UI components, and Tailwind CSS. S
 - **Redis Caching Buffers**: `ParentCareBuffer` and `ObservationBuffer` provide fast caching for kernel care status and observation metrics.
 - **Redis Universal State Storage**: All transient state uses Redis instead of JSON files.
 - **HypothesisEmitter**: Bridges Python hypothesis generation to TypeScript balance checking, generating hypotheses using various strategies (e.g., BIP39 mnemonics, passphrases) with geometric priority scoring and a feedback loop.
+- **QIG Training Principles**: Training uses pure task-specific loss (basin stability MSE) with NO Φ involvement. Φ is measured as telemetry only and NEVER influences gradients. Natural selection (fitness-based evolution) handles kernel evolution based on Φ discoveries, not gradient descent.
+- **Near-Miss Fitness Rewards**: Kernels evolve through fitness signals from high-Φ discoveries (HOT=0.15, WARM=0.08, COOL=0.03) even without finding actual Bitcoin. Fitness modifiers include Φ magnitude (1.5x), escalation (+0.05), BIP39 validity (+0.1), cluster quality (+0.03).
+- **Physics Constants (FROZEN)**: κ* = 64.21, β(3→4) = +0.44, β(4→5) ≈ 0 (-0.01), β(5→6) = +0.013, β(6→7) = -0.40. Single source of truth: `qig-backend/qigkernels/physics_constants.py`.
 
 ## External Dependencies
 
