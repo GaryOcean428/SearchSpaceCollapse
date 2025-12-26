@@ -711,3 +711,267 @@ def get_tier_info():
             'death': chaos.death_threshold,
         }
     })
+
+
+# =========================================================================
+# KERNEL FITNESS & EVOLUTION INTEGRATION ENDPOINTS
+# These endpoints are called by the TypeScript kernel-fitness-service
+# =========================================================================
+
+@chaos_app.route('/chaos/kernel/<kernel_id>/fitness', methods=['POST'])
+def update_kernel_fitness(kernel_id: str):
+    """
+    Update kernel fitness from TypeScript service.
+    
+    POST /chaos/kernel/{kernel_id}/fitness
+    {
+        "phi_current": 0.7,
+        "phi_gradient": 0.01,
+        "phi_velocity": 0.001,
+        "kappa_current": 0.6,
+        "kappa_stability": 0.8,
+        "fisher_diversity": 0.5,
+        "geometric_fitness": 0.75,
+        "dimensional_state": "D3",
+        "evolution_pressure": 0.2,
+        "cannibalize_priority": 0.25
+    }
+    """
+    import os
+    import psycopg2
+    
+    data = request.json or {}
+    
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        return jsonify({'success': False, 'error': 'Database not configured'}), 503
+    
+    try:
+        conn = psycopg2.connect(database_url)
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO kernel_evolution_fitness
+                (kernel_id, phi_current, phi_gradient, phi_velocity,
+                 kappa_current, kappa_stability, fisher_diversity,
+                 geometric_fitness, dimensional_state, evolution_pressure,
+                 cannibalize_priority, fitness_computed_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (kernel_id) DO UPDATE SET
+                    phi_current = EXCLUDED.phi_current,
+                    phi_gradient = EXCLUDED.phi_gradient,
+                    phi_velocity = EXCLUDED.phi_velocity,
+                    kappa_current = EXCLUDED.kappa_current,
+                    kappa_stability = EXCLUDED.kappa_stability,
+                    fisher_diversity = EXCLUDED.fisher_diversity,
+                    geometric_fitness = EXCLUDED.geometric_fitness,
+                    dimensional_state = EXCLUDED.dimensional_state,
+                    evolution_pressure = EXCLUDED.evolution_pressure,
+                    cannibalize_priority = EXCLUDED.cannibalize_priority,
+                    fitness_computed_at = NOW()
+            """, (
+                kernel_id,
+                data.get('phi_current', 0.0),
+                data.get('phi_gradient', 0.0),
+                data.get('phi_velocity', 0.0),
+                data.get('kappa_current', 0.0),
+                data.get('kappa_stability', 0.0),
+                data.get('fisher_diversity', 0.0),
+                data.get('geometric_fitness', 0.5),
+                data.get('dimensional_state', 'D3'),
+                data.get('evolution_pressure', 0.0),
+                data.get('cannibalize_priority', 0.0),
+            ))
+            conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'kernel_id': kernel_id,
+            'fitness': data.get('geometric_fitness', 0.5)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@chaos_app.route('/chaos/evolution/trigger', methods=['POST'])
+def trigger_evolution():
+    """
+    Handle evolution trigger events from TypeScript service.
+    
+    POST /chaos/evolution/trigger
+    {
+        "event_type": "mutation" | "reproduction" | "culling",
+        "kernel_id": "kernel_123",
+        "fitness": 0.75,
+        "phi": 0.7,
+        "kappa": 0.6,
+        "metadata": {...}
+    }
+    """
+    data = request.json or {}
+    event_type = data.get('event_type')
+    kernel_id = data.get('kernel_id')
+    fitness = data.get('fitness', 0.5)
+    
+    if not event_type or not kernel_id:
+        return jsonify({'success': False, 'error': 'event_type and kernel_id required'}), 400
+    
+    result = {'success': True, 'event_type': event_type, 'kernel_id': kernel_id}
+    
+    if _zeus is not None and _zeus.chaos is not None:
+        try:
+            if event_type == 'mutation':
+                mutated = _zeus.chaos.mutate_random_kernel(strength=0.1)
+                result['mutated_kernel'] = mutated
+            elif event_type == 'reproduction':
+                child = _zeus.chaos.breed_top_kernels()
+                if child:
+                    result['child_id'] = child.kernel_id
+                    result['child_phi'] = child.kernel.compute_phi()
+            elif event_type == 'culling':
+                killed = _zeus.chaos.apply_phi_selection()
+                result['killed_count'] = len(killed)
+                result['killed_kernels'] = killed
+        except Exception as e:
+            result['chaos_error'] = str(e)
+    
+    import os
+    import psycopg2
+    import json
+    import uuid
+    
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        try:
+            conn = psycopg2.connect(database_url)
+            with conn.cursor() as cur:
+                event_id = f"evo_{uuid.uuid4().hex[:12]}"
+                cur.execute("""
+                    INSERT INTO kernel_evolution_events
+                    (event_id, event_type, source_kernel_id, geometric_reasoning,
+                     phi_before, phi_after, fitness_delta, occurred_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                """, (
+                    event_id,
+                    event_type,
+                    kernel_id,
+                    json.dumps(data.get('metadata', {})),
+                    fitness,
+                    fitness,
+                    0.0,
+                ))
+                conn.commit()
+            conn.close()
+            result['event_id'] = event_id
+        except Exception as e:
+            result['db_error'] = str(e)
+    
+    return jsonify(result)
+
+
+@chaos_app.route('/chaos/e8/enforce-cap', methods=['POST'])
+def enforce_e8_cap():
+    """
+    Enforce E8 population cap (240 kernels max).
+    Called by TypeScript service to cull excess kernels.
+    
+    POST /chaos/e8/enforce-cap
+    {
+        "kernels_to_cull": ["kernel_1", "kernel_2"],
+        "reason": "e8_population_control"
+    }
+    """
+    import os
+    import psycopg2
+    
+    data = request.json or {}
+    kernels_to_cull = data.get('kernels_to_cull', [])
+    reason = data.get('reason', 'e8_population_control')
+    
+    culled = []
+    
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and kernels_to_cull:
+        try:
+            conn = psycopg2.connect(database_url)
+            with conn.cursor() as cur:
+                for kernel_id in kernels_to_cull:
+                    cur.execute("""
+                        UPDATE m8_spawned_kernels 
+                        SET status = 'culled', retired_at = NOW()
+                        WHERE kernel_id = %s AND status != 'culled'
+                    """, (kernel_id,))
+                    if cur.rowcount > 0:
+                        culled.append(kernel_id)
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    if _zeus is not None and _zeus.chaos is not None:
+        try:
+            for kernel_id in culled:
+                for k in _zeus.chaos.kernel_population:
+                    if hasattr(k, 'kernel_id') and k.kernel_id == kernel_id:
+                        k.is_alive = False
+                        break
+        except Exception:
+            pass
+    
+    return jsonify({
+        'success': True,
+        'culled_count': len(culled),
+        'culled_kernels': culled,
+        'reason': reason
+    })
+
+
+@chaos_app.route('/chaos/fitness/decay', methods=['POST'])
+def apply_fitness_decay():
+    """
+    Apply fitness decay to inactive kernels.
+    
+    POST /chaos/fitness/decay
+    {
+        "decayed_kernels": [
+            {"kernel_id": "k1", "new_fitness": 0.4},
+            {"kernel_id": "k2", "new_fitness": 0.3}
+        ]
+    }
+    """
+    import os
+    import psycopg2
+    
+    data = request.json or {}
+    decayed_kernels = data.get('decayed_kernels', [])
+    
+    updated = 0
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and decayed_kernels:
+        try:
+            conn = psycopg2.connect(database_url)
+            with conn.cursor() as cur:
+                for kernel in decayed_kernels:
+                    kernel_id = kernel.get('kernel_id')
+                    new_fitness = kernel.get('new_fitness', 0.0)
+                    evolution_pressure = kernel.get('evolution_pressure', 0.0)
+                    cannibalize_priority = kernel.get('cannibalize_priority', 1.0)
+                    
+                    cur.execute("""
+                        UPDATE kernel_evolution_fitness
+                        SET geometric_fitness = %s,
+                            evolution_pressure = %s,
+                            cannibalize_priority = %s,
+                            fitness_computed_at = NOW()
+                        WHERE kernel_id = %s
+                    """, (new_fitness, evolution_pressure, cannibalize_priority, kernel_id))
+                    updated += cur.rowcount
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    return jsonify({
+        'success': True,
+        'updated_count': updated
+    })

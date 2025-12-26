@@ -23,6 +23,7 @@ import { NEAR_MISS_CONFIG } from './ocean-config';
 import { oceanPersistence } from './ocean/ocean-persistence';
 import { isValidBIP39Phrase } from './bip39-words';
 import { cacheGet, cacheSet, isRedisAvailable, CACHE_KEYS, CACHE_TTL } from './redis-cache';
+import { kernelFitnessService } from './kernel-fitness-service';
 
 export type NearMissTier = 'hot' | 'warm' | 'cool';
 
@@ -344,6 +345,11 @@ export class NearMissManager {
 
     console.log(`[NearMiss] 🎯 ${tier.toUpperCase()}: "${data.phrase.slice(0, 30)}..." (Φ=${data.phi.toFixed(4)}, priority=${entry.queuePriority})`);
 
+    // Award fitness to attributed kernel (async, don't block)
+    this.awardKernelFitness(entry).catch(err => {
+      console.error('[NearMiss] Failed to award kernel fitness:', err);
+    });
+
     return entry;
   }
 
@@ -620,6 +626,25 @@ export class NearMissManager {
    */
   getAllEntries(): NearMissEntry[] {
     return Array.from(this.entries.values());
+  }
+
+  /**
+   * Award fitness to a kernel based on this near-miss discovery
+   * This drives kernel evolution even without finding actual Bitcoin
+   */
+  private async awardKernelFitness(entry: NearMissEntry): Promise<void> {
+    try {
+      const result = await kernelFitnessService.processNearMissDiscovery(entry);
+      if (result) {
+        console.log(
+          `[NearMiss] 🧬 Fitness awarded: kernel=${result.kernelId.slice(0, 8)}... ` +
+          `+${result.reward.toFixed(4)} → ${result.newFitness.toFixed(3)} ` +
+          `(${result.modifiers.join(', ') || 'base'})`
+        );
+      }
+    } catch (error) {
+      // Silently fail - fitness rewards are optional
+    }
   }
 
   /**

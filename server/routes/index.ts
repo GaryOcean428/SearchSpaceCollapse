@@ -47,3 +47,5 @@ export { federationRouter } from "./federation";
 export { default as googleSearchBridgeRouter } from "./google-search-bridge";
 
 export { selfHealingRouter } from "./self-healing";
+
+export { default as kernelEvolutionRouter } from "./kernel-evolution";
