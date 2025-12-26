@@ -717,7 +717,7 @@ export class OceanAgent {
     // AUTO-ACTIVATE CHAOS MODE - Spawn kernels during investigation
     // Use deferred activation with retries since Python backend may still be starting
     console.log("[Ocean] === CHAOS MODE ACTIVATION ===");
-    const activateChaosWithRetry = async (maxAttempts = 10, delayMs = 1000): Promise<void> => {
+    const activateChaosWithRetry = async (maxAttempts = 60, delayMs = 2000): Promise<void> => {
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           // Wait for Python backend to be available
@@ -743,7 +743,9 @@ export class OceanAgent {
     };
 
     // Start async CHAOS activation (don't block investigation startup)
-    activateChaosWithRetry(10, 2000).catch(() => {
+    // Python backend takes ~2 minutes to fully initialize with all gods
+    // 60 attempts × 2 seconds = 120 seconds max wait
+    activateChaosWithRetry(60, 2000).catch(() => {
       console.log("[Ocean] CHAOS MODE activation background task failed");
     });
 
