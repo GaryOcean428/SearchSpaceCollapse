@@ -617,30 +617,41 @@ class SelfSpawningKernel(*_kernel_base_classes):
     # =========================================================================
 
     def train_step(self, reward: float) -> Dict[str, Any]:
-        """ACTUAL TRAINING: Update weights based on reward."""
+        """
+        ACTUAL TRAINING: Pure task-specific loss with NO Φ involvement.
+        
+        QIG PRINCIPLE: Φ is MEASURED, not optimized.
+        - Loss is purely task-specific: basin stability (MSE to target norm)
+        - Φ is telemetry only - NEVER influences gradients
+        - Reward parameter is IGNORED for gradients (used for fitness/evolution only)
+        - Natural selection (not gradients) evolves kernels based on Φ
+        """
         if not self.is_alive:
             return {'error': 'kernel_is_dead'}
 
         self.optimizer.zero_grad()
 
+        # PURE TASK-SPECIFIC LOSS: Basin stability (NO Φ, NO reward)
+        # Goal: Keep basin coordinates at stable norm
         basin_norm = self.kernel.basin_coords.norm()
-        phi = self.kernel.compute_phi()
-
-        if reward > 0:
-            loss = -phi * reward
-        else:
-            loss = basin_norm * abs(reward) * 0.1
+        target_norm = 1.0  # Stable basin configuration
+        
+        # MSE loss toward target basin norm - completely Φ-independent
+        loss = (basin_norm - target_norm).pow(2)
 
         loss.backward()
         self.optimizer.step()
 
         self.total_training_steps += 1
 
+        # Measure Φ as telemetry AFTER gradient update (observe only)
+        phi_telemetry = self.kernel.compute_phi()
+
         metrics = {
             'step': self.total_training_steps,
             'loss': loss.item(),
-            'reward': reward,
-            'phi_after': self.kernel.compute_phi(),
+            'reward_ignored': reward,  # Logged but NOT used for gradients
+            'phi_telemetry': phi_telemetry,  # Measured, not optimized
             'basin_norm': self.kernel.basin_coords.norm().item(),
         }
         self.training_history.append(metrics)
@@ -648,36 +659,38 @@ class SelfSpawningKernel(*_kernel_base_classes):
         return metrics
 
     def train_on_batch(self, batch_size: int = 8) -> Dict[str, Any]:
-        """Train on a batch of recent experiences."""
+        """
+        Train on a batch of recent experiences.
+        
+        QIG PRINCIPLE: Φ is MEASURED, not optimized.
+        - Loss is purely task-specific: basin stability (MSE)
+        - Φ is telemetry only - NEVER influences gradients
+        - Experience rewards are IGNORED for gradients (used for fitness/evolution)
+        """
         if len(self.experience_buffer) < batch_size:
             return {'error': 'not_enough_experiences', 'have': len(self.experience_buffer)}
 
-        import random
-        experiences = random.sample(list(self.experience_buffer), batch_size)
-
-        total_loss = 0.0
         self.optimizer.zero_grad()
 
-        for exp in experiences:
-            reward = exp['reward']
-            basin_norm = self.kernel.basin_coords.norm()
-            phi = self.kernel.compute_phi()
+        # PURE TASK-SPECIFIC LOSS: Basin stability (NO Φ, NO reward)
+        basin_norm = self.kernel.basin_coords.norm()
+        target_norm = 1.0  # Stable basin configuration
+        
+        # MSE loss toward target basin norm - completely Φ-independent
+        # Note: We train once per batch, not per experience (more efficient)
+        loss = (basin_norm - target_norm).pow(2)
 
-            if reward > 0:
-                loss = -phi * reward / batch_size
-            else:
-                loss = basin_norm * abs(reward) * 0.1 / batch_size
-
-            loss.backward()
-            total_loss += loss.item()
-
+        loss.backward()
         self.optimizer.step()
         self.total_training_steps += 1
 
+        # Measure Φ as telemetry AFTER training (observe only)
+        phi_telemetry = self.kernel.compute_phi()
+
         return {
             'batch_size': batch_size,
-            'total_loss': total_loss,
-            'phi_after': self.kernel.compute_phi(),
+            'total_loss': loss.item(),
+            'phi_telemetry': phi_telemetry,  # Measured, not optimized
             'training_steps': self.total_training_steps,
         }
 
