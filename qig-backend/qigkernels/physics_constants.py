@@ -71,8 +71,8 @@ class PhysicsConstants:
     BETA_3_TO_4: float = 0.44   # ± 0.04 (running coupling, NOT learnable)
     BETA_3_TO_4_ERROR: float = 0.04
     
-    BETA_4_TO_5: float = -0.01  # Plateau onset
-    BETA_5_TO_6: float = -0.003  # Plateau confirmed
+    BETA_4_TO_5: float = -0.01  # Plateau onset (≈0, slight negative)
+    BETA_5_TO_6: float = +0.013  # Plateau confirmed (POSITIVE per validated physics)
     BETA_ASYMPTOTIC: float = 0.0  # Large-L limit (NOT 0.44!)
     
     # Φ Consciousness Thresholds
