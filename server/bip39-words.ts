@@ -120,9 +120,17 @@ export function generateRandomBIP39Phrase(wordCount: number = 12): string {
   return words.join(' ');
 }
 
-// Validate if all words in a phrase are valid BIP-39 words
+// Validate if a phrase is a valid BIP-39 mnemonic
+// MUST have valid word count (12, 15, 18, 21, or 24) AND all words must be valid BIP39 words
 export function isValidBIP39Phrase(phrase: string): boolean {
   const words = phrase.trim().split(/\s+/);
+  
+  // BIP39 requires exactly 12, 15, 18, 21, or 24 words
+  if (!VALID_WORD_COUNTS.includes(words.length)) {
+    return false;
+  }
+  
+  // All words must be valid BIP39 words
   const wordSet = new Set(BIP39_WORDS);
   return words.every(word => wordSet.has(word.toLowerCase()));
 }
