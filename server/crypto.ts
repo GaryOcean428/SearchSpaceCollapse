@@ -315,6 +315,225 @@ export function generateBothAddressesFromPrivateKey(privateKeyHex: string): {
   };
 }
 
+/**
+ * Generate P2SH-P2WPKH (SegWit wrapped in P2SH) address from private key
+ * Used by BIP49 - addresses start with "3"
+ * This is "SegWit compatible" - works with older wallets that don't support native SegWit
+ */
+export function generateP2SHP2WPKHAddress(privateKeyHex: string): string {
+  validatePrivateKeyHex(privateKeyHex);
+  
+  const privateKeyBuffer = Buffer.from(privateKeyHex, "hex");
+  const keyPair = ec.keyFromPrivate(privateKeyBuffer);
+  const publicKey = Buffer.from(keyPair.getPublic().encode("array", true)); // Always compressed for SegWit
+  
+  // P2WPKH witness program: OP_0 <20-byte-pubkey-hash>
+  const sha256Hash = createHash("sha256").update(publicKey).digest();
+  const pubkeyHash = createHash("ripemd160").update(sha256Hash).digest();
+  
+  // Witness program: 0x0014 + 20-byte pubkey hash
+  const witnessProgram = Buffer.concat([Buffer.from([0x00, 0x14]), pubkeyHash]);
+  
+  // P2SH: HASH160 of witness program, version byte 0x05
+  const sha256WitnessProgram = createHash("sha256").update(witnessProgram).digest();
+  const scriptHash = createHash("ripemd160").update(sha256WitnessProgram).digest();
+  
+  const versionedPayload = Buffer.concat([
+    Buffer.from([0x05]), // P2SH version byte
+    scriptHash,
+  ]);
+  
+  return bs58check.encode(versionedPayload);
+}
+
+/**
+ * Generate Native SegWit P2WPKH address from private key (Bech32)
+ * Used by BIP84 - addresses start with "bc1q"
+ * Most efficient format with lowest fees
+ */
+export function generateP2WPKHAddress(privateKeyHex: string): string {
+  validatePrivateKeyHex(privateKeyHex);
+  
+  const privateKeyBuffer = Buffer.from(privateKeyHex, "hex");
+  const keyPair = ec.keyFromPrivate(privateKeyBuffer);
+  const publicKey = Buffer.from(keyPair.getPublic().encode("array", true)); // Always compressed
+  
+  // Hash160 of public key
+  const sha256Hash = createHash("sha256").update(publicKey).digest();
+  const pubkeyHash = createHash("ripemd160").update(sha256Hash).digest();
+  
+  // Bech32 encode with witness version 0
+  return bech32Encode("bc", 0, pubkeyHash);
+}
+
+/**
+ * Generate Taproot P2TR address from private key (Bech32m)
+ * Used by BIP86 - addresses start with "bc1p"
+ * Latest Bitcoin address format with enhanced privacy
+ */
+export function generateP2TRAddress(privateKeyHex: string): string {
+  validatePrivateKeyHex(privateKeyHex);
+  
+  const privateKeyBuffer = Buffer.from(privateKeyHex, "hex");
+  const keyPair = ec.keyFromPrivate(privateKeyBuffer);
+  
+  // Get the x-only public key (32 bytes) for Taproot
+  const fullPublicKey = keyPair.getPublic();
+  const xOnlyPubKey = Buffer.from(fullPublicKey.getX().toArray('be', 32));
+  
+  // Taproot key spend: tweak the public key with the hash of itself
+  // For BIP86 (simple key spend), we use the unmodified x-only pubkey with no script tree
+  // The tweak is: t = tagged_hash("TapTweak", pubkey)
+  const tapTweakTag = createHash("sha256").update("TapTweak").digest();
+  const tagHash = createHash("sha256").update(Buffer.concat([tapTweakTag, tapTweakTag, xOnlyPubKey])).digest();
+  
+  // For simple key path (no script tree), the output key is the tweaked pubkey
+  // We need to add the tweak to the public key point
+  // This is a simplified version - full implementation would verify the y-coordinate
+  const tweakedKey = tweakPublicKey(xOnlyPubKey, tagHash);
+  
+  // Bech32m encode with witness version 1
+  return bech32mEncode("bc", 1, tweakedKey);
+}
+
+/**
+ * Tweak x-only public key for Taproot (simplified BIP340/BIP341)
+ */
+function tweakPublicKey(xOnlyPubKey: Buffer, tweak: Buffer): Buffer {
+  // Create a point from x-only key (assume even y)
+  const point = ec.keyFromPublic(Buffer.concat([Buffer.from([0x02]), xOnlyPubKey]), 'hex');
+  const tweakBN = ec.keyFromPrivate(tweak).getPrivate();
+  
+  // Add tweak * G to the point
+  const tweakPoint = ec.g.mul(tweakBN);
+  const resultPoint = point.getPublic().add(tweakPoint);
+  
+  // Return x-coordinate only
+  return Buffer.from(resultPoint.getX().toArray('be', 32));
+}
+
+/**
+ * Bech32 encoding for native SegWit addresses (BIP173)
+ */
+function bech32Encode(hrp: string, witnessVersion: number, data: Buffer): string {
+  const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  
+  // Convert 8-bit data to 5-bit groups
+  const converted = convertBits(data, 8, 5, true);
+  const values = [witnessVersion, ...converted];
+  
+  // Calculate checksum
+  const checksum = bech32Checksum(hrp, values, 1); // Bech32
+  
+  // Encode
+  let result = hrp + "1";
+  for (const v of [...values, ...checksum]) {
+    result += CHARSET[v];
+  }
+  
+  return result;
+}
+
+/**
+ * Bech32m encoding for Taproot addresses (BIP350)
+ */
+function bech32mEncode(hrp: string, witnessVersion: number, data: Buffer): string {
+  const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  
+  // Convert 8-bit data to 5-bit groups
+  const converted = convertBits(data, 8, 5, true);
+  const values = [witnessVersion, ...converted];
+  
+  // Calculate checksum with Bech32m constant
+  const checksum = bech32Checksum(hrp, values, 0x2bc830a3); // Bech32m
+  
+  // Encode
+  let result = hrp + "1";
+  for (const v of [...values, ...checksum]) {
+    result += CHARSET[v];
+  }
+  
+  return result;
+}
+
+/**
+ * Convert between bit widths for Bech32 encoding
+ */
+function convertBits(data: Buffer, fromBits: number, toBits: number, pad: boolean): number[] {
+  let acc = 0;
+  let bits = 0;
+  const result: number[] = [];
+  const maxv = (1 << toBits) - 1;
+  
+  for (const value of data) {
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      result.push((acc >> bits) & maxv);
+    }
+  }
+  
+  if (pad && bits > 0) {
+    result.push((acc << (toBits - bits)) & maxv);
+  }
+  
+  return result;
+}
+
+/**
+ * Calculate Bech32/Bech32m checksum
+ */
+function bech32Checksum(hrp: string, values: number[], constant: number): number[] {
+  const hrpExpanded = [...hrp.split('').map(c => c.charCodeAt(0) >> 5), 0, ...hrp.split('').map(c => c.charCodeAt(0) & 31)];
+  const combined = [...hrpExpanded, ...values, 0, 0, 0, 0, 0, 0];
+  const polymod = bech32Polymod(combined) ^ constant;
+  
+  const checksum: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    checksum.push((polymod >> (5 * (5 - i))) & 31);
+  }
+  return checksum;
+}
+
+/**
+ * Bech32 polymod calculation
+ */
+function bech32Polymod(values: number[]): number {
+  const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+  let chk = 1;
+  for (const v of values) {
+    const b = chk >> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ v;
+    for (let i = 0; i < 5; i++) {
+      if ((b >> i) & 1) {
+        chk ^= GEN[i];
+      }
+    }
+  }
+  return chk;
+}
+
+/**
+ * Generate ALL address formats from a private key
+ * Returns P2PKH (compressed + uncompressed), P2SH-P2WPKH, P2WPKH, and P2TR
+ */
+export function generateAllAddressFormats(privateKeyHex: string): {
+  p2pkh: string;           // 1xxx (compressed)
+  p2pkhUncompressed: string; // 1xxx (uncompressed, 2009-era)
+  p2shP2wpkh: string;      // 3xxx (BIP49)
+  p2wpkh: string;          // bc1q... (BIP84)
+  p2tr: string;            // bc1p... (BIP86)
+} {
+  return {
+    p2pkh: generateBitcoinAddressFromPrivateKey(privateKeyHex, true),
+    p2pkhUncompressed: generateBitcoinAddressFromPrivateKey(privateKeyHex, false),
+    p2shP2wpkh: generateP2SHP2WPKHAddress(privateKeyHex),
+    p2wpkh: generateP2WPKHAddress(privateKeyHex),
+    p2tr: generateP2TRAddress(privateKeyHex),
+  };
+}
+
 export function verifyBrainWallet(): { success: boolean; testAddress?: string; error?: string } {
   try {
     const testPhrase = "test passphrase for verification";

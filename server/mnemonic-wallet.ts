@@ -19,14 +19,17 @@
  * Total: 50 addresses per mnemonic
  */
 
-import { deriveBIP39PrivateKey, privateKeyToWIF, generateBitcoinAddressFromPrivateKey } from './crypto';
+import { deriveBIP39PrivateKey, privateKeyToWIF, generateBitcoinAddressFromPrivateKey, generateP2SHP2WPKHAddress, generateP2WPKHAddress, generateP2TRAddress } from './crypto';
 import { dormantCrossRef, type DormantAddressInfo } from './dormant-cross-ref';
 import { isValidBIP39Phrase } from './bip39-words';
 import { DERIVATION_PATH_CONFIG } from './ocean-config';
 
 export interface DerivedAddress {
-  address: string;
-  addressUncompressed: string;
+  address: string;              // Primary address for path type (P2PKH for BIP44, P2SH for BIP49, etc.)
+  addressUncompressed: string;  // P2PKH uncompressed (2009-era legacy)
+  addressP2SH?: string;         // P2SH-P2WPKH (3xxx) - for BIP49 paths
+  addressSegWit?: string;       // Native SegWit (bc1q) - for BIP84 paths  
+  addressTaproot?: string;      // Taproot (bc1p) - for BIP86 paths
   derivationPath: string;
   privateKeyHex: string;
   privateKeyWIF: string;
@@ -126,28 +129,34 @@ function generateElectrumChangePath(index: number): string {
 }
 
 /**
- * Derive a single P2PKH address from mnemonic with full key information
- * All dormant 2009-era addresses are P2PKH format (starting with 1)
+ * Derive addresses from mnemonic with full key information
+ * Generates the appropriate address format(s) based on path type:
+ * - BIP44/Legacy/Electrum: P2PKH (1xxx) - compressed and uncompressed
+ * - BIP49: P2SH-P2WPKH (3xxx) - SegWit wrapped in P2SH
+ * - BIP84: P2WPKH (bc1q...) - Native SegWit
+ * - BIP86: P2TR (bc1p...) - Taproot
  * 
  * USES PROPER BIP39 DERIVATION:
  * 1. PBKDF2(mnemonic, "mnemonic", 2048 rounds) → seed
  * 2. HMAC-SHA512(seed, "Bitcoin seed") → master key
  * 3. BIP32 path derivation → child key
  * 
- * CRITICAL: Returns BOTH compressed and uncompressed addresses
+ * CRITICAL: Returns BOTH compressed and uncompressed P2PKH addresses
  * 2009-era wallets used uncompressed keys exclusively!
  */
 function deriveAddressWithKeys(mnemonic: string, path: string, index: number, pathType: DerivedAddress['pathType']): DerivedAddress {
   const privateKeyHex = deriveBIP39PrivateKey(mnemonic, path);
-  // Generate BOTH compressed and uncompressed P2PKH addresses
+  
+  // Always generate P2PKH addresses (for cross-checking)
   const addressCompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, true);
   const addressUncompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
   const privateKeyWIF = privateKeyToWIF(privateKeyHex, false);
   const privateKeyWIFCompressed = privateKeyToWIF(privateKeyHex, true);
 
-  return {
-    address: addressCompressed, // Primary address (compressed)
-    addressUncompressed, // Legacy 2009-era format
+  // Base result with P2PKH addresses
+  const result: DerivedAddress = {
+    address: addressCompressed, // Default to compressed P2PKH
+    addressUncompressed,
     derivationPath: path,
     privateKeyHex,
     privateKeyWIF,
@@ -155,6 +164,27 @@ function deriveAddressWithKeys(mnemonic: string, path: string, index: number, pa
     index,
     pathType,
   };
+
+  // Generate path-specific addresses (keep P2PKH as primary for cross-checking)
+  // Also populate the path-specific optional fields for proper format queueing
+  try {
+    if (pathType === 'bip49-receive' || pathType === 'bip49-change') {
+      // BIP49: P2SH-P2WPKH (3xxx) - generate as optional field for this path
+      result.addressP2SH = generateP2SHP2WPKHAddress(privateKeyHex);
+    } else if (pathType === 'bip84-receive' || pathType === 'bip84-change') {
+      // BIP84: Native SegWit P2WPKH (bc1q) - generate as optional field for this path
+      result.addressSegWit = generateP2WPKHAddress(privateKeyHex);
+    } else if (pathType === 'bip86-receive' || pathType === 'bip86-change') {
+      // BIP86: Taproot P2TR (bc1p) - generate as optional field for this path
+      result.addressTaproot = generateP2TRAddress(privateKeyHex);
+    }
+    // BIP44/Legacy/Electrum: Only P2PKH (already set as primary)
+  } catch (error) {
+    // If SegWit/Taproot generation fails, log error but continue with P2PKH
+    console.error(`[MnemonicWallet] Error generating ${pathType} address:`, error);
+  }
+
+  return result;
 }
 
 /**

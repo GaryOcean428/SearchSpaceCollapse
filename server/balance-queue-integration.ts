@@ -270,12 +270,24 @@ export interface QueuedMnemonicResult {
   queuedAddresses: number;
   failedAddresses: number;
   dormantMatches: number;
+  addressFormats: {
+    p2pkh: number;       // 1xxx (compressed + uncompressed)
+    p2shP2wpkh: number;  // 3xxx
+    p2wpkh: number;      // bc1q
+    p2tr: number;        // bc1p
+  };
   derivedAddresses: Array<{
     addressCompressed: string;
     addressUncompressed: string;
+    addressP2SH?: string;
+    addressSegWit?: string;
+    addressTaproot?: string;
     path: string;
     compressedQueued: boolean;
     uncompressedQueued: boolean;
+    p2shQueued?: boolean;
+    segwitQueued?: boolean;
+    taprootQueued?: boolean;
     isDormant: boolean;
   }>;
 }
@@ -284,13 +296,15 @@ export interface QueuedMnemonicResult {
  * Queue ALL derived addresses from a BIP39 mnemonic for balance checking
  * 
  * This is the proper way to check mnemonic-based wallets:
- * 1. Derives 50+ addresses using standard HD paths (BIP44/49/84)
- * 2. Generates BOTH compressed AND uncompressed addresses per path
+ * 1. Derives 50+ addresses using standard HD paths (BIP44/49/84/86)
+ * 2. Generates ALL address formats per path:
+ *    - P2PKH compressed (1xxx) - default
+ *    - P2PKH uncompressed (1xxx) - 2009-era legacy
+ *    - P2SH-P2WPKH (3xxx) - BIP49 SegWit wrapped
+ *    - P2WPKH (bc1q) - BIP84 Native SegWit
+ *    - P2TR (bc1p) - BIP86 Taproot
  * 3. Checks each against dormant target addresses
  * 4. Queues each for blockchain balance verification
- * 
- * CRITICAL: Each derivation path yields 2 addresses (compressed + uncompressed)
- * 2009-era wallets used uncompressed keys exclusively!
  * 
  * @param mnemonic - BIP39 mnemonic phrase (12-24 words)
  * @param source - Tracking source for metrics
@@ -318,44 +332,97 @@ export function queueMnemonicForBalanceCheck(
     
     let queuedCount = 0;
     let failedCount = 0;
+    const addressFormats = { p2pkh: 0, p2shP2wpkh: 0, p2wpkh: 0, p2tr: 0 };
     const derivedAddresses: QueuedMnemonicResult['derivedAddresses'] = [];
     
     for (const derived of derivationResult.addresses) {
-      // Check BOTH addresses against dormant list
-      const isDormantCompressed = dormantCheckResult.matches.some(m => m.address === derived.address);
-      const isDormantUncompressed = dormantCheckResult.matches.some(m => m.address === derived.addressUncompressed);
-      const isDormant = isDormantCompressed || isDormantUncompressed;
+      // Check ALL address formats against dormant list
+      const isDormant = dormantCheckResult.matches.some(m => 
+        m.address === derived.address || 
+        m.address === derived.addressUncompressed ||
+        (derived.addressP2SH && m.address === derived.addressP2SH) ||
+        (derived.addressSegWit && m.address === derived.addressSegWit) ||
+        (derived.addressTaproot && m.address === derived.addressTaproot)
+      );
       
-      // Queue COMPRESSED address
+      const effectivePriority = isDormant ? priority + 10 : priority;
+      
+      // Queue P2PKH COMPRESSED address (1xxx)
       const compressedResult = balanceQueue.enqueue(
         derived.address,
         mnemonic,
         derived.privateKeyWIFCompressed,
         true,
-        { priority: isDormant ? priority + 10 : priority, source: 'mnemonic' }
+        { priority: effectivePriority, source: 'mnemonic' }
       );
+      if (compressedResult) { queuedCount++; addressFormats.p2pkh++; }
+      else failedCount++;
       
-      // Queue UNCOMPRESSED address (critical for 2009-era recovery!)
+      // Queue P2PKH UNCOMPRESSED address (1xxx, 2009-era)
       const uncompressedResult = balanceQueue.enqueue(
         derived.addressUncompressed,
         mnemonic,
         derived.privateKeyWIF,
         false,
-        { priority: isDormant ? priority + 10 : priority, source: 'mnemonic' }
+        { priority: effectivePriority, source: 'mnemonic' }
       );
-      
-      if (compressedResult) queuedCount++;
+      if (uncompressedResult) { queuedCount++; addressFormats.p2pkh++; }
       else failedCount++;
       
-      if (uncompressedResult) queuedCount++;
-      else failedCount++;
+      // Queue P2SH-P2WPKH address (3xxx, BIP49)
+      let p2shQueued = false;
+      if (derived.addressP2SH) {
+        p2shQueued = balanceQueue.enqueue(
+          derived.addressP2SH,
+          mnemonic,
+          derived.privateKeyWIFCompressed,
+          true,
+          { priority: effectivePriority, source: 'mnemonic' }
+        );
+        if (p2shQueued) { queuedCount++; addressFormats.p2shP2wpkh++; }
+        else failedCount++;
+      }
+      
+      // Queue P2WPKH Native SegWit address (bc1q, BIP84)
+      let segwitQueued = false;
+      if (derived.addressSegWit) {
+        segwitQueued = balanceQueue.enqueue(
+          derived.addressSegWit,
+          mnemonic,
+          derived.privateKeyWIFCompressed,
+          true,
+          { priority: effectivePriority, source: 'mnemonic' }
+        );
+        if (segwitQueued) { queuedCount++; addressFormats.p2wpkh++; }
+        else failedCount++;
+      }
+      
+      // Queue P2TR Taproot address (bc1p, BIP86)
+      let taprootQueued = false;
+      if (derived.addressTaproot) {
+        taprootQueued = balanceQueue.enqueue(
+          derived.addressTaproot,
+          mnemonic,
+          derived.privateKeyWIFCompressed,
+          true,
+          { priority: effectivePriority, source: 'mnemonic' }
+        );
+        if (taprootQueued) { queuedCount++; addressFormats.p2tr++; }
+        else failedCount++;
+      }
       
       derivedAddresses.push({
         addressCompressed: derived.address,
         addressUncompressed: derived.addressUncompressed,
+        addressP2SH: derived.addressP2SH,
+        addressSegWit: derived.addressSegWit,
+        addressTaproot: derived.addressTaproot,
         path: derived.derivationPath,
         compressedQueued: compressedResult,
         uncompressedQueued: uncompressedResult,
+        p2shQueued,
+        segwitQueued,
+        taprootQueued,
         isDormant,
       });
     }
@@ -381,17 +448,22 @@ export function queueMnemonicForBalanceCheck(
       }
     }
     
+    // Calculate addresses per path based on formats
+    const formatsPerPath = 2 + (addressFormats.p2shP2wpkh > 0 ? 1 : 0) + (addressFormats.p2wpkh > 0 ? 1 : 0) + (addressFormats.p2tr > 0 ? 1 : 0);
+    
     if (queuedCount > 0 && (stats.totalQueued % 500 === 0 || dormantCheckResult.hasMatch)) {
-      console.log(`[BalanceQueueIntegration] Mnemonic: ${queuedCount}/${derivationResult.totalDerived * 2} addresses queued from ${source} (${derivationResult.totalDerived} paths × 2 formats)`);
+      console.log(`[BalanceQueueIntegration] Mnemonic: ${queuedCount} addresses queued from ${source}`);
+      console.log(`[BalanceQueueIntegration]   Formats: P2PKH=${addressFormats.p2pkh}, P2SH=${addressFormats.p2shP2wpkh}, SegWit=${addressFormats.p2wpkh}, Taproot=${addressFormats.p2tr}`);
     }
     
     return {
       mnemonic,
       totalPaths: derivationResult.totalDerived,
-      totalAddresses: derivationResult.totalDerived * 2, // Each path yields 2 addresses
+      totalAddresses: queuedCount + failedCount,
       queuedAddresses: queuedCount,
       failedAddresses: failedCount,
       dormantMatches: dormantCheckResult.matches.length,
+      addressFormats,
       derivedAddresses,
     };
   } catch (error) {
