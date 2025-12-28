@@ -313,9 +313,11 @@ export function deriveMnemonicAddresses(mnemonic: string, options?: {
     
     // BIP45 Multisig paths (for shared/multisig wallets)
     if (config.MULTISIG_ENABLED && config.MULTISIG_BIP45_COUNT > 0) {
-      // Check multiple cosigner indices (0-2 is common)
-      for (let cosigner = 0; cosigner < 3; cosigner++) {
-        for (let i = 0; i < Math.min(config.MULTISIG_BIP45_COUNT, 20); i++) {
+      // Check multiple cosigner indices (configurable, default 3)
+      const cosignerCount = config.MULTISIG_BIP45_COSIGNER_COUNT || 3;
+      for (let cosigner = 0; cosigner < cosignerCount; cosigner++) {
+        const addressLimit = Math.min(config.MULTISIG_BIP45_COUNT, 20);
+        for (let i = 0; i < addressLimit; i++) {
           // Receive addresses
           const receivePath = generateBIP45Path(cosigner, 0, i);
           addresses.push(deriveAddressWithKeys(trimmedMnemonic, receivePath, i, 'bip45-multisig'));

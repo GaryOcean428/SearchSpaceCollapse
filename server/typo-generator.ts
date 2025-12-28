@@ -335,7 +335,8 @@ export function generateAllTypoVariations(
   // Deduplicate
   const seen = new Set<string>();
   const uniqueVariants = allVariants.filter(v => {
-    if (seen.has(v.variant) || v.variant === phrase.toLowerCase()) {
+    // Don't filter out the original phrase itself
+    if (seen.has(v.variant)) {
       return false;
     }
     seen.add(v.variant);

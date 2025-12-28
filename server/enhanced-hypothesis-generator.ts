@@ -275,7 +275,8 @@ export function generateAllHypotheses(
   if (opts.includeMnemonics && opts.userHints) {
     const possibleMnemonics = opts.userHints.filter(hint => {
       const wordCount = hint.trim().split(/\s+/).length;
-      return wordCount === 12 || wordCount === 15 || wordCount === 18 || wordCount === 24;
+      // BIP39 supports 12, 15, 18, 21, and 24-word mnemonics
+      return wordCount === 12 || wordCount === 15 || wordCount === 18 || wordCount === 21 || wordCount === 24;
     });
     
     if (possibleMnemonics.length > 0) {
