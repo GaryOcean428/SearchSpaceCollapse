@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { API_ROUTES, QUERY_KEYS } from "@/api";
+import { API_ROUTES, QUERY_KEYS, get } from "@/api";
 import {
   Card,
   CardContent,
@@ -135,9 +135,8 @@ export function AutonomicAgencyPanel() {
   const { data: status, isLoading, isError, error, refetch } = useQuery<AgencyStatus>({
     queryKey: QUERY_KEYS.qig.autonomicAgencyStatus(),
     queryFn: async () => {
-      const res = await fetch(API_ROUTES.qig.autonomic.agencyStatus);
-      if (!res.ok) throw new Error("Failed to fetch agency status");
-      return res.json();
+      const res = await get<AgencyStatus>(API_ROUTES.qig.autonomic.agencyStatus);
+      return res;
     },
     refetchInterval: 5000,
     retry: 3,
