@@ -647,13 +647,19 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Query BitQuery using GraphQL
+   * Query BitQuery using GraphQL (with proper escaping)
    */
   private async queryBitQueryBalance(address: string): Promise<number> {
+    // Validate Bitcoin address format to prevent injection
+    if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) && 
+        !/^bc1[a-z0-9]{39,87}$/.test(address)) {
+      throw new Error('Invalid Bitcoin address format');
+    }
+    
     const query = `
       query {
         bitcoin {
-          addressStats(address: {is: "${address}"}) {
+          addressStats(address: {is: "${address.replace(/"/g, '\\"')}"}) {
             address {
               balance
             }
@@ -776,13 +782,19 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Query BitQuery address info using GraphQL
+   * Query BitQuery address info using GraphQL (with proper escaping)
    */
   private async queryBitQueryAddressInfo(address: string): Promise<AddressInfo> {
+    // Validate Bitcoin address format to prevent injection
+    if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) && 
+        !/^bc1[a-z0-9]{39,87}$/.test(address)) {
+      throw new Error('Invalid Bitcoin address format');
+    }
+    
     const query = `
       query {
         bitcoin {
-          addressStats(address: {is: "${address}"}) {
+          addressStats(address: {is: "${address.replace(/"/g, '\\"')}"}) {
             address {
               balance
               receiveAmount
