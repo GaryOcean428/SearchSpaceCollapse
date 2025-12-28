@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Prog
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, X } from 'lucide-react';
 import { API_ROUTES } from '@/api';
 import { postMultipart } from '@/api/client';
+import type { MarkdownUploadResponse } from '@shared/schema';
 
 interface SingleFileResult {
   success: boolean;
@@ -40,14 +41,7 @@ export function MarkdownUpload() {
           const formData = new FormData();
           formData.append('file', file);
 
-          const data = await postMultipart<{
-            success: boolean;
-            words_processed?: number;
-            words_learned?: number;
-            unique_words?: number;
-            sample_words?: string[];
-            error?: string;
-          }>(API_ROUTES.learning.upload, formData);
+          const data = await postMultipart<MarkdownUploadResponse>(API_ROUTES.learning.upload, formData);
 
           if (data.success) {
             results.push({
