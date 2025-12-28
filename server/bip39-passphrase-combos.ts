@@ -63,11 +63,11 @@ export const COMMON_BIP39_PASSPHRASES = [
 /**
  * Generate passphrase with year suffix
  */
-export function generateYearSuffixes(basePassphrase: string): string[] {
+export function generateYearSuffixes(basePassphrase: string, endYear: number = new Date().getFullYear()): string[] {
   const suffixes: string[] = [];
   
-  // Bitcoin era years (2009-2024)
-  for (let year = 2009; year <= 2024; year++) {
+  // Bitcoin era years (2009 to current year)
+  for (let year = 2009; year <= endYear; year++) {
     suffixes.push(`${basePassphrase}${year}`);
     suffixes.push(`${basePassphrase} ${year}`);
     suffixes.push(`${basePassphrase}_${year}`);
