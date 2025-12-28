@@ -243,9 +243,12 @@ export function deriveMnemonicAddresses(mnemonic: string, options?: {
         const path = generateBIP44ChangePath(i, account);
         addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip44-change'));
       }
+    }
 
-      // BIP49 P2SH-P2WPKH (3xxx - SegWit compatible)
-      if (config.BIP49_ENABLED) {
+    // BIP49 P2SH-P2WPKH (3xxx - SegWit compatible) - with extended account support
+    if (config.BIP49_ENABLED) {
+      const bip49AccountCount = config.BIP49_ACCOUNT_COUNT || accountCount;
+      for (let account = 0; account < bip49AccountCount; account++) {
         for (let i = 0; i < config.BIP49_RECEIVE_COUNT; i++) {
           const path = generateBIP49Path(i, account, 0);
           addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip49-receive'));
@@ -255,9 +258,12 @@ export function deriveMnemonicAddresses(mnemonic: string, options?: {
           addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip49-change'));
         }
       }
+    }
 
-      // BIP84 Native SegWit P2WPKH (bc1q)
-      if (config.BIP84_ENABLED) {
+    // BIP84 Native SegWit P2WPKH (bc1q) - with extended account support
+    if (config.BIP84_ENABLED) {
+      const bip84AccountCount = config.BIP84_ACCOUNT_COUNT || accountCount;
+      for (let account = 0; account < bip84AccountCount; account++) {
         for (let i = 0; i < config.BIP84_RECEIVE_COUNT; i++) {
           const path = generateBIP84Path(i, account, 0);
           addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip84-receive'));
@@ -267,9 +273,12 @@ export function deriveMnemonicAddresses(mnemonic: string, options?: {
           addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip84-change'));
         }
       }
+    }
 
-      // BIP86 Taproot P2TR (bc1p)
-      if (config.BIP86_ENABLED) {
+    // BIP86 Taproot P2TR (bc1p) - with extended account support
+    if (config.BIP86_ENABLED) {
+      const bip86AccountCount = config.BIP86_ACCOUNT_COUNT || accountCount;
+      for (let account = 0; account < bip86AccountCount; account++) {
         for (let i = 0; i < config.BIP86_RECEIVE_COUNT; i++) {
           const path = generateBIP86Path(i, account, 0);
           addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip86-receive'));
