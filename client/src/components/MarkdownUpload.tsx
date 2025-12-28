@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Button, Progress } from '@/components/ui';
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, X } from 'lucide-react';
 import { API_ROUTES } from '@/api';
+import { postMultipart } from '@/api/client';
 
 interface SingleFileResult {
   success: boolean;
@@ -39,30 +40,26 @@ export function MarkdownUpload() {
           const formData = new FormData();
           formData.append('file', file);
 
-          const response = await fetch(API_ROUTES.learning.upload, {
-            method: 'POST',
-            body: formData,
-          });
+          const data = await postMultipart<{
+            success: boolean;
+            words_processed?: number;
+            words_learned?: number;
+            unique_words?: number;
+            sample_words?: string[];
+            error?: string;
+          }>(API_ROUTES.learning.upload, formData);
 
-          if (!response.ok) {
-            const error = await response.json();
-            results.push({
-              success: false,
-              filename: file.name,
-              words_processed: 0,
-              words_learned: 0,
-              error: error.error || 'Upload failed',
-            });
-          } else {
-            const data = await response.json();
-            results.push({
-              success: true,
-              filename: file.name,
-              words_processed: data.words_processed || 0,
-              words_learned: data.words_learned || 0,
-              unique_words: data.unique_words,
-              sample_words: data.sample_words,
-            });
+          results.push({
+            success: data.success,
+            filename: file.name,
+            words_processed: data.words_processed || 0,
+            words_learned: data.words_learned || 0,
+            unique_words: data.unique_words,
+            sample_words: data.sample_words,
+            error: data.error,
+          });
+          
+          if (data.success) {
             totalWordsProcessed += data.words_processed || 0;
             totalWordsLearned += data.words_learned || 0;
           }
