@@ -651,15 +651,17 @@ export class FreeBlockchainAPI {
    */
   private async queryBitQueryBalance(address: string): Promise<number> {
     // Validate Bitcoin address format to prevent injection
+    // Supports P2PKH (1xxx), P2SH (3xxx), P2WPKH (bc1q), P2TR (bc1p)
     if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) && 
-        !/^bc1[a-z0-9]{39,87}$/.test(address)) {
+        !/^bc1[qp][a-z0-9]{38,87}$/i.test(address)) {
       throw new Error('Invalid Bitcoin address format');
     }
     
+    // Use parameterized query approach (BitQuery supports variables)
     const query = `
-      query {
+      query($address: String!) {
         bitcoin {
-          addressStats(address: {is: "${address.replace(/"/g, '\\"')}"}) {
+          addressStats(address: {is: $address}) {
             address {
               balance
             }
@@ -674,7 +676,10 @@ export class FreeBlockchainAPI {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ 
+          query,
+          variables: { address }
+        }),
       });
       
       if (!response.ok) {
@@ -782,19 +787,21 @@ export class FreeBlockchainAPI {
   }
 
   /**
-   * Query BitQuery address info using GraphQL (with proper escaping)
+   * Query BitQuery address info using GraphQL (with proper parameterization)
    */
   private async queryBitQueryAddressInfo(address: string): Promise<AddressInfo> {
     // Validate Bitcoin address format to prevent injection
+    // Supports P2PKH (1xxx), P2SH (3xxx), P2WPKH (bc1q), P2TR (bc1p)
     if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) && 
-        !/^bc1[a-z0-9]{39,87}$/.test(address)) {
+        !/^bc1[qp][a-z0-9]{38,87}$/i.test(address)) {
       throw new Error('Invalid Bitcoin address format');
     }
     
+    // Use parameterized query approach (BitQuery supports variables)
     const query = `
-      query {
+      query($address: String!) {
         bitcoin {
-          addressStats(address: {is: "${address.replace(/"/g, '\\"')}"}) {
+          addressStats(address: {is: $address}) {
             address {
               balance
               receiveAmount
@@ -812,7 +819,10 @@ export class FreeBlockchainAPI {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ 
+          query,
+          variables: { address }
+        }),
       });
       
       if (!response.ok) {

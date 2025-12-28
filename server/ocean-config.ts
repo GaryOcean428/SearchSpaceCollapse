@@ -375,6 +375,8 @@ export const DerivationPathConfigSchema = z.object({
     .describe('Enable BIP45/BIP48 multisig derivation paths'),
   MULTISIG_BIP45_COUNT: z.number().int().positive().default(50)
     .describe('Number of BIP45 multisig addresses (m/45\'/cointype/account/change/index)'),
+  MULTISIG_BIP45_COSIGNER_COUNT: z.number().int().positive().default(3)
+    .describe('Number of cosigner indices to check for BIP45 multisig'),
   MULTISIG_BIP48_COUNT: z.number().int().positive().default(50)
     .describe('Number of BIP48 multisig addresses (m/48\'/0\'/a\'/script_type\'/change/index)'),
   
@@ -405,6 +407,7 @@ export const DERIVATION_PATH_CONFIG = DerivationPathConfigSchema.parse({
   LEGACY_COUNT: 100,
   MULTISIG_ENABLED: true,
   MULTISIG_BIP45_COUNT: 50,
+  MULTISIG_BIP45_COSIGNER_COUNT: 3,
   MULTISIG_BIP48_COUNT: 50,
   BIP47_ENABLED: true,
   BIP47_COUNT: 20,
