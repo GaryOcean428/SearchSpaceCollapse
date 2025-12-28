@@ -49,19 +49,25 @@ export function MarkdownUpload() {
             error?: string;
           }>(API_ROUTES.learning.upload, formData);
 
-          results.push({
-            success: data.success,
-            filename: file.name,
-            words_processed: data.words_processed || 0,
-            words_learned: data.words_learned || 0,
-            unique_words: data.unique_words,
-            sample_words: data.sample_words,
-            error: data.error,
-          });
-          
           if (data.success) {
+            results.push({
+              success: true,
+              filename: file.name,
+              words_processed: data.words_processed || 0,
+              words_learned: data.words_learned || 0,
+              unique_words: data.unique_words,
+              sample_words: data.sample_words,
+            });
             totalWordsProcessed += data.words_processed || 0;
             totalWordsLearned += data.words_learned || 0;
+          } else {
+            results.push({
+              success: false,
+              filename: file.name,
+              words_processed: 0,
+              words_learned: 0,
+              error: data.error || 'Upload failed',
+            });
           }
         } catch (error: any) {
           results.push({
