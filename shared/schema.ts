@@ -3626,3 +3626,24 @@ export const kernelCareRecords = pgTable(
 
 export type KernelCareRecordRow = typeof kernelCareRecords.$inferSelect;
 export type InsertKernelCareRecord = typeof kernelCareRecords.$inferInsert;
+
+// ============================================================================
+// API RESPONSE SCHEMAS
+// ============================================================================
+
+/**
+ * Markdown Upload Response
+ * 
+ * Response from the markdown file upload endpoint for learning.
+ * Used by MarkdownUpload component.
+ */
+export const markdownUploadResponseSchema = z.object({
+  success: z.boolean(),
+  words_processed: z.number().optional(),
+  words_learned: z.number().optional(),
+  unique_words: z.number().optional(),
+  sample_words: z.array(z.string()).optional(),
+  error: z.string().optional(),
+});
+
+export type MarkdownUploadResponse = z.infer<typeof markdownUploadResponseSchema>;

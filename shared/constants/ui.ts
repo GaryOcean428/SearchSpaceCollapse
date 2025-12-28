@@ -15,27 +15,31 @@ export const BASIN_VISUALIZATION = {
   DIMENSION: 64,
   
   /** Dimension ranges for 3D projection 
-   * The 64D space is divided into three ranges for projection:
-   * - Range 1: dimensions 0-20 (21 dimensions, axis length 21)
-   * - Range 2: dimensions 21-42 (22 dimensions, axis length 22) 
-   * - Range 3: dimensions 43-63 (21 dimensions, axis length 21)
-   * Note: Range 2 has 22 dimensions to account for rounding (21+22+21=64)
+   * The 64D space is divided into three ranges for projection using slice() syntax.
+   * JavaScript slice(start, end) includes start but excludes end (half-open interval [start, end)).
+   * 
+   * - Range 1: slice(0, 21) = dimensions [0-20] = 21 dimensions
+   * - Range 2: slice(21, 43) = dimensions [21-42] = 22 dimensions 
+   * - Range 3: slice(43, 64) = dimensions [43-63] = 21 dimensions
+   * 
+   * Total: 21 + 22 + 21 = 64 dimensions
+   * Note: Range 2 has 22 dimensions to evenly partition the 64D space
    */
   PROJECTION_RANGES: {
-    /** First projection range (dimensions 0-20, 21 dimensions) */
+    /** First projection range: slice(0, 21) = dimensions [0-20] = 21 dimensions */
     RANGE_1_START: 0,
-    RANGE_1_END: 21,
-    RANGE_1_AXIS: 21,  // end - start
+    RANGE_1_END: 21,  // Exclusive (slice behavior)
+    RANGE_1_AXIS: 21,  // Number of dimensions
     
-    /** Second projection range (dimensions 21-42, 22 dimensions) */
+    /** Second projection range: slice(21, 43) = dimensions [21-42] = 22 dimensions */
     RANGE_2_START: 21,
-    RANGE_2_END: 43,
-    RANGE_2_AXIS: 22,  // end - start (one extra to reach 64 total)
+    RANGE_2_END: 43,  // Exclusive (slice behavior)
+    RANGE_2_AXIS: 22,  // Number of dimensions (one extra for even partition)
     
-    /** Third projection range (dimensions 43-63, 21 dimensions) */
+    /** Third projection range: slice(43, 64) = dimensions [43-63] = 21 dimensions */
     RANGE_3_START: 43,
-    RANGE_3_END: 64,
-    RANGE_3_AXIS: 21,  // end - start
+    RANGE_3_END: 64,  // Exclusive (slice behavior)
+    RANGE_3_AXIS: 21,  // Number of dimensions
   },
   
   /** Color thresholds for basin health */
