@@ -3,6 +3,18 @@ import { scoreUniversalQIGAsync } from './qig-universal';
 import { generateBitcoinAddress, deriveBIP32Address } from './crypto';
 import { historicalDataMiner, type Era } from './historical-data-miner';
 import { queueAddressForBalanceCheck } from './balance-queue-integration';
+import { 
+  generateHistoricalPhrases, 
+  generateKeywordVariations,
+  getHighPriorityKeywords,
+  COMMON_PASSWORDS_2009_2013,
+  recordKeywordAttempt 
+} from './historical-keywords';
+import { 
+  generateAllTypoVariations,
+  generateWeightedTypos,
+  type WeightedTypo
+} from './typo-generation';
 
 export interface EvidenceLink {
   source: string;
@@ -286,6 +298,12 @@ export class InvestigationAgent {
           regime: qigResult.regime,
           inResonance: Math.abs(qigResult.kappa - 64) < 10,
         };
+        
+        // Record keyword attempt for statistical learning
+        const words = hypo.phrase.toLowerCase().split(/\s+/);
+        for (const word of words) {
+          recordKeywordAttempt(word, !!hypo.match, qigResult.phi);
+        }
         
         tested.push(hypo);
         this.memory.testedHypotheses.push(hypo);
@@ -616,6 +634,15 @@ export class InvestigationAgent {
   private generateWordVariations(word: string): string[] {
     const variations: string[] = [];
     
+    // Use advanced typo generation service
+    const typoVariations = generateAllTypoVariations(word, 10);
+    variations.push(...typoVariations);
+    
+    // Historical keyword variations
+    const historicalVariations = generateKeywordVariations(word);
+    variations.push(...historicalVariations);
+    
+    // Original basic variations (keep for backwards compatibility)
     variations.push(word);
     variations.push(word.toLowerCase());
     variations.push(word.toUpperCase());
@@ -647,18 +674,31 @@ export class InvestigationAgent {
       variations.push(`${word} ${suffix}`);
     }
     
-    return variations.slice(0, 50);
+    // Remove duplicates and limit
+    return [...new Set(variations)].slice(0, 100);
   }
   
   private generateExploratoryPhrases(): string[] {
+    const phrases: string[] = [];
+    
+    // Add historical keyword-based phrases (2009-2013 era)
+    const historicalPhrases = generateHistoricalPhrases(50);
+    phrases.push(...historicalPhrases);
+    
+    // Add common passwords from the era
+    phrases.push(...COMMON_PASSWORDS_2009_2013.slice(0, 30));
+    
+    // Add high-priority historical keywords
+    const highPriorityKeywords = getHighPriorityKeywords(0.8);
+    phrases.push(...highPriorityKeywords.slice(0, 30));
+    
+    // Original exploratory patterns
     const themes = [
       'freedom', 'liberty', 'revolution', 'cypherpunk', 'privacy',
       'anonymous', 'decentralized', 'peer', 'network', 'genesis',
       'satoshi', 'nakamoto', 'bitcoin', 'crypto', 'hash',
       'proof', 'work', 'chain', 'block', 'coin',
     ];
-    
-    const phrases: string[] = [];
     
     for (const theme of themes) {
       phrases.push(theme);
@@ -673,7 +713,7 @@ export class InvestigationAgent {
       }
     }
     
-    return phrases;
+    return [...new Set(phrases)]; // Remove duplicates
   }
   
   private perturbPhrase(phrase: string, _radius: number): string[] {
