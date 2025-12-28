@@ -325,70 +325,89 @@ export type StrategyWeighting = z.infer<typeof StrategyWeightingSchema>;
 
 export const DerivationPathConfigSchema = z.object({
   // BIP44 Legacy P2PKH (1xxx addresses)
-  BIP44_RECEIVE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP44 receive addresses to derive (m/44\'/0\'/a\'/0/i)'),
-  BIP44_CHANGE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP44 change addresses to derive (m/44\'/0\'/a\'/1/i)'),
-  BIP44_ACCOUNT_COUNT: z.number().int().positive().default(5)
-    .describe('Number of accounts to check (0-4)'),
+  BIP44_RECEIVE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP44 receive addresses to derive (m/44\'/0\'/a\'/0/i) - increased to 100 for better coverage'),
+  BIP44_CHANGE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP44 change addresses to derive (m/44\'/0\'/a\'/1/i) - increased to 100 for better coverage'),
+  BIP44_ACCOUNT_COUNT: z.number().int().positive().default(10)
+    .describe('Number of accounts to check (0-9) - increased from 5 to 10 for account rollover'),
 
   // BIP49 P2SH-P2WPKH (3xxx addresses - SegWit compatible)
   BIP49_ENABLED: z.boolean().default(true)
     .describe('Enable BIP49 derivation'),
-  BIP49_RECEIVE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP49 receive addresses (m/49\'/0\'/a\'/0/i)'),
-  BIP49_CHANGE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP49 change addresses (m/49\'/0\'/a\'/1/i)'),
+  BIP49_RECEIVE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP49 receive addresses (m/49\'/0\'/a\'/0/i) - increased to match BIP44'),
+  BIP49_CHANGE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP49 change addresses (m/49\'/0\'/a\'/1/i) - increased to match BIP44'),
 
   // BIP84 Native SegWit P2WPKH (bc1q addresses)
   BIP84_ENABLED: z.boolean().default(true)
     .describe('Enable BIP84 derivation'),
-  BIP84_RECEIVE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP84 receive addresses (m/84\'/0\'/a\'/0/i)'),
-  BIP84_CHANGE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP84 change addresses (m/84\'/0\'/a\'/1/i)'),
+  BIP84_RECEIVE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP84 receive addresses (m/84\'/0\'/a\'/0/i) - increased to match BIP44'),
+  BIP84_CHANGE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP84 change addresses (m/84\'/0\'/a\'/1/i) - increased to match BIP44'),
 
   // BIP86 Taproot P2TR (bc1p addresses)
   BIP86_ENABLED: z.boolean().default(true)
     .describe('Enable BIP86 Taproot derivation'),
-  BIP86_RECEIVE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP86 Taproot addresses (m/86\'/0\'/a\'/0/i)'),
-  BIP86_CHANGE_COUNT: z.number().int().positive().default(50)
-    .describe('Number of BIP86 Taproot change addresses (m/86\'/0\'/a\'/1/i)'),
+  BIP86_RECEIVE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP86 Taproot addresses (m/86\'/0\'/a\'/0/i) - increased to match BIP44'),
+  BIP86_CHANGE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of BIP86 Taproot change addresses (m/86\'/0\'/a\'/1/i) - increased to match BIP44'),
 
   // Electrum legacy paths
   ELECTRUM_ENABLED: z.boolean().default(true)
     .describe('Enable Electrum legacy paths'),
-  ELECTRUM_RECEIVE_COUNT: z.number().int().positive().default(20)
-    .describe('Number of Electrum addresses (m/0/i)'),
-  ELECTRUM_CHANGE_COUNT: z.number().int().positive().default(20)
-    .describe('Number of Electrum change addresses (m/1/i)'),
+  ELECTRUM_RECEIVE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of Electrum addresses (m/0/i) - increased for better coverage'),
+  ELECTRUM_CHANGE_COUNT: z.number().int().positive().default(100)
+    .describe('Number of Electrum change addresses (m/1/i) - increased for better coverage'),
 
   // Legacy pre-BIP44 paths
   LEGACY_ENABLED: z.boolean().default(true)
     .describe('Enable legacy pre-BIP44 paths'),
-  LEGACY_COUNT: z.number().int().positive().default(20)
-    .describe('Number of legacy addresses (m/0/i simple)'),
+  LEGACY_COUNT: z.number().int().positive().default(100)
+    .describe('Number of legacy addresses (m/0/i simple) - increased for better coverage'),
+  
+  // BIP45/BIP48 Multisig paths
+  MULTISIG_ENABLED: z.boolean().default(true)
+    .describe('Enable BIP45/BIP48 multisig derivation paths'),
+  MULTISIG_BIP45_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP45 multisig addresses (m/45\'/cointype/account/change/index)'),
+  MULTISIG_BIP48_COUNT: z.number().int().positive().default(50)
+    .describe('Number of BIP48 multisig addresses (m/48\'/0\'/a\'/script_type\'/change/index)'),
+  
+  // BIP47 Payment Codes
+  BIP47_ENABLED: z.boolean().default(true)
+    .describe('Enable BIP47 reusable payment code derivation'),
+  BIP47_COUNT: z.number().int().positive().default(20)
+    .describe('Number of BIP47 payment code addresses to derive'),
 });
 
 export const DERIVATION_PATH_CONFIG = DerivationPathConfigSchema.parse({
-  BIP44_RECEIVE_COUNT: 50,
-  BIP44_CHANGE_COUNT: 50,
-  BIP44_ACCOUNT_COUNT: 5,
+  BIP44_RECEIVE_COUNT: 100,
+  BIP44_CHANGE_COUNT: 100,
+  BIP44_ACCOUNT_COUNT: 10,
   BIP49_ENABLED: true,
-  BIP49_RECEIVE_COUNT: 50,
-  BIP49_CHANGE_COUNT: 50,
+  BIP49_RECEIVE_COUNT: 100,
+  BIP49_CHANGE_COUNT: 100,
   BIP84_ENABLED: true,
-  BIP84_RECEIVE_COUNT: 50,
-  BIP84_CHANGE_COUNT: 50,
+  BIP84_RECEIVE_COUNT: 100,
+  BIP84_CHANGE_COUNT: 100,
   BIP86_ENABLED: true,
-  BIP86_RECEIVE_COUNT: 50,
-  BIP86_CHANGE_COUNT: 50,
+  BIP86_RECEIVE_COUNT: 100,
+  BIP86_CHANGE_COUNT: 100,
   ELECTRUM_ENABLED: true,
-  ELECTRUM_RECEIVE_COUNT: 20,
-  ELECTRUM_CHANGE_COUNT: 20,
+  ELECTRUM_RECEIVE_COUNT: 100,
+  ELECTRUM_CHANGE_COUNT: 100,
   LEGACY_ENABLED: true,
-  LEGACY_COUNT: 20,
+  LEGACY_COUNT: 100,
+  MULTISIG_ENABLED: true,
+  MULTISIG_BIP45_COUNT: 50,
+  MULTISIG_BIP48_COUNT: 50,
+  BIP47_ENABLED: true,
+  BIP47_COUNT: 20,
 });
 
 export type DerivationPathConfig = z.infer<typeof DerivationPathConfigSchema>;
