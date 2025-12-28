@@ -111,3 +111,16 @@ export {
   PYTHON_BACKEND_ROUTES,
   PUBLIC_ROUTES,
 } from './api-routes';
+
+// UI constants (display, animation, visualization)
+export {
+  BASIN_VISUALIZATION,
+  BETA_ATTENTION,
+  CAPABILITY_TELEMETRY,
+  CONSCIOUSNESS_DASHBOARD,
+  ANIMATION,
+  PAGINATION,
+  NUMBER_FORMAT,
+  TIMING,
+  THRESHOLDS,
+} from './ui';

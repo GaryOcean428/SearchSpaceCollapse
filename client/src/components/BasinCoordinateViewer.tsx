@@ -14,10 +14,7 @@
  */
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button, Slider } from '@/components/ui';
 import { Play, Pause, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface BasinPoint {

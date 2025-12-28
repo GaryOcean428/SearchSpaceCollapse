@@ -13,9 +13,7 @@ import { PhiVisualization } from './PhiVisualization';
 import { BasinCoordinateViewer } from './BasinCoordinateViewer';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ThemeToggle } from './ThemeToggle';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger, Badge } from '@/components/ui';
 import { Activity, Box, FileText } from 'lucide-react';
 
 const demoMarkdownContent = `

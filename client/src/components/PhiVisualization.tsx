@@ -22,9 +22,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardDescription, CardHeader, CardTitle, Badge } from '@/components/ui';
 import { AlertTriangle, Activity, TrendingUp, TrendingDown } from 'lucide-react';
 import { useTelemetryStream } from '@/hooks/useTelemetryStream';
 
