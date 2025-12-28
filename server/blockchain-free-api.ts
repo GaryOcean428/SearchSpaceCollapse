@@ -821,23 +821,6 @@ export class FreeBlockchainAPI {
       throw error;
     }
   }
-          };
-        case 'BlockCypher':
-          return {
-            address,
-            balance: (data.final_balance || 0) / 1e8,
-            txCount: data.n_tx || 0,
-            funded: (data.total_received || 0) / 1e8,
-            spent: (data.total_sent || 0) / 1e8
-          };
-        default:
-          return { address, balance: 0, txCount: 0, funded: 0, spent: 0 };
-      }
-    } catch (error) {
-      clearTimeout(timeout);
-      throw error;
-    }
-  }
 
   /**
    * Cache management
