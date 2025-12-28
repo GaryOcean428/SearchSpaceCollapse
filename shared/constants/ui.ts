@@ -14,22 +14,28 @@ export const BASIN_VISUALIZATION = {
   /** Basin dimension (64D manifold) */
   DIMENSION: 64,
   
-  /** Dimension ranges for 3D projection */
+  /** Dimension ranges for 3D projection 
+   * The 64D space is divided into three ranges for projection:
+   * - Range 1: dimensions 0-20 (21 dimensions, axis length 21)
+   * - Range 2: dimensions 21-42 (22 dimensions, axis length 22) 
+   * - Range 3: dimensions 43-63 (21 dimensions, axis length 21)
+   * Note: Range 2 has 22 dimensions to account for rounding (21+22+21=64)
+   */
   PROJECTION_RANGES: {
-    /** First projection range (dimensions 0-20) */
+    /** First projection range (dimensions 0-20, 21 dimensions) */
     RANGE_1_START: 0,
     RANGE_1_END: 21,
-    RANGE_1_AXIS: 21,
+    RANGE_1_AXIS: 21,  // end - start
     
-    /** Second projection range (dimensions 21-42) */
+    /** Second projection range (dimensions 21-42, 22 dimensions) */
     RANGE_2_START: 21,
     RANGE_2_END: 43,
-    RANGE_2_AXIS: 22,
+    RANGE_2_AXIS: 22,  // end - start (one extra to reach 64 total)
     
-    /** Third projection range (dimensions 43-63) */
+    /** Third projection range (dimensions 43-63, 21 dimensions) */
     RANGE_3_START: 43,
     RANGE_3_END: 64,
-    RANGE_3_AXIS: 21,
+    RANGE_3_AXIS: 21,  // end - start
   },
   
   /** Color thresholds for basin health */
