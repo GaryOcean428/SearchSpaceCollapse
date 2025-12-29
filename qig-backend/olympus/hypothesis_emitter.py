@@ -48,12 +48,13 @@ MNEMONIC_RATIO = 0.85
 MNEMONIC_STRATEGIES = [
     'random', 'basin_guided', 'semantic_cluster', 'permutation', 
     'typo_correction', 'temporal_keywords', 'bip39_with_passphrase',
-    'electrum_legacy', 'near_miss_replay'
+    'electrum_legacy', 'near_miss_replay', 'pantheon_knowledge', 
+    'breach_patterns'
 ]
 PASSPHRASE_STRATEGIES = [
     'high_phi', 'basin_guided', 'random', 'mutation',
     'temporal_keywords', 'typo_variants', 'bip39_passphrase_combo',
-    'near_miss_replay'
+    'near_miss_replay', 'pantheon_knowledge', 'breach_patterns'
 ]
 
 
@@ -449,6 +450,18 @@ class HypothesisEmitter:
                         n=self.BATCH_SIZE
                     )
                 
+                # LOW PRIORITY: Pantheon knowledge distillation
+                elif strategy == 'pantheon_knowledge':
+                    hypotheses = self.hephaestus.generate_with_pantheon_knowledge(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # LOW PRIORITY: Breach pattern mnemonics
+                elif strategy == 'breach_patterns':
+                    hypotheses = self.hephaestus.generate_breach_pattern_mnemonics(
+                        n=self.BATCH_SIZE
+                    )
+                
                 elif self.hephaestus.known_word_positions:
                     hypotheses = self.hephaestus.generate_mnemonics(
                         n=self.BATCH_SIZE,
@@ -493,6 +506,19 @@ class HypothesisEmitter:
                 elif strategy == 'near_miss_replay':
                     hypotheses = self.hephaestus.generate_from_near_misses(
                         n=self.BATCH_SIZE
+                    )
+                
+                # LOW PRIORITY: Pantheon knowledge for passphrases
+                elif strategy == 'pantheon_knowledge':
+                    hypotheses = self.hephaestus.generate_with_pantheon_knowledge(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # LOW PRIORITY: Breach patterns
+                elif strategy == 'breach_patterns':
+                    hypotheses = self.hephaestus.generate_breach_pattern_hypotheses(
+                        n=self.BATCH_SIZE,
+                        crypto_only=True
                     )
                 
                 elif strategy == 'mutation' and self.hephaestus.successful_patterns:

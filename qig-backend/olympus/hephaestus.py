@@ -11,6 +11,8 @@ Enhanced with:
 - BIP39 passphrase combinations (25th word)
 - Electrum legacy seed support (pre-BIP39)
 - Near-miss replay buffer (experience replay)
+- Cross-kernel knowledge distillation (share learned patterns)
+- Historical breach data integration (use breach patterns)
 """
 
 import numpy as np
@@ -47,6 +49,17 @@ from .near_miss_replay import (
     get_replay_buffer,
     add_near_miss,
     sample_near_misses
+)
+from .cross_kernel_knowledge import (
+    get_knowledge_base,
+    sync_kernel_knowledge,
+    get_knowledge_for_kernel
+)
+from .breach_patterns import (
+    BreachPatternGenerator,
+    get_high_priority_breach_patterns,
+    get_crypto_specific_breach_patterns,
+    generate_breach_pattern_variants
 )
 
 BIP39_WORDS: set = set()
@@ -867,3 +880,207 @@ class Hephaestus(BaseGod):
         """Get statistics about the near-miss replay buffer"""
         buffer = get_replay_buffer()
         return buffer.get_stats()
+    
+    # ===== Cross-Kernel Knowledge Distillation =====
+    
+    def sync_knowledge_to_pantheon(self) -> Dict[str, int]:
+        """
+        Sync this kernel's knowledge to the shared Olympus knowledge base.
+        
+        Shares:
+        - High-Φ vocabulary words
+        - Successful patterns
+        - Basin anchors
+        
+        Returns statistics about what was synced.
+        """
+        # Prepare vocabulary (only high-Φ words)
+        high_phi_vocab = {
+            word: phi
+            for word, phi in self.word_phi_scores.items()
+            if phi >= 0.6
+        }
+        
+        # Prepare basin anchors (word, phi pairs)
+        high_phi_words = [
+            (word, phi)
+            for word, phi in self.word_phi_scores.items()
+            if phi >= 0.7
+        ]
+        
+        # Sync to knowledge base
+        stats = sync_kernel_knowledge(
+            kernel_name="Hephaestus",
+            vocabulary=high_phi_vocab,
+            successful_patterns=self.successful_patterns,
+            high_phi_words=high_phi_words
+        )
+        
+        return stats
+    
+    def learn_from_pantheon(self, n_patterns: int = 50) -> Dict[str, int]:
+        """
+        Learn from other kernels in the Olympus pantheon.
+        
+        Imports:
+        - Successful patterns from other kernels
+        - Shared vocabulary
+        - Basin anchors for geometric guidance
+        
+        Returns statistics about what was learned.
+        """
+        stats = {
+            'patterns_learned': 0,
+            'vocabulary_learned': 0,
+            'anchors_learned': 0,
+        }
+        
+        # Get knowledge from other kernels
+        knowledge = get_knowledge_for_kernel("Hephaestus", n=n_patterns)
+        
+        # Import patterns
+        for pattern_obj in knowledge.get('patterns', []):
+            if pattern_obj.pattern not in self.successful_patterns:
+                self.successful_patterns.append(pattern_obj.pattern)
+                stats['patterns_learned'] += 1
+        
+        # Import vocabulary
+        for word, phi in knowledge.get('vocabulary', {}).items():
+            if word not in self.vocabulary:
+                self.vocabulary[word] = 1.0
+                self.word_phi_scores[word] = phi
+                stats['vocabulary_learned'] += 1
+        
+        # Import basin anchors (as high-Φ vocabulary)
+        for word, phi in knowledge.get('basin_anchors', []):
+            if word not in self.word_phi_scores or self.word_phi_scores[word] < phi:
+                self.word_phi_scores[word] = phi
+                stats['anchors_learned'] += 1
+        
+        return stats
+    
+    def generate_with_pantheon_knowledge(self, n: int = 50) -> List[str]:
+        """
+        Generate hypotheses using knowledge learned from other kernels.
+        
+        First syncs knowledge from pantheon, then generates hypotheses
+        using the learned patterns.
+        """
+        # Learn from pantheon
+        self.learn_from_pantheon()
+        
+        # Generate hypotheses using learned patterns
+        hypotheses = []
+        
+        kb = get_knowledge_base()
+        patterns = kb.get_patterns_for_kernel("Hephaestus", n=n)
+        
+        for pattern_obj in patterns:
+            # Add the pattern itself
+            hypotheses.append(pattern_obj.pattern)
+            
+            # Generate variations if it looks like a passphrase
+            if len(pattern_obj.pattern.split()) <= 5:
+                # Try typo variations
+                typo_vars = generate_all_typo_variations(pattern_obj.pattern, max_variants=2)
+                for typo_var in typo_vars:
+                    hypotheses.append(typo_var.variant)
+        
+        return list(set(hypotheses[:n]))
+    
+    # ===== Historical Breach Data Integration =====
+    
+    def generate_breach_pattern_hypotheses(
+        self,
+        n: int = 50,
+        wallet_year: Optional[int] = None,
+        crypto_only: bool = False
+    ) -> List[str]:
+        """
+        Generate hypotheses based on historical breach patterns.
+        
+        Uses patterns from known data breaches (2009-2013 era) as seeds.
+        Many users reuse passwords across services, including Bitcoin wallets.
+        
+        Args:
+            n: Number of hypotheses to generate
+            wallet_year: Year wallet was created (for temporal filtering)
+            crypto_only: Only use crypto-specific breach patterns
+        
+        Returns:
+            List of password hypotheses based on breach patterns
+        """
+        generator = BreachPatternGenerator(wallet_year=wallet_year)
+        
+        if crypto_only:
+            # Get crypto-specific patterns
+            base_patterns = get_crypto_specific_breach_patterns()
+            hypotheses = []
+            
+            for pattern in base_patterns:
+                hypotheses.append(pattern)
+                # Add common variants
+                variants = generate_breach_pattern_variants(pattern, max_variants=3)
+                hypotheses.extend(variants)
+        else:
+            # Get all breach patterns with variants
+            hypotheses = generator.generate_hypotheses(
+                n=n,
+                include_crypto=True,
+                include_leetspeak=True,
+                temporal_filter=wallet_year is not None
+            )
+        
+        self.passphrase_generated_count += len(hypotheses)
+        return list(set(hypotheses[:n]))
+    
+    def generate_breach_pattern_mnemonics(
+        self,
+        n: int = 50,
+        wallet_year: Optional[int] = None
+    ) -> List[str]:
+        """
+        Generate mnemonics seeded with breach pattern words.
+        
+        Combines BIP39 words with patterns from historical breaches.
+        For example, if "bitcoin123" is a common breach pattern,
+        we might generate mnemonics with BIP39 words that start with 'b'.
+        """
+        if not self.bip39_words:
+            return []
+        
+        mnemonics = []
+        
+        # Get high-priority breach patterns
+        breach_patterns = get_high_priority_breach_patterns()
+        
+        for pattern in breach_patterns[:20]:
+            # Extract first letters from pattern words
+            pattern_words = pattern.lower().split()
+            
+            # Build mnemonic using BIP39 words with similar starting letters
+            mnemonic_words = []
+            for word in pattern_words[:4]:  # Use first 4 words max
+                if len(word) > 0:
+                    candidates = [w for w in self.bip39_words if w.startswith(word[0])]
+                    if candidates:
+                        mnemonic_words.append(random.choice(candidates))
+            
+            # Fill to 12 words
+            while len(mnemonic_words) < 12:
+                mnemonic_words.append(random.choice(self.bip39_words))
+            
+            mnemonics.append(' '.join(mnemonic_words[:12]))
+        
+        self.mnemonic_generated_count += len(mnemonics)
+        return list(set(mnemonics[:n]))
+    
+    def get_breach_pattern_stats(self) -> Dict:
+        """Get statistics about available breach patterns"""
+        generator = BreachPatternGenerator()
+        return generator.get_stats()
+    
+    def get_pantheon_knowledge_stats(self) -> Dict:
+        """Get statistics about the pantheon knowledge base"""
+        kb = get_knowledge_base()
+        return kb.get_stats()

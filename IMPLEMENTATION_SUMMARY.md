@@ -41,21 +41,33 @@ This PR successfully wires all enhanced hypothesis generation modules into the P
    - Priority-based sampling
    - Phi score and geometric distance tracking
 
+6. **qig-backend/olympus/cross_kernel_knowledge.py** (406 lines) ⭐ NEW
+   - Cross-kernel knowledge distillation
+   - Shared vocabulary and basin anchors
+   - Pattern transfer between kernels
+   - Relevance scoring with time decay
+
+7. **qig-backend/olympus/breach_patterns.py** (364 lines) ⭐ NEW
+   - Historical breach pattern integration
+   - Leetspeak transformations
+   - Temporal filtering (2009-2013)
+   - Crypto-specific patterns
+
 ## Files Modified (2 core files)
 
 1. **qig-backend/olympus/hephaestus.py**
-   - Added imports for all 5 new modules
-   - Added 9 new hypothesis generation methods
+   - Added imports for all 7 new modules (+2 for low priority)
+   - Added 16 new hypothesis generation methods (+7 for low priority)
    - Enhanced existing typo correction with new module
 
 2. **qig-backend/olympus/hypothesis_emitter.py**
-   - Updated MNEMONIC_STRATEGIES (added 4 new strategies)
-   - Updated PASSPHRASE_STRATEGIES (added 4 new strategies)
+   - Updated MNEMONIC_STRATEGIES (added 6 new strategies, +2 for low priority)
+   - Updated PASSPHRASE_STRATEGIES (added 6 new strategies, +2 for low priority)
    - Modified `_generate_batch()` to use all new strategies
 
 ## New Strategies Available
 
-### Mnemonic Generation (9 total strategies)
+### Mnemonic Generation (11 total strategies, +2 new)
 - `random` - Pure random selection
 - `basin_guided` - Fisher-Rao distance guided
 - `semantic_cluster` - Semantically similar words
@@ -65,8 +77,10 @@ This PR successfully wires all enhanced hypothesis generation modules into the P
 - **`bip39_with_passphrase`** ⭐ NEW - Mnemonic + passphrase combos
 - **`electrum_legacy`** ⭐ NEW - Pre-BIP39 Electrum seeds
 - **`near_miss_replay`** ⭐ NEW - Replay near-misses
+- **`pantheon_knowledge`** ⭐⭐ LOW PRIORITY - Learn from other kernels
+- **`breach_patterns`** ⭐⭐ LOW PRIORITY - Historical breach patterns
 
-### Passphrase Generation (8 total strategies)
+### Passphrase Generation (10 total strategies, +2 new)
 - `high_phi` - High consciousness words
 - `basin_guided` - Geometrically guided
 - `random` - Random phrases
@@ -75,6 +89,8 @@ This PR successfully wires all enhanced hypothesis generation modules into the P
 - **`typo_variants`** ⭐ NEW - Typo variations
 - **`bip39_passphrase_combo`** ⭐ NEW - 25th word variants
 - **`near_miss_replay`** ⭐ NEW - Replay near-misses
+- **`pantheon_knowledge`** ⭐⭐ LOW PRIORITY - Learn from other kernels
+- **`breach_patterns`** ⭐⭐ LOW PRIORITY - Historical breach patterns
 
 ## Testing
 
@@ -85,6 +101,8 @@ python3 -c "
 import typo_generator
 import temporal_keywords
 import bip39_passphrase_combos
+import cross_kernel_knowledge
+import breach_patterns
 
 # Test typo generation
 typos = typo_generator.generate_all_typo_variations('satoshi', max_variants=5)
@@ -152,14 +170,23 @@ To verify the integration is working:
 - **Consciousness-Guided**: Phi scores for prioritization
 - **Experience Replay**: Learns from "almost correct" hypotheses
 
-## What's NOT Implemented (Lower Priority)
+## All Features Complete ✅
 
-Per the requirements, these were marked as lower priority:
+All requirements have been implemented, including the low-priority items:
 
-1. **Cross-kernel knowledge distillation** - Share learned patterns between kernels
-2. **Historical breach data integration** - Use known breach passwords as seeds
+### High Priority (Complete)
+1. ✅ **Wire enhanced modules to HypothesisEmitter** - All modules ported to Python and integrated
+2. ✅ **Typo generator** - Full implementation with 5 typo types
+3. ✅ **Temporal keywords** - 2009-2013 Bitcoin era keywords
+4. ✅ **BIP39 passphrase combos** - "25th word" passphrase variations
 
-These can be added in future iterations if needed, but all HIGH and MEDIUM priority requirements are complete.
+### Medium Priority (Complete)
+5. ✅ **Electrum legacy seeds** - Pre-BIP39 Electrum wallet support
+6. ✅ **Near-miss replay buffers** - Experience replay buffer
+
+### Low Priority (NOW COMPLETE)
+7. ✅ **Cross-kernel knowledge distillation** - Share learned patterns between kernels (NEW)
+8. ✅ **Historical breach data integration** - Use known breach passwords as seeds (NEW)
 
 ## Dependencies
 
