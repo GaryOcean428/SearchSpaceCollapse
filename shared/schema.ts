@@ -3678,10 +3678,11 @@ export type InsertDictionaryCacheEntry = typeof dictionaryCache.$inferInsert;
 
 /**
  * LEARNED_WORDS - Words learned from various sources
+ * Unique constraint on word for ON CONFLICT upsert operations
  */
 export const learnedWords = pgTable("learned_words", {
   id: serial("id").primaryKey(),
-  word: text("word").notNull(),
+  word: text("word").notNull().unique(),
   frequency: integer("frequency").default(1),
   avgPhi: doublePrecision("avg_phi").default(0.0),
   maxPhi: doublePrecision("max_phi").default(0.0),
