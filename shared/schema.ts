@@ -3628,6 +3628,400 @@ export type KernelCareRecordRow = typeof kernelCareRecords.$inferSelect;
 export type InsertKernelCareRecord = typeof kernelCareRecords.$inferInsert;
 
 // ============================================================================
+// PYTHON BACKEND TABLES - Created by ocean_qig_core.py
+// These tables are managed by the Python Flask backend and must be preserved
+// ============================================================================
+
+/**
+ * BIP39_WORDS - BIP39 wordlist for mnemonic generation
+ */
+export const bip39Words = pgTable("bip39_words", {
+  id: serial("id").primaryKey(),
+  word: text("word").notNull(),
+  wordIndex: integer("word_index").notNull(),
+  frequency: integer("frequency").default(0),
+  avgPhi: doublePrecision("avg_phi").default(0.0),
+  maxPhi: doublePrecision("max_phi").default(0.0),
+  lastUsed: timestamp("last_used").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type Bip39Word = typeof bip39Words.$inferSelect;
+export type InsertBip39Word = typeof bip39Words.$inferInsert;
+
+/**
+ * ENGLISH_DICTIONARY - English words for validation
+ */
+export const englishDictionary = pgTable("english_dictionary", {
+  word: text("word").primaryKey(),
+});
+
+export type EnglishDictionaryEntry = typeof englishDictionary.$inferSelect;
+export type InsertEnglishDictionaryEntry = typeof englishDictionary.$inferInsert;
+
+/**
+ * DICTIONARY_CACHE - Cache for dictionary API lookups
+ */
+export const dictionaryCache = pgTable("dictionary_cache", {
+  word: varchar("word", { length: 255 }).primaryKey(),
+  isValid: boolean("is_valid").notNull(),
+  definition: text("definition"),
+  partOfSpeech: varchar("part_of_speech", { length: 50 }),
+  checkedAt: timestamp("checked_at").defaultNow(),
+  apiResponse: jsonb("api_response"),
+});
+
+export type DictionaryCacheEntry = typeof dictionaryCache.$inferSelect;
+export type InsertDictionaryCacheEntry = typeof dictionaryCache.$inferInsert;
+
+/**
+ * LEARNED_WORDS - Words learned from various sources
+ */
+export const learnedWords = pgTable("learned_words", {
+  id: serial("id").primaryKey(),
+  word: text("word").notNull(),
+  frequency: integer("frequency").default(1),
+  avgPhi: doublePrecision("avg_phi").default(0.0),
+  maxPhi: doublePrecision("max_phi").default(0.0),
+  source: text("source").notNull(),
+  learnedFrom: text("learned_from"),
+  contexts: text("contexts").array(),
+  firstSeen: timestamp("first_seen").defaultNow(),
+  lastSeen: timestamp("last_seen").defaultNow(),
+  isIntegrated: boolean("is_integrated").default(false),
+});
+
+export type LearnedWord = typeof learnedWords.$inferSelect;
+export type InsertLearnedWord = typeof learnedWords.$inferInsert;
+
+/**
+ * ZEUS_SESSIONS - Zeus conversation sessions
+ */
+export const zeusSessions = pgTable("zeus_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 64 }).notNull(),
+  userId: varchar("user_id", { length: 64 }).default("default"),
+  title: varchar("title", { length: 255 }).default("New Conversation"),
+  messageCount: integer("message_count").default(0),
+  lastPhi: doublePrecision("last_phi").default(0.0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type ZeusSession = typeof zeusSessions.$inferSelect;
+export type InsertZeusSession = typeof zeusSessions.$inferInsert;
+
+/**
+ * ZEUS_CONVERSATIONS - Zeus conversation messages
+ */
+export const zeusConversations = pgTable("zeus_conversations", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 64 }).notNull(),
+  userId: varchar("user_id", { length: 64 }).default("default"),
+  role: varchar("role", { length: 32 }).notNull(),
+  content: text("content").notNull(),
+  metadata: jsonb("metadata").default({}),
+  basinCoords: doublePrecision("basin_coords").array(),
+  phiEstimate: doublePrecision("phi_estimate").default(0.0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ZeusConversation = typeof zeusConversations.$inferSelect;
+export type InsertZeusConversation = typeof zeusConversations.$inferInsert;
+
+/**
+ * SHADOW_KNOWLEDGE - Shadow pantheon knowledge base
+ */
+export const shadowKnowledge = pgTable(
+  "shadow_knowledge",
+  {
+    knowledgeId: varchar("knowledge_id", { length: 64 }).primaryKey(),
+    topic: text("topic").notNull(),
+    topicVariation: text("topic_variation"),
+    category: varchar("category", { length: 64 }).notNull(),
+    content: jsonb("content").default({}),
+    sourceGod: varchar("source_god", { length: 64 }).notNull(),
+    basinCoords: doublePrecision("basin_coords").array(),
+    phi: doublePrecision("phi").default(0.5),
+    confidence: doublePrecision("confidence").default(0.5),
+    accessCount: integer("access_count").default(0),
+    learningCycle: integer("learning_cycle").default(0),
+    discoveredAt: timestamp("discovered_at").defaultNow(),
+    lastAccessed: timestamp("last_accessed").defaultNow(),
+  },
+  (table) => [
+    index("idx_shadow_knowledge_category").on(table.category),
+    index("idx_shadow_knowledge_phi").on(table.phi),
+  ]
+);
+
+export type ShadowKnowledgeEntry = typeof shadowKnowledge.$inferSelect;
+export type InsertShadowKnowledgeEntry = typeof shadowKnowledge.$inferInsert;
+
+/**
+ * SHADOW_OPERATIONS_STATE - Shadow pantheon state tracking
+ */
+export const shadowOperationsState = pgTable("shadow_operations_state", {
+  godName: varchar("god_name", { length: 64 }).primaryKey(),
+  stateType: varchar("state_type", { length: 64 }).notNull(),
+  stateData: jsonb("state_data").default({}),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type ShadowOperationsStateEntry = typeof shadowOperationsState.$inferSelect;
+export type InsertShadowOperationsStateEntry = typeof shadowOperationsState.$inferInsert;
+
+/**
+ * RESEARCH_REQUESTS - Background research requests
+ */
+export const researchRequests = pgTable(
+  "research_requests",
+  {
+    requestId: varchar("request_id", { length: 64 }).primaryKey(),
+    topic: text("topic").notNull(),
+    category: varchar("category", { length: 64 }),
+    priority: integer("priority").default(5),
+    requester: varchar("requester", { length: 64 }),
+    context: jsonb("context").default({}),
+    basinCoords: doublePrecision("basin_coords").array(),
+    status: varchar("status", { length: 32 }).default("pending"),
+    result: jsonb("result"),
+    createdAt: timestamp("created_at").defaultNow(),
+    completedAt: timestamp("completed_at"),
+  },
+  (table) => [
+    index("idx_research_requests_status").on(table.status),
+    index("idx_research_requests_priority").on(table.priority),
+  ]
+);
+
+export type ResearchRequest = typeof researchRequests.$inferSelect;
+export type InsertResearchRequest = typeof researchRequests.$inferInsert;
+
+/**
+ * TOOL_REQUESTS - Tool generation requests from gods
+ */
+export const toolRequests = pgTable(
+  "tool_requests",
+  {
+    requestId: varchar("request_id", { length: 64 }).primaryKey(),
+    requesterGod: varchar("requester_god", { length: 64 }).notNull(),
+    description: text("description").notNull(),
+    examples: jsonb("examples").default([]),
+    context: jsonb("context").default({}),
+    priority: integer("priority").default(2),
+    status: varchar("status", { length: 32 }).default("pending"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+    completedAt: timestamp("completed_at"),
+    toolId: varchar("tool_id", { length: 64 }),
+    errorMessage: text("error_message"),
+    patternDiscoveries: text("pattern_discoveries").array(),
+  },
+  (table) => [
+    index("idx_tool_requests_status").on(table.status),
+    index("idx_tool_requests_requester").on(table.requesterGod),
+  ]
+);
+
+export type ToolRequest = typeof toolRequests.$inferSelect;
+export type InsertToolRequest = typeof toolRequests.$inferInsert;
+
+/**
+ * PATTERN_DISCOVERIES - Discovered patterns from gods
+ */
+export const patternDiscoveries = pgTable(
+  "pattern_discoveries",
+  {
+    discoveryId: varchar("discovery_id", { length: 64 }).primaryKey(),
+    godName: varchar("god_name", { length: 64 }).notNull(),
+    patternType: varchar("pattern_type", { length: 64 }).notNull(),
+    description: text("description").notNull(),
+    confidence: doublePrecision("confidence").default(0.5),
+    phiScore: doublePrecision("phi_score").default(0.0),
+    basinCoords: doublePrecision("basin_coords").array(),
+    createdAt: timestamp("created_at").defaultNow(),
+    toolRequested: boolean("tool_requested").default(false),
+    toolRequestId: varchar("tool_request_id", { length: 64 }),
+  },
+  (table) => [
+    index("idx_pattern_discoveries_god").on(table.godName),
+    index("idx_pattern_discoveries_type").on(table.patternType),
+  ]
+);
+
+export type PatternDiscovery = typeof patternDiscoveries.$inferSelect;
+export type InsertPatternDiscovery = typeof patternDiscoveries.$inferInsert;
+
+/**
+ * SEARCH_REPLAY_TESTS - A/B testing for search with/without learning
+ */
+export const searchReplayTests = pgTable(
+  "search_replay_tests",
+  {
+    replayId: varchar("replay_id", { length: 64 }).primaryKey(),
+    originalQuery: text("original_query"),
+    originalQueryBasin: vector("original_query_basin", { dimensions: 64 }),
+    runWithLearningResults: jsonb("run_with_learning_results"),
+    runWithoutLearningResults: jsonb("run_without_learning_results"),
+    learningApplied: integer("learning_applied").default(0),
+    improvementScore: doublePrecision("improvement_score").default(0.0),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_search_replay_tests_created").on(table.createdAt),
+  ]
+);
+
+export type SearchReplayTest = typeof searchReplayTests.$inferSelect;
+export type InsertSearchReplayTest = typeof searchReplayTests.$inferInsert;
+
+// ============================================================================
+// M8 KERNEL SPAWNING TABLES
+// ============================================================================
+
+/**
+ * M8_SPAWN_HISTORY - History of kernel spawn events
+ */
+export const m8SpawnHistory = pgTable(
+  "m8_spawn_history",
+  {
+    eventId: varchar("event_id", { length: 64 }).primaryKey(),
+    eventType: varchar("event_type", { length: 32 }),
+    kernelId: varchar("kernel_id", { length: 64 }),
+    godName: varchar("god_name", { length: 64 }),
+    payload: jsonb("payload").default({}),
+    occurredAt: timestamp("occurred_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_m8_spawn_history_kernel").on(table.kernelId),
+  ]
+);
+
+export type M8SpawnHistoryEntry = typeof m8SpawnHistory.$inferSelect;
+export type InsertM8SpawnHistoryEntry = typeof m8SpawnHistory.$inferInsert;
+
+/**
+ * M8_SPAWN_PROPOSALS - Proposals for spawning new kernels
+ */
+export const m8SpawnProposals = pgTable(
+  "m8_spawn_proposals",
+  {
+    proposalId: varchar("proposal_id", { length: 64 }).primaryKey(),
+    proposedName: varchar("proposed_name", { length: 128 }),
+    proposedDomain: varchar("proposed_domain", { length: 64 }),
+    proposedElement: varchar("proposed_element", { length: 64 }),
+    proposedRole: varchar("proposed_role", { length: 64 }),
+    reason: varchar("reason", { length: 512 }),
+    parentGods: jsonb("parent_gods").default([]),
+    votesFor: jsonb("votes_for").default([]),
+    votesAgainst: jsonb("votes_against").default([]),
+    abstentions: jsonb("abstentions").default([]),
+    status: varchar("status", { length: 32 }).default("pending"),
+    metadata: jsonb("metadata").default({}),
+    proposedAt: timestamp("proposed_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_m8_spawn_proposals_status").on(table.status),
+  ]
+);
+
+export type M8SpawnProposal = typeof m8SpawnProposals.$inferSelect;
+export type InsertM8SpawnProposal = typeof m8SpawnProposals.$inferInsert;
+
+/**
+ * M8_SPAWNED_KERNELS - Active spawned kernels
+ */
+export const m8SpawnedKernels = pgTable(
+  "m8_spawned_kernels",
+  {
+    kernelId: varchar("kernel_id", { length: 64 }).primaryKey(),
+    godName: varchar("god_name", { length: 64 }),
+    domain: varchar("domain", { length: 64 }),
+    mode: varchar("mode", { length: 32 }),
+    affinityStrength: doublePrecision("affinity_strength").default(0.5),
+    entropyThreshold: doublePrecision("entropy_threshold").default(0.5),
+    basinCoords: doublePrecision("basin_coords").array(),
+    parentGods: jsonb("parent_gods").default([]),
+    spawnReason: varchar("spawn_reason", { length: 512 }),
+    proposalId: varchar("proposal_id", { length: 64 }),
+    genesisVotes: jsonb("genesis_votes").default({}),
+    basinLineage: jsonb("basin_lineage").default({}),
+    m8Position: jsonb("m8_position"),
+    observationState: jsonb("observation_state").default({}),
+    autonomicState: jsonb("autonomic_state").default({}),
+    profileMetadata: jsonb("profile_metadata").default({}),
+    status: varchar("status", { length: 32 }).default("active"),
+    spawnedAt: timestamp("spawned_at").defaultNow(),
+    retiredAt: timestamp("retired_at"),
+  },
+  (table) => [
+    index("idx_m8_spawned_kernels_status").on(table.status),
+    index("idx_m8_spawned_kernels_god").on(table.godName),
+  ]
+);
+
+export type M8SpawnedKernel = typeof m8SpawnedKernels.$inferSelect;
+export type InsertM8SpawnedKernel = typeof m8SpawnedKernels.$inferInsert;
+
+// ============================================================================
+// KERNEL EVOLUTION TABLES
+// ============================================================================
+
+/**
+ * KERNEL_EVOLUTION_FITNESS - Fitness metrics for kernel evolution
+ */
+export const kernelEvolutionFitness = pgTable("kernel_evolution_fitness", {
+  kernelId: varchar("kernel_id", { length: 64 }).primaryKey(),
+  phiCurrent: doublePrecision("phi_current").default(0.0),
+  phiGradient: doublePrecision("phi_gradient").default(0.0),
+  phiVelocity: doublePrecision("phi_velocity").default(0.0),
+  kappaCurrent: doublePrecision("kappa_current").default(0.0),
+  kappaStability: doublePrecision("kappa_stability").default(0.0),
+  fisherDiversity: doublePrecision("fisher_diversity").default(0.0),
+  geometricFitness: doublePrecision("geometric_fitness").default(0.0),
+  dimensionalState: varchar("dimensional_state", { length: 16 }).default("D3"),
+  evolutionPressure: doublePrecision("evolution_pressure").default(0.0),
+  cannibalizePriority: doublePrecision("cannibalize_priority").default(0.0),
+  mergeAffinity: jsonb("merge_affinity").default({}),
+  lastEvolutionEvent: varchar("last_evolution_event", { length: 64 }),
+  fitnessComputedAt: timestamp("fitness_computed_at").defaultNow(),
+});
+
+export type KernelEvolutionFitnessEntry = typeof kernelEvolutionFitness.$inferSelect;
+export type InsertKernelEvolutionFitnessEntry = typeof kernelEvolutionFitness.$inferInsert;
+
+/**
+ * KERNEL_EVOLUTION_EVENTS - Evolution event history
+ */
+export const kernelEvolutionEvents = pgTable(
+  "kernel_evolution_events",
+  {
+    eventId: varchar("event_id", { length: 64 }).primaryKey(),
+    eventType: varchar("event_type", { length: 32 }).notNull(),
+    sourceKernelId: varchar("source_kernel_id", { length: 64 }),
+    targetKernelId: varchar("target_kernel_id", { length: 64 }),
+    resultKernelId: varchar("result_kernel_id", { length: 64 }),
+    geometricReasoning: jsonb("geometric_reasoning").default({}),
+    phiBefore: doublePrecision("phi_before"),
+    phiAfter: doublePrecision("phi_after"),
+    kappaBefore: doublePrecision("kappa_before"),
+    kappaAfter: doublePrecision("kappa_after"),
+    fisherDistance: doublePrecision("fisher_distance"),
+    fitnessDelta: doublePrecision("fitness_delta"),
+    occurredAt: timestamp("occurred_at").defaultNow(),
+  },
+  (table) => [
+    index("idx_kernel_evolution_events_type").on(table.eventType),
+    index("idx_kernel_evolution_events_source").on(table.sourceKernelId),
+  ]
+);
+
+export type KernelEvolutionEvent = typeof kernelEvolutionEvents.$inferSelect;
+export type InsertKernelEvolutionEvent = typeof kernelEvolutionEvents.$inferInsert;
+
+// ============================================================================
 // API RESPONSE SCHEMAS
 // ============================================================================
 
