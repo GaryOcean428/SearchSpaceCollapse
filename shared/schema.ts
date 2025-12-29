@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -2987,6 +2988,7 @@ export const searchFeedback = pgTable(
     confirmationsNegative: integer("confirmations_negative").default(0),
     createdAt: timestamp("created_at").defaultNow(),
     lastUsedAt: timestamp("last_used_at"),
+    queryType: varchar("query_type", { length: 64 }),
   },
   (table) => [
     index("idx_search_feedback_outcome").on(table.outcomeQuality),
@@ -3760,13 +3762,20 @@ export type InsertShadowKnowledgeEntry = typeof shadowKnowledge.$inferInsert;
 
 /**
  * SHADOW_OPERATIONS_STATE - Shadow pantheon state tracking
+ * Composite primary key: (god_name, state_type) since same god can have multiple state types
  */
-export const shadowOperationsState = pgTable("shadow_operations_state", {
-  godName: varchar("god_name", { length: 64 }).primaryKey(),
-  stateType: varchar("state_type", { length: 64 }).notNull(),
-  stateData: jsonb("state_data").default({}),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const shadowOperationsState = pgTable(
+  "shadow_operations_state",
+  {
+    godName: varchar("god_name", { length: 64 }).notNull(),
+    stateType: varchar("state_type", { length: 64 }).notNull(),
+    stateData: jsonb("state_data").default({}),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.godName, table.stateType] }),
+  ]
+);
 
 export type ShadowOperationsStateEntry = typeof shadowOperationsState.$inferSelect;
 export type InsertShadowOperationsStateEntry = typeof shadowOperationsState.$inferInsert;
