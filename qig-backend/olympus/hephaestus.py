@@ -4,6 +4,15 @@ Hephaestus - God of the Forge
 Hypothesis generation and crafting.
 Prioritizes BIP39 MNEMONIC generation over passphrases.
 Passphrases have been swept - focus on mnemonic recovery.
+
+Enhanced with:
+- Typo generation for passphrase and mnemonic variations
+- Temporal keywords (2009-2013 Bitcoin era)
+- BIP39 passphrase combinations (25th word)
+- Electrum legacy seed support (pre-BIP39)
+- Near-miss replay buffer (experience replay)
+- Cross-kernel knowledge distillation (share learned patterns)
+- Historical breach data integration (use breach patterns)
 """
 
 import numpy as np
@@ -12,6 +21,46 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from .base_god import BaseGod, KAPPA_STAR, BASIN_DIMENSION
 import random
+
+# Import enhanced modules
+from .typo_generator import (
+    generate_all_typo_variations,
+    generate_multi_word_typos,
+    TypoVariation
+)
+from .temporal_keywords import (
+    get_high_relevance_keywords,
+    generate_temporal_combinations,
+    get_keywords_by_year,
+    get_crypto_specific_keywords
+)
+from .bip39_passphrase_combos import (
+    generate_bip39_passphrase_combinations,
+    generate_mnemonic_with_passphrase_variants,
+    get_high_priority_passphrases,
+    COMMON_BIP39_PASSPHRASES
+)
+from .electrum_legacy import (
+    generate_electrum_seed_variants,
+    generate_electrum_common_patterns,
+    detect_seed_type
+)
+from .near_miss_replay import (
+    get_replay_buffer,
+    add_near_miss,
+    sample_near_misses
+)
+from .cross_kernel_knowledge import (
+    get_knowledge_base,
+    sync_kernel_knowledge,
+    get_knowledge_for_kernel
+)
+from .breach_patterns import (
+    BreachPatternGenerator,
+    get_high_priority_breach_patterns,
+    get_crypto_specific_breach_patterns,
+    generate_breach_pattern_variants
+)
 
 BIP39_WORDS: set = set()
 _suggest_bip39_correction_fn = None
@@ -574,3 +623,464 @@ class Hephaestus(BaseGod):
         
         scored.sort(key=lambda x: -x['priority_score'])
         return scored
+    
+    # ===== Enhanced Hypothesis Generation Methods =====
+    
+    def generate_temporal_keyword_mnemonics(self, n: int = 50, target_year: Optional[int] = None) -> List[str]:
+        """
+        Generate mnemonics using temporal keywords from Bitcoin era (2009-2013).
+        These keywords have cultural/historical relevance to early Bitcoin adopters.
+        """
+        mnemonics = []
+        
+        # Get crypto-specific keywords first (highest relevance)
+        crypto_keywords = get_crypto_specific_keywords()
+        
+        # Add general high-relevance keywords
+        if target_year:
+            temporal_keywords = get_keywords_by_year(target_year)
+        else:
+            temporal_keywords = get_high_relevance_keywords(0.6)
+        
+        all_keywords = crypto_keywords + temporal_keywords
+        
+        # Generate mnemonics incorporating these keywords
+        for _ in range(n):
+            # Pick 2-4 temporal keywords
+            num_keywords = random.randint(2, 4)
+            selected_keywords = random.sample(all_keywords, min(num_keywords, len(all_keywords)))
+            
+            # Convert keywords to BIP39 words (find closest matches)
+            bip39_temporal = []
+            for kw in selected_keywords:
+                # Try to find BIP39 word that starts with same letter
+                kw_words = kw.keyword.lower().split()
+                for kw_word in kw_words[:2]:  # Use first 2 words of multi-word keywords
+                    if len(kw_word) >= 3:
+                        candidates = [w for w in self.bip39_words if w.startswith(kw_word[:3])]
+                        if candidates:
+                            bip39_temporal.append(random.choice(candidates))
+            
+            # Fill remaining words with random BIP39 words
+            remaining = 12 - len(bip39_temporal)
+            if remaining > 0:
+                bip39_temporal.extend(random.choices(self.bip39_words, k=remaining))
+            
+            mnemonic = ' '.join(bip39_temporal[:12])
+            mnemonics.append(mnemonic)
+        
+        self.mnemonic_generated_count += len(mnemonics)
+        return list(set(mnemonics))
+    
+    def generate_temporal_keyword_passphrases(self, n: int = 50, target_year: Optional[int] = None) -> List[str]:
+        """
+        Generate passphrases using temporal keywords.
+        These are direct keyword phrases, not BIP39 mnemonics.
+        """
+        passphrases = []
+        
+        if target_year:
+            keywords = get_keywords_by_year(target_year)
+        else:
+            keywords = get_high_relevance_keywords(0.6)
+        
+        for kw in keywords[:n]:
+            # Add the keyword itself
+            passphrases.append(kw.keyword)
+            
+            # Add with year suffix
+            passphrases.append(f"{kw.keyword}{kw.year}")
+            passphrases.append(f"{kw.keyword} {kw.year}")
+            
+            # Add lowercase variant
+            passphrases.append(kw.keyword.lower())
+        
+        self.passphrase_generated_count += len(passphrases)
+        return list(set(passphrases[:n]))
+    
+    def generate_typo_variant_passphrases(self, seed_phrases: List[str], n: int = 50) -> List[str]:
+        """
+        Generate typo variations of seed passphrases.
+        Uses keyboard adjacency, transpositions, phonetics, etc.
+        """
+        variants = []
+        
+        for phrase in seed_phrases:
+            # Generate typo variations
+            if ' ' in phrase:
+                # Multi-word phrase
+                typo_variations = generate_multi_word_typos(phrase, max_variants=n // len(seed_phrases))
+            else:
+                # Single word
+                typo_variations = generate_all_typo_variations(phrase, max_variants=n // len(seed_phrases))
+            
+            # Extract variant strings
+            for typo_var in typo_variations:
+                variants.append(typo_var.variant)
+        
+        self.passphrase_generated_count += len(variants)
+        return list(set(variants[:n]))
+    
+    def generate_bip39_passphrase_combos(
+        self, 
+        mnemonic: str, 
+        n: int = 50,
+        user_hints: Optional[List[str]] = None
+    ) -> List[Dict[str, str]]:
+        """
+        Generate BIP39 mnemonic + passphrase combinations.
+        The passphrase is the optional "25th word" that creates different wallets.
+        
+        Returns list of dicts with 'mnemonic' and 'passphrase' keys.
+        """
+        combos = generate_mnemonic_with_passphrase_variants(mnemonic, user_hints)
+        
+        # Limit to n combinations
+        return combos[:n]
+    
+    def generate_enhanced_typo_mnemonics(self, seed_mnemonic: str, n: int = 50) -> List[str]:
+        """
+        Generate sophisticated typo variants of a mnemonic using the typo_generator module.
+        This is more comprehensive than the basic _typo_variant_mnemonic method.
+        """
+        words = seed_mnemonic.lower().split()
+        if not words:
+            return []
+        
+        mnemonics = []
+        
+        # For each word, generate typo variants and create new mnemonics
+        for i, word in enumerate(words):
+            typo_vars = generate_all_typo_variations(word, max_variants=10)
+            
+            for typo_var in typo_vars[:5]:  # Top 5 most likely typos
+                new_words = words.copy()
+                
+                # Replace with typo variant if it's in BIP39 wordlist
+                if typo_var.variant in BIP39_WORDS:
+                    new_words[i] = typo_var.variant
+                else:
+                    # Find closest BIP39 word
+                    from .bip39_wordlist import suggest_bip39_correction
+                    suggestions = suggest_bip39_correction(typo_var.variant, max_suggestions=1)
+                    if suggestions:
+                        new_words[i] = suggestions[0]['word']
+                
+                mnemonic = ' '.join(new_words)
+                mnemonics.append(mnemonic)
+                
+                if len(mnemonics) >= n:
+                    break
+            
+            if len(mnemonics) >= n:
+                break
+        
+        self.mnemonic_generated_count += len(mnemonics)
+        return list(set(mnemonics[:n]))
+    
+    def generate_bip39_passphrase_only(self, n: int = 50, user_hints: Optional[List[str]] = None) -> List[str]:
+        """
+        Generate just the passphrase variants (25th word) without the mnemonic.
+        Useful for testing different passphrases with known mnemonics.
+        """
+        if user_hints:
+            passphrases = set()
+            for hint in user_hints:
+                variants = generate_bip39_passphrase_combinations(hint, max_combinations=n // len(user_hints))
+                passphrases.update(variants)
+            return list(passphrases)[:n]
+        else:
+            # Use high-priority common passphrases
+            return get_high_priority_passphrases()[:n]
+    
+    # ===== Electrum Legacy Support =====
+    
+    def generate_electrum_seeds(self, n: int = 50, base_seed: Optional[str] = None) -> List[str]:
+        """
+        Generate Electrum legacy seed phrases (pre-BIP39).
+        
+        Electrum wallets created before 2013 used a different wordlist and format.
+        This is important for recovering old dormant wallets.
+        """
+        if base_seed:
+            variants = generate_electrum_seed_variants(base_seed, n)
+        else:
+            # Mix random Electrum seeds with common patterns
+            variants = generate_electrum_seed_variants(None, n // 2)
+            variants.extend(generate_electrum_common_patterns()[:n // 2])
+        
+        self.mnemonic_generated_count += len(variants)
+        return list(set(variants[:n]))
+    
+    # ===== Near-Miss Replay Buffer Integration =====
+    
+    def record_near_miss(self, phrase: str, phi_score: float, geometric_distance: float, metadata: Optional[Dict] = None) -> bool:
+        """
+        Record a near-miss hypothesis for replay.
+        
+        Near-misses are hypotheses that were close to success:
+        - High Φ score but no balance found
+        - Low geometric distance to success basin
+        - Valid addresses but zero transactions
+        
+        These are valuable for learning and should be replayed with variations.
+        """
+        return add_near_miss(phrase, phi_score, geometric_distance, metadata)
+    
+    def generate_from_near_misses(self, n: int = 50) -> List[str]:
+        """
+        Generate hypotheses by replaying and varying near-miss entries.
+        
+        Takes high-priority near-misses and creates variations using:
+        - Typo variations
+        - Word substitutions
+        - Temporal keyword additions
+        """
+        hypotheses = []
+        
+        # Sample near-miss entries
+        near_miss_phrases = sample_near_misses(min(n // 2, 20))
+        
+        if not near_miss_phrases:
+            return hypotheses
+        
+        for phrase in near_miss_phrases:
+            # Add the original
+            hypotheses.append(phrase)
+            
+            # Generate typo variations
+            if ' ' in phrase:
+                typo_vars = generate_multi_word_typos(phrase, max_variants=3)
+            else:
+                typo_vars = generate_all_typo_variations(phrase, max_variants=3)
+            
+            for typo_var in typo_vars:
+                hypotheses.append(typo_var.variant)
+            
+            # If it looks like a mnemonic, try word substitutions
+            words = phrase.split()
+            if len(words) in [12, 15, 18, 21, 24] and self.bip39_words:
+                # Substitute 1-2 words with similar BIP39 words
+                variant = words.copy()
+                positions = random.sample(range(len(variant)), min(2, len(variant)))
+                
+                for pos in positions:
+                    # Find BIP39 words starting with same letter
+                    original_word = variant[pos]
+                    if original_word and len(original_word) > 0:
+                        candidates = [w for w in self.bip39_words if w.startswith(original_word[0])]
+                        if candidates:
+                            variant[pos] = random.choice(candidates)
+                
+                hypotheses.append(' '.join(variant))
+        
+        return list(set(hypotheses[:n]))
+    
+    def get_replay_buffer_stats(self) -> Dict:
+        """Get statistics about the near-miss replay buffer"""
+        buffer = get_replay_buffer()
+        return buffer.get_stats()
+    
+    # ===== Cross-Kernel Knowledge Distillation =====
+    
+    def sync_knowledge_to_pantheon(self) -> Dict[str, int]:
+        """
+        Sync this kernel's knowledge to the shared Olympus knowledge base.
+        
+        Shares:
+        - High-Φ vocabulary words
+        - Successful patterns
+        - Basin anchors
+        
+        Returns statistics about what was synced.
+        """
+        # Prepare vocabulary (only high-Φ words)
+        high_phi_vocab = {
+            word: phi
+            for word, phi in self.word_phi_scores.items()
+            if phi >= 0.6
+        }
+        
+        # Prepare basin anchors (word, phi pairs)
+        high_phi_words = [
+            (word, phi)
+            for word, phi in self.word_phi_scores.items()
+            if phi >= 0.7
+        ]
+        
+        # Sync to knowledge base
+        stats = sync_kernel_knowledge(
+            kernel_name="Hephaestus",
+            vocabulary=high_phi_vocab,
+            successful_patterns=self.successful_patterns,
+            high_phi_words=high_phi_words
+        )
+        
+        return stats
+    
+    def learn_from_pantheon(self, n_patterns: int = 50) -> Dict[str, int]:
+        """
+        Learn from other kernels in the Olympus pantheon.
+        
+        Imports:
+        - Successful patterns from other kernels
+        - Shared vocabulary
+        - Basin anchors for geometric guidance
+        
+        Returns statistics about what was learned.
+        """
+        stats = {
+            'patterns_learned': 0,
+            'vocabulary_learned': 0,
+            'anchors_learned': 0,
+        }
+        
+        # Get knowledge from other kernels
+        knowledge = get_knowledge_for_kernel("Hephaestus", n=n_patterns)
+        
+        # Import patterns
+        for pattern_obj in knowledge.get('patterns', []):
+            if pattern_obj.pattern not in self.successful_patterns:
+                self.successful_patterns.append(pattern_obj.pattern)
+                stats['patterns_learned'] += 1
+        
+        # Import vocabulary
+        for word, phi in knowledge.get('vocabulary', {}).items():
+            if word not in self.vocabulary:
+                self.vocabulary[word] = 1.0
+                self.word_phi_scores[word] = phi
+                stats['vocabulary_learned'] += 1
+        
+        # Import basin anchors (as high-Φ vocabulary)
+        for word, phi in knowledge.get('basin_anchors', []):
+            if word not in self.word_phi_scores or self.word_phi_scores[word] < phi:
+                self.word_phi_scores[word] = phi
+                stats['anchors_learned'] += 1
+        
+        return stats
+    
+    def generate_with_pantheon_knowledge(self, n: int = 50) -> List[str]:
+        """
+        Generate hypotheses using knowledge learned from other kernels.
+        
+        First syncs knowledge from pantheon, then generates hypotheses
+        using the learned patterns.
+        """
+        # Learn from pantheon
+        self.learn_from_pantheon()
+        
+        # Generate hypotheses using learned patterns
+        hypotheses = []
+        
+        kb = get_knowledge_base()
+        patterns = kb.get_patterns_for_kernel("Hephaestus", n=n)
+        
+        for pattern_obj in patterns:
+            # Add the pattern itself
+            hypotheses.append(pattern_obj.pattern)
+            
+            # Generate variations if it looks like a passphrase
+            if len(pattern_obj.pattern.split()) <= 5:
+                # Try typo variations
+                typo_vars = generate_all_typo_variations(pattern_obj.pattern, max_variants=2)
+                for typo_var in typo_vars:
+                    hypotheses.append(typo_var.variant)
+        
+        return list(set(hypotheses[:n]))
+    
+    # ===== Historical Breach Data Integration =====
+    
+    def generate_breach_pattern_hypotheses(
+        self,
+        n: int = 50,
+        wallet_year: Optional[int] = None,
+        crypto_only: bool = False
+    ) -> List[str]:
+        """
+        Generate hypotheses based on historical breach patterns.
+        
+        Uses patterns from known data breaches (2009-2013 era) as seeds.
+        Many users reuse passwords across services, including Bitcoin wallets.
+        
+        Args:
+            n: Number of hypotheses to generate
+            wallet_year: Year wallet was created (for temporal filtering)
+            crypto_only: Only use crypto-specific breach patterns
+        
+        Returns:
+            List of password hypotheses based on breach patterns
+        """
+        generator = BreachPatternGenerator(wallet_year=wallet_year)
+        
+        if crypto_only:
+            # Get crypto-specific patterns
+            base_patterns = get_crypto_specific_breach_patterns()
+            hypotheses = []
+            
+            for pattern in base_patterns:
+                hypotheses.append(pattern)
+                # Add common variants
+                variants = generate_breach_pattern_variants(pattern, max_variants=3)
+                hypotheses.extend(variants)
+        else:
+            # Get all breach patterns with variants
+            hypotheses = generator.generate_hypotheses(
+                n=n,
+                include_crypto=True,
+                include_leetspeak=True,
+                temporal_filter=wallet_year is not None
+            )
+        
+        self.passphrase_generated_count += len(hypotheses)
+        return list(set(hypotheses[:n]))
+    
+    def generate_breach_pattern_mnemonics(
+        self,
+        n: int = 50,
+        wallet_year: Optional[int] = None
+    ) -> List[str]:
+        """
+        Generate mnemonics seeded with breach pattern words.
+        
+        Combines BIP39 words with patterns from historical breaches.
+        For example, if "bitcoin123" is a common breach pattern,
+        we might generate mnemonics with BIP39 words that start with 'b'.
+        """
+        if not self.bip39_words:
+            return []
+        
+        mnemonics = []
+        
+        # Get high-priority breach patterns
+        breach_patterns = get_high_priority_breach_patterns()
+        
+        for pattern in breach_patterns[:20]:
+            # Extract first letters from pattern words
+            pattern_words = pattern.lower().split()
+            
+            # Build mnemonic using BIP39 words with similar starting letters
+            mnemonic_words = []
+            for word in pattern_words[:4]:  # Use first 4 words max
+                if len(word) > 0:
+                    candidates = [w for w in self.bip39_words if w.startswith(word[0])]
+                    if candidates:
+                        mnemonic_words.append(random.choice(candidates))
+            
+            # Fill to 12 words
+            while len(mnemonic_words) < 12:
+                mnemonic_words.append(random.choice(self.bip39_words))
+            
+            mnemonics.append(' '.join(mnemonic_words[:12]))
+        
+        self.mnemonic_generated_count += len(mnemonics)
+        return list(set(mnemonics[:n]))
+    
+    def get_breach_pattern_stats(self) -> Dict:
+        """Get statistics about available breach patterns"""
+        generator = BreachPatternGenerator()
+        return generator.get_stats()
+    
+    def get_pantheon_knowledge_stats(self) -> Dict:
+        """Get statistics about the pantheon knowledge base"""
+        kb = get_knowledge_base()
+        return kb.get_stats()

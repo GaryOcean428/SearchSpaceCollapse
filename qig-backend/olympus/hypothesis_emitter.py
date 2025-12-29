@@ -45,8 +45,17 @@ except ImportError:
 
 
 MNEMONIC_RATIO = 0.85
-MNEMONIC_STRATEGIES = ['random', 'basin_guided', 'semantic_cluster', 'permutation', 'typo_correction']
-PASSPHRASE_STRATEGIES = ['high_phi', 'basin_guided', 'random', 'mutation']
+MNEMONIC_STRATEGIES = [
+    'random', 'basin_guided', 'semantic_cluster', 'permutation', 
+    'typo_correction', 'temporal_keywords', 'bip39_with_passphrase',
+    'electrum_legacy', 'near_miss_replay', 'pantheon_knowledge', 
+    'breach_patterns'
+]
+PASSPHRASE_STRATEGIES = [
+    'high_phi', 'basin_guided', 'random', 'mutation',
+    'temporal_keywords', 'typo_variants', 'bip39_passphrase_combo',
+    'near_miss_replay', 'pantheon_knowledge', 'breach_patterns'
+]
 
 
 class HypothesisEmitter:
@@ -380,6 +389,11 @@ class HypothesisEmitter:
         
         PRIORITY: 85% MNEMONICS, 15% PASSPHRASES
         Passphrases have been swept - focus on mnemonic recovery.
+        
+        Now includes enhanced strategies:
+        - Temporal keywords (2009-2013 Bitcoin era)
+        - Typo variations (keyboard, phonetic, transposition)
+        - BIP39 passphrase combinations (25th word)
         """
         hypotheses = []
         
@@ -389,20 +403,65 @@ class HypothesisEmitter:
             if use_mnemonic and self.hephaestus.bip39_words:
                 strategy = random.choice(MNEMONIC_STRATEGIES)
                 
-                if strategy == 'permutation' and self.hephaestus.successful_patterns:
+                # Enhanced: Temporal keywords strategy
+                if strategy == 'temporal_keywords':
+                    # Pick a random year from Bitcoin era or use None for all years
+                    target_year = random.choice([None, 2009, 2010, 2011, 2012, 2013])
+                    hypotheses = self.hephaestus.generate_temporal_keyword_mnemonics(
+                        n=self.BATCH_SIZE,
+                        target_year=target_year
+                    )
+                
+                # Enhanced: BIP39 with passphrase combinations
+                elif strategy == 'bip39_with_passphrase' and self.hephaestus.successful_patterns:
+                    seed = random.choice(self.hephaestus.successful_patterns[-10:])
+                    combos = self.hephaestus.generate_bip39_passphrase_combos(
+                        mnemonic=seed,
+                        n=self.BATCH_SIZE
+                    )
+                    # For now, just return mnemonics (passphrase support needs TypeScript integration)
+                    hypotheses = [combo['mnemonic'] for combo in combos]
+                
+                elif strategy == 'permutation' and self.hephaestus.successful_patterns:
                     seed = random.choice(self.hephaestus.successful_patterns[-10:])
                     hypotheses = self.hephaestus.generate_mnemonics(
                         n=self.BATCH_SIZE,
                         strategy='permutation',
                         seed_mnemonic=seed
                     )
+                
+                # Enhanced: Sophisticated typo correction
                 elif strategy == 'typo_correction' and self.hephaestus.successful_patterns:
                     seed = random.choice(self.hephaestus.successful_patterns[-10:])
-                    hypotheses = self.hephaestus.generate_mnemonics(
-                        n=self.BATCH_SIZE,
-                        strategy='typo_correction',
-                        seed_mnemonic=seed
+                    hypotheses = self.hephaestus.generate_enhanced_typo_mnemonics(
+                        seed_mnemonic=seed,
+                        n=self.BATCH_SIZE
                     )
+                
+                # Enhanced: Electrum legacy seeds
+                elif strategy == 'electrum_legacy':
+                    hypotheses = self.hephaestus.generate_electrum_seeds(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # Enhanced: Near-miss replay
+                elif strategy == 'near_miss_replay':
+                    hypotheses = self.hephaestus.generate_from_near_misses(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # LOW PRIORITY: Pantheon knowledge distillation
+                elif strategy == 'pantheon_knowledge':
+                    hypotheses = self.hephaestus.generate_with_pantheon_knowledge(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # LOW PRIORITY: Breach pattern mnemonics
+                elif strategy == 'breach_patterns':
+                    hypotheses = self.hephaestus.generate_breach_pattern_mnemonics(
+                        n=self.BATCH_SIZE
+                    )
+                
                 elif self.hephaestus.known_word_positions:
                     hypotheses = self.hephaestus.generate_mnemonics(
                         n=self.BATCH_SIZE,
@@ -421,7 +480,48 @@ class HypothesisEmitter:
             else:
                 strategy = random.choice(PASSPHRASE_STRATEGIES)
                 
-                if strategy == 'mutation' and self.hephaestus.successful_patterns:
+                # Enhanced: Temporal keywords for passphrases
+                if strategy == 'temporal_keywords':
+                    target_year = random.choice([None, 2009, 2010, 2011, 2012, 2013])
+                    hypotheses = self.hephaestus.generate_temporal_keyword_passphrases(
+                        n=self.BATCH_SIZE,
+                        target_year=target_year
+                    )
+                
+                # Enhanced: Typo variants of successful passphrases
+                elif strategy == 'typo_variants' and self.hephaestus.successful_patterns:
+                    seed_phrases = self.hephaestus.successful_patterns[-10:]
+                    hypotheses = self.hephaestus.generate_typo_variant_passphrases(
+                        seed_phrases=seed_phrases,
+                        n=self.BATCH_SIZE
+                    )
+                
+                # Enhanced: BIP39 passphrase combinations
+                elif strategy == 'bip39_passphrase_combo':
+                    hypotheses = self.hephaestus.generate_bip39_passphrase_only(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # Enhanced: Near-miss replay for passphrases
+                elif strategy == 'near_miss_replay':
+                    hypotheses = self.hephaestus.generate_from_near_misses(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # LOW PRIORITY: Pantheon knowledge for passphrases
+                elif strategy == 'pantheon_knowledge':
+                    hypotheses = self.hephaestus.generate_with_pantheon_knowledge(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # LOW PRIORITY: Breach patterns
+                elif strategy == 'breach_patterns':
+                    hypotheses = self.hephaestus.generate_breach_pattern_hypotheses(
+                        n=self.BATCH_SIZE,
+                        crypto_only=True
+                    )
+                
+                elif strategy == 'mutation' and self.hephaestus.successful_patterns:
                     hypotheses = self.hephaestus.generate_hypotheses(
                         n=self.BATCH_SIZE,
                         strategy='mutation',
