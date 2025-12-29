@@ -28,6 +28,7 @@ import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
 import { testedEmptyTracker } from './tested-empty-tracker';
 import { regulateDopamineFromBalanceResult, NeurochemistryState } from './ocean-neurochemistry';
 import { ProviderUnavailableError } from './errors';
+import { balanceFeedbackAnalyzer } from './balance-feedback-analyzer';
 
 export interface QueuedAddress {
   id: string;
@@ -553,6 +554,18 @@ class BalanceQueueService {
 
                     // Notify Python backend to reinforce success patterns
                     this.notifyHypothesisFeedback(item.passphrase, result.balance, item.source);
+                  }
+                  
+                  // Classify as near-miss for feedback loop (dust, historical, high-tx)
+                  const balanceSats = Math.round(result.balance * 100_000_000);
+                  const nearMissClass = balanceFeedbackAnalyzer.classifyNearMiss(
+                    balanceSats,
+                    result.txCount,
+                    undefined // totalReceived not available from bulk API
+                  );
+                  
+                  if (nearMissClass.reason) {
+                    console.log(`[BalanceQueue] 🎯 Near-miss: ${item.address} (${nearMissClass.reason})`);
                   }
                 } catch (recordError) {
                   console.error(`[BalanceQueue] Error recording hit for ${item.address}:`, recordError);
