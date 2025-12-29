@@ -4,6 +4,11 @@ Hephaestus - God of the Forge
 Hypothesis generation and crafting.
 Prioritizes BIP39 MNEMONIC generation over passphrases.
 Passphrases have been swept - focus on mnemonic recovery.
+
+Enhanced with:
+- Typo generation for passphrase and mnemonic variations
+- Temporal keywords (2009-2013 Bitcoin era)
+- BIP39 passphrase combinations (25th word)
 """
 
 import numpy as np
@@ -12,6 +17,25 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from .base_god import BaseGod, KAPPA_STAR, BASIN_DIMENSION
 import random
+
+# Import enhanced modules
+from .typo_generator import (
+    generate_all_typo_variations,
+    generate_multi_word_typos,
+    TypoVariation
+)
+from .temporal_keywords import (
+    get_high_relevance_keywords,
+    generate_temporal_combinations,
+    get_keywords_by_year,
+    get_crypto_specific_keywords
+)
+from .bip39_passphrase_combos import (
+    generate_bip39_passphrase_combinations,
+    generate_mnemonic_with_passphrase_variants,
+    get_high_priority_passphrases,
+    COMMON_BIP39_PASSPHRASES
+)
 
 BIP39_WORDS: set = set()
 _suggest_bip39_correction_fn = None
@@ -574,3 +598,172 @@ class Hephaestus(BaseGod):
         
         scored.sort(key=lambda x: -x['priority_score'])
         return scored
+    
+    # ===== Enhanced Hypothesis Generation Methods =====
+    
+    def generate_temporal_keyword_mnemonics(self, n: int = 50, target_year: Optional[int] = None) -> List[str]:
+        """
+        Generate mnemonics using temporal keywords from Bitcoin era (2009-2013).
+        These keywords have cultural/historical relevance to early Bitcoin adopters.
+        """
+        mnemonics = []
+        
+        # Get crypto-specific keywords first (highest relevance)
+        crypto_keywords = get_crypto_specific_keywords()
+        
+        # Add general high-relevance keywords
+        if target_year:
+            temporal_keywords = get_keywords_by_year(target_year)
+        else:
+            temporal_keywords = get_high_relevance_keywords(0.6)
+        
+        all_keywords = crypto_keywords + temporal_keywords
+        
+        # Generate mnemonics incorporating these keywords
+        for _ in range(n):
+            # Pick 2-4 temporal keywords
+            num_keywords = random.randint(2, 4)
+            selected_keywords = random.sample(all_keywords, min(num_keywords, len(all_keywords)))
+            
+            # Convert keywords to BIP39 words (find closest matches)
+            bip39_temporal = []
+            for kw in selected_keywords:
+                # Try to find BIP39 word that starts with same letter
+                kw_words = kw.keyword.lower().split()
+                for kw_word in kw_words[:2]:  # Use first 2 words of multi-word keywords
+                    if len(kw_word) >= 3:
+                        candidates = [w for w in self.bip39_words if w.startswith(kw_word[:3])]
+                        if candidates:
+                            bip39_temporal.append(random.choice(candidates))
+            
+            # Fill remaining words with random BIP39 words
+            remaining = 12 - len(bip39_temporal)
+            if remaining > 0:
+                bip39_temporal.extend(random.choices(self.bip39_words, k=remaining))
+            
+            mnemonic = ' '.join(bip39_temporal[:12])
+            mnemonics.append(mnemonic)
+        
+        self.mnemonic_generated_count += len(mnemonics)
+        return list(set(mnemonics))
+    
+    def generate_temporal_keyword_passphrases(self, n: int = 50, target_year: Optional[int] = None) -> List[str]:
+        """
+        Generate passphrases using temporal keywords.
+        These are direct keyword phrases, not BIP39 mnemonics.
+        """
+        passphrases = []
+        
+        if target_year:
+            keywords = get_keywords_by_year(target_year)
+        else:
+            keywords = get_high_relevance_keywords(0.6)
+        
+        for kw in keywords[:n]:
+            # Add the keyword itself
+            passphrases.append(kw.keyword)
+            
+            # Add with year suffix
+            passphrases.append(f"{kw.keyword}{kw.year}")
+            passphrases.append(f"{kw.keyword} {kw.year}")
+            
+            # Add lowercase variant
+            passphrases.append(kw.keyword.lower())
+        
+        self.passphrase_generated_count += len(passphrases)
+        return list(set(passphrases[:n]))
+    
+    def generate_typo_variant_passphrases(self, seed_phrases: List[str], n: int = 50) -> List[str]:
+        """
+        Generate typo variations of seed passphrases.
+        Uses keyboard adjacency, transpositions, phonetics, etc.
+        """
+        variants = []
+        
+        for phrase in seed_phrases:
+            # Generate typo variations
+            if ' ' in phrase:
+                # Multi-word phrase
+                typo_variations = generate_multi_word_typos(phrase, max_variants=n // len(seed_phrases))
+            else:
+                # Single word
+                typo_variations = generate_all_typo_variations(phrase, max_variants=n // len(seed_phrases))
+            
+            # Extract variant strings
+            for typo_var in typo_variations:
+                variants.append(typo_var.variant)
+        
+        self.passphrase_generated_count += len(variants)
+        return list(set(variants[:n]))
+    
+    def generate_bip39_passphrase_combos(
+        self, 
+        mnemonic: str, 
+        n: int = 50,
+        user_hints: Optional[List[str]] = None
+    ) -> List[Dict[str, str]]:
+        """
+        Generate BIP39 mnemonic + passphrase combinations.
+        The passphrase is the optional "25th word" that creates different wallets.
+        
+        Returns list of dicts with 'mnemonic' and 'passphrase' keys.
+        """
+        combos = generate_mnemonic_with_passphrase_variants(mnemonic, user_hints)
+        
+        # Limit to n combinations
+        return combos[:n]
+    
+    def generate_enhanced_typo_mnemonics(self, seed_mnemonic: str, n: int = 50) -> List[str]:
+        """
+        Generate sophisticated typo variants of a mnemonic using the typo_generator module.
+        This is more comprehensive than the basic _typo_variant_mnemonic method.
+        """
+        words = seed_mnemonic.lower().split()
+        if not words:
+            return []
+        
+        mnemonics = []
+        
+        # For each word, generate typo variants and create new mnemonics
+        for i, word in enumerate(words):
+            typo_vars = generate_all_typo_variations(word, max_variants=10)
+            
+            for typo_var in typo_vars[:5]:  # Top 5 most likely typos
+                new_words = words.copy()
+                
+                # Replace with typo variant if it's in BIP39 wordlist
+                if typo_var.variant in BIP39_WORDS:
+                    new_words[i] = typo_var.variant
+                else:
+                    # Find closest BIP39 word
+                    from .bip39_wordlist import suggest_bip39_correction
+                    suggestions = suggest_bip39_correction(typo_var.variant, max_suggestions=1)
+                    if suggestions:
+                        new_words[i] = suggestions[0]['word']
+                
+                mnemonic = ' '.join(new_words)
+                mnemonics.append(mnemonic)
+                
+                if len(mnemonics) >= n:
+                    break
+            
+            if len(mnemonics) >= n:
+                break
+        
+        self.mnemonic_generated_count += len(mnemonics)
+        return list(set(mnemonics[:n]))
+    
+    def generate_bip39_passphrase_only(self, n: int = 50, user_hints: Optional[List[str]] = None) -> List[str]:
+        """
+        Generate just the passphrase variants (25th word) without the mnemonic.
+        Useful for testing different passphrases with known mnemonics.
+        """
+        if user_hints:
+            passphrases = set()
+            for hint in user_hints:
+                variants = generate_bip39_passphrase_combinations(hint, max_combinations=n // len(user_hints))
+                passphrases.update(variants)
+            return list(passphrases)[:n]
+        else:
+            # Use high-priority common passphrases
+            return get_high_priority_passphrases()[:n]
