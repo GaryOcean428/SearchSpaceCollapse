@@ -9,6 +9,8 @@ Enhanced with:
 - Typo generation for passphrase and mnemonic variations
 - Temporal keywords (2009-2013 Bitcoin era)
 - BIP39 passphrase combinations (25th word)
+- Electrum legacy seed support (pre-BIP39)
+- Near-miss replay buffer (experience replay)
 """
 
 import numpy as np
@@ -35,6 +37,16 @@ from .bip39_passphrase_combos import (
     generate_mnemonic_with_passphrase_variants,
     get_high_priority_passphrases,
     COMMON_BIP39_PASSPHRASES
+)
+from .electrum_legacy import (
+    generate_electrum_seed_variants,
+    generate_electrum_common_patterns,
+    detect_seed_type
+)
+from .near_miss_replay import (
+    get_replay_buffer,
+    add_near_miss,
+    sample_near_misses
 )
 
 BIP39_WORDS: set = set()
@@ -767,3 +779,91 @@ class Hephaestus(BaseGod):
         else:
             # Use high-priority common passphrases
             return get_high_priority_passphrases()[:n]
+    
+    # ===== Electrum Legacy Support =====
+    
+    def generate_electrum_seeds(self, n: int = 50, base_seed: Optional[str] = None) -> List[str]:
+        """
+        Generate Electrum legacy seed phrases (pre-BIP39).
+        
+        Electrum wallets created before 2013 used a different wordlist and format.
+        This is important for recovering old dormant wallets.
+        """
+        if base_seed:
+            variants = generate_electrum_seed_variants(base_seed, n)
+        else:
+            # Mix random Electrum seeds with common patterns
+            variants = generate_electrum_seed_variants(None, n // 2)
+            variants.extend(generate_electrum_common_patterns()[:n // 2])
+        
+        self.mnemonic_generated_count += len(variants)
+        return list(set(variants[:n]))
+    
+    # ===== Near-Miss Replay Buffer Integration =====
+    
+    def record_near_miss(self, phrase: str, phi_score: float, geometric_distance: float, metadata: Optional[Dict] = None) -> bool:
+        """
+        Record a near-miss hypothesis for replay.
+        
+        Near-misses are hypotheses that were close to success:
+        - High Φ score but no balance found
+        - Low geometric distance to success basin
+        - Valid addresses but zero transactions
+        
+        These are valuable for learning and should be replayed with variations.
+        """
+        return add_near_miss(phrase, phi_score, geometric_distance, metadata)
+    
+    def generate_from_near_misses(self, n: int = 50) -> List[str]:
+        """
+        Generate hypotheses by replaying and varying near-miss entries.
+        
+        Takes high-priority near-misses and creates variations using:
+        - Typo variations
+        - Word substitutions
+        - Temporal keyword additions
+        """
+        hypotheses = []
+        
+        # Sample near-miss entries
+        near_miss_phrases = sample_near_misses(min(n // 2, 20))
+        
+        if not near_miss_phrases:
+            return hypotheses
+        
+        for phrase in near_miss_phrases:
+            # Add the original
+            hypotheses.append(phrase)
+            
+            # Generate typo variations
+            if ' ' in phrase:
+                typo_vars = generate_multi_word_typos(phrase, max_variants=3)
+            else:
+                typo_vars = generate_all_typo_variations(phrase, max_variants=3)
+            
+            for typo_var in typo_vars:
+                hypotheses.append(typo_var.variant)
+            
+            # If it looks like a mnemonic, try word substitutions
+            words = phrase.split()
+            if len(words) in [12, 15, 18, 21, 24] and self.bip39_words:
+                # Substitute 1-2 words with similar BIP39 words
+                variant = words.copy()
+                positions = random.sample(range(len(variant)), min(2, len(variant)))
+                
+                for pos in positions:
+                    # Find BIP39 words starting with same letter
+                    original_word = variant[pos]
+                    if original_word and len(original_word) > 0:
+                        candidates = [w for w in self.bip39_words if w.startswith(original_word[0])]
+                        if candidates:
+                            variant[pos] = random.choice(candidates)
+                
+                hypotheses.append(' '.join(variant))
+        
+        return list(set(hypotheses[:n]))
+    
+    def get_replay_buffer_stats(self) -> Dict:
+        """Get statistics about the near-miss replay buffer"""
+        buffer = get_replay_buffer()
+        return buffer.get_stats()

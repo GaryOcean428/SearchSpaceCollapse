@@ -47,11 +47,13 @@ except ImportError:
 MNEMONIC_RATIO = 0.85
 MNEMONIC_STRATEGIES = [
     'random', 'basin_guided', 'semantic_cluster', 'permutation', 
-    'typo_correction', 'temporal_keywords', 'bip39_with_passphrase'
+    'typo_correction', 'temporal_keywords', 'bip39_with_passphrase',
+    'electrum_legacy', 'near_miss_replay'
 ]
 PASSPHRASE_STRATEGIES = [
     'high_phi', 'basin_guided', 'random', 'mutation',
-    'temporal_keywords', 'typo_variants', 'bip39_passphrase_combo'
+    'temporal_keywords', 'typo_variants', 'bip39_passphrase_combo',
+    'near_miss_replay'
 ]
 
 
@@ -435,6 +437,18 @@ class HypothesisEmitter:
                         n=self.BATCH_SIZE
                     )
                 
+                # Enhanced: Electrum legacy seeds
+                elif strategy == 'electrum_legacy':
+                    hypotheses = self.hephaestus.generate_electrum_seeds(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # Enhanced: Near-miss replay
+                elif strategy == 'near_miss_replay':
+                    hypotheses = self.hephaestus.generate_from_near_misses(
+                        n=self.BATCH_SIZE
+                    )
+                
                 elif self.hephaestus.known_word_positions:
                     hypotheses = self.hephaestus.generate_mnemonics(
                         n=self.BATCH_SIZE,
@@ -472,6 +486,12 @@ class HypothesisEmitter:
                 # Enhanced: BIP39 passphrase combinations
                 elif strategy == 'bip39_passphrase_combo':
                     hypotheses = self.hephaestus.generate_bip39_passphrase_only(
+                        n=self.BATCH_SIZE
+                    )
+                
+                # Enhanced: Near-miss replay for passphrases
+                elif strategy == 'near_miss_replay':
+                    hypotheses = self.hephaestus.generate_from_near_misses(
                         n=self.BATCH_SIZE
                     )
                 
