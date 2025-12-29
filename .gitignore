@@ -14,9 +14,6 @@ data/*.json
 qig-backend/logs/
 *.jsonl
 
-# Exclude package-lock.json (using Yarn)
-package-lock.json
-
 # Exclude draft documentation
 docs/_drafts/*.md
 .env
