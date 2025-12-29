@@ -321,40 +321,46 @@ export function deriveMnemonicAddresses(mnemonic: string, options?: {
     }
     
     // BIP45 Multisig paths (for shared/multisig wallets)
-    if (config.MULTISIG_ENABLED && config.MULTISIG_BIP45_COUNT > 0) {
-      // Check multiple cosigner indices (configurable, default 3)
-      const cosignerCount = config.MULTISIG_BIP45_COSIGNER_COUNT || 3;
-      for (let cosigner = 0; cosigner < cosignerCount; cosigner++) {
-        const addressLimit = Math.min(config.MULTISIG_BIP45_COUNT, 20);
-        for (let i = 0; i < addressLimit; i++) {
-          // Receive addresses
-          const receivePath = generateBIP45Path(cosigner, 0, i);
-          addresses.push(deriveAddressWithKeys(trimmedMnemonic, receivePath, i, 'bip45-multisig'));
-          
-          // Change addresses
-          const changePath = generateBIP45Path(cosigner, 1, i);
-          addresses.push(deriveAddressWithKeys(trimmedMnemonic, changePath, i, 'bip45-multisig'));
+    if (config.BIP45_ENABLED) {
+      const accountCount = config.BIP45_ACCOUNT_COUNT || 5;
+      // BIP45 uses cosigner_index in path: m/45'/coin_type/cosigner_index/change/address_index
+      // We'll check the first 3 cosigner positions for each account
+      for (let account = 0; account < accountCount; account++) {
+        for (let cosigner = 0; cosigner < 3; cosigner++) {
+          const addressLimit = 20; // Keep reasonable limit for multisig
+          for (let i = 0; i < addressLimit; i++) {
+            // Receive addresses
+            const receivePath = generateBIP45Path(cosigner, 0, i);
+            addresses.push(deriveAddressWithKeys(trimmedMnemonic, receivePath, i, 'bip45-multisig'));
+            
+            // Change addresses
+            const changePath = generateBIP45Path(cosigner, 1, i);
+            addresses.push(deriveAddressWithKeys(trimmedMnemonic, changePath, i, 'bip45-multisig'));
+          }
         }
       }
     }
     
     // BIP48 Multisig SegWit paths
-    if (config.MULTISIG_ENABLED && config.MULTISIG_BIP48_COUNT > 0) {
-      // Check account 0 only for multisig
-      for (let i = 0; i < Math.min(config.MULTISIG_BIP48_COUNT, 20); i++) {
-        // Script type 1: P2SH-P2WSH
-        const p2shPath = generateBIP48Path(0, 1, 0, i);
-        addresses.push(deriveAddressWithKeys(trimmedMnemonic, p2shPath, i, 'bip48-p2sh'));
-        
-        // Script type 2: P2WSH
-        const p2wshPath = generateBIP48Path(0, 2, 0, i);
-        addresses.push(deriveAddressWithKeys(trimmedMnemonic, p2wshPath, i, 'bip48-p2wsh'));
+    if (config.BIP48_ENABLED) {
+      const accountCount = config.BIP48_ACCOUNT_COUNT || 5;
+      for (let account = 0; account < accountCount; account++) {
+        for (let i = 0; i < 20; i++) {
+          // Script type 1: P2SH-P2WSH
+          const p2shPath = generateBIP48Path(account, 1, 0, i);
+          addresses.push(deriveAddressWithKeys(trimmedMnemonic, p2shPath, i, 'bip48-p2sh'));
+          
+          // Script type 2: P2WSH
+          const p2wshPath = generateBIP48Path(account, 2, 0, i);
+          addresses.push(deriveAddressWithKeys(trimmedMnemonic, p2wshPath, i, 'bip48-p2wsh'));
+        }
       }
     }
     
     // BIP47 Payment Codes (reusable payment addresses)
-    if (config.BIP47_ENABLED && config.BIP47_COUNT > 0) {
-      for (let i = 0; i < Math.min(config.BIP47_COUNT, 10); i++) {
+    // Note: BIP47 is disabled by default as it requires notification transactions
+    if (config.BIP47_ENABLED) {
+      for (let i = 0; i < 10; i++) {
         const path = generateBIP47Path(i);
         addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip47-payment'));
       }
