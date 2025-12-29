@@ -1405,3 +1405,130 @@ export function deriveFromXprv(xprv: string, path: string): string {
     throw new CryptoValidationError(`Failed to derive from xprv: ${error}`);
   }
 }
+
+/**
+ * BIP45 Multisig Derivation Path Generator
+ * Purpose: 45' (0x8000002D)
+ * Format: m/45'/cosigner_index/change/address_index
+ * Used for multisig wallets with multiple cosigners
+ * 
+ * @param cosignerIndex - Index of the cosigner (0-based)
+ * @param change - 0 for receive, 1 for change
+ * @param addressIndex - Address index
+ * @returns BIP45 derivation path
+ */
+export function generateBIP45Path(cosignerIndex: number, change: number, addressIndex: number): string {
+  return `m/45'/${cosignerIndex}/${change}/${addressIndex}`;
+}
+
+/**
+ * BIP48 Multisig Derivation Path Generator
+ * Purpose: 48' (0x80000030)
+ * Format: m/48'/coin_type'/account'/script_type'/change/address_index
+ * Script types: 1=P2SH-P2WSH, 2=P2WSH
+ * Used for modern multisig wallets with SegWit support
+ * 
+ * @param account - Account number (default 0)
+ * @param scriptType - 1 for P2SH-P2WSH, 2 for P2WSH
+ * @param change - 0 for receive, 1 for change
+ * @param addressIndex - Address index
+ * @returns BIP48 derivation path
+ */
+export function generateBIP48Path(
+  account: number = 0, 
+  scriptType: 1 | 2 = 1, 
+  change: number = 0, 
+  addressIndex: number = 0
+): string {
+  return `m/48'/0'/${account}'/${scriptType}'/${change}/${addressIndex}`;
+}
+
+/**
+ * BIP47 Payment Code Derivation Path Generator
+ * Purpose: 47' (0x8000002F)
+ * Format: m/47'/coin_type'/account'
+ * Used for reusable payment codes (stealth addresses)
+ * 
+ * @param account - Account number (default 0)
+ * @returns BIP47 payment code derivation path
+ */
+export function generateBIP47Path(account: number = 0): string {
+  return `m/47'/0'/${account}'`;
+}
+
+/**
+ * Direct brainwallet legacy support
+ * Simply SHA256(passphrase) → private key without any HD derivation
+ * This was used by early Bitcoin users before BIP32/BIP39
+ * 
+ * WARNING: This is the least secure method and was abandoned due to
+ * rainbow table attacks. Only use for recovery of old wallets.
+ * 
+ * @param passphrase - The passphrase to convert to a private key
+ * @returns Object with private key hex and both address formats
+ */
+export function generateBrainwalletLegacy(passphrase: string): {
+  privateKeyHex: string;
+  privateKeyWIF: string;
+  privateKeyWIFCompressed: string;
+  addressCompressed: string;
+  addressUncompressed: string;
+} {
+  validatePassphrase(passphrase);
+  
+  // Direct SHA256 hash - this is how early brainwallets worked
+  const privateKeyHex = createHash("sha256").update(passphrase, "utf8").digest('hex');
+  
+  // Generate both WIF formats
+  const privateKeyWIF = privateKeyToWIF(privateKeyHex, false);
+  const privateKeyWIFCompressed = privateKeyToWIF(privateKeyHex, true);
+  
+  // Generate both address formats
+  const addressCompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, true);
+  const addressUncompressed = generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
+  
+  return {
+    privateKeyHex,
+    privateKeyWIF,
+    privateKeyWIFCompressed,
+    addressCompressed,
+    addressUncompressed,
+  };
+}
+
+/**
+ * Casascius Physical Bitcoin Format
+ * These physical coins had private keys printed under a hologram
+ * Format: Mini private key (22 or 30 characters starting with 'S')
+ * 
+ * @param miniKey - The mini private key from Casascius coin
+ * @returns Object with derived private key and addresses
+ */
+export function generateCasasciusCoinAddress(miniKey: string): {
+  privateKeyHex: string;
+  privateKeyWIF: string;
+  address: string;
+} | null {
+  // Casascius mini keys are 22 or 30 characters starting with 'S'
+  if (!miniKey || typeof miniKey !== 'string') return null;
+  if (!miniKey.startsWith('S')) return null;
+  if (miniKey.length !== 22 && miniKey.length !== 30) return null;
+  
+  // Validate mini key by checking SHA256(key + '?') starts with 0x00
+  const checkHash = createHash("sha256").update(miniKey + '?', 'utf8').digest();
+  if (checkHash[0] !== 0x00) {
+    // Invalid mini key
+    return null;
+  }
+  
+  // Derive private key: SHA256(miniKey)
+  const privateKeyHex = createHash("sha256").update(miniKey, 'utf8').digest('hex');
+  const privateKeyWIF = privateKeyToWIF(privateKeyHex, false); // Casascius used uncompressed
+  const address = generateBitcoinAddressFromPrivateKey(privateKeyHex, false);
+  
+  return {
+    privateKeyHex,
+    privateKeyWIF,
+    address,
+  };
+}

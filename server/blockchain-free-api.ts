@@ -102,6 +102,30 @@ export class FreeBlockchainAPI {
       lastFailure: 0,
       currentBackoffMs: FreeBlockchainAPI.INITIAL_BACKOFF_MS,
       lastRequestTime: 0,
+    },
+    {
+      name: 'Blockchair',
+      baseUrl: 'https://api.blockchair.com/bitcoin',
+      requestsPerMinute: 30,
+      currentRequests: 0,
+      lastReset: Date.now(),
+      healthy: true,
+      consecutiveFailures: 0,
+      lastFailure: 0,
+      currentBackoffMs: FreeBlockchainAPI.INITIAL_BACKOFF_MS,
+      lastRequestTime: 0,
+    },
+    {
+      name: 'BitQuery',
+      baseUrl: 'https://graphql.bitquery.io',
+      requestsPerMinute: 20,
+      currentRequests: 0,
+      lastReset: Date.now(),
+      healthy: true,
+      consecutiveFailures: 0,
+      lastFailure: 0,
+      currentBackoffMs: FreeBlockchainAPI.INITIAL_BACKOFF_MS,
+      lastRequestTime: 0,
     }
   ];
 
@@ -115,7 +139,7 @@ export class FreeBlockchainAPI {
   private totalErrors = 0;
 
   constructor() {
-    console.log('[FreeBlockchainAPI] Initialized with 4 providers (230 req/min combined, exponential backoff enabled)');
+    console.log('[FreeBlockchainAPI] Initialized with 6 providers (300 req/min combined, exponential backoff enabled)');
   }
 
   /**
@@ -573,6 +597,12 @@ export class FreeBlockchainAPI {
       case 'BlockCypher':
         url = `${provider.baseUrl}/addrs/${address}/balance`;
         break;
+      case 'Blockchair':
+        url = `${provider.baseUrl}/dashboards/address/${address}`;
+        break;
+      case 'BitQuery':
+        // BitQuery uses GraphQL - will need special handling
+        return await this.queryBitQueryBalance(address);
       default:
         throw new Error(`Unknown provider: ${provider.name}`);
     }
@@ -605,11 +635,61 @@ export class FreeBlockchainAPI {
           return (addrData?.final_balance || 0) / 1e8;
         case 'BlockCypher':
           return (data.final_balance || 0) / 1e8;
+        case 'Blockchair':
+          return (data.data?.[address]?.address?.balance || 0) / 1e8;
         default:
           return 0;
       }
     } catch (error) {
       clearTimeout(timeout);
+      throw error;
+    }
+  }
+
+  /**
+   * Query BitQuery using GraphQL (with proper escaping)
+   */
+  private async queryBitQueryBalance(address: string): Promise<number> {
+    // Validate Bitcoin address format to prevent injection
+    // Supports P2PKH (1xxx), P2SH (3xxx), P2WPKH (bc1q), P2TR (bc1p)
+    if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) && 
+        !/^bc1[qp][a-z0-9]{38,87}$/i.test(address)) {
+      throw new Error('Invalid Bitcoin address format');
+    }
+    
+    // Use parameterized query approach (BitQuery supports variables)
+    const query = `
+      query($address: String!) {
+        bitcoin {
+          addressStats(address: {is: $address}) {
+            address {
+              balance
+            }
+          }
+        }
+      }
+    `;
+    
+    try {
+      const response = await fetch('https://graphql.bitquery.io', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          query,
+          variables: { address }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`BitQuery HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const balance = data.data?.bitcoin?.addressStats?.[0]?.address?.balance || 0;
+      return balance / 1e8;
+    } catch (error) {
       throw error;
     }
   }
@@ -633,6 +713,11 @@ export class FreeBlockchainAPI {
       case 'BlockCypher':
         url = `${provider.baseUrl}/addrs/${address}/balance`;
         break;
+      case 'Blockchair':
+        url = `${provider.baseUrl}/dashboards/address/${address}`;
+        break;
+      case 'BitQuery':
+        return await this.queryBitQueryAddressInfo(address);
       default:
         throw new Error(`Unknown provider: ${provider.name}`);
     }
@@ -683,11 +768,78 @@ export class FreeBlockchainAPI {
             funded: (data.total_received || 0) / 1e8,
             spent: (data.total_sent || 0) / 1e8
           };
+        case 'Blockchair':
+          const addrInfo = data.data?.[address]?.address || {};
+          return {
+            address,
+            balance: (addrInfo.balance || 0) / 1e8,
+            txCount: addrInfo.transaction_count || 0,
+            funded: (addrInfo.received || 0) / 1e8,
+            spent: (addrInfo.spent || 0) / 1e8
+          };
         default:
           return { address, balance: 0, txCount: 0, funded: 0, spent: 0 };
       }
     } catch (error) {
       clearTimeout(timeout);
+      throw error;
+    }
+  }
+
+  /**
+   * Query BitQuery address info using GraphQL (with proper parameterization)
+   */
+  private async queryBitQueryAddressInfo(address: string): Promise<AddressInfo> {
+    // Validate Bitcoin address format to prevent injection
+    // Supports P2PKH (1xxx), P2SH (3xxx), P2WPKH (bc1q), P2TR (bc1p)
+    if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address) && 
+        !/^bc1[qp][a-z0-9]{38,87}$/i.test(address)) {
+      throw new Error('Invalid Bitcoin address format');
+    }
+    
+    // Use parameterized query approach (BitQuery supports variables)
+    const query = `
+      query($address: String!) {
+        bitcoin {
+          addressStats(address: {is: $address}) {
+            address {
+              balance
+              receiveAmount
+              spendAmount
+              transactionCount
+            }
+          }
+        }
+      }
+    `;
+    
+    try {
+      const response = await fetch('https://graphql.bitquery.io', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          query,
+          variables: { address }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`BitQuery HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const stats = data.data?.bitcoin?.addressStats?.[0]?.address || {};
+      
+      return {
+        address,
+        balance: (stats.balance || 0) / 1e8,
+        txCount: stats.transactionCount || 0,
+        funded: (stats.receiveAmount || 0) / 1e8,
+        spent: (stats.spendAmount || 0) / 1e8
+      };
+    } catch (error) {
       throw error;
     }
   }

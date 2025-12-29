@@ -19,7 +19,17 @@
  * Total: 50 addresses per mnemonic
  */
 
-import { deriveBIP39PrivateKey, privateKeyToWIF, generateBitcoinAddressFromPrivateKey, generateP2SHP2WPKHAddress, generateP2WPKHAddress, generateP2TRAddress } from './crypto';
+import { 
+  deriveBIP39PrivateKey, 
+  privateKeyToWIF, 
+  generateBitcoinAddressFromPrivateKey, 
+  generateP2SHP2WPKHAddress, 
+  generateP2WPKHAddress, 
+  generateP2TRAddress,
+  generateBIP45Path,
+  generateBIP48Path,
+  generateBIP47Path
+} from './crypto';
 import { dormantCrossRef, type DormantAddressInfo } from './dormant-cross-ref';
 import { isValidBIP39Phrase } from './bip39-words';
 import { DERIVATION_PATH_CONFIG } from './ocean-config';
@@ -35,7 +45,7 @@ export interface DerivedAddress {
   privateKeyWIF: string;
   privateKeyWIFCompressed: string;
   index: number;
-  pathType: 'bip44-receive' | 'bip44-change' | 'bip49-receive' | 'bip49-change' | 'bip84-receive' | 'bip84-change' | 'bip86-receive' | 'bip86-change' | 'electrum-receive' | 'electrum-change' | 'legacy';
+  pathType: 'bip44-receive' | 'bip44-change' | 'bip49-receive' | 'bip49-change' | 'bip84-receive' | 'bip84-change' | 'bip86-receive' | 'bip86-change' | 'electrum-receive' | 'electrum-change' | 'legacy' | 'bip45-multisig' | 'bip48-p2sh' | 'bip48-p2wsh' | 'bip47-payment';
 }
 
 export interface MnemonicDerivationResult {
@@ -307,6 +317,46 @@ export function deriveMnemonicAddresses(mnemonic: string, options?: {
       for (let i = 0; i < legacyCount; i++) {
         const path = generateLegacyPath(i);
         addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'legacy'));
+      }
+    }
+    
+    // BIP45 Multisig paths (for shared/multisig wallets)
+    if (config.MULTISIG_ENABLED && config.MULTISIG_BIP45_COUNT > 0) {
+      // Check multiple cosigner indices (configurable, default 3)
+      const cosignerCount = config.MULTISIG_BIP45_COSIGNER_COUNT || 3;
+      for (let cosigner = 0; cosigner < cosignerCount; cosigner++) {
+        const addressLimit = Math.min(config.MULTISIG_BIP45_COUNT, 20);
+        for (let i = 0; i < addressLimit; i++) {
+          // Receive addresses
+          const receivePath = generateBIP45Path(cosigner, 0, i);
+          addresses.push(deriveAddressWithKeys(trimmedMnemonic, receivePath, i, 'bip45-multisig'));
+          
+          // Change addresses
+          const changePath = generateBIP45Path(cosigner, 1, i);
+          addresses.push(deriveAddressWithKeys(trimmedMnemonic, changePath, i, 'bip45-multisig'));
+        }
+      }
+    }
+    
+    // BIP48 Multisig SegWit paths
+    if (config.MULTISIG_ENABLED && config.MULTISIG_BIP48_COUNT > 0) {
+      // Check account 0 only for multisig
+      for (let i = 0; i < Math.min(config.MULTISIG_BIP48_COUNT, 20); i++) {
+        // Script type 1: P2SH-P2WSH
+        const p2shPath = generateBIP48Path(0, 1, 0, i);
+        addresses.push(deriveAddressWithKeys(trimmedMnemonic, p2shPath, i, 'bip48-p2sh'));
+        
+        // Script type 2: P2WSH
+        const p2wshPath = generateBIP48Path(0, 2, 0, i);
+        addresses.push(deriveAddressWithKeys(trimmedMnemonic, p2wshPath, i, 'bip48-p2wsh'));
+      }
+    }
+    
+    // BIP47 Payment Codes (reusable payment addresses)
+    if (config.BIP47_ENABLED && config.BIP47_COUNT > 0) {
+      for (let i = 0; i < Math.min(config.BIP47_COUNT, 10); i++) {
+        const path = generateBIP47Path(i);
+        addresses.push(deriveAddressWithKeys(trimmedMnemonic, path, i, 'bip47-payment'));
       }
     }
   } catch (error) {
