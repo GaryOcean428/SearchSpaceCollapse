@@ -57,23 +57,21 @@ const KEYBOARD_LAYOUT: Record<string, string[]> = {
 
 /**
  * Phonetic substitutions (sound-alike characters)
+ * Note: Numeric/symbol substitutions are handled separately in LEET_SUBSTITUTIONS
  */
 const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
   'c': ['k', 's'],
   'k': ['c', 'q'],
-  's': ['c', 'z', '5', '$'], // Merged duplicate 's' entry
+  's': ['c', 'z'],
   'z': ['s'],
   'f': ['ph'],
   'ph': ['f'],
   'i': ['y', 'e'],
   'y': ['i'],
-  'o': ['0'],
+  'o': ['0'], // Keep for phonetic similarity (o/zero)
   '0': ['o'],
-  '1': ['l', 'i'],
+  '1': ['l', 'i'], // Keep for phonetic similarity (one/l/i)
   'l': ['1'],
-  'a': ['4', '@'],
-  'e': ['3'],
-  't': ['7'],
 };
 
 /**
@@ -281,6 +279,8 @@ export function generateAllTypoVariations(text: string, maxPerCategory: number =
 /**
  * Generate typo radius (all variations within N edits)
  */
+const DEFAULT_TYPO_VARIATIONS_PER_LEVEL = 3;
+
 export function generateTypoRadius(text: string, radius: number = 1): string[] {
   if (radius <= 0) return [text];
   
@@ -292,7 +292,7 @@ export function generateTypoRadius(text: string, radius: number = 1): string[] {
     queue.length = 0;
     
     for (const variant of currentLevel) {
-      const newVariations = generateAllTypoVariations(variant, 3);
+      const newVariations = generateAllTypoVariations(variant, DEFAULT_TYPO_VARIATIONS_PER_LEVEL);
       
       for (const newVariant of newVariations) {
         if (!variations.has(newVariant)) {
@@ -337,45 +337,58 @@ export interface WeightedTypo {
   typoType: 'keyboard' | 'transposition' | 'omission' | 'phonetic' | 'leet' | 'case' | 'common';
 }
 
+// Weight constants for typo types
+const TYPO_WEIGHTS = {
+  ORIGINAL: 1.0,
+  KEYBOARD: 0.8,
+  TRANSPOSITION: 0.7,
+  OMISSION: 0.6,
+  CASE: 0.9,
+  PHONETIC: 0.5,
+  LEET: 0.4,
+  COMMON: 0.85,
+  MAX_VARIATIONS_PER_TYPE: 5,
+} as const;
+
 export function generateWeightedTypos(text: string): WeightedTypo[] {
   const weighted: WeightedTypo[] = [];
   
   // Original (highest weight)
-  weighted.push({ text, weight: 1.0, typoType: 'keyboard' });
+  weighted.push({ text, weight: TYPO_WEIGHTS.ORIGINAL, typoType: 'keyboard' });
   
   // Keyboard typos (very common)
-  generateKeyboardTypos(text, 5).forEach(t => 
-    weighted.push({ text: t, weight: 0.8, typoType: 'keyboard' })
+  generateKeyboardTypos(text, TYPO_WEIGHTS.MAX_VARIATIONS_PER_TYPE).forEach(t => 
+    weighted.push({ text: t, weight: TYPO_WEIGHTS.KEYBOARD, typoType: 'keyboard' })
   );
   
   // Transpositions (common)
   generateTranspositions(text).forEach(t => 
-    weighted.push({ text: t, weight: 0.7, typoType: 'transposition' })
+    weighted.push({ text: t, weight: TYPO_WEIGHTS.TRANSPOSITION, typoType: 'transposition' })
   );
   
   // Character omissions (common)
-  generateCharacterOmissions(text, 5).forEach(t => 
-    weighted.push({ text: t, weight: 0.6, typoType: 'omission' })
+  generateCharacterOmissions(text, TYPO_WEIGHTS.MAX_VARIATIONS_PER_TYPE).forEach(t => 
+    weighted.push({ text: t, weight: TYPO_WEIGHTS.OMISSION, typoType: 'omission' })
   );
   
   // Case variations (very common)
   generateCaseVariations(text).forEach(t => 
-    weighted.push({ text: t, weight: 0.9, typoType: 'case' })
+    weighted.push({ text: t, weight: TYPO_WEIGHTS.CASE, typoType: 'case' })
   );
   
   // Phonetic (less common but possible)
-  generatePhoneticVariations(text, 5).forEach(t => 
-    weighted.push({ text: t, weight: 0.5, typoType: 'phonetic' })
+  generatePhoneticVariations(text, TYPO_WEIGHTS.MAX_VARIATIONS_PER_TYPE).forEach(t => 
+    weighted.push({ text: t, weight: TYPO_WEIGHTS.PHONETIC, typoType: 'phonetic' })
   );
   
   // Leetspeak (intentional, lower weight)
-  generateLeetVariations(text, 5).forEach(t => 
-    weighted.push({ text: t, weight: 0.4, typoType: 'leet' })
+  generateLeetVariations(text, TYPO_WEIGHTS.MAX_VARIATIONS_PER_TYPE).forEach(t => 
+    weighted.push({ text: t, weight: TYPO_WEIGHTS.LEET, typoType: 'leet' })
   );
   
   // Common misspellings (if exists)
   getCommonMisspellings(text).forEach(t => 
-    weighted.push({ text: t, weight: 0.85, typoType: 'common' })
+    weighted.push({ text: t, weight: TYPO_WEIGHTS.COMMON, typoType: 'common' })
   );
   
   return weighted;
