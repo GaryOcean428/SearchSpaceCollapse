@@ -141,7 +141,7 @@ interface TokenBucket {
   refillRate: number;
 }
 
-const MAX_QUEUE_SIZE = 10000;
+const MAX_QUEUE_SIZE = 25000; // Increased from 10000 for higher throughput
 const DEFAULT_RATE_LIMIT = 1.5;
 
 // Circuit breaker configuration (2025-12-25)
@@ -164,9 +164,9 @@ class BalanceQueueService {
   private backgroundHitCount = 0;
   private backgroundStartTime = 0;
 
-  // Bulk processing config
-  private bulkBatchSize = 50;
-  private bulkProcessInterval = 2000; // Process batch every 2 seconds
+  // Bulk processing config - optimized for higher throughput
+  private bulkBatchSize = 100; // Increased from 50 for faster drain
+  private bulkProcessInterval = 1500; // Reduced from 2000ms for faster processing
 
   // Ready state for API calls
   private _ready: Promise<void>;
