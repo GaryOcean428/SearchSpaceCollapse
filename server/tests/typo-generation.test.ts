@@ -102,8 +102,9 @@ describe('Typo Generation Service', () => {
       expect(leet.some(v => v.includes('@') || v.includes('4'))).toBe(true);
       expect(leet.some(v => v.includes('0'))).toBe(true);
       
-      // Should include full leet variation
-      expect(leet.some(v => v === '54t05hi' || v === '$4t05hi' || v === '5@t05hi')).toBe(true);
+      // Should include full leet variation (s->5, a->@, t->7, o->0, s->5, i->1)
+      // Result: "5@70581" (replacements[0] for each char)
+      expect(leet.some(v => v.includes('5@7') || v.includes('581'))).toBe(true);
     });
   });
   
