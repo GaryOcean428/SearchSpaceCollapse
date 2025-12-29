@@ -61,7 +61,7 @@ const KEYBOARD_LAYOUT: Record<string, string[]> = {
 const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
   'c': ['k', 's'],
   'k': ['c', 'q'],
-  's': ['c', 'z'],
+  's': ['c', 'z', '5', '$'], // Merged duplicate 's' entry
   'z': ['s'],
   'f': ['ph'],
   'ph': ['f'],
@@ -73,7 +73,6 @@ const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
   'l': ['1'],
   'a': ['4', '@'],
   'e': ['3'],
-  's': ['5', '$'],
   't': ['7'],
 };
 
