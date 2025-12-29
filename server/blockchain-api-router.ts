@@ -160,6 +160,46 @@ const PROVIDERS: Record<string, BlockchainProvider> = {
     errorCount: 0,
     successCount: 0,
   },
+  
+  blockchair: {
+    name: 'Blockchair',
+    baseUrl: 'https://api.blockchair.com/bitcoin',
+    rateLimit: {
+      documented: '30/min free',
+      recommended: 30,
+    },
+    endpoints: {
+      address: '/dashboards/address/{address}',
+      txs: '/dashboards/address/{address}/transactions',
+      utxo: '/dashboards/address/{address}',
+    },
+    reliability: 9,
+    cost: 'FREE',
+    enabled: true,
+    lastUsed: 0,
+    errorCount: 0,
+    successCount: 0,
+  },
+  
+  bitquery: {
+    name: 'BitQuery',
+    baseUrl: 'https://graphql.bitquery.io',
+    rateLimit: {
+      documented: '1000/month free',
+      recommended: 0.02, // ~1000/month = 0.023/min
+    },
+    endpoints: {
+      address: '/graphql', // GraphQL endpoint
+      txs: '/graphql',
+      utxo: '/graphql',
+    },
+    reliability: 7,
+    cost: 'FREE',
+    enabled: false, // Disabled by default due to low rate limit
+    lastUsed: 0,
+    errorCount: 0,
+    successCount: 0,
+  },
 };
 
 /**
@@ -304,6 +344,31 @@ function normalizeAddressData(data: any, provider: BlockchainProvider): AddressD
     };
   }
   
+  if (providerName === 'Blockchair') {
+    const addressData = data.data?.[Object.keys(data.data)[0]];
+    return {
+      address: addressData?.address || '',
+      balance: addressData?.address?.balance || 0,
+      totalReceived: addressData?.address?.received || 0,
+      totalSent: addressData?.address?.spent || 0,
+      txCount: addressData?.address?.transaction_count || 0,
+      unconfirmedBalance: addressData?.address?.unconfirmed_balance || 0,
+    };
+  }
+  
+  if (providerName === 'BitQuery') {
+    // BitQuery uses GraphQL, normalization depends on query structure
+    // Disabled by default, would need custom query implementation
+    return {
+      address: '',
+      balance: 0,
+      totalReceived: 0,
+      totalSent: 0,
+      txCount: 0,
+      unconfirmedBalance: 0,
+    };
+  }
+  
   // Default fallback
   return {
     address: '',
@@ -414,6 +479,79 @@ export async function getAddressData(address: string): Promise<AddressData | nul
   const err = new ProviderUnavailableError(address, attempts, providerHistory, lastErrorMsg);
   console.error(`[BlockchainAPI] Provider unavailable: ${err.getSummary()}`);
   throw err;
+}
+
+/**
+ * Fetch address data with parallel provider calls for maximum throughput
+ * Queries multiple providers simultaneously and returns the first successful response
+ * Falls back to sequential mode if all parallel attempts fail
+ * 
+ * @param address - Bitcoin address to query
+ * @param parallelCount - Number of providers to query in parallel (default: 3)
+ * @returns AddressData or null
+ */
+export async function getAddressDataParallel(
+  address: string, 
+  parallelCount: number = 3
+): Promise<AddressData | null> {
+  // Get available providers that can make requests
+  const availableProviders = Object.entries(PROVIDERS)
+    .filter(([id, p]) => p.enabled && rateLimiter.canMakeRequest(id))
+    .sort((a, b) => b[1].reliability - a[1].reliability)
+    .slice(0, parallelCount);
+  
+  if (availableProviders.length === 0) {
+    console.log('[BlockchainAPI] No providers available for parallel query, falling back to sequential');
+    return getAddressData(address);
+  }
+  
+  console.log(`[BlockchainAPI] Parallel query ${address} using ${availableProviders.length} providers`);
+  
+  // Create promises for each provider
+  const promises = availableProviders.map(async ([id, provider]) => {
+    try {
+      const url = `${provider.baseUrl}${provider.endpoints.address.replace('{address}', address)}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'SearchSpaceCollapse/1.0',
+        },
+        signal: AbortSignal.timeout(8000), // Shorter timeout for parallel mode
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      // Record success
+      rateLimiter.recordRequest(id);
+      provider.lastUsed = Date.now();
+      provider.successCount++;
+      
+      const normalized = normalizeAddressData(data, provider);
+      
+      console.log(`[BlockchainAPI] Parallel success: ${address} via ${provider.name}`);
+      
+      return normalized;
+      
+    } catch (error) {
+      provider.errorCount++;
+      console.error(`[BlockchainAPI] Parallel error with ${provider.name}: ${error}`);
+      throw error;
+    }
+  });
+  
+  try {
+    // Return first successful result
+    return await Promise.race(promises);
+  } catch (error) {
+    // All parallel attempts failed, fall back to sequential
+    console.log('[BlockchainAPI] All parallel attempts failed, falling back to sequential');
+    return getAddressData(address);
+  }
 }
 
 /**
