@@ -25,6 +25,29 @@ export interface TrafficWindow {
   multiplier: number;
 }
 
+// Configuration constants
+const CONFIG = {
+  BASE_RATE_PER_MINUTE: 60,
+  ADJUSTMENT_INTERVAL_MS: 60000,
+  MIN_DELAY_MS: 100,
+  MINUTES_IN_MS: 60 * 1000,
+  FIVE_MINUTES_MS: 5 * 60 * 1000,
+  HEALTH_WEIGHT: 0.6,
+  CAPACITY_WEIGHT: 0.4,
+  MIN_HEALTH_SCALE: 0.5,
+  ERROR_PENALTY_THRESHOLD: 0.2,
+  ERROR_PENALTY_FACTOR: 0.5,
+  QUEUE_BOOST_THRESHOLD: 100,
+  QUEUE_BOOST_DIVISOR: 1000,
+  MAX_QUEUE_BOOST: 1.5,
+  LOW_TRAFFIC_HIGH_HEALTH: 0.7,
+  MEDIUM_TRAFFIC_MODERATE_HEALTH: 0.6,
+  MAX_PARALLEL_QUERIES: 3,
+  MEDIUM_PARALLEL_QUERIES: 2,
+  MS_PER_MINUTE: 60000,
+  PERCENT_MULTIPLIER: 100,
+} as const;
+
 /**
  * Expected traffic patterns (UTC time)
  * Low traffic = better API response times
@@ -60,12 +83,12 @@ const TRAFFIC_PATTERNS: TrafficWindow[] = [
  * Rate scheduler state
  */
 class AdaptiveRateScheduler {
-  private baseRate: number = 60; // Base requests per minute
+  private baseRate: number = CONFIG.BASE_RATE_PER_MINUTE;
   private currentSchedule: RateSchedule | null = null;
   private recentErrors: number[] = [];
   private recentSuccesses: number[] = [];
   private lastAdjustment: number = 0;
-  private adjustmentIntervalMs: number = 60000; // Adjust every minute
+  private adjustmentIntervalMs: number = CONFIG.ADJUSTMENT_INTERVAL_MS;
   
   /**
    * Get current traffic multiplier based on UTC time
@@ -103,7 +126,7 @@ class AdaptiveRateScheduler {
     }, 0) / enabledProviders.length;
     
     // Health is combination of success rate and available capacity
-    const healthScore = (avgSuccessRate * 0.6) + ((1 - avgCapacityUsed) * 0.4);
+    const healthScore = (avgSuccessRate * CONFIG.HEALTH_WEIGHT) + ((1 - avgCapacityUsed) * CONFIG.CAPACITY_WEIGHT);
     
     return Math.max(0, Math.min(1, healthScore));
   }
@@ -113,7 +136,7 @@ class AdaptiveRateScheduler {
    */
   getRecentErrorRate(): number {
     const now = Date.now();
-    const fiveMinutesAgo = now - 5 * 60 * 1000;
+    const fiveMinutesAgo = now - CONFIG.MINUTES_IN_MS * 5;
     
     const recentErrorCount = this.recentErrors.filter(t => t > fiveMinutesAgo).length;
     const recentSuccessCount = this.recentSuccesses.filter(t => t > fiveMinutesAgo).length;
@@ -135,7 +158,7 @@ class AdaptiveRateScheduler {
     }
     
     // Keep only last 5 minutes
-    const fiveMinutesAgo = now - 5 * 60 * 1000;
+    const fiveMinutesAgo = now - CONFIG.MINUTES_IN_MS * 5;
     this.recentErrors = this.recentErrors.filter(t => t > fiveMinutesAgo);
     this.recentSuccesses = this.recentSuccesses.filter(t => t > fiveMinutesAgo);
   }
@@ -163,38 +186,38 @@ class AdaptiveRateScheduler {
     targetRate *= trafficMultiplier;
     
     // Apply health score (slow down if providers are unhealthy)
-    targetRate *= (0.5 + healthScore * 0.5); // Scale 0.5x to 1.0x
+    targetRate *= (CONFIG.MIN_HEALTH_SCALE + healthScore * CONFIG.MIN_HEALTH_SCALE);
     
     // Apply error rate penalty (slow down if errors are high)
-    if (errorRate > 0.2) {
-      targetRate *= (1 - errorRate * 0.5); // Reduce by up to 50% at 100% error rate
+    if (errorRate > CONFIG.ERROR_PENALTY_THRESHOLD) {
+      targetRate *= (1 - errorRate * CONFIG.ERROR_PENALTY_FACTOR);
     }
     
     // Apply queue depth boost (speed up if queue is deep)
-    if (queueDepth > 100) {
-      const queueBoost = Math.min(1.5, 1 + (queueDepth / 1000));
+    if (queueDepth > CONFIG.QUEUE_BOOST_THRESHOLD) {
+      const queueBoost = Math.min(CONFIG.MAX_QUEUE_BOOST, 1 + (queueDepth / CONFIG.QUEUE_BOOST_DIVISOR));
       targetRate *= queueBoost;
     }
     
     // Determine parallel query count based on traffic and health
     let parallelQueries = 1;
-    if (trafficLevel === 'low' && healthScore > 0.7) {
-      parallelQueries = 3;
-    } else if (trafficLevel === 'medium' && healthScore > 0.6) {
-      parallelQueries = 2;
+    if (trafficLevel === 'low' && healthScore > CONFIG.LOW_TRAFFIC_HIGH_HEALTH) {
+      parallelQueries = CONFIG.MAX_PARALLEL_QUERIES;
+    } else if (trafficLevel === 'medium' && healthScore > CONFIG.MEDIUM_TRAFFIC_MODERATE_HEALTH) {
+      parallelQueries = CONFIG.MEDIUM_PARALLEL_QUERIES;
     }
     
     // Calculate delay between requests
-    const delayBetweenRequests = Math.max(100, Math.floor((60000 / targetRate) / parallelQueries));
+    const delayBetweenRequests = Math.max(CONFIG.MIN_DELAY_MS, Math.floor((CONFIG.MS_PER_MINUTE / targetRate) / parallelQueries));
     
     // Build reason string
     const reasons: string[] = [];
     reasons.push(`Traffic: ${trafficLevel} (${trafficMultiplier.toFixed(1)}x)`);
-    reasons.push(`Health: ${(healthScore * 100).toFixed(0)}%`);
-    if (errorRate > 0.1) {
-      reasons.push(`Errors: ${(errorRate * 100).toFixed(0)}%`);
+    reasons.push(`Health: ${(healthScore * CONFIG.PERCENT_MULTIPLIER).toFixed(0)}%`);
+    if (errorRate > CONFIG.ERROR_PENALTY_THRESHOLD / 2) {
+      reasons.push(`Errors: ${(errorRate * CONFIG.PERCENT_MULTIPLIER).toFixed(0)}%`);
     }
-    if (queueDepth > 100) {
+    if (queueDepth > CONFIG.QUEUE_BOOST_THRESHOLD) {
       reasons.push(`Queue: ${queueDepth}`);
     }
     

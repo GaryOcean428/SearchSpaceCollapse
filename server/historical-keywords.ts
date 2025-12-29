@@ -253,9 +253,10 @@ export function getHighPriorityKeywords(minWeight: number = 0.8): string[] {
 export function generateHistoricalPhrases(count: number = 100): string[] {
   const phrases: string[] = [];
   const allKeywords = HISTORICAL_KEYWORDS.flatMap(set => set.keywords);
-  const weights = HISTORICAL_KEYWORDS.flatMap(set => 
-    set.keywords.map(() => set.weight)
-  );
+  // Note: weights variable is intentionally unused - kept for future statistical weighting
+  // const weights = HISTORICAL_KEYWORDS.flatMap(set => 
+  //   set.keywords.map(() => set.weight)
+  // );
   
   // Single keyword phrases
   for (let i = 0; i < count / 2; i++) {
