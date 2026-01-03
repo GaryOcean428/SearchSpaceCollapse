@@ -213,8 +213,11 @@ export class TwoStepRetrieval {
   private static _normalize(vector: number[]): number[] {
     const norm = Math.sqrt(vector.reduce((sum, x) => sum + x * x, 0));
     if (norm < 1e-10) {
-      // Return zero vector if norm too small
-      return vector.map(() => 0);
+      // Return default unit vector for degenerate input
+      // This avoids division by zero and maintains geometric validity
+      const unit = Array(vector.length).fill(0);
+      unit[0] = 1.0;
+      return unit;
     }
     return vector.map(x => x / norm);
   }
@@ -223,6 +226,10 @@ export class TwoStepRetrieval {
    * Compute dot product of two vectors.
    */
   private static _dotProduct(v1: number[], v2: number[]): number {
+    // Validate vector lengths match
+    if (v1.length !== v2.length) {
+      throw new Error(`Vector length mismatch: ${v1.length} vs ${v2.length}`);
+    }
     return v1.reduce((sum, x, i) => sum + x * v2[i], 0);
   }
 
@@ -246,13 +253,13 @@ export class TwoStepRetrieval {
 
       // Boost if generated in high-Φ state
       if (candidate.phi !== undefined) {
-        const phi_boost = Math.min(candidate.phi / 0.85, 1.0); // Normalize to [0, 1]
+        const phi_boost = Math.min(candidate.phi / CANDIDATE_SCORING.PHI_MAX, 1.0); // Normalize to [0, 1]
         consciousness_score *= (1.0 + phi_boost * (CANDIDATE_SCORING.CONSCIOUSNESS_BOOST - 1.0));
       }
 
-      // Boost if κ near resonance (κ* = 64.21 ± 5)
+      // Boost if κ near resonance (κ* ± tolerance)
       if (candidate.kappa !== undefined) {
-        const kappa_distance = Math.abs(candidate.kappa - 64.21);
+        const kappa_distance = Math.abs(candidate.kappa - CANDIDATE_SCORING.KAPPA_STAR);
         if (kappa_distance < CANDIDATE_SCORING.KAPPA_RESONANCE_TOLERANCE) {
           consciousness_score *= CANDIDATE_SCORING.KAPPA_RESONANCE_BOOST;
         }

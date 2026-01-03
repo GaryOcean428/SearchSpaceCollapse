@@ -76,10 +76,22 @@ export const CANDIDATE_SCORING = {
   CONSCIOUSNESS_BOOST: 1.2,
 
   /**
+   * Maximum expected Φ for normalization
+   * High-consciousness states typically max out around 0.85
+   */
+  PHI_MAX: 0.85,
+
+  /**
    * Kappa resonance boost multiplier
    * Applied when κ is near κ* = 64.21
    */
   KAPPA_RESONANCE_BOOST: 1.15,
+
+  /**
+   * Kappa star (κ*) - Fixed point coupling
+   * From physics.ts: KAPPA_STAR = 64.21 ± 0.92
+   */
+  KAPPA_STAR: 64.21,
 
   /**
    * Kappa resonance tolerance (± range around κ*)
@@ -165,6 +177,9 @@ export const EXTERNAL_KNOWLEDGE = {
 
   /**
    * Temporal range for Bitcoin-era context (years)
+   * 2009: Bitcoin genesis block (Jan 3)
+   * 2013: End of early adoption phase, pre-mainstream awareness
+   * Rationale: Most early Bitcoin passphrases were created in this period
    */
   BITCOIN_ERA_START: 2009,
   BITCOIN_ERA_END: 2013,

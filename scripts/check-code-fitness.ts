@@ -134,11 +134,22 @@ async function main() {
     process.exit(0);
   } catch (error) {
     console.error("");
-    console.error("[CodeFitnessCheck] ❌ Evaluation failed:");
+    console.error("=".repeat(60));
+    console.error("❌ CODE FITNESS EVALUATION FAILED");
+    console.error("=".repeat(60));
+    console.error("");
+    console.error("[CodeFitnessCheck] Evaluation error:");
     console.error(error);
     console.error("");
-    console.error("Skipping fitness check (evaluation error)");
-    console.error("Manual review required!");
+    console.error("⚠️  IMPORTANT: Fitness check bypassed due to evaluation failure!");
+    console.error("⚠️  Manual review REQUIRED before merging this change.");
+    console.error("");
+    console.error("This could indicate:");
+    console.error("  • Python backend not running");
+    console.error("  • Self-healing module import error");
+    console.error("  • Invalid module/file path");
+    console.error("");
+    console.error("Allowing commit to proceed, but MUST be reviewed manually.");
     console.error("");
     process.exit(0); // Don't block commit on evaluation failure
   }
