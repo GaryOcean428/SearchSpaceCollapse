@@ -124,3 +124,12 @@ export {
   TIMING,
   THRESHOLDS,
 } from './ui';
+
+// Recovery constants (candidate scoring, search optimization)
+export {
+  TWO_STEP_RETRIEVAL,
+  CANDIDATE_SCORING,
+  RECOVERY_STRATEGY,
+  PERFORMANCE_LIMITS,
+  EXTERNAL_KNOWLEDGE,
+} from './recovery';
