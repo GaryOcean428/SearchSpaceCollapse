@@ -82,6 +82,7 @@ import { temporalGeometry } from "./temporal-geometry";
 import { vocabDecisionEngine, type GaryState } from "./vocabulary-decision";
 import { vocabularyExpander } from "./vocabulary-expander";
 import { vocabularyTracker } from "./vocabulary-tracker";
+import { balanceFeedbackAnalyzer } from "./balance-feedback-analyzer";
 
 // New consciousness improvement modules
 import {
@@ -4094,6 +4095,51 @@ export class OceanAgent {
       );
     }
 
+    // BALANCE FEEDBACK LOOP: Add hypotheses from top-performing words
+    // These words come from successful balance hits and near-misses
+    // Deduplicate to prevent hypothesis list bloat in long-running sessions
+    try {
+      const existingPhrases = new Set(hypotheses.map(h => h.phrase.toLowerCase()));
+      const topFeedbackWords = balanceFeedbackAnalyzer.getTopWords(20);
+      if (topFeedbackWords.length >= 3 && balanceFeedbackAnalyzer.isReady()) {
+        // Generate phrase combinations from top-performing words
+        const generatedPhrases = new Set<string>();
+        let attempts = 0;
+        const maxAttempts = 30; // Prevent infinite loops
+        const targetCount = Math.min(10, Math.floor(topFeedbackWords.length / 2));
+        
+        while (generatedPhrases.size < targetCount && attempts < maxAttempts) {
+          attempts++;
+          const numWords = 2 + Math.floor(Math.random() * 3); // 2-4 words
+          const selectedWords: string[] = [];
+          for (let j = 0; j < numWords; j++) {
+            const idx = Math.floor(Math.random() * topFeedbackWords.length);
+            selectedWords.push(topFeedbackWords[idx]);
+          }
+          const phrase = selectedWords.join(" ");
+          const phraseLower = phrase.toLowerCase();
+          
+          // Skip if already exists in hypotheses or already generated
+          if (existingPhrases.has(phraseLower) || generatedPhrases.has(phraseLower)) {
+            continue;
+          }
+          
+          generatedPhrases.add(phraseLower);
+          hypotheses.push(
+            this.createHypothesis(
+              phrase,
+              "arbitrary",
+              "balance_feedback",
+              "From balance hit/near-miss vocabulary patterns",
+              0.55
+            )
+          );
+        }
+      }
+    } catch (feedbackError) {
+      // Balance feedback not available - continue without it
+    }
+
     return hypotheses;
   }
 
@@ -4107,11 +4153,16 @@ export class OceanAgent {
       .getCategory("cultural")
       .slice(0, 50);
     const nameWords = expandedVocabulary.getCategory("names").slice(0, 50);
+    
+    // BALANCE FEEDBACK INTEGRATION: Mix in top-performing words from balance hits
+    const feedbackWords = balanceFeedbackAnalyzer.getTopWords(30);
+    
     const allWords = [
       ...cryptoWords,
       ...commonWords,
       ...culturalWords,
       ...nameWords,
+      ...feedbackWords, // Words from successful balance checks get added to pool
     ];
 
     // Fallback if vocabulary not loaded

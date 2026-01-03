@@ -28,6 +28,7 @@ import { eq, and, or, sql, desc, asc, inArray } from 'drizzle-orm';
 import { testedEmptyTracker } from './tested-empty-tracker';
 import { regulateDopamineFromBalanceResult, NeurochemistryState } from './ocean-neurochemistry';
 import { ProviderUnavailableError } from './errors';
+import { balanceFeedbackAnalyzer } from './balance-feedback-analyzer';
 
 export interface QueuedAddress {
   id: string;
@@ -140,7 +141,7 @@ interface TokenBucket {
   refillRate: number;
 }
 
-const MAX_QUEUE_SIZE = 10000;
+const MAX_QUEUE_SIZE = 25000; // Increased from 10000 for higher throughput
 const DEFAULT_RATE_LIMIT = 1.5;
 
 // Circuit breaker configuration (2025-12-25)
@@ -163,9 +164,9 @@ class BalanceQueueService {
   private backgroundHitCount = 0;
   private backgroundStartTime = 0;
 
-  // Bulk processing config
-  private bulkBatchSize = 50;
-  private bulkProcessInterval = 2000; // Process batch every 2 seconds
+  // Bulk processing config - optimized for higher throughput
+  private bulkBatchSize = 100; // Increased from 50 for faster drain
+  private bulkProcessInterval = 1500; // Reduced from 2000ms for faster processing
 
   // Ready state for API calls
   private _ready: Promise<void>;
@@ -553,6 +554,18 @@ class BalanceQueueService {
 
                     // Notify Python backend to reinforce success patterns
                     this.notifyHypothesisFeedback(item.passphrase, result.balance, item.source);
+                  }
+                  
+                  // Classify as near-miss for feedback loop (dust, historical, high-tx)
+                  const balanceSats = Math.round(result.balance * 100_000_000);
+                  const nearMissClass = balanceFeedbackAnalyzer.classifyNearMiss(
+                    balanceSats,
+                    result.txCount,
+                    undefined // totalReceived not available from bulk API
+                  );
+                  
+                  if (nearMissClass.reason) {
+                    console.log(`[BalanceQueue] 🎯 Near-miss: ${item.address} (${nearMissClass.reason})`);
                   }
                 } catch (recordError) {
                   console.error(`[BalanceQueue] Error recording hit for ${item.address}:`, recordError);

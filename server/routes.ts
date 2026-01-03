@@ -89,6 +89,32 @@ import { queueAddressForBalanceCheck } from "./balance-queue-integration";
 import { oceanSessionManager } from "./ocean-session-manager";
 import { isAuthenticated, setupAuth } from "./replitAuth";
 import { searchCoordinator } from "./search-coordinator";
+import { balanceFeedbackAnalyzer } from "./balance-feedback-analyzer";
+
+// BALANCE FEEDBACK LOOP: Initialize analyzer on startup and schedule periodic refresh
+// This closes the loop between balance checking results and hypothesis generation
+(async function initBalanceFeedbackLoop() {
+  try {
+    console.log('[BalanceFeedbackLoop] Initializing feedback analyzer...');
+    await balanceFeedbackAnalyzer.initialize();
+    
+    // Schedule periodic refresh every 6 hours
+    const REFRESH_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+    setInterval(async () => {
+      try {
+        console.log('[BalanceFeedbackLoop] Refreshing vocabulary from balance results...');
+        const summary = await balanceFeedbackAnalyzer.refresh(true);
+        console.log(`[BalanceFeedbackLoop] Refreshed: ${summary.hitCount} hits, ${summary.nearMissCount} near-misses, ${summary.topWords.length} top words`);
+      } catch (error) {
+        console.error('[BalanceFeedbackLoop] Periodic refresh failed:', error);
+      }
+    }, REFRESH_INTERVAL);
+    
+    console.log('[BalanceFeedbackLoop] ✅ Feedback loop active (6-hour refresh cycle)');
+  } catch (error) {
+    console.error('[BalanceFeedbackLoop] Initialization failed:', error);
+  }
+})();
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000,

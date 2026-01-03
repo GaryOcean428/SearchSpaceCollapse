@@ -78,7 +78,13 @@ class HypothesisEmitter:
 
     TYPESCRIPT_URL = "http://localhost:5000/api/ocean/hypothesis"
     BATCH_SIZE = 50
-    EMIT_INTERVAL_SECONDS = 5  # Reduced from 10s - async allows faster emission
+    EMIT_INTERVAL_SECONDS = 5  # Base interval - async allows faster emission
+    
+    # Dynamic rate adjustment based on queue saturation
+    QUEUE_LOW_THRESHOLD = 5000      # Below this: emit at full speed
+    QUEUE_MEDIUM_THRESHOLD = 12000  # Above this: start slowing down
+    QUEUE_HIGH_THRESHOLD = 18000    # Above this: emit very slowly
+    MAX_DYNAMIC_INTERVAL = 30       # Maximum interval when queue is near saturation
 
     # Backoff configuration
     INITIAL_BACKOFF_SECONDS = 1.0
@@ -114,6 +120,9 @@ class HypothesisEmitter:
         # In-flight request tracking (bounded queue for fire-and-forget)
         self._in_flight_queue: Queue = Queue(maxsize=self.MAX_IN_FLIGHT_REQUESTS)
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="hypothesis-async")
+        
+        # Dynamic rate control based on queue saturation
+        self._queue_pending = 0  # Last known queue depth
         
     def start(self):
         """Start the hypothesis emission loop."""
@@ -186,8 +195,8 @@ class HypothesisEmitter:
 
                 self._cycles += 1
 
-                # Use current backoff interval (exponential on failure, reset on success)
-                sleep_time = max(self.EMIT_INTERVAL_SECONDS, self._current_backoff)
+                # Dynamic interval based on queue saturation
+                sleep_time = self._compute_dynamic_interval()
                 time.sleep(sleep_time)
 
             except Exception as e:
@@ -306,6 +315,9 @@ class HypothesisEmitter:
             if result.get('soft_skip'):
                 # Queue was full, just wait briefly - don't adjust backoff or failure count
                 # This prevents cascading slowdowns from backpressure signals
+                # Update queue depth from the 429 response
+                if 'pending' in result:
+                    self._queue_pending = result.get('pending', self._queue_pending)
                 print(f"[HypothesisEmitter] Soft skip: {result.get('reason', 'unknown')}")
                 return
             
@@ -314,10 +326,16 @@ class HypothesisEmitter:
             self._total_skipped += result.get('alreadyTested', 0) + result.get('skipped', 0)
             self._last_emit_time = datetime.now()
             self._record_success()
+            
+            # Track queue depth for dynamic rate adjustment
+            if 'queuePending' in result:
+                self._queue_pending = result.get('queuePending', 0)
 
             if self._cycles % 6 == 0:
+                interval = self._compute_dynamic_interval()
                 print(f"[HypothesisEmitter] Cycle {self._cycles}: "
-                      f"emitted={self._total_emitted}, queued={self._total_queued}, skipped={self._total_skipped}")
+                      f"emitted={self._total_emitted}, queued={self._total_queued}, "
+                      f"skipped={self._total_skipped}, queue={self._queue_pending}, interval={interval:.1f}s")
         else:
             self._record_failure()
 
@@ -335,6 +353,38 @@ class HypothesisEmitter:
             self.MAX_BACKOFF_SECONDS
         )
         print(f"[HypothesisEmitter] Failure {self._consecutive_failures}, backoff now {self._current_backoff}s")
+    
+    def _compute_dynamic_interval(self) -> float:
+        """
+        Compute dynamic emission interval based on queue saturation.
+        
+        Strategy:
+        - Queue < 5000: Emit at full speed (5s interval)
+        - Queue 5000-12000: Linear slowdown (5-15s)
+        - Queue 12000-18000: Steeper slowdown (15-25s)
+        - Queue > 18000: Very slow (25-30s)
+        
+        Also respects current backoff from failures.
+        """
+        base_interval = self.EMIT_INTERVAL_SECONDS
+        
+        if self._queue_pending <= self.QUEUE_LOW_THRESHOLD:
+            # Queue is healthy - emit at full speed
+            dynamic_interval = base_interval
+        elif self._queue_pending <= self.QUEUE_MEDIUM_THRESHOLD:
+            # Queue is filling up - linear slowdown
+            ratio = (self._queue_pending - self.QUEUE_LOW_THRESHOLD) / (self.QUEUE_MEDIUM_THRESHOLD - self.QUEUE_LOW_THRESHOLD)
+            dynamic_interval = base_interval + (10 * ratio)  # 5-15s
+        elif self._queue_pending <= self.QUEUE_HIGH_THRESHOLD:
+            # Queue is getting full - steeper slowdown
+            ratio = (self._queue_pending - self.QUEUE_MEDIUM_THRESHOLD) / (self.QUEUE_HIGH_THRESHOLD - self.QUEUE_MEDIUM_THRESHOLD)
+            dynamic_interval = 15 + (10 * ratio)  # 15-25s
+        else:
+            # Queue near saturation - very slow
+            dynamic_interval = self.MAX_DYNAMIC_INTERVAL
+        
+        # Respect backoff from failures
+        return max(dynamic_interval, self._current_backoff)
 
     def _submit_hypotheses_blocking(self, hypotheses: List[str]) -> Optional[Dict]:
         """Blocking fallback submission using requests library."""

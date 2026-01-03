@@ -1378,7 +1378,7 @@ oceanRouter.get(
  * - Circuit breaker: Rejects requests when balance queue is overloaded
  */
 const HYPOTHESIS_MAX_BATCH = 100; // Prevent huge batches from blocking
-const HYPOTHESIS_QUEUE_SATURATION_THRESHOLD = 8000; // 80% of 10,000 max queue
+const HYPOTHESIS_QUEUE_SATURATION_THRESHOLD = 20000; // 80% of 25,000 max queue
 
 oceanRouter.post(
   "/hypothesis",
