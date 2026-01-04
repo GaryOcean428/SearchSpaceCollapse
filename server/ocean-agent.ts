@@ -717,8 +717,9 @@ export class OceanAgent {
 
     // AUTO-ACTIVATE CHAOS MODE - Spawn kernels during investigation
     // Use deferred activation with retries since Python backend may still be starting
+    // Python loads 12 gods + Shadow Pantheon + kernels at import time, so give it time
     console.log("[Ocean] === CHAOS MODE ACTIVATION ===");
-    const activateChaosWithRetry = async (maxAttempts = 60, delayMs = 2000): Promise<void> => {
+    const activateChaosWithRetry = async (maxAttempts = 90, delayMs = 2000): Promise<void> => {
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
           // Wait for Python backend to be available

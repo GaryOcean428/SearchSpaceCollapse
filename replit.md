@@ -28,6 +28,7 @@ The frontend is built with React, Vite, Radix UI components, and Tailwind CSS. S
 - **Ethics as Agent-Symmetry Projection**: Implements Kantian ethics as a geometric constraint, enforced by an `AgentSymmetryProjector`.
 - **Data Storage**: PostgreSQL (Neon serverless) with `pgvector` for geometric memory, vocabulary, balance hits, and kernel information.
 - **Communication Patterns**: HTTP API with retry logic and circuit breakers for TypeScript ↔ Python, bidirectional synchronization for discoveries, and SSE for real-time UI updates.
+- **Startup Timeouts**: Python backend takes ~35-45 seconds to initialize (loads 12 Olympian gods + Shadow Pantheon + chaos kernels at import time). TypeScript PythonProcessManager waits 90s (dev) / 180s (prod) for Python readiness before declaring "degraded mode".
 - **Frozen Physics Constants**: Defined in `qig-backend/frozen_physics.py` as the single source of truth for critical physics values.
 - **Word Validation**: Centralized in `qig-backend/word_validation.py`, covering concatenation, typo detection, length limits, and dictionary API verification.
 - **External API for Federation**: A versioned REST/WebSocket API at `/api/v1/external/*` for federated instances, including QIG geometry calculations, vocabulary/learning sync, and instance registration.

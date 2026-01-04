@@ -68,9 +68,10 @@ export class PythonProcessManager extends EventEmitter {
   
   /**
    * Wait for backend to be ready (with timeout)
-   * Default increased to 90s for production where heavy initialization occurs
+   * Default increased to 180s for production where heavy initialization occurs
+   * (Zeus creates 12 gods + Shadow Pantheon + kernels at import time)
    */
-  waitForReady(timeoutMs: number = parseInt(process.env.PYTHON_READY_TIMEOUT || '90000')): Promise<boolean> {
+  waitForReady(timeoutMs: number = parseInt(process.env.PYTHON_READY_TIMEOUT || '180000')): Promise<boolean> {
     if (this.isReady) {
       return Promise.resolve(true);
     }
@@ -234,9 +235,10 @@ export class PythonProcessManager extends EventEmitter {
       this.setReady(false);
     });
     
-    // Wait for initial readiness - longer in production for cold starts
+    // Wait for initial readiness - Python loads 12 gods + kernels at startup
+    // This takes ~60-90 seconds, so we need generous timeouts in both modes
     const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
-    const maxAttempts = isProduction ? 120 : 30; // 2 min in prod, 30s in dev
+    const maxAttempts = isProduction ? 180 : 90; // 3 min in prod, 90s in dev
     const ready = await this.waitForHealthy(maxAttempts, 1000);
     
     if (ready) {

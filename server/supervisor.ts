@@ -25,7 +25,7 @@ interface ProcessState {
 const MAX_RESTART_ATTEMPTS = 5;
 const RESTART_COOLDOWN = 5000;
 const HEALTH_CHECK_INTERVAL = 10000;
-const HEALTH_CHECK_TIMEOUT = 30000;
+const HEALTH_CHECK_TIMEOUT = 180000; // Increased: Python loads 12 gods + kernels at startup
 
 let pythonState: ProcessState = { process: null, restartCount: 0, lastRestart: 0, healthy: false };
 let nodeState: ProcessState = { process: null, restartCount: 0, lastRestart: 0, healthy: false };
