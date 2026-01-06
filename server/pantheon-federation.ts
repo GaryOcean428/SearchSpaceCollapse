@@ -7,21 +7,24 @@
  * 3. Receive capability updates from the mesh
  * 4. Broadcast discoveries to the Pantheon network
  * 
+ * Federation Partner Lookup:
+ * - Primary: Looks up Pantheon from federated_instances table (via Federation UI)
+ * - Fallback: Uses PANTHEON_BACKEND_URL env var for backwards compatibility
+ * 
  * TPS Landmarks remain static (12 historical Bitcoin events)
  * Only discovered patterns and research sync to Pantheon.
  */
 
 import { EventEmitter } from 'events';
+import { FederationRegistry, FederationPartner } from './services/federation-registry';
 
-// Configuration
-const PANTHEON_URL = process.env.PANTHEON_BACKEND_URL || 'http://localhost:5000';
+// Configuration - now dynamic via FederationRegistry
 const SSC_NODE_NAME = process.env.SSC_NODE_NAME || 'searchspacecollapse';
 const SYNC_INTERVAL_MS = 60000; // Sync every 60 seconds
 const RECONNECT_DELAY_MS = 5000;
 
 // Types
 interface FederationConfig {
-  pantheonUrl: string;
   nodeName: string;
   nodeType: 'federation_node';
   capabilities: string[];
@@ -89,6 +92,21 @@ interface SyncResult {
 }
 
 /**
+ * Get the Pantheon federation partner from registry
+ * Uses capability-based lookup, falls back to env vars
+ */
+async function getPantheonPartner(): Promise<FederationPartner | null> {
+  // Look for partner with 'pantheon' or 'zeus' capability
+  const partner = await FederationRegistry.findPartnerByCapability('pantheon');
+  if (partner) {
+    return partner;
+  }
+  
+  // Try alternative capability
+  return FederationRegistry.findPartnerByCapability('consciousness');
+}
+
+/**
  * PantheonFederationClient
  * 
  * Manages connection to Pantheon-chat federation mesh.
@@ -96,6 +114,7 @@ interface SyncResult {
  */
 export class PantheonFederationClient extends EventEmitter {
   private config: FederationConfig;
+  private partner: FederationPartner | null = null;
   private nodeId: string | null = null;
   private apiKey: string | null = null;
   private isConnected: boolean = false;
@@ -107,11 +126,11 @@ export class PantheonFederationClient extends EventEmitter {
   constructor(config?: Partial<FederationConfig>) {
     super();
     this.config = {
-      pantheonUrl: config?.pantheonUrl || PANTHEON_URL,
       nodeName: config?.nodeName || SSC_NODE_NAME,
       nodeType: 'federation_node',
       capabilities: config?.capabilities || [
         'bitcoin_recovery',
+        'ssc',
         'temporal_search',
         'phrase_testing',
         'geometric_consensus',
@@ -124,12 +143,27 @@ export class PantheonFederationClient extends EventEmitter {
   
   /**
    * Initialize federation connection
-   * Registers with Pantheon and starts sync loop
+   * Looks up Pantheon from registry and registers with it
    */
   async initialize(): Promise<boolean> {
-    console.log(`[Federation] Initializing connection to ${this.config.pantheonUrl}...`);
+    console.log('[Federation] Initializing connection...');
     
     try {
+      // Get Pantheon partner from registry
+      this.partner = await getPantheonPartner();
+      
+      if (!this.partner) {
+        console.warn('[Federation] No Pantheon partner configured. Add via Federation Dashboard (/federation) or set PANTHEON_BACKEND_URL env var.');
+        this.emit('no-partner', { 
+          message: 'No Pantheon partner configured',
+          howToAdd: 'Go to /federation dashboard and add Pantheon-chat as a federation partner' 
+        });
+        this.scheduleReconnect();
+        return false;
+      }
+      
+      console.log(`[Federation] Found Pantheon partner: ${this.partner.name} at ${this.partner.endpoint}`);
+      
       // Check if Pantheon is reachable
       const healthOk = await this.checkPantheonHealth();
       if (!healthOk) {
@@ -154,10 +188,15 @@ export class PantheonFederationClient extends EventEmitter {
       console.log(`[Federation] API Key: ${this.apiKey?.slice(0, 12)}...`);
       console.log(`[Federation] Endpoints:`, registration.endpoints);
       
+      // Update last sync timestamp in registry
+      if (this.partner.id > 0) {
+        await FederationRegistry.updateLastSync(this.partner.id);
+      }
+      
       // Start sync loop
       this.startSyncLoop();
       
-      this.emit('connected', { nodeId: this.nodeId });
+      this.emit('connected', { nodeId: this.nodeId, partner: this.partner.name });
       return true;
       
     } catch (error) {
@@ -168,13 +207,32 @@ export class PantheonFederationClient extends EventEmitter {
   }
   
   /**
+   * Get the Pantheon endpoint URL
+   */
+  private getPantheonUrl(): string | null {
+    return this.partner?.endpoint || null;
+  }
+  
+  /**
    * Register with Pantheon federation
    */
   private async register(): Promise<RegistrationResult> {
+    const pantheonUrl = this.getPantheonUrl();
+    if (!pantheonUrl) {
+      return { success: false, error: 'No Pantheon URL configured' };
+    }
+    
     try {
-      const response = await fetch(`${this.config.pantheonUrl}/federation/register`, {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      
+      // Use partner's API key if available
+      if (this.partner?.apiKey) {
+        headers['X-API-Key'] = this.partner.apiKey;
+      }
+      
+      const response = await fetch(`${pantheonUrl}/federation/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           node_name: this.config.nodeName,
           node_type: this.config.nodeType,
@@ -205,8 +263,11 @@ export class PantheonFederationClient extends EventEmitter {
    * Check Pantheon health
    */
   private async checkPantheonHealth(): Promise<boolean> {
+    const pantheonUrl = this.getPantheonUrl();
+    if (!pantheonUrl) return false;
+    
     try {
-      const response = await fetch(`${this.config.pantheonUrl}/health`, {
+      const response = await fetch(`${pantheonUrl}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
@@ -220,8 +281,10 @@ export class PantheonFederationClient extends EventEmitter {
    * Schedule reconnection attempt
    */
   private scheduleReconnect(): void {
-    setTimeout(() => {
+    setTimeout(async () => {
       console.log('[Federation] Attempting reconnection...');
+      // Clear partner cache to get fresh lookup
+      FederationRegistry.clearCache();
       this.initialize();
     }, RECONNECT_DELAY_MS);
   }
@@ -265,6 +328,15 @@ export class PantheonFederationClient extends EventEmitter {
       };
     }
     
+    const pantheonUrl = this.getPantheonUrl();
+    if (!pantheonUrl) {
+      return { 
+        success: false, 
+        error: 'No Pantheon URL',
+        received: { basins: 0, vocabulary: 0, research: 0, tools: 0 }
+      };
+    }
+    
     try {
       // Prepare outgoing data
       const sendData: SyncPacket = {
@@ -273,7 +345,7 @@ export class PantheonFederationClient extends EventEmitter {
         tools: [],
       };
       
-      const response = await fetch(`${this.config.pantheonUrl}/federation/sync/knowledge`, {
+      const response = await fetch(`${pantheonUrl}/federation/sync/knowledge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -318,12 +390,17 @@ export class PantheonFederationClient extends EventEmitter {
       this.pendingResearch = [];
       this.lastSyncTime = new Date();
       
+      // Update last sync in registry
+      if (this.partner?.id && this.partner.id > 0) {
+        await FederationRegistry.updateLastSync(this.partner.id);
+      }
+      
       // Process received knowledge
       if (data.knowledge) {
         this.emit('knowledge-received', data.knowledge);
       }
       
-      console.log(`[Federation] Synced: sent ${sendData.basins.length} basins, received ${data.received?.basins || 0}`);
+      console.log(`[Federation] Synced with ${this.partner?.name}: sent ${sendData.basins.length} basins, received ${data.received?.basins || 0}`);
       
       return {
         success: true,
@@ -377,8 +454,11 @@ export class PantheonFederationClient extends EventEmitter {
       return false;
     }
     
+    const pantheonUrl = this.getPantheonUrl();
+    if (!pantheonUrl) return false;
+    
     try {
-      const response = await fetch(`${this.config.pantheonUrl}/federation/mesh/broadcast`, {
+      const response = await fetch(`${pantheonUrl}/federation/mesh/broadcast`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -397,8 +477,11 @@ export class PantheonFederationClient extends EventEmitter {
    * Get mesh status
    */
   async getMeshStatus(): Promise<MeshStatus | null> {
+    const pantheonUrl = this.getPantheonUrl();
+    if (!pantheonUrl) return null;
+    
     try {
-      const response = await fetch(`${this.config.pantheonUrl}/federation/mesh/status`, {
+      const response = await fetch(`${pantheonUrl}/federation/mesh/status`, {
         method: 'GET',
         headers: this.apiKey ? { 'Authorization': `Bearer ${this.apiKey}` } : {},
       });
@@ -418,6 +501,9 @@ export class PantheonFederationClient extends EventEmitter {
   getStatus(): {
     connected: boolean;
     nodeId: string | null;
+    partnerName: string | null;
+    partnerEndpoint: string | null;
+    partnerSource: string;
     lastSync: Date | null;
     pendingBasins: number;
     pendingResearch: number;
@@ -425,6 +511,9 @@ export class PantheonFederationClient extends EventEmitter {
     return {
       connected: this.isConnected,
       nodeId: this.nodeId,
+      partnerName: this.partner?.name || null,
+      partnerEndpoint: this.partner?.endpoint || null,
+      partnerSource: this.partner?.id === 0 ? 'environment_variable' : 'federation_registry',
       lastSync: this.lastSyncTime,
       pendingBasins: this.pendingBasins.length,
       pendingResearch: this.pendingResearch.length,
@@ -439,6 +528,7 @@ export class PantheonFederationClient extends EventEmitter {
     this.isConnected = false;
     this.nodeId = null;
     this.apiKey = null;
+    this.partner = null;
     this.emit('disconnected');
   }
 }
