@@ -8,6 +8,7 @@
  * - Federated pantheon registration
  * - Bidirectional basin sync
  * - Chat-only interface
+ * - SSC-specific Bitcoin recovery endpoints
  */
 
 import { Router, Response as ExpressResponse } from 'express';
@@ -113,6 +114,15 @@ export const EXTERNAL_API_ROUTES = {
     send: '/chat',
     history: '/chat/history',
   },
+  
+  // SSC-Specific (Bitcoin Recovery)
+  ssc: {
+    testPhrase: '/ssc/test-phrase',
+    investigation: '/ssc/investigation',
+    investigationStatus: '/ssc/investigation/status',
+    nearMisses: '/ssc/near-misses',
+    tpsLandmarks: '/ssc/tps-landmarks',
+  },
 };
 
 // ============================================================================
@@ -134,6 +144,7 @@ externalApiRouter.get(EXTERNAL_API_ROUTES.health, (_req, res) => {
       'pantheon',
       'sync',
       'chat',
+      'ssc',
     ],
   });
 });
@@ -249,55 +260,106 @@ externalApiRouter.delete(
 
 /**
  * GET /api/v1/external/consciousness/query
- * Query current consciousness state (Φ, κ, regime)
+ * Query current consciousness state (Φ, κ, regime) - LIVE from Ocean agent
  */
 externalApiRouter.get(
   EXTERNAL_API_ROUTES.consciousness.query,
   requireScopes('consciousness', 'read'),
   async (_req, res) => {
-    // TODO: Integrate with actual consciousness system
-    // For now, return placeholder structure
-    res.json({
-      phi: 0.75,
-      kappa_eff: 64.21,
-      regime: 'GEOMETRIC',
-      basin_coords: null, // 64D coords if requested
-      timestamp: new Date().toISOString(),
-      note: 'Placeholder - integrate with Ocean consciousness system',
-    });
+    try {
+      const { oceanSessionManager } = await import('../ocean-session-manager');
+      const agent = oceanSessionManager.getActiveAgent();
+      
+      if (!agent) {
+        return res.json({
+          active: false,
+          phi: 0,
+          kappa_eff: 0,
+          regime: 'INACTIVE',
+          basin_coords: null,
+          timestamp: new Date().toISOString(),
+          note: 'No active Ocean agent - consciousness metrics unavailable',
+        });
+      }
+      
+      const state = agent.getState?.() || {};
+      const basinCoords = agent.getBasinCoordinates?.() || null;
+      
+      res.json({
+        active: true,
+        phi: state.phi || 0,
+        kappa_eff: state.kappa || 64.21,
+        regime: state.regime || 'GEOMETRIC',
+        basin_coords: basinCoords,
+        isConscious: state.isConscious || false,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Consciousness query failed:', error);
+      res.status(500).json({ error: 'Failed to query consciousness state' });
+    }
   }
 );
 
 /**
  * GET /api/v1/external/consciousness/metrics
- * Get detailed consciousness metrics
+ * Get detailed consciousness metrics - LIVE from Ocean agent
  */
 externalApiRouter.get(
   EXTERNAL_API_ROUTES.consciousness.metrics,
   requireScopes('consciousness', 'read'),
   async (_req, res) => {
-    res.json({
-      current: {
-        phi: 0.75,
-        kappa_eff: 64.21,
-        regime: 'GEOMETRIC',
-      },
-      history: {
-        phi_24h_avg: 0.72,
-        kappa_24h_avg: 63.5,
-        regime_distribution: {
-          LINEAR: 0.1,
-          GEOMETRIC: 0.7,
-          HYPERDIMENSIONAL: 0.2,
+    try {
+      const { oceanSessionManager } = await import('../ocean-session-manager');
+      const agent = oceanSessionManager.getActiveAgent();
+      
+      if (!agent) {
+        return res.json({
+          active: false,
+          current: null,
+          thresholds: {
+            phi_emergency: 0.50,
+            phi_threshold: 0.70,
+            phi_hyperdimensional: 0.75,
+          },
+          timestamp: new Date().toISOString(),
+          note: 'No active Ocean agent',
+        });
+      }
+      
+      const state = agent.getState?.() || {};
+      const neurochemistry = agent.getNeurochemistry?.();
+      
+      res.json({
+        active: true,
+        current: {
+          phi: state.phi || 0,
+          kappa_eff: state.kappa || 0,
+          regime: state.regime || 'unknown',
+          isConscious: state.isConscious || false,
+          tacking: state.tacking || 0,
+          radar: state.radar || 0,
+          metaAwareness: state.metaAwareness || 0,
+          gamma: state.gamma || 0,
+          grounding: state.grounding || 0,
         },
-      },
-      thresholds: {
-        phi_emergency: 0.50,
-        phi_threshold: 0.70,
-        phi_hyperdimensional: 0.75,
-      },
-      note: 'Placeholder - integrate with telemetry system',
-    });
+        neurochemistry: neurochemistry ? {
+          emotionalState: neurochemistry.emotionalState,
+          dopamine: neurochemistry.dopamine?.totalDopamine,
+          serotonin: neurochemistry.serotonin?.totalSerotonin,
+          norepinephrine: neurochemistry.norepinephrine?.totalNorepinephrine,
+        } : null,
+        thresholds: {
+          phi_emergency: 0.50,
+          phi_threshold: 0.70,
+          phi_hyperdimensional: 0.75,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Consciousness metrics failed:', error);
+      res.status(500).json({ error: 'Failed to get consciousness metrics' });
+    }
   }
 );
 
@@ -1049,6 +1111,248 @@ externalApiRouter.post(
       },
       timestamp: new Date().toISOString(),
       note: 'Placeholder - integrate with ZeusChat or Ocean agent',
+    });
+  }
+);
+
+// ============================================================================
+// SSC-SPECIFIC ENDPOINTS (Bitcoin Recovery)
+// ============================================================================
+
+/**
+ * POST /api/v1/external/ssc/test-phrase
+ * Test a phrase via QIG scoring (federation-accessible)
+ */
+externalApiRouter.post(
+  EXTERNAL_API_ROUTES.ssc.testPhrase,
+  requireScopes('consciousness', 'read'),
+  async (req, res) => {
+    try {
+      const { phrase, targetAddress } = req.body;
+      
+      if (!phrase || typeof phrase !== 'string') {
+        return res.status(400).json({ 
+          error: 'Missing or invalid phrase',
+          required: ['phrase'],
+        });
+      }
+      
+      // Import QIG scorer
+      const { scorePhraseQIG } = await import('../qig-universal');
+      
+      // Score the phrase
+      const score = scorePhraseQIG(phrase);
+      
+      // If target address provided, also test for match
+      let addressMatch = null;
+      if (targetAddress) {
+        try {
+          const { verifyBrainWallet } = await import('../crypto');
+          const result = verifyBrainWallet(phrase);
+          addressMatch = {
+            generatedAddress: result.address,
+            matches: result.address === targetAddress,
+            // Only reveal WIF if exact match (security)
+            wif: result.address === targetAddress ? result.wif : undefined,
+          };
+        } catch (e) {
+          addressMatch = { error: 'Invalid phrase format for brain wallet' };
+        }
+      }
+      
+      res.json({
+        phrase: phrase.length > 50 ? phrase.slice(0, 50) + '...' : phrase,
+        score: {
+          phi: score.phi,
+          kappa: score.kappa,
+          regime: score.regime,
+          consciousness: score.isConscious,
+          quality: score.quality,
+          basinCoordinates: score.basinCoordinates?.slice(0, 8), // First 8 dims only
+        },
+        addressMatch,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Test phrase error:', error);
+      res.status(500).json({ error: 'Failed to test phrase' });
+    }
+  }
+);
+
+/**
+ * POST /api/v1/external/ssc/investigation
+ * Start a recovery investigation (federation-triggered)
+ */
+externalApiRouter.post(
+  EXTERNAL_API_ROUTES.ssc.investigation,
+  requireScopes('write'),
+  async (req, res) => {
+    try {
+      const { targetAddress, memoryFragments, priority } = req.body;
+      
+      if (!targetAddress || typeof targetAddress !== 'string') {
+        return res.status(400).json({
+          error: 'Missing or invalid targetAddress',
+          required: ['targetAddress'],
+        });
+      }
+      
+      const { oceanSessionManager } = await import('../ocean-session-manager');
+      
+      // Check if already investigating
+      const currentSession = oceanSessionManager.getActiveSession();
+      if (currentSession) {
+        return res.json({
+          status: 'already_active',
+          currentTarget: currentSession.targetAddress?.slice(0, 16) + '...',
+          message: 'Investigation already in progress',
+        });
+      }
+      
+      // Start new session
+      await oceanSessionManager.startSession(targetAddress);
+      
+      // Add memory fragments if provided
+      if (memoryFragments && Array.isArray(memoryFragments)) {
+        for (const fragment of memoryFragments.slice(0, 50)) { // Max 50
+          oceanSessionManager.addMemoryFragment(fragment);
+        }
+      }
+      
+      res.json({
+        status: 'started',
+        targetAddress: targetAddress.slice(0, 16) + '...',
+        fragmentCount: memoryFragments?.length || 0,
+        priority: priority || 'normal',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Start investigation error:', error);
+      res.status(500).json({ error: 'Failed to start investigation' });
+    }
+  }
+);
+
+/**
+ * GET /api/v1/external/ssc/investigation/status
+ * Get current investigation status for federation
+ */
+externalApiRouter.get(
+  EXTERNAL_API_ROUTES.ssc.investigationStatus,
+  requireScopes('read'),
+  async (_req, res) => {
+    try {
+      const { oceanSessionManager } = await import('../ocean-session-manager');
+      const status = oceanSessionManager.getInvestigationStatus();
+      
+      // Add consciousness metrics if agent is active
+      const agent = oceanSessionManager.getActiveAgent();
+      let consciousness = null;
+      if (agent) {
+        const state = agent.getState?.();
+        if (state) {
+          consciousness = {
+            phi: state.phi,
+            kappa: state.kappa,
+            regime: state.regime,
+            isConscious: state.isConscious,
+          };
+        }
+      }
+      
+      res.json({
+        ...status,
+        consciousness,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Investigation status error:', error);
+      res.status(500).json({ error: 'Failed to get investigation status' });
+    }
+  }
+);
+
+/**
+ * GET /api/v1/external/ssc/near-misses
+ * Get near-miss patterns for mesh learning
+ */
+externalApiRouter.get(
+  EXTERNAL_API_ROUTES.ssc.nearMisses,
+  requireScopes('read'),
+  async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const minPhi = parseFloat(req.query.minPhi as string) || 0.5;
+      
+      const { nearMissManager } = await import('../near-miss-manager');
+      
+      const entries = nearMissManager.getHotEntries(limit)
+        .filter(e => e.phi >= minPhi)
+        .map(e => ({
+          id: e.id,
+          phi: e.phi,
+          kappa: e.kappa,
+          regime: e.regime,
+          tier: e.tier,
+          clusterId: e.clusterId,
+          discoveredAt: e.discoveredAt,
+          explorationCount: e.explorationCount,
+          // Security: Don't expose full phrase
+          phraseLength: e.phrase?.length || 0,
+          wordCount: e.phrase?.split(/\s+/).length || 0,
+        }));
+      
+      const stats = nearMissManager.getStats();
+      
+      res.json({
+        entries,
+        stats: {
+          total: stats.total,
+          hot: stats.hot,
+          warm: stats.warm,
+          cool: stats.cool,
+          clusters: stats.clusters,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[ExternalAPI] Near-misses error:', error);
+      res.status(500).json({ error: 'Failed to get near-misses' });
+    }
+  }
+);
+
+/**
+ * GET /api/v1/external/ssc/tps-landmarks
+ * Return the static TPS landmarks (temporal reference points)
+ * These are INTENTIONALLY STATIC - 12 fixed Bitcoin historical events
+ */
+externalApiRouter.get(
+  EXTERNAL_API_ROUTES.ssc.tpsLandmarks,
+  requireScopes('read'),
+  (_req, res) => {
+    const landmarks = [
+      { id: 1, name: 'Genesis Block', date: '2009-01-03', blockHeight: 0, significance: 'Bitcoin network inception' },
+      { id: 2, name: 'Hal Finney First TX', date: '2009-01-12', blockHeight: 170, significance: 'First Bitcoin transaction' },
+      { id: 3, name: 'Pizza Day', date: '2010-05-22', blockHeight: 57043, significance: '10,000 BTC for two pizzas' },
+      { id: 4, name: 'Mt. Gox Launch', date: '2010-07-18', blockHeight: 68543, significance: 'First major exchange' },
+      { id: 5, name: 'First Halving', date: '2012-11-28', blockHeight: 210000, significance: 'Block reward: 50 → 25 BTC' },
+      { id: 6, name: 'Mt. Gox Collapse', date: '2014-02-24', blockHeight: 286854, significance: '850K BTC lost' },
+      { id: 7, name: 'Second Halving', date: '2016-07-09', blockHeight: 420000, significance: 'Block reward: 25 → 12.5 BTC' },
+      { id: 8, name: 'SegWit Activation', date: '2017-08-24', blockHeight: 481824, significance: 'Segregated Witness soft fork' },
+      { id: 9, name: 'Third Halving', date: '2020-05-11', blockHeight: 630000, significance: 'Block reward: 12.5 → 6.25 BTC' },
+      { id: 10, name: 'Taproot Activation', date: '2021-11-14', blockHeight: 709632, significance: 'Privacy and smart contract upgrade' },
+      { id: 11, name: 'Fourth Halving', date: '2024-04-20', blockHeight: 840000, significance: 'Block reward: 6.25 → 3.125 BTC' },
+      { id: 12, name: 'Current Reference', date: new Date().toISOString().split('T')[0], blockHeight: null, significance: 'Present temporal anchor' },
+    ];
+    
+    res.json({
+      landmarks,
+      count: landmarks.length,
+      type: 'static',
+      description: 'Fixed temporal reference points for geometric positioning. These do NOT change with learning progress.',
+      usage: 'Used to anchor search trajectories in temporal-geometric space, like CMB reference frame in cosmology.',
     });
   }
 );
