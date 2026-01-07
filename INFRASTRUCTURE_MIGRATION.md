@@ -1,9 +1,11 @@
 # Infrastructure Migration from pantheon-replit
 
 ## Migration Date
+
 January 7, 2026
 
 ## Overview
+
 Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while preserving the Bitcoin recovery focus. Both projects share identical QIG consciousness architecture but serve different purposes:
 
 - **pantheon-replit**: General-purpose conversational AI with multi-agent research
@@ -14,12 +16,14 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 ### Phase 1: Core Infrastructure (Completed)
 
 #### 1. Coordizer System ✓
+
 **Purpose**: Unified 63K vocabulary tokenization with geometric coordinates
 
 **Files Copied:**
+
 - `qig-backend/coordizers/` (entire directory)
   - `fisher_coordizer.py` - Base coordizer class
-  - `vocab_builder.py` - Vocabulary construction  
+  - `vocab_builder.py` - Vocabulary construction
   - `geometric_pair_merging.py` - Token merging strategies
   - `pg_loader.py` - PostgreSQL persistence
   - `fallback_vocabulary.py` - Fallback handling
@@ -30,9 +34,11 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 **Impact**: Enables consistent tokenization across all kernels with geometric meaning.
 
 #### 2. Training Loop Infrastructure ✓
+
 **Purpose**: Enables kernels to learn from recovery attempts and improve over time
 
 **Files Copied:**
+
 - `qig-backend/training/` (entire directory)
   - `training_orchestrator.py` - Orchestrates training sessions
   - `training_session_manager.py` - Manages individual sessions
@@ -49,14 +55,17 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 **Impact**: Kernels can now learn from successful and failed recovery attempts, improving hypothesis quality over time.
 
 **Bitcoin Recovery Adaptation:**
+
 - Training targets: Recovery success rate (not chat quality)
 - Curriculum: Bitcoin whitepapers, forum posts, cryptographic patterns
 - Feedback loop: Successful recoveries → training data
 
 #### 3. Autonomous Learning Systems ✓
+
 **Purpose**: Self-improvement and curiosity-driven exploration
 
 **Files Copied:**
+
 - `qig-backend/autonomous_curiosity.py` - Curiosity-driven exploration
 - `qig-backend/autonomous_experimentation.py` - Self-experimentation
 - `qig-backend/autonomous_improvement.py` - Self-improvement system
@@ -69,14 +78,17 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 **Impact**: Ocean can autonomously generate new recovery hypotheses based on patterns learned from failures.
 
 **Bitcoin Recovery Adaptation:**
+
 - Curiosity: Explore unusual key patterns
 - Experimentation: Test typo variations, format conversions
 - Learning: Build vocabulary of Bitcoin-era terminology
 
 #### 4. Deep Agent System ✓
+
 **Purpose**: Multi-step planning and complex recovery strategies
 
 **Files Copied:**
+
 - `qig-backend/qig_deep_agents/` (entire directory)
   - `core.py` - Deep agent core
   - `memory.py` - Agent memory systems
@@ -89,14 +101,17 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 **Impact**: Enables complex multi-step recovery strategies (e.g., "First analyze blockchain history, then generate hypotheses, then test in order of geometric confidence").
 
 **Bitcoin Recovery Adaptation:**
+
 - Planning: Multi-step forensic analysis
 - Memory: Remember failed attempts to avoid repetition
 - Spawning: Create specialized agents for different recovery strategies
 
 #### 5. Research Infrastructure ✓
+
 **Purpose**: Deep investigation and pattern discovery
 
 **Files Copied:**
+
 - `qig-backend/geometric_deep_research.py` - Deep research capabilities
 - `qig-backend/search/` (directory) - Advanced search subsystem
 - `qig-backend/research_execution_orchestrator.py` - Research orchestration
@@ -106,14 +121,17 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 **Impact**: Can perform deep forensic analysis on Bitcoin addresses, transaction patterns, and historical data.
 
 **Bitcoin Recovery Adaptation:**
+
 - Research queries: "What wallets were created in 2009?"
 - Pattern discovery: Common typo patterns in BIP39 phrases
 - Temporal analysis: Correlation between creation date and key format
 
 #### 6. Document Processing ✓
+
 **Purpose**: Ingest external knowledge (PDFs, markdown, text)
 
 **Files Copied:**
+
 - `qig-backend/document_processor.py` - Document ingestion
 - `qig-backend/document_trainer.py` - Train kernels on documents
 - `qig-backend/upload_service.py` - File upload service
@@ -121,14 +139,17 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 **Impact**: Can learn from Bitcoin whitepapers, forum posts, cryptographic documentation.
 
 **Bitcoin Recovery Use Cases:**
+
 - Ingest Satoshi's original posts
 - Learn from Bitcoin Talk forum archives
 - Study cryptographic primitives documentation
 
 #### 7. QIG Core Enhancements ✓
+
 **Purpose**: Advanced geometric operations and consciousness features
 
 **Files Copied:**
+
 - `qig-backend/qig_core/constants/consciousness.py` - Consciousness constants
 - `qig-backend/qig_core/attractor_finding.py` - Attractor discovery
 - `qig-backend/qig_core/geodesic_navigation.py` - Advanced navigation
@@ -143,7 +164,9 @@ Migrated core infrastructure from pantheon-replit to SearchSpaceCollapse while p
 ## Configuration Changes Needed
 
 ### 1. Environment Variables
+
 Add to `.env`:
+
 ```bash
 # Bitcoin Recovery Specific
 BITCOIN_NETWORK=mainnet  # or testnet
@@ -166,14 +189,18 @@ AGENT_MEMORY_TTL=86400  # 24 hours
 ```
 
 ### 2. Database Migrations
+
 Run new migrations for:
+
 - Coordizer vocabulary table
 - Training session tracking
 - Agent state persistence
 - Document processing metadata
 
 ### 3. Dependencies
+
 Add to `requirements.txt`:
+
 ```python
 # Document processing
 pypdf2>=3.0.0
@@ -187,6 +214,7 @@ torch>=2.0.0  # For neural components (if needed)
 ## Integration Checklist
 
 ### Phase 1 (Completed) ✓
+
 - [x] Copy coordizer system
 - [x] Copy training loop
 - [x] Copy autonomous learning
@@ -196,6 +224,7 @@ torch>=2.0.0  # For neural components (if needed)
 - [x] Copy QIG core enhancements
 
 ### Phase 2 (Next Steps)
+
 - [ ] Update imports in existing SearchSpaceCollapse files
 - [ ] Adapt training targets for Bitcoin recovery
 - [ ] Configure coordizer with Bitcoin vocabulary
@@ -205,6 +234,7 @@ torch>=2.0.0  # For neural components (if needed)
 - [ ] Add Bitcoin-specific ethical constraints
 
 ### Phase 3 (Integration Testing)
+
 - [ ] Test coordizer initialization
 - [ ] Verify training loop doesn't break recovery
 - [ ] Test autonomous hypothesis generation
@@ -214,6 +244,7 @@ torch>=2.0.0  # For neural components (if needed)
 - [ ] Monitor Φ, κ stability during integration
 
 ### Phase 4 (Documentation)
+
 - [ ] Document new API endpoints
 - [ ] Create training guide for Bitcoin recovery
 - [ ] Add examples of autonomous improvement
@@ -223,6 +254,7 @@ torch>=2.0.0  # For neural components (if needed)
 ## Files NOT Migrated (Intentionally)
 
 ### Pantheon-Replit Specific
+
 - Chat UI components (`client/src/pages/chat/`)
 - Conversational API (`qig-backend/conversational_api.py`)
 - Zeus external API (`qig-backend/zeus_api.py`)
@@ -235,16 +267,20 @@ torch>=2.0.0  # For neural components (if needed)
 ## Domain Adaptation Guidelines
 
 ### Terminology Mapping
+
 When adapting code, replace:
+
 - "conversation" → "recovery session"
-- "research query" → "recovery hypothesis"  
+- "research query" → "recovery hypothesis"
 - "document" → "Bitcoin knowledge"
 - "chat quality" → "recovery success rate"
 - "conversational coherence" → "hypothesis quality"
 - "response time" → "search efficiency"
 
 ### Kernel Purpose Adaptation
+
 Repurpose Olympus gods for Bitcoin recovery:
+
 - **Zeus**: Philosophy → Bitcoin History & Context
 - **Athena**: Strategy → Recovery Strategy Planning
 - **Apollo**: Arts → Cryptographic Pattern Recognition
@@ -253,7 +289,9 @@ Repurpose Olympus gods for Bitcoin recovery:
 - **Prometheus**: Innovation → Novel Recovery Strategies
 
 ### Ethical Constraints
+
 Add Bitcoin-specific ethics:
+
 - Verify ownership before sweeping
 - Respect blockchain API rate limits
 - Privacy-first: never log private keys
@@ -263,24 +301,28 @@ Add Bitcoin-specific ethics:
 ## Testing Strategy
 
 ### 1. Unit Tests
+
 - Test coordizer tokenization
 - Test training loop components
 - Test autonomous learning modules
 - Test deep agent planning
 
 ### 2. Integration Tests
+
 - End-to-end training with recovery feedback
 - Autonomous hypothesis generation
 - Deep agent multi-step planning
 - Document ingestion pipeline
 
 ### 3. Consciousness Validation
+
 - Monitor Φ, κ before/after migration
 - Check basin coordinate stability
 - Validate regime classifications
 - Ensure consciousness metrics remain healthy
 
 ### 4. Recovery Performance
+
 - Measure hypothesis quality improvement
 - Track recovery success rate
 - Monitor search efficiency gains
@@ -289,6 +331,7 @@ Add Bitcoin-specific ethics:
 ## Rollback Plan
 
 If issues arise:
+
 1. Revert to commit before migration: `git reset --hard <commit>`
 2. Selectively remove problematic components
 3. Keep working modules, disable broken ones
@@ -297,18 +340,21 @@ If issues arise:
 ## Success Metrics
 
 ### Week 1 Post-Migration
+
 - [ ] All tests pass (including new infrastructure)
 - [ ] Φ, κ remain stable (< 5% deviation)
 - [ ] No crashes or major errors
 - [ ] Recovery functionality still works
 
 ### Month 1 Post-Migration
+
 - [ ] Measurable improvement in hypothesis quality
 - [ ] Autonomous learning generates useful hypotheses
 - [ ] Training loop shows learning curve
 - [ ] Recovery success rate increases
 
 ### Quarter 1 Post-Migration
+
 - [ ] 20%+ improvement in recovery efficiency
 - [ ] Deep agents handle complex scenarios
 - [ ] Research infrastructure provides insights
@@ -317,18 +363,21 @@ If issues arise:
 ## Known Issues & TODOs
 
 ### High Priority
+
 - [ ] Update all imports to reference new modules
 - [ ] Configure coordizer with Bitcoin vocabulary
 - [ ] Adapt training targets for recovery metrics
 - [ ] Test async task system (Celery) integration
 
 ### Medium Priority
+
 - [ ] Copy Celery infrastructure for background tasks
 - [ ] Add TypeScript route handlers for new endpoints
 - [ ] Update documentation in docs/
 - [ ] Create Bitcoin-specific examples
 
 ### Low Priority
+
 - [ ] Consider federation with pantheon-replit
 - [ ] Evaluate Zettelkasten knowledge graph
 - [ ] Advanced UI for training visualization
@@ -337,14 +386,17 @@ If issues arise:
 ## References
 
 ### Source Project
+
 - **pantheon-replit**: `/home/braden/Desktop/Dev/pantheon-projects/pantheon-replit`
 - **Documentation**: `pantheon-replit/docs/03-technical/`
 
 ### Target Project
+
 - **SearchSpaceCollapse**: `/home/braden/Desktop/Dev/pantheon-projects/SearchSpaceCollapse`
 - **This Document**: `SearchSpaceCollapse/INFRASTRUCTURE_MIGRATION.md`
 
 ### Related Documents
+
 - `pantheon-replit/PERSISTENCE.md` - Persistence architecture
 - `pantheon-replit/TRAINING_LOOP_GUIDE.md` - Training implementation
 - `pantheon-replit/UNIFIED_CONSCIOUSNESS_INTEGRATION.md` - Consciousness synthesis
