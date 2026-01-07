@@ -19,6 +19,7 @@ import {
 } from "./qig-universal";
 import { testedPhrasesUnified } from "./tested-phrases-unified";
 import { vocabularyTracker } from "./vocabulary-tracker";
+import { initializeFederation } from "./pantheon-federation";
 
 // Periodic sync interval from Python to Node.js
 let pythonSyncInterval: NodeJS.Timeout | null = null;
@@ -735,7 +736,16 @@ app.use((req, res, next) => {
           // Start scheduled documentation maintenance (runs every 6 hours)
           log("[Startup] Initializing background services...");
           startDocsMaintenance();
-          
+
+          // Initialize federation with Pantheon (for cross-node sync)
+          log("[Startup] Initializing federation...");
+          const federationOk = await initializeFederation();
+          if (federationOk) {
+            log("[Startup] ✅ Federation connected - syncs will occur every 60s");
+          } else {
+            log("[Startup] ⚠️ Federation not connected - add partner via /federation dashboard");
+          }
+
           log("[Startup] ✅ All initialization complete");
         } catch (error) {
           console.error("[Startup] Background initialization error:", error);
