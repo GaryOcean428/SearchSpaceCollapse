@@ -17,46 +17,94 @@ from typing import Tuple, Optional, List, Any, cast
 def fisher_rao_distance(p: np.ndarray, q: np.ndarray) -> float:
     """
     Compute Fisher-Rao distance between two probability distributions.
-    
+
     This is the GEODESIC distance on the information manifold.
-    
-    Formula: d_FR(p, q) = 2 * arccos(Σ√(p_i * q_i))
-    
+
+    Formula: d_FR(p, q) = arccos(Σ√(p_i * q_i))
+
+    The Bhattacharyya coefficient BC = Σ√(p_i * q_i) measures overlap.
+    The geodesic distance is arccos(BC), ranging from 0 (identical) to π/2 (orthogonal).
+
+    NOTE: Some references use 2*arccos(BC) for the "statistical distance" but
+    the geodesic distance on the Fisher manifold is arccos(BC) without the factor of 2.
+
+    Handles dimension mismatch by projecting to common dimension (64D default).
+
     Args:
         p: First probability distribution
         q: Second probability distribution
-    
+
     Returns:
-        Fisher-Rao distance (≥ 0, max π)
+        Fisher-Rao distance (≥ 0, max π/2)
     """
+    p = np.asarray(p, dtype=float)
+    q = np.asarray(q, dtype=float)
+
+    # Handle dimension mismatch - project to target dimension (64D)
+    if p.shape[0] != q.shape[0]:
+        target_dim = 64  # Standard basin dimension
+        if p.shape[0] != target_dim:
+            p = _normalize_basin_for_fisher(p, target_dim)
+        if q.shape[0] != target_dim:
+            q = _normalize_basin_for_fisher(q, target_dim)
+
     p = np.abs(p) + 1e-10
     p = p / p.sum()
-    
+
     q = np.abs(q) + 1e-10
     q = q / q.sum()
-    
+
     bc = np.sum(np.sqrt(p * q))
     bc = np.clip(bc, 0, 1)
-    
-    return 2.0 * np.arccos(bc)
+
+    return float(np.arccos(bc))
+
+
+def _normalize_basin_for_fisher(basin: np.ndarray, target_dim: int = 64) -> np.ndarray:
+    """Internal helper to normalize basin dimension for Fisher distance.
+
+    Zero-pads or truncates to target dimension without sphere projection
+    (probability normalization happens in fisher_rao_distance itself).
+    """
+    current_dim = basin.shape[0]
+    if current_dim == target_dim:
+        return basin
+    if current_dim < target_dim:
+        result = np.zeros(target_dim, dtype=float)
+        result[:current_dim] = basin
+        return result
+    return basin[:target_dim].copy()
 
 
 def fisher_coord_distance(a: np.ndarray, b: np.ndarray) -> float:
     """
     Compute Fisher-Rao distance between two basin coordinate vectors.
-    
+
     For unit vectors: d = arccos(a · b)
-    
+
+    Handles dimension mismatch by projecting to 64D.
+
     Args:
         a: First basin coordinate vector (64D)
         b: Second basin coordinate vector (64D)
-    
+
     Returns:
         Fisher-Rao distance (0 to π)
     """
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+
+    # Handle dimension mismatch - project to target dimension (64D)
+    if a.shape[0] != b.shape[0]:
+        target_dim = 64  # Standard basin dimension
+        if a.shape[0] != target_dim:
+            a = _normalize_basin_for_fisher(a, target_dim)
+        if b.shape[0] != target_dim:
+            b = _normalize_basin_for_fisher(b, target_dim)
+
     a_norm = a / (np.linalg.norm(a) + 1e-10)
     b_norm = b / (np.linalg.norm(b) + 1e-10)
-    
+
     dot = np.clip(np.dot(a_norm, b_norm), -1.0, 1.0)
     return float(np.arccos(dot))
 
