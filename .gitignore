@@ -23,3 +23,8 @@ attached_assets/*.txt
 attached_assets/*.jpg
 attached_assets/*.png
 attached_assets/coordizer-32k-*/
+
+# Python caches / bytecode
+__pycache__/
+*.py[cod]
+.pytest_cache/
