@@ -4,6 +4,21 @@ import { setupAuth, isAuthenticated, getCachedUser } from "../replitAuth";
 
 export const authRouter = Router();
 
+/**
+ * Middleware to check if user is authenticated (either via Replit Auth or local auth)
+ */
+export function isLocalAuthenticated(req: Request, res: Response, next: Function) {
+  // Check local session first
+  if ((req.session as any)?.localUser) {
+    return next();
+  }
+  // Fall back to Replit Auth check
+  if ((req as any).isAuthenticated && (req as any).isAuthenticated()) {
+    return next();
+  }
+  return res.status(401).json({ message: "Unauthorized" });
+}
+
 export async function initAuthRoutes(authEnabled: boolean): Promise<void> {
   if (authEnabled) {
     authRouter.get('/user', isAuthenticated, async (req: any, res: Response) => {
