@@ -14,7 +14,7 @@ on their intrinsic complexity.
 
 from enum import Enum
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Phase(Enum):
@@ -126,7 +126,7 @@ class CycleManager:
             'to_phase': to_phase.value,
             'reason': reason,
             'metrics': metrics,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(timezone.utc).isoformat()
         }
         
         self.phase_history.append(transition)

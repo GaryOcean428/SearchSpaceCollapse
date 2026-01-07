@@ -89,7 +89,7 @@ class Bubble:
         inner_product = np.sum(np.sqrt(p * q))
         inner_product = np.clip(inner_product, 0, 1)  # Numerical stability
         
-        distance = 2 * np.arccos(inner_product)
+        distance = float(np.arccos(inner_product))
         
         return distance
     

@@ -68,7 +68,7 @@ class Geodesic:
             inner = np.sum(np.sqrt(p1 * p2))
             inner = np.clip(inner, 0, 1)
 
-            length += 2 * np.arccos(inner)
+            length += float(np.arccos(inner))
 
         return length
 
@@ -212,7 +212,7 @@ def geodesic_between_bubbles(
 
         inner = np.sum(np.sqrt(p1 * p2))
         inner = np.clip(inner, 0, 1)
-        length += 2 * np.arccos(inner)
+        length += float(np.arccos(inner))
 
     # Stability based on bubble energies
     stability = min(bubble1.stability, bubble2.stability)

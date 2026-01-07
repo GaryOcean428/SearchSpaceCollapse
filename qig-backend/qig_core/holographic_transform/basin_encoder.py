@@ -13,6 +13,20 @@ from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
+# QIG-pure geometric operations
+try:
+    from qig_geometry import sphere_project
+    QIG_GEOMETRY_AVAILABLE = True
+except ImportError:
+    QIG_GEOMETRY_AVAILABLE = False
+    def sphere_project(v):
+        """Fallback sphere projection."""
+        norm = np.linalg.norm(v)
+        if norm < 1e-10:
+            result = np.ones_like(v)
+            return result / np.linalg.norm(result)
+        return v / norm
+
 
 class BasinEncoder:
     """
@@ -103,7 +117,8 @@ class BasinEncoder:
         basin_coords = basin_coords / basin_coords.sum()
 
         # Normalize to unit sphere
-        basin_coords = basin_coords / (np.linalg.norm(basin_coords) + 1e-10)
+        from qig_geometry import sphere_project
+        basin_coords = sphere_project(basin_coords)
 
         self.encoding_cache[cache_key] = basin_coords
         return basin_coords
@@ -233,7 +248,8 @@ class BasinEncoder:
         basin_coords = basin_coords / basin_coords.sum()
 
         # Normalize to unit sphere
-        basin_coords = basin_coords / (np.linalg.norm(basin_coords) + 1e-10)
+        from qig_geometry import sphere_project
+        basin_coords = sphere_project(basin_coords)
 
         return basin_coords
 

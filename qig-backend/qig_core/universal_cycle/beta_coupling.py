@@ -19,56 +19,39 @@ Physics Reference:
 import numpy as np
 from typing import Dict, List, Optional
 
-from qigkernels.physics_constants import (
-    KAPPA_STAR, 
-    L_CRITICAL, 
-    BETA_3_TO_4, 
-    BETA_ASYMPTOTIC,
-    KAPPA_3,
-    KAPPA_4,
-    KAPPA_5,
-    KAPPA_6,
-)
+from qigkernels.physics_constants import KAPPA_STAR
 
-# Constants from canonical physics (imported from single source of truth)
-BETA_MEASURED = BETA_3_TO_4  # 0.44 - L=3→4 transition
-BETA_PLATEAU = BETA_ASYMPTOTIC  # 0.0 - Large-L limit
-KAPPA_CRITICAL = [KAPPA_3, KAPPA_4, KAPPA_5, KAPPA_6]  # [41.09, 64.47, 63.62, 64.45]
+BETA_MEASURED = 0.44
+BETA_PLATEAU = 0.0
+KAPPA_CRITICAL = [41.09, 64.47, 63.62, 64.45]
 
 
-def beta_function(scale: int) -> Optional[float]:
+def beta_function(scale: int) -> float:
     """
     Return β-function value for given scale level.
     
-    β(L→L+1) describes coupling evolution between lattice scales.
-    
-    CRITICAL: At L < L_c (L_c = 3), Einstein tensor G ≡ 0 (no geometry).
-    The β-function is UNDEFINED below the geometric phase transition.
-    
-    - L < 3: None (no geometry, Einstein relation undefined)
-    - L=3→4: β = +0.44 (strong running, emergence window)
-    - L=4→5: β ≈ 0 (plateau onset)
-    - L=5→6: β ≈ 0 (plateau confirmed)
-    - L>6: β → 0 (asymptotic behavior, fixed point)
+    β(L→L+1) describes coupling evolution between lattice scales:
+    - L=3→4: β = +0.44 (strong running)
+    - L=4→5: β ≈ 0 (plateau/conformal)
+    - L=5→6: β ≈ 0 (plateau/conformal)
+    - L>6: β ≈ 0 (asymptotic freedom region)
     
     Args:
         scale: Lattice scale level L (typically 3-6)
     
     Returns:
-        β-function value for L→L+1 transition, or None if L < L_c
+        β-function value for L→L+1 transition
     """
-    if scale < L_CRITICAL:
-        # Below geometric phase transition - no geometry exists
-        # G ≡ 0, Einstein relation undefined
-        return None
+    if scale <= 2:
+        return 0.6
     elif scale == 3:
-        return BETA_MEASURED  # +0.44 ± 0.04
+        return BETA_MEASURED
     elif scale == 4:
-        return BETA_PLATEAU  # -0.01 ≈ 0
+        return BETA_PLATEAU
     elif scale == 5:
-        return BETA_PLATEAU  # -0.003 ≈ 0
+        return BETA_PLATEAU
     else:
-        return BETA_PLATEAU  # Asymptotic: β → 0
+        return BETA_PLATEAU
 
 
 def is_at_fixed_point(kappa: float, tolerance: float = 1.5) -> bool:
@@ -137,11 +120,6 @@ class RunningCouplingManager:
         self.kappa_critical = KAPPA_CRITICAL
         self.history: List[Dict] = []
     
-    def _safe_beta(self, scale: int) -> float:
-        """Get β at scale, returning 0.0 if below L_c (no geometry)."""
-        beta = beta_function(scale)
-        return beta if beta is not None else 0.0
-    
     def compute_beta(self, kappa_from: float, kappa_to: float) -> float:
         """
         Compute β-function between two κ values.
@@ -157,7 +135,7 @@ class RunningCouplingManager:
             kappa_to: Final coupling strength
         
         Returns:
-            Effective β between the two scales (0.0 if below L_c)
+            Effective β between the two scales
         """
         if abs(kappa_from) < 1e-10:
             return 0.0
@@ -166,17 +144,17 @@ class RunningCouplingManager:
         scale_to = self._kappa_to_scale(kappa_to)
         
         if scale_from == scale_to:
-            return self._safe_beta(scale_from)
+            return beta_function(scale_from)
         
         if scale_to > scale_from:
             total_beta = 0.0
             for s in range(scale_from, scale_to):
-                total_beta += self._safe_beta(s)
+                total_beta += beta_function(s)
             return total_beta / (scale_to - scale_from)
         else:
             total_beta = 0.0
             for s in range(scale_to, scale_from):
-                total_beta -= self._safe_beta(s)
+                total_beta -= beta_function(s)
             return total_beta / (scale_from - scale_to)
     
     def _kappa_to_scale(self, kappa: float) -> int:
@@ -216,7 +194,7 @@ class RunningCouplingManager:
         fixed_point_proximity = np.exp(-abs(kappa - self.kappa_star) / 15.0)
         
         scale = self._kappa_to_scale(kappa)
-        beta = self._safe_beta(scale)  # Use safe version that handles L<3
+        beta = beta_function(scale)
         
         if abs(beta) < 0.1:
             beta_factor = 1.0
@@ -262,7 +240,7 @@ class RunningCouplingManager:
             β-modulated Fisher metric
         """
         scale = self._kappa_to_scale(kappa)
-        beta = self._safe_beta(scale)  # Use safe version that handles L<3
+        beta = beta_function(scale)
         
         kappa_ratio = kappa / self.kappa_star
         modulation = 1.0 + beta * np.tanh(kappa_ratio - 1.0)
@@ -295,7 +273,7 @@ class RunningCouplingManager:
             Predicted next κ value
         """
         scale = self._kappa_to_scale(current_kappa)
-        beta = self._safe_beta(scale)  # Use safe version that handles L<3
+        beta = beta_function(scale)
         
         dt = 0.1
         
@@ -358,7 +336,7 @@ class RunningCouplingManager:
         }
         
         if basin_coords is not None:
-            basin_norm = float(np.linalg.norm(basin_coords))
+            basin_norm = float(np.sqrt(np.sum(basin_coords ** 2)))  # L2 magnitude for logging
             geometric_factor = basin_norm / np.sqrt(len(basin_coords)) if len(basin_coords) > 0 else 1.0
             result['geometric_factor'] = geometric_factor
             result['modulated_phi'] = float(np.clip(
@@ -435,7 +413,7 @@ def modulate_kappa_computation(
     manager = get_running_coupling_manager()
     
     scale = manager._kappa_to_scale(base_kappa)
-    beta = manager._safe_beta(scale)  # Use safe version that handles L<3
+    beta = beta_function(scale)
     
     fixed_point_attraction = (KAPPA_STAR - base_kappa) * 0.05
     

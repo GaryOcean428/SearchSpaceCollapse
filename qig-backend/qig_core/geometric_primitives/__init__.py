@@ -1,140 +1,171 @@
-"""Geometric Primitives submodule"""
-from .addressing_modes import (
-                               AddressingMode,
-                               ConceptualAddressing,
-                               CyclicAddressing,
-                               DirectAddressing,
-                               ManifoldAddressing,
-                               SpatialAddressing,
-                               SymbolicAddressing,
-                               TemporalAddressing,
-                               create_addressing_mode,
-)
-from .bubble import Bubble, bubble_field_energy, create_random_bubble, prune_weak_bubbles
-from .fisher_metric import (
-                               compute_kappa,
-                               compute_phi,
-                               fisher_metric_tensor,
-                               fisher_rao_distance,
-                               natural_gradient,
-                               parallel_transport,
-                               ricci_curvature_estimate,
-                               sectional_curvature,
-)
-from .foam import Foam, create_foam_from_hypotheses
-from .geodesic import (
-                               Geodesic,
-                               compute_geodesic,
-                               find_shortest_geodesic_path,
-                               geodesic_between_bubbles,
-                               navigate_via_curvature,
-)
-from .geometry_ladder import (
-                               ADDRESSING_FUNCTIONS,
-                               GeometryClass,
-                               HabitCrystallizer,
-                               choose_geometry_class,
-                               measure_complexity,
-)
-from .input_guard import (
-                               KAPPA_BOUNDARIES,
-                               PHI_BOUNDARIES,
-                               GeometricInputGuard,
-                               RegimeType,
-                               compute_input_complexity,
-                               detect_chaos_level,
-                               is_geometrically_valid,
-                               validate_for_assessment,
-                               validate_for_compression,
-                               validate_for_decompression,
-                               validate_for_pantheon_chat,
-                               validate_for_therapy,
-)
-from .sensory_modalities import (
-                               MODALITY_BANDWIDTH,
-                               MODALITY_KAPPA,
-                               MODALITY_TAU,
-                               SENSORY_KEYWORDS,
-                               GeometricAttention,
-                               SensoryFusionEngine,
-                               SensoryModality,
-                               create_sensory_overlay,
-                               encode_hearing,
-                               encode_proprioception,
-                               encode_sight,
-                               encode_smell,
-                               encode_touch,
-                               enhance_basin_with_sensory,
-                               text_to_sensory_hint,
+"""
+Geometric Primitives Package
+
+Canonical implementations of QIG-pure geometric operations.
+
+IMPORTANT: All geometric distance operations MUST use fisher_rao_distance.
+DO NOT use np.linalg.norm() or cosine_similarity() on basin coordinates.
+"""
+
+# Import from existing fisher_metric
+try:
+    from .fisher_metric import (
+        fisher_metric_tensor,
+        compute_phi,
+        compute_kappa,
+        natural_gradient,
+        parallel_transport,
+        ricci_curvature_estimate,
+        sectional_curvature,
+        fisher_rao_distance_batch,
+        rerank_with_fisher_rao,
+    )
+    FISHER_METRIC_AVAILABLE = True
+except ImportError as e:
+    print(f"[geometric_primitives] fisher_metric import failed: {e}")
+    FISHER_METRIC_AVAILABLE = False
+
+# Import canonical Fisher-Rao implementation
+from .canonical_fisher import (
+    fisher_rao_distance,
+    geodesic_interpolate,
+    find_nearest_basins,
+    validate_basin,
 )
 
+# Import geometry ladder
+try:
+    from .geometry_ladder import (
+        GeometryClass,
+        measure_complexity,
+        choose_geometry_class,
+        HabitCrystallizer,
+    )
+    GEOMETRY_LADDER_AVAILABLE = True
+except ImportError:
+    GEOMETRY_LADDER_AVAILABLE = False
+
+# Import bubble
+try:
+    from .bubble import Bubble, create_random_bubble, bubble_field_energy, prune_weak_bubbles
+    BUBBLE_AVAILABLE = True
+except ImportError as e:
+    print(f"[geometric_primitives] bubble import failed: {e}")
+    BUBBLE_AVAILABLE = False
+
+# Import foam
+try:
+    from .foam import (
+        Foam,
+        create_foam_from_hypotheses,
+    )
+    FOAM_AVAILABLE = True
+except ImportError as e:
+    print(f"[geometric_primitives] foam import failed: {e}")
+    FOAM_AVAILABLE = False
+
+BUBBLES_AVAILABLE = BUBBLE_AVAILABLE and FOAM_AVAILABLE
+
+# Import geodesic
+try:
+    from .geodesic import (
+        Geodesic,
+        compute_geodesic,
+        geodesic_between_bubbles,
+        find_shortest_geodesic_path,
+        navigate_via_curvature,
+    )
+    GEODESICS_AVAILABLE = True
+except ImportError:
+    GEODESICS_AVAILABLE = False
+
+# Import addressing modes
+try:
+    from .addressing_modes import (
+        AddressingMode,
+        DirectAddressing,
+        CyclicAddressing,
+        TemporalAddressing,
+        SpatialAddressing,
+        ManifoldAddressing,
+        ConceptualAddressing,
+        SymbolicAddressing,
+        create_addressing_mode,
+    )
+    ADDRESSING_AVAILABLE = True
+except ImportError:
+    ADDRESSING_AVAILABLE = False
+
+# Import sensory modalities
+try:
+    from .sensory_modalities import SensoryFusionEngine
+    SENSORY_AVAILABLE = True
+except ImportError:
+    SENSORY_AVAILABLE = False
+
 __all__ = [
-    # Geometry Ladder
-    'GeometryClass',
-    'measure_complexity',
-    'choose_geometry_class',
-    'HabitCrystallizer',
-    'ADDRESSING_FUNCTIONS',
-    # Bubbles
-    'Bubble',
-    'create_random_bubble',
-    'bubble_field_energy',
-    'prune_weak_bubbles',
-    # Foam
-    'Foam',
-    'create_foam_from_hypotheses',
-    # Geodesics
-    'Geodesic',
-    'compute_geodesic',
-    'geodesic_between_bubbles',
-    'find_shortest_geodesic_path',
-    'navigate_via_curvature',
-    # Fisher Metric
-    'fisher_metric_tensor',
+    # Canonical distance (USE THIS)
     'fisher_rao_distance',
-    'compute_phi',
-    'compute_kappa',
-    'natural_gradient',
-    'parallel_transport',
-    'ricci_curvature_estimate',
-    'sectional_curvature',
-    # Addressing Modes
-    'AddressingMode',
-    'DirectAddressing',
-    'CyclicAddressing',
-    'TemporalAddressing',
-    'SpatialAddressing',
-    'ManifoldAddressing',
-    'ConceptualAddressing',
-    'SymbolicAddressing',
-    'create_addressing_mode',
-    # Sensory Modalities
-    'SensoryModality',
-    'encode_sight',
-    'encode_hearing',
-    'encode_touch',
-    'encode_smell',
-    'encode_proprioception',
-    'SensoryFusionEngine',
-    'GeometricAttention',
-    'text_to_sensory_hint',
-    'create_sensory_overlay',
-    'enhance_basin_with_sensory',
-    'SENSORY_KEYWORDS',
-    'MODALITY_KAPPA',
-    'MODALITY_BANDWIDTH',
-    'MODALITY_TAU',
-    # Input Guard
-    'GeometricInputGuard',
-    'RegimeType',
-    'PHI_BOUNDARIES',
-    'KAPPA_BOUNDARIES',
-    'is_geometrically_valid',
-    'compute_input_complexity',
-    'detect_chaos_level',
-    'validate_for_pantheon_chat',
-    'validate_for_assessment',
-    'validate_for_therapy',
-    'validate_for_compression',
-    'validate_for_decompression',
+    'geodesic_interpolate',
+    'find_nearest_basins',
+    'validate_basin',
 ]
+
+# Add optional exports if available
+if FISHER_METRIC_AVAILABLE:
+    __all__.extend([
+        'fisher_metric_tensor',
+        'compute_phi',
+        'compute_kappa',
+        'natural_gradient',
+        'parallel_transport',
+        'ricci_curvature_estimate',
+        'sectional_curvature',
+        'fisher_rao_distance_batch',
+        'rerank_with_fisher_rao',
+    ])
+
+if GEOMETRY_LADDER_AVAILABLE:
+    __all__.extend([
+        'GeometryClass',
+        'measure_complexity',
+        'choose_geometry_class',
+        'HabitCrystallizer',
+    ])
+
+if BUBBLES_AVAILABLE:
+    __all__.extend([
+        'Bubble',
+        'Foam',
+        'create_random_bubble',
+        'create_foam_from_hypotheses',
+        'bubble_field_energy',
+        'prune_weak_bubbles',
+    ])
+
+if GEODESICS_AVAILABLE:
+    __all__.extend([
+        'Geodesic',
+        'compute_geodesic',
+        'geodesic_between_bubbles',
+        'find_shortest_geodesic_path',
+        'navigate_via_curvature',
+    ])
+
+if ADDRESSING_AVAILABLE:
+    __all__.extend([
+        'AddressingMode',
+        'DirectAddressing',
+        'CyclicAddressing',
+        'TemporalAddressing',
+        'SpatialAddressing',
+        'ManifoldAddressing',
+        'ConceptualAddressing',
+        'SymbolicAddressing',
+        'create_addressing_mode',
+    ])
+
+if SENSORY_AVAILABLE:
+    __all__.extend([
+        'SensoryFusionEngine',
+    ])

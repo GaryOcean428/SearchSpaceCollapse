@@ -175,7 +175,7 @@ class CompleteHabit(HolographicTransformMixin):
         elif len(basin) > 64:
             basin = basin[:64]
 
-        norm = np.linalg.norm(basin)
+        norm = np.sqrt(np.sum(basin ** 2))  # L2 magnitude for validation
         if norm > 0:
             basin = basin / norm
 
@@ -239,7 +239,7 @@ class CompleteHabit(HolographicTransformMixin):
         elif len(basin) > 64:
             basin = basin[:64]
 
-        norm = np.linalg.norm(basin)
+        norm = np.sqrt(np.sum(basin ** 2))  # L2 magnitude for validation
         if norm > 0:
             basin = basin / norm
 

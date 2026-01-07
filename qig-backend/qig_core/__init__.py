@@ -79,6 +79,15 @@ from .holographic_transform import (
     encode_batch,
 )
 
+# Geodesic Navigation (new)
+from .geodesic_navigation import (
+    compute_geodesic_path,
+    compute_geodesic_velocity,
+    parallel_transport_vector,
+    navigate_to_target,
+    compute_christoffel_symbols,
+)
+
 __version__ = "1.0.0"
 
 __all__ = [
@@ -144,4 +153,11 @@ __all__ = [
     'SemanticBasinEncoder',
     'encode_for_qig',
     'encode_batch',
+    
+    # Geodesic Navigation (new)
+    'compute_geodesic_path',
+    'compute_geodesic_velocity',
+    'parallel_transport_vector',
+    'navigate_to_target',
+    'compute_christoffel_symbols',
 ]
