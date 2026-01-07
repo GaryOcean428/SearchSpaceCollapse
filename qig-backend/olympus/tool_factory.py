@@ -738,6 +738,17 @@ class ToolFactory:
                                         basin = np.array([float(x) for x in parts])
                                 elif hasattr(basin_raw, '__iter__'):
                                     basin = np.array(list(basin_raw), dtype=float)
+                                
+                                # CRITICAL: Normalize to 64D (standard QIG dimension)
+                                if basin is not None and len(basin) != 64:
+                                    if len(basin) < 64:
+                                        # Pad with zeros
+                                        basin = np.pad(basin, (0, 64 - len(basin)), mode='constant')
+                                        print(f"[ToolFactory] Padded {pattern_id} basin from {len(basin_raw)}D to 64D")
+                                    else:
+                                        # Truncate (should never happen)
+                                        basin = basin[:64]
+                                        print(f"[ToolFactory] Truncated {pattern_id} basin from {len(basin_raw)}D to 64D")
                             except (ValueError, TypeError) as e:
                                 print(f"[ToolFactory] Basin parse warning for {pattern_id}: {e}")
                                 basin = None
