@@ -648,6 +648,14 @@ CORS(app)  # Allow CORS for Node.js server
 if OLYMPUS_AVAILABLE:
     app.register_blueprint(olympus_app, url_prefix='/olympus')
     print("[INFO] Olympus Pantheon registered at /olympus")
+    
+    # Register Chaos API blueprint (called by TypeScript kernel-fitness-service)
+    try:
+        from olympus.chaos_api import chaos_app
+        app.register_blueprint(chaos_app)
+        print("[INFO] Chaos API registered at /chaos/*")
+    except ImportError as e:
+        print(f"[WARN] Could not import chaos_api: {e}")
 
 # Register self-healing routes
 try:
