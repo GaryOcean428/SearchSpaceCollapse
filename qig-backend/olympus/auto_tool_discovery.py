@@ -33,6 +33,14 @@ except ImportError:
     PERSISTENCE_AVAILABLE = False
     logger.warning("[AutoToolDiscovery] Persistence not available")
 
+# Import AutonomousToolPipeline for direct submission
+try:
+    from .tool_factory import AutonomousToolPipeline
+    PIPELINE_AVAILABLE = True
+except ImportError:
+    PIPELINE_AVAILABLE = False
+    logger.warning("[AutoToolDiscovery] AutonomousToolPipeline not available")
+
 
 class ToolDiscoveryEngine:
     """
@@ -66,8 +74,50 @@ class ToolDiscoveryEngine:
         
         # Get persistence layer
         self.persistence = get_tool_request_persistence() if PERSISTENCE_AVAILABLE else None
-        
+
         logger.info(f"[AutoToolDiscovery:{god_name}] Initialized (interval={analysis_interval})")
+
+        # Sync any pending DB requests to pipeline on first init
+        self._sync_pending_to_pipeline()
+
+    def _sync_pending_to_pipeline(self):
+        """On startup, sync any pending DB requests to the pipeline."""
+        if not self.persistence or not PIPELINE_AVAILABLE:
+            return
+
+        try:
+            # Only sync requests for this god that are still pending
+            pending = self.persistence.get_pending_requests(requester_god=self.god_name, limit=10)
+            if not pending:
+                return
+
+            pipeline = AutonomousToolPipeline.get_instance()
+            if pipeline is None:
+                logger.debug(f"[AutoToolDiscovery:{self.god_name}] Pipeline not initialized - will sync later")
+                return
+
+            synced = 0
+            for request in pending:
+                try:
+                    pipeline.request_tool(
+                        description=request.description,
+                        requester=self.god_name,
+                        examples=request.examples,
+                        context={
+                            **request.context,
+                            'db_request_id': request.request_id,
+                            'synced_from_db': True
+                        }
+                    )
+                    synced += 1
+                except Exception as e:
+                    logger.warning(f"[AutoToolDiscovery:{self.god_name}] Failed to sync request: {e}")
+
+            if synced > 0:
+                logger.info(f"[AutoToolDiscovery:{self.god_name}] Synced {synced} pending requests to pipeline")
+
+        except Exception as e:
+            logger.warning(f"[AutoToolDiscovery:{self.god_name}] DB sync failed: {e}")
     
     def record_assessment(
         self,
@@ -252,7 +302,38 @@ class ToolDiscoveryEngine:
                 discovery.tool_requested = True
                 discovery.tool_request_id = tool_request.request_id
                 self.persistence.save_pattern_discovery(discovery)
-                logger.info(f"[AutoToolDiscovery:{self.god_name}] Requested tool: {tool_request.description}")
+                logger.info(f"[AutoToolDiscovery:{self.god_name}] Saved tool request to DB: {tool_request.description}")
+
+                # CRITICAL: Also submit to AutonomousToolPipeline for actual generation
+                self._submit_to_pipeline(discovery, tool_request)
+
+    def _submit_to_pipeline(self, discovery: PatternDiscovery, tool_request: ToolRequest):
+        """Submit tool request to AutonomousToolPipeline for actual generation."""
+        if not PIPELINE_AVAILABLE:
+            logger.warning(f"[AutoToolDiscovery:{self.god_name}] Pipeline not available - tool won't be generated")
+            return
+
+        try:
+            pipeline = AutonomousToolPipeline.get_instance()
+            if pipeline is None:
+                logger.warning(f"[AutoToolDiscovery:{self.god_name}] Pipeline instance not initialized yet")
+                return
+
+            # Submit to pipeline for actual tool generation
+            pipeline_request_id = pipeline.request_tool(
+                description=tool_request.description,
+                requester=self.god_name,
+                examples=tool_request.examples,
+                context={
+                    **tool_request.context,
+                    'db_request_id': tool_request.request_id,
+                    'discovery_id': discovery.discovery_id
+                }
+            )
+            logger.info(f"[AutoToolDiscovery:{self.god_name}] ✓ Submitted to pipeline: {pipeline_request_id}")
+
+        except Exception as e:
+            logger.error(f"[AutoToolDiscovery:{self.god_name}] Pipeline submission failed: {e}")
     
     def _create_tool_request(self, discovery: PatternDiscovery) -> ToolRequest:
         """Create a tool request from a pattern discovery."""
