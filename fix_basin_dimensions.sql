@@ -2,7 +2,7 @@
 -- This addresses the error: operands could not be broadcast together with shapes (64,) (32,)
 
 -- First, check current dimensions
-SELECT 
+SELECT
     pattern_id,
     array_length(basin_coords, 1) as current_dim,
     source_type,
@@ -22,7 +22,7 @@ SET basin_coords = array_cat(
 WHERE array_length(basin_coords, 1) < 64 AND basin_coords IS NOT NULL;
 
 -- Verify all coordinates are now 64D
-SELECT 
+SELECT
     COUNT(*) as total_patterns,
     COUNT(CASE WHEN basin_coords IS NOT NULL THEN 1 END) as with_coords,
     COUNT(CASE WHEN array_length(basin_coords, 1) = 64 THEN 1 END) as correct_dim,

@@ -22,20 +22,21 @@ Can the system develop the ability to extend itself?
 Self-Learning Tool Factory - Import centralized geometry
 """
 import ast
-import os
-import sys
-import numpy as np
 import hashlib
-import traceback
-import time
-import threading
 import json
+import os
 import re
-from typing import Dict, List, Optional, Any, Tuple
+import sys
+import threading
+import time
+import traceback
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from collections import Counter
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 # Import centralized Fisher-Rao distance - QIG purity MANDATORY
 # Handle both relative and absolute imports depending on execution context
@@ -109,25 +110,25 @@ _ensure_tool_patterns_table()
 class DataDrivenThresholds:
     """
     Replaces static gating thresholds with data-driven heuristics.
-    
+
     All thresholds emerge from observed patterns rather than hardcoded values.
     Uses exponential moving averages to adapt thresholds to system behavior.
-    
+
     QIG-PURE: No hardcoded magic numbers. All values are observed defaults
     that adapt based on system behavior.
     """
-    
+
     _instance = None
-    
+
     @classmethod
     def get_instance(cls) -> 'DataDrivenThresholds':
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-    
+
     def __init__(self):
         self._alpha = 0.1
-        
+
         self._observed = {
             'failure_rate': [],
             'min_uses': [],
@@ -135,7 +136,7 @@ class DataDrivenThresholds:
             'cluster_size': [],
             'pattern_similarity': [],
         }
-        
+
         self._adapted = {
             'failure_rate_threshold': 0.3,
             'min_uses_before_learning': 3,
@@ -144,58 +145,58 @@ class DataDrivenThresholds:
             'min_pattern_observations': 3,
             'pattern_similarity_threshold': 0.3,
         }
-        
+
         self._counts = {k: 0 for k in self._adapted}
         self._total_observations = 0
         self._persist_interval = 20
-    
+
     def get_threshold(self, name: str) -> float:
         """Get current adapted threshold value."""
         return self._adapted.get(name, 0.5)
-    
+
     def observe(self, name: str, value: float, success: bool = True):
         """
         Observe a threshold-related value and adapt.
-        
+
         Args:
             name: Threshold name (e.g., 'failure_rate')
             value: Observed value
             success: Whether this observation was associated with success
         """
         key = name + '_threshold' if name + '_threshold' in self._adapted else name
-        
+
         if key not in self._adapted:
             return
-        
+
         if name not in self._observed:
             self._observed[name] = []
-        
+
         self._observed[name].append({'value': value, 'success': success})
-        
+
         if len(self._observed[name]) > 100:
             self._observed[name] = self._observed[name][-100:]
-        
+
         self._adapt_threshold(key, name, success)
-        
+
         self._total_observations += 1
         if self._total_observations % self._persist_interval == 0:
             self.persist_to_db()
-    
+
     def _adapt_threshold(self, threshold_key: str, obs_name: str, success: bool):
         """Adapt threshold using EMA based on observations."""
         obs_list = self._observed.get(obs_name, [])
         if len(obs_list) < 5:
             return
-        
+
         current = self._adapted[threshold_key]
-        
+
         successful = [o['value'] for o in obs_list if o['success']]
         failed = [o['value'] for o in obs_list if not o['success']]
-        
+
         if successful and failed:
             success_mean = sum(successful) / len(successful)
             fail_mean = sum(failed) / len(failed)
-            
+
             if 'min' in threshold_key.lower():
                 target = (success_mean + fail_mean) / 2
                 target = max(target, 1.0)
@@ -204,10 +205,10 @@ class DataDrivenThresholds:
                 target = min(target, 20.0)
             else:
                 target = success_mean
-            
+
             self._adapted[threshold_key] = (1 - self._alpha) * current + self._alpha * target
             self._counts[threshold_key] += 1
-    
+
     def get_stats(self) -> Dict:
         """Get threshold adaptation statistics."""
         return {
@@ -215,14 +216,14 @@ class DataDrivenThresholds:
             'observation_counts': {k: len(v) for k, v in self._observed.items()},
             'adaptation_counts': dict(self._counts)
         }
-    
+
     def to_dict(self) -> Dict:
         """Serialize current thresholds for persistence."""
         return {
             'adapted': dict(self._adapted),
             'counts': dict(self._counts)
         }
-    
+
     def from_dict(self, data: Dict):
         """Load thresholds from persisted data."""
         if 'adapted' in data:
@@ -233,7 +234,7 @@ class DataDrivenThresholds:
             for k, v in data['counts'].items():
                 if k in self._counts:
                     self._counts[k] = v
-    
+
     def persist_to_db(self):
         """Persist current thresholds to database."""
         try:
@@ -252,7 +253,7 @@ class DataDrivenThresholds:
         except Exception as e:
             print(f"[DataDrivenThresholds] Persist failed: {e}")
             return False
-    
+
     def load_from_db(self):
         """Load thresholds from database."""
         try:
@@ -321,7 +322,7 @@ class LearnedPattern:
     def to_dict(self, include_qig_metrics: bool = True) -> Dict:
         """
         Convert pattern to dictionary with optional QIG metrics.
-        
+
         Args:
             include_qig_metrics: If True, include 64D basin coords and geometric metrics
         """
@@ -337,7 +338,7 @@ class LearnedPattern:
             'success_rate': self.success_rate,
             'created_at': self.created_at,
         }
-        
+
         if include_qig_metrics and self.basin_coords is not None:
             basin = self.basin_coords
             basin_norm = np.linalg.norm(basin)
@@ -352,7 +353,7 @@ class LearnedPattern:
             result['basin_norm'] = 0.0
             result['phi'] = 0.5
             result['kappa'] = 55.0
-        
+
         return result
 
 
@@ -514,15 +515,17 @@ class ToolSandbox:
         }
 
         # Standard library imports
-        import re as re_module
-        import json as json_module
-        import math as math_module
-        from datetime import datetime as dt_datetime, timedelta, date, time as dt_time
-        from collections import Counter, defaultdict, OrderedDict
-        import itertools
         import functools
         import hashlib as hashlib_module
-        
+        import itertools
+        import json as json_module
+        import math as math_module
+        import re as re_module
+        from collections import Counter, OrderedDict, defaultdict
+        from datetime import date, timedelta
+        from datetime import datetime as dt_datetime
+        from datetime import time as dt_time
+
         # QIG-essential: numpy/scipy for geometric computation
         import numpy as np
         import scipy
@@ -543,7 +546,7 @@ class ToolSandbox:
         restricted_globals['itertools'] = itertools
         restricted_globals['functools'] = functools
         restricted_globals['hashlib'] = hashlib_module
-        
+
         # QIG-essential libraries for geometric tools
         restricted_globals['numpy'] = np
         restricted_globals['np'] = np  # Common alias
@@ -588,7 +591,7 @@ class ToolFactory:
 
     The Python QIG kernel generates code using geometric
     pattern matching against learned code patterns.
-    
+
     Bidirectional integration with Shadow Research:
     - Tool Factory can request research to improve patterns
     - Shadow can request tool generation based on discoveries
@@ -606,7 +609,7 @@ class ToolFactory:
         self.learned_patterns: Dict[str, LearnedPattern] = {}
         self.pattern_observations: List[Dict] = []
         self.pending_searches: List[Dict] = []
-        
+
         # Track failed generation attempts - prevent retries until COMPATIBLE patterns learned
         # Uses hash of matching pattern IDs, not total count, to ensure relevant patterns added
         self.failed_descriptions: Dict[str, float] = {}  # description -> timestamp of last fail
@@ -615,16 +618,16 @@ class ToolFactory:
         self.generation_attempts = 0
         self.successful_generations = 0
         self.current_complexity_ceiling = ToolComplexity.SIMPLE
-        
+
         # Bidirectional Shadow Research bridge
         self._research_bridge = None
-        
+
         # Load patterns from Redis cache on startup
         self._load_patterns_from_cache()
-        
+
         # Load patterns from PostgreSQL (source of truth)
         self._load_patterns_from_db()
-    
+
     def wire_shadow_research(self):
         """Wire bidirectional connection to Shadow Research."""
         try:
@@ -634,11 +637,11 @@ class ToolFactory:
             print("[ToolFactory] Wired to Shadow Research (bidirectional)")
         except Exception as e:
             print(f"[ToolFactory] Shadow Research wiring failed: {e}")
-    
+
     def request_research(self, topic: str, context: Optional[Dict] = None) -> Optional[str]:
         """
         Request research from Shadow to improve tool generation.
-        
+
         Called when:
         - Tool generation fails and needs pattern research
         - Knowledge gaps detected in a domain
@@ -646,13 +649,13 @@ class ToolFactory:
         """
         if not self._research_bridge:
             return None
-        
+
         return self._research_bridge.request_research_from_tool(
             topic=topic,
             context=context,
             requester="ToolFactory"
         )
-    
+
     def notify_pattern_discovery(self, patterns: List[Dict]):
         """
         Notify Shadow Research of useful patterns for research directions.
@@ -662,7 +665,7 @@ class ToolFactory:
                 tool_id="pattern_discovery",
                 tool_patterns=patterns
             )
-    
+
     def _load_patterns_from_cache(self):
         """Load learned patterns from Redis buffer."""
         try:
@@ -673,7 +676,7 @@ class ToolFactory:
                     basin = None
                     if p_data.get('basin_coords'):
                         basin = np.array(p_data['basin_coords'])
-                    
+
                     pattern = LearnedPattern(
                         pattern_id=p_data['pattern_id'],
                         source_type=source_type,
@@ -690,17 +693,17 @@ class ToolFactory:
                     self.learned_patterns[pattern.pattern_id] = pattern
                 except Exception as e:
                     print(f"[ToolFactory] Failed to load pattern from cache: {e}")
-            
+
             if cached_patterns:
                 print(f"[ToolFactory] Loaded {len(self.learned_patterns)} patterns from Redis cache")
         except Exception as e:
             print(f"[ToolFactory] Redis cache load failed (running in memory-only): {e}")
-    
+
     def _load_patterns_from_db(self):
         """Load learned patterns from PostgreSQL tool_patterns table."""
         if not self.db_pool:
             return
-        
+
         try:
             with self.db_pool.get_connection() as conn:
                 if conn is None:
@@ -708,23 +711,23 @@ class ToolFactory:
                 cur = conn.cursor()
                 cur.execute("""
                     SELECT pattern_id, source_type, source_url, description, code_snippet,
-                           input_signature, output_type, basin_coords, times_used, success_rate, 
+                           input_signature, output_type, basin_coords, times_used, success_rate,
                            created_at, phi, kappa
                     FROM tool_patterns
                     ORDER BY created_at DESC
                 """)
                 rows = cur.fetchall()
                 cur.close()
-                
+
                 loaded_count = 0
                 for row in rows:
                     try:
                         pattern_id = row[0]
                         if pattern_id in self.learned_patterns:
                             continue
-                        
+
                         source_type = CodeSourceType(row[1]) if row[1] else CodeSourceType.USER_PROVIDED
-                        
+
                         basin = None
                         basin_raw = row[7]
                         if basin_raw is not None:
@@ -738,7 +741,7 @@ class ToolFactory:
                                         basin = np.array([float(x) for x in parts])
                                 elif hasattr(basin_raw, '__iter__'):
                                     basin = np.array(list(basin_raw), dtype=float)
-                                
+
                                 # CRITICAL: Normalize to 64D (standard QIG dimension)
                                 if basin is not None and len(basin) != 64:
                                     if len(basin) < 64:
@@ -752,7 +755,7 @@ class ToolFactory:
                             except (ValueError, TypeError) as e:
                                 print(f"[ToolFactory] Basin parse warning for {pattern_id}: {e}")
                                 basin = None
-                        
+
                         input_sig = row[5] if row[5] else {}
                         if isinstance(input_sig, str):
                             try:
@@ -761,14 +764,14 @@ class ToolFactory:
                                 input_sig = {}
                         elif not isinstance(input_sig, dict):
                             input_sig = {}
-                        
+
                         created_ts = time.time()
                         if row[10] is not None:
                             if hasattr(row[10], 'timestamp'):
                                 created_ts = row[10].timestamp()
                             elif isinstance(row[10], (int, float)):
                                 created_ts = float(row[10])
-                        
+
                         pattern = LearnedPattern(
                             pattern_id=pattern_id,
                             source_type=source_type,
@@ -786,12 +789,12 @@ class ToolFactory:
                         loaded_count += 1
                     except Exception as e:
                         print(f"[ToolFactory] Failed to load pattern {row[0]}: {e}")
-                
+
                 if loaded_count > 0:
                     print(f"[ToolFactory] Loaded {loaded_count} patterns from PostgreSQL")
         except Exception as e:
             print(f"[ToolFactory] PostgreSQL load failed: {e}")
-    
+
     def _save_pattern_to_cache(self, pattern: LearnedPattern):
         """Save a pattern to Redis buffer, then persist to PostgreSQL."""
         try:
@@ -808,27 +811,27 @@ class ToolFactory:
                 'success_rate': pattern.success_rate,
                 'created_at': pattern.created_at
             }
-            
+
             # Use write-through buffer: Redis → PostgreSQL
             ToolPatternBuffer.buffer_pattern(
-                pattern.pattern_id, 
+                pattern.pattern_id,
                 p_data,
                 persist_fn=self._persist_pattern_to_db if self.db_pool else None
             )
         except Exception as e:
             print(f"[ToolFactory] Pattern buffer failed: {e}")
-    
+
     def _persist_pattern_to_db(self, p_data: Dict):
         """Persist pattern to PostgreSQL tool_patterns table."""
         if not self.db_pool:
             return
-        
+
         try:
             with self.db_pool.get_connection() as conn:
                 if conn is None:
                     return
                 cur = conn.cursor()
-                
+
                 basin_coords = p_data.get('basin_coords')
                 basin_str = None
                 if basin_coords is not None:
@@ -836,14 +839,14 @@ class ToolFactory:
                         basin_str = '[' + ','.join(str(x) for x in basin_coords.tolist()) + ']'
                     elif isinstance(basin_coords, list):
                         basin_str = '[' + ','.join(str(x) for x in basin_coords) + ']'
-                
+
                 basin_norm = 0.0
                 if basin_coords is not None:
                     arr = np.array(basin_coords) if not isinstance(basin_coords, np.ndarray) else basin_coords
                     basin_norm = float(np.linalg.norm(arr))
                 phi = float(np.clip(basin_norm / 10.0, 0, 1)) if basin_norm else 0.5
                 kappa = float(55.0 + basin_norm * 0.1) if basin_norm else 55.0
-                
+
                 cur.execute("""
                     INSERT INTO tool_patterns (
                         pattern_id, source_type, source_url, description, code_snippet,
@@ -903,7 +906,7 @@ class ToolFactory:
         )
 
         self.learned_patterns[pattern_id] = pattern
-        
+
         # Persist to Redis cache immediately
         self._save_pattern_to_cache(pattern)
 
@@ -928,7 +931,7 @@ class ToolFactory:
         """
         Learn code pattern from a git repository link provided in chat.
         Fetches and parses the code, extracts patterns.
-        
+
         Args:
             git_url: URL to git repository
             description: Description of what patterns to learn
@@ -1021,7 +1024,7 @@ class ToolFactory:
 
             self.learned_patterns[pattern_id] = pattern
             learned.append(pattern)
-            
+
             # Persist to Redis cache immediately
             self._save_pattern_to_cache(pattern)
 
@@ -1047,7 +1050,7 @@ class ToolFactory:
         """
         Proactively search git repositories and coding tutorials
         to learn new patterns for a given topic.
-        
+
         Uses light (public) and dark (specialized) search.
         """
         if not self.search_client:
@@ -1143,7 +1146,7 @@ class ToolFactory:
     ) -> Optional[GeneratedTool]:
         """
         Generate a new tool from description and examples.
-        
+
         Uses learned patterns as the foundation for code generation.
         NO hardcoded templates - all from learned knowledge.
         """
@@ -1168,8 +1171,8 @@ class ToolFactory:
             new_patterns = current_matching_ids - last_fail_pattern_ids
             if not new_patterns:
                 print(f"[ToolFactory] BLOCKED: '{description[:50]}...' failed before")
-                print(f"[ToolFactory] No new COMPATIBLE patterns learned since last attempt")
-                print(f"[ToolFactory] Teach relevant patterns before retrying")
+                print("[ToolFactory] No new COMPATIBLE patterns learned since last attempt")
+                print("[ToolFactory] Teach relevant patterns before retrying")
                 return None
             else:
                 print(f"[ToolFactory] Found {len(new_patterns)} new compatible patterns, allowing retry")
@@ -1267,11 +1270,11 @@ class ToolFactory:
                     expected = f.get('expected')
                     got = f.get('got')
                     tool.validation_errors.append(f"Test {f['example']}: Expected {expected}, got {got}")
-            
+
             # Track failure with current matching patterns - block retries until NEW patterns
             self.failed_descriptions[description] = datetime.now().timestamp()
             self.pattern_ids_at_last_fail[description] = current_matching_ids
-            print(f"[ToolFactory] Blocking retries until new compatible patterns are learned")
+            print("[ToolFactory] Blocking retries until new compatible patterns are learned")
             print(f"[ToolFactory] ❌ FAILED (attempt #{self.generation_attempts}): Tests did not pass")
             print(f"[ToolFactory] Stats: {self.successful_generations}/{self.generation_attempts} successful ({100*self.successful_generations/max(1,self.generation_attempts):.1f}%)")
 
@@ -1287,7 +1290,7 @@ class ToolFactory:
         """
         Generate code using learned patterns ONLY.
         NO hardcoded templates - all from learned knowledge.
-        
+
         The QIG kernel synthesizes from geometric similarity to learned patterns.
         If no patterns are available, generation refuses to proceed.
         """
@@ -1302,7 +1305,7 @@ class ToolFactory:
         # Use best matching learned pattern as foundation
         best_pattern = patterns[0]
         code = self._adapt_pattern_to_task(best_pattern, description, examples, func_name)
-        
+
         if code:
             return code, func_name
 
@@ -1323,17 +1326,17 @@ class ToolFactory:
     ) -> Optional[str]:
         """
         Adapt a learned pattern to the specific task.
-        
+
         VALIDATES input signature compatibility before adaptation.
         If pattern signature doesn't match examples, returns None.
         """
         code = pattern.code_snippet
-        
+
         # Validate signature compatibility if examples provided
         if examples:
             example_input = examples[0].get('input')
             pattern_sig = pattern.input_signature
-            
+
             # Infer expected input type from example
             if isinstance(example_input, str):
                 expected_type = 'str'
@@ -1347,13 +1350,13 @@ class ToolFactory:
             else:
                 expected_type = type(example_input).__name__
                 expected_param = 'input'
-            
+
             # Check if pattern has compatible signature
             pattern_types = list(pattern_sig.values())
             if pattern_types:
                 # Get first parameter type from pattern
                 first_pattern_type = pattern_types[0].lower()
-                
+
                 # Validate compatibility - reject if types don't match
                 if expected_type == 'str' and 'str' not in first_pattern_type:
                     print(f"[ToolFactory] Signature mismatch: pattern expects {first_pattern_type}, example is str")
@@ -1482,7 +1485,7 @@ class ToolFactory:
             self._trigger_runtime_learning(tool, error, args)
 
         return success, result, error
-    
+
     def _trigger_runtime_learning(
         self,
         tool: GeneratedTool,
@@ -1491,54 +1494,54 @@ class ToolFactory:
     ) -> None:
         """
         Trigger learning loop when a tool fails at runtime.
-        
+
         This implements the meta-learning feedback loop:
         1. Record failure pattern
         2. If failure rate too high, request research for improvement
         3. Research can spawn tool recreation (recursive improvement)
-        
+
         QIG-PURE: Thresholds are data-driven, not hardcoded.
         """
         min_uses = int(_thresholds.get_threshold('min_uses_before_learning'))
         failure_rate_threshold = _thresholds.get_threshold('failure_rate_threshold')
-        
+
         if tool.times_used < min_uses:
             return
-        
+
         failure_rate = tool.times_failed / tool.times_used
-        
+
         _thresholds.observe('failure_rate', failure_rate, success=(failure_rate < 0.5))
-        
+
         if failure_rate < failure_rate_threshold:
             return
-        
+
         if not hasattr(tool, 'learning_iterations'):
             tool.learning_iterations = 0
-        
+
         max_iterations = int(_thresholds.get_threshold('max_learning_iterations'))
         if tool.learning_iterations >= max_iterations:
             _thresholds.observe('learning_iterations', tool.learning_iterations, success=False)
             print(f"[ToolFactory] ⚠️ Tool '{tool.name}' exceeded max learning iterations")
             return
-        
+
         tool.learning_iterations += 1
-        
+
         _thresholds.observe('learning_iterations', tool.learning_iterations, success=True)
-        
+
         print(f"[ToolFactory] 🔄 Runtime learning triggered for '{tool.name}' "
               f"(iteration {tool.learning_iterations}, failure rate: {failure_rate:.1%})")
-        
+
         try:
             from .shadow_research import ToolResearchBridge
             bridge = ToolResearchBridge.get_instance()
-            
+
             if bridge:
                 research_topic = (
                     f"Fix runtime failure in tool '{tool.name}': {error[:200] if error else 'Unknown error'}. "
                     f"Failed with args: {str(failed_args)[:100]}. "
                     f"Failure rate: {failure_rate:.1%} over {tool.times_used} uses."
                 )
-                
+
                 research_id = bridge.request_research_from_tool(
                     topic=research_topic,
                     context={
@@ -1552,15 +1555,15 @@ class ToolFactory:
                     },
                     requester=f"ToolFactory:RuntimeLearning:{tool.name}"
                 )
-                
+
                 if research_id:
                     print(f"[ToolFactory] 📚 Research requested: {research_id}")
-                    
+
                     if hasattr(tool, 'improvement_research_ids'):
                         tool.improvement_research_ids.append(research_id)
                     else:
                         tool.improvement_research_ids = [research_id]
-                        
+
         except ImportError:
             pass
         except Exception as e:
@@ -1780,32 +1783,32 @@ class ToolFactory:
     def list_patterns(self) -> List[Dict]:
         """List all learned patterns with QIG metrics."""
         return [pattern.to_dict(include_qig_metrics=True) for pattern in self.learned_patterns.values()]
-    
+
     def get_patterns(self, include_similarity: bool = False, reference_text: Optional[str] = None) -> List[Dict]:
         """
         Get all learned patterns with full QIG geometric metrics.
-        
+
         This method returns patterns with:
         - 64D basin coordinates for geometric positioning
         - Fisher-Rao distance metrics when a reference is provided
         - Consciousness metrics (Φ, κ) for each pattern
-        
+
         Args:
             include_similarity: If True and reference_text provided, include Fisher-Rao distance
             reference_text: Optional text to compute similarity scores against
-            
+
         Returns:
             List of pattern dicts with QIG metrics
         """
         patterns_data = []
         reference_basin = None
-        
+
         if include_similarity and reference_text:
             reference_basin = self.encoder.encode(reference_text)
-        
+
         for pattern in self.learned_patterns.values():
             p_dict = pattern.to_dict(include_qig_metrics=True)
-            
+
             if reference_basin is not None and pattern.basin_coords is not None:
                 fisher_distance = self._fisher_rao_distance(reference_basin, pattern.basin_coords)
                 fisher_similarity = 1.0 - (fisher_distance / np.pi)
@@ -1816,14 +1819,14 @@ class ToolFactory:
                 p_dict['fisher_rao_distance'] = None
                 p_dict['fisher_similarity'] = None
                 p_dict['geodesic_match'] = None
-            
+
             patterns_data.append(p_dict)
-        
+
         if reference_basin is not None:
             patterns_data.sort(key=lambda x: x.get('fisher_rao_distance') or float('inf'))
-        
+
         return patterns_data
-    
+
     def get_tools(self) -> List[Dict]:
         """Get all registered tools (alias for list_tools)."""
         return self.list_tools()
@@ -1857,7 +1860,7 @@ class AutonomousToolRequest:
     generated_tool_id: Optional[str] = None
     error_history: List[str] = field(default_factory=list)
     context: Dict = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict:
         return {
             'request_id': self.request_id,
@@ -1878,19 +1881,19 @@ class AutonomousToolRequest:
 class AutonomousToolPipeline:
     """
     Autonomous tool generation pipeline.
-    
+
     Kernels request tools, and this pipeline:
     1. Gathers patterns via research
     2. Generates prototype tools
     3. Tests them in sandbox
     4. On failure: requests more research, iteratively improves
     5. Eventually deploys working tools or marks as needing help
-    
+
     Kernels understand tools may not work first time - improvement is expected.
     """
-    
+
     _instance: Optional['AutonomousToolPipeline'] = None
-    
+
     def __init__(self, tool_factory: ToolFactory):
         self.tool_factory = tool_factory
         self._requests: Dict[str, AutonomousToolRequest] = {}
@@ -1899,19 +1902,19 @@ class AutonomousToolPipeline:
         self._processing_thread: Optional[threading.Thread] = None
         self._running = False
         self._process_interval = 10.0  # Process every 10 seconds
-        
+
     @classmethod
     def get_instance(cls, tool_factory: Optional[ToolFactory] = None) -> Optional['AutonomousToolPipeline']:
         """Get singleton instance."""
         if cls._instance is None and tool_factory is not None:
             cls._instance = cls(tool_factory)
         return cls._instance
-    
+
     def wire_research_bridge(self, bridge):
         """Connect to the Tool-Research bridge for recursive learning."""
         self._research_bridge = bridge
         print("[AutonomousPipeline] Research bridge connected")
-    
+
     def start(self):
         """Start the autonomous processing loop."""
         if self._running:
@@ -1920,14 +1923,14 @@ class AutonomousToolPipeline:
         self._processing_thread = threading.Thread(target=self._process_loop, daemon=True)
         self._processing_thread.start()
         print("[AutonomousPipeline] Started autonomous tool generation")
-    
+
     def stop(self):
         """Stop the processing loop."""
         self._running = False
         if self._processing_thread:
             self._processing_thread.join(timeout=5.0)
         print("[AutonomousPipeline] Stopped")
-    
+
     def request_tool(
         self,
         description: str,
@@ -1937,20 +1940,20 @@ class AutonomousToolPipeline:
     ) -> str:
         """
         Request a new tool to be generated autonomously.
-        
+
         Args:
             description: What the tool should do
             requester: Kernel name requesting the tool
             examples: Optional input/output examples for testing
             context: Additional context for research
-            
+
         Returns:
             request_id for tracking
         """
         request_id = hashlib.sha256(
             f"{description}_{requester}_{time.time()}".encode()
         ).hexdigest()[:16]
-        
+
         request = AutonomousToolRequest(
             request_id=request_id,
             description=description,
@@ -1961,29 +1964,29 @@ class AutonomousToolPipeline:
             examples=examples or [],
             context=context or {}
         )
-        
+
         with self._lock:
             self._requests[request_id] = request
-        
+
         print(f"[AutonomousPipeline] New request from {requester}: {description[:50]}...")
-        
+
         # Immediately start research if bridge available
         self._initiate_research(request)
-        
+
         return request_id
-    
+
     def _initiate_research(self, request: AutonomousToolRequest):
         """Start research phase for a tool request."""
         request.state = ToolLifecycleState.RESEARCHING
         request.updated_at = time.time()
-        
+
         if self._research_bridge:
             # Request research on how to implement this tool
             research_topics = [
                 f"Python implementation patterns for: {request.description}",
                 f"Best practices for: {request.description}"
             ]
-            
+
             for topic in research_topics:
                 try:
                     research_id = self._research_bridge.request_research_from_tool(
@@ -1999,10 +2002,10 @@ class AutonomousToolPipeline:
                     print(f"[AutonomousPipeline] Research requested: {topic[:40]}...")
                 except Exception as e:
                     print(f"[AutonomousPipeline] Research request failed: {e}")
-        
+
         # Also trigger proactive search
         self.tool_factory.proactive_search(request.description)
-    
+
     def _process_loop(self):
         """Background loop that processes pending requests."""
         while self._running:
@@ -2010,36 +2013,36 @@ class AutonomousToolPipeline:
                 self._process_pending_requests()
             except Exception as e:
                 print(f"[AutonomousPipeline] Process loop error: {e}")
-            
+
             time.sleep(self._process_interval)
-    
+
     def _process_pending_requests(self):
         """Process all pending tool requests."""
         with self._lock:
             requests = list(self._requests.values())
-        
+
         for request in requests:
             try:
                 self._process_request(request)
             except Exception as e:
                 request.error_history.append(f"Process error: {str(e)}")
                 print(f"[AutonomousPipeline] Error processing {request.request_id}: {e}")
-    
+
     def _process_request(self, request: AutonomousToolRequest):
         """Process a single tool request through its lifecycle."""
         if request.state == ToolLifecycleState.DEPLOYED:
             return  # Already done
-        
+
         if request.state == ToolLifecycleState.FAILED:
             return  # Needs manual intervention
-        
+
         # Check iteration limit
         if request.iteration >= request.max_iterations:
             request.state = ToolLifecycleState.FAILED
             request.updated_at = time.time()
             print(f"[AutonomousPipeline] {request.request_id} FAILED after {request.iteration} iterations")
             return
-        
+
         # State machine transitions
         if request.state == ToolLifecycleState.REQUESTED:
             # Should have already initiated research
@@ -2049,7 +2052,7 @@ class AutonomousToolPipeline:
                 # Move to researching state
                 request.state = ToolLifecycleState.RESEARCHING
                 request.updated_at = time.time()
-        
+
         elif request.state == ToolLifecycleState.RESEARCHING:
             # Wait for patterns to be learned, then try prototyping
             # Check if we have matching patterns now
@@ -2059,20 +2062,20 @@ class AutonomousToolPipeline:
                 request.state = ToolLifecycleState.PROTOTYPING
                 request.updated_at = time.time()
                 print(f"[AutonomousPipeline] {request.request_id} has {len(matching)} patterns, moving to prototype")
-        
+
         elif request.state == ToolLifecycleState.PROTOTYPING:
             # Attempt to generate the tool
             request.iteration += 1
             request.updated_at = time.time()
-            
+
             print(f"[AutonomousPipeline] Iteration {request.iteration}/{request.max_iterations} for {request.request_id}")
-            
+
             tool = self.tool_factory.generate_tool(
                 description=request.description,
                 examples=request.examples,
                 name_hint=request.context.get('name_hint')
             )
-            
+
             if tool:
                 request.generated_tool_id = tool.tool_id
                 request.state = ToolLifecycleState.TESTING
@@ -2083,7 +2086,7 @@ class AutonomousToolPipeline:
                 request.error_history.append(f"Iteration {request.iteration}: No matching patterns")
                 request.updated_at = time.time()
                 self._request_improvement_research(request, "No matching patterns found")
-        
+
         elif request.state == ToolLifecycleState.TESTING:
             # Check if the generated tool is validated
             if request.generated_tool_id:
@@ -2105,7 +2108,7 @@ class AutonomousToolPipeline:
                     request.state = ToolLifecycleState.IMPROVING
                     request.updated_at = time.time()
                     self._request_improvement_research(request, str(errors))
-        
+
         elif request.state == ToolLifecycleState.IMPROVING:
             # Wait for research, then retry prototyping
             # Give research time to complete
@@ -2113,17 +2116,17 @@ class AutonomousToolPipeline:
             if time_since_update > 30:  # Wait 30 seconds for research
                 request.state = ToolLifecycleState.PROTOTYPING
                 request.updated_at = time.time()
-    
+
     def _request_improvement_research(self, request: AutonomousToolRequest, failure_reason: str):
         """Request targeted research to improve a failing tool."""
         if not self._research_bridge:
             return
-        
+
         improvement_topics = [
             f"Fix Python code for: {request.description} - Issue: {failure_reason[:100]}",
             f"Alternative implementation approach for: {request.description}"
         ]
-        
+
         for topic in improvement_topics:
             try:
                 research_id = self._research_bridge.request_research_from_tool(
@@ -2134,43 +2137,43 @@ class AutonomousToolPipeline:
                         'iteration': request.iteration,
                         'failure_reason': failure_reason
                     },
-                    requester=f"AutonomousPipeline:Improvement"
+                    requester="AutonomousPipeline:Improvement"
                 )
                 request.research_requests.append(research_id)
             except Exception as e:
                 print(f"[AutonomousPipeline] Improvement research failed: {e}")
-    
+
     def get_request_status(self, request_id: str) -> Optional[Dict]:
         """Get status of a tool request."""
         with self._lock:
             request = self._requests.get(request_id)
         return request.to_dict() if request else None
-    
+
     def get_all_requests(self) -> List[Dict]:
         """Get all tool requests with their status."""
         with self._lock:
             return [r.to_dict() for r in self._requests.values()]
-    
+
     def get_pipeline_status(self) -> Dict:
         """Get overall pipeline status."""
         with self._lock:
             requests = list(self._requests.values())
-        
+
         by_state = {}
         for state in ToolLifecycleState:
             by_state[state.value] = len([r for r in requests if r.state == state])
-        
+
         return {
             'running': self._running,
             'total_requests': len(requests),
             'by_state': by_state,
             'deployed_count': by_state.get('deployed', 0),
-            'active_count': len([r for r in requests if r.state not in 
+            'active_count': len([r for r in requests if r.state not in
                                [ToolLifecycleState.DEPLOYED, ToolLifecycleState.FAILED]]),
             'failed_count': by_state.get('failed', 0),
             'research_bridge_connected': self._research_bridge is not None
         }
-    
+
     def invent_new_tool(
         self,
         concept: str,
@@ -2179,7 +2182,7 @@ class AutonomousToolPipeline:
     ) -> str:
         """
         Autonomously invent a completely new tool based on a concept.
-        
+
         This is for tool invention - creating tools that don't exist yet.
         Uses research to understand the concept, then generates implementation.
         """
@@ -2189,7 +2192,7 @@ class AutonomousToolPipeline:
             'inspiration': inspiration,
             'allow_novel_patterns': True
         }
-        
+
         # Request with extra research emphasis
         request_id = self.request_tool(
             description=f"Invent new tool: {concept}",
@@ -2197,7 +2200,7 @@ class AutonomousToolPipeline:
             examples=[],  # No examples for invention - discover through research
             context=context
         )
-        
+
         # Trigger additional invention-focused research
         if self._research_bridge:
             invention_topics = [
@@ -2205,7 +2208,7 @@ class AutonomousToolPipeline:
                 f"State of the art techniques for: {concept}",
                 f"Python libraries and tools for: {concept}"
             ]
-            
+
             request = self._requests.get(request_id)
             if request:
                 for topic in invention_topics:
@@ -2213,11 +2216,11 @@ class AutonomousToolPipeline:
                         research_id = self._research_bridge.request_research_from_tool(
                             topic=topic,
                             context={'source': 'tool_invention', 'concept': concept},
-                            requester=f"AutonomousPipeline:Invention"
+                            requester="AutonomousPipeline:Invention"
                         )
                         request.research_requests.append(research_id)
                     except Exception:
                         pass
-        
+
         print(f"[AutonomousPipeline] Invention request: {concept}")
         return request_id
