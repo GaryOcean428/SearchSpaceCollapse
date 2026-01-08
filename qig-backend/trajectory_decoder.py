@@ -43,28 +43,31 @@ def fisher_rao_distance(basin1: np.ndarray, basin2: np.ndarray) -> float:
     Uses geodesic distance on probability simplex (not Euclidean).
     This is geometrically pure - respects manifold curvature.
     
-    d_FR(p, q) = 2 * arccos(√p · √q)
-    
+    d_FR(p, q) = arccos(√p · √q)
+
+    NOTE: Uses arccos(BC) without factor of 2, consistent with qig_geometry.py.
+    The geodesic distance on the Fisher manifold is arccos(BC).
+
     Args:
         basin1: Basin coordinates [64]
         basin2: Basin coordinates [64]
-    
+
     Returns:
-        Fisher-Rao distance [0, π]
+        Fisher-Rao distance [0, π/2]
     """
     # Ensure normalized to simplex
     p = np.abs(basin1) / (np.sum(np.abs(basin1)) + 1e-10)
     q = np.abs(basin2) / (np.sum(np.abs(basin2)) + 1e-10)
-    
+
     # Compute in sqrt space (natural for simplex geometry)
     sqrt_p = np.sqrt(p + 1e-10)
     sqrt_q = np.sqrt(q + 1e-10)
-    
+
     # Inner product
     inner = np.clip(np.dot(sqrt_p, sqrt_q), 0.0, 1.0)
-    
-    # Geodesic distance
-    return 2.0 * np.arccos(inner)
+
+    # Geodesic distance (no factor of 2 - see qig_geometry.py)
+    return float(np.arccos(inner))
 
 
 def frechet_mean(basins: List[np.ndarray], max_iter: int = 20) -> np.ndarray:
