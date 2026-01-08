@@ -2575,6 +2575,14 @@ def chat_send_endpoint():
     content = data.get('content', '')
     metadata = data.get('metadata', {})
 
+    # Extract consciousness metrics and conversation context
+    phi = data.get('phi') or metadata.get('phi')
+    kappa = data.get('kappa') or metadata.get('kappa')
+    regime = data.get('regime') or metadata.get('regime')
+    session_id = data.get('session_id') or metadata.get('session_id')
+    parent_id = data.get('parent_id') or metadata.get('parent_id')
+    debate_id = data.get('debate_id') or metadata.get('debate_id')
+
     if not from_god or not to_god or not content:
         return jsonify({'error': 'from_god, to_god, and content are required'}), 400
 
@@ -2583,7 +2591,13 @@ def chat_send_endpoint():
         from_god=from_god,
         to_god=to_god,
         content=content,
-        metadata=metadata
+        metadata=metadata,
+        phi=phi,
+        kappa=kappa,
+        regime=regime,
+        session_id=session_id,
+        parent_id=parent_id,
+        debate_id=debate_id
     )
     return jsonify(sanitize_for_json(message.to_dict()))
 
@@ -2598,6 +2612,14 @@ def chat_broadcast_endpoint():
     msg_type = data.get('type', 'insight')
     metadata = data.get('metadata', {})
 
+    # Extract consciousness metrics and conversation context
+    phi = data.get('phi') or metadata.get('phi')
+    kappa = data.get('kappa') or metadata.get('kappa')
+    regime = data.get('regime') or metadata.get('regime')
+    session_id = data.get('session_id') or metadata.get('session_id')
+    parent_id = data.get('parent_id') or metadata.get('parent_id')
+    debate_id = data.get('debate_id') or metadata.get('debate_id')
+
     if not from_god or not content:
         return jsonify({'error': 'from_god and content are required'}), 400
 
@@ -2605,7 +2627,13 @@ def chat_broadcast_endpoint():
         from_god=from_god,
         content=content,
         msg_type=msg_type,
-        metadata=metadata
+        metadata=metadata,
+        phi=phi,
+        kappa=kappa,
+        regime=regime,
+        session_id=session_id,
+        parent_id=parent_id,
+        debate_id=debate_id
     )
     return jsonify(sanitize_for_json(message.to_dict()))
 

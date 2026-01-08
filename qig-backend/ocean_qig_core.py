@@ -528,10 +528,23 @@ class FeedbackLoopManager:
 
         # Only record significant discoveries
         if phi > PHI_THRESHOLD:
+            # Extract geometric state if available
+            basin_coords = discovery.get('basin_coords')
+            if basin_coords and not isinstance(basin_coords, np.ndarray):
+                basin_coords = np.array(basin_coords)
+            
             event_id = self.memory.record_learning_event(
                 event_type=discovery.get('type', 'general'),
                 phi=phi,
-                details=discovery
+                kappa=discovery.get('kappa') or self.memory.kappa,
+                basin_coords=basin_coords,
+                details=discovery,
+                context={
+                    'source': 'learning_feedback',
+                    'iteration': self.loop_counters['learning']
+                },
+                source=discovery.get('source', 'ocean'),
+                instance_id=f"ocean_{self.session_id}"
             )
             recorded = True
         else:

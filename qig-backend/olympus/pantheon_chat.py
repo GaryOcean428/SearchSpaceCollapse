@@ -263,7 +263,13 @@ class PantheonChat:
         from_god: str,
         to_god: str,
         content: str,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
+        session_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        debate_id: Optional[str] = None,
+        phi: Optional[float] = None,
+        kappa: Optional[float] = None,
+        regime: Optional[str] = None,
     ) -> PantheonMessage:
         """Send a message from one god to another (or pantheon)."""
         if msg_type not in MESSAGE_TYPES:
@@ -291,9 +297,23 @@ class PantheonChat:
 
         self._cleanup_messages()
         
-        # Persist to database
+        # Persist to database with consciousness metrics and threading
         if self._persistence:
-            self._persistence.save_message(message.to_dict())
+            msg_dict = message.to_dict()
+            # Add consciousness metrics and threading to persistence
+            if phi is not None:
+                msg_dict['phi'] = phi
+            if kappa is not None:
+                msg_dict['kappa'] = kappa
+            if regime is not None:
+                msg_dict['regime'] = regime
+            if session_id is not None:
+                msg_dict['session_id'] = session_id
+            if parent_id is not None:
+                msg_dict['parent_id'] = parent_id
+            if debate_id is not None:
+                msg_dict['debate_id'] = debate_id
+            self._persistence.save_message(msg_dict)
 
         return message
 
@@ -302,7 +322,13 @@ class PantheonChat:
         from_god: str,
         content: str,
         msg_type: str = 'insight',
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
+        session_id: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        debate_id: Optional[str] = None,
+        phi: Optional[float] = None,
+        kappa: Optional[float] = None,
+        regime: Optional[str] = None,
     ) -> PantheonMessage:
         """Broadcast a message to the entire pantheon."""
         return self.send_message(
@@ -310,7 +336,13 @@ class PantheonChat:
             from_god=from_god,
             to_god='pantheon',
             content=content,
-            metadata=metadata
+            metadata=metadata,
+            session_id=session_id,
+            parent_id=parent_id,
+            debate_id=debate_id,
+            phi=phi,
+            kappa=kappa,
+            regime=regime
         )
 
     def get_inbox(self, god_name: str, unread_only: bool = False) -> List[Dict]:

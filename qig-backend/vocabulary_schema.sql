@@ -108,11 +108,20 @@ CREATE OR REPLACE FUNCTION record_vocab_observation(
     p_phi REAL,
     p_kappa REAL,
     p_source TEXT,
-    p_type TEXT
+    p_type TEXT,
+    p_basin_coords vector DEFAULT NULL,
+    p_contexts JSONB DEFAULT NULL,
+    p_cycle_number INT DEFAULT NULL
 ) RETURNS VOID AS $$
 BEGIN
-    INSERT INTO vocabulary_observations (word, phrase, phi, kappa, source, observation_type)
-    VALUES (p_word, p_phrase, p_phi, p_kappa, p_source, p_type);
+    INSERT INTO vocabulary_observations (
+        word, phrase, phi, kappa, source, observation_type,
+        basin_coords, contexts, integrated_at, cycle_number
+    )
+    VALUES (
+        p_word, p_phrase, p_phi, p_kappa, p_source, p_type,
+        p_basin_coords, p_contexts, NOW(), p_cycle_number
+    );
     
     -- Update learned_words table
     INSERT INTO learned_words (word, frequency, avg_phi, max_phi, source, last_seen)
