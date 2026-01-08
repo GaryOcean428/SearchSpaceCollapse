@@ -79,7 +79,7 @@ class VocabularyPersistence:
                     conn.commit()
                     return True
         except Exception as e:
-            print(f"[VocabularyPersistence] Failed to record '{word[:50] if word else ''}' (len={len(word) if word else 0}, phi={phi:.3f}, source={source}): {e}")
+            print(f"[VocabularyPersistence] Failed to record '{word}' (len={len(word) if word else 0}, phi={phi:.3f}, source={source}): {e}")
             return False
 
     def record_vocabulary_batch(self, observations: List[Dict]) -> int:
@@ -105,7 +105,7 @@ class VocabularyPersistence:
                         word = obs.get('word', '') or ''
                         phi = obs.get('phi', 0.0)
                         source = obs.get('source', 'unknown')
-                        print(f"[VocabularyPersistence] Failed to record '{word[:50]}' (len={len(word)}, phi={phi:.3f}, source={source}): {e}")
+                        print(f"[VocabularyPersistence] Failed to record '{word}' (len={len(word)}, phi={phi:.3f}, source={source}): {e}")
         except Exception as e:
             print(f"[VocabularyPersistence] Batch record failed: {e}")
         return recorded
