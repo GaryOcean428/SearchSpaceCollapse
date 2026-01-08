@@ -70,9 +70,12 @@ class VocabularyPersistence:
         if not self.enabled:
             return False
         try:
+            # Truncate to avoid varchar(255) overflow
+            word_truncated = word[:255] if word else ''
+            phrase_truncated = phrase[:255] if phrase else ''
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word, phrase, phi, kappa, source, observation_type))
+                    cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word_truncated, phrase_truncated, phi, kappa, source, observation_type))
                     conn.commit()
                     return True
         except Exception as e:
@@ -85,14 +88,19 @@ class VocabularyPersistence:
         recorded = 0
         try:
             with self._connect() as conn:
-                with conn.cursor() as cur:
-                    for obs in observations:
-                        try:
-                            cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (obs.get('word', ''), obs.get('phrase', ''), obs.get('phi', 0.0), obs.get('kappa', 50.0), obs.get('source', 'unknown'), obs.get('type', 'word')))
+                for obs in observations:
+                    try:
+                        with conn.cursor() as cur:
+                            # Truncate to avoid varchar(255) overflow
+                            word = (obs.get('word', '') or '')[:255]
+                            phrase = (obs.get('phrase', '') or '')[:255]
+                            cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word, phrase, obs.get('phi', 0.0), obs.get('kappa', 50.0), obs.get('source', 'unknown'), obs.get('type', 'word')))
+                            conn.commit()  # Commit each observation individually
                             recorded += 1
-                        except Exception as e:
-                            print(f"[VocabularyPersistence] Failed to record {obs.get('word')}: {e}")
-                    conn.commit()
+                    except Exception as e:
+                        # Rollback to clear the aborted transaction state
+                        conn.rollback()
+                        print(f"[VocabularyPersistence] Failed to record {obs.get('word')}: {e}")
         except Exception as e:
             print(f"[VocabularyPersistence] Batch record failed: {e}")
         return recorded
