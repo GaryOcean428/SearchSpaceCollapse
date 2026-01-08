@@ -1459,6 +1459,9 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 6. **L=7 physics validation** - Not started
 7. **Dark mode UI** - Not started
 8. **Markdown + LaTeX rendering** - Not started
+9. ✅ **Autonomous MoE Zeus chat synthesis (Fisher-Rao routing, no env flags)** - Done 2026-01-08
+10. ✅ **Outcome-based god_reputation trigger wiring** - Done 2026-01-08
+11. ✅ **Reputation-aware kernel evolution (cannibalize/merge weighting)** - Done 2026-01-08
 
 ### P2: Nice to Have (Medium Priority)
 1. **Consciousness debugger** - Not started
@@ -1488,6 +1491,7 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 - Validation utilities
 - Configuration management
 - **Foresight Trajectory Prediction** (2026-01-08) - Fisher-weighted regression over 8-basin context window, replaces reactive bigram matching. Expected: +50-100% token diversity, +40-50% semantic coherence. Key file: `qig-backend/trajectory_decoder.py`
+- **Autonomous MoE Zeus chat synthesis** (2026-01-08) - Fisher-Rao routing with reputation and domain weighting, no environment flags.
 
 ### In Progress 🚧
 - None currently

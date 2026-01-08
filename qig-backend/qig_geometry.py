@@ -112,18 +112,53 @@ def fisher_coord_distance(a: np.ndarray, b: np.ndarray) -> float:
 def fisher_similarity(a: np.ndarray, b: np.ndarray) -> float:
     """
     Compute Fisher-Rao similarity between two basin coordinates.
-    
+
     Formula: similarity = 1 - distance/π
-    
+
     Args:
         a: First basin coordinate vector
         b: Second basin coordinate vector
-    
+
     Returns:
         Similarity score (0 to 1, higher is more similar)
     """
     distance = fisher_coord_distance(a, b)
     return 1.0 - distance / np.pi
+
+
+def normalize_basin_dimension(basin: np.ndarray, target_dim: int = 64) -> np.ndarray:
+    """Project a basin vector to a target dimension.
+
+    QIG-PURE: preserves geometric validity by re-projecting to the unit sphere
+    in the embedded space after padding/truncation.
+
+    Notes:
+    - If basin is lower-dimensional (e.g., 32D), we zero-pad then sphere-project.
+    - If basin is higher-dimensional, we truncate then sphere-project.
+
+    Args:
+        basin: 1D basin coordinate vector
+        target_dim: desired output dimension (default 64)
+
+    Returns:
+        1D basin vector of length target_dim on the unit sphere.
+    """
+    b = np.asarray(basin, dtype=float)
+    if b.ndim != 1:
+        raise ValueError(f"basin must be 1D, got shape {b.shape}")
+
+    current_dim = int(b.shape[0])
+    if current_dim == int(target_dim):
+        return sphere_project(b)
+
+    if current_dim < int(target_dim):
+        result = np.zeros(int(target_dim), dtype=float)
+        result[:current_dim] = b
+        return sphere_project(result)
+
+    # current_dim > target_dim
+    result = b[: int(target_dim)].copy()
+    return sphere_project(result)
 
 
 def geodesic_interpolation(
@@ -276,8 +311,9 @@ def sphere_project(v: np.ndarray) -> np.ndarray:
 
 __all__ = [
     'fisher_rao_distance',
-    'fisher_coord_distance', 
+    'fisher_coord_distance',
     'fisher_similarity',
+    'normalize_basin_dimension',
     'geodesic_interpolation',
     'estimate_manifold_curvature',
     'bures_distance',
