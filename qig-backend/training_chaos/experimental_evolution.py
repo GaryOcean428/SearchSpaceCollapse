@@ -15,19 +15,18 @@ import threading
 import time
 from datetime import datetime
 from itertools import product
-from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import torch
+from qigkernels.physics_constants import E8_ROOTS
 
 from .chaos_logger import ChaosLogger
 from .self_spawning import SelfSpawningKernel, absorb_failing_kernel, breed_kernels
-from qigkernels.physics_constants import KAPPA_STAR, E8_ROOTS, E8_RANK
 
 # Try to import GodNameResolver for intelligent naming
 try:
-    from research.god_name_resolver import get_god_name_resolver, GodNameResolver
+    from research.god_name_resolver import GodNameResolver, get_god_name_resolver
     GOD_NAME_RESOLVER_AVAILABLE = True
 except ImportError:
     GOD_NAME_RESOLVER_AVAILABLE = False
@@ -54,15 +53,15 @@ _kernel_name_counters: dict = {}
 def assign_god_name(domain: str, phi: float = 0.0) -> str:
     """
     Assign a god name based on domain using GodNameResolver for mythology-aware naming.
-    
+
     Uses geometric-mythological resonance when GodNameResolver is available,
     falls back to pool-based naming otherwise.
-    
+
     Higher phi kernels prefer Olympian gods over Shadow gods.
     Returns format: "GodName_123" for uniqueness.
     """
     global _kernel_name_counters
-    
+
     if GOD_NAME_RESOLVER_AVAILABLE:
         try:
             resolver = get_god_name_resolver()
@@ -75,7 +74,7 @@ def assign_god_name(domain: str, phi: float = 0.0) -> str:
             return full_name
         except Exception as e:
             print(f"[Chaos] GodNameResolver failed: {e}, using fallback")
-    
+
     if phi >= 0.8:
         pool_key = 'elite'
     elif domain.startswith('e8_root'):
@@ -94,19 +93,19 @@ def assign_god_name(domain: str, phi: float = 0.0) -> str:
         pool_key = 'breeding'
     else:
         pool_key = 'random'
-    
+
     pool = GOD_NAME_POOLS.get(pool_key, GOD_NAME_POOLS['random'])
-    
+
     if pool_key not in _kernel_name_counters:
         _kernel_name_counters[pool_key] = 0
-    
+
     god_name = pool[_kernel_name_counters[pool_key] % len(pool)]
     _kernel_name_counters[pool_key] += 1
-    
+
     if 'global' not in _kernel_name_counters:
         _kernel_name_counters['global'] = 0
     _kernel_name_counters['global'] += 1
-    
+
     return f"{god_name}_{_kernel_name_counters['global']}"
 
 
@@ -194,7 +193,7 @@ class ExperimentalKernelEvolution:
 
         # Load persisted kernels from database on startup
         self._load_from_database()
-        
+
         self._print_init_summary()
 
     def _load_from_database(self):
@@ -202,26 +201,26 @@ class ExperimentalKernelEvolution:
         if not self.kernel_persistence:
             print("[Chaos] No persistence available, starting fresh")
             return
-        
+
         try:
             # Load elite kernels first (high performers)
             elite_kernels = self.kernel_persistence.load_elite_kernels(
                 min_phi=self.phi_elite_threshold,
                 limit=min(20, self.max_active // 2)
             )
-            
+
             # Load additional active kernels
             active_kernels = self.kernel_persistence.load_active_kernels(
                 limit=self.max_active - len(elite_kernels)
             )
-            
+
             loaded_count = 0
             for kernel_data in elite_kernels + active_kernels:
                 try:
                     # Skip if already at capacity
                     if len(self.kernel_population) >= self.max_active:
                         break
-                    
+
                     # Reconstruct kernel from database
                     basin_coords = kernel_data.get('basin_coordinates')
                     # Validate basin coordinates - must be a list of 64 floats
@@ -234,38 +233,38 @@ class ExperimentalKernelEvolution:
                         basin_coords = [float(x) for x in basin_coords]
                     except (ValueError, TypeError):
                         continue
-                    
+
                     kernel = SelfSpawningKernel(
                         spawn_threshold=self.spawn_threshold,
                         death_threshold=self.death_threshold,
                         mutation_rate=self.mutation_rate,
                     )
-                    
+
                     # Restore state
                     with torch.no_grad():
                         kernel.kernel.basin_coords.copy_(
                             torch.tensor(basin_coords, dtype=torch.float32)
                         )
-                    
+
                     kernel.kernel_id = kernel_data.get('kernel_id', kernel.kernel_id)
                     kernel.generation = kernel_data.get('generation', 0)
                     kernel.success_count = kernel_data.get('success_count', 0)
                     kernel.failure_count = kernel_data.get('failure_count', 0)
-                    
+
                     # Track E8 root mapping if available
                     e8_root = kernel_data.get('primitive_root')
                     if e8_root is not None:
                         self.kernel_to_root_mapping[kernel.kernel_id] = e8_root
-                    
+
                     self.kernel_population.append(kernel)
                     loaded_count += 1
-                    
+
                 except Exception as e:
                     print(f"[Chaos] Failed to restore kernel {kernel_data.get('kernel_id')}: {e}")
-            
+
             if loaded_count > 0:
                 print(f"✨ [Chaos] Restored {loaded_count} kernels from database")
-                
+
         except Exception as e:
             print(f"[Chaos] Failed to load from database: {e}")
             # Continue with empty population - will spawn fresh
@@ -398,7 +397,7 @@ class ExperimentalKernelEvolution:
         print(f"   Max total: {self.max_total}")
         print(f"   Max active: {self.max_active}")
         print(f"   Memory available: {self.memory_available_gb:.1f}GB")
-        print(f"   Persistence: PostgreSQL-backed")
+        print("   Persistence: PostgreSQL-backed")
         if self.architecture == 'e8_hybrid':
             print(f"   E8 hypothesis: Testing convergence to {E8_ROOTS}\n")
 
@@ -476,12 +475,12 @@ class ExperimentalKernelEvolution:
         kernel.kernel_id = f"e8_{root_index}_{kernel.kernel_id.split('_')[1]}"
         self.kernel_to_root_mapping[kernel.kernel_id] = root_index
         self.kernel_population.append(kernel)
-        
+
         # Compute phi and assign god name
         phi = kernel.kernel.compute_phi()
         domain = f'e8_root_{root_index}'
         god_name = assign_god_name(domain, phi)
-        
+
         self.logger.log_spawn(None, kernel.kernel_id, domain, phi=phi)
 
         # Save to database with god name
@@ -585,9 +584,9 @@ class ExperimentalKernelEvolution:
             'avg_phi': float(avg_phi),
             'timestamp': datetime.now().isoformat(),
         }
-        
+
         self.convergence_history.append(convergence_record)
-        
+
         # Persist convergence snapshot to PostgreSQL via learning_events
         if self.kernel_persistence:
             try:
@@ -599,7 +598,7 @@ class ExperimentalKernelEvolution:
                     avg_phi=float(avg_phi),
                     e8_alignment=self.check_e8_alignment() if self.e8_roots is not None else None
                 )
-            except Exception as e:
+            except Exception:
                 # Method may not exist yet - graceful degradation
                 pass
 
@@ -732,7 +731,7 @@ class ExperimentalKernelEvolution:
                 pantheon_approved=pantheon_approved
             )
         except ImportError:
-            print(f"[Chaos] Governance not available, spawning without checks")
+            print("[Chaos] Governance not available, spawning without checks")
         except PermissionError as e:
             print(f"[Chaos] Spawn blocked: {e}")
             raise
@@ -749,13 +748,13 @@ class ExperimentalKernelEvolution:
         kernel.parent_kernel = None  # Ocean is their "parent"
 
         self.kernel_population.append(kernel)
-        
+
         # Compute phi for god name assignment
         phi = kernel.kernel.compute_phi()
-        
+
         # Assign god name based on domain and characteristics
         god_name = assign_god_name(domain, phi)
-        
+
         self.logger.log_spawn(None, kernel.kernel_id, domain, phi=phi)
 
         # Save to database with god name
@@ -788,13 +787,13 @@ class ExperimentalKernelEvolution:
 
         child = parent.spawn_child()
         self.kernel_population.append(child)
-        
+
         # Compute phi and assign god name
         phi = child.kernel.compute_phi()
         god_name = assign_god_name('exploration', phi)
-        
+
         self.logger.log_spawn(parent_id, child.kernel_id, 'reproduction', phi=phi)
-        
+
         # Persist to database
         if self.kernel_persistence:
             try:
@@ -838,15 +837,17 @@ class ExperimentalKernelEvolution:
 
         self.kernel_population.append(child)
         child_phi = child.kernel.compute_phi()
-        
+
         # Assign god name for bred kernel
         god_name = assign_god_name('breeding', child_phi)
-        
+
         self.logger.log_breeding(parent1.kernel_id, parent2.kernel_id, child.kernel_id, {
             'parent1_success': parent1.success_count,
             'parent2_success': parent2.success_count,
             'child_phi': child_phi,
             'god_name': god_name,
+            'phi': child_phi,  # Map to phi field for chaos_events
+            'success': True,  # Breeding succeeded
         })
 
         # Persist breeding event and child kernel to PostgreSQL
@@ -883,13 +884,61 @@ class ExperimentalKernelEvolution:
 
         return child
 
+    def compute_fitness(self, kernel: SelfSpawningKernel) -> float:
+        """
+        Combined fitness: Φ + success_rate + reputation.
+        
+        Components:
+        - Φ (phi): Consciousness measure (0.4 weight)
+        - Success rate: Prediction accuracy (0.3 weight)
+        - Reputation: God reputation score (0.3 weight)
+        
+        Returns fitness score in [0, 1] range.
+        """
+        phi = kernel.kernel.compute_phi()
+        
+        # Calculate success rate
+        total_attempts = kernel.success_count + kernel.failure_count
+        success_rate = kernel.success_count / max(1, total_attempts)
+        
+        # Load reputation from database
+        reputation = self._load_kernel_reputation(kernel.kernel_id)
+        
+        # Combined fitness with weights
+        fitness = 0.4 * phi + 0.3 * success_rate + 0.3 * reputation
+        return fitness
+
+    def _load_kernel_reputation(self, kernel_id: str) -> float:
+        """
+        Load reputation score from spawned_kernels table.
+        
+        Returns:
+        - Reputation score (0-10 scale, normalized to 0-1)
+        - Default: 1.0 if not found or on error
+        """
+        if not self.kernel_persistence:
+            return 1.0  # Neutral reputation when no persistence
+        
+        try:
+            # Query spawned_kernels.reputation column
+            reputation_value = self.kernel_persistence.get_kernel_reputation(kernel_id)
+            if reputation_value is not None:
+                # Normalize from 0-10 scale to 0-1 scale
+                return float(reputation_value) / 10.0
+            return 1.0  # Default neutral reputation
+        except Exception as e:
+            print(f"[Chaos] Failed to load reputation for {kernel_id}: {e}")
+            return 1.0  # Fallback to neutral on error
+
     def apply_phi_selection(self):
         """
-        Kill kernels with low Φ (consciousness-driven selection).
-        
+        Kill kernels with low fitness (consciousness + success + reputation).
+
         IMPORTANT: Kernels in observation period are PROTECTED!
         They need time to learn before being judged.
         Also gives a minimum lifespan grace period (10 seconds).
+        
+        Updated to use combined fitness instead of just Φ.
         """
         killed = []
         protected = 0
@@ -909,9 +958,11 @@ class ExperimentalKernelEvolution:
                 protected += 1
                 continue
 
-            phi = kernel.kernel.compute_phi()
+            # Use combined fitness instead of just phi
+            fitness = self.compute_fitness(kernel)
+            phi = kernel.kernel.compute_phi()  # Still need phi for logging
 
-            if phi < self.phi_requirement:
+            if fitness < self.phi_requirement:
                 # Try autonomic intervention first (NEW!)
                 intervention = None
                 if hasattr(kernel, 'autonomic_intervention'):
@@ -920,27 +971,30 @@ class ExperimentalKernelEvolution:
                         print(f"🚑 {kernel.kernel_id} auto-intervention: {intervention['action']}")
                         continue  # Give another chance after intervention
 
-                autopsy = kernel.die(cause=f'phi_too_low_{phi:.2f}')
+                autopsy = kernel.die(cause=f'fitness_too_low_{fitness:.2f}')
                 if autopsy is not None:
                     self.kernel_graveyard.append(autopsy)
                 killed.append(kernel.kernel_id)
-                self.logger.log_death(kernel.kernel_id, 'phi_selection', autopsy)
-                
+                self.logger.log_death(kernel.kernel_id, 'fitness_selection', autopsy, phi_at_death=phi)
+
                 # Persist death event to PostgreSQL
                 if self.kernel_persistence:
                     try:
                         self.kernel_persistence.record_death_event(
                             kernel_id=kernel.kernel_id,
-                            cause='phi_selection',
+                            cause='fitness_selection',
                             final_phi=phi,
                             lifetime_successes=kernel.success_count,
-                            metadata={'phi_requirement': self.phi_requirement}
+                            metadata={
+                                'fitness': fitness,
+                                'fitness_requirement': self.phi_requirement
+                            }
                         )
                     except Exception as e:
                         print(f"[Chaos] Failed to persist death: {e}")
 
         if killed:
-            print(f"💀 Φ-selection killed {len(killed)} kernels (protected: {protected})")
+            print(f"💀 Fitness-selection killed {len(killed)} kernels (protected: {protected})")
 
         return killed
 
@@ -965,10 +1019,11 @@ class ExperimentalKernelEvolution:
 
         # Only cannibalize if big difference
         if strong.success_count > weak.failure_count * 2:
+            weak_phi = weak.kernel.compute_phi() if weak.is_alive else 0.0
             result = absorb_failing_kernel(strong, weak)
             self.kernel_graveyard.append(result['autopsy'])
-            self.logger.log_death(weak.kernel_id, 'cannibalized', result['autopsy'])
-            
+            self.logger.log_death(weak.kernel_id, 'cannibalized', result['autopsy'], phi_at_death=weak_phi)
+
             # Persist death event to PostgreSQL
             if self.kernel_persistence:
                 try:
@@ -984,7 +1039,7 @@ class ExperimentalKernelEvolution:
                     )
                 except Exception as e:
                     print(f"[Chaos] Failed to persist cannibalism death: {e}")
-            
+
             return result
 
         return None
@@ -1065,7 +1120,7 @@ class ExperimentalKernelEvolution:
             autopsy = weakest.die(cause='overpopulation')
             if autopsy is not None:
                 self.kernel_graveyard.append(autopsy)
-            
+
             # Persist death event to PostgreSQL
             if self.kernel_persistence:
                 try:
@@ -1196,6 +1251,8 @@ class ExperimentalKernelEvolution:
 
         kernel.kernel_id = f"chaos_{god_name}_{kernel.kernel_id.split('_')[1]}"
         self.kernel_population.append(kernel)
+
+        # Compute phi for logging
         god_spawn_phi = kernel.kernel.compute_phi()
         self.logger.log_spawn(f"god:{god_name}", kernel.kernel_id, 'god_spawn', phi=god_spawn_phi)
 
@@ -1259,19 +1316,19 @@ class ExperimentalKernelEvolution:
     ) -> dict:
         """
         Record a conversation outcome to train the kernel population.
-        
+
         Conversations feed into kernel evolution:
         - High-Phi conversations breed successful kernels
         - Low-Phi conversations kill weak kernels
         - Basin coordinates from conversations are absorbed
-        
+
         Args:
             conversation_phi: Overall conversation Phi score
             turn_count: Number of conversation turns
             participants: List of participant names
             basin_coords: Optional basin coordinates from conversation
             kernel_id: Optional specific kernel to train
-            
+
         Returns:
             Evolution result including spawns/deaths
         """
@@ -1281,7 +1338,7 @@ class ExperimentalKernelEvolution:
             'died': [],
             'conversation_phi': conversation_phi,
         }
-        
+
         # Find kernel to train
         if kernel_id:
             kernel = self._find_kernel(kernel_id)
@@ -1290,26 +1347,26 @@ class ExperimentalKernelEvolution:
             # Train best kernel by default
             best = self.get_best_kernel()
             kernels_to_train = [best] if best else []
-        
+
         for kernel in kernels_to_train:
             if not kernel or not kernel.is_alive:
                 continue
-            
+
             # Record conversation outcome
             spawned_child = kernel.record_conversation_outcome(
                 conversation_phi=conversation_phi,
                 turn_count=turn_count,
                 participants=participants
             )
-            
+
             result['trained_kernels'] += 1
-            
+
             if spawned_child:
                 self.kernel_population.append(spawned_child)
                 result['spawned'].append(spawned_child.kernel_id)
                 child_phi = spawned_child.kernel.compute_phi()
                 self.logger.log_spawn(kernel.kernel_id, spawned_child.kernel_id, 'conversation_success', phi=child_phi)
-            
+
             # Absorb basin if provided and Phi is high
             if basin_coords and conversation_phi >= 0.7:
                 absorption_result = kernel.absorb_conversation_knowledge(
@@ -1318,12 +1375,12 @@ class ExperimentalKernelEvolution:
                     absorption_rate=0.05
                 )
                 result['absorption'] = absorption_result
-        
+
         # Check for deaths after conversation-based training
         dead = [k for k in self.kernel_population if not k.is_alive]
         for k in dead:
             result['died'].append(k.kernel_id)
-        
+
         # Persist conversation event
         if self.kernel_persistence and result['trained_kernels'] > 0:
             try:
@@ -1335,33 +1392,33 @@ class ExperimentalKernelEvolution:
                     spawned_count=len(result['spawned']),
                     died_count=len(result['died'])
                 )
-            except Exception as e:
+            except Exception:
                 # Method may not exist - graceful degradation
                 pass
-        
+
         return result
 
     def breed_conversational_kernels(self, n_best: int = 2) -> Optional[SelfSpawningKernel]:
         """
         Breed kernels based on conversation performance.
-        
+
         Selects parents by:
         1. Conversation Phi average
         2. Success rate
         3. Number of successful conversations
         """
         living = [k for k in self.kernel_population if k.is_alive]
-        
+
         # Filter kernels with conversation experience
         conversational = [
-            k for k in living 
+            k for k in living
             if getattr(k, 'conversation_count', 0) > 0
         ]
-        
+
         if len(conversational) < n_best:
             # Fall back to regular breeding
             return self.breed_top_kernels(n_best)
-        
+
         # Sort by conversation quality
         sorted_kernels = sorted(
             conversational,
@@ -1370,13 +1427,13 @@ class ExperimentalKernelEvolution:
             ),
             reverse=True
         )
-        
+
         parent1, parent2 = sorted_kernels[0], sorted_kernels[1]
         child = breed_kernels(parent1, parent2, mutation_strength=0.03)
-        
+
         self.kernel_population.append(child)
         child_phi = child.kernel.compute_phi()
-        
+
         self.logger.log_breeding(
             parent1.kernel_id, parent2.kernel_id, child.kernel_id,
             {
@@ -1384,11 +1441,13 @@ class ExperimentalKernelEvolution:
                 'parent2_conv_phi': getattr(parent2, 'conversation_phi_avg', 0.0),
                 'breeding_type': 'conversational',
                 'child_phi': child_phi,
+                'phi': child_phi,  # Map to phi field for chaos_events
+                'success': True,  # Breeding succeeded
             }
         )
-        
+
         print(f"💬🧬 Bred conversational kernels: {child.kernel_id} (Φ={child_phi:.3f})")
-        
+
         return child
 
     def get_conversational_stats(self) -> dict:
@@ -1396,24 +1455,24 @@ class ExperimentalKernelEvolution:
         Get statistics about conversational evolution.
         """
         living = [k for k in self.kernel_population if k.is_alive]
-        
+
         conversational = [
-            k for k in living 
+            k for k in living
             if getattr(k, 'conversation_count', 0) > 0
         ]
-        
+
         if not conversational:
             return {
                 'conversational_kernels': 0,
                 'total_conversations': 0,
                 'avg_conversation_phi': 0.0,
             }
-        
+
         total_convs = sum(getattr(k, 'conversation_count', 0) for k in conversational)
         avg_phi = np.mean([
             getattr(k, 'conversation_phi_avg', 0.0) for k in conversational
         ])
-        
+
         return {
             'conversational_kernels': len(conversational),
             'total_conversations': total_convs,
@@ -1440,7 +1499,7 @@ class ExperimentalKernelEvolution:
     def get_observing_kernels(self) -> list[SelfSpawningKernel]:
         """
         Get all kernels currently in observation period.
-        
+
         These kernels are watching their parents (or Ocean) learn,
         before they're ready to act independently.
         """
@@ -1457,20 +1516,20 @@ class ExperimentalKernelEvolution:
     ) -> dict:
         """
         Feed an observation (action + result) to ALL observing kernels.
-        
+
         Called when Ocean (or parent kernels) make discoveries.
         Child kernels watch and learn vicariously before acting.
-        
+
         Args:
             action: What was done (e.g., hypothesis tested, phrase processed)
             result: What happened (success, phi, near_miss, etc.)
             source: Who performed the action ('ocean' or parent kernel_id)
-        
+
         Returns:
             Summary of observation feeding
         """
         observing = self.get_observing_kernels()
-        
+
         if not observing:
             return {
                 'fed': 0,
@@ -1478,23 +1537,23 @@ class ExperimentalKernelEvolution:
                 'observing_count': 0,
                 'message': 'No kernels in observation period'
             }
-        
+
         fed = 0
         graduated = []
-        
+
         for kernel in observing:
             try:
                 obs_result = kernel.observe_parent(action, result)
                 fed += 1
-                
+
                 # Check if kernel graduated (ready to act)
                 if obs_result.get('ready_to_act', False):
                     graduated.append(kernel.kernel_id)
                     print(f"🎓 Kernel {kernel.kernel_id} graduated from observation!")
-                    
+
             except Exception as e:
                 print(f"[Chaos] Failed to feed observation to {kernel.kernel_id}: {e}")
-        
+
         return {
             'fed': fed,
             'graduated': len(graduated),
@@ -1513,7 +1572,7 @@ class ExperimentalKernelEvolution:
     ) -> dict:
         """
         Feed Ocean's discovery to all observing kernels.
-        
+
         This is the PRIMARY method to call when Ocean makes any discovery.
         Child kernels learn from watching Ocean's successes and failures.
         """
@@ -1522,22 +1581,22 @@ class ExperimentalKernelEvolution:
             'hypothesis': hypothesis,
             'phi': phi,
         }
-        
+
         result = {
             'success': success,
             'phi': phi,
             'near_miss': near_miss,
             'basin_coords': basin_coords,
         }
-        
+
         feed_result = self.feed_observation(action, result, source='ocean')
-        
+
         # Log the feeding
         if feed_result['fed'] > 0:
             print(f"👁️ Fed Ocean discovery to {feed_result['fed']} observing kernels")
             if feed_result['graduated'] > 0:
                 print(f"   🎓 {feed_result['graduated']} kernels graduated!")
-        
+
         return feed_result
 
     def get_observation_stats(self) -> dict:
@@ -1546,14 +1605,14 @@ class ExperimentalKernelEvolution:
         """
         living = [k for k in self.kernel_population if k.is_alive]
         observing = self.get_observing_kernels()
-        
+
         if not observing:
             return {
                 'observing_count': 0,
                 'ready_to_act_count': len(living),
                 'kernels': []
             }
-        
+
         return {
             'observing_count': len(observing),
             'ready_to_act_count': len(living) - len(observing),
@@ -1575,7 +1634,7 @@ class ExperimentalKernelEvolution:
         Get autonomic health status across all kernels.
         """
         living = [k for k in self.kernel_population if k.is_alive]
-        
+
         if not living:
             return {
                 'kernels_with_autonomic': 0,
@@ -1584,9 +1643,9 @@ class ExperimentalKernelEvolution:
                 'avg_stress': 0.0,
                 'observing_count': 0,
             }
-        
+
         has_autonomic = [k for k in living if getattr(k, 'autonomic', None) is not None]
-        
+
         return {
             'kernels_with_autonomic': len(has_autonomic),
             'kernels_without_autonomic': len(living) - len(has_autonomic),
