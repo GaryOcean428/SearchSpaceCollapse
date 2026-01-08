@@ -121,7 +121,12 @@ class CrossDomainInsight:
     triggered_by: str                     # What pattern triggered the insight
     confidence: float                     # Confidence in the insight validity
     mission_relevance: float = 0.0        # Relevance to Bitcoin recovery mission
-    
+
+    @property
+    def theme(self) -> str:
+        """Extract theme summary from insight_text (first 50 chars)."""
+        return self.insight_text[:50] if self.insight_text else "unknown"
+
     def to_dict(self) -> Dict:
         return {
             'insight_id': self.insight_id,

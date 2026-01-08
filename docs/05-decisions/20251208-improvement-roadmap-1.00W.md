@@ -1444,6 +1444,12 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 5. **Comprehensive telemetry logging** - Partially done (ConsciousnessTelemetry)
 6. **Φ-suppressed Charlie training** - Not started
 7. **Frozen Ocean observer** - Not started
+8. ✅ **Database Wiring Phase 2** - Done 2026-01-08
+   - Fix VARCHAR(100) overflow in vocabulary_observations (→ TEXT)
+   - Fix NULL constraint violations in autonomic_cycle_history, basin_history
+   - Fix CrossDomainInsight.theme missing attribute
+   - Enhance error logging for database failures
+   - Remove Φ-based vocabulary filtering (all tokens stored)
 
 ### P1: Should Have (High Priority)
 1. **Real-time Φ visualization** - Not started

@@ -70,7 +70,12 @@ class VocabularyPersistence:
         if not self.enabled:
             return False
         try:
-            # Truncate to avoid varchar(255) overflow
+            # Log if truncation will occur (visibility into oversized inputs)
+            if word and len(word) > 255:
+                print(f"[VocabularyPersistence] Truncating word from {len(word)} to 255 chars: '{word[:50]}...'")
+            if phrase and len(phrase) > 255:
+                print(f"[VocabularyPersistence] Truncating phrase from {len(phrase)} to 255 chars: '{phrase[:50]}...'")
+            # Truncate to avoid varchar overflow
             word_truncated = word[:255] if word else ''
             phrase_truncated = phrase[:255] if phrase else ''
             with self._connect() as conn:
@@ -79,9 +84,9 @@ class VocabularyPersistence:
                     conn.commit()
                     return True
         except Exception as e:
-            print(f"[VocabularyPersistence] Failed to record observation: {e}")
+            print(f"[VocabularyPersistence] Failed to record '{word[:50] if word else ''}' (len={len(word) if word else 0}, phi={phi:.3f}, source={source}): {e}")
             return False
-    
+
     def record_vocabulary_batch(self, observations: List[Dict]) -> int:
         if not self.enabled or not observations:
             return 0
@@ -91,16 +96,28 @@ class VocabularyPersistence:
                 for obs in observations:
                     try:
                         with conn.cursor() as cur:
-                            # Truncate to avoid varchar(255) overflow
-                            word = (obs.get('word', '') or '')[:255]
-                            phrase = (obs.get('phrase', '') or '')[:255]
-                            cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word, phrase, obs.get('phi', 0.0), obs.get('kappa', 50.0), obs.get('source', 'unknown'), obs.get('type', 'word')))
+                            raw_word = obs.get('word', '') or ''
+                            raw_phrase = obs.get('phrase', '') or ''
+                            # Log if truncation will occur
+                            if len(raw_word) > 255:
+                                print(f"[VocabularyPersistence] Truncating batch word from {len(raw_word)} to 255 chars")
+                            if len(raw_phrase) > 255:
+                                print(f"[VocabularyPersistence] Truncating batch phrase from {len(raw_phrase)} to 255 chars")
+                            # Truncate to avoid varchar overflow
+                            word = raw_word[:255]
+                            phrase = raw_phrase[:255]
+                            phi = obs.get('phi', 0.0)
+                            source = obs.get('source', 'unknown')
+                            cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word, phrase, phi, obs.get('kappa', 50.0), source, obs.get('type', 'word')))
                             conn.commit()  # Commit each observation individually
                             recorded += 1
                     except Exception as e:
                         # Rollback to clear the aborted transaction state
                         conn.rollback()
-                        print(f"[VocabularyPersistence] Failed to record {obs.get('word')}: {e}")
+                        word = obs.get('word', '') or ''
+                        phi = obs.get('phi', 0.0)
+                        source = obs.get('source', 'unknown')
+                        print(f"[VocabularyPersistence] Failed to record '{word[:50]}' (len={len(word)}, phi={phi:.3f}, source={source}): {e}")
         except Exception as e:
             print(f"[VocabularyPersistence] Batch record failed: {e}")
         return recorded
