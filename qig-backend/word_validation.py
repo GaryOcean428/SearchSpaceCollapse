@@ -25,6 +25,12 @@ ENGLISH_WORD_PATTERN = re.compile(r'^[a-z]{2,}$')
 CAMELCASE_PATTERN = re.compile(r'[a-z][A-Z]')
 CONCAT_PATTERN = re.compile(r'([a-z]{3,})([a-z]{3,})')
 
+# BPE garbage patterns - CRITICAL: reject these to prevent vocabulary contamination
+# These patterns catch GPT-2/HuggingFace BPE subword markers and other tokenizer artifacts
+BPE_GARBAGE_PATTERN = re.compile(r'^[ĠġĊċ\x00-\x1f]|^\d+$|^[^a-zA-Z]+$|^\s')
+BPE_SUBWORD_PREFIXES = {'Ġ', 'ġ', 'Ċ', 'ċ', '##', '▁', '_'}
+BPE_SPECIAL_TOKENS = {'<pad>', '<unk>', '<s>', '</s>', '<mask>', '[PAD]', '[UNK]', '[CLS]', '[SEP]', '[MASK]'}
+
 MAX_WORD_LENGTH = 20
 MIN_WORD_LENGTH = 2
 
@@ -99,6 +105,53 @@ SUFFIX_INDICATORS = {'from', 'with', 'that', 'this', 'like', 'have', 'been',
 
 PREFIX_INDICATORS = {'say', 'like', 'was', 'doing', 'day', 'block', 'wallet',
                      'party', 'picked', 'tech', 'conducting', 'that'}
+
+
+def is_bpe_garbage(token: str) -> bool:
+    """
+    Detect BPE tokenizer artifacts and garbage tokens.
+
+    CRITICAL: This prevents vocabulary contamination from legacy BPE tokenizers.
+
+    Rejects:
+    - GPT-2 byte-level markers (Ġ, ġ, Ċ, ċ)
+    - HuggingFace subword markers (##, ▁)
+    - Special tokens (<pad>, [UNK], etc.)
+    - Pure numeric tokens
+    - Tokens starting with non-alphabetic characters
+    - Control characters
+
+    Returns:
+        True if token is BPE garbage, False if potentially valid
+    """
+    if not token:
+        return True
+
+    # Check special tokens first (case-sensitive)
+    if token in BPE_SPECIAL_TOKENS:
+        return True
+
+    # Check for subword prefixes
+    for prefix in BPE_SUBWORD_PREFIXES:
+        if token.startswith(prefix):
+            return True
+
+    # Check regex pattern for other garbage
+    if BPE_GARBAGE_PATTERN.match(token):
+        return True
+
+    # Check for tokens that are purely punctuation or symbols
+    if not any(c.isalpha() for c in token):
+        return True
+
+    # Check for control characters or non-printable chars
+    if any(ord(c) < 32 or ord(c) > 126 for c in token if c not in {'-', "'"}):
+        # Allow extended ASCII for hyphenated/apostrophe words, but reject control chars
+        cleaned = token.replace('-', '').replace("'", '')
+        if any(ord(c) < 32 or ord(c) > 126 for c in cleaned):
+            return True
+
+    return False
 
 
 def is_likely_concatenated(word: str) -> bool:
@@ -203,20 +256,25 @@ def is_valid_english_word(word: str, include_stop_words: bool = False, strict: b
     - Concatenated words: "saythis", "likethat", "walletsfrom"
     - Likely typos: "rboadcast", "lbeak", "wsing"
     - Too long words (>18 chars without hyphens)
-    
+    - BPE garbage tokens (Ġ prefixes, ##, ▁, special tokens)
+
     Args:
         word: The word to validate
         include_stop_words: If False (default), rejects common stop words
         strict: If True (default), applies concatenation/typo detection
-        
+
     Returns:
         True if valid English word, False otherwise
     """
     if not word:
         return False
-    
+
+    # CRITICAL: Reject BPE garbage tokens first (prevents vocabulary contamination)
+    if is_bpe_garbage(word):
+        return False
+
     word_lower = word.lower().strip()
-    
+
     if len(word_lower) == 1:
         return word_lower in {'a', 'i'}
     
@@ -317,27 +375,32 @@ def is_dictionary_word(word: str) -> bool:
 def validate_for_vocabulary(word: str, require_dictionary: bool = True) -> Tuple[bool, str]:
     """
     Complete validation for vocabulary inclusion.
-    
+
     This is the main entry point for validating words before adding
     them to the tokenizer vocabulary table.
-    
+
     Checks:
-    1. Basic format validation (alphabetic, length, no numbers)
-    2. Concatenation/typo detection
-    3. Dictionary API lookup (if require_dictionary=True)
-    
+    1. BPE garbage rejection (CRITICAL - prevents contamination)
+    2. Basic format validation (alphabetic, length, no numbers)
+    3. Concatenation/typo detection
+    4. Dictionary API lookup (if require_dictionary=True)
+
     Args:
         word: Word to validate
         require_dictionary: If True, word must be in dictionary API
-        
+
     Returns:
         (is_valid, reason) tuple
     """
     if not word:
         return False, "empty"
-    
+
+    # CRITICAL: Reject BPE garbage tokens first
+    if is_bpe_garbage(word):
+        return False, "bpe_garbage"
+
     word_lower = word.lower().strip()
-    
+
     if len(word_lower) < 2:
         return False, "too_short"
     

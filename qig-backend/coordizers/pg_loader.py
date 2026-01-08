@@ -17,6 +17,14 @@ import numpy as np
 from .base import FisherCoordizer
 from .fallback_vocabulary import compute_basin_embedding
 
+# Import BPE garbage detection for vocabulary filtering
+try:
+    from word_validation import is_bpe_garbage
+    BPE_VALIDATION_AVAILABLE = True
+except ImportError:
+    BPE_VALIDATION_AVAILABLE = False
+    is_bpe_garbage = None
+
 logger = logging.getLogger(__name__)
 
 # Redis caching (optional)
@@ -612,6 +620,46 @@ class PostgresCoordizer(FisherCoordizer):
             return 0
 
     # =====================================================================
+    # BPE GARBAGE FILTERING
+    # Added 2026-01-08 to prevent vocabulary contamination
+    # =====================================================================
+
+    def _is_valid_token(self, token: str) -> bool:
+        """
+        Check if token is valid (not BPE garbage).
+
+        CRITICAL: Prevents vocabulary contamination from legacy BPE tokenizers.
+        Filters out GPT-2 byte markers (Ġ), subword prefixes (##, ▁), etc.
+
+        Returns:
+            True if token is valid, False if BPE garbage
+        """
+        if not token:
+            return False
+
+        # Use word_validation if available
+        if BPE_VALIDATION_AVAILABLE and is_bpe_garbage:
+            return not is_bpe_garbage(token)
+
+        # Fallback: basic BPE garbage detection
+        # Reject tokens starting with BPE markers
+        if token[0] in {'Ġ', 'ġ', 'Ċ', 'ċ', '▁', '_'}:
+            return False
+        if token.startswith('##'):
+            return False
+        # Reject special tokens
+        if token in {'<pad>', '<unk>', '<s>', '</s>', '<mask>', '[PAD]', '[UNK]', '[CLS]', '[SEP]', '[MASK]'}:
+            return False
+        # Reject pure numeric tokens
+        if token.isdigit():
+            return False
+        # Require at least one letter
+        if not any(c.isalpha() for c in token):
+            return False
+
+        return True
+
+    # =====================================================================
     # FORESIGHT TRAJECTORY PREDICTION METHODS
     # Added 2026-01-08 for Fisher-weighted regression support
     # =====================================================================
@@ -623,12 +671,18 @@ class PostgresCoordizer(FisherCoordizer):
         Used by TrajectoryDecoder for full trajectory scoring.
         This loads the entire vocabulary into memory for scoring.
 
+        CRITICAL: Filters out BPE garbage tokens to prevent contamination.
+
         Returns:
             Dict mapping token -> basin_embedding [64]
         """
-        # Return from cache if available
+        # Return from cache if available (filter BPE garbage)
         if self.basin_coords:
-            return {token: np.array(coords) for token, coords in self.basin_coords.items()}
+            return {
+                token: np.array(coords)
+                for token, coords in self.basin_coords.items()
+                if self._is_valid_token(token)
+            }
 
         if self._using_fallback:
             return {}
@@ -651,7 +705,8 @@ class PostgresCoordizer(FisherCoordizer):
             for row in cursor.fetchall():
                 token = row[0]
                 basin_vector = row[1]
-                if basin_vector is not None:
+                # Filter BPE garbage tokens
+                if basin_vector is not None and self._is_valid_token(token):
                     basin_array = np.array(basin_vector)
                     tokens[token] = basin_array
 
@@ -688,7 +743,12 @@ class PostgresCoordizer(FisherCoordizer):
                 WHERE basin_embedding IS NOT NULL
             """)
 
-            return {row[0]: row[1] for row in cursor.fetchall() if row[1] is not None}
+            # Filter BPE garbage tokens
+            return {
+                row[0]: row[1]
+                for row in cursor.fetchall()
+                if row[1] is not None and self._is_valid_token(row[0])
+            }
         except Exception as e:
             logger.error(f"Failed to get token phi scores: {e}")
             return {}
