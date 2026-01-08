@@ -1286,16 +1286,24 @@ class AutonomousDebateService:
     
     def _trigger_spawn_proposal(self, topic: str, winner: str, debate_dict: Dict) -> None:
         """Trigger M8 kernel spawn proposal for debate domain specialist."""
+        # DIAGNOSTIC: Log spawn attempt
+        logger.info(f"[M8Spawn] Spawn evaluation triggered for topic: {topic}")
+        logger.info(f"[M8Spawn] M8_AVAILABLE={M8_AVAILABLE}, spawner_connected={self._m8_spawner is not None}")
+        
         if not self._m8_spawner or not M8_AVAILABLE:
+            logger.warning(f"[M8Spawn] Spawn blocked: spawner={self._m8_spawner is not None}, M8_AVAILABLE={M8_AVAILABLE}")
             return
         
         domain = self._extract_domain_from_topic(topic)
+        logger.info(f"[M8Spawn] Extracted domain '{domain}' from topic '{topic}'")
         
         spawn_name = f"{domain.capitalize()}Specialist"
         element = f"debate_{topic[:20].replace(' ', '_')}"
         role = "domain_specialist"
         parent_gods = [winner, debate_dict.get('initiator', ''), debate_dict.get('opponent', '')]
         parent_gods = list(set([g for g in parent_gods if g]))[:2]
+        
+        logger.info(f"[M8Spawn] Proposing spawn: name={spawn_name}, domain={domain}, parents={parent_gods}")
         
         try:
             result = self._m8_spawner.propose_and_spawn(
@@ -1310,9 +1318,10 @@ class AutonomousDebateService:
             
             if result.get('success'):
                 self._spawns_triggered += 1
-                logger.info(f"Spawned specialist: {spawn_name} for domain '{domain}'")
+                logger.info(f"[M8Spawn] ✓ Spawn successful: {spawn_name} for domain '{domain}'")
             else:
-                logger.info(f"Spawn proposal created (pending consensus): {spawn_name}")
+                logger.info(f"[M8Spawn] ⏳ Proposal created (pending consensus): {spawn_name}")
+                logger.debug(f"[M8Spawn] Result details: {result}")
                 
         except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.error(f"Spawn proposal data error: {e}")
