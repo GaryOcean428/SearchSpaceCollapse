@@ -23,6 +23,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from qig_tokenizer import get_tokenizer, update_tokenizer_from_observations
+from bip39_wordlist import is_bip39_word
 
 
 def get_db_connection():
@@ -89,12 +90,18 @@ def extract_from_hermes_conversations(
         
         rows = cursor.fetchall()
         
+        skipped_non_bip39 = 0
         for row in rows:
             phi = row.get('phi', 0.6) or 0.6
             text = f"{row.get('user_message', '')} {row.get('system_response', '')}"
             words = extract_words(text)
-            
+
             for word in words:
+                # Only include valid BIP39 words - filter out garbage passphrase test words
+                if not is_bip39_word(word):
+                    skipped_non_bip39 += 1
+                    continue
+
                 observations.append({
                     "word": word,
                     "frequency": 1,
@@ -103,13 +110,13 @@ def extract_from_hermes_conversations(
                     "type": "word",
                     "source_type": "hermes"
                 })
-            
+
             if phi >= 0.7:
                 sequences = extract_sequences(text, phi)
                 observations.extend(sequences)
-        
+
         cursor.close()
-        print(f"[Hermes] Extracted {len(observations)} observations from {len(rows)} conversations")
+        print(f"[Hermes] Extracted {len(observations)} observations from {len(rows)} conversations (filtered {skipped_non_bip39} non-BIP39 words)")
         
     except Exception as e:
         print(f"[Hermes] Error extracting: {e}")
@@ -147,12 +154,18 @@ def extract_from_manifold_probes(
         
         rows = cursor.fetchall()
         
+        skipped_non_bip39 = 0
         for row in rows:
             phi = row.get('phi', 0.6)
             text = row.get('input', '')
             words = extract_words(text)
-            
+
             for word in words:
+                # Only include valid BIP39 words - filter out garbage passphrase test words
+                if not is_bip39_word(word):
+                    skipped_non_bip39 += 1
+                    continue
+
                 observations.append({
                     "word": word,
                     "frequency": 1,
@@ -161,13 +174,13 @@ def extract_from_manifold_probes(
                     "type": "word",
                     "source_type": "manifold"
                 })
-            
+
             if phi >= 0.7:
                 sequences = extract_sequences(text, phi)
                 observations.extend(sequences)
-        
+
         cursor.close()
-        print(f"[Manifold] Extracted {len(observations)} observations from {len(rows)} probes")
+        print(f"[Manifold] Extracted {len(observations)} observations from {len(rows)} probes (filtered {skipped_non_bip39} non-BIP39 words)")
         
     except Exception as e:
         print(f"[Manifold] Error extracting: {e}")
@@ -203,10 +216,11 @@ def extract_from_learning_events(
         
         rows = cursor.fetchall()
         
+        skipped_non_bip39 = 0
         for row in rows:
             phi = row.get('phi', 0.7)
             details = row.get('details', {}) or {}
-            
+
             text_sources = [
                 details.get('phrase', ''),
                 details.get('passphrase', ''),
@@ -215,8 +229,13 @@ def extract_from_learning_events(
             ]
             text = ' '.join(filter(None, text_sources))
             words = extract_words(text)
-            
+
             for word in words:
+                # Only include valid BIP39 words - filter out garbage passphrase test words
+                if not is_bip39_word(word):
+                    skipped_non_bip39 += 1
+                    continue
+
                 observations.append({
                     "word": word,
                     "frequency": 1,
@@ -225,12 +244,12 @@ def extract_from_learning_events(
                     "type": "word",
                     "source_type": "learning_event"
                 })
-            
+
             sequences = extract_sequences(text, phi)
             observations.extend(sequences)
-        
+
         cursor.close()
-        print(f"[Learning] Extracted {len(observations)} observations from {len(rows)} events")
+        print(f"[Learning] Extracted {len(observations)} observations from {len(rows)} events (filtered {skipped_non_bip39} non-BIP39 words)")
         
     except Exception as e:
         print(f"[Learning] Error extracting: {e}")
@@ -266,12 +285,18 @@ def extract_from_near_miss_clusters(
         
         rows = cursor.fetchall()
         
+        skipped_non_bip39 = 0
         for row in rows:
             phi = row.get('phi', 0.65)
             phrase = row.get('phrase', '')
             words = extract_words(phrase)
-            
+
             for word in words:
+                # Only include valid BIP39 words - filter out garbage passphrase test words
+                if not is_bip39_word(word):
+                    skipped_non_bip39 += 1
+                    continue
+
                 observations.append({
                     "word": word,
                     "frequency": 1,
@@ -286,7 +311,7 @@ def extract_from_near_miss_clusters(
                 observations.extend(sequences)
         
         cursor.close()
-        print(f"[NearMiss] Extracted {len(observations)} observations from {len(rows)} entries")
+        print(f"[NearMiss] Extracted {len(observations)} observations from {len(rows)} entries (filtered {skipped_non_bip39} non-BIP39 words)")
         
     except Exception as e:
         print(f"[NearMiss] Error extracting: {e}")
@@ -323,19 +348,26 @@ def extract_from_vocabulary_observations(
         """, (min_phi, limit))
         
         rows = cursor.fetchall()
-        
+
+        skipped_non_bip39 = 0
         for row in rows:
+            word = row.get('text', '')
+            # Only include valid BIP39 words - filter out garbage passphrase test words
+            if not is_bip39_word(word):
+                skipped_non_bip39 += 1
+                continue
+
             observations.append({
-                "word": row.get('text', ''),
+                "word": word,
                 "frequency": row.get('frequency', 1),
                 "avgPhi": row.get('avg_phi', 0),
                 "maxPhi": row.get('max_phi', 0),
                 "type": row.get('type', 'word'),
                 "source_type": "vocabulary_tracker"
             })
-        
+
         cursor.close()
-        print(f"[Vocab] Extracted {len(observations)} observations")
+        print(f"[Vocab] Extracted {len(observations)} observations (filtered {skipped_non_bip39} non-BIP39 words)")
         
     except Exception as e:
         print(f"[Vocab] Error extracting: {e}")
