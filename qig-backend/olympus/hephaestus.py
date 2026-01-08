@@ -62,6 +62,21 @@ from .breach_patterns import (
     generate_breach_pattern_variants
 )
 
+# Structured passphrase generation
+_structured_generator = None
+
+def _get_structured_generator():
+    """Lazy load structured passphrase generator."""
+    global _structured_generator
+    if _structured_generator is None:
+        try:
+            from .structured_passphrase_generator import get_passphrase_generator
+            _structured_generator = get_passphrase_generator()
+            print("[Hephaestus] ✓ Structured passphrase generator loaded")
+        except Exception as e:
+            print(f"[Hephaestus] ⚠️ Structured generator not available: {e}")
+    return _structured_generator
+
 BIP39_WORDS: set = set()
 _suggest_bip39_correction_fn = None
 _is_valid_bip39_seed_fn = None
@@ -199,7 +214,7 @@ class Hephaestus(BaseGod):
         return known / len(words)
     
     def generate_hypotheses(
-        self, 
+        self,
         n: int = 100,
         strategy: Optional[str] = None,
         seed_phrases: Optional[List[str]] = None,
@@ -207,19 +222,39 @@ class Hephaestus(BaseGod):
     ) -> List[str]:
         """
         Generate n passphrase hypotheses using basin-guided forging.
+
+        Strategies:
+        - 'mutation': Mutate seed phrases
+        - 'basin_guided': Generate guided by target basin
+        - 'structured': Use structured vocabulary with variations (preferred for passphrases)
+        - None: Mixed strategy (40% structured, 36% high-phi, 24% random)
         """
         hypotheses = []
-        
+
+        # Try structured generation first (preferred for clean passphrases)
+        if strategy == 'structured' or (strategy is None and random.random() < 0.4):
+            structured = self._generate_structured_passphrases(n if strategy == 'structured' else n // 3)
+            hypotheses.extend(structured)
+            if strategy == 'structured':
+                self.generated_count += len(hypotheses)
+                return hypotheses
+
+        remaining = n - len(hypotheses)
+        if remaining <= 0:
+            self.generated_count += len(hypotheses)
+            return hypotheses
+
         if not self.vocabulary:
             self._initialize_default_vocabulary()
-        
+
         high_phi_words = [w for w, phi in self.word_phi_scores.items() if phi >= 0.5]
         all_words = list(self.vocabulary.keys())
-        
+
         if not all_words:
+            self.generated_count += len(hypotheses)
             return hypotheses
-        
-        for _ in range(n):
+
+        for _ in range(remaining):
             if strategy == 'mutation' and seed_phrases:
                 phrase = self._mutate_phrase(random.choice(seed_phrases))
             elif strategy == 'basin_guided' and target_basin is not None:
@@ -228,11 +263,57 @@ class Hephaestus(BaseGod):
                 phrase = self._generate_from_high_phi(high_phi_words)
             else:
                 phrase = self._random_phrase(all_words)
-            
+
             hypotheses.append(phrase)
-        
+
         self.generated_count += len(hypotheses)
         return hypotheses
+
+    def _generate_structured_passphrases(self, n: int) -> List[str]:
+        """
+        Generate passphrases using structured vocabulary system.
+        Returns clean, traceable passphrases with variations.
+        """
+        generator = _get_structured_generator()
+        if not generator:
+            return []
+
+        try:
+            attempts = generator.generate_batch(
+                count=n,
+                kernel_id=getattr(self, 'kernel_id', None),
+                god_name=self.name if hasattr(self, 'name') else 'Hephaestus'
+            )
+            return [a.attempt_text for a in attempts]
+        except Exception as e:
+            print(f"[Hephaestus] Structured generation failed: {e}")
+            return []
+
+    def record_passphrase_result(
+        self,
+        passphrase: str,
+        phi: float,
+        result: str = "failure",
+        kappa: float = None
+    ) -> bool:
+        """
+        Record a passphrase attempt result back to the structured system.
+        This enables learning from attempts.
+        """
+        generator = _get_structured_generator()
+        if not generator:
+            return False
+
+        try:
+            return generator.record_attempt_result(
+                attempt_text=passphrase,
+                phi=phi,
+                kappa=kappa,
+                result=result
+            )
+        except Exception as e:
+            print(f"[Hephaestus] Failed to record result: {e}")
+            return False
     
     def _initialize_default_vocabulary(self) -> None:
         """Initialize with common passphrase words."""
