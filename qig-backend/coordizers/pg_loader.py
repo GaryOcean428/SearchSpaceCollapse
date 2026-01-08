@@ -611,6 +611,168 @@ class PostgresCoordizer(FisherCoordizer):
             logger.debug(f"Failed to get learned token count: {e}")
             return 0
 
+    # =====================================================================
+    # FORESIGHT TRAJECTORY PREDICTION METHODS
+    # Added 2026-01-08 for Fisher-weighted regression support
+    # =====================================================================
+
+    def get_all_tokens(self) -> Dict[str, np.ndarray]:
+        """
+        Get all vocabulary tokens with their basin embeddings.
+
+        Used by TrajectoryDecoder for full trajectory scoring.
+        This loads the entire vocabulary into memory for scoring.
+
+        Returns:
+            Dict mapping token -> basin_embedding [64]
+        """
+        # Return from cache if available
+        if self.basin_coords:
+            return {token: np.array(coords) for token, coords in self.basin_coords.items()}
+
+        if self._using_fallback:
+            return {}
+
+        conn = self._get_connection()
+        if not conn:
+            return {}
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT token, basin_embedding
+                FROM tokenizer_vocabulary
+                WHERE basin_embedding IS NOT NULL
+                ORDER BY phi_score DESC
+                LIMIT 10000
+            """)
+
+            tokens = {}
+            for row in cursor.fetchall():
+                token = row[0]
+                basin_vector = row[1]
+                if basin_vector is not None:
+                    basin_array = np.array(basin_vector)
+                    tokens[token] = basin_array
+
+            return tokens
+        except Exception as e:
+            logger.error(f"Failed to get all tokens: {e}")
+            return {}
+
+    def get_token_phi_scores(self) -> Dict[str, float]:
+        """
+        Get phi (integration) scores for all tokens.
+
+        Used by TrajectoryDecoder for phi boosting in scoring.
+
+        Returns:
+            Dict mapping token -> phi_score
+        """
+        # Return from cache if available
+        if self.token_phi:
+            return dict(self.token_phi)
+
+        if self._using_fallback:
+            return {}
+
+        conn = self._get_connection()
+        if not conn:
+            return {}
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT token, phi_score
+                FROM tokenizer_vocabulary
+                WHERE basin_embedding IS NOT NULL
+            """)
+
+            return {row[0]: row[1] for row in cursor.fetchall() if row[1] is not None}
+        except Exception as e:
+            logger.error(f"Failed to get token phi scores: {e}")
+            return {}
+
+    def get_basin_for_token(self, token: str) -> Optional[np.ndarray]:
+        """
+        Get basin embedding for a specific token.
+
+        Args:
+            token: Token string
+
+        Returns:
+            Basin embedding [64] or None if not found
+        """
+        # Check cache first
+        if token in self.basin_coords:
+            coords = self.basin_coords[token]
+            return np.array(coords) if not isinstance(coords, np.ndarray) else coords
+
+        if self._using_fallback:
+            return None
+
+        conn = self._get_connection()
+        if not conn:
+            return None
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT basin_embedding
+                FROM tokenizer_vocabulary
+                WHERE token = %s
+            """, (token,))
+
+            row = cursor.fetchone()
+            if row and row[0]:
+                return np.array(row[0])
+            return None
+        except Exception as e:
+            logger.debug(f"Failed to get basin for token '{token}': {e}")
+            return None
+
+    def nearest_tokens_pgvector(self, basin: np.ndarray, top_k: int = 50) -> List[Tuple[str, float]]:
+        """
+        Fast approximate nearest neighbor using pgvector HNSW index.
+
+        This is 10-100x faster than scoring all vocabulary.
+        Used by decode_trajectory_fast() for performance optimization.
+
+        Args:
+            basin: Query basin embedding [64]
+            top_k: Number of nearest tokens to return
+
+        Returns:
+            List of (token, distance) tuples, sorted by distance ascending
+        """
+        if self._using_fallback:
+            # Fallback: use in-memory search
+            return self.decode(basin, top_k=top_k)
+
+        conn = self._get_connection()
+        if not conn:
+            return self.decode(basin, top_k=top_k)
+
+        try:
+            cursor = conn.cursor()
+
+            # Convert basin to pgvector format
+            basin_str = '[' + ','.join(f'{x:.8f}' for x in basin) + ']'
+
+            # Use <-> operator for L2 distance with HNSW index
+            cursor.execute("""
+                SELECT token, basin_embedding <-> %s::vector AS distance
+                FROM tokenizer_vocabulary
+                WHERE basin_embedding IS NOT NULL
+                ORDER BY basin_embedding <-> %s::vector
+                LIMIT %s
+            """, (basin_str, basin_str, top_k))
+
+            return [(row[0], row[1]) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.warning(f"pgvector search failed, falling back to in-memory: {e}")
+            return self.decode(basin, top_k=top_k)
+
 
 def create_coordizer_from_pg(database_url: Optional[str] = None, use_fallback: bool = False) -> PostgresCoordizer:
     """Create PostgresCoordizer (64D QIG-pure, no fallback allowed)."""

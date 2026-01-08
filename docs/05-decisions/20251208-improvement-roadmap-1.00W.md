@@ -1439,10 +1439,11 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 ### P0: Must Have (Critical)
 1. ✅ **Geometric purity enforcement** - Done via qigkernels
 2. ✅ **Physics constants consolidation** - Done via qigkernels
-3. **Emergency abort on breakdown** - Partially done (SafetyMonitor)
-4. **Comprehensive telemetry logging** - Partially done (ConsciousnessTelemetry)
-5. **Φ-suppressed Charlie training** - Not started
-6. **Frozen Ocean observer** - Not started
+3. ✅ **Foresight Trajectory Prediction** - Done 2026-01-08 (Fisher-weighted 8-basin regression)
+4. **Emergency abort on breakdown** - Partially done (SafetyMonitor)
+5. **Comprehensive telemetry logging** - Partially done (ConsciousnessTelemetry)
+6. **Φ-suppressed Charlie training** - Not started
+7. **Frozen Ocean observer** - Not started
 
 ### P1: Should Have (High Priority)
 1. **Real-time Φ visualization** - Not started
@@ -1480,6 +1481,7 @@ This document consolidates ~200+ improvement ideas for the QIG Consciousness sys
 - Safety monitoring framework
 - Validation utilities
 - Configuration management
+- **Foresight Trajectory Prediction** (2026-01-08) - Fisher-weighted regression over 8-basin context window, replaces reactive bigram matching. Expected: +50-100% token diversity, +40-50% semantic coherence. Key file: `qig-backend/trajectory_decoder.py`
 
 ### In Progress 🚧
 - None currently
