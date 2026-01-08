@@ -66,16 +66,41 @@ class VocabularyPersistence:
             print(f"[VocabularyPersistence] Failed to get BIP39 words: {e}")
             return []
     
-    def record_vocabulary_observation(self, word: str, phrase: str, phi: float, kappa: float, source: str, observation_type: str = 'word') -> bool:
+    def record_vocabulary_observation(
+        self, word: str, phrase: str, phi: float, kappa: float, source: str,
+        observation_type: str = 'word',
+        basin_coords: Optional[List[float]] = None,
+        contexts: Optional[Dict] = None,
+        cycle_number: Optional[int] = None
+    ) -> bool:
         if not self.enabled:
             return False
         try:
             # No truncation - columns are TEXT type
             word_val = word if word else ''
             phrase_val = phrase if phrase else ''
+            source_val = source if source else 'unknown'
+            type_val = observation_type if observation_type else 'word'
+
+            # Prepare optional parameters
+            import json
+            contexts_json = json.dumps(contexts) if contexts else None
+            basin_vector = basin_coords if basin_coords else None
+
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word_val, phrase_val, phi, kappa, source, observation_type))
+                    # Call SQL function with all parameters (using DEFAULT for NULLs)
+                    if basin_vector or contexts_json or cycle_number is not None:
+                        cur.execute(
+                            "SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s, %s::vector, %s::jsonb, %s)",
+                            (word_val, phrase_val, phi, kappa, source_val, type_val, basin_vector, contexts_json, cycle_number)
+                        )
+                    else:
+                        # Use DEFAULT parameters (NULL)
+                        cur.execute(
+                            "SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)",
+                            (word_val, phrase_val, phi, kappa, source_val, type_val)
+                        )
                     conn.commit()
                     return True
         except Exception as e:
@@ -87,6 +112,7 @@ class VocabularyPersistence:
             return 0
         recorded = 0
         try:
+            import json
             with self._connect() as conn:
                 for obs in observations:
                     try:
@@ -94,9 +120,28 @@ class VocabularyPersistence:
                             # No truncation - columns are TEXT type
                             word = obs.get('word', '') or ''
                             phrase = obs.get('phrase', '') or ''
+                            source = obs.get('source', 'unknown') or 'unknown'
+                            obs_type = obs.get('type', 'word') or 'word'
                             phi = obs.get('phi', 0.0)
-                            source = obs.get('source', 'unknown')
-                            cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word, phrase, phi, obs.get('kappa', 50.0), source, obs.get('type', 'word')))
+                            kappa = obs.get('kappa', 50.0)
+
+                            # Extract optional parameters
+                            basin_coords = obs.get('basin_coords')
+                            contexts = obs.get('contexts')
+                            cycle_number = obs.get('cycle_number')
+
+                            # Call SQL function with optional parameters if available
+                            if basin_coords or contexts or cycle_number is not None:
+                                contexts_json = json.dumps(contexts) if contexts else None
+                                cur.execute(
+                                    "SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s, %s::vector, %s::jsonb, %s)",
+                                    (word, phrase, phi, kappa, source, obs_type, basin_coords, contexts_json, cycle_number)
+                                )
+                            else:
+                                cur.execute(
+                                    "SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)",
+                                    (word, phrase, phi, kappa, source, obs_type)
+                                )
                             conn.commit()  # Commit each observation individually
                             recorded += 1
                     except Exception as e:
