@@ -125,7 +125,7 @@ class CuriosityToToolEmitter:
         
         request_id = self._emit_tool_request(need)
         
-        print(f"[CuriosityToolEmitter] Curiosity spike → tool request: {topic[:40]}... (Φ={curiosity_level:.2f})")
+        print(f"[CuriosityToolEmitter] Curiosity spike → tool request: {topic}... (Φ={curiosity_level:.2f})")
         
         return request_id
     
@@ -287,7 +287,7 @@ class ResearchPatternLearner:
                         patterns_learned.append(pattern.pattern_id)
         
         if patterns_learned:
-            print(f"[ResearchPatternLearner] Learned {len(patterns_learned)} patterns from: {source_url[:50]}...")
+            print(f"[ResearchPatternLearner] Learned {len(patterns_learned)} patterns from: {source_url}...")
         
         return patterns_learned
     
@@ -415,14 +415,14 @@ class ResearchPatternLearner:
     ) -> Optional[DiscoveredPattern]:
         """Create a DiscoveredPattern from extracted code."""
         pattern_id = hashlib.sha256(
-            f"{source_type}:{func_name}:{func_code[:100]}".encode()
+            f"{source_type}:{func_name}:{func_code}".encode()
         ).hexdigest()[:16]
         
         with self._lock:
             if pattern_id in self._discovered_patterns:
                 return None
         
-        description = f"{func_name}: {topic[:100]}"
+        description = f"{func_name}: {topic}"
         
         pattern = DiscoveredPattern(
             pattern_id=pattern_id,
@@ -453,7 +453,7 @@ class ResearchPatternLearner:
             f"abstract:{title}:{time.time()}".encode()
         ).hexdigest()[:16]
         
-        func_name = re.sub(r'[^a-z0-9_]', '_', title.lower())[:30]
+        func_name = re.sub(r'[^a-z0-9_]', '_', title.lower())[:500]
         
         abstract_code = f'''def {func_name}(input_data):
     """
@@ -561,7 +561,7 @@ class ToolNeedDetector:
     
     def _normalize_topic(self, topic: str) -> str:
         """Normalize topic for comparison."""
-        return re.sub(r'\s+', ' ', topic.lower().strip())[:100]
+        return re.sub(r'\s+', ' ', topic.lower().strip())[:500]
     
     def _emit_need(self, topic: str, source: str):
         """Emit a tool need based on detected pattern."""

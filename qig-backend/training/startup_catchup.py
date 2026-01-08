@@ -597,7 +597,7 @@ class StartupCatchupManager:
                 return {
                     "success": False,
                     "status_code": response.status_code,
-                    "error": response.text[:200]
+                    "error": response.text[:500]
                 }
 
         except requests.exceptions.Timeout:

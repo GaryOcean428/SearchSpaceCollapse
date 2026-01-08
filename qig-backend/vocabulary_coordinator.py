@@ -371,7 +371,7 @@ class VocabularyCoordinator:
                 phi = min(0.8, 0.5 + (count * 0.05))
                 observations.append({
                     'word': word,
-                    'phrase': text[:100] if len(text) > 100 else text,
+                    'phrase': text[:500] if len(text) > 100 else text,
                     'phi': phi,
                     'kappa': 50.0,
                     'source': domain or 'research',

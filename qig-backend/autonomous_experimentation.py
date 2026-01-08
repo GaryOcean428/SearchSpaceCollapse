@@ -86,7 +86,7 @@ class AutonomousExperimenter:
             novel_discovery = self._is_novel_discovery(episode)
             
             experiment = ExperimentResult(
-                experiment_id=f"exp_{uuid.uuid4().hex[:8]}",
+                experiment_id=f"exp_{uuid.uuid4().hex}",
                 strategy_name=novel_strategy.name,
                 task=synthetic_task,
                 success=episode.success,
@@ -131,7 +131,7 @@ class AutonomousExperimenter:
         phi_high = np.random.uniform(phi_low + 0.1, 1.0)
         
         return ReasoningStrategy(
-            name=f"experimental_{uuid.uuid4().hex[:8]}",
+            name=f"experimental_{uuid.uuid4().hex}",
             description="Autonomously generated experimental strategy",
             preferred_phi_range=(phi_low, phi_high),
             step_size_alpha=np.random.uniform(0.01, 0.5),
@@ -158,7 +158,7 @@ class AutonomousExperimenter:
             'novelty': np.random.uniform(0.0, 1.0),
             'time_pressure': np.random.uniform(0.0, 1.0),
             'precision_required': np.random.uniform(0.0, 1.0),
-            'description': f'Synthetic task {uuid.uuid4().hex[:6]}'
+            'description': f'Synthetic task {uuid.uuid4().hex}'
         }
     
     def _is_novel_discovery(self, episode) -> bool:

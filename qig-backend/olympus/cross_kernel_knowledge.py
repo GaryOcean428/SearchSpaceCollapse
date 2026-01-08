@@ -149,7 +149,7 @@ class CrossKernelKnowledgeBase:
             self.basin_anchors.append((word, phi_score))
             # Keep only top 50 anchors
             self.basin_anchors.sort(key=lambda x: -x[1])
-            self.basin_anchors = self.basin_anchors[:50]
+            self.basin_anchors = self.basin_anchors[:500]
     
     def register_success(self, pattern: str) -> None:
         """Register a pattern that led to a balance hit"""

@@ -331,7 +331,7 @@ class LearnedPattern:
             'source_type': self.source_type.value,
             'source_url': self.source_url,
             'description': self.description,
-            'code_snippet': self.code_snippet[:200] + '...' if len(self.code_snippet) > 200 else self.code_snippet,
+            'code_snippet': self.code_snippet[:500] + '...' if len(self.code_snippet) > 200 else self.code_snippet,
             'input_signature': self.input_signature,
             'output_type': self.output_type,
             'times_used': self.times_used,
@@ -924,7 +924,7 @@ class ToolFactory:
                 }
             )
 
-        print(f"[ToolFactory] Learned pattern from user: {description[:50]}...")
+        print(f"[ToolFactory] Learned pattern from user: {description}...")
         return pattern
 
     def learn_from_git_link(self, git_url: str, description: str, secret_key_name: Optional[str] = None) -> Optional[LearnedPattern]:
@@ -1218,7 +1218,7 @@ class ToolFactory:
         """
         self.generation_attempts += 1
         print(f"[ToolFactory] ===== GENERATION ATTEMPT #{self.generation_attempts} =====")
-        print(f"[ToolFactory] Description: {description[:80]}...")
+        print(f"[ToolFactory] Description: {description}...")
         print(f"[ToolFactory] Learned patterns available: {len(self.learned_patterns)}")
 
         purpose_basin = self.encoder.encode(description)
@@ -1236,7 +1236,7 @@ class ToolFactory:
             # Only allow retry if we have NEW matching patterns not seen at last failure
             new_patterns = current_matching_ids - last_fail_pattern_ids
             if not new_patterns:
-                print(f"[ToolFactory] BLOCKED: '{description[:50]}...' failed before")
+                print(f"[ToolFactory] BLOCKED: '{description}...' failed before")
                 print("[ToolFactory] No new COMPATIBLE patterns learned since last attempt")
                 print("[ToolFactory] Teach relevant patterns before retrying")
                 return None
@@ -1255,7 +1255,7 @@ class ToolFactory:
             self.failed_descriptions[description] = datetime.now().timestamp()
             self.pattern_ids_at_last_fail[description] = current_matching_ids
             # Queue proactive search for this topic
-            print(f"[ToolFactory] Queuing proactive search for: {description[:50]}...")
+            print(f"[ToolFactory] Queuing proactive search for: {description}...")
             self.proactive_search(description)
             print(f"[ToolFactory] ❌ FAILED: No patterns - pending searches: {len(self.pending_searches)}")
             return None
@@ -1400,7 +1400,7 @@ class ToolFactory:
         """
         # Check if this is a non-Python pattern (marked in description)
         if pattern.description.startswith('[TYPESCRIPT]') or pattern.description.startswith('[JAVASCRIPT]'):
-            print(f"[ToolFactory] Skipping non-Python pattern: {pattern.description[:50]}...")
+            print(f"[ToolFactory] Skipping non-Python pattern: {pattern.description}...")
             return None
 
         code = pattern.code_snippet
@@ -1617,8 +1617,8 @@ class ToolFactory:
 
             if bridge:
                 research_topic = (
-                    f"Fix runtime failure in tool '{tool.name}': {error[:200] if error else 'Unknown error'}. "
-                    f"Failed with args: {str(failed_args)[:100]}. "
+                    f"Fix runtime failure in tool '{tool.name}': {error[:500] if error else 'Unknown error'}. "
+                    f"Failed with args: {str(failed_args)}. "
                     f"Failure rate: {failure_rate:.1%} over {tool.times_used} uses."
                 )
 
@@ -1631,7 +1631,7 @@ class ToolFactory:
                         'learning_iteration': tool.learning_iterations,
                         'failure_rate': failure_rate,
                         'error': error,
-                        'failed_args_sample': str(failed_args)[:200]
+                        'failed_args_sample': str(failed_args)[:500]
                     },
                     requester=f"ToolFactory:RuntimeLearning:{tool.name}"
                 )
@@ -1684,7 +1684,7 @@ class ToolFactory:
                     candidates.append({
                         'description': pattern_description,
                         'observations': len(cluster),
-                        'examples': [o['request'][:100] for o in cluster[:3]],
+                        'examples': [o['request'][:500] for o in cluster[:3]],
                         'basin': cluster_basin.tolist()
                     })
             else:
@@ -2048,7 +2048,7 @@ class AutonomousToolPipeline:
         with self._lock:
             self._requests[request_id] = request
 
-        print(f"[AutonomousPipeline] New request from {requester}: {description[:50]}...")
+        print(f"[AutonomousPipeline] New request from {requester}: {description}...")
 
         # Immediately start research if bridge available
         self._initiate_research(request)
@@ -2079,7 +2079,7 @@ class AutonomousToolPipeline:
                         requester=f"AutonomousPipeline:{request.requester}"
                     )
                     request.research_requests.append(research_id)
-                    print(f"[AutonomousPipeline] Research requested: {topic[:40]}...")
+                    print(f"[AutonomousPipeline] Research requested: {topic}...")
                 except Exception as e:
                     print(f"[AutonomousPipeline] Research request failed: {e}")
 
@@ -2184,7 +2184,7 @@ class AutonomousToolPipeline:
                         'errors': errors,
                         'timestamp': time.time()
                     })
-                    request.error_history.append(f"Iteration {request.iteration}: {errors[:2]}")
+                    request.error_history.append(f"Iteration {request.iteration}: {errors}")
                     request.state = ToolLifecycleState.IMPROVING
                     request.updated_at = time.time()
                     self._request_improvement_research(request, str(errors))
@@ -2203,7 +2203,7 @@ class AutonomousToolPipeline:
             return
 
         improvement_topics = [
-            f"Fix Python code for: {request.description} - Issue: {failure_reason[:100]}",
+            f"Fix Python code for: {request.description} - Issue: {failure_reason}",
             f"Alternative implementation approach for: {request.description}"
         ]
 

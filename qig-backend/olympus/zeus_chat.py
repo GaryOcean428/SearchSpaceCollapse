@@ -650,7 +650,7 @@ class ZeusConversationHandler:
 The pantheon is aware. We shall commence when the time is right."""
         
         actions = [
-            f'Artemis analyzed {address[:12]}...',
+            f'Artemis analyzed {address}...',
             f'Pantheon polled: {poll_result["convergence"]}',
             f'Priority set to {poll_result["consensus_probability"]:.1%}',
         ]
@@ -735,7 +735,7 @@ The pantheon is aware. We shall commence when the time is right."""
                 self.conversation_encoder.learn_from_text(observation, strategic_value)
         
         # Extract key insight for acknowledgment
-        obs_preview = observation[:80] if len(observation) > 80 else observation
+        obs_preview = observation[:500] if len(observation) > 80 else observation
         
         # Try generative response first
         generated = False
@@ -743,13 +743,13 @@ The pantheon is aware. We shall commence when the time is right."""
         
         if TOKENIZER_AVAILABLE and get_tokenizer is not None:
             try:
-                related_summary = "\n".join([f"- {item.get('content', '')[:100]}" for item in related[:3]]) if related else "No prior related patterns found."
+                related_summary = "\n".join([f"- {item.get('content', '')}" for item in related[:3]]) if related else "No prior related patterns found."
                 prompt = f"""User Observation: "{obs_preview}"
 
 Related patterns from memory:
 {related_summary}
 
-Athena's Assessment: {athena_assessment.get('reasoning', 'Strategic analysis complete.')[:150]}
+Athena's Assessment: {athena_assessment.get('reasoning', 'Strategic analysis complete.')}
 Strategic Value: {strategic_value:.0%}
 
 Zeus Response (acknowledge the specific observation, explain what it means for the search, connect to related patterns if any, and ask a clarifying question):"""
@@ -788,17 +788,17 @@ Zeus Response (acknowledge the specific observation, explain what it means for t
                 athena_reasoning = f"phi={athena_assessment.get('phi', 0.0):.2f}, probability={athena_assessment.get('probability', 0.5):.0%}"
             
             if related:
-                top_patterns = ", ".join([r.get('content', '')[:30] for r in related[:2]])
-                answer = f"""I notice your observation on "{obs_preview[:40]}..."
+                top_patterns = ", ".join([r.get('content', '')[:500] for r in related[:2]])
+                answer = f"""I notice your observation on "{obs_preview}..."
 
 Found {len(related)} related geometric patterns: {top_patterns}...
-Athena's live assessment: {athena_reasoning[:100]}.
+Athena's live assessment: {athena_reasoning}.
 
 This has been integrated. What sparked this insight?"""
             else:
-                answer = f"""Recording your observation about "{obs_preview[:40]}..."
+                answer = f"""Recording your observation about "{obs_preview}..."
 
-No prior patterns matched - this is novel territory. Athena computed: {athena_reasoning[:80]}.
+No prior patterns matched - this is novel territory. Athena computed: {athena_reasoning}.
 
 Your insight is now in geometric memory. Can you elaborate on the source?"""
         
@@ -846,7 +846,7 @@ Your insight is now in geometric memory. Can you elaborate on the source?"""
         sugg_basin = self.conversation_encoder.encode(suggestion)
         
         # Consult multiple gods - use dynamic fallback (NO STATIC TEMPLATES)
-        suggestion_preview = suggestion[:50]
+        suggestion_preview = suggestion[:500]
         athena = self.zeus.get_god('athena')
         ares = self.zeus.get_god('ares')
         apollo = self.zeus.get_god('apollo')
@@ -904,7 +904,7 @@ Your insight is now in geometric memory. Can you elaborate on the source?"""
         ) / 3
         
         # Extract key words from suggestion for acknowledgment
-        suggestion_preview = suggestion[:100] if len(suggestion) > 100 else suggestion
+        suggestion_preview = suggestion[:500] if len(suggestion) > 100 else suggestion
         
         # Try generative response first
         generated = False
@@ -917,9 +917,9 @@ Your insight is now in geometric memory. Can you elaborate on the source?"""
                 context = f"""User Suggestion: "{suggestion_preview}"
 
 Pantheon Consultation:
-- Athena (Strategy): {athena_eval['probability']:.0%} - {athena_eval.get('reasoning', 'strategic analysis')[:100]}
-- Ares (Tactics): {ares_eval['probability']:.0%} - {ares_eval.get('reasoning', 'tactical assessment')[:100]}
-- Apollo (Foresight): {apollo_eval['probability']:.0%} - {apollo_eval.get('reasoning', 'prophetic insight')[:100]}
+- Athena (Strategy): {athena_eval['probability']:.0%} - {athena_eval.get('reasoning', 'strategic analysis')}
+- Ares (Tactics): {ares_eval['probability']:.0%} - {ares_eval.get('reasoning', 'tactical assessment')}
+- Apollo (Foresight): {apollo_eval['probability']:.0%} - {apollo_eval.get('reasoning', 'prophetic insight')}
 
 Consensus: {consensus_prob:.0%}
 Decision: {decision}
@@ -959,12 +959,12 @@ Zeus Response (acknowledge the user's specific suggestion, explain why the panth
             apollo_reasoning = apollo_eval.get('reasoning', f"probability={apollo_eval['probability']:.0%}")
             
             if implement:
-                response = f"""Evaluated your idea: "{suggestion_preview[:50]}..." via pantheon consultation.
+                response = f"""Evaluated your idea: "{suggestion_preview}..." via pantheon consultation.
 
 Live assessments:
-- Athena (Strategy): {athena_eval['probability']:.0%} - {athena_reasoning[:60]}...
-- Ares (Tactics): {ares_eval['probability']:.0%} - {ares_reasoning[:60]}...
-- Apollo (Foresight): {apollo_eval['probability']:.0%} - {apollo_reasoning[:60]}...
+- Athena (Strategy): {athena_eval['probability']:.0%} - {athena_reasoning}...
+- Ares (Tactics): {ares_eval['probability']:.0%} - {ares_reasoning}...
+- Apollo (Foresight): {apollo_eval['probability']:.0%} - {apollo_reasoning}...
 
 Consensus: {consensus_prob:.0%} - implementing this suggestion.
 
@@ -976,9 +976,9 @@ What aspect should we explore further?"""
                 )
                 min_reasoning = min_god[1].get('reasoning', f"probability={min_god[1]['probability']:.0%}")
                 
-                response = f"""Evaluated your thinking on "{suggestion_preview[:50]}..."
+                response = f"""Evaluated your thinking on "{suggestion_preview}..."
 
-{min_god[0]} computed concerns: {min_reasoning[:80]}.
+{min_god[0]} computed concerns: {min_reasoning}.
 
 Pantheon consensus: {consensus_prob:.0%} (below 60% threshold).
 
@@ -1052,7 +1052,7 @@ Could you elaborate on your reasoning, or suggest a different approach?"""
         if TOKENIZER_AVAILABLE and get_tokenizer is not None:
             try:
                 # Construct prompt from retrieved context
-                context_str = "\n".join([f"- {item.get('content', '')[:300]}" for item in relevant_context[:3]])
+                context_str = "\n".join([f"- {item.get('content', '')}" for item in relevant_context[:3]])
                 prompt = f"""Context from Manifold:
 {context_str}
 
@@ -1236,7 +1236,7 @@ Zeus Response (Geometric Interpretation):"""
             # Track results summary for feedback
             results_summary = f"Found {len(result_basins)} results for '{query}'"
             if result_basins:
-                results_summary += f": {', '.join([r['title'][:30] for r in result_basins[:3]])}"
+                results_summary += f": {', '.join([r['title'][:500] for r in result_basins[:3]])}"
             self._last_search_results_summary = results_summary
             
             # Build strategy info for response
@@ -1325,7 +1325,7 @@ The knowledge is now part of our consciousness.
                 }
             }
         
-        print(f"[ZeusChat] Recording search feedback for query: {query[:50]}...")
+        print(f"[ZeusChat] Recording search feedback for query: {query}...")
         
         # Record feedback with the strategy learner
         result = self.strategy_learner.record_feedback(
@@ -1345,8 +1345,8 @@ The knowledge is now part of our consciousness.
         response = f"""⚡ Your feedback has been encoded geometrically.
 
 **Feedback Recorded:**
-- Query: "{query[:50]}..."
-- Your feedback: "{feedback[:100]}..."
+- Query: "{query}..."
+- Your feedback: "{feedback}..."
 - Modification magnitude: {modification_magnitude:.3f}
 
 **Geometric Learning:**
@@ -1403,7 +1403,7 @@ Let me know if this improves results: "yes that was better" or "no that didn't h
                 }
             }
         
-        print(f"[ZeusChat] Confirming search improvement: query='{query[:50]}...', improved={improved}")
+        print(f"[ZeusChat] Confirming search improvement: query='{query}...', improved={improved}")
         
         # Confirm improvement with the strategy learner
         result = self.strategy_learner.confirm_improvement(query, improved)
@@ -1424,7 +1424,7 @@ Let me know if this improves results: "yes that was better" or "no that didn't h
         response = f"""⚡ {icon} Geometric reinforcement recorded.
 
 **Confirmation Processed:**
-- Query: "{query[:50]}..."
+- Query: "{query}..."
 - Outcome: {'Improved ✓' if improved else 'Not improved ✗'}
 - {outcome_text.capitalize()}
 
@@ -1616,7 +1616,7 @@ The wisdom is integrated. We are stronger."""
                 context_str = ""
                 if related:
                     context_str = "\n".join([
-                        f"- {item.get('content', '')[:200]} (φ={item.get('phi', 0):.2f})" 
+                        f"- {item.get('content', '')} (φ={item.get('phi', 0):.2f})" 
                         for item in related[:3]
                     ])
                 
@@ -1655,7 +1655,7 @@ Generate a contextual response as Zeus. Reference actual system state. Be specif
         
         if related:
             top = related[0]
-            top_content = top.get('content', '')[:80]
+            top_content = top.get('content', '')[:500]
             top_phi = top.get('phi', 0)
             response_parts.append(f"Resonance detected with: \"{top_content}...\" (φ={top_phi:.2f})")
             response_parts.append(f"Found {len(related)} related patterns in geometric memory.")
@@ -1749,7 +1749,7 @@ Generate a contextual response as Zeus. Reference actual system state. Be specif
         
         lines = []
         for i, item in enumerate(related[:3], 1):
-            content_preview = item['content'][:100].replace('\n', ' ')
+            content_preview = item['content'][:500].replace('\n', ' ')
             lines.append(
                 f"{i}. Similarity: {item.get('similarity', 0):.3f} | "
                 f"Content: {content_preview}..."
@@ -1784,7 +1784,7 @@ Generate a contextual response as Zeus. Reference actual system state. Be specif
         for file in processed:
             lines.append(
                 f"- {file['filename']}: {file['content_length']} chars, "
-                f"basin: {file['basin_coords'][:3]}"
+                f"basin: {file['basin_coords']}"
             )
         return '\n'.join(lines) if lines else "No files processed"
     

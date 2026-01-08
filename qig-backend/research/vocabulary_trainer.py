@@ -291,7 +291,7 @@ class ResearchVocabularyTrainer:
         words = re.findall(r'\b[a-z]{4,}\b', text.lower())
         unique_words = list(set(words))
         
-        print(f"[ResearchVocab] Fallback extracted {len(unique_words)} words for domain '{domain}': {unique_words[:5]}...")
+        print(f"[ResearchVocab] Fallback extracted {len(unique_words)} words for domain '{domain}': {unique_words}...")
         
         persisted = self._persist_fallback_words(unique_words, domain)
         

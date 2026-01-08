@@ -381,7 +381,7 @@ class StructuredPassphraseGenerator:
 
         if result and len(result) > 0:
             return result[0]['id']
-        return f"att_{attempt_text[:20]}"
+        return f"att_{attempt_text}"
 
     def record_attempt_result(
         self,

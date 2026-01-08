@@ -36,7 +36,7 @@ try:
     mnemonics = hephaestus.generate_temporal_keyword_mnemonics(n=5, target_year=2009)
     print(f"✓ Generated {len(mnemonics)} temporal keyword mnemonics")
     for i, m in enumerate(mnemonics[:2], 1):
-        print(f"  {i}. {m[:50]}...")
+        print(f"  {i}. {m}...")
     
     passphrases = hephaestus.generate_temporal_keyword_passphrases(n=5, target_year=2010)
     print(f"✓ Generated {len(passphrases)} temporal keyword passphrases")
@@ -81,7 +81,7 @@ try:
     seeds = hephaestus.generate_electrum_seeds(n=3)
     print(f"✓ Generated {len(seeds)} Electrum legacy seeds")
     for i, s in enumerate(seeds, 1):
-        print(f"  {i}. {s[:50]}...")
+        print(f"  {i}. {s}...")
 except Exception as e:
     print(f"✗ Electrum seed generation failed: {e}")
     import traceback
@@ -123,9 +123,9 @@ if hephaestus.bip39_words:
         
         typo_mnemonics = hephaestus.generate_enhanced_typo_mnemonics(seed, n=3)
         print(f"✓ Generated {len(typo_mnemonics)} enhanced typo mnemonics")
-        print(f"  Seed: {seed[:50]}...")
+        print(f"  Seed: {seed}...")
         for i, m in enumerate(typo_mnemonics, 1):
-            print(f"  {i}. {m[:50]}...")
+            print(f"  {i}. {m}...")
     except Exception as e:
         print(f"✗ Enhanced typo mnemonic generation failed: {e}")
         import traceback

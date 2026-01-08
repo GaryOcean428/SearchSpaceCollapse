@@ -159,7 +159,7 @@ def main():
             print(f"  {filepath}:{line_num}")
             print(f"    {desc}")
             if verbose:
-                print(f"    {line[:60]}{'...' if len(line) > 60 else ''}")
+                print(f"    {line[:500]}{'...' if len(line) > 60 else ''}")
     
     # Report errors
     if not errors:
@@ -173,7 +173,7 @@ def main():
     for filepath, line_num, line, desc in errors:
         print(f"  {filepath}:{line_num}")
         print(f"    VIOLATION: {desc}")
-        print(f"    {line[:70]}{'...' if len(line) > 70 else ''}")
+        print(f"    {line[:500]}{'...' if len(line) > 70 else ''}")
         print()
     
     print("CANONICAL_RULES.md Rule #1:")

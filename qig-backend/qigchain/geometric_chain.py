@@ -249,7 +249,7 @@ class QIGChain(QIGComputations):
                     failed_at_step=i,
                     step_name=step.name,
                     trajectory=self.trajectory,
-                    suggestion=f"Transform raised exception: {str(e)[:100]}",
+                    suggestion=f"Transform raised exception: {str(e)}",
                 )
             
             if next_basin.shape != current_basin.shape:

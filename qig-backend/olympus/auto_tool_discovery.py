@@ -210,7 +210,7 @@ class ToolDiscoveryEngine:
                     pattern_type='challenge',
                     description=f"Recurring {challenge_type} challenges ({len(challenges)} instances)",
                     confidence=min(0.9, 0.5 + 0.1 * len(challenges)),
-                    context={'challenge_type': challenge_type, 'instances': challenges[:5]}
+                    context={'challenge_type': challenge_type, 'instances': challenges}
                 )
                 discoveries.append(discovery)
 

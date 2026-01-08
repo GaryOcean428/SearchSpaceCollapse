@@ -739,7 +739,7 @@ class SourceDiscoveryService:
             origin='event_discovery'
         )
         
-        print(f"[SourceDiscovery] ⚡ NEW SOURCE EMERGED: {source_url[:50]}... (Φ={phi:.3f})")
+        print(f"[SourceDiscovery] ⚡ NEW SOURCE EMERGED: {source_url}... (Φ={phi:.3f})")
         return True
 
 
@@ -867,7 +867,7 @@ class ScrapyOrchestrator:
             discovered = self.source_discovery.get_sources_for_topic(topic, max_sources=1)
             if discovered:
                 telemetry_url = discovered[0]['url']
-                print(f"[ScrapyOrchestrator] Using telemetry URL: {telemetry_url[:50]}...")
+                print(f"[ScrapyOrchestrator] Using telemetry URL: {telemetry_url}...")
         
         self.pending_crawls[crawl_id] = {
             'spider_type': spider_type,
@@ -1003,7 +1003,7 @@ class ScrapyOrchestrator:
             if discovered_sources:
                 content_parts.append(f"Discovered {len(discovered_sources)} sources from telemetry:")
                 for src in discovered_sources:
-                    content_parts.append(f"  - {src['url'][:50]}... (Φ={src['phi_avg']:.3f}, ΔΦ={src['delta_phi']:.3f})")
+                    content_parts.append(f"  - {src['url']}... (Φ={src['phi_avg']:.3f}, ΔΦ={src['delta_phi']:.3f})")
                     sources_used.append(src['url'])
                 content_parts.append("")
                 
@@ -1051,7 +1051,7 @@ class ScrapyOrchestrator:
                             metadata={'category': result.get('category', 'exploratory')}
                         )
                         
-                        content_parts.append(f"Discovered source: {source_url[:50]}...")
+                        content_parts.append(f"Discovered source: {source_url}...")
                         content_parts.append(result['content'][:800])
                         content_parts.append("")
             
@@ -1125,7 +1125,7 @@ class ScrapyOrchestrator:
                 query_url = f"http://export.arxiv.org/api/query?search_query=all:{topic.replace(' ', '+')}&max_results=3"
                 resp = session.get(query_url, timeout=10)
                 if resp.ok:
-                    return f"arXiv results for: {topic}\n{resp.text[:2000]}"
+                    return f"arXiv results for: {topic}\n{resp.text}"
             
             elif 'github' in source_url.lower():
                 query_url = f"https://api.github.com/search/repositories?q={topic.replace(' ', '+')}&per_page=3"
@@ -1146,7 +1146,7 @@ class ScrapyOrchestrator:
             return None
             
         except Exception as e:
-            print(f"[ScrapyOrchestrator] Fetch error for {source_url[:30]}...: {e}")
+            print(f"[ScrapyOrchestrator] Fetch error for {source_url}...: {e}")
             return None
     
     def _exploratory_research(self, topic: str) -> Dict[str, Dict]:
@@ -1257,7 +1257,7 @@ class ScrapyOrchestrator:
                         metadata={'category': 'google_search'}
                     )
             
-            print(f"[ScrapyOrchestrator] Google search: {len(results)} results for '{query[:40]}...'")
+            print(f"[ScrapyOrchestrator] Google search: {len(results)} results for '{query}...'")
             return results
             
         except Exception as e:
@@ -1296,7 +1296,7 @@ class ScrapyOrchestrator:
             for result in google_results:
                 content_parts.append(f"[{result.rank}] {result.title}")
                 content_parts.append(f"    URL: {result.url}")
-                content_parts.append(f"    {result.snippet[:200]}...")
+                content_parts.append(f"    {result.snippet}...")
                 content_parts.append(f"    Φ={result.phi:.3f}, κ={result.kappa:.3f}")
                 content_parts.append("")
                 sources_used.append(result.url)
@@ -1447,7 +1447,7 @@ class ScrapyOrchestrator:
                         metadata={'category': 'duckduckgo_search'}
                     )
             
-            print(f"[ScrapyOrchestrator] DuckDuckGo search: {len(results)} results for '{query[:40]}...'")
+            print(f"[ScrapyOrchestrator] DuckDuckGo search: {len(results)} results for '{query}...'")
             return results
             
         except Exception as e:
@@ -1493,7 +1493,7 @@ class ScrapyOrchestrator:
             for result in ddg_results:
                 content_parts.append(f"[{result.rank}] {result.title}")
                 content_parts.append(f"    URL: {result.url}")
-                content_parts.append(f"    {result.snippet[:200]}...")
+                content_parts.append(f"    {result.snippet}...")
                 content_parts.append(f"    Φ={result.phi:.3f}, κ={result.kappa:.3f}")
                 content_parts.append("")
                 sources_used.append(result.url)
@@ -1584,7 +1584,7 @@ class ScrapyOrchestrator:
         else:
             print("[ScrapyOrchestrator] DuckDuckGo not available - using Google only")
         
-        print(f"[ScrapyOrchestrator] Combined research: {len(crawl_ids)} sources for '{topic[:40]}...'")
+        print(f"[ScrapyOrchestrator] Combined research: {len(crawl_ids)} sources for '{topic}...'")
         return crawl_ids
     
     def get_research_stats(self) -> Dict:

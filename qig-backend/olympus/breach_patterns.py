@@ -143,7 +143,7 @@ def apply_leetspeak(word: str, substitution_rate: float = 0.5) -> List[str]:
                     new_word[i] = replacement
                     new_variants.append(''.join(new_word))
             
-            variants = new_variants[:50]  # Limit explosion
+            variants = new_variants[:500]  # Limit explosion
     
     return variants
 
@@ -392,7 +392,7 @@ class BreachPatternGenerator:
             )
         
         # Generate variants
-        for pattern in base_patterns[:50]:  # Limit to prevent explosion
+        for pattern in base_patterns[:500]:  # Limit to prevent explosion
             hypotheses.add(pattern)
             
             # Add with suffixes

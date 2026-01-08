@@ -155,7 +155,7 @@ class OlympusMigration:
                         else:
                             print(f"  ✗ Error: {e}")
                             if 'CREATE TABLE' in statement.upper() or 'CREATE INDEX' in statement.upper():
-                                print(f"     Statement: {statement[:100]}...")
+                                print(f"     Statement: {statement}...")
             
             print(f"\n✓ Migration completed successfully!")
             return True

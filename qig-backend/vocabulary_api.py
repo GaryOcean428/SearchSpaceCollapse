@@ -272,7 +272,7 @@ def vocabulary_upload_markdown():
             'words_learned': words_learned,
             'unique_words': len(word_counts),
             'total_occurrences': len(valid_words),
-            'sample_words': list(word_counts.keys())[:20],
+            'sample_words': list(word_counts.keys())[:500],
             'timestamp': datetime.now().isoformat()
         })
     

@@ -189,9 +189,9 @@ def test_basin_coordinate_geometry():
     dist_consciousness_banana = fisher_coord_distance(basin_consciousness, basin_banana)
     
     print(f"Basin coordinates computed:")
-    print(f"  consciousness: {basin_consciousness[:5]}... (64D)")
-    print(f"  awareness: {basin_awareness[:5]}... (64D)")
-    print(f"  banana: {basin_banana[:5]}... (64D)")
+    print(f"  consciousness: {basin_consciousness}... (64D)")
+    print(f"  awareness: {basin_awareness}... (64D)")
+    print(f"  banana: {basin_banana}... (64D)")
     
     print(f"\nDistances:")
     print(f"  consciousness ↔ awareness: {dist_consciousness_awareness:.4f}")

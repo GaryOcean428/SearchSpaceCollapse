@@ -708,11 +708,11 @@ def register_balance_hit(phrase: str, phi: float = 0.9, is_mnemonic: bool = Fals
             phi
         )
     
-    print(f"[HypothesisEmitter] 💰 Balance hit registered: {phrase[:30]}... (phi={phi:.2f}, mnemonic={is_mnemonic})")
+    print(f"[HypothesisEmitter] 💰 Balance hit registered: {phrase}... (phi={phi:.2f}, mnemonic={is_mnemonic})")
     
     return {
         "registered": True,
-        "phrase": phrase[:30] + "...",
+        "phrase": phrase[:500] + "...",
         "phi": phi,
         "is_mnemonic": is_mnemonic,
         "successful_patterns": len(emitter.hephaestus.successful_patterns)

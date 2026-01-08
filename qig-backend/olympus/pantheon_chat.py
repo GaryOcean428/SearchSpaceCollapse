@@ -956,8 +956,8 @@ class PantheonChat:
                 }
 
             # Generate counter-arguments
-            init_arg = f"Turn {turn+1}: My analysis shows {init_assessment.get('probability', 0.5):.2f} probability. {init_assessment.get('reasoning', '')[:200]}"
-            opp_arg = f"Turn {turn+1}: My analysis shows {opp_assessment.get('probability', 0.5):.2f} probability. {opp_assessment.get('reasoning', '')[:200]}"
+            init_arg = f"Turn {turn+1}: My analysis shows {init_assessment.get('probability', 0.5):.2f} probability. {init_assessment.get('reasoning', '')}"
+            opp_arg = f"Turn {turn+1}: My analysis shows {opp_assessment.get('probability', 0.5):.2f} probability. {opp_assessment.get('reasoning', '')}"
 
             # Add arguments to debate
             self.add_debate_argument(debate_id, debate.initiator, init_arg)

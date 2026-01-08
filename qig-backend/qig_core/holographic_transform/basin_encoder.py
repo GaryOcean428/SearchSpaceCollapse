@@ -70,7 +70,7 @@ class BasinEncoder:
         Uses character n-grams and hashing for speed.
         """
         # Check cache
-        cache_key = f"text:{text[:100]}"
+        cache_key = f"text:{text}"
         if cache_key in self.encoding_cache:
             return self.encoding_cache[cache_key]
 

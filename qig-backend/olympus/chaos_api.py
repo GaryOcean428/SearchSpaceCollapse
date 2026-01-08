@@ -571,7 +571,7 @@ def turbo_mode():
         'success': True,
         'message': '🚀 TURBO MODE ACTIVATED',
         'spawned_count': len(spawned),
-        'spawned_kernels': spawned[:20],  # First 20 for brevity
+        'spawned_kernels': spawned[:500],  # First 20 for brevity
         'total_population': len(_zeus.chaos.kernel_population)
     })
 
@@ -845,7 +845,7 @@ def trigger_evolution():
         try:
             conn = psycopg2.connect(database_url)
             with conn.cursor() as cur:
-                event_id = f"evo_{uuid.uuid4().hex[:12]}"
+                event_id = f"evo_{uuid.uuid4().hex}"
                 cur.execute("""
                     INSERT INTO kernel_evolution_events
                     (event_id, event_type, source_kernel_id, geometric_reasoning,

@@ -229,7 +229,7 @@ class CuriosityResearchBridge:
         if requests:
             print(f"[CuriosityBridge] Generated {len(requests)} research requests")
             for r in requests:
-                print(f"  - {r.research_type.value}: {r.topic[:50]}... (priority: {r.priority:.2f})")
+                print(f"  - {r.research_type.value}: {r.topic}... (priority: {r.priority:.2f})")
         
         return requests
     
@@ -309,7 +309,7 @@ class CuriosityResearchBridge:
     
     def _can_request_topic(self, topic: str, now: float) -> bool:
         """Check cooldown for topic to prevent spam."""
-        normalized = topic.lower().strip()[:50]
+        normalized = topic.lower().strip()[:500]
         last_request = self.topic_cooldowns.get(normalized, 0)
         
         if now - last_request < self.min_request_interval:
@@ -342,7 +342,7 @@ class CuriosityResearchBridge:
                 req.result = result
                 self.completed_requests.append(req)
                 self.pending_requests.pop(i)
-                print(f"[CuriosityBridge] Completed request: {req.topic[:50]}...")
+                print(f"[CuriosityBridge] Completed request: {req.topic}...")
                 return
     
     def get_status(self) -> Dict:

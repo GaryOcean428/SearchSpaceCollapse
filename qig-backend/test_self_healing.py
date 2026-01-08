@@ -156,7 +156,7 @@ def test_healing_engine(monitor, evaluator):
             
             if result.get('success'):
                 print(f"   ✅ Strategy succeeded")
-                print(f"   Patch preview: {result['patch'][:100]}...")
+                print(f"   Patch preview: {result['patch']}...")
             else:
                 print(f"   ⚠️  Strategy skipped: {result.get('reason', 'N/A')}")
         except Exception as e:

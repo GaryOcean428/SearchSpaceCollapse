@@ -268,7 +268,7 @@ class CuriosityResearchEmitter:
             
             self._dispatch_request(request)
             
-            print(f"[CuriosityEmitter] {source_kernel} → {request.intent.value}: {topic[:50]}... (Φ={curiosity_level:.2f})")
+            print(f"[CuriosityEmitter] {source_kernel} → {request.intent.value}: {topic}... (Φ={curiosity_level:.2f})")
             
             return request.request_id
         
@@ -276,7 +276,7 @@ class CuriosityResearchEmitter:
     
     def _is_duplicate(self, topic: str, source_kernel: str) -> bool:
         """Check if this kernel recently processed a similar topic."""
-        normalized = topic.lower()[:100]
+        normalized = topic.lower()[:500]
         now = time.time()
         
         with self._lock:
@@ -296,7 +296,7 @@ class CuriosityResearchEmitter:
     
     def _mark_topic_seen(self, topic: str, source_kernel: str):
         """Mark a topic as seen for this kernel."""
-        normalized = topic.lower()[:100]
+        normalized = topic.lower()[:500]
         with self._lock:
             if source_kernel not in self._recent_topics:
                 self._recent_topics[source_kernel] = {}

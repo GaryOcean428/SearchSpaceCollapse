@@ -262,7 +262,7 @@ class QIGDeepAgent:
         trajectory_summary = [
             {
                 'id': wp.id,
-                'description': wp.description[:50],
+                'description': wp.description[:500],
                 'status': wp.status.value,
                 'spawned': wp.spawned_agent_id is not None,
             }
@@ -305,7 +305,7 @@ class QIGDeepAgent:
             
             # Store result in memory
             self.memory.write_fragment(
-                f"Completed: {waypoint.description}\nResult: {str(result.get('output', ''))[:200]}",
+                f"Completed: {waypoint.description}\nResult: {str(result.get('output', ''))}",
                 importance=0.7,
             )
             
@@ -534,7 +534,7 @@ Complete this step. Provide your output as JSON with:
         trajectory_summary = [
             {
                 'id': wp.id,
-                'description': wp.description[:50],
+                'description': wp.description[:500],
                 'status': wp.status.value,
             }
             for wp in self._current_state.trajectory

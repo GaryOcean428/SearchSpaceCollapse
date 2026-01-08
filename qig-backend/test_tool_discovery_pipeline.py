@@ -95,7 +95,7 @@ def test_discovery_engine():
     print(f"  - Tools requested: {stats['tools_requested']}")
     
     if stats['top_topics']:
-        print(f"  - Top topics: {stats['top_topics'][:3]}")
+        print(f"  - Top topics: {stats['top_topics']}")
     
     return athena_discovery
 
@@ -138,7 +138,7 @@ def test_persistence_layer():
     
     # Save to database
     if persistence.save_tool_request(test_request):
-        print(f"✓ Saved tool request: {request_id[:16]}...")
+        print(f"✓ Saved tool request: {request_id}...")
     else:
         print(f"✗ Failed to save tool request")
         return None
@@ -161,7 +161,7 @@ def test_persistence_layer():
     
     # Save to database
     if persistence.save_pattern_discovery(test_discovery):
-        print(f"✓ Saved pattern discovery: {discovery_id[:16]}...")
+        print(f"✓ Saved pattern discovery: {discovery_id}...")
     else:
         print(f"✗ Failed to save pattern discovery")
         return None
@@ -176,7 +176,7 @@ def test_persistence_layer():
         latest = pending_requests[0]
         print(f"  Latest request:")
         print(f"    - God: {latest.requester_god}")
-        print(f"    - Description: {latest.description[:60]}...")
+        print(f"    - Description: {latest.description}...")
         print(f"    - Priority: {latest.priority.name}")
         print(f"    - Status: {latest.status.value}")
     
@@ -221,7 +221,7 @@ def test_cross_god_collaboration():
     )
     
     if success:
-        print(f"✓ Saved cross-god insight: {insight_id[:16]}...")
+        print(f"✓ Saved cross-god insight: {insight_id}...")
         print(f"  - Gods involved: Athena_Test, Apollo_Test, Artemis_Test")
         print(f"  - Topic: bitcoin_address_validation")
         print(f"  - Confidence: 0.88")
@@ -250,7 +250,7 @@ def test_tool_factory_integration():
     if pending:
         print(f"\nNext request for processing:")
         request = pending[0]
-        print(f"  Request ID: {request.request_id[:16]}...")
+        print(f"  Request ID: {request.request_id}...")
         print(f"  From: {request.requester_god}")
         print(f"  Description: {request.description}")
         print(f"  Priority: {request.priority.name}")
@@ -266,7 +266,7 @@ def test_tool_factory_integration():
         
         # Simulate completion
         request.status = RequestStatus.COMPLETED
-        request.tool_id = f"tool_{hashlib.sha256(request.description.encode()).hexdigest()[:16]}"
+        request.tool_id = f"tool_{hashlib.sha256(request.description.encode()).hexdigest()}"
         request.completed_at = datetime.now()
         persistence.save_tool_request(request)
         print(f"  ✓ Marked request as COMPLETED with tool_id: {request.tool_id}")

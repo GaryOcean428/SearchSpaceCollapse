@@ -289,7 +289,7 @@ class PublicRSSFeeds:
             try:
                 feed = feedparser.parse(feed_url)
                 
-                for entry in feed.entries[:20]:
+                for entry in feed.entries[:500]:
                     title = getattr(entry, 'title', '')
                     summary = getattr(entry, 'summary', '')
                     
@@ -300,7 +300,7 @@ class PublicRSSFeeds:
                             'title': title,
                             'url': getattr(entry, 'link', ''),
                             'date': getattr(entry, 'published', ''),
-                            'summary': summary[:200],
+                            'summary': summary[:500],
                             'risk': 'low',
                         })
                         
@@ -368,13 +368,13 @@ class LocalBreachDatabase:
                         findings.append({
                             'type': 'breach',
                             'source': db_name,
-                            'username': parts[0][:50],
-                            'password': parts[1][:100],
+                            'username': parts[0][:500],
+                            'password': parts[1][:500],
                             'looks_like_brainwallet': self._looks_like_brainwallet(parts[1]),
                             'risk': 'critical' if self._looks_like_brainwallet(parts[1]) else 'high',
                         })
         
-        return findings[:50]
+        return findings[:500]
     
     def _looks_like_brainwallet(self, password: str) -> bool:
         """Heuristic: Does password look like brainwallet seed?"""
@@ -567,7 +567,7 @@ class Hades(BaseGod):
         
         self.intelligence_cache[target] = result
         self.search_history.append({
-            'target': target[:50],
+            'target': target[:500],
             'source_count': len(intelligence),
             'timestamp': datetime.now().isoformat(),
         })

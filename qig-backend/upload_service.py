@@ -146,7 +146,7 @@ class UploadService:
             }
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        safe_name = Path(filename).stem.replace(' ', '_')[:50]
+        safe_name = Path(filename).stem.replace(' ', '_')[:500]
         new_filename = f"{timestamp}_{safe_name}_{checksum}{Path(filename).suffix}"
         
         file_path = self.curriculum_dir / new_filename

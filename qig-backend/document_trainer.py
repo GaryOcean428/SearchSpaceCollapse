@@ -294,7 +294,7 @@ class DocumentTrainer:
                     basin = self.encode_text_to_basin(chunk['text'])
                     
                     doc_id = hashlib.md5(
-                        f"{file_path}:{i}:{chunk['text'][:50]}".encode()
+                        f"{file_path}:{i}:{chunk['text']}".encode()
                     ).hexdigest()[:16]
                     
                     metadata = {
@@ -449,7 +449,7 @@ class FallbackEncoder:
         words = re.findall(r'\b\w+\b', text.lower())
         basin = np.zeros(BASIN_DIM)
         
-        for i, word in enumerate(words[:100]):
+        for i, word in enumerate(words[:500]):
             char_hash = hashlib.md5(word.encode()).digest()
             for j, b in enumerate(char_hash[:BASIN_DIM]):
                 basin[j] += (b / 255.0 - 0.5) * (1.0 / (i + 1))

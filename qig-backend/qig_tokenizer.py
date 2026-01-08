@@ -267,7 +267,7 @@ class QIGTokenizer:
             with open(bip39_path, 'r') as f:
                 words = [line.strip() for line in f if line.strip()]
         else:
-            words = BIP39_WORDS[:100]  # Fallback to embedded subset
+            words = BIP39_WORDS[:500]  # Fallback to embedded subset
         
         start_id = len(self.special_tokens)
         for i, word in enumerate(words):

@@ -190,7 +190,7 @@ class SearchProviderManager:
                 providers_to_use = [selected_provider]
                 # Log when premium providers are actually used (truncate query for security)
                 if selected_provider in ('tavily', 'perplexity'):
-                    safe_query = query[:30] + '...' if len(query) > 30 else query
+                    safe_query = query[:500] + '...' if len(query) > 30 else query
                     logger.info(f"[SearchProviderManager] PREMIUM PROVIDER: {selected_provider} (reason: {selection_reason}, query_len: {len(query)})")
             else:
                 providers_to_use = ['duckduckgo'] if self.providers.get('duckduckgo', {}) else []
@@ -387,7 +387,7 @@ class SearchProviderManager:
         citations = data.get('citations', [])
         
         results = [{
-            'title': f'Perplexity Answer: {query[:50]}',
+            'title': f'Perplexity Answer: {query}',
             'url': citations[0] if citations else '',
             'content': content,
             'provider': 'perplexity'

@@ -146,7 +146,7 @@ def main():
         print(f"  {filepath}:")
         for line_num, line, const_name in violations:
             print(f"    Line {line_num}: {const_name}")
-            print(f"      {line[:80]}{'...' if len(line) > 80 else ''}")
+            print(f"      {line[:500]}{'...' if len(line) > 80 else ''}")
             if show_fix:
                 print(f"      FIX: from qigkernels import {const_name}")
         print()

@@ -727,7 +727,7 @@ def get_buffer_health() -> Dict[str, Any]:
         # Check for unsynced patterns
         unsynced = 0
         pattern_ids: Set[Any] = client.smembers('qig:patterns:index') or set()  # type: ignore[assignment]
-        for pid in list(pattern_ids)[:50]:  # Sample first 50
+        for pid in list(pattern_ids)[:500]:  # Sample first 50
             pid_str = pid.decode('utf-8') if isinstance(pid, bytes) else str(pid)
             pattern = UniversalCache.get(f"qig:patterns:{pid_str}")
             if pattern and not pattern.get('synced_to_db', False):

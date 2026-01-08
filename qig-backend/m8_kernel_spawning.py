@@ -368,7 +368,7 @@ class M8SpawnerPersistence:
             if not conn:
                 return False
             try:
-                event_id = record.get('event_id', f"evt_{uuid.uuid4().hex[:12]}")
+                event_id = record.get('event_id', f"evt_{uuid.uuid4().hex}")
                 event_type = record.get('event', record.get('event_type', 'unknown'))
                 kernel_id = record.get('kernel_id', record.get('kernel', {}).get('kernel_id'))
                 god_name = record.get('god_name', record.get('kernel', {}).get('god_name'))
@@ -578,7 +578,7 @@ class M8SpawnerPersistence:
             if not conn:
                 return False
             try:
-                event_id = event.get('event_id', f"evo_{uuid.uuid4().hex[:12]}")
+                event_id = event.get('event_id', f"evo_{uuid.uuid4().hex}")
                 with conn.cursor() as cur:
                     cur.execute("""
                         INSERT INTO kernel_evolution_events
@@ -1112,7 +1112,7 @@ class SpawnProposal:
     
     def __post_init__(self):
         if not self.proposal_id:
-            self.proposal_id = f"spawn_{uuid.uuid4().hex[:8]}"
+            self.proposal_id = f"spawn_{uuid.uuid4().hex}"
 
 
 class KernelObservationStatus(Enum):
@@ -2113,7 +2113,7 @@ class M8KernelSpawner:
                 issues.append('m8_persistence not initialized')
                 diagnostics['m8_persistence'] = 'missing'
         except Exception as e:
-            issues.append(f'm8_persistence error: {str(e)[:100]}')
+            issues.append(f'm8_persistence error: {str(e)}')
             diagnostics['m8_persistence'] = 'error'
         
         # Check legacy kernel persistence
@@ -2124,7 +2124,7 @@ class M8KernelSpawner:
             else:
                 diagnostics['kernel_persistence'] = 'not configured'
         except Exception as e:
-            issues.append(f'kernel_persistence error: {str(e)[:100]}')
+            issues.append(f'kernel_persistence error: {str(e)}')
             diagnostics['kernel_persistence'] = 'error'
         
         # Check orchestrator
@@ -2136,7 +2136,7 @@ class M8KernelSpawner:
                 issues.append('orchestrator not initialized')
                 diagnostics['orchestrator'] = 'missing'
         except Exception as e:
-            issues.append(f'orchestrator error: {str(e)[:100]}')
+            issues.append(f'orchestrator error: {str(e)}')
             diagnostics['orchestrator'] = 'error'
         
         # Check consensus
@@ -2147,7 +2147,7 @@ class M8KernelSpawner:
                 issues.append('consensus not initialized')
                 diagnostics['consensus'] = 'missing'
         except Exception as e:
-            issues.append(f'consensus error: {str(e)[:100]}')
+            issues.append(f'consensus error: {str(e)}')
             diagnostics['consensus'] = 'error'
         
         # Cache stats
@@ -2510,7 +2510,7 @@ class M8KernelSpawner:
         domain_seed = proposal.get("geometric_domain_seed", "unknown")
         
         spawn_proposal = self.create_proposal(
-            name=f"Spawn_{domain_seed[:8]}",
+            name=f"Spawn_{domain_seed}",
             domain=domain_seed[:16],
             element=m8_position.get("m8_position_name", "geometric"),
             role="awareness_spawn",
@@ -2717,7 +2717,7 @@ class M8KernelSpawner:
         m8_position = compute_m8_position(new_profile.affinity_basin, parent_basins)
         
         spawned = SpawnedKernel(
-            kernel_id=f"kernel_{uuid.uuid4().hex[:8]}",
+            kernel_id=f"kernel_{uuid.uuid4().hex}",
             profile=new_profile,
             parent_gods=proposal.parent_gods,
             spawn_reason=proposal.reason,
@@ -3478,13 +3478,13 @@ class M8KernelSpawner:
             parent_gods.extend(k.parent_gods)
         parent_gods = list(set(parent_gods))
         
-        new_kernel_id = f"kernel_{uuid.uuid4().hex[:8]}"
+        new_kernel_id = f"kernel_{uuid.uuid4().hex}"
         new_kernel = SpawnedKernel(
             kernel_id=new_kernel_id,
             profile=new_profile,
             parent_gods=parent_gods,
             spawn_reason=SpawnReason.EMERGENCE,
-            proposal_id=f"merge_{uuid.uuid4().hex[:8]}",
+            proposal_id=f"merge_{uuid.uuid4().hex}",
             spawned_at=datetime.now().isoformat(),
             genesis_votes={},
             basin_lineage={k.profile.god_name: 1.0/len(kernels) for k in kernels},

@@ -208,7 +208,7 @@ class CurriculumProgressPersistence:
                                   completed_at = NOW()
                 """, (topic_title, kernel_name))
                 conn.commit()
-                logger.debug(f"[CurriculumProgressPersistence] Saved: {topic_title[:50]}...")
+                logger.debug(f"[CurriculumProgressPersistence] Saved: {topic_title}...")
         except Exception as e:
             logger.warning(f"[CurriculumProgressPersistence] Save failed: {e}")
         finally:
@@ -334,7 +334,7 @@ class CurriculumLoader:
         quoted = re.findall(r'"([^"]+)"', text)
         
         keywords = list(set(code_keywords + capitalized + quoted))
-        return keywords[:20]
+        return keywords[:500]
     
     def _estimate_difficulty(self, text: str) -> float:
         """Estimate difficulty based on content complexity."""
@@ -835,7 +835,7 @@ class AutonomousCuriosityEngine:
         
         # Pull from curriculum topics for variety
         curriculum_keywords = []
-        for ct in self.curriculum_loader.curriculum_topics[:50]:
+        for ct in self.curriculum_loader.curriculum_topics[:500]:
             curriculum_keywords.extend(ct.get('keywords', [])[:3])
         
         # Diverse query templates aligned with QIG research themes
@@ -934,8 +934,8 @@ class AutonomousCuriosityEngine:
 
                 # Submit non-duplicate queries
                 for query in query_patterns[:4]:
-                    query_key = query.lower()[:50]
-                    if query_key not in self._query_cooldown and query_key not in [q[:50].lower() for q in self._recent_queries]:
+                    query_key = query.lower()[:500]
+                    if query_key not in self._query_cooldown and query_key not in [q[:500].lower() for q in self._recent_queries]:
                         self.request_search(
                             kernel_name=kernel_name,
                             query=query,

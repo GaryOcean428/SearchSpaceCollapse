@@ -375,7 +375,7 @@ class CheckpointImporter:
         print(f"\n[SAMPLE] First {count} tokens to import:")
         for t in tokens[:count]:
             has_vector = "+" if t.get('vector') else "-"
-            print(f"  [{has_vector}] {repr(t['word'][:40])}")
+            print(f"  [{has_vector}] {repr(t['word'][:500])}")
     
     def run(self) -> bool:
         """Execute the full import process."""

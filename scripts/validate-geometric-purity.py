@@ -164,7 +164,7 @@ def check_file(file_path: str, verbose: bool = False) -> List[Violation]:
                 violations.append(Violation(
                     file=file_path,
                     line=line_num,
-                    code=line.strip()[:100],
+                    code=line.strip()[:500],
                     reason=pattern_info["reason"],
                     fix_suggestion=pattern_info.get("fix"),
                 ))

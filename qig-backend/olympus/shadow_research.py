@@ -640,14 +640,14 @@ class ResearchQueue:
         """
         if not is_iteration and self._is_duplicate(topic):
             self._skipped_duplicates += 1
-            print(f"[ResearchQueue] Skipped duplicate topic: {topic[:50]}... (requester: {requester})")
+            print(f"[ResearchQueue] Skipped duplicate topic: {topic}... (requester: {requester})")
             return f"DUPLICATE:{topic}"
         
         if is_iteration:
             self._iteration_requests += 1
             if not iteration_reason:
                 iteration_reason = "unspecified improvement"
-            print(f"[ResearchQueue] Iteration research: {topic[:50]}... (reason: {iteration_reason})")
+            print(f"[ResearchQueue] Iteration research: {topic}... (reason: {iteration_reason})")
         
         with self._lock:
             self._request_counter += 1
@@ -1410,7 +1410,7 @@ class ShadowLearningLoop:
             words_recorded = metrics.get('words_recorded', 0)
             if words_recorded > 0:
                 print(
-                    f"[ShadowVocab] Learned from '{topic[:40]}...': "
+                    f"[ShadowVocab] Learned from '{topic}...': "
                     f"{words_recorded} words, domain={domain}, phi={phi:.3f}"
                 )
         except Exception as e:
@@ -2485,7 +2485,7 @@ class BidirectionalRequestQueue:
                         q["children"].append(request_id)
                         break
         
-        print(f"[BidirectionalQueue] Submitted {request_type.value}: {topic[:50]} from {requester}")
+        print(f"[BidirectionalQueue] Submitted {request_type.value}: {topic} from {requester}")
         
         # Dispatch based on type
         self._dispatch(request)
@@ -2816,7 +2816,7 @@ class ToolResearchBridge:
         try:
             for pattern in tool_patterns[:5]:
                 self._research_api.request_research(
-                    topic=f"Deep dive on pattern: {pattern.get('description', 'unknown')[:50]}",
+                    topic=f"Deep dive on pattern: {pattern.get('description', 'unknown')}",
                     requester="ToolFactory",
                     category=ResearchCategory.TOOLS,
                     context={"source_pattern": pattern}
@@ -2875,7 +2875,7 @@ class ToolResearchBridge:
                         print(f"[ToolResearchBridge] ToolFactory learn error: {e}")
                 
                 if patterns_extracted:
-                    print(f"[ToolResearchBridge] Auto-learned {len(patterns_extracted)} patterns from research: {topic[:50]}...")
+                    print(f"[ToolResearchBridge] Auto-learned {len(patterns_extracted)} patterns from research: {topic}...")
                 
         except Exception as e:
             print(f"[ToolResearchBridge] Auto-learning error: {e}")
@@ -3159,7 +3159,7 @@ class CuriosityResearchBridge:
                 curiosity_triggered=True
             )
             if not request_id.startswith("DUPLICATE:"):
-                print(f"[CuriosityResearchBridge] Topic curiosity: {topic[:50]}...")
+                print(f"[CuriosityResearchBridge] Topic curiosity: {topic}...")
                 return request_id
         
         return None
@@ -3240,7 +3240,7 @@ class CuriosityResearchBridge:
         if not request_id.startswith("DUPLICATE:"):
             self._topics_triggered[topic] = now
             self._last_trigger_time = now
-            print(f"[CuriosityResearchBridge] Triggered: {topic[:50]}... (emotion={emotion}, C={curiosity_c:.3f})")
+            print(f"[CuriosityResearchBridge] Triggered: {topic}... (emotion={emotion}, C={curiosity_c:.3f})")
             return request_id
         
         self._duplicate_prevented += 1
@@ -3396,7 +3396,7 @@ class ResearchInsightBridge:
             insight = lightning.ingest_event(event)
             if insight:
                 self._insights_generated += 1
-                print(f"[ResearchInsightBridge] Generated insight from research: {insight.insight_text[:50]}...")
+                print(f"[ResearchInsightBridge] Generated insight from research: {insight.insight_text}...")
                 
         except ImportError as e:
             print(f"[ResearchInsightBridge] Could not import lightning_kernel: {e}")

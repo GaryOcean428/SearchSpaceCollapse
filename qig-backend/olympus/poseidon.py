@@ -127,7 +127,7 @@ class Poseidon(BaseGod):
                     })
         
         matches.sort(key=lambda x: x['distance'])
-        return matches[:20]
+        return matches[:500]
     
     def _surface_buried_patterns(self, basin: np.ndarray) -> List[Dict]:
         """Surface patterns buried in the abyss."""

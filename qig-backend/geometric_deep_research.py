@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # QIG-pure generative capability for research synthesis
@@ -176,11 +176,11 @@ class GeometricDeepResearch:
             
             for source in result.sources[:5]:
                 if isinstance(source, dict):
-                    title = source.get('title', '')[:50]
-                    content = source.get('content', '')[:100]
+                    title = source.get('title', '')[:500]
+                    content = source.get('content', '')[:500]
                 else:
-                    title = getattr(source, 'title', '')[:50]
-                    content = getattr(source, 'content', '')[:100]
+                    title = getattr(source, 'title', '')[:500]
+                    content = getattr(source, 'content', '')[:500]
                 if title:
                     prompt_parts.append(f"Source: {title} - {content}")
             
@@ -643,7 +643,7 @@ class GeometricCitationProcessor:
     
     def _encode_source(self, source: Dict) -> np.ndarray:
         """Encode source to basin coordinates."""
-        text = f"{source.get('title', '')} {source.get('content', '')[:500]}"
+        text = f"{source.get('title', '')} {source.get('content', '')}"
         
         np.random.seed(hash(text) % (2**32))
         basin = np.random.randn(self.manifold_dim)

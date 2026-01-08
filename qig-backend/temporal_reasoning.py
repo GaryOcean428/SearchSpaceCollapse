@@ -71,7 +71,7 @@ GEODESIC_STEP_SIZE = 0.1  # Step size for geodesic following
 CONFIDENCE_TIME_DECAY_TAU = 30.0  # Time constant for confidence decay
 PHI_CONFIDENCE_SCALE = 0.15  # Scaling factor for phi contribution to confidence
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 

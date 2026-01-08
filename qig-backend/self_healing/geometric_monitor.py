@@ -210,7 +210,7 @@ class GeometricHealthMonitor:
         """Get list of active Python modules."""
         import sys
         # Return top 50 modules to keep size manageable
-        return list(sys.modules.keys())[:50]
+        return list(sys.modules.keys())[:500]
     
     def _get_module_versions(self) -> Dict[str, str]:
         """Get versions of key modules."""

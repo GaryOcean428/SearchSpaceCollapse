@@ -149,8 +149,8 @@ def clean_tokenizer_vocabulary(dry_run: bool = True):
     
     if dry_run:
         print("\n[DRY RUN] Would delete:")
-        for entry in invalid[:20]:
-            print(f"  - {entry['token'][:30]:30} ({', '.join(entry['reasons'])})")
+        for entry in invalid[:500]:
+            print(f"  - {entry['token'][:500]:30} ({', '.join(entry['reasons'])})")
         if len(invalid) > 20:
             print(f"  ... and {len(invalid) - 20} more")
         return len(invalid)
@@ -196,7 +196,7 @@ def clean_learned_words(dry_run: bool = True):
     if dry_run:
         print("\n[DRY RUN] Would delete:")
         for entry in invalid:
-            print(f"  - {entry['word'][:30]:30} ({', '.join(entry['reasons'])})")
+            print(f"  - {entry['word'][:500]:30} ({', '.join(entry['reasons'])})")
         return len(invalid)
     
     conn = get_db_connection()

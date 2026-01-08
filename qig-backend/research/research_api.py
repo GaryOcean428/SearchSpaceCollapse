@@ -181,7 +181,7 @@ def resolve_god_name() -> Dict[str, Any]:
             'domain': domain,
             'god_name': god_name,
             'metadata': metadata,
-            'vocabulary': vocabulary[:15],
+            'vocabulary': vocabulary[:500],
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

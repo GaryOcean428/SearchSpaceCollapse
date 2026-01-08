@@ -165,7 +165,7 @@ class ResearchExecutionOrchestrator:
             self.pending_queue.append(task)
         
         self.total_tasks += 1
-        logger.info(f"[ResearchOrchestrator] Queued task {task_id}: {query[:50]}...")
+        logger.info(f"[ResearchOrchestrator] Queued task {task_id}: {query}...")
         
         return task_id
     
@@ -329,7 +329,7 @@ class ResearchExecutionOrchestrator:
             insight = InsightRecord(
                 insight_id=f"research_insight_{task.task_id}",
                 source='research',
-                content=f"Research discovery: {task.query[:100]}",
+                content=f"Research discovery: {task.query}",
                 phi_delta=info_gain * 0.1,
                 kappa_delta=0.0,
                 curvature=info_gain,

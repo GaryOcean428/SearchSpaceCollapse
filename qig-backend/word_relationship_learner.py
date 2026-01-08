@@ -259,11 +259,11 @@ class WordRelationshipLearner:
     def get_statistics(self) -> Dict:
         """Get learning statistics including newly learned vocabulary."""
         # Top words by frequency
-        top_words = sorted(self.word_freq.items(), key=lambda x: -x[1])[:20]
+        top_words = sorted(self.word_freq.items(), key=lambda x: -x[1])[:500]
         
         # Words with most connections
         connectivity = [(w, len(n)) for w, n in self.cooccurrence.items()]
-        most_connected = sorted(connectivity, key=lambda x: -x[1])[:20]
+        most_connected = sorted(connectivity, key=lambda x: -x[1])[:500]
         
         return {
             'total_words_seen': self.total_words,
@@ -275,7 +275,7 @@ class WordRelationshipLearner:
             'initial_vocabulary_size': self.initial_vocab_size,
             'current_vocabulary_size': len(self.vocabulary),
             'new_words_learned': len(self.new_words_learned),
-            'sample_new_words': list(self.new_words_learned)[:20] if self.new_words_learned else []
+            'sample_new_words': list(self.new_words_learned)[:500] if self.new_words_learned else []
         }
 
 
@@ -345,7 +345,7 @@ def run_learning_pipeline(curriculum_dir: str = 'docs/09-curriculum') -> Dict:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     results = run_learning_pipeline()
     
     print("\n=== Learning Results ===")

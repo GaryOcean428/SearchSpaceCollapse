@@ -526,7 +526,7 @@ class PantheonKernelOrchestrator:
             basin = processor(basin, profile, context)
         
         result = {
-            "text": text[:100],
+            "text": text[:500],
             "god": profile.god_name,
             "domain": profile.domain,
             "mode": profile.mode.value,
@@ -699,8 +699,8 @@ if __name__ == "__main__":
     print("-" * 60)
     
     constellation = orchestrator.get_god_constellation()
-    print(f"Most similar pairs: {constellation['most_similar'][:3]}")
-    print(f"Most distant pairs: {constellation['most_distant'][:3]}")
+    print(f"Most similar pairs: {constellation['most_similar']}")
+    print(f"Most distant pairs: {constellation['most_distant']}")
     
     print("\n" + "=" * 60)
     print("Pantheon Kernel Orchestrator operational!")

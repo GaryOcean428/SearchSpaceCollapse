@@ -124,7 +124,7 @@ def main():
         print(f"  {filepath}:")
         for line_num, line, source in violations:
             print(f"    Line {line_num}: importing from {source}")
-            print(f"      {line[:80]}{'...' if len(line) > 80 else ''}")
+            print(f"      {line[:500]}{'...' if len(line) > 80 else ''}")
         print()
     
     print("Replace with canonical imports from qigkernels:")

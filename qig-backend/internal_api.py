@@ -163,12 +163,12 @@ def call_internal_api(
             
             # Don't retry on client errors (4xx) except 429 (rate limit)
             if 400 <= response.status_code < 500 and response.status_code != 429:
-                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                error_msg = f"HTTP {response.status_code}: {response.text}"
                 logger.warning(f"[InternalAPI] {method} {endpoint} failed (no retry): {error_msg}")
                 return InternalAPIResult(False, error=error_msg)
             
             # Retry on 5xx errors and 429
-            last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+            last_error = f"HTTP {response.status_code}: {response.text}"
             
         except requests.RequestException as e:
             last_error = str(e)
@@ -213,7 +213,7 @@ def sync_war_to_database(
     result = call_internal_api("/api/olympus/war/internal-start", "POST", payload)
     
     if result.success:
-        logger.info(f"[InternalAPI] War synced: {mode} on {target[:40]}...")
+        logger.info(f"[InternalAPI] War synced: {mode} on {target}...")
         return True
     else:
         logger.warning(f"[InternalAPI] War sync failed: {result.error}")

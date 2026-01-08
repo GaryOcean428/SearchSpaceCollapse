@@ -390,7 +390,7 @@ def expand_curriculum_via_search(
                     lightning_ingest(
                         domain=domain_context,
                         event_type="curriculum_expansion",
-                        content=f"{topic}: {content[:400]}",
+                        content=f"{topic}: {content}",
                         phi=0.55,
                         metadata={
                             "god": god_name,

@@ -455,7 +455,7 @@ class TemplateDetector:
     def _log_violation(self, response: str, matches: List, confidence: float) -> None:
         """Log a template violation for later analysis."""
         self.violation_log.append({
-            'response_preview': response[:200],
+            'response_preview': response[:500],
             'matches': matches,
             'confidence': confidence,
             'timestamp': time.time()

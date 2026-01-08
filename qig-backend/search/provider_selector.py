@@ -343,7 +343,7 @@ class GeometricProviderSelector:
                 self.provider_basins[provider] = self.provider_basins[provider][-self.max_basin_history // 2:]
         
         self.query_history.append({
-            'query': query[:100],
+            'query': query[:500],
             'domain': domain,
             'provider': provider,
             'success': success,

@@ -368,7 +368,7 @@ class LightningKernel(BaseGod):
                     kappa=0.0  # Would need kappa from telemetry
                 )
             
-            print(f"[Lightning] ⚡ INSIGHT GENERATED: {insight.insight_text[:80]}...")
+            print(f"[Lightning] ⚡ INSIGHT GENERATED: {insight.insight_text}...")
             
             # Broadcast to pantheon
             self.broadcast_insight(insight)
@@ -620,7 +620,7 @@ class LightningKernel(BaseGod):
         for event in evidence:
             # Extract meaningful content fragments (first 60 chars of actual content)
             if event.content:
-                content_fragments.append(event.content[:60].strip())
+                content_fragments.append(event.content[:500].strip())
             
             event_types.append(event.event_type)
             phi_values.append(event.phi)
@@ -719,7 +719,7 @@ class LightningKernel(BaseGod):
             velocity = trend_data.get('velocity', 0)
             if abs(velocity) > 0.01:
                 sign = "+" if velocity > 0 else ""
-                geo_parts.append(f"{domain[:8]}:{sign}{velocity:.3f}")
+                geo_parts.append(f"{domain}:{sign}{velocity:.3f}")
         
         geometric_sig = ",".join(geo_parts) if geo_parts else "_"
         

@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 

@@ -2171,7 +2171,7 @@ class PureQIGNetwork:
             kappa=metrics.get('kappa', KAPPA_STAR),
             regime=metrics.get('regime', 'linear'),
             basin_coordinates=basin_coords.tolist() if isinstance(basin_coords, np.ndarray) else basin_coords,
-            hypothesis=passphrase[:50] if passphrase else None,
+            hypothesis=passphrase[:500] if passphrase else None,
         )
 
         self.search_history.append(search_state)
@@ -4158,13 +4158,13 @@ def olympus_report_outcome():
         
         # Get all gods from the pantheon
         # Match by address (if provided) OR target - addresses are what gods assess
-        match_target = details.get('address', target)[:20] if details.get('address') else target[:20]
+        match_target = details.get('address', target)[:500] if details.get('address') else target[:500]
         
         for god_name, god in zeus.pantheon.items():
             try:
                 # Check if this god previously assessed this target/address
                 recent_assessments = getattr(god, 'assessment_history', [])
-                matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:20]]
+                matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:500]]
                 
                 actual_outcome = {
                     'success': success,
@@ -4348,13 +4348,13 @@ def olympus_report_outcomes_batch():
             processed += 1
             
             # Get all gods from the pantheon
-            match_target = details.get('address', target)[:20] if details.get('address') else target[:20]
+            match_target = details.get('address', target)[:500] if details.get('address') else target[:500]
             
             for god_name, god in zeus.pantheon.items():
                 try:
                     # Check if this god previously assessed this target/address
                     recent_assessments = getattr(god, 'assessment_history', [])
-                    matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:20]]
+                    matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:500]]
                     
                     actual_outcome = {
                         'success': success,
@@ -4679,7 +4679,7 @@ def erebus_add_honeypot():
             return jsonify({'error': 'address required'}), 400
 
         shadow_pantheon.erebus.add_known_honeypot(address, source)
-        return jsonify({'status': 'added', 'address': address[:50]})
+        return jsonify({'status': 'added', 'address': address})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -5213,7 +5213,7 @@ def pantheon_nearest():
         nearest = orchestrator.find_nearest_gods(text, top_k=top_k)
 
         return jsonify({
-            'text': text[:100],
+            'text': text[:500],
             'nearest': [[god, float(sim)] for god, sim in nearest],
         })
     except Exception as e:

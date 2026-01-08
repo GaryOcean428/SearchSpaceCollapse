@@ -116,7 +116,7 @@ class CapabilityEvent:
     
     def __post_init__(self):
         if not self.event_id:
-            content_str = str(self.content)[:100]
+            content_str = str(self.content)[:500]
             hash_input = f"{self.source.value}:{self.event_type.value}:{self.timestamp}:{content_str}"
             self.event_id = hashlib.sha256(hash_input.encode()).hexdigest()[:16]
         

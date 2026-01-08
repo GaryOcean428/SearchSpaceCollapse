@@ -412,7 +412,7 @@ class FederationService:
                     sync_type=SyncType.VOCABULARY,
                     direction=SyncDirection.BIDIRECTIONAL,
                     items_sent=len(local_vocab),
-                    error=f"HTTP {response.status_code}: {response.text[:200]}",
+                    error=f"HTTP {response.status_code}: {response.text}",
                     duration_ms=duration_ms
                 )
 

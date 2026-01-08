@@ -106,7 +106,7 @@ class ResearchScraper:
             extract = wiki_data.get('extract', '')
             words = extract.lower().split()
             concepts = [w for w in words if len(w) > 5 and w.isalpha()]
-            result['key_concepts'] = list(set(concepts))[:20]
+            result['key_concepts'] = list(set(concepts))[:500]
         
         self._greek_god_cache[god_name] = result
         return result
@@ -269,7 +269,7 @@ class ResearchScraper:
                 repos.append({
                     'name': item.get('name', ''),
                     'full_name': item.get('full_name', ''),
-                    'description': item.get('description', '')[:200] if item.get('description') else '',
+                    'description': item.get('description', '')[:500] if item.get('description') else '',
                     'stars': item.get('stargazers_count', 0),
                     'url': item.get('html_url', ''),
                 })
@@ -349,7 +349,7 @@ class ResearchScraper:
             
             words = extract.lower().split()
             concepts = [w for w in words if len(w) > 5 and w.isalpha()]
-            synthesis['key_concepts'] = list(set(concepts))[:15]
+            synthesis['key_concepts'] = list(set(concepts))[:500]
         
         if 'arxiv' in sources:
             synthesis['existing_work'] = True
@@ -370,7 +370,7 @@ class ResearchScraper:
                 if synthesis['complexity_estimate'] == 'unknown':
                     synthesis['complexity_estimate'] = 'medium'
         
-        synthesis['key_concepts'] = list(set(synthesis['key_concepts']))[:20]
+        synthesis['key_concepts'] = list(set(synthesis['key_concepts']))[:500]
         
         return synthesis
 

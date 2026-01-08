@@ -301,7 +301,7 @@ class ShadowSearchBridge:
                 # Hypnos: silent observation mode
                 hypnos_result = asyncio.run(
                     self.shadow_pantheon.hypnos.enter_passive_mode(
-                        context={"phrase_prefix": phrase[:20], "phi": phi}
+                        context={"phrase_prefix": phrase[:500], "phi": phi}
                     )
                 )
                 result.hypnos_result = hypnos_result

@@ -423,7 +423,7 @@ class PostgresCoordizer(FisherCoordizer):
 
         if relevant_words:
             # Build response from top words
-            top_words = [w for w, _ in relevant_words[:15]]
+            top_words = [w for w, _ in relevant_words[:500]]
             response_text = ', '.join(top_words)
             response_phi = sum(self.token_phi.get(w, 0.5) for w in top_words) / len(top_words)
             completion_reason = 'fisher_similarity'

@@ -70,9 +70,9 @@ class ZeusConversationPersistence:
     def create_session(self, user_id: str = 'default', title: str = 'New Conversation') -> str:
         """Create a new conversation session."""
         if not self.enabled:
-            return f"session-{uuid.uuid4().hex[:12]}"
+            return f"session-{uuid.uuid4().hex}"
         
-        session_id = f"zeus-{uuid.uuid4().hex[:12]}"
+        session_id = f"zeus-{uuid.uuid4().hex}"
         
         try:
             with self._connect() as conn:

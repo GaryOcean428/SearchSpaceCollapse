@@ -420,14 +420,14 @@ if __name__ == "__main__":
     decoded = coordizer.decode_ids(tokens)
     print(f"\nEncode/Decode test:")
     print(f"  Input:   '{text}'")
-    print(f"  Tokens:  {tokens[:10]}...")
+    print(f"  Tokens:  {tokens}...")
     print(f"  Decoded: '{decoded}'")
     
     basin = coordizer.text_to_basin("quantum physics")
     nearest = coordizer.decode(basin, top_k=5)
     print(f"\nBasin decode test:")
     print(f"  Query: 'quantum physics'")
-    print(f"  Nearest tokens: {nearest[:5]}")
+    print(f"  Nearest tokens: {nearest}")
     
     basin = coordizer.text_to_basin(text)
     print(f"\nBasin embedding: shape={basin.shape}, norm={np.linalg.norm(basin):.4f}")

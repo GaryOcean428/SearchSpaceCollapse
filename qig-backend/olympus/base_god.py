@@ -348,7 +348,7 @@ class ToolFactoryAccessMixin:
                     requester=f"{getattr(self, 'name', 'Unknown')}",
                     examples=examples or []
                 )
-                logger.info(f"[{getattr(self, 'name', 'Unknown')}] Requested tool: {description[:50]}...")
+                logger.info(f"[{getattr(self, 'name', 'Unknown')}] Requested tool: {description}...")
                 return request_id
             
             return None
@@ -721,7 +721,7 @@ class BaseGod(*_base_classes):
         words = phrase.strip().split()
         
         return {
-            "phrase_preview": phrase[:50] + "..." if len(phrase) > 50 else phrase,
+            "phrase_preview": phrase[:500] + "..." if len(phrase) > 50 else phrase,
             "word_count": len(words),
             "category": category,
             "phi": phi,
@@ -886,7 +886,7 @@ class BaseGod(*_base_classes):
         if norm > 0:
             coord = coord / norm
         else:
-            logger.warning(f"[{self.name}] Zero norm basin for text: {text[:50]}")
+            logger.warning(f"[{self.name}] Zero norm basin for text: {text}")
             coord[0] = 1.0
         
         return coord
@@ -1157,7 +1157,7 @@ class BaseGod(*_base_classes):
         # Record learning event
         learning_event = {
             'timestamp': datetime.now().isoformat(),
-            'target': target[:50],
+            'target': target[:500],
             'predicted': predicted_prob,
             'actual': actual_success,
             'error': error,
@@ -1298,7 +1298,7 @@ class BaseGod(*_base_classes):
             'to': peer_name,
             'timestamp': datetime.now().isoformat(),
             'reason': reason,
-            'assessment_ref': assessment.get('target', '')[:50] if assessment else None,
+            'assessment_ref': assessment.get('target', '')[:500] if assessment else None,
             'content': f"{self.name} praises {peer_name}: {reason}",
         }
         self.pending_messages.append(message)
@@ -1324,7 +1324,7 @@ class BaseGod(*_base_classes):
             'timestamp': datetime.now().isoformat(),
             'reason': reason,
             'evidence': evidence,
-            'assessment_ref': assessment.get('target', '')[:50] if assessment else None,
+            'assessment_ref': assessment.get('target', '')[:500] if assessment else None,
             'content': f"{self.name} challenges {peer_name}: {reason}",
             'requires_response': True,
         }
@@ -1400,7 +1400,7 @@ class BaseGod(*_base_classes):
             'reputation': self.reputation,
             'skills': dict(self.skills),
             'success_rate': success_rate,
-            'key_patterns': [p.get('target', '')[:30] for p in successful_patterns[:5]],
+            'key_patterns': [p.get('target', '')[:500] for p in successful_patterns[:5]],
             'observation_count': len(self.observations),
             'learning_count': len(self.learning_history),
         }
@@ -1459,7 +1459,7 @@ class BaseGod(*_base_classes):
 
             # Track this kernel-influenced assessment
             self.kernel_assessments.append({
-                'target': target[:50],
+                'target': target[:500],
                 'timestamp': datetime.now().isoformat(),
                 **assessment
             })
@@ -1723,7 +1723,7 @@ class BaseGod(*_base_classes):
         elif 'content' in observation:
             basin = self.encode_to_basin(str(observation['content']))
         else:
-            basin = self.encode_to_basin(str(data)[:100])
+            basin = self.encode_to_basin(str(data)[:500])
 
         rho = self.basin_to_density_matrix(basin)
         phi = self.compute_pure_phi(rho)
@@ -2034,7 +2034,7 @@ class BaseGod(*_base_classes):
             self.assessment_history = []
 
         record = {
-            'target': target[:50],
+            'target': target[:500],
             'probability': predicted_probability,
             'confidence': predicted_confidence,
             'correct': actual_correct,
@@ -2050,7 +2050,7 @@ class BaseGod(*_base_classes):
 
         # Also record in learning history
         learning_record = {
-            'target': target[:50],
+            'target': target[:500],
             'success': actual_correct,
             'error': abs(predicted_probability - (1.0 if actual_correct else 0.0)),
             'timestamp': datetime.now().isoformat(),

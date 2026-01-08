@@ -200,7 +200,7 @@ class SelfSpawningKernel(*_kernel_base_classes):
             description = f"Recovery tool for stuck kernel: {stuck_context.get('reason', 'unknown')}"
             examples = [
                 {
-                    'input': {'basin_coords': self.kernel.basin_coords.detach().cpu().tolist()[:5]},
+                    'input': {'basin_coords': self.kernel.basin_coords.detach().cpu().tolist()},
                     'output': {'action': 'perturb_basin', 'magnitude': 0.1}
                 }
             ]

@@ -132,7 +132,7 @@ def analyze_vocabulary_contamination() -> Tuple[int, int, List[str]]:
                 contaminated.append(token)
         
         contaminated_count = len(contaminated)
-        sample = contaminated[:20]
+        sample = contaminated[:500]
         
         print(f"[ANALYSIS] Total: {total}, Contaminated sample: {contaminated_count}/1000")
         print(f"[SAMPLE] {sample}")
@@ -191,7 +191,7 @@ def clean_tokenizer_vocabulary(dry_run: bool = True) -> int:
         
         if dry_run:
             print("[DRY RUN] Would delete:")
-            for token_id, token in to_delete[:20]:
+            for token_id, token in to_delete[:500]:
                 print(f"  - {token}")
             if len(to_delete) > 20:
                 print(f"  ... and {len(to_delete) - 20} more")
@@ -347,7 +347,7 @@ def dictionary_validate_vocabulary(batch_size: int = 100, dry_run: bool = True) 
             print(f"[OK] Removed {len(invalid_words)} invalid tokens")
         elif dry_run and invalid_words:
             print(f"[DRY RUN] Would remove {len(invalid_words)} invalid tokens")
-            print(f"[SAMPLE] First 20 invalid: {invalid_words[:20]}")
+            print(f"[SAMPLE] First 20 invalid: {invalid_words}")
         
         return len(all_tokens), len(valid_words), len(invalid_words) if not dry_run else 0
         

@@ -54,7 +54,7 @@ try:
     patterns = kb.get_patterns_for_kernel("Demeter", n=5)
     print(f"✓ Retrieved {len(patterns)} patterns for Demeter")
     for i, p in enumerate(patterns, 1):
-        print(f"  {i}. {p.pattern[:50]}... (Φ={p.phi_score:.2f}, source={p.source_kernel})")
+        print(f"  {i}. {p.pattern}... (Φ={p.phi_score:.2f}, source={p.source_kernel})")
     
 except Exception as e:
     print(f"✗ Cross-kernel knowledge test failed: {e}")

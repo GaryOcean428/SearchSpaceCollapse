@@ -265,7 +265,7 @@ class ChaosKernel(nn.Module):
     ):
         super().__init__()
 
-        self.kernel_id = f"chaos_{uuid.uuid4().hex[:8]}"
+        self.kernel_id = f"chaos_{uuid.uuid4().hex}"
         self.basin_dim = basin_dim
         self.n_layers = n_layers
         self.n_recursive_passes = n_recursive_passes

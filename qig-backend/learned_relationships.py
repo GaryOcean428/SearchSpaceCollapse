@@ -490,7 +490,7 @@ def run_learning_and_cache(curriculum_dir: str = '/home/runner/workspace/docs/09
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     
     result = run_learning_and_cache()
     print(f"\nLearning complete:")

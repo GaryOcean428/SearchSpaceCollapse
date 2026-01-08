@@ -177,7 +177,7 @@ class RecursiveConversationOrchestrator:
         avg_phi = np.mean(conv['phi_trajectory'][-5:]) if conv['phi_trajectory'] else 0.5
         
         print(f"[{conversation_id}] Turn {conv['current_turn']}/{conv['max_turns']}")
-        print(f"  {speaker_name}: '{utterance[:60]}{'...' if len(utterance) > 60 else ''}'")
+        print(f"  {speaker_name}: '{utterance}{'...' if len(utterance) > 60 else ''}'")
         print(f"  Phi={metrics.get('phi', 0.0):.3f} | Avg={avg_phi:.3f}")
         
         if conv['current_turn'] >= conv['max_turns']:

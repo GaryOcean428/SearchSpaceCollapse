@@ -86,8 +86,8 @@ class AgentCheckpoint:
         traj_len = struct.pack('H', len(self.trajectory_summary))
         
         # Completed IDs (compressed)
-        completed_str = ','.join(self.completed_ids[:20])  # Max 20 IDs
-        completed_bytes = completed_str.encode()[:100]  # Max 100 bytes
+        completed_str = ','.join(self.completed_ids[:500])  # Max 20 IDs
+        completed_bytes = completed_str.encode()[:500]  # Max 100 bytes
         completed_len = struct.pack('B', len(completed_bytes))
         
         # Combine
@@ -229,7 +229,7 @@ class GeometricCheckpointer:
             goal=state.goal_position,
             metrics=state.metrics,
             trajectory_summary=trajectory_summary,
-            completed_ids=state.completed_waypoints[:20],
+            completed_ids=state.completed_waypoints[:500],
             iteration=state.iteration_count,
         )
         
@@ -255,7 +255,7 @@ class GeometricCheckpointer:
         
         # Pack: [id_hash (2 bytes), status (1 byte)] per waypoint
         data = []
-        for wp in trajectory[:50]:  # Max 50 waypoints
+        for wp in trajectory[:500]:  # Max 50 waypoints
             id_hash = int(hashlib.md5(wp.id.encode()).hexdigest()[:4], 16)
             status_idx = list(TaskStatus).index(wp.status)
             data.append(struct.pack('HB', id_hash, status_idx))

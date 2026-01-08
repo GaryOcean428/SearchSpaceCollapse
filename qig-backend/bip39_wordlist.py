@@ -246,7 +246,7 @@ def get_learning_context(phrase: str, phi: float = 0.0) -> dict:
             reframe_suggestion = reframe_result["suggestions"][0]
     
     return {
-        "phrase_preview": phrase[:50] + "..." if len(phrase) > 50 else phrase,
+        "phrase_preview": phrase[:500] + "..." if len(phrase) > 50 else phrase,
         "word_count": len(words),
         "category": category,
         "phi": phi,
@@ -256,7 +256,7 @@ def get_learning_context(phrase: str, phi: float = 0.0) -> dict:
         "reframe_suggestion": reframe_suggestion,
         "learning_guidance": {
             "bip39_seed": "VALID SEED - High priority for recovery attempts",
-            "mutation": f"INVALID SEED - Has {len(invalid)} non-BIP39 words. Consider reframing: {invalid[:2]}",
+            "mutation": f"INVALID SEED - Has {len(invalid)} non-BIP39 words. Consider reframing: {invalid}",
             "passphrase": "PASSPHRASE - Not a seed, different recovery approach needed",
             "bip39_word": "SINGLE WORD - Building block, not recoverable alone",
             "unknown": "UNKNOWN - Needs more context to classify"

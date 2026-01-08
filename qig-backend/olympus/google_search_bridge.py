@@ -199,7 +199,7 @@ class GoogleSearchBridge:
             response = self.session.post(url, json=payload, timeout=self.timeout)
             
             if response.status_code != 200:
-                print(f"[GoogleSearchBridge] API error {response.status_code}: {response.text[:200]}")
+                print(f"[GoogleSearchBridge] API error {response.status_code}: {response.text}")
                 return []
             
             data = response.json()
@@ -238,12 +238,12 @@ class GoogleSearchBridge:
                 results.append(result)
             
             self.success_count += 1
-            print(f"[GoogleSearchBridge] Found {len(results)} results for: {query[:50]}...")
+            print(f"[GoogleSearchBridge] Found {len(results)} results for: {query}...")
             
             return results
             
         except requests.Timeout:
-            print(f"[GoogleSearchBridge] Timeout for query: {query[:50]}")
+            print(f"[GoogleSearchBridge] Timeout for query: {query}")
             return []
         except requests.RequestException as e:
             print(f"[GoogleSearchBridge] Request error: {e}")

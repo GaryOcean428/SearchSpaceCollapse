@@ -366,7 +366,7 @@ class Hephaestus(BaseGod):
             word_scores.append((word, score))
         
         word_scores.sort(key=lambda x: -x[1])
-        top_words = [w for w, s in word_scores[:50]]
+        top_words = [w for w, s in word_scores[:500]]
         
         length = random.randint(2, 5)
         selected = random.sample(top_words, min(length, len(top_words)))
@@ -566,7 +566,7 @@ class Hephaestus(BaseGod):
             bip39_scores.append((word, max_similarity))
         
         bip39_scores.sort(key=lambda x: -x[1])
-        top_words = [w for w, s in bip39_scores[:200]]
+        top_words = [w for w, s in bip39_scores[:500]]
         
         if len(top_words) < word_length:
             top_words = self.bip39_words
@@ -1135,7 +1135,7 @@ class Hephaestus(BaseGod):
         # Get high-priority breach patterns
         breach_patterns = get_high_priority_breach_patterns()
         
-        for pattern in breach_patterns[:20]:
+        for pattern in breach_patterns[:500]:
             # Extract first letters from pattern words
             pattern_words = pattern.lower().split()
             

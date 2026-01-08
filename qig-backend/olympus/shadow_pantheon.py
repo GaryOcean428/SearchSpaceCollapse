@@ -670,7 +670,7 @@ class ShadowGod(BaseGod):
                 priority=research_priority,
                 context=context
             )
-            print(f"[{self.name}] Submitted research request: {topic[:50]} (id: {request_id})")
+            print(f"[{self.name}] Submitted research request: {topic} (id: {request_id})")
             return request_id
         except Exception as e:
             print(f"[{self.name}] Failed to submit research: {e}")
@@ -733,7 +733,7 @@ class ShadowGod(BaseGod):
         return {
             'god': self.name,
             'domain': self.domain,
-            'target': target[:50],
+            'target': target[:500],
             'probability': 0.5,
             'confidence': modulated_phi,
             'phi': phi,
@@ -964,7 +964,7 @@ class Nyx(ShadowGod):
 
         operation = {
             'id': f"op_{datetime.now().timestamp()}",
-            'target': target[:50],
+            'target': target[:500],
             'type': operation_type,
             'status': 'READY',
             'network': network_mode,
@@ -1340,7 +1340,7 @@ class Hecate(ShadowGod):
         decoy_traffic_result = await self.send_decoy_traffic(count=min(decoy_count, 5))
 
         return {
-            'real_target': real_target[:50],
+            'real_target': real_target[:500],
             'decoy_count': len(decoys),
             'total_targets': len(all_targets),
             'tasks': tasks,
@@ -1394,7 +1394,7 @@ class Hecate(ShadowGod):
                     'endpoint': endpoint,
                     'status': 0,
                     'success': False,
-                    'error': str(e)[:50],
+                    'error': str(e)[:500],
                     'delay': delay,
                 })
 
@@ -1471,7 +1471,7 @@ class Hecate(ShadowGod):
         selected_vectors = random.sample(vectors, min(3, len(vectors)))
 
         return {
-            'target': target[:50],
+            'target': target[:500],
             'attack_vectors': selected_vectors,
             'crossroads_strategy': 'Attack from multiple directions simultaneously',
             'confusion_factor': len(selected_vectors),
@@ -1625,7 +1625,7 @@ class Erebus(ShadowGod):
             self.known_honeypots.append(address)
             self.detected_threats.append({
                 'type': 'honeypot_added',
-                'address': address[:50],
+                'address': address[:500],
                 'source': source,
                 'timestamp': datetime.now().isoformat(),
             })
@@ -1769,7 +1769,7 @@ class Hypnos(ShadowGod):
         cached = self._get_cached_balance(address)
         if cached:
             return {
-                'address': address[:50],
+                'address': address[:500],
                 'balance': cached['balance'],
                 'source': 'cache',
                 'silent': True,
@@ -1790,7 +1790,7 @@ class Hypnos(ShadowGod):
         self.silent_queries += 1
 
         result = {
-            'address': address[:50],
+            'address': address[:500],
             'balance': None,
             'source': 'silent_query',
             'network': network_mode,
@@ -1842,7 +1842,7 @@ class Hypnos(ShadowGod):
         self.passive_recons += 1
 
         intel = {
-            'target': target[:50],
+            'target': target[:500],
             'observation_type': 'passive',
             'direct_interaction': False,
             'risk': 'minimal',
@@ -2405,11 +2405,11 @@ class Nemesis(ShadowGod):
         Initiate relentless pursuit of target.
         Never gives up until success or explicit abort.
         """
-        pursuit_id = f"pursuit_{hashlib.sha256(target.encode()).hexdigest()[:12]}"
+        pursuit_id = f"pursuit_{hashlib.sha256(target.encode()).hexdigest()}"
 
         pursuit = {
             'id': pursuit_id,
-            'target': target[:50],
+            'target': target[:500],
             'status': 'active',
             'iterations': 0,
             'max_iterations': max_iterations,
@@ -2670,11 +2670,11 @@ class ShadowPantheon:
         if self.research_api:
             self.research_api.declare_war()
         
-        print(f"[ShadowPantheon] ⚔️ SHADOW WAR DECLARED on {target[:50]}")
+        print(f"[ShadowPantheon] ⚔️ SHADOW WAR DECLARED on {target}")
         
         return {
             "war_mode": True,
-            "target": target[:50],
+            "target": target[:500],
             "learning_suspended": True,
             "gods_mobilized": list(self.gods.keys()),
             "message": "All Shadow gods focused on operation. Learning suspended."
@@ -2811,7 +2811,7 @@ class ShadowPantheon:
 
         operation = {
             'id': operation_id,
-            'target': target[:50],
+            'target': target[:500],
             'type': operation_type,
             'status': 'initiating',
             'phases': [],
@@ -2876,7 +2876,7 @@ class ShadowPantheon:
         self.persistence.log_operation(
             operation_type='covert_op',
             god_name='ShadowPantheon',
-            target=target[:50],
+            target=target[:500],
             status=operation['status'],
             network_mode=opsec.get('network', 'unknown'),
             opsec_level=opsec.get('opsec_level', 'unknown'),
@@ -3029,7 +3029,7 @@ class ShadowPantheon:
         self.persistence.log_operation(
             operation_type='therapy',
             god_name='ShadowPantheon',
-            target=str(bad_pattern.get('id', 'unknown'))[:50],
+            target=str(bad_pattern.get('id', 'unknown'))[:500],
             status=result['status'],
             network_mode='internal',
             opsec_level='therapy',
@@ -3200,7 +3200,7 @@ class ShadowPantheon:
         avg_confidence = sum(a.get('confidence', 0.5) for a in assessments.values()) / len(assessments)
 
         result = {
-            'target': target[:50],
+            'target': target[:500],
             'assessments': assessments,
             'average_confidence': avg_confidence,
             'shadow_consensus': 'proceed' if avg_confidence > 0.5 else 'caution',
@@ -3241,7 +3241,7 @@ class ShadowPantheon:
         warnings = []
         for name, assessment in assessments.items():
             if assessment.get('confidence', 0) > 0.8:
-                warnings.append(f"{name}: {assessment.get('reasoning', 'high confidence')[:50]}")
+                warnings.append(f"{name}: {assessment.get('reasoning', 'high confidence')}")
 
         sources_used = list(assessments.keys())
         
@@ -3252,7 +3252,7 @@ class ShadowPantheon:
             risk_level = 'medium'
 
         intelligence = {
-            'content': f"Shadow intel on {target[:30]}: {consensus} (conf={avg_conf:.2f})",
+            'content': f"Shadow intel on {target}: {consensus} (conf={avg_conf:.2f})",
             'consensus': consensus,
             'average_confidence': avg_conf,
             'god_assessments': {k: v.get('confidence', 0) for k, v in assessments.items()},

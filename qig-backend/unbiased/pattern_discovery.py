@@ -189,9 +189,9 @@ class PatternDiscovery:
             'effective_dimension_95': int(dims_for_95),
             'effective_dimension_99': int(dims_for_99),
             'e8_signature_detected': bool(e8_signature),
-            'eigenvalues': eigenvalues[:20].tolist(),
-            'variance_explained': pca.explained_variance_ratio_[:20].tolist(),
-            'cumulative_variance': cumulative_variance[:20].tolist(),
+            'eigenvalues': eigenvalues[:500].tolist(),
+            'variance_explained': pca.explained_variance_ratio_[:500].tolist(),
+            'cumulative_variance': cumulative_variance[:500].tolist(),
             'max_eigenvalue_drop': {
                 'dimension': int(max_drop_idx + 1),
                 'ratio': float(eigenvalue_ratios[max_drop_idx]),

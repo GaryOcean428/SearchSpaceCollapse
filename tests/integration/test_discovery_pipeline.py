@@ -484,7 +484,7 @@ async def test_e2e_full_pipeline_near_miss_to_sweep():
                 print(f"Step 5 ✓ Sweep stats verified: {pending_count} pending")
         
         print(f"\n🎉 FULL PIPELINE TEST PASSED!")
-        print(f"   Near-miss: {test_phrase[:30]}... → Φ=0.88")
+        print(f"   Near-miss: {test_phrase[:500]}... → Φ=0.88")
         print(f"   Balance hit: {test_address} → {test_balance_sats} sats")
         print(f"   Pending sweep: ID={sweep_id}, status=pending")
 

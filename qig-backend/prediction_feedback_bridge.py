@@ -618,7 +618,7 @@ class PredictionFeedbackBridge:
                     result = self._training_integrator.train_from_outcome(
                         god_name=source,
                         prompt=f"chain_step_{chain.chain_id}_{step.step}",
-                        response=step.thought[:200] if step.thought else "",
+                        response=step.thought[:500] if step.thought else "",
                         success=True,  # Positive reinforcement
                         phi=step.metadata.get('phi', 0.7),
                         kappa=step.metadata.get('kappa', 64.0),
@@ -654,7 +654,7 @@ class PredictionFeedbackBridge:
             'chains_reinforced': chains_reinforced,
             'steps_reinforced': steps_reinforced,
             'min_accuracy': min_accuracy,
-            'training_results': training_results[:20],  # Limit for response size
+            'training_results': training_results[:500],  # Limit for response size
         }
 
     def get_successful_chain_patterns(self, min_accuracy: float = 0.7) -> List[Dict[str, Any]]:
@@ -687,7 +687,7 @@ class PredictionFeedbackBridge:
                     'key_steps': [
                         {
                             'step': s.step,
-                            'thought': s.thought[:100] if s.thought else "",
+                            'thought': s.thought[:500] if s.thought else "",
                             'curvature': s.curvature,
                             'distance': s.distance_from_prev,
                             'confidence': s.confidence,
@@ -696,7 +696,7 @@ class PredictionFeedbackBridge:
                     ],
                     'accuracy': chain.overall_accuracy,
                     'total_steps': len(chain.thought_chain),
-                    'problem_context': chain.problem_context[:200] if chain.problem_context else "",
+                    'problem_context': chain.problem_context[:500] if chain.problem_context else "",
                 })
             except Exception as e:
                 logger.warning(f"[PredictionFeedbackBridge] Error extracting pattern from chain: {e}")
@@ -791,13 +791,13 @@ class PredictionFeedbackBridge:
             
             if step.curvature > 0.5:
                 is_insight = True
-                content = f"High-curvature thought: {step.thought[:100]}"
+                content = f"High-curvature thought: {step.thought}"
             elif step.distance_from_prev > 1.0:
                 is_insight = True
-                content = f"Large reasoning leap: {step.thought[:100]}"
+                content = f"Large reasoning leap: {step.thought}"
             elif step.confidence > 0.8:
                 is_insight = True
-                content = f"High-confidence conclusion: {step.thought[:100]}"
+                content = f"High-confidence conclusion: {step.thought}"
             
             if is_insight:
                 insight = InsightRecord(

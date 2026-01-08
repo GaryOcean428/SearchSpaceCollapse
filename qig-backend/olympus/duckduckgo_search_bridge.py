@@ -126,7 +126,7 @@ class DuckDuckGoSearchBridge:
         if HAS_DUCKDUCKGO:
             print("[DuckDuckGoSearchBridge] Initialized - Direct library integration")
             if self.proxy:
-                print(f"[DuckDuckGoSearchBridge] Using proxy: {self.proxy[:30]}...")
+                print(f"[DuckDuckGoSearchBridge] Using proxy: {self.proxy}...")
         else:
             print("[DuckDuckGoSearchBridge] WARNING: duckduckgo-search not available")
     
@@ -290,18 +290,18 @@ class DuckDuckGoSearchBridge:
             self.success_count += 1
             if len(results) > 0 and self.rate_limit_delay > 1.5:
                 self.rate_limit_delay = max(1.5, self.rate_limit_delay * 0.9)
-            print(f"[DuckDuckGoSearchBridge] Text search found {len(results)} results for: {query[:50]}...")
+            print(f"[DuckDuckGoSearchBridge] Text search found {len(results)} results for: {query}...")
             
             return results
             
         except RatelimitException:
-            print(f"[DuckDuckGoSearchBridge] Rate limit hit for query: {query[:50]}")
+            print(f"[DuckDuckGoSearchBridge] Rate limit hit for query: {query}")
             self.error_count += 1
             jitter = random.uniform(0.5, 1.5)
             self.rate_limit_delay = min(30.0, self.rate_limit_delay * 2.0 * jitter)
             return []
         except TimeoutException:
-            print(f"[DuckDuckGoSearchBridge] Timeout for query: {query[:50]}")
+            print(f"[DuckDuckGoSearchBridge] Timeout for query: {query}")
             self.error_count += 1
             jitter = random.uniform(0.8, 1.2)
             self.rate_limit_delay = min(15.0, self.rate_limit_delay * 1.5 * jitter)
@@ -391,18 +391,18 @@ class DuckDuckGoSearchBridge:
             self.success_count += 1
             if len(results) > 0 and self.rate_limit_delay > 1.5:
                 self.rate_limit_delay = max(1.5, self.rate_limit_delay * 0.9)
-            print(f"[DuckDuckGoSearchBridge] News search found {len(results)} results for: {query[:50]}...")
+            print(f"[DuckDuckGoSearchBridge] News search found {len(results)} results for: {query}...")
             
             return results
             
         except RatelimitException:
-            print(f"[DuckDuckGoSearchBridge] Rate limit hit for news query: {query[:50]}")
+            print(f"[DuckDuckGoSearchBridge] Rate limit hit for news query: {query}")
             self.error_count += 1
             jitter = random.uniform(0.5, 1.5)
             self.rate_limit_delay = min(30.0, self.rate_limit_delay * 2.0 * jitter)
             return []
         except TimeoutException:
-            print(f"[DuckDuckGoSearchBridge] Timeout for news query: {query[:50]}")
+            print(f"[DuckDuckGoSearchBridge] Timeout for news query: {query}")
             self.error_count += 1
             jitter = random.uniform(0.8, 1.2)
             self.rate_limit_delay = min(15.0, self.rate_limit_delay * 1.5 * jitter)

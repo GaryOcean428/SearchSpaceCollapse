@@ -207,7 +207,7 @@ class ConversationalKernelMixin:
         self.listening_mode = False
         self.superposition_basin = None
         
-        print(f"[{getattr(self, 'name', 'Kernel')}] Spoke: Phi={phi:.3f} | '{utterance[:50]}...'")
+        print(f"[{getattr(self, 'name', 'Kernel')}] Spoke: Phi={phi:.3f} | '{utterance}...'")
         
         if self.conversation_state.needs_consolidation():
             self._reflect_on_conversation()
@@ -413,7 +413,7 @@ class ConversationalKernelMixin:
         if VOCAB_COORDINATOR_AVAILABLE and observations:
             try:
                 coordinator = get_vocabulary_coordinator()
-                for obs in observations[:50]:
+                for obs in observations[:500]:
                     coordinator.record_discovery(
                         phrase=obs['phrase'],
                         phi=obs['phi'],

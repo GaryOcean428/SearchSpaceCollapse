@@ -164,7 +164,7 @@ class ParentCoordination:
             
             logger.info(
                 f"👨‍👩‍👧 [ParentCoordination] Spawned kernel '{kernel_name}' "
-                f"(id={kernel_id[:8]}...) with full parental care"
+                f"(id={kernel_id}...) with full parental care"
             )
             
             return kernel
@@ -435,7 +435,7 @@ class ParentCoordination:
         
         logger.info(
             f"🎓 [ParentCoordination] Graduated kernel '{care_record.kernel_name}' "
-            f"(id={kernel_id[:8]}...) after {care_record.care_cycles} care cycles, "
+            f"(id={kernel_id}...) after {care_record.care_cycles} care cycles, "
             f"final Φ={phi:.3f}, κ={kappa:.3f}"
         )
         
