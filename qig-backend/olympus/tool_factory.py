@@ -997,19 +997,23 @@ class ToolFactory:
     ) -> Optional[LearnedPattern]:
         """
         Learn code patterns from uploaded file.
-        Parses the file and extracts function patterns.
+        Supports Python (executable), TypeScript, and JavaScript (reference patterns).
         """
-        functions = self._extract_functions_from_code(content)
+        functions = self._extract_functions_from_code(content, filename)
 
         if not functions:
             print(f"[ToolFactory] No functions found in {filename}")
             return None
 
         learned = []
-        for func_name, func_code, func_sig in functions:
+        for func_name, func_code, func_sig, language in functions:
             pattern_id = self._generate_pattern_id(f"file:{filename}:{func_name}")
             func_desc = f"{description} - {func_name}"
             basin = self.encoder.encode(func_desc)
+
+            # Mark non-Python patterns as reference-only
+            if language != 'python':
+                func_desc = f"[{language.upper()}] {func_desc}"
 
             pattern = LearnedPattern(
                 pattern_id=pattern_id,
@@ -1030,20 +1034,24 @@ class ToolFactory:
 
             if self.qig_rag:
                 self.qig_rag.add_document(
-                    content=f"FILE_PATTERN: {func_desc}\n{func_code}",
+                    content=f"FILE_PATTERN ({language}): {func_desc}\n{func_code}",
                     basin_coords=basin,
-                    phi=0.65,
+                    phi=0.65 if language == 'python' else 0.5,
                     kappa=50.0,
                     regime='tool_learning',
                     metadata={
                         'type': 'learned_pattern',
                         'pattern_id': pattern_id,
                         'source_type': CodeSourceType.FILE_UPLOAD.value,
-                        'filename': filename
+                        'filename': filename,
+                        'language': language,
+                        'executable': language == 'python'
                     }
                 )
 
-        print(f"[ToolFactory] Learned {len(learned)} patterns from {filename}")
+        py_count = sum(1 for f in functions if f[3] == 'python')
+        other_count = len(functions) - py_count
+        print(f"[ToolFactory] Learned {len(learned)} patterns from {filename} ({py_count} Python, {other_count} reference)")
         return learned[0] if learned else None
 
     def proactive_search(self, topic: str) -> List[Dict]:
@@ -1076,37 +1084,95 @@ class ToolFactory:
         print(f"[ToolFactory] Queued {len(search_queries)} proactive searches for: {topic}")
         return results
 
-    def _extract_functions_from_code(self, code: str) -> List[Tuple[str, str, Dict]]:
-        """Extract function definitions from Python code."""
+    def _extract_functions_from_code(self, code: str, filename: str = '') -> List[Tuple[str, str, Dict, str]]:
+        """
+        Extract function definitions from code.
+
+        Supports Python (executable) and TypeScript/JavaScript (reference only).
+        Returns: List of (func_name, func_code, args_sig, language)
+        """
         functions = []
 
-        try:
-            tree = ast.parse(code)
+        # Detect language from filename
+        language = 'python'
+        if filename:
+            if filename.endswith(('.ts', '.tsx')):
+                language = 'typescript'
+            elif filename.endswith(('.js', '.jsx')):
+                language = 'javascript'
 
-            for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef):
-                    func_name = node.name
-                    if func_name.startswith('_'):
-                        continue
+        if language == 'python':
+            # Python extraction using AST
+            try:
+                tree = ast.parse(code)
 
-                    start_line = node.lineno - 1
-                    end_line = node.end_lineno if hasattr(node, 'end_lineno') else start_line + 10
-                    lines = code.split('\n')
-                    func_code = '\n'.join(lines[start_line:end_line])
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.FunctionDef):
+                        func_name = node.name
+                        if func_name.startswith('_'):
+                            continue
 
-                    args_sig = {}
-                    for arg in node.args.args:
-                        arg_name = arg.arg
-                        arg_type = 'Any'
-                        if arg.annotation:
-                            if isinstance(arg.annotation, ast.Name):
-                                arg_type = arg.annotation.id
-                        args_sig[arg_name] = arg_type
+                        start_line = node.lineno - 1
+                        end_line = node.end_lineno if hasattr(node, 'end_lineno') else start_line + 10
+                        lines = code.split('\n')
+                        func_code = '\n'.join(lines[start_line:end_line])
 
-                    functions.append((func_name, func_code, args_sig))
+                        args_sig = {}
+                        for arg in node.args.args:
+                            arg_name = arg.arg
+                            arg_type = 'Any'
+                            if arg.annotation:
+                                if isinstance(arg.annotation, ast.Name):
+                                    arg_type = arg.annotation.id
+                            args_sig[arg_name] = arg_type
 
-        except SyntaxError:
-            pass
+                        functions.append((func_name, func_code, args_sig, 'python'))
+
+            except SyntaxError:
+                pass
+        else:
+            # TypeScript/JavaScript extraction using regex
+            import re
+
+            # Named function declarations
+            func_pattern = r'(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)[^{]*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}'
+            for match in re.finditer(func_pattern, code, re.DOTALL):
+                func_name = match.group(1)
+                params = match.group(2)
+                body = match.group(0)
+
+                args_sig = {}
+                for param in params.split(','):
+                    param = param.strip()
+                    if param:
+                        if ':' in param:
+                            name, ptype = param.split(':', 1)
+                            args_sig[name.strip()] = ptype.strip()
+                        else:
+                            args_sig[param.split('=')[0].strip()] = 'any'
+
+                functions.append((func_name, body, args_sig, language))
+
+            # Arrow functions
+            arrow_pattern = r'(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?\(([^)]*)\)[^=]*=>\s*(?:\{([^}]*(?:\{[^}]*\}[^}]*)*)\}|[^;\n]+)'
+            for match in re.finditer(arrow_pattern, code, re.DOTALL):
+                func_name = match.group(1)
+                params = match.group(2)
+
+                if any(f[0] == func_name for f in functions):
+                    continue
+
+                args_sig = {}
+                for param in params.split(','):
+                    param = param.strip()
+                    if param:
+                        if ':' in param:
+                            name, ptype = param.split(':', 1)
+                            args_sig[name.strip()] = ptype.strip()
+                        else:
+                            args_sig[param.split('=')[0].strip()] = 'any'
+
+                functions.append((func_name, match.group(0), args_sig, language))
 
         return functions
 
@@ -1329,8 +1395,22 @@ class ToolFactory:
 
         VALIDATES input signature compatibility before adaptation.
         If pattern signature doesn't match examples, returns None.
+
+        Only Python patterns can be adapted for execution.
         """
+        # Check if this is a non-Python pattern (marked in description)
+        if pattern.description.startswith('[TYPESCRIPT]') or pattern.description.startswith('[JAVASCRIPT]'):
+            print(f"[ToolFactory] Skipping non-Python pattern: {pattern.description[:50]}...")
+            return None
+
         code = pattern.code_snippet
+
+        # Validate it's actually Python code before proceeding
+        try:
+            ast.parse(code)
+        except SyntaxError:
+            print(f"[ToolFactory] Pattern {pattern.pattern_id} is not valid Python - skipping")
+            return None
 
         # Validate signature compatibility if examples provided
         if examples:
