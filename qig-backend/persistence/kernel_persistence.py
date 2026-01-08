@@ -380,8 +380,6 @@ class KernelPersistence(BasePersistence):
                 ),
                 fetch=False
             )
-                fetch=False
-            )
 
             # If death was due to E8 cap enforcement, record this insight
             if cause == 'e8_cap_enforcement':
