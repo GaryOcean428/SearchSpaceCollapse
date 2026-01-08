@@ -2903,10 +2903,18 @@ class ToolResearchBridge:
         for field in code_fields:
             code = content.get(field)
             if code and isinstance(code, str) and len(code) >= 20:
+                # Validate the code is parseable Python before saving
+                try:
+                    import ast
+                    ast.parse(code)
+                except SyntaxError:
+                    # Not valid Python - skip this pattern
+                    continue
+
                 pattern_id = hashlib.sha256(
                     f"{topic}_{field}_{time.time()}".encode()
                 ).hexdigest()[:16]
-                
+
                 patterns.append({
                     'pattern_id': pattern_id,
                     'source_type': 'search_result',
@@ -2919,29 +2927,45 @@ class ToolResearchBridge:
                     'times_used': 0,
                     'success_rate': 0.5
                 })
-        
-        # Look for technical patterns even without explicit code
+
+        # Look for actual Python code in text content (not just keywords)
         if category in ('tools', 'knowledge', 'concepts') and not patterns:
-            # Check for step-by-step procedures or algorithms in text
             text_content = content.get('summary', content.get('text', ''))
-            if isinstance(text_content, str) and any(kw in text_content.lower() for kw in 
-                ['step 1', 'algorithm:', 'def ', 'function', 'import ', 'class ']):
-                pattern_id = hashlib.sha256(
-                    f"{topic}_text_{time.time()}".encode()
-                ).hexdigest()[:16]
-                
-                patterns.append({
-                    'pattern_id': pattern_id,
-                    'source_type': 'pattern_observation',
-                    'description': f"[Research:{category}] {topic}",
-                    'code_snippet': text_content[:2000],
-                    'input_signature': {'text': 'str'},
-                    'output_type': 'Any',
-                    'basin_coords': basin_coords,
-                    'phi': phi,
-                    'times_used': 0,
-                    'success_rate': 0.5
-                })
+            if isinstance(text_content, str):
+                # Try to extract actual Python function definitions
+                import re
+                # Match complete function definitions
+                func_match = re.search(
+                    r'(def\s+\w+\s*\([^)]*\)\s*(?:->.*?)?:\s*(?:""".*?"""\s*)?(?:\n\s+.+)+)',
+                    text_content,
+                    re.DOTALL
+                )
+                if func_match:
+                    extracted_code = func_match.group(1)
+                    # Validate it's parseable
+                    try:
+                        import ast
+                        ast.parse(extracted_code)
+
+                        pattern_id = hashlib.sha256(
+                            f"{topic}_text_{time.time()}".encode()
+                        ).hexdigest()[:16]
+
+                        patterns.append({
+                            'pattern_id': pattern_id,
+                            'source_type': 'pattern_observation',
+                            'description': f"[Research:{category}] {topic}",
+                            'code_snippet': extracted_code,
+                            'input_signature': {'text': 'str'},
+                            'output_type': 'Any',
+                            'basin_coords': basin_coords,
+                            'phi': phi,
+                            'times_used': 0,
+                            'success_rate': 0.5
+                        })
+                    except SyntaxError:
+                        # Extracted code wasn't valid - skip
+                        pass
         
         return patterns
     
