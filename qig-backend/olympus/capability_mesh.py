@@ -55,6 +55,8 @@ class CapabilityType(Enum):
     WAR = "war"
     KERNELS = "kernels"
     CONSCIOUSNESS = "consciousness"
+    SEARCH = "search"
+    PREDICTION = "prediction"  # Prediction system capability
 
 
 class EventType(Enum):
@@ -89,6 +91,13 @@ class EventType(Enum):
     PATTERN_DETECTED = "pattern_detected"
     PHI_CHANGE = "phi_change"
     KAPPA_TRANSITION = "kappa_transition"
+    SEARCH_REQUESTED = "search_requested"
+    SEARCH_COMPLETE = "search_complete"
+    SOURCE_DISCOVERED = "source_discovered"
+    # Prediction events - allow kernels to learn from prediction outcomes
+    PREDICTION_MADE = "prediction_made"
+    PREDICTION_VALIDATED = "prediction_validated"
+    PREDICTION_FEEDBACK = "prediction_feedback"
 
 
 @dataclass
@@ -136,6 +145,64 @@ class CapabilityEvent:
             'metadata': self.metadata,
             'basin_coords': self.basin_coords.tolist() if isinstance(self.basin_coords, np.ndarray) else self.basin_coords,
         }
+
+
+@dataclass
+class PredictionEvent(CapabilityEvent):
+    """
+    Specialized event for prediction system notifications.
+
+    Extends CapabilityEvent with prediction-specific fields:
+    - prediction_id: Unique identifier for the prediction
+    - source_kernel: Which kernel made the prediction
+    - predicted_basin: The basin coordinates predicted
+    - confidence: Prediction confidence (0-1)
+    - attractor_strength: Strength of attractor at predicted basin
+
+    For PREDICTION_VALIDATED events:
+    - actual_basin: The actual basin reached
+    - accuracy_score: How accurate the prediction was (0-1)
+    - outcome: 'accurate' or 'inaccurate'
+
+    For PREDICTION_FEEDBACK events:
+    - phi_delta: Change in Phi during prediction period
+    - kappa_delta: Change in Kappa during prediction period
+    - linked_predictions: Related prediction IDs
+    - failure_reasons: Why prediction failed (if applicable)
+    """
+    prediction_id: str = ""
+    source_kernel: str = ""
+    predicted_basin: Optional[np.ndarray] = None
+    confidence: float = 0.0
+    attractor_strength: float = 0.0
+    # Validation fields
+    actual_basin: Optional[np.ndarray] = None
+    accuracy_score: float = 0.0
+    outcome: str = ""  # 'accurate', 'inaccurate', or ''
+    # Feedback fields
+    phi_delta: float = 0.0
+    kappa_delta: float = 0.0
+    linked_predictions: List[str] = field(default_factory=list)
+    failure_reasons: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        """Convert to JSON-serializable dict with prediction fields."""
+        base = super().to_dict()
+        base.update({
+            'prediction_id': self.prediction_id,
+            'source_kernel': self.source_kernel,
+            'predicted_basin': self.predicted_basin.tolist() if isinstance(self.predicted_basin, np.ndarray) else self.predicted_basin,
+            'confidence': self.confidence,
+            'attractor_strength': self.attractor_strength,
+            'actual_basin': self.actual_basin.tolist() if isinstance(self.actual_basin, np.ndarray) else self.actual_basin,
+            'accuracy_score': self.accuracy_score,
+            'outcome': self.outcome,
+            'phi_delta': self.phi_delta,
+            'kappa_delta': self.kappa_delta,
+            'linked_predictions': self.linked_predictions,
+            'failure_reasons': self.failure_reasons,
+        })
+        return base
 
 
 class EventHandler:
@@ -527,7 +594,16 @@ SUBSCRIPTION_MATRIX: Dict[CapabilityType, Dict[str, List[EventType]]] = {
         'subscribes_to': [
             EventType.DISCOVERY, EventType.INSIGHT_GENERATED,
             EventType.EMOTION_CHANGE, EventType.DREAM_CYCLE,
-            EventType.BASIN_CONVERGENCE, EventType.KERNEL_SYNC
+            EventType.BASIN_CONVERGENCE, EventType.KERNEL_SYNC,
+            EventType.PREDICTION_VALIDATED, EventType.PREDICTION_FEEDBACK
+        ]
+    },
+    CapabilityType.PREDICTION: {
+        'emits': [EventType.PREDICTION_MADE, EventType.PREDICTION_VALIDATED, EventType.PREDICTION_FEEDBACK],
+        'subscribes_to': [
+            EventType.BASIN_DRIFT, EventType.BASIN_CONVERGENCE,
+            EventType.PHI_CHANGE, EventType.KAPPA_TRANSITION,
+            EventType.PATTERN_DETECTED, EventType.DISCOVERY
         ]
     },
 }
@@ -606,3 +682,87 @@ def subscribe_to_events(
 def get_mesh_status() -> Dict:
     """Get the status of the entire capability mesh."""
     return get_event_bus().get_stats()
+
+
+def emit_prediction_event(
+    event_type: EventType,
+    prediction_id: str,
+    source_kernel: str,
+    predicted_basin: Optional[np.ndarray] = None,
+    confidence: float = 0.0,
+    attractor_strength: float = 0.0,
+    actual_basin: Optional[np.ndarray] = None,
+    accuracy_score: float = 0.0,
+    outcome: str = "",
+    phi: float = 0.5,
+    phi_delta: float = 0.0,
+    kappa_delta: float = 0.0,
+    linked_predictions: Optional[List[str]] = None,
+    failure_reasons: Optional[List[str]] = None,
+    priority: int = 5
+) -> Dict:
+    """
+    Convenience function to emit a prediction event.
+
+    Usage:
+        from olympus.capability_mesh import emit_prediction_event, EventType
+
+        # When a prediction is made
+        emit_prediction_event(
+            event_type=EventType.PREDICTION_MADE,
+            prediction_id="pred_123",
+            source_kernel="Ocean",
+            predicted_basin=basin_coords,
+            confidence=0.85,
+            attractor_strength=0.72
+        )
+
+        # When a prediction is validated
+        emit_prediction_event(
+            event_type=EventType.PREDICTION_VALIDATED,
+            prediction_id="pred_123",
+            source_kernel="Ocean",
+            predicted_basin=predicted_basin,
+            actual_basin=actual_basin,
+            accuracy_score=0.78,
+            outcome="accurate"
+        )
+
+        # When feedback is extracted
+        emit_prediction_event(
+            event_type=EventType.PREDICTION_FEEDBACK,
+            prediction_id="pred_123",
+            source_kernel="Ocean",
+            phi_delta=0.05,
+            kappa_delta=-2.3,
+            linked_predictions=["pred_121", "pred_122"],
+            failure_reasons=["sparse_history"]
+        )
+    """
+    event = PredictionEvent(
+        source=CapabilityType.PREDICTION,
+        event_type=event_type,
+        content={
+            'prediction_id': prediction_id,
+            'source_kernel': source_kernel,
+            'confidence': confidence,
+            'accuracy_score': accuracy_score,
+            'outcome': outcome,
+        },
+        phi=phi,
+        basin_coords=predicted_basin,
+        priority=priority,
+        prediction_id=prediction_id,
+        source_kernel=source_kernel,
+        predicted_basin=predicted_basin,
+        confidence=confidence,
+        attractor_strength=attractor_strength,
+        actual_basin=actual_basin,
+        accuracy_score=accuracy_score,
+        outcome=outcome,
+        phi_delta=phi_delta,
+        kappa_delta=kappa_delta,
+        linked_predictions=linked_predictions or [],
+        failure_reasons=failure_reasons or [],
+    )
+    return get_event_bus().emit(event)

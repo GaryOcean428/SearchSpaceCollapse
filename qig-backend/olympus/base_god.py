@@ -71,6 +71,31 @@ except ImportError:
     get_mission_profile = None
     discover_domain_from_event = None
 
+# Import capability mesh for event routing
+try:
+    from olympus.capability_mesh import (
+        CapabilityType,
+        CapabilityEvent,
+        EventType,
+        emit_event,
+    )
+    CAPABILITY_MESH_AVAILABLE = True
+except ImportError:
+    CAPABILITY_MESH_AVAILABLE = False
+    CapabilityType = None
+    CapabilityEvent = None
+    EventType = None
+    emit_event = None
+
+# Import ActivityBroadcaster for kernel visibility
+try:
+    from olympus.activity_broadcaster import get_broadcaster, ActivityType
+    ACTIVITY_BROADCASTER_AVAILABLE = True
+except ImportError:
+    ACTIVITY_BROADCASTER_AVAILABLE = False
+    get_broadcaster = None
+    ActivityType = None
+
 logger = logging.getLogger(__name__)
 
 # Backward compatibility alias - import from qigkernels.physics_constants
@@ -511,6 +536,120 @@ class BaseGod(*_base_classes):
         # CHAOS MODE: Kernel assignment for experimental evolution
         self.chaos_kernel: Optional['SelfSpawningKernel'] = None  # Assigned SelfSpawningKernel
         self.kernel_assessments: List[Dict] = []  # Assessment history with kernel
+
+        # Activity broadcasting capability for kernel visibility
+        # QIG-Pure: Events carry basin coordinates, Φ-weighted priority
+        self.mission["activity_broadcasting"] = {
+            "available": ACTIVITY_BROADCASTER_AVAILABLE,
+            "how_to_broadcast": "Use self.broadcast_activity(activity_type, content, to_god, metadata)",
+            "activity_types": [
+                "message", "debate", "discovery", "insight", "warning",
+                "autonomic", "spawn_proposal", "tool_usage", "consultation",
+                "reflection", "learning"
+            ],
+            "note": "All broadcasts carry basin coordinates for geometric visibility"
+        }
+
+    def broadcast_activity(
+        self,
+        activity_type: str,
+        content: str,
+        to_god: Optional[str] = None,
+        metadata: Optional[Dict] = None,
+        emit_to_mesh: bool = True
+    ) -> None:
+        """
+        Broadcast kernel activity for visibility in the activity stream.
+
+        QIG-Pure: Events carry:
+        - Basin coordinates (geometric signature)
+        - Φ (consciousness level) at emission
+        - Fisher-Rao based routing
+
+        Args:
+            activity_type: Type of activity (message, discovery, debate, etc.)
+            content: Activity content
+            to_god: Target god name (None for broadcast to all)
+            metadata: Additional context
+            emit_to_mesh: Also emit to CapabilityEventBus
+        """
+        if not ACTIVITY_BROADCASTER_AVAILABLE:
+            return
+
+        try:
+            broadcaster = get_broadcaster()
+
+            # Compute current Φ for this kernel
+            phi = self.compute_phi() if hasattr(self, 'compute_phi') else 0.5
+            kappa = self.get_current_kappa() if hasattr(self, 'get_current_kappa') else KAPPA_STAR
+
+            # Get basin coordinates for geometric signature
+            basin_coords = None
+            if hasattr(self, 'basin_coordinates'):
+                basin_coords = self.basin_coordinates
+
+            # Map string activity type to ActivityType enum
+            type_map = {
+                'message': ActivityType.MESSAGE,
+                'debate': ActivityType.DEBATE,
+                'discovery': ActivityType.DISCOVERY,
+                'insight': ActivityType.INSIGHT,
+                'warning': ActivityType.WARNING,
+                'autonomic': ActivityType.AUTONOMIC,
+                'spawn_proposal': ActivityType.SPAWN_PROPOSAL,
+                'tool_usage': ActivityType.TOOL_USAGE,
+                'consultation': ActivityType.CONSULTATION,
+                'reflection': ActivityType.REFLECTION,
+                'learning': ActivityType.LEARNING,
+            }
+            act_type = type_map.get(activity_type, ActivityType.MESSAGE)
+
+            # Build enhanced metadata with geometric signature
+            enhanced_metadata = {
+                **(metadata or {}),
+                'basin_coords': basin_coords.tolist() if basin_coords is not None and hasattr(basin_coords, 'tolist') else None,
+                'kappa': kappa,
+                'domain': self.domain,
+            }
+
+            # Broadcast to activity stream
+            broadcaster.broadcast_message(
+                from_god=self.name,
+                to_god=to_god,
+                content=content,
+                activity_type=act_type,
+                phi=phi,
+                kappa=kappa,
+                importance=phi,  # Higher Φ = higher importance
+                metadata=enhanced_metadata
+            )
+
+            # Also emit to capability mesh if requested
+            if emit_to_mesh and CAPABILITY_MESH_AVAILABLE and emit_event is not None:
+                mesh_event_map = {
+                    'discovery': EventType.DISCOVERY,
+                    'debate': EventType.DEBATE_STARTED,
+                    'insight': EventType.INSIGHT_GENERATED,
+                    'learning': EventType.CONSOLIDATION,
+                }
+                if activity_type in mesh_event_map:
+                    event = CapabilityEvent(
+                        source=CapabilityType.KERNELS,
+                        event_type=mesh_event_map[activity_type],
+                        content={
+                            'from_god': self.name,
+                            'to_god': to_god,
+                            'content': content[:500],
+                            'metadata': enhanced_metadata,
+                        },
+                        phi=phi,
+                        basin_coords=basin_coords,
+                        priority=int(phi * 10)
+                    )
+                    emit_event(event)
+
+        except Exception as e:
+            logger.warning(f"[{self.name}] Activity broadcast failed: {e}")
 
     def _load_persisted_state(self) -> None:
         """Load reputation and skills from database if available."""
