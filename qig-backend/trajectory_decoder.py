@@ -33,7 +33,18 @@ import numpy as np
 from typing import List, Tuple, Optional, Dict
 import logging
 
+# Import dimension normalizer for mixed-dimension trajectory handling
+try:
+    from qig_geometry import normalize_basin_dimension
+    DIMENSION_NORMALIZER_AVAILABLE = True
+except ImportError:
+    DIMENSION_NORMALIZER_AVAILABLE = False
+    normalize_basin_dimension = None
+
 logger = logging.getLogger(__name__)
+
+# Standard basin dimension for QIG
+BASIN_DIM = 64
 
 
 def fisher_rao_distance(basin1: np.ndarray, basin2: np.ndarray) -> float:
@@ -185,16 +196,41 @@ class TrajectoryDecoder:
         """
         if not trajectory or len(trajectory) < 2:
             return None
-        
+
         # Use last N basins as context (robust regression window)
         N = min(len(trajectory), self.context_window)
         context = trajectory[-N:]
-        
+
         if N < 2:
             return None
-        
+
+        # CRITICAL: Normalize all basins to consistent dimension (64D)
+        # This handles mixed-dimension trajectories (e.g., 32D chaos kernels + 64D main)
+        normalized_context = []
+        for basin in context:
+            if not isinstance(basin, np.ndarray):
+                basin = np.array(basin)
+
+            # Ensure all basins are BASIN_DIM (64D)
+            if DIMENSION_NORMALIZER_AVAILABLE and len(basin) != BASIN_DIM:
+                basin = normalize_basin_dimension(basin, target_dim=BASIN_DIM)
+            elif len(basin) != BASIN_DIM:
+                # Fallback: simple pad/truncate + normalize
+                if len(basin) < BASIN_DIM:
+                    padded = np.zeros(BASIN_DIM)
+                    padded[:len(basin)] = basin
+                    basin = padded
+                else:
+                    basin = basin[:BASIN_DIM].copy()
+                # Normalize to unit sphere
+                norm = np.linalg.norm(basin)
+                if norm > 1e-10:
+                    basin = basin / norm
+
+            normalized_context.append(basin)
+
         # Convert to sqrt space (geodesic tangent space)
-        context_sqrt = [np.sqrt(np.abs(b) + 1e-10) for b in context]
+        context_sqrt = [np.sqrt(np.abs(b) + 1e-10) for b in normalized_context]
         
         # Compute trajectory centroid (Fréchet mean approximation)
         centroid_sqrt = np.mean(context_sqrt, axis=0)
