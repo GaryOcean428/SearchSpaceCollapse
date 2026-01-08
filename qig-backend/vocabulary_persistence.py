@@ -70,17 +70,12 @@ class VocabularyPersistence:
         if not self.enabled:
             return False
         try:
-            # Log if truncation will occur (visibility into oversized inputs)
-            if word and len(word) > 255:
-                print(f"[VocabularyPersistence] Truncating word from {len(word)} to 255 chars: '{word[:50]}...'")
-            if phrase and len(phrase) > 255:
-                print(f"[VocabularyPersistence] Truncating phrase from {len(phrase)} to 255 chars: '{phrase[:50]}...'")
-            # Truncate to avoid varchar overflow
-            word_truncated = word[:255] if word else ''
-            phrase_truncated = phrase[:255] if phrase else ''
+            # No truncation - columns are TEXT type
+            word_val = word if word else ''
+            phrase_val = phrase if phrase else ''
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word_truncated, phrase_truncated, phi, kappa, source, observation_type))
+                    cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word_val, phrase_val, phi, kappa, source, observation_type))
                     conn.commit()
                     return True
         except Exception as e:
@@ -96,16 +91,9 @@ class VocabularyPersistence:
                 for obs in observations:
                     try:
                         with conn.cursor() as cur:
-                            raw_word = obs.get('word', '') or ''
-                            raw_phrase = obs.get('phrase', '') or ''
-                            # Log if truncation will occur
-                            if len(raw_word) > 255:
-                                print(f"[VocabularyPersistence] Truncating batch word from {len(raw_word)} to 255 chars")
-                            if len(raw_phrase) > 255:
-                                print(f"[VocabularyPersistence] Truncating batch phrase from {len(raw_phrase)} to 255 chars")
-                            # Truncate to avoid varchar overflow
-                            word = raw_word[:255]
-                            phrase = raw_phrase[:255]
+                            # No truncation - columns are TEXT type
+                            word = obs.get('word', '') or ''
+                            phrase = obs.get('phrase', '') or ''
                             phi = obs.get('phi', 0.0)
                             source = obs.get('source', 'unknown')
                             cur.execute("SELECT record_vocab_observation(%s, %s, %s, %s, %s, %s)", (word, phrase, phi, obs.get('kappa', 50.0), source, obs.get('type', 'word')))
