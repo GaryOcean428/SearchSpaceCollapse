@@ -23,6 +23,15 @@ export interface ZeusMessage {
     relevance_score?: number;
     consensus?: number;
     implemented?: boolean;
+    moe?: {
+      domain?: string;
+      contributors?: string[];
+      weights?: Record<string, number>;
+      synthesizer?: string;
+      selection_method?: string;
+      autonomous?: boolean;
+      fallback_used?: boolean;
+    };
   };
 }
 

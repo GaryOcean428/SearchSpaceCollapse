@@ -19,7 +19,7 @@
  * - Content treated as plain text (no HTML rendering)
  */
 
-import { useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Send, Upload, Search, Sparkles, Brain, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useZeusChat, type ZeusMessage, type SyncStatus } from '@/hooks/useZeusChat';
 
@@ -34,6 +34,10 @@ function sanitizeText(text: string): string {
 }
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge, Textarea, ScrollArea } from '@/components/ui';
 import { useToast } from '@/hooks/use-toast';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import { StreamingMetricsPanel } from './StreamingMetricsPanel';
+import { useStreamingMetrics, type UseStreamingMetricsReturn } from '@/hooks/useStreamingMetrics';
+import { Activity } from 'lucide-react';
 
 export default function ZeusChat() {
   const {
@@ -54,6 +58,16 @@ export default function ZeusChat() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  // Toggle for metrics panel visibility
+  const [showMetrics, setShowMetrics] = useState(true);
+  
+  // Streaming metrics for geometric completion visualization
+  const { state: metricsState, getCompletionProgress, processSSEEvent, reset: resetMetrics } = useStreamingMetrics({
+    onCompletion: (completionState) => {
+      console.log('[ZeusChat] Geometric completion:', completionState.reason);
+    }
+  });
   
   useEffect(() => {
     if (lastError) {
@@ -121,7 +135,7 @@ export default function ZeusChat() {
   const formatMetadata = (msg: ZeusMessage) => {
     if (!msg.metadata) return null;
     
-    const { type, pantheon_consulted, actions_taken, relevance_score, consensus, implemented } = msg.metadata;
+    const { type, pantheon_consulted, actions_taken, relevance_score, consensus, implemented, moe } = msg.metadata;
     
     return (
       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
@@ -130,6 +144,47 @@ export default function ZeusChat() {
             <Badge variant="outline" className="text-xs">
               {type}
             </Badge>
+          </div>
+        )}
+
+        {moe && moe.contributors && moe.contributors.length > 0 && (
+          <div className="mt-2 p-2 bg-muted/30 rounded border border-border/50">
+            <div className="font-semibold text-xs mb-1 flex items-center gap-2">
+              <span className="text-primary">🔀 Expert Synthesis</span>
+              {moe.synthesizer && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                  {moe.synthesizer}
+                </Badge>
+              )}
+              {moe.fallback_used && (
+                <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                  fallback
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {moe.contributors.map((god, idx) => {
+                const weight = moe.weights?.[god];
+                return (
+                  <Badge
+                    key={idx}
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0.5"
+                    style={{
+                      opacity: weight ? 0.5 + (weight * 0.5) : 1,
+                      fontWeight: weight && weight > 0.7 ? 600 : 400
+                    }}
+                  >
+                    {god} {weight ? `(${(weight * 100).toFixed(0)}%)` : ''}
+                  </Badge>
+                );
+              })}
+            </div>
+            {moe.domain && (
+              <div className="text-[10px] mt-1 opacity-70">
+                Domain: {moe.domain}
+              </div>
+            )}
           </div>
         )}
         
@@ -217,8 +272,12 @@ export default function ZeusChat() {
                     </div>
                   )}
                   
-                  <div className="whitespace-pre-wrap break-words">
-                    {sanitizeText(msg.content)}
+                  <div className="break-words">
+                    {msg.role === 'zeus' ? (
+                      <MarkdownRenderer content={msg.content} className="prose-sm" />
+                    ) : (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    )}
                   </div>
                   
                   {msg.role === 'zeus' && formatMetadata(msg)}
@@ -232,11 +291,30 @@ export default function ZeusChat() {
             
             {isThinking && (
               <div className="flex justify-start">
-                <div className="bg-muted rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-yellow-500 animate-pulse" />
-                    <span className="text-sm">Zeus is consulting the pantheon...</span>
+                <div className="bg-muted rounded-lg p-3 w-full max-w-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-yellow-500 animate-pulse" />
+                      <span className="text-sm">Zeus is consulting the pantheon...</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowMetrics(!showMetrics)}
+                      className="h-6 w-6 p-0"
+                      title={showMetrics ? 'Hide metrics' : 'Show metrics'}
+                    >
+                      <Activity className={`h-3 w-3 ${showMetrics ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                    </Button>
                   </div>
+                  {/* Streaming metrics panel - toggleable */}
+                  {showMetrics && (
+                    <StreamingMetricsPanel
+                      state={metricsState}
+                      completionProgress={getCompletionProgress()}
+                      compact
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -267,7 +345,7 @@ export default function ZeusChat() {
             multiple
             className="hidden"
             onChange={handleFileSelect}
-            accept=".txt,.json,.csv,.md"
+            accept=".txt,.json,.csv,.md,.pdf,.doc,.docx,.rtf,.xml,.html,.htm,.yaml,.yml,.log"
           />
           
           <Button
