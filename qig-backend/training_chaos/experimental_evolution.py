@@ -702,12 +702,41 @@ class ExperimentalKernelEvolution:
             'e8_alignment': self.check_e8_alignment() if self.e8_roots is not None else None,
         }
 
-    def spawn_random_kernel(self, domain: str = 'random_exploration') -> SelfSpawningKernel:
+    def spawn_random_kernel(self, domain: str = 'random_exploration',
+                           pantheon_approved: bool = False, reason: str = "") -> SelfSpawningKernel:
         """
         Spawn kernel with appropriate god name based on domain.
-        
+
         Root kernels observe OCEAN's discoveries for 10 actions before acting.
+
+        GOVERNANCE: Requires Pantheon approval unless explicitly authorized.
+
+        Args:
+            domain: Domain/purpose for spawning
+            pantheon_approved: Explicit Pantheon approval
+            reason: Reason for spawning (e.g., 'initial_population', 'minimum_population')
+
+        Returns:
+            Spawned kernel
+
+        Raises:
+            PermissionError: If spawning not authorized by Pantheon
         """
+        # Check governance permission
+        try:
+            from olympus.pantheon_governance import get_governance
+            governance = get_governance()
+
+            governance.check_spawn_permission(
+                reason=reason if reason else domain,
+                pantheon_approved=pantheon_approved
+            )
+        except ImportError:
+            print(f"[Chaos] Governance not available, spawning without checks")
+        except PermissionError as e:
+            print(f"[Chaos] Spawn blocked: {e}")
+            raise
+
         kernel = SelfSpawningKernel(
             spawn_threshold=self.spawn_threshold,
             death_threshold=self.death_threshold,
