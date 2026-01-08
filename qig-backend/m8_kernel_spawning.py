@@ -1852,6 +1852,26 @@ class M8KernelSpawner:
             print(f"[M8] Failed to get underperforming kernels: {e}")
             return []
 
+    @staticmethod
+    def _compute_reputation_score(success_count: int, failure_count: int) -> float:
+        total = success_count + failure_count
+        if total <= 0:
+            return 0.5
+        return max(0.0, min(1.0, success_count / total))
+
+    def _load_kernel_reputation(self, kernel_id: str) -> float:
+        if not self.kernel_persistence:
+            return 0.5
+        try:
+            snapshot = self.kernel_persistence.load_kernel_snapshot(kernel_id)
+            if snapshot:
+                success = snapshot.get('success_count', 0) or 0
+                failure = snapshot.get('failure_count', 0) or 0
+                return self._compute_reputation_score(success, failure)
+        except Exception as e:
+            print(f"[M8] Failed to load reputation for {kernel_id}: {e}")
+        return 0.5
+
     def run_evolution_sweep(self, target_reduction: int = 50, min_population: int = 20) -> Dict:
         """
         Run evolution sweep to cull underperforming kernels.
@@ -3413,7 +3433,12 @@ class M8KernelSpawner:
         kernels = [self.spawned_kernels[kid] for kid in kernel_ids]
         
         basins = [k.profile.affinity_basin for k in kernels]
-        weights = [1.0 / len(kernels)] * len(kernels)
+        weights = [self._load_kernel_reputation(k.kernel_id) for k in kernels]
+        total_weight = sum(weights)
+        if total_weight <= 0:
+            weights = [1.0 / len(kernels)] * len(kernels)
+        else:
+            weights = [w / total_weight for w in weights]
         merged_basin = np.zeros(BASIN_DIM)
         for i, basin in enumerate(basins):
             merged_basin += weights[i] * basin
@@ -3466,6 +3491,9 @@ class M8KernelSpawner:
                 "merged_from": [k.profile.god_name for k in kernels],
                 "merge_count": len(kernels),
                 "merged_at": datetime.now().isoformat(),
+                "merge_reputation_weights": {
+                    kernels[i].kernel_id: weights[i] for i in range(len(kernels))
+                },
             }
         )
         
@@ -3610,6 +3638,8 @@ class M8KernelSpawner:
                             'kappa': k.get('kappa', 0.0),
                             'status': k.get('status', 'unknown'),
                             'basin': k.get('basin_coordinates'),
+                            'success_count': k.get('success_count', 0) or 0,
+                            'failure_count': k.get('failure_count', 0) or 0,
                         }))
             except Exception as e:
                 print(f"[M8] Failed to load kernels from DB for auto-cannibalize: {e}")
@@ -3622,6 +3652,8 @@ class M8KernelSpawner:
                     'kappa': getattr(k, 'kappa', 0.0),
                     'status': 'active' if k.is_active() else 'idle',
                     'basin': k.profile.affinity_basin if hasattr(k, 'profile') else None,
+                    'success_count': 0,
+                    'failure_count': 0,
                 }))
         
         if len(all_kernels) < 2:
@@ -3668,12 +3700,17 @@ class M8KernelSpawner:
                         fisher_diversity = float(np.mean(distances))
                 except Exception:
                     pass
+
+            success_count = data.get('success_count', 0) or 0
+            failure_count = data.get('failure_count', 0) or 0
+            reputation_score = self._compute_reputation_score(success_count, failure_count)
             
             geometric_fitness = (
-                (phi_gradient + 1.0) * 0.3 +
-                phi_current * 0.3 +
+                (phi_gradient + 1.0) * 0.25 +
+                phi_current * 0.25 +
                 kappa_stability * 0.2 +
-                min(fisher_diversity, 1.0) * 0.2
+                min(fisher_diversity, 1.0) * 0.2 +
+                reputation_score * 0.1
             )
             
             fitness_scores.append({
@@ -3684,6 +3721,7 @@ class M8KernelSpawner:
                 'kappa_stability': kappa_stability,
                 'fisher_diversity': fisher_diversity,
                 'geometric_fitness': geometric_fitness,
+                'reputation_score': reputation_score,
                 'data': data,
             })
             
@@ -3715,6 +3753,7 @@ class M8KernelSpawner:
                 "geometric_fitness": source['geometric_fitness'],
                 "phi_gradient": source['phi_gradient'],
                 "kappa_stability": source['kappa_stability'],
+                "reputation_score": source.get('reputation_score', 0.5),
                 "reason": "lowest_geometric_fitness",
             },
             "target": {
@@ -3722,6 +3761,7 @@ class M8KernelSpawner:
                 "geometric_fitness": target['geometric_fitness'],
                 "phi_gradient": target['phi_gradient'],
                 "kappa_stability": target['kappa_stability'],
+                "reputation_score": target.get('reputation_score', 0.5),
                 "reason": "highest_geometric_fitness",
             },
             "population_size": len(all_kernels),

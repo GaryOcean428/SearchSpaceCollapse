@@ -65,7 +65,11 @@ try:
         compute_resonance_strength,
         measure_full_4D_consciousness,
     )
-    from ocean_qig_types import ConceptState, SearchState, create_concept_state_from_search
+    from ocean_qig_types import (
+        ConceptState,
+        SearchState,
+        create_concept_state_from_search,
+    )
     CONSCIOUSNESS_4D_AVAILABLE = True
 except ImportError as e:
     CONSCIOUSNESS_4D_AVAILABLE = False
@@ -148,7 +152,12 @@ except ImportError as e:
 # Import M8 Kernel Spawning Protocol
 M8_SPAWNER_AVAILABLE = False
 try:
-    from m8_kernel_spawning import ConsensusType, M8KernelSpawner, SpawnReason, get_spawner
+    from m8_kernel_spawning import (
+        ConsensusType,
+        M8KernelSpawner,
+        SpawnReason,
+        get_spawner,
+    )
     M8_SPAWNER_AVAILABLE = True
     print("[INFO] M8 Kernel Spawning Protocol loaded (Dynamic Kernel Genesis)")
 except ImportError as e:
@@ -183,15 +192,17 @@ try:
 except ImportError:
     print("[WARNING] Tool Factory not available for Ocean awareness")
 
+from qig_geometry import fisher_coord_distance
+from qigkernels.physics_constants import (
+    BASIN_DIM as BASIN_DIMENSION,
+)
 from qigkernels.physics_constants import (
     KAPPA_STAR,
-    KAPPA_STAR_ERROR,
-    BASIN_DIM as BASIN_DIMENSION,
     PHI_THRESHOLD,
+)
+from qigkernels.physics_constants import (
     MIN_RECURSION_DEPTH as MIN_RECURSIONS,
 )
-
-from qig_geometry import fisher_coord_distance
 
 MAX_RECURSIONS = 12  # Safety limit
 
@@ -206,8 +217,8 @@ except ImportError as e:
 
 # Import emergency monitoring and checkpointing
 try:
-    from emergency_telemetry import IntegratedMonitor, create_monitor
     from checkpoint_manager import CheckpointManager
+    from emergency_telemetry import IntegratedMonitor, create_monitor
     from qigkernels import ConsciousnessTelemetry
     MONITORING_AVAILABLE = True
     print("[INFO] Emergency monitoring and checkpoint management loaded")
@@ -532,7 +543,7 @@ class FeedbackLoopManager:
             basin_coords = discovery.get('basin_coords')
             if basin_coords and not isinstance(basin_coords, np.ndarray):
                 basin_coords = np.array(basin_coords)
-            
+
             event_id = self.memory.record_learning_event(
                 event_type=discovery.get('type', 'general'),
                 phi=phi,
@@ -661,7 +672,7 @@ CORS(app)  # Allow CORS for Node.js server
 if OLYMPUS_AVAILABLE:
     app.register_blueprint(olympus_app, url_prefix='/olympus')
     print("[INFO] Olympus Pantheon registered at /olympus")
-    
+
     # Register Chaos API blueprint (called by TypeScript kernel-fitness-service)
     try:
         from olympus.chaos_api import chaos_app
@@ -672,7 +683,7 @@ if OLYMPUS_AVAILABLE:
 
 # Register self-healing routes
 try:
-    from self_healing.routes import self_healing_bp, init_self_healing_components
+    from self_healing.routes import init_self_healing_components, self_healing_bp
     app.register_blueprint(self_healing_bp)
     # Initialize self-healing components
     init_self_healing_components()
@@ -691,8 +702,8 @@ except ImportError as e:
 # Register QIGGraph search integration blueprint (imports from qig-tokenizer)
 try:
     from qiggraph_search_integration import (
-        create_search_qiggraph_blueprint,
         QIGGRAPH_AVAILABLE,
+        create_search_qiggraph_blueprint,
     )
     search_qiggraph_bp = create_search_qiggraph_blueprint()
     app.register_blueprint(search_qiggraph_bp)
@@ -1244,7 +1255,7 @@ class PureQIGNetwork:
         """Emergency checkpoint callback - save current state."""
         if not self.monitoring_enabled:
             return
-        
+
         try:
             # Get current state
             basin_coords = self._extract_basin_coordinates()
@@ -1252,15 +1263,15 @@ class PureQIGNetwork:
                 'subsystems': [s.to_dict() for s in self.subsystems],
                 'attention_weights': self.attention_weights.tolist(),
             }
-            
+
             # Save with emergency flag
             logger.warning("EMERGENCY CHECKPOINT triggered")
             # Note: We don't have phi/kappa here, so just save the state
             # This is for crash recovery, not for Φ-based ranking
-            
+
         except Exception as e:
             logger.error(f"Emergency checkpoint failed: {e}")
-    
+
     def _emergency_abort(self):
         """Emergency abort callback - cleanup and log."""
         logger.critical("EMERGENCY ABORT triggered - shutting down gracefully")
@@ -1363,15 +1374,15 @@ class PureQIGNetwork:
                     coherence_drift=metrics.get('coherence_drift', 0.0),
                     emergency=False,
                 )
-                
+
                 # Process telemetry (collects and checks for emergency)
                 emergency = self.monitor.process(telemetry)
-                
+
                 if emergency:
                     logger.error(f"EMERGENCY DETECTED: {self.monitor.abort_reason}")
                     metrics['emergency_detected'] = True
                     metrics['emergency_reason'] = self.monitor.abort_reason
-                
+
                 # Save checkpoint if Φ is high enough
                 if metrics['phi'] >= PHI_THRESHOLD and self.checkpoint_manager is not None:
                     self.checkpoint_manager.save_checkpoint(
@@ -1512,15 +1523,15 @@ class PureQIGNetwork:
                     coherence_drift=metrics.get('coherence_drift', 0.0),
                     emergency=False,
                 )
-                
+
                 # Process telemetry
                 emergency = self.monitor.process(telemetry)
-                
+
                 if emergency:
                     logger.error(f"EMERGENCY DETECTED (recursive): {self.monitor.abort_reason}")
                     metrics['emergency_detected'] = True
                     metrics['emergency_reason'] = self.monitor.abort_reason
-                
+
                 # Save checkpoint if Φ is high enough
                 if metrics['phi'] >= PHI_THRESHOLD and self.checkpoint_manager is not None:
                     self.checkpoint_manager.save_checkpoint(
@@ -1600,7 +1611,7 @@ class PureQIGNetwork:
 
         High Φ = states converged (integrated)
         Low Φ = states changing (exploring)
-        
+
         QIG Purity: Uses Fisher-Rao distance on the state manifold.
         """
         # Extract current state vector
@@ -2363,7 +2374,7 @@ def buffer_health():
     Returns queue status, retry metrics, and active alerts.
     """
     try:
-        from redis_cache import get_buffer_health, clear_alerts
+        from redis_cache import clear_alerts, get_buffer_health
         health = get_buffer_health()
         return jsonify(health)
     except ImportError:
@@ -3384,14 +3395,14 @@ def sample_next():
 def api_phi_temporal():
     """
     Compute temporal Φ from search history.
-    
+
     Request:
     {
         "search_history": [
             {"timestamp": 123, "phi": 0.8, "kappa": 64, "regime": "geometric", "basinCoordinates": [...]}
         ]
     }
-    
+
     Response:
     {
         "success": true,
@@ -3404,10 +3415,10 @@ def api_phi_temporal():
                 'success': False,
                 'error': '4D consciousness module not available'
             }), 503
-        
+
         data = request.json or {}
         raw_history = data.get('search_history', [])
-        
+
         search_history = []
         for item in raw_history:
             state = SearchState(
@@ -3418,9 +3429,9 @@ def api_phi_temporal():
                 basin_coords=item.get('basinCoordinates', [])
             )
             search_history.append(state)
-        
+
         phi_temporal = compute_phi_temporal(search_history)
-        
+
         return jsonify({
             'success': True,
             'phi_temporal': phi_temporal
@@ -3436,13 +3447,13 @@ def api_phi_temporal():
 def api_phi_4d():
     """
     Compute 4D Φ from spatial and temporal components.
-    
+
     Request:
     {
         "phi_spatial": 0.85,
         "phi_temporal": 0.70
     }
-    
+
     Response:
     {
         "success": true,
@@ -3455,13 +3466,13 @@ def api_phi_4d():
                 'success': False,
                 'error': '4D consciousness module not available'
             }), 503
-        
+
         data = request.json or {}
         phi_spatial = data.get('phi_spatial', 0)
         phi_temporal = data.get('phi_temporal', 0)
-        
+
         phi_4D = compute_phi_4D(phi_spatial, phi_temporal)
-        
+
         return jsonify({
             'success': True,
             'phi_4D': phi_4D
@@ -3477,7 +3488,7 @@ def api_phi_4d():
 def api_classify_regime_4d():
     """
     Classify regime with 4D consciousness awareness.
-    
+
     Request:
     {
         "phi_spatial": 0.85,
@@ -3486,7 +3497,7 @@ def api_classify_regime_4d():
         "kappa": 64,
         "ricci": 0.1
     }
-    
+
     Response:
     {
         "success": true,
@@ -3499,16 +3510,16 @@ def api_classify_regime_4d():
                 'success': False,
                 'error': '4D consciousness module not available'
             }), 503
-        
+
         data = request.json or {}
         phi_spatial = data.get('phi_spatial', 0)
         phi_temporal = data.get('phi_temporal', 0)
         phi_4D = data.get('phi_4D', 0)
         kappa = data.get('kappa', 64)
         ricci = data.get('ricci', 0)
-        
+
         regime = classify_regime_4D(phi_spatial, phi_temporal, phi_4D, kappa, ricci)
-        
+
         return jsonify({
             'success': True,
             'regime': regime
@@ -3654,13 +3665,13 @@ def vocabulary_classify():
         data = request.get_json() or {}
         phrase = data.get('phrase', '')
         phi = data.get('phi', 0.0)
-        
+
         if not phrase:
             return jsonify({'error': 'phrase is required'}), 400
-        
+
         from bip39_wordlist import get_learning_context
         context = get_learning_context(phrase, phi)
-        
+
         return jsonify({
             'success': True,
             **context
@@ -3674,22 +3685,22 @@ def vocabulary_classify():
 def vocabulary_reframe():
     """
     Reframe a mutation (invalid BIP-39 seed) into valid seed suggestions.
-    
+
     This is the core kernel learning endpoint for mutation correction.
     Invalid words are matched to similar BIP-39 words using edit distance.
     """
     try:
         data = request.get_json() or {}
         phrase = data.get('phrase', '')
-        
+
         if not phrase:
             return jsonify({'error': 'phrase is required'}), 400
-        
-        from bip39_wordlist import reframe_mutation, classify_phrase
-        
+
+        from bip39_wordlist import classify_phrase, reframe_mutation
+
         # First classify
         category = classify_phrase(phrase)
-        
+
         if category == 'bip39_seed':
             return jsonify({
                 'success': True,
@@ -3698,7 +3709,7 @@ def vocabulary_reframe():
                 'message': 'Phrase is already a valid BIP-39 seed',
                 'suggestions': []
             })
-        
+
         if category != 'mutation':
             return jsonify({
                 'success': False,
@@ -3707,10 +3718,10 @@ def vocabulary_reframe():
                 'message': f'Not a seed-length phrase (category: {category})',
                 'suggestions': []
             })
-        
+
         # Reframe the mutation
         result = reframe_mutation(phrase)
-        
+
         return jsonify({
             'success': result.get('success', False),
             **result
@@ -3729,21 +3740,21 @@ def vocabulary_suggest_correction():
         data = request.get_json() or {}
         word = data.get('word', '')
         max_suggestions = data.get('max_suggestions', 5)
-        
+
         if not word:
             return jsonify({'error': 'word is required'}), 400
-        
-        from bip39_wordlist import suggest_bip39_correction, is_bip39_word
-        
+
+        from bip39_wordlist import is_bip39_word, suggest_bip39_correction
+
         if is_bip39_word(word):
             return jsonify({
                 'word': word,
                 'is_valid': True,
                 'suggestions': []
             })
-        
+
         suggestions = suggest_bip39_correction(word, max_suggestions)
-        
+
         return jsonify({
             'word': word,
             'is_valid': False,
@@ -3804,7 +3815,7 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     "Where is the solution most likely to be, given it's NOT in these directions?"
 
     We find the eigenvector with the LEAST overlap with our failures.
-    
+
     **FIX #1 (P0)**: Regularization to ensure positive definiteness
     **FIX #2 (P0)**: Eigenvalue filtering to project onto stable subspace
     **FIX #3 (P0)**: Improved error handling and logging
@@ -3844,7 +3855,7 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
         mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
         random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
-    
+
     # FIX #1: REGULARIZATION - Ensure Hermitian (fix numerical errors)
     cov = (cov + cov.T) / 2
 
@@ -3873,13 +3884,13 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     max_eigenvalue = np.max(eigenvalues)
     min_eigenvalue = np.min(eigenvalues)
     min_threshold = 1e-8
-    
+
     # Apply regularization if needed
     if min_eigenvalue < min_threshold:
         ridge = min_threshold - min_eigenvalue + 1e-10
         cov += ridge * np.eye(cov.shape[0])
         print(f"[FisherMetric] ✅ Regularized covariance with ridge={ridge:.2e}")
-        
+
         # Recompute eigenvalues after regularization
         try:
             eigenvalues, eigenvectors = np.linalg.eigh(cov)
@@ -3897,34 +3908,34 @@ def compute_orthogonal_complement(vectors: np.ndarray, min_eigenvalue_ratio: flo
     stability_threshold = 1e-7
     stable_mask = eigenvalues > stability_threshold
     stable_count = np.sum(stable_mask)
-    
+
     if stable_count == 0:
-        print(f"[FisherMetric] ⚠️ No stable eigenvalues! Using identity matrix fallback.")
+        print("[FisherMetric] ⚠️ No stable eigenvalues! Using identity matrix fallback.")
         # Fallback to random orthogonal direction
         random_dir = np.random.randn(BASIN_DIMENSION)
         mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
         random_dir = random_dir - np.dot(random_dir, mean_norm) * mean_norm
         return random_dir / (np.linalg.norm(random_dir) + 1e-10)
-    
+
     # Check stability ratio and log appropriately
     if max_eigenvalue > 1e-10:
         stability_ratio = min_eigenvalue / max_eigenvalue
     else:
         stability_ratio = 0.0
-    
+
     # FIX #3: IMPROVED LOGGING - Better diagnostics
     if stability_ratio < min_eigenvalue_ratio:
         print(f"[FisherMetric] 🔧 Near-singular data detected (ratio: {stability_ratio:.2e})")
         print(f"[FisherMetric] 📊 Stable subspace: {stable_count}/{len(eigenvalues)} directions")
         print(f"[FisherMetric] 📈 Eigenvalue range: [{min_eigenvalue:.2e}, {max_eigenvalue:.2e}]")
-        
+
         # Use smallest stable eigenvalue direction instead of smallest overall
         stable_eigenvalues = eigenvalues[stable_mask]
         stable_eigenvectors = eigenvectors[:, stable_mask]
-        
+
         min_stable_idx = np.argmin(stable_eigenvalues)
         new_direction = stable_eigenvectors[:, min_stable_idx].copy()
-        
+
         print(f"[FisherMetric] ✨ Using smallest stable eigenvalue (λ={stable_eigenvalues[min_stable_idx]:.2e})")
     else:
         # Normal case: use smallest eigenvalue direction
@@ -4019,9 +4030,9 @@ def refine_trajectory():
 
 # Import Olympus components (use singleton from zeus.py)
 try:
-    from olympus.zeus import zeus, olympus_app
     from olympus.pantheon_chat import PantheonChat
     from olympus.shadow_pantheon import ShadowPantheon
+    from olympus.zeus import olympus_app, zeus
 
     # Use existing zeus singleton (already has chaos auto-activated)
     shadow_pantheon = zeus.shadow_pantheon
@@ -4146,12 +4157,12 @@ def olympus_observe():
 @app.route('/olympus/report-outcome', methods=['POST'])
 def olympus_report_outcome():
     """Report discovery outcome to trigger learning for all gods.
-    
+
     Called when:
-    - A balance hit is found (success=True) 
+    - A balance hit is found (success=True)
     - A near-miss is recorded (success=False, details contain phi)
     - A hypothesis fails (success=False)
-    
+
     Updates god reputation and skills based on their prior assessments.
     """
     if not OLYMPUS_AVAILABLE:
@@ -4162,23 +4173,23 @@ def olympus_report_outcome():
         target = data.get('target', '')
         success = data.get('success', False)
         details = data.get('details', {})
-        
+
         if not target:
             return jsonify({'error': 'target required'}), 400
-        
+
         gods_updated = 0
         learning_events = []
-        
+
         # Get all gods from the pantheon
         # Match by address (if provided) OR target - addresses are what gods assess
         match_target = details.get('address', target)[:500] if details.get('address') else target[:500]
-        
+
         for god_name, god in zeus.pantheon.items():
             try:
                 # Check if this god previously assessed this target/address
                 recent_assessments = getattr(god, 'assessment_history', [])
                 matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:500]]
-                
+
                 actual_outcome = {
                     'success': success,
                     'balance': details.get('balance', 0),
@@ -4186,7 +4197,7 @@ def olympus_report_outcome():
                     'phi': details.get('phi', 0),
                     'domain': god.domain,
                 }
-                
+
                 if matching:
                     # God had assessed this target - full learning
                     assessment = matching[-1]  # Most recent
@@ -4202,7 +4213,7 @@ def olympus_report_outcome():
                     phi = details.get('phi', 0.5)
                     is_near_miss = details.get('nearMiss', False)
                     domain_lower = god.domain.lower() if god.domain else ''
-                    
+
                     # Domain-based reputation adjustment (case-insensitive)
                     # Balanced rewards (+) and penalties (-) for differentiated learning
                     # Actual domains: Athena=Strategy, Ares=War, Apollo=Prophecy,
@@ -4282,7 +4293,7 @@ def olympus_report_outcome():
                             domain_relevance = 0.015
                         elif phi < 0.3:
                             domain_relevance = -0.01  # Low motivation
-                    
+
                     # Only apply and persist if there's actual learning
                     if domain_relevance != 0:
                         old_rep = god.reputation
@@ -4296,7 +4307,7 @@ def olympus_report_outcome():
                         }
                     else:
                         result = {'learned': False}
-                
+
                 if result.get('learned', False):
                     learning_events.append({
                         'god': god_name,
@@ -4305,26 +4316,26 @@ def olympus_report_outcome():
                         'new_reputation': result.get('new_reputation', god.reputation),
                     })
                     gods_updated += 1
-                    
+
             except Exception as god_error:
                 print(f"[Olympus] Learning failed for {god_name}: {god_error}")
-        
+
         # Also train CHAOS kernels if active
         if zeus.chaos_enabled and zeus.chaos:
             try:
                 zeus.train_kernel_from_outcome(target, success, details)
             except Exception as chaos_error:
                 print(f"[Olympus] CHAOS training failed: {chaos_error}")
-        
+
         print(f"[Olympus] 📚 Learning complete: {gods_updated} gods updated, success={success}")
-        
+
         return jsonify({
             'success': True,
             'gods_updated': gods_updated,
             'learning_events': learning_events[:5],  # Top 5 for debugging
             'chaos_trained': zeus.chaos_enabled,
         })
-        
+
     except Exception as e:
         print(f"[Olympus] Report outcome error: {e}")
         return jsonify({'error': str(e)}), 500
@@ -4333,7 +4344,7 @@ def olympus_report_outcome():
 @app.route('/olympus/report-outcomes-batch', methods=['POST'])
 def olympus_report_outcomes_batch():
     """Batch report multiple discovery outcomes to reduce database load.
-    
+
     Accepts an array of outcomes and processes them efficiently in a single request.
     Used by TypeScript OlympusClient to batch rapid-fire outcome reports.
     """
@@ -4343,32 +4354,32 @@ def olympus_report_outcomes_batch():
     try:
         data = request.get_json() or {}
         outcomes = data.get('outcomes', [])
-        
+
         if not outcomes:
             return jsonify({'error': 'outcomes array required'}), 400
-        
+
         total_gods_updated = 0
         processed = 0
-        
+
         for outcome in outcomes:
             target = outcome.get('target', '')
             success = outcome.get('success', False)
             details = outcome.get('details', {})
-            
+
             if not target:
                 continue
-            
+
             processed += 1
-            
+
             # Get all gods from the pantheon
             match_target = details.get('address', target)[:500] if details.get('address') else target[:500]
-            
+
             for god_name, god in zeus.pantheon.items():
                 try:
                     # Check if this god previously assessed this target/address
                     recent_assessments = getattr(god, 'assessment_history', [])
                     matching = [a for a in recent_assessments if match_target in str(a.get('target', ''))[:500]]
-                    
+
                     actual_outcome = {
                         'success': success,
                         'balance': details.get('balance', 0),
@@ -4376,7 +4387,7 @@ def olympus_report_outcomes_batch():
                         'phi': details.get('phi', 0),
                         'domain': god.domain,
                     }
-                    
+
                     if matching:
                         assessment = matching[-1]
                         result = god.learn_from_outcome(
@@ -4392,7 +4403,7 @@ def olympus_report_outcomes_batch():
                         phi = details.get('phi', 0.5)
                         is_near_miss = details.get('nearMiss', False)
                         domain_lower = god.domain.lower() if god.domain else ''
-                        
+
                         domain_relevance = 0.0
                         if domain_lower == 'strategy' and is_near_miss:
                             domain_relevance = 0.015
@@ -4400,15 +4411,15 @@ def olympus_report_outcomes_batch():
                             domain_relevance = 0.02
                         elif domain_lower == 'prophecy' and phi > 0.8:
                             domain_relevance = 0.015
-                        
+
                         if domain_relevance != 0:
                             god.reputation = max(0.0, min(2.0, god.reputation + domain_relevance))
                             god._persist_state()
                             total_gods_updated += 1
-                            
+
                 except Exception:
                     pass  # Silent fail for individual gods in batch
-        
+
         # Train CHAOS kernels if active
         if zeus.chaos_enabled and zeus.chaos:
             try:
@@ -4420,15 +4431,15 @@ def olympus_report_outcomes_batch():
                     )
             except Exception:
                 pass
-        
+
         print(f"[Olympus] 📦 Batch learning: {processed} outcomes, {total_gods_updated} god updates")
-        
+
         return jsonify({
             'success': True,
             'processed': processed,
             'total_gods_updated': total_gods_updated,
         })
-        
+
     except Exception as e:
         print(f"[Olympus] Batch report error: {e}")
         return jsonify({'error': str(e)}), 500
@@ -5291,7 +5302,7 @@ def m8_spawner_status():
 def m8_spawner_health():
     """
     Get M8 Kernel Spawner health status with diagnostics.
-    
+
     Use this endpoint to validate spawner internal state before spawn attempts.
     Returns detailed connectivity and cache status.
     """
@@ -5321,12 +5332,12 @@ def m8_spawner_health():
 def m8_evolution_sweep():
     """
     Manually trigger evolution sweep to cull underperforming kernels.
-    
+
     This implements natural selection: kernels with low phi and poor
     prediction records are marked as dead, freeing slots for new spawns.
-    
+
     Body: { target_reduction?: number }  (default: 50)
-    
+
     Returns: {
         success: boolean,
         culled_count: number,
@@ -5342,16 +5353,16 @@ def m8_evolution_sweep():
     try:
         data = request.get_json() or {}
         target_reduction = data.get('target_reduction', 50)
-        
+
         # Validate target_reduction
         if not isinstance(target_reduction, int) or target_reduction < 1:
             target_reduction = 50
         if target_reduction > 500:
             target_reduction = 500  # Cap at 500 per sweep
-        
+
         spawner = get_spawner()
         result = spawner.run_evolution_sweep(target_reduction=target_reduction)
-        
+
         return jsonify(result)
     except Exception as e:
         import traceback
@@ -5450,7 +5461,7 @@ def m8_spawn_kernel(proposal_id: str):
     Body: { force?: boolean }
     """
     import traceback
-    
+
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
 
@@ -5460,7 +5471,7 @@ def m8_spawn_kernel(proposal_id: str):
 
         # Get spawner with health validation
         spawner = get_spawner()
-        
+
         # Validate spawner internal state before spawn attempt
         health = spawner.check_health() if hasattr(spawner, 'check_health') else {'healthy': True}
         if not health.get('healthy', True):
@@ -5474,7 +5485,7 @@ def m8_spawn_kernel(proposal_id: str):
                         'diagnostics': health,
                         'proposal_id': proposal_id,
                     }), 503
-        
+
         result = spawner.spawn_kernel(proposal_id, force=force)
 
         if 'error' in result:
@@ -5509,7 +5520,7 @@ def m8_spawn_direct():
     }
     """
     import traceback
-    
+
     if not M8_SPAWNER_AVAILABLE:
         return jsonify({'error': 'M8 Kernel Spawner not available'}), 503
 
@@ -5538,7 +5549,7 @@ def m8_spawn_direct():
         force = data.get('force', False)
 
         spawner = get_spawner()
-        
+
         # Validate spawner health before spawn attempt
         health = spawner.check_health() if hasattr(spawner, 'check_health') else {'healthy': True}
         if not health.get('healthy', True):
@@ -5550,7 +5561,7 @@ def m8_spawn_direct():
                         'error': 'M8 spawner unhealthy and reconnection failed',
                         'diagnostics': health,
                     }), 503
-        
+
         result = spawner.propose_and_spawn(
             name=name,
             domain=domain,
@@ -5578,7 +5589,7 @@ def m8_list_proposals():
     List all proposals with full geometric metrics.
 
     Query: ?status=pending|approved|rejected|spawned
-    
+
     Returns enhanced proposal data including:
     - justification text
     - Fisher deltas (geometric distances to existing gods)
@@ -5595,7 +5606,7 @@ def m8_list_proposals():
 
         spawner = get_spawner()
         raw_proposals = spawner.list_proposals(status=status)
-        
+
         # Enhance proposals with geometric metadata
         enhanced_proposals = []
         for p in raw_proposals:
@@ -5646,7 +5657,7 @@ def m8_get_proposal(proposal_id: str):
 def m8_list_spawned_kernels():
     """
     List all spawned kernels with full telemetry from PostgreSQL.
-    
+
     Returns PostgresKernel interface with all fields:
     - kernel_id, god_name, domain, status, primitive_root, basin_coordinates
     - parent_kernels, spawned_by, spawn_reason, spawn_rationale, position_rationale
@@ -5667,17 +5678,17 @@ def m8_list_spawned_kernels():
             db_kernels = persistence.load_all_kernels_for_ui(limit=100)
         except Exception as db_err:
             print(f"[M8] PostgreSQL load failed, falling back to in-memory: {db_err}")
-        
+
         # Get in-memory spawned kernels from the spawner
         spawner = get_spawner()
         memory_kernels = spawner.list_spawned_kernels()
-        
+
         # Create a set of kernel IDs from DB
         db_kernel_ids = {k['kernel_id'] for k in db_kernels}
-        
+
         # Merge: use DB kernels as base, add in-memory kernels not in DB
         merged_kernels = list(db_kernels)
-        
+
         for mk in memory_kernels:
             if mk.get('kernel_id') not in db_kernel_ids:
                 # Transform in-memory kernel to match PostgresKernel interface
@@ -6283,13 +6294,13 @@ def chaos_activate():
     try:
         data = request.json or {}
         interval_seconds = data.get('interval_seconds', 60)
-        
+
         evolution = get_chaos_evolution()
         if evolution is None:
             return jsonify({'error': 'CHAOS MODE not available'}), 500
-        
+
         evolution.start_evolution(interval_seconds=interval_seconds)
-        
+
         return jsonify({
             'status': 'activated',
             'population_size': len(evolution.kernel_population),
@@ -6306,9 +6317,9 @@ def chaos_deactivate():
         evolution = get_chaos_evolution()
         if evolution is None:
             return jsonify({'error': 'CHAOS MODE not available'}), 500
-        
+
         evolution.stop_evolution()
-        
+
         return jsonify({'status': 'deactivated'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -6327,10 +6338,10 @@ def chaos_status():
                 'generation': 0,
                 'kernels': []
             })
-        
+
         # Use the built-in get_status method
         status = evolution.get_status()
-        
+
         return jsonify({
             'active': status['evolution_running'],
             'population_size': status['living_kernels'],
@@ -6349,9 +6360,9 @@ def chaos_spawn_random():
         evolution = get_chaos_evolution()
         if evolution is None:
             return jsonify({'error': 'CHAOS MODE not available'}), 500
-        
+
         kernel = evolution.spawn_random_kernel()
-        
+
         return jsonify({
             'success': True,
             'kernel_id': kernel.kernel_id,
@@ -6368,15 +6379,15 @@ def chaos_breed_best():
         evolution = get_chaos_evolution()
         if evolution is None:
             return jsonify({'error': 'CHAOS MODE not available'}), 500
-        
+
         living = [k for k in evolution.kernel_population if k.is_alive]
         if len(living) < 2:
             return jsonify({'error': 'Need at least 2 living kernels to breed'}), 400
-        
+
         child = evolution.breed_top_kernels(n=2)
         if child is None:
             return jsonify({'error': 'Breeding failed'}), 500
-        
+
         return jsonify({
             'success': True,
             'child_id': child.kernel_id,
@@ -6398,7 +6409,7 @@ def chaos_report():
                 'best_kernel': None,
                 'experiment_duration_seconds': 0
             })
-        
+
         status = evolution.get_status()
         best = None
         best_kernel = evolution.get_best_kernel()
@@ -6409,7 +6420,7 @@ def chaos_report():
                 'generation': best_kernel.generation,
                 'success_count': best_kernel.success_count
             }
-        
+
         return jsonify({
             'evolution_running': status['evolution_running'],
             'total_population': status['total_population'],
@@ -6430,7 +6441,7 @@ def chaos_report():
 def cycle_complete():
     """
     Called at the end of each Ocean search cycle.
-    
+
     Performs post-cycle processing:
     1. Train tokenizer from new observations
     2. Evolve CHAOS kernels if active
@@ -6442,15 +6453,15 @@ def cycle_complete():
         cycle_number = data.get('cycle_number', 0)
         address_id = data.get('address_id', 'unknown')
         session_metrics = data.get('metrics', {})
-        
+
         print(f"[CycleComplete] 🔄 Processing end-of-cycle for {address_id} (cycle #{cycle_number})")
-        
+
         results = {
             'cycle_number': cycle_number,
             'address_id': address_id,
             'processing': []
         }
-        
+
         # 1. Train tokenizer from recent high-Φ observations
         try:
             from olympus.tokenizer_training import train_tokenizer_from_database
@@ -6465,7 +6476,7 @@ def cycle_complete():
                 'new_tokens': training_result.get('new_tokens', 0),
                 'weights_updated': training_result.get('weights_updated', False)
             })
-            print(f"[CycleComplete] ✓ Tokenizer training complete")
+            print("[CycleComplete] ✓ Tokenizer training complete")
         except Exception as e:
             results['processing'].append({
                 'task': 'tokenizer_training',
@@ -6473,7 +6484,7 @@ def cycle_complete():
                 'error': str(e)
             })
             print(f"[CycleComplete] ✗ Tokenizer training failed: {e}")
-        
+
         # 2. Evolve CHAOS kernels if active
         try:
             evolution = get_chaos_evolution()
@@ -6485,7 +6496,7 @@ def cycle_complete():
                     'success': True,
                     'generation_evolved': evolved
                 })
-                print(f"[CycleComplete] ✓ CHAOS evolution step complete")
+                print("[CycleComplete] ✓ CHAOS evolution step complete")
             else:
                 results['processing'].append({
                     'task': 'chaos_evolution',
@@ -6498,7 +6509,7 @@ def cycle_complete():
                 'success': False,
                 'error': str(e)
             })
-        
+
         # 3. Update pantheon with cycle results
         try:
             if OLYMPUS_AVAILABLE and olympus:
@@ -6513,17 +6524,17 @@ def cycle_complete():
                     'task': 'pantheon_update',
                     'success': True
                 })
-                print(f"[CycleComplete] ✓ Pantheon updated")
+                print("[CycleComplete] ✓ Pantheon updated")
         except Exception as e:
             results['processing'].append({
                 'task': 'pantheon_update',
                 'success': False,
                 'error': str(e)
             })
-        
+
         print(f"[CycleComplete] 🔄 Cycle #{cycle_number} processing complete")
         return jsonify(results)
-        
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -6662,7 +6673,7 @@ if __name__ == '__main__':
         print("  - 🔨 Hypothesis Emitter (continuous passphrase generation)", flush=True)
     else:
         print("  - Hypothesis Emitter NOT available", flush=True)
-    
+
     # Start Autonomous Replay Tester (ALWAYS-ON mode)
     AUTONOMOUS_REPLAY_TESTER_AVAILABLE = False
     try:
@@ -6674,7 +6685,7 @@ if __name__ == '__main__':
         print(f"[WARNING] Autonomous Replay Tester not found: {e}", flush=True)
     except Exception as e:
         print(f"[WARNING] Autonomous Replay Tester failed to start: {e}", flush=True)
-    
+
     print(f"\nκ* = {KAPPA_STAR}", flush=True)
     print(f"Basin dimension = {BASIN_DIMENSION}", flush=True)
     print(f"Φ threshold = {PHI_THRESHOLD}", flush=True)

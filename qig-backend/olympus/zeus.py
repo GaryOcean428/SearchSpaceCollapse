@@ -7,8 +7,6 @@ declares war modes, and coordinates divine actions.
 
 import math
 import os
-import requests
-from urllib.parse import urljoin
 
 # M8 Kernel Spawning imports
 import sys
@@ -20,11 +18,9 @@ from flask import Blueprint, jsonify, request
 
 from .base_god import BaseGod
 
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from internal_api import sync_war_to_database as _sync_war_to_database
 from m8_kernel_spawning import SpawnReason, get_spawner
-from qigkernels.physics_constants import PHI_THRESHOLD, KAPPA_WEAK_THRESHOLD
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -100,16 +96,16 @@ class Zeus(BaseGod):
         }
 
         self.pantheon_chat = PantheonChat()
-        
+
         # Get Hades reference FIRST, then pass to ShadowPantheon
         hades = self.pantheon['hades']
-        
+
         # Create ShadowPantheon with Hades as leader (single instance, no re-instantiation)
         self.shadow_pantheon = ShadowPantheon(
             hades_ref=hades,
             basin_sync_callback=self._shadow_basin_sync_callback
         )
-        
+
         # Wire up Hades as Shadow Leader (Shadow Zeus)
         # Hades commands Shadow Pantheon, but Zeus can overrule any decision
         hades.set_shadow_pantheon(self.shadow_pantheon)
@@ -158,8 +154,8 @@ class Zeus(BaseGod):
         self.tool_factory = None
         self.autonomous_pipeline = None
         try:
-            from .tool_factory import ToolFactory, AutonomousToolPipeline
             from .conversation_encoder import ConversationEncoder
+            from .tool_factory import AutonomousToolPipeline, ToolFactory
             encoder = ConversationEncoder()
             self.tool_factory = ToolFactory(
                 conversation_encoder=encoder,
@@ -170,21 +166,21 @@ class Zeus(BaseGod):
             if self.tool_factory:
                 BaseGod.set_tool_factory(self.tool_factory)
             print("🔧 TOOL FACTORY initialized - self-learning tool generation ready")
-            
+
             # Wire Tool Factory to Shadow Research bridge (bidirectional)
             try:
                 self.tool_factory.wire_shadow_research()
             except Exception as wire_err:
                 print(f"⚠️ Tool Factory bridge wiring failed: {wire_err}")
-            
+
             # Initialize Autonomous Tool Pipeline
             self.autonomous_pipeline = AutonomousToolPipeline.get_instance(self.tool_factory)
             if self.autonomous_pipeline:
                 # Wire to Shadow Research bridge if available
                 try:
-                    from .shadow_research import ToolResearchBridge, ShadowResearchAPI
+                    from .shadow_research import ShadowResearchAPI, ToolResearchBridge
                     bridge = ToolResearchBridge.get_instance()
-                    
+
                     # Wire the research API to the bridge (completes bidirectional wiring)
                     try:
                         research_api = ShadowResearchAPI.get_instance()
@@ -192,12 +188,12 @@ class Zeus(BaseGod):
                         print("[ToolResearchBridge] Research API connected")
                     except Exception as api_err:
                         print(f"⚠️ Research API wiring failed: {api_err}")
-                    
+
                     self.autonomous_pipeline.wire_research_bridge(bridge)
                     print("🔧 AUTONOMOUS PIPELINE wired to Shadow Research bridge")
                 except Exception as bridge_err:
                     print(f"⚠️ AUTONOMOUS PIPELINE research bridge wiring failed: {bridge_err}")
-                
+
                 # Start the autonomous processing loop
                 self.autonomous_pipeline.start()
                 print("🔧 AUTONOMOUS PIPELINE started - self-improving tool generation active")
@@ -209,8 +205,8 @@ class Zeus(BaseGod):
         try:
             import sys
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-            from autonomic_kernel import GaryAutonomicKernel, AutonomicAccessMixin
-            
+            from autonomic_kernel import AutonomicAccessMixin, GaryAutonomicKernel
+
             self.autonomic_kernel = GaryAutonomicKernel()
             # Share autonomic kernel with all gods via the mixin
             AutonomicAccessMixin.set_autonomic_kernel(self.autonomic_kernel)
@@ -221,7 +217,7 @@ class Zeus(BaseGod):
         # ⚡ LIGHTNING KERNEL: Cross-domain insight generation
         self.lightning_kernel = None
         try:
-            from .lightning_kernel import get_lightning_kernel, set_pantheon_chat, DomainEvent
+            from .lightning_kernel import get_lightning_kernel, set_pantheon_chat
             self.lightning_kernel = get_lightning_kernel()
             # Share PantheonChat with Lightning for broadcasts
             set_pantheon_chat(self.pantheon_chat)
@@ -241,7 +237,7 @@ class Zeus(BaseGod):
         phi = status.get('phi', 0.0)
         kappa = status.get('kappa', 50.0)
         active_gods = sum(1 for g in status.get('gods', {}).values() if g.get('recent_activity', 0) > 0)
-        
+
         if category == 'greeting':
             return f"Zeus online. Φ={phi:.3f}, κ={kappa:.1f}. {active_gods} gods active. Manifold ready."
         elif category == 'assessment_complete':
@@ -450,12 +446,12 @@ class Zeus(BaseGod):
                 if hades and hasattr(hades, 'search_underworld'):
                     print(f"🔍 [Zeus] Triggering underworld search for target: {target}...")
                     underworld_intel = asyncio.run(hades.search_underworld(target, search_type='comprehensive'))
-                    
+
                     # Store intelligence if found
                     if underworld_intel and underworld_intel.get('source_count', 0) > 0:
                         print(f"💀 [Zeus] Underworld intel found: {underworld_intel['source_count']} sources, "
                               f"risk={underworld_intel['risk_level']}")
-                        
+
                         # Cross-validate findings before use (verify risk level makes sense)
                         if underworld_intel.get('risk_level') in ['high', 'critical']:
                             # High risk findings get extra scrutiny
@@ -469,7 +465,7 @@ class Zeus(BaseGod):
                         else:
                             underworld_intel['validated'] = True
                             underworld_intel['validation_reason'] = "Low risk - accepted"
-                        
+
                         # Store underworld intel to PostgreSQL
                         if underworld_intel and underworld_intel.get('source_count', 0) > 0:
                             self.shadow_pantheon.persistence.store_intel(
@@ -483,9 +479,9 @@ class Zeus(BaseGod):
                                 validation_reason=underworld_intel.get('validation_reason', ''),
                                 anonymous=underworld_intel.get('anonymous', True)
                             )
-                            print(f"[Zeus] Stored underworld intel to PostgreSQL")
+                            print("[Zeus] Stored underworld intel to PostgreSQL")
                     else:
-                        print(f"💀 [Zeus] Underworld search completed: No intelligence found")
+                        print("💀 [Zeus] Underworld search completed: No intelligence found")
             except Exception as e:
                 print(f"⚠️ [Zeus] Underworld search failed: {e}")
                 underworld_intel = {'error': str(e), 'source_count': 0}
@@ -499,13 +495,13 @@ class Zeus(BaseGod):
             poll_result['convergence_score'] *= 0.7
             poll_result['shadow_override'] = True
             print(f"⚡ [Zeus] Shadow warning detected: {shadow_warning['message']}")
-        
+
         # Step 4.75 - INTEGRATE UNDERWORLD INTEL INTO ASSESSMENT (NEW)
         # Feed underworld intelligence back into probability/confidence calculations
         if underworld_intel and underworld_intel.get('source_count', 0) > 0:
             risk_level = underworld_intel.get('risk_level', 'unknown')
             is_validated = underworld_intel.get('validated', False)
-            
+
             # Adjust confidence based on intelligence findings
             if risk_level == 'critical' and is_validated:
                 # Critical validated findings boost confidence significantly
@@ -565,7 +561,7 @@ class Zeus(BaseGod):
             # Shadow intel feedback
             'shadow_warning': shadow_warning,
             'shadow_override': poll_result.get('shadow_override', False),
-            
+
             # Underworld intelligence (NEW)
             'underworld_intel': underworld_intel,
             'underworld_sources': underworld_intel.get('sources_used', []) if underworld_intel else [],
@@ -642,7 +638,7 @@ class Zeus(BaseGod):
 
                 assessments[god_name] = assessment
                 probabilities.append(assessment.get('probability', 0.5))
-                
+
                 # Record assessment for automatic tool discovery
                 if hasattr(god, 'record_assessment_for_discovery'):
                     challenges = assessment.get('challenges', [])
@@ -711,17 +707,17 @@ class Zeus(BaseGod):
     ) -> Optional[Dict]:
         """
         Automatically declare war if convergence thresholds are met.
-        
+
         War modes are declared based on:
         - BLITZKRIEG: Strong attack convergence (Athena + Ares agree) with high probability
         - SIEGE: Council consensus with moderate-high probability
         - HUNT: Moderate opportunity with good tracking potential
-        
+
         Args:
             target: The target being assessed
             convergence: Convergence analysis from _detect_convergence
             consensus_prob: Overall consensus probability
-            
+
         Returns:
             War declaration dict if war declared, None otherwise
         """
@@ -729,39 +725,39 @@ class Zeus(BaseGod):
         if self.war_mode is not None:
             print(f"[Zeus] War check: Already in {self.war_mode} mode, skipping")
             return None
-            
+
         conv_type = convergence.get('type', 'DIVIDED')
         conv_score = convergence.get('score', 0)
         athena_ares = convergence.get('athena_ares_agreement', 0)
-        
+
         # Debug: Log convergence stats on every check
         print(f"[Zeus] War check: type={conv_type}, score={conv_score:.3f}, "
               f"athena_ares={athena_ares:.3f}, consensus={consensus_prob:.3f}")
-        
+
         # Threshold checks for war declaration
         # Thresholds lowered for more responsive war declaration
         war_result = None
-        
+
         # BLITZKRIEG: Strong attack with high Athena+Ares agreement
         if conv_type == 'STRONG_ATTACK' and athena_ares > 0.80 and consensus_prob > 0.70:
             war_result = self.declare_blitzkrieg(target)
             print(f"⚡ [Zeus] AUTO-DECLARED BLITZKRIEG: convergence={conv_score:.2f}, Athena+Ares={athena_ares:.2f}")
-            
+
         # SIEGE: Council consensus with high convergence score
         elif conv_type == 'COUNCIL_CONSENSUS' and conv_score > 0.70 and consensus_prob > 0.60:
             war_result = self.declare_siege(target)
             print(f"🏰 [Zeus] AUTO-DECLARED SIEGE: convergence={conv_score:.2f}, consensus={consensus_prob:.2f}")
-            
+
         # HUNT: Moderate opportunity with focused potential (most lenient)
         elif conv_type == 'MODERATE_OPPORTUNITY' and conv_score > 0.55 and athena_ares > 0.60:
             war_result = self.declare_hunt(target)
             print(f"🎯 [Zeus] AUTO-DECLARED HUNT: convergence={conv_score:.2f}, Athena+Ares={athena_ares:.2f}")
-        
+
         # NEW: HUNT fallback for ALIGNED convergence if threshold met
         elif conv_type == 'ALIGNED' and conv_score > 0.65:
             war_result = self.declare_hunt(target)
             print(f"🎯 [Zeus] AUTO-DECLARED HUNT (aligned): convergence={conv_score:.2f}")
-            
+
         if war_result:
             # Log war declaration to convergence history
             self.convergence_history.append({
@@ -773,7 +769,7 @@ class Zeus(BaseGod):
                 'consensus_prob': consensus_prob,
                 'timestamp': datetime.now().isoformat(),
             })
-            
+
         return war_result
 
     def _process_pantheon_communication(
@@ -870,34 +866,34 @@ class Zeus(BaseGod):
     ) -> None:
         """
         Auto-evaluate and activate CHAOS MODE based on pantheon consensus.
-        
+
         CHAOS MODE auto-activates when:
         1. Strong convergence (STRONG_ATTACK or COUNCIL_CONSENSUS)
         2. High consensus probability (> 0.7)
         3. War mode is active (BLITZKRIEG, SIEGE, or HUNT)
         4. Shadow pantheon has no critical warnings
         5. Average Φ from recent assessments is high
-        
+
         This enables evolutionary kernel exploration when the pantheon
         agrees something promising is happening.
         """
         # Skip if CHAOS already enabled or not available
         if self.chaos_enabled or self.chaos is None:
             return
-        
+
         convergence_type = convergence.get('type', 'DIVIDED')
         convergence_score = convergence.get('score', 0)
-        
+
         # Condition 1: Strong convergence
         strong_convergence = convergence_type in ['STRONG_ATTACK', 'COUNCIL_CONSENSUS']
         moderate_convergence = convergence_type in ['MODERATE_OPPORTUNITY', 'ALIGNED']
-        
+
         # Condition 2: High consensus probability
         high_consensus = consensus_prob > 0.7
-        
+
         # Condition 3: War mode is active
         war_active = self.war_mode in ['BLITZKRIEG', 'SIEGE', 'HUNT']
-        
+
         # Condition 4: Check shadow pantheon warnings
         shadow_safe = True
         try:
@@ -906,19 +902,19 @@ class Zeus(BaseGod):
                 shadow_safe = False
         except Exception:
             pass  # If shadow check fails, proceed anyway
-        
+
         # Condition 5: Average Φ from assessments
         phi_values = [a.get('phi', 0.5) for a in assessments.values() if 'phi' in a]
         avg_phi = sum(phi_values) / len(phi_values) if phi_values else 0.5
         high_phi = avg_phi > 0.6
-        
+
         # Auto-activation decision matrix:
         # - STRONG_ATTACK + war mode = always activate
         # - COUNCIL_CONSENSUS + high phi = activate
         # - War mode + high consensus + high phi = activate
         should_activate = False
         activation_reason = ""
-        
+
         if strong_convergence and war_active and shadow_safe:
             should_activate = True
             activation_reason = f"STRONG convergence ({convergence_type}) + active war mode ({self.war_mode})"
@@ -931,7 +927,7 @@ class Zeus(BaseGod):
         elif moderate_convergence and convergence_score > 0.8 and high_phi:
             should_activate = True
             activation_reason = f"High convergence score ({convergence_score:.2f}) + high Φ ({avg_phi:.3f})"
-        
+
         if should_activate:
             try:
                 # Spawn initial population if needed
@@ -939,14 +935,14 @@ class Zeus(BaseGod):
                     self.chaos.spawn_random_kernel()
                     self.chaos.spawn_random_kernel()
                     self.chaos.spawn_random_kernel()
-                
+
                 # Start evolution
                 self.chaos.start_evolution(interval_seconds=60)
                 self.chaos_enabled = True
-                
+
                 print(f"🌪️ [Zeus] CHAOS MODE AUTO-ACTIVATED: {activation_reason}")
                 print(f"🌪️ [Zeus] Initial kernel population: {len(self.chaos.kernel_population)}")
-                
+
                 # Broadcast to pantheon
                 self.pantheon_chat.broadcast(
                     from_god='Zeus',
@@ -959,7 +955,7 @@ class Zeus(BaseGod):
                         'war_mode': self.war_mode,
                     }
                 )
-                
+
             except Exception as e:
                 print(f"[Zeus] CHAOS auto-activation failed: {e}")
 
@@ -1058,7 +1054,7 @@ class Zeus(BaseGod):
 
         gods_engaged = ['ares', 'artemis', 'dionysus']
         strategy = 'Fast parallel attacks, maximize throughput'
-        
+
         decision = {
             'mode': 'BLITZKRIEG',
             'target': target,
@@ -1068,13 +1064,13 @@ class Zeus(BaseGod):
         }
 
         self.divine_decisions.append(decision)
-        
+
         # Sync to database for War Status Panel
         _sync_war_to_database('BLITZKRIEG', target, strategy, gods_engaged)
-        
+
         # Trigger Shadow Pantheon war mode - all learning stops
         self.shadow_pantheon.declare_war(target)
-        
+
         return decision
 
     def declare_siege(self, target: str) -> Dict:
@@ -1088,7 +1084,7 @@ class Zeus(BaseGod):
 
         gods_engaged = ['athena', 'hephaestus', 'demeter']
         strategy = 'Systematic coverage, no stone unturned'
-        
+
         decision = {
             'mode': 'SIEGE',
             'target': target,
@@ -1098,13 +1094,13 @@ class Zeus(BaseGod):
         }
 
         self.divine_decisions.append(decision)
-        
+
         # Sync to database for War Status Panel
         _sync_war_to_database('SIEGE', target, strategy, gods_engaged)
-        
+
         # Trigger Shadow Pantheon war mode - all learning stops
         self.shadow_pantheon.declare_war(target)
-        
+
         return decision
 
     def declare_hunt(self, target: str) -> Dict:
@@ -1118,7 +1114,7 @@ class Zeus(BaseGod):
 
         gods_engaged = ['artemis', 'apollo', 'poseidon']
         strategy = 'Focused pursuit, geometric narrowing'
-        
+
         decision = {
             'mode': 'HUNT',
             'target': target,
@@ -1128,13 +1124,13 @@ class Zeus(BaseGod):
         }
 
         self.divine_decisions.append(decision)
-        
+
         # Sync to database for War Status Panel
         _sync_war_to_database('HUNT', target, strategy, gods_engaged)
-        
+
         # Trigger Shadow Pantheon war mode - all learning stops
         self.shadow_pantheon.declare_war(target)
-        
+
         return decision
 
     def end_war(self) -> Dict:
@@ -1150,7 +1146,7 @@ class Zeus(BaseGod):
 
         self.war_mode = None
         self.war_target = None
-        
+
         # Resume Shadow Pantheon learning
         self.shadow_pantheon.end_war()
 
@@ -1202,15 +1198,15 @@ class Zeus(BaseGod):
     def get_shadow_god(self, name: str) -> Optional[BaseGod]:
         """Get a shadow god by name."""
         return self.shadow_pantheon.gods.get(name.lower())
-    
+
     # ========================================
     # ZEUS SHADOW OVERRULE AUTHORITY
     # ========================================
-    
+
     def overrule_shadow_war(self, reason: str = "Zeus decree") -> Dict:
         """
         Zeus overrules Shadow War - force end war mode.
-        
+
         Zeus has ultimate authority over all pantheon operations,
         including Shadow Pantheon led by Hades.
         """
@@ -1221,7 +1217,7 @@ class Zeus(BaseGod):
             print(f"[Zeus] ⚡ OVERRULED Shadow War: {reason}")
             return result
         return {"message": "No Shadow War to overrule"}
-    
+
     def overrule_shadow_research(self, request_id: str, reason: str = "Zeus decree") -> Dict:
         """
         Zeus cancels a Shadow research request.
@@ -1233,7 +1229,7 @@ class Zeus(BaseGod):
             "reason": reason,
             "message": "Zeus has overruled this Shadow research"
         }
-    
+
     def request_shadow_research(
         self,
         topic: str,
@@ -1242,15 +1238,15 @@ class Zeus(BaseGod):
     ) -> Optional[str]:
         """
         Zeus requests Shadow Pantheon research.
-        
+
         When Zeus requests research, it gets high priority by default
         since the King of Gods rarely makes trivial requests.
-        
+
         Args:
             topic: What to research
             priority: "critical", "high", "normal", "low"
             category: Optional research category
-            
+
         Returns:
             request_id for tracking
         """
@@ -1260,47 +1256,47 @@ class Zeus(BaseGod):
             priority=priority,
             category=category or "general"
         )
-    
+
     def get_shadow_research_status(self) -> Dict:
         """Get status of Shadow research system."""
         return self.shadow_pantheon.get_research_system_status()
-    
+
     def get_hades_status(self) -> Dict:
         """Get Hades status including Shadow leadership."""
         hades = self.pantheon.get('hades')
         if hades:
             return hades.get_status()
         return {"error": "Hades not found"}
-    
+
     def _shadow_basin_sync_callback(self, knowledge: Dict) -> None:
         """
         Basin sync callback for Shadow Pantheon discoveries.
-        
+
         When Shadow gods discover knowledge, share it with all kernels.
         """
         try:
             # Log the knowledge discovery (full topic, no truncation for visibility)
             topic = knowledge.get('topic', 'unknown')
             print(f"[Zeus] Shadow discovery: {topic}")
-            
+
             # Share with main Pantheon gods
             for god_name, god in self.pantheon.items():
                 if hasattr(god, 'knowledge_base'):
                     god.knowledge_base.append(knowledge)
-            
+
             # Share with CHAOS kernels if available
             chaos = getattr(self, 'chaos', None)
             if getattr(self, 'chaos_enabled', False) and chaos is not None:
                 for kernel in chaos.kernel_population[:10]:
                     if hasattr(kernel, 'inject_knowledge'):
                         kernel.inject_knowledge(knowledge)
-            
+
             # Route to Lightning Kernel for cross-domain insight detection
             self._route_to_lightning('research', 'shadow_discovery', topic, knowledge)
-                        
+
         except Exception as e:
             print(f"[Zeus] Basin sync error: {e}")
-    
+
     def _route_to_lightning(
         self,
         domain: str,
@@ -1311,17 +1307,17 @@ class Zeus(BaseGod):
     ) -> Optional[Dict]:
         """
         Route an event to the Lightning Kernel for cross-domain insight detection.
-        
+
         Returns the generated insight if one was triggered.
         """
         # Use getattr to handle case where lightning_kernel hasn't been initialized yet
         lightning_kernel = getattr(self, 'lightning_kernel', None)
         if not lightning_kernel:
             return None
-        
+
         try:
             from .lightning_kernel import DomainEvent
-            
+
             # Domain is now a dynamic string - no hardcoded enum mapping
             # This allows new domains to emerge from events
             event = DomainEvent(
@@ -1332,13 +1328,13 @@ class Zeus(BaseGod):
                 timestamp=datetime.now().timestamp(),
                 metadata=metadata or {},
             )
-            
+
             insight = lightning_kernel.ingest_event(event)
-            
+
             if insight:
                 return insight.to_dict()
             return None
-            
+
         except Exception as e:
             print(f"[Zeus] Lightning routing error: {e}")
             return None
@@ -1569,18 +1565,18 @@ class Zeus(BaseGod):
     ) -> Dict:
         """
         Report a discovery outcome to all gods for learning.
-        
-        Called when a balance hit is found (success=True) or 
+
+        Called when a balance hit is found (success=True) or
         a tested phrase fails (success=False).
-        
+
         This triggers reputation and skill updates for all gods
         based on their most recent assessments.
-        
+
         Args:
             target: The target (passphrase/address) that was tested
             success: Whether a balance was found
             details: Optional additional details (balance, address, etc.)
-            
+
         Returns:
             Summary of learning updates across gods
         """
@@ -1590,9 +1586,9 @@ class Zeus(BaseGod):
             'domain': 'bitcoin_recovery',
             **details
         }
-        
+
         learning_results = {}
-        
+
         for god_name, god in self.pantheon.items():
             try:
                 # Find the god's most recent assessment for this target
@@ -1605,11 +1601,11 @@ class Zeus(BaseGod):
                         if target[:500] in str(conv.get('timestamp', '')):
                             recent_assessment = assessments[god_name]
                             break
-                
+
                 # If no specific assessment found, use a neutral one
                 if not recent_assessment:
                     recent_assessment = {'probability': 0.5}
-                
+
                 # Trigger learning for this god
                 learning_result = god.learn_from_outcome(
                     target=target,
@@ -1617,26 +1613,26 @@ class Zeus(BaseGod):
                     actual_outcome=actual_outcome,
                     success=success
                 )
-                
+
                 learning_results[god_name] = learning_result
-                
+
                 # Also update reputation through peer communication
                 if success:
                     # Gods praise each other on success
                     self.pantheon_chat.broadcast(
                         from_god=god_name.capitalize(),
-                        content=f"Discovery validated! Target showed positive balance.",
+                        content="Discovery validated! Target showed positive balance.",
                         msg_type='discovery',
                         metadata={'target': target[:500], 'success': True}
                     )
-                    
+
             except Exception as e:
                 learning_results[god_name] = {'error': str(e)}
-        
+
         # Log the collective learning event
         print(f"[Zeus] Discovery outcome reported: success={success}, "
               f"gods_updated={len(learning_results)}")
-        
+
         return {
             'target': target[:500],
             'success': success,
@@ -1788,10 +1784,10 @@ def observe_endpoint():
 def report_outcome_endpoint():
     """
     Report a discovery outcome for learning.
-    
+
     Called when a balance hit is found or a phrase test fails.
     Updates god reputation and skills based on their assessments.
-    
+
     Request body:
         target: str - The passphrase/address that was tested
         success: bool - Whether a balance was found
@@ -1801,10 +1797,10 @@ def report_outcome_endpoint():
     target = data.get('target', '')
     success = data.get('success', False)
     details = data.get('details', {})
-    
+
     if not target:
         return jsonify({'error': 'target is required'}), 400
-    
+
     result = zeus.report_discovery_outcome(target, success, details)
     return jsonify(sanitize_for_json(result))
 
@@ -1838,10 +1834,10 @@ KAPPA_MAX = 95  # Breakdown threshold (high bound - overcoupled)
 def geometric_validate_input(text: str) -> Dict[str, Any]:
     """
     Observe geometric metrics for input - PURELY OBSERVATIONAL.
-    
+
     NO validation, NO blocking, NO judgments of validity.
     Values emerge from geometric observation, not bootstrapped thresholds.
-    
+
     Returns:
         Dict with phi, kappa, regime - for observation/learning only
     """
@@ -1911,7 +1907,7 @@ def zeus_chat_endpoint():
     - Maximum files per request (5)
     - Message length limits (10KB)
     - Conversation history limits (100 messages)
-    
+
     RELIABILITY:
     - Automatic retry for transient database connection errors (Neon SSL resets)
     - Up to 3 attempts with exponential backoff
@@ -1919,7 +1915,7 @@ def zeus_chat_endpoint():
     import time
     MAX_RETRIES = 3
     RETRY_DELAY_BASE = 0.5
-    
+
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -1933,7 +1929,7 @@ def zeus_chat_endpoint():
                 continue
             else:
                 raise
-    
+
     # If all retries failed, return error
     import traceback
     traceback.print_exc()
@@ -2037,7 +2033,7 @@ def _zeus_chat_inner():
         # Re-raise transient DB errors so outer retry wrapper can handle them
         if _is_transient_db_error(e):
             raise  # Let the retry wrapper handle this
-        
+
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -2066,7 +2062,7 @@ def zeus_session_messages_endpoint(session_id: str):
     try:
         handler = get_zeus_chat_handler()
         user_id = request.args.get('user_id', 'default')
-        
+
         if handler._conversation_persistence:
             messages, is_owned = handler._conversation_persistence.get_session_messages(
                 session_id, user_id=user_id
@@ -2075,7 +2071,7 @@ def zeus_session_messages_endpoint(session_id: str):
                 return jsonify({'error': 'Session not found or access denied', 'messages': []}), 404
         else:
             messages = []
-            
+
         return jsonify(sanitize_for_json({'messages': messages, 'session_id': session_id}))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -2153,15 +2149,15 @@ def zeus_memory_stats_endpoint():
 def zeus_search_feedback_endpoint():
     """
     Record feedback on search results for geometric learning.
-    
+
     NO keyword templates - all feedback encoded to 64D basin coordinates.
     Learning happens via Fisher-Rao distance similarity.
-    
+
     Request body:
         query: str - The original search query
         feedback: str - User's feedback on the results
         results_summary: str (optional) - Summary of the search results
-    
+
     Returns:
         Confirmation with geometric learning info
     """
@@ -2170,22 +2166,22 @@ def zeus_search_feedback_endpoint():
         query = data.get('query', '')
         feedback = data.get('feedback', '')
         results_summary = data.get('results_summary', '')
-        
+
         if not query or not feedback:
             return jsonify({
                 'error': 'query and feedback are required',
                 'hint': 'Provide the search query and your feedback on the results'
             }), 400
-        
+
         handler = get_zeus_chat_handler()
         result = handler.handle_search_feedback(
             query=query,
             feedback=feedback,
             results_summary=results_summary
         )
-        
+
         return jsonify(sanitize_for_json(result))
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -2200,13 +2196,13 @@ def zeus_search_feedback_endpoint():
 def zeus_search_confirm_endpoint():
     """
     Confirm whether a search strategy improvement worked.
-    
+
     This reinforces or penalizes the recent feedback via geometric basin updates.
-    
+
     Request body:
         query: str - The search query to confirm
         improved: bool - True if results improved, False if not
-    
+
     Returns:
         Confirmation with reinforcement outcome
     """
@@ -2214,21 +2210,21 @@ def zeus_search_confirm_endpoint():
         data = request.get_json() or {}
         query = data.get('query', '')
         improved = data.get('improved', True)
-        
+
         if not query:
             return jsonify({
                 'error': 'query is required',
                 'hint': 'Provide the search query you want to confirm'
             }), 400
-        
+
         handler = get_zeus_chat_handler()
         result = handler.confirm_search_improvement(
             query=query,
             improved=bool(improved)
         )
-        
+
         return jsonify(sanitize_for_json(result))
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -2243,7 +2239,7 @@ def zeus_search_confirm_endpoint():
 def zeus_search_learner_stats_endpoint():
     """
     Get statistics about the search strategy learner.
-    
+
     Returns information about:
     - Total feedback records stored
     - Total strategies applied
@@ -2262,17 +2258,17 @@ def zeus_search_learner_stats_endpoint():
 def zeus_search_learner_timeseries_endpoint():
     """
     Get time-series metrics for the effectiveness dashboard.
-    
+
     Query params:
         days: int - Number of days to include (default 30)
-    
+
     Returns:
         Array of daily metrics with date, record counts, quality, confirmations
     """
     try:
         days = request.args.get('days', 30, type=int)
         days = min(365, max(1, days))
-        
+
         handler = get_zeus_chat_handler()
         metrics = handler.strategy_learner.get_time_series_metrics(days=days)
         return jsonify(sanitize_for_json(metrics))
@@ -2286,27 +2282,27 @@ def zeus_search_learner_timeseries_endpoint():
 def zeus_search_learner_replay_endpoint():
     """
     Run a replay test comparing learning ON vs OFF.
-    
+
     Request body:
         query: str - The search query to test
-    
+
     Returns:
         Comparison of results with and without learned strategies
     """
     try:
         data = request.get_json() or {}
         query = data.get('query', '')
-        
+
         if not query:
             return jsonify({
                 'error': 'query is required',
                 'hint': 'Provide a search query to test'
             }), 400
-        
+
         handler = get_zeus_chat_handler()
         result = handler.strategy_learner.run_replay_test(query=query)
         return jsonify(sanitize_for_json(result))
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -2317,17 +2313,17 @@ def zeus_search_learner_replay_endpoint():
 def zeus_search_learner_replay_history_endpoint():
     """
     Get history of replay tests.
-    
+
     Query params:
         limit: int - Maximum number of results (default 20)
-    
+
     Returns:
         Array of past replay test results with improvement scores
     """
     try:
         limit = request.args.get('limit', 20, type=int)
         limit = min(100, max(1, limit))
-        
+
         handler = get_zeus_chat_handler()
         history = handler.strategy_learner.get_replay_history(limit=limit)
         return jsonify(sanitize_for_json(history))
@@ -2341,7 +2337,7 @@ def zeus_search_learner_replay_history_endpoint():
 def zeus_search_learner_auto_status_endpoint():
     """
     Get status of autonomous replay testing.
-    
+
     Returns:
         Status object with running state, metrics, and history summary
     """
@@ -2359,7 +2355,7 @@ def zeus_search_learner_auto_status_endpoint():
 def zeus_search_learner_auto_start_endpoint():
     """
     Start autonomous replay testing.
-    
+
     The tester will run sample queries periodically and measure
     learning improvement over time.
     """
@@ -2394,7 +2390,7 @@ def zeus_search_learner_auto_stop_endpoint():
 def zeus_search_learner_auto_run_single_endpoint():
     """
     Run a single autonomous test immediately.
-    
+
     Useful for on-demand testing without waiting for the periodic loop.
     """
     try:
@@ -2422,7 +2418,7 @@ def lightning_status_endpoint():
                 'error': 'Lightning Kernel not initialized',
                 'available': False
             }), 503
-        
+
         status = zeus.lightning_kernel.get_status()
         return jsonify(sanitize_for_json(status))
     except Exception as e:
@@ -2440,10 +2436,10 @@ def lightning_insights_endpoint():
                 'error': 'Lightning Kernel not initialized',
                 'insights': []
             }), 503
-        
+
         limit = request.args.get('limit', 20, type=int)
         limit = min(100, max(1, limit))
-        
+
         insights = zeus.lightning_kernel.insights[-limit:]
         return jsonify(sanitize_for_json({
             'insights': [i.to_dict() for i in insights],
@@ -2465,7 +2461,7 @@ def lightning_correlations_endpoint():
                 'error': 'Lightning Kernel not initialized',
                 'correlations': []
             }), 503
-        
+
         summary = zeus.lightning_kernel.get_correlation_summary()
         return jsonify(sanitize_for_json(summary))
     except Exception as e:
@@ -2483,7 +2479,7 @@ def lightning_trends_endpoint():
                 'error': 'Lightning Kernel not initialized',
                 'trends': {}
             }), 503
-        
+
         trends = zeus.lightning_kernel.get_all_trends()
         return jsonify(sanitize_for_json(trends))
     except Exception as e:
@@ -2496,14 +2492,14 @@ def lightning_trends_endpoint():
 def lightning_event_endpoint():
     """
     Submit an event to the Lightning Kernel for analysis.
-    
+
     Request body:
         domain: str - One of: activity, conversation, research, tool_factory, debates, blockchain, consciousness
         event_type: str - Type of event (e.g., 'near_miss', 'discovery', 'debate_start')
         content: str - Event content/description
         phi: float - Optional, Φ value at event time (default 0.5)
         metadata: dict - Optional additional metadata
-    
+
     Returns:
         insight if one was generated, otherwise acknowledgement
     """
@@ -2512,18 +2508,18 @@ def lightning_event_endpoint():
             return jsonify({
                 'error': 'Lightning Kernel not initialized'
             }), 503
-        
+
         data = request.get_json() or {}
-        
+
         domain = data.get('domain', 'activity')
         event_type = data.get('event_type', 'unknown')
         content = data.get('content', '')
         phi = data.get('phi', 0.5)
         metadata = data.get('metadata', {})
-        
+
         if not content:
             return jsonify({'error': 'content is required'}), 400
-        
+
         result = zeus._route_to_lightning(
             domain=domain,
             event_type=event_type,
@@ -2531,7 +2527,7 @@ def lightning_event_endpoint():
             metadata=metadata,
             phi=float(phi)
         )
-        
+
         if result:
             return jsonify(sanitize_for_json({
                 'insight_generated': True,
@@ -2543,7 +2539,7 @@ def lightning_event_endpoint():
                 'message': 'Event ingested, no insight triggered yet',
                 'events_processed': zeus.lightning_kernel.events_processed,
             })
-            
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -3457,7 +3453,7 @@ def zeus_tools_list_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'tools': [], 'count': 0, 'message': 'Tool factory not initialized'})
-        
+
         tools = tool_factory.list_tools()
         return jsonify(sanitize_for_json({
             'tools': tools,
@@ -3485,7 +3481,7 @@ def zeus_tools_stats_endpoint():
                 'pattern_observations': 0,
                 'message': 'Tool factory not initialized'
             })
-        
+
         stats = tool_factory.get_learning_stats()
         return jsonify(sanitize_for_json(stats))
     except Exception as e:
@@ -3499,21 +3495,21 @@ def zeus_tools_generate_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         description = data.get('description', '')
         examples = data.get('examples', [])
         name_hint = data.get('name_hint')
-        
+
         if not description:
             return jsonify({'error': 'description is required'}), 400
-        
+
         tool = tool_factory.generate_tool(
             description=description,
             examples=examples,
             name_hint=name_hint
         )
-        
+
         if tool:
             return jsonify(sanitize_for_json({
                 'success': tool.validated,
@@ -3537,15 +3533,15 @@ def zeus_tools_execute_endpoint(tool_id: str):
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         args = data.get('args', {})
-        
+
         if not args:
             return jsonify({'error': 'args is required'}), 400
-        
+
         success, result, error = tool_factory.execute_tool(tool_id, args)
-        
+
         return jsonify(sanitize_for_json({
             'success': success,
             'result': result,
@@ -3563,15 +3559,15 @@ def zeus_tools_rate_endpoint(tool_id: str):
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         rating = data.get('rating', 0.5)
-        
+
         if not isinstance(rating, (int, float)) or rating < 0 or rating > 1:
             return jsonify({'error': 'rating must be a number between 0 and 1'}), 400
-        
+
         tool_factory.rate_tool(tool_id, rating)
-        
+
         return jsonify({
             'success': True,
             'tool_id': tool_id,
@@ -3588,16 +3584,16 @@ def zeus_tools_observe_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         request_text = data.get('request', '')
         context = data.get('context', {})
-        
+
         if not request_text:
             return jsonify({'error': 'request is required'}), 400
-        
+
         candidates = tool_factory.observe_pattern(request_text, context)
-        
+
         return jsonify(sanitize_for_json({
             'observed': True,
             'total_observations': len(tool_factory.pattern_observations),
@@ -3614,15 +3610,15 @@ def zeus_tools_find_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         task_description = data.get('task', '')
-        
+
         if not task_description:
             return jsonify({'error': 'task description is required'}), 400
-        
+
         tool = tool_factory.find_tool_for_task(task_description)
-        
+
         if tool:
             return jsonify(sanitize_for_json({
                 'found': True,
@@ -3652,23 +3648,23 @@ def zeus_tools_learn_template_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         description = data.get('description', '')
         code = data.get('code', '')
         input_signature = data.get('input_signature', {'text': 'str'})
         output_type = data.get('output_type', 'Any')
-        
+
         if not description or not code:
             return jsonify({'error': 'description and code are required'}), 400
-        
+
         pattern = tool_factory.learn_from_user_template(
             description=description,
             code=code,
             input_signature=input_signature,
             output_type=output_type
         )
-        
+
         return jsonify(sanitize_for_json({
             'success': True,
             'pattern': pattern.to_dict(),
@@ -3688,21 +3684,21 @@ def zeus_tools_learn_git_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         git_url = data.get('url', '')
         description = data.get('description', 'Git repository patterns')
         secret_key_name = data.get('secret_key_name')  # e.g., 'GITHUB_TOKEN'
-        
+
         if not git_url:
             return jsonify({'error': 'url is required'}), 400
-        
+
         # Validate it looks like a git URL
         if not any(host in git_url for host in ['github.com', 'gitlab.com', 'bitbucket.org', 'git://', '.git']):
             return jsonify({'error': 'Invalid git URL format'}), 400
-        
+
         tool_factory.learn_from_git_link(git_url, description, secret_key_name)
-        
+
         return jsonify({
             'success': True,
             'url': git_url,
@@ -3723,9 +3719,9 @@ def zeus_tools_git_queue_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         queue = tool_factory.get_git_queue_status()
-        
+
         return jsonify({
             'queue': queue,
             'total': len(queue),
@@ -3746,9 +3742,9 @@ def zeus_tools_git_queue_clear_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         tool_factory.clear_completed_git_items()
-        
+
         return jsonify({
             'success': True,
             'message': 'Completed and failed items cleared from queue'
@@ -3767,17 +3763,17 @@ def zeus_tools_learn_file_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         filename = data.get('filename', 'uploaded.py')
         content = data.get('content', '')
         description = data.get('description', f'Patterns from {filename}')
-        
+
         if not content:
             return jsonify({'error': 'content is required'}), 400
-        
+
         pattern = tool_factory.learn_from_file_upload(filename, content, description)
-        
+
         if pattern:
             return jsonify(sanitize_for_json({
                 'success': True,
@@ -3804,15 +3800,15 @@ def zeus_tools_proactive_search_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'error': 'Tool factory not initialized'}), 500
-        
+
         data = request.get_json() or {}
         topic = data.get('topic', '')
-        
+
         if not topic:
             return jsonify({'error': 'topic is required'}), 400
-        
+
         results = tool_factory.proactive_search(topic)
-        
+
         return jsonify({
             'success': True,
             'topic': topic,
@@ -3828,12 +3824,12 @@ def zeus_tools_proactive_search_endpoint():
 def zeus_tools_patterns_endpoint():
     """
     List all learned patterns with QIG geometric metrics.
-    
+
     Returns patterns with:
     - 64D basin coordinates for geometric positioning
     - Consciousness metrics (Φ, κ)
     - Optional Fisher-Rao similarity when ?reference= query param provided
-    
+
     Query params:
     - reference: Optional text to compute Fisher-Rao similarity scores against
     - include_basin: If 'false', excludes basin_coords array (smaller response)
@@ -3842,19 +3838,19 @@ def zeus_tools_patterns_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'patterns': [], 'count': 0, 'qig_metrics': False})
-        
+
         reference = request.args.get('reference')
         include_basin = request.args.get('include_basin', 'true').lower() != 'false'
-        
+
         if reference:
             patterns = tool_factory.get_patterns(include_similarity=True, reference_text=reference)
         else:
             patterns = tool_factory.get_patterns(include_similarity=False)
-        
+
         if not include_basin:
             for p in patterns:
                 p.pop('basin_coords', None)
-        
+
         return jsonify(sanitize_for_json({
             'patterns': patterns,
             'count': len(patterns),
@@ -3870,12 +3866,12 @@ def zeus_tools_patterns_endpoint():
 def zeus_tools_match_patterns_endpoint():
     """
     Find patterns that match a description using Fisher-Rao geodesic distance.
-    
+
     Uses QIG geometric matching:
     - Encodes description into 64D basin coordinates
     - Computes Fisher-Rao distance to all patterns
     - Returns top-k closest patterns on the manifold
-    
+
     Request body:
     - description: Text to match against patterns
     - top_k: Number of patterns to return (default 5)
@@ -3884,21 +3880,21 @@ def zeus_tools_match_patterns_endpoint():
         tool_factory = getattr(zeus, 'tool_factory', None)
         if not tool_factory:
             return jsonify({'patterns': [], 'count': 0, 'qig_metrics': False})
-        
+
         data = request.get_json() or {}
         description = data.get('description', '')
         top_k = data.get('top_k', 5)
-        
+
         if not description:
             return jsonify({'error': 'description is required'}), 400
-        
+
         matching = tool_factory.find_matching_patterns(description, top_k)
-        
+
         patterns_with_metrics = []
         for p in matching:
             p_dict = p.to_dict(include_qig_metrics=True)
             patterns_with_metrics.append(p_dict)
-        
+
         return jsonify(sanitize_for_json({
             'patterns': patterns_with_metrics,
             'count': len(patterns_with_metrics),
@@ -3978,23 +3974,23 @@ def zeus_tools_pipeline_request_endpoint():
         pipeline = AutonomousToolPipeline.get_instance()
         if not pipeline:
             return jsonify({'success': False, 'error': 'Pipeline not initialized'}), 500
-        
+
         data = request.get_json() or {}
         description = data.get('description', '')
         requester = data.get('requester', 'user')
         examples = data.get('examples', [])
         context = data.get('context', {})
-        
+
         if not description:
             return jsonify({'success': False, 'error': 'description is required'}), 400
-        
+
         request_id = pipeline.request_tool(
             description=description,
             requester=requester,
             examples=examples,
             context=context
         )
-        
+
         return jsonify(sanitize_for_json({
             'success': True,
             'request_id': request_id,
@@ -4013,11 +4009,11 @@ def zeus_tools_pipeline_request_status_endpoint(request_id):
         pipeline = AutonomousToolPipeline.get_instance()
         if not pipeline:
             return jsonify({'error': 'Pipeline not initialized'}), 500
-        
+
         status = pipeline.get_request_status(request_id)
         if not status:
             return jsonify({'error': 'Request not found'}), 404
-        
+
         return jsonify(sanitize_for_json(status))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -4031,21 +4027,21 @@ def zeus_tools_pipeline_invent_endpoint():
         pipeline = AutonomousToolPipeline.get_instance()
         if not pipeline:
             return jsonify({'success': False, 'error': 'Pipeline not initialized'}), 500
-        
+
         data = request.get_json() or {}
         concept = data.get('concept', '')
         requester = data.get('requester', 'user')
         inspiration = data.get('inspiration')
-        
+
         if not concept:
             return jsonify({'success': False, 'error': 'concept is required'}), 400
-        
+
         request_id = pipeline.invent_new_tool(
             concept=concept,
             requester=requester,
             inspiration=inspiration
         )
-        
+
         return jsonify(sanitize_for_json({
             'success': True,
             'request_id': request_id,
@@ -4067,15 +4063,15 @@ def hypothesis_feedback_endpoint():
     """
     try:
         from .hypothesis_emitter import register_balance_hit
-        
+
         data = request.get_json() or {}
         phrase = data.get('phrase', '')
         phi = float(data.get('phi', 0.9))
         is_mnemonic = bool(data.get('is_mnemonic', False))
-        
+
         if not phrase:
             return jsonify({'success': False, 'error': 'phrase is required'}), 400
-        
+
         result = register_balance_hit(phrase, phi, is_mnemonic)
         return jsonify({'success': True, **result})
     except Exception as e:

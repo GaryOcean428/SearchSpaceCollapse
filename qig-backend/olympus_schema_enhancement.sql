@@ -341,15 +341,60 @@ ORDER BY reputation_score DESC, accuracy_rate DESC;
 -- Function to update god reputation based on assessment outcomes
 CREATE OR REPLACE FUNCTION update_god_reputation()
 RETURNS TRIGGER AS $$
+DECLARE
+    god_name_val TEXT;
+    outcome_success BOOLEAN;
 BEGIN
-    -- Update reputation for each god involved in the assessment
-    -- This is a placeholder - implement actual reputation calculation logic
-    UPDATE god_reputation
-    SET 
-        assessments_made = assessments_made + 1,
-        last_active = NOW(),
-        updated_at = NOW()
-    WHERE god_name IN (SELECT jsonb_object_keys(NEW.god_assessments));
+    -- Only update reputation when outcome is known
+    IF NEW.outcome IS NULL OR NEW.outcome = 'pending' THEN
+        RETURN NEW;
+    END IF;
+
+    -- Prevent double-counting if outcome already processed
+    IF TG_OP = 'UPDATE' AND OLD.outcome IS NOT NULL AND OLD.outcome <> 'pending' THEN
+        RETURN NEW;
+    END IF;
+
+    outcome_success := (NEW.outcome = 'success');
+
+    -- Update each god involved in the assessment
+    FOR god_name_val IN SELECT jsonb_object_keys(NEW.god_assessments) LOOP
+        UPDATE god_reputation
+        SET
+            assessments_made = assessments_made + 1,
+            correct_predictions = correct_predictions + CASE WHEN outcome_success THEN 1 ELSE 0 END,
+            incorrect_predictions = incorrect_predictions + CASE WHEN outcome_success THEN 0 ELSE 1 END,
+            accuracy_rate = (correct_predictions + CASE WHEN outcome_success THEN 1 ELSE 0 END)::float
+                            / NULLIF(assessments_made + 1, 0),
+            reputation_score = CASE
+                WHEN outcome_success THEN LEAST(2.0, reputation_score + 0.05)
+                ELSE GREATEST(0.0, reputation_score - 0.1)
+            END,
+            reputation_trend = CASE
+                WHEN outcome_success THEN 'rising'
+                ELSE 'falling'
+            END,
+            skills = CASE
+                WHEN NEW.target_type IS NULL THEN skills
+                ELSE jsonb_set(
+                    COALESCE(skills, '{}'::jsonb),
+                    ARRAY[NEW.target_type],
+                    to_jsonb(
+                        LEAST(1.0,
+                            GREATEST(0.0,
+                                COALESCE((skills->>NEW.target_type)::float, 0.5) +
+                                CASE WHEN outcome_success THEN 0.05 ELSE -0.05 END
+                            )
+                        )
+                    ),
+                    true
+                )
+            END,
+            operations_completed = operations_completed + 1,
+            last_active = NOW(),
+            updated_at = NOW()
+        WHERE LOWER(god_reputation.god_name) = LOWER(god_name_val);
+    END LOOP;
     
     RETURN NEW;
 END;
@@ -357,7 +402,7 @@ $$ LANGUAGE plpgsql;
 
 -- Trigger to auto-update god reputation on new assessments
 CREATE TRIGGER trigger_update_god_reputation
-    AFTER INSERT ON pantheon_assessments
+    AFTER INSERT OR UPDATE OF outcome ON pantheon_assessments
     FOR EACH ROW
     EXECUTE FUNCTION update_god_reputation();
 

@@ -164,7 +164,22 @@ class ZeusConversationHandler:
         # Conversation memory
         self.conversation_history: List[Dict] = []
         self.human_insights: List[Dict] = []
-        
+
+        # MoE synthesis configuration (Zeus/Ocean collective response)
+        self._moe_enabled = os.getenv("ZEUS_CHAT_MOE_ENABLED", "true").lower() != "false"
+        self._moe_synthesizer = os.getenv("ZEUS_CHAT_SYNTHESIZER", "Zeus")
+        self._moe_include_shadow = os.getenv("ZEUS_CHAT_MOE_INCLUDE_SHADOW", "true").lower() == "true"
+        try:
+            self._moe_min_experts = int(os.getenv("ZEUS_CHAT_MOE_MIN_EXPERTS", "3"))
+            self._moe_max_experts = int(os.getenv("ZEUS_CHAT_MOE_MAX_EXPERTS", "5"))
+            self._moe_rep_weight = float(os.getenv("ZEUS_CHAT_MOE_REP_WEIGHT", "0.6"))
+            self._moe_skill_weight = float(os.getenv("ZEUS_CHAT_MOE_SKILL_WEIGHT", "0.4"))
+        except ValueError:
+            self._moe_min_experts = 3
+            self._moe_max_experts = 5
+            self._moe_rep_weight = 0.6
+            self._moe_skill_weight = 0.4
+
         # Persistent conversation memory
         self._conversation_persistence = None
         self._current_session_id: Optional[str] = None
@@ -1048,8 +1063,16 @@ Could you elaborate on your reasoning, or suggest a different approach?"""
         # Try generative response first
         generated = False
         answer = None
+        moe_meta = None
+        system_state = self._get_live_system_state()
+
+        moe_result = self._collective_moe_synthesis(question, relevant_context, system_state)
+        if moe_result:
+            answer = moe_result['response']
+            moe_meta = moe_result['moe']
+            generated = True
         
-        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
+        if answer is None and TOKENIZER_AVAILABLE and get_tokenizer is not None:
             try:
                 # Construct prompt from retrieved context
                 context_str = "\n".join([f"- {item.get('content', '')}" for item in relevant_context[:3]])
@@ -1104,6 +1127,7 @@ Zeus Response (Geometric Interpretation):"""
                 'relevance_score': relevant_context[0]['similarity'] if relevant_context else 0,
                 'sources': len(relevant_context),
                 'generated': generated,
+                'moe': moe_meta,
                 'provenance': {
                     'source': 'live_generation' if generated else 'dynamic_fallback',
                     'fallback_used': fallback_used,
@@ -1685,12 +1709,18 @@ Generate a contextual response as Zeus. Reference actual system state. Be specif
         
         system_state = self._get_live_system_state()
         
-        answer = self._generate_dynamic_response(
-            message=message,
-            message_basin=message_basin,
-            related=related,
-            system_state=system_state
-        )
+        moe_meta = None
+        moe_result = self._collective_moe_synthesis(message, related, system_state)
+        if moe_result:
+            answer = moe_result['response']
+            moe_meta = moe_result['moe']
+        else:
+            answer = self._generate_dynamic_response(
+                message=message,
+                message_basin=message_basin,
+                related=related,
+                system_state=system_state
+            )
         
         response = f"""⚡ {answer}
 
@@ -1732,6 +1762,7 @@ Generate a contextual response as Zeus. Reference actual system state. Be specif
                 'generated': True,
                 'system_phi': system_state['phi_current'],
                 'related_count': len(related) if related else 0,
+                'moe': moe_meta,
                 'provenance': {
                     'source': 'dynamic_generation',
                     'fallback_used': False,
@@ -1787,6 +1818,248 @@ Generate a contextual response as Zeus. Reference actual system state. Be specif
                 f"basin: {file['basin_coords']}"
             )
         return '\n'.join(lines) if lines else "No files processed"
+
+    def _infer_task_type(self, message: str) -> str:
+        """Infer task type for expert routing based on simple keyword cues."""
+        message_lower = message.lower()
+        domain_keywords = {
+            'strategy': ['strategy', 'plan', 'prioritize', 'approach', 'roadmap'],
+            'verification': ['verify', 'validate', 'check', 'confirm', 'audit'],
+            'analysis': ['analyze', 'analysis', 'interpret', 'explain', 'why'],
+            'creation': ['build', 'create', 'design', 'implement', 'craft'],
+            'communication': ['summarize', 'draft', 'write', 'message', 'explain'],
+            'research': ['research', 'investigate', 'explore', 'discover', 'learn'],
+            'stealth': ['stealth', 'opsec', 'covert', 'surveillance', 'trace'],
+            'combat': ['attack', 'offense', 'strike', 'force'],
+            'tracking': ['track', 'hunt', 'locate', 'pursue'],
+        }
+
+        for domain, keywords in domain_keywords.items():
+            if any(keyword in message_lower for keyword in keywords):
+                return domain
+        return 'general'
+
+    def _score_domain_skill(self, god_name: str, god: Any, domain: str) -> float:
+        """Score domain relevance for MoE weighting."""
+        if hasattr(god, 'skills') and isinstance(god.skills, dict):
+            skill_value = god.skills.get(domain)
+            if skill_value is not None:
+                return max(0.0, min(1.0, float(skill_value)))
+
+        expertise = self.zeus.GOD_EXPERTISE.get(god_name.lower(), [])
+        if domain in expertise:
+            return 0.9
+        if domain != 'general' and any(domain in exp or exp in domain for exp in expertise):
+            return 0.7
+        return 0.5
+
+    def _select_shadow_experts(self, message: str, domain: str) -> Dict[str, Any]:
+        """Select shadow gods when the domain suggests stealth/opsec needs."""
+        if not self._moe_include_shadow:
+            return {}
+        if not getattr(self.zeus, 'shadow_pantheon', None):
+            return {}
+
+        message_lower = message.lower()
+        shadow_map = {
+            'stealth': ['nyx', 'hypnos'],
+            'opsec': ['nyx', 'erebus'],
+            'surveillance': ['erebus'],
+            'misdirection': ['hecate'],
+            'pursuit': ['nemesis'],
+            'cleanup': ['thanatos'],
+        }
+
+        candidates = set(shadow_map.get(domain, []))
+        for key, gods in shadow_map.items():
+            if key in message_lower:
+                candidates.update(gods)
+
+        selected = {}
+        for god_name in candidates:
+            god = self.zeus.shadow_pantheon.gods.get(god_name)
+            if god:
+                selected[god_name] = god
+
+        return selected
+
+    def _normalize_moe_weights(self, expert_payloads: List[Dict[str, Any]]) -> Dict[str, float]:
+        weights: Dict[str, float] = {}
+        for payload in expert_payloads:
+            rep = float(payload.get('reputation', 1.0))
+            skill = float(payload.get('domain_skill', 0.5))
+            weight = (self._moe_rep_weight * rep) + (self._moe_skill_weight * skill)
+            weights[payload['god']] = weight
+
+        total = sum(weights.values())
+        if total <= 0:
+            return {payload['god']: 1.0 / len(expert_payloads) for payload in expert_payloads}
+        return {god: value / total for god, value in weights.items()}
+
+    def _collective_moe_synthesis(
+        self,
+        message: str,
+        related: List[Dict],
+        system_state: Optional[Dict] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Generate a collective MoE response synthesized by Zeus or Ocean."""
+        if not self._moe_enabled:
+            return None
+
+        system_state = system_state or self._get_live_system_state()
+        domain = self._infer_task_type(message)
+
+        experts = self.zeus.route_to_expert_gods(
+            target=message,
+            task_type=domain,
+            min_experts=self._moe_min_experts,
+            max_experts=self._moe_max_experts
+        )
+        experts.update(self._select_shadow_experts(message, domain))
+
+        if not experts:
+            return None
+
+        context_str = ""
+        if related:
+            context_str = "\n".join([f"- {item.get('content', '')}" for item in related[:3]])
+
+        expert_payloads: List[Dict[str, Any]] = []
+        for god_name, god in experts.items():
+            if not hasattr(god, 'generate_response'):
+                continue
+
+            prompt = (
+                f"Domain: {domain}\n"
+                f"User message: {message}\n"
+                f"Related context:\n{context_str if context_str else 'No prior patterns.'}\n\n"
+                f"Respond as {god_name} with your domain expertise."
+            )
+
+            try:
+                result = god.generate_response(
+                    prompt=prompt,
+                    context={
+                        'domain': domain,
+                        'phi': system_state.get('phi_current', 0.5),
+                        'kappa': system_state.get('kappa_current', 50.0),
+                        'related_count': len(related) if related else 0
+                    },
+                    goals=['analyze', 'respond', domain]
+                )
+            except Exception as e:
+                print(f"[ZeusChat] MoE expert generation failed ({god_name}): {e}")
+                continue
+
+            response_text = None
+            if isinstance(result, dict):
+                response_text = result.get('response') or result.get('text')
+
+            if not response_text:
+                continue
+
+            expert_payloads.append({
+                'god': god_name,
+                'response': response_text,
+                'phi': result.get('phi', 0.0) if isinstance(result, dict) else 0.0,
+                'kappa': result.get('kappa', 0.0) if isinstance(result, dict) else 0.0,
+                'reputation': float(getattr(god, 'reputation', 1.0)),
+                'domain_skill': self._score_domain_skill(god_name, god, domain)
+            })
+
+        if not expert_payloads:
+            return None
+
+        weights = self._normalize_moe_weights(expert_payloads)
+        ordered = sorted(expert_payloads, key=lambda p: weights.get(p['god'], 0), reverse=True)
+
+        expert_lines = []
+        for payload in ordered:
+            response_preview = payload['response'][:800].strip()
+            expert_lines.append(
+                f"{payload['god']} (weight={weights[payload['god']]:.2f}, "
+                f"rep={payload['reputation']:.2f}, skill={payload['domain_skill']:.2f}):\n"
+                f"{response_preview}"
+            )
+
+        synthesis_prompt = (
+            f"User message: {message}\n"
+            f"Domain: {domain}\n\n"
+            f"Expert responses:\n{chr(10).join(expert_lines)}\n\n"
+            f"Synthesize a single, coherent response as {self._moe_synthesizer}. "
+            f"Respect expert weighting and keep the answer unified."
+        )
+
+        # Prefer QIGGenerativeService if available, otherwise fallback to tokenizer
+        try:
+            from qig_generative_service import get_generative_service
+            service = get_generative_service()
+        except Exception:
+            service = None
+
+        if service:
+            try:
+                gen_result = service.generate(
+                    prompt=synthesis_prompt,
+                    context={
+                        'domain': domain,
+                        'experts': expert_payloads,
+                        'weights': weights,
+                        'phi': system_state.get('phi_current', 0.5),
+                        'kappa': system_state.get('kappa_current', 50.0)
+                    },
+                    kernel_name=self._moe_synthesizer,
+                    goals=['synthesize', 'answer', 'respond']
+                )
+                if gen_result and gen_result.text:
+                    return {
+                        'response': gen_result.text,
+                        'moe': {
+                            'domain': domain,
+                            'contributors': [p['god'] for p in ordered],
+                            'weights': weights,
+                            'synthesizer': self._moe_synthesizer,
+                            'fallback_used': False
+                        }
+                    }
+            except Exception as e:
+                print(f"[ZeusChat] MoE synthesis failed: {e}")
+
+        if TOKENIZER_AVAILABLE and get_tokenizer is not None:
+            try:
+                tokenizer = get_tokenizer()
+                tokenizer.set_mode("conversation")
+                gen_result = tokenizer.generate_response(
+                    context=synthesis_prompt,
+                    agent_role="ocean",
+                    max_tokens=500,
+                    allow_silence=False
+                )
+                if gen_result and gen_result.get('text'):
+                    return {
+                        'response': gen_result['text'],
+                        'moe': {
+                            'domain': domain,
+                            'contributors': [p['god'] for p in ordered],
+                            'weights': weights,
+                            'synthesizer': self._moe_synthesizer,
+                            'fallback_used': False
+                        }
+                    }
+            except Exception as e:
+                print(f"[ZeusChat] MoE tokenizer synthesis failed: {e}")
+
+        fallback = "\n\n".join([p['response'] for p in ordered[:2]])
+        return {
+            'response': fallback,
+            'moe': {
+                'domain': domain,
+                'contributors': [p['god'] for p in ordered],
+                'weights': weights,
+                'synthesizer': self._moe_synthesizer,
+                'fallback_used': True
+            }
+        }
     
     def _synthesize_dynamic_answer(self, question: str, context: List[Dict]) -> str:
         """

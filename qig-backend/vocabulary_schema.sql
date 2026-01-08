@@ -122,7 +122,7 @@ BEGIN
         p_word, p_phrase, p_phi, p_kappa, p_source, p_type,
         p_basin_coords, p_contexts, NOW(), p_cycle_number
     );
-    
+
     -- Update learned_words table
     INSERT INTO learned_words (word, frequency, avg_phi, max_phi, source, last_seen)
     VALUES (p_word, 1, p_phi, p_phi, p_source, NOW())
@@ -168,7 +168,7 @@ BEGIN
     SELECT COUNT(*) INTO v_high_phi FROM learned_words WHERE avg_phi >= 0.7;
     SELECT COUNT(*) INTO v_merges FROM bpe_merge_rules;
     v_total := v_bip39 + v_learned;
-    
+
     INSERT INTO vocabulary_stats (total_words, bip39_words, learned_words, high_phi_words, merge_rules)
     VALUES (v_total, v_bip39, v_learned, v_high_phi, v_merges);
 END;
