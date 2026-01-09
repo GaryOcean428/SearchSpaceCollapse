@@ -90,7 +90,7 @@ class ChaosLogger:
         except Exception as e:
             print(f"[ChaosLogger] DB write failed: {e}")
 
-    def log_spawn(self, parent_id: Optional[str], child_id: str, reason: str):
+    def log_spawn(self, parent_id: Optional[str], child_id: str, reason: str, phi: Optional[float] = None):
         """Log kernel spawn event."""
         event = {
             'type': 'spawn',
@@ -99,6 +99,8 @@ class ChaosLogger:
             'reason': reason,
             'timestamp': datetime.now().isoformat(),
         }
+        if phi is not None:
+            event['phi'] = phi
 
         self.spawns.append(event)
         self.experiments.append(event)
