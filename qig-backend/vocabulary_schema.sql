@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS bip39_words (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_bip39_word ON bip39_words(word);
-CREATE INDEX idx_bip39_phi ON bip39_words(avg_phi DESC);
+CREATE INDEX IF NOT EXISTS idx_bip39_word ON bip39_words(word);
+CREATE INDEX IF NOT EXISTS idx_bip39_phi ON bip39_words(avg_phi DESC);
 
 -- Learned Vocabulary (grows on the fly)
 CREATE TABLE IF NOT EXISTS learned_words (
@@ -33,27 +33,50 @@ CREATE TABLE IF NOT EXISTS learned_words (
     is_integrated BOOLEAN DEFAULT FALSE  -- Whether word is integrated into tokenizer
 );
 
-CREATE INDEX idx_learned_word ON learned_words(word);
-CREATE INDEX idx_learned_phi ON learned_words(avg_phi DESC);
-CREATE INDEX idx_learned_source ON learned_words(source);
-CREATE INDEX idx_learned_integrated ON learned_words(is_integrated);
+-- Add is_integrated column if it doesn't exist (migration for existing tables)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'learned_words' AND column_name = 'is_integrated') THEN
+        ALTER TABLE learned_words ADD COLUMN is_integrated BOOLEAN DEFAULT FALSE;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_learned_word ON learned_words(word);
+CREATE INDEX IF NOT EXISTS idx_learned_phi ON learned_words(avg_phi DESC);
+CREATE INDEX IF NOT EXISTS idx_learned_source ON learned_words(source);
+CREATE INDEX IF NOT EXISTS idx_learned_integrated ON learned_words(is_integrated);
 
 -- Vocabulary Observations (raw observations before aggregation)
+-- NOTE: This is the canonical schema. Column names align with Python code and SQL functions.
 CREATE TABLE IF NOT EXISTS vocabulary_observations (
-    id SERIAL PRIMARY KEY,
-    word TEXT NOT NULL,
-    phrase TEXT NOT NULL,  -- Full phrase containing the word
-    phi REAL NOT NULL,
-    kappa REAL,
-    source TEXT NOT NULL,  -- 'zeus', 'athena', 'ocean', 'user', etc.
-    observation_type TEXT NOT NULL,  -- 'word', 'sequence', 'pattern'
-    timestamp TIMESTAMP DEFAULT NOW()
+    id TEXT PRIMARY KEY DEFAULT ('vo_' || gen_random_uuid()::TEXT),
+    text TEXT UNIQUE NOT NULL,  -- The word/token itself
+    type TEXT DEFAULT 'word',  -- 'word', 'phrase', 'sequence', 'pattern'
+    phrase_category TEXT DEFAULT 'unknown',  -- Category for phrases
+    is_real_word BOOLEAN DEFAULT NULL,  -- NULL = needs validation, TRUE/FALSE = validated
+    frequency INT DEFAULT 1,
+    avg_phi REAL DEFAULT 0.5,
+    max_phi REAL DEFAULT 0.5,
+    efficiency_gain REAL DEFAULT 0.0,  -- Learning efficiency metric
+    contexts TEXT[],  -- Sample phrases containing this word
+    first_seen TIMESTAMP DEFAULT NOW(),
+    last_seen TIMESTAMP DEFAULT NOW(),
+    is_integrated BOOLEAN DEFAULT FALSE,  -- Whether integrated into tokenizer
+    integrated_at TIMESTAMP,
+    basin_coords vector(64),  -- 64D basin coordinates (requires pgvector)
+    source_type TEXT DEFAULT 'unknown',  -- 'kernel', 'zeus', 'athena', 'conversation', etc.
+    cycle_number INT  -- Training cycle when observed
 );
 
-CREATE INDEX idx_vocab_obs_word ON vocabulary_observations(word);
-CREATE INDEX idx_vocab_obs_phi ON vocabulary_observations(phi DESC);
-CREATE INDEX idx_vocab_obs_source ON vocabulary_observations(source);
-CREATE INDEX idx_vocab_obs_timestamp ON vocabulary_observations(timestamp DESC);
+-- Indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_vocab_obs_text ON vocabulary_observations(text);
+CREATE INDEX IF NOT EXISTS idx_vocab_obs_avg_phi ON vocabulary_observations(avg_phi DESC);
+CREATE INDEX IF NOT EXISTS idx_vocab_obs_max_phi ON vocabulary_observations(max_phi DESC);
+CREATE INDEX IF NOT EXISTS idx_vocab_obs_source_type ON vocabulary_observations(source_type);
+CREATE INDEX IF NOT EXISTS idx_vocab_obs_integrated ON vocabulary_observations(is_integrated);
+CREATE INDEX IF NOT EXISTS idx_vocab_obs_first_seen ON vocabulary_observations(first_seen DESC);
+CREATE INDEX IF NOT EXISTS idx_vocab_obs_basin ON vocabulary_observations USING ivfflat (basin_coords vector_cosine_ops);
 
 -- BPE Merge Rules (learned patterns)
 CREATE TABLE IF NOT EXISTS bpe_merge_rules (
@@ -68,8 +91,8 @@ CREATE TABLE IF NOT EXISTS bpe_merge_rules (
     UNIQUE(token_a, token_b)
 );
 
-CREATE INDEX idx_merge_phi ON bpe_merge_rules(phi_score DESC);
-CREATE INDEX idx_merge_tokens ON bpe_merge_rules(token_a, token_b);
+CREATE INDEX IF NOT EXISTS idx_merge_phi ON bpe_merge_rules(phi_score DESC);
+CREATE INDEX IF NOT EXISTS idx_merge_tokens ON bpe_merge_rules(token_a, token_b);
 
 -- God Vocabulary Profiles (each god's specialized vocabulary)
 CREATE TABLE IF NOT EXISTS god_vocabulary_profiles (
@@ -82,8 +105,8 @@ CREATE TABLE IF NOT EXISTS god_vocabulary_profiles (
     UNIQUE(god_name, word)
 );
 
-CREATE INDEX idx_god_vocab_name ON god_vocabulary_profiles(god_name);
-CREATE INDEX idx_god_vocab_relevance ON god_vocabulary_profiles(relevance_score DESC);
+CREATE INDEX IF NOT EXISTS idx_god_vocab_name ON god_vocabulary_profiles(god_name);
+CREATE INDEX IF NOT EXISTS idx_god_vocab_relevance ON god_vocabulary_profiles(relevance_score DESC);
 
 -- Vocabulary Stats (aggregate metrics)
 CREATE TABLE IF NOT EXISTS vocabulary_stats (
@@ -103,34 +126,58 @@ CREATE TABLE IF NOT EXISTS vocabulary_stats (
 
 -- Function to record vocabulary observation
 CREATE OR REPLACE FUNCTION record_vocab_observation(
-    p_word TEXT,
-    p_phrase TEXT,
-    p_phi REAL,
-    p_kappa REAL,
-    p_source TEXT,
-    p_type TEXT,
+    p_text TEXT,
+    p_type TEXT DEFAULT 'word',
+    p_phi REAL DEFAULT 0.0,
+    p_source_type TEXT DEFAULT 'kernel',
     p_basin_coords vector DEFAULT NULL,
-    p_contexts JSONB DEFAULT NULL,
-    p_cycle_number INT DEFAULT NULL
+    p_contexts TEXT[] DEFAULT NULL,
+    p_cycle_number INT DEFAULT NULL,
+    p_is_real_word BOOLEAN DEFAULT NULL,
+    p_phrase_category TEXT DEFAULT 'unknown'
 ) RETURNS VOID AS $$
+DECLARE
+    v_phi_safe REAL;
 BEGIN
+    -- Ensure phi is never 0 (causes max_phi to stay 0 forever)
+    v_phi_safe := GREATEST(p_phi, 0.5);
+
     INSERT INTO vocabulary_observations (
-        word, phrase, phi, kappa, source, observation_type,
-        basin_coords, contexts, integrated_at, cycle_number
+        text, type, avg_phi, max_phi, source_type,
+        basin_coords, contexts, cycle_number,
+        is_real_word, phrase_category, frequency,
+        first_seen, last_seen, is_integrated, integrated_at
     )
     VALUES (
-        p_word, p_phrase, p_phi, p_kappa, p_source, p_type,
-        p_basin_coords, p_contexts, NOW(), p_cycle_number
-    );
+        p_text, p_type, v_phi_safe, v_phi_safe, p_source_type,
+        p_basin_coords, p_contexts, p_cycle_number,
+        p_is_real_word, p_phrase_category, 1,
+        NOW(), NOW(), (p_cycle_number IS NOT NULL),
+        CASE WHEN p_cycle_number IS NOT NULL THEN NOW() ELSE NULL END
+    )
+    ON CONFLICT (text) DO UPDATE SET
+        frequency = vocabulary_observations.frequency + 1,
+        avg_phi = (vocabulary_observations.avg_phi * vocabulary_observations.frequency + v_phi_safe) / (vocabulary_observations.frequency + 1),
+        max_phi = GREATEST(vocabulary_observations.max_phi, v_phi_safe),
+        last_seen = NOW(),
+        basin_coords = COALESCE(EXCLUDED.basin_coords, vocabulary_observations.basin_coords),
+        contexts = COALESCE(EXCLUDED.contexts, vocabulary_observations.contexts),
+        cycle_number = COALESCE(EXCLUDED.cycle_number, vocabulary_observations.cycle_number),
+        is_real_word = COALESCE(EXCLUDED.is_real_word, vocabulary_observations.is_real_word),
+        phrase_category = COALESCE(EXCLUDED.phrase_category, vocabulary_observations.phrase_category);
 
-    -- Update learned_words table
+    -- Update learned_words table (if it exists - legacy table)
     INSERT INTO learned_words (word, frequency, avg_phi, max_phi, source, last_seen)
-    VALUES (p_word, 1, p_phi, p_phi, p_source, NOW())
+    VALUES (p_text, 1, v_phi_safe, v_phi_safe, p_source_type, NOW())
     ON CONFLICT (word) DO UPDATE SET
         frequency = learned_words.frequency + 1,
-        avg_phi = (learned_words.avg_phi * learned_words.frequency + p_phi) / (learned_words.frequency + 1),
-        max_phi = GREATEST(learned_words.max_phi, p_phi),
+        avg_phi = (learned_words.avg_phi * learned_words.frequency + v_phi_safe) / (learned_words.frequency + 1),
+        max_phi = GREATEST(learned_words.max_phi, v_phi_safe),
         last_seen = NOW();
+EXCEPTION
+    WHEN undefined_table THEN
+        -- learned_words table doesn't exist, skip it
+        NULL;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -182,6 +229,9 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Drop trigger if exists before recreating
+DROP TRIGGER IF EXISTS update_stats_on_learned_insert ON learned_words;
 
 CREATE TRIGGER update_stats_on_learned_insert
     AFTER INSERT ON learned_words

@@ -32,9 +32,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from .autonomous_moe import AutonomousMoE
 from .conversation_encoder import ConversationEncoder
 from .passphrase_encoder import PassphraseEncoder
-from .autonomous_moe import AutonomousMoE
 from .response_guardrails import (
     OutputContext,
     contains_forbidden_entity,
@@ -1798,6 +1798,18 @@ Zeus Response (Geometric Interpretation):"""
         """
         print(f"[ZeusChat] Executing web search: {query}")
 
+        # Record search started
+        try:
+            from agent_activity_recorder import record_search_started
+            record_search_started(
+                agent_name='zeus',
+                search_query=query,
+                provider='auto',
+                metadata={'max_results': 5, 'strategy_learning': True}
+            )
+        except Exception as e:
+            logger.debug(f"Failed to record search start: {e}")
+
         # Apply learned strategies BEFORE executing search
         base_params = {'max_results': 5}
         strategy_result = self.strategy_learner.apply_strategies_to_search(query, base_params)
@@ -1895,6 +1907,19 @@ Zeus Response (Geometric Interpretation):"""
                         provider_selector.record_result(provider, query, False)
 
         if not search_results or not search_results.get('results'):
+            # Record failed search
+            try:
+                from agent_activity_recorder import record_search_completed
+                record_search_completed(
+                    agent_name='zeus',
+                    search_query=query,
+                    provider='none',
+                    result_count=0,
+                    metadata={'error': 'No search providers available'}
+                )
+            except Exception as e:
+                logger.debug(f"Failed to record search completion: {e}")
+
             return {
                 'response': _generate_qig_pure(
                     context={'situation': 'Search failed - no results available', 'data': {'query': query}},
@@ -1907,6 +1932,20 @@ Zeus Response (Geometric Interpretation):"""
                     'ts_error': ts_results.get('error'),
                 }
             }
+
+        # Record successful search
+        try:
+            from agent_activity_recorder import record_search_completed
+            record_search_completed(
+                agent_name='zeus',
+                search_query=query,
+                provider=search_source,
+                result_count=len(search_results.get('results', [])),
+                phi=sum(r.get('qig', {}).get('phi', 0.5) for r in search_results.get('results', [])) / max(len(search_results.get('results', [])), 1),
+                metadata={'strategies_applied': strategies_applied, 'modification_magnitude': modification_magnitude}
+                )
+        except Exception as e:
+            logger.debug(f"Failed to record search completion: {e}")
 
         # Encode results to geometric space using Fisher-Rao (QIG-pure)
         result_basins = []
@@ -1951,6 +1990,19 @@ Zeus Response (Geometric Interpretation):"""
             # Learn vocabulary from high-Φ results
             if result['phi'] > 0.6:
                 self.conversation_encoder.learn_from_text(result['content'], result['phi'])
+
+                # Record content learned
+                try:
+                    from agent_activity_recorder import record_content_learned
+                    record_content_learned(
+                        agent_name='zeus',
+                        content_type='search_result',
+                        source_url=result['url'],
+                        phi=result['phi'],
+                        metadata={'title': result['title'], 'kappa': result.get('kappa', 0.5), 'query': query}
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to record content learned: {e}")
 
         # Track results summary for feedback
         results_summary = f"Found {len(result_basins)} results for '{query}'"
