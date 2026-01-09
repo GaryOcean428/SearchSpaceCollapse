@@ -66,6 +66,20 @@ class VocabularyPersistence:
             print(f"[VocabularyPersistence] Failed to get BIP39 words: {e}")
             return []
     
+    def record_bip39_usage(self, word: str, phi: float = 0.0) -> bool:
+        """Record BIP39 word usage and update statistics."""
+        if not self.enabled:
+            return False
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT record_bip39_usage(%s, %s)", (word, phi))
+                    conn.commit()
+                    return True
+        except Exception as e:
+            print(f"[VocabularyPersistence] Failed to record BIP39 usage for '{word}': {e}")
+            return False
+    
     def record_vocabulary_observation(
         self, word: str, phrase: str, phi: float, kappa: float, source: str,
         observation_type: str = 'word',

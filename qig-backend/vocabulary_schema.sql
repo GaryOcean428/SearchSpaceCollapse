@@ -201,6 +201,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to record BIP39 word usage and update statistics
+CREATE OR REPLACE FUNCTION record_bip39_usage(
+    p_word TEXT,
+    p_phi REAL DEFAULT 0.0
+) RETURNS VOID AS $$
+DECLARE
+    v_phi_safe REAL;
+BEGIN
+    v_phi_safe := GREATEST(p_phi, 0.0);
+
+    UPDATE bip39_words
+    SET 
+        frequency = frequency + 1,
+        avg_phi = (avg_phi * frequency + v_phi_safe) / (frequency + 1),
+        max_phi = GREATEST(max_phi, v_phi_safe),
+        last_used = NOW()
+    WHERE word = p_word;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Function to update vocabulary stats
 CREATE OR REPLACE FUNCTION update_vocabulary_stats() RETURNS VOID AS $$
 DECLARE

@@ -119,6 +119,19 @@ def is_valid_bip39_seed(phrase: str) -> bool:
 
 _load_bip39_module()
 
+# Vocabulary persistence for BIP39 usage tracking
+try:
+    import sys
+    import os
+    qig_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if qig_backend_dir not in sys.path:
+        sys.path.insert(0, qig_backend_dir)
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+    print("[Hephaestus] Vocabulary persistence not available")
+
 
 class Hephaestus(BaseGod):
     """
@@ -145,8 +158,17 @@ class Hephaestus(BaseGod):
         self.known_word_positions: Dict[int, str] = {}
         self.high_probability_words: List[str] = []
         
+        # Connect to vocabulary database for BIP39 usage tracking
+        self.vocab_db = get_vocabulary_persistence() if VOCAB_PERSISTENCE_AVAILABLE else None
+        
         if self.bip39_words:
             print(f"[Hephaestus] Loaded {len(self.bip39_words)} BIP39 words for mnemonic generation")
+    
+    def _record_bip39_usage(self, word: str, phi: float = 0.0) -> None:
+        """Record BIP39 word usage in database."""
+        if self.vocab_db and self.vocab_db.enabled:
+            self.vocab_db.record_bip39_usage(word, phi)
+
         
     def assess_target(self, target: str, context: Optional[Dict] = None) -> Dict:
         """
@@ -475,6 +497,9 @@ class Hephaestus(BaseGod):
     def _random_mnemonic(self, word_length: int = 12) -> str:
         """Generate a random 12-word BIP39 mnemonic."""
         words = random.choices(self.bip39_words, k=word_length)
+        # Record each BIP39 word usage
+        for word in words:
+            self._record_bip39_usage(word, phi=0.3)  # Default phi for random selection
         return ' '.join(words)
     
     def _partial_recovery_mnemonic(self, known_positions: Dict[int, str], word_length: int = 12) -> str:
@@ -488,14 +513,21 @@ class Hephaestus(BaseGod):
                 word = known_positions[i]
                 if word.lower() in BIP39_WORDS:
                     words.append(word.lower())
+                    self._record_bip39_usage(word.lower(), phi=0.7)  # Higher phi for known words
                 else:
                     corrections = suggest_bip39_correction(word, max_suggestions=1)
                     if corrections:
-                        words.append(corrections[0]['word'])
+                        selected = corrections[0]['word']
+                        words.append(selected)
+                        self._record_bip39_usage(selected, phi=0.5)  # Medium phi for corrections
                     else:
-                        words.append(random.choice(self.bip39_words))
+                        selected = random.choice(self.bip39_words)
+                        words.append(selected)
+                        self._record_bip39_usage(selected, phi=0.3)
             else:
-                words.append(random.choice(self.bip39_words))
+                selected = random.choice(self.bip39_words)
+                words.append(selected)
+                self._record_bip39_usage(selected, phi=0.3)
         return ' '.join(words)
     
     def _permute_mnemonic(self, seed_mnemonic: str) -> str:
@@ -572,6 +604,9 @@ class Hephaestus(BaseGod):
             top_words = self.bip39_words
         
         selected = random.sample(top_words, word_length)
+        # Record high-phi guided selections
+        for word in selected:
+            self._record_bip39_usage(word, phi=0.6)  # Higher phi for guided selection
         return ' '.join(selected)
     
     def _semantic_cluster_mnemonic(self, word_length: int = 12) -> str:
@@ -586,9 +621,13 @@ class Hephaestus(BaseGod):
         for letter in selected_letters:
             candidates = [w for w in self.bip39_words if w.startswith(letter)]
             if candidates:
-                words.append(random.choice(candidates))
+                selected = random.choice(candidates)
+                words.append(selected)
+                self._record_bip39_usage(selected, phi=0.4)  # Clustered selection
             else:
-                words.append(random.choice(self.bip39_words))
+                selected = random.choice(self.bip39_words)
+                words.append(selected)
+                self._record_bip39_usage(selected, phi=0.3)
         
         return ' '.join(words)
     
@@ -740,12 +779,17 @@ class Hephaestus(BaseGod):
                     if len(kw_word) >= 3:
                         candidates = [w for w in self.bip39_words if w.startswith(kw_word[:3])]
                         if candidates:
-                            bip39_temporal.append(random.choice(candidates))
+                            selected = random.choice(candidates)
+                            bip39_temporal.append(selected)
+                            self._record_bip39_usage(selected, phi=0.7)  # High phi for temporal keywords
             
             # Fill remaining words with random BIP39 words
             remaining = 12 - len(bip39_temporal)
             if remaining > 0:
-                bip39_temporal.extend(random.choices(self.bip39_words, k=remaining))
+                fill_words = random.choices(self.bip39_words, k=remaining)
+                for word in fill_words:
+                    self._record_bip39_usage(word, phi=0.3)
+                bip39_temporal.extend(fill_words)
             
             mnemonic = ' '.join(bip39_temporal[:12])
             mnemonics.append(mnemonic)
@@ -1145,11 +1189,15 @@ class Hephaestus(BaseGod):
                 if len(word) > 0:
                     candidates = [w for w in self.bip39_words if w.startswith(word[0])]
                     if candidates:
-                        mnemonic_words.append(random.choice(candidates))
+                        selected = random.choice(candidates)
+                        mnemonic_words.append(selected)
+                        self._record_bip39_usage(selected, phi=0.6)  # Breach-guided phi
             
             # Fill to 12 words
             while len(mnemonic_words) < 12:
-                mnemonic_words.append(random.choice(self.bip39_words))
+                selected = random.choice(self.bip39_words)
+                mnemonic_words.append(selected)
+                self._record_bip39_usage(selected, phi=0.3)
             
             mnemonics.append(' '.join(mnemonic_words[:12]))
         
