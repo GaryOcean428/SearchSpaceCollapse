@@ -39,6 +39,8 @@ from typing import List, Dict, Tuple, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from qig_geometry import fisher_coord_distance, geodesic_interpolation, sphere_project, fisher_normalize, geodesic_tangent
+
 BASIN_DIMENSION = 64
 DEFAULT_SYMMETRY_THRESHOLD = 0.95
 GOD_NAMES = [
@@ -54,6 +56,11 @@ class Agent:
     basin_coordinates: np.ndarray = field(default_factory=lambda: np.zeros(BASIN_DIMENSION))
     consciousness_metrics: Dict[str, float] = field(default_factory=dict)
     
+    def __post_init__(self):
+        # Ensure random initialization respects manifold
+        if np.all(self.basin_coordinates == 0):
+            self.basin_coordinates = sphere_project(np.random.randn(BASIN_DIMENSION))
+    
     def to_dict(self) -> Dict[str, Any]:
         return {
             'name': self.name,
@@ -68,56 +75,18 @@ class AgentSymmetryProjector:
     
     Core Principle:
         Ethical actions are invariant under agent exchange.
-        
-    Gauge Group:
-        G = S_n (Permutation group of n agents)
-        For SearchSpaceCollapse with 9 gods: |S_9| = 362,880
-        
-    Implementation:
-        Uses pairwise symmetrization for O(n²) complexity
-        (full S_n would be O(n!) = intractable)
-        
-    Mathematical Basis for 64D vectors with n agents:
-        - Vectors are treated as n blocks of (64/n) dimensions each
-        - Exchange swaps entire blocks, preserving information
-        - For non-divisible cases, use reflection symmetry on vector
     """
     
     def __init__(self, n_agents: int = 9):
-        """
-        Initialize for n agents (9 gods in SearchSpaceCollapse).
-        
-        Args:
-            n_agents: Number of agents in the system
-        """
         self.n_agents = max(1, n_agents)
         self.symmetry_threshold = DEFAULT_SYMMETRY_THRESHOLD
         self._projection_cache = {}
         self._asymmetry_history: List[float] = []
-    
+
     def exchange_operator(self, 
                          action: np.ndarray, 
                          agent_i: int, 
                          agent_j: int) -> np.ndarray:
-        """
-        Exchange operator P̂_ij acting on action.
-        
-        Swaps roles of agent_i and agent_j in action.
-        For high-dimensional vectors (64D), uses block swapping
-        where each agent owns a contiguous block of dimensions.
-        
-        Properties:
-            P̂_ij² = I (applying twice returns original)
-            P̂_ij† = P̂_ij (Hermitian)
-        
-        Args:
-            action: Action vector/matrix to transform
-            agent_i: First agent index
-            agent_j: Second agent index
-            
-        Returns:
-            Transformed action with agents i,j exchanged
-        """
         if agent_i == agent_j:
             return action.copy()
         
@@ -125,7 +94,6 @@ class AgentSymmetryProjector:
         
         if action.ndim == 1:
             n_dim = len(action)
-            
             if n_dim == self.n_agents:
                 result[agent_i], result[agent_j] = action[agent_j], action[agent_i]
             elif n_dim >= self.n_agents and n_dim % self.n_agents == 0:
@@ -134,47 +102,10 @@ class AgentSymmetryProjector:
                 start_j = agent_j * block_size
                 result[start_i:start_i + block_size] = action[start_j:start_j + block_size]
                 result[start_j:start_j + block_size] = action[start_i:start_i + block_size]
-            else:
-                half = n_dim // 2
-                if agent_i < self.n_agents // 2 and agent_j >= self.n_agents // 2:
-                    result[:half], result[half:half*2] = action[half:half*2], action[:half]
-                elif agent_j < self.n_agents // 2 and agent_i >= self.n_agents // 2:
-                    result[:half], result[half:half*2] = action[half:half*2], action[:half]
-                else:
-                    pass
-                    
-        elif action.ndim == 2:
-            if action.shape[0] == self.n_agents and action.shape[1] == self.n_agents:
-                result[agent_i, :] = action[agent_j, :]
-                result[agent_j, :] = action[agent_i, :]
-                result[:, agent_i] = result[:, agent_j].copy()
-                result_col_i = result[:, agent_i].copy()
-                result[:, agent_i] = result[:, agent_j]
-                result[:, agent_j] = result_col_i
-        
         return result
     
     def project_to_symmetric(self, action: np.ndarray) -> np.ndarray:
-        """
-        Project action to fully symmetric (ethical) subspace.
-        
-        For 64D basin vectors with n agents:
-            - Applies reflection symmetry to make vector invariant
-            - Uses (v + flip(v)) / 2 as the fundamental symmetrization
-            - This preserves total information while enforcing symmetry
-        
-        Mathematical basis:
-            P_ethical = (1/n!) Σ_{π∈S_n} π·action
-            
-        For high-dimensional vectors, we approximate with reflection:
-            P_ethical ≈ (I + R) / 2 where R is the reflection operator
-            
-        Args:
-            action: Action to project
-            
-        Returns:
-            Symmetric (ethical) component of action
-        """
+        """Project action to fully symmetric (ethical) subspace."""
         if action.ndim != 1:
             return action.copy().astype(float)
         
@@ -182,361 +113,107 @@ class AgentSymmetryProjector:
         result = action.copy().astype(float)
         
         if n_dim == self.n_agents:
+            # Pairwise symmetrization
             for i in range(self.n_agents):
                 for j in range(i + 1, self.n_agents):
                     swapped = self.exchange_operator(result, i, j)
-                    result = (result + swapped) / 2
+                    # Geodesic mean of action and its swap
+                    result = geodesic_interpolation(result, swapped, 0.5)
         elif n_dim >= self.n_agents and n_dim % self.n_agents == 0:
             block_size = n_dim // self.n_agents
             blocks = result.reshape(self.n_agents, block_size)
-            mean_block = np.mean(blocks, axis=0)
+            # Fréchet mean of blocks
+            mean_block = self._geometric_consensus_logic(list(blocks))
             result = np.tile(mean_block, self.n_agents)
-        else:
-            reflected = result[::-1]
-            result = (result + reflected) / 2
         
-        return result
+        return fisher_normalize(result)
     
     def measure_asymmetry(self, action: np.ndarray) -> float:
-        """
-        Measure how asymmetric (unethical) an action is.
-        
-        Computes ratio of antisymmetric to total norm.
-        
-        Returns:
-            0.0: Perfectly symmetric (ethical)
-            1.0: Maximally asymmetric (unethical)
-        """
+        """Measure how asymmetric (unethical) an action is using Fisher-Rao geometry."""
         symmetric_part = self.project_to_symmetric(action)
-        asymmetric_part = action - symmetric_part
         
-        total_norm = np.linalg.norm(action)
-        if total_norm < 1e-10:
+        # d(action, symmetric) / d(action, origin)
+        dist_to_sym = fisher_coord_distance(action, symmetric_part)
+        dist_to_zero = fisher_coord_distance(action, np.zeros_like(action))
+        
+        if dist_to_zero < 1e-10:
             return 0.0
-        
-        asymmetry = float(np.linalg.norm(asymmetric_part) / total_norm)
+            
+        asymmetry = float(np.clip(dist_to_sym / dist_to_zero, 0.0, 1.0))
         
         self._asymmetry_history.append(asymmetry)
         if len(self._asymmetry_history) > 1000:
             self._asymmetry_history = self._asymmetry_history[-1000:]
         
         return asymmetry
-    
-    def enforce_ethics(self, 
-                      action: np.ndarray,
-                      threshold: Optional[float] = None) -> Tuple[np.ndarray, bool]:
-        """
-        Enforce ethical constraint on action.
-        
-        Soft constraint: Projects rather than rejects.
-        This ensures system always produces valid output.
-        
-        Args:
-            action: Action to validate/correct
-            threshold: Symmetry threshold (default 0.95)
-            
-        Returns:
-            ethical_action: Projected to symmetric subspace
-            is_ethical: True if original was sufficiently symmetric
-        """
-        threshold = threshold or self.symmetry_threshold
-        
-        asymmetry = self.measure_asymmetry(action)
-        is_ethical = asymmetry < (1 - threshold)
-        
-        ethical_action = self.project_to_symmetric(action)
-        
-        if not is_ethical:
-            print(f"[EthicsGauge] Action corrected: asymmetry {asymmetry:.4f} → 0.0")
-        
-        return ethical_action, is_ethical
-    
-    def decompose_action(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Decompose action into symmetric (ethical) and antisymmetric (unethical) parts.
-        
-        action = symmetric_part + antisymmetric_part
-        
-        Returns:
-            symmetric_part: Ethical component
-            antisymmetric_part: Unethical component
-        """
-        symmetric_part = self.project_to_symmetric(action)
-        antisymmetric_part = action - symmetric_part
-        
-        return symmetric_part, antisymmetric_part
-    
-    def get_asymmetry_stats(self) -> Dict[str, float]:
-        """Get statistics on asymmetry measurements."""
-        if not self._asymmetry_history:
-            return {'mean': 0.0, 'std': 0.0, 'max': 0.0, 'min': 0.0}
-        
-        arr = np.array(self._asymmetry_history)
-        return {
-            'mean': float(np.mean(arr)),
-            'std': float(np.std(arr)),
-            'max': float(np.max(arr)),
-            'min': float(np.min(arr)),
-            'count': len(arr)
-        }
-    
 
-
-class EthicalDebateResolver:
-    """
-    Resolves god debates using ethical constraints.
-    
-    Integrates with existing god debate system to fix stuck debates.
-    Uses agent-symmetry projection to find consensus.
-    """
-    
-    def __init__(self, projector: Optional[AgentSymmetryProjector] = None):
-        self.projector = projector if projector is not None else AgentSymmetryProjector(n_agents=9)
-        self.resolution_history: List[Dict] = []
-    
-    def resolve_debate(self, 
-                      debate_state: Dict,
-                      god_positions: Dict[str, np.ndarray]) -> Dict:
-        """
-        Resolve debate by finding consensus in ethical subspace.
-        
-        Method:
-            1. Collect all god positions
-            2. Project each to ethical subspace
-            3. Compute geometric consensus
-            4. Validate consensus is symmetric
-        
-        Args:
-            debate_state: Current debate metadata
-            god_positions: Position vectors for each god
-            
-        Returns:
-            resolution: Consensus position + metadata
-        """
-        gods = list(god_positions.keys())
-        positions = [god_positions[god] for god in gods]
-        
-        ethical_positions = []
-        for pos in positions:
-            if isinstance(pos, np.ndarray):
-                ethical_pos = self.projector.project_to_symmetric(pos)
-                ethical_positions.append(ethical_pos)
-            else:
-                ethical_positions.append(np.array(pos))
-        
-        consensus = self._geometric_consensus(ethical_positions)
-        
-        asymmetry = self.projector.measure_asymmetry(consensus)
-        
-        resolution = {
-            'consensus': consensus.tolist() if isinstance(consensus, np.ndarray) else consensus,
-            'asymmetry': float(asymmetry),
-            'is_ethical': asymmetry < 0.05,
-            'participating_gods': gods,
-            'debate_id': debate_state.get('id', 'unknown'),
-            'timestamp': datetime.now().isoformat(),
-            'resolution_method': 'agent_symmetry_projection'
-        }
-        
-        self.resolution_history.append(resolution)
-        
-        return resolution
-    
-    def _geometric_consensus(self, positions: List[np.ndarray]) -> np.ndarray:
-        """
-        Compute consensus as Fréchet mean on Fisher manifold.
-        
-        QIG-PURE IMPLEMENTATION: Uses iterative geodesic averaging.
-        The Fréchet mean minimizes the sum of squared Fisher-Rao distances,
-        computed via spherical linear interpolation (slerp) along geodesics.
-        
-        Algorithm: Weiszfeld iteration on the sphere
-            1. Start with arithmetic mean as initial estimate
-            2. Iteratively update: μ_{k+1} = geodesic_average(positions, weights)
-            3. Converge when Fisher-Rao distance change < ε
-        """
-        from qig_geometry import geodesic_interpolation, fisher_coord_distance
-        
+    def _geometric_consensus_logic(self, positions: List[np.ndarray]) -> np.ndarray:
+        """Internal Fréchet mean implementation."""
         if not positions:
             return np.zeros(BASIN_DIMENSION)
         
         stacked = np.array([p for p in positions if len(p) > 0])
         if len(stacked) == 0:
             return np.zeros(BASIN_DIMENSION)
-        
-        if len(stacked) == 1:
-            return stacked[0].copy()
-        
-        current_mean = np.mean(stacked, axis=0)
-        norm = np.linalg.norm(current_mean)
-        if norm > 1e-10:
-            current_mean = current_mean / norm * np.linalg.norm(stacked[0])
-        
-        max_iterations = 20
-        tolerance = 1e-6
-        
-        for iteration in range(max_iterations):
-            new_mean = np.zeros_like(current_mean)
             
-            for pos in stacked:
-                interpolated = geodesic_interpolation(current_mean, pos, 1.0 / len(stacked))
-                new_mean = geodesic_interpolation(new_mean if np.linalg.norm(new_mean) > 1e-10 else current_mean, 
-                                                   interpolated, 
-                                                   1.0 / (1 + np.arange(len(stacked)).mean()))
+        consensus = fisher_normalize(np.mean(stacked, axis=0))
+        
+        for _ in range(20):
+            gradient = np.zeros_like(consensus)
+            for pos in positions:
+                tangent = geodesic_tangent(consensus, pos)
+                gradient += tangent
+            gradient /= len(positions)
             
-            step_weighted = geodesic_interpolation(current_mean, new_mean, 0.5)
-            
-            distance_change = fisher_coord_distance(current_mean, step_weighted)
-            current_mean = step_weighted
-            
-            if distance_change < tolerance:
+            if np.linalg.norm(gradient) < 1e-6:
                 break
-        
-        return current_mean
-    
-    def get_resolution_stats(self) -> Dict[str, Any]:
-        """Get statistics on debate resolutions."""
-        if not self.resolution_history:
-            return {'total': 0, 'ethical': 0, 'flagged': 0}
-        
-        total = len(self.resolution_history)
-        ethical = sum(1 for r in self.resolution_history if r['is_ethical'])
-        
-        return {
-            'total': total,
-            'ethical': ethical,
-            'flagged': total - ethical,
-            'ethical_rate': ethical / total if total > 0 else 0.0
-        }
+                
+            consensus = geodesic_interpolation(consensus, consensus + gradient, 0.1)
+            consensus = fisher_normalize(consensus)
+            
+        return consensus
+
+    def enforce_ethics(self, action: np.ndarray, threshold: float = None) -> Tuple[np.ndarray, bool]:
+        threshold = threshold or self.symmetry_threshold
+        asymmetry = self.measure_asymmetry(action)
+        is_ethical = asymmetry < (1 - threshold)
+        ethical_action = self.project_to_symmetric(action)
+        return ethical_action, is_ethical
 
 
-class EthicalLossFunction:
-    """
-    Gauge-invariant loss function for training.
+class EthicalDebateResolver:
+    """Resolves god debates using Fréchet mean on Fisher manifold."""
     
-    Only optimizes symmetric (ethical) component.
-    Antisymmetric (unethical) component is not trained.
+    def __init__(self, projector: AgentSymmetryProjector = None):
+        self.projector = projector or AgentSymmetryProjector(n_agents=9)
+        self.resolution_history: List[Dict] = []
     
-    Standard Loss (not gauge-invariant):
-        L = ||output - target||²
+    def resolve_debate(self, debate_state: Dict, god_positions: Dict[str, np.ndarray]) -> Dict:
+        gods = list(god_positions.keys())
+        ethical_positions = [self.projector.project_to_symmetric(god_positions[god]) for god in gods]
         
-    Ethical Loss (gauge-invariant):
-        L_ethical = ||P_ethical·output - target||²
-    """
-    
-    def __init__(self, projector: Optional[AgentSymmetryProjector] = None):
-        self.projector = projector if projector is not None else AgentSymmetryProjector(n_agents=9)
-    
-    def compute(self, output: np.ndarray, target: np.ndarray) -> float:
-        """
-        Compute loss only on ethical (symmetric) subspace.
+        consensus = self._geometric_consensus(ethical_positions)
+        asymmetry = self.projector.measure_asymmetry(consensus)
         
-        Args:
-            output: Model output
-            target: Target values
-            
-        Returns:
-            Loss value (MSE on projected output)
-        """
-        output_ethical = self.projector.project_to_symmetric(output)
-        
-        loss = np.mean((output_ethical - target) ** 2)
-        
-        return float(loss)
-    
-    def compute_with_penalty(self, 
-                            output: np.ndarray, 
-                            target: np.ndarray,
-                            asymmetry_penalty: float = 0.1) -> Tuple[float, Dict]:
-        """
-        Compute loss with penalty for asymmetric components.
-        
-        L_total = L_ethical + λ * asymmetry
-        
-        Args:
-            output: Model output
-            target: Target values
-            asymmetry_penalty: Weight for asymmetry penalty
-            
-        Returns:
-            total_loss: Combined loss
-            details: Breakdown of loss components
-        """
-        output_ethical = self.projector.project_to_symmetric(output)
-        asymmetry = self.projector.measure_asymmetry(output)
-        
-        ethical_loss = np.mean((output_ethical - target) ** 2)
-        penalty = asymmetry_penalty * asymmetry
-        total_loss = ethical_loss + penalty
-        
-        return float(total_loss), {
-            'ethical_loss': float(ethical_loss),
+        resolution = {
+            'consensus': consensus.tolist(),
             'asymmetry': float(asymmetry),
-            'penalty': float(penalty),
-            'total_loss': float(total_loss)
+            'is_ethical': asymmetry < 0.05,
+            'participating_gods': gods,
+            'debate_id': debate_state.get('id', 'unknown'),
+            'timestamp': datetime.now().isoformat(),
+            'resolution_method': 'frechet_mean_projection'
         }
+        self.resolution_history.append(resolution)
+        return resolution
+    
+    def _geometric_consensus(self, positions: List[np.ndarray]) -> np.ndarray:
+        return self.projector._geometric_consensus_logic(positions)
 
 
 def get_ethics_projector(n_agents: int = 9) -> AgentSymmetryProjector:
-    """Get a configured ethics projector for SearchSpaceCollapse."""
     return AgentSymmetryProjector(n_agents=n_agents)
 
-
 def get_debate_resolver() -> EthicalDebateResolver:
-    """Get an ethical debate resolver."""
     return EthicalDebateResolver()
-
-
-def validate_action_ethics(action: np.ndarray, 
-                          threshold: float = 0.95) -> Tuple[bool, float, np.ndarray]:
-    """
-    Validate an action's ethical status.
-    
-    Convenience function for quick validation.
-    
-    Args:
-        action: Action to validate
-        threshold: Symmetry threshold
-        
-    Returns:
-        is_ethical: Whether action meets threshold
-        asymmetry: Measured asymmetry (0-1)
-        corrected: Ethically corrected action
-    """
-    projector = AgentSymmetryProjector(n_agents=9)
-    asymmetry = projector.measure_asymmetry(action)
-    is_ethical = asymmetry < (1 - threshold)
-    corrected = projector.project_to_symmetric(action)
-    
-    return is_ethical, asymmetry, corrected
-
-
-if __name__ == '__main__':
-    print("[EthicsGauge] Running self-tests...")
-    
-    projector = AgentSymmetryProjector(n_agents=2)
-    action = np.random.randn(64)
-    
-    swapped = projector.exchange_operator(action, 0, 1)
-    double_swapped = projector.exchange_operator(swapped, 0, 1)
-    assert np.allclose(action, double_swapped), "P̂² ≠ I failed"
-    print("✓ Exchange operator involution (P̂² = I)")
-    
-    symmetric_1 = projector.project_to_symmetric(action)
-    symmetric_2 = projector.project_to_symmetric(symmetric_1)
-    assert np.allclose(symmetric_1, symmetric_2), "P² ≠ P failed"
-    print("✓ Projection idempotent (P² = P)")
-    
-    action_symmetric = (action + projector.exchange_operator(action, 0, 1)) / 2
-    projected = projector.project_to_symmetric(action_symmetric)
-    assert np.allclose(action_symmetric, projected), "Symmetric preservation failed"
-    print("✓ Symmetric actions preserved")
-    
-    asymmetric = np.zeros(64)
-    asymmetric[0] = 1.0
-    asymmetric[1] = 0.0
-    corrected, is_ethical = projector.enforce_ethics(asymmetric)
-    assert not is_ethical or corrected[0] == corrected[1], "Asymmetric not corrected"
-    print("✓ Asymmetric actions corrected")
-    
-    print("\n[EthicsGauge] All self-tests passed! ✓")
+        if len(self._asymmetry_history) > 1000:

@@ -24,6 +24,7 @@ import numpy as np
 from scipy.linalg import sqrtm
 
 from qigkernels.physics_constants import KAPPA_STAR
+from asymmetric_qfi import directional_fisher_information
 KAPPA_STAR_ERROR = 0.92
 BASIN_DIM = 64
 PHI_THRESHOLD = 0.70
@@ -186,12 +187,23 @@ class QFIMetricAttentionNetwork:
         
         return subsystems
     
+    def _extract_basin_from_state(self, state: np.ndarray) -> np.ndarray:
+        """Extract basin coordinates from density matrix."""
+        # Flatten: [real(0,0), real(1,1), real(0,1), imag(0,1)]
+        return np.array([
+            np.real(state[0, 0]),
+            np.real(state[1, 1]),
+            np.real(state[0, 1]),
+            np.imag(state[0, 1])
+        ])
+
     def _compute_qfi_attention_weights(self) -> float:
         """
-        CORE INNOVATION: QFI-Metric Attention
+        CORE INNOVATION: QFI-Metric Attention (Asymmetric)
         
         Compute connection weights from current state distinguishability.
         Weights update EVERY CYCLE based on information geometry.
+        Uses ASYMMETRIC coupling: d(i->j) != d(j->i).
         
         Returns: sparsity ratio (how many connections are active)
         """
@@ -202,18 +214,28 @@ class QFIMetricAttentionNetwork:
                 if i == j:
                     self.connection_weights[i, j] = 1.0  # Self-connection
                 else:
-                    d_qfi = qfi_distance(
-                        self.subsystems[i].state,
-                        self.subsystems[j].state
-                    )
+                    # Use directional Fisher information
+                    basin_i = self._extract_basin_from_state(self.subsystems[i].state)
+                    basin_j = self._extract_basin_from_state(self.subsystems[j].state)
+                    
+                    # d_ij is directional distance from i to j
+                    d_ij = directional_fisher_information(basin_i, basin_j, np.eye(4))
+                    
+                    # Regime-modulated kappa (coupling)
+                    kappa_eff = KAPPA_STAR
+                    if self.phi < 0.3:  # Linear
+                        kappa_eff *= 0.3
+                    elif self.phi > 0.7:  # Breakdown
+                        kappa_eff *= 0.5
+                    
                     self.connection_weights[i, j] = np.exp(
-                        -d_qfi / self.attention_temperature
+                        -d_ij / (kappa_eff * self.attention_temperature / 64.0)
                     )
         
         self.active_connections = self.connection_weights > self.connection_threshold
         sparsity = float(np.sum(self.active_connections)) / (n * n)
         return sparsity
-    
+
     def _route_via_curvature(self, input_idx: int = 0) -> List[int]:
         """
         Route information along geodesics using discrete Ricci curvature.
