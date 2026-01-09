@@ -212,7 +212,7 @@ BEGIN
     v_phi_safe := GREATEST(p_phi, 0.0);
 
     UPDATE bip39_words
-    SET 
+    SET
         frequency = frequency + 1,
         avg_phi = (avg_phi * frequency + v_phi_safe) / (frequency + 1),
         max_phi = GREATEST(max_phi, v_phi_safe),

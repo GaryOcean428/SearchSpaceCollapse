@@ -2,7 +2,6 @@
 """Vocabulary Persistence - PostgreSQL integration for shared vocabulary system"""
 
 import os
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
@@ -20,11 +19,11 @@ class VocabularyPersistence:
     def __init__(self, connection_string: Optional[str] = None):
         self.connection_string = connection_string or os.getenv('DATABASE_URL')
         self.enabled = PSYCOPG2_AVAILABLE and bool(self.connection_string)
-        
+
         if not self.enabled:
             print("[VocabularyPersistence] Disabled (no database connection)")
             return
-        
+
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
@@ -33,16 +32,16 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Connection failed: {e}")
             self.enabled = False
-    
+
     def _connect(self):
         if not PSYCOPG2_AVAILABLE:
             raise RuntimeError("psycopg2 not available")
         return psycopg2.connect(self.connection_string)
-    
+
     def load_bip39_words(self, words: List[str]) -> int:
         if not self.enabled:
             return 0
-        
+
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
@@ -53,7 +52,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to load BIP39: {e}")
             return 0
-    
+
     def get_bip39_words(self) -> List[str]:
         if not self.enabled:
             return []
@@ -65,7 +64,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get BIP39 words: {e}")
             return []
-    
+
     def record_bip39_usage(self, word: str, phi: float = 0.0) -> bool:
         """Record BIP39 word usage and update statistics."""
         if not self.enabled:
@@ -79,7 +78,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to record BIP39 usage for '{word}': {e}")
             return False
-    
+
     def record_vocabulary_observation(
         self, word: str, phrase: str, phi: float, kappa: float, source: str,
         observation_type: str = 'word',
@@ -168,7 +167,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Batch record failed: {e}")
         return recorded
-    
+
     def get_learned_words(self, min_phi: float = 0.0, limit: int = 1000, source: Optional[str] = None) -> List[Dict]:
         if not self.enabled:
             return []
@@ -183,7 +182,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get learned words: {e}")
             return []
-    
+
     def get_high_phi_vocabulary(self, min_phi: float = 0.7, limit: int = 100) -> List[Tuple[str, float]]:
         if not self.enabled:
             return []
@@ -195,7 +194,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get high-Φ vocab: {e}")
             return []
-    
+
     def mark_word_integrated(self, word: str) -> bool:
         if not self.enabled:
             return False
@@ -208,7 +207,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to mark {word} integrated: {e}")
             return False
-    
+
     def record_merge_rule(self, token_a: str, token_b: str, merged_token: str, phi_score: float, learned_from: Optional[str] = None) -> bool:
         """Record a BPE merge rule to tokenizer_merge_rules (consolidated table)."""
         if not self.enabled:
@@ -229,7 +228,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to record merge rule: {e}")
             return False
-    
+
     def get_merge_rules(self, min_phi: float = 0.5, limit: int = 1000) -> List[Tuple[str, str, str, float]]:
         """Get BPE merge rules from tokenizer_merge_rules (consolidated table)."""
         if not self.enabled:
@@ -248,7 +247,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get merge rules: {e}")
             return []
-    
+
     def record_god_vocabulary(self, god_name: str, word: str, relevance_score: float) -> bool:
         if not self.enabled:
             return False
@@ -261,7 +260,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to record god vocabulary: {e}")
             return False
-    
+
     def get_god_vocabulary(self, god_name: str, min_relevance: float = 0.5, limit: int = 100) -> List[Tuple[str, float]]:
         if not self.enabled:
             return []
@@ -273,7 +272,7 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get god vocabulary: {e}")
             return []
-    
+
     def get_vocabulary_stats(self) -> Dict:
         if not self.enabled:
             return {'total_words': 0, 'bip39_words': 0, 'learned_words': 0, 'high_phi_words': 0, 'merge_rules': 0}

@@ -22,6 +22,95 @@ from qigkernels.physics_constants import BASIN_DIM
 # Backward compatibility alias
 BASIN_DIMENSION = BASIN_DIM
 
+# Stop words to filter from vocabulary learning - prevents pronoun domination
+STOP_WORDS = {
+    'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are', 'but', 'not',
+    'you', 'all', 'can', 'had', 'her', 'his', 'him', 'one', 'our', 'out',
+    'they', 'what', 'when', 'who', 'will', 'from', 'have', 'been', 'has',
+    'more', 'she', 'there', 'than', 'into', 'other', 'which', 'its', 'about',
+    'just', 'over', 'such', 'through', 'most', 'your', 'because', 'would',
+    'also', 'some', 'these', 'then', 'how', 'any', 'each', 'only', 'could',
+    'very', 'them', 'being', 'may', 'should', 'between', 'where', 'before',
+    'own', 'both', 'those', 'same', 'during', 'after', 'much', 'does', 'did',
+}
+
+# Code artifacts to filter - prevents training contamination
+CODE_ARTIFACTS = {
+    'def', 'return', 'import', 'class', 'self', 'none', 'true', 'false',
+    'if', 'else', 'elif', 'try', 'except', 'finally', 'raise', 'assert',
+    'lambda', 'yield', 'async', 'await', 'pass', 'break', 'continue',
+    'type', 'word', 'frequency', 'avgphi', 'maxphi', 'basin_coords',
+}
+
+# Real word validation using enchant (if available) or NLTK fallback
+_english_dict = None
+_nltk_words = None
+
+
+def _init_word_validator():
+    """Initialize word validation - try enchant first, then NLTK."""
+    global _english_dict, _nltk_words
+
+    # Try enchant first (faster)
+    try:
+        import enchant
+        _english_dict = enchant.Dict("en_US")
+        return
+    except (ImportError, Exception):
+        pass
+
+    # Fallback to NLTK
+    try:
+        from nltk.corpus import words
+        _nltk_words = set(w.lower() for w in words.words())
+    except (ImportError, LookupError):
+        pass
+
+
+# Initialize on module load
+_init_word_validator()
+
+
+def is_real_word(word: str) -> Optional[bool]:
+    """
+    Check if word is a real English word.
+
+    Returns:
+        True if word is in dictionary
+        False if word is code artifact or not found
+        None if validation unavailable (will be stored as NULL in DB)
+    """
+    if not word or len(word) < 2:
+        return False
+
+    word_lower = word.lower()
+
+    # Filter stop words
+    if word_lower in STOP_WORDS:
+        return False
+
+    # Filter code artifacts
+    if word_lower in CODE_ARTIFACTS:
+        return False
+
+    # Filter camelCase and snake_case
+    if '_' in word or (any(c.isupper() for c in word[1:])):
+        return False
+
+    # Filter words starting with numbers
+    if word[0].isdigit():
+        return False
+
+    # Check against dictionary
+    if _english_dict is not None:
+        return _english_dict.check(word_lower)
+
+    if _nltk_words is not None:
+        return word_lower in _nltk_words
+
+    # No validator available - return None (unknown)
+    return None
+
 
 class BaseEncoder(ABC):
     """

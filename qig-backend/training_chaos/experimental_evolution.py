@@ -975,7 +975,7 @@ class ExperimentalKernelEvolution:
                 if autopsy is not None:
                     self.kernel_graveyard.append(autopsy)
                 killed.append(kernel.kernel_id)
-                self.logger.log_death(kernel.kernel_id, 'fitness_selection', autopsy, phi_at_death=phi)
+                self.logger.log_death(kernel.kernel_id, 'fitness_selection', autopsy, phi=phi)
 
                 # Persist death event to PostgreSQL
                 if self.kernel_persistence:
@@ -1022,7 +1022,7 @@ class ExperimentalKernelEvolution:
             weak_phi = weak.kernel.compute_phi() if weak.is_alive else 0.0
             result = absorb_failing_kernel(strong, weak)
             self.kernel_graveyard.append(result['autopsy'])
-            self.logger.log_death(weak.kernel_id, 'cannibalized', result['autopsy'], phi_at_death=weak_phi)
+            self.logger.log_death(weak.kernel_id, 'cannibalized', result['autopsy'], phi=weak_phi)
 
             # Persist death event to PostgreSQL
             if self.kernel_persistence:
