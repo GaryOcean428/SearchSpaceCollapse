@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Vocabulary Learning Coordinator - Central hub for continuous vocabulary learning"""
 
-from datetime import datetime
 from typing import Dict, List, Optional
-import numpy as np
 
-from word_validation import is_valid_english_word, validate_for_vocabulary, STOP_WORDS
+from word_validation import is_valid_english_word, validate_for_vocabulary
 
 try:
     from vocabulary_persistence import get_vocabulary_persistence
@@ -32,8 +30,8 @@ class VocabularyCoordinator:
         self.words_learned = 0
         self.merge_rules_learned = 0
         print("[VocabularyCoordinator] Initialized")
-    
-    def record_discovery(self, phrase: str, phi: float, kappa: float, source: str, 
+
+    def record_discovery(self, phrase: str, phi: float, kappa: float, source: str,
                         details: Optional[Dict] = None,
                         basin_coords: Optional[List[float]] = None,
                         cycle_number: Optional[int] = None) -> Dict:
@@ -58,16 +56,16 @@ class VocabularyCoordinator:
             merge_rules = self._learn_merge_rules(phrase, phi, source)
             self.merge_rules_learned += merge_rules
         return {'learned': True, 'observations_recorded': recorded, 'new_tokens': new_tokens, 'weights_updated': weights_updated, 'merge_rules': merge_rules, 'phi': phi, 'source': source}
-    
+
     def _extract_observations(self, phrase: str, phi: float, kappa: float, source: str,
                              basin_coords: Optional[List[float]] = None,
                              cycle_number: Optional[int] = None) -> List[Dict]:
         """
         Extract vocabulary observations from a phrase.
-        
+
         Uses fast local validation (no API calls) to avoid blocking the learning path.
         Dictionary verification happens asynchronously via background cleanup.
-        
+
         CRITICAL: Observes ALL potential words, lets emergence determine value.
         Non-dictionary words are queued for proper noun consideration.
         """
@@ -102,7 +100,7 @@ class VocabularyCoordinator:
                         seq_obs['cycle_number'] = cycle_number
                     observations.append(seq_obs)
         return observations
-    
+
     def _learn_merge_rules(self, phrase: str, phi: float, source: str) -> int:
         if not self.tokenizer:
             return 0
@@ -115,7 +113,7 @@ class VocabularyCoordinator:
                 if self.tokenizer.learn_merge_rule(token_a, token_b, phi, source):
                     learned += 1
         return learned
-    
+
     def record_god_assessment(self, god_name: str, target: str, assessment: Dict, outcome: Optional[Dict] = None) -> Dict:
         assessment_text = assessment.get('reasoning', '')
         if not assessment_text:
@@ -130,13 +128,13 @@ class VocabularyCoordinator:
                     relevance = confidence
                     self.vocab_db.record_god_vocabulary(god_name, word, relevance)
         return result
-    
+
     def get_god_specialized_vocabulary(self, god_name: str, min_relevance: float = 0.5, limit: int = 100) -> List[str]:
         if not self.vocab_db or not self.vocab_db.enabled:
             return []
         vocab = self.vocab_db.get_god_vocabulary(god_name, min_relevance, limit)
         return [word for word, _score in vocab]
-    
+
     def sync_to_typescript(self) -> Dict:
         if not self.vocab_db or not self.vocab_db.enabled:
             return {'words': [], 'merge_rules': [], 'stats': {}}
@@ -144,7 +142,7 @@ class VocabularyCoordinator:
         merge_rules = self.vocab_db.get_merge_rules(min_phi=0.6, limit=200)
         stats = self.vocab_db.get_vocabulary_stats()
         return {'words': learned_words, 'merge_rules': [{'token_a': a, 'token_b': b, 'merged': merged, 'phi_score': score} for a, b, merged, score in merge_rules], 'stats': stats, 'coordinator_metrics': {'observations_recorded': self.observations_recorded, 'words_learned': self.words_learned, 'merge_rules_learned': self.merge_rules_learned}}
-    
+
     def sync_from_typescript(self, data: Dict) -> Dict:
         observations = data.get('observations', [])
         if not observations:
@@ -156,7 +154,7 @@ class VocabularyCoordinator:
         if self.tokenizer:
             new_tokens, _updated = self.tokenizer.add_vocabulary_observations(observations)
         return {'imported': imported, 'new_tokens': new_tokens}
-    
+
     def get_stats(self) -> Dict:
         stats = {'coordinator': {'observations_recorded': self.observations_recorded, 'words_learned': self.words_learned, 'merge_rules_learned': self.merge_rules_learned}}
         if self.tokenizer:
@@ -164,10 +162,10 @@ class VocabularyCoordinator:
         if self.vocab_db and self.vocab_db.enabled:
             stats['database'] = self.vocab_db.get_vocabulary_stats()
         return stats
-    
+
     def enhance_search_query(
-        self, 
-        query: str, 
+        self,
+        query: str,
         domain: Optional[str] = None,
         max_expansions: int = 5,
         min_phi: float = 0.6,
@@ -175,44 +173,44 @@ class VocabularyCoordinator:
     ) -> Dict:
         """
         Enhance a search query with learned vocabulary.
-        
+
         Uses vocabulary learned from prior research to expand search terms,
         creating a feedback loop where discoveries improve future searches.
-        
+
         Relevance is computed using:
         - Co-occurrence: terms that appeared together in high-phi research
         - Domain matching: terms from same domain/source as query
         - Phi weighting: higher phi terms preferred
         - Semantic proximity: substring/prefix matching for related terms
-        
+
         Args:
             query: Original search query/topic
             domain: Optional domain filter for vocabulary
             max_expansions: Maximum terms to add
             min_phi: Minimum phi threshold for vocabulary
             recent_observations: Optional recent vocabulary observations to prioritize
-            
+
         Returns:
             Enhanced query info with original, expanded terms, and combined query
         """
-        import re
         import logging
-        
+        import re
+
         logger = logging.getLogger(__name__)
         query_words = set(re.findall(r'\b[a-z]{3,}\b', query.lower()))
-        
+
         expansion_candidates: List[Dict] = []
-        
+
         if recent_observations:
             for obs in recent_observations:
                 if isinstance(obs, dict):
                     word = obs.get('word', '')
                     phi = obs.get('phi', 0.5)
                     obs_topic = obs.get('topic', '')
-                    
+
                     if not word or len(word) < 4 or word in query_words or phi < min_phi:
                         continue
-                    
+
                     relevance = self._compute_term_relevance(
                         term=word,
                         query_words=query_words,
@@ -220,7 +218,7 @@ class VocabularyCoordinator:
                         source='recent_research',
                         target_domain=domain
                     )
-                    
+
                     if relevance > 0.25:
                         expansion_candidates.append({
                             'word': word,
@@ -228,11 +226,11 @@ class VocabularyCoordinator:
                             'source': 'recent_research',
                             'relevance': relevance
                         })
-        
+
         if self.vocab_db and self.vocab_db.enabled:
             try:
                 learned = self.vocab_db.get_learned_words(min_phi=min_phi, limit=300)
-                
+
                 for word_data in learned:
                     if isinstance(word_data, dict):
                         word = word_data.get('word', '')
@@ -244,13 +242,13 @@ class VocabularyCoordinator:
                         source = word_data[3] if len(word_data) > 3 else ''
                     else:
                         continue
-                    
+
                     if not word or len(word) < 4 or word in query_words:
                         continue
-                    
+
                     if any(c['word'] == word for c in expansion_candidates):
                         continue
-                    
+
                     relevance = self._compute_term_relevance(word, query_words, phi, source, domain)
                     if relevance > 0.25:
                         expansion_candidates.append({
@@ -261,23 +259,23 @@ class VocabularyCoordinator:
                         })
             except Exception as e:
                 logger.warning(f"Vocabulary DB query failed: {e}")
-        
+
         if self.tokenizer and hasattr(self.tokenizer, 'vocab'):
             try:
                 for vocab_word, weight_info in list(self.tokenizer.vocab.items())[:500]:
                     if vocab_word in query_words or len(vocab_word) < 4:
                         continue
-                    
+
                     if any(c['word'] == vocab_word for c in expansion_candidates):
                         continue
-                    
+
                     if isinstance(weight_info, dict):
                         phi = weight_info.get('phi', 0.5)
                         source = weight_info.get('source', 'tokenizer')
                     else:
                         phi = 0.5
                         source = 'tokenizer'
-                    
+
                     if phi >= min_phi:
                         relevance = self._compute_term_relevance(vocab_word, query_words, phi, source, domain)
                         if relevance > 0.25:
@@ -289,15 +287,15 @@ class VocabularyCoordinator:
                             })
             except Exception as e:
                 logger.warning(f"Tokenizer vocab query failed: {e}")
-        
+
         expansion_candidates.sort(key=lambda x: x['relevance'], reverse=True)
         top_terms = [c['word'] for c in expansion_candidates[:max_expansions]]
-        
+
         if top_terms:
             enhanced_query = f"{query} {' '.join(top_terms)}"
         else:
             enhanced_query = query
-        
+
         return {
             'original_query': query,
             'expansion_terms': top_terms,
@@ -306,21 +304,21 @@ class VocabularyCoordinator:
             'vocabulary_utilized': len(expansion_candidates) > 0,
             'candidates_evaluated': len(expansion_candidates),
         }
-    
+
     def _compute_term_relevance(
-        self, 
-        term: str, 
-        query_words: set, 
+        self,
+        term: str,
+        query_words: set,
         phi: float,
         source: str = '',
         target_domain: Optional[str] = None
     ) -> float:
         """
         Compute relevance of a vocabulary term to a query.
-        
+
         REQUIRES semantic match (prefix/substring/overlap) for ALL terms.
         Recency boosts score but does NOT bypass semantic validation.
-        
+
         This ensures only terms with lexical overlap to the current query
         are admitted, preventing noise from unrelated high-phi vocabulary.
         """
@@ -334,52 +332,52 @@ class VocabularyCoordinator:
                     semantic_score = max(semantic_score, 0.4)
                 elif len(qw) >= 4 and len(set(term_lower) & set(qw)) >= 4:
                     semantic_score = max(semantic_score, 0.2)
-        
+
         if semantic_score == 0:
             return 0.0
-        
+
         base_score = phi * 0.2
-        
+
         is_recent = source == 'recent_research'
         recency_boost = 0.3 if is_recent else 0.0
-        
+
         source_boost = 0.0
         source_lower = source.lower() if source else ''
         if 'searxng' in source_lower or 'shadow' in source_lower:
             source_boost = 0.1
-        
+
         total = base_score + semantic_score + recency_boost + source_boost
         return min(total, 1.0)
-    
+
     def train_from_text(self, text: str, domain: Optional[str] = None) -> Dict:
         """
         Train vocabulary from arbitrary text.
-        
+
         Used by research module to learn from Wikipedia, arXiv, etc.
         Extracts words, updates vocabulary, returns training metrics.
-        
+
         Args:
             text: Text to train from
             domain: Optional domain tag for organizing vocabulary
-        
+
         Returns:
             Training metrics
         """
         import re
-        
+
         words = re.findall(r'\b[a-z]{3,}\b', text.lower())
-        
-        stopwords = {'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are', 
-                     'has', 'have', 'been', 'were', 'from', 'which', 'also', 
+
+        stopwords = {'the', 'and', 'for', 'that', 'this', 'with', 'was', 'are',
+                     'has', 'have', 'been', 'were', 'from', 'which', 'also',
                      'but', 'not', 'can', 'may', 'will', 'would', 'could',
                      'their', 'there', 'these', 'those', 'than', 'then'}
-        
+
         filtered_words = [w for w in words if w not in stopwords and len(w) >= 4]
-        
+
         word_counts: Dict[str, int] = {}
         for word in filtered_words:
             word_counts[word] = word_counts.get(word, 0) + 1
-        
+
         observations = []
         for word, count in word_counts.items():
             if count >= 2 or len(word) >= 6:
@@ -393,19 +391,19 @@ class VocabularyCoordinator:
                     'type': 'word',
                     'frequency': count
                 })
-        
+
         recorded = 0
         new_tokens = 0
-        
+
         if observations:
             if self.vocab_db and self.vocab_db.enabled:
                 recorded = self.vocab_db.record_vocabulary_batch(observations)
                 self.observations_recorded += recorded
-            
+
             if self.tokenizer:
                 new_tokens, _updated = self.tokenizer.add_vocabulary_observations(observations)
                 self.words_learned += new_tokens
-        
+
         return {
             'words_processed': len(words),
             'unique_words': len(word_counts),
