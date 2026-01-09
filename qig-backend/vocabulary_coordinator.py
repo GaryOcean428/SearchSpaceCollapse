@@ -33,11 +33,14 @@ class VocabularyCoordinator:
         self.merge_rules_learned = 0
         print("[VocabularyCoordinator] Initialized")
     
-    def record_discovery(self, phrase: str, phi: float, kappa: float, source: str, details: Optional[Dict] = None) -> Dict:
+    def record_discovery(self, phrase: str, phi: float, kappa: float, source: str, 
+                        details: Optional[Dict] = None,
+                        basin_coords: Optional[List[float]] = None,
+                        cycle_number: Optional[int] = None) -> Dict:
         # NO threshold blocking - observe ALL discoveries, let emergence determine value
         if not phrase:
             return {'learned': False, 'reason': 'empty_phrase'}
-        observations = self._extract_observations(phrase, phi, kappa, source)
+        observations = self._extract_observations(phrase, phi, kappa, source, basin_coords, cycle_number)
         if not observations:
             return {'learned': False, 'reason': 'no_observations'}
         recorded = 0
@@ -56,7 +59,9 @@ class VocabularyCoordinator:
             self.merge_rules_learned += merge_rules
         return {'learned': True, 'observations_recorded': recorded, 'new_tokens': new_tokens, 'weights_updated': weights_updated, 'merge_rules': merge_rules, 'phi': phi, 'source': source}
     
-    def _extract_observations(self, phrase: str, phi: float, kappa: float, source: str) -> List[Dict]:
+    def _extract_observations(self, phrase: str, phi: float, kappa: float, source: str,
+                             basin_coords: Optional[List[float]] = None,
+                             cycle_number: Optional[int] = None) -> List[Dict]:
         """
         Extract vocabulary observations from a phrase.
         
@@ -77,7 +82,12 @@ class VocabularyCoordinator:
             is_valid, reason = validate_for_vocabulary(word, require_dictionary=False)
             if not is_valid:
                 continue
-            observations.append({'word': word, 'phrase': phrase, 'phi': phi, 'kappa': kappa, 'source': source, 'type': 'word', 'frequency': count, 'needs_dict_check': True})
+            obs = {'word': word, 'phrase': phrase, 'phi': phi, 'kappa': kappa, 'source': source, 'type': 'word', 'frequency': count, 'needs_dict_check': True}
+            if basin_coords:
+                obs['basin_coords'] = basin_coords
+            if cycle_number is not None:
+                obs['cycle_number'] = cycle_number
+            observations.append(obs)
         for i in range(len(words) - 1):
             w1, w2 = words[i], words[i+1]
             if len(w1) >= 3 and len(w2) >= 3:
@@ -85,7 +95,12 @@ class VocabularyCoordinator:
                 is_valid2, _ = validate_for_vocabulary(w2, require_dictionary=False)
                 if is_valid1 and is_valid2:
                     sequence = f"{w1} {w2}"
-                    observations.append({'word': sequence, 'phrase': phrase, 'phi': phi * 1.2, 'kappa': kappa, 'source': source, 'type': 'sequence', 'frequency': 1})
+                    seq_obs = {'word': sequence, 'phrase': phrase, 'phi': phi * 1.2, 'kappa': kappa, 'source': source, 'type': 'sequence', 'frequency': 1}
+                    if basin_coords:
+                        seq_obs['basin_coords'] = basin_coords
+                    if cycle_number is not None:
+                        seq_obs['cycle_number'] = cycle_number
+                    observations.append(seq_obs)
         return observations
     
     def _learn_merge_rules(self, phrase: str, phi: float, source: str) -> int:

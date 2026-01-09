@@ -16,6 +16,8 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
+from shadow_service import shadow_service
+
 try:
     from recursive_conversation_orchestrator import get_conversation_orchestrator
     ORCHESTRATOR_AVAILABLE = True
@@ -249,6 +251,18 @@ def conversation_active():
         return jsonify({'error': str(e)}), 500
 
 
+@conversational_api.route('/shadow/toggle', methods=['POST'])
+def shadow_toggle():
+    """UI toggle shadow mode."""
+    try:
+        data = request.json or {}
+        enabled = data.get('enabled', True)
+        success = shadow_service.set_enabled(enabled)
+        return jsonify({'success': success, 'enabled': shadow_service.enabled})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def register_conversational_routes(app):
     """
     Register conversational routes with Flask app.
@@ -261,3 +275,4 @@ def register_conversational_routes(app):
     """
     app.register_blueprint(conversational_api, url_prefix='/api')
     print("[ConversationalAPI] Registered conversation routes at /api/conversation/*")
+    print("[ConversationalAPI] Shadow toggle at /api/shadow/toggle")

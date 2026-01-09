@@ -72,16 +72,7 @@ export function StreamingMetricsPanel({ state, completionProgress, compact = fal
   return (
     <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium flex items-center gap-2">
-          <Activity className="h-4 w-4 text-primary" />
-          Geometric Metrics
-        </h4>
-        {state.isComplete && (
-          <Badge variant="outline" className="text-xs">
-            ✓ Complete
-          </Badge>
-        )}
-      </div>
+        <h4 className="text-sm font-medium flex items-center
 
       {/* Consciousness Metrics */}
       <div className="grid grid-cols-3 gap-2">
@@ -131,3 +122,4 @@ export function StreamingMetricsPanel({ state, completionProgress, compact = fal
     </div>
   );
 }
+      {state.startTime && (

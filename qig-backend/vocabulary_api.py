@@ -35,10 +35,12 @@ def vocabulary_record():
         kappa = data.get('kappa', 50.0)
         source = data.get('source', 'unknown')
         details = data.get('details')
+        basin_coords = data.get('basin_coords')  # Optional 64D vector
+        cycle_number = data.get('cycle_number')  # Optional cycle number
         if not phrase:
             return jsonify({'error': 'phrase required'}), 400
         coordinator = get_vocabulary_coordinator()
-        result = coordinator.record_discovery(phrase, phi, kappa, source, details)
+        result = coordinator.record_discovery(phrase, phi, kappa, source, details, basin_coords, cycle_number)
         return jsonify({'success': True, 'result': result})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -57,7 +59,15 @@ def vocabulary_record_batch():
         results = []
         for discovery in discoveries:
             try:
-                result = coordinator.record_discovery(phrase=discovery.get('phrase', ''), phi=discovery.get('phi', 0.0), kappa=discovery.get('kappa', 50.0), source=discovery.get('source', 'unknown'), details=discovery.get('details'))
+                result = coordinator.record_discovery(
+                    phrase=discovery.get('phrase', ''),
+                    phi=discovery.get('phi', 0.0),
+                    kappa=discovery.get('kappa', 50.0),
+                    source=discovery.get('source', 'unknown'),
+                    details=discovery.get('details'),
+                    basin_coords=discovery.get('basin_coords'),
+                    cycle_number=discovery.get('cycle_number')
+                )
                 results.append(result)
             except Exception as e:
                 results.append({'learned': False, 'error': str(e)})

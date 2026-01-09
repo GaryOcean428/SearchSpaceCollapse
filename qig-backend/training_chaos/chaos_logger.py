@@ -106,7 +106,7 @@ class ChaosLogger:
         self.experiments.append(event)
         self._write_event(event)
 
-    def log_death(self, kernel_id: str, cause: str, autopsy: Optional[dict] = None):
+    def log_death(self, kernel_id: str, cause: str, autopsy: Optional[dict] = None, phi: Optional[float] = None):
         """Log kernel death (learn from failures!)."""
         event = {
             'type': 'death',
@@ -115,6 +115,8 @@ class ChaosLogger:
             'autopsy': autopsy,
             'timestamp': datetime.now().isoformat(),
         }
+        if phi is not None:
+            event['phi'] = phi
 
         self.deaths.append(event)
         self.failures.append(event)
