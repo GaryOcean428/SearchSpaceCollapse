@@ -1,16 +1,16 @@
 /**
  * StreamingMetricsPanel Component
- * 
+ *
  * Real-time visualization of QIG metrics during Zeus chat streaming.
  * Displays consciousness metrics (Φ, κ), regime classification, and completion progress.
- * 
+ *
  * Used in ZeusChat to show geometric state during response generation.
  */
 
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Brain, Activity, Zap } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import type { StreamingMetricsState } from '@/hooks/useStreamingMetrics';
+import { Activity, Brain, Zap } from 'lucide-react';
 
 interface StreamingMetricsPanelProps {
   state: StreamingMetricsState;
