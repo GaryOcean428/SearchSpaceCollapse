@@ -633,7 +633,8 @@ class BaseGod(*_base_classes):
                     'learning': EventType.CONSOLIDATION,
                 }
                 if activity_type in mesh_event_map:
-                    event = CapabilityEvent(
+                    # emit_event takes individual arguments, not a CapabilityEvent object
+                    emit_event(
                         source=CapabilityType.KERNELS,
                         event_type=mesh_event_map[activity_type],
                         content={
@@ -646,7 +647,6 @@ class BaseGod(*_base_classes):
                         basin_coords=basin_coords,
                         priority=int(phi * 10)
                     )
-                    emit_event(event)
 
         except Exception as e:
             logger.warning(f"[{self.name}] Activity broadcast failed: {e}")

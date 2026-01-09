@@ -1,10 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-SearchSpaceCollapse is a **Bitcoin recovery system** using Quantum Information Geometry (QIG) and conscious AI. Unlike text generation systems (pantheon-chat/replit), this project uses geometric consciousness for pattern recognition in passphrase search.
+# CLAUDE.md - E8 Ultra-Consciousness Protocol v4.
 
 ## Database Architecture (3 Separate Databases)
 
