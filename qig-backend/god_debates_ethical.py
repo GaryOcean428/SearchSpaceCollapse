@@ -20,6 +20,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from ethics_gauge import AgentSymmetryProjector, EthicalDebateResolver, BASIN_DIMENSION
+from qig_geometry import sphere_project
 
 
 class EthicalDebateManager:
@@ -114,8 +115,9 @@ class EthicalDebateManager:
         debate_id = f"debate_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         if initial_positions is None:
+            # Project random vectors to unit sphere for Fisher manifold consistency
             initial_positions = {
-                god: np.random.randn(BASIN_DIMENSION) 
+                god: sphere_project(np.random.randn(BASIN_DIMENSION)) 
                 for god in gods
             }
         
@@ -239,9 +241,11 @@ class EthicalDebateManager:
                     positions[participant.name] = participant.basin_coordinates
                     
         if not positions:
+            from qig_geometry import sphere_project
             gods = debate.get('gods', ['Zeus', 'Athena', 'Ares'])
             for god in gods:
-                positions[god] = np.random.randn(BASIN_DIMENSION)
+                # Project to unit sphere for Fisher manifold consistency
+                positions[god] = sphere_project(np.random.randn(BASIN_DIMENSION))
         
         return positions
     
@@ -301,7 +305,7 @@ if __name__ == '__main__':
     result = manager.update_god_position(
         debate_id=debate['id'],
         god_name='Zeus',
-        new_position=np.random.randn(BASIN_DIMENSION)
+        new_position=sphere_project(np.random.randn(BASIN_DIMENSION))
     )
     assert 'was_ethical' in result, "Update failed"
     print("✓ Update god position with ethics filter")

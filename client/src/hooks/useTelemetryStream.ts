@@ -1,12 +1,18 @@
 /**
  * useTelemetryStream Hook
- * 
+ *
  * React hook for real-time telemetry streaming via WebSocket.
  * Connects to `ws://localhost:5000/ws/telemetry` and receives
  * consciousness metrics (Φ, κ, regime, etc.) in real-time.
+ * Falls back to polling if WebSocket fails.
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+
+// Fallback constants
+const MAX_WS_RETRIES = 3;
+const POLLING_INTERVAL = 3000;
 
 export interface TelemetryRecord {
   timestamp: string;
@@ -55,6 +61,11 @@ export interface UseTelemetryStreamReturn {
   subscribe: (sessionId?: string) => void;
   unsubscribe: () => void;
   clearRecords: () => void;
+  // Fallback-related properties
+  isLoading: boolean;
+  isFetching: boolean;
+  usingPollingFallback: boolean;
+  refetch: () => void;
 }
 
 export function useTelemetryStream(
@@ -70,10 +81,33 @@ export function useTelemetryStream(
   const [records, setRecords] = useState<TelemetryRecord[]>([]);
   const [connected, setConnected] = useState(false);
   const [emergency, setEmergency] = useState<EmergencyEvent | null>(null);
-  
+
+  // Fallback state for when WebSocket fails
+  const [useFallbackPolling, setUseFallbackPolling] = useState(false);
+  const wsRetryCountRef = useRef(0);
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentSessionIdRef = useRef<string | undefined>(sessionId);
+
+  // Polling fallback query
+  const pollingQuery = useQuery({
+    queryKey: ['telemetry-fallback', sessionId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: String(maxRecords) });
+      if (sessionId) params.append('sessionId', sessionId);
+      const response = await fetch(`/api/v1/telemetry/overview?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch telemetry');
+      return response.json() as Promise<{
+        records: TelemetryRecord[];
+        latest: TelemetryRecord | null;
+        emergency?: EmergencyEvent | null;
+      }>;
+    },
+    enabled: useFallbackPolling,
+    refetchInterval: POLLING_INTERVAL,
+    staleTime: POLLING_INTERVAL,
+  });
 
   const connect = useCallback(() => {
     // Close existing connection
@@ -132,12 +166,24 @@ export function useTelemetryStream(
         }
       };
 
-      ws.onclose = () => {
-        console.log('[TelemetryStream] Disconnected');
+      ws.onclose = (event) => {
+        console.log('[TelemetryStream] Disconnected:', event.code, event.reason);
         setConnected(false);
 
-        // Auto-reconnect
-        if (autoConnect) {
+        // Check for abnormal closure (code 1006) - likely WebSocket not supported
+        if (event.code === 1006 && !event.wasClean) {
+          wsRetryCountRef.current += 1;
+          console.log(`[TelemetryStream] Abnormal closure, retry count: ${wsRetryCountRef.current}/${MAX_WS_RETRIES}`);
+
+          if (wsRetryCountRef.current >= MAX_WS_RETRIES) {
+            console.log('[TelemetryStream] WebSocket failed, falling back to polling');
+            setUseFallbackPolling(true);
+            return; // Don't try to reconnect, use polling instead
+          }
+        }
+
+        // Auto-reconnect (only if not using polling fallback)
+        if (autoConnect && !useFallbackPolling) {
           reconnectTimeoutRef.current = setTimeout(() => {
             console.log('[TelemetryStream] Reconnecting...');
             connect();
@@ -152,7 +198,7 @@ export function useTelemetryStream(
       console.error('[TelemetryStream] Connection failed:', err);
       setConnected(false);
     }
-  }, [autoConnect, reconnectDelay, maxRecords]);
+  }, [autoConnect, reconnectDelay, maxRecords, useFallbackPolling]);
 
   const subscribe = useCallback((newSessionId?: string) => {
     currentSessionIdRef.current = newSessionId;
@@ -182,9 +228,9 @@ export function useTelemetryStream(
     setEmergency(null);
   }, []);
 
-  // Connect on mount
+  // Connect on mount (only if not using polling fallback)
   useEffect(() => {
-    if (autoConnect) {
+    if (autoConnect && !useFallbackPolling) {
       connect();
     }
 
@@ -197,7 +243,7 @@ export function useTelemetryStream(
         wsRef.current.close();
       }
     };
-  }, [autoConnect, connect]);
+  }, [autoConnect, connect, useFallbackPolling]);
 
   // Update session when prop changes
   useEffect(() => {
@@ -206,16 +252,31 @@ export function useTelemetryStream(
     }
   }, [sessionId, subscribe]);
 
-  const latestRecord = records.length > 0 ? records[records.length - 1] : null;
+  // Use polling data when in fallback mode
+  const effectiveRecords = useFallbackPolling
+    ? (pollingQuery.data?.records ?? records)
+    : records;
+  const latestRecord = effectiveRecords.length > 0
+    ? effectiveRecords[effectiveRecords.length - 1]
+    : null;
+  const effectiveEmergency = useFallbackPolling
+    ? (pollingQuery.data?.emergency ?? emergency)
+    : emergency;
 
   return {
-    records,
+    records: effectiveRecords,
     latestRecord,
-    connected,
-    emergency,
+    connected: useFallbackPolling ? !pollingQuery.isError : connected, // Treat polling as "connected"
+    emergency: effectiveEmergency,
     subscribe,
     unsubscribe,
     clearRecords,
+
+    // Additional states for fallback
+    isLoading: useFallbackPolling ? pollingQuery.isLoading : (!connected && records.length === 0),
+    isFetching: useFallbackPolling ? pollingQuery.isFetching : false,
+    usingPollingFallback: useFallbackPolling,
+    refetch: useFallbackPolling ? pollingQuery.refetch : connect,
   };
 }
 
