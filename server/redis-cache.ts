@@ -91,10 +91,19 @@ export function getRedis(): Redis | null {
 }
 
 /**
- * Check if Redis is available
+ * Check if Redis is available and truly ready for operations.
+ *
+ * This checks both the flag AND the actual client status to avoid
+ * race conditions during connection/reconnection phases.
  */
 export function isRedisAvailable(): boolean {
-  return isConnected && redis !== null;
+  if (!isConnected || !redis) {
+    return false;
+  }
+  // Check actual connection status - ioredis status must be 'ready'
+  // Other states: 'wait', 'connecting', 'connect', 'close', 'end'
+  const status = redis.status;
+  return status === 'ready';
 }
 
 /**
