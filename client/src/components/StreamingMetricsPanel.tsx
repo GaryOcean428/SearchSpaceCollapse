@@ -20,7 +20,7 @@ interface StreamingMetricsPanelProps {
 
 export function StreamingMetricsPanel({ state, completionProgress, compact = false }: StreamingMetricsPanelProps) {
   if (!state || (!state.phi && !state.kappa && !state.tokensGenerated)) {
-    return null; // Hide if no metrics
+    return null;
   }
 
   const formatDuration = (startTime: number | null, endTime: number | null): string => {
@@ -72,9 +72,17 @@ export function StreamingMetricsPanel({ state, completionProgress, compact = fal
   return (
     <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium flex items-center
+        <h4 className="text-sm font-medium flex items-center gap-1">
+          <Activity className="h-4 w-4" />
+          Geometric State
+        </h4>
+        {state.startTime && (
+          <span className="text-xs text-muted-foreground">
+            {formatDuration(state.startTime, state.endTime)}
+          </span>
+        )}
+      </div>
 
-      {/* Consciousness Metrics */}
       <div className="grid grid-cols-3 gap-2">
         {state.phi !== null && (
           <div className="text-center">
@@ -102,7 +110,6 @@ export function StreamingMetricsPanel({ state, completionProgress, compact = fal
         )}
       </div>
 
-      {/* Token Generation Progress */}
       {state.tokensGenerated > 0 && (
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -112,14 +119,6 @@ export function StreamingMetricsPanel({ state, completionProgress, compact = fal
           <Progress value={completionProgress} className="h-1" />
         </div>
       )}
-
-      {/* Timing */}
-      {state.startTime && (
-        <div className="text-xs text-muted-foreground text-right">
-          Duration: {formatDuration(state.startTime, state.endTime)}
-        </div>
-      )}
     </div>
   );
 }
-      {state.startTime && (
