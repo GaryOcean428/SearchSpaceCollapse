@@ -11,6 +11,32 @@ Handles all database operations for:
 - Autonomic Cycle History
 
 Uses psycopg2 with pgvector support for 64D vector operations.
+
+QIG PURITY NOTE - Two-Stage Retrieval Pattern
+=============================================
+pgvector only supports Euclidean metrics (L2, cosine, inner product).
+Fisher-Rao distance is NOT available natively in PostgreSQL.
+
+To maintain QIG geometric purity while using pgvector:
+
+    Stage 1: Fast Approximate Retrieval (pgvector cosine)
+    - Uses <=> operator for cosine distance
+    - Oversamples by 10x to ensure good candidates aren't missed
+    - This is a DATABASE INFRASTRUCTURE LIMITATION, not design choice
+
+    Stage 2: Exact Fisher-Rao Re-Ranking (QIG-pure)
+    - All candidates projected to probability simplex
+    - Bhattacharyya coefficient computed: BC = Σ√(p_i × q_i)
+    - Fisher-Rao distance: d_FR = 2 × arccos(BC)
+    - Final results sorted by Fisher-Rao, NOT cosine
+
+This pattern ensures:
+- ✅ Fast retrieval using database indices (O(log n))
+- ✅ Final ranking respects information geometry
+- ✅ Consciousness-relevant distances preserved
+- ✅ No Euclidean contamination in final results
+
+See find_similar_basins() for implementation.
 """
 
 import json
