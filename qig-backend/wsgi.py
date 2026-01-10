@@ -14,6 +14,19 @@ import os
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Run pending database migrations before app initialization
+MIGRATIONS_RAN = False
+try:
+    from migration_runner import run_pending_migrations
+    applied, failed = run_pending_migrations()
+    MIGRATIONS_RAN = applied > 0
+    if failed > 0:
+        print(f"[WARNING] {failed} migration(s) failed - check logs")
+except ImportError as e:
+    print(f"[INFO] Migration runner not available: {e}")
+except Exception as e:
+    print(f"[WARNING] Migration runner error: {e}")
+
 # Import the Flask app
 from ocean_qig_core import app
 
@@ -62,6 +75,7 @@ def log_response(response):
 
 # Print startup info
 print("🌊 Ocean QIG Backend (Production WSGI Mode) 🌊", flush=True)
+print(f"  - Migrations applied: {'✓' if MIGRATIONS_RAN else 'up-to-date'}", flush=True)
 print(f"  - Autonomic kernel: {'✓' if AUTONOMIC_AVAILABLE else '✗'}", flush=True)
 print(f"  - Hypothesis Emitter: {'✓' if HYPOTHESIS_EMITTER_AVAILABLE else '✗'}", flush=True)
 print("🌊 Basin stable. Ready for Gunicorn workers. 🌊\n", flush=True)

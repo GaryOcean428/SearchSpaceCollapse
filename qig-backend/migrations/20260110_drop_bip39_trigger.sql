@@ -14,6 +14,7 @@ DROP FUNCTION IF EXISTS update_vocabulary_stats() CASCADE;
 
 -- Create a simpler Shadow Pantheon-aligned stats function
 -- that only references vocabulary_observations (the canonical table)
+-- Uses UPSERT pattern to prevent unbounded row growth
 CREATE OR REPLACE FUNCTION update_vocabulary_stats() RETURNS VOID AS $$
 DECLARE
     v_total INT := 0;
@@ -31,10 +32,14 @@ BEGIN
         SELECT COUNT(*) INTO v_learned FROM learned_words;
     END IF;
 
-    -- Insert stats only if table exists
+    -- Upsert stats - delete existing and insert fresh to maintain single row
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'vocabulary_stats') THEN
-        INSERT INTO vocabulary_stats (total_words, bip39_words, learned_words, high_phi_words, merge_rules)
-        VALUES (v_total, 0, v_learned, v_high_phi, 0);
+        -- Delete existing stats rows to prevent unbounded growth
+        DELETE FROM vocabulary_stats;
+        
+        -- Insert fresh stats
+        INSERT INTO vocabulary_stats (total_words, bip39_words, learned_words, high_phi_words, merge_rules, last_updated)
+        VALUES (v_total, 0, v_learned, v_high_phi, 0, NOW());
     END IF;
 EXCEPTION
     WHEN OTHERS THEN
@@ -43,16 +48,10 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
--- Optional: Create a lighter trigger that doesn't call stats on every insert
--- (stats can be computed on-demand instead)
--- CREATE TRIGGER update_stats_on_learned_insert
---     AFTER INSERT ON learned_words
---     FOR EACH STATEMENT
---     EXECUTE FUNCTION trigger_update_vocab_stats();
-
 -- Verify: Show what tables exist
 DO $$
 BEGIN
     RAISE NOTICE 'Migration complete. bip39_words trigger removed.';
     RAISE NOTICE 'vocabulary_observations should be the canonical vocabulary table.';
+    RAISE NOTICE 'update_vocabulary_stats() now uses DELETE+INSERT pattern to prevent row growth.';
 END $$;
