@@ -14,12 +14,13 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass, field
 import numpy as np
+from typing import TYPE_CHECKING
 
-# Type hints for CrossDomainInsight (from lightning_kernel.py)
-try:
+# Type hints for CrossDomainInsight (avoid circular import at runtime)
+if TYPE_CHECKING:
     from olympus.lightning_kernel import CrossDomainInsight
-except ImportError:
-    # If running standalone
+else:
+    # Runtime: use string annotation or Any
     CrossDomainInsight = Any
 
 logger = logging.getLogger(__name__)
