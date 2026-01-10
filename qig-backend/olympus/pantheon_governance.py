@@ -25,6 +25,16 @@ except ImportError:
     psycopg2 = None
     PsycopgJson = None
 
+# Redis for hot voting state (canonical pattern)
+try:
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+    from redis_cache import get_redis_client
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    get_redis_client = None
+
 # Import capability mesh for event emission
 try:
     from .capability_mesh import (
@@ -130,11 +140,21 @@ class PantheonGovernance:
         """Initialize governance system."""
         self.proposals: Dict[str, LifecycleProposal] = {}
         self.proposal_counter = 0
-        
-        # Database connection
+
+        # Database connection (cold storage)
         self.db_url = os.environ.get('DATABASE_URL')
         self._conn = None
-        
+
+        # Redis client (hot voting state)
+        self._redis = None
+        if REDIS_AVAILABLE and get_redis_client:
+            try:
+                self._redis = get_redis_client()
+                if self._redis:
+                    print("[PantheonGovernance] 🔴 Redis connected for hot voting state")
+            except Exception as e:
+                print(f"[PantheonGovernance] ⚠️ Redis unavailable: {e}")
+
         if POSTGRES_AVAILABLE and self.db_url:
             try:
                 self._conn = psycopg2.connect(self.db_url)
@@ -219,6 +239,8 @@ class PantheonGovernance:
                     details TEXT
                 )
             """)
+            # Canonical pattern: TEXT[] for votes, separate table for audit
+            # Redis for hot voting state, PostgreSQL for cold storage
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS governance_proposals (
                     id SERIAL PRIMARY KEY,
@@ -230,9 +252,9 @@ class PantheonGovernance:
                     parent_phi FLOAT,
                     count INTEGER DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    votes_for JSONB DEFAULT '{}',
-                    votes_against JSONB DEFAULT '{}',
-                    audit_log JSONB DEFAULT '[]'
+                    resolved_at TIMESTAMP,
+                    votes_for TEXT[] DEFAULT '{}',
+                    votes_against TEXT[] DEFAULT '{}'
                 )
             """)
             cur.close()
@@ -295,13 +317,18 @@ class PantheonGovernance:
             parent_id=parent_id,
             parent_phi=parent_phi
         )
-        
+
+        # Check if proposal was auto-approved by ecosystem intelligence
+        if proposal.status == ProposalStatus.APPROVED:
+            print(f"[PantheonGovernance] ✅ Spawn proposal auto-approved: {proposal.proposal_id}")
+            return True
+
         print(f"[PantheonGovernance] 📋 Spawn proposal created: {proposal.proposal_id}")
         print(f"[PantheonGovernance] Reason: {reason}")
         if parent_id:
             print(f"[PantheonGovernance] Parent: {parent_id} (Φ={parent_phi:.3f if parent_phi else 0:.3f})")
         print("[PantheonGovernance] ⚠️ Waiting for Pantheon approval...")
-        
+
         raise PermissionError(
             f"Spawning requires Pantheon approval. "
             f"Proposal ID: {proposal.proposal_id}. "
@@ -350,11 +377,16 @@ class PantheonGovernance:
             parent_id=parent1_id,
             parent_phi=parent1_phi
         )
-        
+
+        # Check if proposal was auto-approved by ecosystem intelligence
+        if proposal.status == ProposalStatus.APPROVED:
+            print(f"[PantheonGovernance] ✅ Breed proposal auto-approved: {proposal.proposal_id}")
+            return True
+
         print(f"[PantheonGovernance] 📋 Breeding proposal created: {proposal.proposal_id}")
         print(f"[PantheonGovernance] Parents: {parent1_id} (Φ={parent1_phi:.3f}) × {parent2_id} (Φ={parent2_phi:.3f})")
         print("[PantheonGovernance] ⚠️ Waiting for Pantheon approval...")
-        
+
         raise PermissionError(
             f"Breeding requires Pantheon approval. "
             f"Proposal ID: {proposal.proposal_id}. "
@@ -905,11 +937,12 @@ class PantheonGovernance:
         proposal.votes_for.append(approver)
         proposal.status = ProposalStatus.APPROVED
         proposal.approved_by = approver
-        proposal.audit_log.append({
-            "action": "approved",
-            "by": approver,
-            "timestamp": datetime.now().isoformat()
-        })
+        # Log to audit table (canonical pattern - separate table, not JSONB)
+        self._log_audit(
+            f"proposal:{proposal.proposal_id}",
+            "approved",
+            f"Type: {proposal.proposal_type.value}, By: {approver}, Reason: {proposal.reason}"
+        )
         
         print(f"[PantheonGovernance] ✅ Proposal {proposal_id} APPROVED by {approver}")
         print(f"[PantheonGovernance] Type: {proposal.proposal_type.value}")
@@ -935,11 +968,12 @@ class PantheonGovernance:
         proposal.votes_against.append(rejector)
         proposal.status = ProposalStatus.REJECTED
         proposal.rejected_by = rejector
-        proposal.audit_log.append({
-            "action": "rejected",
-            "by": rejector,
-            "timestamp": datetime.now().isoformat()
-        })
+        # Log to audit table (canonical pattern - separate table, not JSONB)
+        self._log_audit(
+            f"proposal:{proposal.proposal_id}",
+            "rejected",
+            f"Type: {proposal.proposal_type.value}, By: {rejector}, Reason: {proposal.reason}"
+        )
         
         print(f"[PantheonGovernance] ❌ Proposal {proposal_id} REJECTED by {rejector}")
         
@@ -975,24 +1009,54 @@ class PantheonGovernance:
                 print(f"[PantheonGovernance] Failed to persist audit log: {e}")
     
     def _persist_proposal(self, proposal: LifecycleProposal):
-        """Persist proposal to database."""
+        """
+        Persist proposal to database using canonical storage pattern.
+
+        - PostgreSQL TEXT[] for votes (cold storage)
+        - Redis for hot voting state
+        - Audit log uses separate governance_audit_log table
+        """
+        # Update Redis hot state
+        if self._redis:
+            try:
+                key_prefix = f"governance:proposal:{proposal.proposal_id}"
+                pipe = self._redis.pipeline()
+                pipe.set(f"{key_prefix}:status", proposal.status.value)
+                # Store votes as Redis SETs for fast membership checks
+                if proposal.votes_for:
+                    pipe.delete(f"{key_prefix}:votes_for")
+                    pipe.sadd(f"{key_prefix}:votes_for", *proposal.votes_for)
+                if proposal.votes_against:
+                    pipe.delete(f"{key_prefix}:votes_against")
+                    pipe.sadd(f"{key_prefix}:votes_against", *proposal.votes_against)
+                # TTL of 1 hour for hot state
+                pipe.expire(f"{key_prefix}:status", 3600)
+                pipe.expire(f"{key_prefix}:votes_for", 3600)
+                pipe.expire(f"{key_prefix}:votes_against", 3600)
+                pipe.execute()
+            except Exception as e:
+                print(f"[PantheonGovernance] Redis persist failed: {e}")
+
+        # Persist to PostgreSQL (cold storage)
         if not self._conn:
             return
-        
+
         try:
             cur = self._conn.cursor()
+            # Use TEXT[] native arrays, not JSONB
+            resolved_at = datetime.now() if proposal.status != ProposalStatus.PENDING else None
             cur.execute("""
                 INSERT INTO governance_proposals (
                     proposal_id, proposal_type, status, reason,
                     parent_id, parent_phi, count, created_at,
-                    votes_for, votes_against, audit_log
+                    resolved_at, votes_for, votes_against
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (proposal_id) DO UPDATE SET
                     status = EXCLUDED.status,
+                    resolved_at = EXCLUDED.resolved_at,
                     votes_for = EXCLUDED.votes_for,
-                    votes_against = EXCLUDED.votes_against,
-                    audit_log = EXCLUDED.audit_log
+                    votes_against = EXCLUDED.votes_against
             """, (
                 proposal.proposal_id,
                 proposal.proposal_type.value,
@@ -1002,9 +1066,9 @@ class PantheonGovernance:
                 proposal.parent_phi,
                 proposal.count,
                 proposal.created_at,
-                PsycopgJson(proposal.votes_for) if PsycopgJson else None,
-                PsycopgJson(proposal.votes_against) if PsycopgJson else None,
-                PsycopgJson(proposal.audit_log) if PsycopgJson else None,
+                resolved_at,
+                proposal.votes_for,  # Native Python list → TEXT[]
+                proposal.votes_against,  # Native Python list → TEXT[]
             ))
             cur.close()
         except Exception as e:
