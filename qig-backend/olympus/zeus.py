@@ -233,7 +233,7 @@ class Zeus(BaseGod):
         self.temporal_reasoning = None
         try:
             from temporal_reasoning import get_temporal_reasoning
-            self.temporal_reasoning = get_temporal_reasoning()
+            self.temporal_reasoning = get_temporal_reasoning(kernel_id="zeus")
             print("🔮 TEMPORAL REASONING initialized - foresight + scenarios ready")
         except ImportError as e:
             print(f"⚠️ TEMPORAL REASONING not available: {e}")
