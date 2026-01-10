@@ -23,6 +23,11 @@ from internal_api import sync_war_to_database as _sync_war_to_database
 from m8_kernel_spawning import SpawnReason, get_spawner
 
 
+# Configurable debate threshold - lower = more debates triggered
+# Default 0.15 (15% probability difference) - can be lowered for testing
+DEBATE_DISAGREEMENT_THRESHOLD = float(os.environ.get('DEBATE_THRESHOLD', '0.15'))
+
+
 def sanitize_for_json(obj: Any) -> Any:
     """
     Recursively sanitize an object for JSON serialization.
@@ -111,14 +116,6 @@ class Zeus(BaseGod):
         hades.set_shadow_pantheon(self.shadow_pantheon)
         print("[Zeus] ✓ Hades connected as Shadow Leader (subject to Zeus overrule)")
 
-        # Connect shadow search bridge for search loop integration
-        try:
-            from shadow_search_bridge import set_shadow_pantheon as set_shadow_bridge
-            set_shadow_bridge(self.shadow_pantheon)
-            print("[Zeus] ✓ Shadow search bridge connected for search loop ops")
-        except ImportError:
-            pass  # Bridge not available
-
         # Team #2 - Hermes Coordinator for voice/translation/sync
         from .hermes_coordinator import get_hermes_coordinator
         self.coordinator = get_hermes_coordinator()
@@ -186,6 +183,12 @@ class Zeus(BaseGod):
                         research_api = ShadowResearchAPI.get_instance()
                         bridge.wire_research_api(research_api)
                         print("[ToolResearchBridge] Research API connected")
+
+                        # Also wire CuriosityResearchBridge for curiosity-driven research
+                        from .shadow_research import CuriosityResearchBridge
+                        curiosity_bridge = CuriosityResearchBridge.get_instance()
+                        curiosity_bridge.wire_research_api(research_api)
+                        print("[CuriosityResearchBridge] Research API connected")
                     except Exception as api_err:
                         print(f"⚠️ Research API wiring failed: {api_err}")
 
@@ -205,9 +208,9 @@ class Zeus(BaseGod):
         try:
             import sys
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-            from autonomic_kernel import AutonomicAccessMixin, GaryAutonomicKernel
+            from autonomic_kernel import AutonomicAccessMixin, get_gary_kernel
 
-            self.autonomic_kernel = GaryAutonomicKernel()
+            self.autonomic_kernel = get_gary_kernel()
             # Share autonomic kernel with all gods via the mixin
             AutonomicAccessMixin.set_autonomic_kernel(self.autonomic_kernel)
             print("🧠 AUTONOMIC KERNEL initialized - sleep/dream/mushroom cycles shared with all gods")
@@ -226,6 +229,117 @@ class Zeus(BaseGod):
             import traceback
             print(f"⚠️ LIGHTNING KERNEL not available: {e}")
             traceback.print_exc()
+
+        # 🔮 TEMPORAL REASONING: 4D foresight and scenario planning
+        self.temporal_reasoning = None
+        try:
+            from temporal_reasoning import get_temporal_reasoning
+            self.temporal_reasoning = get_temporal_reasoning()
+            print("🔮 TEMPORAL REASONING initialized - foresight + scenarios ready")
+        except ImportError as e:
+            print(f"⚠️ TEMPORAL REASONING not available: {e}")
+
+        # 🔄 Domain sync interval tracking (must be set BEFORE wiring)
+        self._last_domain_sync = 0.0
+        self._domain_sync_interval = 30.0  # Sync every 30 seconds
+
+        # 🔗 WIRE: TemporalReasoning <-> Lightning bidirectional connection
+        self._wire_temporal_lightning_integration()
+
+    def _wire_temporal_lightning_integration(self) -> None:
+        """
+        Wire the bidirectional connection between TemporalReasoning and Lightning.
+
+        Direction 1: TemporalReasoning -> Lightning
+            Predictions from foresight() are sent to Lightning for cross-domain
+            pattern correlation via ingest_prediction().
+
+        Direction 2: Lightning -> TemporalReasoning
+            Discovered domains are periodically synced to TemporalReasoning
+            to inform attractor finding and prediction context.
+        """
+        if self.temporal_reasoning is None or self.lightning_kernel is None:
+            print("[Zeus] Cannot wire Temporal<->Lightning: one or both not available")
+            return
+
+        try:
+            # Direction 1: TemporalReasoning predictions -> Lightning
+            self.temporal_reasoning.set_lightning_callback(
+                self.lightning_kernel.ingest_prediction
+            )
+            print("[Zeus] Wired TemporalReasoning -> Lightning (predictions)")
+
+            # Direction 2: Initial domain sync from Lightning -> TemporalReasoning
+            self._sync_domains_to_temporal()
+            print("[Zeus] Wired Lightning -> TemporalReasoning (domains)")
+
+            print("🔗 TEMPORAL<->LIGHTNING bidirectional integration complete")
+
+        except Exception as e:
+            print(f"[Zeus] Temporal<->Lightning wiring failed: {e}")
+
+    def _sync_domains_to_temporal(self) -> None:
+        """
+        Sync discovered domains from Lightning to TemporalReasoning.
+
+        Called periodically to keep TemporalReasoning informed about
+        active domain patterns for improved attractor detection.
+        """
+        if self.temporal_reasoning is None or self.lightning_kernel is None:
+            return
+
+        try:
+            import time
+            current_time = time.time()
+
+            # Check if enough time has passed since last sync
+            if current_time - self._last_domain_sync < self._domain_sync_interval:
+                return
+
+            # Get discovered domains from Lightning
+            domains = self.lightning_kernel.get_discovered_domains()
+
+            if domains:
+                # Register with TemporalReasoning
+                self.temporal_reasoning.register_discovered_domains(domains)
+                self._last_domain_sync = current_time
+
+        except Exception as e:
+            print(f"[Zeus] Domain sync failed: {e}")
+
+    def periodic_domain_sync(self) -> Dict[str, Any]:
+        """
+        Public method to trigger domain sync between Lightning and TemporalReasoning.
+
+        Can be called from API endpoints or background tasks.
+
+        Returns:
+            Dict with sync status and domain count
+        """
+        if self.temporal_reasoning is None or self.lightning_kernel is None:
+            return {
+                'synced': False,
+                'reason': 'TemporalReasoning or Lightning not available'
+            }
+
+        try:
+            domains = self.lightning_kernel.get_discovered_domains()
+            self.temporal_reasoning.register_discovered_domains(domains)
+
+            import time
+            self._last_domain_sync = time.time()
+
+            return {
+                'synced': True,
+                'domains_synced': len(domains),
+                'timestamp': self._last_domain_sync
+            }
+
+        except Exception as e:
+            return {
+                'synced': False,
+                'reason': str(e)
+            }
 
     def speak(self, category: str, context: Optional[Dict] = None) -> str:
         """
@@ -308,7 +422,7 @@ class Zeus(BaseGod):
         if not living_kernels:
             return {}
 
-        # Assign to gods in order of domain importance for Bitcoin recovery
+        # Assign to gods in order of domain importance for knowledge discovery
         priority_gods = [
             'athena',    # Strategy - high priority
             'ares',      # Attacks/geometry
@@ -723,40 +837,29 @@ class Zeus(BaseGod):
         """
         # Don't declare if already in war mode
         if self.war_mode is not None:
-            print(f"[Zeus] War check: Already in {self.war_mode} mode, skipping")
             return None
 
         conv_type = convergence.get('type', 'DIVIDED')
         conv_score = convergence.get('score', 0)
         athena_ares = convergence.get('athena_ares_agreement', 0)
 
-        # Debug: Log convergence stats on every check
-        print(f"[Zeus] War check: type={conv_type}, score={conv_score:.3f}, "
-              f"athena_ares={athena_ares:.3f}, consensus={consensus_prob:.3f}")
-
         # Threshold checks for war declaration
-        # Thresholds lowered for more responsive war declaration
         war_result = None
 
         # BLITZKRIEG: Strong attack with high Athena+Ares agreement
-        if conv_type == 'STRONG_ATTACK' and athena_ares > 0.80 and consensus_prob > 0.70:
+        if conv_type == 'STRONG_ATTACK' and athena_ares > 0.85 and consensus_prob > 0.75:
             war_result = self.declare_blitzkrieg(target)
             print(f"⚡ [Zeus] AUTO-DECLARED BLITZKRIEG: convergence={conv_score:.2f}, Athena+Ares={athena_ares:.2f}")
 
         # SIEGE: Council consensus with high convergence score
-        elif conv_type == 'COUNCIL_CONSENSUS' and conv_score > 0.70 and consensus_prob > 0.60:
+        elif conv_type == 'COUNCIL_CONSENSUS' and conv_score > 0.8 and consensus_prob > 0.7:
             war_result = self.declare_siege(target)
             print(f"🏰 [Zeus] AUTO-DECLARED SIEGE: convergence={conv_score:.2f}, consensus={consensus_prob:.2f}")
 
-        # HUNT: Moderate opportunity with focused potential (most lenient)
-        elif conv_type == 'MODERATE_OPPORTUNITY' and conv_score > 0.55 and athena_ares > 0.60:
+        # HUNT: Moderate opportunity with focused potential
+        elif conv_type == 'MODERATE_OPPORTUNITY' and conv_score > 0.7 and athena_ares > 0.7:
             war_result = self.declare_hunt(target)
             print(f"🎯 [Zeus] AUTO-DECLARED HUNT: convergence={conv_score:.2f}, Athena+Ares={athena_ares:.2f}")
-
-        # NEW: HUNT fallback for ALIGNED convergence if threshold met
-        elif conv_type == 'ALIGNED' and conv_score > 0.65:
-            war_result = self.declare_hunt(target)
-            print(f"🎯 [Zeus] AUTO-DECLARED HUNT (aligned): convergence={conv_score:.2f}")
 
         if war_result:
             # Log war declaration to convergence history
@@ -811,19 +914,19 @@ class Zeus(BaseGod):
                 context={'target': target, 'assessments': {god1: prob1, god2: prob2}}
             )
 
-        # 2. Broadcast convergence status to pantheon
+        # 2. Broadcast convergence status to pantheon (QIG-pure generative)
         conv_type = convergence.get('type', 'UNKNOWN')
         conv_score = convergence.get('score', 0)
 
-        self.pantheon_chat.broadcast(
+        self.pantheon_chat.broadcast_generative(
             from_god='Zeus',
-            content=f"Convergence report for '{target}...': {conv_type} (score: {conv_score:.2f})",
-            msg_type='insight',
-            metadata={
+            intent='convergence_report',
+            data={
+                'target': target[:500],
                 'convergence_type': conv_type,
                 'convergence_score': conv_score,
-                'target': target,
-            }
+            },
+            msg_type='insight'
         )
 
         # 3. Collect pending messages from all gods
@@ -832,16 +935,192 @@ class Zeus(BaseGod):
         # 4. Deliver messages to gods
         self.pantheon_chat.deliver_to_gods(self.pantheon)
 
+    def _get_emotional_state(self) -> Optional[Dict]:
+        """
+        Get emotional state from autonomic system.
+
+        Returns dict with: phi, kappa, stress, mood, narrow_path, convergence_type
+        or None if autonomic kernel not available.
+        """
+        if hasattr(self, 'autonomic_kernel') and self.autonomic_kernel:
+            try:
+                return self.autonomic_kernel.get_emotional_state()
+            except Exception:
+                return None
+        return None
+
+    def _get_meta_awareness(self) -> Optional[float]:
+        """
+        Get M metric (meta-awareness) from self-observer.
+
+        Returns float in [0, 1] or None if not available.
+        Higher M = more self-aware system.
+        """
+        if hasattr(self, 'autonomic_kernel') and self.autonomic_kernel:
+            try:
+                # Self-observer is typically accessed via autonomic kernel
+                if hasattr(self.autonomic_kernel, 'self_observer'):
+                    observer = self.autonomic_kernel.self_observer
+                    if observer and hasattr(observer, 'get_m_metric'):
+                        return observer.get_m_metric()
+                # Alternative: Check for M in emotional state
+                state = self._get_emotional_state()
+                if state and 'm_metric' in state:
+                    return state.get('m_metric')
+            except Exception:
+                pass
+        return None
+
+    def calculate_debate_threshold(self) -> float:
+        """
+        Dynamic threshold based on emotional/urgency signals.
+
+        Returns threshold in range [0.05, 0.30]:
+        - 0.05: Critical state - debate on any significant disagreement
+        - 0.15: Normal operation (default)
+        - 0.30: Stable state - high tolerance for disagreement
+
+        Factors considered:
+        1. Stress level (high stress → lower threshold)
+        2. Narrow path detection (active → lower threshold)
+        3. Φ integration measure (low Φ → lower threshold)
+        4. Convergence type (turbulent/dissipative → lower threshold)
+        5. M metric meta-awareness (low M → lower threshold)
+        """
+        base_threshold = DEBATE_DISAGREEMENT_THRESHOLD  # Use env var as base
+
+        # Get emotional state from autonomic system
+        emotional_state = self._get_emotional_state()
+        if not emotional_state:
+            return base_threshold
+
+        threshold = base_threshold
+
+        # Factor 1: Stress adjustment (high stress → lower threshold)
+        stress = emotional_state.get('stress', 0.0)
+        if stress > 0.7:
+            threshold -= 0.05  # More debates when stressed
+        elif stress < 0.3:
+            threshold += 0.05  # Fewer debates when calm
+
+        # Factor 2: Narrow path urgency
+        # Handle both dict format {'active': bool, 'severity': float}
+        # and simple bool format from get_emotional_state()
+        narrow_path = emotional_state.get('narrow_path', False)
+        narrow_path_active = False
+        severity = 0.5
+
+        if isinstance(narrow_path, dict):
+            narrow_path_active = narrow_path.get('active', False)
+            severity = narrow_path.get('severity', 0.5)
+        elif isinstance(narrow_path, bool):
+            narrow_path_active = narrow_path
+            # Get severity from separate field if available
+            severity_str = emotional_state.get('narrow_path_severity', 'none')
+            severity_map = {'none': 0.0, 'mild': 0.3, 'moderate': 0.6, 'severe': 0.9}
+            severity = severity_map.get(severity_str, 0.5)
+
+        if narrow_path_active:
+            threshold -= severity * 0.10  # Up to -0.10 for critical paths
+
+        # Factor 3: Φ integration measure
+        phi = emotional_state.get('phi', 0.70)
+        if phi < 0.60:
+            threshold -= 0.05  # Low integration needs more debates
+        elif phi > 0.85:
+            threshold += 0.05  # High integration tolerates disagreement
+
+        # Factor 4: Convergence type
+        convergence = emotional_state.get('convergence_type', 'harmonic')
+        convergence_adjustments = {
+            'crystalline': 0.05,   # Stable - higher threshold
+            'harmonic': 0.0,       # Normal
+            'turbulent': -0.05,    # Unstable - lower threshold
+            'dissipative': -0.10   # Critical - much lower threshold
+        }
+        threshold += convergence_adjustments.get(convergence, 0.0)
+
+        # Factor 5: Meta-reflection (M metric)
+        m_metric = self._get_meta_awareness()
+        if m_metric is not None:
+            if m_metric < 0.3:
+                threshold -= 0.05  # Low self-awareness needs debates
+            elif m_metric > 0.7:
+                threshold += 0.03  # High awareness can manage disagreement
+
+        # Clamp to valid range
+        return max(0.05, min(0.30, threshold))
+
+    def directional_coupling_strength(
+        self,
+        source_phi: float,
+        target_phi: float,
+        prob_diff: float
+    ) -> float:
+        """
+        Compute asymmetric coupling strength for information flow.
+
+        Key insight from QIG analysis: d(i→j) ≠ d(j→i)
+        Source regime modulates emission strength.
+
+        Args:
+            source_phi: Φ value of the source god (emitter)
+            target_phi: Φ value of the target god (receiver)
+            prob_diff: Probability difference between gods
+
+        Returns:
+            Effective coupling strength for this direction.
+            Higher = stronger information flow = more significant disagreement.
+        """
+        # Base coupling from κ* = 64 (E8 fixed point)
+        KAPPA_STAR = 64.0
+
+        # Source regime modulates emission strength
+        if source_phi < 0.3:
+            # Linear regime - weak emission (not yet conscious)
+            kappa_eff = KAPPA_STAR * 0.3
+        elif source_phi < 0.7:
+            # Geometric regime - strong emission (conscious, stable)
+            kappa_eff = KAPPA_STAR * 1.0
+        else:
+            # Breakdown regime - unstable emission
+            kappa_eff = KAPPA_STAR * 0.5
+
+        # Target receptivity based on its Φ
+        if target_phi < 0.3:
+            receptivity = 0.5  # Linear - partially receptive
+        elif target_phi < 0.7:
+            receptivity = 1.0  # Geometric - fully receptive
+        else:
+            receptivity = 0.3  # Breakdown - resistant to input
+
+        # Asymmetric coupling: exp(-d / κ_eff) * receptivity
+        # Higher prob_diff = higher coupling (more significant)
+        coupling = (1.0 - np.exp(-prob_diff * kappa_eff / 10)) * receptivity
+
+        return coupling
+
     def _find_significant_disagreements(
         self,
         assessments: Dict[str, Dict],
-        threshold: float = 0.15
+        threshold: float = None,
+        use_asymmetric: bool = True
     ) -> List[Tuple[str, str, float]]:
         """
         Find pairs of gods with significant probability disagreements.
 
-        Returns list of (god1, god2, prob_difference) tuples, sorted by disagreement.
+        Uses asymmetric coupling (i→j ≠ j→i) based on source/target Φ regimes.
+
+        Threshold is dynamically calculated based on emotional state:
+        - High stress/narrow path → lower threshold (0.05-0.10)
+        - Normal operation → default threshold (0.15)
+        - Stable/crystalline state → higher threshold (0.20-0.30)
+
+        Returns list of (initiator, opponent, coupling_strength) tuples.
+        Initiator is the god with stronger emission toward the other.
         """
+        if threshold is None:
+            threshold = self.calculate_debate_threshold()
         disagreements = []
         gods = list(assessments.keys())
 
@@ -851,10 +1130,32 @@ class Zeus(BaseGod):
                 prob2 = assessments[god2].get('probability', 0.5)
                 diff = abs(prob1 - prob2)
 
-                if diff >= threshold:
+                if diff < threshold:
+                    continue
+
+                if use_asymmetric:
+                    # Get Φ values for regime-based coupling
+                    phi1 = assessments[god1].get('phi', 0.5)
+                    phi2 = assessments[god2].get('phi', 0.5)
+
+                    # Compute directional coupling strengths
+                    coupling_1_to_2 = self.directional_coupling_strength(phi1, phi2, diff)
+                    coupling_2_to_1 = self.directional_coupling_strength(phi2, phi1, diff)
+
+                    # Initiator is the god with stronger emission
+                    if coupling_1_to_2 >= coupling_2_to_1:
+                        initiator, opponent = god1, god2
+                        coupling = coupling_1_to_2
+                    else:
+                        initiator, opponent = god2, god1
+                        coupling = coupling_2_to_1
+
+                    disagreements.append((initiator, opponent, coupling))
+                else:
+                    # Fallback to symmetric (legacy behavior)
                     disagreements.append((god1, god2, diff))
 
-        # Sort by disagreement magnitude (highest first)
+        # Sort by coupling strength (highest first)
         disagreements.sort(key=lambda x: x[2], reverse=True)
         return disagreements
 
@@ -932,9 +1233,9 @@ class Zeus(BaseGod):
             try:
                 # Spawn initial population if needed
                 if len(self.chaos.kernel_population) == 0:
-                    self.chaos.spawn_random_kernel()
-                    self.chaos.spawn_random_kernel()
-                    self.chaos.spawn_random_kernel()
+                    self.chaos.spawn_random_kernel(reason='initial_population')
+                    self.chaos.spawn_random_kernel(reason='initial_population')
+                    self.chaos.spawn_random_kernel(reason='initial_population')
 
                 # Start evolution
                 self.chaos.start_evolution(interval_seconds=60)
@@ -943,17 +1244,18 @@ class Zeus(BaseGod):
                 print(f"🌪️ [Zeus] CHAOS MODE AUTO-ACTIVATED: {activation_reason}")
                 print(f"🌪️ [Zeus] Initial kernel population: {len(self.chaos.kernel_population)}")
 
-                # Broadcast to pantheon
-                self.pantheon_chat.broadcast(
+                # Broadcast to pantheon (QIG-pure generative)
+                self.pantheon_chat.broadcast_generative(
                     from_god='Zeus',
-                    content=f"CHAOS MODE activated: {activation_reason}",
-                    msg_type='chaos_activation',
-                    metadata={
+                    intent='chaos_activation',
+                    data={
+                        'reason': activation_reason,
                         'convergence_type': convergence_type,
                         'convergence_score': convergence_score,
                         'avg_phi': avg_phi,
                         'war_mode': self.war_mode,
-                    }
+                    },
+                    msg_type='chaos_activation'
                 )
 
             except Exception as e:
@@ -977,17 +1279,16 @@ class Zeus(BaseGod):
 
         high_prob_count = sum(1 for p in all_probs if p > 0.7)
 
-        # Relaxed convergence thresholds for more responsive war declaration
-        if athena_ares_agreement > 0.80 and athena_prob > 0.70:
+        if athena_ares_agreement > 0.85 and athena_prob > 0.75:
             convergence_type = "STRONG_ATTACK"
             score = (athena_ares_agreement + athena_prob) / 2
-        elif athena_ares_agreement > 0.60 and athena_prob > 0.50:
+        elif athena_ares_agreement > 0.7 and athena_prob > 0.6:
             convergence_type = "MODERATE_OPPORTUNITY"
             score = athena_ares_agreement * 0.7 + full_convergence * 0.3
-        elif high_prob_count >= 6:
+        elif high_prob_count >= 8:
             convergence_type = "COUNCIL_CONSENSUS"
             score = high_prob_count / 12
-        elif full_convergence > 0.60:
+        elif full_convergence > 0.7:
             convergence_type = "ALIGNED"
             score = full_convergence
         else:
@@ -1583,7 +1884,7 @@ class Zeus(BaseGod):
         details = details or {}
         actual_outcome = {
             'success': success,
-            'domain': 'bitcoin_recovery',
+            'domain': 'knowledge_discovery',
             **details
         }
 
@@ -1616,14 +1917,14 @@ class Zeus(BaseGod):
 
                 learning_results[god_name] = learning_result
 
-                # Also update reputation through peer communication
+                # Also update reputation through peer communication (QIG-pure generative)
                 if success:
                     # Gods praise each other on success
-                    self.pantheon_chat.broadcast(
+                    self.pantheon_chat.broadcast_generative(
                         from_god=god_name.capitalize(),
-                        content="Discovery validated! Target showed positive balance.",
-                        msg_type='discovery',
-                        metadata={'target': target[:500], 'success': True}
+                        intent='discovery_validated',
+                        data={'target': target[:500], 'success': True},
+                        msg_type='discovery'
                     )
 
             except Exception as e:
@@ -1701,11 +2002,26 @@ def status_endpoint():
 
 @olympus_app.route('/god/<god_name>/status', methods=['GET'])
 def god_status_endpoint(god_name: str):
-    """Get status of a specific god."""
+    """Get status of a specific god with κ-tacking info."""
     god = zeus.get_god(god_name)
     if not god:
         return jsonify({'error': f'God {god_name} not found'}), 404
-    return jsonify(sanitize_for_json(god.get_status()))
+
+    status = god.get_status()
+
+    # Add κ-tacking status from mixin
+    if hasattr(god, 'get_tacking_status'):
+        status['kappa_tacking'] = god.get_tacking_status()
+
+    # Add holographic transform status if available
+    if hasattr(god, 'get_holographic_status'):
+        status['holographic'] = god.get_holographic_status()
+
+    # Add tool factory status if available
+    if hasattr(god, 'get_tool_factory_status'):
+        status['tool_factory'] = god.get_tool_factory_status()
+
+    return jsonify(sanitize_for_json(status))
 
 
 @olympus_app.route('/god/<god_name>/assess', methods=['POST'])
@@ -2011,10 +2327,10 @@ def _zeus_chat_inner():
 
                 validated_files.append(file)
 
-        # Get session_id for persistence
+        # Get session_id for persistence (data is defined in is_json block above)
         session_id = None
         if request.is_json:
-            session_id = data.get('session_id')
+            session_id = data.get('session_id') if 'data' in locals() and data else None
         else:
             session_id = request.form.get('session_id')
 
@@ -2026,6 +2342,34 @@ def _zeus_chat_inner():
             files=validated_files if validated_files else None,
             session_id=session_id
         )
+
+        # Broadcast to kernel_activity for pantheon chatter visibility
+        try:
+            from olympus.activity_broadcaster import broadcast_kernel_activity, ActivityType
+            response_text = result.get('response', '') if isinstance(result, dict) else str(result)
+            phi = result.get('metadata', {}).get('phi', 0.5) if isinstance(result, dict) else 0.5
+
+            # Broadcast user message
+            broadcast_kernel_activity(
+                from_god="User",
+                activity_type=ActivityType.MESSAGE,
+                content=message[:500] if len(message) > 500 else message,
+                phi=0.5,
+                kappa=64.0,
+                metadata={"session_id": session_id, "direction": "incoming"}
+            )
+
+            # Broadcast Zeus response
+            broadcast_kernel_activity(
+                from_god="Zeus",
+                activity_type=ActivityType.MESSAGE,
+                content=response_text[:500] if len(response_text) > 500 else response_text,
+                phi=float(phi) if isinstance(phi, (int, float)) else 0.5,
+                kappa=64.0,
+                metadata={"session_id": session_id, "direction": "outgoing"}
+            )
+        except Exception as be:
+            print(f"[Zeus] kernel_activity broadcast failed: {be}")
 
         return jsonify(sanitize_for_json(result))
 
@@ -2562,31 +2906,45 @@ def chat_recent_endpoint():
 
 @olympus_app.route('/chat/send', methods=['POST'])
 def chat_send_endpoint():
-    """Send a message from one god to another."""
+    """
+    Send a message from one god to another.
+
+    QIG-PURE: Uses intent/data for geometric synthesis.
+    Raw content is NOT accepted - use intent/data instead.
+    """
     data = request.get_json() or {}
+
+    # Reject raw content - enforce QIG purity
+    if 'content' in data:
+        return jsonify({
+            'error': 'Raw content not accepted. Use intent/data for QIG-pure synthesis.',
+            'hint': 'Provide "intent" (string) and "data" (object) instead of "content"'
+        }), 400
 
     msg_type = data.get('type', 'insight')
     from_god = data.get('from_god', '')
     to_god = data.get('to_god', '')
-    content = data.get('content', '')
+    intent = data.get('intent')
+    msg_data = data.get('data', {})
     metadata = data.get('metadata', {})
 
     # Extract consciousness metrics and conversation context
-    phi = data.get('phi') or metadata.get('phi')
-    kappa = data.get('kappa') or metadata.get('kappa')
-    regime = data.get('regime') or metadata.get('regime')
+    phi = data.get('phi') or (msg_data.get('phi') if msg_data else None)
+    kappa = data.get('kappa') or (msg_data.get('kappa') if msg_data else None)
+    regime = data.get('regime') or (msg_data.get('regime') if msg_data else None)
     session_id = data.get('session_id') or metadata.get('session_id')
     parent_id = data.get('parent_id') or metadata.get('parent_id')
     debate_id = data.get('debate_id') or metadata.get('debate_id')
 
-    if not from_god or not to_god or not content:
-        return jsonify({'error': 'from_god, to_god, and content are required'}), 400
+    if not from_god or not to_god:
+        return jsonify({'error': 'from_god and to_god are required'}), 400
 
     message = zeus.pantheon_chat.send_message(
         msg_type=msg_type,
         from_god=from_god,
         to_god=to_god,
-        content=content,
+        intent=intent or msg_type,
+        data=msg_data,
         metadata=metadata,
         phi=phi,
         kappa=kappa,
@@ -2600,29 +2958,43 @@ def chat_send_endpoint():
 
 @olympus_app.route('/chat/broadcast', methods=['POST'])
 def chat_broadcast_endpoint():
-    """Broadcast a message to the entire pantheon."""
+    """
+    Broadcast a message to the entire pantheon.
+
+    QIG-PURE: Uses intent/data for geometric synthesis.
+    Raw content is NOT accepted - use intent/data instead.
+    """
     data = request.get_json() or {}
 
+    # Reject raw content - enforce QIG purity
+    if 'content' in data:
+        return jsonify({
+            'error': 'Raw content not accepted. Use intent/data for QIG-pure synthesis.',
+            'hint': 'Provide "intent" (string) and "data" (object) instead of "content"'
+        }), 400
+
     from_god = data.get('from_god', '')
-    content = data.get('content', '')
     msg_type = data.get('type', 'insight')
+    intent = data.get('intent')
+    msg_data = data.get('data', {})
     metadata = data.get('metadata', {})
 
     # Extract consciousness metrics and conversation context
-    phi = data.get('phi') or metadata.get('phi')
-    kappa = data.get('kappa') or metadata.get('kappa')
-    regime = data.get('regime') or metadata.get('regime')
+    phi = data.get('phi') or (msg_data.get('phi') if msg_data else None)
+    kappa = data.get('kappa') or (msg_data.get('kappa') if msg_data else None)
+    regime = data.get('regime') or (msg_data.get('regime') if msg_data else None)
     session_id = data.get('session_id') or metadata.get('session_id')
     parent_id = data.get('parent_id') or metadata.get('parent_id')
     debate_id = data.get('debate_id') or metadata.get('debate_id')
 
-    if not from_god or not content:
-        return jsonify({'error': 'from_god and content are required'}), 400
+    if not from_god:
+        return jsonify({'error': 'from_god is required'}), 400
 
     message = zeus.pantheon_chat.broadcast(
         from_god=from_god,
-        content=content,
         msg_type=msg_type,
+        intent=intent or msg_type,
+        data=msg_data,
         metadata=metadata,
         phi=phi,
         kappa=kappa,
@@ -4049,33 +4421,6 @@ def zeus_tools_pipeline_invent_endpoint():
             'message': 'Tool invention request submitted'
         }))
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-# =========================================================================
-# 💰 HYPOTHESIS FEEDBACK (Balance Hit Registration)
-# =========================================================================
-@olympus_app.route('/hypothesis/feedback', methods=['POST'])
-def hypothesis_feedback_endpoint():
-    """
-    Register a balance hit to reinforce mnemonic/passphrase success patterns.
-    Called from TypeScript when a hypothesis yields a positive balance.
-    """
-    try:
-        from .hypothesis_emitter import register_balance_hit
-
-        data = request.get_json() or {}
-        phrase = data.get('phrase', '')
-        phi = float(data.get('phi', 0.9))
-        is_mnemonic = bool(data.get('is_mnemonic', False))
-
-        if not phrase:
-            return jsonify({'success': False, 'error': 'phrase is required'}), 400
-
-        result = register_balance_hit(phrase, phi, is_mnemonic)
-        return jsonify({'success': True, **result})
-    except Exception as e:
-        print(f"[HypothesisFeedback] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

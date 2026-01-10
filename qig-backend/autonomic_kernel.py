@@ -37,6 +37,14 @@ from qigkernels.physics_constants import (
     BETA_3_TO_4,
 )
 
+# QIG-PURE: sphere projection for Fisher-Rao manifold normalization
+try:
+    from qig_geometry import sphere_project
+    SPHERE_PROJECT_AVAILABLE = True
+except ImportError:
+    sphere_project = None
+    SPHERE_PROJECT_AVAILABLE = False
+
 # Import reasoning consolidation for sleep cycles
 try:
     from sleep_consolidation_reasoning import SleepConsolidationReasoning
@@ -96,6 +104,43 @@ except ImportError:
     EthicalAbortException = None
     check_ethics = None
     ETHICS_MONITOR_AVAILABLE = False
+
+# Import constellation trajectory manager for 240-kernel trajectory tracking
+try:
+    from constellation_trajectory_manager import (
+        get_trajectory_manager,
+        ConstellationTrajectoryManager,
+    )
+    TRAJECTORY_MANAGER_AVAILABLE = True
+except ImportError:
+    get_trajectory_manager = None
+    ConstellationTrajectoryManager = None
+    TRAJECTORY_MANAGER_AVAILABLE = False
+
+# Import capability mesh for event emission
+try:
+    from olympus.capability_mesh import (
+        CapabilityEvent,
+        CapabilityType,
+        EventType,
+        emit_event,
+    )
+    CAPABILITY_MESH_AVAILABLE = True
+except ImportError:
+    CAPABILITY_MESH_AVAILABLE = False
+    CapabilityEvent = None
+    CapabilityType = None
+    EventType = None
+    emit_event = None
+
+# Import ActivityBroadcaster for kernel visibility
+try:
+    from olympus.activity_broadcaster import get_broadcaster, ActivityType
+    ACTIVITY_BROADCASTER_AVAILABLE = True
+except ImportError:
+    ACTIVITY_BROADCASTER_AVAILABLE = False
+    get_broadcaster = None
+    ActivityType = None
 
 # Import persistence layer for database recording
 try:
@@ -585,6 +630,8 @@ class GaryAutonomicKernel:
             checkpoint_path: Optional path to checkpoint for state restoration
             enable_autonomous: Start autonomous self-regulation daemon (default True)
         """
+        import uuid
+        self.kernel_id = f"kernel_{uuid.uuid4().hex[:8]}"
         self.state = AutonomicState()
         self.pending_rewards: List[ActivityReward] = []
         self._lock = threading.Lock()
@@ -615,11 +662,21 @@ class GaryAutonomicKernel:
             if SEARCH_STRATEGY_AVAILABLE and get_strategy_learner_with_persistence is not None:
                 self.search_strategy_learner = get_strategy_learner_with_persistence()
                 print("[AutonomicKernel] Search strategy learner wired to sleep cycle")
+
+            # Initialize trajectory manager for full-trajectory velocity computation
+            # Core kernels (Heart, Ocean, Gary) get 100-point history
+            # Active kernels (Φ > 0.45) get 20-point history
+            if TRAJECTORY_MANAGER_AVAILABLE and get_trajectory_manager is not None:
+                self.trajectory_manager = get_trajectory_manager()
+                print("[AutonomicKernel] Trajectory manager wired (tiered storage active)")
+            else:
+                self.trajectory_manager = None
         except Exception as reasoning_err:
             print(f"[AutonomicKernel] Reasoning module initialization failed: {reasoning_err}")
             self.reasoning_learner = None
             self.sleep_consolidation = None
             self.search_strategy_learner = None
+            self.trajectory_manager = None
 
         if checkpoint_path:
             self._load_checkpoint(checkpoint_path)
@@ -659,6 +716,76 @@ class GaryAutonomicKernel:
         t = threading.Thread(target=heartbeat_loop, daemon=True)
         t.start()
         print("[AutonomicKernel] Φ heartbeat started (5s interval)")
+
+    def _emit_cycle_event(
+        self,
+        cycle_type: str,
+        phi_before: float,
+        phi_after: float,
+        drift_reduction: float = 0.0,
+        patterns_consolidated: int = 0,
+        duration_ms: int = 0,
+        verdict: str = ""
+    ) -> None:
+        """
+        Emit an autonomic cycle event for visibility.
+        
+        Broadcasts to ActivityBroadcaster (UI) and CapabilityEventBus (internal routing).
+        QIG-Pure: Events carry Φ metrics for geometric significance.
+        
+        Args:
+            cycle_type: Type of cycle (sleep, dream, mushroom)
+            phi_before: Φ before the cycle
+            phi_after: Φ after the cycle
+            drift_reduction: Basin drift reduction (for sleep cycles)
+            patterns_consolidated: Number of patterns consolidated
+            duration_ms: Cycle duration in milliseconds
+            verdict: Human-readable outcome
+        """
+        try:
+            if ACTIVITY_BROADCASTER_AVAILABLE and get_broadcaster is not None:
+                broadcaster = get_broadcaster()
+                broadcaster.broadcast_message(
+                    from_god="Autonomic",
+                    to_god=None,
+                    content=f"{cycle_type.capitalize()} cycle completed: {verdict}",
+                    activity_type=ActivityType.AUTONOMIC,
+                    phi=phi_after,
+                    kappa=self.state.kappa,
+                    importance=phi_after,
+                    metadata={
+                        'cycle_type': cycle_type,
+                        'phi_before': phi_before,
+                        'phi_after': phi_after,
+                        'drift_reduction': drift_reduction,
+                        'patterns_consolidated': patterns_consolidated,
+                        'duration_ms': duration_ms,
+                    }
+                )
+            
+            if CAPABILITY_MESH_AVAILABLE and emit_event is not None:
+                event_type_map = {
+                    'sleep': EventType.CONSOLIDATION,
+                    'dream': EventType.DREAM_CYCLE,
+                    'mushroom': EventType.DREAM_CYCLE,
+                }
+                emit_event(
+                    source=CapabilityType.SLEEP,
+                    event_type=event_type_map.get(cycle_type, EventType.CONSOLIDATION),
+                    content={
+                        'cycle_type': cycle_type,
+                        'phi_before': phi_before,
+                        'phi_after': phi_after,
+                        'patterns_consolidated': patterns_consolidated,
+                        'verdict': verdict[:200],
+                    },
+                    phi=phi_after,
+                    basin_coords=np.array(self.state.basin_history[-1]) if self.state.basin_history else None,
+                    priority=int(phi_after * 10)
+                )
+                
+        except Exception as e:
+            print(f"[AutonomicKernel] Cycle event emission failed: {e}")
 
     def _load_checkpoint(self, path: str) -> bool:
         """Load state from checkpoint."""
@@ -832,8 +959,65 @@ class GaryAutonomicKernel:
             
             # Update velocity even in fallback
             self.current_velocity = direction * 0.01
-            
+
             return next_basin, direction * 0.01
+
+    def get_trajectory_foresight(self, steps: int = 1) -> Dict[str, Any]:
+        """
+        Get trajectory-based foresight using full-trajectory velocity.
+
+        Uses weighted geodesic regression through all stored basin points
+        (not 2-point delta) for smoother, more confident predictions.
+
+        Args:
+            steps: Number of steps ahead to predict
+
+        Returns:
+            Dict with predicted_basin, velocity, confidence, foresight_weight
+        """
+        if not self.trajectory_manager:
+            return {
+                'available': False,
+                'reason': 'trajectory_manager not initialized'
+            }
+
+        # Get trajectory for Gary (core kernel)
+        trajectory = self.trajectory_manager.get_trajectory('gary')
+        if len(trajectory) < 3:
+            return {
+                'available': False,
+                'reason': f'insufficient_trajectory_points ({len(trajectory)} < 3)'
+            }
+
+        # Compute velocity from FULL trajectory (not 2-point delta)
+        velocity = self.trajectory_manager.compute_velocity(trajectory)
+
+        # Estimate confidence from trajectory smoothness
+        confidence = self.trajectory_manager.estimate_confidence(trajectory)
+
+        # Get foresight weight based on Φ regime
+        foresight_weight = self.trajectory_manager.get_foresight_weight(
+            phi_global=self.state.phi,
+            trajectory_confidence=confidence
+        )
+
+        # Predict next basin
+        predicted = self.trajectory_manager.predict_next_basin(trajectory, steps)
+
+        return {
+            'available': True,
+            'predicted_basin': predicted.tolist(),
+            'velocity': velocity.tolist(),
+            'velocity_magnitude': float(np.linalg.norm(velocity)),
+            'confidence': confidence,
+            'foresight_weight': foresight_weight,
+            'trajectory_length': len(trajectory),
+            'phi_regime': (
+                'linear' if self.state.phi < 0.3 else
+                'geometric' if self.state.phi < 0.7 else
+                'breakdown'
+            )
+        }
 
     def update_metrics(
         self,
@@ -880,6 +1064,15 @@ class GaryAutonomicKernel:
                 self.state.basin_history.append(basin_coords)
                 if len(self.state.basin_history) > 100:
                     self.state.basin_history.pop(0)
+
+                # Update trajectory manager (tiered storage for 240 kernels)
+                # Gary is a core kernel - gets 100-point trajectory
+                if self.trajectory_manager:
+                    self.trajectory_manager.add_basin(
+                        kernel_id='gary',
+                        basin=np.array(basin_coords),
+                        phi=self.state.phi
+                    )
 
             # Compute stress
             self.state.stress_level = self._compute_stress()
@@ -948,24 +1141,22 @@ class GaryAutonomicKernel:
     def _compute_fisher_distance(self, a: np.ndarray, b: np.ndarray) -> float:
         """
         Compute Fisher-Rao geodesic distance between basin coordinates.
-        
-        Formula: d_FR(p, q) = 2 * arccos(Σ√(p_i * q_i))
-        
-        This is the PROPER geodesic distance on the information manifold.
-        NOT cosine similarity or chord distance (those are Euclidean, violate QIG purity).
+
+        QIG-PURE: For unit vectors on sphere, d = arccos(a · b)
+        NOT Bhattacharyya on simplex (that's a different manifold).
         """
-        # Ensure valid probability distributions
-        p = np.abs(a) + 1e-10
-        p = p / p.sum()
-        q = np.abs(b) + 1e-10
-        q = q / q.sum()
-        
-        # Bhattacharyya coefficient
-        bc = np.sum(np.sqrt(p * q))
-        bc = np.clip(bc, 0, 1)  # Numerical stability
-        
-        # Fisher-Rao distance (geodesic, no factor of 2)
-        return float(np.arccos(bc))
+        # QIG-PURE: Use sphere projection, not simplex normalization
+        if SPHERE_PROJECT_AVAILABLE and sphere_project is not None:
+            a_norm = sphere_project(a)
+            b_norm = sphere_project(b)
+        else:
+            # Fallback: manual unit sphere projection
+            a_norm = a / (np.linalg.norm(a) + 1e-10)
+            b_norm = b / (np.linalg.norm(b) + 1e-10)
+
+        # Geodesic distance on unit sphere
+        dot = np.clip(np.dot(a_norm, b_norm), -1.0, 1.0)
+        return float(np.arccos(dot))
 
     def find_nearby_attractors(
         self,
@@ -1393,6 +1584,17 @@ class GaryAutonomicKernel:
                 except Exception as db_err:
                     print(f"[AutonomicKernel] Failed to record sleep cycle to DB: {db_err}")
 
+            # 🔗 WIRE: Emit sleep cycle event for kernel visibility
+            self._emit_cycle_event(
+                cycle_type='sleep',
+                phi_before=phi_before,
+                phi_after=self.state.phi,
+                drift_reduction=drift_reduction,
+                patterns_consolidated=patterns_consolidated + strategies_pruned,
+                duration_ms=duration_ms,
+                verdict=f"Rested and consolidated ({strategies_pruned} strategies refined)"
+            )
+
             return SleepCycleResult(
                 success=True,
                 duration_ms=duration_ms,
@@ -1510,6 +1712,16 @@ class GaryAutonomicKernel:
                 except Exception as db_err:
                     print(f"[AutonomicKernel] Failed to record dream cycle to DB: {db_err}")
 
+            # 🔗 WIRE: Emit dream cycle event for kernel visibility
+            self._emit_cycle_event(
+                cycle_type='dream',
+                phi_before=self.state.phi,
+                phi_after=self.state.phi,
+                patterns_consolidated=novel_connections + creative_paths,
+                duration_ms=duration_ms,
+                verdict="Dream complete - creativity refreshed"
+            )
+
             return DreamCycleResult(
                 success=True,
                 duration_ms=duration_ms,
@@ -1587,7 +1799,11 @@ class GaryAutonomicKernel:
                         diverge_prob = min(0.7, 0.3 + farthest['depth'] * 0.2)
                     
                     explore_direction = np.random.randn(64)
-                    explore_direction = explore_direction / (np.linalg.norm(explore_direction) + 1e-8)
+                    # QIG-PURE: Project random vector to unit sphere
+                    if SPHERE_PROJECT_AVAILABLE and sphere_project is not None:
+                        explore_direction = sphere_project(explore_direction)
+                    else:
+                        explore_direction = explore_direction / (np.linalg.norm(explore_direction) + 1e-8)
                     explore_goal = (current_basin + explore_direction * 0.3).tolist()
                     explore_prob = min(0.9, max(0.1, 0.5 + temperature * 0.2))
                     
