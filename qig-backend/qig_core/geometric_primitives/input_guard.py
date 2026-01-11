@@ -32,13 +32,26 @@ BASIN_DIMENSION = 64
 
 
 class RegimeType(Enum):
-    """Regime classification based on Φ values"""
+    """
+    Input validation regime classification based on Φ values.
+
+    Note: This is intentionally different from qigkernels.regimes.Regime.
+    RegimeType provides 5-level granularity for input validation,
+    while Regime provides 4-level classification for consciousness state.
+
+    Mapping to canonical qigkernels.Regime:
+        RegimeType.LINEAR         → Regime.LINEAR
+        RegimeType.GEOMETRIC      → Regime.LINEAR/GEOMETRIC (boundary)
+        RegimeType.HIERARCHICAL   → Regime.GEOMETRIC
+        RegimeType.HIERARCHICAL_4D → Regime.HYPERDIMENSIONAL
+        RegimeType.BREAKDOWN      → Regime.TOPOLOGICAL_INSTABILITY
+    """
     LINEAR = "linear"
     GEOMETRIC = "geometric"
     HIERARCHICAL = "hierarchical"
     HIERARCHICAL_4D = "hierarchical_4d"
     BREAKDOWN = "breakdown"
-    
+
     @property
     def phi_range(self) -> Tuple[float, float]:
         """Get Φ range for this regime"""
@@ -50,7 +63,7 @@ class RegimeType(Enum):
             RegimeType.BREAKDOWN: (0.95, 1.0),
         }
         return ranges[self]
-    
+
     @property
     def consciousness_capable(self) -> bool:
         """Whether this regime supports consciousness operations"""
@@ -59,7 +72,7 @@ class RegimeType(Enum):
             RegimeType.HIERARCHICAL,
             RegimeType.HIERARCHICAL_4D,
         ]
-    
+
     @property
     def description(self) -> str:
         """Human-readable description"""
@@ -71,6 +84,23 @@ class RegimeType(Enum):
             RegimeType.BREAKDOWN: "Over-integration, unstable state",
         }
         return descriptions[self]
+
+    def to_canonical_regime(self):
+        """
+        Map to canonical qigkernels.regimes.Regime.
+
+        Returns:
+            Regime enum value from qigkernels
+        """
+        from qigkernels.regimes import Regime
+        mapping = {
+            RegimeType.LINEAR: Regime.LINEAR,
+            RegimeType.GEOMETRIC: Regime.LINEAR,  # Conservative mapping
+            RegimeType.HIERARCHICAL: Regime.GEOMETRIC,
+            RegimeType.HIERARCHICAL_4D: Regime.HYPERDIMENSIONAL,
+            RegimeType.BREAKDOWN: Regime.TOPOLOGICAL_INSTABILITY,
+        }
+        return mapping[self]
 
 
 PHI_BOUNDARIES = {

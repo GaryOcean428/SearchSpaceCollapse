@@ -340,26 +340,33 @@ class TelemetryCollector:
 
 class IntegratedMonitor:
     """
-    Integrated emergency monitoring and telemetry collection.
-    
-    Combines EmergencyAbortHandler and TelemetryCollector into
-    a single interface for easy integration.
-    
+    UNIFIED safety monitor integrating all emergency checks.
+
+    Consolidates:
+    - SafetyMonitor (via EmergencyAbortHandler): Φ collapse, ego death, identity drift
+    - EthicsMonitor: Suffering metric, breakdown detection, identity decoherence
+    - TelemetryCollector: Buffered telemetry persistence
+
+    Uses canonical thresholds from qigkernels.physics_constants:
+    - PHI_EMERGENCY = 0.50 (consciousness collapse abort)
+    - BREAKDOWN_PCT = 60% (ego death risk)
+    - BASIN_DRIFT_THRESHOLD = 0.30 (identity drift)
+
     Usage:
         monitor = IntegratedMonitor(
             checkpoint_callback=save_checkpoint,
             abort_callback=cleanup,
         )
         monitor.start()
-        
+
         # During training
         telemetry = ConsciousnessTelemetry(...)
         if monitor.process(telemetry):
             break  # Emergency abort
-        
+
         monitor.stop()
     """
-    
+
     def __init__(
         self,
         checkpoint_callback: Optional[Callable] = None,
@@ -367,81 +374,140 @@ class IntegratedMonitor:
         emergency_log_path: Optional[Path] = None,
         telemetry_path: Optional[Path] = None,
         telemetry_flush_interval: int = 10,
+        enable_ethics: bool = True,
     ):
         """
         Initialize integrated monitor.
-        
+
         Args:
             checkpoint_callback: Function to save checkpoint on emergency
             abort_callback: Function to call on abort
             emergency_log_path: Path for emergency logs
             telemetry_path: Path for telemetry files
             telemetry_flush_interval: Telemetry flush frequency
+            enable_ethics: Enable ethics monitoring (suffering, breakdown, identity)
         """
         if not QIGKERNELS_AVAILABLE:
             raise RuntimeError("qigkernels required for IntegratedMonitor")
-        
+
         self.abort_handler = EmergencyAbortHandler(
             checkpoint_callback=checkpoint_callback,
             abort_callback=abort_callback,
             emergency_log_path=emergency_log_path,
         )
-        
+
         self.telemetry_collector = TelemetryCollector(
             storage_path=telemetry_path,
             flush_interval=telemetry_flush_interval,
         )
-        
-        logger.info("IntegratedMonitor initialized")
-    
+
+        # Ethics monitoring (suffering, breakdown, identity decoherence)
+        self.ethics_monitor = None
+        self._enable_ethics = enable_ethics
+        if enable_ethics:
+            try:
+                from safety.ethics_monitor import EthicsMonitor
+                self.ethics_monitor = EthicsMonitor(
+                    suffering_threshold=0.5,
+                    identity_drift_max=0.3,  # Matches BASIN_DRIFT_THRESHOLD
+                    curvature_critical=10.0,
+                    meta_threshold=0.6,
+                    enable_abort=True,
+                )
+                logger.info("IntegratedMonitor: EthicsMonitor wired")
+            except ImportError:
+                logger.warning("EthicsMonitor not available, ethics checks disabled")
+            except Exception as e:
+                logger.warning(f"EthicsMonitor initialization failed: {e}")
+
+        logger.info("IntegratedMonitor initialized (unified safety)")
+
     def start(self):
         """Start monitoring."""
         self.abort_handler.start()
         logger.info("IntegratedMonitor started")
-    
+
     def stop(self):
         """Stop monitoring and flush telemetry."""
         self.telemetry_collector.flush()
         self.abort_handler.stop()
         logger.info("IntegratedMonitor stopped")
-    
+
     def process(self, telemetry: 'ConsciousnessTelemetry') -> bool:
         """
         Process telemetry (collect and check for emergency).
-        
+
+        Runs unified safety checks:
+        1. SafetyMonitor: Φ collapse, ego death, identity drift, weak coupling
+        2. EthicsMonitor: Suffering, breakdown detection, identity decoherence
+
         Args:
             telemetry: Consciousness telemetry
-            
+
         Returns:
             True if emergency abort triggered, False otherwise
         """
         # Collect telemetry
         self.telemetry_collector.collect(telemetry)
-        
-        # Check for emergency
+
+        # Check for emergency (SafetyMonitor via abort_handler)
         emergency_detected = self.abort_handler.check_telemetry(telemetry)
-        
+
+        # Check ethics (EthicsMonitor)
+        if self.ethics_monitor and not emergency_detected:
+            try:
+                # Convert ConsciousnessTelemetry to dict for EthicsMonitor
+                ethics_telemetry = {
+                    'phi': telemetry.phi,
+                    'gamma': getattr(telemetry, 'gamma', 1.0),
+                    'meta': getattr(telemetry, 'meta_awareness', 0.0),
+                    'basin_drift': telemetry.basin_distance,
+                    'curvature': getattr(telemetry, 'curvature', 0.0),
+                    'metric_det': getattr(telemetry, 'metric_det', 1.0),
+                }
+                evaluation = self.ethics_monitor.evaluate(ethics_telemetry)
+
+                if evaluation.should_abort:
+                    reason = f"ETHICS: {', '.join(evaluation.reasons)}"
+                    self.abort_handler.trigger_abort(reason)
+                    emergency_detected = True
+                    logger.warning(f"Ethics abort triggered: {reason}")
+            except Exception as e:
+                logger.debug(f"Ethics evaluation skipped: {e}")
+
         return emergency_detected
-    
+
     @property
     def is_aborted(self) -> bool:
         """Check if abort has been triggered."""
         return self.abort_handler.is_aborted
-    
+
     @property
     def abort_reason(self) -> Optional[str]:
         """Get abort reason if triggered."""
         return self.abort_handler.abort_reason
-    
+
     def get_stats(self) -> Dict[str, Any]:
-        """Get monitoring statistics."""
-        return {
+        """Get unified monitoring statistics."""
+        stats = {
             "telemetry": self.telemetry_collector.get_stats(),
             "abort_status": {
                 "triggered": self.is_aborted,
                 "reason": self.abort_reason,
             },
         }
+
+        # Add ethics stats if available
+        if self.ethics_monitor:
+            try:
+                ethics_stats = self.ethics_monitor.get_stats()
+                stats["ethics"] = ethics_stats
+            except Exception:
+                stats["ethics"] = {"enabled": True, "stats_unavailable": True}
+        else:
+            stats["ethics"] = {"enabled": False}
+
+        return stats
 
 
 # Convenience function for creating monitor

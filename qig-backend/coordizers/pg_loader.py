@@ -17,6 +17,14 @@ import numpy as np
 from .base import FisherCoordizer
 from .fallback_vocabulary import compute_basin_embedding
 
+# Import VocabularyPersistence for consolidated tokenizer_vocabulary writes
+try:
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+    get_vocabulary_persistence = None
+
 # Import BPE garbage detection for vocabulary filtering
 try:
     from word_validation import is_bpe_garbage
@@ -280,7 +288,25 @@ class PostgresCoordizer(FisherCoordizer):
         return new_tokens, weights_updated
 
     def _persist_token_to_db(self, token: str, coords: np.ndarray, phi: float, freq: int, token_id: int):
-        """Persist a new token to PostgreSQL database."""
+        """Persist a new token to PostgreSQL database via VocabularyPersistence (consolidated path)."""
+        # Use VocabularyPersistence for consolidated INSERT path
+        if VOCAB_PERSISTENCE_AVAILABLE:
+            vocab_db = get_vocabulary_persistence()
+            if vocab_db and vocab_db.enabled:
+                coords_list = coords.tolist() if isinstance(coords, np.ndarray) else list(coords)
+                success = vocab_db.record_tokenizer_token(
+                    token=token,
+                    basin_embedding=coords_list,
+                    phi_score=phi,
+                    frequency=freq,
+                    source_type='learned',
+                    token_id=token_id
+                )
+                if success:
+                    return
+                # Fall through to direct SQL if VocabularyPersistence fails
+
+        # Fallback to direct SQL (legacy path)
         try:
             conn = self._get_connection()
             with conn.cursor() as cur:
@@ -460,6 +486,8 @@ class PostgresCoordizer(FisherCoordizer):
         This enables vocabulary to persist between restarts, solving the continuous
         learning problem where tokens are learned during sessions but lost on restart.
 
+        Uses VocabularyPersistence for consolidated INSERT path (Step 4.3 consolidation).
+
         Args:
             token: The token/word to persist
             basin_coords: 64D basin coordinates for the token
@@ -473,6 +501,43 @@ class PostgresCoordizer(FisherCoordizer):
             logger.debug(f"Cannot persist token '{token}' - using fallback vocabulary (no DB)")
             return False
 
+        # Convert numpy array to list for storage
+        coords_list = basin_coords.tolist() if isinstance(basin_coords, np.ndarray) else list(basin_coords)
+        token_id = len(self.vocab) + 50000
+
+        # Use VocabularyPersistence for consolidated INSERT path
+        if VOCAB_PERSISTENCE_AVAILABLE:
+            vocab_db = get_vocabulary_persistence()
+            if vocab_db and vocab_db.enabled:
+                success = vocab_db.record_tokenizer_token(
+                    token=token,
+                    basin_embedding=coords_list,
+                    phi_score=phi,
+                    frequency=frequency,
+                    source_type='learned',
+                    token_id=token_id
+                )
+                if success:
+                    # Update local cache
+                    if token not in self.vocab:
+                        self.vocab[token] = token_id
+                        self.token_to_id[token] = token_id
+                        self.id_to_token[token_id] = token
+                        self.basin_coords[token] = basin_coords
+                        self.token_phi[token] = phi
+                        self.token_frequencies[token] = frequency
+                        self.word_tokens.append(token)
+                        self.base_tokens.append(token)
+
+                    logger.info(f"Persisted learned token '{token}' via VocabularyPersistence (phi={phi:.3f})")
+
+                    # Also cache to Redis
+                    if REDIS_CACHE_AVAILABLE:
+                        VocabularyCache.cache_token(token, basin_coords, phi)
+
+                    return True
+
+        # Fallback to direct SQL (legacy path)
         conn = self._get_connection()
         if not conn:
             logger.error("Cannot get database connection for persistence")
@@ -480,9 +545,6 @@ class PostgresCoordizer(FisherCoordizer):
 
         try:
             cursor = conn.cursor()
-
-            # Convert numpy array to list for JSON storage
-            coords_list = basin_coords.tolist() if isinstance(basin_coords, np.ndarray) else list(basin_coords)
 
             # Upsert: insert or update if exists
             cursor.execute("""
@@ -494,17 +556,17 @@ class PostgresCoordizer(FisherCoordizer):
                     frequency = tokenizer_vocabulary.frequency + EXCLUDED.frequency,
                     updated_at = NOW()
                 RETURNING token_id
-            """, (token, len(self.vocab) + 50000, coords_list, phi, frequency, 'learned'))
+            """, (token, token_id, coords_list, phi, frequency, 'learned'))
 
             result = cursor.fetchone()
             conn.commit()
 
             # Update local cache
             if token not in self.vocab:
-                token_id = result[0] if result else len(self.vocab) + 50000
-                self.vocab[token] = token_id
-                self.token_to_id[token] = token_id
-                self.id_to_token[token_id] = token
+                actual_token_id = result[0] if result else token_id
+                self.vocab[token] = actual_token_id
+                self.token_to_id[token] = actual_token_id
+                self.id_to_token[actual_token_id] = token
                 self.basin_coords[token] = basin_coords
                 self.token_phi[token] = phi
                 self.token_frequencies[token] = frequency
@@ -532,6 +594,8 @@ class PostgresCoordizer(FisherCoordizer):
         """
         Persist multiple tokens in a batch for efficiency.
 
+        Uses VocabularyPersistence for consolidated INSERT path (Step 4.3 consolidation).
+
         Args:
             tokens: List of dicts with keys: token, basin_coords, phi, frequency
 
@@ -541,6 +605,49 @@ class PostgresCoordizer(FisherCoordizer):
         if self._using_fallback or not tokens:
             return 0
 
+        # Use VocabularyPersistence for consolidated INSERT path
+        if VOCAB_PERSISTENCE_AVAILABLE:
+            vocab_db = get_vocabulary_persistence()
+            if vocab_db and vocab_db.enabled:
+                # Convert to VocabularyPersistence format
+                batch_data = []
+                for t in tokens:
+                    token = t.get('token', '')
+                    if not token:
+                        continue
+                    basin_coords = t.get('basin_coords', np.zeros(64))
+                    coords_list = basin_coords.tolist() if isinstance(basin_coords, np.ndarray) else list(basin_coords)
+                    batch_data.append({
+                        'token': token,
+                        'basin_embedding': coords_list,
+                        'phi_score': t.get('phi', 0.6),
+                        'frequency': t.get('frequency', 1),
+                        'source_type': 'learned',
+                        'token_id': len(self.vocab) + 50000 + len(batch_data)
+                    })
+
+                saved_count = vocab_db.record_tokenizer_tokens_batch(batch_data)
+
+                # Update local cache for successfully saved tokens
+                for i, t in enumerate(tokens[:saved_count]):
+                    token = t.get('token', '')
+                    if token and token not in self.vocab:
+                        basin_coords = t.get('basin_coords', np.zeros(64))
+                        token_id = len(self.vocab) + 50000 + i
+                        self.vocab[token] = token_id
+                        self.token_to_id[token] = token_id
+                        self.id_to_token[token_id] = token
+                        self.basin_coords[token] = basin_coords if isinstance(basin_coords, np.ndarray) else np.array(basin_coords)
+                        self.token_phi[token] = t.get('phi', 0.6)
+                        self.token_frequencies[token] = t.get('frequency', 1)
+                        self.word_tokens.append(token)
+                        self.base_tokens.append(token)
+
+                if saved_count > 0:
+                    logger.info(f"Batch persisted {saved_count} tokens via VocabularyPersistence")
+                return saved_count
+
+        # Fallback to direct SQL (legacy path)
         conn = self._get_connection()
         if not conn:
             logger.error("Cannot get database connection for batch persistence")

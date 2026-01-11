@@ -2895,7 +2895,7 @@ def update_tokenizer():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer, update_tokenizer_from_observations
+        from qig_tokenizer_postgresql import get_tokenizer, update_tokenizer_from_observations
 
         data = request.json or {}
         observations = data.get('observations', [])
@@ -2942,7 +2942,7 @@ def tokenizer_encode():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         data = request.json or {}
         text = data.get('text', '')
@@ -2986,7 +2986,7 @@ def tokenizer_decode():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         data = request.json or {}
         tokens = data.get('tokens', [])
@@ -3030,7 +3030,7 @@ def tokenizer_basin():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         data = request.json or {}
         phrase = data.get('phrase', '')
@@ -3076,7 +3076,7 @@ def tokenizer_high_phi():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         min_phi = float(request.args.get('min_phi', 0.5))
         top_k = int(request.args.get('top_k', 100))
@@ -3116,7 +3116,7 @@ def tokenizer_export():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         tokenizer = get_tokenizer()
         export_data = tokenizer.export_for_training()
@@ -3147,7 +3147,7 @@ def tokenizer_status():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         tokenizer = get_tokenizer()
         high_phi = [p for p in tokenizer.token_phi.values() if p >= 0.5]
@@ -3184,7 +3184,7 @@ def tokenizer_merges():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         tokenizer = get_tokenizer()
 
@@ -3234,7 +3234,7 @@ def generate_text():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         data = request.json or {}
         prompt = data.get('prompt', '')
@@ -3290,7 +3290,7 @@ def generate_response():
     }
     """
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         data = request.json or {}
         context = data.get('context', '')
@@ -3341,7 +3341,7 @@ def sample_next():
     """
     try:
         import numpy as np
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
 
         data = request.json or {}
         context_ids = data.get('context_ids', [])

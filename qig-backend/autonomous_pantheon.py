@@ -544,7 +544,7 @@ class AutonomousPantheon:
                 result = self.zeus.declare_blitzkrieg(target)
                 logger.info(f"⚔️ AUTONOMOUS BLITZKRIEG DECLARED on {target}...")
                 sync_war_to_typescript(
-                    mode="BLITZKRIEG",
+                    mode="DEEP_FOCUS",
                     target=target,
                     strategy=result.get('strategy', 'Fast parallel attacks'),
                     gods_engaged=result.get('gods_engaged', ['ares', 'artemis', 'dionysus'])
@@ -572,7 +572,7 @@ class AutonomousPantheon:
                     result = self.zeus.declare_siege(target)
                     logger.info(f"🏰 AUTONOMOUS SIEGE DECLARED on {target}...")
                     sync_war_to_typescript(
-                        mode="SIEGE",
+                        mode="FLOW",
                         target=target,
                         strategy=result.get('strategy', 'Systematic coverage'),
                         gods_engaged=result.get('gods_engaged', ['athena', 'hephaestus', 'demeter'])
@@ -604,7 +604,7 @@ class AutonomousPantheon:
                     result = self.zeus.declare_hunt(target)
                     logger.info(f"🎯 AUTONOMOUS HUNT DECLARED on {target}...")
                     sync_war_to_typescript(
-                        mode="HUNT",
+                        mode="INSIGHT_HUNT",
                         target=target,
                         strategy=result.get('strategy', 'Focused pursuit'),
                         gods_engaged=result.get('gods_engaged', ['artemis', 'apollo', 'poseidon'])

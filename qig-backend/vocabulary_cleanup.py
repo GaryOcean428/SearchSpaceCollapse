@@ -27,6 +27,13 @@ except ImportError:
     DICTIONARY_API_AVAILABLE = False
     get_dictionary_validator = None
 
+# Import vocabulary persistence for consolidated table writes
+try:
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+
 
 def load_bip39_words(filepath: str = "bip39_wordlist.txt") -> List[str]:
     """Load BIP39 wordlist from file."""
@@ -221,51 +228,68 @@ def clean_tokenizer_vocabulary(dry_run: bool = True) -> int:
 
 def migrate_valid_words_to_learned():
     """
-    Migrate valid English words from tokenizer_vocabulary to learned_words.
+    Migrate valid English words from tokenizer_vocabulary to vocabulary_observations.
     Only migrates words that pass English validation.
+
+    UPDATED: Uses VocabularyPersistence to write to vocabulary_observations
+    (consolidated table) instead of deprecated learned_words table.
     """
     conn = get_db_connection()
     if not conn:
         return 0
-    
+
+    # Use VocabularyPersistence for consolidated writes
+    vocab_db = None
+    if VOCAB_PERSISTENCE_AVAILABLE:
+        vocab_db = get_vocabulary_persistence()
+
     try:
         cur = conn.cursor()
-        
+
         bip39_words = get_bip39_set()
-        
+
+        # Query vocabulary_observations instead of learned_words
         cur.execute("""
-            SELECT token, frequency, phi_score 
-            FROM tokenizer_vocabulary 
-            WHERE token NOT IN (SELECT word FROM learned_words)
+            SELECT token, frequency, phi_score
+            FROM tokenizer_vocabulary
+            WHERE token NOT IN (SELECT text FROM vocabulary_observations WHERE type = 'word')
         """)
         candidates = cur.fetchall()
-        
+
         migrated = 0
+        observations = []
+
         for token, freq, phi in candidates:
             token_lower = token.lower() if token else ""
-            
+
             if token_lower in bip39_words:
                 continue
-            
+
             if not is_valid_english_word(token_lower):
                 continue
-            
-            cur.execute("""
-                INSERT INTO learned_words (word, frequency, avg_phi, max_phi, source, is_integrated)
-                VALUES (%s, %s, %s, %s, 'migration', TRUE)
-                ON CONFLICT (word) DO UPDATE SET
-                    frequency = learned_words.frequency + EXCLUDED.frequency,
-                    avg_phi = GREATEST(learned_words.avg_phi, EXCLUDED.avg_phi)
-            """, (token_lower, freq or 1, phi or 0.0, phi or 0.0))
+
+            # Collect observations for batch write
+            observations.append({
+                'word': token_lower,
+                'phrase': token_lower,
+                'phi': phi or 0.5,
+                'kappa': 64.21,  # KAPPA_STAR
+                'source': 'migration',
+                'type': 'word',
+            })
             migrated += 1
-        
-        conn.commit()
-        print(f"[OK] Migrated {migrated} valid words to learned_words")
+
+        # Write to vocabulary_observations via VocabularyPersistence
+        if observations and vocab_db and vocab_db.enabled:
+            recorded = vocab_db.record_vocabulary_batch(observations)
+            print(f"[OK] Migrated {recorded} valid words to vocabulary_observations")
+        else:
+            print(f"[OK] Found {migrated} valid words (VocabularyPersistence not available)")
+
         return migrated
-        
+
     except Exception as e:
         print(f"[ERROR] Migration failed: {e}")
-        conn.rollback()
         return 0
     finally:
         conn.close()

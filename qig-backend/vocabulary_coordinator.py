@@ -16,7 +16,7 @@ try:
     TOKENIZER_AVAILABLE = True
 except ImportError:
     try:
-        from qig_tokenizer import get_tokenizer
+        from qig_tokenizer_postgresql import get_tokenizer
         TOKENIZER_AVAILABLE = True
     except ImportError:
         TOKENIZER_AVAILABLE = False

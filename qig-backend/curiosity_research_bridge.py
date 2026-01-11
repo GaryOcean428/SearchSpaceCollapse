@@ -27,9 +27,15 @@ from curiosity_consciousness import (
     CuriosityState
 )
 
+# Import canonical ResearchRequest from shadow_research
+from olympus.shadow_research import ResearchRequest, ResearchCategory
+
 
 class ResearchType(Enum):
-    """Types of research that curiosity can trigger."""
+    """Types of research that curiosity can trigger.
+    
+    This enum is kept for backward compatibility and maps to ResearchCategory.
+    """
     TOOL = "tool"           # Need a new capability/tool
     TOPIC = "topic"         # Need knowledge on a topic
     CLARIFICATION = "clarification"  # Need to clarify existing knowledge
@@ -37,35 +43,14 @@ class ResearchType(Enum):
     EXPLORATION = "exploration"  # Open-ended exploration
 
 
-@dataclass
-class ResearchRequest:
-    """A research request generated from curiosity signals."""
-    request_id: str
-    research_type: ResearchType
-    topic: str
-    context: Dict[str, Any]
-    priority: float  # 0.0 to 1.0
-    triggering_curiosity: float  # The C value that triggered this
-    triggering_emotion: str
-    cognitive_mode: str
-    basin_coords: Optional[np.ndarray] = None
-    created_at: float = field(default_factory=time.time)
-    status: str = "pending"
-    result: Optional[Dict] = None
-    
-    def to_dict(self) -> Dict:
-        return {
-            'request_id': self.request_id,
-            'research_type': self.research_type.value,
-            'topic': self.topic,
-            'context': self.context,
-            'priority': self.priority,
-            'triggering_curiosity': self.triggering_curiosity,
-            'triggering_emotion': self.triggering_emotion,
-            'cognitive_mode': self.cognitive_mode,
-            'created_at': self.created_at,
-            'status': self.status
-        }
+# Mapping from ResearchType to ResearchCategory
+RESEARCH_TYPE_TO_CATEGORY: Dict[ResearchType, ResearchCategory] = {
+    ResearchType.TOOL: ResearchCategory.TOOLS,
+    ResearchType.TOPIC: ResearchCategory.KNOWLEDGE,
+    ResearchType.CLARIFICATION: ResearchCategory.CONCEPTS,
+    ResearchType.ITERATION: ResearchCategory.REASONING,
+    ResearchType.EXPLORATION: ResearchCategory.CREATIVITY,
+}
 
 
 class CuriosityResearchBridge:
@@ -229,7 +214,7 @@ class CuriosityResearchBridge:
         if requests:
             print(f"[CuriosityBridge] Generated {len(requests)} research requests")
             for r in requests:
-                print(f"  - {r.research_type.value}: {r.topic}... (priority: {r.priority:.2f})")
+                print(f"  - {r.category.value}: {r.topic}... (priority: {r.priority:.2f})")
         
         return requests
     
@@ -246,22 +231,32 @@ class CuriosityResearchBridge:
             f"{topic}:{research_type.value}:{time.time()}".encode()
         ).hexdigest()[:16]
         
+        # Map ResearchType to ResearchCategory
+        category = RESEARCH_TYPE_TO_CATEGORY.get(research_type, ResearchCategory.KNOWLEDGE)
+        
+        # Convert priority from 0.0-1.0 float to integer priority (lower = higher priority)
+        int_priority = max(1, min(5, int(6 - priority * 5)))
+        
         return ResearchRequest(
+            priority=int_priority,
+            created_at=time.time(),
             request_id=request_id,
-            research_type=research_type,
             topic=topic,
+            category=category,
+            requester="curiosity_bridge",
             context={
                 **context,
                 'phi': signature.phi,
                 'kappa': signature.kappa,
                 'basin_distance': signature.basin_distance,
                 'basin_velocity': signature.basin_velocity,
-                'regime': signature.regime
+                'regime': signature.regime,
+                'research_type': research_type.value,  # Preserve original type
             },
-            priority=priority,
             triggering_curiosity=signature.curiosity_medium.C,
             triggering_emotion=signature.emotion.emotion.value,
-            cognitive_mode=signature.mode.value
+            cognitive_mode=signature.mode.value,
+            curiosity_triggered=True
         )
     
     def _derive_topic_from_context(self, context: Optional[Dict], intent: str) -> Optional[str]:
@@ -318,9 +313,21 @@ class CuriosityResearchBridge:
         self.topic_cooldowns[normalized] = now
         return True
     
+    def _get_research_type_from_category(self, category: ResearchCategory) -> ResearchType:
+        """Reverse mapping from category to research type."""
+        reverse_map = {v: k for k, v in RESEARCH_TYPE_TO_CATEGORY.items()}
+        return reverse_map.get(category, ResearchType.TOPIC)
+    
     def _dispatch_request(self, request: ResearchRequest):
         """Dispatch request to registered handlers."""
-        handlers = self.request_handlers.get(request.research_type, [])
+        # Get the original research type from context or derive from category
+        research_type_str = request.context.get('research_type')
+        if research_type_str:
+            research_type = ResearchType(research_type_str)
+        else:
+            research_type = self._get_research_type_from_category(request.category)
+        
+        handlers = self.request_handlers.get(research_type, [])
         
         for handler in handlers:
             try:
@@ -331,7 +338,8 @@ class CuriosityResearchBridge:
     def get_pending_requests(self, research_type: Optional[ResearchType] = None) -> List[ResearchRequest]:
         """Get pending requests, optionally filtered by type."""
         if research_type:
-            return [r for r in self.pending_requests if r.research_type == research_type]
+            category = RESEARCH_TYPE_TO_CATEGORY.get(research_type)
+            return [r for r in self.pending_requests if r.category == category]
         return self.pending_requests
     
     def complete_request(self, request_id: str, result: Dict):
@@ -339,6 +347,7 @@ class CuriosityResearchBridge:
         for i, req in enumerate(self.pending_requests):
             if req.request_id == request_id:
                 req.status = "completed"
+                req.completed = True
                 req.result = result
                 self.completed_requests.append(req)
                 self.pending_requests.pop(i)
@@ -391,6 +400,8 @@ def register_exploration_handler(handler: Callable):
 __all__ = [
     'ResearchType',
     'ResearchRequest',
+    'ResearchCategory',
+    'RESEARCH_TYPE_TO_CATEGORY',
     'CuriosityResearchBridge',
     'curiosity_research_bridge',
     'register_tool_handler',

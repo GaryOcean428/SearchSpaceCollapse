@@ -19,6 +19,13 @@ from typing import Dict, List, Set, Tuple, Optional
 from pathlib import Path
 from qig_geometry import fisher_rao_distance
 
+# Import vocabulary persistence for consolidated table writes
+try:
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Database connection
@@ -175,15 +182,17 @@ class LearnedRelationships:
                     execute_values(
                         cur,
                         """
-                        INSERT INTO word_relationships (word, neighbor, cooccurrence_count, updated_at)
+                        INSERT INTO word_relationships (word_a, word_b, co_occurrence, fisher_distance, contexts, last_seen)
                         VALUES %s
-                        ON CONFLICT (word, neighbor)
+                        ON CONFLICT (word_a, word_b)
                         DO UPDATE SET
-                            cooccurrence_count = GREATEST(word_relationships.cooccurrence_count, EXCLUDED.cooccurrence_count),
-                            updated_at = NOW()
+                            co_occurrence = GREATEST(word_relationships.co_occurrence, EXCLUDED.co_occurrence),
+                            fisher_distance = COALESCE(EXCLUDED.fisher_distance, word_relationships.fisher_distance),
+                            contexts = COALESCE(EXCLUDED.contexts, word_relationships.contexts),
+                            last_seen = NOW()
                         """,
                         records,
-                        template="(%s, %s, %s, NOW())"
+                        template="(%s, %s, %s, NULL, ARRAY[]::text[], NOW())"
                     )
 
                     # Recalculate strength as conditional probability:
@@ -213,21 +222,24 @@ class LearnedRelationships:
                            OR updated_at >= NOW() - INTERVAL '1 minute'
                     """)
                 
-                # Save word frequencies to learned_words table
-                if freq_records:
-                    execute_values(
-                        cur,
-                        """
-                        INSERT INTO learned_words (word, frequency, updated_at)
-                        VALUES %s
-                        ON CONFLICT (word) 
-                        DO UPDATE SET 
-                            frequency = GREATEST(learned_words.frequency, EXCLUDED.frequency),
-                            updated_at = NOW()
-                        """,
-                        freq_records,
-                        template="(%s, %s, NOW())"
-                    )
+                # Save word frequencies to vocabulary_observations (consolidated table)
+                # Redirected from learned_words per Priority 4 consolidation
+                if freq_records and VOCAB_PERSISTENCE_AVAILABLE:
+                    vocab_db = get_vocabulary_persistence()
+                    if vocab_db and vocab_db.enabled:
+                        observations = [
+                            {
+                                'word': word,
+                                'phrase': word,  # Single word as phrase
+                                'phi': 0.5,  # Default phi for frequency-only records
+                                'kappa': KAPPA_STAR,
+                                'source': 'relationship_learning',
+                                'type': 'word',
+                            }
+                            for word, freq in freq_records
+                        ]
+                        recorded = vocab_db.record_vocabulary_batch(observations)
+                        logger.debug(f"[LearnedRelationships] Recorded {recorded} word frequencies to vocabulary_observations")
             
             conn.commit()
             

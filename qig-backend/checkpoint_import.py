@@ -30,6 +30,13 @@ except ImportError:
     RealDictCursor = None
     PSYCOPG2_AVAILABLE = False
 
+# Import vocabulary persistence for consolidated table writes
+try:
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+
 
 def load_bip39_words() -> Set[str]:
     """Load BIP39 wordlist to exclude from imports."""
@@ -267,16 +274,41 @@ class CheckpointImporter:
         return new_rules
     
     def import_tokens(self, tokens: List[Dict]) -> int:
-        """Import new vocabulary tokens into PostgreSQL."""
+        """Import new vocabulary tokens into vocabulary_observations (consolidated table).
+
+        UPDATED: Uses VocabularyPersistence to write to vocabulary_observations
+        instead of deprecated learned_words table per Priority 4 consolidation.
+        """
         if not tokens:
             return 0
-        
+
         if self.dry_run:
             print(f"[DRY-RUN] Would import {len(tokens):,} new vocabulary tokens")
             return len(tokens)
-        
+
         print(f"[INFO] Importing {len(tokens):,} new vocabulary tokens...")
-        
+
+        # Use VocabularyPersistence for consolidated writes
+        if VOCAB_PERSISTENCE_AVAILABLE:
+            vocab_db = get_vocabulary_persistence()
+            if vocab_db and vocab_db.enabled:
+                observations = [
+                    {
+                        'word': t['word'],
+                        'phrase': t['word'],
+                        'phi': t.get('avg_phi', 0.5),
+                        'kappa': 64.21,  # KAPPA_STAR
+                        'source': t.get('source', 'checkpoint_import'),
+                        'type': 'word',
+                    }
+                    for t in tokens
+                ]
+                imported = vocab_db.record_vocabulary_batch(observations)
+                self.stats['new_words_imported'] = imported
+                print(f"[INFO] Successfully imported {imported:,} tokens to vocabulary_observations")
+                return imported
+
+        # Fallback to direct SQL if VocabularyPersistence not available
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
@@ -284,25 +316,25 @@ class CheckpointImporter:
                         (t['word'], t['avg_phi'], t['max_phi'], t['frequency'], t['source'])
                         for t in tokens
                     ]
-                    
+
                     execute_values(
                         cur,
                         """
-                        INSERT INTO learned_words (word, avg_phi, max_phi, frequency, source)
+                        INSERT INTO vocabulary_observations (text, avg_phi, max_phi, frequency, source_type, type, is_real_word)
                         VALUES %s
-                        ON CONFLICT (word) DO UPDATE SET
-                            frequency = learned_words.frequency + 1,
+                        ON CONFLICT (text) DO UPDATE SET
+                            frequency = vocabulary_observations.frequency + 1,
                             last_seen = NOW()
                         """,
-                        data
+                        [(t[0], t[1], t[2], t[3], t[4], 'word', True) for t in data]
                     )
-                    
+
                     conn.commit()
                     imported = len(tokens)
                     self.stats['new_words_imported'] = imported
-                    print(f"[INFO] Successfully imported {imported:,} tokens")
+                    print(f"[INFO] Successfully imported {imported:,} tokens (fallback SQL)")
                     return imported
-                    
+
         except Exception as e:
             print(f"[ERROR] Failed to import tokens: {e}")
             return 0

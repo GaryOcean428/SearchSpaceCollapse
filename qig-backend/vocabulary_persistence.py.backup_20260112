@@ -169,33 +169,15 @@ class VocabularyPersistence:
         return recorded
 
     def get_learned_words(self, min_phi: float = 0.0, limit: int = 1000, source: Optional[str] = None) -> List[Dict]:
-        """Get learned words from vocabulary_observations (consolidated table)."""
         if not self.enabled:
             return []
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
                     if source:
-                        cur.execute("""
-                            SELECT text, avg_phi, max_phi, frequency, source_type
-                            FROM vocabulary_observations
-                            WHERE avg_phi >= %s
-                              AND source_type = %s
-                              AND type = 'word'
-                              AND is_real_word = TRUE
-                            ORDER BY avg_phi DESC, frequency DESC
-                            LIMIT %s
-                        """, (min_phi, source, limit))
+                        cur.execute("SELECT word, avg_phi, max_phi, frequency, source FROM learned_words WHERE avg_phi >= %s AND source = %s ORDER BY avg_phi DESC, frequency DESC LIMIT %s", (min_phi, source, limit))
                     else:
-                        cur.execute("""
-                            SELECT text, avg_phi, max_phi, frequency, source_type
-                            FROM vocabulary_observations
-                            WHERE avg_phi >= %s
-                              AND type = 'word'
-                              AND is_real_word = TRUE
-                            ORDER BY avg_phi DESC, frequency DESC
-                            LIMIT %s
-                        """, (min_phi, limit))
+                        cur.execute("SELECT word, avg_phi, max_phi, frequency, source FROM learned_words WHERE avg_phi >= %s ORDER BY avg_phi DESC, frequency DESC LIMIT %s", (min_phi, limit))
                     return [{'word': row[0], 'avg_phi': float(row[1]), 'max_phi': float(row[2]), 'frequency': int(row[3]), 'source': row[4]} for row in cur.fetchall()]
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get learned words: {e}")
@@ -214,19 +196,12 @@ class VocabularyPersistence:
             return []
 
     def mark_word_integrated(self, word: str) -> bool:
-        """Mark word as integrated in vocabulary_observations (consolidated table)."""
         if not self.enabled:
             return False
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE vocabulary_observations
-                        SET is_integrated = TRUE,
-                            integrated_at = NOW(),
-                            updated_at = NOW()
-                        WHERE text = %s
-                    """, (word,))
+                    cur.execute("UPDATE learned_words SET is_integrated = TRUE WHERE word = %s", (word,))
                     conn.commit()
                     return True
         except Exception as e:
@@ -297,84 +272,6 @@ class VocabularyPersistence:
         except Exception as e:
             print(f"[VocabularyPersistence] Failed to get god vocabulary: {e}")
             return []
-
-    def record_tokenizer_token(
-        self,
-        token: str,
-        basin_embedding: List[float],
-        phi_score: float,
-        frequency: int = 1,
-        source_type: str = 'learned',
-        token_id: Optional[int] = None
-    ) -> bool:
-        """
-        Record a token to tokenizer_vocabulary (consolidated path).
-
-        This is the CANONICAL method for writing to tokenizer_vocabulary.
-        All INSERT paths should route through this method.
-        """
-        if not self.enabled:
-            return False
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    # Convert basin embedding to PostgreSQL vector format
-                    embedding_str = '[' + ','.join(str(x) for x in basin_embedding) + ']'
-
-                    cur.execute("""
-                        INSERT INTO tokenizer_vocabulary (token, basin_embedding, phi_score, frequency, source_type, token_id)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (token) DO UPDATE SET
-                            phi_score = GREATEST(tokenizer_vocabulary.phi_score, EXCLUDED.phi_score),
-                            frequency = tokenizer_vocabulary.frequency + EXCLUDED.frequency,
-                            updated_at = NOW()
-                    """, (token, embedding_str, phi_score, frequency, source_type, token_id))
-                    conn.commit()
-                    return True
-        except Exception as e:
-            print(f"[VocabularyPersistence] Failed to record tokenizer token '{token}': {e}")
-            return False
-
-    def record_tokenizer_tokens_batch(self, tokens: List[Dict]) -> int:
-        """
-        Batch record tokens to tokenizer_vocabulary (consolidated path).
-
-        Each dict should have: token, basin_embedding, phi_score,
-        and optionally: frequency, source_type, token_id
-        """
-        if not self.enabled or not tokens:
-            return 0
-        recorded = 0
-        try:
-            with self._connect() as conn:
-                for tok in tokens:
-                    try:
-                        with conn.cursor() as cur:
-                            token = tok.get('token', '')
-                            basin = tok.get('basin_embedding', [])
-                            phi = tok.get('phi_score', 0.5)
-                            freq = tok.get('frequency', 1)
-                            source = tok.get('source_type', 'learned')
-                            token_id = tok.get('token_id')
-
-                            embedding_str = '[' + ','.join(str(x) for x in basin) + ']'
-
-                            cur.execute("""
-                                INSERT INTO tokenizer_vocabulary (token, basin_embedding, phi_score, frequency, source_type, token_id)
-                                VALUES (%s, %s, %s, %s, %s, %s)
-                                ON CONFLICT (token) DO UPDATE SET
-                                    phi_score = GREATEST(tokenizer_vocabulary.phi_score, EXCLUDED.phi_score),
-                                    frequency = tokenizer_vocabulary.frequency + EXCLUDED.frequency,
-                                    updated_at = NOW()
-                            """, (token, embedding_str, phi, freq, source, token_id))
-                            conn.commit()
-                            recorded += 1
-                    except Exception as e:
-                        conn.rollback()
-                        print(f"[VocabularyPersistence] Failed to record token '{tok.get('token', '')}': {e}")
-        except Exception as e:
-            print(f"[VocabularyPersistence] Batch tokenizer record failed: {e}")
-        return recorded
 
     def get_vocabulary_stats(self) -> Dict:
         if not self.enabled:

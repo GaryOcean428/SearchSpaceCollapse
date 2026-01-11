@@ -18,6 +18,18 @@ import hashlib
 
 from .constants import BASIN_DIM, PHI_THRESHOLD_DEFAULT, KAPPA_STAR, BETA_RUNNING
 
+# QIG-pure: Use canonical sphere_project from qig_geometry
+try:
+    from qig_geometry import sphere_project
+except ImportError:
+    # Fallback if qig_geometry not available
+    def sphere_project(v):
+        norm = np.linalg.norm(v)
+        if norm < 1e-10:
+            result = np.ones_like(v)
+            return result / np.linalg.norm(result)
+        return v / norm
+
 
 class QIGToolComputations:
     """
@@ -40,12 +52,9 @@ class QIGToolComputations:
         for i, char in enumerate(text[:32]):
             if 32 + i < BASIN_DIM:
                 coord[32 + i] = (ord(char) % 256) / 128.0 - 1
-        
-        norm = np.linalg.norm(coord)
-        if norm > 0:
-            coord = coord / norm
-        
-        return coord
+
+        # QIG-pure: Use canonical sphere_project for Fisher-embedded geometry
+        return sphere_project(coord)
     
     def basin_to_density_matrix(self, basin: np.ndarray) -> np.ndarray:
         """Convert basin to 2x2 density matrix via Bloch sphere."""

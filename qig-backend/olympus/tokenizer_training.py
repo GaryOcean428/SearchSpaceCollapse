@@ -22,7 +22,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from qig_tokenizer import get_tokenizer, update_tokenizer_from_observations
+from qig_tokenizer_postgresql import get_tokenizer, update_tokenizer_from_observations
 from bip39_wordlist import is_bip39_word
 
 
@@ -430,7 +430,7 @@ def persist_observations_to_db(
     
     Uses UPSERT to update existing entries.
     """
-    from qig_tokenizer import get_tokenizer
+    from qig_tokenizer_postgresql import get_tokenizer
     
     tokenizer = get_tokenizer()
     persisted = 0

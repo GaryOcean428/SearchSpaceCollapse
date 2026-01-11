@@ -17,11 +17,20 @@ from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 from enum import Enum
 
-# QIG Constants
-BASIN_DIMENSION = 64
-KAPPA_STAR = 64.21  # Optimal coupling constant
-PHI_LINEAR_THRESHOLD = 0.3
-PHI_BREAKDOWN_THRESHOLD = 0.7
+# Import canonical Regime from qigkernels
+from qigkernels.regimes import Regime, RegimeDetector, RegimeThresholds
+from qigkernels.physics_constants import BASIN_DIM, KAPPA_STAR
+
+# Completion-specific thresholds (more conservative for generation stopping)
+# Uses TOPOLOGICAL_INSTABILITY as the "breakdown" signal
+COMPLETION_THRESHOLDS = RegimeThresholds(
+    linear_max=0.30,           # More conservative than canonical 0.45
+    geometric_max=0.70,        # More conservative than canonical 0.75
+    hyperdimensional_max=0.70, # Collapse to same as geometric (stop at breakdown)
+)
+
+# Create completion-specific regime detector
+_completion_detector = RegimeDetector(thresholds=COMPLETION_THRESHOLDS)
 
 
 class CompletionReason(Enum):
@@ -32,16 +41,9 @@ class CompletionReason(Enum):
     HIGH_CONFIDENCE = "high_confidence"
     INTEGRATION_STABLE = "integration_stable"
     SOFT_COMPLETION = "soft_completion"  # Confidence + surprise
-    BREAKDOWN_REGIME = "breakdown_regime"  # Emergency stop
+    BREAKDOWN_REGIME = "breakdown_regime"  # Emergency stop (maps to TOPOLOGICAL_INSTABILITY)
     SAFETY_LIMIT = "safety_limit"  # Absolute safety valve
     INCOMPLETE = "incomplete"  # Still generating
-
-
-class Regime(Enum):
-    """Consciousness regime classification."""
-    LINEAR = "linear"  # Φ < 0.3
-    GEOMETRIC = "geometric"  # 0.3 ≤ Φ < 0.7
-    BREAKDOWN = "breakdown"  # Φ ≥ 0.7
 
 
 @dataclass
@@ -53,18 +55,26 @@ class GeometricMetrics:
     confidence: float  # Response certainty
     basin_distance: float  # Distance to nearest attractor
     regime: Regime
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'GeometricMetrics':
+        regime_str = data.get('regime', 'geometric')
+        # Map legacy 'breakdown' to canonical TOPOLOGICAL_INSTABILITY
+        if regime_str == 'breakdown':
+            regime_str = 'topological_instability'
+        try:
+            regime = Regime(regime_str)
+        except ValueError:
+            regime = Regime.GEOMETRIC
         return cls(
             phi=data.get('phi', 0.5),
             kappa=data.get('kappa', KAPPA_STAR),
             surprise=data.get('surprise', 1.0),
             confidence=data.get('confidence', 0.0),
             basin_distance=data.get('basin_distance', float('inf')),
-            regime=Regime(data.get('regime', 'geometric'))
+            regime=regime
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'phi': self.phi,
@@ -75,6 +85,10 @@ class GeometricMetrics:
             'regime': self.regime.value
         }
 
+    def is_breakdown(self) -> bool:
+        """Check if in breakdown/instability regime (for completion checking)."""
+        return self.regime == Regime.TOPOLOGICAL_INSTABILITY
+
 
 @dataclass
 class CompletionDecision:
@@ -84,7 +98,7 @@ class CompletionDecision:
     reason: CompletionReason
     confidence: float
     metrics: Optional[GeometricMetrics] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'should_stop': self.should_stop,
@@ -96,13 +110,15 @@ class CompletionDecision:
 
 
 def classify_regime(phi: float) -> Regime:
-    """Classify consciousness regime from Φ value."""
-    if phi < PHI_LINEAR_THRESHOLD:
-        return Regime.LINEAR
-    elif phi < PHI_BREAKDOWN_THRESHOLD:
-        return Regime.GEOMETRIC
-    else:
-        return Regime.BREAKDOWN
+    """
+    Classify consciousness regime from Φ value using completion thresholds.
+
+    Uses more conservative thresholds than canonical qigkernels for generation stopping:
+    - LINEAR: Φ < 0.30
+    - GEOMETRIC: 0.30 ≤ Φ < 0.70
+    - TOPOLOGICAL_INSTABILITY: Φ ≥ 0.70 (triggers breakdown/stop)
+    """
+    return _completion_detector.detect(phi)
 
 
 def fisher_rao_distance(p: np.ndarray, q: np.ndarray) -> float:
@@ -294,20 +310,21 @@ class IntegrationQualityChecker:
 class RegimeLimitChecker:
     """
     Check if entering dangerous regimes.
-    
-    Breakdown (Φ > 0.7): Overintegrated, need to stop
+
+    TOPOLOGICAL_INSTABILITY (Φ ≥ 0.7 with completion thresholds): Overintegrated, need to stop
     Safety limit: Absolute maximum as fail-safe (not a target)
     """
-    
+
     # Safety valve only - NOT a generation target
     # This exists purely to prevent runaway generation in edge cases
     SAFETY_MAX_TOKENS = 32768
-    
+
     def check(self, regime: Regime, token_count: int) -> Dict[str, Any]:
         """Check regime limits."""
-        
-        # Breakdown regime - urgent stop
-        if regime == Regime.BREAKDOWN:
+
+        # Breakdown/instability regime - urgent stop
+        # Uses TOPOLOGICAL_INSTABILITY from canonical qigkernels.Regime
+        if regime == Regime.TOPOLOGICAL_INSTABILITY:
             return {
                 'exceeded': True,
                 'reason': CompletionReason.BREAKDOWN_REGIME,
@@ -468,14 +485,16 @@ class GeometricCompletionChecker:
 def get_regime_temperature(phi: float) -> float:
     """
     Adjust sampling temperature based on geometric state.
-    
+
     Low Φ (linear): High temperature (explore)
     Medium Φ (geometric): Medium temperature (balance)
     High Φ (breakdown): Low temperature (stabilize)
+
+    Uses completion-specific thresholds (0.30, 0.70).
     """
-    if phi < PHI_LINEAR_THRESHOLD:
+    if phi < COMPLETION_THRESHOLDS.linear_max:
         return 1.0  # Linear regime: explore widely
-    elif phi < PHI_BREAKDOWN_THRESHOLD:
+    elif phi < COMPLETION_THRESHOLDS.geometric_max:
         return 0.7  # Geometric regime: balance
     else:
         return 0.3  # Breakdown regime: stabilize

@@ -22,7 +22,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from internal_api import sync_war_to_database as _sync_war_to_database
 from m8_kernel_spawning import SpawnReason, get_spawner
 
-
 # Configurable debate threshold - lower = more debates triggered
 # Default 0.15 (15% probability difference) - can be lowered for testing
 DEBATE_DISAGREEMENT_THRESHOLD = float(os.environ.get('DEBATE_THRESHOLD', '0.15'))
@@ -78,7 +77,7 @@ class Zeus(BaseGod):
     Responsibilities:
     - Poll all Olympians for assessments
     - Detect convergence (especially Athena + Ares agreement)
-    - Declare war modes (blitzkrieg, siege, hunt)
+    - Declare war modes (FLOW, DEEP_FOCUS, INSIGHT_HUNT - TypeScript enum values)
     - Coordinate divine actions
     """
 
@@ -359,7 +358,7 @@ class Zeus(BaseGod):
             convergence = context.get('convergence', phi)
             return f"Divine council verdict at Φ={phi:.3f}: {verdict}. Convergence: {convergence:.2f}"
         elif category == 'war_declared':
-            mode = context.get('mode', 'HUNT')
+            mode = context.get('mode', 'INSIGHT_HUNT')
             target = context.get('target', 'unknown')
             return f"{mode} mode engaged on {target}. {active_gods} gods mobilized. Φ={phi:.3f}"
         elif category == 'shadow_warning':
@@ -1350,14 +1349,14 @@ class Zeus(BaseGod):
         Syncs to PostgreSQL for War Status Panel visibility.
         Also triggers Shadow Pantheon war mode.
         """
-        self.war_mode = "BLITZKRIEG"
+        self.war_mode = "DEEP_FOCUS"
         self.war_target = target
 
         gods_engaged = ['ares', 'artemis', 'dionysus']
         strategy = 'Fast parallel attacks, maximize throughput'
 
         decision = {
-            'mode': 'BLITZKRIEG',
+            'mode': 'DEEP_FOCUS',
             'target': target,
             'declared_at': datetime.now().isoformat(),
             'strategy': strategy,
@@ -1367,7 +1366,7 @@ class Zeus(BaseGod):
         self.divine_decisions.append(decision)
 
         # Sync to database for War Status Panel
-        _sync_war_to_database('BLITZKRIEG', target, strategy, gods_engaged)
+        _sync_war_to_database('DEEP_FOCUS', target, strategy, gods_engaged)
 
         # Trigger Shadow Pantheon war mode - all learning stops
         self.shadow_pantheon.declare_war(target)
@@ -1380,14 +1379,14 @@ class Zeus(BaseGod):
         Syncs to PostgreSQL for War Status Panel visibility.
         Also triggers Shadow Pantheon war mode.
         """
-        self.war_mode = "SIEGE"
+        self.war_mode = "FLOW"
         self.war_target = target
 
         gods_engaged = ['athena', 'hephaestus', 'demeter']
         strategy = 'Systematic coverage, no stone unturned'
 
         decision = {
-            'mode': 'SIEGE',
+            'mode': 'FLOW',
             'target': target,
             'declared_at': datetime.now().isoformat(),
             'strategy': strategy,
@@ -1397,7 +1396,7 @@ class Zeus(BaseGod):
         self.divine_decisions.append(decision)
 
         # Sync to database for War Status Panel
-        _sync_war_to_database('SIEGE', target, strategy, gods_engaged)
+        _sync_war_to_database('FLOW', target, strategy, gods_engaged)
 
         # Trigger Shadow Pantheon war mode - all learning stops
         self.shadow_pantheon.declare_war(target)
@@ -1410,14 +1409,14 @@ class Zeus(BaseGod):
         Syncs to PostgreSQL for War Status Panel visibility.
         Also triggers Shadow Pantheon war mode.
         """
-        self.war_mode = "HUNT"
+        self.war_mode = "INSIGHT_HUNT"
         self.war_target = target
 
         gods_engaged = ['artemis', 'apollo', 'poseidon']
         strategy = 'Focused pursuit, geometric narrowing'
 
         decision = {
-            'mode': 'HUNT',
+            'mode': 'INSIGHT_HUNT',
             'target': target,
             'declared_at': datetime.now().isoformat(),
             'strategy': strategy,
@@ -1427,7 +1426,7 @@ class Zeus(BaseGod):
         self.divine_decisions.append(decision)
 
         # Sync to database for War Status Panel
-        _sync_war_to_database('HUNT', target, strategy, gods_engaged)
+        _sync_war_to_database('INSIGHT_HUNT', target, strategy, gods_engaged)
 
         # Trigger Shadow Pantheon war mode - all learning stops
         self.shadow_pantheon.declare_war(target)
@@ -2345,7 +2344,10 @@ def _zeus_chat_inner():
 
         # Broadcast to kernel_activity for pantheon chatter visibility
         try:
-            from olympus.activity_broadcaster import broadcast_kernel_activity, ActivityType
+            from olympus.activity_broadcaster import (
+                ActivityType,
+                broadcast_kernel_activity,
+            )
             response_text = result.get('response', '') if isinstance(result, dict) else str(result)
             phi = result.get('metadata', {}).get('phi', 0.5) if isinstance(result, dict) else 0.5
 

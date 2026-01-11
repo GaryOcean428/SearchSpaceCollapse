@@ -25,6 +25,14 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 
+# Import VocabularyPersistence for consolidated tokenizer_vocabulary writes
+try:
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+    get_vocabulary_persistence = None
+
 
 class TaskType(Enum):
     """Scheduled training task types."""
@@ -608,7 +616,33 @@ class StartupCatchupManager:
             return {"success": False, "error": str(e)}
 
     def _import_vocabulary(self, vocabulary: List[Dict]) -> int:
-        """Import vocabulary received from a peer into local database."""
+        """Import vocabulary received from a peer into local database via VocabularyPersistence."""
+        # Use VocabularyPersistence for consolidated INSERT path (Step 4.3)
+        if VOCAB_PERSISTENCE_AVAILABLE:
+            vocab_db = get_vocabulary_persistence()
+            if vocab_db and vocab_db.enabled:
+                batch_data = []
+                for vocab in vocabulary:
+                    word = vocab.get("word", "")
+                    if not word or len(word) < 2:
+                        continue
+
+                    phi = vocab.get("phi", 0.5)
+                    frequency = vocab.get("frequency", 1)
+
+                    batch_data.append({
+                        'token': word,
+                        'basin_embedding': [0.0] * 64,  # Federation doesn't include basin coords
+                        'phi_score': phi,
+                        'frequency': frequency,
+                        'source_type': 'federation_catchup'
+                    })
+
+                imported = vocab_db.record_tokenizer_tokens_batch(batch_data)
+                print(f"[FederationSync] Imported {imported} vocabulary items via VocabularyPersistence")
+                return imported
+
+        # Fallback to direct SQL (legacy path)
         conn = _get_db_connection()
         if not conn:
             return 0

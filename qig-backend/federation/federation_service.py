@@ -35,6 +35,14 @@ try:
 except ImportError:
     requests = None
 
+# Import VocabularyPersistence for consolidated tokenizer_vocabulary writes
+try:
+    from vocabulary_persistence import get_vocabulary_persistence
+    VOCAB_PERSISTENCE_AVAILABLE = True
+except ImportError:
+    VOCAB_PERSISTENCE_AVAILABLE = False
+    get_vocabulary_persistence = None
+
 
 class SyncType(Enum):
     """Types of data that can be synchronized."""
@@ -313,13 +321,40 @@ class FederationService:
         """
         Import vocabulary received from a peer.
 
-        Uses upsert with GREATEST to only update if incoming phi is higher.
+        Uses VocabularyPersistence for consolidated INSERT path (Step 4.3).
+        Falls back to direct SQL if VocabularyPersistence unavailable.
 
         Returns: Number of items imported/updated
         """
         if not vocabulary:
             return 0
 
+        # Use VocabularyPersistence for consolidated INSERT path
+        if VOCAB_PERSISTENCE_AVAILABLE:
+            vocab_db = get_vocabulary_persistence()
+            if vocab_db and vocab_db.enabled:
+                batch_data = []
+                for vocab in vocabulary:
+                    word = vocab.get("word", "")
+                    if not word or len(word) < 2 or len(word) > 128:
+                        continue
+
+                    phi = min(max(float(vocab.get("phi", 0.5)), 0.0), 1.0)
+                    frequency = max(int(vocab.get("frequency", 1)), 1)
+
+                    batch_data.append({
+                        'token': word[:128],
+                        'basin_embedding': [0.0] * 64,  # Federation sync doesn't include basin coords
+                        'phi_score': phi,
+                        'frequency': frequency,
+                        'source_type': f'federation:{source_peer}'
+                    })
+
+                imported = vocab_db.record_tokenizer_tokens_batch(batch_data)
+                print(f"[Federation] Imported {imported} vocabulary items from {source_peer} via VocabularyPersistence")
+                return imported
+
+        # Fallback to direct SQL (legacy path)
         conn = _get_db_connection()
         if not conn:
             return 0

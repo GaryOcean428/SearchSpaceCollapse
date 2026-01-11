@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from qig_tokenizer import QIGTokenizer
+from qig_tokenizer_postgresql import QIGTokenizer
 
 
 def test_high_phi_rare_word():

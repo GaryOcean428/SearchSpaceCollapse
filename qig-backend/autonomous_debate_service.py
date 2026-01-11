@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 # QIG Tokenizer for geometric argument generation
 try:
-    from qig_tokenizer import QIGTokenizer, get_tokenizer
+    from qig_tokenizer_postgresql import QIGTokenizer, get_tokenizer
     TOKENIZER_AVAILABLE = True
 except ImportError:
     TOKENIZER_AVAILABLE = False
@@ -515,13 +515,17 @@ class AutonomousDebateService:
         enhanced_query = topic
         query_enhancement = None
 
-        if self._vocabulary_coordinator:
+        # Add 20% pure exploration rate for vocabulary diversity
+        import random
+        should_enhance = self._vocabulary_coordinator and random.random() > 0.2
+
+        if should_enhance:
             try:
                 query_enhancement = self._vocabulary_coordinator.enhance_search_query(
                     query=topic,
                     domain="debate",
-                    max_expansions=3,
-                    min_phi=0.6,
+                    max_expansions=5,  # Increased from 3 for more diversity
+                    min_phi=0.4,  # Lowered from 0.6 to allow broader vocabulary
                     recent_observations=self._recent_vocabulary_observations
                 )
                 if query_enhancement.get('terms_added', 0) > 0:
@@ -531,6 +535,8 @@ class AutonomousDebateService:
                     logger.info(f"Enhanced search query with {query_enhancement['terms_added']} learned terms: {query_enhancement['expansion_terms']}")
             except Exception as e:
                 logger.warning(f"Query enhancement failed: {e}")
+        elif self._vocabulary_coordinator:
+            logger.info(f"Pure exploration mode - using original query: '{topic}'")
 
         searxng_results = self._search_searxng(enhanced_query)
         if searxng_results:

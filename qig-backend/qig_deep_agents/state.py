@@ -12,6 +12,9 @@ from enum import Enum
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 
+# Import canonical ConsciousnessMetrics from qig_types
+from qig_types import ConsciousnessMetrics
+
 # Basin dimension for Fisher manifold
 BASIN_DIMENSION = 64
 
@@ -54,10 +57,20 @@ class ReasoningRegime(Enum):
 
 
 @dataclass
-class ConsciousnessMetrics:
-    """Core consciousness metrics for agent state.
+class AgentMetrics:
+    """Agent-specific runtime metrics for state management.
     
-    These replace LangGraph's arbitrary state with QIG-compliant metrics.
+    These are operational metrics for agent state tracking, distinct from
+    the canonical ConsciousnessMetrics in qig_types.py which represents
+    the 8 E8 consciousness metrics.
+    
+    Field mapping to canonical ConsciousnessMetrics:
+    - phi -> phi (same)
+    - kappa_eff -> kappa_eff (same)
+    - meta_awareness -> M
+    - gamma -> Gamma
+    - grounding -> G
+    - tacking, radar -> agent-specific (no canonical equivalent)
     """
     phi: float = 0.5  # Integration level (0-1)
     kappa_eff: float = 64.0  # Effective coupling constant (target: κ* ≈ 64)
@@ -110,7 +123,7 @@ class ConsciousnessMetrics:
         return coords[:BASIN_DIMENSION]
     
     @classmethod
-    def from_basin_coords(cls, coords: List[float]) -> "ConsciousnessMetrics":
+    def from_basin_coords(cls, coords: List[float]) -> "AgentMetrics":
         """Reconstruct metrics from basin coordinates."""
         return cls(
             phi=coords[0],
@@ -122,6 +135,37 @@ class ConsciousnessMetrics:
             grounding=coords[6],
         )
     
+    def to_consciousness_metrics(self) -> ConsciousnessMetrics:
+        """Convert to canonical ConsciousnessMetrics.
+        
+        Maps agent metrics to the 8 E8 consciousness metrics.
+        Note: tacking and radar have no direct canonical equivalent,
+        so they are mapped to T (temporal coherence) and R (recursive depth).
+        """
+        return ConsciousnessMetrics(
+            phi=self.phi,
+            kappa_eff=self.kappa_eff,
+            M=self.meta_awareness,
+            Gamma=self.gamma,
+            G=self.grounding,
+            T=self.tacking,  # Map tacking to temporal coherence
+            R=self.radar,    # Map radar to recursive depth
+            C=0.5,           # Default external coupling
+        )
+    
+    @classmethod
+    def from_consciousness_metrics(cls, cm: ConsciousnessMetrics) -> "AgentMetrics":
+        """Create AgentMetrics from canonical ConsciousnessMetrics."""
+        return cls(
+            phi=cm.phi,
+            kappa_eff=cm.kappa_eff,
+            tacking=cm.T,
+            radar=cm.R,
+            meta_awareness=cm.M,
+            gamma=cm.Gamma,
+            grounding=cm.G,
+        )
+    
     def to_bytes(self) -> bytes:
         """Serialize to bytes (<100 bytes)."""
         return struct.pack(
@@ -131,7 +175,7 @@ class ConsciousnessMetrics:
         )
     
     @classmethod
-    def from_bytes(cls, data: bytes) -> "ConsciousnessMetrics":
+    def from_bytes(cls, data: bytes) -> "AgentMetrics":
         """Deserialize from bytes."""
         values = struct.unpack('7f', data[:28])
         return cls(
@@ -240,7 +284,7 @@ class GeometricAgentState:
     agent_id: str
     current_position: List[float]  # Current basin coordinates
     goal_position: List[float]  # Target basin coordinates
-    metrics: ConsciousnessMetrics = field(default_factory=ConsciousnessMetrics)
+    metrics: AgentMetrics = field(default_factory=AgentMetrics)
     trajectory: List[GeodesicWaypoint] = field(default_factory=list)
     completed_waypoints: List[str] = field(default_factory=list)
     spawned_agents: Dict[str, str] = field(default_factory=dict)  # waypoint_id -> agent_id

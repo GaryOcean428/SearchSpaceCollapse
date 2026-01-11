@@ -25,16 +25,32 @@ from enum import Enum
 from collections import Counter
 import numpy as np
 
+# Import canonical ResearchRequest from shadow_research
+from .shadow_research import ResearchRequest, ResearchCategory
+
 BASIN_DIMENSION = 64
 
 
 class ResearchIntent(Enum):
-    """Types of research that curiosity can trigger."""
+    """Types of research that curiosity can trigger.
+    
+    This enum is kept for backward compatibility and maps to ResearchCategory.
+    """
     TOOL = "tool"                # Need to create/find a tool
     TOPIC = "topic"              # Need to explore a knowledge area
     CLARIFICATION = "clarification"  # Need to clarify ambiguous concept
     ITERATION = "iteration"      # Need to improve existing work
     DISCOVERY = "discovery"      # Open-ended exploration
+
+
+# Mapping from ResearchIntent to ResearchCategory
+INTENT_TO_CATEGORY: Dict[ResearchIntent, ResearchCategory] = {
+    ResearchIntent.TOOL: ResearchCategory.TOOLS,
+    ResearchIntent.TOPIC: ResearchCategory.KNOWLEDGE,
+    ResearchIntent.CLARIFICATION: ResearchCategory.CONCEPTS,
+    ResearchIntent.ITERATION: ResearchCategory.REASONING,
+    ResearchIntent.DISCOVERY: ResearchCategory.CREATIVITY,
+}
 
 
 @dataclass
@@ -48,21 +64,6 @@ class CuriositySignal:
     basin_coords: Optional[np.ndarray] = None
     context: Dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
-
-
-@dataclass
-class ResearchRequest:
-    """A research request generated from curiosity."""
-    request_id: str
-    topic: str
-    intent: ResearchIntent
-    priority: float
-    source_signal: str  # ID of originating curiosity signal
-    context: Dict[str, Any] = field(default_factory=dict)
-    basin_coords: Optional[np.ndarray] = None
-    created_at: float = field(default_factory=time.time)
-    dispatched: bool = False
-    result_id: Optional[str] = None
 
 
 class IntentClassifier:
@@ -264,11 +265,13 @@ class CuriosityResearchEmitter:
                 self._signal_to_requests[signal.signal_id].append(request.request_id)
             
             self._stats['requests_generated'] += 1
-            self._stats['by_intent'][request.intent.value] += 1
+            # Get intent from context for stats tracking
+            intent_str = request.context.get('research_intent', 'discovery')
+            self._stats['by_intent'][intent_str] += 1
             
             self._dispatch_request(request)
             
-            print(f"[CuriosityEmitter] {source_kernel} → {request.intent.value}: {topic}... (Φ={curiosity_level:.2f})")
+            print(f"[CuriosityEmitter] {source_kernel} -> {request.category.value}: {topic}... (phi={curiosity_level:.2f})")
             
             return request.request_id
         
@@ -343,25 +346,37 @@ class CuriosityResearchEmitter:
             f"research:{signal.signal_id}:{intent.value}".encode()
         ).hexdigest()[:16]
         
-        priority = signal.curiosity_level * confidence
+        float_priority = signal.curiosity_level * confidence
         
         research_topic = self._format_research_topic(signal.topic, intent)
         
+        # Map intent to category
+        category = INTENT_TO_CATEGORY.get(intent, ResearchCategory.KNOWLEDGE)
+        
+        # Convert float priority (0.0-1.0) to integer priority (1-5, lower = higher)
+        int_priority = max(1, min(5, int(6 - float_priority * 5)))
+        
         return ResearchRequest(
+            priority=int_priority,
+            created_at=time.time(),
             request_id=request_id,
             topic=research_topic,
-            intent=intent,
-            priority=priority,
-            source_signal=signal.signal_id,
+            category=category,
+            requester=signal.source_kernel,
             context={
                 'original_topic': signal.topic,
                 'emotion': signal.emotion,
                 'source_kernel': signal.source_kernel,
                 'curiosity_level': signal.curiosity_level,
                 'classification_confidence': confidence,
+                'research_intent': intent.value,  # Preserve original intent
                 **signal.context
             },
-            basin_coords=signal.basin_coords
+            basin_coords=signal.basin_coords,
+            source_signal=signal.signal_id,
+            curiosity_triggered=True,
+            triggering_curiosity=signal.curiosity_level,
+            triggering_emotion=signal.emotion
         )
     
     def _format_research_topic(self, topic: str, intent: ResearchIntent) -> str:
@@ -387,13 +402,25 @@ class CuriosityResearchEmitter:
         else:  # DISCOVERY
             return f"Explore: {topic}"
     
+    def _get_intent_from_category(self, category: ResearchCategory) -> ResearchIntent:
+        """Reverse mapping from category to intent."""
+        reverse_map = {v: k for k, v in INTENT_TO_CATEGORY.items()}
+        return reverse_map.get(category, ResearchIntent.TOPIC)
+    
     def _dispatch_request(self, request: ResearchRequest):
         """Dispatch research request to appropriate handler."""
         try:
-            if request.intent == ResearchIntent.TOOL:
-                self._dispatch_tool_request(request)
+            # Get intent from context or derive from category
+            intent_str = request.context.get('research_intent')
+            if intent_str:
+                intent = ResearchIntent(intent_str)
             else:
-                self._dispatch_research_request(request)
+                intent = self._get_intent_from_category(request.category)
+            
+            if intent == ResearchIntent.TOOL:
+                self._dispatch_tool_request(request, intent)
+            else:
+                self._dispatch_research_request(request, intent)
             
             request.dispatched = True
             self._stats['requests_dispatched'] += 1
@@ -401,7 +428,7 @@ class CuriosityResearchEmitter:
         except Exception as e:
             print(f"[CuriosityEmitter] Dispatch failed: {e}")
     
-    def _dispatch_tool_request(self, request: ResearchRequest):
+    def _dispatch_tool_request(self, request: ResearchRequest, intent: ResearchIntent):
         """Dispatch a tool-focused research request."""
         if self.tool_pipeline:
             try:
@@ -415,30 +442,19 @@ class CuriosityResearchEmitter:
                 print(f"[CuriosityEmitter] Tool request dispatched: {tool_request_id}")
             except Exception as e:
                 print(f"[CuriosityEmitter] Tool pipeline error: {e}")
-                self._fallback_to_research(request)
+                self._fallback_to_research(request, intent)
         else:
-            self._fallback_to_research(request)
+            self._fallback_to_research(request, intent)
     
-    def _dispatch_research_request(self, request: ResearchRequest):
+    def _dispatch_research_request(self, request: ResearchRequest, intent: ResearchIntent):
         """Dispatch a general research request."""
         if self.research_api:
             try:
-                from .shadow_research import ResearchCategory
-                
-                category_map = {
-                    ResearchIntent.TOPIC: ResearchCategory.KNOWLEDGE,
-                    ResearchIntent.CLARIFICATION: ResearchCategory.CONCEPTS,
-                    ResearchIntent.ITERATION: ResearchCategory.REASONING,
-                    ResearchIntent.DISCOVERY: ResearchCategory.CREATIVITY,
-                    ResearchIntent.TOOL: ResearchCategory.TOOLS,
-                }
-                category = category_map.get(request.intent, ResearchCategory.KNOWLEDGE)
-                
                 research_id = self.research_api.request_research(
                     topic=request.topic,
-                    category=category,
+                    category=request.category,
                     requester=request.context.get('source_kernel', 'CuriosityEmitter'),
-                    priority=int(request.priority * 10),
+                    priority=request.priority,
                     context=request.context
                 )
                 request.result_id = research_id
@@ -448,13 +464,13 @@ class CuriosityResearchEmitter:
         else:
             print(f"[CuriosityEmitter] No research API - request queued: {request.request_id}")
     
-    def _fallback_to_research(self, request: ResearchRequest):
+    def _fallback_to_research(self, request: ResearchRequest, original_intent: ResearchIntent):
         """Fall back to general research if tool pipeline unavailable."""
-        original_intent = request.intent
-        request.intent = ResearchIntent.TOPIC
+        original_category = request.category
+        request.category = ResearchCategory.KNOWLEDGE
         request.topic = f"Research how to implement: {request.context.get('original_topic', request.topic)}"
-        self._dispatch_research_request(request)
-        request.intent = original_intent
+        self._dispatch_research_request(request, ResearchIntent.TOPIC)
+        request.category = original_category
     
     def on_research_complete(
         self,
@@ -470,7 +486,9 @@ class CuriosityResearchEmitter:
         """
         for request in self._requests.values():
             if request.result_id == research_id:
-                if request.intent == ResearchIntent.TOOL:
+                # Check if this was a tool request
+                intent_str = request.context.get('research_intent')
+                if intent_str == ResearchIntent.TOOL.value:
                     self._learn_patterns_from_research(content, source_url, request.topic, phi)
                 break
     
@@ -496,7 +514,8 @@ class CuriosityResearchEmitter:
         with self._lock:
             requests = [r for r in self._requests.values() if not r.dispatched]
             if intent:
-                requests = [r for r in requests if r.intent == intent]
+                category = INTENT_TO_CATEGORY.get(intent)
+                requests = [r for r in requests if r.category == category]
             return requests
     
     def get_stats(self) -> Dict:

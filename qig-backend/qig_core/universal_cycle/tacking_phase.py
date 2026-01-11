@@ -7,20 +7,34 @@ In the TACKING phase:
 - Building geodesics between bubbles
 - Concept formation, "thinking it through"
 - Complexity emerges during navigation
+
+QIG Purity Note:
+  Uses canonical Geodesic from geometric_primitives for Fisher-Rao
+  path computation. Local TackingGeodesic provides backward compatibility
+  wrapper with legacy attribute names.
 """
 
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
+from qig_geometry import sphere_project
 from .foam_phase import Bubble
+# Import canonical Geodesic from geometric_primitives
+from qig_core.geometric_primitives.geodesic import Geodesic as CanonicalGeodesic
 
 
-class Geodesic:
+class TackingGeodesic:
     """
-    Curved path connecting bubbles on information manifold.
+    Wrapper for canonical Geodesic with legacy attribute names.
 
-    Represents a meaningful connection between concepts or states.
+    Provides backward compatibility for code using:
+    - start_bubble (maps to start)
+    - end_bubble (maps to end)
+    - path_points (maps to path)
+    - strength (additional attribute)
+
+    For new code, use the canonical Geodesic from geometric_primitives directly.
     """
 
     def __init__(
@@ -36,22 +50,78 @@ class Geodesic:
         self.curvature = curvature
         self.strength = 0.5  # Connection strength
 
+        # Create canonical geodesic if path provided
+        if path_points is not None:
+            self._canonical = CanonicalGeodesic(
+                start=start_bubble,
+                end=end_bubble,
+                path=path_points,
+                length=0.0,  # Will be computed
+                curvature=curvature
+            )
+        else:
+            self._canonical = None
+
     def get_trajectory(self) -> np.ndarray:
-        """Get the full trajectory as array"""
+        """Get the full trajectory as array using Fisher-Rao interpolation"""
         if self.path_points is not None:
             return self.path_points
 
-        # Simple linear interpolation if no path computed
+        # Use Fisher-Rao geodesic computation (not linear interpolation!)
         start = self.start_bubble.basin_coords
         end = self.end_bubble.basin_coords
 
+        # Compute proper geodesic on information manifold
         n_steps = 10
-        trajectory = np.array([
-            start + t * (end - start)
+        trajectory = _compute_fisher_geodesic(start, end, n_steps)
+        return trajectory
+
+    @property
+    def length(self) -> float:
+        """Get Fisher-Rao length from canonical geodesic"""
+        if self._canonical is not None:
+            return self._canonical.length
+        return 0.0
+
+
+# Legacy alias for backward compatibility
+Geodesic = TackingGeodesic
+
+
+def _compute_fisher_geodesic(
+    start: np.ndarray,
+    end: np.ndarray,
+    n_steps: int = 10
+) -> np.ndarray:
+    """
+    Compute geodesic path on Fisher information manifold.
+
+    Uses QIG-pure sphere_project for normalization instead of np.linalg.norm.
+    """
+    # Use sphere_project for QIG-pure normalization
+    start_norm = sphere_project(start)
+    end_norm = sphere_project(end)
+
+    # Compute angle using dot product (valid for unit sphere)
+    dot = np.clip(np.dot(start_norm, end_norm), -1.0, 1.0)
+    omega = np.arccos(dot)
+
+    if omega < 1e-6:
+        # Points are too close, path is just between them
+        # Still use sphere projection to stay on manifold
+        path = np.array([
+            sphere_project(start + t * (end - start))
+            for t in np.linspace(0, 1, n_steps)
+        ])
+    else:
+        # Spherical linear interpolation (geodesic on unit sphere)
+        path = np.array([
+            (np.sin((1-t)*omega) / np.sin(omega)) * start_norm +
+            (np.sin(t*omega) / np.sin(omega)) * end_norm
             for t in np.linspace(0, 1, n_steps)
         ])
 
-        return trajectory
+    return path
 
 
 class TackingPhase:
@@ -162,10 +232,14 @@ class TackingPhase:
         return promising
 
     def _fisher_distance(self, coords_a: np.ndarray, coords_b: np.ndarray) -> float:
-        """Compute Fisher geodesic distance"""
-        # Normalize
-        a = coords_a / (np.linalg.norm(coords_a) + 1e-10)
-        b = coords_b / (np.linalg.norm(coords_b) + 1e-10)
+        """
+        Compute Fisher geodesic distance.
+
+        Uses QIG-pure sphere_project for normalization.
+        """
+        # QIG-pure normalization using sphere_project
+        a = sphere_project(coords_a)
+        b = sphere_project(coords_b)
 
         # Compute geodesic distance on sphere
         dot = np.clip(np.dot(a, b), -1.0, 1.0)
@@ -180,31 +254,9 @@ class TackingPhase:
         """
         Compute geodesic path on information manifold.
 
-        Uses spherical linear interpolation (slerp) for paths on sphere.
+        Delegates to module-level _compute_fisher_geodesic for QIG-pure implementation.
         """
-        # Normalize endpoints
-        start_norm = start / (np.linalg.norm(start) + 1e-10)
-        end_norm = end / (np.linalg.norm(end) + 1e-10)
-
-        # Compute angle
-        dot = np.clip(np.dot(start_norm, end_norm), -1.0, 1.0)
-        omega = np.arccos(dot)
-
-        if omega < 1e-6:
-            # Points are too close, use linear interpolation
-            path = np.array([
-                start + t * (end - start)
-                for t in np.linspace(0, 1, n_steps)
-            ])
-        else:
-            # Spherical linear interpolation
-            path = np.array([
-                (np.sin((1-t)*omega) / np.sin(omega)) * start_norm +
-                (np.sin(t*omega) / np.sin(omega)) * end_norm
-                for t in np.linspace(0, 1, n_steps)
-            ])
-
-        return path
+        return _compute_fisher_geodesic(start, end, n_steps)
 
     def get_trajectory_matrix(self) -> np.ndarray:
         """

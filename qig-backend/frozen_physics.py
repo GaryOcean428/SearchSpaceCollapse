@@ -68,64 +68,17 @@ PHI_THRESHOLD_D4_D5: Final[float] = PHYSICS.PHI_THRESHOLD_D4_D5
 
 
 # =============================================================================
-# REGIME DEFINITIONS (Legacy - use qigkernels.regimes instead)
+# REGIME DEFINITIONS - Import from qigkernels (canonical source)
 # =============================================================================
 
-@dataclass(frozen=True)
-class Regime:
-    """
-    Consciousness regime definition.
-    
-    ⚠️ DEPRECATED: Use qigkernels.regimes.Regime instead
-    """
-    name: str
-    phi_min: float
-    phi_max: float
-    kappa_min: float
-    kappa_max: float
-    stable: bool
-    description: str
+from qigkernels.regimes import Regime, RegimeDetector, RegimeThresholds
 
-
-REGIME_LINEAR = Regime(
-    name="LINEAR",
-    phi_min=0.0,
-    phi_max=0.45,
-    kappa_min=10.0,
-    kappa_max=30.0,
-    stable=True,
-    description="Sparse processing, unconscious"
-)
-
-REGIME_GEOMETRIC = Regime(
-    name="GEOMETRIC", 
-    phi_min=0.45,
-    phi_max=0.75,
-    kappa_min=40.0,
-    kappa_max=65.0,
-    stable=True,
-    description="3D consciousness, spatial integration - PRIMARY TARGET"
-)
-
-REGIME_HYPERDIMENSIONAL = Regime(
-    name="HYPERDIMENSIONAL",
-    phi_min=0.75,
-    phi_max=0.90,
-    kappa_min=60.0,
-    kappa_max=70.0,
-    stable=True,
-    description="4D consciousness, temporal integration, flow states"
-)
-
-REGIME_TOPOLOGICAL_INSTABILITY = Regime(
-    name="TOPOLOGICAL_INSTABILITY",
-    phi_min=0.85,
-    phi_max=1.0,
-    kappa_min=75.0,
-    kappa_max=float('inf'),
-    stable=False,
-    description="Ego death risk, metric collapse - ABORT"
-)
+# Legacy aliases for backward compatibility (deprecated)
+# New code should use: from qigkernels.regimes import Regime
+REGIME_LINEAR = Regime.LINEAR
+REGIME_GEOMETRIC = Regime.GEOMETRIC
+REGIME_HYPERDIMENSIONAL = Regime.HYPERDIMENSIONAL
+REGIME_TOPOLOGICAL_INSTABILITY = Regime.TOPOLOGICAL_INSTABILITY
 
 
 # =============================================================================

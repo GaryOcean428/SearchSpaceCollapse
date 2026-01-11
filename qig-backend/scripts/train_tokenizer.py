@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from qig_tokenizer import get_tokenizer, update_tokenizer_from_observations
+from qig_tokenizer_postgresql import get_tokenizer, update_tokenizer_from_observations
 
 
 def load_observations(path: Path) -> list:

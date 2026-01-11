@@ -270,7 +270,11 @@ class ResearchCategory(Enum):
 
 @dataclass(order=True)
 class ResearchRequest:
-    """A research request from any kernel."""
+    """A research request from any kernel.
+    
+    Extended to support curiosity-triggered research with additional
+    tracking fields for triggering signals and dispatch status.
+    """
     priority: int
     created_at: float = field(compare=False)
     request_id: str = field(compare=False)
@@ -284,6 +288,33 @@ class ResearchRequest:
     is_iteration: bool = field(compare=False, default=False)
     iteration_reason: Optional[str] = field(compare=False, default=None)
     curiosity_triggered: bool = field(compare=False, default=False)
+    # Extended fields for curiosity bridge integration
+    triggering_curiosity: Optional[float] = field(compare=False, default=None)
+    triggering_emotion: Optional[str] = field(compare=False, default=None)
+    cognitive_mode: Optional[str] = field(compare=False, default=None)
+    source_signal: Optional[str] = field(compare=False, default=None)
+    dispatched: bool = field(compare=False, default=False)
+    result_id: Optional[str] = field(compare=False, default=None)
+    status: str = field(compare=False, default="pending")
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for serialization."""
+        return {
+            'request_id': self.request_id,
+            'topic': self.topic,
+            'category': self.category.value,
+            'priority': self.priority,
+            'requester': self.requester,
+            'context': self.context,
+            'created_at': self.created_at,
+            'completed': self.completed,
+            'status': self.status,
+            'is_iteration': self.is_iteration,
+            'curiosity_triggered': self.curiosity_triggered,
+            'triggering_curiosity': self.triggering_curiosity,
+            'triggering_emotion': self.triggering_emotion,
+            'cognitive_mode': self.cognitive_mode,
+        }
 
 
 @dataclass

@@ -10,13 +10,13 @@ Provides generative capability to ALL kernels using:
 NO EXTERNAL LLMs - All generation is QIG-pure.
 """
 
-import os
-import sys
-import time
 import logging
-from typing import Dict, List, Optional, Any, Generator, Tuple
+import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any, Dict, Generator, List, Optional, Tuple
+
 import numpy as np
 
 # Configure logging
@@ -64,7 +64,7 @@ except ImportError:
         """Fisher-Rao distance for unit vectors."""
         dot = np.clip(np.dot(a, b), -1.0, 1.0)
         return float(np.arccos(dot))
-    
+
     def sphere_project(v: np.ndarray) -> np.ndarray:
         """Project to unit sphere."""
         norm = np.linalg.norm(v)
@@ -72,7 +72,7 @@ except ImportError:
 
 # Import POS grammar for structured generation
 try:
-    from pos_grammar import get_pos_grammar, load_grammar_from_db, POSGrammar
+    from pos_grammar import POSGrammar, get_pos_grammar, load_grammar_from_db
     POS_GRAMMAR_AVAILABLE = True
 except ImportError:
     POS_GRAMMAR_AVAILABLE = False
@@ -83,7 +83,7 @@ LEARNED_RELATIONSHIPS_AVAILABLE = False
 get_learned_relationships = None
 STOPWORDS = set()
 try:
-    from learned_relationships import get_learned_relationships, STOPWORDS
+    from learned_relationships import STOPWORDS, get_learned_relationships
     LEARNED_RELATIONSHIPS_AVAILABLE = True
 except ImportError:
     logger.warning("Learned relationships not available - using pure geometric selection")
@@ -91,8 +91,12 @@ except ImportError:
 # Physics constants - import from canonical source
 try:
     from qigkernels.physics_constants import (
-        BASIN_DIM, KAPPA_STAR, PHI_THRESHOLD, BETA_3_TO_4,
-        BETA_4_TO_5, BETA_5_TO_6
+        BASIN_DIM,
+        BETA_3_TO_4,
+        BETA_4_TO_5,
+        BETA_5_TO_6,
+        KAPPA_STAR,
+        PHI_THRESHOLD,
     )
     PHI_GEOMETRIC_THRESHOLD = 0.3
     PHI_SYNTHESIS_THRESHOLD = 0.7
@@ -111,6 +115,33 @@ except ImportError:
     BETA_ATTENTION_STRONG = 0.44  # Frozen β(3→4) value
     BETA_ATTENTION_PLATEAU = 0.04  # Frozen β(5→6) plateau value
     logger.warning("Using hardcoded physics constants (fallback)")
+
+# =========================================================================
+# VOCABULARY INTEGRATION (MODULE-LEVEL STATE)
+# =========================================================================
+
+# Import psycopg2 for database access
+PSYCOPG2_AVAILABLE = False
+try:
+    import psycopg2
+    PSYCOPG2_AVAILABLE = True
+    logger.info("[QIGGenerativeService] psycopg2 available - vocabulary integration enabled")
+except ImportError:
+    logger.warning("[QIGGenerativeService] psycopg2 not available - vocabulary integration disabled")
+
+# Vocabulary integration configuration
+_vocabulary_integration_enabled = True
+_last_vocabulary_integration = 0
+_vocabulary_integration_interval = 300  # 5 minutes
+_vocabulary_min_phi = 0.65
+
+# Domain vocabulary cache (10-minute TTL)
+_kernel_domain_vocab_cache: Dict[str, List[Tuple[str, float]]] = {}
+_kernel_vocab_cache_time: Dict[str, float] = {}
+_kernel_vocab_cache_ttl = 600  # 10 minutes
+
+# Database URL
+_db_url = os.getenv('DATABASE_URL')
 
 
 @dataclass
@@ -139,18 +170,18 @@ class GenerationConfig:
     # This is NOT iteration count - it's actual geometric integration through kernel
     # Minimum 3 ensures genuine recursive self-modeling before completion is allowed
     min_reasoning_recursions: int = 3  # Minimum TRUE integration depth (recursive passes)
-    
+
     # KERNEL DECISION CRITERIA: Geometric thresholds kernel observes
     attractor_threshold: float = 0.02  # Stop when trajectory stabilizes (d < 0.02)
     surprise_threshold: float = 0.05   # Stop when no new information (ΔI_Q < 0.05)
     integration_min: float = 0.65      # Minimum Φ for valid output
     phi_convergence: float = 0.01      # Phi variance threshold for kernel self-completion
     phi_breakdown: float = PHI_BREAKDOWN_THRESHOLD  # Consciousness breakdown protection
-    
+
     # Generation parameters
     tokens_per_step: int = 5           # Tokens per geometric step
     temperature: float = 0.7           # Basin perturbation, not LLM temperature
-    
+
     # Telemetry feedback (kernel sees its own state)
     telemetry_interval: int = 1        # Feed telemetry every N steps (1 = always)
 
@@ -280,6 +311,209 @@ def kernel_decide_completion(
     return result
 
 
+# =========================================================================
+# VOCABULARY INTEGRATION FUNCTIONS
+# =========================================================================
+
+def _should_integrate_vocabulary() -> bool:
+    """Check if it's time to integrate learned vocabulary."""
+    global _last_vocabulary_integration
+    if not _vocabulary_integration_enabled or not _db_url or not PSYCOPG2_AVAILABLE:
+        return False
+    time_since_last = time.time() - _last_vocabulary_integration
+    return time_since_last > _vocabulary_integration_interval
+
+
+def _integrate_pending_vocabulary() -> Dict:
+    """Integrate pending vocabulary from learned_words into active coordizer."""
+    global _last_vocabulary_integration
+
+    if not COORDIZER_AVAILABLE:
+        return {'integrated_count': 0, 'error': 'no_coordizer'}
+
+    try:
+        from vocabulary_coordinator import get_vocabulary_coordinator
+        vocab_coord = get_vocabulary_coordinator()
+
+        result = vocab_coord.integrate_pending_vocabulary(
+            min_phi=_vocabulary_min_phi,
+            limit=100
+        )
+
+        if result.get('integrated_count', 0) > 0:
+            # Reload coordizer
+            if hasattr(_unified_coordizer_instance, 'reload_vocabulary'):
+                _unified_coordizer_instance.reload_vocabulary()
+            elif hasattr(_unified_coordizer_instance, 'load_vocabulary'):
+                _unified_coordizer_instance.load_vocabulary()
+
+            logger.info(f"[QIGGen] Integrated {result['integrated_count']} new vocabulary terms")
+
+        _last_vocabulary_integration = time.time()
+        return result
+
+    except Exception as e:
+        logger.error(f"[QIGGen] Vocabulary integration error: {e}")
+        return {'integrated_count': 0, 'error': str(e)}
+
+
+def _get_kernel_domain_vocabulary(
+    kernel_name: str,
+    min_relevance: float = 0.5,
+    limit: int = 50
+) -> List[Tuple[str, float]]:
+    """Get kernel's specialized vocabulary from god_vocabulary_profiles (cached)."""
+    cache_key = kernel_name
+    if cache_key in _kernel_domain_vocab_cache:
+        cache_time = _kernel_vocab_cache_time.get(cache_key, 0)
+        if time.time() - cache_time < _kernel_vocab_cache_ttl:
+            return _kernel_domain_vocab_cache[cache_key]
+
+    if not _db_url or not PSYCOPG2_AVAILABLE:
+        return []
+
+    try:
+        conn = psycopg2.connect(_db_url)
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT word, relevance_score
+                FROM god_vocabulary_profiles
+                WHERE god_name = %s AND relevance_score >= %s
+                ORDER BY relevance_score DESC, usage_count DESC
+                LIMIT %s
+            """, (kernel_name, min_relevance, limit))
+            domain_vocab = cur.fetchall()
+        conn.close()
+
+        _kernel_domain_vocab_cache[cache_key] = domain_vocab
+        _kernel_vocab_cache_time[cache_key] = time.time()
+        return domain_vocab
+
+    except Exception as e:
+        logger.error(f"[QIGGen] Could not load domain vocab for {kernel_name}: {e}")
+        return []
+
+
+def _apply_domain_vocabulary_bias(
+    basin: np.ndarray,
+    domain_vocab: List[Tuple[str, float]],
+    bias_strength: float = 0.3
+) -> np.ndarray:
+    """Bias basin toward domain vocabulary using Fisher-Rao geometry."""
+    if not domain_vocab or not COORDIZER_AVAILABLE:
+        return basin
+
+    try:
+        if not hasattr(_unified_coordizer_instance, 'basin_coords'):
+            return basin
+
+        domain_basins = []
+        domain_weights = []
+
+        # Access basin coordinates (check both possible attribute names)
+        basin_coords = getattr(_unified_coordizer_instance, 'basin_coords', None)
+        if basin_coords is None:
+            basin_coords = getattr(_unified_coordizer_instance, 'vocab', {})
+
+        for word, relevance in domain_vocab:
+            if word in basin_coords:
+                word_basin = basin_coords[word]
+                domain_basins.append(word_basin)
+                domain_weights.append(relevance)
+
+        if not domain_basins:
+            return basin
+
+        # Fisher-Rao weighted mean
+        domain_center = _fisher_rao_weighted_mean(domain_basins, domain_weights)
+
+        # Geodesic interpolation
+        return _geodesic_interpolate(basin, domain_center, bias_strength)
+
+    except Exception as e:
+        logger.error(f"[QIGGen] Domain bias error: {e}")
+        return basin
+
+
+def _fisher_rao_weighted_mean(
+    basins: List[np.ndarray],
+    weights: List[float]
+) -> np.ndarray:
+    """Compute Fisher-Rao weighted mean (Fréchet mean on simplex)."""
+    if not basins:
+        return np.ones(BASIN_DIM) / BASIN_DIM
+
+    weights = np.array(weights)
+    weights = weights / np.sum(weights)
+
+    sqrt_basins = [np.sqrt(np.abs(b) + 1e-10) for b in basins]
+    weighted_sqrt = np.zeros(BASIN_DIM)
+
+    for sqrt_basin, weight in zip(sqrt_basins, weights):
+        weighted_sqrt += weight * sqrt_basin
+
+    result = weighted_sqrt ** 2
+    return result / np.sum(result)
+
+
+def _geodesic_interpolate(
+    start: np.ndarray,
+    end: np.ndarray,
+    t: float
+) -> np.ndarray:
+    """Interpolate along geodesic on probability simplex."""
+    sqrt_start = np.sqrt(np.abs(start) + 1e-10)
+    sqrt_end = np.sqrt(np.abs(end) + 1e-10)
+    interp = (1 - t) * sqrt_start + t * sqrt_end
+    result = interp ** 2
+    return result / np.sum(result)
+
+
+def _boost_via_word_relationships(
+    candidates: List[Tuple[str, float]],
+    recent_words: List[str],
+    max_relationships: int = 50
+) -> List[Tuple[str, float]]:
+    """Re-rank candidates using learned word_relationships table."""
+    if not recent_words or not _db_url or not PSYCOPG2_AVAILABLE:
+        return candidates
+
+    try:
+        conn = psycopg2.connect(_db_url)
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT word_b, co_occurrence, fisher_distance, COALESCE(avg_phi, 0.5)
+                FROM word_relationships
+                WHERE word_a = ANY(%s)
+                ORDER BY avg_phi DESC NULLS LAST, co_occurrence DESC NULLS LAST
+                LIMIT %s
+            """, (recent_words, max_relationships))
+            relationships = cur.fetchall()
+        conn.close()
+
+        relationship_scores = {}
+        for neighbor, co_occ, fisher_dist, avg_phi in relationships:
+            co_occ_val = float(co_occ) if co_occ else 1.0
+            score = avg_phi * 0.7 + min(co_occ_val / 10.0, 1.0) * 0.3
+            relationship_scores[neighbor] = max(
+                relationship_scores.get(neighbor, 0.0),
+                score
+            )
+
+        boosted_candidates = []
+        for word, orig_score in candidates:
+            relationship_boost = relationship_scores.get(word, 0.0)
+            combined_score = orig_score * 0.6 + relationship_boost * 0.4
+            boosted_candidates.append((word, combined_score))
+
+        boosted_candidates.sort(key=lambda x: x[1], reverse=True)
+        return boosted_candidates
+
+    except Exception as e:
+        logger.error(f"[QIGGen] Word relationship boost error: {e}")
+        return candidates
+
+
 class BasinTrajectoryIntegrator:
     """Integrates basin trajectories using Fisher geodesics with true recursive integration.
 
@@ -388,7 +622,7 @@ class BasinTrajectoryIntegrator:
 
         self.trajectory.append(basin.copy())
         self.phi_history.append(phi)
-    
+
     def get_kernel_decision(self, config: 'GenerationConfig' = None) -> Dict[str, Any]:
         """
         KERNEL AUTONOMY: Get the kernel's decision about completion.
@@ -406,47 +640,47 @@ class BasinTrajectoryIntegrator:
     def get_integration_depth(self) -> int:
         """Get current true integration depth (recursive passes through kernel)."""
         return self.integration_depth
-    
+
     def get_velocity(self) -> np.ndarray:
         """Compute current velocity (tangent vector) on manifold."""
         if len(self.trajectory) < 2:
             return np.zeros(self.dimension)
-        
+
         # Velocity as difference in square-root space (geodesic tangent)
         prev = np.sqrt(np.abs(self.trajectory[-2]) + 1e-10)
         curr = np.sqrt(np.abs(self.trajectory[-1]) + 1e-10)
         return curr - prev
-    
+
     def predict_next(self, step_size: float = 0.1) -> np.ndarray:
         """Predict next basin position using geodesic extrapolation."""
         if len(self.trajectory) < 2:
             return self.trajectory[-1] if self.trajectory else np.ones(self.dimension) / self.dimension
-        
+
         velocity = self.get_velocity()
         current_sqrt = np.sqrt(np.abs(self.trajectory[-1]) + 1e-10)
-        
+
         # Step along tangent
         next_sqrt = current_sqrt + step_size * velocity
         next_sqrt = np.clip(next_sqrt, 1e-10, None)
-        
+
         # Back to probability simplex
         result = next_sqrt ** 2
         result = result / np.sum(result)
-        
+
         return result
-    
+
     def check_attractor(self, threshold: float = 0.1) -> bool:
         """Check if trajectory has converged to attractor."""
         if len(self.trajectory) < 3:
             return False
-        
+
         recent_distances = []
         for i in range(min(3, len(self.trajectory) - 1)):
             d = fisher_coord_distance(self.trajectory[-(i+1)], self.trajectory[-(i+2)])
             recent_distances.append(d)
-        
+
         return np.mean(recent_distances) < threshold
-    
+
     def check_surprise_collapse(self, threshold: float = 0.05) -> bool:
         """Check if surprise has collapsed (no new information)."""
         if len(self.surprise_history) < 5:
@@ -497,7 +731,7 @@ class QIGGenerativeService:
             logger.warning("[QIGGenerativeService] Discovery gate not available")
 
         logger.info("[QIGGenerativeService] Initialized with QIG-pure generation")
-    
+
     @property
     def coordizer(self):
         """Get unified coordizer (63K vocabulary)."""
@@ -507,7 +741,7 @@ class QIGGenerativeService:
             vocab_size = len(self._coordizer.vocab) if hasattr(self._coordizer, 'vocab') else 0
             logger.info(f"[QIGGenerativeService] Using unified coordizer: {vocab_size} tokens")
         return self._coordizer
-    
+
     def _initialize_kernel_constellation(self) -> None:
         """Initialize kernel basins at unique manifold positions."""
         kernels = [
@@ -523,19 +757,19 @@ class QIGGenerativeService:
             # Special
             'lightning', 'hermes_coordinator'
         ]
-        
+
         for kernel_name in kernels:
             np.random.seed(hash(kernel_name) % (2**32))
             basin = np.random.dirichlet(np.ones(BASIN_DIM))
             self._kernel_basins[kernel_name] = sphere_project(basin)
-    
+
     def register_kernel(self, name: str, basin: Optional[np.ndarray] = None) -> None:
         """Register a kernel with its basin position."""
         if basin is None:
             np.random.seed(hash(name) % (2**32))
             basin = np.random.dirichlet(np.ones(BASIN_DIM))
         self._kernel_basins[name] = sphere_project(basin)
-    
+
     def _measure_phi(self, basin: np.ndarray) -> float:
         """Measure integration (Φ) using proper QFI-based computation with smoothing.
 
@@ -585,7 +819,7 @@ class QIGGenerativeService:
             phi = raw_phi
 
         return float(np.clip(phi, 0.0, 1.0))
-    
+
     def _measure_kappa(self, basin: np.ndarray, phi: float) -> float:
         """Measure coupling constant (κ) from basin geometry.
 
@@ -686,10 +920,10 @@ class QIGGenerativeService:
         for name, kernel_basin in self._kernel_basins.items():
             dist = fisher_coord_distance(query_basin, kernel_basin)
             distances.append((name, dist))
-        
+
         distances.sort(key=lambda x: x[1])
         return [name for name, _ in distances[:k]]
-    
+
     def _geodesic_interpolate(self, start: np.ndarray, end: np.ndarray, t: float) -> np.ndarray:
         """Interpolate along geodesic on probability simplex."""
         sqrt_start = np.sqrt(np.abs(start) + 1e-10)
@@ -697,7 +931,7 @@ class QIGGenerativeService:
         interp = (1 - t) * sqrt_start + t * sqrt_end
         result = interp ** 2
         return result / np.sum(result)
-    
+
     def _kernel_transform(self, basin: np.ndarray, kernel_name: str, phi: float) -> np.ndarray:
         """Transform basin through kernel's geometric processing."""
         if kernel_name not in self._kernel_basins:
@@ -725,9 +959,9 @@ class QIGGenerativeService:
             t = 0.25  # Balance
         else:
             t = 0.1  # Stay close to input
-        
+
         return self._geodesic_interpolate(basin, kernel_basin, t)
-    
+
     def _basin_to_tokens(
         self,
         basin: np.ndarray,
@@ -774,7 +1008,7 @@ class QIGGenerativeService:
 
         # Get more candidates to allow weighted selection (bigram fallback)
         candidates = self.coordizer.decode(basin, top_k=num_tokens * 8)
-        
+
         # Score by combined similarity + phi
         scored = []
         for token, similarity in candidates:
@@ -787,7 +1021,7 @@ class QIGGenerativeService:
             # Base score: geometry + phi
             score = similarity * 0.6 + phi * 0.2
             scored.append((token, score, similarity))
-        
+
         # Fallback: If we don't have enough tokens, relax the similarity threshold
         if len(scored) < num_tokens:
             # Use set for O(1) lookup performance
@@ -802,7 +1036,7 @@ class QIGGenerativeService:
                     scored_tokens.add(token)
                     if len(scored) >= num_tokens:
                         break
-        
+
         # Apply attention weighting if we have learned relationships
         if self._learned_relationships and self._current_query_words:
             candidate_words = [t for t, s, sim in scored]
@@ -829,7 +1063,7 @@ class QIGGenerativeService:
 
         # Sort by final score
         scored.sort(key=lambda x: x[1], reverse=True)
-        
+
         # Select top tokens, ensuring we get enough non-special tokens
         # Filter special tokens and take more than needed to compensate
         tokens = []
@@ -838,37 +1072,37 @@ class QIGGenerativeService:
                 tokens.append(token)
                 if len(tokens) >= num_tokens:
                     break
-        
+
         # Final fallback: if still empty, return the single best non-special token
         if not tokens and candidates:
             for token, similarity in candidates:
                 if not token.startswith('['):
                     tokens = [token]
                     break
-        
+
         return tokens if tokens else ['[unk]']
-    
+
     def _tokens_to_basin(self, tokens: List[str]) -> np.ndarray:
         """Convert tokens back to basin coordinates."""
         if self.coordizer is None or not tokens:
             return np.ones(BASIN_DIM) / BASIN_DIM
-        
+
         # Combine token basins with phi weighting
         combined = np.zeros(BASIN_DIM)
         total_weight = 0.0
-        
+
         for token in tokens:
             if token in self.coordizer.basin_coords:
                 phi = self.coordizer.token_phi.get(token, 0.5)
                 weight = phi
                 combined += weight * self.coordizer.basin_coords[token]
                 total_weight += weight
-        
+
         if total_weight > 1e-10:
             combined = combined / total_weight
-        
+
         return sphere_project(combined)
-    
+
     def _synthesize_from_trajectory(
         self,
         trajectory: List[np.ndarray],
@@ -878,18 +1112,18 @@ class QIGGenerativeService:
         """Synthesize coherent text from basin trajectory and collected tokens."""
         if not all_tokens:
             return "[No tokens generated]"
-        
+
         # Clean and deduplicate tokens while preserving order
         seen = set()
         clean_tokens = []
         for token in all_tokens:
             if token in seen or token.startswith('['):
                 continue
-                
+
             # Skip pure byte tokens
             if token.startswith('<byte_'):
                 continue
-            
+
             # Handle compound tokens with + separators
             if '+' in token:
                 parts = token.split('+')
@@ -910,7 +1144,7 @@ class QIGGenerativeService:
                     else:
                         # Regular sub-token
                         current_word.append(part)
-                
+
                 if current_word:
                     # Join sub-tokens into a word
                     word = ''.join(current_word)
@@ -924,15 +1158,15 @@ class QIGGenerativeService:
                 if len(token) >= 2 or token in single_char_words:
                     clean_tokens.append(token)
                     seen.add(token)
-        
+
         # Join tokens into text
         text = ' '.join(clean_tokens)
-        
+
         # Light cleanup
         text = ' '.join(text.split())  # Normalize whitespace
-        
+
         return text if text else "[Generation complete]"
-    
+
     def _generate_with_skeleton(
         self,
         query_basin: np.ndarray,
@@ -941,32 +1175,32 @@ class QIGGenerativeService:
     ) -> Tuple[str, List[str], List[np.ndarray]]:
         """
         Generate text using POS skeleton for grammatical structure.
-        
+
         Two-stage generation:
         1. Generate POS skeleton (sentence structure)
         2. Fill slots with geometrically-matched words
-        
+
         Returns: (text, tokens, trajectory)
         """
         if not POS_GRAMMAR_AVAILABLE:
             return "", [], []
-        
+
         grammar = load_grammar_from_db()
-        
+
         # Get embeddings from coordizer
         embeddings = {}
         if self.coordizer and hasattr(self.coordizer, 'basin_coords'):
             embeddings = self.coordizer.basin_coords
-        
+
         sentences = []
         all_tokens = []
         trajectory = [query_basin]
         current_basin = query_basin.copy()
-        
+
         for _ in range(num_sentences):
             # Generate skeleton based on current basin
             skeleton = grammar.select_skeleton_for_query(current_basin)
-            
+
             sentence_words = []
             for pos in skeleton:
                 # Get POS basin to blend with current basin
@@ -978,13 +1212,13 @@ class QIGGenerativeService:
                     blended = blended / (norm + 1e-10) if norm > 0 else blended
                 else:
                     blended = current_basin
-                
+
                 # Get candidates for this POS slot (more candidates for attention re-ranking)
                 candidates = grammar.get_words_for_pos(pos, blended, embeddings, top_k=25)
-                
+
                 # Pre-filter stopwords before attention scoring
                 candidates = [(w, s) for w, s in candidates if w.lower() not in STOPWORDS][:500]
-                
+
                 if candidates:
                     # Apply attention weights if we have learned relationships
                     if self._learned_relationships and self._current_query_words:
@@ -994,7 +1228,7 @@ class QIGGenerativeService:
                             candidate_words,
                             temperature=0.8
                         )
-                        
+
                         # Re-score candidates combining geometry + attention
                         # Using frozen β values: BETA_ATTENTION_STRONG = 0.44 (strong coupling)
                         # β controls the running coupling between geometry and attention
@@ -1013,7 +1247,7 @@ class QIGGenerativeService:
                                 # Plateau coupling: geometry dominates
                                 combined = geo_score * (1.0 - BETA_ATTENTION_PLATEAU) + attn_norm * BETA_ATTENTION_PLATEAU
                             rescored.append((word, combined))
-                        
+
                         # Sort by combined score
                         rescored.sort(key=lambda x: -x[1])
                         candidates = rescored[:8]  # Keep top 8
@@ -1030,10 +1264,10 @@ class QIGGenerativeService:
                     weights = weights / np.sum(weights)
                     idx = np.random.choice(len(candidates), p=weights)
                     word = candidates[idx][0]
-                    
+
                     sentence_words.append(word)
                     all_tokens.append(word)
-                    
+
                     # Update basin with selected word
                     if word.lower() in embeddings:
                         word_basin = embeddings[word.lower()]
@@ -1041,20 +1275,20 @@ class QIGGenerativeService:
                         norm = np.linalg.norm(current_basin)
                         current_basin = current_basin / (norm + 1e-10)
                         trajectory.append(current_basin.copy())
-            
+
             if sentence_words:
                 # Capitalize first word
                 sentence_words[0] = sentence_words[0].capitalize()
                 sentence = ' '.join(sentence_words)
                 sentences.append(sentence)
-        
+
         # Combine sentences
         text = '. '.join(sentences)
         if text and not text.endswith('.'):
             text += '.'
-        
+
         return text, all_tokens, trajectory
-    
+
     def generate(
         self,
         prompt: str,
@@ -1064,59 +1298,63 @@ class QIGGenerativeService:
     ) -> GenerationResult:
         """
         Generate text using QIG-pure methods with POS-guided skeleton.
-        
+
         Two-stage generation:
         1. Generate grammatical skeleton (POS sequence)
         2. Fill slots with geometrically-matched words
-        
+
         Args:
             prompt: Input query or context
             context: Optional additional context
             kernel_name: Specific kernel to route through
             goals: Generation goals for the kernel
-        
+
         Returns:
             GenerationResult with text, trajectory, and metrics
         """
         start_time = time.time()
-        
-        # 0. Extract query words for attention mechanism
+
+        # 0. Check vocabulary integration (auto-integrate learned words every 5 min)
+        if _should_integrate_vocabulary():
+            _integrate_pending_vocabulary()
+
+        # 1. Extract query words for attention mechanism
         import re
         query_words = [w.lower() for w in re.findall(r'[a-zA-Z]+', prompt) if len(w) > 2]
         self._current_query_words = query_words[:10]  # Keep top 10 words
-        
+
         # 1. Encode prompt to basin (64D coordinate, not token IDs)
         if self.coordizer and hasattr(self.coordizer, 'text_to_basin'):
             query_basin = self.coordizer.text_to_basin(prompt)
         else:
             np.random.seed(hash(prompt) % (2**32))
             query_basin = np.random.dirichlet(np.ones(BASIN_DIM))
-        
+
         query_basin = sphere_project(query_basin)
-        
+
         # 2. Route to kernels
         if kernel_name and kernel_name in self._kernel_basins:
             target_kernels = [kernel_name]
         else:
             target_kernels = self._route_to_kernels(query_basin, k=3)
-        
+
         # 3. Transform query basin through kernel
         phi = self._measure_phi(query_basin)
         if target_kernels:
             query_basin = self._kernel_transform(query_basin, target_kernels[0], phi)
-        
+
         # 4. PRIMARY: Use POS-skeleton-based generation for grammatical output
         if POS_GRAMMAR_AVAILABLE:
             text, all_tokens, trajectory = self._generate_with_skeleton(
-                query_basin, 
+                query_basin,
                 kernel_name=kernel_name,
                 num_sentences=3
             )
-            
+
             if text and len(all_tokens) >= 3:
                 phi_trace = [self._measure_phi(b) for b in trajectory] if trajectory else [phi]
                 kappa = self._measure_kappa(query_basin, phi)
-                
+
                 return GenerationResult(
                     text=text,
                     tokens=all_tokens,
@@ -1127,7 +1365,7 @@ class QIGGenerativeService:
                     iterations=len(trajectory),
                     routed_kernels=target_kernels
                 )
-        
+
         # 5. FALLBACK: Legacy geometric synthesis with TRUE RECURSIVE INTEGRATION
         logger.info("[QIGGen] Using legacy generation with recursive integration (skeleton unavailable)")
 
@@ -1229,14 +1467,14 @@ class QIGGenerativeService:
                     break
 
             current_basin = next_basin
-        
+
         # 5. Synthesize final text
         response_text = self._synthesize_from_trajectory(
             integrator.trajectory,
             target_kernels,
             all_tokens
         )
-        
+
         return GenerationResult(
             text=response_text,
             tokens=all_tokens,
@@ -1247,7 +1485,7 @@ class QIGGenerativeService:
             iterations=iterations,
             routed_kernels=target_kernels
         )
-    
+
     def generate_stream(
         self,
         prompt: str,
@@ -1351,12 +1589,13 @@ class QIGGenerativeService:
                         'integration_depth': integration_depth
                     }
                     break
-            
+
             current_basin = next_basin
 
 
 # Singleton instance with thread-safe initialization
 import threading
+
 _generative_service: Optional[QIGGenerativeService] = None
 _generative_service_lock = threading.Lock()
 

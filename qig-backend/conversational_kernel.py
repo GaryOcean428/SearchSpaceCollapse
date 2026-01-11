@@ -241,7 +241,7 @@ class ConversationalKernelMixin:
         
         if tokenizer is None:
             try:
-                from qig_tokenizer import get_tokenizer
+                from qig_tokenizer_postgresql import get_tokenizer
                 tokenizer = get_tokenizer()
             except ImportError:
                 return self._generation_failed("tokenizer_unavailable")
@@ -339,7 +339,7 @@ class ConversationalKernelMixin:
         
         if tokenizer is None:
             try:
-                from qig_tokenizer import get_tokenizer
+                from qig_tokenizer_postgresql import get_tokenizer
                 tokenizer = get_tokenizer()
             except ImportError:
                 return 0.5

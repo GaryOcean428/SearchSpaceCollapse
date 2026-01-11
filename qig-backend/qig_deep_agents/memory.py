@@ -200,28 +200,38 @@ class MemoryFragment:
 @dataclass
 class ContextWindow:
     """Active context window composed from memory fragments.
-    
+
     Manages the current working context by selecting relevant
     fragments based on Fisher-Rao proximity to current position.
     """
     fragments: List[MemoryFragment] = field(default_factory=list)
     max_tokens: int = 4000
     center_coords: List[float] = field(default_factory=lambda: [0.5] * BASIN_DIMENSION)
-    
+
+    # Backwards-compatible alias used by some callers/tests.
+    # This is memory sizing, not an external generation limit.
+    @property
+    def max_memory_tokens(self) -> int:
+        return self.max_tokens
+
+    @max_memory_tokens.setter
+    def max_memory_tokens(self, value: int) -> None:
+        self.max_tokens = int(value)
+
     @property
     def total_content(self) -> str:
         """Combined content of all fragments."""
         return "\n\n---\n\n".join(f.content for f in self.fragments)
-    
+
     @property
     def estimated_tokens(self) -> int:
         """Rough token estimate (4 chars per token)."""
         return len(self.total_content) // 4
-    
+
     def add_fragment(self, fragment: MemoryFragment) -> bool:
         """Add fragment if it fits in context window."""
         new_tokens = self.estimated_tokens + len(fragment.content) // 4
-        if new_tokens > self.max_memory_tokens:
+        if new_tokens > self.max_tokens:
             return False
         self.fragments.append(fragment)
         return True
@@ -481,14 +491,17 @@ class BasinMemoryStore:
     def get_context_window(
         self,
         center_coords: List[float],
-        max_memory_tokens: int = 4000,  # Memory management, not generation limit
+        max_tokens: int = 4000,  # Memory management, not generation limit
+        max_memory_tokens: Optional[int] = None,  # Deprecated alias
         max_fragments: int = 10,
     ) -> ContextWindow:
         """Build a context window centered on given coordinates."""
         nearby = self.read_by_coords(center_coords, max_results=max_fragments * 2, max_distance=5.0)
-        
+
+        effective_max_tokens = max_tokens if max_memory_tokens is None else max_memory_tokens
+
         window = ContextWindow(
-            max_memory_tokens=max_memory_tokens,
+            max_tokens=effective_max_tokens,
             center_coords=center_coords,
         )
         

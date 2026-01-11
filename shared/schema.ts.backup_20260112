@@ -3677,22 +3677,11 @@ export type DictionaryCacheEntry = typeof dictionaryCache.$inferSelect;
 export type InsertDictionaryCacheEntry = typeof dictionaryCache.$inferInsert;
 
 /**
- * LEARNED_WORDS (DEPRECATED 2026-01-12) - Words learned from various sources
- *
- * ⚠️ MIGRATION NOTICE: This table has been consolidated into vocabulary_observations.
- *
- * All queries should now use vocabulary_observations with filters:
- *   WHERE type = 'word' AND is_real_word = TRUE
- *
- * This table definition is kept for reference during the 2-week validation period.
- * A compatibility view (learned_words_compat) provides backward compatibility.
- *
+ * LEARNED_WORDS - Words learned from various sources
  * Unique constraint on word for ON CONFLICT upsert operations
  * Enhanced with vocabulary integration tracking and basin coordinates
- *
- * @deprecated Use vocabulary_observations instead
  */
-export const learnedWords_DEPRECATED = pgTable("learned_words", {
+export const learnedWords = pgTable("learned_words", {
   id: serial("id").primaryKey(),
   word: text("word").notNull().unique(),
   frequency: integer("frequency").default(1),
@@ -3708,9 +3697,6 @@ export const learnedWords_DEPRECATED = pgTable("learned_words", {
   basinCoords: vector("basin_coords", { dimensions: 64 }),
   lastUsedInGeneration: timestamp("last_used_in_generation"),
 });
-
-// For backward compatibility during migration period
-export const learnedWords = learnedWords_DEPRECATED;
 
 export type LearnedWord = typeof learnedWords.$inferSelect;
 export type InsertLearnedWord = typeof learnedWords.$inferInsert;

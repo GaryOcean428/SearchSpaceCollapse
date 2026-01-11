@@ -60,7 +60,7 @@ try:
     _parent_dir = os.path.dirname(os.path.dirname(__file__))
     if _parent_dir not in sys.path:
         sys.path.insert(0, _parent_dir)
-    from qig_tokenizer import get_tokenizer
+    from qig_tokenizer_postgresql import get_tokenizer
     TOKENIZER_AVAILABLE = True
 except ImportError:
     get_tokenizer = None
