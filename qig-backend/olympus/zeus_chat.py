@@ -3121,6 +3121,34 @@ Respond naturally as Zeus:"""
             message_basin=message_basin
         )
 
+        # Collect basin trajectory for training manifold attractors
+        basin_trajectory = []
+        if related_basins:
+            # Add related basins (contextual attractors)
+            basin_trajectory.extend([np.array(b) for b in related_basins[:3]])
+        # Add message basin (user input attractor)
+        basin_trajectory.append(message_basin)
+
+        # Train from successful conversation outcome
+        try:
+            from training.training_loop_integrator import TrainingLoopIntegrator
+            integrator = TrainingLoopIntegrator.get_instance()
+            if integrator:
+                training_result = integrator.train_from_outcome(
+                    god_name='zeus',
+                    prompt=message,
+                    response=response,
+                    success=True,  # Conversation completed successfully
+                    phi=phi_estimate,
+                    kappa=system_state.get('kappa_current', 50.0),
+                    basin_trajectory=basin_trajectory,
+                    coherence_score=phi_estimate  # Use phi as proxy for coherence
+                )
+                if training_result.get('status') == 'success':
+                    print(f"[ZeusChat] Trained from conversation: {training_result.get('outcome_count', 0)} outcomes recorded")
+        except Exception as e:
+            print(f"[ZeusChat] Training integration failed: {e}")
+
         self.qig_rag.add_document(
             content=message,
             basin_coords=message_basin,
