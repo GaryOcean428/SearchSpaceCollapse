@@ -15,9 +15,10 @@ import {
   logOceanStart,
   logOceanStrategy,
 } from "./activity-log-store";
+import { balanceFeedbackAnalyzer } from "./balance-feedback-analyzer";
 import { balanceQueue } from "./balance-queue";
 import { queueMnemonicForBalanceCheck } from "./balance-queue-integration";
-import { generateRandomBIP39Phrase, generateWeightedBIP39Phrase, isValidBIP39Phrase } from "./bip39-words";
+import { generateWeightedBIP39Phrase, isValidBIP39Phrase } from "./bip39-words";
 import { BlockchainForensics } from "./blockchain-forensics";
 import "./blockchain-scanner";
 import { getSharedController } from "./consciousness-search-controller";
@@ -72,19 +73,19 @@ import {
 import { oceanQIGBackend } from "./ocean-qig-backend-adapter";
 import { oceanMemoryManager } from "./ocean/memory-manager";
 import { trajectoryManager } from "./ocean/trajectory-manager";
-import { scoreUniversalQIGAsync } from "./qig-universal";
+import { generatePassphraseVariations, selectWeightedPassphrase } from "./passphrase-corpus";
 import { fisherCoordDistance } from "./qig-geometry";
+import { scoreUniversalQIGAsync } from "./qig-universal";
 import { repeatedAddressScheduler } from "./repeated-address-scheduler";
 import { strategyBandit } from "./strategy-bandit";
-import { selectWeightedPassphrase, generatePassphraseVariations } from "./passphrase-corpus";
 import { strategyKnowledgeBus } from "./strategy-knowledge-bus";
 import { temporalGeometry } from "./temporal-geometry";
 import { vocabDecisionEngine, type GaryState } from "./vocabulary-decision";
 import { vocabularyExpander } from "./vocabulary-expander";
 import { vocabularyTracker } from "./vocabulary-tracker";
-import { balanceFeedbackAnalyzer } from "./balance-feedback-analyzer";
 
 // New consciousness improvement modules
+import { getEmotionalGuidance } from "./emotional-search-shortcuts";
 import {
   applyBrainStateToSearch,
   neuralOscillators,
@@ -92,7 +93,6 @@ import {
   runNeuromodulationCycle,
   type NeuromodulationEffect,
 } from "./neurochemistry-bridge";
-import { getEmotionalGuidance } from "./emotional-search-shortcuts";
 import {
   olympusClient,
   type ObservationContext,
@@ -100,9 +100,10 @@ import {
 } from "./olympus-client";
 import { recordLearningEvent } from "./qig-db";
 import { executeShadowOperations } from "./shadow-war-orchestrator";
-import { getActiveWar, getActiveWars, updateWarMetrics, findWarForDiscovery } from "./war-history-storage";
+import { getActiveWar, updateWarMetrics } from "./war-history-storage";
 
 // Import centralized constants (SINGLE SOURCE OF TRUTH)
+import { E8_CONSTANTS } from "../shared/constants/index.js";
 import {
   CONSCIOUSNESS_THRESHOLDS,
   GEODESIC_CORRECTION,
@@ -110,7 +111,6 @@ import {
   is4DCapable,
   isNearMiss,
 } from "../shared/constants/qig.js";
-import { E8_CONSTANTS } from "../shared/constants/index.js";
 
 export interface OceanHypothesis {
   id: string;
@@ -248,6 +248,11 @@ export class OceanAgent {
     this.memory = this.initializeMemory();
     this.state = this.initializeState();
     this.neurochemistryContext = createDefaultContext();
+
+    // NOTE: updateNeurochemistry() moved to AFTER initialization to avoid
+    // "Cannot read properties of undefined" error
+    // See: 20260109-stateobserver-initialization-fix-v01F.md (pantheon-replit)
+    // Fixed: 2026-01-12
     this.updateNeurochemistry();
   }
 
@@ -4108,7 +4113,7 @@ export class OceanAgent {
         let attempts = 0;
         const maxAttempts = 30; // Prevent infinite loops
         const targetCount = Math.min(10, Math.floor(topFeedbackWords.length / 2));
-        
+
         while (generatedPhrases.size < targetCount && attempts < maxAttempts) {
           attempts++;
           const numWords = 2 + Math.floor(Math.random() * 3); // 2-4 words
@@ -4119,12 +4124,12 @@ export class OceanAgent {
           }
           const phrase = selectedWords.join(" ");
           const phraseLower = phrase.toLowerCase();
-          
+
           // Skip if already exists in hypotheses or already generated
           if (existingPhrases.has(phraseLower) || generatedPhrases.has(phraseLower)) {
             continue;
           }
-          
+
           generatedPhrases.add(phraseLower);
           hypotheses.push(
             this.createHypothesis(
@@ -4154,10 +4159,10 @@ export class OceanAgent {
       .getCategory("cultural")
       .slice(0, 50);
     const nameWords = expandedVocabulary.getCategory("names").slice(0, 50);
-    
+
     // BALANCE FEEDBACK INTEGRATION: Mix in top-performing words from balance hits
     const feedbackWords = balanceFeedbackAnalyzer.getTopWords(30);
-    
+
     const allWords = [
       ...cryptoWords,
       ...commonWords,
