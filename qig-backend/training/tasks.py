@@ -60,6 +60,15 @@ def get_orchestrator() -> KernelTrainingOrchestrator:
             ),
             checkpoint_dir=get_checkpoint_dir(),
         )
+        # Wire LearnedManifold for attractor formation
+        try:
+            from vocabulary_coordinator import get_learned_manifold
+            manifold = get_learned_manifold()
+            if manifold:
+                _orchestrator.wire_learned_manifold(manifold)
+                print("[Training] Wired orchestrator to LearnedManifold for attractor formation")
+        except Exception as e:
+            print(f"[Training] Could not wire LearnedManifold: {e}")
     return _orchestrator
 
 
@@ -72,20 +81,22 @@ def get_transfer_manager() -> KnowledgeTransferManager:
 
 
 def get_coordizer():
-    """Get or create the coordizer for text embedding (64D QIG-pure only)."""
+    """Get the canonical coordizer singleton (64D QIG-pure).
+
+    Uses canonical 'from coordizers import get_coordizer' for single source of truth.
+    """
     global _coordizer
     if _coordizer is None:
         try:
-            # Use PostgresCoordizer only - 64D QIG-pure enforced
-            from coordizers.pg_loader import PostgresCoordizer, create_coordizer_from_pg
-            
-            _coordizer = create_coordizer_from_pg()
+            # Use canonical singleton from coordizers package
+            from coordizers import get_coordizer as _get_canonical_coordizer
+            _coordizer = _get_canonical_coordizer()
             if _coordizer and len(_coordizer.vocab) >= 50:
-                print(f"[Training] ✓ PostgresCoordizer (64D QIG-pure): {len(_coordizer.vocab)} tokens")
+                print(f"[Training] ✓ Using canonical PostgresCoordizer: {len(_coordizer.vocab)} tokens")
             else:
                 raise RuntimeError(f"Insufficient vocabulary: {len(_coordizer.vocab) if _coordizer else 0} tokens")
         except Exception as e:
-            print(f"[Training] PostgresCoordizer failed: {e}")
+            print(f"[Training] Canonical coordizer failed: {e}")
             _coordizer = None
     return _coordizer
 

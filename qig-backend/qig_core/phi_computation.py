@@ -266,8 +266,43 @@ def compute_phi_approximation(basin_coords: np.ndarray) -> float:
     
     # Clamp to safe range [0.1, 0.95]
     phi_approx = np.clip(phi_approx, 0.1, 0.95)
-    
+
     return float(phi_approx)
+
+
+def compute_phi_fast(basin_coords: np.ndarray) -> float:
+    """
+    Fast Φ computation for generation performance.
+
+    This is an entropy-based approximation that is ~10x faster than
+    the full QFI computation. Use this in tight generation loops where
+    latency matters more than precision.
+
+    Formula: Φ ≈ 1 - H(p)/H_max
+    Where H(p) is Shannon entropy and H_max = log(dim).
+
+    This inverts entropy: concentrated distributions (low entropy) yield
+    high Φ, spread distributions (high entropy) yield low Φ.
+
+    Args:
+        basin_coords: 64D basin coordinates
+
+    Returns:
+        Φ approximation ∈ [0, 1]
+    """
+    # Ensure valid probability distribution
+    p = np.abs(basin_coords) + 1e-10
+    p = p / p.sum()
+
+    # Shannon entropy
+    entropy = -np.sum(p * np.log(p + 1e-10))
+    max_entropy = np.log(len(p))
+
+    # Integration = 1 - normalized entropy
+    # Concentrated = high Φ, spread = low Φ
+    phi = 1.0 - (entropy / max_entropy)
+
+    return float(np.clip(phi, 0.0, 1.0))
 
 
 __all__ = [
@@ -275,4 +310,5 @@ __all__ = [
     'compute_phi_geometric',
     'compute_phi_qig',
     'compute_phi_approximation',
+    'compute_phi_fast',
 ]
