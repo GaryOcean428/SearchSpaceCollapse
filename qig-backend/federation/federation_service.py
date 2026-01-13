@@ -21,6 +21,7 @@ Usage:
 import os
 import time
 import hashlib
+import logging
 import threading
 import traceback
 from datetime import datetime, timezone, timedelta
@@ -30,18 +31,13 @@ from enum import Enum
 import json
 import numpy as np
 
+# Configure logger for federation service
+logger = logging.getLogger(__name__)
+
 try:
     import requests
 except ImportError:
     requests = None
-
-# Import VocabularyPersistence for consolidated tokenizer_vocabulary writes
-try:
-    from vocabulary_persistence import get_vocabulary_persistence
-    VOCAB_PERSISTENCE_AVAILABLE = True
-except ImportError:
-    VOCAB_PERSISTENCE_AVAILABLE = False
-    get_vocabulary_persistence = None
 
 
 class SyncType(Enum):
@@ -110,7 +106,7 @@ def _get_db_connection():
             password=parsed.password,
         )
     except Exception as e:
-        print(f"[Federation] DB connection failed: {e}")
+        logger.error("[Federation] DB connection failed: %s", e)
         return None
 
 
@@ -188,7 +184,7 @@ class FederationService:
             return list(self._peers_cache.values())
 
         except Exception as e:
-            print(f"[Federation] Error fetching peers: {e}")
+            logger.error("[Federation] Error fetching peers: %s", e)
             return list(self._peers_cache.values())
         finally:
             conn.close()
@@ -257,7 +253,7 @@ class FederationService:
                     """, (peer_id,))
                 conn.commit()
         except Exception as e:
-            print(f"[Federation] Error updating peer health: {e}")
+            logger.error("[Federation] Error updating peer health: %s", e)
             conn.rollback()
         finally:
             conn.close()
@@ -312,7 +308,7 @@ class FederationService:
                 for row in rows
             ]
         except Exception as e:
-            print(f"[Federation] Error gathering vocabulary: {e}")
+            logger.error("[Federation] Error gathering vocabulary: %s", e)
             return []
         finally:
             conn.close()
@@ -321,50 +317,32 @@ class FederationService:
         """
         Import vocabulary received from a peer.
 
-        Uses VocabularyPersistence for consolidated INSERT path (Step 4.3).
-        Falls back to direct SQL if VocabularyPersistence unavailable.
+        Uses upsert with GREATEST to only update if incoming phi is higher.
+        CRITICAL: Validates words before insertion to prevent vocabulary contamination.
 
         Returns: Number of items imported/updated
         """
+        from word_validation import is_valid_english_word
+        
         if not vocabulary:
             return 0
 
-        # Use VocabularyPersistence for consolidated INSERT path
-        if VOCAB_PERSISTENCE_AVAILABLE:
-            vocab_db = get_vocabulary_persistence()
-            if vocab_db and vocab_db.enabled:
-                batch_data = []
-                for vocab in vocabulary:
-                    word = vocab.get("word", "")
-                    if not word or len(word) < 2 or len(word) > 128:
-                        continue
-
-                    phi = min(max(float(vocab.get("phi", 0.5)), 0.0), 1.0)
-                    frequency = max(int(vocab.get("frequency", 1)), 1)
-
-                    batch_data.append({
-                        'token': word[:128],
-                        'basin_embedding': [0.0] * 64,  # Federation sync doesn't include basin coords
-                        'phi_score': phi,
-                        'frequency': frequency,
-                        'source_type': f'federation:{source_peer}'
-                    })
-
-                imported = vocab_db.record_tokenizer_tokens_batch(batch_data)
-                print(f"[Federation] Imported {imported} vocabulary items from {source_peer} via VocabularyPersistence")
-                return imported
-
-        # Fallback to direct SQL (legacy path)
         conn = _get_db_connection()
         if not conn:
             return 0
 
         imported = 0
+        skipped = 0
         try:
             with conn.cursor() as cur:
                 for vocab in vocabulary:
                     word = vocab.get("word", "")
                     if not word or len(word) < 2 or len(word) > 128:
+                        continue
+                    
+                    # CRITICAL: Validate word before insertion to prevent garbage
+                    if not is_valid_english_word(word, include_stop_words=True, strict=True):
+                        skipped += 1
                         continue
 
                     phi = min(max(float(vocab.get("phi", 0.5)), 0.0), 1.0)
@@ -383,11 +361,14 @@ class FederationService:
                     imported += 1
 
                 conn.commit()
+            
+            if skipped > 0:
+                logger.warning("[Federation] Skipped %d invalid words during import", skipped)
 
-            print(f"[Federation] Imported {imported} vocabulary items from {source_peer}")
+            logger.info("[Federation] Imported %d vocabulary items from %s", imported, source_peer)
             return imported
         except Exception as e:
-            print(f"[Federation] Error importing vocabulary: {e}")
+            logger.error("[Federation] Error importing vocabulary: %s", e)
             conn.rollback()
             return 0
         finally:
@@ -557,7 +538,7 @@ class FederationService:
 
             return basins
         except Exception as e:
-            print(f"[Federation] Error gathering basins: {e}")
+            logger.error("[Federation] Error gathering basins: %s", e)
             traceback.print_exc()
             return []
         finally:
@@ -607,10 +588,10 @@ class FederationService:
 
                 conn.commit()
 
-            print(f"[Federation] Recorded {imported} basin syncs from {source_peer}")
+            logger.info("[Federation] Recorded %d basin syncs from %s", imported, source_peer)
             return imported
         except Exception as e:
-            print(f"[Federation] Error importing basins: {e}")
+            logger.error("[Federation] Error importing basins: %s", e)
             conn.rollback()
             return 0
         finally:
@@ -760,10 +741,10 @@ class FederationService:
         results = {}
 
         try:
-            print(f"[Federation] Starting sync with {len(peers)} peers")
+            logger.info("[Federation] Starting sync with %d peers", len(peers))
 
             for peer in peers:
-                print(f"[Federation] Syncing with {peer.peer_name} ({peer.peer_url})")
+                logger.info("[Federation] Syncing with %s (%s)", peer.peer_name, peer.peer_url)
                 peer_results = self.sync_with_peer(peer)
                 results[peer.peer_id] = {
                     "peer_name": peer.peer_name,
@@ -771,7 +752,7 @@ class FederationService:
                 }
 
             self._last_full_sync = datetime.now(timezone.utc)
-            print(f"[Federation] Sync complete")
+            logger.info("[Federation] Sync complete")
 
             return {
                 "status": "completed",
@@ -780,7 +761,7 @@ class FederationService:
             }
 
         except Exception as e:
-            print(f"[Federation] Sync failed: {e}")
+            logger.error("[Federation] Sync failed: %s", e)
             traceback.print_exc()
             return {"status": "failed", "error": str(e), "partial_results": results}
         finally:
@@ -844,7 +825,7 @@ class FederationService:
                     """, (error[:500] if error else "Unknown error", peer_id))
                 conn.commit()
         except Exception as e:
-            print(f"[Federation] Error updating peer status: {e}")
+            logger.error("[Federation] Error updating peer status: %s", e)
             conn.rollback()
         finally:
             conn.close()
@@ -877,7 +858,7 @@ class FederationService:
                     ))
                 conn.commit()
         except Exception as e:
-            print(f"[Federation] Error logging sync results: {e}")
+            logger.error("[Federation] Error logging sync results: %s", e)
             conn.rollback()
         finally:
             conn.close()
@@ -909,6 +890,65 @@ class FederationService:
         }
 
 
+# Optional mesh network integration for real-time relay
+_mesh_network = None
+try:
+    from mesh_network import get_mesh_network
+    _mesh_network = get_mesh_network
+    logger.info("[Federation] Mesh network integration available")
+except ImportError:
+    pass
+
+
+def relay_via_mesh(
+    message_type: str,
+    payload: Dict[str, Any],
+    target_peer: Optional[str] = None
+) -> bool:
+    """
+    Relay message via mesh network if available.
+
+    Args:
+        message_type: Type of message (vocabulary_delta, basin_sync, etc.)
+        payload: Message payload
+        target_peer: Target peer ID, or None for broadcast
+
+    Returns:
+        True if message was relayed, False if mesh network unavailable
+    """
+    global _mesh_network
+    if _mesh_network is None:
+        return False
+
+    mesh = _mesh_network()
+    if mesh is None:
+        return False
+
+    import asyncio
+    try:
+        # Get or create event loop
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # Create async task to send message
+        async def _send():
+            await mesh.send_message(message_type, payload, target_peer)
+
+        # Run if loop is running, otherwise run_until_complete
+        if loop.is_running():
+            asyncio.ensure_future(_send())
+        else:
+            loop.run_until_complete(_send())
+
+        return True
+    except Exception as e:
+        logger.error("[Federation] Mesh relay failed: %s", e)
+        return False
+
+
 # Singleton instance with lazy initialization
 _federation_service: Optional[FederationService] = None
 _init_lock = threading.Lock()
@@ -938,14 +978,14 @@ def get_federation_service() -> FederationService:
             raise RuntimeError(f"FederationService initialization failed: {_init_error}")
 
         try:
-            print("[Federation] Lazy-initializing FederationService...")
+            logger.info("[Federation] Lazy-initializing FederationService...")
             _federation_service = FederationService()
-            print("[Federation] FederationService initialized successfully")
+            logger.info("[Federation] FederationService initialized successfully")
             return _federation_service
         except Exception as e:
             _init_failed = True
             _init_error = str(e)
-            print(f"[Federation] FederationService initialization failed: {e}")
+            logger.error("[Federation] FederationService initialization failed: %s", e)
             traceback.print_exc()
             raise
 
@@ -967,8 +1007,8 @@ def init_federation_async() -> None:
             time.sleep(2)
             get_federation_service()
         except Exception as e:
-            print(f"[Federation] Background initialization failed: {e}")
+            logger.error("[Federation] Background initialization failed: %s", e)
 
     thread = threading.Thread(target=_init_worker, daemon=True, name="federation-init")
     thread.start()
-    print("[Federation] Background initialization scheduled")
+    logger.info("[Federation] Background initialization scheduled")
