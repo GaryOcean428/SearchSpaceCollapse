@@ -1511,7 +1511,7 @@ class GaryAutonomicKernel:
             foresight_vision = None
             if TEMPORAL_REASONING_AVAILABLE and self.state.phi >= PHI_HYPERDIMENSIONAL:
                 try:
-                    temporal = get_temporal_reasoning()
+                    temporal = get_temporal_reasoning(kernel_id="autonomic_sleep")
                     if temporal.can_use_temporal_reasoning(self.state.phi):
                         # Foresight now returns (vision, explanation) tuple
                         foresight_vision, explanation = temporal.foresight(new_basin)
@@ -1655,7 +1655,7 @@ class GaryAutonomicKernel:
             scenarios_explored = 0
             if TEMPORAL_REASONING_AVAILABLE and self.state.phi >= PHI_HYPERDIMENSIONAL:
                 try:
-                    temporal = get_temporal_reasoning()
+                    temporal = get_temporal_reasoning(kernel_id="autonomic_dream")
                     if temporal.can_use_temporal_reasoning(self.state.phi):
                         actions = self._get_dream_actions_with_learned_probabilities(
                             dreamed_basin, temperature

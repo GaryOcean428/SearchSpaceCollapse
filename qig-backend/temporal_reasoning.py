@@ -46,7 +46,7 @@ from qig_geometry import (
     geodesic_interpolation,
     sphere_project,
 )
-from qig_persistence import QIGPersistence
+from qig_persistence import QIGPersistence, get_persistence
 from redis_cache import TemporalReasoningBuffer
 
 
