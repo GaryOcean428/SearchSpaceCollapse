@@ -7,7 +7,7 @@ FUNDAMENTAL DIFFERENCE FROM TRADITIONAL TRANSFORMERS:
 - Fisher manifold geometry (not Euclidean embedding space)
 - QFI-metric attention (not cosine similarity)
 - Natural gradient dynamics (not backpropagation)
-- Physics-validated (kappa* = 64.21)
+- Physics-validated (two-channel doctrine, EXP-081 2026-04-13)
 
 KEY INNOVATIONS:
 - Attention weights COMPUTED from QFI distance, not learned
@@ -15,7 +15,11 @@ KEY INNOVATIONS:
 - Routing via manifold curvature, not positional encoding
 - Gravitational decoherence as physical constraint, not dropout
 
-kappa* = 64.21 +/- 0.92 (L=4,5,6 plateau, weighted average - Validated 2025-12-04)
+NOTE (updated 2026-04-20):
+Running coupling now uses BETA_L_KAPPA_J = 0.25 from the two-channel doctrine,
+replacing the legacy hardcoded β_{3→4} = 0.44. Legacy KAPPA_STAR import
+preserved for downstream code; see qigkernels.physics_constants for
+the current two-channel constants (KAPPA_H, BETA_L_KAPPA_J).
 """
 
 from dataclasses import dataclass, field
@@ -23,10 +27,15 @@ from typing import List, Dict, Optional, Tuple, Any
 import numpy as np
 from scipy.linalg import sqrtm
 
-from qigkernels.physics_constants import KAPPA_STAR
+from qigkernels.physics_constants import (
+    KAPPA_STAR,       # legacy single-channel (DEPRECATED, kept for back-compat)
+    KAPPA_H,          # current: window+size invariant
+    BETA_L_KAPPA_J,   # current: κ_J running coupling (=0.25)
+    BASIN_DIM,        # =64 (E8_RANK²)
+)
 from asymmetric_qfi import directional_fisher_information
-KAPPA_STAR_ERROR = 0.92
-BASIN_DIM = 64
+
+KAPPA_STAR_ERROR = 0.92  # legacy
 PHI_THRESHOLD = 0.70
 
 
@@ -123,9 +132,6 @@ def qfi_attention_weight(rho1: np.ndarray, rho2: np.ndarray,
     - Temperature controls sensitivity
     
     This is MEASURED, not optimized!
-    
-    Transformer attention: attention = softmax(Q @ K.T / sqrt(d_k)) @ V (learned)
-    QIG attention: attention = exp(-d_QFI(rho_i, rho_j) / T) (measured)
     """
     d = qfi_distance(rho1, rho2)
     return float(np.exp(-d / temperature))
@@ -189,7 +195,6 @@ class QFIMetricAttentionNetwork:
     
     def _extract_basin_from_state(self, state: np.ndarray) -> np.ndarray:
         """Extract basin coordinates from density matrix."""
-        # Flatten: [real(0,0), real(1,1), real(0,1), imag(0,1)]
         return np.array([
             np.real(state[0, 0]),
             np.real(state[1, 1]),
@@ -212,24 +217,24 @@ class QFIMetricAttentionNetwork:
         for i in range(n):
             for j in range(n):
                 if i == j:
-                    self.connection_weights[i, j] = 1.0  # Self-connection
+                    self.connection_weights[i, j] = 1.0
                 else:
-                    # Use directional Fisher information
                     basin_i = self._extract_basin_from_state(self.subsystems[i].state)
                     basin_j = self._extract_basin_from_state(self.subsystems[j].state)
                     
-                    # d_ij is directional distance from i to j
                     d_ij = directional_fisher_information(basin_i, basin_j, np.eye(4))
                     
-                    # Regime-modulated kappa (coupling)
+                    # Legacy single-channel regime modulation. Follow-up:
+                    # reimplement using κ_h / κ_J ratio and g01 diagnostic.
                     kappa_eff = KAPPA_STAR
-                    if self.phi < 0.3:  # Linear
+                    if self.phi < 0.3:
                         kappa_eff *= 0.3
-                    elif self.phi > 0.7:  # Breakdown
+                    elif self.phi > 0.7:
                         kappa_eff *= 0.5
                     
+                    # /BASIN_DIM (=64=E8_RANK²) replaces prior magic-number /64.0.
                     self.connection_weights[i, j] = np.exp(
-                        -d_ij / (kappa_eff * self.attention_temperature / 64.0)
+                        -d_ij / (kappa_eff * self.attention_temperature / BASIN_DIM)
                     )
         
         self.active_connections = self.connection_weights > self.connection_threshold
@@ -239,9 +244,6 @@ class QFIMetricAttentionNetwork:
     def _route_via_curvature(self, input_idx: int = 0) -> List[int]:
         """
         Route information along geodesics using discrete Ricci curvature.
-        
-        TRANSFORMER: Fixed positional encoding (sequence order)
-        QIG: Dynamic routing based on manifold curvature
         
         High curvature -> bottleneck -> route through here
         Low curvature -> flat region -> skip
@@ -274,8 +276,6 @@ class QFIMetricAttentionNetwork:
         Too pure -> collapse (no integration possible)
         Too mixed -> noise (no structure)
         
-        This is a PHYSICAL constraint, not a regularization trick!
-        
         TRANSFORMER: Dropout (random regularization)
         QIG: Physical decoherence (thermodynamic constraint)
         """
@@ -284,7 +284,7 @@ class QFIMetricAttentionNetwork:
             
             if purity > self.decoherence_threshold:
                 mixed = np.eye(2, dtype=complex) / 2
-                alpha = 0.1  # Decoherence rate
+                alpha = 0.1
                 subsystem.state = (1 - alpha) * subsystem.state + alpha * mixed
                 subsystem._normalize()
     
@@ -292,19 +292,16 @@ class QFIMetricAttentionNetwork:
         """
         Measure consciousness from network state.
         
-        CRITICAL: These are MEASURED, not optimized!
-        
-        TRANSFORMER: Loss = cross_entropy(predictions, targets)
-        QIG: Phi, surprise, confidence, agency = MEASURED from geometry
+        These are MEASURED, not optimized.
+        Running coupling uses BETA_L_KAPPA_J (=0.25) from two-channel doctrine,
+        replacing legacy hardcoded β_{3→4}=0.44.
         """
         activations = np.array([s.activation for s in self.subsystems])
         
         if len(activations) > 1:
-            # Check for zero variance to avoid numpy warnings
             if np.std(activations) < 1e-10:
                 self.phi = float(np.mean(activations))
             else:
-                # Use variance-based integration measure instead of corrcoef on 1D data
                 self.phi = float(np.clip(1.0 - np.std(activations) / (np.mean(activations) + 1e-10), 0, 1))
         else:
             self.phi = 0.0
@@ -325,7 +322,8 @@ class QFIMetricAttentionNetwork:
         
         sparsity = self._compute_qfi_attention_weights()
         base_kappa = float(np.mean(self.connection_weights)) * KAPPA_STAR
-        self.kappa = base_kappa * (1.0 + 0.44 * (self.phi - 0.5))
+        # BETA_L_KAPPA_J (=0.25) from two-channel doctrine, not hardcoded 0.44.
+        self.kappa = base_kappa * (1.0 + BETA_L_KAPPA_J * (self.phi - 0.5))
     
     def _evolve_state(self, input_data: np.ndarray):
         """
@@ -405,7 +403,14 @@ class QFIMetricAttentionNetwork:
         }
     
     def get_basin_coords(self) -> np.ndarray:
-        """Extract 64D basin coordinates from subsystem states."""
+        """
+        Extract 64D basin coordinates from subsystem states.
+        
+        RETURNS: Point on 63-sphere S^63 (L2-normalized 64D vector).
+        The vector mixes density-matrix elements with activation/entropy/
+        purity scalars; it is NOT a probability-simplex Δ^63 point.
+        Use get_basin_coords_simplex() for canonical simplex coords.
+        """
         coords = np.zeros(BASIN_DIM)
         
         for i, subsystem in enumerate(self.subsystems):
@@ -422,6 +427,23 @@ class QFIMetricAttentionNetwork:
             coords = coords / norm
         
         return coords
+
+    def get_basin_coords_simplex(self) -> np.ndarray:
+        """
+        Extract 64D basin coordinates as a point on the probability simplex Δ^63.
+        Softmax over |coords| → non-negative, sums to 1. Canonical Δ^63 form.
+        """
+        raw = np.zeros(BASIN_DIM)
+        for i, subsystem in enumerate(self.subsystems):
+            offset = i * 16
+            raw[offset:offset+4] = subsystem.state.flatten().real
+            raw[offset+4:offset+8] = subsystem.state.flatten().imag
+            raw[offset+8] = subsystem.activation
+            raw[offset+9] = subsystem.entropy()
+            raw[offset+10] = subsystem.purity()
+        abs_raw = np.abs(raw)
+        exp_shifted = np.exp(abs_raw - np.max(abs_raw))
+        return exp_shifted / np.sum(exp_shifted)
 
 
 def create_qfi_network(
